@@ -1,30 +1,42 @@
 [English](README.md) | [Português](README.pt-BR.md) | [Español](README.es.md)
 
 # Career Agent
-Find jobs, understand why they fit your search, and prepare evidence-backed resumes on your computer.
 
-![Career Agent Discover with synthetic jobs](docs/assets/readme/discover.png)
+Find jobs, see how they match your search, and tailor your resume using experience you can back up.
+
+![Career Agent](docs/assets/readme/hero.png)
+
+*Product illustration with invented examples, not a screenshot or measured outcomes. Actual demo screenshots appear below.*
+
+[![Alpha 2](https://img.shields.io/badge/status-Alpha_2-fff08a)](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2) [![Resume Tailor Beta](https://img.shields.io/badge/Resume_Tailor-Beta-d8c8ff)](#resume-tailor-beta) [![Alpha 2 tests](https://img.shields.io/badge/Alpha_2_tests-7%2C232_passed-a7ebcf)](https://github.com/thais-stephanie/career-agent-portfolio/blob/v0.1.0-alpha.2/docs/VALIDATION.md) [![Windows validated for Alpha 2](https://img.shields.io/badge/Alpha_2-Windows_validated-bbd6ff)](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2)
+
+**[Download for Windows](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2) · [Try the demo](#demo) · [See the app](#visual-tour)**
 
 ## Project status
 **Alpha v0.1.0-alpha.2**, with **Resume Tailor Beta** included. A working local application, still under active development. Search Fit explains your search preferences; it is not a hiring probability.
 
 ## Easiest installation: Windows
-1. Open [Releases](https://github.com/thais-stephanie/career-agent-portfolio/releases).
+
+1. Open [Releases](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2).
 2. Download `Career-Agent-v0.1.0-alpha.2-Windows.zip`.
 3. Right-click the ZIP, choose **Extract All**, then open the extracted folder.
 4. Double-click **Start-Career-Agent.cmd**. Keep its window open.
 5. Wait for setup. Your browser opens automatically.
 
-You do not need to install Python or Node. The launcher downloads uv if needed; uv installs Python 3.12 and the locked dependencies. The first setup needs internet. Use a writable folder, not Program Files. [First-run help](FIRST_RUN.md).
+You do not need to install Python or Node. The launcher downloads uv, a tool that manages Python and packages, if needed; uv installs Python 3.12 and the locked dependencies. The first setup needs internet. Use a writable folder, not Program Files. [First-run help](FIRST_RUN.md).
 
 ## Open it again
 Double-click the same launcher in the same folder. Your data stays there. Press **Ctrl+C** in its window to stop both apps. Before moving to a new version, back up your data.
 
 ## What it does
-- Discover jobs from supported sources or import a posting yourself.
-- Check hiring eligibility separately from search preferences.
-- Inspect Search Fit, with the reasons and missing information visible.
-- Review your career evidence and track applications you choose to send.
+
+| Step | What you get |
+|---|---|
+| Discover | 25+ integrated source adapters for employer systems, remote boards and aggregators, plus manual posting import. Availability and setup vary by source. |
+| Check eligibility | Hiring restrictions are separate from preferences. “Remote” does not mean worldwide; missing facts stay unresolved. |
+| Understand Search Fit | A transparent score comparing posting facts with your search preferences, with reasons and missing information visible. It is not a hiring probability. |
+| Review Career Evidence | Extract suggestions from your CV, then confirm, edit or reject them. Importing text does not confirm experience. |
+| Track | Keep the status and notes for applications you choose to send. |
 
 ## Resume Tailor Beta
 Open **Resume Tailor Beta** in the sidebar. From a job, choose **Copy job description**, open Tailor and paste it into **Tailor resume**.
@@ -34,12 +46,18 @@ Create a candidate, add a base resume and sources, review evidence, analyze the 
 The two evidence stores are separate. No profile or evidence is automatically synchronized. **Search Fit and Tailor Match answer different questions.** Generated text never becomes confirmed Career Evidence. Unsupported experience must not become a resume claim. See [honesty guarantees](docs/ARCHITECTURE.md).
 
 ## Visual tour
-All images show synthetic demo data.
 
-| Discover and understand | Prepare and review |
+![Workflow: discover, inspect Search Fit and reasons, prepare with Tailor Beta, track applications](docs/assets/readme/how-it-works.png)
+
+*Workflow illustration. The screenshots below show the actual app with synthetic demo data.*
+
+| Discover jobs | Understand “Why this matches” |
 |---|---|
-| ![Why this matches](docs/assets/readme/why.png) | ![Resume Tailor Beta](docs/assets/readme/tailor.png) |
-| ![First run](docs/assets/readme/first-run.png) | Job analysis → evidence matching → strategy → generation → validation → editing → export |
+| ![Discover with synthetic jobs](docs/assets/readme/discover.png) | ![Search Fit reasons and missing facts](docs/assets/readme/why.png) |
+
+| Prepare with Resume Tailor Beta | Start your workspace |
+|---|---|
+| ![Resume Tailor Beta](docs/assets/readme/tailor.png) | ![First-run setup](docs/assets/readme/first-run.png) |
 
 ## Privacy
 Your settings, jobs, notes and evidence are stored locally. Tailor retains uploaded source documents; Career Agent extracts CV text without keeping the uploaded file. Optional AI providers can receive content when you configure and use them. Collection and employer links also use internet. No telemetry is implemented. Read the [privacy model](docs/PRIVACY.md), including backups and clipboard handling.
@@ -48,9 +66,13 @@ Your settings, jobs, notes and evidence are stored locally. Tailor retains uploa
 It does not auto-apply, promise interviews, turn remote work into worldwide eligibility, hide evidence gaps, or treat model output as confirmed experience.
 
 ## Install from a terminal
+
+<details>
+<summary>Manual setup for developers</summary>
+
 **Windows: open Start, type PowerShell, and open Windows PowerShell.** On macOS, open Applications → Utilities → Terminal. On Linux, open your Terminal application.
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), download and extract the source ZIP, then type `cd` followed by the folder path in quotes. Run:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), download and extract the source ZIP from [Releases](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2), then type `cd` followed by the folder path in quotes. Run:
 
 ```powershell
 uv sync --locked --python 3.12
@@ -59,14 +81,35 @@ uv run python scripts/launch.py
 
 No manual Python installation is needed. Windows is the release-tested platform. To use different ports: `uv run python scripts/launch.py --port 8875` (Tailor uses 8876).
 
+</details>
+
 ## Demo
 Double-click **Start-Demo.cmd**, or run `uv run python scripts/launch.py --demo`. It creates invented jobs and Alex Morgan, a synthetic candidate, in separate demo storage. Stop personal mode before starting demo on the same ports. Demo never uses an AI provider.
 
 ## Development and tests
-See [CONTRIBUTING.md](CONTRIBUTING.md) for exact commands and [release validation](docs/VALIDATION.md) for measured results. The Tailor frontend bundle is included; Node is needed only to rebuild it. [Architecture](docs/ARCHITECTURE.md), [source permissions](docs/SOURCES.md) and [public audit](docs/PUBLIC_AUDIT.md) explain the engineering boundaries.
+
+![Python 3.12](https://img.shields.io/badge/Python-3.12-3776ab) ![JavaScript ES Modules](https://img.shields.io/badge/JavaScript-ES_Modules-f7df1e) ![FastAPI](https://img.shields.io/badge/FastAPI-009688) ![React 18](https://img.shields.io/badge/React-18-61dafb) ![TypeScript 5](https://img.shields.io/badge/TypeScript-5-3178c6) ![Vite 6](https://img.shields.io/badge/Vite-6-646cff)
+
+The **v0.1.0-alpha.2 release** passed **7,232 tests**, with six skipped:
+
+| Suite | Passed |
+|---|---:|
+| Career Agent unit | 5,638 |
+| Career Agent integration | 1,282 |
+| Career Agent browser | 266 |
+| Resume Tailor Python | 22 |
+| Resume Tailor frontend | 24 |
+
+These results belong to the released build, not later README edits. [Release validation](https://github.com/thais-stephanie/career-agent-portfolio/blob/v0.1.0-alpha.2/docs/VALIDATION.md) covers skips, static checks, clean Windows installation and exports.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands. The Tailor frontend bundle is included; Node is needed only to rebuild it. [Architecture](docs/ARCHITECTURE.md), [source permissions](docs/SOURCES.md) and [public audit](docs/PUBLIC_AUDIT.md) explain the engineering boundaries.
 
 ## Limitations
 Alpha: source availability changes, language readers are incomplete, and eligibility can remain unknown. Beta: evidence review remains your responsibility; the modules do not share profiles. PDF and actual page counts depend on a local renderer. This is a local single-user app with no remote access or cloud sync. The initial install is not offline.
 
+Windows is the release-tested platform. Word PDF conversion was tested; LibreOffice was not installed. No live hosted AI provider was tested.
+
 ## License and third-party notices
 Career Agent is [MIT](LICENSE). Resume Tailor in `companion/resume-tailor` is [Apache-2.0](companion/resume-tailor/LICENSE). Bundled fonts retain their OFL licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for component boundaries, dependencies and attribution.
+
+Credit to [Career-Ops](https://github.com/career-ops-hq/career-ops) for protocol patterns that informed adapter work. Presentation references: [ECC](https://github.com/affaan-m/ECC), [Open Code Review](https://github.com/alibaba/open-code-review), [Ponytail](https://github.com/DietrichGebert/ponytail), [Colibri](https://github.com/JustVugg/colibri). The notices distinguish adapted material, protocol knowledge, inspiration and dependencies. No affiliation is implied.

@@ -19,7 +19,7 @@ uv is downloaded at installation time from its official release, with its publis
 ## Fonts and assets
 Career Agent ships Fraunces, Outfit, JetBrains Mono and Press Start 2P under SIL OFL 1.1. Their full notices are in src/career_agent/web/static/fonts/licences. Tailor preserves frontend/public/fonts/OFL-LICENSES.txt and the same notice in its built static bundle. Names and copyright contacts in required license texts are retained intentionally.
 
-Public README images are newly captured from synthetic demo data. No personal CV, real application history or owner screenshot is used. Career Agent and Tailor pixel icons were replaced with original geometric bitmap glyphs under the root MIT license; supplied JOI3 art is not redistributed.
+README screenshots are captured from synthetic demo data. The hero and workflow banners are product illustrations adapted from supplied designs using the built-in image generation tool, with corrected product wording and geometric sparkle marks. Their fictional counts are not measured outcomes; they are not screenshots of the interface. See docs/assets/readme/ILLUSTRATIONS.md for their edit specifications. No personal CV, real application history or owner screenshot is used. Career Agent and Tailor pixel icons were replaced with original geometric bitmap glyphs under the root MIT license; supplied JOI3 art is not redistributed.
 
 ## Test data and names
 The demo jobs and Tailor candidate are invented. Adapter fixtures include public protocol response samples for regression testing; no private production corpus or golden research dataset is distributed. Technology and provider names are used to identify interfaces, not to claim affiliation or endorsement.
