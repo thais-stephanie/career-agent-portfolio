@@ -111,8 +111,10 @@
   </strong>
 </p>
 
-## Project status
-**Alpha v0.1.0-alpha.2**, with **Resume Tailor Beta** included. A working local application, still under active development. Search Fit explains your search preferences; it is not a hiring probability.
+> [!NOTE]
+>
+> Career Agent is currently **Alpha v0.1.0-alpha.2**, with **Resume Tailor Beta** included.
+> The application is functional and under active development. Search Fit explains how a role matches your search preferences. It does not estimate your chances of being hired.
 
 ## Easiest installation: Windows
 
