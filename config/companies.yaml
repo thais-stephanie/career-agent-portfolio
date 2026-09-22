@@ -1,0 +1,3491 @@
+# =====================================================================
+# ACTIVE COMPANY REGISTRY  (M1D)
+#
+# This file DRIVES COLLECTION. Editing it changes which companies and
+# boards the next `career-agent collect` run touches. There is no
+# hard-coded duplicate of this list in Python.
+#
+# Every entry earned its place the same way: a live probe of a public
+# Greenhouse, Lever or Ashby board answered on `verified_at`. That probe
+# is what makes the registry auditable -- the answer to "why is Career
+# Agent monitoring this company?" is never "a list said so".
+#
+# Company and board are different things. One company with boards on two
+# providers is ONE entry with two boards, never two companies.
+#
+# `hq_country` is a discovery and ranking signal ONLY. It is never
+# geographic eligibility: a worldwide-remote role at a company anywhere
+# is fully eligible, and a residents-only role at a company in a
+# preferred market is not. M3 owns that question.
+#
+# No candidate-private data appears here. `discovery_source` records the
+# signal that led us to the company, not anything about the candidate.
+#
+# The engineering validation set lives separately in companies.seed.yaml
+# so provider regression tests keep a small, deliberately awkward corpus
+# that does not move every time this registry grows.
+# =====================================================================
+
+schema_version: 1
+purpose: curated_registry
+
+companies:
+  - slug: 1password
+    name: "1Password"
+    canonical_domain: "1password.com"
+    website: "https://1password.com"
+    hq_country: "CA"
+    industry: "security remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "1password"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:41Z"
+  - slug: abnormalsecurity
+    name: "Abnormal Security"
+    canonical_domain: "abnormalsecurity.com"
+    website: "https://abnormalsecurity.com"
+    hq_country: "US"
+    industry: "security"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "abnormalsecurity"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:47Z"
+  - slug: ably
+    name: "Ably"
+    canonical_domain: "ably.com"
+    website: "https://ably.com"
+    hq_country: "GB"
+    industry: "realtime infrastructure"
+    # Surfaced by the RemoteSource discovery index (docs/product/
+    # source-leads-2026-09-11.md): the aggregator's apply URL points at
+    # `job-boards.eu.greenhouse.io/ably30/jobs/4958779101`, a Greenhouse
+    # board this product could have collected since August. Re-probed
+    # 2026-09-11 on `boards-api.greenhouse.io`: 7 jobs, all London (Remote).
+    discovery_source: aggregator_origin_pointer
+    boards:
+      - provider: greenhouse
+        board_identifier: "ably30"
+        discovery_method: "embedded_board_url"
+        verified_at: "2026-09-12T01:58:00Z"
+  - slug: abridge
+    name: "Abridge"
+    canonical_domain: "abridge.com"
+    website: "https://abridge.com"
+    hq_country: "US"
+    industry: "ai health"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "abridge"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:46Z"
+  - slug: ada
+    name: "Ada Health"
+    canonical_domain: "ada.com"
+    website: "https://ada.com"
+    hq_country: "DE"
+    industry: "health ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "adahealth"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:03Z"
+  - slug: adyen
+    name: "Adyen"
+    canonical_domain: "adyen.com"
+    website: "https://adyen.com"
+    hq_country: "NL"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "adyen"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:21Z"
+  - slug: airbyte
+    name: "Airbyte"
+    canonical_domain: "airbyte.com"
+    website: "https://airbyte.com"
+    hq_country: "US"
+    industry: "data infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "airbyte"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:50Z"
+  - slug: airtable
+    name: "Airtable"
+    canonical_domain: "airtable.com"
+    website: "https://airtable.com"
+    hq_country: "US"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "airtable"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:27Z"
+  - slug: aleph-alpha
+    name: "Aleph Alpha"
+    canonical_domain: "aleph-alpha.com"
+    website: "https://aleph-alpha.com"
+    hq_country: "DE"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "alephalpha"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:08Z"
+  - slug: algolia
+    name: "Algolia"
+    canonical_domain: "algolia.com"
+    website: "https://algolia.com"
+    hq_country: "FR"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "algolia"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:57Z"
+  - slug: alloy
+    name: "Alloy"
+    canonical_domain: "alloy.com"
+    website: "https://alloy.com"
+    hq_country: "US"
+    industry: "fintech risk"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "alloy"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:49Z"
+  - slug: amplemarket
+    name: "Amplemarket"
+    canonical_domain: "amplemarket.com"
+    website: "https://amplemarket.com"
+    hq_country: "PT"
+    industry: "gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "amplemarket"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:20Z"
+  - slug: amplitude
+    name: "Amplitude"
+    canonical_domain: "amplitude.com"
+    website: "https://amplitude.com"
+    hq_country: "US"
+    industry: "analytics"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "amplitude"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:10Z"
+  - slug: anchorage
+    name: "Anchorage Digital"
+    canonical_domain: "anchorage.com"
+    website: "https://anchorage.com"
+    hq_country: "US"
+    industry: "crypto"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "anchorage"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:50Z"
+  - slug: andela
+    name: "Andela"
+    canonical_domain: "andela.com"
+    website: "https://andela.com"
+    hq_country: "US"
+    industry: "remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "andela"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:06Z"
+  - slug: anthropic
+    name: "Anthropic"
+    canonical_domain: "anthropic.com"
+    website: "https://anthropic.com"
+    hq_country: "US"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "anthropic"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:42Z"
+  - slug: apollo
+    name: "Apollo.io"
+    canonical_domain: "apollo.io"
+    website: "https://apollo.io"
+    hq_country: "US"
+    industry: "gtm remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "apollo"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:05Z"
+  - slug: asana
+    name: "Asana"
+    canonical_domain: "asana.com"
+    website: "https://asana.com"
+    hq_country: "US"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "asana"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:38Z"
+  - slug: astronomer
+    name: "Astronomer"
+    canonical_domain: "astronomer.io"
+    website: "https://astronomer.io"
+    hq_country: "US"
+    industry: "data infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "astronomer"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:50Z"
+  - slug: atlan
+    name: "Atlan"
+    canonical_domain: "atlan.com"
+    website: "https://atlan.com"
+    hq_country: "IN"
+    industry: "data catalog"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "atlan"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:15Z"
+  - slug: attentive
+    name: "Attentive"
+    canonical_domain: "attentive.com"
+    website: "https://attentive.com"
+    hq_country: "US"
+    industry: "gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "attentive"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:20Z"
+  - slug: awardco
+    name: "Awardco"
+    canonical_domain: "award.co"
+    website: "https://award.co"
+    industry: "utah regional"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "awardco"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:31Z"
+  - slug: axios
+    name: "Axios"
+    canonical_domain: "axios.com"
+    website: "https://axios.com"
+    industry: "media publishing arts"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "axios"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:49Z"
+  - slug: baseten
+    name: "Baseten"
+    canonical_domain: "baseten.co"
+    website: "https://baseten.co"
+    hq_country: "US"
+    industry: "ai infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "baseten"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:47Z"
+  - slug: benchling
+    name: "Benchling"
+    canonical_domain: "benchling.com"
+    website: "https://benchling.com"
+    hq_country: "US"
+    industry: "bio saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "benchling"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:54Z"
+  - slug: benevity
+    name: "Benevity"
+    canonical_domain: "benevity.com"
+    website: "https://benevity.com"
+    hq_country: "CA"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "benevity"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:35Z"
+  - slug: betterment
+    name: "Betterment"
+    canonical_domain: "betterment.com"
+    website: "https://betterment.com"
+    industry: "consumer finance services"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "betterment"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:55Z"
+  - slug: bitso
+    name: "Bitso"
+    canonical_domain: "bitso.com"
+    website: "https://bitso.com"
+    industry: "latam"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "bitso"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:21:13Z"
+  - slug: bitwarden
+    name: "Bitwarden"
+    canonical_domain: "bitwarden.com"
+    website: "https://bitwarden.com"
+    hq_country: "US"
+    industry: "security remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "bitwarden"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:42Z"
+  - slug: blue-bottle-coffee
+    name: "Blue Bottle Coffee"
+    canonical_domain: "bluebottlecoffee.com"
+    website: "https://bluebottlecoffee.com"
+    industry: "hospitality travel food"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "bluebottlecoffee"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:27Z"
+  - slug: bluelight-consulting
+    name: "Bluelight Consulting"
+    canonical_domain: "bluelight.co"
+    website: "https://bluelight.co"
+    industry: "consulting staffing"
+    # The same slug Himalayas already attributes this employer to, so the
+    # Lever board joins the existing company row (ADR-0008) rather than
+    # opening a third spelling beside Jobgether's `bluelight`. Surfaced by
+    # the RemoteSource discovery index with 714 rows, and confirmed the
+    # Workday way: `bluelight.co/careers` itself links
+    # `jobs.lever.co/bluelightconsulting`. Re-probed 2026-09-11 on
+    # `api.lever.co`: every posting `workplaceType: remote`, one vacancy
+    # multiplied across Latin American cities.
+    discovery_source: aggregator_origin_pointer
+    boards:
+      - provider: lever
+        board_identifier: "bluelightconsulting"
+        discovery_method: "careers_page_link"
+        verified_at: "2026-09-12T01:58:00Z"
+  - slug: bombas
+    name: "Bombas"
+    canonical_domain: "bombas.com"
+    website: "https://bombas.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "bombas"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:01Z"
+  - slug: braze
+    name: "Braze"
+    canonical_domain: "braze.com"
+    website: "https://braze.com"
+    hq_country: "US"
+    industry: "gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "braze"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:21Z"
+  - slug: brex
+    name: "Brex"
+    canonical_domain: "brex.com"
+    website: "https://brex.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "brex"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:45Z"
+  - slug: buffer
+    name: "Buffer"
+    canonical_domain: "buffer.com"
+    website: "https://buffer.com"
+    hq_country: "US"
+    industry: "remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "buffer"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:24Z"
+  - slug: buildkite
+    name: "Buildkite"
+    canonical_domain: "buildkite.com"
+    website: "https://buildkite.com"
+    hq_country: "AU"
+    industry: "ci"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "buildkite"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:48Z"
+  - slug: bumble
+    name: "Bumble"
+    canonical_domain: "bumble.com"
+    website: "https://bumble.com"
+    hq_country: "US"
+    industry: "consumer"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "bumble"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:09Z"
+  - slug: canonical
+    name: "Canonical"
+    canonical_domain: "canonical.com"
+    website: "https://canonical.com"
+    hq_country: "GB"
+    industry: "infra remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "canonical"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:42Z"
+  - slug: carbonhealth
+    name: "Carbon Health"
+    canonical_domain: "carbonhealth.com"
+    website: "https://carbonhealth.com"
+    hq_country: "US"
+    industry: "health"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "carbonhealth"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:00Z"
+  - slug: cedar
+    name: "Cedar"
+    canonical_domain: "cedar.com"
+    website: "https://cedar.com"
+    hq_country: "US"
+    industry: "health fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "cedar"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:56Z"
+  - slug: celonis
+    name: "Celonis"
+    canonical_domain: "celonis.com"
+    website: "https://celonis.com"
+    hq_country: "DE"
+    industry: "process mining"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "celonis"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:29Z"
+  - slug: chainguard
+    name: "Chainguard"
+    canonical_domain: "chainguard.dev"
+    website: "https://chainguard.dev"
+    hq_country: "US"
+    industry: "security infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "chainguard"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:49Z"
+  - slug: character
+    name: "Character.AI"
+    canonical_domain: "character.ai"
+    website: "https://character.ai"
+    hq_country: "US"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "character"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:05Z"
+  - slug: charity-water
+    name: "charity water"
+    canonical_domain: "charitywater.org"
+    website: "https://charitywater.org"
+    industry: "education nonprofit"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "charitywater"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:30Z"
+  - slug: checkr
+    name: "Checkr"
+    canonical_domain: "checkr.com"
+    website: "https://checkr.com"
+    hq_country: "US"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "checkr"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:41Z"
+  - slug: chime
+    name: "Chime"
+    canonical_domain: "chime.com"
+    website: "https://chime.com"
+    industry: "consumer finance services"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "chime"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:54Z"
+  - slug: circle
+    name: "Circle"
+    canonical_domain: "circle.com"
+    website: "https://circle.com"
+    hq_country: "US"
+    industry: "crypto remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "circle"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:52Z"
+  - slug: circleci
+    name: "CircleCI"
+    canonical_domain: "circleci.com"
+    website: "https://circleci.com"
+    hq_country: "US"
+    industry: "ci"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "circleci"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:49Z"
+  - slug: clari
+    name: "Clari"
+    canonical_domain: "clari.com"
+    website: "https://clari.com"
+    hq_country: "US"
+    industry: "gtm revops"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "clari"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:15Z"
+  - slug: clerk
+    name: "Clerk"
+    canonical_domain: "clerk.com"
+    website: "https://clerk.com"
+    hq_country: "US"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "clerk"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:45Z"
+  - slug: clickhouse
+    name: "ClickHouse"
+    canonical_domain: "clickhouse.com"
+    website: "https://clickhouse.com"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "clickhouse"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:04Z"
+  - slug: clickup
+    name: "ClickUp"
+    canonical_domain: "clickup.com"
+    website: "https://clickup.com"
+    hq_country: "US"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "clickup"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:41Z"
+  - slug: close
+    name: "Close"
+    canonical_domain: "close.com"
+    website: "https://close.com"
+    hq_country: "US"
+    industry: "saas gtm remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "close"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:02Z"
+  - slug: cloudflare
+    name: "Cloudflare"
+    canonical_domain: "cloudflare.com"
+    website: "https://cloudflare.com"
+    hq_country: "US"
+    industry: "infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "cloudflare"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:38Z"
+  - slug: cockroachlabs
+    name: "Cockroach Labs"
+    canonical_domain: "cockroachlabs.com"
+    website: "https://cockroachlabs.com"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "cockroachlabs"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:07Z"
+  - slug: coconutsoftware
+    name: "Coconut Software"
+    canonical_domain: "coconutsoftware.com"
+    website: "https://coconutsoftware.com"
+    hq_country: "CA"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "coconutsoftware"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:33Z"
+  - slug: coder
+    name: "Coder"
+    canonical_domain: "coder.com"
+    website: "https://coder.com"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "coder"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:34Z"
+  - slug: cohere
+    name: "Cohere"
+    canonical_domain: "cohere.com"
+    website: "https://cohere.com"
+    hq_country: "CA"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "cohere"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:42Z"
+  - slug: collibra
+    name: "Collibra"
+    canonical_domain: "collibra.com"
+    website: "https://collibra.com"
+    hq_country: "BE"
+    industry: "data governance"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "collibra"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:16Z"
+  - slug: column
+    name: "Column"
+    canonical_domain: "column.com"
+    website: "https://column.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "column"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:48Z"
+  - slug: confluent
+    name: "Confluent"
+    canonical_domain: "confluent.io"
+    website: "https://confluent.io"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "confluent"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:04Z"
+  - slug: contentful
+    name: "Contentful"
+    canonical_domain: "contentful.com"
+    website: "https://contentful.com"
+    hq_country: "DE"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "contentful"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:55Z"
+  - slug: coupa
+    name: "Coupa"
+    canonical_domain: "coupa.com"
+    website: "https://coupa.com"
+    hq_country: "US"
+    industry: "procurement"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "coupa"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:21Z"
+  - slug: coursera
+    name: "Coursera"
+    canonical_domain: "coursera.org"
+    website: "https://coursera.org"
+    industry: "education nonprofit"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "coursera"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:14Z"
+  - slug: cresta
+    name: "Cresta"
+    canonical_domain: "cresta.com"
+    website: "https://cresta.com"
+    hq_country: "US"
+    industry: "ai gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "cresta"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:14Z"
+  - slug: cribl
+    name: "Cribl"
+    canonical_domain: "cribl.io"
+    website: "https://cribl.io"
+    hq_country: "US"
+    industry: "observability"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "cribl"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:33Z"
+  - slug: cultureamp
+    name: "Culture Amp"
+    canonical_domain: "cultureamp.com"
+    website: "https://cultureamp.com"
+    hq_country: "AU"
+    industry: "hr ops"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "cultureamp"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:13Z"
+  - slug: cursor
+    name: "Cursor"
+    canonical_domain: "cursor.com"
+    website: "https://cursor.com"
+    hq_country: "US"
+    industry: "ai devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "cursor"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:19Z"
+  - slug: customer
+    name: "Customer.io"
+    canonical_domain: "customer.io"
+    website: "https://customer.io"
+    hq_country: "US"
+    industry: "gtm remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "customerio"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:23Z"
+  - slug: cybereason
+    name: "Cybereason"
+    canonical_domain: "cybereason.com"
+    website: "https://cybereason.com"
+    hq_country: "US"
+    industry: "security"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "cybereason"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:38Z"
+  - slug: dagster
+    name: "Dagster Labs"
+    canonical_domain: "dagster.io"
+    website: "https://dagster.io"
+    hq_country: "US"
+    industry: "data infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "dagsterlabs"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:52Z"
+  - slug: databricks
+    name: "Databricks"
+    canonical_domain: "databricks.com"
+    website: "https://databricks.com"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "databricks"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:03Z"
+  - slug: datadoghq
+    name: "Datadog"
+    canonical_domain: "datadoghq.com"
+    website: "https://datadoghq.com"
+    hq_country: "US"
+    industry: "observability"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "datadog"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:32Z"
+  - slug: datafold
+    name: "Datafold"
+    canonical_domain: "datafold.com"
+    website: "https://datafold.com"
+    hq_country: "US"
+    industry: "data quality"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "datafold"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:15Z"
+  - slug: deel
+    name: "Deel"
+    canonical_domain: "deel.com"
+    website: "https://deel.com"
+    hq_country: "US"
+    industry: "hr ops remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "deel"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:01Z"
+  - slug: deepl
+    name: "DeepL"
+    canonical_domain: "deepl.com"
+    website: "https://deepl.com"
+    hq_country: "DE"
+    industry: "ai translation"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "deepl"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:06Z"
+  - slug: docker
+    name: "Docker"
+    canonical_domain: "docker.com"
+    website: "https://docker.com"
+    hq_country: "US"
+    industry: "infra remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "docker"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:34Z"
+  - slug: doctolib
+    name: "Doctolib"
+    canonical_domain: "doctolib.com"
+    website: "https://doctolib.com"
+    hq_country: "FR"
+    industry: "health saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "doctolib"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:01Z"
+  - slug: drata
+    name: "Drata"
+    canonical_domain: "drata.com"
+    website: "https://drata.com"
+    hq_country: "US"
+    industry: "compliance"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "drata"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:59Z"
+  - slug: duolingo
+    name: "Duolingo"
+    canonical_domain: "duolingo.com"
+    website: "https://duolingo.com"
+    hq_country: "US"
+    industry: "consumer"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "duolingo"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:03Z"
+  - slug: ebanx
+    name: "Ebanx"
+    canonical_domain: "ebanx.com"
+    website: "https://ebanx.com"
+    hq_country: "BR"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "ebanx"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:42Z"
+  - slug: elastic
+    name: "Elastic"
+    canonical_domain: "elastic.co"
+    website: "https://elastic.co"
+    hq_country: "NL"
+    industry: "data remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "elastic"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:06Z"
+  - slug: elevenlabs
+    name: "ElevenLabs"
+    canonical_domain: "elevenlabs.io"
+    website: "https://elevenlabs.io"
+    hq_country: "GB"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "elevenlabs"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:43Z"
+  - slug: entrata
+    name: "Entrata"
+    canonical_domain: "entrata.com"
+    website: "https://entrata.com"
+    industry: "utah regional"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "entrata"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:23Z"
+  - slug: everlane
+    name: "Everlane"
+    canonical_domain: "everlane.com"
+    website: "https://everlane.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "everlane"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:41Z"
+  - slug: faherty
+    name: "Faherty"
+    canonical_domain: "fahertybrand.com"
+    website: "https://fahertybrand.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "fahertybrand"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:08Z"
+  - slug: faire
+    name: "Faire"
+    canonical_domain: "faire.com"
+    website: "https://faire.com"
+    hq_country: "US"
+    industry: "marketplace"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "faire"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:12Z"
+  - slug: farfetch
+    name: "Farfetch"
+    canonical_domain: "farfetch.com"
+    website: "https://farfetch.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "farfetch"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:56Z"
+  - slug: fastly
+    name: "Fastly"
+    canonical_domain: "fastly.com"
+    website: "https://fastly.com"
+    hq_country: "US"
+    industry: "infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "fastly"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:38Z"
+  - slug: figma
+    name: "Figma"
+    canonical_domain: "figma.com"
+    website: "https://figma.com"
+    hq_country: "US"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "figma"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:42Z"
+  - slug: fireblocks
+    name: "Fireblocks"
+    canonical_domain: "fireblocks.com"
+    website: "https://fireblocks.com"
+    hq_country: "IL"
+    industry: "crypto"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "fireblocks"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:52Z"
+  - slug: fivetran
+    name: "Fivetran"
+    canonical_domain: "fivetran.com"
+    website: "https://fivetran.com"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "fivetran"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:08Z"
+  - slug: freshworks
+    name: "Freshworks"
+    canonical_domain: "freshworks.com"
+    website: "https://freshworks.com"
+    hq_country: "US"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "freshworks"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:01Z"
+  - slug: getjobber
+    name: "Jobber"
+    canonical_domain: "getjobber.com"
+    website: "https://getjobber.com"
+    hq_country: "CA"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "jobber"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:28Z"
+  - slug: getyourguide
+    name: "GetYourGuide"
+    canonical_domain: "getyourguide.com"
+    website: "https://getyourguide.com"
+    hq_country: "DE"
+    industry: "travel"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "getyourguide"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:20Z"
+  - slug: gitlab
+    name: "GitLab"
+    canonical_domain: "gitlab.com"
+    website: "https://gitlab.com"
+    hq_country: "US"
+    industry: "devtools remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "gitlab"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:25Z"
+  - slug: glossier
+    name: "Glossier"
+    canonical_domain: "glossier.com"
+    website: "https://glossier.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "glossier"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:39Z"
+  - slug: gocardless
+    name: "GoCardless"
+    canonical_domain: "gocardless.com"
+    website: "https://gocardless.com"
+    hq_country: "GB"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "gocardless"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:41Z"
+  - slug: gopuff
+    name: "Gopuff"
+    canonical_domain: "gopuff.com"
+    website: "https://gopuff.com"
+    hq_country: "US"
+    industry: "commerce"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "gopuff"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:11Z"
+  - slug: grafana
+    name: "Grafana Labs"
+    canonical_domain: "grafana.com"
+    website: "https://grafana.com"
+    hq_country: "US"
+    industry: "observability remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "grafanalabs"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:29Z"
+  - slug: guild
+    name: "Guild"
+    canonical_domain: "guild.com"
+    website: "https://guild.com"
+    industry: "education nonprofit"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "guild"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:15Z"
+  - slug: gusto
+    name: "Gusto"
+    canonical_domain: "gusto.com"
+    website: "https://gusto.com"
+    hq_country: "US"
+    industry: "hr ops"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "gusto"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:01Z"
+  - slug: gymshark
+    name: "Gymshark"
+    canonical_domain: "gymshark.com"
+    website: "https://gymshark.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "gymshark"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:57Z"
+  - slug: harvey
+    name: "Harvey"
+    canonical_domain: "harvey.ai"
+    website: "https://harvey.ai"
+    hq_country: "US"
+    industry: "ai legal"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "harvey"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:45Z"
+  - slug: headway
+    name: "Headway"
+    canonical_domain: "headway.co"
+    website: "https://headway.co"
+    industry: "healthcare wellbeing"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "headway"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:37Z"
+  - slug: hellofresh
+    name: "HelloFresh"
+    canonical_domain: "hellofresh.com"
+    website: "https://hellofresh.com"
+    hq_country: "DE"
+    industry: "commerce"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "hellofresh"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:17Z"
+  - slug: hex
+    name: "Hex"
+    canonical_domain: "hex.tech"
+    website: "https://hex.tech"
+    hq_country: "US"
+    industry: "bi"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "hex"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:13Z"
+  - slug: hightouch
+    name: "Hightouch"
+    canonical_domain: "hightouch.com"
+    website: "https://hightouch.com"
+    hq_country: "US"
+    industry: "data gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "hightouch"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:09Z"
+  - slug: hims-and-hers
+    name: "Hims and Hers"
+    canonical_domain: "forhims.com"
+    website: "https://forhims.com"
+    industry: "healthcare wellbeing"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "hims-and-hers"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:46Z"
+  - slug: hingehealth
+    name: "Hinge Health"
+    canonical_domain: "hingehealth.com"
+    website: "https://hingehealth.com"
+    hq_country: "US"
+    industry: "health"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "hinge-health"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:00Z"
+  - slug: hirelatam
+    name: "HireLatam"
+    canonical_domain: "hirelatam.com"
+    website: "https://hirelatam.com"
+    industry: "latam staffing agency"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: recruiterflow
+        board_identifier: "hirelatam"
+        discovery_method: "embedded_board_url"
+        verified_at: "2026-09-09T19:20:00Z"
+  - slug: honeycomb
+    name: "Honeycomb"
+    canonical_domain: "honeycomb.io"
+    website: "https://honeycomb.io"
+    hq_country: "US"
+    industry: "observability"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "honeycomb"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:32Z"
+  - slug: hootsuite
+    name: "Hootsuite"
+    canonical_domain: "hootsuite.com"
+    website: "https://hootsuite.com"
+    hq_country: "CA"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "hootsuite"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:25Z"
+  - slug: hopper
+    name: "Hopper"
+    canonical_domain: "hopper.com"
+    website: "https://hopper.com"
+    hq_country: "CA"
+    industry: "travel"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "hopper"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:20Z"
+  - slug: hubspot
+    name: "HubSpot"
+    canonical_domain: "hubspot.com"
+    website: "https://hubspot.com"
+    hq_country: "US"
+    industry: "saas gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "hubspot"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:57Z"
+  - slug: impossible-foods
+    name: "Impossible Foods"
+    canonical_domain: "impossiblefoods.com"
+    website: "https://impossiblefoods.com"
+    industry: "hospitality travel food"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "impossible-foods"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:24Z"
+  - slug: includedhealth
+    name: "Included Health"
+    canonical_domain: "includedhealth.com"
+    website: "https://includedhealth.com"
+    hq_country: "US"
+    industry: "health"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "includedhealth"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:58Z"
+  - slug: increase
+    name: "Increase"
+    canonical_domain: "increase.com"
+    website: "https://increase.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "increase"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:48Z"
+  - slug: instacart
+    name: "Instacart"
+    canonical_domain: "instacart.com"
+    website: "https://instacart.com"
+    hq_country: "US"
+    industry: "commerce"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "instacart"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:12Z"
+  - slug: instructure
+    name: "Instructure"
+    canonical_domain: "instructure.com"
+    website: "https://instructure.com"
+    industry: "utah regional"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "instructure"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:15Z"
+  - slug: intercom
+    name: "Intercom"
+    canonical_domain: "intercom.com"
+    website: "https://intercom.com"
+    hq_country: "IE"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "intercom"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:59Z"
+  - slug: iterable
+    name: "Iterable"
+    canonical_domain: "iterable.com"
+    website: "https://iterable.com"
+    hq_country: "US"
+    industry: "gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "iterable"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:22Z"
+  - slug: jetbrains
+    name: "JetBrains"
+    canonical_domain: "jetbrains.com"
+    website: "https://jetbrains.com"
+    hq_country: "CZ"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "jetbrains"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:27Z"
+  - slug: jumio
+    name: "Jumio"
+    canonical_domain: "jumio.com"
+    website: "https://jumio.com"
+    hq_country: "US"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "jumio"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:40Z"
+  - slug: jumpcloud
+    name: "JumpCloud"
+    canonical_domain: "jumpcloud.com"
+    website: "https://jumpcloud.com"
+    hq_country: "US"
+    industry: "identity remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "jumpcloud"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:44Z"
+  - slug: juro
+    name: "Juro"
+    canonical_domain: "juro.com"
+    website: "https://juro.com"
+    hq_country: "GB"
+    industry: "saas legal"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "juro"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:59Z"
+  - slug: kavak
+    name: "Kavak"
+    canonical_domain: "kavak.com"
+    website: "https://kavak.com"
+    industry: "latam"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "kavak"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:21:12Z"
+  - slug: khan-academy
+    name: "Khan Academy"
+    canonical_domain: "khanacademy.org"
+    website: "https://khanacademy.org"
+    industry: "education nonprofit"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "khanacademy"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:13Z"
+  - slug: kickstarter
+    name: "Kickstarter"
+    canonical_domain: "kickstarter.com"
+    website: "https://kickstarter.com"
+    industry: "media publishing arts"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "kickstarter"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:53Z"
+  - slug: klaviyo
+    name: "Klaviyo"
+    canonical_domain: "klaviyo.com"
+    website: "https://klaviyo.com"
+    hq_country: "US"
+    industry: "gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "klaviyo"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:21Z"
+  - slug: koho
+    name: "KOHO"
+    canonical_domain: "koho.ca"
+    website: "https://koho.ca"
+    hq_country: "CA"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "koho"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:34Z"
+  - slug: komodohealth
+    name: "Komodo Health"
+    canonical_domain: "komodohealth.com"
+    website: "https://komodohealth.com"
+    hq_country: "US"
+    industry: "health data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "komodohealth"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:56Z"
+  - slug: konghq
+    name: "Kong"
+    canonical_domain: "konghq.com"
+    website: "https://konghq.com"
+    hq_country: "US"
+    industry: "api infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "kong"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:47Z"
+  - slug: kraken
+    name: "Kraken"
+    canonical_domain: "kraken.com"
+    website: "https://kraken.com"
+    hq_country: "US"
+    industry: "crypto remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "kraken"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:50Z"
+  - slug: langchain
+    name: "LangChain"
+    canonical_domain: "langchain.com"
+    website: "https://langchain.com"
+    hq_country: "US"
+    industry: "ai tooling"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "langchain"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:10Z"
+  - slug: later
+    name: "Later"
+    canonical_domain: "later.com"
+    website: "https://later.com"
+    hq_country: "CA"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "later"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:26Z"
+  - slug: lattice
+    name: "Lattice"
+    canonical_domain: "lattice.com"
+    website: "https://lattice.com"
+    hq_country: "US"
+    industry: "hr ops"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "lattice"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:12Z"
+  - slug: linear
+    name: "Linear"
+    canonical_domain: "linear.app"
+    website: "https://linear.app"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "linear"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:36Z"
+  - slug: lithic
+    name: "Lithic"
+    canonical_domain: "lithic.com"
+    website: "https://lithic.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "lithic"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:47Z"
+  - slug: livekit
+    name: "LiveKit"
+    canonical_domain: "livekit.com"
+    industry: "realtime infrastructure"
+    discovery_source: career_site_signal
+    boards:
+      - provider: ashby
+        board_identifier: "livekit"
+        discovery_method: "careers_page_link"
+        verified_at: "2026-09-10T07:00:00Z"
+  - slug: llamaindex
+    name: "LlamaIndex"
+    canonical_domain: "llamaindex.ai"
+    website: "https://llamaindex.ai"
+    hq_country: "US"
+    industry: "ai tooling"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "llamaindex"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:10Z"
+  - slug: loom
+    name: "Loom"
+    canonical_domain: "loom.com"
+    website: "https://loom.com"
+    hq_country: "US"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "loom"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:22Z"
+  - slug: lucid-software
+    name: "Lucid Software"
+    canonical_domain: "lucid.co"
+    website: "https://lucid.co"
+    industry: "utah regional"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "lucidsoftware"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:11Z"
+  - slug: make
+    name: "Make"
+    canonical_domain: "make.com"
+    website: "https://make.com"
+    hq_country: "CZ"
+    industry: "automation"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "make"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:27Z"
+  - slug: marqeta
+    name: "Marqeta"
+    canonical_domain: "marqeta.com"
+    website: "https://marqeta.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "marqeta"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:47Z"
+  - slug: matchgroup
+    name: "Match Group"
+    canonical_domain: "matchgroup.com"
+    website: "https://matchgroup.com"
+    hq_country: "US"
+    industry: "consumer"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "matchgroup"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:09Z"
+  - slug: mattermost
+    name: "Mattermost"
+    canonical_domain: "mattermost.com"
+    website: "https://mattermost.com"
+    hq_country: "US"
+    industry: "collaboration"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "mattermost"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:45Z"
+  - slug: maven-clinic
+    name: "Maven Clinic"
+    canonical_domain: "mavenclinic.com"
+    website: "https://mavenclinic.com"
+    industry: "healthcare wellbeing"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "mavenclinic"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:12Z"
+  - slug: mercury
+    name: "Mercury"
+    canonical_domain: "mercury.com"
+    website: "https://mercury.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "mercury"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:45Z"
+  - slug: metabase
+    name: "Metabase"
+    canonical_domain: "metabase.com"
+    website: "https://metabase.com"
+    hq_country: "US"
+    industry: "bi"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "metabase"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:13Z"
+  - slug: miro
+    name: "Miro"
+    canonical_domain: "miro.com"
+    website: "https://miro.com"
+    hq_country: "NL"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "miro"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:42Z"
+  - slug: mistral
+    name: "Mistral AI"
+    canonical_domain: "mistral.ai"
+    website: "https://mistral.ai"
+    hq_country: "FR"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "mistral"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:07Z"
+  - slug: mixpanel
+    name: "Mixpanel"
+    canonical_domain: "mixpanel.com"
+    website: "https://mixpanel.com"
+    hq_country: "US"
+    industry: "analytics"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "mixpanel"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:11Z"
+  - slug: modal
+    name: "Modal"
+    canonical_domain: "modal.com"
+    website: "https://modal.com"
+    hq_country: "US"
+    industry: "ai infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "modal"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:47Z"
+  - slug: moderntreasury
+    name: "Modern Treasury"
+    canonical_domain: "moderntreasury.com"
+    website: "https://moderntreasury.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "moderntreasury"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:46Z"
+  - slug: mollie
+    name: "Mollie"
+    canonical_domain: "mollie.com"
+    website: "https://mollie.com"
+    hq_country: "NL"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "mollie"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:39Z"
+  - slug: mongodb
+    name: "MongoDB"
+    canonical_domain: "mongodb.com"
+    website: "https://mongodb.com"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "mongodb"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:06Z"
+  - slug: montecarlodata
+    name: "Monte Carlo"
+    canonical_domain: "montecarlodata.com"
+    website: "https://montecarlodata.com"
+    hq_country: "US"
+    industry: "data quality"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "montecarlodata"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:15Z"
+  - slug: monzo
+    name: "Monzo"
+    canonical_domain: "monzo.com"
+    website: "https://monzo.com"
+    hq_country: "GB"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "monzo"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:22Z"
+  - slug: mosaic
+    name: "Mosaic"
+    canonical_domain: "mosaic.tech"
+    website: "https://mosaic.tech"
+    hq_country: "US"
+    industry: "finance ops"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "mosaic"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:22Z"
+  - slug: mozilla
+    name: "Mozilla"
+    canonical_domain: "mozilla.org"
+    website: "https://mozilla.org"
+    hq_country: "US"
+    industry: "non-profit remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "mozilla"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:05Z"
+  - slug: mozilla-foundation
+    name: "Mozilla Foundation"
+    canonical_domain: "mozillafoundation.org"
+    website: "https://mozillafoundation.org"
+    industry: "education nonprofit"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "mozillafoundation"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:31Z"
+  - slug: n26
+    name: "N26"
+    canonical_domain: "n26.com"
+    website: "https://n26.com"
+    hq_country: "DE"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "n26"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:23Z"
+  - slug: n8n
+    name: "n8n"
+    canonical_domain: "n8n.io"
+    website: "https://n8n.io"
+    hq_country: "DE"
+    industry: "automation"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "n8n"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:27Z"
+  - slug: neofinancial
+    name: "Neo Financial"
+    canonical_domain: "neofinancial.com"
+    website: "https://neofinancial.com"
+    hq_country: "CA"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "neofinancial"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:34Z"
+  - slug: neon
+    name: "Neon"
+    canonical_domain: "neon.tech"
+    website: "https://neon.tech"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "neon"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:20Z"
+  - slug: netlify
+    name: "Netlify"
+    canonical_domain: "netlify.com"
+    website: "https://netlify.com"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "netlify"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:20Z"
+  - slug: notion
+    name: "Notion"
+    canonical_domain: "notion.so"
+    website: "https://notion.so"
+    hq_country: "US"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "notion"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:28Z"
+  - slug: nubank
+    name: "Nubank"
+    canonical_domain: "nubank.com.br"
+    website: "https://nubank.com.br"
+    hq_country: "BR"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "nubank"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:41Z"
+  - slug: okta
+    name: "Okta"
+    canonical_domain: "okta.com"
+    website: "https://okta.com"
+    hq_country: "US"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "okta"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:43Z"
+  - slug: omadahealth
+    name: "Omada Health"
+    canonical_domain: "omadahealth.com"
+    website: "https://omadahealth.com"
+    hq_country: "US"
+    industry: "health"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "omadahealth"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:59Z"
+  - slug: omni
+    name: "Omni"
+    canonical_domain: "omni.co"
+    website: "https://omni.co"
+    hq_country: "US"
+    industry: "bi"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "omni"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:14Z"
+  - slug: openai
+    name: "OpenAI"
+    canonical_domain: "openai.com"
+    website: "https://openai.com"
+    hq_country: "US"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "openai"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:40Z"
+  - slug: openevidence
+    name: "OpenEvidence"
+    canonical_domain: "openevidence.com"
+    website: "https://openevidence.com"
+    hq_country: "US"
+    industry: "ai health"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "openevidence"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:46Z"
+  - slug: oscar-health
+    name: "Oscar Health"
+    canonical_domain: "hioscar.com"
+    website: "https://hioscar.com"
+    industry: "healthcare wellbeing"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "oscar"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:34Z"
+  - slug: outreach
+    name: "Outreach"
+    canonical_domain: "outreach.io"
+    website: "https://outreach.io"
+    hq_country: "US"
+    industry: "gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "outreach"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:04Z"
+  - slug: oysterhr
+    name: "Oyster HR"
+    canonical_domain: "oysterhr.com"
+    website: "https://oysterhr.com"
+    hq_country: "US"
+    industry: "hr ops remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "oyster"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:10Z"
+  - slug: panther
+    name: "Panther Labs"
+    canonical_domain: "panther.com"
+    website: "https://panther.com"
+    hq_country: "US"
+    industry: "security"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "pantherlabs"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:46Z"
+  - slug: patreon
+    name: "Patreon"
+    canonical_domain: "patreon.com"
+    website: "https://patreon.com"
+    industry: "media publishing arts"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "patreon"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:50Z"
+  - slug: perplexity
+    name: "Perplexity"
+    canonical_domain: "perplexity.ai"
+    website: "https://perplexity.ai"
+    hq_country: "US"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "perplexity"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:42Z"
+  - slug: pigment
+    name: "Pigment"
+    canonical_domain: "pigment.com"
+    website: "https://pigment.com"
+    hq_country: "FR"
+    industry: "finance ops"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "pigment"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:22Z"
+  - slug: pinecone
+    name: "Pinecone"
+    canonical_domain: "pinecone.io"
+    website: "https://pinecone.io"
+    hq_country: "US"
+    industry: "ai infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "pinecone"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:11Z"
+  - slug: pipedrive
+    name: "Pipedrive"
+    canonical_domain: "pipedrive.com"
+    website: "https://pipedrive.com"
+    hq_country: "EE"
+    industry: "saas gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "pipedrive"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:01Z"
+  - slug: plaid
+    name: "Plaid"
+    canonical_domain: "plaid.com"
+    website: "https://plaid.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "plaid"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:46Z"
+  - slug: planetscale
+    name: "PlanetScale"
+    canonical_domain: "planetscale.com"
+    website: "https://planetscale.com"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "planetscale"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:21Z"
+  - slug: pleo
+    name: "Pleo"
+    canonical_domain: "pleo.io"
+    website: "https://pleo.io"
+    hq_country: "DK"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "pleo"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:53Z"
+  - slug: podium
+    name: "Podium"
+    canonical_domain: "podium.com"
+    website: "https://podium.com"
+    industry: "utah regional"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "podium"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:07Z"
+  - slug: poolside
+    name: "Poolside"
+    canonical_domain: "poolside.ai"
+    website: "https://poolside.ai"
+    hq_country: "US"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "poolside"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:19Z"
+  - slug: poshmark
+    name: "Poshmark"
+    canonical_domain: "poshmark.com"
+    website: "https://poshmark.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "poshmark"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:53Z"
+  - slug: posthog
+    name: "PostHog"
+    canonical_domain: "posthog.com"
+    website: "https://posthog.com"
+    hq_country: "US"
+    industry: "analytics remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "posthog"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:11Z"
+  - slug: postman
+    name: "Postman"
+    canonical_domain: "postman.com"
+    website: "https://postman.com"
+    hq_country: "US"
+    industry: "api tooling"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "postman"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:46Z"
+  - slug: prefect
+    name: "Prefect"
+    canonical_domain: "prefect.io"
+    website: "https://prefect.io"
+    hq_country: "US"
+    industry: "data infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "prefect"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:51Z"
+  - slug: purple
+    name: "Purple"
+    canonical_domain: "purple.com"
+    website: "https://purple.com"
+    industry: "utah regional"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "purple"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:27Z"
+      # RESOLVED FROM THE EMPLOYER'S OWN CAREERS PAGE by `scan-career-sites`
+      # on 2026-09-10, which is a stronger kind of evidence than the row above
+      # it: `purple` was a slug that answered, and this is a board identity the
+      # company published. All three parts are present -- tenant, data centre,
+      # site -- and a Workday row carrying fewer is refused without a request.
+      - provider: workday
+        board_identifier: "purple.wd1/purplecareers"
+        discovery_method: "careers_page_link"
+        verified_at: "2026-09-10T07:00:00Z"
+  - slug: qonto
+    name: "Qonto"
+    canonical_domain: "qonto.com"
+    website: "https://qonto.com"
+    hq_country: "FR"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "qonto"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:53Z"
+  - slug: railway
+    name: "Railway"
+    canonical_domain: "railway.app"
+    website: "https://railway.app"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "railway"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:21Z"
+  - slug: raisin
+    name: "Raisin"
+    canonical_domain: "raisin.com"
+    website: "https://raisin.com"
+    hq_country: "DE"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "raisin"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:55Z"
+  - slug: ramp
+    name: "Ramp"
+    canonical_domain: "ramp.com"
+    website: "https://ramp.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "ramp"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:45Z"
+  - slug: redis
+    name: "Redis"
+    canonical_domain: "redis.io"
+    website: "https://redis.io"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "redis"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:07Z"
+  - slug: reformation
+    name: "Reformation"
+    canonical_domain: "thereformation.com"
+    website: "https://thereformation.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "reformation"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:49Z"
+  - slug: remote
+    name: "Remote"
+    canonical_domain: "remote.com"
+    website: "https://remote.com"
+    hq_country: "US"
+    industry: "hr ops remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "remote"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:02Z"
+  - slug: render
+    name: "Render"
+    canonical_domain: "render.com"
+    website: "https://render.com"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "render"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:22Z"
+  - slug: rent-the-runway
+    name: "Rent the Runway"
+    canonical_domain: "renttherunway.com"
+    website: "https://renttherunway.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "renttherunway"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:50Z"
+  - slug: replit
+    name: "Replit"
+    canonical_domain: "replit.com"
+    website: "https://replit.com"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "replit"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:24Z"
+  - slug: rothys
+    name: "Rothys"
+    canonical_domain: "rothys.com"
+    website: "https://rothys.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "rothys"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:41Z"
+  - slug: runway
+    name: "Runway Financial"
+    canonical_domain: "runway.com"
+    website: "https://runway.com"
+    hq_country: "US"
+    industry: "finance ops"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "runway"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:22Z"
+  - slug: sage
+    name: "Sage"
+    canonical_domain: "sage.com"
+    website: "https://sage.com"
+    hq_country: "GB"
+    industry: "finance saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "sage"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:26Z"
+  - slug: salesloft
+    name: "Salesloft"
+    canonical_domain: "salesloft.com"
+    website: "https://salesloft.com"
+    hq_country: "US"
+    industry: "gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "salesloft"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:04Z"
+  - slug: sanity
+    name: "Sanity"
+    canonical_domain: "sanity.io"
+    website: "https://sanity.io"
+    hq_country: "NO"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "sanity"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:55Z"
+  - slug: sardine
+    name: "Sardine"
+    canonical_domain: "sardine.ai"
+    website: "https://sardine.ai"
+    hq_country: "US"
+    industry: "fintech risk"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "sardine"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:49Z"
+  - slug: scale
+    name: "Scale AI"
+    canonical_domain: "scale.com"
+    website: "https://scale.com"
+    hq_country: "US"
+    industry: "ai data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "scaleai"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:04Z"
+  - slug: scaleway
+    name: "Scaleway"
+    canonical_domain: "scaleway.com"
+    website: "https://scaleway.com"
+    hq_country: "FR"
+    industry: "infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "scaleway"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:40Z"
+  - slug: secureframe
+    name: "Secureframe"
+    canonical_domain: "secureframe.com"
+    website: "https://secureframe.com"
+    hq_country: "US"
+    industry: "compliance"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "secureframe"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:00Z"
+  - slug: sentry
+    name: "Sentry"
+    canonical_domain: "sentry.io"
+    website: "https://sentry.io"
+    hq_country: "US"
+    industry: "observability"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "sentry"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:29Z"
+  - slug: shakepay
+    name: "Shakepay"
+    canonical_domain: "shakepay.com"
+    website: "https://shakepay.com"
+    hq_country: "CA"
+    industry: "crypto"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "shakepay"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:35Z"
+  - slug: sierra
+    name: "Sierra"
+    canonical_domain: "sierra.ai"
+    website: "https://sierra.ai"
+    hq_country: "US"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "sierra"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:46Z"
+  - slug: sigmacomputing
+    name: "Sigma Computing"
+    canonical_domain: "sigmacomputing.com"
+    website: "https://sigmacomputing.com"
+    hq_country: "US"
+    industry: "bi"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "sigmacomputing"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:14Z"
+  - slug: singlestore
+    name: "SingleStore"
+    canonical_domain: "singlestore.com"
+    website: "https://singlestore.com"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "singlestore"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:08Z"
+  - slug: smartsheet
+    name: "Smartsheet"
+    canonical_domain: "smartsheet.com"
+    website: "https://smartsheet.com"
+    hq_country: "US"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "smartsheet"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:41Z"
+  - slug: snowflake
+    name: "Snowflake"
+    canonical_domain: "snowflake.com"
+    website: "https://snowflake.com"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "snowflake"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:02Z"
+  - slug: snyk
+    name: "Snyk"
+    canonical_domain: "snyk.io"
+    website: "https://snyk.io"
+    hq_country: "GB"
+    industry: "security"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "snyk"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:31Z"
+  - slug: socure
+    name: "Socure"
+    canonical_domain: "socure.com"
+    website: "https://socure.com"
+    hq_country: "US"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "socure"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:38Z"
+  - slug: south
+    name: "South"
+    canonical_domain: "hireinsouth.com"
+    website: "https://www.hireinsouth.com"
+    industry: "latam staffing agency"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: recruiterflow
+        board_identifier: "south"
+        discovery_method: "embedded_board_url"
+        verified_at: "2026-09-09T19:20:00Z"
+  - slug: speakeasy
+    name: "Speakeasy"
+    canonical_domain: "speakeasy.com"
+    website: "https://speakeasy.com"
+    hq_country: "US"
+    industry: "api tooling"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "speakeasy"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:47Z"
+  - slug: spendesk
+    name: "Spendesk"
+    canonical_domain: "spendesk.com"
+    website: "https://spendesk.com"
+    hq_country: "FR"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "spendesk"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:54Z"
+  - slug: spotify
+    name: "Spotify"
+    canonical_domain: "spotify.com"
+    website: "https://spotify.com"
+    hq_country: "SE"
+    industry: "consumer remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "spotify"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:04Z"
+  - slug: springhealth
+    name: "Spring Health"
+    canonical_domain: "springhealth.com"
+    website: "https://springhealth.com"
+    hq_country: "US"
+    industry: "health"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "spring-health"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:57Z"
+  - slug: stability
+    name: "Stability AI"
+    canonical_domain: "stability.ai"
+    website: "https://stability.ai"
+    hq_country: "GB"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "stabilityai"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:10Z"
+  - slug: starburst
+    name: "Starburst"
+    canonical_domain: "starburst.io"
+    website: "https://starburst.io"
+    hq_country: "US"
+    industry: "data"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "starburst"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:04Z"
+  - slug: stitch-fix
+    name: "Stitch Fix"
+    canonical_domain: "stitchfix.com"
+    website: "https://stitchfix.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "stitchfix"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:52Z"
+  - slug: storyblok
+    name: "Storyblok"
+    canonical_domain: "storyblok.com"
+    website: "https://storyblok.com"
+    hq_country: "AT"
+    industry: "saas remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "storyblok"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:56Z"
+  - slug: stripe
+    name: "Stripe"
+    canonical_domain: "stripe.com"
+    website: "https://stripe.com"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "stripe"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:20Z"
+  - slug: stytch
+    name: "Stytch"
+    canonical_domain: "stytch.com"
+    website: "https://stytch.com"
+    hq_country: "US"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "stytch"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:45Z"
+  - slug: substack
+    name: "Substack"
+    canonical_domain: "substack.com"
+    website: "https://substack.com"
+    industry: "media publishing arts"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "substack"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:49Z"
+  - slug: sumup
+    name: "SumUp"
+    canonical_domain: "sumup.com"
+    website: "https://sumup.com"
+    hq_country: "GB"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "sumup"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:41Z"
+  - slug: suno
+    name: "Suno"
+    canonical_domain: "suno.com"
+    website: "https://suno.com"
+    hq_country: "US"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "suno"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:45Z"
+  - slug: supabase
+    name: "Supabase"
+    canonical_domain: "supabase.com"
+    website: "https://supabase.com"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "supabase"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:20Z"
+  - slug: sweetgreen
+    name: "Sweetgreen"
+    canonical_domain: "sweetgreen.com"
+    website: "https://sweetgreen.com"
+    industry: "hospitality travel food"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "sweetgreen"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:21Z"
+  - slug: synthesia
+    name: "Synthesia"
+    canonical_domain: "synthesia.io"
+    website: "https://synthesia.io"
+    hq_country: "GB"
+    industry: "ai video"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "synthesia"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:06Z"
+  - slug: sysdig
+    name: "Sysdig"
+    canonical_domain: "sysdig.com"
+    website: "https://sysdig.com"
+    hq_country: "US"
+    industry: "security"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "sysdig"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:33Z"
+  - slug: tailscale
+    name: "Tailscale"
+    canonical_domain: "tailscale.com"
+    website: "https://tailscale.com"
+    hq_country: "CA"
+    industry: "infra remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "tailscale"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:50Z"
+  - slug: teach-for-america
+    name: "Teach For America"
+    canonical_domain: "teachforamerica.org"
+    website: "https://teachforamerica.org"
+    industry: "education nonprofit"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "teach"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:27Z"
+      # TWO SITES ON ONE TENANT, and both are kept because both are real.
+      # `scan-career-sites` read them off this employer's own careers page on
+      # 2026-09-10. A Workday site is a separate board with separate postings,
+      # so collapsing them to one would silently drop whichever lost -- and the
+      # second one here is the pre-service intake, which is exactly the kind of
+      # entry-level work V1.8 found the product was leaving out.
+      - provider: workday
+        board_identifier: "teachforamerica.wd1/TFA_Careers"
+        discovery_method: "careers_page_link"
+        verified_at: "2026-09-10T07:00:00Z"
+      - provider: workday
+        board_identifier: "teachforamerica.wd1/TFA_Pre-Service_Careers"
+        discovery_method: "careers_page_link"
+        verified_at: "2026-09-10T07:00:00Z"
+  - slug: temporal
+    name: "Temporal"
+    canonical_domain: "temporal.io"
+    website: "https://temporal.io"
+    hq_country: "US"
+    industry: "infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "temporal"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:34Z"
+  - slug: thinkific
+    name: "Thinkific"
+    canonical_domain: "thinkific.com"
+    website: "https://thinkific.com"
+    hq_country: "CA"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "thinkific"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:26Z"
+  - slug: tines
+    name: "Tines"
+    canonical_domain: "tines.com"
+    website: "https://tines.com"
+    hq_country: "IE"
+    industry: "security automation"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "tines"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:47Z"
+  - slug: together
+    name: "Together AI"
+    canonical_domain: "together.ai"
+    website: "https://together.ai"
+    hq_country: "US"
+    industry: "ai infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "togetherai"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:17:49Z"
+  - slug: toptal
+    name: "Toptal"
+    canonical_domain: "toptal.com"
+    website: "https://toptal.com"
+    hq_country: "US"
+    industry: "remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "toptal"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:06Z"
+  - slug: torq
+    name: "Torq"
+    canonical_domain: "torq.io"
+    website: "https://torq.io"
+    hq_country: "IL"
+    industry: "security automation"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "torq"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:48Z"
+  - slug: traderepublic
+    name: "Trade Republic"
+    canonical_domain: "traderepublic.com"
+    website: "https://traderepublic.com"
+    hq_country: "DE"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "traderepublic"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:55Z"
+  - slug: traeger
+    name: "Traeger"
+    canonical_domain: "traeger.com"
+    website: "https://traeger.com"
+    industry: "utah regional"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "traeger"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:29Z"
+  - slug: tray
+    name: "Tray.ai"
+    canonical_domain: "tray.io"
+    website: "https://tray.io"
+    hq_country: "US"
+    industry: "automation"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "tray-ai"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:26Z"
+  - slug: tripleten
+    name: "TripleTen"
+    canonical_domain: "tripleten.com"
+    website: "https://tripleten.com"
+    industry: "education technology"
+    # The first Comeet board, and the identity was published by the employer:
+    # `tripleten.com` links `comeet.com/jobs/tripleten/98.008` in its own
+    # navigation (read 2026-09-11), so both parts of a `slug/company_uid`
+    # identity came from the employer and none was guessed. The slug is the
+    # one Himalayas already attributes this employer to. Measured through the
+    # Careers API the same day: 335 rows, 47 vacancies, 23 rows in Brazil.
+    discovery_source: career_site_signal
+    boards:
+      - provider: comeet
+        board_identifier: "tripleten/98.008"
+        discovery_method: "careers_page_link"
+        verified_at: "2026-09-12T02:40:00Z"
+  - slug: trulioo
+    name: "Trulioo"
+    canonical_domain: "trulioo.com"
+    website: "https://trulioo.com"
+    hq_country: "CA"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "trulioo"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:40Z"
+  - slug: trychroma
+    name: "Chroma"
+    canonical_domain: "trychroma.com"
+    website: "https://trychroma.com"
+    hq_country: "US"
+    industry: "ai infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "trychroma"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:12Z"
+  - slug: turing
+    name: "Turing"
+    canonical_domain: "turing.com"
+    website: "https://turing.com"
+    hq_country: "US"
+    industry: "remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "turing"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:07Z"
+  - slug: twilio
+    name: "Twilio"
+    canonical_domain: "twilio.com"
+    website: "https://twilio.com"
+    hq_country: "US"
+    industry: "saas remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "twilio"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:23Z"
+  - slug: typeform
+    name: "Typeform"
+    canonical_domain: "typeform.com"
+    website: "https://typeform.com"
+    hq_country: "ES"
+    industry: "saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "typeform"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:54Z"
+  - slug: uipath
+    name: "UiPath"
+    canonical_domain: "uipath.com"
+    website: "https://uipath.com"
+    hq_country: "RO"
+    industry: "automation"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "uipath"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:29Z"
+  - slug: unit
+    name: "Unit"
+    canonical_domain: "unit.co"
+    website: "https://unit.co"
+    hq_country: "US"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "unit"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:49Z"
+  - slug: vanta
+    name: "Vanta"
+    canonical_domain: "vanta.com"
+    website: "https://vanta.com"
+    hq_country: "US"
+    industry: "compliance"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "vanta"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:59Z"
+  - slug: varo-bank
+    name: "Varo Bank"
+    canonical_domain: "varomoney.com"
+    website: "https://varomoney.com"
+    industry: "consumer finance services"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "varomoney"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:21:07Z"
+  - slug: veeva
+    name: "Veeva Systems"
+    canonical_domain: "veeva.com"
+    website: "https://veeva.com"
+    hq_country: "US"
+    industry: "health saas remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "veeva"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:54Z"
+  - slug: vercel
+    name: "Vercel"
+    canonical_domain: "vercel.com"
+    website: "https://vercel.com"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "vercel"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:19Z"
+  - slug: vox-media
+    name: "Vox Media"
+    canonical_domain: "voxmedia.com"
+    website: "https://voxmedia.com"
+    industry: "media publishing arts"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "voxmedia"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:20:36Z"
+  - slug: vuori
+    name: "Vuori"
+    canonical_domain: "vuoriclothing.com"
+    website: "https://vuoriclothing.com"
+    industry: "fashion beauty retail"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "vuori"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:19:00Z"
+  - slug: warp
+    name: "Warp"
+    canonical_domain: "warp.dev"
+    website: "https://warp.dev"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "warp"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:36Z"
+  - slug: wattpad
+    name: "Wattpad"
+    canonical_domain: "wattpad.com"
+    website: "https://wattpad.com"
+    hq_country: "CA"
+    industry: "consumer"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "wattpad"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:08Z"
+  - slug: wealthfront
+    name: "Wealthfront"
+    canonical_domain: "wealthfront.com"
+    website: "https://wealthfront.com"
+    industry: "consumer finance services"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "wealthfront"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:21:05Z"
+  - slug: wealthsimple
+    name: "Wealthsimple"
+    canonical_domain: "wealthsimple.com"
+    website: "https://wealthsimple.com"
+    hq_country: "CA"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "wealthsimple"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:52Z"
+  - slug: weave
+    name: "Weave"
+    canonical_domain: "getweave.com"
+    website: "https://getweave.com"
+    industry: "utah regional"
+    discovery_source: curated_non_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "weave"
+        discovery_method: "domain_slug"
+        verified_at: "2026-09-09T18:18:09Z"
+  - slug: weaviate
+    name: "Weaviate"
+    canonical_domain: "weaviate.io"
+    website: "https://weaviate.io"
+    hq_country: "NL"
+    industry: "ai infra"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "weaviate"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:11Z"
+  - slug: webflow
+    name: "Webflow"
+    canonical_domain: "webflow.com"
+    website: "https://webflow.com"
+    hq_country: "US"
+    industry: "saas remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "webflow"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:55Z"
+  - slug: whereby
+    name: "Whereby"
+    canonical_domain: "whereby.com"
+    website: "https://whereby.com"
+    hq_country: "NO"
+    industry: "saas remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "whereby"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:22Z"
+  - slug: wikimedia
+    name: "Wikimedia Foundation"
+    canonical_domain: "wikimedia.org"
+    website: "https://wikimedia.org"
+    hq_country: "US"
+    industry: "non-profit remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "wikimedia"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:22:04Z"
+  - slug: wise
+    name: "Wise"
+    canonical_domain: "wise.com"
+    website: "https://wise.com"
+    hq_country: "GB"
+    industry: "fintech"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "wise"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:19:21Z"
+  - slug: withpersona
+    name: "Persona"
+    canonical_domain: "withpersona.com"
+    website: "https://withpersona.com"
+    hq_country: "US"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: lever
+        board_identifier: "withpersona"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:39Z"
+  - slug: wiz
+    name: "Wiz"
+    canonical_domain: "wiz.io"
+    website: "https://wiz.io"
+    hq_country: "US"
+    industry: "security"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "wiz"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:32Z"
+  - slug: workato
+    name: "Workato"
+    canonical_domain: "workato.com"
+    website: "https://workato.com"
+    hq_country: "US"
+    industry: "automation"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "workato"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:24Z"
+  - slug: workos
+    name: "WorkOS"
+    canonical_domain: "workos.com"
+    website: "https://workos.com"
+    hq_country: "US"
+    industry: "identity"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "workos"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:44Z"
+  - slug: writer
+    name: "Writer"
+    canonical_domain: "writer.com"
+    website: "https://writer.com"
+    hq_country: "US"
+    industry: "ai"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "writer"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:15Z"
+  - slug: xero
+    name: "Xero"
+    canonical_domain: "xero.com"
+    website: "https://xero.com"
+    hq_country: "NZ"
+    industry: "finance saas"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "xero"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:26Z"
+  - slug: zapier
+    name: "Zapier"
+    canonical_domain: "zapier.com"
+    website: "https://zapier.com"
+    hq_country: "US"
+    industry: "automation remote-first"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "zapier"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:24Z"
+  - slug: zed
+    name: "Zed Industries"
+    canonical_domain: "zed.dev"
+    website: "https://zed.dev"
+    hq_country: "US"
+    industry: "devtools"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "zed"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:18:36Z"
+  - slug: ziphq
+    name: "Zip"
+    canonical_domain: "ziphq.com"
+    website: "https://ziphq.com"
+    hq_country: "US"
+    industry: "procurement ops"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: ashby
+        board_identifier: "zip"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:21:18Z"
+  - slug: zoominfo
+    name: "ZoomInfo"
+    canonical_domain: "zoominfo.com"
+    website: "https://zoominfo.com"
+    hq_country: "US"
+    industry: "gtm"
+    discovery_source: curated_technology_sourcing
+    boards:
+      - provider: greenhouse
+        board_identifier: "zoominfo"
+        discovery_method: "domain_slug"
+        verified_at: "2026-08-26T02:20:18Z"
+
+  - slug: tellent
+    name: "Tellent"
+    canonical_domain: "tellent.com"
+    website: "https://tellent.com"
+    discovery_source: "documented_public_careers_page"
+    boards:
+      - provider: recruitee
+        board_identifier: "tellent"
+        board_url: "https://careers.tellent.com"
+        discovery_method: "source_catalogue_evidence_2026_09_09"
+        verified_at: "2026-09-10T17:24:00Z"
+
+  - slug: teamtailor
+    name: "Teamtailor"
+    canonical_domain: "teamtailor.com"
+    website: "https://www.teamtailor.com"
+    discovery_source: "vendor_own_career_site"
+    boards:
+      - provider: teamtailor
+        board_identifier: "teamtailor"
+        board_url: "https://career.teamtailor.com"
+        discovery_method: "first_party_feed_measured_2026_09_11"
+        verified_at: "2026-09-11T10:20:00Z"
+
+  - slug: payfit
+    name: "PayFit"
+    canonical_domain: "payfit.com"
+    website: "https://payfit.com"
+    discovery_source: "board_survey_2026_08_named_board_page"
+    boards:
+      - provider: teamtailor
+        board_identifier: "payfit"
+        discovery_method: "named_board_page_then_feed_measured_2026_09_11"
+        verified_at: "2026-09-11T10:20:00Z"
+
+  - slug: puzzle
+    name: "CS Puzzle"
+    canonical_domain: "puzzle.io"
+    website: "https://puzzle.io"
+    discovery_source: "board_survey_2026_08_named_board_page"
+    boards:
+      - provider: teamtailor
+        board_identifier: "puzzle"
+        discovery_method: "named_board_page_then_feed_measured_2026_09_11"
+        verified_at: "2026-09-11T10:20:00Z"
+
+  - slug: rippling
+    name: "Rippling"
+    canonical_domain: "rippling.com"
+    website: "https://www.rippling.com"
+    discovery_source: "employer_own_careers_page"
+    boards:
+      - provider: rippling
+        board_identifier: "rippling"
+        board_url: "https://ats.rippling.com/rippling/jobs"
+        discovery_method: "careers_page_links_2026_09_11"
+        verified_at: "2026-09-11T10:20:00Z"
+

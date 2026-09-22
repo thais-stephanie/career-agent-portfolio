@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "id": "AAAAbbbb",
+      "objective": "Anything at all",
+      "status": "open",
+      "remote": false,
+      "locations": ["Colombia"],
+      "created": "2026-09-02T00:00:00.000Z",
+      "organizations": [{ "name": "Whoever" }]
+    }
+  ],
+  "total": 304735
+}

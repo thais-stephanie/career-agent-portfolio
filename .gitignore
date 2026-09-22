@@ -1,0 +1,49 @@
+# secrets and personal data - never commit
+.env
+config/*.local.yaml
+# ...and everything the atomic writer leaves beside one. `config_writer`
+# renames a temporary file over the target and keeps the previous version as
+# `search.local.yaml.backup`, which the rule above does NOT match: it ends in
+# `.backup`, not in `.local.yaml`. So the owner's private search sat in the
+# working tree as an untracked, committable file every time she saved a
+# setting from the screen. The glob covers the temporary file too.
+config/*.local.yaml.*
+
+# machine state - rebuildable, large, and contains the profile snapshot
+data/
+out/
+
+# The budget ledgers themselves are TRACKED evidence; their lock sidecars are
+# not. A sidecar holds no data at all -- its only content is the lock the
+# operating system holds on it -- and it exists per machine, not per history.
+evaluation/budget/*.lock
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# editor / os
+.vscode/
+Thumbs.db
+
+# Files this environment cannot delete directly (the mount forbids unlink).
+# Moved here instead, and removed from the Windows side.
+_to_delete/
+
+# Local backups. The whole corpus, the tracked applications and the private
+# search, in one file. `career-agent backup` writes here by default, and a
+# 288 MB archive of somebody's job hunt is the last thing that should reach a
+# remote by accident.
+/backups
+*.zip
+
+node_modules/
+*.tsbuildinfo
+.tools/
+docs/evidence/browser/
+*.log
+out-*.json

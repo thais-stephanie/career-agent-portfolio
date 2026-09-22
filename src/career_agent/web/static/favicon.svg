@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Career Agent">
+  <!-- The paired readout the whole interface is built around: fit over read.
+       Petrol and ochre, the two measurements that never become one number. -->
+  <rect width="32" height="32" rx="6" fill="#faf8f5"/>
+  <rect x="5" y="10" width="22" height="4" rx="2" fill="#0f6466"/>
+  <rect x="5" y="18" width="14" height="4" rx="2" fill="#a8761f"/>
+</svg>

@@ -1,0 +1,5 @@
+{
+  "_fixture_note": "A successful search that matched nothing. Distinct from a failure, and the distinction is the point: an empty answer must never close jobs.",
+  "totalCount": 0,
+  "jobs": []
+}

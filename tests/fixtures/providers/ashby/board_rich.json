@@ -1,0 +1,213 @@
+{
+ "apiVersion": "1",
+ "jobs": [
+  {
+   "id": "fc6e5f2e-eb2d-4a6c-8a51-8422e8662bde",
+   "title": "Software Engineer - Dedicated Inference",
+   "department": "EPD",
+   "team": "Dedicated Inference",
+   "employmentType": "FullTime",
+   "location": "San Francisco",
+   "shouldDisplayCompensationOnJobPostings": true,
+   "secondaryLocations": [
+    {
+     "location": "Toronto",
+     "address": {
+      "postalAddress": {
+       "addressCountry": "Canada"
+      }
+     }
+    },
+    {
+     "location": "New York",
+     "address": {
+      "postalAddress": {
+       "addressRegion": "New York",
+       "streetAddress": "215 Park Avenue S",
+       "addressCountry": "United States",
+       "addressLocality": "New York"
+      }
+     }
+    },
+    {
+     "location": "Montreal",
+     "address": {
+      "postalAddress": {
+       "addressRegion": "Québec",
+       "addressCountry": "Canada",
+       "addressLocality": "Montreal"
+      }
+     }
+    }
+   ],
+   "publishedAt": "2024-07-09T17:24:19.832+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Hybrid",
+   "address": {
+    "postalAddress": {
+     "addressRegion": "California",
+     "streetAddress": "75 Broadway",
+     "addressCountry": "United States",
+     "addressLocality": "San Francisco"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/baseten/fc6e5f2e-eb2d-4a6c-8a51-8422e8662bde",
+   "applyUrl": "https://jobs.ashbyhq.com/baseten/fc6e5f2e-eb2d-4a6c-8a51-8422e8662bde/application",
+   "descriptionHtml": "<p style=\"min-height:1.5em\"><strong><u>ABOUT BASETEN</u></strong></p><p style=\"min-height:1.5em\">Baseten powers mission-critical inference for the world's most dynamic AI companies, like Cursor, Notion, OpenEvidence, Abridge, Clay, Gamma and Writer. By uniting applied AI research, flexible infrastructure, and seamless developer tooling, we enable companies operating at the frontier of AI to bring cutting-edge models into production. We're growing quickly and recently raised our <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/blog/announcing-our-series-f/\">$1.5B Series F</a>, led by Altimeter Capital, Conviction Partners, and Spark Capital. Join us and help build the platform engineers turn to to ship AI products.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>THE ROLE</u></strong></p><p style=\"min-height:1.5em\">As a Product Engineer on the Dedicated Inference team, you'll shape the state-of-the-art developer experience for deploying and operating AI workloads in production. From the CLI and SDKs to APIs, observability, and debugging workflows, you'll build the tools customers rely on every day to manage mission-critical inference deployments.</p><p style=\"min-height:1.5em\">Few teams at Baseten have as much breadth and visibility as Dedicated Inference. The team is often at the forefront of new product development, giving engineers the opportunity to shape the experience of some of our most important customers.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>EXAMPLE INITIATIVES</u></strong></p><p style=\"min-height:1.5em\">You'll get to work on these types of projects as part of our Dedicated Inference team: </p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\"><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/blog/baseten-chains-explained/\">Chains for multi-component workflows</a></p></li><li><p style=\"min-height:1.5em\"><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/blog/using-asynchronous-inference-in-production/\">Asynchronous inference</a></p></li><li><p style=\"min-height:1.5em\"><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/products/model-apis/\">Model APIs for frontier models</a></p></li><li><p style=\"min-height:1.5em\"><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/products/training/\">Model training built for production inference</a></p></li></ul><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>RESPONSIBILITIES</u></strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Implement new features and products for the team</p></li><li><p style=\"min-height:1.5em\">Design ergonomic APIs and abstractions to solve customer problems</p></li><li><p style=\"min-height:1.5em\">Fix bugs and resolve customer issues with urgency</p></li><li><p style=\"min-height:1.5em\">Work across the stack - regardless of where you start, you’ll end up touching both React Components and Kubernetes Pods</p></li><li><p style=\"min-height:1.5em\">Work closely with the product and forward deployed engineering teams to develop and drive new product ideas</p></li></ul><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>REQUIREMENTS</u></strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Bachelor's degree or higher in Computer Science or related field</p></li><li><p style=\"min-height:1.5em\">Proficient coding abilities in one or more popular programming or scripting languages; Python, Go, or Javascript proficiency is a plus</p></li><li><p style=\"min-height:1.5em\">Familiarity with web applications &amp; databases</p></li><li><p style=\"min-height:1.5em\">Good taste in product, particularly developer-oriented tools</p></li><li><p style=\"min-height:1.5em\">Interest in ML/AI infrastructure and willingness to learn</p></li><li><p style=\"min-height:1.5em\">Strong collaboration and communication skills</p></li></ul><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>BENEFITS</u></strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Competitive compensation, including meaningful equity.</p></li><li><p style=\"min-height:1.5em\">100% coverage of medical, dental, and vision insurance for employee and dependents</p></li><li><p style=\"min-height:1.5em\">Flexible PTO policy including company wide Winter Break (our offices are closed from Christmas Eve to New Year's Day!)</p></li><li><p style=\"min-height:1.5em\">Paid parental leave</p></li><li><p style=\"min-height:1.5em\">Fertility and family-building stipend through Carrot</p></li><li><p style=\"min-height:1.5em\">Company-facilitated 401(k)</p></li><li><p style=\"min-height:1.5em\">Exposure to a variety of ML startups, offering unparalleled learning and networking opportunities.</p></li></ul><p style=\"min-height:1.5em\"><strong>Apply now</strong> to embark on a rewarding journey in shaping the future of AI! If you are a motivated individual with a passion for machine learning and a desire to be part of a collaborative and forward-thinking team, we would love to hear from you.</p><p style=\"min-height:1.5em\"><em>At Baseten, we are committed to fostering a diverse and inclusive workplace. We provide equal employment opportunities to all employees and applicants without regard to race, color, religion, gender, sexual orientation, gender identity or expression, national origin, age, genetic information, disability, or veteran status.</em></p><p style=\"min-height:1.5em\"><em>We are an Equal Opportunity Employer and will consider qualified applicants with criminal histories in a manner consistent with applicable law (by example, the requirements of the San Francisco Fair Chance Ordinance, where applicable).</em></p>",
+   "descriptionPlain": "ABOUT BASETEN\n\nBaseten powers mission-critical inference for the world's most dynamic AI companies, like Cursor, Notion, OpenEvidence, Abridge, Clay, Gamma and Writer. By uniting applied AI research, flexible infrastructure, and seamless developer tooling, we enable companies operating at the frontier of AI to bring cutting-edge models into production. We're growing quickly and recently raised our $1.5B Series F https://www.baseten.co/blog/announcing-our-series-f/, led by Altimeter Capital, Conviction Partners, and Spark Capital. Join us and help build the platform engineers turn to to ship AI products.\n\n\n\nTHE ROLE\n\nAs a Product Engineer on the Dedicated Inference team, you'll shape the state-of-the-art developer experience for deploying and operating AI workloads in production. From the CLI and SDKs to APIs, observability, and debugging workflows, you'll build the tools customers rely on every day to manage mission-critical inference deployments.\n\nFew teams at Baseten have as much breadth and visibility as Dedicated Inference. The team is often at the forefront of new product development, giving engineers the opportunity to shape the experience of some of our most important customers.\n\n\n\nEXAMPLE INITIATIVES\n\nYou'll get to work on these types of projects as part of our Dedicated Inference team: \n\n - Chains for multi-component workflows https://www.baseten.co/blog/baseten-chains-explained/\n\n - Asynchronous inference https://www.baseten.co/blog/using-asynchronous-inference-in-production/\n\n - Model APIs for frontier models https://www.baseten.co/products/model-apis/\n\n - Model training built for production inference https://www.baseten.co/products/training/\n\n\n\nRESPONSIBILITIES\n\n - Implement new features and products for the team\n\n - Design ergonomic APIs and abstractions to solve customer problems\n\n - Fix bugs and resolve customer issues with urgency\n\n - Work across the stack - regardless of where you start, you’ll end up touching both React Components and Kubernetes Pods\n\n - Work closely with the product and forward deployed engineering teams to develop and drive new product ideas\n\n\n\nREQUIREMENTS\n\n - Bachelor's degree or higher in Computer Science or related field\n\n - Proficient coding abilities in one or more popular programming or scripting languages; Python, Go, or Javascript proficiency is a plus\n\n - Familiarity with web applications & databases\n\n - Good taste in product, particularly developer-oriented tools\n\n - Interest in ML/AI infrastructure and willingness to learn\n\n - Strong collaboration and communication skills\n\n\n\nBENEFITS\n\n - Competitive compensation, including meaningful equity.\n\n - 100% coverage of medical, dental, and vision insurance for employee and dependents\n\n - Flexible PTO policy including company wide Winter Break (our offices are closed from Christmas Eve to New Year's Day!)\n\n - Paid parental leave\n\n - Fertility and family-building stipend through Carrot\n\n - Company-facilitated 401(k)\n\n - Exposure to a variety of ML startups, offering unparalleled learning and networking opportunities.\n\nApply now to embark on a rewarding journey in shaping the future of AI! If you are a motivated individual with a passion for machine learning and a desire to be part of a collaborative and forward-thinking team, we would love to hear from you.\n\nAt Baseten, we are committed to fostering a diverse and inclusive workplace. We provide equal employment opportunities to all employees and applicants without regard to race, color, religion, gender, sexual orientation, gender identity or expression, national origin, age, genetic information, disability, or veteran status.\n\nWe are an Equal Opportunity Employer and will consider qualified applicants with criminal histories in a manner consistent with applicable law (by example, the requirements of the San Francisco Fair Chance Ordinance, where applicable).",
+   "compensation": {
+    "compensationTierSummary": "$165K – $330K • Offers Equity",
+    "scrapeableCompensationSalarySummary": "$165K - $330K",
+    "compensationTiers": [
+     {
+      "id": "a2398683-ac52-4c9e-a749-d4f37ec5fdb3",
+      "tierSummary": "$165K – $330K • Offers Equity",
+      "title": null,
+      "additionalInformation": null,
+      "components": [
+       {
+        "id": "64c6e68d-692b-42db-8f86-1302f0e4ec94",
+        "summary": "Offers Equity",
+        "compensationType": "EquityPercentage",
+        "interval": "NONE",
+        "currencyCode": null,
+        "minValue": null,
+        "maxValue": null
+       },
+       {
+        "id": "aeabdd62-9df2-4d85-8320-2370c12bd95f",
+        "summary": "$165K – $330K",
+        "compensationType": "Salary",
+        "interval": "1 YEAR",
+        "currencyCode": "USD",
+        "minValue": 165000,
+        "maxValue": 330000
+       }
+      ]
+     }
+    ],
+    "summaryComponents": [
+     {
+      "compensationType": "EquityPercentage",
+      "interval": "NONE",
+      "currencyCode": null,
+      "minValue": null,
+      "maxValue": null
+     },
+     {
+      "compensationType": "Salary",
+      "interval": "1 YEAR",
+      "currencyCode": "USD",
+      "minValue": 165000,
+      "maxValue": 330000
+     }
+    ]
+   }
+  },
+  {
+   "id": "d29e748c-7209-460d-a024-8f77ae0a3d4d",
+   "title": "Software Engineer - Model Performance",
+   "department": "EPD",
+   "team": "Model Performance",
+   "employmentType": "FullTime",
+   "location": "San Francisco",
+   "shouldDisplayCompensationOnJobPostings": true,
+   "secondaryLocations": [
+    {
+     "location": "Toronto",
+     "address": {
+      "postalAddress": {
+       "addressCountry": "Canada"
+      }
+     }
+    },
+    {
+     "location": "New York",
+     "address": {
+      "postalAddress": {
+       "addressRegion": "New York",
+       "streetAddress": "215 Park Avenue S",
+       "addressCountry": "United States",
+       "addressLocality": "New York"
+      }
+     }
+    },
+    {
+     "location": "Montreal",
+     "address": {
+      "postalAddress": {
+       "addressRegion": "Québec",
+       "addressCountry": "Canada",
+       "addressLocality": "Montreal"
+      }
+     }
+    }
+   ],
+   "publishedAt": "2024-03-28T21:01:24.780+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Hybrid",
+   "address": {
+    "postalAddress": {
+     "addressRegion": "California",
+     "streetAddress": "75 Broadway",
+     "addressCountry": "United States",
+     "addressLocality": "San Francisco"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/baseten/d29e748c-7209-460d-a024-8f77ae0a3d4d",
+   "applyUrl": "https://jobs.ashbyhq.com/baseten/d29e748c-7209-460d-a024-8f77ae0a3d4d/application",
+   "descriptionHtml": "<p style=\"min-height:1.5em\"><strong><u>ABOUT BASETEN</u></strong></p><p style=\"min-height:1.5em\">Baseten powers mission-critical inference for the world's most dynamic AI companies, like Cursor, Notion, OpenEvidence, Abridge, Clay, Gamma and Writer. By uniting applied AI research, flexible infrastructure, and seamless developer tooling, we enable companies operating at the frontier of AI to bring cutting-edge models into production. We're growing quickly and recently raised our <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/blog/announcing-our-series-f/\">$1.5B Series F</a>, led by Altimeter Capital, Conviction Partners, and Spark Capital. Join us and help build the platform engineers turn to to ship AI products.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>THE ROLE</u></strong></p><p style=\"min-height:1.5em\">Are you passionate about advancing the application of artificial intelligence? We are looking for a Software Engineer focused on ML performance to join our dynamic team. This role is ideal for someone who thrives in a fast-paced startup environment and is eager to make significant contributions to the exciting field of LLM Inference. If you are a backend engineer who thrives on making things faster and is excited about open-source ML models, we look forward to your application.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>EXAMPLE INITIATIVES</u></strong></p><p style=\"min-height:1.5em\">You'll get to work on these types of projects as part of our Model Performance team: </p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\"><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/blog/introducing-baseten-embeddings-inference-bei/\">Baseten Embeddings Inference: The fastest embeddings solution available</a></p></li><li><p style=\"min-height:1.5em\"><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/resources/guide/the-baseten-inference-stack/\">The Baseten Inference Stack</a></p></li><li><p style=\"min-height:1.5em\"><a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.baseten.co/blog/driving-model-performance-optimization-2024-highlights/\">Driving model performance optimization</a></p></li></ul><p style=\"min-height:1.5em\"><br /><strong><u>RESPONSIBILITIES</u></strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Implement, refine, and productionize cutting-edge techniques (quantization, speculative decoding, kv cache reuse, chunked prefill and LoRA) for ML model inference and infrastructure.</p></li><li><p style=\"min-height:1.5em\">Deep dive into underlying codebases of TensorRT, PyTorch, TensorRT-LLM, vllm, sglang, CUDA, and other libraries to debug ML performance issues.</p></li><li><p style=\"min-height:1.5em\">Apply and scale optimization techniques across a wide range of ML models, particularly large language models.</p></li><li><p style=\"min-height:1.5em\">Collaborate with a diverse team to design and implement innovative solutions.</p></li><li><p style=\"min-height:1.5em\">Own projects from idea to production.</p></li></ul><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>REQUIREMENTS</u></strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Bachelor's, Master's, or Ph.D. degree in Computer Science, Engineering, Mathematics, or related field.</p></li><li><p style=\"min-height:1.5em\">Experience with one or more general-purpose programming languages, such as Python or C++.</p></li><li><p style=\"min-height:1.5em\">Familiarity with LLM optimization techniques (e.g., quantization, speculative decoding, continuous batching).</p></li><li><p style=\"min-height:1.5em\">Strong familiarity with ML libraries, especially PyTorch, TensorRT, or TensorRT-LLM.</p></li><li><p style=\"min-height:1.5em\">Demonstrated interest and experience in LLM’s.</p></li><li><p style=\"min-height:1.5em\">Deep understanding of GPU architecture.</p></li><li><p style=\"min-height:1.5em\">Bonus:</p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Proficiency in enhancing the performance of software systems, particularly in the context of large language models (LLMs).</p></li><li><p style=\"min-height:1.5em\">Experience with CUDA or similar technologies.</p></li><li><p style=\"min-height:1.5em\">Deep understanding of software engineering principles and a proven track record of developing and deploying AI/ML inference solutions.</p></li><li><p style=\"min-height:1.5em\">Experience with Docker and Kubernetes.</p></li></ul></li></ul><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong><u>BENEFITS</u></strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Competitive compensation, including meaningful equity.</p></li><li><p style=\"min-height:1.5em\">100% coverage of medical, dental, and vision insurance for employee and dependents</p></li><li><p style=\"min-height:1.5em\">Flexible PTO policy including company wide Winter Break (our offices are closed from Christmas Eve to New Year's Day!)</p></li><li><p style=\"min-height:1.5em\">Paid parental leave</p></li><li><p style=\"min-height:1.5em\">Fertility and family-building stipend through Carrot</p></li><li><p style=\"min-height:1.5em\">Company-facilitated 401(k)</p></li><li><p style=\"min-height:1.5em\">Exposure to a variety of ML startups, offering unparalleled learning and networking opportunities.</p></li></ul><p style=\"min-height:1.5em\"><strong>Apply now</strong> to embark on a rewarding journey in shaping the future of AI! If you are a motivated individual with a passion for machine learning and a desire to be part of a collaborative and forward-thinking team, we would love to hear from you.</p><p style=\"min-height:1.5em\"><em>At Baseten, we are committed to fostering a diverse and inclusive workplace. We provide equal employment opportunities to all employees and applicants without regard to race, color, religion, gender, sexual orientation, gender identity or expression, national origin, age, genetic information, disability, or veteran status.</em></p><p style=\"min-height:1.5em\"><em>We are an Equal Opportunity Employer and will consider qualified applicants with criminal histories in a manner consistent with applicable law (by example, the requirements of the San Francisco Fair Chance Ordinance, where applicable).</em></p>",
+   "descriptionPlain": "ABOUT BASETEN\n\nBaseten powers mission-critical inference for the world's most dynamic AI companies, like Cursor, Notion, OpenEvidence, Abridge, Clay, Gamma and Writer. By uniting applied AI research, flexible infrastructure, and seamless developer tooling, we enable companies operating at the frontier of AI to bring cutting-edge models into production. We're growing quickly and recently raised our $1.5B Series F https://www.baseten.co/blog/announcing-our-series-f/, led by Altimeter Capital, Conviction Partners, and Spark Capital. Join us and help build the platform engineers turn to to ship AI products.\n\n\n\nTHE ROLE\n\nAre you passionate about advancing the application of artificial intelligence? We are looking for a Software Engineer focused on ML performance to join our dynamic team. This role is ideal for someone who thrives in a fast-paced startup environment and is eager to make significant contributions to the exciting field of LLM Inference. If you are a backend engineer who thrives on making things faster and is excited about open-source ML models, we look forward to your application.\n\n\n\nEXAMPLE INITIATIVES\n\nYou'll get to work on these types of projects as part of our Model Performance team: \n\n - Baseten Embeddings Inference: The fastest embeddings solution available https://www.baseten.co/blog/introducing-baseten-embeddings-inference-bei/\n\n - The Baseten Inference Stack https://www.baseten.co/resources/guide/the-baseten-inference-stack/\n\n - Driving model performance optimization https://www.baseten.co/blog/driving-model-performance-optimization-2024-highlights/\n\n\nRESPONSIBILITIES\n\n - Implement, refine, and productionize cutting-edge techniques (quantization, speculative decoding, kv cache reuse, chunked prefill and LoRA) for ML model inference and infrastructure.\n\n - Deep dive into underlying codebases of TensorRT, PyTorch, TensorRT-LLM, vllm, sglang, CUDA, and other libraries to debug ML performance issues.\n\n - Apply and scale optimization techniques across a wide range of ML models, particularly large language models.\n\n - Collaborate with a diverse team to design and implement innovative solutions.\n\n - Own projects from idea to production.\n\n\n\nREQUIREMENTS\n\n - Bachelor's, Master's, or Ph.D. degree in Computer Science, Engineering, Mathematics, or related field.\n\n - Experience with one or more general-purpose programming languages, such as Python or C++.\n\n - Familiarity with LLM optimization techniques (e.g., quantization, speculative decoding, continuous batching).\n\n - Strong familiarity with ML libraries, especially PyTorch, TensorRT, or TensorRT-LLM.\n\n - Demonstrated interest and experience in LLM’s.\n\n - Deep understanding of GPU architecture.\n\n - Bonus:\n   \n   - Proficiency in enhancing the performance of software systems, particularly in the context of large language models (LLMs).\n   \n   - Experience with CUDA or similar technologies.\n   \n   - Deep understanding of software engineering principles and a proven track record of developing and deploying AI/ML inference solutions.\n   \n   - Experience with Docker and Kubernetes.\n\n\n\nBENEFITS\n\n - Competitive compensation, including meaningful equity.\n\n - 100% coverage of medical, dental, and vision insurance for employee and dependents\n\n - Flexible PTO policy including company wide Winter Break (our offices are closed from Christmas Eve to New Year's Day!)\n\n - Paid parental leave\n\n - Fertility and family-building stipend through Carrot\n\n - Company-facilitated 401(k)\n\n - Exposure to a variety of ML startups, offering unparalleled learning and networking opportunities.\n\nApply now to embark on a rewarding journey in shaping the future of AI! If you are a motivated individual with a passion for machine learning and a desire to be part of a collaborative and forward-thinking team, we would love to hear from you.\n\nAt Baseten, we are committed to fostering a diverse and inclusive workplace. We provide equal employment opportunities to all employees and applicants without regard to race, color, religion, gender, sexual orientation, gender identity or expression, national origin, age, genetic information, disability, or veteran status.\n\nWe are an Equal Opportunity Employer and will consider qualified applicants with criminal histories in a manner consistent with applicable law (by example, the requirements of the San Francisco Fair Chance Ordinance, where applicable).",
+   "compensation": {
+    "compensationTierSummary": "$180K – $360K • Offers Equity",
+    "scrapeableCompensationSalarySummary": "$180K - $360K",
+    "compensationTiers": [
+     {
+      "id": "55ae2df4-3b15-48ff-8b51-988dc1746189",
+      "tierSummary": "$180K – $360K • Offers Equity",
+      "title": null,
+      "additionalInformation": null,
+      "components": [
+       {
+        "id": "d6b40e5f-8e1e-42d9-9c58-8b90aee5fa01",
+        "summary": "Offers Equity",
+        "compensationType": "EquityPercentage",
+        "interval": "NONE",
+        "currencyCode": null,
+        "minValue": null,
+        "maxValue": null
+       },
+       {
+        "id": "079aea4b-9f4e-4bd5-85b1-2e32f547c4e9",
+        "summary": "$180K – $360K",
+        "compensationType": "Salary",
+        "interval": "1 YEAR",
+        "currencyCode": "USD",
+        "minValue": 180000,
+        "maxValue": 360000
+       }
+      ]
+     }
+    ],
+    "summaryComponents": [
+     {
+      "compensationType": "EquityPercentage",
+      "interval": "NONE",
+      "currencyCode": null,
+      "minValue": null,
+      "maxValue": null
+     },
+     {
+      "compensationType": "Salary",
+      "interval": "1 YEAR",
+      "currencyCode": "USD",
+      "minValue": 180000,
+      "maxValue": 360000
+     }
+    ]
+   }
+  }
+ ]
+}

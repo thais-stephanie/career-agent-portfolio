@@ -1,0 +1,964 @@
+{
+  "_readme": "Hand-authored mock of GET /api/jobs, GET /api/jobs/{id} and GET /api/health. Every company, posting and quote here is invented. It exists so the frontend can be rendered and reviewed with no server, no database and no network. Every evidence quote in `details` is a real contiguous substring of that job's `description`, because that is the rule the product enforces on real data (ADR-0002).",
+
+  "health": {
+    "ok": true,
+    "db_path": "data/m1d2/career.db",
+    "schema_version": 11,
+    "config_id": "personal-alpha",
+    "config_version": 1,
+    "config_path": "config/search.worked-example.yaml",
+    "config_is_local": false,
+    "job_count": 15,
+    "scored_count": 14,
+    "ollama": { "configured": true, "reachable": null, "model": "qwen3:4b", "endpoint": "http://localhost:11434", "checked_at": null, "note": "not checked -- the local model is only contacted when you ask for it" }
+  },
+
+  "total": 15,
+  "offset": 0,
+  "limit": 60,
+
+  "items": [
+    {
+      "job_id": "gc-01",
+      "title": "Business Systems Engineer",
+      "company_name": "Arcus Labs",
+      "company_slug": "arcus-labs",
+      "provider": "greenhouse",
+      "access_method": "ats_structured",
+      "url": "https://boards.example-greenhouse.test/arcus-labs/jobs/gc-01",
+      "location_raw": "Remote; Americas",
+      "department": "Revenue Operations",
+      "posted_at": "2026-09-01",
+      "first_seen_at": "2026-09-01T06:12:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "FRESH",
+      "match_score": 88,
+      "fit_band": "STRONG",
+      "data_confidence": 84,
+      "confidence_band": "HIGH",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "PRIMARY",
+      "title_reason": "Business Systems Engineer is a primary target title and the description is CRM architecture and integration work, which confirms the reading.",
+      "seniority": "SENIOR",
+      "salary": { "min": 120000, "max": 150000, "currency": "USD", "period": "year" },
+      "employment_type": "FULL_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "hubspot_platform", "label": "HubSpot platform ownership", "prominence": "PRIMARY" },
+        { "signal_id": "data_modelling", "label": "Data modelling", "prominence": "PRIMARY" },
+        { "signal_id": "python", "label": "Python", "prominence": "SECONDARY" },
+        { "signal_id": "sql", "label": "SQL", "prominence": "SECONDARY" },
+        { "signal_id": "api_integration", "label": "API integration", "prominence": "SECONDARY" }
+      ],
+      "top_strengths": [
+        { "label": "CRM architecture and data model", "points": 8.0, "quote": "You will own the HubSpot platform end to end, from object model design to the integrations that keep it honest." },
+        { "label": "Systems integration", "points": 6.0, "quote": "You will design and maintain the data model that connects product usage, billing and the CRM" },
+        { "label": "Engineering in the role", "points": 4.5, "quote": "you will write the Python services that move that data" }
+      ],
+      "primary_gap": null,
+      "blockers": [],
+      "unknown_count": 1,
+      "application_status": "SHORTLISTED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": true,
+      "notes": "Closest thing to the actual job I want. Ask about the reporting line.",
+      "enriched": false,
+      "description_excerpt": "Arcus Labs is a 60-person company building revenue infrastructure for B2B software teams. We are hiring a Business Systems Engineer to own the architecture of our CRM and the data model underneath it."
+    },
+
+    {
+      "job_id": "gc-02",
+      "title": "Platform Engineer, Internal Tools",
+      "company_name": "Vela Commerce",
+      "company_slug": "vela-commerce",
+      "provider": "lever",
+      "access_method": "ats_structured",
+      "url": "https://jobs.example-lever.test/vela-commerce/gc-02",
+      "location_raw": "Remote",
+      "department": null,
+      "posted_at": "2026-08-30",
+      "first_seen_at": "2026-08-30T09:40:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "FRESH",
+      "match_score": 82,
+      "fit_band": "STRONG",
+      "data_confidence": 31,
+      "confidence_band": "LOW",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "STRONG_ADJACENT",
+      "title_reason": "Platform Engineer is adjacent; the internal-tools qualifier and the description moved it towards the target.",
+      "seniority": "UNCLEAR",
+      "salary": null,
+      "employment_type": null,
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "api_integration", "label": "API integration", "prominence": "PRIMARY" },
+        { "signal_id": "python", "label": "Python", "prominence": "SECONDARY" }
+      ],
+      "top_strengths": [
+        { "label": "Internal systems ownership", "points": 7.0, "quote": "You will own the internal tooling that the go-to-market team runs on." },
+        { "label": "Systems integration", "points": 5.0, "quote": "Most of the work is integration: making four systems agree about one customer." }
+      ],
+      "primary_gap": { "label": "Hiring scope", "reason": "The posting says Remote and never says where it will employ anyone." },
+      "blockers": [],
+      "unknown_count": 7,
+      "application_status": "DISCOVERED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": "You will own the internal tooling that the go-to-market team runs on. Most of the work is integration: making four systems agree about one customer."
+    },
+
+    {
+      "job_id": "gc-03",
+      "title": "Senior Solutions Engineer",
+      "company_name": "Northbeam Logistics",
+      "company_slug": "northbeam-logistics",
+      "provider": "greenhouse",
+      "access_method": "ats_structured",
+      "url": "https://boards.example-greenhouse.test/northbeam/jobs/gc-03",
+      "location_raw": "San Francisco, CA (Hybrid)",
+      "department": "Customer Engineering",
+      "posted_at": "2026-08-27",
+      "first_seen_at": "2026-08-27T11:02:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "RECENT",
+      "match_score": 74,
+      "fit_band": "GOOD",
+      "data_confidence": 79,
+      "confidence_band": "HIGH",
+      "eligibility_status": "VERIFIED_NOT_ELIGIBLE",
+      "screening_state": "BLOCKED",
+      "title_class": "CONDITIONAL",
+      "title_reason": "Solutions Engineer resolves on the description; here it is integration delivery rather than pre-sales, so it stayed conditional.",
+      "seniority": "SENIOR",
+      "salary": { "min": 165000, "max": 195000, "currency": "USD", "period": "year" },
+      "employment_type": "FULL_TIME",
+      "work_model": "HYBRID",
+      "technologies": [
+        { "signal_id": "api_integration", "label": "API integration", "prominence": "PRIMARY" },
+        { "signal_id": "sql", "label": "SQL", "prominence": "INCIDENTAL" }
+      ],
+      "top_strengths": [
+        { "label": "Systems integration", "points": 6.5, "quote": "You will build and ship the integrations that connect our platform to a customer's warehouse systems." }
+      ],
+      "primary_gap": null,
+      "blockers": [
+        {
+          "gate": "geography",
+          "result": "FAIL",
+          "reason": "The posting requires US work authorisation and residence in the Bay Area, and states that it cannot employ contractors outside the US.",
+          "blocker_id": "us_only_no_sponsorship",
+          "quote": "This role requires you to be legally authorised to work in the United States and to be based in the Bay Area; we do not sponsor visas and cannot employ contractors outside the US."
+        }
+      ],
+      "unknown_count": 2,
+      "application_status": "ARCHIVED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": "You will build and ship the integrations that connect our platform to a customer's warehouse systems. This role requires you to be legally authorised to work in the United States."
+    },
+
+    {
+      "job_id": "gc-04",
+      "title": "Revenue Systems Analyst",
+      "company_name": "Tessera Analytics",
+      "company_slug": "tessera-analytics",
+      "provider": "ashby",
+      "access_method": "ats_structured",
+      "url": "https://jobs.example-ashby.test/tessera/gc-04",
+      "location_raw": "Remote (EMEA time zones)",
+      "department": "Finance Systems",
+      "posted_at": "2026-08-24",
+      "first_seen_at": "2026-08-24T15:20:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "RECENT",
+      "match_score": 66,
+      "fit_band": "GOOD",
+      "data_confidence": 58,
+      "confidence_band": "MEDIUM",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "PRIMARY",
+      "title_reason": "Revenue Systems is a primary target group; the description is CRM and billing systems work.",
+      "seniority": "MID",
+      "salary": null,
+      "employment_type": "FULL_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "salesforce", "label": "Salesforce", "prominence": "SECONDARY" },
+        { "signal_id": "sql", "label": "SQL", "prominence": "PRIMARY" },
+        { "signal_id": "data_modelling", "label": "Data modelling", "prominence": "SECONDARY" }
+      ],
+      "top_strengths": [
+        { "label": "Revenue data model", "points": 5.5, "quote": "You will keep the revenue data model coherent across Salesforce, the billing system and the warehouse." }
+      ],
+      "primary_gap": { "label": "Hiring scope", "reason": "A timezone is not a geography. The posting names EMEA hours and never says which countries it can employ in." },
+      "blockers": [],
+      "unknown_count": 4,
+      "application_status": "DISCOVERED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": "You will keep the revenue data model coherent across Salesforce, the billing system and the warehouse. We work on EMEA hours."
+    },
+
+    {
+      "job_id": "gc-05",
+      "title": "Integrations Developer",
+      "company_name": "Cadence Health",
+      "company_slug": "cadence-health",
+      "provider": "workable",
+      "access_method": "ats_structured",
+      "url": "https://apply.example-workable.test/cadence-health/j/gc-05",
+      "location_raw": "Remote; Brazil",
+      "department": "Engineering",
+      "posted_at": "2026-08-21",
+      "first_seen_at": "2026-08-21T08:00:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "RECENT",
+      "match_score": 79,
+      "fit_band": "STRONG",
+      "data_confidence": 71,
+      "confidence_band": "MEDIUM",
+      "eligibility_status": "VERIFIED_ELIGIBLE",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "PRIMARY",
+      "title_reason": "Integrations Developer is a primary target title and the description is API integration work.",
+      "seniority": "SENIOR",
+      "salary": null,
+      "employment_type": "CONTRACT",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "api_integration", "label": "API integration", "prominence": "PRIMARY" },
+        { "signal_id": "python", "label": "Python", "prominence": "PRIMARY" },
+        { "signal_id": "hl7_fhir", "label": "HL7 / FHIR", "prominence": "SECONDARY" }
+      ],
+      "top_strengths": [
+        { "label": "Systems integration", "points": 8.0, "quote": "You will design, build and operate the integrations between our platform and hospital record systems." },
+        { "label": "Engineering in the role", "points": 5.0, "quote": "The stack is Python and Postgres, and you will write most of it yourself." }
+      ],
+      "primary_gap": null,
+      "blockers": [],
+      "unknown_count": 2,
+      "application_status": "TO_APPLY",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": true,
+      "notes": "PJ contract. Ask what the rate actually is before anything else.",
+      "enriched": false,
+      "description_excerpt": "You will design, build and operate the integrations between our platform and hospital record systems. We hire contractors based in Brazil."
+    },
+
+    {
+      "job_id": "gc-06",
+      "title": "Automation Engineer, Go-To-Market",
+      "company_name": "Orbita Pagamentos",
+      "company_slug": "orbita-pagamentos",
+      "provider": "gupy",
+      "access_method": "ats_structured",
+      "url": "https://orbita.example-gupy.test/vaga/gc-06",
+      "location_raw": "São Paulo, SP; Hybrid",
+      "department": "Growth Operations",
+      "posted_at": "2026-08-19",
+      "first_seen_at": "2026-08-19T13:30:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "AGING",
+      "match_score": 71,
+      "fit_band": "GOOD",
+      "data_confidence": 66,
+      "confidence_band": "MEDIUM",
+      "eligibility_status": "VERIFIED_ELIGIBLE",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "STRONG_ADJACENT",
+      "title_reason": "Automation Engineer with a go-to-market qualifier; the description is workflow automation over a CRM.",
+      "seniority": "MID",
+      "salary": { "min": 14000, "max": 18000, "currency": "BRL", "period": "month" },
+      "employment_type": "FULL_TIME",
+      "work_model": "HYBRID",
+      "technologies": [
+        { "signal_id": "hubspot_platform", "label": "HubSpot platform ownership", "prominence": "SECONDARY" },
+        { "signal_id": "workflow_automation", "label": "Workflow automation", "prominence": "PRIMARY" }
+      ],
+      "top_strengths": [
+        { "label": "Workflow automation", "points": 6.0, "quote": "You will automate the handoffs between marketing, sales and onboarding." }
+      ],
+      "primary_gap": { "label": "Office presence", "reason": "Two days a week in the São Paulo office are stated as required." },
+      "blockers": [],
+      "unknown_count": 3,
+      "application_status": "DISCOVERED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": "You will automate the handoffs between marketing, sales and onboarding. Two days a week in our São Paulo office are required."
+    },
+
+    {
+      "job_id": "gc-07",
+      "title": "Enterprise Account Executive",
+      "company_name": "Halcyon Software",
+      "company_slug": "halcyon-software",
+      "provider": "greenhouse",
+      "access_method": "ats_structured",
+      "url": "https://boards.example-greenhouse.test/halcyon/jobs/gc-07",
+      "location_raw": "Remote; United States",
+      "department": "Sales",
+      "posted_at": "2026-08-18",
+      "first_seen_at": "2026-08-18T10:00:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "AGING",
+      "match_score": 12,
+      "fit_band": "WEAK",
+      "data_confidence": 74,
+      "confidence_band": "HIGH",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "EXCLUDED",
+      "title_reason": "Account Executive is an excluded title group, and the description is quota carrying and cold outreach, which confirmed the exclusion rather than overturning it.",
+      "seniority": "SENIOR",
+      "salary": { "raw": "USD 140,000 base + commission" },
+      "employment_type": "FULL_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "salesforce", "label": "Salesforce", "prominence": "SECONDARY" }
+      ],
+      "top_strengths": [],
+      "primary_gap": { "label": "Role shape", "reason": "This is a quota-carrying sales role. It was kept visible rather than hidden, so the exclusion can be checked." },
+      "blockers": [],
+      "unknown_count": 2,
+      "application_status": "ARCHIVED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": "You will carry an annual quota of USD 1.2M and own the full sales cycle from cold outreach to close."
+    },
+
+    {
+      "job_id": "gc-08",
+      "title": "Forward Deployed Engineer",
+      "company_name": "Ridgeline Data",
+      "company_slug": "ridgeline-data",
+      "provider": "ashby",
+      "access_method": "ats_structured",
+      "url": "https://jobs.example-ashby.test/ridgeline/gc-08",
+      "location_raw": "Remote; Worldwide",
+      "department": "Deployment",
+      "posted_at": "2026-08-12",
+      "first_seen_at": "2026-08-12T07:45:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "AGING",
+      "match_score": 84,
+      "fit_band": "STRONG",
+      "data_confidence": 77,
+      "confidence_band": "HIGH",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "PRIMARY",
+      "title_reason": "Forward Deployed Engineer resolved to a primary target: the description is integration and customer-side systems work, not pre-sales.",
+      "seniority": "SENIOR",
+      "salary": { "min": 110000, "max": 140000, "currency": "USD", "period": "year" },
+      "employment_type": "FULL_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "python", "label": "Python", "prominence": "PRIMARY" },
+        { "signal_id": "api_integration", "label": "API integration", "prominence": "PRIMARY" },
+        { "signal_id": "sql", "label": "SQL", "prominence": "SECONDARY" }
+      ],
+      "top_strengths": [
+        { "label": "Systems integration", "points": 7.5, "quote": "You will sit with a customer's team and build the pipelines that get their data into our platform." },
+        { "label": "Engineering in the role", "points": 6.0, "quote": "Expect to write Python every day." }
+      ],
+      "primary_gap": null,
+      "blockers": [],
+      "unknown_count": 1,
+      "application_status": "APPLIED",
+      "applied_at": "2026-08-26",
+      "has_applied": true,
+      "saved": true,
+      "notes": "Applied 26 Aug. Recruiter screen booked for 09 Sep.",
+      "enriched": false,
+      "description_excerpt": "You will sit with a customer's team and build the pipelines that get their data into our platform. Expect to write Python every day."
+    },
+
+    {
+      "job_id": "gc-09",
+      "title": "CRM Architect",
+      "company_name": "Petal & Stone",
+      "company_slug": "petal-and-stone",
+      "provider": "workable",
+      "access_method": "ats_structured",
+      "url": "https://apply.example-workable.test/petal-stone/j/gc-09",
+      "location_raw": "Remote; LATAM",
+      "department": "Operations",
+      "posted_at": "2026-08-29",
+      "first_seen_at": "2026-08-29T12:00:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "FRESH",
+      "match_score": 76,
+      "fit_band": "STRONG",
+      "data_confidence": 62,
+      "confidence_band": "MEDIUM",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "PRIMARY",
+      "title_reason": "CRM Architect is a primary target title.",
+      "seniority": "LEAD",
+      "salary": null,
+      "employment_type": "FULL_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "hubspot_platform", "label": "HubSpot platform ownership", "prominence": "PRIMARY" },
+        { "signal_id": "data_modelling", "label": "Data modelling", "prominence": "PRIMARY" }
+      ],
+      "top_strengths": [
+        { "label": "CRM architecture and data model", "points": 7.0, "quote": "You will own the object model, the lifecycle stages and the reporting layer on top of them." }
+      ],
+      "primary_gap": { "label": "Language", "reason": "Spanish is described as strongly preferred and the level is not stated." },
+      "blockers": [],
+      "unknown_count": 3,
+      "application_status": "SHORTLISTED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": true,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": "You will own the object model, the lifecycle stages and the reporting layer on top of them. Spanish is strongly preferred."
+    },
+
+    {
+      "job_id": "gc-10",
+      "title": "Software Engineer; Shared Services",
+      "company_name": "Meridian Grid",
+      "company_slug": "meridian-grid",
+      "provider": "lever",
+      "access_method": "ats_structured",
+      "url": "https://jobs.example-lever.test/meridian-grid/gc-10",
+      "location_raw": "Remote; Americas",
+      "department": "Platform",
+      "posted_at": "2026-08-31",
+      "first_seen_at": "2026-08-31T16:10:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "FRESH",
+      "match_score": 69,
+      "fit_band": "GOOD",
+      "data_confidence": 55,
+      "confidence_band": "MEDIUM",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "CONDITIONAL",
+      "title_reason": "Software Engineer with a Shared Services qualifier: the description decided it, and it reads as internal platform work.",
+      "seniority": "SENIOR",
+      "salary": { "min": 95000, "max": 125000, "currency": "USD", "period": "year" },
+      "employment_type": "FULL_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "python", "label": "Python", "prominence": "PRIMARY" },
+        { "signal_id": "api_integration", "label": "API integration", "prominence": "SECONDARY" }
+      ],
+      "top_strengths": [
+        { "label": "Internal systems ownership", "points": 5.5, "quote": "The shared services team owns the internal APIs every other team builds on." }
+      ],
+      "primary_gap": { "label": "Coding intensity", "reason": "The posting does not say how much of the week is spent writing code." },
+      "blockers": [],
+      "unknown_count": 5,
+      "application_status": "DISCOVERED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": true,
+      "description_excerpt": "The shared services team owns the internal APIs every other team builds on. You will work across five product teams."
+    },
+
+    {
+      "job_id": "gc-11",
+      "title": "Analista de Sistemas de Receita (Revenue Systems)",
+      "company_name": "Companhia Brasileira de Dados",
+      "company_slug": "companhia-brasileira-de-dados",
+      "provider": "manual",
+      "access_method": "manual_import",
+      "url": "https://carreiras.example-cbd.test/vagas/gc-11",
+      "location_raw": "Remoto; Brasil",
+      "department": null,
+      "posted_at": "2026-09-02",
+      "first_seen_at": "2026-09-02T19:30:00Z",
+      "last_seen_at": "2026-09-02T19:30:00Z",
+      "freshness": "FRESH",
+      "match_score": 63,
+      "fit_band": "GOOD",
+      "data_confidence": 44,
+      "confidence_band": "LOW",
+      "eligibility_status": "VERIFIED_ELIGIBLE",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "PRIMARY",
+      "title_reason": "Matched the revenue-systems token group through its Portuguese alternative.",
+      "seniority": "MID",
+      "salary": null,
+      "employment_type": null,
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "sql", "label": "SQL", "prominence": "SECONDARY" },
+        { "signal_id": "salesforce", "label": "Salesforce", "prominence": "INCIDENTAL" }
+      ],
+      "top_strengths": [
+        { "label": "Revenue data model", "points": 4.0, "quote": "Responsável por manter o modelo de dados de receita consistente entre os sistemas." }
+      ],
+      "primary_gap": { "label": "Compensation", "reason": "Pasted by hand from a careers page that stated no range." },
+      "blockers": [],
+      "unknown_count": 6,
+      "application_status": "DISCOVERED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": "Imported by hand from the company careers page.",
+      "enriched": false,
+      "description_excerpt": "Responsável por manter o modelo de dados de receita consistente entre os sistemas. Trabalho remoto a partir do Brasil."
+    },
+
+    {
+      "job_id": "gc-12",
+      "title": "Business Technology Engineer",
+      "company_name": "Kestrel Freight",
+      "company_slug": "kestrel-freight",
+      "provider": "greenhouse",
+      "access_method": "ats_structured",
+      "url": "https://boards.example-greenhouse.test/kestrel/jobs/gc-12",
+      "location_raw": "Remote; Worldwide",
+      "department": "Business Technology",
+      "posted_at": "2026-03-02",
+      "first_seen_at": "2026-03-02T09:00:00Z",
+      "last_seen_at": "2026-08-11T05:00:00Z",
+      "freshness": "STALE",
+      "match_score": 73,
+      "fit_band": "GOOD",
+      "data_confidence": 68,
+      "confidence_band": "MEDIUM",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "PRIMARY",
+      "title_reason": "Business Technology Engineer is a primary target title.",
+      "seniority": "SENIOR",
+      "salary": null,
+      "employment_type": "FULL_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "workflow_automation", "label": "Workflow automation", "prominence": "PRIMARY" },
+        { "signal_id": "sql", "label": "SQL", "prominence": "SECONDARY" }
+      ],
+      "top_strengths": [
+        { "label": "Internal systems ownership", "points": 6.0, "quote": "You own the systems the operations team lives in, end to end." }
+      ],
+      "primary_gap": { "label": "Freshness", "reason": "Posted in March and last seen in August. It may no longer be open." },
+      "blockers": [],
+      "unknown_count": 4,
+      "application_status": "DISCOVERED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": "You own the systems the operations team lives in, end to end. Worldwide remote, asynchronous by default."
+    },
+
+    {
+      "job_id": "gc-13",
+      "title": "Automation Stream Lead",
+      "company_name": "Silvercress Group",
+      "company_slug": "silvercress-group",
+      "provider": "workable",
+      "access_method": "ats_structured",
+      "url": "https://apply.example-workable.test/silvercress/j/gc-13",
+      "location_raw": "Remote; EMEA",
+      "department": null,
+      "posted_at": "2026-09-03",
+      "first_seen_at": "2026-09-03T21:15:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "FRESH",
+      "match_score": null,
+      "fit_band": null,
+      "data_confidence": null,
+      "confidence_band": null,
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "UNCLASSIFIED",
+      "title_reason": "No taxonomy rule matched this title. It is still scored on its description, when there is a description to score.",
+      "seniority": "UNCLEAR",
+      "salary": null,
+      "employment_type": null,
+      "work_model": "REMOTE",
+      "technologies": [],
+      "top_strengths": [],
+      "primary_gap": { "label": "Description", "reason": "The posting body has not been collected yet, so nothing has been scored." },
+      "blockers": [],
+      "unknown_count": 11,
+      "application_status": "DISCOVERED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": ""
+    },
+
+    {
+      "job_id": "gc-14",
+      "title": "Senior Staff Business Systems and Revenue Operations Engineer, Global Commercial Platform Enablement (Remote, Americas)",
+      "company_name": "Wexford-Almeida International Business Technology Consulting Group",
+      "company_slug": "wexford-almeida-international",
+      "provider": "lever",
+      "access_method": "ats_structured",
+      "url": "https://jobs.example-lever.test/wexford-almeida/gc-14",
+      "location_raw": "Remote; Americas (Canada, United States, Mexico, Brazil, Argentina, Chile, Colombia)",
+      "department": "Global Commercial Platform Enablement",
+      "posted_at": "2026-08-28",
+      "first_seen_at": "2026-08-28T14:00:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "RECENT",
+      "match_score": 81,
+      "fit_band": "STRONG",
+      "data_confidence": 49,
+      "confidence_band": "LOW",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "PRIMARY",
+      "title_reason": "The token group matched business systems and revenue operations in any order, which is what the taxonomy is built to do with titles this long.",
+      "seniority": "SENIOR",
+      "salary": { "raw": "Not disclosed; band shared at first interview" },
+      "employment_type": "FULL_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "salesforce", "label": "Salesforce", "prominence": "PRIMARY" },
+        { "signal_id": "data_modelling", "label": "Data modelling", "prominence": "SECONDARY" },
+        { "signal_id": "workflow_automation", "label": "Workflow automation", "prominence": "SECONDARY" },
+        { "signal_id": "sql", "label": "SQL", "prominence": "INCIDENTAL" }
+      ],
+      "top_strengths": [
+        { "label": "CRM architecture and data model", "points": 6.5, "quote": "The successful candidate will be accountable for the commercial platform architecture across all regions." }
+      ],
+      "primary_gap": { "label": "Coding intensity", "reason": "Nothing in eleven paragraphs says whether this person writes software." },
+      "blockers": [],
+      "unknown_count": 6,
+      "application_status": "DISCOVERED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": null,
+      "enriched": false,
+      "description_excerpt": "The successful candidate will be accountable for the commercial platform architecture across all regions."
+    },
+
+    {
+      "job_id": "gc-15",
+      "title": "GTM Engineer",
+      "company_name": "Lantern Retail",
+      "company_slug": "lantern-retail",
+      "provider": "ashby",
+      "access_method": "ats_structured",
+      "url": "javascript:alert('this url is deliberately hostile')",
+      "location_raw": "Remote; Portugal or Brazil",
+      "department": "Go-To-Market",
+      "posted_at": "2026-08-25",
+      "first_seen_at": "2026-08-25T10:30:00Z",
+      "last_seen_at": "2026-09-04T05:00:00Z",
+      "freshness": "RECENT",
+      "match_score": 58,
+      "fit_band": "MODERATE",
+      "data_confidence": 72,
+      "confidence_band": "MEDIUM",
+      "eligibility_status": "UNRESOLVED",
+      "screening_state": "NOT_BLOCKED",
+      "title_class": "CONDITIONAL",
+      "title_reason": "GTM Engineer is ambiguous by rule. The description is half CRM plumbing and half outbound sequencing, so it stayed conditional rather than being promoted.",
+      "seniority": "MID",
+      "salary": { "min": 4500, "max": 6000, "currency": "EUR", "period": "month" },
+      "employment_type": "PART_TIME",
+      "work_model": "REMOTE",
+      "technologies": [
+        { "signal_id": "hubspot_platform", "label": "HubSpot platform ownership", "prominence": "SECONDARY" },
+        { "signal_id": "workflow_automation", "label": "Workflow automation", "prominence": "PRIMARY" }
+      ],
+      "top_strengths": [
+        { "label": "Workflow automation", "points": 4.5, "quote": "You will build the automations that route inbound leads to the right team." }
+      ],
+      "primary_gap": { "label": "Role shape", "reason": "Half of the responsibilities are outbound sequencing, which is not the work being looked for." },
+      "blockers": [],
+      "unknown_count": 3,
+      "application_status": "REJECTED",
+      "applied_at": null,
+      "has_applied": false,
+      "saved": false,
+      "notes": "Their apply link is broken; the URL on the posting is not a real link.",
+      "enriched": false,
+      "description_excerpt": "You will build the automations that route inbound leads to the right team, and own the sequencing tooling."
+    }
+  ],
+
+  "facets": {
+    "company": [
+      { "key": "arcus-labs", "label": "Arcus Labs", "count": 1 },
+      { "key": "vela-commerce", "label": "Vela Commerce", "count": 1 },
+      { "key": "northbeam-logistics", "label": "Northbeam Logistics", "count": 1 },
+      { "key": "tessera-analytics", "label": "Tessera Analytics", "count": 1 },
+      { "key": "cadence-health", "label": "Cadence Health", "count": 1 }
+    ],
+    "provider": [
+      { "key": "greenhouse", "label": "greenhouse", "count": 4 },
+      { "key": "lever", "label": "lever", "count": 3 },
+      { "key": "ashby", "label": "ashby", "count": 3 },
+      { "key": "workable", "label": "workable", "count": 3 },
+      { "key": "gupy", "label": "gupy", "count": 1 },
+      { "key": "manual", "label": "manual", "count": 1 }
+    ],
+    "role_class": [
+      { "key": "PRIMARY", "label": "PRIMARY", "count": 7 },
+      { "key": "CONDITIONAL", "label": "CONDITIONAL", "count": 3 },
+      { "key": "STRONG_ADJACENT", "label": "STRONG_ADJACENT", "count": 2 },
+      { "key": "UNCLASSIFIED", "label": "UNCLASSIFIED", "count": 1 },
+      { "key": "EXCLUDED", "label": "EXCLUDED", "count": 1 }
+    ],
+    "eligibility": [
+      { "key": "UNRESOLVED", "label": "UNRESOLVED", "count": 10 },
+      { "key": "VERIFIED_ELIGIBLE", "label": "VERIFIED_ELIGIBLE", "count": 3 },
+      { "key": "VERIFIED_NOT_ELIGIBLE", "label": "VERIFIED_NOT_ELIGIBLE", "count": 1 }
+    ],
+    "status": [
+      { "key": "DISCOVERED", "label": "DISCOVERED", "count": 8 },
+      { "key": "SHORTLISTED", "label": "SHORTLISTED", "count": 2 },
+      { "key": "ARCHIVED", "label": "ARCHIVED", "count": 2 },
+      { "key": "TO_APPLY", "label": "TO_APPLY", "count": 1 },
+      { "key": "APPLIED", "label": "APPLIED", "count": 1 },
+      { "key": "REJECTED", "label": "REJECTED", "count": 1 }
+    ],
+    "fit_band": [
+      { "key": "STRONG", "label": "STRONG", "count": 5 },
+      { "key": "GOOD", "label": "GOOD", "count": 6 },
+      { "key": "MODERATE", "label": "MODERATE", "count": 1 },
+      { "key": "WEAK", "label": "WEAK", "count": 1 }
+    ],
+    "signal": [
+      { "key": "api_integration", "label": "API integration", "count": 5 },
+      { "key": "sql", "label": "SQL", "count": 6 },
+      { "key": "python", "label": "Python", "count": 4 },
+      { "key": "hubspot_platform", "label": "HubSpot platform ownership", "count": 4 },
+      { "key": "data_modelling", "label": "Data modelling", "count": 4 },
+      { "key": "workflow_automation", "label": "Workflow automation", "count": 3 },
+      { "key": "salesforce", "label": "Salesforce", "count": 3 },
+      { "key": "hl7_fhir", "label": "HL7 / FHIR", "count": 1 }
+    ]
+  },
+
+  "details": {
+    "gc-01": {
+      "description": "Arcus Labs is a 60-person company building revenue infrastructure for B2B software teams. We are hiring a Business Systems Engineer to own the architecture of our CRM and the data model underneath it.\n\nYou will own the HubSpot platform end to end, from object model design to the integrations that keep it honest. You will design and maintain the data model that connects product usage, billing and the CRM, and you will write the Python services that move that data.\n\nWe hire anywhere in the Americas, including Brazil, and we are fully remote. The role reports to the Head of Revenue Operations.\n\nRequirements: five or more years working on internal systems; strong SQL; comfort owning an API integration end to end. English is required for daily work; Portuguese or Spanish is a plus.\n\nCompensation is USD 120,000 to USD 150,000 per year plus equity. We review bands annually and publish them internally.",
+      "components": [
+        {
+          "component_id": "responsibilities",
+          "label": "Responsibilities that match the target work",
+          "points": 18.5,
+          "max_points": 20.0,
+          "capped": false,
+          "contributions": [
+            { "signal_id": "crm_architecture", "label": "CRM architecture and data model", "prominence": "PRIMARY", "weight": 8.0, "points": 8.0, "quote": "You will own the HubSpot platform end to end, from object model design to the integrations that keep it honest." },
+            { "signal_id": "systems_integration", "label": "Systems integration", "prominence": "PRIMARY", "weight": 6.0, "points": 6.0, "quote": "You will design and maintain the data model that connects product usage, billing and the CRM" },
+            { "signal_id": "coding", "label": "Engineering in the role", "prominence": "SECONDARY", "weight": 6.0, "points": 4.5, "quote": "you will write the Python services that move that data" }
+          ]
+        },
+        {
+          "component_id": "tooling",
+          "label": "Tooling overlap",
+          "points": 12.0,
+          "max_points": 12.0,
+          "capped": true,
+          "contributions": [
+            { "signal_id": "hubspot_platform", "label": "HubSpot platform ownership", "prominence": "PRIMARY", "weight": 7.0, "points": 7.0, "quote": "You will own the HubSpot platform end to end" },
+            { "signal_id": "python", "label": "Python", "prominence": "SECONDARY", "weight": 4.0, "points": 3.0, "quote": "you will write the Python services that move that data" },
+            { "signal_id": "sql", "label": "SQL", "prominence": "SECONDARY", "weight": 4.0, "points": 3.0, "quote": "Requirements: five or more years working on internal systems; strong SQL" }
+          ]
+        },
+        {
+          "component_id": "seniority",
+          "label": "Seniority alignment",
+          "points": 6.0,
+          "max_points": 8.0,
+          "capped": false,
+          "note": "Read from the body, never from the title.",
+          "contributions": [
+            { "signal_id": "years_experience", "label": "Five or more years on internal systems", "prominence": "PRIMARY", "weight": 6.0, "points": 6.0, "quote": "Requirements: five or more years working on internal systems" }
+          ]
+        },
+        {
+          "component_id": "avoid",
+          "label": "Work being avoided",
+          "points": 0.0,
+          "max_points": 0.0,
+          "capped": false,
+          "note": "Nothing in this posting fired the avoid list.",
+          "contributions": []
+        }
+      ],
+      "penalties": [
+        { "signal_id": "language_english_hard", "label": "English stated as a hard requirement", "prominence": "SECONDARY", "weight": 2.0, "points": -1.0, "quote": "English is required for daily work; Portuguese or Spanish is a plus." }
+      ],
+      "gates": [
+        {
+          "gate": "geography",
+          "result": "PASS",
+          "reason": "The posting names a hiring region that includes Brazil, in the description rather than in a provider field.",
+          "quote": "We hire anywhere in the Americas, including Brazil, and we are fully remote.",
+          "char_start": 470,
+          "char_end": 545
+        },
+        {
+          "gate": "language",
+          "result": "PASS",
+          "reason": "English is a hard requirement and is held; Portuguese is listed as a plus.",
+          "quote": "English is required for daily work; Portuguese or Spanish is a plus."
+        },
+        {
+          "gate": "work_authorisation",
+          "result": "UNRESOLVED",
+          "reason": "The posting never says whether it employs directly, through an employer of record, or as a contractor. Silence is not permission.",
+          "quote": null
+        }
+      ],
+      "confidence_items": [
+        { "item_id": "has_description", "label": "Full description text was collected", "points": 20, "awarded": true },
+        { "item_id": "hiring_scope_stated", "label": "The posting says where it hires", "points": 20, "awarded": true },
+        { "item_id": "salary_stated", "label": "Compensation is stated", "points": 15, "awarded": true },
+        { "item_id": "work_model_stated", "label": "Work model is stated", "points": 10, "awarded": true },
+        { "item_id": "seniority_stated", "label": "Seniority is readable from the body", "points": 10, "awarded": true },
+        { "item_id": "employment_type_stated", "label": "Employment type is stated", "points": 10, "awarded": true },
+        { "item_id": "engagement_model_stated", "label": "Employment vehicle is stated (direct, EOR, contractor)", "points": 10, "awarded": false, "note": "This is the single largest reason the number is 84 and not 94." },
+        { "item_id": "posted_date_native", "label": "Posted date came from the provider, not inferred", "points": 5, "awarded": true }
+      ],
+      "unknowns": [
+        "Whether the company employs directly in Brazil or through an employer of record.",
+        "Whether the equity component is meaningful or nominal."
+      ],
+      "history": [
+        { "at": "2026-09-01T06:12:00Z", "from_status": null, "to_status": "DISCOVERED", "note": "Collected from greenhouse." },
+        { "at": "2026-09-02T20:40:00Z", "from_status": "DISCOVERED", "to_status": "SHORTLISTED", "note": "Read the description in full." }
+      ],
+      "enrichment": {}
+    },
+
+    "gc-03": {
+      "description": "Northbeam Logistics is hiring a Senior Solutions Engineer for our Customer Engineering team.\n\nYou will build and ship the integrations that connect our platform to a customer's warehouse systems. You will work alongside the account team, but you are not a pre-sales resource: the deliverable is working software in a customer's environment.\n\nThis role requires you to be legally authorised to work in the United States and to be based in the Bay Area; we do not sponsor visas and cannot employ contractors outside the US. We are in the office three days a week.\n\nThe base salary range for this role is USD 165,000 to USD 195,000.",
+      "components": [
+        {
+          "component_id": "responsibilities",
+          "label": "Responsibilities that match the target work",
+          "points": 11.5,
+          "max_points": 20.0,
+          "capped": false,
+          "contributions": [
+            { "signal_id": "systems_integration", "label": "Systems integration", "prominence": "PRIMARY", "weight": 6.5, "points": 6.5, "quote": "You will build and ship the integrations that connect our platform to a customer's warehouse systems." },
+            { "signal_id": "coding", "label": "Engineering in the role", "prominence": "SECONDARY", "weight": 6.0, "points": 5.0, "quote": "the deliverable is working software in a customer's environment" }
+          ]
+        }
+      ],
+      "penalties": [],
+      "gates": [
+        {
+          "gate": "geography",
+          "result": "FAIL",
+          "reason": "The posting explicitly limits employment to people authorised in the United States and based in the Bay Area, and rules out contracting from abroad.",
+          "blocker_id": "us_only_no_sponsorship",
+          "quote": "This role requires you to be legally authorised to work in the United States and to be based in the Bay Area; we do not sponsor visas and cannot employ contractors outside the US."
+        },
+        {
+          "gate": "presence",
+          "result": "FAIL",
+          "reason": "Three days a week in a San Francisco office is stated as a condition of the role.",
+          "blocker_id": "onsite_required",
+          "quote": "We are in the office three days a week."
+        },
+        { "gate": "language", "result": "PASS", "reason": "English only, and English is held.", "quote": null }
+      ],
+      "confidence_items": [
+        { "item_id": "has_description", "label": "Full description text was collected", "points": 20, "awarded": true },
+        { "item_id": "hiring_scope_stated", "label": "The posting says where it hires", "points": 20, "awarded": true },
+        { "item_id": "salary_stated", "label": "Compensation is stated", "points": 15, "awarded": true },
+        { "item_id": "work_model_stated", "label": "Work model is stated", "points": 10, "awarded": true },
+        { "item_id": "seniority_stated", "label": "Seniority is readable from the body", "points": 10, "awarded": false, "note": "Senior appears in the title only, and a title is not evidence of seniority." },
+        { "item_id": "employment_type_stated", "label": "Employment type is stated", "points": 10, "awarded": true },
+        { "item_id": "engagement_model_stated", "label": "Employment vehicle is stated", "points": 10, "awarded": false },
+        { "item_id": "posted_date_native", "label": "Posted date came from the provider", "points": 5, "awarded": true }
+      ],
+      "unknowns": [
+        "Whether the office requirement would ever be waived.",
+        "Whether the team has hired outside the US before."
+      ],
+      "history": [
+        { "at": "2026-08-27T11:02:00Z", "from_status": null, "to_status": "DISCOVERED", "note": "Collected from greenhouse." },
+        { "at": "2026-08-27T11:02:05Z", "from_status": "DISCOVERED", "to_status": "ARCHIVED", "note": "Filed after the geography gate failed. Kept visible on purpose." }
+      ],
+      "enrichment": {}
+    },
+
+    "gc-10": {
+      "description": "Meridian Grid runs a shared services team inside Platform.\n\nThe shared services team owns the internal APIs every other team builds on. You will work across five product teams, and your work is measured by how little the other teams have to think about you.\n\nWe are remote across the Americas. Compensation is USD 95,000 to USD 125,000.",
+      "components": [
+        {
+          "component_id": "responsibilities",
+          "label": "Responsibilities that match the target work",
+          "points": 9.5,
+          "max_points": 20.0,
+          "capped": false,
+          "contributions": [
+            { "signal_id": "internal_systems", "label": "Internal systems ownership", "prominence": "PRIMARY", "weight": 5.5, "points": 5.5, "quote": "The shared services team owns the internal APIs every other team builds on." },
+            { "signal_id": "cross_team", "label": "Cross-team scope", "prominence": "SECONDARY", "weight": 5.0, "points": 4.0, "quote": "You will work across five product teams" }
+          ]
+        }
+      ],
+      "penalties": [],
+      "gates": [
+        { "gate": "geography", "result": "PASS", "reason": "A hiring region is stated and it includes Brazil.", "quote": "We are remote across the Americas." },
+        { "gate": "language", "result": "UNRESOLVED", "reason": "The posting never states a language requirement.", "quote": null }
+      ],
+      "confidence_items": [
+        { "item_id": "has_description", "label": "Full description text was collected", "points": 20, "awarded": true },
+        { "item_id": "hiring_scope_stated", "label": "The posting says where it hires", "points": 20, "awarded": true },
+        { "item_id": "salary_stated", "label": "Compensation is stated", "points": 15, "awarded": true },
+        { "item_id": "work_model_stated", "label": "Work model is stated", "points": 10, "awarded": false },
+        { "item_id": "seniority_stated", "label": "Seniority is readable from the body", "points": 10, "awarded": false },
+        { "item_id": "employment_type_stated", "label": "Employment type is stated", "points": 10, "awarded": false },
+        { "item_id": "engagement_model_stated", "label": "Employment vehicle is stated", "points": 10, "awarded": false },
+        { "item_id": "posted_date_native", "label": "Posted date came from the provider", "points": 5, "awarded": true }
+      ],
+      "unknowns": [
+        "How much of the week is spent writing code.",
+        "Whether the internal APIs are HTTP services or a library.",
+        "Whether on-call is part of the role."
+      ],
+      "history": [
+        { "at": "2026-08-31T16:10:00Z", "from_status": null, "to_status": "DISCOVERED", "note": "Collected from lever." }
+      ],
+      "enrichment": {
+        "model": "qwen3:4b",
+        "observed_at": "2026-09-03T22:41:00Z",
+        "summary": "Reads as an internal platform role with a service mandate rather than a product mandate. The success measure quoted in the posting suggests a maintenance-heavy remit.",
+        "open_questions": [
+          "Is the shared services team a cost centre inside Platform?",
+          "Who decides the roadmap when five product teams disagree?"
+        ],
+        "note": "Observation from a local model. It has no effect on match_score, data_confidence or any gate."
+      }
+    }
+  }
+}

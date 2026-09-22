@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Career Agent</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./app.css">
+<!-- Classic, not a module, and deliberately in the head: a module is
+     deferred, so the page would paint light and then jump. See js/theme.js. -->
+<script src="./js/theme.js"></script>
+</head>
+<body>
+
+<a class="skip" href="#results">Skip to results</a>
+
+<!-- THE MOBILE ENTRANCE TO THE SIDEBAR.
+     The design specifies a fixed 220px rail and does not say what happens at
+     390px, where 220px is more than half the screen. So the rail becomes a
+     drawer: this button is the only thing visible below the breakpoint, it
+     owns `aria-expanded` and `aria-controls`, and `main.js` traps focus in
+     the open drawer and gives it back here on Escape. Hidden from the
+     accessibility tree above the breakpoint rather than merely invisible,
+     because a control that cannot be reached should not be announced. -->
+<button type="button" class="sidenav__opener" id="sidenav-open"
+        aria-expanded="false" aria-controls="sidenav">
+  <span class="sidenav__openerbars" aria-hidden="true"></span>
+  <span id="sidenav-open-label">Menu</span>
+</button>
+
+<div class="appshell">
+
+<!-- THE SIDEBAR. Dark in both themes, which is a decision from the design and
+     not an oversight: it is the frame around the product rather than a
+     surface inside it, so it does not follow the paper. Its literals are
+     therefore literals, and `scripts/contrast_report.py` measures them as
+     their own pair list. -->
+<nav class="sidenav" id="sidenav" aria-label="Career Agent">
+
+  <div class="sidenav__logo">
+    <!-- THE MARK. The pixel star from the committed asset set, which is what
+         the design puts beside the name. It used to be a staircase of six
+         squares drawn with `box-shadow` while the star sat on a nav item; the
+         two have swapped, so the identity is at the top and the destinations
+         all wear glyphs from one family. -->
+    <img class="sidenav__mark" src="./px/px-star-16.png" alt="" width="16" height="16">
+    <span class="sidenav__name">Career Agent</span>
+    <span class="sidenav__tag" id="sidenav-tag">runs on your computer</span>
+  </div>
+
+  <!-- THERE IS NO USER CARD HERE, and its absence is the decision.
+       The design's first revision put an avatar, a name, a role, `LVL 7` and
+       a 72% completion bar in this slot; its second revision deleted all of
+       it, because the app cannot measure any of it and so must not claim it.
+       This product had already refused the level and the percentage and had
+       put the EVIDENCE REVIEW here instead -- answered out of arrived, a
+       fraction with a denominator somebody can point at.
+
+       That is gone too, and for a different reason than dishonesty. A review
+       that is finished still printed its total on every screen, so a number
+       that is only actionable inside Evidence followed the reader through
+       Jobs, Applications and Settings with nothing to do about it there. The
+       progress belongs where the work is. The navigation now starts directly
+       under the logo, which is what the design asks for. -->
+
+  <a class="topnav__link" href="/resume-tailor" target="_blank" rel="noopener noreferrer">Resume Tailor Beta</a>
+  <div class="sidenav__nav">
+    <!-- `topnav__link` is kept as the class on every destination. The
+         navigation moved from the top of the page into this rail; it is the
+         same control, doing the same job, and renaming it would rewrite
+         twenty test call sites for nothing a reader would see. -->
+    <p class="sidenav__section" id="nav-section-search">Search</p>
+    <div class="sidenav__group" role="group" aria-labelledby="nav-section-search">
+      <button type="button" class="topnav__link" data-page="home" aria-current="page">
+        <span class="topnav__icon" aria-hidden="true">&#9723;</span>
+        <span class="topnav__label">Home</span>
+      </button>
+      <button type="button" class="topnav__link" data-page="jobs">
+        <span class="topnav__icon" aria-hidden="true">&#9670;</span>
+        <span class="topnav__label">Discover Jobs</span>
+      </button>
+      <button type="button" class="topnav__link" data-page="applications">
+        <span class="topnav__icon" aria-hidden="true">&#9673;</span>
+        <span class="topnav__label">Applications</span>
+      </button>
+    </div>
+
+    <p class="sidenav__section" id="nav-section-profile">Profile</p>
+    <div class="sidenav__group" role="group" aria-labelledby="nav-section-profile">
+      <button type="button" class="topnav__link" data-page="profile">
+        <span class="topnav__icon" aria-hidden="true">&#9671;</span>
+        <span class="topnav__label">Career Profile</span>
+      </button>
+      <!-- A GLYPH, not the star. The star is the product's MARK: it belongs
+           beside the name at the top of this rail and nowhere else, and using
+           it here made it read as the icon for one destination rather than as
+           the identity of the app. `&#9635;` keeps this item in the same
+           family as the five around it. -->
+      <button type="button" class="topnav__link" data-page="evidence">
+        <span class="topnav__icon" aria-hidden="true">&#9635;</span>
+        <span class="topnav__label">Career Evidence</span>
+      </button>
+    </div>
+
+    <!-- THERE IS NO "DOCUMENTS" DESTINATION, and its absence is deliberate.
+         The design has one; this product has no document store, no upload
+         that keeps a file and nothing to list there. A nav item leading to an
+         invented library would be exactly the decorative control the brief
+         forbids. It returns when there is something behind it. -->
+    <p class="sidenav__section" id="nav-section-system">System</p>
+    <div class="sidenav__group" role="group" aria-labelledby="nav-section-system">
+      <button type="button" class="topnav__link" data-page="settings">
+        <span class="topnav__icon" aria-hidden="true">&#9678;</span>
+        <span class="topnav__label">Settings &amp; Sources</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- LANGUAGE AND THEME, in the rail rather than beside a job list.
+       Both live in the browser and deliberately NOT in `search.local.yaml`:
+       every section of that file is about how to READ and rank a posting, and
+       a language or a theme change there would bump `config_version` and
+       invalidate every score in the corpus. -->
+  <div class="sidenav__chrome">
+    <div class="sidenav__control">
+      <p class="sidenav__label" id="chrome-appearance">Appearance</p>
+      <div class="topbar__theme" id="theme-host"></div>
+    </div>
+    <div class="sidenav__control">
+      <p class="sidenav__label" id="chrome-language">Language</p>
+      <div class="topbar__locale" id="locale-host"></div>
+    </div>
+  </div>
+
+  <!-- WHICH POPULATION AM I LOOKING AT, and how big it is. This stays on the
+       surface and always has: the whole point of the runtime-mode work is
+       that a person can never mistake invented postings for their own. -->
+  <div class="sidenav__foot">
+    <p class="topbar__mode" id="health-mode"></p>
+    <div class="sidenav__stats" id="sidenav-stats"></div>
+    <details class="topbar__status">
+      <summary class="health__summary" id="health-summary">Everything is working</summary>
+      <p class="topbar__health" id="health"></p>
+    </details>
+  </div>
+
+</nav>
+
+<div class="appmain" id="appmain">
+
+<!-- THE PAGE HEADER CONTRACT.
+     One element, filled per page: a pixel eyebrow, an h1, an optional
+     subtitle, and at most one primary action on the right. Every screen has
+     it and it is the same height everywhere, which is what makes the product
+     read as one thing rather than as five screens that happen to share a
+     rail. `main.js` fills it; nothing here is page-specific. -->
+<header class="pagehead" id="pagehead">
+  <div class="pagehead__block">
+    <p class="pagehead__eyebrow" id="pagehead-eyebrow"></p>
+    <h1 class="pagehead__title" id="pagehead-title">Career Agent</h1>
+    <p class="pagehead__sub" id="pagehead-sub"></p>
+  </div>
+  <div class="pagehead__actions" id="pagehead-actions"></div>
+</header>
+
+<header class="topbar">
+  <!-- What is left in this header is the JOB LIST toolbar and nothing else.
+       The brand, the navigation, the mode line, the status disclosure and the
+       theme and language controls all moved into the rail, where they belong
+       to the product rather than to one page. -->
+  <div class="topbar__controls">
+    <!-- COLLAPSIBLE FILTERS. In the toolbar rather than in the grid, for two
+         reasons. It must stay reachable when the rail is collapsed to
+         nothing, and column 1 of `.layout` holds exactly one element -- the
+         rail -- so that adding a panel can never displace the results again.
+         A third grid child would have quietly reopened that.
+
+         Presentation state, remembered in the browser: it changes what is on
+         screen and nothing about how a posting is read, so it must never
+         touch `search.local.yaml` or bump a configuration version. -->
+    <button type="button" class="railtoggle" id="rail-toggle" aria-expanded="true"
+            aria-controls="rail">Hide filters</button>
+
+    <!-- GROUP 1: which shape the results take. A segmented selector, so the
+         three choices read as one control with one answer rather than as
+         three unrelated buttons. Rounded on the outside edges only; the
+         shared internal edges are straight, which is what makes a segment
+         look like part of a whole. -->
+    <!-- TODAY. Not a fourth segment in the view switch beside it: those are
+         three renderings of one query that the filters narrow, and the digest
+         is several queries the server composes. It sits before them because
+         it is where somebody opening the product should start. -->
+    <button type="button" id="daily-open" class="btn btn--today">Today</button>
+
+    <div class="segmented viewswitch" role="group" aria-label="How to show results">
+      <button type="button" id="view-cards" class="segmented__btn viewswitch__btn"
+              aria-pressed="true">Cards</button>
+      <button type="button" id="view-table" class="segmented__btn viewswitch__btn"
+              aria-pressed="false">Table</button>
+      <button type="button" id="view-kanban" class="segmented__btn viewswitch__btn"
+              aria-pressed="false">Board</button>
+    </div>
+
+    <!-- GROUP 2: what the results DO, which is a different question from what
+         shape they take. Keeping these in one visually connected group, and
+         apart from the view selector, is the point: a single control mixing
+         "show me cards" with "sort by salary" would suggest the two choices
+         constrain each other, and they do not.
+
+         Grouping stays here rather than among the filters because it excludes
+         no posting. It collapses the several postings an employer published
+         for one role, and a card that silently stood for seven others would
+         be worse than seven cards. -->
+    <div class="resultbar" role="group" aria-label="Order and grouping">
+      <button type="button" id="group-duplicates" class="resultbar__btn btn btn--group"
+              aria-pressed="true">One row per role</button>
+
+      <label class="sr-only" for="sort">Order results by</label>
+      <!-- Rendered here rather than only in main.js so the control is never an
+           empty box beside an already-drawn legend on first paint. state.js
+           SORTS remains the source of truth and re-renders these identically,
+           which is why these values must match it exactly. -->
+      <select id="sort" class="resultbar__field select">
+        <option value="score">Best match</option>
+        <option value="confidence">Most complete posting</option>
+        <option value="posted">Newest</option>
+        <option value="company">Company name</option>
+        <option value="title">Job title</option>
+        <option value="status">Where I am with it</option>
+      </select>
+      <button type="button" id="direction" class="resultbar__btn btn btn--dir">Highest first</button>
+    </div>
+
+  </div>
+</header>
+
+<!-- HOME. Where the job search stands today, from figures the database
+     already holds. Every number declares whether it is a STOCK -- how many
+     things are in a state now -- or an EVENT COUNT since the last review,
+     because one heading covering both is how "5 interviews" comes to mean
+     either five conversations or five moves. -->
+<main class="page page--home" id="page-home"></main>
+
+<!-- The profile and the evidence ledger, as pages rather than as a rail
+     disclosure and an overlay. Both were reachable only from inside the Jobs
+     screen, which made them feel like settings for a list. -->
+<main class="page page--profile" id="page-profile" hidden></main>
+<main class="page page--evidence" id="page-evidence" hidden></main>
+
+<!-- SETTINGS AND SOURCES, promoted out of the filter rail.
+     Where the postings come from is not a filter, and reaching it meant
+     opening a disclosure inside a panel that only exists on one page. The
+     panels move; the code behind them does not. -->
+<main class="page page--settings" id="page-settings" hidden>
+  <section class="settings__block">
+    <h2 class="settings__head" id="settings-prefs-head">Search preferences</h2>
+    <div id="search-settings-host"></div>
+  </section>
+  <section class="settings__block">
+    <h2 class="settings__head" id="settings-model-head">Your search model</h2>
+    <details id="settings-model">
+      <summary id="settings-model-summary">Review concepts and advanced scoring vocabulary</summary>
+      <div id="prefs-host"></div>
+    </details>
+  </section>
+  <section class="settings__block">
+    <h2 class="settings__head" id="settings-sources-head">Where these come from</h2>
+    <div id="sources-host"></div>
+  </section>
+  <details class="settings__block">
+    <summary id="settings-advanced-summary">Advanced refresh diagnostics</summary>
+    <h2 class="settings__head" id="settings-retr-head">Retrieve jobs</h2>
+    <div id="retr-host"></div>
+  </details>
+</main>
+
+<div class="layout" id="page-jobs" hidden>
+
+  <main class="results" id="results">
+
+    <!-- THE FILTERS, ABOVE THE RESULTS AND NOT BESIDE THEM.
+
+         They used to be a 288px rail in column 1 of a two-column grid, which
+         is a second navigation next to the first one: the reader met a
+         sidebar, then another sidebar, before reaching a job. It also spent a
+         fifth of a 1440px screen permanently on controls that are touched
+         once a session, and the design has no such rail.
+
+         So this is a horizontal panel that opens under the toolbar and closes
+         to nothing. Closed is the default and the results have the whole
+         width. What survives being closed is the STATE: every chosen filter
+         stays chosen, `.chipbar` below keeps showing what is active, and the
+         toggle carries the count -- collapsing a panel must never quietly
+         widen a search. -->
+    <section class="filterpanel" id="filterpanel" aria-labelledby="rail-toggle" hidden>
+      <div id="filters-host"></div>
+    </section>
+
+    <!-- THE RESULTS HEADING, and it is deliberately not visible.
+
+         The page has an h1 in the header and the job cards are h3, so
+         without this the outline runs h1 -> h3 and a screen-reader user is
+         told the cards are nested inside a section that is not there.
+
+         The h2 that used to fill that gap was in the filter panel, which is
+         CLOSED by default -- so the outline was correct only for somebody
+         who had opened the filters, and the test that checks it passed only
+         because an earlier test in the suite had left them open. Clearing
+         remembered state between tests is what exposed it.
+
+         `sr-only` rather than `hidden`: it has to be in the accessibility
+         tree, and the visible page already says "Jobs for you" in the
+         header above it. -->
+    <h2 class="sr-only" id="resultsheading">Jobs</h2>
+
+    <div class="chipbar" id="chipbar" hidden></div>
+    <p class="resultcount num" id="resultcount" role="status" aria-live="polite">Loading…</p>
+    <!-- The legend used to live here, permanently, above the first job.
+         It is contextual help now: a small info control beside the two
+         numbers it explains, built in `badges.js`. An explanation nobody
+         needs twice should not hold a paragraph of the page open forever. -->
+    <!-- What the eligibility default is hiding. Announced politely rather
+         than assertively: it is context for the list, not an alert. -->
+    <p class="revnotice" id="revnotice" role="status" aria-live="polite" hidden></p>
+    <p class="hiddennotice" id="hiddennotice" role="status" aria-live="polite" hidden></p>
+    <div id="list" class="cards"></div>
+    <nav class="pager" id="pager" aria-label="Pagination" hidden></nav>
+  </main>
+
+</div>
+
+</div><!-- .appmain -->
+</div><!-- .appshell -->
+
+<!-- The scrim behind the mobile drawer. Outside `.appshell` so it can cover
+     it, and click-to-dismiss, which is the gesture people try first. -->
+<div class="sidenav__scrim" id="sidenav-scrim" hidden></div>
+
+<p class="flash" id="flash" role="status" aria-live="polite" hidden></p>
+<div id="drawer-host"></div>
+<div id="evidence-host"></div>
+<div id="daily-host"></div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

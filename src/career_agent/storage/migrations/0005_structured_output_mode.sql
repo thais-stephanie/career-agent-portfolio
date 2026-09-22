@@ -1,0 +1,34 @@
+-- M2: under what guarantee an answer was produced
+--
+-- `provider` and `model` say who answered. `runner` (0004) says how the answer
+-- was obtained. This says what the vendor was asked to *guarantee* while
+-- answering, and it is a third independent axis.
+--
+-- WHY IT CANNOT BE INFERRED FROM THE ARM
+-- --------------------------------------
+-- It is per FAMILY, not per model. The Cerebras route enforces a strict schema
+-- of at most 5,000 characters; our provider schema is 4,038 and our description
+-- schema is 8,536. So one arm legitimately runs its provider family under a
+-- vendor guarantee and its description family without one -- which is the best
+-- production-usable configuration of that route, not a concession.
+--
+-- A benchmark report has to be able to say which mode produced each family, or
+-- the metric the difference lands on is unreadable. First-attempt schema pass
+-- rate means two different things under the two modes: under STRICT_SCHEMA a
+-- failure is a vendor defect, under PLAIN_JSON it is the model's own formatting
+-- and exactly what we are measuring. A column that had to be reconstructed
+-- from a model name and a date would be reconstructed wrongly.
+--
+-- The mode is already in the cache key, through `static_digest` -- an answer
+-- given under PLAIN_JSON can never be served as one given under STRICT_SCHEMA.
+-- This column is the readable half of the same fact: the key proves separation,
+-- the column lets a person see it.
+--
+-- UNRECORDED is the default for the reason 0004 gives. Every historical row
+-- predates the distinction, and inventing a mode for it would be manufacturing
+-- provenance. The three Gemini takes ran under a vendor-enforced schema, but
+-- that is a claim this migration must not make on their behalf -- it is
+-- recoverable from the run history if anyone needs it, and unknown until then.
+
+ALTER TABLE llm_call ADD COLUMN structured_output TEXT NOT NULL DEFAULT 'UNRECORDED'
+    CHECK (structured_output IN ('STRICT_SCHEMA', 'PLAIN_JSON', 'UNRECORDED'));

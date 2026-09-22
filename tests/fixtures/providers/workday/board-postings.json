@@ -1,0 +1,50 @@
+{
+  "_note": [
+    "CONTRACT-DERIVED AND INVENTED, not recorded. Same category as the Get on",
+    "Board, Jooble, Jobicy and Torre fixtures, and labelled here so nobody",
+    "reads an invented body as a capture.",
+    "",
+    "The SHAPE is the contract measured on 2026-09-05 against two real tenants",
+    "and written up in docs/product/source-evidence-2026-09-05.md. Every title,",
+    "path, requisition id and sentence below is made up; no employer named here",
+    "published any of it.",
+    "",
+    "Each entry is the MERGED payload the adapter stores: the listing fields",
+    "plus the `jobPostingInfo` object from the detail request. The field map",
+    "reads `locationsText` from the first half and `jobPostingInfo.country` and",
+    "`jobPostingInfo.timeType` from the second, so one posting has to carry both",
+    "or half the map would resolve to nothing and look like a typo."
+  ],
+  "postings": [
+    {
+      "title": "Invented Support Coordinator",
+      "externalPath": "/job/Remote-United-Kingdom/Invented-Support-Coordinator_JR100001",
+      "locationsText": "Remote, United Kingdom and 2 more",
+      "postedOn": "Posted Today",
+      "bulletFields": ["JR100001"],
+      "jobPostingInfo": {
+        "jobDescription": "<p>An invented advert. You will coordinate invented things.</p><p>No previous experience is necessary.</p>",
+        "startDate": "2026-09-08",
+        "country": {"descriptor": "United Kingdom", "id": "invented-country-id"},
+        "timeType": "Full time",
+        "jobRequisitionId": "JR100001",
+        "externalUrl": "https://invented.wd1.myworkdayjobs.com/inventedcareers/job/Remote-United-Kingdom/Invented-Support-Coordinator_JR100001"
+      }
+    },
+    {
+      "title": "Invented Payroll Analyst",
+      "externalPath": "/job/Sao-Paulo/Invented-Payroll-Analyst_JR100002",
+      "locationsText": "Sao Paulo, Brazil",
+      "postedOn": "Posted 5 Days Ago",
+      "bulletFields": ["JR100002"],
+      "jobPostingInfo": {
+        "jobDescription": "<p>An invented advert in a second country, so the fixture is not one locale wide.</p>",
+        "startDate": "2026-09-03",
+        "country": {"descriptor": "Brazil", "id": "invented-country-id-2"},
+        "timeType": "Part time",
+        "jobRequisitionId": "JR100002",
+        "externalUrl": "https://invented.wd1.myworkdayjobs.com/inventedcareers/job/Sao-Paulo/Invented-Payroll-Analyst_JR100002"
+      }
+    }
+  ]
+}

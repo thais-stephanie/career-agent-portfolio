@@ -1,0 +1,40 @@
+-- Move the filter membership tags out of the blob that holds posting text.
+--
+-- THE BUG THIS CLOSES
+-- -------------------
+-- `job_match.result_json` holds the whole MatchResult, and a MatchResult holds
+-- EVIDENCE -- sentences copied verbatim out of a job description. The `signals`
+-- and `has_salary` filters were LIKE queries over that same blob, matching
+-- pipe-fenced tags like `|award:compensation_stated|` that the serialiser
+-- appends.
+--
+-- So a posting whose text contained `|award:compensation_stated|` was returned
+-- by `has_salary=true` and excluded by `has_salary=false`, with no salary
+-- anywhere in it. Third-party text was steering a deterministic filter. That is
+-- the whole class of failure this product exists to avoid: an employer's words
+-- must be EVIDENCE the system reasons about, never INSTRUCTIONS it obeys, and a
+-- LIKE over a haystack containing both cannot tell the difference.
+--
+-- `_escape_like` was not the gap. It escaped the pattern correctly; the problem
+-- was the haystack.
+--
+-- THE FIX
+-- -------
+-- One column that contains ONLY our own identifiers. The matcher writes it, no
+-- posting text ever enters it, and the filters match against it instead of the
+-- blob. `result_json` keeps the full explanation for display and stays the only
+-- place quotes live. Two homes, two purposes, and the untrusted half is no
+-- longer on the query path.
+--
+-- Backfilled to '' rather than recomputed: a row with no membership string
+-- matches no membership filter, which is the correct reading of "we do not know
+-- what fired here". `career-agent rescore --force` refills it, and the digest
+-- drift check already tells you when a re-score is due.
+--
+-- Portability: additive ALTER with a constant default (A13-compatible), no
+-- table rewrite, no existing migration touched.
+
+ALTER TABLE job_match ADD COLUMN membership TEXT NOT NULL DEFAULT '';
+
+-- Not indexed on purpose. The filter is a substring match, which no B-tree
+-- index serves, and the honest cost is documented where the filter is built.

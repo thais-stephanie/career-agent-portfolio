@@ -1,0 +1,193 @@
+{
+  "postings": [
+    {
+      "_url": "https://programathor.com.br/jobs/33766-desenvolvedor-a-back-end-pleno-automacoes-de-mensageria-meta-wa-business",
+      "@context": "http://schema.org/",
+      "@type": "JobPosting",
+      "title": "Desenvolvedor(a) Back-End Pleno - Automações de mensageria (META, WA Business) - Full Stack",
+      "description": "<p><strong>Habilidades</strong> <br> Claude Code, Docker, Node.js, OpenAI API, Python </p> <br> <p><strong>O que nós buscamos</strong> <br> Gerenciar e evoluir as integrações com o ecossistema Meta para disparo de mensagens, tanto via BSPs (ex: Infobip) quanto via conta de desenvolvedor nativa da Meta (Cloud API / On-Premises).\r\nAdministrar Business Managers (BMs), números, templates de mensagem, qualidade de conta e políticas de disparo.\r\nManter e evoluir a integração privada com o Kommo, responsável por orquestrar as conexões não oficiais via Evolution API (números receptivos).\r\nDiagnosticar e resolver problemas de conexão, bloqueio de número, rate limit, entrega e qualidade de disparo.\r\nParticipar de decisões de arquitetura para escalar o volume de disparo com segurança e estabilidade.\r\nTrabalhar próximo a times de produto/operação para entender necessidades de disparo e traduzir em soluções técnicas.\r\nUtilizaçao de IA, assistentes de código (Claude Code, Codex etc)</p> <p> <strong>Principais responsabilidades</strong> <br> Experiência prática com Evolution API (ou ferramentas similares de conexão não oficial ao WhatsApp).\r\nExperiência com o ecossistema Meta for Developers: WhatsApp Cloud API, Business Manager, gestão de templates e políticas de qualidade.\r\nVivência com BSPs (Infobip ou similares — Gupshup, 360dialog, Zenvia, etc.).\r\nExperiência com CRMs de automação/vendas, idealmente Kommo (ou similares: RD Station CRM, Pipedrive, HubSpot).\r\nConhecimento sólido de APIs REST, webhooks e integração entre sistemas.\r\nExperiência com deploy e operação em produção (Docker, CI/CD, monitoramento, logs).\r\nLinguagem: Python, Node.js\r\nAutonomia para debugar problemas de integração ponta a ponta (da conta Meta até o banco de dados). </p> <p> <strong>Descrição da empresa</strong> <br> A Lyza é uma legaltech especializada em soluções de automação jurídica e análise de dados judiciais. Estamos construindo uma infraestrutura de extração e estruturação de informações dos tribunais brasileiros, com o objetivo de mapear novos processos, gerar inteligência sobre demandas judiciais e apoiar estratégias de defesa e prospecção jurídica.<p> <br> <p> <strong>Benefícios</strong> <br> <p> <br></p>",
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "Lyza/RS",
+        "value": "22988"
+      },
+      "datePosted": "2026-09-04",
+      "validThrough": "2026-12-04",
+      "employmentType": "CONTRACTOR",
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "Lyza/RS",
+        "sameAs": "rochaesilva.com",
+        "logo": "https://res.cloudinary.com/programathor/image/upload/c_fit,h_200,w_200/v1762367901/nqenq7sjf9sbke6ociqk.png"
+      },
+      "applicantLocationRequirements": {
+        "@type": "Country",
+        "name": "Brazil"
+      },
+      "jobLocationType": "TELECOMMUTE",
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Home Office (Remoto)",
+          "addressLocality": "Home Office",
+          "addressRegion": "-",
+          "postalCode": "",
+          "addressCountry": "BR"
+        }
+      }
+    },
+    {
+      "_url": "https://programathor.com.br/jobs/33765-desenvolvedor-a-back-end-pleno",
+      "@context": "http://schema.org/",
+      "@type": "JobPosting",
+      "title": "Desenvolvedor(a) Back-End Pleno - Back-End",
+      "description": "<p><strong>Habilidades</strong> <br> Java, JavaEE, ORACLE, Vue.js, Spring Boot </p> <br> <p><strong>O que nós buscamos</strong> <br> Responsabilidades\r\n- Desenvolver e dar manutenção em aplicações Java, assumindo evoluções de média complexidade e correções com maior autonomia em sistemas existentes da empresa e/ou clientes.\r\n- Construir e evoluir microserviços em Java utilizando Spring Boot, garantindo a aderência às diretrizes de arquitetura e boas práticas da equipe.\r\n- Desenvolver interfaces web utilizando Vue.js, integrando-as de forma eficiente com os serviços de backend, com capacidade de resolver problemas comuns de front-end.\r\n- Atuar na manutenção de sistemas em Java EE (utilizando JSF e EJB), compreendendo a estrutura de sistemas legados e aplicando padrões de projeto adequados.\r\n- Criar e executar testes unitários e de integração (não apenas &quot;testes básicos&quot;) para garantir a estabilidade e a qualidade das entregas.\r\n- Elaborar e atualizar a documentação técnica dos projetos, rotinas e APIs desenvolvidas.\r\n- Participar ativamente das cerimônias da equipe, colaborando não apenas no andamento, mas também na proposição de soluções técnicas, resolução de bloqueios e estimativas de esforço.\r\n</p> <p> <strong>Principais responsabilidades</strong> <br> Requisitos\r\n- Experiência prática e comprovada em desenvolvimento de aplicações utilizando Java.\r\n- Experiência com o ecossistema Spring, especialmente Spring Boot. (Movido de diferencial para requisito, dado o nível).\r\n- Vivência prática com criação, consumo e integração de web services (APIs REST e SOAP).\r\n- Experiência com bancos de dados relacionais, preferencialmente PostgreSQL e/ou Oracle, incluindo elaboração de consultas SQL e compreensão de modelagem de dados.\r\n- Conhecimento aplicado em tecnologias de front-end (HTML, CSS e JavaScript). (Movido de diferencial para requisito).\r\n- Domínio de controle de versionamento de código com Git. (Movido de diferencial para requisito).\r\n- Boa comunicação, perfil colaborativo e capacidade de atuar com autonomia na resolução de problemas do dia a dia.\r\n\r\nDiferenciais\r\n- Experiência prática no desenvolvimento de componentes e telas com Vue.js (se não tiver a experiência, o forte interesse e facilidade de aprendizado no framework ainda contam).\r\n- Vivência na criação e execução de testes automatizados (JUnit, Mockito, etc.).\r\n- Noções ou experiência prévia com arquitetura de microserviços e mensageria.\r\nConhecimento básico em esteiras de CI/CD e cultura DevOps.\r\n- Vivência com metodologias ágeis (Scrum ou Kanban). </p> <p> <strong>Descrição da empresa</strong> <br> A Crescer RH nasceu com o propósito de transformar o RH de um centro de suporte em uma alavanca estratégica de performance. Atuamos na intersecção entre a profundidade da psicologia e a agilidade do ecossistema de inovação, oferecendo soluções personalizadas para empresas que buscam escala com sustentabilidade.\r\n\r\nAcreditamos na metáfora da árvore: para colher frutos (lucro e resultados), é preciso nutrir as raízes (cultura e talentos). Nossa abordagem remove o viés do recrutamento comum e introduz uma curadoria técnica e comportamental rigorosa.<p> <br> <p> <strong>Benefícios</strong> <br> <p> <br></p>",
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "Crescer RH",
+        "value": "23492"
+      },
+      "datePosted": "2026-09-04",
+      "validThrough": "2026-12-04",
+      "employmentType": "CONTRACTOR",
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "Crescer RH",
+        "sameAs": "https://www.linkedin.com/company/crescer-rh-consultoria/",
+        "logo": "https://assets.example.invalid/image.png"
+      },
+      "applicantLocationRequirements": {
+        "@type": "Country",
+        "name": "Brazil"
+      },
+      "jobLocationType": "TELECOMMUTE",
+      "baseSalary": {
+        "@type": "MonetaryAmount",
+        "currency": "BRL",
+        "value": {
+          "@type": "QuantitativeValue",
+          "value": 5000,
+          "unitText": "MONTH"
+        }
+      },
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Home Office (Remoto)",
+          "addressLocality": "Home Office",
+          "addressRegion": "-",
+          "postalCode": "",
+          "addressCountry": "BR"
+        }
+      }
+    },
+    {
+      "_url": "https://programathor.com.br/jobs/33764-desenvolvedor-a-fullstack-senior",
+      "@context": "http://schema.org/",
+      "@type": "JobPosting",
+      "title": "Desenvolvedor(a) Fullstack Sênior - Full Stack",
+      "description": "<p><strong>Habilidades</strong> <br> Angular, ASP.NET, ASP.NET Core, ASP.NET MVC, SQL Server, C# </p> <br> <p><strong>O que nós buscamos</strong> <br> - Desenvolvimento e manutenção de aplicações Webforms, MVC e .NetCore;\r\n- Desenvolvimento e manutenção de APIs e SOAP;\r\n- Desenvolvimento e manutenção de funcionalidades no Front-End;\r\n- Migração de bases de dados para SQL Server;\r\n- Manutenção de aplicações Winforms e Winservices.</p> <p> <strong>Principais responsabilidades</strong> <br> - Formação em ensino superior ou técnico;\r\n- Sólidos conhecimentos em C#, WebAPI, SOAP, Design Patterns, S.O.L.I.D., HangFire, RabbitMq, CQRS, MVC, Webforms, SQL Server e GIT;\r\n- Domínio em HTML, CSS, BootStrap, Javascript, Angular.JS, Angular 2;\r\n- Conhecimento em metodologias ágeis (Scrum/Kanban);\r\n- Experiência prévia nas linguagens informadas;\r\n- Desejável conhecimentos em Visual Basic 6. </p> <p> <strong>Descrição da empresa</strong> <br> Há mais de 30 a CECAM desenvolve soluções tecnológicas voltadas para o setor público<p> <br> <p> <strong>Benefícios</strong> <br> <p> <br></p>",
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "CECAM - Consultoria Econômica, Contábil e Administrativa Municipal LTDA",
+        "value": "21060"
+      },
+      "datePosted": "2026-09-04",
+      "validThrough": "2026-12-04",
+      "employmentType": "CONTRACTOR",
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "CECAM - Consultoria Econômica, Contábil e Administrativa Municipal LTDA",
+        "sameAs": "cecam.com.br",
+        "logo": "https://assets.example.invalid/image.png"
+      },
+      "applicantLocationRequirements": {
+        "@type": "Country",
+        "name": "Brazil"
+      },
+      "jobLocationType": "TELECOMMUTE",
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Home Office (Remoto)",
+          "addressLocality": "Home Office",
+          "addressRegion": "-",
+          "postalCode": "",
+          "addressCountry": "BR"
+        }
+      }
+    },
+    {
+      "_url": "https://programathor.com.br/jobs/33754-ml-full-stack-developer-php",
+      "@context": "http://schema.org/",
+      "@type": "JobPosting",
+      "title": "Ml. Full Stack Developer PHP - Full Stack",
+      "description": "<p><strong>Habilidades</strong> <br> CI/CD, Git, JavaScript, MySQL, PHP </p> <br> <p><strong>O que nós buscamos</strong> <br> - Atuar no desenvolvimento de todos os sistemas da PagBrasil, comunicação com API’s, integrações com plug-ins/plataformas de terceiros;\r\n- Assumir papel de referência técnica e arquitetural, garantindo que as soluções sigam os melhores padrões de engenharia; \r\n- Projetar, desenvolver e otimizar arquiteturas escaláveis e de alta performance, antecipando desafios técnicos e propondo melhorias contínuas; \r\n- Liderar iniciativas estratégicas que impactam a engenharia, reduzindo dívida técnica e aumentando a eficiência dos times; \r\n- Auxiliar a equipe em problemas complexos relacionados a versionamento e integração; \r\n- Desenvolver e validar padrões, frameworks e bibliotecas internas, garantindo reutilização e escalabilidade; \r\n- Diagnosticar e resolver problemas críticos e de alto impacto, atuando na prevenção de falhas sistêmicas; \r\n- Influenciar a adoção de novas tecnologias e metodologias, garantindo que a empresa esteja sempre atualizada com as melhores práticas de mercado; \r\n- Ser altamente proativo na busca por soluções inovadoras, liderando a exploração de alternativas e o estudo profundo de documentação; \r\n- Identificar e implementar melhorias significativas antes de envolver outros, com a capacidade de antecipar problemas e implementar soluções técnicas de ponta.</p> <p> <strong>Principais responsabilidades</strong> <br> - Experiência em desenvolvimento em PHP; \r\n- Experiência em desenvolvimento em Javacript (ECMA Script 5/6); \r\n- Experiência em MySQL 8; \r\n- Versionamento utilizando GIT;\r\n- Nível de inglês intermediário (leitura de manuais).\r\n\r\nDiferenciais (não eliminatórios)\r\n- Graduação em Ciências da Computação, Análise de Sistemas, Engenharia de Computação ou áreas afins; \r\n- Experiência no segmento de fintechs ou indústria de pagamentos; \r\n- Experiência em AngularJS 1.x e/ou VueJS; \r\n- Experiência em NodeJS; \r\n- Familiaridade com o framework CodeIgniter. </p> <p> <strong>Descrição da empresa</strong> <br> OI! NÓS SOMOS O TIME PAGBRASIL 😎\r\n\r\nCertificada em 2026 pelo Great Place To Work (GPTW) pelo 5º ano consecutivo, a PagBrasil celebra mais uma conquista que reforça o nosso compromisso em construir um excelente ambiente de trabalho. O selo, certifica as melhores empresas para se trabalhar no Brasil e no mundo, com base em diversos indicadores de clima organizacional. Essa conquista se dá graças às pessoas incríveis que compõem nosso time e que nos tornam, além de a fintech líder em pagamentos no Brasil, uma empresa motivadora para se trabalhar.\r\n\r\nNosso objetivo é proporcionar um ambiente flexível, onde os colaboradores possam ser mais felizes em seus trabalhos. Incentivamos a inovação e o protagonismo de nossa equipe, buscando o crescimento e desenvolvimento profissional. Para isso, nosso time trabalha em conjunto para alcançar os resultados com excelência.\r\n\r\nFomentamos um espaço de trabalho descontraído e dinâmico, com uma equipe diversa e comprometida. Autonomia e proatividade são constantemente estimulados, incentivando a discussão aberta de ideias para embasar os processos de decisão.\r\n\r\n\r\nNOSSA MISSÃO\r\n\r\nA PagBrasil é uma empresa que busca transformar a indústria de meios de pagamentos e o mercado de e-commerce com o desenvolvimento contínuo de tecnologias inovadoras. Queremos simplificar as transações financeiras online e democratizar o acesso ao e-commerce. Para isso, nos baseamos nos princípios dos 4 I’s da PagBrasil: Incluir, Integrar, Inovar e Inspirar.\r\n\r\n\r\nQUEM SOMOS\r\n\r\nA PagBrasil é uma empresa brasileira, que possibilita a lojas digitais, internacionais ou nacionais, oferecerem soluções de pagamentos digitais otimizadas e atualizadas com as necessidades específicas do mercado brasileiro. Com clientes em mais de 45 países, a PagBrasil é parceira das principais plataformas de e-commerce do mercado, e possui recursos exclusivos para o e-commerce, como o PagStream®, ferramenta de gestão inteligente de assinaturas. A empresa também oferece split e link de pagamento, bem como uma solução para Pix diferenciada, que garante alta taxa de conversão em vendas. Entre os clientes atendidos, destacam-se Samsung, ConectCar, Simple Organic, Gringa, Pampili e Samsonite. \r\n\r\n\r\nJEITO DE SER PAGBRASIL\r\n\r\n🚀 Ambiente de trabalho horizontal com lideranças próximas e participativas.\r\n🚀 Aulas de inglês subsidiadas pela empresa.\r\n🚀 Trilha de carreira.\r\n🚀 Ambiente descontraído, dinâmico e alegre.\r\n🚀 Espírito de time e diálogo aberto ao compartilhamento de ideias e feedbacks.\r\n🚀 Pessoas como protagonistas de sua jornada.\r\n🚀 Empatia como base de nossas relações.\r\n🚀 Excelência e inovação em tudo o que fazemos.<p> <br> <p> <strong>Benefícios</strong> <br> <p> Vale Refeição; Vale Alimentação; Vale Transporte; Plano de Saúde; Plano Odontológico; Seguro de Vida; Vale Estacionamento; Academia/Gympass<br>Plano de saúde Unimed Unimax;\r\nPlano odontológico Unimed;\r\nSeguro de vida;\r\nAcesso a plataforma de Psicoterapia Wellz;\r\nWellHub (Gympass);\r\nVale-alimentação e refeição;\r\nVale-transporte;\r\nAuxílio mobilidade;\r\nEstacionamento subsidiado pela empresa;\r\nLicença parental estendida;\r\nKit Natalidade;\r\nAulas de inglês e espanhol subsidiadas pela empresa;\r\nSubsídio para treinamento e desenvolvimento;\r\nParcerias educacionais com descontos em cursos de pós-graduação;\r\nVerba para Happy Hour;\r\n14º salário.</p>",
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "PagBrasil",
+        "value": "10720"
+      },
+      "datePosted": "2026-09-01",
+      "validThrough": "2026-12-01",
+      "employmentType": "FULL_TIME",
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "PagBrasil",
+        "sameAs": "https://www.pagbrasil.com/pt-br/carreiras-oportunidades-pagbrasil/",
+        "logo": "https://assets.example.invalid/image.png"
+      },
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": " Av. Carlos Gomes, 1122 - 11° andar - Auxiliadora, 90480-001",
+          "addressLocality": "Porto Alegre",
+          "addressRegion": "-",
+          "postalCode": "",
+          "addressCountry": "BR"
+        }
+      }
+    },
+    {
+      "_url": "https://programathor.com.br/jobs/33762-desenvolvedor-full-stack-senior",
+      "@context": "http://schema.org/",
+      "@type": "JobPosting",
+      "title": "Desenvolvedor Full Stack Sênior - Full Stack",
+      "description": "<p><strong>Habilidades</strong> <br> Angular, ASP.NET, C#, CSS, HTML, SQL </p> <br> <p><strong>O que nós buscamos</strong> <br> A AGL Solutions está em busca de um talento sênior para integrar nosso time de tecnologia! 💻\r\n\r\nSe você tem experiência sólida em desenvolvimento full-stack e está pronto(a) para encarar projetos desafiadores com autonomia e colaboração, essa vaga é pra você! </p> <p> <strong>Principais responsabilidades</strong> <br> C#\r\nASP.NET 4.8\r\nAngular\r\nSQL Server\r\nHTML e CSS\r\nPrincípios SOLID\r\nInglês fluente </p> <p> <strong>Descrição da empresa</strong> <br> Somos uma empresa de serviços de tecnologia com foco em implantação, desenvolvimento e suporte de softwares.\r\n\r\nCom mais de 29 anos de mercado, oferecemos serviços personalizados e de alta qualidade para empresas de todos os portes e segmentos.\r\n\r\nInvestimos constantemente na qualificação e certificação dos nossos profissionais nas tecnologias que atuamos.\r\n\r\nE trabalhamos em colaboração com nossos clientes e parceiros para entregar soluções de software eficientes e de alto valor agregado.<p> <br> <p> <strong>Benefícios</strong> <br> <p> <br></p>",
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "AGL Solutions Consultoria em TI",
+        "value": "23823"
+      },
+      "datePosted": "2026-09-01",
+      "validThrough": "2026-12-01",
+      "employmentType": "CONTRACTOR",
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "AGL Solutions Consultoria em TI",
+        "sameAs": "https://aglsolutions.com.br/",
+        "logo": "https://assets.example.invalid/image.png"
+      },
+      "applicantLocationRequirements": {
+        "@type": "Country",
+        "name": "Brazil"
+      },
+      "jobLocationType": "TELECOMMUTE",
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Home Office (Remoto)",
+          "addressLocality": "Home Office",
+          "addressRegion": "-",
+          "postalCode": "",
+          "addressCountry": "BR"
+        }
+      }
+    }
+  ]
+}

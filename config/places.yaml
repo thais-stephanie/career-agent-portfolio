@@ -1,0 +1,681 @@
+# =====================================================================
+# The place gazetteer.
+#
+# Turns `job.location_raw` -- whatever words the board happened to print --
+# into ISO 3166-1 alpha-2 country codes and coarse regions, so a person can
+# ask "postings in Brazil" without the query having to LIKE over free text.
+#
+# WHAT THIS IS NOT
+# ----------------
+# It is NOT a hiring-scope answer, and nothing derived from it may become one.
+# CLAUDE.md invariant 3 keeps three questions apart:
+#
+#     hiring_scope                     where the employer will HIRE
+#     work_environment.worksite        where the work is DONE
+#     location_raw (this file)         what the board PRINTED
+#
+# A posting that says "San Francisco" tells you where the office is. It does
+# not say the company will hire someone in Brazil, and no amount of parsing
+# turns it into that claim. Eligibility stays with the geography gate.
+#
+# THE RESOLUTION RULE
+# -------------------
+# `career_agent.match.places` splits the string on separators and matches each
+# token here, case- and accent-insensitively. Three kinds of entry:
+#
+#   regions      an explicit region word the board printed
+#   countries    a country name or alias -> ISO alpha-2
+#   cities       a city -> the country it is in
+#
+# SUBDIVISIONS RESOLVE NOTHING ON THEIR OWN, and that is deliberate rather
+# than lazy. `CA` is California and it is also the ISO code for Canada; `IL`
+# is Illinois and Israel; `CO`, `DE`, `GA`, `IN`, `LA`, `PA`, `TX` and a dozen
+# more collide the same way. A rule that guessed would be wrong silently, on
+# the most common strings in the corpus. So `subdivisions` only CONFIRMS a
+# country another token already established, and a bare `CA` resolves to
+# nothing.
+#
+# A token nobody here recognises resolves to nothing, and a posting with no
+# resolved country is EXCLUDED by a country filter rather than included by it.
+# Absence is never permission -- so the interface reports how many postings are
+# unresolved rather than letting them vanish quietly.
+# =====================================================================
+
+schema_version: 1
+reviewed_on: 2026-09-04
+
+#: Region words boards print directly. The value is a region id; a posting may
+#: carry several.
+regions:
+  worldwide: WORLDWIDE
+  world wide: WORLDWIDE
+  anywhere in the world: WORLDWIDE
+  anywhere in world: WORLDWIDE
+  global: WORLDWIDE
+  anywhere: WORLDWIDE
+  remote worldwide: WORLDWIDE
+  # `fully remote` and `home based` used to sit here and were removed on
+  # 2026-09-11: they answer the WORKSITE question, and a remote role is not
+  # thereby a worldwide one. Reading them as WORLDWIDE let a location field
+  # saying only that the job is remote open the geography gate.
+  emea: EMEA
+  europe: EMEA
+  european union: EMEA
+  eu: EMEA
+  apac: APAC
+  asia pacific: APAC
+  amer: AMERICAS
+  americas: AMERICAS
+  north america: NORTH_AMERICA
+  namer: NORTH_AMERICA
+  na: NORTH_AMERICA
+  latam: LATAM
+  latin america: LATAM
+  america latina: LATAM
+  south america: LATAM
+
+#: Which region each country belongs to. One region per country, because these
+#: are the buckets the interface offers and a country in two of them would make
+#: the facet counts stop summing to the result count.
+country_regions:
+  BR: LATAM
+  AR: LATAM
+  CL: LATAM
+  CO: LATAM
+  MX: LATAM
+  PE: LATAM
+  UY: LATAM
+  CR: LATAM
+  EC: LATAM
+  US: NORTH_AMERICA
+  CA: NORTH_AMERICA
+  GB: EMEA
+  IE: EMEA
+  DE: EMEA
+  FR: EMEA
+  ES: EMEA
+  PT: EMEA
+  NL: EMEA
+  BE: EMEA
+  IT: EMEA
+  PL: EMEA
+  SE: EMEA
+  "NO": EMEA      # quoted: YAML 1.1 reads bare `NO` as false
+  DK: EMEA
+  FI: EMEA
+  CH: EMEA
+  AT: EMEA
+  CZ: EMEA
+  RO: EMEA
+  GR: EMEA
+  IL: EMEA
+  AE: EMEA
+  ZA: EMEA
+  NG: EMEA
+  KE: EMEA
+  EE: EMEA
+  LT: EMEA
+  LV: EMEA
+  HU: EMEA
+  BG: EMEA
+  HR: EMEA
+  RS: EMEA
+  UA: EMEA
+  TR: EMEA
+  IN: APAC
+  SG: APAC
+  JP: APAC
+  AU: APAC
+  NZ: APAC
+  CN: APAC
+  HK: APAC
+  KR: APAC
+  TW: APAC
+  MY: APAC
+  ID: APAC
+  PH: APAC
+  TH: APAC
+  VN: APAC
+  # -- added 2026-09-11 for the international remote boards: countries the
+  # remote-allowed lists of 4 Day Week, Jobgether and Remotive name and the
+  # gazetteer did not know, each of which resolved to nothing and left a
+  # stated scope UNRESOLVED.
+  LU: EMEA
+  SK: EMEA
+  CY: EMEA
+  MT: EMEA
+  IS: EMEA
+  BA: EMEA
+  GE: EMEA
+  AM: EMEA
+  GH: EMEA
+  EG: EMEA
+  MA: EMEA
+  SA: EMEA
+  QA: EMEA
+  BY: EMEA
+  KZ: APAC
+  PK: APAC
+  BD: APAC
+  LK: APAC
+  NP: APAC
+  TZ: EMEA
+  UG: EMEA
+  RW: EMEA
+  ET: EMEA
+  PA: LATAM
+  GT: LATAM
+  HN: LATAM
+  SV: LATAM
+  NI: LATAM
+  DO: LATAM
+  PR: LATAM
+  JM: LATAM
+  BO: LATAM
+  PY: LATAM
+  VE: LATAM
+  GY: LATAM
+  TT: LATAM
+
+#: Country names and the spellings boards actually use. `domain/countries.py`
+#: already holds the ISO set and a small alias table for CONFIG validation;
+#: this is the larger, free-text-facing list, kept here because it is data
+#: about the world rather than a rule about the system.
+countries:
+  united states: US
+  united states of america: US
+  usa: US
+  u.s.: US
+  u.s.a.: US
+  us: US
+  estados unidos: US
+  canada: CA
+  brazil: BR
+  brasil: BR
+  united kingdom: GB
+  great britain: GB
+  england: GB
+  scotland: GB
+  wales: GB
+  northern ireland: GB
+  uk: GB
+  ireland: IE
+  germany: DE
+  deutschland: DE
+  alemanha: DE
+  france: FR
+  franca: FR
+  spain: ES
+  espana: ES
+  espanha: ES
+  portugal: PT
+  netherlands: NL
+  the netherlands: NL
+  holland: NL
+  belgium: BE
+  luxembourg: LU
+  luxemburgo: LU
+  slovakia: SK
+  eslovaquia: SK
+  cyprus: CY
+  chipre: CY
+  malta: MT
+  iceland: IS
+  islandia: IS
+  bosnia: BA
+  bosnia and herzegovina: BA
+  georgia (country): GE
+  armenia: AM
+  ghana: GH
+  egypt: EG
+  egito: EG
+  morocco: MA
+  marrocos: MA
+  saudi arabia: SA
+  arabia saudita: SA
+  qatar: QA
+  catar: QA
+  belarus: BY
+  kazakhstan: KZ
+  cazaquistao: KZ
+  pakistan: PK
+  paquistao: PK
+  bangladesh: BD
+  sri lanka: LK
+  nepal: NP
+  tanzania: TZ
+  uganda: UG
+  rwanda: RW
+  ruanda: RW
+  ethiopia: ET
+  etiopia: ET
+  panama: PA
+  guatemala: GT
+  honduras: HN
+  el salvador: SV
+  nicaragua: NI
+  dominican republic: DO
+  republica dominicana: DO
+  puerto rico: PR
+  jamaica: JM
+  bolivia: BO
+  paraguay: PY
+  paraguai: PY
+  venezuela: VE
+  guyana: GY
+  guiana: GY
+  trinidad and tobago: TT
+  trinidad: TT
+  italy: IT
+  italia: IT
+  poland: PL
+  sweden: SE
+  norway: "NO"    # quoted for the same reason line 97 is
+  denmark: DK
+  finland: FI
+  switzerland: CH
+  austria: AT
+  czechia: CZ
+  czech republic: CZ
+  romania: RO
+  greece: GR
+  israel: IL
+  united arab emirates: AE
+  uae: AE
+  south africa: ZA
+  nigeria: NG
+  kenya: KE
+  estonia: EE
+  lithuania: LT
+  latvia: LV
+  hungary: HU
+  bulgaria: BG
+  croatia: HR
+  serbia: RS
+  ukraine: UA
+  turkey: TR
+  turkiye: TR
+  india: IN
+  singapore: SG
+  japan: JP
+  australia: AU
+  new zealand: NZ
+  china: CN
+  hong kong: HK
+  south korea: KR
+  korea: KR
+  taiwan: TW
+  malaysia: MY
+  indonesia: ID
+  philippines: PH
+  thailand: TH
+  vietnam: VN
+  argentina: AR
+  chile: CL
+  colombia: CO
+  mexico: MX
+  peru: PE
+  uruguay: UY
+  costa rica: CR
+  ecuador: EC
+
+#: Cities, and the country each is in. Chosen from what the corpus actually
+#: contains rather than from a world gazetteer: `location_raw` is overwhelmingly
+#: a bare city name, so without these the country filter would resolve almost
+#: nothing. Ambiguous names are omitted rather than guessed -- there is a
+#: Birmingham in both England and Alabama, and a wrong country is worse than
+#: an unresolved one.
+cities:
+  # Added 2026-09-07 after measuring which locations in the 600
+  # highest-scoring postings resolved to nothing. Every one of these was
+  # observed in the corpus; none is speculative.
+  gurugram: IN
+  gurgaon: IN
+  noida: IN
+  edmonton: CA
+  vancouver: CA
+  sydney: AU
+  melbourne: AU
+  madison: US
+  west hollywood: US
+  sf: US
+  san francisco: US
+  new york: US
+  new york city: US
+  brooklyn: US
+  boston: US
+  cambridge ma: US
+  seattle: US
+  bellevue: US
+  chicago: US
+  austin: US
+  denver: US
+  boulder: US
+  los angeles: US
+  san diego: US
+  san jose: US
+  palo alto: US
+  menlo park: US
+  mountain view: US
+  sunnyvale: US
+  santa clara: US
+  oakland: US
+  atlanta: US
+  miami: US
+  dallas: US
+  houston: US
+  philadelphia: US
+  pittsburgh: US
+  minneapolis: US
+  detroit: US
+  phoenix: US
+  portland: US
+  salt lake city: US
+  nashville: US
+  raleigh: US
+  durham: US
+  charlotte: US
+  washington dc: US
+  arlington va: US
+  toronto: CA
+  vancouver: CA
+  montreal: CA
+  ottawa: CA
+  calgary: CA
+  waterloo: CA
+  london: GB
+  manchester: GB
+  edinburgh: GB
+  bristol: GB
+  cambridge uk: GB
+  oxford: GB
+  dublin: IE
+  cork: IE
+  berlin: DE
+  munich: DE
+  munchen: DE
+  hamburg: DE
+  frankfurt: DE
+  cologne: DE
+  koln: DE
+  paris: FR
+  lyon: FR
+  toulouse: FR
+  madrid: ES
+  barcelona: ES
+  valencia: ES
+  lisbon: PT
+  lisboa: PT
+  porto: PT
+  amsterdam: NL
+  rotterdam: NL
+  utrecht: NL
+  the hague: NL
+  eindhoven: NL
+  brussels: BE
+  antwerp: BE
+  milan: IT
+  milano: IT
+  rome: IT
+  roma: IT
+  warsaw: PL
+  warszawa: PL
+  krakow: PL
+  wroclaw: PL
+  stockholm: SE
+  gothenburg: SE
+  oslo: "NO"       # quoted: bare NO is the boolean false
+  copenhagen: DK
+  kobenhavn: DK
+  helsinki: FI
+  zurich: CH
+  geneva: CH
+  basel: CH
+  vienna: AT
+  wien: AT
+  prague: CZ
+  praha: CZ
+  bucharest: RO
+  athens: GR
+  tel aviv: IL
+  jerusalem: IL
+  haifa: IL
+  dubai: AE
+  abu dhabi: AE
+  cape town: ZA
+  johannesburg: ZA
+  lagos: NG
+  nairobi: KE
+  tallinn: EE
+  vilnius: LT
+  riga: LV
+  budapest: HU
+  sofia: BG
+  zagreb: HR
+  belgrade: RS
+  kyiv: UA
+  kiev: UA
+  istanbul: TR
+  bengaluru: IN
+  bangalore: IN
+  hyderabad: IN
+  mumbai: IN
+  pune: IN
+  chennai: IN
+  delhi: IN
+  new delhi: IN
+  gurgaon: IN
+  noida: IN
+  tokyo: JP
+  osaka: JP
+  seoul: KR
+  taipei: TW
+  shanghai: CN
+  beijing: CN
+  shenzhen: CN
+  kuala lumpur: MY
+  jakarta: ID
+  manila: PH
+  bangkok: TH
+  ho chi minh city: VN
+  hanoi: VN
+  sydney: AU
+  melbourne: AU
+  brisbane: AU
+  perth: AU
+  auckland: NZ
+  wellington: NZ
+  sao paulo: BR
+  rio de janeiro: BR
+  belo horizonte: BR
+  brasilia: BR
+  porto alegre: BR
+  curitiba: BR
+  recife: BR
+  florianopolis: BR
+  campinas: BR
+  buenos aires: AR
+  santiago: CL
+  bogota: CO
+  medellin: CO
+  mexico city: MX
+  ciudad de mexico: MX
+  guadalajara: MX
+  monterrey: MX
+  lima: PE
+  montevideo: UY
+  san jose costa rica: CR
+
+#: Subdivision codes and names. These CONFIRM a country another token already
+#: established; on their own they resolve nothing. See the header for why.
+subdivisions:
+  ca: US
+  california: US
+  ny: US
+  new york state: US
+  wa: US
+  washington: US
+  ma: US
+  massachusetts: US
+  il: US
+  illinois: US
+  tx: US
+  texas: US
+  co: US
+  colorado: US
+  ga: US
+  georgia: US
+  fl: US
+  florida: US
+  az: US
+  arizona: US
+  nc: US
+  north carolina: US
+  va: US
+  virginia: US
+  "or": US        # quoted: same reason as `on` above
+  oregon: US
+  ut: US
+  utah: US
+  mn: US
+  minnesota: US
+  pa: US
+  pennsylvania: US
+  nj: US
+  new jersey: US
+  mi: US
+  michigan: US
+  oh: US
+  ohio: US
+  tn: US
+  tennessee: US
+  dc: US
+  "on": CA        # quoted: YAML 1.1 reads bare `on` as true
+  ontario: CA
+  bc: CA
+  british columbia: CA
+  qc: CA
+  quebec: CA
+  ab: CA
+  alberta: CA
+
+# =====================================================================
+# DISPLAY NAMES. Nothing here participates in resolution.
+#
+# The tables above answer "which code is this string?". These two answer
+# "what do we call that code on screen?", which is a different question with
+# a different failure mode: getting a name wrong is a cosmetic bug, getting a
+# code wrong silently misfiles a posting.
+#
+# They live here rather than in the frontend because THIS file decides which
+# codes can exist. A second list in JavaScript would drift from it the first
+# time a country was added, and drift silently, since a missing name simply
+# falls back to the code -- which is the state this fixed.
+#
+# `NO` is quoted for the reason given at the top of `country_regions`.
+# =====================================================================
+
+country_names:
+  LU: Luxembourg
+  SK: Slovakia
+  CY: Cyprus
+  MT: Malta
+  IS: Iceland
+  BA: Bosnia and Herzegovina
+  GE: Georgia
+  AM: Armenia
+  GH: Ghana
+  EG: Egypt
+  MA: Morocco
+  SA: Saudi Arabia
+  QA: Qatar
+  BY: Belarus
+  KZ: Kazakhstan
+  PK: Pakistan
+  BD: Bangladesh
+  LK: Sri Lanka
+  NP: Nepal
+  TZ: Tanzania
+  UG: Uganda
+  RW: Rwanda
+  ET: Ethiopia
+  PA: Panama
+  GT: Guatemala
+  HN: Honduras
+  SV: El Salvador
+  NI: Nicaragua
+  DO: Dominican Republic
+  PR: Puerto Rico
+  JM: Jamaica
+  BO: Bolivia
+  PY: Paraguay
+  VE: Venezuela
+  GY: Guyana
+  TT: Trinidad and Tobago
+  AE: United Arab Emirates
+  AR: Argentina
+  AT: Austria
+  AU: Australia
+  BE: Belgium
+  BG: Bulgaria
+  BR: Brazil
+  CA: Canada
+  CH: Switzerland
+  CL: Chile
+  CN: China
+  CO: Colombia
+  CR: Costa Rica
+  CZ: Czechia
+  DE: Germany
+  DK: Denmark
+  EC: Ecuador
+  EE: Estonia
+  ES: Spain
+  FI: Finland
+  FR: France
+  GB: United Kingdom
+  GR: Greece
+  HK: Hong Kong
+  HR: Croatia
+  HU: Hungary
+  ID: Indonesia
+  IE: Ireland
+  IL: Israel
+  IN: India
+  IT: Italy
+  JP: Japan
+  KE: Kenya
+  KR: South Korea
+  LT: Lithuania
+  LV: Latvia
+  MX: Mexico
+  MY: Malaysia
+  NG: Nigeria
+  NL: Netherlands
+  "NO": Norway
+  NZ: New Zealand
+  PE: Peru
+  PH: Philippines
+  PL: Poland
+  PT: Portugal
+  RO: Romania
+  RS: Serbia
+  SE: Sweden
+  SG: Singapore
+  TH: Thailand
+  TR: Turkey
+  TW: Taiwan
+  UA: Ukraine
+  US: United States
+  UY: Uruguay
+  VN: Vietnam
+  ZA: South Africa
+
+region_names:
+  WORLDWIDE: Anywhere in the world
+  AMERICAS: The Americas
+  NORTH_AMERICA: North America
+  LATAM: Latin America
+  EMEA: Europe, Middle East and Africa
+  APAC: Asia Pacific
+

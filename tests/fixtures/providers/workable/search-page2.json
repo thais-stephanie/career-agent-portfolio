@@ -1,0 +1,186 @@
+{
+  "title": "Workable",
+  "totalSize": 169975,
+  "nextPageToken": "synthetic-cursor-page2",
+  "jobs": [
+    {
+      "department": "Field Operations",
+      "id": "6e7aab80-8fba-40db-ab91-8b70735788a2",
+      "title": "Survey Technician (Crew Chief) - Dallas, TX",
+      "state": "published",
+      "description": "<p>Blew &amp; Associates, P.A. is a leading national firm specializing in land surveying, engineering, and environmental services, boasting over 130 years of industry experience. We are seeking a Survey Crew Chief to meet the growing demands of our clients nationwide. The selected candidate will oversee survey activities conducted in the field and ensure the quality of all survey deliverables. </p><p></p><p>#zr</p><p></p><h3>Responsibilities</h3><ul><li>Responsible for collecting data to ensure the completion of a project:</li><ul><li>Locating boundary, pins, improvements, utilities, etc., while performing various project types, including ALTA, boundary, construction staking, and topographic surveys.</li><li>Check and reduce raw field data, perform calculations, and download/file survey data.</li><li>Perform project research as needed.</li><li>Follow instructions and work orders from project managers.</li><li>Communicate daily with your Field Project Manager to confirm if you are on track to complete your field schedule and inform them when you are behind or ahead of schedule.</li></ul></ul><p></p><ul><li>Physical work environment demands:</li><ul><li>Ability to safely traverse and navigate rugged terrain in remote areas.</li><li>Ability to regularly work outside in all weather conditions, including extreme heat, cold, wet, and muddy conditions, with high/precarious places.</li><li>Ability to transport heavy equipment to various job sites (regularly lifting/moving up to 25 pounds, frequently lifting/moving up to 50 pounds, and occasionally lifting/moving up to 100 pounds).</li><li>Ability to travel regionally and nationally often.</li><li>Ability to work overtime, including weekends as needed.</li></ul></ul><p></p><ul><li>Develop and maintain excellent relationships with clients, contractors, and team members</li><li>Ensure that projects are completed safely and efficiently, adhering to project schedules and budgets</li><li>Maintain survey equipment and troubleshoot issues that arise in the field</li></ul><p></p><p></p><p></p><p></p>",
+      "socialSharingDescription": "Blew &amp;amp; Associates, P.A. is a leading national firm specializing in land surveying, engineering, and environmental services, boasting over 130 years of industry experience. We are seeking a Survey Crew Chief to meet the growing demands of our cl...",
+      "employmentType": "Full-time",
+      "benefitsSection": "<ul><li>95% coverage of health benefits including Medical and Dental with optional family and/or dependent enrollment paid by employee at a group rate</li><li>50% company contribution towards Vision coverage</li><li>Tuition reimbursement (up to $5,250 per year)</li><li>401(k) matching program: company match 100% of your deferrals up to 3% of your compensation, plus 50% of your deferrals over 3% not exceeding 5% of your compensation</li><li>100% employer paid Short-Term Disability with employee buy up options</li><li>100% employer paid Life Insurance Coverage with employee buy up options</li><li>Holiday pay</li><li>Sick pay</li><li>Paid vacations</li><li>Paid parental leave</li><li>Per diem for any overnight stay</li><li>Overtime incentives</li><li>Possible year-end bonuses based on performance and tenure</li><li>Apparel allotments for boots and work attire </li><li>Company Truck </li><li>Company Paid Cell Phone</li><li>Company Equipment</li></ul><p></p>",
+      "requirementsSection": "<ul> <li>Minimum of 3 years of experience as a Survey Crew Chief</li> <li>Strong understanding of surveying concepts and practices</li> <li>Proficient in the use of survey equipment such as total stations, GPS receivers, and data collectors</li> <li>Part 107 license is preferred but not required </li> <li>Familiarity with CAD software, specifically Carlson AutoCAD, is a plus but not required</li> <li>Excellent communication and leadership skills</li> <li>Ability to work independently and as part of a team, with a focus on delivering high-quality work on time and within budget</li> </ul>",
+      "url": "https://jobs.workable.com/view/eDgaLvtN4UGuV3W2fNkESw/remote-survey-technician-(crew-chief)---dallas%2C-tx-in-dallas-at-blew-%26-associates%2C-p.a.",
+      "language": "en",
+      "locations": [
+        "TELECOMMUTE",
+        "Dallas, Texas, United States"
+      ],
+      "location": {
+        "city": "Dallas",
+        "subregion": "Texas",
+        "countryName": "United States"
+      },
+      "created": "2026-08-31T20:21:07.155Z",
+      "updated": "2026-08-31T20:21:07.155Z",
+      "company": {
+        "id": "ffd381ae-be7d-414e-b94e-f0a7c36c7a17",
+        "title": "Blew & Associates, P.A.",
+        "website": "http://www.blewinc.com",
+        "image": "https://workablehr.s3.amazonaws.com/uploads/account/logo/573718/logo",
+        "description": "<p>With over 130 years of experience, Blew serves as a fixture in the Northwest Arkansas community and throughout the United States. Although much has changed since our start in 1891, Blew continues to uphold the same ideals and standards: accuracy, dedication, hard work, and customer service. Blew has successfully grown from a one-man local surveying and civil engineering company to a highly respected national land surveying, environmental assessment, and civil engineering firm.</p>",
+        "url": "https://jobs.workable.com/company/xAftuBnNfwVpoK1gZ1N4sX/jobs-at-blew-%26-associates%2C-p.a.",
+        "socialSharingImage": "https://workablehr.s3.amazonaws.com/uploads/account/open_graph_logo/573718/social",
+        "socialSharingDescription": "With over 130 years of experience, Blew serves as a fixture in the NWA community and throughout the U.S. Blew has grown from a one-man local surveying company to a respected national surveying, engineering, and environmental firm with over 300 employees."
+      },
+      "isFeatured": true,
+      "workplace": "remote"
+    },
+    {
+      "id": "5ef05570-3b3e-4860-a538-c3db706561f5",
+      "title": "Front-End Engineer",
+      "state": "published",
+      "description": "<p><br />HelloGov AI is a fast-growing gov-tech company transforming how people navigate government services through artificial intelligence. We simplify complex processes including passports, travel visas, vehicle registrations, and business formations making them faster, easier, and less stressful through our trusted technology platform. We are looking for a talented Front-End Software Engineer to join our on-site engineering team in Miami.</p><p>As a Front-End Software Engineer, you willl play a pivotal role in crafting intuitive, AI-enhanced user interfaces that power our website, checkout flows, and both our admin and client portals. You will work within an established architecture alongside the Engineering Lead, Back-End Engineering, Product, and Design to build scalable, reusable components that support AI-driven interactions and make it faster to launch new products and services.</p><p>The role requires expertise in Next.js and modern UI frameworks, a modular approach to front-end architecture, and comfort building conditional logic for dynamic documents. If you enjoy building scalable front-end applications, collaborating across teams, and taking ownership from development through deployment, we would love to meet you.</p>",
+      "socialSharingDescription": "HelloGov AI is a fast-growing gov-tech company transforming how people navigate government services through artificial intelligence. We simplify complex processes including passports, travel visas, vehicle registrations, and business formations making ...",
+      "employmentType": "Full-time",
+      "benefitsSection": "<p></p><ul><li>Aetna medical, dental, vision, and life insurance</li><li>10 days of paid time off (PTO) plus most federal holidays</li><li>Company-paid parking pass</li><li>Complimentary office snacks, coffee, and beverages</li><li>Team lunches and company events</li><li>Collaborative in-office culture in Brickell, Miami</li><li>High-performing and supportive team culture</li><li>Work alongside experienced engineers using modern technologies</li><li>Opportunity to make a visible impact and grow your career</li></ul><p></p><p>HelloGov is an equal opportunity employer. We do not discriminate on the basis of race, color, religion, sex, national origin, age, disability, veteran status, sexual orientation, gender identity, or any other protected characteristic under applicable law.</p>",
+      "requirementsSection": "<p></p><ul><ul><li>Build and maintain modern web applications using Next.js, React, and TypeScript.</li><li>Develop scalable, reusable front-end architecture and UI components.</li><li>Create responsive, accessible user interfaces from Figma designs.</li><li>Build dynamic workflows and document-driven user experiences.</li><li>Integrate with REST and GraphQL APIs.</li><li>Develop real-time features using WebSockets.</li><li>Support AI-powered customer experiences and workflows.</li><li>Maintain authentication and authorization with Auth0.</li><li>Deploy applications in Vercel and monitor performance with Sentry.</li><li>Write clean, maintainable code and participate in code reviews.</li><li>Own features from development through production deployment.</li></ul><ul><li>3+ years of professional front-end development experience.</li><li>Strong experience with Next.js, React, TypeScript, JavaScript, HTML5, and CSS3.</li><li>Experience building and deploying production web applications.</li><li>Experience integrating REST and GraphQL APIs.</li><li>Experience with responsive design, reusable components, and design systems.</li><li>Familiarity with Auth0 or OAuth authentication.</li><li>Experience with GitHub and modern development workflows.</li><li>Strong debugging, problem-solving, and performance optimization skills.</li><li>Excellent communication and collaboration skills.</li><li>Fluent in English (written and verbal).</li><li>Comfortable working in a fast-paced startup environment.</li><li>Available to work on-site in our Brickell, Miami office Monday–Friday, 9:00 AM–6:00 PM.</li></ul><li>Preferred Qualifications</li><ul><li>Experience with Node.js or NestJS.</li><li>Experience with WebSockets or Socket.io.</li><li>Experience using Figma.</li><li>Experience with Vercel, Sentry, Puppeteer, Mailgun, or EasyPost.</li><li>Experience with AI tools such as Cursor, GitHub Copilot, Claude Code, or ChatGPT.</li><li>Experience building AI-powered applications or integrating LLM APIs.</li><li>Experience with PHP frameworks</li></ul></ul>",
+      "url": "https://jobs.workable.com/view/cHXFqWPwxhnPNGkEYuYX4c/front-end-engineer-in-miami-at-hellogov-ai",
+      "language": "en",
+      "locations": [
+        "Miami, Florida, United States"
+      ],
+      "location": {
+        "city": "Miami",
+        "subregion": "Florida",
+        "countryName": "United States"
+      },
+      "created": "2026-08-31T16:16:32.332Z",
+      "updated": "2026-08-31T16:16:32.332Z",
+      "company": {
+        "id": "94ec4296-6fae-4421-a894-58712b3f7ebd",
+        "title": "HelloGov AI",
+        "website": "https://hellogov.ai",
+        "image": "https://workablehr.s3.amazonaws.com/uploads/account/logo/684923/logo",
+        "description": "<p>HelloGov AI is an innovative startup transforming how citizens interact with government services. By leveraging advanced technology, we provide a premium, AI-powered layer to simplify and enhance these interactions. Our mission is to streamline processes like passport applications, travel visas, vehicle registrations, and immigration—and to eventually expand to other critical citizen-government services.</p>",
+        "url": "https://jobs.workable.com/company/joAJaGS5aZC4FYawhx5qAr/jobs-at-hellogov-ai",
+        "socialSharingImage": "https://workablehr.s3.amazonaws.com/uploads/account/open_graph_logo/684923/social",
+        "socialSharingDescription": "HelloGov AI is an innovative startup transforming how citizens interact with government services. By leveraging advanced technology, we provide a premium, AI-powered layer to simplify and enhance these interactions. Our mission is to streamline process..."
+      },
+      "isFeatured": true,
+      "workplace": "on_site"
+    },
+    {
+      "department": "Project Management",
+      "id": "69b8e061-57d1-4907-b343-23929368f6a3",
+      "title": "Professional Land Surveyor - TN",
+      "state": "published",
+      "description": "<p>Blew &amp; Associates, P.A. is a highly regarded national firm specializing in land surveying, engineering, and environmental services. With an impressive track record spanning over 130 years in the industry, we are currently seeking a talented Professional Land Surveyor to join our team.</p><p>In this role, you will be responsible for overseeing and managing survey technicians, performing boundary, easement, deed, and title reviews, and conducting detailed research at the town, county, and state levels. You will also be responsible for evaluating surveys, field notes, maps, aerial photographs, and other materials to identify potential project constraints and determine the best approach to complete projects on time and within budget. Additionally, you will be required to perform calculations of quantities and volumes and communicate with crew chiefs and our operations team on a daily basis.</p><p>Collaboration with drafting managers, design staff, and the operations team will be necessary for providing status updates, discussing challenges, and addressing plan revisions.</p><p></p>",
+      "socialSharingDescription": "Blew &amp;amp; Associates, P.A. is a highly regarded national firm specializing in land surveying, engineering, and environmental services. With an impressive track record spanning over 130 years in the industry, we are currently seeking a talented Pro...",
+      "employmentType": "Full-time",
+      "benefitsSection": "<ul> <li> </li><li>95% coverage of health benefits, including Medical and Dental, with optional family and/or dependent enrollment paid by the employee at a group rate</li> <li>50% company contribution towards Vision coverage</li> <li>Tuition reimbursement (up to $5,250 per year)</li> <li>401(k) matching program: company match 100% of your deferrals up to 3% of your compensation, plus 50% of your deferrals over 3% not exceeding 5% of your compensation</li> <li>100% employer-paid Short-Term Disability with employee buy-up options</li> <li>100% employer-paid Life Insurance Coverage with employee buy-up options</li> <li>Holiday pay</li> <li>Sick pay</li> <li>Paid vacations</li> <li>Paid parental leave</li> <li>Company Computer</li> </ul>",
+      "requirementsSection": "<p></p><ul><li>A valid Professional Land Surveyor (PLS) license is required, with multiple state licensures being a plus.</li><li>Field and office experience in land surveying is essential, and attention to detail is a must.</li><li>A proven track record of acquiring new clients and generating new revenue. </li><li>Excellent written and verbal communication skills are necessary for effective collaboration and the ability to take direction and grow with the company.</li><li>A proven track record of managing survey crews.</li><li>Self-motivation, drive, and the ability to work remotely are important for success in this role.</li><li>Experience using AutoCAD and/or Carlson Survey is required, and proficiency with Quickbase to log job statuses is a plus.</li><li>The position requires being on call for one weekend every three to four months.</li></ul>",
+      "url": "https://jobs.workable.com/view/e4c6ZcfJFs9ajVsjmRQrzn/remote-professional-land-surveyor---tn-in-nashville-at-blew-%26-associates%2C-p.a.",
+      "language": "en",
+      "locations": [
+        "TELECOMMUTE",
+        "Nashville, Tennessee, United States"
+      ],
+      "location": {
+        "city": "Nashville",
+        "subregion": "Tennessee",
+        "countryName": "United States"
+      },
+      "created": "2026-08-31T20:19:39.083Z",
+      "updated": "2026-08-31T20:19:39.083Z",
+      "company": {
+        "id": "ffd381ae-be7d-414e-b94e-f0a7c36c7a17",
+        "title": "Blew & Associates, P.A.",
+        "website": "http://www.blewinc.com",
+        "image": "https://workablehr.s3.amazonaws.com/uploads/account/logo/573718/logo",
+        "description": "<p>With over 130 years of experience, Blew serves as a fixture in the Northwest Arkansas community and throughout the United States. Although much has changed since our start in 1891, Blew continues to uphold the same ideals and standards: accuracy, dedication, hard work, and customer service. Blew has successfully grown from a one-man local surveying and civil engineering company to a highly respected national land surveying, environmental assessment, and civil engineering firm.</p>",
+        "url": "https://jobs.workable.com/company/xAftuBnNfwVpoK1gZ1N4sX/jobs-at-blew-%26-associates%2C-p.a.",
+        "socialSharingImage": "https://workablehr.s3.amazonaws.com/uploads/account/open_graph_logo/573718/social",
+        "socialSharingDescription": "With over 130 years of experience, Blew serves as a fixture in the NWA community and throughout the U.S. Blew has grown from a one-man local surveying company to a respected national surveying, engineering, and environmental firm with over 300 employees."
+      },
+      "isFeatured": true,
+      "workplace": "remote"
+    },
+    {
+      "department": "Field Operations",
+      "id": "8b3b119b-0ade-4042-ba07-e7be0a0b5d17",
+      "title": "Survey Technician Nashville, TN",
+      "state": "published",
+      "description": "<p>Blew &amp; Associates, P.A. is a leading national firm specializing in land surveying, engineering, and environmental services, boasting over 130 years of industry experience. We are seeking a Survey Crew Chief to meet the growing demands of our clients nationwide. The selected candidate will oversee survey activities conducted in the field and ensure the quality of all survey deliverables.</p><p></p><h3>Responsibilities</h3><ul><li>Responsible for collecting data to ensure the completion of a project:</li><ul><li>Locating boundary, pins, improvements, utilities, etc., while performing various project types, including ALTA, boundary, construction staking, and topographic surveys.</li><li>Check and reduce raw field data, perform calculations, and download/file survey data.</li><li>Perform project research as needed.</li><li>Follow instructions and work orders from project managers.</li><li>Communicate daily with your Field Project Manager to confirm if you are on track to complete your field schedule and inform them when you are behind or ahead of schedule.</li></ul></ul><p></p><ul><li>Physical work environment demands:</li><ul><li>Ability to safely traverse and navigate rugged terrain in remote areas.</li><li>Ability to regularly work outside in all weather conditions, including extreme heat, cold, wet, and muddy conditions, with high/precarious places.</li><li>Ability to transport heavy equipment to various job sites (regularly lifting/moving up to 25 pounds, frequently lifting/moving up to 50 pounds, and occasionally lifting/moving up to 100 pounds).</li><li>Ability to travel regionally and nationally often.</li><li>Ability to work overtime, including weekends as needed.</li></ul></ul><p></p><ul><li>Develop and maintain excellent relationships with clients, contractors, and team members</li><li>Ensure that projects are completed safely and efficiently, adhering to project schedules and budgets</li><li>Maintain survey equipment and troubleshoot issues that arise in the field</li></ul><p></p><p></p><p></p><p></p><p>#zr</p>",
+      "socialSharingDescription": "Blew &amp;amp; Associates, P.A. is a leading national firm specializing in land surveying, engineering, and environmental services, boasting over 130 years of industry experience. We are seeking a Survey Crew Chief to meet the growing demands of our cl...",
+      "employmentType": "Full-time",
+      "benefitsSection": "<ul> <li>95% coverage of health benefits including Medical and Dental with optional family and/or dependent enrollment paid by employee at a group rate</li> <li>50% company contribution towards Vision coverage</li> <li>Tuition reimbursement (up to $5,250 per year)</li> <li>401(k) matching program: company match 100% of your deferrals up to 3% of your compensation, plus 50% of your deferrals over 3% not exceeding 5% of your compensation</li> <li>100% employer paid Short-Term Disability with employee buy up options</li> <li>100% employer paid Life Insurance Coverage with employee buy up options</li> <li>Holiday pay</li> <li>Sick pay</li> <li>Paid vacations</li> <li>Paid parental leave</li> <li>Per diem for any overnight stay</li> <li>Overtime incentives</li> <li>Possible year-end bonuses based on performance and tenure</li> <li>Apparel allotments for boots and work attire </li> <li>Company Truck </li> <li>Company Paid Cell Phone</li> <li>Company Equipment</li> </ul>",
+      "requirementsSection": "<ul> <li>Minimum of 3 years of experience as a Survey Crew Chief</li> <li>Strong understanding of surveying concepts and practices</li> <li>Proficient in the use of survey equipment such as total stations, GPS receivers, and data collectors</li> <li>Part 107 license is preferred but not required </li> <li>Familiarity with CAD software, specifically Carlson AutoCAD, is a plus but not required</li> <li>Excellent communication and leadership skills</li> <li>Ability to work independently and as part of a team, with a focus on delivering high-quality work on time and within budget</li> </ul>",
+      "url": "https://jobs.workable.com/view/icbAziouUYYSgk9UGaY4Wx/remote-survey-technician-nashville%2C-tn-in-nashville-at-blew-%26-associates%2C-p.a.",
+      "language": "en",
+      "locations": [
+        "TELECOMMUTE",
+        "Nashville, Tennessee, United States"
+      ],
+      "location": {
+        "city": "Nashville",
+        "subregion": "Tennessee",
+        "countryName": "United States"
+      },
+      "created": "2026-08-31T20:18:54.262Z",
+      "updated": "2026-08-31T20:18:54.262Z",
+      "company": {
+        "id": "ffd381ae-be7d-414e-b94e-f0a7c36c7a17",
+        "title": "Blew & Associates, P.A.",
+        "website": "http://www.blewinc.com",
+        "image": "https://workablehr.s3.amazonaws.com/uploads/account/logo/573718/logo",
+        "description": "<p>With over 130 years of experience, Blew serves as a fixture in the Northwest Arkansas community and throughout the United States. Although much has changed since our start in 1891, Blew continues to uphold the same ideals and standards: accuracy, dedication, hard work, and customer service. Blew has successfully grown from a one-man local surveying and civil engineering company to a highly respected national land surveying, environmental assessment, and civil engineering firm.</p>",
+        "url": "https://jobs.workable.com/company/xAftuBnNfwVpoK1gZ1N4sX/jobs-at-blew-%26-associates%2C-p.a.",
+        "socialSharingImage": "https://workablehr.s3.amazonaws.com/uploads/account/open_graph_logo/573718/social",
+        "socialSharingDescription": "With over 130 years of experience, Blew serves as a fixture in the NWA community and throughout the U.S. Blew has grown from a one-man local surveying company to a respected national surveying, engineering, and environmental firm with over 300 employees."
+      },
+      "isFeatured": true,
+      "workplace": "remote"
+    },
+    {
+      "department": "Field Operations",
+      "id": "df0c144d-d1ac-49ff-9273-f8f7b6375a9c",
+      "title": "Survey Technician Chicago, IL",
+      "state": "published",
+      "description": "<p>Blew &amp; Associates, P.A. is a leading national firm specializing in land surveying, engineering, and environmental services, boasting over 130 years of industry experience. We are seeking a Survey Crew Chief to meet the growing demands of our clients nationwide. The selected candidate will oversee survey activities conducted in the field and ensure the quality of all survey deliverables.</p><p></p><p>#zr</p><p></p><h3>Responsibilities</h3><ul><li>Responsible for collecting data to ensure the completion of a project:</li><ul><li>Locating boundary, pins, improvements, utilities, etc., while performing various project types, including ALTA, boundary, construction staking, and topographic surveys.</li><li>Check and reduce raw field data, perform calculations, and download/file survey data.</li><li>Perform project research as needed.</li><li>Follow instructions and work orders from project managers.</li><li>Communicate daily with your Field Project Manager to confirm if you are on track to complete your field schedule and inform them when you are behind or ahead of schedule.</li></ul></ul><p></p><ul><li>Physical work environment demands:</li><ul><li>Ability to safely traverse and navigate rugged terrain in remote areas.</li><li>Ability to regularly work outside in all weather conditions, including extreme heat, cold, wet, and muddy conditions, with high/precarious places.</li><li>Ability to transport heavy equipment to various job sites (regularly lifting/moving up to 25 pounds, frequently lifting/moving up to 50 pounds, and occasionally lifting/moving up to 100 pounds).</li><li>Ability to travel regionally and nationally often.</li><li>Ability to work overtime, including weekends as needed.</li></ul></ul><p></p><ul><li>Develop and maintain excellent relationships with clients, contractors, and team members</li><li>Ensure that projects are completed safely and efficiently, adhering to project schedules and budgets</li><li>Maintain survey equipment and troubleshoot issues that arise in the field</li></ul>",
+      "socialSharingDescription": "Blew &amp;amp; Associates, P.A. is a leading national firm specializing in land surveying, engineering, and environmental services, boasting over 130 years of industry experience. We are seeking a Survey Crew Chief to meet the growing demands of our cl...",
+      "employmentType": "Full-time",
+      "benefitsSection": "<ul> <li>95% coverage of health benefits including Medical and Dental with optional family and/or dependent enrollment paid by employee at a group rate</li> <li>50% company contribution towards Vision coverage</li> <li>Tuition reimbursement (up to $5,250 per year)</li> <li>401(k) matching program: company match 100% of your deferrals up to 3% of your compensation, plus 50% of your deferrals over 3% not exceeding 5% of your compensation</li> <li>100% employer paid Short-Term Disability with employee buy up options</li> <li>100% employer paid Life Insurance Coverage with employee buy up options</li> <li>Holiday pay</li> <li>Sick pay</li> <li>Paid vacations</li> <li>Paid parental leave</li> <li>Per diem for any overnight stay</li> <li>Overtime incentives</li> <li>Possible year-end bonuses based on performance and tenure</li> <li>Apparel allotments for boots and work attire </li> <li>Company Truck </li> <li>Company Paid Cell Phone</li> <li>Company Equipment</li> </ul>",
+      "requirementsSection": "<ul> <li>Minimum of 3 years of experience as a Survey Crew Chief</li> <li>Strong understanding of surveying concepts and practices</li> <li>Proficient in the use of survey equipment such as total stations, GPS receivers, and data collectors</li> <li>Part 107 license is preferred but not required </li> <li>Familiarity with CAD software, specifically Carlson AutoCAD, is a plus but not required</li> <li>Excellent communication and leadership skills</li> <li>Ability to work independently and as part of a team, with a focus on delivering high-quality work on time and within budget</li> </ul>",
+      "url": "https://jobs.workable.com/view/txu3aARGs44C672Wq6Rzef/remote-survey-technician-chicago%2C-il-in-chicago-at-blew-%26-associates%2C-p.a.",
+      "language": "en",
+      "locations": [
+        "TELECOMMUTE",
+        "Chicago, Illinois, United States"
+      ],
+      "location": {
+        "city": "Chicago",
+        "subregion": "Illinois",
+        "countryName": "United States"
+      },
+      "created": "2026-08-31T20:17:59.083Z",
+      "updated": "2026-08-31T20:17:59.083Z",
+      "company": {
+        "id": "ffd381ae-be7d-414e-b94e-f0a7c36c7a17",
+        "title": "Blew & Associates, P.A.",
+        "website": "http://www.blewinc.com",
+        "image": "https://workablehr.s3.amazonaws.com/uploads/account/logo/573718/logo",
+        "description": "<p>With over 130 years of experience, Blew serves as a fixture in the Northwest Arkansas community and throughout the United States. Although much has changed since our start in 1891, Blew continues to uphold the same ideals and standards: accuracy, dedication, hard work, and customer service. Blew has successfully grown from a one-man local surveying and civil engineering company to a highly respected national land surveying, environmental assessment, and civil engineering firm.</p>",
+        "url": "https://jobs.workable.com/company/xAftuBnNfwVpoK1gZ1N4sX/jobs-at-blew-%26-associates%2C-p.a.",
+        "socialSharingImage": "https://workablehr.s3.amazonaws.com/uploads/account/open_graph_logo/573718/social",
+        "socialSharingDescription": "With over 130 years of experience, Blew serves as a fixture in the NWA community and throughout the U.S. Blew has grown from a one-man local surveying company to a respected national surveying, engineering, and environmental firm with over 300 employees."
+      },
+      "isFeatured": true,
+      "workplace": "remote"
+    }
+  ],
+  "autoAppliedFilters": {}
+}

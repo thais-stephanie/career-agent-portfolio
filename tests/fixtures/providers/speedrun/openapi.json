@@ -1,0 +1,1599 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "speedrun talent network API",
+    "version": "1.0.0",
+    "description": "Public, read-only API over the a16z speedrun talent network jobs board: live open roles across the speedrun and a16z portfolios (plus an opt-in wider startup universe), hiring companies, curated collections, and aggregate hiring stats. No authentication for reads. Every response is JSON and edge-cached for 1-5 minutes. Please pass ?source=<your-integration> so we can see agent traffic. Data refreshes continuously from each company’s live job board.",
+    "contact": {
+      "name": "speedrun talent team",
+      "url": "https://speedrun-talent-network.com/developers"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://speedrun-talent-network.com"
+    }
+  ],
+  "paths": {
+    "/api/v1/jobs": {
+      "get": {
+        "operationId": "searchJobs",
+        "summary": "Search open roles",
+        "description": "Full-text + faceted search over every live role, with the exact vocabulary the site’s /jobs board uses. Facet counts are computed against the query so the numbers never lie. Default scope covers the speedrun + a16z portfolios; pass scope=speedrun to narrow to speedrun portfolio companies only, or scope=everywhere to include the wider startup universe (when the scope machinery is live, responses carry scope and beyond_portfolio).",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Free-text query (title, company, location; synonyms like ml/swe/nyc expand).",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "fn",
+            "in": "query",
+            "required": false,
+            "description": "Function filter, comma-separated: engineering, research, product, design, sales, marketing, operations, other.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sen",
+            "in": "query",
+            "required": false,
+            "description": "Seniority filter, comma-separated: founding, exec, staff, senior, junior, intern.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "emp",
+            "in": "query",
+            "required": false,
+            "description": "Employment type, comma-separated: FullTime, PartTime, Intern, Contract, Temporary.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "loc",
+            "in": "query",
+            "required": false,
+            "description": "Location filter: comma-separated city values (see facets.loc for live vocabulary); special value \"remote\".",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "remote",
+            "in": "query",
+            "required": false,
+            "description": "Set to 1 to filter to remote-open roles.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          },
+          {
+            "name": "comp",
+            "in": "query",
+            "required": false,
+            "description": "Minimum annual comp in USD: matches roles whose posted ANNUAL band reaches this number (comp_max >= comp). Bands posted in non-annual periods (comp_period = hour/month/week/day) never match.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "portfolio",
+            "in": "query",
+            "required": false,
+            "description": "Relationship tier, comma-separated: speedrun, a16z, market.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cohort",
+            "in": "query",
+            "required": false,
+            "description": "speedrun cohort tag(s), comma-separated (e.g. SR007).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "company",
+            "in": "query",
+            "required": false,
+            "description": "Exact company key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stealth",
+            "in": "query",
+            "required": false,
+            "description": "'only' = stealth roles only; 'hide' = hide stealth roles.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "only",
+                "hide"
+              ]
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "description": "'speedrun' narrows results to speedrun portfolio companies only; 'everywhere' widens them past the portfolio into the startup universe (both flag-gated server-side; inert while the scope machinery is dark).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "speedrun",
+                "portfolio",
+                "everywhere"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "rel (relevance, default with q) | new (newest) | comp (highest posted comp).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "rel",
+                "new",
+                "comp"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "0-based page number, 50 items per page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200,
+              "default": 0
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Optional attribution tag for your integration (e.g. your agent or app name). Echoed back in the response.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching jobs, facet counts, and pagination metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Job"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "page": {
+                      "type": "integer",
+                      "description": "0-based."
+                    },
+                    "page_size": {
+                      "type": "integer",
+                      "const": 50
+                    },
+                    "total_pages": {
+                      "type": "integer"
+                    },
+                    "facets": {
+                      "$ref": "#/components/schemas/Facets"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "speedrun",
+                        "portfolio",
+                        "everywhere"
+                      ],
+                      "description": "Present only while the universe scope is live."
+                    },
+                    "beyond_portfolio": {
+                      "type": "integer",
+                      "description": "Roles matching the same filters, past the scope boundary. In portfolio scope: universe-tier roles beyond the portfolio. In speedrun scope: roles beyond speedrun within the a16z portfolio. In everywhere scope: the count of universe-tier roles ALREADY included in the results (informational — never add it to total). Present only while the universe scope is live."
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "jobs",
+                    "total",
+                    "page",
+                    "page_size",
+                    "total_pages",
+                    "facets"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request (e.g. too many filter values).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Query failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{id}": {
+      "get": {
+        "operationId": "getJob",
+        "summary": "Job detail",
+        "description": "One role by UUID, 8-hex id prefix, or canonical slug. Closed roles return 200 with status:\"closed\"; unknown ids 404.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Job UUID, first-8-hex prefix, or the canonical slug from a job URL."
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Optional attribution tag for your integration (e.g. your agent or app name). Echoed back in the response.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/JobDetail"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "job"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No job with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Query failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/companies": {
+      "get": {
+        "operationId": "listCompanies",
+        "summary": "Hiring companies",
+        "description": "Portfolio companies with at least one live role, most open roles first. Same list the site’s /companies directory shows.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "0-based page number, 100 items per page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200,
+              "default": 0
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Optional attribution tag for your integration (e.g. your agent or app name). Echoed back in the response.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hiring companies + pagination metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "companies": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Company"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "page_size": {
+                      "type": "integer",
+                      "const": 100
+                    },
+                    "total_pages": {
+                      "type": "integer"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "companies",
+                    "total",
+                    "page",
+                    "page_size",
+                    "total_pages"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Query failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/companies/{slug}": {
+      "get": {
+        "operationId": "getCompany",
+        "summary": "Company profile + open roles",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Optional attribution tag for your integration (e.g. your agent or app name). Echoed back in the response.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The company and its live roles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "company": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/Company"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "jobs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": "string"
+                                  },
+                                  "location": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "workplace_type": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "employment_type": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "comp_summary": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "comp_min": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "comp_max": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "comp_period": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "published_at": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "url"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "jobs"
+                          ]
+                        }
+                      ]
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "company"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No company with that slug.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Query failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/collections": {
+      "get": {
+        "operationId": "listCollections",
+        "summary": "Published collections",
+        "description": "Curated collections of hiring companies (pinned tiers, core industries, hubs, investors, signals) with live company/role counts.",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Optional attribution tag for your integration (e.g. your agent or app name). Echoed back in the response.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published collections in canonical order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "collections": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Collection"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "collections",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Query failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/collections/{slug}": {
+      "get": {
+        "operationId": "getCollection",
+        "summary": "Collection detail + ranked members",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "0-based page number, 100 items per page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200,
+              "default": 0
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Optional attribution tag for your integration (e.g. your agent or app name). Echoed back in the response.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The collection and its ranked member companies.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "collection": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/Collection"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "members": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "rank": {
+                                    "type": "integer"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "slug": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "tier": {
+                                    "type": "string",
+                                    "enum": [
+                                      "speedrun",
+                                      "a16z",
+                                      "market",
+                                      "universe"
+                                    ]
+                                  },
+                                  "cohort": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "open_roles": {
+                                    "type": "integer"
+                                  },
+                                  "location": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "blurb": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "stage": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "remote_policy": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "investors": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "functions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "cities": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "logo": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "rank",
+                                  "name",
+                                  "tier",
+                                  "open_roles"
+                                ]
+                              }
+                            },
+                            "members_total": {
+                              "type": "integer"
+                            },
+                            "page": {
+                              "type": "integer"
+                            },
+                            "page_size": {
+                              "type": "integer",
+                              "const": 100
+                            },
+                            "total_pages": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "members",
+                            "members_total",
+                            "page",
+                            "page_size",
+                            "total_pages"
+                          ]
+                        }
+                      ]
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "collection"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No published collection with that slug.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Query failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stats/hiring": {
+      "get": {
+        "operationId": "getHiringStats",
+        "summary": "Live hiring aggregates",
+        "description": "The same aggregates the /network page renders: open-role and hiring-company counts, demand mix by function, posted pay-band midpoints by function (p25/median/p75, annual USD), remote share, top hiring locations, and the portfolio split.",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Optional attribution tag for your integration (e.g. your agent or app name). Echoed back in the response.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregate hiring stats.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "live_jobs": {
+                      "type": "integer"
+                    },
+                    "hiring_companies": {
+                      "type": "integer"
+                    },
+                    "remote_jobs": {
+                      "type": "integer"
+                    },
+                    "comp_posted": {
+                      "type": "integer",
+                      "description": "Roles with a posted pay band."
+                    },
+                    "function_mix": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "function": {
+                            "type": "string"
+                          },
+                          "n": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "function",
+                          "n"
+                        ]
+                      }
+                    },
+                    "comp_bands": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "function": {
+                            "type": "string"
+                          },
+                          "n": {
+                            "type": "integer"
+                          },
+                          "p25": {
+                            "type": "integer"
+                          },
+                          "median": {
+                            "type": "integer"
+                          },
+                          "p75": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "function",
+                          "n",
+                          "p25",
+                          "median",
+                          "p75"
+                        ]
+                      }
+                    },
+                    "top_cities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "city": {
+                            "type": "string"
+                          },
+                          "n": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "city",
+                          "n"
+                        ]
+                      }
+                    },
+                    "portfolio_split": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string"
+                          },
+                          "n": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "label",
+                          "n"
+                        ]
+                      }
+                    },
+                    "notes": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "live_jobs",
+                    "hiring_companies",
+                    "remote_jobs",
+                    "comp_posted",
+                    "function_mix",
+                    "comp_bands",
+                    "top_cities",
+                    "portfolio_split"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Query failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Stats unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiSpec",
+        "summary": "This document",
+        "responses": {
+          "200": {
+            "description": "The OpenAPI 3.1 spec.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Job": {
+        "type": "object",
+        "description": "One open role, exactly as the board lists it. Stealth roles are masked (company \"Stealth\", no company link) before they ever leave the query layer.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Job UUID. The first 8 hex characters also work as a lookup key."
+          },
+          "title": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company display key; \"Stealth\" when the role is masked."
+          },
+          "company_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "company_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Absolute /companies profile URL, when one exists."
+          },
+          "url": {
+            "type": "string",
+            "description": "Canonical absolute job URL on speedrun-talent-network.com. Link users here."
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workplace_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Onsite | Hybrid | Remote (Ashby vocabulary)."
+          },
+          "employment_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "FullTime | PartTime | Intern | Contract | Temporary."
+          },
+          "function": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "engineering | research | product | design | sales | marketing | operations | other."
+          },
+          "seniority": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "founding | exec | staff | senior | junior | intern (null = unclassified)."
+          },
+          "remote": {
+            "type": "boolean"
+          },
+          "comp_min": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Posted pay band floor, in comp_period units (annual when comp_period is null)."
+          },
+          "comp_max": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Posted pay band ceiling, in comp_period units (annual when comp_period is null)."
+          },
+          "comp_currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "comp_period": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "year",
+              "hour",
+              "month",
+              "week",
+              "day",
+              null
+            ],
+            "description": "Pay period the source posted. null = annual by convention. Non-annual bands are display-only: they never match the comp filter and are excluded from comp facet counts."
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stealth": {
+            "type": "boolean"
+          },
+          "cohort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "speedrun cohort tag (e.g. SR007) when the company is a speedrun portfolio company."
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "speedrun",
+              "a16z",
+              "market",
+              "universe"
+            ],
+            "description": "Relationship tier. Present only while the startup-universe scope or the wider-market tier is live. 'market' = wider-market early-career org, not an a16z portfolio company."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "company",
+          "url",
+          "remote",
+          "stealth"
+        ]
+      },
+      "JobDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "description": "closed = the role existed but is no longer open; only id/title/company/url remain meaningful and apply/description are null."
+          },
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "company_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "company_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "speedrun",
+              "a16z",
+              "market",
+              "universe"
+            ]
+          },
+          "stealth": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workplace_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "employment_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "function": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seniority": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "remote": {
+            "type": "boolean"
+          },
+          "comp_summary": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Human-readable posted pay summary, when the company posted one."
+          },
+          "comp_min": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "comp_max": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "comp_currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "comp_period": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "year",
+              "hour",
+              "month",
+              "week",
+              "day",
+              null
+            ],
+            "description": "Pay period the source posted; null = annual by convention."
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "apply": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "How to apply. kind 'onsite' = the candidate applies on the job URL itself (no redirect); 'external' = the URL hands off to the company's own careers page.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "onsite",
+                  "external"
+                ]
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "url"
+            ]
+          },
+          "description_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Plain-text job description (HTML stripped), capped at 15,000 characters. Null on closed roles."
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "url",
+          "title",
+          "company",
+          "tier",
+          "stealth"
+        ]
+      },
+      "Company": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "Absolute /companies profile URL."
+          },
+          "tier": {
+            "type": "string",
+            "description": "'speedrun' or 'a16z' (portfolio tiers), or 'market' (wider-market org, listed only while that tier is live)."
+          },
+          "cohort": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "open_roles": {
+            "type": "integer"
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "industries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blurb": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "logo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "url",
+          "tier",
+          "open_roles"
+        ]
+      },
+      "Collection": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "pinned",
+              "industries",
+              "hubs",
+              "investors",
+              "signals"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "companies": {
+            "type": "integer"
+          },
+          "roles": {
+            "type": "integer"
+          },
+          "portfolio_members": {
+            "type": "integer",
+            "description": "Members in the a16z portfolio (speedrun + a16z tiers)."
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "group",
+          "url",
+          "companies",
+          "roles"
+        ]
+      },
+      "Facets": {
+        "type": "object",
+        "description": "Live counts per filter value, computed against the current query (each group excludes its own filter so the numbers stay honest).",
+        "properties": {
+          "fn": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "v": {
+                  "type": "string"
+                },
+                "n": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "v",
+                "n"
+              ]
+            }
+          },
+          "sen": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "v": {
+                  "type": "string"
+                },
+                "n": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "v",
+                "n"
+              ]
+            }
+          },
+          "emp": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "v": {
+                  "type": "string"
+                },
+                "n": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "v",
+                "n"
+              ]
+            }
+          },
+          "cohort": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "v": {
+                  "type": "string"
+                },
+                "n": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "v",
+                "n"
+              ]
+            }
+          },
+          "portfolio": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "v": {
+                  "type": "string"
+                },
+                "n": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "v",
+                "n"
+              ]
+            }
+          },
+          "loc": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "v": {
+                  "type": "string"
+                },
+                "n": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "v",
+                "n"
+              ]
+            },
+            "description": "Top cities; the first entry is the \"remote\" pseudo-value."
+          },
+          "compAvailable": {
+            "type": "integer"
+          },
+          "compHidden": {
+            "type": "integer"
+          },
+          "stealth": {
+            "type": "integer"
+          },
+          "named": {
+            "type": "integer"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    }
+  }
+}

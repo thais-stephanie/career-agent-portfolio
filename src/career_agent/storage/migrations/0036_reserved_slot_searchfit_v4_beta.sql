@@ -1,0 +1,38 @@
+-- Migration 0036: a RESERVED SLOT. It creates nothing.
+--
+-- reconciles: searchfit_v4_beta
+--
+-- WHY A MIGRATION THAT DOES NOTHING. On 2026-09-17 the production database ran
+-- migration 0036 `searchfit_v4_beta` from the Search Fit V4 beta lane (ADR-0027),
+-- a lane that has NOT merged into `main`. `main` then merged score replay as
+-- its own 0036, and the runner, which identified a migration by number alone,
+-- reported that file as already applied on production and skipped it. The
+-- number is spent. This file holds the slot so that:
+--
+--   * the migration files stay 1..N with no gap (the portability suite
+--     requires it, and a hole in a fresh ledger would need explaining forever);
+--   * a fresh install records `36 reserved_slot_searchfit_v4_beta`, which says
+--     exactly what happened to the number and creates NO Search Fit object:
+--     Search Fit is not merged and a fresh install must not pretend it is;
+--   * production keeps its row `36 searchfit_v4_beta` untouched, and the
+--     runner accepts that row as this slot because of the `reconciles:` line
+--     above. No ledger row is edited, rewritten or deleted.
+--
+-- WHAT DIVERGES, AND WHY THAT IS ACCEPTABLE. Production carries four tables
+-- and three indexes a fresh install does not (`job_duty_profile`,
+-- `candidate_work_relation`, `functional_alignment`, `candidate_work_relation_reading`,
+-- and their indexes, plus `idx_job_match_eligible_population`). Nothing on
+-- `main` names any of them (`tests/unit/test_db.py` asserts it), they are
+-- additive, and they hold the owner's 26 ratified work relations, which are
+-- hers and are not deleted by a schema reconciliation.
+--
+-- A RESERVED SLOT MUST BE EMPTY. On a database where the foreign row exists
+-- this file is never run, so any statement here would exist on a fresh
+-- install and be absent from production. `discover_migrations` refuses a
+-- file that both reconciles and contains statements.
+--
+-- WHEN SEARCH FIT MERGES, its schema is ported to NEW numbers, written so
+-- that a database where the experimental 0036 / 0037 already ran and a fresh
+-- install converge on the same objects. The experimental files are never
+-- reused as 0036 / 0037: the runner would refuse them against a fresh
+-- install's ledger, by design. See ADR-0028.

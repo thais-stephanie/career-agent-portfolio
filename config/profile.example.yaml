@@ -1,0 +1,176 @@
+# =====================================================================
+# EXAMPLE search profile - COMMITTED to the repository.
+#
+# This file documents the schema with safe placeholder values. It is never
+# loaded at runtime.
+#
+# To use the system, copy it:
+#     Copy-Item config/profile.example.yaml config/profile.local.yaml
+# and edit the copy. config/*.local.yaml is gitignored and never committed,
+# even to a private repository.
+# =====================================================================
+
+schema_version: 2
+candidate_key: example
+display_name: Example Candidate
+
+# ---------------------------------------------------------------------
+# A. CANDIDATE GEOGRAPHY - where I live and intend to remain.
+#    A gate INPUT.
+# ---------------------------------------------------------------------
+candidate_geography:
+  residence_country: BR        # ISO 3166-1 alpha-2
+  residence_region: LATAM
+  city: Example City
+  timezone: America/Sao_Paulo
+  intends_to_remain: true
+  relocation:
+    willing: false
+    open_to_countries: []
+    requires_full_support: true
+
+# ---------------------------------------------------------------------
+# B. JOB HIRING GEOGRAPHY - where an employer lets me live.
+#    A HARD GATE.
+# ---------------------------------------------------------------------
+job_hiring_geography:
+  prefer_worldwide_remote: true
+  acceptable_hiring_scopes:
+    - WORLDWIDE
+    - LATAM
+    # A hemisphere, and a real answer for somebody in Brazil: an employer
+    # hiring "across the Americas" may hire here. It was missing while
+    # `search.worked-example.yaml` listed it, and the two files disagreed about
+    # eligibility with nothing to notice -- which is the discrepancy
+    # `config/consistency.py` was written to surface, found in our own
+    # committed defaults on the first run.
+    - AMERICAS
+    - BR
+  accept_if_scope_includes_residence: true
+  # FAIL removes roles that require residence elsewhere from the feed.
+  # UNRESOLVED would keep them visible as "not available unless you relocate".
+  scope_excluding_residence_is: FAIL
+
+# ---------------------------------------------------------------------
+# Legal capacity to be engaged - distinct from geography.
+# ---------------------------------------------------------------------
+engagement:
+  citizenships: [BR]
+  work_authorizations:
+    - { country: BR, basis: CITIZEN }
+  needs_visa_sponsorship_for: []
+  can_invoice_as_contractor: true
+  has_local_entity: true
+  open_to_eor: true
+  contract_types_accepted: [FULL_TIME_EMPLOYEE, EOR, CONTRACTOR_B2B]
+
+# A language absent from this list is treated as NOT SPOKEN by the
+# language gate. Absence is never permission.
+languages:
+  - { code: pt, level: NATIVE }
+  - { code: en, level: C1 }
+
+# ---------------------------------------------------------------------
+# C. TARGET COMPANY MARKETS - where the COMPANY is based.
+#    Ranking and discovery only. NEVER a geographic eligibility gate.
+#    A worldwide-remote role at a company anywhere is fully eligible.
+# ---------------------------------------------------------------------
+target_company_markets:
+  WANT:       [CH, DE, JP, US]
+  INTERESTED: [GB, NL, CA, AU, SG, SE]   # note: the UK is GB in ISO 3166-1
+  AVOID:      []
+  NEVER:      []
+
+# ---------------------------------------------------------------------
+# D. CAREER INTENT
+#    Four buckets over the shared ResponsibilityCategory vocabulary.
+#    A category may appear in only one bucket. Categories left out are
+#    neutral: recorded and shown, neither rewarded nor penalised.
+# ---------------------------------------------------------------------
+intent:
+  narrative: >
+    Open-ended description of the work wanted. Feeds semantic similarity only;
+    it is never a gate.
+
+  responsibilities:
+    WANT:
+      - crm_administration
+      - workflow_automation
+      - system_integration
+      - api_integration
+      - internal_tooling
+    INTERESTED:
+      - solution_architecture
+      - technical_mentoring
+      - project_leadership
+    AVOID:
+      # people_management is AVOID, not NEVER: it penalises in proportion to
+      # prominence, so a strong individual-contributor role that mentions
+      # incidental management still survives.
+      - people_management
+      - tier1_end_user_support
+      - quota_carrying_sales
+    NEVER:
+      - on_call_rotation
+
+  work_environment:
+    WANT:   [fully_remote, async_friendly]
+    AVOID:  [hybrid_required]
+    NEVER:  [onsite_required, relocation_required]
+
+  industries:
+    WANT:       [saas, b2b_technology]
+    INTERESTED: [fintech]
+    AVOID:      []
+    NEVER:      [gambling]
+
+  coding_intensity:
+    preferred:  [LIGHT_SCRIPTING, MODERATE]
+    acceptable: [NONE]
+    never:      []
+
+# ---------------------------------------------------------------------
+# E. SOFTWARE - five first-class buckets
+# ---------------------------------------------------------------------
+software:
+  known:
+    - { name: example_crm, proficiency: ADVANCED, years: 4 }
+    - { name: example_automation_tool, proficiency: ADVANCED }
+  central_ambition: [example_crm, example_automation_tool]
+  growth: [postgres]
+  avoid:
+    # Quote any value containing a comma: inside { } a bare comma starts a new key.
+    - { name: example_other_crm, note: "Open to exposure, not to it being central." }
+  refuse_when_central:
+    # CORE or REQUIRED is a hard conflict. PREFERRED is a warning.
+    # MENTIONED and ALTERNATIVE have no effect, because
+    # "X, Y or another CRM" means an alternative is already accepted.
+    - { name: example_other_crm, max_acceptable_centrality: PREFERRED }
+
+# ---------------------------------------------------------------------
+# F. COMPENSATION, AVAILABILITY, TARGETING
+# ---------------------------------------------------------------------
+compensation:
+  currency_preference: [USD, EUR, BRL]
+  annual_target:  { amount: 0, currency: USD }
+  # amount 0 means the compensation gate is SKIPPED entirely, not that it
+  # always passes. Compensation then affects ranking only.
+  annual_minimum: { amount: 0, currency: USD }
+  equity_interest: NEUTRAL
+
+availability:
+  timezone_overlap_hours_max: 6
+  earliest_start_hour_local: 7
+  latest_end_hour_local: 20
+  travel:
+    max_trips_per_year: 4
+    requires_expenses_covered: true
+    requires_visa_support: true
+
+targeting:
+  company_stages:
+    WANT:  [series_a, series_b, series_c]
+    AVOID: [pre_seed]
+  company_size: { min: 20, max: 2000 }
+  dream_companies: []
+  excluded_companies: []

@@ -1,0 +1,55 @@
+{
+  "results": [
+    {
+      "id": "NwBp2Axr",
+      "objective": "Revenue Operations Manager",
+      "status": "open",
+      "remote": true,
+      "locations": ["Colombia", "Mexico"],
+      "created": "2026-09-01T10:15:00.000Z",
+      "organizations": [{ "id": 51, "name": "Torre Labs" }]
+    },
+    {
+      "id": "Kq7Rt1Zv",
+      "objective": "Automation Engineer",
+      "status": "open",
+      "remote": false,
+      "locations": ["Bogota, Cundinamarca, Colombia"],
+      "created": "2026-08-28T08:00:00.000Z",
+      "organizations": []
+    },
+    {
+      "id": "CLOSEDxx",
+      "objective": "Closed role that must be dropped",
+      "status": "closed",
+      "remote": true,
+      "locations": ["Brazil"],
+      "created": "2026-08-01T08:00:00.000Z",
+      "organizations": [{ "id": 9, "name": "Ghost" }]
+    },
+    {
+      "id": "NwBp2Axr",
+      "objective": "Revenue Operations Manager",
+      "status": "open",
+      "remote": true,
+      "locations": ["Colombia", "Mexico"],
+      "created": "2026-09-01T10:15:00.000Z",
+      "organizations": [{ "id": 51, "name": "Torre Labs" }]
+    },
+    {
+      "id": "bad id with spaces",
+      "objective": "Unaddressable id",
+      "status": "open",
+      "locations": []
+    },
+    {
+      "id": "NoStatus1",
+      "objective": "Absent status is treated as open",
+      "remote": false,
+      "locations": ["Chile"],
+      "created": "not-a-date",
+      "organizations": [{ "name": "   " }, { "name": "Second Org" }]
+    }
+  ],
+  "total": 39771
+}

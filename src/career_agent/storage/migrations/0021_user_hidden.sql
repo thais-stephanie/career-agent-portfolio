@@ -1,0 +1,70 @@
+-- 0021_user_hidden.sql
+--
+-- A FOURTH REASON A POSTING IS NOT ON THE SCREEN, and the only one the
+-- candidate chose. Additive: one nullable column on `job_application`, no
+-- table altered, no row rewritten, no score touched.
+--
+-- WHY A FOURTH, WHEN THREE ALREADY EXIST
+-- ---------------------------------------
+-- The interface already keeps three populations off the default list, and
+-- each answers a different question about somebody else:
+--
+--   VERIFIED_NOT_ELIGIBLE  the EMPLOYER stated a requirement she does not
+--                          meet. A gate failed against quoted text.
+--   off target             her SEARCH CONFIGURATION says this is other work.
+--                          Nobody refused anybody; it is a different job.
+--   REJECTED / WITHDRAWN   an application ENDED. A fact about a process.
+--
+-- None of them can express "I have read this one and I do not want to see it
+-- again". Making one of them carry it would be a lie in the data: marking a
+-- posting REJECTED records that somebody applied and was turned down, and a
+-- board that shows a rejection she never received is worse than a list one
+-- item too long.
+--
+-- So this is a column of its own, and it is a column rather than a status
+-- VALUE for the same reason `saved` is: `ApplicationStatus` is a workflow
+-- position and a job can be hidden at any position in it. A hidden posting
+-- she has already applied to is still APPLIED.
+--
+-- WHY A TIMESTAMP AND NOT A BOOLEAN
+-- ----------------------------------
+-- `saved` beside it is `INTEGER NOT NULL DEFAULT 0`, and that is right for a
+-- bookmark: the question is only whether it is set. Hiding needs an ORDER.
+-- "Undo" means the last one, and the restore view reads most-recently-hidden
+-- first, because forty postings hidden over a month are not equally likely to
+-- be the one somebody wants back. A boolean would answer neither question and
+-- a second column holding the time would be the same column twice.
+--
+-- NULL means visible. Not hidden-and-then-unhidden -- that is also NULL, and
+-- deliberately: this records a PRESENTATION preference, not a history. Nothing
+-- in the product asks when a posting stopped being hidden, and keeping a
+-- tombstone would invite a future query to treat "she once hid this" as a
+-- signal about the job. It is not one.
+--
+-- WHY THIS DOES NOT WRITE AN EVENT
+-- ---------------------------------
+-- `job_application_event` is the story of an APPLICATION. Hiding moves no
+-- status, sends nothing, and tells nobody anything; an event for it would put
+-- a move into the history that never happened, which is the same reason
+-- `set_saved` and `set_notes` append nothing.
+--
+-- AND IT IS NOT SUBJECT TO THE EXEMPTION
+-- ---------------------------------------
+-- The two automatic narrowings exempt anything she has touched: a saved or
+-- tracked posting stays visible even when its gate failed, because the machine
+-- must never take away what she chose. This narrowing IS what she chose, so
+-- the exemption does not apply and must not: a hide that quietly failed on the
+-- jobs she had saved would be a control that does not work.
+--
+-- Portability, per Appendix A: no SQLite date function (A3), ISO-8601 UTC text
+-- like every other timestamp in this schema, additive ALTER only. SQLite adds
+-- a nullable column in constant time and rewrites nothing.
+
+ALTER TABLE job_application ADD COLUMN hidden_at TEXT;
+
+-- The restore view, and the count behind the notice. Partial, because the
+-- overwhelming majority of rows are NULL and an index over them would be a
+-- copy of the table for the sake of one screen.
+CREATE INDEX idx_job_application_hidden
+    ON job_application (hidden_at)
+    WHERE hidden_at IS NOT NULL;

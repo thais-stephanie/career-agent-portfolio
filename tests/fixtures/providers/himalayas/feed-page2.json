@@ -1,0 +1,46 @@
+{
+  "comments": "21/08/2026: Cursor pagination is now available and is the preferred way to page through the feed. Pass the nextCursor value from each response back as ?cursor=. It is faster than offset and will never return the same job twice. The offset parameter is deprecated and will be removed in a future release. 13/03/2026: The API has been updated to include the companySlug field in the response.",
+  "updatedAt": 1788764252,
+  "limit": 20,
+  "totalCount": 105464,
+  "nextCursor": null,
+  "jobs": [
+    {
+      "title": "Senior Software Engineer",
+      "excerpt": "This is a UK-based remote role.  You will be required to interview in person.",
+      "companyName": "SailPoint",
+      "companySlug": "sailpoint",
+      "companyLogo": "https://cdn-images.himalayas.app/mjlz0t0yhczlvk06vhkv54sodisi",
+      "employmentType": "Full Time",
+      "minSalary": null,
+      "maxSalary": null,
+      "salaryPeriod": "annual",
+      "seniority": [
+        "Senior"
+      ],
+      "currency": null,
+      "locationRestrictions": [
+        "United Kingdom"
+      ],
+      "timezoneRestrictions": [
+        0
+      ],
+      "categories": [
+        "Software-Engineer",
+        "Platform-Engineering",
+        "Backend-Development",
+        "Fullstack-Development",
+        "Cloud-Engineer",
+        "Senior-Software-Engineer-Jobs"
+      ],
+      "parentCategories": [
+        "Developer"
+      ],
+      "description": "<p>This is a UK-based remote role. You will be required to interview in person.</p><h3>About <a href=\"https://himalayas.app/companies/sailpoint\">SailPoint</a>\n</h3><p><a href=\"https://himalayas.app/companies/sailpoint\">SailPoint</a> is defining the next era of identity security. Our unified, AI-powered platform seamlessly secures both the Human Fabric of your workforce and the Agentic Fabric of AI and non-human identities, completely eliminating organizational blind spots.</p><p>Built on core principles like zero-standing privilege and contextualized risk, our platform transforms identity from a vulnerability into a strategic business advantage. Today, we are trusted by some of the largest, most complex organizations in the world to deliver intelligent, autonomous identity security at scale.</p><h3>About the role</h3><p>As a Senior Software Engineer at <a href=\"https://himalayas.app/companies/sailpoint\">SailPoint</a>, you will be at the forefront of powering intelligent identity decisions across modern enterprise environments. In your day-to-day work, you will design, build, and deploy robust full-stack microservices for the Policy Engine—a mission-critical system delivering real-time and batch decision evaluations for cutting-edge initiatives like the <a href=\"https://himalayas.app/companies/sailpoint\">SailPoint</a> Agentic Fabric. You will rapidly prototype solutions, hone pr</p>",
+      "pubDate": 1788764216,
+      "expiryDate": 1793948215,
+      "applicationLink": "https://himalayas.app/companies/sailpoint/jobs/senior-software-engineer",
+      "guid": "https://himalayas.app/companies/sailpoint/jobs/senior-software-engineer"
+    }
+  ]
+}

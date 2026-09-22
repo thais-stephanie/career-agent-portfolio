@@ -1,0 +1,59 @@
+-- Migration 0038: what a stored reading is an answer to, so it can be reused.
+--
+-- THE DEFECT. Editing a preference rescores every open posting. Measured on a
+-- 2,000-posting copy of the real corpus: 36.2 ms a posting, of which 34.3 ms is
+-- `match_job` -- folding the advert, running the lexicon over it, classifying
+-- the title, reading seniority, experience, employment and domestic context,
+-- and evaluating the geography gates. Extrapolated over 300,810 open scoreable
+-- postings that is roughly three hours to answer a question that changed
+-- nothing about any posting.
+--
+-- All of that work is already stored. `job_match.result_json` holds the
+-- observed signals with their hits, the gate outcomes, the title
+-- classification and all four readings, because the card renders them. What was
+-- missing is a way to know whether those observations are still a valid answer.
+--
+-- `config_digest` cannot say. It is a digest of the WHOLE configuration, so it
+-- moves when a weight moves -- which is exactly the case where the readings are
+-- still perfectly good.
+--
+-- `input_digest` is the other half of that pair: a digest over every
+-- configuration section a READING depends on, plus `match.identity.READER_IDENTITY`,
+-- which is the version of the reading CODE. Two rows sharing it were read by
+-- the same readers from the same reading configuration, so one's observations
+-- answer the other's question and `match.replay` may recompute the arithmetic
+-- rather than the advert.
+--
+-- The split is not a judgement, it is read off the code: `match/score.py` reads
+-- `scoring`, `preferences`, `thresholds` and `confidence`, and nothing else
+-- reads any of them. `tests/unit/test_replay_identity.py` asserts that by
+-- walking the syntax tree, so a scorer that starts reading the lexicon fails
+-- the build rather than quietly making a replay wrong.
+--
+-- THE NUMBER IS 0038 BECAUSE PRODUCTION HAD ALREADY SPENT 0036 AND 0037.
+-- This file was written as 0036 on a branch off `main` (which ended at 0035),
+-- and merged as 0036 on 2026-09-18. But the production database had run the
+-- Search Fit lane's 0036 `searchfit_v4_beta` and 0037
+-- `searchfit_reader_lifecycle` on 2026-09-17, and the runner then identified
+-- a migration by its NUMBER alone: on production this file read as already
+-- applied, `input_digest` was never created, and the first rescore would have
+-- failed on its first write. 0036 and 0037 on `main` are now RESERVED SLOTS
+-- that reconcile those two ledger rows, the runner refuses a number whose
+-- ledger name it does not recognise, and this migration is 0038. ADR-0028
+-- holds the rule; `docs/checkpoints/production-migration-reconciliation.md`
+-- holds the forensics and the proofs.
+--
+-- NULLABLE, AND THAT IS THE UPGRADE PATH. Every row written before this
+-- migration has no digest, so `match.replay` refuses for it and the posting is
+-- scored in full. The first pass after upgrading is therefore exactly as
+-- expensive as it is today, and it fills the column in; every preference edit
+-- after that replays. Nothing has to be backfilled and nothing is rewritten:
+-- the digest of a historical configuration is not recoverable, and inventing
+-- one would be asserting that readings are valid without evidence.
+--
+-- NO NEW INDEX, deliberately. `job_match` already carries fourteen indexes over
+-- seven gigabytes. A replay reads `result_json`, so it must touch the row
+-- whatever the index says; the lookup is by `(config_id, config_version,
+-- job_id)`, which `idx_job_match_population` already serves.
+
+ALTER TABLE job_match ADD COLUMN input_digest TEXT;

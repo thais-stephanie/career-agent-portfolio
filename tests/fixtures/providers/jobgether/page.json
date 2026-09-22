@@ -1,0 +1,79 @@
+{
+  "jobs": [
+    {
+      "id": "6aa3ae3db563ea142e95e02c",
+      "title": "Senior Project Manager",
+      "company": "Castor",
+      "url": "https://jobgether.com/offer/6a6a8d0d1b23f4f87b45f239-senior-project-manager",
+      "location": "Anywhere",
+      "remote": "Full Remote",
+      "contractType": "Full time",
+      "experience": "Senior (5-10 years)",
+      "jobFunctions": [
+        "Project Manager"
+      ],
+      "postedAt": "2026-09-11T07:31:09.291Z"
+    },
+    {
+      "id": "6aa3ae3db563ea142e95dfa2",
+      "title": "Product Support Specialist, Europe",
+      "company": "Linear",
+      "url": "https://jobgether.com/offer/6a1ba560f8af0ea2c4fe9b5c-product-support-specialist-europe",
+      "location": "North America, Europe",
+      "remote": "Full Remote",
+      "contractType": "Full time",
+      "experience": "",
+      "jobFunctions": [
+        "Technical Support Specialist"
+      ],
+      "postedAt": "2026-09-11T07:31:09.290Z"
+    },
+    {
+      "id": "6aa33da5b563ea142e93f3c5",
+      "title": "Case Manager Registered Nurse - Field in Union & Surrounding Counties, New Jersey",
+      "company": "CVS Health",
+      "url": "https://jobgether.com/offer/6aa3137cb563ea142e935877-case-manager-registered-nurse---field-in-union-surrounding-counties-new-jersey",
+      "location": "Indiana (USA), New Jersey (USA)",
+      "remote": "Full Remote",
+      "contractType": "Full time",
+      "experience": "Mid-level (2-5 years)",
+      "jobFunctions": [
+        "Case Manager"
+      ],
+      "postedAt": "2026-09-10T23:30:45.769Z"
+    },
+    {
+      "id": "6aa21666b563ea142e8fae06",
+      "title": "CONSULTOR(A) COMERCIAL HUNTER - CURITIBA",
+      "company": "Cogna Educação",
+      "url": "https://jobgether.com/offer/6aa21666b563ea142e8fae06-consultor-a-comercial-hunter---curitiba",
+      "location": "Brazil",
+      "remote": "Full Remote",
+      "contractType": "Freelance",
+      "experience": "Senior (5-10 years)",
+      "jobFunctions": [],
+      "postedAt": "2026-09-10T02:31:03.210Z"
+    },
+    {
+      "id": "6aa2245fb563ea142e8ff850",
+      "title": "(1564) Senior BI Consultant",
+      "company": "Nortal",
+      "url": "https://jobgether.com/offer/6aa2245fb563ea142e8ff850-1564-senior-bi-consultant",
+      "location": "Latin America",
+      "remote": "Full Remote",
+      "contractType": "Freelance",
+      "experience": "Senior (5-10 years)",
+      "jobFunctions": [
+        "Business Consultant"
+      ],
+      "postedAt": "2026-09-10T03:30:40.026Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 25,
+    "hasMore": true
+  },
+  "browseOnSiteUrl": "https://jobgether.com/search-offers?",
+  "docs": "/astroapi/ai/jobs/docs"
+}

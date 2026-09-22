@@ -1,0 +1,76 @@
+-- One index for the pair that identifies a role across its locations.
+--
+-- THE DEFECT THIS SERVES
+-- ----------------------
+-- Employers publish ONE role as SEVERAL postings, one per location. Each is a
+-- genuinely distinct posting at the provider -- distinct `external_id`,
+-- distinct `job.id` -- so collection-level deduplication, which keys on
+-- (provider, external_id), is CORRECT and does not move. The repetition is a
+-- presentation problem, and it belongs where presentation is decided: the
+-- review query.
+--
+-- Measured on the corpus, over the 163 rows scoring >= 55: 132 distinct
+-- (company, title) pairs, 16 repeated groups, 31 surplus rows. Nineteen per
+-- cent of the shortlist was repetition, and the single highest-scoring result
+-- was one job shown eight times.
+--
+-- WHY (company_id, title) AND NOT content_hash
+-- --------------------------------------------
+-- Only 8 of those 31 surplus rows are byte-identical in description text. The
+-- rest differ by a location line, which is exactly the thing that makes them
+-- separate postings in the first place. `content_hash` therefore identifies
+-- far fewer duplicates than exist, and its misses are silent. The pair the
+-- employer actually repeats is (company, title).
+--
+-- WHAT PROBES IT
+-- --------------
+-- `ScoredJobQuery._siblings_for` in `storage/mvp_repo.py`: the batched lookup
+-- that gives a representative row the locations it stands for, so a grouped
+-- card can say what it collapsed. It matches PAIRS -- one
+-- `(company_id = ? AND title = ?)` term per row on the page -- and each term
+-- lands on this index directly:
+--
+--   SEARCH j USING INDEX idx_job_company_title (company_id=? AND title=?)
+--
+-- `idx_job_company` already exists on job(company_id) alone, and SQLite uses
+-- that when this index is absent -- narrowing to one company's postings and
+-- then fetching each row to compare the title.
+--
+-- WHAT IT IS MEASURABLY WORTH TODAY: NOTHING
+-- ------------------------------------------
+-- Said plainly, because a migration comment that claims a speedup nobody
+-- measured is how a schema fills up with cargo. A/B on the real corpus, the
+-- index created and dropped alternately for ten rounds, one page of 60 pairs:
+--
+--     WITH idx_job_company_title      best  91.5 ms   median  97.7 ms
+--     WITHOUT it (idx_job_company)    best  83.3 ms   median  98.3 ms
+--
+-- Indistinguishable. At 18,550 postings no employer here publishes enough
+-- roles for the extra row fetch to cost anything, so `idx_job_company` is
+-- already good enough and this index is insurance rather than a fix.
+--
+-- It is kept anyway, for one reason that is about shape rather than size: the
+-- fallback degrades LINEARLY in postings-per-company, and postings-per-company
+-- is exactly the number that grows when this product starts following large
+-- employers -- the same employers whose one-role-per-location habit created
+-- the defect. An index that costs one write per inserted job and removes a
+-- linear term from the hot path is worth keeping before it is needed rather
+-- than after somebody notices the list is slow. If a later measurement still
+-- shows nothing at a larger corpus, delete it in a migration that says so.
+--
+-- WHAT DOES NOT PROBE IT, AND WHY THAT IS FINE
+-- --------------------------------------------
+-- The clause that ELECTS the representative does not use this index, because
+-- it is not a per-row probe: it asks "which ids win their group" once per
+-- query, as a grouped pass over the configuration version. The obvious
+-- correlated `NOT EXISTS` form would have probed here, and was measured at
+-- 23 seconds against 0.3 for the grouped form -- SQLite, having no statistics
+-- on these tables, drove that subquery from `job_match` and scanned all 18,549
+-- rows per candidate. `_REPRESENTATIVE_ROW_ONLY` carries the full reasoning.
+--
+-- IF NOT EXISTS because this index is a performance fact, not a schema fact:
+-- a database that somehow already carries it is not a database this migration
+-- should refuse. Additive, no table rewritten, no existing migration touched,
+-- and the statement is valid PostgreSQL unchanged.
+
+CREATE INDEX IF NOT EXISTS idx_job_company_title ON job(company_id, title);

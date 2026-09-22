@@ -1,0 +1,755 @@
+# Provider and HTTP settings for collection.
+#
+# The defaults here are deliberately polite. These are public endpoints that
+# cost the vendor money to serve, and this is a single-user tool with no
+# deadline: one request per second and aggressive caching cost us nothing.
+#
+# ---------------------------------------------------------------------------
+# READ THIS BEFORE EDITING  (M1B.1)
+#
+# Nothing in this file is loaded by any code today. config/loader.py reads
+# profile.local.yaml and career_facts.local.yaml and nothing else. The values
+# below are mirrored as defaults on HttpFetcher and on the `collect` command,
+# and they agree -- but editing this file changes no behaviour.
+#
+# It is kept because it documents the collection surface in one readable place,
+# and because making it live is a small deliberate change (a pydantic model
+# plus a loader) rather than a rewrite. That is DEFERRED until a value needs to
+# change without a code change. Stated here so the file stops implying it
+# configures something it does not.
+# ---------------------------------------------------------------------------
+
+schema_version: 1
+
+defaults:
+  request_delay_seconds: 1.0   # minimum gap between requests to the same host
+  max_attempts: 3              # total tries, including the first
+  backoff_seconds: 1.0         # doubled each retry
+  connect_timeout_seconds: 10
+  read_timeout_seconds: 30
+  cache_hours: 12              # re-running within this window re-hits nothing
+
+providers:
+  greenhouse:
+    enabled: true
+    api_base: "https://boards-api.greenhouse.io/v1/boards"
+    # content=true returns every posting WITH its description in one request,
+    # rather than one request per posting.
+    strategy: list_with_content
+    # Mirror of GREENHOUSE_FIELD_MAP in providers/greenhouse.py, which is the
+    # authority. See the field_map note at the end of this file.
+    field_map:
+      "location.name": hiring_location_hint
+
+  lever:
+    enabled: true                # M1B
+    api_base: "https://api.lever.co/v0/postings"
+    strategy: list_with_content
+    # Mirror of LEVER_FIELD_MAP in providers/lever.py, which is the authority.
+    field_map:
+      "workplaceType": work_model_hint
+      "country": hiring_location_hint
+      "categories.location": hiring_location_hint
+      "categories.commitment": employment_type_hint
+      "salaryRange": compensation_hint
+
+  ashby:
+    enabled: true                # M1C
+    api_base: "https://api.ashbyhq.com/posting-api/job-board"
+    # includeCompensation=true is required: without it the `compensation` key is
+    # absent from every posting (measured 0/14 without, 14/14 with).
+    strategy: list_with_content
+    # Mirror of ASHBY_FIELD_MAP in providers/ashby.py, which is the authority.
+    field_map:
+      "workplaceType": work_model_hint
+      "location": hiring_location_hint
+      "address.postalAddress.addressCountry": hiring_location_hint
+      "secondaryLocations": hiring_location_hint
+      "employmentType": employment_type_hint
+      "compensation.compensationTierSummary": compensation_hint
+      "compensation.scrapeableCompensationSalarySummary": compensation_hint
+
+  jooble:
+    # DISABLED, and not because of policy. Jooble documents a LIFETIME quota of
+    # 500 requests per key, so this connector must never run because something
+    # generic iterated the enabled providers. It is turned on for a specific
+    # collection, with an explicit query list and an explicit request budget.
+    enabled: false
+    # No api_base. The endpoint is `https://{domain}/api/{key}` and BOTH halves
+    # are local configuration: the key is a secret in `.env`, and the domain is
+    # `JOOBLE_DOMAIN`, which has no default because a key is bound to one
+    # country and guessing would cost a permanently limited request to discover.
+    #
+    # The only QUERY_DRIVEN source here. `keywords` and `location` are required
+    # by the vendor's contract and there is no "everything" query, so what it
+    # returns is the answer to a question somebody chose. Coverage from it is a
+    # property of the QUESTIONS ASKED and is never market coverage.
+    strategy: query_driven
+    # Mirror of JOOBLE_FIELD_MAP in providers/jooble.py, which is the authority.
+    # `snippet` is deliberately absent: it is the description text itself rather
+    # than a metadata hint, and it is an EXCERPT, which is why the adapter
+    # declares `full_description_in_list: false`. `source` is absent too -- it
+    # names the board Jooble found the posting on, which is provenance under
+    # ADR-0013 and not a claim about the work.
+    field_map:
+      "location": hiring_location_hint
+      "type": employment_type_hint
+      "salary": compensation_hint
+
+  wwr:
+    # THREE dedup rules, not four. The origin-URL rule is absent rather than
+    # skipped: it reads the employer's own apply link, and a WWR posting links
+    # to WWR. The bounded consequence is that a job posted both here and on an
+    # employer's Greenhouse board is two rows unless the description text is
+    # byte-identical, which it usually is not. Two visible rows beat one
+    # invisible job, and fuzzy matching is what ADR-0008 forbids.
+    enabled: true
+    api_base: "https://weworkremotely.com"
+    # An RSS feed rather than an API, and that is a documented public interface:
+    # a feed is published in order to be read by machines. Their robots.txt
+    # allows `/` and closes only account and administration paths.
+    #
+    # The one source here that returns the WHOLE posting in the listing -- about
+    # 1,200 words of HTML -- which is why it is worth having to a matcher that
+    # reads bodies.
+    strategy: list_with_content
+    # A WINDOW, not a board. Twenty-five of the most recent postings per feed,
+    # no pagination parameter and no archive, so repeated collection accumulates
+    # over time and never yields completeness. Nothing may present its counts as
+    # coverage of remote hiring.
+    retrieval: aggregator_feed
+    # Mirror of WWR_FIELD_MAP in providers/wwr.py, which is the authority.
+    #
+    # `region` is the only mapping, and the ABSENCE of a remote flag is the
+    # deliberate part: every posting on this board is remote, which is the
+    # board's admission criterion and not a statement about where an employer
+    # may hire. `region` -- "Anywhere in the World", "USA Only" -- is the
+    # question invariant 3 actually cares about.
+    field_map:
+      "region": hiring_location_hint
+
+  speedrun:
+    enabled: true                # V3
+    api_base: "https://speedrun-talent-network.com/api/v1"
+    # The ONLY entry here that is not an ATS. It is an aggregator: it
+    # republishes postings that originate in other systems, and the adapter
+    # declares `kind = AGGREGATOR` so nothing downstream can present its text
+    # as the employer's own record.
+    #
+    # Two requests per posting, not one. The list response carries no
+    # description at all, so `strategy` is not list_with_content: every posting
+    # needs a second call to /jobs/{id}. That is the cost that makes retrieval
+    # from this source explicitly bounded rather than exhaustive.
+    strategy: list_then_detail
+    # Mirror of SPEEDRUN_FIELD_MAP in providers/speedrun.py, which is the
+    # authority. `remote` is deliberately absent: it is a boolean that collapses
+    # hybrid into remote, and `workplace_type` already carries the three-way
+    # answer. Same decision, same reason, as Ashby's `isRemote`.
+    field_map:
+      "workplace_type": work_model_hint
+      "location": hiring_location_hint
+      "employment_type": employment_type_hint
+      "comp_summary": compensation_hint
+
+  getonbrd:
+    # LATAM, added 2026-09-07, and the first source here whose market is the
+    # one this product exists to serve.
+    enabled: true
+    api_base: "https://www.getonbrd.com/api/v0"
+    # A public JSON:API. `www.getonbrd.com/robots.txt` answers `User-agent: *`
+    # with `Allow: /` and `use=reference`. It also names `ClaudeBot` with
+    # `Disallow: /`; this product's collector is not ClaudeBot, but the agent
+    # that wrote the adapter is, so it never called the endpoint. ZERO live
+    # requests have been made and the first one is the owner's.
+    #
+    # NOT list_with_content: the category feed carries no description element,
+    # and no detail endpoint has been read from a first-party page. Every
+    # posting from here is METADATA_ONLY until a live retrieval says otherwise.
+    strategy: list_only
+    # Category feeds spanning many employers, walked to a stated page budget.
+    # Coverage is the feed's, never the LATAM market's.
+    retrieval: aggregator_feed
+    # Mirror of GETONBRD_FIELD_MAP in providers/getonbrd.py, the authority.
+    #
+    # `attributes.countries` is HIRING_LOCATION_HINT and the capability
+    # `publishes_hiring_scope` is FALSE, which is the pair that matters: the
+    # board says where a posting is, not where the employer may hire, and
+    # reading the first as the second is the conflation invariant 3 forbids.
+    field_map:
+      "attributes.remote": work_model_hint
+      "attributes.countries": hiring_location_hint
+      "attributes.modality.data.attributes.name": employment_type_hint
+
+  himalayas:
+    # International remote, added 2026-09-07, and the second source ever to
+    # publish a HIRING SCOPE rather than an office.
+    enabled: true
+    api_base: "https://himalayas.app/jobs/api"
+    # `himalayas.app/robots.txt`, read first-party 2026-09-07: one
+    # `User-agent: *` block with `Allow: /`, disallowing `/apply` and the
+    # `?page=` pagination of several browse sections. It names no AI crawler,
+    # no `ClaudeBot`, and does not mention this path. No `Content-Signal`.
+    #
+    # That is why the bounded retrieval proving this adapter was made here,
+    # unlike Get on Board's, which names `ClaudeBot` with `Disallow: /`.
+    #
+    # list_with_content: `description` is the whole advert, in the list
+    # response, in one request per page.
+    strategy: list_with_content
+    # One stream, walked by CURSOR to a stated page budget. `offset` is
+    # documented as deprecated and as able to return the same job twice, so it
+    # is not built at all.
+    retrieval: aggregator_feed
+    # Mirror of HIMALAYAS_FIELD_MAP in providers/himalayas.py, the authority.
+    #
+    # `locationRestrictions` is HIRING_LOCATION_HINT and the capability
+    # `publishes_hiring_scope` is TRUE. That pair is the whole point of this
+    # source: the field is the employer's answer to where it may hire, not
+    # where the company sits, which is a question this feed does not answer.
+    field_map:
+      "locationRestrictions": hiring_location_hint
+      "employmentType": employment_type_hint
+
+  arbeitnow:
+    # EUROPE, mostly ON-SITE. Added 2026-09-09.
+    #
+    # Evaluated and refused on 2026-09-07 for FIT rather than permission: 11 of
+    # 250 rows remote, offices in London, Munich, Paris and Berlin, and the
+    # row said plainly what would unblock it -- "a candidate whose search
+    # includes European on-site work". That reasoning belongs to a filter, not
+    # to a collector: the corpus describes work and a later layer decides
+    # whether it is wanted.
+    enabled: true
+    api_base: "https://www.arbeitnow.com/api/job-board-api"
+    # `www.arbeitnow.com/robots.txt`, read first-party 2026-09-07 and again
+    # 2026-09-09: `User-agent: *` with an EMPTY `Disallow:` and one analytics
+    # query-parameter exclusion. No AI crawler is named and ClaudeBot does not
+    # appear, which is what separates this from Remote OK and Get on Board --
+    # the fixtures here were captured live.
+    #
+    # The API states its own terms in `meta.terms` of every response and asks
+    # for a link back. `job.url` is the feed's own posting URL and no other
+    # Apply target is produced, so the link back is structural. The terms
+    # served on each run are stored with it.
+    strategy: list_with_content
+    retrieval: aggregator_feed
+    # Mirror of ARBEITNOW_FIELD_MAP in providers/arbeitnow.py.
+    #
+    # `remote` is a real BOOLEAN and `resolve_deterministically` reads `true`
+    # as REMOTE and `false` as UNCLEAR rather than ONSITE -- a vendor saying a
+    # role is not remote has not said where its desk is.
+    #
+    # `location` is deliberately NOT mapped: it is a city, which is an OFFICE,
+    # and the only location dimension means "where the employer may hire".
+    field_map:
+      "remote": work_model_hint
+      "job_types": employment_type_hint
+
+  avlis:
+    # BRAZILIANS AT US STARTUPS. Added 2026-09-09, after being measured and
+    # declined the same day on VOLUME -- six postings against a corpus of a
+    # hundred thousand. That refusal was a judgement about whether the work is
+    # worth SHOWING, which ADR-0019 puts in the filter layer, not a collector.
+    enabled: true
+    api_base: "https://avlistalent.com/api/jobs"
+    # `avlistalent.com/robots.txt`, read first-party 2026-09-09: `User-agent: *`
+    # with `Allow: /` and then `Allow: /jobs` by name, excluding only
+    # `/internal`, `/admin/`, `/mkt` and `/scorecard`. No AI crawler is named.
+    #
+    # ONE REQUEST, no pagination, and NO PER-POSTING URL: `/jobs/26`,
+    # `/job/26`, `/jobs?id=26` and `/jobs#26` all return the same application
+    # shell. Every posting links to the board page, so the ADR-0013
+    # CANONICAL_URL rule is switched off for this source alone -- it would file
+    # five of six rows as sightings of the first.
+    strategy: list_with_content
+    retrieval: aggregator_feed
+    # Mirror of AVLIS_FIELD_MAP in providers/avlis.py.
+    #
+    # `location` is deliberately NOT mapped. It reads `Remote (US Timezone)` on
+    # every row, which is a work model and a TIMEZONE; invariant 3 keeps a
+    # timezone away from geography, and the string normalises to no work model
+    # either. `salary` is free text with no currency and no period, so nothing
+    # reads it.
+    field_map:
+      "type": employment_type_hint
+
+  recruiterflow:
+    # LATIN AMERICA, and mostly NOT TECHNOLOGY. Added 2026-09-09.
+    #
+    # The ATS behind a whole class of Latin American staffing agencies. Six
+    # boards were handed over for evaluation and TWO of them turned out to be
+    # this: hireinsouth.com and hirelatam.com both embed a Recruiterflow
+    # careers page and nothing else. That is what makes it a FAMILY -- a board
+    # per agency, addressed by slug, like Greenhouse, Lever and Ashby -- so
+    # `discover-boards` gains a fourth provider and every further agency costs
+    # a registry row rather than a module.
+    #
+    # Measured 2026-09-09: South 68 postings with 32 naming Brazil, HireLatam
+    # 89. Marketing, Sales, Accounting, Operations, Administration, Customer
+    # Service and Human Resources -- United States companies hiring remotely
+    # across Latin America, which is the shape this corpus had least of.
+    enabled: true
+    api_base: "https://recruiterflow.com"
+    # `recruiterflow.com/robots.txt`, read first-party 2026-09-09: `User-agent:
+    # *` with `Allow: /`, and then `User-agent: Anthropic` / `Allow: /` and
+    # `User-agent: Claude` / `Allow: /`. The strongest permission of any source
+    # in this file, and the exact opposite of Remote OK and Get on Board, which
+    # name ClaudeBot with `Disallow: /`.
+    #
+    # `recruiterflow.com/llms.txt` attaches a licence to the vendor's own
+    # MARKETING pages: "AI models may use this content only for factual
+    # reference. Commercial redistribution is prohibited." This product is
+    # local, personal and non-commercial, links back to the vendor's own page
+    # and redistributes nothing. Recorded because the sentence exists.
+    #
+    # TWO REQUESTS PER POSTING, and the first is free: the board page carries
+    # `window.jobsList`, a blob holding every opening. The advert is not in it;
+    # each detail page publishes a schema.org JobPosting. Parse that with
+    # `strict=False` -- the vendor writes real newlines inside `description`,
+    # which is the trap Programathor set first.
+    strategy: list_then_detail
+    retrieval: board_exhaustive
+    # Mirror of RECRUITERFLOW_FIELD_MAP in providers/recruiterflow.py.
+    #
+    # `details` is deliberately NOT mapped. It reads `Brasilia, Brazil, San
+    # Salvador, El Salvador, Bogota, Colombia`, and on a REMOTE posting that
+    # really is an employer naming where it will hire -- but the same field on
+    # a non-remote posting is an office, and one column cannot mean two things.
+    # `gates.structured_geography` decides exactly this from `remote_type`.
+    field_map:
+      "remote_type": work_model_hint
+      "employment_type": employment_type_hint
+
+  workable:
+    # MOST OF THE WORLD, and the widest source in the corpus. Added 2026-09-09.
+    #
+    # One search index over every public Workable board. Asked with NO QUERY it
+    # answered `totalSize: 169,980`; measured over the first 500 rows walked in
+    # order: 77% United States, then the United Kingdom, Greece, Canada,
+    # Mexico, Spain, the Philippines, India, France, Brazil and more; 60%
+    # on-site, 24% remote, 16% hybrid. Roofing foremen, facilities teams and
+    # land surveyors beside front-end engineers, which is the population this
+    # corpus was missing.
+    enabled: true
+    api_base: "https://jobs.workable.com/api/v1/jobs"
+    # `jobs.workable.com/robots.txt`, read first-party 2026-09-09: one
+    # `User-agent: *` group carrying `Content-Signal: search=yes, ai-input=yes,
+    # ai-train=no`, `Allow: /search/*`, and Disallow on the human search pages,
+    # `/profile*` and `/company-login-unauthorized`. No AI crawler is named and
+    # ClaudeBot does not appear, so the fixtures here were captured live. The
+    # API path is not among the excluded ones, and `/profile*` is honoured by
+    # the adapter never building such a URL.
+    #
+    # TWENTY ROWS A PAGE, which is the vendor's own ceiling: `limit=100`
+    # answers 400 with the message. The response field is `nextPageToken` and
+    # the REQUEST parameter is `pageToken`; sending the response's own name
+    # returns HTTP 200 and page one forever.
+    strategy: list_with_content
+    retrieval: aggregator_feed
+    # Mirror of WORKABLE_FIELD_MAP in providers/workable.py.
+    #
+    # `location` is deliberately NOT mapped. It is `{city, subregion,
+    # countryName}` and it says where the WORK is; the only location dimension
+    # means "where the employer may hire", and reading the first as the second
+    # is the conflation invariant 3 forbids. What makes the location readable
+    # at all is `workplace`, through `gates.structured_geography`.
+    field_map:
+      "workplace": work_model_hint
+      "employmentType": employment_type_hint
+
+  remoteok:
+    # INTERNATIONAL REMOTE, and non-tech. Added 2026-09-09.
+    #
+    # Refused in V3 for publishing no origin pointer; shipped now on the
+    # Himalayas precedent, which has the same gap and recorded the trade:
+    # two visible rows for one job is a smaller harm than one invisible job.
+    enabled: true
+    api_base: "https://remoteok.com/api"
+    # `remoteok.com/robots.txt`, read first-party 2026-09-09. The generic group
+    # is `User-agent: *` with `Allow: /`, `Crawl-delay: 1` and
+    # `Content-Signal: search=yes,ai-train=no,use=reference` -- this product
+    # builds no third-party index, trains nothing and uses postings by
+    # reference.
+    #
+    # `User-agent: ClaudeBot` carries `Disallow: /`. The agent that wrote this
+    # adapter IS ClaudeBot and the collector is not, so ZERO live requests were
+    # made from this repository and the fixture predates the work. Same
+    # handling as Get on Board, which set the precedent.
+    #
+    # The API's own terms ride in element zero of every response and are a
+    # GRANT WITH THREE CONDITIONS: link back to the Remote OK URL, credit
+    # Remote OK, do not use the logo. All three are structural rather than
+    # promised -- `job.url` is the only Apply target this adapter produces.
+    #
+    # list_with_content: full bodies, one request, no paging parameter.
+    strategy: list_with_content
+    retrieval: aggregator_feed
+    # Mirror of REMOTEOK_FIELD_MAP in providers/remoteok.py, which is EMPTY.
+    #
+    # An empty map is a statement: `location` is free text about where the work
+    # is, `tags` are the board's categories and `original` is a boolean. None
+    # is a work model, an employment type or a hiring scope, and `salary_min`
+    # and `salary_max` arrive with NO CURRENCY anywhere in the record, so they
+    # are archived and never read.
+    field_map: {}
+
+  programathor:
+    # BRAZIL, developers. Added 2026-09-09. It publishes schema.org
+    # `JobPosting` on every posting page, which is a contract a site fills in
+    # deliberately for machines rather than markup to be scraped.
+    enabled: true
+    api_base: "https://programathor.com.br/jobs"
+    # `programathor.com.br/robots.txt`, read first-party 2026-09-09: one
+    # `User-agent: *` group disallowing exactly `/admin/`, `/user/`, `/users/`
+    # and `/company/`. Neither `/jobs` nor a posting page is among them, and
+    # the same file DECLARES A SITEMAP, which is an affirmative aid to a
+    # crawler rather than the absence of a ban. Nothing was bypassed.
+    #
+    # detail_fetch: the listing carries titles and links only, so the advert
+    # costs one request per posting. Roughly half of those answer HTTP 500,
+    # deterministically -- measured, not inferred, and counted rather than
+    # swallowed.
+    strategy: detail_fetch
+    retrieval: aggregator_feed
+    # Mirror of PROGRAMATHOR_FIELD_MAP in providers/programathor.py.
+    #
+    # ONE ENTRY, and the absence of a second is the decision.
+    # `jobLocation.address.addressCountry` is a clean `BR` and there is no
+    # dimension it may travel in: the only location dimension is
+    # `hiring_location_hint`, which means "where the employer may hire", and
+    # this field means "where the work is". It travels as `location_raw`.
+    field_map:
+      "employmentType": employment_type_hint
+
+  gupy:
+    # BRAZIL. Added 2026-09-09, and the first source in this corpus whose
+    # inventory is Brazilian rather than Brazilian-adjacent.
+    #
+    # The measured problem it answers: of 19,485 open postings on 2026-09-09,
+    # 211 were located in Brazil and 697 anywhere in Latin America. This feed
+    # answers with 81,310 postings, unauthenticated, whole advert included.
+    enabled: true
+    api_base: "https://employability-portal.gupy.io/api/v1/jobs"
+    # PERMISSION IS UNDECLARED, NOT GRANTED, AND THAT IS NOW ENOUGH.
+    #
+    # `employability-portal.gupy.io/robots.txt` answers 404: this host
+    # publishes no robots file. `portal.gupy.io/robots.txt` answers 200 with an
+    # empty `Disallow:`, but that is a DIFFERENT HOST and does not govern this
+    # one, so it is recorded and not leaned on. Gupy's published developer
+    # documentation describes an employer-facing API on `api.gupy.io` behind a
+    # Bearer token and says nothing about this endpoint.
+    #
+    # Under the collection policy adopted 2026-09-09 (ADR-0018) an undeclared
+    # public endpoint may be read, bounded and politely. That REVERSES the rule
+    # this file applied to Torre, and the reversal is recorded rather than
+    # quietly applied: see `docs/product/collection-policy.md`.
+    #
+    # No authentication, CAPTCHA, access control or rate-limit header was
+    # encountered, and none was circumvented.
+    #
+    # list_with_content: `description` is the whole advert in the list
+    # response. There is no detail request in this adapter at all.
+    strategy: list_with_content
+    # One stream partitioned by `workplaceType`, because `offset` is capped at
+    # 10,000 hard and the feed holds 81,310. Coverage is the partition's.
+    retrieval: aggregator_feed
+    # Mirror of GUPY_FIELD_MAP in providers/gupy.py, the authority.
+    #
+    # `city`, `state` and `country` are deliberately NOT hiring_location_hint
+    # and `publishes_hiring_scope` is FALSE. `country: Brasil` on an on-site
+    # posting says where the work is, not where the employer may hire, and
+    # invariant 3 is the same invariant in Portuguese. What makes these
+    # postings reachable is `gates.structured_geography`, which reads the
+    # workplace type and the place together and needs no scope claim.
+    field_map:
+      "workplaceType": work_model_hint
+      "type": employment_type_hint
+
+  jobicy:
+    # International remote with real LATAM depth, added 2026-09-08, and the
+    # THIRD source ever to publish a HIRING SCOPE rather than an office.
+    #
+    # Measured over one bounded LATAM window: `Brazil` alone on 20 postings,
+    # `LATAM` on 26, and multi-country lists naming Brazil beside Canada,
+    # Mexico and the USA. That is the field the owner's corpus lacks -- only
+    # 101 of her 19,469 scored postings are her specialty AND at her level AND
+    # from an employer who may hire her.
+    enabled: true
+    api_base: "https://jobicy.com/api/v2/remote-jobs"
+    # THE PERMISSION IS NOT robots.txt, WHICH COULD NOT BE READ.
+    #
+    # `jobicy.com/robots.txt` answers HTTP 403 behind an interactive Cloudflare
+    # challenge. It was not solved, no alternate identity was used and no job
+    # page HTML was requested. That 403 is recorded as what it is.
+    #
+    # The grant is a first-party statement on `jobicy.com/jobs-rss-feed`, read
+    # 2026-09-08 with HTTP 200 and hashed: "You may use Jobicy listings in your
+    # own products and user experiences without requesting individual
+    # permission." The API repeats its conditions in every response envelope --
+    # credit Jobicy with a direct link, send every application button to the
+    # feed's own URL -- and both are implemented in providers/jobicy.py rather
+    # than promised here.
+    #
+    # An affirmative grant is not the absence of a ban. Torre stays off
+    # BECAUSE it merely fails to forbid; this is the other case.
+    #
+    # list_with_content: `jobDescription` is the whole advert, in the list
+    # response, in one request. Measured 210-2,326 words, none empty.
+    strategy: list_with_content
+    # ONE REQUEST, AT MOST ONCE AN HOUR, AND NO PAGING AT ALL. The window is
+    # the latest 200 rows matching the query; nothing can reach past them, and
+    # `offset` was measured returning 400. Counts here are never coverage of
+    # remote hiring, and a posting's absence from the window is not evidence
+    # that it closed.
+    retrieval: query_driven
+    # Mirror of JOBICY_FIELD_MAP in providers/jobicy.py, the authority.
+    #
+    # `jobGeo` is HIRING_LOCATION_HINT and `publishes_hiring_scope` is TRUE.
+    # The value `Anywhere` -- 52 of the 200 measured rows -- is the vendor's
+    # DEFAULT and is stored as nothing stated, never as a worldwide
+    # invitation. Absence is never permission.
+    field_map:
+      "jobGeo": hiring_location_hint
+      "jobType": employment_type_hint
+
+  dynamitejobs:
+    # Remote board with Asia and LATAM depth, added 2026-09-11. Public job
+    # sitemaps per vendor category, one JSON-LD page per posting. Robots
+    # excludes only /api/ and account paths; the terms carry no automation
+    # clause.
+    enabled: true
+    api_base: "https://dynamitejobs.com/sitemap/jobs-categories-index.xml"
+    strategy: list_then_detail
+    # Every category sitemap is walked, so the listing is the inventory; the
+    # run is bounded by a posting budget and skips what it already holds.
+    retrieval: aggregator_feed
+    # Mirror of DYNAMITEJOBS_FIELD_MAP in providers/dynamitejobs.py, the
+    # authority. Both keys are derived by the adapter from the JSON-LD.
+    field_map:
+      "applicantLocations": hiring_location_hint
+      "employment_type": employment_type_hint
+
+  fourdayweek:
+    # Reduced-hours and remote board, added 2026-09-11. Documented API v2,
+    # robots allows /api/v2 explicitly, one condition: link back.
+    enabled: true
+    api_base: "https://4dayweek.io/api/v2/jobs"
+    strategy: list_with_content
+    # Paginated, 100 a page, 60 requests a minute. `q`, `category` and
+    # `skills` are never sent (ADR-0019). A default walk is 50 pages.
+    retrieval: aggregator_feed
+    # Mirror of FOURDAYWEEK_FIELD_MAP in providers/fourdayweek.py, the
+    # authority. `employment_type` is derived from `contract_type`.
+    field_map:
+      "work_arrangement": work_model_hint
+      "employment_type": employment_type_hint
+
+  jobgether:
+    # International remote aggregator, added 2026-09-11. Metadata only, with a
+    # hiring scope; see providers/jobgether.py for the grant and its limits.
+    enabled: true
+    api_base: "https://jobgether.com/astroapi/ai/jobs.json"
+    # The terms forbid extraction from pages; robots and the API docs publish
+    # one endpoint for AI agents and allow it explicitly. The adapter reads
+    # that endpoint and nothing else. `keyword` is never sent (ADR-0019).
+    strategy: list_only
+    # QUERY-SCOPED: 250 rows a question, geographic slices cut by the vendor's
+    # contract-type and experience lists, newest first. Never an inventory.
+    retrieval: query_driven
+    # Mirror of JOBGETHER_FIELD_MAP in providers/jobgether.py, the authority.
+    # `location` is a hiring scope and `Anywhere` means anywhere here.
+    field_map:
+      "location": hiring_location_hint
+      "remote": work_model_hint
+      "contractType": employment_type_hint
+
+  remotive:
+    # International remote, added 2026-09-11, and the FOURTH source to publish
+    # a HIRING SCOPE. `candidate_required_location` is documented first-party
+    # as "Geographical restriction for the remote candidate, if any".
+    enabled: true
+    api_base: "https://remotive.com/api/remote-jobs"
+    # TWO FIRST-PARTY STATEMENTS. robots.txt disallows `/api/*` for crawlers;
+    # the vendor's own API page and every response envelope say "access is
+    # granted so that developers can share our jobs further", with
+    # conditions. The specific grant decides (the Jobicy precedent), and the
+    # conditions -- link back, credit, at most four polls a day -- are
+    # implemented in providers/remotive.py and pipeline/remotive_collect.py.
+    #
+    # list_with_content: `description` is the whole advert in one request.
+    strategy: list_with_content
+    # ONE REQUEST, NO PAGING, NO FILTER. `limit` was measured ignored, and the
+    # public window (18 rows on 2026-09-11) is what the vendor reports as its
+    # whole public inventory. Never coverage of remote hiring.
+    retrieval: aggregator_feed
+    # Mirror of REMOTIVE_FIELD_MAP in providers/remotive.py, the authority.
+    field_map:
+      "candidate_required_location": hiring_location_hint
+      "job_type": employment_type_hint
+
+  workingnomads:
+    # Remote-only, added 2026-09-07.
+    enabled: true
+    api_base: "https://www.workingnomads.com/api/exposed_jobs/"
+    # `www.workingnomads.com/robots.txt`, read first-party 2026-09-07: one
+    # `User-agent: *` block with an empty `Disallow:`. Nothing restricted, no
+    # AI crawler named, the API path not mentioned.
+    #
+    # list_with_content: the feed carries the whole advert in one request.
+    strategy: list_with_content
+    # A WINDOW, not a paginated archive: one request returns 32 postings and
+    # `?limit=200` returns the same 32, measured. Counts here are never
+    # coverage of remote hiring.
+    retrieval: aggregator_feed
+    # Mirror of WORKINGNOMADS_FIELD_MAP in providers/workingnomads.py, the
+    # authority.
+    #
+    # `location` is HIRING_LOCATION_HINT and `publishes_hiring_scope` is
+    # FALSE. That pair is the deliberate part: the field carries `Global` and
+    # `Europe, LATAM, APAC` but also bare country names, it is named
+    # `location` rather than for a restriction, and nothing first-party says
+    # what it means. A false PASS shows a job she cannot take.
+    field_map:
+      "location": hiring_location_hint
+
+  torre:
+    # BUILT AND SWITCHED OFF. `torre.ai/robots.txt`, read 2026-09-07, answers
+    # `User-agent: *` with `Disallow: /api/`. The search endpoint this adapter
+    # would call lives on `search.torre.co`, which serves no robots.txt at all,
+    # and absence is never permission.
+    #
+    # `enabled: false` is the weaker of the two gates and is here for honesty
+    # rather than for safety. The real one is `ROBOTS_DISALLOWS_API` in
+    # providers/torre.py, which raises before a URL is built -- a config edit
+    # cannot turn this on.
+    enabled: false
+    api_base: "https://search.torre.co"
+    # No description in the response and no detail endpoint in the contract.
+    strategy: list_only
+    # Results are the answer to a QUESTION, and the endpoint caps at 20 rows
+    # per query with no working pagination. Coverage is a property of the
+    # searches configured and may never be presented as exhaustive.
+    retrieval: query_driven
+    # Mirror of TORRE_FIELD_MAP in providers/torre.py, the authority.
+    #
+    # `remote` is a bare word, which is why `TOO_GENERIC_TO_GUARD` in
+    # tests/unit/test_provider_neutrality.py had to grow a second member: the
+    # neutrality guard matches single-word paths by exact equality and cannot
+    # tell this vendor's key from the English word the matcher uses.
+    field_map:
+      "remote": work_model_hint
+      "locations": hiring_location_hint
+
+# ---------------------------------------------------------------------------
+# On field_map  (M1B.1)
+#
+# M0 section 6.3 placed the provider field maps in this file. M1B.1 moved the
+# authority into the adapter modules and left the entries above as a read-only
+# mirror for review. Three reasons, recorded rather than assumed:
+#
+#   1. This file is read by nothing (see the note at the top), so putting the
+#      authoritative mapping here would have meant building a config loader
+#      inside a milestone whose defining property was being small.
+#   2. A test forbids providers/* from importing career_agent.config, so a
+#      config-sourced map would have to be threaded through the registry into
+#      every adapter constructor -- a wider change than the mechanism itself.
+#   3. A typo'd path in Python fails the type checker and a test that resolves
+#      every declared path against a recorded fixture. A typo'd path in YAML is
+#      silence.
+#
+# A field map declares WHERE meaning might live. It never assigns meaning:
+# work_model_hint is what an employer's ATS record asserts, never a conclusion
+# about whether the candidate can work there. That is why every dimension name
+# ends in _hint.
+#
+# A test keeps this mirror honest -- if it drifts from the adapters, the suite
+# fails. See docs/architecture/milestone-1b1-provider-metadata.md.
+# ---------------------------------------------------------------------------
+
+  workday:
+    # ONE COMPANY'S BOARD, AND ITS IDENTITY IS PUBLISHED RATHER THAN GUESSED.
+    # Added 2026-09-10, once two things had happened that were not writing code.
+    #
+    # ADR-0018 settled the permission on 2026-09-09: no first-party page
+    # documents `/wday/cxs/...`, the documented Workday API is authenticated
+    # SOAP, this endpoint answers without authentication and no robots.txt
+    # forbids it. Nothing here bypasses authentication, a CAPTCHA, an access
+    # control, an explicit block or a rate limit.
+    #
+    # `scan-career-sites` settled the identity on 2026-09-10 by reading what
+    # employers published: a board is a tenant, a numbered data centre AND a
+    # site, so `board_identifier` is `tenant.shard/site` and a row carrying
+    # fewer parts is refused before a request is made. This is the one board
+    # family `discover` may NOT probe with a constructed identifier.
+    enabled: true
+    # The host is built from the identity, so there is no single base URL. The
+    # template is in providers/workday.py.
+    api_base: "https://{tenant}.{shard}.myworkdayjobs.com"
+    # No description in the listing: `title`, `externalPath`, `locationsText`,
+    # `postedOn` and `bulletFields` only. Every posting costs its own request.
+    strategy: list_then_fetch
+    # Mirror of WORKDAY_FIELD_MAP in providers/workday.py, the authority.
+    #
+    # `postedOn` is deliberately absent: it is the relative TEXT "Posted Today"
+    # rather than a date, and the only real date is on the detail response.
+    field_map:
+      "locationsText": hiring_location_hint
+      "jobPostingInfo.country": hiring_location_hint
+      "jobPostingInfo.timeType": employment_type_hint
+
+  teamtailor:
+    # Reusable ATS family, added 2026-09-11. `{origin}/jobs.rss` on an
+    # employer-published tenant; an unregistered slug answers 404, so a
+    # bounded probe can tell a wrong identifier from an empty board.
+    # `career.teamtailor.com/robots.txt` excludes /app/, /messages/,
+    # /messenger/, /facebook/tab/ and /jobs/internal/; the feed is not among
+    # them and no AI crawler is named.
+    enabled: true
+    api_base: "https://{tenant}.teamtailor.com/jobs.rss"
+    strategy: list_with_content
+    # Mirror of the field map in providers/teamtailor.py, the authority.
+    # `workplace` is derived from `remoteStatus`: fully -> remote, hybrid ->
+    # hybrid, anything else -> nothing. Locations are OFFICES.
+    field_map:
+      "workplace": work_model_hint
+
+  rippling:
+    # Reusable ATS family, added 2026-09-11. The board API behind
+    # `ats.rippling.com/{slug}/jobs`, list then one detail per posting.
+    # `ats.rippling.com/robots.txt` disallows only /internal/;
+    # `api.rippling.com/robots.txt` is a 404, which ADR-0018 reads as silence.
+    enabled: true
+    api_base: "https://api.rippling.com/platform/api/ats/v1/board/{slug}/jobs"
+    strategy: list_then_detail
+    # Mirror of the field map in providers/rippling.py, the authority.
+    # `workplace` is read from the label prefix (`Remote (...)`, `Hybrid
+    # (...)`); `employment_type` from `employmentType.label` (SALARIED_FT).
+    field_map:
+      "workplace": work_model_hint
+      "employment_type": employment_type_hint
+
+  recruitee:
+    # Explicit employer-published tenant or custom HTTPS origin only.
+    enabled: true
+    api_base: "https://{tenant}.recruitee.com"
+    strategy: list_with_content
+    field_map:
+      "workplace": work_model_hint
+      "employment_type": employment_type_hint
+
+  comeet:
+    # Reusable ATS family, added 2026-09-12. The Careers API 2.0 behind
+    # every `www.comeet.com/jobs/{slug}/{company_uid}` hosted page, read
+    # with the token that page embeds; one list request carries every
+    # position with its advert (`?details=true`). Identity is `slug/uid`,
+    # both published by the employer, never guessed. One vacancy is served
+    # as one row per location and is stored ONCE, keyed on the base uid.
+    enabled: true
+    api_base: "https://www.comeet.co/careers-api/2.0/company/{company_uid}/positions"
+    strategy: list_with_content
+    # Mirror of the field map in providers/comeet.py, the authority.
+    # `workplace` is read from `workplace_type` (Remote / On-site / Hybrid);
+    # `employment_type` from the vendor's own `employment_type` label.
+    field_map:
+      "workplace": work_model_hint
+      "employment_type": employment_type_hint

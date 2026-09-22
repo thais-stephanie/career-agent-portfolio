@@ -1,0 +1,32 @@
+Career-Ops (https://github.com/career-ops-hq/career-ops)
+Pinned commit: fe06051ba57c78934b89355bebe2c67f3a5cdb14
+Read on: 2026-09-07
+
+No source code from this project is present in Career Agent. This licence text
+is preserved because two of its provider modules were read to learn two
+vendors' API contracts, and recording the licence beside that reading is
+cheaper than arguing later about whether it was required.
+
+---
+
+MIT License
+
+Copyright (c) 2026 Santiago Fernandez de Valderrama
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

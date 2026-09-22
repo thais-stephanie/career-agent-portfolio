@@ -1,0 +1,32 @@
+[
+  {
+    "url": "https://www.workingnomads.com/job/go/1837431/",
+    "title": "AI Image Evaluation Analyst",
+    "description": "<h2><strong>The work</strong></h2>\n<p>iMerit, an EXL company, is looking for detail oriented analysts to evaluate and rank AI generated responses to image based prompts. You will review AI generated responses and decide which ones actually hold up: accurate, relevant, concise, safe, well localized, and true to what the user asked for. Every ranking comes with a short written rationale, and those comments feed directly into how the models improve.</p>\n<p>Careful reading and good judgment matter far more than speed here.</p>\n<h2><strong>What you will do</strong></h2>\n<ul>\n<li>\n<p>Interpret conversational context and identify what the user really wanted</p>\n</li>\n<li>\n<p>Rate and rank responses against defined quality criteria</p>\n</li>\n<li>\n<p>Compare multiple answers and explain in writing why one wins</p>\n</li>\n<li>\n<p>Verify factual claims using approved research sources</p>\n</li>\n<li>\n<p>Flag tasks that cannot be reliably assessed rather than guessing</p>\n</li>\n</ul>\n<h2><strong>What you bring</strong></h2>\n<ul>\n<li>\n<p>Strong critical thinking and sound judgment in ambiguous cases</p>\n</li>\n<li>\n<p>Solid research skills and attention to detail</p>\n</li>\n<li>\n<p>Excellent reading</p>",
+    "company_name": "iMerit Technology",
+    "category_name": "Administration",
+    "tags": "analyst,annotation,english",
+    "location": "Japan, Turkey, Vietnam, Mexico, Norway, France",
+    "pub_date": "2026-09-06T02:37:03-04:00"
+  },
+  {
+    "url": "https://www.workingnomads.com/job/go/1833624/",
+    "title": "Software engineer",
+    "description": "<p>Sticker Mule is building the Internet's most lucrative commerce platform by combining software, manufacturing, and AI into one fully integrated stack. No print company, or pure software company for that matter, can match what we're doing. We're privately owned, profitable, and doing 9-figures in annual revenue with no meddlesome investors.</p>\n<p> </p>\n<h2><strong>How we work</strong></h2>\n<ol>\n<li>\n<p>Small, autonomous teams that own products end-to-end.</p>\n</li>\n<li>\n<p>Prioritize what matters right now and pivot instantly when needed.</p>\n</li>\n<li>\n<p>Ship across web and mobile from the same codebase. We use Go, TypeScript, React, Expo, GraphQL, Postgres, and run on GCP.</p>\n</li>\n<li>\n<p>Use AI aggressively to push the limit of what we can do.</p>\n</li>\n<li>\n<p>Move fast, build for the masses, and deprioritize edge cases.</p>\n</li>\n<li>\n<p>Fully remote from 40+ countries and collaborate using Asana and Slack.</p>\n</li>\n</ol>\n<p> </p>\n<h2><strong>Requirements</strong></h2>\n<ol>\n<li>\n<p>You are an exceptional full-stack software engineer.</p>\n</li>\n<li>\n<p>You use AI aggressively and write well in English.</p>\n<p> </p>\n</li>\n</ol>\n<h2><strong>What you will work on</strong></</p>",
+    "company_name": "Sticker Mule",
+    "category_name": "Development",
+    "tags": "react,typescript,golang,graphql,english",
+    "location": "Global",
+    "pub_date": "2026-09-04T03:55:38-04:00"
+  },
+  {
+    "url": "https://www.workingnomads.com/job/go/1835309/",
+    "title": "AI Content Analyst (No Experience Required)",
+    "description": "<p><strong>Help Shape the Future of AI — From Anywhere</strong></p>\n<p> </p>\n<p>AI is revolutionising how we interact with technology. From news feeds to navigation, machine learning can tailor our digital experiences to meet our needs — anytime, anywhere.</p>\n<p> </p>\n<p>With <strong>Peroptyx</strong>, you’ll have an opportunity to help make those experiences even smarter. We're looking for <strong>AI Content Analysts </strong>to assess the accuracy and relevance of human and AI-generated content.</p>\n<p><strong>You’ll evaluate everything from search results to news stories, images, music and transit data — ensuring it all makes sense in the real world.</strong></p>\n<p> </p>\n<p><strong>What’s in it for you?</strong></p>\n<p> </p>\n<p>✅ Total flexibility — set your own hours (weekends, evenings, whenever suits you)</p>\n<p>✅ Fully remote — work from home, skip the commute</p>\n<p>✅ Earn a competitive hourly rate</p>\n<p>✅ Boost your research and analytical skills</p>\n<p> </p>\n<p><strong>Whether you're a student, a parent, a professional seeking part-time hours, or just someone who loves a flexible role — this is an opportunity to make a real impact from your home location.</strong></p>\n</p>",
+    "company_name": "Peroptyx",
+    "category_name": "Administration",
+    "tags": "analyst,english,media,researcher",
+    "location": "Australia",
+    "pub_date": "2026-09-04T12:15:04-04:00"
+  }
+]

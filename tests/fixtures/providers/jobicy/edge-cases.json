@@ -1,0 +1,103 @@
+{
+  "_fixture_note": "INVENTED responses in the measured envelope shape, one per outcome this adapter must keep apart. An empty window, a contract error, a self-contradicting count, a duplicated id and a hostile URL are five different things and only one of them is a valid answer.",
+  "empty_window": {
+    "apiVersion": "2.2.16",
+    "jobCount": 0,
+    "appliedFilters": { "count": 200, "geo": "latam" },
+    "statusCode": 200,
+    "success": true,
+    "jobs": []
+  },
+  "contract_error": {
+    "apiVersion": "2.2.16",
+    "statusCode": 400,
+    "success": false,
+    "error": "Unsupported parameter"
+  },
+  "count_disagrees": {
+    "apiVersion": "2.2.16",
+    "jobCount": 40,
+    "statusCode": 200,
+    "success": true,
+    "jobs": [
+      {
+        "id": 900101,
+        "url": "https://jobicy.com/jobs/900101-sample",
+        "jobTitle": "Sample Role",
+        "companyName": "Sample Co",
+        "jobGeo": "Brazil",
+        "jobDescription": "<p>Sample body.</p>",
+        "pubDate": "2026-09-01T00:00:00+00:00"
+      }
+    ]
+  },
+  "duplicate_id": {
+    "apiVersion": "2.2.16",
+    "jobCount": 2,
+    "statusCode": 200,
+    "success": true,
+    "jobs": [
+      {
+        "id": 900202,
+        "url": "https://jobicy.com/jobs/900202-sample-one",
+        "jobTitle": "Sample One",
+        "companyName": "Sample Co",
+        "jobGeo": "Brazil",
+        "jobDescription": "<p>Sample body one.</p>",
+        "pubDate": "2026-09-01T00:00:00+00:00"
+      },
+      {
+        "id": 900202,
+        "url": "https://jobicy.com/jobs/900202-sample-two",
+        "jobTitle": "Sample Two",
+        "companyName": "Sample Co",
+        "jobGeo": "Brazil",
+        "jobDescription": "<p>Sample body two.</p>",
+        "pubDate": "2026-09-01T00:00:00+00:00"
+      }
+    ]
+  },
+  "unsafe_rows": {
+    "apiVersion": "2.2.16",
+    "jobCount": 4,
+    "statusCode": 200,
+    "success": true,
+    "jobs": [
+      {
+        "id": 900301,
+        "url": "javascript:alert(1)",
+        "jobTitle": "Script URL",
+        "companyName": "Sample Co",
+        "jobGeo": "Brazil",
+        "jobDescription": "<p>Sample body.</p>",
+        "pubDate": "2026-09-01T00:00:00+00:00"
+      },
+      {
+        "id": 900302,
+        "url": "http://jobicy.com/jobs/900302-plain-http",
+        "jobTitle": "Plain HTTP",
+        "companyName": "Sample Co",
+        "jobGeo": "Brazil",
+        "jobDescription": "<p>Sample body.</p>",
+        "pubDate": "2026-09-01T00:00:00+00:00"
+      },
+      {
+        "id": 900303,
+        "url": "https://jobicy.com.evil.example/jobs/900303-lookalike",
+        "jobTitle": "Look-alike Host",
+        "companyName": "Sample Co",
+        "jobGeo": "Brazil",
+        "jobDescription": "<p>Sample body.</p>",
+        "pubDate": "2026-09-01T00:00:00+00:00"
+      },
+      {
+        "id": 900304,
+        "url": "https://jobicy.com/jobs/900304-no-body",
+        "jobTitle": "No Body",
+        "companyName": "Sample Co",
+        "jobGeo": "Brazil",
+        "pubDate": "2026-09-01T00:00:00+00:00"
+      }
+    ]
+  }
+}

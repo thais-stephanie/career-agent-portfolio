@@ -1,0 +1,363 @@
+{
+ "payloads": [
+  {
+   "name": "CRM Systems & Automation Manager",
+   "department": "Product Management",
+   "location": {
+    "name": "Spain",
+    "country": "ES",
+    "city": "Madrid",
+    "state": "Spain",
+    "postal_code": null,
+    "street_name": null,
+    "arrival_instructions": null,
+    "street_number": null,
+    "timezone": "Europe/Paris",
+    "location_uid": "DA.405",
+    "is_remote": true
+   },
+   "url_comeet_hosted_page": "https://www.comeet.com/jobs/tripleten/98.008/crm-systems--automation-manager/62.F64",
+   "url_recruit_hosted_page": "https://www.comeet.com/jobs/tripleten/98.008/crm-systems--automation-manager/62.F64",
+   "url_active_page": "https://www.comeet.com/jobs/tripleten/98.008/crm-systems--automation-manager/62.F64",
+   "employment_type": "Full-time",
+   "experience_level": null,
+   "uid": "62.F64",
+   "url_detected_page": null,
+   "time_updated": "2026-08-25T14:35:51Z",
+   "company_name": "TripleTen",
+   "is_internal": false,
+   "workplace_type": "Remote",
+   "position_url": "https://www.comeet.co/careers-api/2.0/company/98.008/positions/62.F64",
+   "categories": [
+    {
+     "name": "Brand",
+     "value": "TripleTen",
+     "order": 1
+    }
+   ],
+   "location_variants": [
+    {
+     "uid": "62.F64",
+     "location": {
+      "name": "Spain",
+      "country": "ES",
+      "city": "Madrid",
+      "state": "Spain",
+      "postal_code": null,
+      "street_name": null,
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "Europe/Paris",
+      "location_uid": "DA.405",
+      "is_remote": true
+     }
+    },
+    {
+     "uid": "62.F64-3C.40F",
+     "location": {
+      "name": "Poland",
+      "country": "PL",
+      "city": "Warszawa",
+      "state": "Województwo mazowieckie",
+      "postal_code": "",
+      "street_name": "aleja „Solidarności”",
+      "arrival_instructions": null,
+      "street_number": "",
+      "timezone": "Europe/Warsaw",
+      "location_uid": "3C.40F",
+      "is_remote": true
+     }
+    },
+    {
+     "uid": "62.F64-AE.302",
+     "location": {
+      "name": "Serbia",
+      "country": "RS",
+      "city": "Belgrade",
+      "state": "Belgrade",
+      "postal_code": null,
+      "street_name": null,
+      "arrival_instructions": "",
+      "street_number": null,
+      "timezone": "Europe/Belgrade",
+      "location_uid": "AE.302",
+      "is_remote": true
+     }
+    },
+    {
+     "uid": "62.F64-DA.406",
+     "location": {
+      "name": "Portugal",
+      "country": "PT",
+      "city": "Lisbon",
+      "state": "Portugal",
+      "postal_code": null,
+      "street_name": null,
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "Europe/Dublin",
+      "location_uid": "DA.406",
+      "is_remote": true
+     }
+    }
+   ],
+   "location_countries": [
+    "ES",
+    "PL",
+    "RS",
+    "PT"
+   ],
+   "workplace": "remote",
+   "source_posting_url": "https://www.comeet.com/jobs/tripleten/98.008/crm-systems--automation-manager/62.F64",
+   "apply_url": "https://www.comeet.com/jobs/tripleten/98.008/crm-systems--automation-manager/62.F64"
+  },
+  {
+   "name": "AI Automation Teaching Experts",
+   "department": "Student's experience",
+   "location": {
+    "name": "Remote, based in LATAM",
+    "country": "BR",
+    "city": "Remote",
+    "state": "Remote",
+    "postal_code": null,
+    "street_name": null,
+    "arrival_instructions": null,
+    "street_number": null,
+    "timezone": "America/Mexico_City",
+    "location_uid": "10.501",
+    "is_remote": true
+   },
+   "url_comeet_hosted_page": "https://www.comeet.com/jobs/tripleten/98.008/ai-automation-teaching-experts/5E.A6A",
+   "url_recruit_hosted_page": "https://www.comeet.com/jobs/tripleten/98.008/ai-automation-teaching-experts/5E.A6A",
+   "url_active_page": "https://www.comeet.com/jobs/tripleten/98.008/ai-automation-teaching-experts/5E.A6A",
+   "employment_type": "Full-time",
+   "experience_level": null,
+   "uid": "5E.A6A",
+   "url_detected_page": null,
+   "time_updated": "2026-05-21T20:23:22Z",
+   "company_name": "TripleTen",
+   "is_internal": false,
+   "workplace_type": "Remote",
+   "position_url": "https://www.comeet.co/careers-api/2.0/company/98.008/positions/5E.A6A",
+   "categories": [
+    {
+     "name": "Brand",
+     "value": "TripleTen",
+     "order": 1
+    }
+   ],
+   "location_variants": [
+    {
+     "uid": "5E.A6A",
+     "location": {
+      "name": "Remote, based in LATAM",
+      "country": "BR",
+      "city": "Remote",
+      "state": "Remote",
+      "postal_code": null,
+      "street_name": null,
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "America/Mexico_City",
+      "location_uid": "10.501",
+      "is_remote": true
+     }
+    },
+    {
+     "uid": "5E.A6A-68.407",
+     "location": {
+      "name": "Argentina",
+      "country": "AR",
+      "city": "Buenos Aires",
+      "state": "Buenos Aires",
+      "postal_code": null,
+      "street_name": null,
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "America/Buenos_Aires",
+      "location_uid": "68.407",
+      "is_remote": true
+     }
+    },
+    {
+     "uid": "5E.A6A-AF.403",
+     "location": {
+      "name": "Bolivia",
+      "country": "BO",
+      "city": "Santa Cruz de la Sie",
+      "state": "Bolivia",
+      "postal_code": null,
+      "street_name": null,
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "America/Bogota",
+      "location_uid": "AF.403",
+      "is_remote": true
+     }
+    },
+    {
+     "uid": "5E.A6A-AF.404",
+     "location": {
+      "name": "Panama",
+      "country": "PA",
+      "city": "Panama",
+      "state": "Panama",
+      "postal_code": null,
+      "street_name": null,
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "America/Panama",
+      "location_uid": "AF.404",
+      "is_remote": true
+     }
+    }
+   ],
+   "location_countries": [
+    "BR",
+    "AR",
+    "BO",
+    "PA"
+   ],
+   "workplace": "remote",
+   "source_posting_url": "https://www.comeet.com/jobs/tripleten/98.008/ai-automation-teaching-experts/5E.A6A",
+   "apply_url": "https://www.comeet.com/jobs/tripleten/98.008/ai-automation-teaching-experts/5E.A6A"
+  },
+  {
+   "name": "AI & Machine Learning Teaching Expert (Part-time)",
+   "department": "Student's experience",
+   "location": {
+    "name": "Remote",
+    "country": "US",
+    "city": "Boston",
+    "state": "",
+    "postal_code": null,
+    "street_name": "",
+    "arrival_instructions": null,
+    "street_number": null,
+    "timezone": "America/Iqaluit",
+    "location_uid": "30.40C",
+    "is_remote": true
+   },
+   "url_comeet_hosted_page": "https://www.comeet.com/jobs/tripleten/98.008/ai--machine-learning-teaching-expert-part-time/C3.F61",
+   "url_recruit_hosted_page": "https://www.comeet.com/jobs/tripleten/98.008/ai--machine-learning-teaching-expert-part-time/C3.F61",
+   "url_active_page": "https://www.comeet.com/jobs/tripleten/98.008/ai--machine-learning-teaching-expert-part-time/C3.F61",
+   "employment_type": "Part-time",
+   "experience_level": "Senior",
+   "uid": "C3.F61",
+   "url_detected_page": null,
+   "time_updated": "2026-09-07T14:17:52Z",
+   "company_name": "TripleTen",
+   "is_internal": false,
+   "workplace_type": "Remote",
+   "position_url": "https://www.comeet.co/careers-api/2.0/company/98.008/positions/C3.F61",
+   "categories": [
+    {
+     "name": "Brand",
+     "value": "TripleTen",
+     "order": 1
+    }
+   ],
+   "location_variants": [
+    {
+     "uid": "C3.F61",
+     "location": {
+      "name": "Remote",
+      "country": "US",
+      "city": "Boston",
+      "state": "",
+      "postal_code": null,
+      "street_name": "",
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "America/Iqaluit",
+      "location_uid": "30.40C",
+      "is_remote": true
+     }
+    }
+   ],
+   "location_countries": [
+    "US"
+   ],
+   "workplace": "remote",
+   "source_posting_url": "https://www.comeet.com/jobs/tripleten/98.008/ai--machine-learning-teaching-expert-part-time/C3.F61",
+   "apply_url": "https://www.comeet.com/jobs/tripleten/98.008/ai--machine-learning-teaching-expert-part-time/C3.F61"
+  },
+  {
+   "name": "AI for Managers Teaching Experts",
+   "department": "Product Management",
+   "location": {
+    "name": "Remote",
+    "country": "US",
+    "city": "Boston",
+    "state": "",
+    "postal_code": null,
+    "street_name": "",
+    "arrival_instructions": null,
+    "street_number": null,
+    "timezone": "America/Iqaluit",
+    "location_uid": "30.40C",
+    "is_remote": false
+   },
+   "url_comeet_hosted_page": "https://www.comeet.com/jobs/tripleten/98.008/ai-for-managers-teaching-experts/63.46B",
+   "url_recruit_hosted_page": "https://www.comeet.com/jobs/tripleten/98.008/ai-for-managers-teaching-experts/63.46B",
+   "url_active_page": "https://www.comeet.com/jobs/tripleten/98.008/ai-for-managers-teaching-experts/63.46B",
+   "employment_type": null,
+   "experience_level": "Senior",
+   "uid": "63.46B",
+   "url_detected_page": null,
+   "time_updated": "2026-08-04T12:49:21Z",
+   "company_name": "TripleTen",
+   "is_internal": false,
+   "workplace_type": "On-site",
+   "position_url": "https://www.comeet.co/careers-api/2.0/company/98.008/positions/63.46B",
+   "categories": [
+    {
+     "name": "Brand",
+     "value": "Nebius Academy",
+     "order": 1
+    }
+   ],
+   "location_variants": [
+    {
+     "uid": "63.46B",
+     "location": {
+      "name": "Remote",
+      "country": "US",
+      "city": "Boston",
+      "state": "",
+      "postal_code": null,
+      "street_name": "",
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "America/Iqaluit",
+      "location_uid": "30.40C",
+      "is_remote": false
+     }
+    },
+    {
+     "uid": "63.46B-10.501",
+     "location": {
+      "name": "Remote, based in LATAM",
+      "country": "BR",
+      "city": "Remote",
+      "state": "Remote",
+      "postal_code": null,
+      "street_name": null,
+      "arrival_instructions": null,
+      "street_number": null,
+      "timezone": "America/Mexico_City",
+      "location_uid": "10.501",
+      "is_remote": false
+     }
+    }
+   ],
+   "location_countries": [
+    "US",
+    "BR"
+   ],
+   "workplace": "onsite",
+   "source_posting_url": "https://www.comeet.com/jobs/tripleten/98.008/ai-for-managers-teaching-experts/63.46B",
+   "apply_url": "https://www.comeet.com/jobs/tripleten/98.008/ai-for-managers-teaching-experts/63.46B"
+  }
+ ]
+}

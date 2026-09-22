@@ -1,0 +1,12 @@
+-- Migration 0037: a RESERVED SLOT. It creates nothing.
+--
+-- reconciles: searchfit_reader_lifecycle
+--
+-- The second number the production database spent on the Search Fit lane
+-- (`searchfit_reader_lifecycle`, applied 2026-09-17, ADR-0027 addendum): the
+-- `candidate_work_relation_reading` table, its backfill from
+-- `candidate_work_relation`, and `idx_job_match_eligible_population`. The
+-- reasoning is 0036's, in full, in that file. This slot exists so that the
+-- files stay gapless, a fresh install records what happened to the number
+-- without creating any Search Fit object, and production's own row stands.
+-- See ADR-0028.

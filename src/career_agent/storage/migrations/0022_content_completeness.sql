@@ -1,0 +1,68 @@
+-- 0022_content_completeness.sql
+--
+-- HOW MUCH OF THE POSTING WE HOLD, where a query can reach it. Additive: one
+-- column on `job_match`, no table altered, no row rewritten, no score touched.
+--
+-- THE FACT THIS RECORDS
+-- ---------------------
+-- Two four-hundred-character bodies can mean opposite things. One is a short
+-- posting -- the employer wrote little, and there is nothing more to read.
+-- The other is an EXCERPT from a source that returns a `snippet` and has no
+-- detail endpoint anywhere in its documented contract, so the rest cannot be
+-- fetched at any price.
+--
+-- The product could not tell them apart. `data_confidence` falls for both,
+-- correctly and identically: `description_substantial` wants 1,200 characters
+-- and neither has them. That measurement answers "how much did this posting
+-- tell us", which is the right question and a different one from "is this the
+-- posting". A reader deciding whether to open the employer's link needs the
+-- second, because one of the two has plenty more to say somewhere else.
+--
+-- WHY IT IS A COLUMN AND NOT A SENTENCE IN `result_json`
+-- ------------------------------------------------------
+-- Because a filter must be able to ask, and a filter may never LIKE over
+-- `result_json`: that blob holds evidence quotes copied verbatim out of job
+-- descriptions, so a posting whose body happened to contain the string
+-- `PARTIAL_CONTENT` would satisfy the filter using words the employer wrote.
+-- Migration 0013 exists because a filter pointed at that blob once already,
+-- and 0020 followed the same rule for the employment context. This is the
+-- third, and the rule has not changed: OUR identifiers, in their own column,
+-- never prose.
+--
+-- IT IS NOT A QUALITY SCORE, AND NOTHING SCORES IT
+-- ------------------------------------------------
+-- `FULL_CONTENT`, `PARTIAL_CONTENT`, `METADATA_ONLY`, `UNKNOWN`. None of the
+-- four is a judgement about the job or about the employer, and no scorer
+-- reads any of them: discounting a compatibility number by a provenance fact
+-- would blend two of the three measurements ADR-0004 keeps apart.
+-- `tests/integration/test_partial_content.py` asserts that the same text
+-- scores identically however it arrived, which is the property that makes
+-- this column safe to add.
+--
+-- `UNKNOWN` is the honest answer for `manual_import`: a person pasted a
+-- description, and only they know whether they pasted all of it. Guessing
+-- `FULL_CONTENT` there would put this system's word behind somebody else's
+-- copy and paste.
+--
+-- NULL MEANS "WRITTEN BEFORE THIS EXISTED"
+-- -----------------------------------------
+-- Nullable with no default, like the two columns migration 0020 added and for
+-- the same reason. A row scored under `MATCH_SCHEMA_VERSION` 5 has no reading
+-- in it, and defaulting it to `FULL_CONTENT` would make eighteen thousand
+-- historical rows assert a completeness nobody computed -- in the direction
+-- that makes an excerpt look like a posting. The version is bumped to 6 so an
+-- ordinary rescore refreshes those rows rather than somebody having to
+-- remember `--force`.
+--
+-- Portability, per Appendix A: no SQLite date function (A3), enums as
+-- portable CHECK-free TEXT (A11), additive ALTER only. SQLite adds a nullable
+-- column in constant time and rewrites nothing.
+
+ALTER TABLE job_match ADD COLUMN content_completeness TEXT;
+
+-- Filtering within one configuration version. The version leads because every
+-- query in this product is scoped to it: a score computed under older
+-- semantics is visibly stale rather than silently reinterpreted, and an index
+-- that ignored the version would serve rows from several answers at once.
+CREATE INDEX idx_job_match_content_completeness
+    ON job_match (config_id, config_version, content_completeness);

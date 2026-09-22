@@ -1,0 +1,151 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/contentful/jobs/8023842",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3478557,
+      "location": {
+        "name": "London, London, United Kingdom"
+      },
+      "metadata": [
+        {
+          "id": 9206164,
+          "name": "Is this role part of our Hire Champion Initiative?",
+          "value": true,
+          "value_type": "yes_no"
+        },
+        {
+          "id": 2430211,
+          "name": "Team (cost center)",
+          "value": "4110 Engineering Management",
+          "value_type": "single_select"
+        },
+        {
+          "id": 14571614,
+          "name": "Job Description Link",
+          "value": "https://docs.google.com/document/d/1EN1ojBQ3lQ4sQnSoA0E04B5giYcNny1aecK9nUiu0wA/edit?usp=sharing",
+          "value_type": "long_text"
+        },
+        {
+          "id": 22674273,
+          "name": "Job posting locations/Entities",
+          "value": "London",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 8023842,
+      "updated_at": "2026-07-20T10:51:10-04:00",
+      "requisition_id": "R26_000183",
+      "title": "Engineering Manager - Content API (f/m/d)",
+      "company_name": "Contentful",
+      "first_published": "2026-06-24T06:43:09-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;h2&gt;About the Opportunity&lt;/h2&gt;\n&lt;p&gt;We are looking for an Engineering Manager to lead a high-performing, remote-first API development team based in Europe who are driving Contentful’s REST and GraphQL APIs that enable customers to manage and deliver content at scale.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;The role will focus on continuously evolving our platform with advanced observability, automation, and AI-driven capabilities. We aim to help customers accelerate innovation, reduce operational complexity, and unlock new growth opportunities through a secure, performant, and extensible API ecosystem.&lt;/p&gt;\n&lt;p&gt;You’ll partner closely with cross-functional teams to ensure alignment between technical goals and business objectives, driving scalable, high-performance APIs that power Contentful’s website and user experiences.&lt;/p&gt;\n&lt;h2&gt;What to expect?&amp;nbsp;&lt;/h2&gt;\n&lt;p&gt;In this role you’ll get to work closely with senior stakeholders across the business to understand business strategy &amp;amp; goals, and work with internal teams and external partners to ensure our technical architecture, tech stack and development strategy are aligned to drive success for our site visitors and internal site users, and deliver impact against business goals.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Lead and grow a globally-distributed API development team, ensuring a culture of high performance, collaboration, and continuous improvement. Mentor and develop team members across all levels.&lt;/li&gt;\n&lt;li&gt;Define the team roadmap, with a particular focus on reliable, intelligent, and developer-friendly APIs that seamlessly connect content, data, and AI. Be accountable for collaborating with Product and Design to craft the roadmap and ensuring its successful execution.&lt;/li&gt;\n&lt;li&gt;Work closely with stakeholders in Product, Design, Research,&amp;nbsp; Infrastructure, and Security to translate business needs into technical solutions.&lt;/li&gt;\n&lt;li&gt;Oversee the technical approach for integrating and scaling the platform&#39;s delivery and management APIs. Ensure that the architecture remains performant, secure, and scalable as user needs grow.&lt;/li&gt;\n&lt;li&gt;Guide the team through solutioning, coding, testing, and deployment. Ensure adherence to best practices in coding, architecture, and testing. Foster a collaborative, innovative development environment.&lt;/li&gt;\n&lt;li&gt;Hire and mentor junior and senior developers, promoting technical excellence and helping to build individual and team growth through hands-on leadership and ongoing feedback.&lt;/li&gt;\n&lt;li&gt;Oversee day-to-day development operations, ensuring that the team has the capacity to cover all technical tasks, maintenance, and new feature development, all while ensuring global coverage for continuous web operations.&lt;/li&gt;\n&lt;li&gt;Work with Product Managers to define, prioritize, and execute the roadmap, balancing user impact with business objectives. Ensure clear communication of goals, progress, and blockers to stakeholders.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;What you need to be successful&lt;/h2&gt;\n&lt;p&gt;We’re looking for an enthusiastic Engineering Manager who is excited to build a cutting-edge web experience. To succeed in this role, you:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Have 5+ years of experience leading development teams,&lt;/strong&gt; with a track record of delivering complex, high-impact technical solutions.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Are proficient in web technologies &lt;/strong&gt;(e.g., TypeScript, JavaScript, React, Node.js) and familiar with headless CMS platforms (preferably Contentful).&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Excel at optimizing performance and scalability&lt;/strong&gt;, with experience handling complex content structures and large datasets.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Balance innovation with immediate impact&lt;/strong&gt;, overseeing technical delivery while driving team capabilities and capacity. You’re eager to work with the latest technologies and products.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Collaborate effectively across teams &lt;/strong&gt;(Product, Design, Data, Engineering), aligning technical work with business goals.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Have a strong mentoring track record, &lt;/strong&gt;fostering a culture of continuous learning, technical excellence, and quality within a distributed team.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Have a strong mentoring track record, &lt;/strong&gt;fostering a culture of continuous learning, technical excellence, and quality within a distributed team.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Embrace continuous learning&lt;/strong&gt;, staying up to date with industry trends and encouraging growth within your team.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Bonus:&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience with API-first platforms.&lt;/li&gt;\n&lt;li&gt;Familiarity with GraphQL&lt;/li&gt;\n&lt;li&gt;Knowledge of data privacy and security best practices in web technologies.&lt;/li&gt;\n&lt;li&gt;PostgreSQL knowledge, including designing, optimizing, and maintaining relational databases, with a focus on ensuring scalability, reliability, and performance of data-driven applications&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;What’s in it for you?&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Join an ambitious tech company reshaping the way people build digital experiences&lt;/li&gt;\n&lt;li&gt;Full-time employees receive Stock Options for the opportunity to share in the success of our company&lt;/li&gt;\n&lt;li&gt;Fertility and family building benefits, including a lifetime reimbursable wallet to support your growing family.&lt;/li&gt;\n&lt;li&gt;We value&lt;strong&gt; Work-Life balance &lt;/strong&gt;and&lt;strong&gt; You Time&lt;/strong&gt;!&lt;strong&gt; &lt;/strong&gt;A generous amount of paid time off, including vacation days, sick days,&amp;nbsp; education days, compassion days for loss, and volunteer days&lt;/li&gt;\n&lt;li&gt;Time off to care for and focus on your growing family&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Use your personal annual education budget to improve your skills and grow in your career&lt;/li&gt;\n&lt;li&gt;Enjoy a full range of virtual and in-person events, including workshops, guest speakers, and fun team activities, supporting learning and networking exchange beyond the usual work duties&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;An annual wellbeing stipend to care for your physical, financial, or emotional health&lt;/li&gt;\n&lt;li&gt;A monthly communication phone/internet stipend and phone hardware upgrade reimbursement.&lt;/li&gt;\n&lt;li&gt;New hire office equipment stipend for hybrid or distributed employees. Get the gear you need to work at your best.&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Who are we?&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Contentful is a leading &lt;strong&gt;digital experience platform&lt;/strong&gt; that helps modern businesses meet the growing demand for engaging, personalized content at scale. By blending composability with native &lt;strong&gt;AI&lt;/strong&gt; capabilities, Contentful enables dynamic personalization, automated content delivery, and real-time experimentation, powering next-generation digital experiences across brands, regions, and channels for more than 4,200 organizations worldwide. More than &lt;strong&gt;700 people&lt;/strong&gt; from more than &lt;strong&gt;70 nations&lt;/strong&gt; contribute their energy and creativity to Contentful, working from hubs in Berlin, Denver, San Francisco, London, New York, and distributed worldwide.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Everyone is welcome here!&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;&lt;strong&gt;“Everyone is welcome here”&lt;/strong&gt; is a celebrated component of our culture. At Contentful, we strive to create an inclusive environment that empowers our employees. We believe that our products and services benefit from our diverse backgrounds and experiences, and we are proud to be an equal opportunity employer. All qualified applications will receive consideration for employment without regard to race, color, national origin, religion, sexual orientation, gender, gender identity, age, physical [dis]ability, or length of time spent unemployed. We invite you to apply and join us!&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;If you need reasonable accommodations at any point during the application or interview process, please let your recruiting coordinator know.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;&lt;span style=&quot;color: #3e3e3e;&quot;&gt;&lt;em&gt;Please be aware of scammers who may fraudulently allege to be from Contentful. These types of fraud can be carried out through copycat websites, fake email addresses claiming to be from our company, or social media. We do not ask for your personal information, such as bank account numbers, identification numbers, etc, through social media or chat-based apps, nor do we request or send money for the purchase of business equipment. If you suspect fraud, please report it to your local authorities, as well as reach out to us at &lt;a href=&quot;mailto:security-esk@contentful.com&quot; target=&quot;_blank&quot;&gt;security-esk@contentful.com&lt;/a&gt; &lt;/em&gt;&lt;/span&gt;&lt;span style=&quot;color: #3e3e3e;&quot;&gt;&lt;em&gt;with any information you may have.&lt;/em&gt;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;By clicking “Apply for this job,” I acknowledge that I have read the “&lt;/span&gt;&lt;a href=&quot;https://www.contentful.com/legal/us/privacy-notice-to-candidates/privacy/&quot; target=&quot;_blank&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Contentful’s Candidate Privacy Notice&lt;/span&gt;&lt;/a&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;” and hereby consent to the collection, processing, use, and storage of my personal information as described therein.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 26843,
+          "name": "Engineering",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 98376,
+          "name": "London, UK",
+          "location": "London, England, United Kingdom",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/contentful/jobs/8050574",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3478557,
+      "location": {
+        "name": "Dublin, Dublin, Ireland"
+      },
+      "metadata": [
+        {
+          "id": 9206164,
+          "name": "Is this role part of our Hire Champion Initiative?",
+          "value": true,
+          "value_type": "yes_no"
+        },
+        {
+          "id": 2430211,
+          "name": "Team (cost center)",
+          "value": "4110 Engineering Management",
+          "value_type": "single_select"
+        },
+        {
+          "id": 14571614,
+          "name": "Job Description Link",
+          "value": "https://docs.google.com/document/d/1EN1ojBQ3lQ4sQnSoA0E04B5giYcNny1aecK9nUiu0wA/edit?usp=sharing",
+          "value_type": "long_text"
+        },
+        {
+          "id": 22674273,
+          "name": "Job posting locations/Entities",
+          "value": "London",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 8050574,
+      "updated_at": "2026-07-20T10:51:25-04:00",
+      "requisition_id": "R26_000183",
+      "title": "Engineering Manager - Content API (f/m/d)",
+      "company_name": "Contentful",
+      "first_published": "2026-07-08T10:57:09-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;h2&gt;About the Opportunity&lt;/h2&gt;\n&lt;p&gt;We are looking for an Engineering Manager to lead a high-performing, remote-first API development team based in Europe who are driving Contentful’s REST and GraphQL APIs that enable customers to manage and deliver content at scale.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;The role will focus on continuously evolving our platform with advanced observability, automation, and AI-driven capabilities. We aim to help customers accelerate innovation, reduce operational complexity, and unlock new growth opportunities through a secure, performant, and extensible API ecosystem.&lt;/p&gt;\n&lt;p&gt;You’ll partner closely with cross-functional teams to ensure alignment between technical goals and business objectives, driving scalable, high-performance APIs that power Contentful’s website and user experiences.&lt;/p&gt;\n&lt;h2&gt;What to expect?&amp;nbsp;&lt;/h2&gt;\n&lt;p&gt;In this role you’ll get to work closely with senior stakeholders across the business to understand business strategy &amp;amp; goals, and work with internal teams and external partners to ensure our technical architecture, tech stack and development strategy are aligned to drive success for our site visitors and internal site users, and deliver impact against business goals.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Lead and grow a globally-distributed API development team, ensuring a culture of high performance, collaboration, and continuous improvement. Mentor and develop team members across all levels.&lt;/li&gt;\n&lt;li&gt;Define the team roadmap, with a particular focus on reliable, intelligent, and developer-friendly APIs that seamlessly connect content, data, and AI. Be accountable for collaborating with Product and Design to craft the roadmap and ensuring its successful execution.&lt;/li&gt;\n&lt;li&gt;Work closely with stakeholders in Product, Design, Research,&amp;nbsp; Infrastructure, and Security to translate business needs into technical solutions.&lt;/li&gt;\n&lt;li&gt;Oversee the technical approach for integrating and scaling the platform&#39;s delivery and management APIs. Ensure that the architecture remains performant, secure, and scalable as user needs grow.&lt;/li&gt;\n&lt;li&gt;Guide the team through solutioning, coding, testing, and deployment. Ensure adherence to best practices in coding, architecture, and testing. Foster a collaborative, innovative development environment.&lt;/li&gt;\n&lt;li&gt;Hire and mentor junior and senior developers, promoting technical excellence and helping to build individual and team growth through hands-on leadership and ongoing feedback.&lt;/li&gt;\n&lt;li&gt;Oversee day-to-day development operations, ensuring that the team has the capacity to cover all technical tasks, maintenance, and new feature development, all while ensuring global coverage for continuous web operations.&lt;/li&gt;\n&lt;li&gt;Work with Product Managers to define, prioritize, and execute the roadmap, balancing user impact with business objectives. Ensure clear communication of goals, progress, and blockers to stakeholders.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;What you need to be successful&lt;/h2&gt;\n&lt;p&gt;We’re looking for an enthusiastic Engineering Manager who is excited to build a cutting-edge web experience. To succeed in this role, you:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Have 5+ years of experience leading development teams,&lt;/strong&gt; with a track record of delivering complex, high-impact technical solutions.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Are proficient in web technologies &lt;/strong&gt;(e.g., TypeScript, JavaScript, React, Node.js) and familiar with headless CMS platforms (preferably Contentful).&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Excel at optimizing performance and scalability&lt;/strong&gt;, with experience handling complex content structures and large datasets.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Balance innovation with immediate impact&lt;/strong&gt;, overseeing technical delivery while driving team capabilities and capacity. You’re eager to work with the latest technologies and products.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Collaborate effectively across teams &lt;/strong&gt;(Product, Design, Data, Engineering), aligning technical work with business goals.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Have a strong mentoring track record, &lt;/strong&gt;fostering a culture of continuous learning, technical excellence, and quality within a distributed team.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Have a strong mentoring track record, &lt;/strong&gt;fostering a culture of continuous learning, technical excellence, and quality within a distributed team.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Embrace continuous learning&lt;/strong&gt;, staying up to date with industry trends and encouraging growth within your team.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Bonus:&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience with API-first platforms.&lt;/li&gt;\n&lt;li&gt;Familiarity with GraphQL&lt;/li&gt;\n&lt;li&gt;Knowledge of data privacy and security best practices in web technologies.&lt;/li&gt;\n&lt;li&gt;PostgreSQL knowledge, including designing, optimizing, and maintaining relational databases, with a focus on ensuring scalability, reliability, and performance of data-driven applications&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;What’s in it for you?&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Join an ambitious tech company reshaping the way people build digital experiences&lt;/li&gt;\n&lt;li&gt;Full-time employees receive Stock Options for the opportunity to share in the success of our company&lt;/li&gt;\n&lt;li&gt;Fertility and family building benefits, including a lifetime reimbursable wallet to support your growing family.&lt;/li&gt;\n&lt;li&gt;We value&lt;strong&gt; Work-Life balance &lt;/strong&gt;and&lt;strong&gt; You Time&lt;/strong&gt;!&lt;strong&gt; &lt;/strong&gt;A generous amount of paid time off, including vacation days, sick days,&amp;nbsp; education days, compassion days for loss, and volunteer days&lt;/li&gt;\n&lt;li&gt;Time off to care for and focus on your growing family&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Use your personal annual education budget to improve your skills and grow in your career&lt;/li&gt;\n&lt;li&gt;Enjoy a full range of virtual and in-person events, including workshops, guest speakers, and fun team activities, supporting learning and networking exchange beyond the usual work duties&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;An annual wellbeing stipend to care for your physical, financial, or emotional health&lt;/li&gt;\n&lt;li&gt;A monthly communication phone/internet stipend and phone hardware upgrade reimbursement.&lt;/li&gt;\n&lt;li&gt;New hire office equipment stipend for hybrid or distributed employees. Get the gear you need to work at your best.&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Who are we?&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Contentful is a leading &lt;strong&gt;digital experience platform&lt;/strong&gt; that helps modern businesses meet the growing demand for engaging, personalized content at scale. By blending composability with native &lt;strong&gt;AI&lt;/strong&gt; capabilities, Contentful enables dynamic personalization, automated content delivery, and real-time experimentation, powering next-generation digital experiences across brands, regions, and channels for more than 4,200 organizations worldwide. More than &lt;strong&gt;700 people&lt;/strong&gt; from more than &lt;strong&gt;70 nations&lt;/strong&gt; contribute their energy and creativity to Contentful, working from hubs in Berlin, Denver, San Francisco, London, New York, and distributed worldwide.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Everyone is welcome here!&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;&lt;strong&gt;“Everyone is welcome here”&lt;/strong&gt; is a celebrated component of our culture. At Contentful, we strive to create an inclusive environment that empowers our employees. We believe that our products and services benefit from our diverse backgrounds and experiences, and we are proud to be an equal opportunity employer. All qualified applications will receive consideration for employment without regard to race, color, national origin, religion, sexual orientation, gender, gender identity, age, physical [dis]ability, or length of time spent unemployed. We invite you to apply and join us!&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;If you need reasonable accommodations at any point during the application or interview process, please let your recruiting coordinator know.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;&lt;span style=&quot;color: #3e3e3e;&quot;&gt;&lt;em&gt;Please be aware of scammers who may fraudulently allege to be from Contentful. These types of fraud can be carried out through copycat websites, fake email addresses claiming to be from our company, or social media. We do not ask for your personal information, such as bank account numbers, identification numbers, etc, through social media or chat-based apps, nor do we request or send money for the purchase of business equipment. If you suspect fraud, please report it to your local authorities, as well as reach out to us at &lt;a href=&quot;mailto:security-esk@contentful.com&quot; target=&quot;_blank&quot;&gt;security-esk@contentful.com&lt;/a&gt; &lt;/em&gt;&lt;/span&gt;&lt;span style=&quot;color: #3e3e3e;&quot;&gt;&lt;em&gt;with any information you may have.&lt;/em&gt;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;By clicking “Apply for this job,” I acknowledge that I have read the “&lt;/span&gt;&lt;a href=&quot;https://www.contentful.com/legal/us/privacy-notice-to-candidates/privacy/&quot; target=&quot;_blank&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Contentful’s Candidate Privacy Notice&lt;/span&gt;&lt;/a&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;” and hereby consent to the collection, processing, use, and storage of my personal information as described therein.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 26843,
+          "name": "Engineering",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 98376,
+          "name": "London, UK",
+          "location": "London, England, United Kingdom",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    }
+  ],
+  "meta": {
+    "total": 2
+  }
+}

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+frontend/dist/
+.env
+input/
+.resume-tailor/
+data/runs/
+.pytest_cache/
+frontend/tsconfig.tsbuildinfo

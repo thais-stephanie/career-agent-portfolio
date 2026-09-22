@@ -1,0 +1,2 @@
+# Public edition working notes
+Read docs/ARCHITECTURE.md and docs/PRIVACY.md. Keep deterministic Search Fit separate from eligibility, data confidence and Tailor Match. Never convert generated text into confirmed evidence. Preserve all component licenses. Tests and screenshots use synthetic data and temporary storage. Never add personal files, .env, local config, databases, backups or research datasets to the public history. See CONTRIBUTING.md for verification commands.

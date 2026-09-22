@@ -1,0 +1,41 @@
+[
+  {
+    "uuid": "46b4af52-824b-4803-be84-e8ed57bd33a1",
+    "name": "Account Executive, Private Equity",
+    "department": {
+      "id": "Sales",
+      "label": "Sales"
+    },
+    "url": "https://ats.rippling.com/rippling/jobs/46b4af52-824b-4803-be84-e8ed57bd33a1",
+    "workLocation": {
+      "label": "Remote (United States)",
+      "id": "Remote (United States)"
+    }
+  },
+  {
+    "uuid": "ae666b72-45bc-4d07-90c1-7a440adf501f",
+    "name": "Account Executive, IT Cloud",
+    "department": {
+      "id": "Sales",
+      "label": "Sales"
+    },
+    "url": "https://ats.rippling.com/rippling/jobs/ae666b72-45bc-4d07-90c1-7a440adf501f",
+    "workLocation": {
+      "label": "Hybrid (San Francisco, California, US)",
+      "id": "Hybrid (San Francisco, California, US)"
+    }
+  },
+  {
+    "uuid": "0560517a-7512-4b3c-9f76-d699cd76a93c",
+    "name": "Account Executive - New Logo Sales, SSB (NAMER)",
+    "department": {
+      "id": "Sales",
+      "label": "Sales"
+    },
+    "url": "https://ats.rippling.com/rippling/jobs/0560517a-7512-4b3c-9f76-d699cd76a93c",
+    "workLocation": {
+      "label": "Bangalore, India",
+      "id": "Bangalore, India"
+    }
+  }
+]

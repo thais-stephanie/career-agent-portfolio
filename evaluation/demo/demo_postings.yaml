@@ -1,0 +1,978 @@
+# =====================================================================
+# The sanitised demo corpus.
+#
+# Nineteen invented postings at seventeen invented companies. Nothing
+# here came from a real job board, no real employer is named, and every
+# URL uses the reserved `.invalid` TLD so nothing can accidentally
+# resolve.
+#
+# Nineteen postings, seventeen ROLES: demo-001, demo-018 and demo-019 are
+# one role published once per regional board, which is how an employer
+# actually produces duplicates. Cards collapses them to one card; Table
+# shows all three. Both numbers are true, of different questions.
+#
+# It exists for three jobs at once, and the overlap is deliberate:
+#
+#   1. A DEMO. `career-agent seed-demo` builds a working database from
+#      this file in about a second, so the product can be opened,
+#      screenshotted and shown to somebody without exposing a single
+#      real posting or the candidate's own corpus (`data/` is
+#      gitignored and stays that way -- ADR-0006).
+#
+#   2. The BEHAVIOURAL PROOFS. Each posting carries an `expects` block
+#      naming what the matcher must conclude about it.
+#      `tests/integration/test_demo_acceptance.py` reads this file and
+#      asserts every one. When a lexicon change breaks a judgement, a
+#      named test fails and says which posting and which judgement.
+#
+#   3. BROWSER ACCEPTANCE. The UI tests drive this same database, so
+#      what a reviewer sees on screen is what the unit tests assert.
+#
+# THE DEMO CORPUS DEMONSTRATES WHAT CAREER AGENT CAN KNOW FROM A SOURCE,
+# NOT WHAT A FIXTURE AUTHOR WISHES IT KNEW.
+#
+# That is the invariant, and it is enforced by
+# `tests/integration/test_demo_is_reconstructible.py`: a posting's derived
+# facts must be reconstructible solely from the raw payload and metadata that
+# would exist for the provider it imitates. Seed a database, force a rescore,
+# and every semantically meaningful column is unchanged.
+#
+# It was false until V1.4, invisibly. Each posting carried `employment_type:`
+# and a `salary:` block that the seeder handed straight to the matcher as
+# keyword arguments, while `rescore` -- the only path the real corpus ever
+# takes -- can read those only out of an archived provider payload through
+# that provider's own reader. Pressing Recalculate moved 18 of these 19
+# scores.
+#
+# So each posting names the provider it imitates and carries a `payload:`
+# shaped like that provider's real API response, and `pipeline/facts.py`
+# derives the facts for the seeder, for a rescore and for the acceptance
+# harness alike. Three providers, chosen by what each posting has to show:
+#
+#   ashby       a salary WITH a period, and an employment type. Its adapter
+#               maps `employmentType` and reads `compensation
+#               .compensationTiers`, whose `interval` is where a period can
+#               honestly come from.
+#   lever       an employment type and no salary, through
+#               `categories.commitment`.
+#   greenhouse  neither. Its field map has ONE mapping, `location.name`, and
+#               `read_compensation` documents that the period is None,
+#               always. `demo-012` therefore has no employment type -- and
+#               still reads CLT, because `match/employment.py` finds
+#               "Contratacao CLT" in the body and quotes it. That is the
+#               distinction the rule makes visible.
+#
+# `demo-017` has no payload at all, which is also a real state: a posting
+# collected before its metadata arrived.
+#
+# The postings are written to be *hard* on purpose. Several pairs differ
+# only in the body -- same shape of title, opposite correct answer --
+# because a matcher that reads titles would pass a corpus of easy cases
+# and fail every one of these. The duplicate trio is hard the other way
+# round: same work, deliberately different prose, so nothing can group it
+# by `content_hash` and get the right answer by accident.
+# =====================================================================
+
+schema_version: 1
+purpose: sanitized_demo
+generated_for: personal-alpha
+
+# Which ATS the demo postings imitate. It lives here, in DATA, and not in
+# `pipeline/demo_seed.py`, because `tests/unit/test_provider_neutrality.py`
+# forbids generic code from naming a vendor -- and it is right to. The demo
+# needs "a structured ATS" so the provenance column shows something real;
+# which one is a property of this corpus, not of the seeding code.
+imitates_provider: greenhouse
+
+postings:
+
+  # -- The straightforward strong match --------------------------------
+  - external_id: demo-001
+    company: {slug: northwind-systems, name: "Northwind Systems", hq_country: US}
+    title: "Business Systems Engineer"
+    location_raw: "Remote, worldwide"
+    department: "Business Technology"
+    posted_at: "2026-08-30"
+    imitates_provider: ashby
+    payload:
+      employmentType: FullTime
+      workplaceType: Remote
+      location: "Remote, worldwide"
+      compensation:
+        compensationTiers:
+          - components:
+              - compensationType: Salary
+                currencyCode: USD
+                interval: "1 YEAR"
+                minValue: "95000.0"
+                maxValue: "125000.0"
+    url: "https://northwind.example.invalid/jobs/demo-001"
+    description: |
+      Northwind Systems is hiring a Business Systems Engineer to own the
+      internal platforms our go-to-market and finance teams run on.
+
+      Responsibilities
+      - Own our HubSpot CRM architecture: the object model, custom objects,
+        custom properties and the lifecycle stage definitions everything else
+        depends on.
+      - Design and build workflow automation across HubSpot, Stripe and our
+        billing system, using n8n for orchestration and private apps where a
+        workflow is not enough.
+      - Build and maintain REST API integrations and webhooks between our
+        business systems, and own the data synchronization that keeps them
+        consistent.
+      - Improve data quality: deduplication, validation rules, and the
+        monitoring that tells us when a sync has drifted.
+      - Gather business requirements from revenue operations and finance, then
+        translate them into systems that hold up.
+      - Write the documentation and runbooks that make this maintainable by
+        someone other than you.
+
+      Requirements
+      - 5+ years in business systems, revenue operations or systems integration.
+      - Deep HubSpot experience, including the HubSpot API.
+      - Comfortable with JSON, SQL and light scripting in Python or JavaScript.
+      - Experience with an iPaaS such as n8n, Workato, Zapier or Make.
+
+      We hire globally and work from anywhere. This is a fully remote worldwide
+      role and we support contractors through an employer of record.
+    expects:
+      title_class: PRIMARY
+      eligibility_status: VERIFIED_ELIGIBLE
+      screening_state: NOT_BLOCKED
+      min_score: 70
+      min_confidence: 70
+      must_fire: [hubspot_platform, workflow_automation, api_integration, crm_architecture, ipaas]
+      no_penalty: [quota_carrying_sales, cold_outbound]
+
+  # -- PROOF 7: GTM Engineer that is systems work ----------------------
+  - external_id: demo-002
+    company: {slug: lumen-ridge, name: "Lumen Ridge", hq_country: US}
+    title: "GTM Engineer"
+    location_raw: "Remote, Americas"
+    department: "Revenue Operations"
+    posted_at: "2026-08-27"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote, Americas"
+    url: "https://lumenridge.example.invalid/jobs/demo-002"
+    description: |
+      About the role
+
+      You will own the GTM systems that our revenue team runs on. This is an
+      engineering role inside revenue operations, not a sales role.
+
+      What you will do
+      - Own our CRM architecture and the operational data model behind it.
+      - Build lead routing and lead scoring that actually reflects how we sell.
+      - Own data enrichment and the data quality rules that keep the CRM
+        trustworthy.
+      - Build workflow automation and REST API integrations between the CRM,
+        the product and the data warehouse.
+      - Build internal tooling for the revenue team where no vendor product
+        fits.
+      - Bring AI agents into our GTM workflows where they genuinely reduce
+        manual work.
+
+      Requirements
+      - Experience owning revenue systems or GTM systems end to end.
+      - Strong with APIs, webhooks and JSON.
+      - Comfortable with SQL and light scripting.
+
+      Latin America and North America time zones welcome. We hire across the
+      Americas.
+    expects:
+      title_class: PRIMARY
+      title_adjustment: PROMOTED
+      eligibility_status: VERIFIED_ELIGIBLE
+      min_score: 58
+      must_fire: [gtm_systems_work, crm_architecture, lead_routing, workflow_automation, api_integration]
+      no_penalty: [quota_carrying_sales, cold_outbound]
+
+  # -- PROOF 8: same title, outbound sales ------------------------------
+  - external_id: demo-003
+    company: {slug: peakline, name: "Peakline", hq_country: US}
+    title: "GTM Engineer"
+    location_raw: "Remote"
+    department: "Sales"
+    posted_at: "2026-08-25"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote"
+    url: "https://peakline.example.invalid/jobs/demo-003"
+    description: |
+      What you'll do
+
+      - Own outbound prospecting for your territory. Cold calling and cold
+        email are a daily part of this role.
+      - Carry a quota and close deals against it every quarter.
+      - Build your own book of business from scratch.
+      - Run sales development motions and qualify inbound leads.
+      - Use our automation tooling to send more sequences, faster.
+
+      Requirements
+      - 3+ years in a quota carrying sales role.
+      - Comfortable with high volume cold outreach.
+    expects:
+      title_class: EXCLUDED
+      title_adjustment: DEMOTED
+      max_score: 25
+      must_fire: [cold_outbound, quota_carrying_sales]
+      scores_below: demo-002
+
+  # -- PROOF 9: Forward Deployed that is implementation work ------------
+  - external_id: demo-004
+    company: {slug: cobalt-field, name: "Cobalt Field", hq_country: PT}
+    title: "Forward Deployed AI Engineer"
+    location_raw: "Remote, LATAM"
+    department: "Solutions"
+    posted_at: "2026-08-29"
+    imitates_provider: ashby
+    payload:
+      employmentType: Contract
+      workplaceType: Remote
+      location: "Remote, LATAM"
+      compensation:
+        compensationTiers:
+          - components:
+              - compensationType: Salary
+                currencyCode: USD
+                interval: "1 MONTH"
+                minValue: "6000.0"
+                maxValue: "8000.0"
+    url: "https://cobaltfield.example.invalid/jobs/demo-004"
+    description: |
+      The role
+
+      You will sit with our customers and make our platform work inside their
+      business.
+
+      - Lead customer implementation and customer onboarding for new accounts.
+      - Own solution configuration and solution design for each deployment.
+      - Build REST API integrations and webhooks into the customer's existing
+        stack, including their CRM.
+      - Design workflow automation that removes manual steps from the
+        customer's business process.
+      - Deploy AI agents and AI workflows into real operational processes.
+      - Gather business requirements from stakeholders and translate them into
+        a working configuration.
+      - Run technical enablement so the customer's team can operate what you
+        built.
+
+      Requirements
+      - Comfortable with APIs, JSON and light scripting.
+      - Experience with an integration platform such as Workato, n8n or Make.
+
+      We hire anywhere in LATAM and pay in USD. Travel is rare and optional.
+    expects:
+      title_class: PRIMARY
+      title_adjustment: PROMOTED
+      eligibility_status: VERIFIED_ELIGIBLE
+      min_score: 55
+      must_fire: [customer_implementation, api_integration, workflow_automation, applied_ai_workflow]
+
+  # -- PROOF 10: same family, travel blocks it --------------------------
+  - external_id: demo-005
+    company: {slug: halden-group, name: "Halden Group", hq_country: US}
+    title: "Forward Deployed Engineer"
+    location_raw: "Remote (US)"
+    department: "Delivery"
+    posted_at: "2026-08-20"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote (US)"
+    url: "https://halden.example.invalid/jobs/demo-005"
+    description: |
+      You will lead customer implementation projects and own solution
+      configuration for enterprise accounts, building API integrations into
+      each customer's environment.
+
+      This role requires travel up to 50% to customer sites. Extensive travel
+      is a condition of the role and candidates who cannot travel should not
+      apply.
+
+      Requirements
+      - Experience with REST API integration work.
+      - Willingness to travel frequently.
+    expects:
+      gate_fail: travel
+      eligibility_status: VERIFIED_NOT_ELIGIBLE
+
+  # -- PROOF 11: "Developer" is not a disqualifier ----------------------
+  - external_id: demo-006
+    company: {slug: tessera-labs, name: "Tessera Labs", hq_country: NL}
+    title: "Integrations Developer"
+    location_raw: "Remote, EMEA and LATAM"
+    department: "Platform"
+    posted_at: "2026-08-31"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote, EMEA and LATAM"
+    url: "https://tessera.example.invalid/jobs/demo-006"
+    description: |
+      Responsibilities
+      - Build and maintain REST API integrations between our platform and the
+        systems our customers already run.
+      - Own webhooks, OAuth flows and the middleware that sits between them.
+      - Build system integration pipelines and own data synchronization and
+        data migration between connected systems.
+      - Work with an iPaaS layer (we use n8n) for the orchestration that does
+        not need custom code.
+      - Model the operational data that flows between CRM, billing and
+        support.
+
+      Requirements
+      - Strong with JSON, REST and webhooks.
+      - Comfortable writing Python or JavaScript where a workflow will not do.
+
+      We hire anywhere in LATAM and across EMEA.
+    expects:
+      title_class: PRIMARY
+      not_excluded: true
+      min_score: 34
+      must_fire: [api_integration, system_integration, data_sync, ipaas]
+
+  # -- PROOF 12a: Shared Services that is internal platforms ------------
+  - external_id: demo-007
+    company: {slug: vantage-mill, name: "Vantage Mill", hq_country: CA}
+    title: "Software Engineer, Shared Services"
+    location_raw: "Remote"
+    department: "Shared Services"
+    posted_at: "2026-08-26"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote"
+    url: "https://vantagemill.example.invalid/jobs/demo-007"
+    description: |
+      The Shared Services team owns the internal platform that every other
+      team at Vantage Mill depends on.
+
+      What you'll do
+      - Own internal tooling and internal systems used by finance, people
+        operations and revenue.
+      - Build system integration between our business systems: CRM, billing,
+        recruiting and reporting.
+      - Build REST API integrations and the data synchronization between them.
+      - Own workflow automation across those business systems.
+      - Model the operational data behind our internal reporting.
+
+      This is a business systems role. You will not be working on the customer
+      facing product.
+    expects:
+      title_class: STRONG_ADJACENT
+      title_adjustment: PROMOTED
+      must_fire: [internal_tooling, system_integration, business_systems_platform]
+
+  # -- PROOF 12b: same title, ordinary backend engineering --------------
+  - external_id: demo-008
+    company: {slug: orrin-dynamics, name: "Orrin Dynamics", hq_country: US}
+    title: "Software Engineer, Shared Services"
+    location_raw: "Remote"
+    department: "Engineering"
+    posted_at: "2026-08-24"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote"
+    url: "https://orrin.example.invalid/jobs/demo-008"
+    description: |
+      You will work on distributed systems at scale within our Shared Services
+      engineering organisation.
+
+      - Design and operate production services at scale on Kubernetes.
+      - Own low latency, high throughput services in Go and Rust.
+      - Work on our microservices architecture and its scalable backend.
+      - Ship product features against the roadmap.
+
+      Requirements
+      - Strong algorithms and data structures fundamentals.
+      - BS in Computer Science or equivalent.
+      - Deep experience with distributed systems.
+    expects:
+      title_class: EXCLUDED
+      title_adjustment: DEMOTED
+      must_fire: [heavy_engineering, algorithmic_depth]
+
+  # -- PROOF 2 + 4: a good title cannot beat a geography blocker --------
+  - external_id: demo-009
+    company: {slug: bright-harbor, name: "Bright Harbor", hq_country: US}
+    title: "Senior Revenue Operations Systems Analyst"
+    location_raw: "Remote (United States)"
+    department: "Revenue Operations"
+    posted_at: "2026-08-28"
+    imitates_provider: ashby
+    payload:
+      employmentType: FullTime
+      workplaceType: Remote
+      location: "Remote (United States)"
+      compensation:
+        compensationTiers:
+          - components:
+              - compensationType: Salary
+                currencyCode: USD
+                interval: "1 YEAR"
+                minValue: "110000.0"
+                maxValue: "130000.0"
+    url: "https://brightharbor.example.invalid/jobs/demo-009"
+    description: |
+      Own the revenue systems and CRM architecture behind our go to market
+      motion. You will build workflow automation, own lead routing, and
+      maintain the REST API integrations between our CRM and the data
+      warehouse.
+
+      Requirements
+      - 4+ years in revenue operations or business systems.
+      - Strong HubSpot or equivalent CRM experience.
+
+      Location: this role is remote, but candidates must be located within the
+      United States. We do not sponsor visas.
+    expects:
+      title_class: PRIMARY
+      gate_fail: geography
+      eligibility_status: VERIFIED_NOT_ELIGIBLE
+      note: "Scores well and is still not eligible. That combination must be visible."
+
+  # -- PROOF 6: a Salesforce-centred title is excluded -------------------
+  - external_id: demo-010
+    company: {slug: cedarbrook, name: "Cedarbrook", hq_country: UK}
+    title: "Salesforce Administrator"
+    location_raw: "Remote, UK"
+    department: "IT"
+    posted_at: "2026-08-19"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote, UK"
+    url: "https://cedarbrook.example.invalid/jobs/demo-010"
+    description: |
+      Administer our Salesforce org. You will own Salesforce configuration,
+      profiles and permissions, build Salesforce flows, and support users
+      across the business. Apex experience is a plus.
+    expects:
+      title_class: EXCLUDED
+      # The `salesforce_centred` penalty is gone: it subtracted 15 points for
+      # the WORDS IN THE TITLE, which is a title deciding fit as surely as a
+      # bonus for one. The role is still named EXCLUDED and still scores low,
+      # and now it scores low because of what its BODY describes.
+      no_penalty: [salesforce_centred]
+      max_score: 30
+
+  # -- PROOF 5: incidental Salesforce is not a rejection -----------------
+  - external_id: demo-011
+    company: {slug: quill-and-vane, name: "Quill & Vane", hq_country: BR}
+    title: "Business Systems Analyst"
+    location_raw: "Remote, Brazil"
+    department: "Operations"
+    posted_at: "2026-09-01"
+    imitates_provider: ashby
+    payload:
+      employmentType: Contract
+      workplaceType: Remote
+      location: "Remote, Brazil"
+      compensation:
+        compensationTiers:
+          - components:
+              - compensationType: Salary
+                currencyCode: BRL
+                interval: "1 MONTH"
+                minValue: "22000.0"
+                maxValue: "28000.0"
+    url: "https://quillvane.example.invalid/jobs/demo-011"
+    description: |
+      Responsibilities
+      - Own our business systems: HubSpot, Stripe, Airtable, Deel and
+        Salesforce all connect through workflows you will design.
+      - Build workflow automation and REST API integrations between them.
+      - Own the operational data model and our internal reporting.
+      - Improve data quality across the stack.
+
+      Requirements
+      - Experience with business process design and requirements gathering.
+      - Comfortable with JSON and SQL.
+
+      We hire in Brazil. This is a PJ contract.
+    expects:
+      title_class: PRIMARY
+      eligibility_status: VERIFIED_ELIGIBLE
+      no_penalty: [salesforce_centred]
+      must_fire: [tool_stack, hubspot_platform, workflow_automation]
+      note: "Salesforce appears once among six tools. It must not penalise."
+
+  # -- Portuguese, accents, CLT ------------------------------------------
+  - external_id: demo-012
+    company: {slug: ativa-sistemas, name: "Ativa Sistemas", hq_country: BR}
+    title: "Especialista Sênior em Automação de Processos"
+    location_raw: "Remoto, Brasil"
+    department: "Tecnologia"
+    posted_at: "2026-08-30"
+    imitates_provider: greenhouse
+    payload:
+      location:
+        name: "Remoto, Brasil"
+    url: "https://ativa.example.invalid/vagas/demo-012"
+    description: |
+      Responsabilidades
+      - Automação de processos de negócio ponta a ponta, usando n8n e Make.
+      - Integração de sistemas entre CRM, ERP e as ferramentas internas.
+      - Construir integrações via API REST e webhooks entre os sistemas.
+      - Modelagem de dados e sincronização de dados entre plataformas.
+      - Levantamento de requisitos junto às áreas de negócio.
+      - Documentação e monitoramento das automações em produção.
+
+      Requisitos
+      - Experiência com automação de processos e integração de sistemas.
+      - Conhecimento de JSON, SQL e APIs REST.
+
+      Vaga remota para candidatos no Brasil. Contratação CLT.
+    expects:
+      eligibility_status: VERIFIED_ELIGIBLE
+      must_fire: [workflow_automation, system_integration, api_integration, ipaas]
+      seniority: SENIOR
+      note: "Accent- and language-insensitivity. 'Automação' must match
+        'automacao', and 'Sênior' in the title must read as SENIOR through the
+        same fold."
+
+  # -- PROOF 3: no salary is not a rejection; martech promotion ----------
+  - external_id: demo-013
+    company: {slug: solstice-loop, name: "Solstice Loop", hq_country: DE}
+    title: "Marketing Technology Specialist"
+    location_raw: "Remote, worldwide"
+    department: "Marketing Operations"
+    posted_at: "2026-08-23"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote, worldwide"
+    url: "https://solstice.example.invalid/jobs/demo-013"
+    description: |
+      What you'll do
+      - Own HubSpot Marketing Hub and Operations Hub end to end.
+      - Build the lifecycle stage model and the marketing automation behind it.
+      - Own lead routing and lead scoring.
+      - Build REST API integrations between HubSpot, the product and the data
+        warehouse.
+      - Own data quality across the marketing database.
+
+      We work from anywhere in the world.
+    expects:
+      title_class: PRIMARY
+      title_adjustment: PROMOTED
+      eligibility_status: VERIFIED_ELIGIBLE
+      salary_absent_not_penalised: true
+      min_score: 30
+
+  # -- HubSpot title that is actually agency sales -----------------------
+  - external_id: demo-014
+    company: {slug: pinegrove-partners, name: "Pinegrove Partners", hq_country: US}
+    title: "HubSpot Consultant"
+    location_raw: "Remote"
+    department: "Growth"
+    posted_at: "2026-08-18"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote"
+    url: "https://pinegrove.example.invalid/jobs/demo-014"
+    description: |
+      Join our agency. You will sell HubSpot to new clients, grow our agency
+      book, and own client relationships end to end. Cold outreach to
+      prospective clients is a core part of the role, and you will carry a
+      quota against new business for the agency.
+    expects:
+      title_class: EXCLUDED
+      title_adjustment: DEMOTED
+      must_fire: [selling_hubspot]
+
+  # -- PROOF 14: negation ------------------------------------------------
+  - external_id: demo-015
+    company: {slug: ferris-automation, name: "Ferris Automation", hq_country: IE}
+    title: "Automation Engineer"
+    location_raw: "Remote, worldwide"
+    department: "Operations"
+    posted_at: "2026-09-02"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote, worldwide"
+    url: "https://ferris.example.invalid/jobs/demo-015"
+    description: |
+      You will own workflow automation and business process automation across
+      our internal systems, building REST API integrations and webhooks
+      between them.
+
+      This is a systems role. There is no cold calling required and no quota.
+      You will never be asked to prospect.
+
+      We hire globally and work from anywhere.
+    expects:
+      no_penalty: [cold_outbound]
+      negated_signal: cold_outbound
+      eligibility_status: VERIFIED_ELIGIBLE
+      # 40, not 55: this posting is four lines long. A short description that
+      # happens to be on-target should not score like a detailed one -- that
+      # is what `data_confidence` is separately for.
+      min_score: 18
+      note: "'no cold calling required' is a negated hit, recorded and shown, penalising nothing."
+
+  # -- Clearance blocker --------------------------------------------------
+  - external_id: demo-016
+    company: {slug: kestrel-works, name: "Kestrel Works", hq_country: US}
+    title: "AI Automation Engineer"
+    location_raw: "Remote (US)"
+    department: "Applied AI"
+    posted_at: "2026-08-15"
+    imitates_provider: lever
+    payload:
+      workplaceType: remote
+      categories:
+        commitment: "Full-time"
+        location: "Remote (US)"
+    url: "https://kestrel.example.invalid/jobs/demo-016"
+    description: |
+      Build AI workflows and workflow automation across our internal business
+      systems, with REST API integrations into each one.
+
+      An active security clearance is required for this position. Applicants
+      must hold a current TS/SCI clearance.
+    expects:
+      gate_fail: clearance
+      eligibility_status: VERIFIED_NOT_ELIGIBLE
+
+  # -- PROOF 17: thin posting, low confidence, score unaffected -----------
+  - external_id: demo-017
+    company: {slug: marrow-co, name: "Marrow Co", hq_country: null}
+    title: "Integration Specialist"
+    location_raw: null
+    department: null
+    posted_at: null
+    imitates_provider: greenhouse
+    url: "https://marrow.example.invalid/jobs/demo-017"
+    # The METADATA is what is thin here: no location, no date, no employment
+    # type, no salary. The body is on target and always was -- it used to be
+    # two sentences, which scored 39 only because the TITLE was worth 25 of
+    # them. With the title paying nothing the fixture had to say out loud what
+    # it was always claiming to prove: a posting nobody described the
+    # CIRCUMSTANCES of can still be exactly the right work.
+    description: |
+      You will own our CRM architecture and the workflow automation on top of
+      it: build API integrations between HubSpot and the systems the business
+      runs on, own system integration and data sync across them, and design the
+      business process behind lead routing. Custom objects, private apps and
+      scripting are daily work, and you will own data modeling for the
+      operational analytics the go to market teams read.
+    expects:
+      title_class: PRIMARY
+      eligibility_status: UNRESOLVED
+      max_confidence: 45
+      note: "Almost nothing is known. The score must not pretend otherwise, and confidence must say so."
+
+  # -- PROOF 18a/18b: one role, published once per regional board ---------
+  #
+  # demo-001, demo-018 and demo-019 are the SAME role at the SAME company:
+  # `(company_id, title)` matches, so the interface collapses them to one
+  # card carrying "3 locations". They exist because grouping had no reachable
+  # demo at all -- seventeen distinct postings meant `duplicate_count` was 1
+  # everywhere, and a behaviour with no evidence is one a reviewer has to
+  # take on trust.
+  #
+  # THE BODIES ARE NOT BYTE-IDENTICAL, AND THAT IS THE POINT. A real employer
+  # publishing per region varies the listing line and the local benefit while
+  # describing the same work, which is exactly why `content_hash` cannot be
+  # the grouping key -- only 8 of 31 surplus rows in the real corpus were
+  # byte-identical. `(company_id, title)` can, and is.
+  #
+  # THE TIE IS DELIBERATE. Everything the score reads -- title, the
+  # responsibilities and requirements text, salary, employment type,
+  # posted_at -- is identical across the three; only prose that fires no
+  # signal differs. So all three score 99, the election falls through to
+  # "lowest `j.id`", and because ULIDs are time-sortable that is the posting
+  # seeded first, which is the one written first in THIS FILE. demo-001 is
+  # therefore the representative, and `test_web_api.py` asserts it by name.
+  # Reordering these three entries would change which card a reviewer sees.
+  - external_id: demo-018
+    company: {slug: northwind-systems, name: "Northwind Systems", hq_country: US}
+    title: "Business Systems Engineer"
+    location_raw: "Remote, worldwide (Americas)"
+    department: "Business Technology"
+    posted_at: "2026-08-30"
+    imitates_provider: ashby
+    payload:
+      employmentType: FullTime
+      workplaceType: Remote
+      location: "Remote, worldwide (Americas)"
+      compensation:
+        compensationTiers:
+          - components:
+              - compensationType: Salary
+                currencyCode: USD
+                interval: "1 YEAR"
+                minValue: "95000.0"
+                maxValue: "125000.0"
+    url: "https://northwind.example.invalid/jobs/demo-018"
+    description: |
+      Northwind Systems is hiring a Business Systems Engineer to own the
+      internal platforms our go-to-market and finance teams run on.
+
+      This is the Americas listing for that role. Our board carries one entry
+      per region because each is administered by a different Northwind entity.
+
+      Responsibilities
+      - Own our HubSpot CRM architecture: the object model, custom objects,
+        custom properties and the lifecycle stage definitions everything else
+        depends on.
+      - Design and build workflow automation across HubSpot, Stripe and our
+        billing system, using n8n for orchestration and private apps where a
+        workflow is not enough.
+      - Build and maintain REST API integrations and webhooks between our
+        business systems, and own the data synchronization that keeps them
+        consistent.
+      - Improve data quality: deduplication, validation rules, and the
+        monitoring that tells us when a sync has drifted.
+      - Gather business requirements from revenue operations and finance, then
+        translate them into systems that hold up.
+      - Write the documentation and runbooks that make this maintainable by
+        someone other than you.
+
+      Requirements
+      - 5+ years in business systems, revenue operations or systems integration.
+      - Deep HubSpot experience, including the HubSpot API.
+      - Comfortable with JSON, SQL and light scripting in Python or JavaScript.
+      - Experience with an iPaaS such as n8n, Workato, Zapier or Make.
+
+      Everyone hired through this listing gets the Americas holiday calendar
+      and a stipend for whatever desk they already sit at.
+
+      We hire globally and work from anywhere. This is a fully remote worldwide
+      role and we support contractors through an employer of record.
+    expects:
+      title_class: PRIMARY
+      eligibility_status: VERIFIED_ELIGIBLE
+      screening_state: NOT_BLOCKED
+      min_score: 70
+      min_confidence: 70
+      same_score_as: demo-001
+      must_fire: [hubspot_platform, workflow_automation, api_integration, crm_architecture, ipaas]
+      no_penalty: [quota_carrying_sales, cold_outbound]
+      note: "A sibling must survive scoring on its own merits, not by inheritance."
+
+  - external_id: demo-019
+    company: {slug: northwind-systems, name: "Northwind Systems", hq_country: US}
+    title: "Business Systems Engineer"
+    location_raw: "Remote, worldwide (EMEA)"
+    department: "Business Technology"
+    posted_at: "2026-08-30"
+    imitates_provider: ashby
+    payload:
+      employmentType: FullTime
+      workplaceType: Remote
+      location: "Remote, worldwide (EMEA)"
+      compensation:
+        compensationTiers:
+          - components:
+              - compensationType: Salary
+                currencyCode: USD
+                interval: "1 YEAR"
+                minValue: "95000.0"
+                maxValue: "125000.0"
+    url: "https://northwind.example.invalid/jobs/demo-019"
+    description: |
+      Northwind Systems is hiring a Business Systems Engineer to own the
+      internal platforms our go-to-market and finance teams run on.
+
+      This is the EMEA listing for that role, and it is the same job as the one
+      on our worldwide board. Applying once is enough.
+
+      Responsibilities
+      - Own our HubSpot CRM architecture: the object model, custom objects,
+        custom properties and the lifecycle stage definitions everything else
+        depends on.
+      - Design and build workflow automation across HubSpot, Stripe and our
+        billing system, using n8n for orchestration and private apps where a
+        workflow is not enough.
+      - Build and maintain REST API integrations and webhooks between our
+        business systems, and own the data synchronization that keeps them
+        consistent.
+      - Improve data quality: deduplication, validation rules, and the
+        monitoring that tells us when a sync has drifted.
+      - Gather business requirements from revenue operations and finance, then
+        translate them into systems that hold up.
+      - Write the documentation and runbooks that make this maintainable by
+        someone other than you.
+
+      Requirements
+      - 5+ years in business systems, revenue operations or systems integration.
+      - Deep HubSpot experience, including the HubSpot API.
+      - Comfortable with JSON, SQL and light scripting in Python or JavaScript.
+      - Experience with an iPaaS such as n8n, Workato, Zapier or Make.
+
+      Everyone hired through this listing gets the public holiday calendar of
+      the country they live in, plus a yearly learning budget.
+
+      We hire globally and work from anywhere. This is a fully remote worldwide
+      role and we support contractors through an employer of record.
+    expects:
+      title_class: PRIMARY
+      eligibility_status: VERIFIED_ELIGIBLE
+      screening_state: NOT_BLOCKED
+      min_score: 70
+      min_confidence: 70
+      same_score_as: demo-001
+      must_fire: [hubspot_platform, workflow_automation, api_integration, crm_architecture, ipaas]
+      no_penalty: [quota_carrying_sales, cold_outbound]
+      note: "The third listing of the same role. Same work, different prose, same score."
+
+  # -------------------------------------------------------------------
+  # TWO POSTINGS FOR THE PEOPLE THE REST OF THIS CORPUS LEFT OUT.
+  #
+  # Everything above is written for somebody continuing in the work they
+  # already do. These two are not, and each one exists because the
+  # experience reading added by migration 0027 has no honest example
+  # otherwise -- a facet with no counts behind it is not a filter, and a
+  # corpus that cannot demonstrate a capability cannot prove it either.
+  #
+  # demo-020  IN SCOPE for this search and explicitly open to a beginner.
+  #           It is the only posting here that states NONE_REQUIRED, and it
+  #           is visible in the default view, which is what gives the
+  #           "Getting in" controls something to count.
+  #
+  # demo-021  OUT OF SCOPE for this search by construction, and the case a
+  #           career changer actually faces. The search describes systems
+  #           work; this is administration. `screening_state: BLOCKED` is
+  #           the product working, and the transition control is how
+  #           somebody with confirmed evidence for documentation,
+  #           scheduling and client communication gets it back.
+  # -------------------------------------------------------------------
+  - external_id: demo-020
+    company: {slug: fernmoor-labs, name: "Fernmoor Labs", hq_country: PT}
+    title: "Junior Business Systems Analyst"
+    location_raw: "Remote, worldwide"
+    department: "Business Technology"
+    posted_at: "2026-09-01"
+    imitates_provider: ashby
+    payload:
+      employmentType: FullTime
+      workplaceType: Remote
+      location: "Remote, worldwide"
+    url: "https://fernmoor.example.invalid/jobs/demo-020"
+    description: |
+      Fernmoor Labs is opening a Junior Business Systems Analyst role, and we
+      mean junior: this is an entry-level position, no previous experience is
+      required and training is provided.
+
+      We would rather teach somebody the shape of our systems than hire
+      somebody who already knows a different company's. Recent graduates are
+      welcome, and so is anybody coming from another field.
+
+      What you would be doing
+      - Learning our HubSpot CRM architecture: the object model, the custom
+        properties and the lifecycle stages the rest of the business reads.
+      - Helping build workflow automation between HubSpot and our billing
+        system, with somebody senior reviewing everything you ship.
+      - Keeping our API integrations documented, and writing the runbooks that
+        make them somebody else's job one day too.
+      - Gathering requirements from the teams who use these systems and writing
+        down what they actually asked for.
+
+      What we ask
+      - Curiosity about how a business actually runs.
+      - Care with data. Most of this work is noticing that two numbers that
+        should agree do not.
+      - Written clarity in English.
+
+      We hire globally and work from anywhere, and this role is open worldwide.
+    expects:
+      title_class: PRIMARY
+      eligibility_status: VERIFIED_ELIGIBLE
+      screening_state: NOT_BLOCKED
+      must_fire: [hubspot_platform, workflow_automation, crm_architecture]
+      experience_requirement: NONE_REQUIRED
+      experience_min_years: 0
+      entry_signals: [NO_EXPERIENCE_REQUIRED, ENTRY_LEVEL, TRAINING_PROVIDED,
+        RECENT_GRADUATE, CAREER_CHANGERS_WELCOME]
+      note: >
+        The only posting here that is explicitly open to somebody with no
+        track record, and it carries all five entry signals. Five in one
+        advert is unusual and that is exactly why it is here: each one is a
+        separate sentence an employer wrote, the reading must not collapse
+        them into one, and every value in the vocabulary needs something in
+        this corpus that a filter can return.
+  - external_id: demo-021
+    company: {slug: holloway-partners, name: "Holloway Partners", hq_country: US}
+    title: "Administrative Assistant"
+    location_raw: "Remote, worldwide"
+    department: "Operations"
+    posted_at: "2026-09-02"
+    imitates_provider: lever
+    payload:
+      categories:
+        commitment: "Full-time"
+        location: "Remote, worldwide"
+        team: "Operations"
+    url: "https://holloway.example.invalid/jobs/demo-021"
+    description: |
+      Holloway Partners is hiring an Administrative Assistant to support a
+      practice of fourteen people.
+
+      Responsibilities
+      - Manage calendars and scheduling across several time zones, including
+        the rescheduling nobody enjoys.
+      - Maintain case files and records so that anybody can find what they need
+        without asking you first.
+      - Draft, format and proofread correspondence and documentation.
+      - Be the first point of contact for client communication by email and
+        telephone, and keep a record of what was said.
+      - Keep our compliance paperwork current and flag what is about to expire.
+      - Organise travel, expenses and the small logistics of a busy office.
+
+      Requirements
+      - A minimum of 3 years of experience as an Administrative Assistant or in
+        a comparable administrative role is required.
+      - Confident with office software and document management.
+      - Written and spoken English; a second language is a plus.
+
+      We hire globally and work from anywhere, and this role is open worldwide.
+    expects:
+      eligibility_status: VERIFIED_ELIGIBLE
+      screening_state: BLOCKED
+      experience_requirement: REQUIRED_MINIMUM
+      experience_min_years: 3
+      entry_signals: []
+      note: >
+        The career changer's case, and every part of it is the product working
+        rather than failing. Nothing an employer wrote rules this candidate
+        out: the posting is open worldwide and the gate passes. What sets it
+        aside is the SEARCH -- none of the signals a systems search requires
+        fired anywhere in it -- which is exactly right and exactly the problem
+        somebody moving into administration has, because their search still
+        describes where they have been.
+
+        The experience reading says three years, REQUIRED, and that is the
+        sentence the drawer has to be able to show beside "you have
+        transferable evidence for several of these responsibilities". Showing
+        only the second half would flatter somebody on their way into an
+        interview.

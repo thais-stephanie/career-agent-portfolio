@@ -1,0 +1,337 @@
+{
+  "jobs": [
+    {
+      "id": "228d2bfe-cada-406a-a4c0-99c4ec13a242",
+      "title": "Staff IT Engineer",
+      "company": "Abridge",
+      "company_slug": "abridge",
+      "company_url": "https://speedrun-talent-network.com/companies/abridge",
+      "url": "https://speedrun-talent-network.com/jobs/staff-it-engineer-abridge-228d2bfe?utm_source=career-agent&utm_medium=agent",
+      "location": "SF Office",
+      "workplace_type": "Hybrid",
+      "employment_type": "FullTime",
+      "function": "engineering",
+      "seniority": "staff",
+      "remote": false,
+      "comp_min": 200000,
+      "comp_max": 240000,
+      "comp_currency": "USD",
+      "comp_period": null,
+      "published_at": "2026-09-05T01:23:24.024+00:00",
+      "stealth": false,
+      "cohort": null,
+      "tier": "a16z"
+    },
+    {
+      "id": "88912eaa-7d07-43ae-a98c-415503425b37",
+      "title": "EHS Specialist",
+      "company": "Skydio",
+      "company_slug": "skydio",
+      "company_url": "https://speedrun-talent-network.com/companies/skydio",
+      "url": "https://speedrun-talent-network.com/jobs/ehs-specialist-skydio-88912eaa?utm_source=career-agent&utm_medium=agent",
+      "location": "US CA San Mateo",
+      "workplace_type": "OnSite",
+      "employment_type": "FullTime",
+      "function": "operations",
+      "seniority": null,
+      "remote": false,
+      "comp_min": null,
+      "comp_max": null,
+      "comp_currency": null,
+      "comp_period": null,
+      "published_at": "2026-09-05T00:50:00.866+00:00",
+      "stealth": false,
+      "cohort": null,
+      "tier": "a16z"
+    },
+    {
+      "id": "2c147ccb-2557-40f8-aab9-64422cef220c",
+      "title": "Cohort 0 ",
+      "company": "Replit",
+      "company_slug": "replit",
+      "company_url": "https://speedrun-talent-network.com/companies/replit",
+      "url": "https://speedrun-talent-network.com/jobs/cohort-0-replit-2c147ccb?utm_source=career-agent&utm_medium=agent",
+      "location": "Foster City, CA",
+      "workplace_type": "Hybrid",
+      "employment_type": "FullTime",
+      "function": "engineering",
+      "seniority": null,
+      "remote": false,
+      "comp_min": null,
+      "comp_max": null,
+      "comp_currency": null,
+      "comp_period": null,
+      "published_at": "2026-09-05T00:36:06.848+00:00",
+      "stealth": false,
+      "cohort": null,
+      "tier": "a16z"
+    },
+    {
+      "id": "776c1adb-5929-4215-ac08-e210ea500cf5",
+      "title": "AI Deployment Strategist",
+      "company": "Concourse",
+      "company_slug": "concourse",
+      "company_url": "https://speedrun-talent-network.com/companies/concourse",
+      "url": "https://speedrun-talent-network.com/jobs/ai-deployment-strategist-concourse-776c1adb?utm_source=career-agent&utm_medium=agent",
+      "location": "New York City",
+      "workplace_type": "OnSite",
+      "employment_type": "FullTime",
+      "function": "other",
+      "seniority": null,
+      "remote": false,
+      "comp_min": null,
+      "comp_max": null,
+      "comp_currency": null,
+      "comp_period": null,
+      "published_at": "2026-09-05T00:05:11.111+00:00",
+      "stealth": false,
+      "cohort": null,
+      "tier": "a16z"
+    },
+    {
+      "id": "2beb0375-9708-4ae3-bd64-9b892b8ac184",
+      "title": "Head of Mid-Market Sales",
+      "company": "Harvey",
+      "company_slug": "harvey",
+      "company_url": "https://speedrun-talent-network.com/companies/harvey",
+      "url": "https://speedrun-talent-network.com/jobs/head-of-mid-market-sales-harvey-2beb0375?utm_source=career-agent&utm_medium=agent",
+      "location": "London",
+      "workplace_type": "Hybrid",
+      "employment_type": "FullTime",
+      "function": "sales",
+      "seniority": "exec",
+      "remote": false,
+      "comp_min": null,
+      "comp_max": null,
+      "comp_currency": null,
+      "comp_period": null,
+      "published_at": "2026-09-04T23:56:03.134+00:00",
+      "stealth": false,
+      "cohort": null,
+      "tier": "a16z"
+    },
+    {
+      "id": "0aae3927-e194-4cc9-a832-564eff0e670b",
+      "title": "Hardware Technician",
+      "company": "Skydio",
+      "company_slug": "skydio",
+      "company_url": "https://speedrun-talent-network.com/companies/skydio",
+      "url": "https://speedrun-talent-network.com/jobs/hardware-technician-skydio-0aae3927?utm_source=career-agent&utm_medium=agent",
+      "location": "US CA San Mateo",
+      "workplace_type": "Onsite",
+      "employment_type": "FullTime",
+      "function": "other",
+      "seniority": null,
+      "remote": false,
+      "comp_min": null,
+      "comp_max": null,
+      "comp_currency": null,
+      "comp_period": null,
+      "published_at": "2026-09-04T23:47:49.937+00:00",
+      "stealth": false,
+      "cohort": null,
+      "tier": "a16z"
+    }
+  ],
+  "total": 18478,
+  "page": 0,
+  "page_size": 50,
+  "total_pages": 370,
+  "facets": {
+    "fn": [
+      {
+        "v": "engineering",
+        "n": 6669
+      },
+      {
+        "v": "other",
+        "n": 5117
+      },
+      {
+        "v": "operations",
+        "n": 3225
+      },
+      {
+        "v": "sales",
+        "n": 1282
+      },
+      {
+        "v": "marketing",
+        "n": 764
+      },
+      {
+        "v": "research",
+        "n": 567
+      },
+      {
+        "v": "design",
+        "n": 547
+      },
+      {
+        "v": "product",
+        "n": 307
+      }
+    ],
+    "sen": [
+      {
+        "v": "intern",
+        "n": 6368
+      },
+      {
+        "v": "senior",
+        "n": 2674
+      },
+      {
+        "v": "junior",
+        "n": 1811
+      },
+      {
+        "v": "staff",
+        "n": 889
+      },
+      {
+        "v": "exec",
+        "n": 641
+      },
+      {
+        "v": "founding",
+        "n": 76
+      }
+    ],
+    "emp": [
+      {
+        "v": "FullTime",
+        "n": 7475
+      },
+      {
+        "v": "Intern",
+        "n": 1292
+      },
+      {
+        "v": "PartTime",
+        "n": 583
+      },
+      {
+        "v": "Contract",
+        "n": 46
+      },
+      {
+        "v": "Temporary",
+        "n": 27
+      }
+    ],
+    "cohort": [
+      {
+        "v": "SR005",
+        "n": 46
+      },
+      {
+        "v": "GF1",
+        "n": 46
+      },
+      {
+        "v": "SR006",
+        "n": 28
+      },
+      {
+        "v": "SR002",
+        "n": 27
+      },
+      {
+        "v": "SR001",
+        "n": 18
+      },
+      {
+        "v": "SR007",
+        "n": 15
+      },
+      {
+        "v": "Other",
+        "n": 15
+      },
+      {
+        "v": "SR003",
+        "n": 10
+      },
+      {
+        "v": "SR004",
+        "n": 9
+      }
+    ],
+    "portfolio": [
+      {
+        "v": "a16z",
+        "n": 10403
+      },
+      {
+        "v": "market",
+        "n": 7922
+      },
+      {
+        "v": "speedrun",
+        "n": 153
+      }
+    ],
+    "loc": [
+      {
+        "v": "remote",
+        "n": 2032
+      },
+      {
+        "v": "San Francisco",
+        "n": 1358
+      },
+      {
+        "v": "Costa Mesa",
+        "n": 1159
+      },
+      {
+        "v": "New York",
+        "n": 956
+      },
+      {
+        "v": "United States",
+        "n": 776
+      },
+      {
+        "v": "Singapore",
+        "n": 602
+      },
+      {
+        "v": "London",
+        "n": 415
+      },
+      {
+        "v": "Austin",
+        "n": 389
+      },
+      {
+        "v": "Los Angeles",
+        "n": 361
+      },
+      {
+        "v": "Seattle",
+        "n": 297
+      },
+      {
+        "v": "San Jose",
+        "n": 295
+      },
+      {
+        "v": "South San Francisco",
+        "n": 287
+      },
+      {
+        "v": "2 Locations",
+        "n": 255
+      }
+    ],
+    "compAvailable": 3552,
+    "compHidden": 0,
+    "stealth": 1,
+    "named": 18477
+  },
+  "scope": "portfolio",
+  "beyond_portfolio": 29663,
+  "source": "career-agent"
+}

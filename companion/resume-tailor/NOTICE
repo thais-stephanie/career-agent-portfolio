@@ -1,0 +1,9 @@
+Resume Tailor Beta
+Copyright 2026 Resume Tailor contributors.
+Derived from thais-stephanie/resume-tailor, commit eb22205d06de2975191fb06961b4b0677d4238d8.
+Distributed under Apache-2.0. The original LICENSE and bundled OFL font notices are preserved.
+Public edition changes: safe default with no AI provider, local HTTP boundary,
+shared Python 3.12 launcher, explicit Beta metadata and UI, accurate privacy
+copy, original replacement glyphs, lint cleanup, development dependency security
+updates, per-file modification notices and integration documentation.
+The evidence engine remains the reused standalone implementation.

@@ -1,0 +1,341 @@
+{
+  "$defs": {
+    "ClaimType": {
+      "description": "Kind of verified career claim. The evidence base for future resumes.",
+      "enum": [
+        "EMPLOYMENT",
+        "SKILL",
+        "TOOL",
+        "ACHIEVEMENT",
+        "METRIC",
+        "EDUCATION",
+        "CERTIFICATION",
+        "PROJECT"
+      ],
+      "title": "ClaimType",
+      "type": "string"
+    },
+    "DatePoint": {
+      "additionalProperties": false,
+      "description": "One end of a period, as WRITTEN and as READ.\n\nBoth, always. `original` is what the document says and is the evidence;\n`normalized` is somebody's reading of it and is what the matcher can use.\nA package supplying only the reading has thrown away the thing that would\nlet a candidate notice it was wrong.",
+      "properties": {
+        "normalized": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalized"
+        },
+        "original": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Original",
+          "type": "string"
+        }
+      },
+      "required": [
+        "original"
+      ],
+      "title": "DatePoint",
+      "type": "object"
+    },
+    "DeclaredSource": {
+      "additionalProperties": false,
+      "description": "One document the package says it was built from.",
+      "properties": {
+        "kind": {
+          "maxLength": 20,
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "ref": {
+          "maxLength": 40,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "kind",
+        "title"
+      ],
+      "title": "DeclaredSource",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "description": "Why the package believes this claim. A quote, a locator, or both.\n\nAt least one is required. A claim with no evidence at all is an assertion\nfrom whichever model wrote the file, and the whole contract exists to stop\nthose being indistinguishable from the candidate's own words.",
+      "properties": {
+        "locator": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locator"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "maxLength": 1200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        }
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Generator": {
+      "additionalProperties": false,
+      "description": "What produced this package, as the file declares it.\n\nNever inferred, and never trusted for anything but display. It exists so a\ncandidate reviewing forty claims can see that they came out of an assistant\nrather than out of this program, which is the single most useful thing to\nknow while deciding how carefully to read them.",
+      "properties": {
+        "kind": {
+          "maxLength": 20,
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "maxLength": 120,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Generator",
+      "type": "object"
+    },
+    "MetricMention": {
+      "additionalProperties": false,
+      "description": "A figure the candidate stated, in the sentence she stated it in.\n\n**There is no numeric field, and that is the design.** \"increased revenue\n40%\" is her claim; \"40%\" on its own is a metric this program invented and\ncannot attribute to anything. A package has nowhere to put a bare number,\nwhich is a stronger guarantee than a rule saying not to.",
+      "properties": {
+        "original": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Original",
+          "type": "string"
+        }
+      },
+      "required": [
+        "original"
+      ],
+      "title": "MetricMention",
+      "type": "object"
+    },
+    "Period": {
+      "additionalProperties": false,
+      "description": "When something happened, or as much of it as the document stated.",
+      "properties": {
+        "current": {
+          "default": false,
+          "title": "Current",
+          "type": "boolean"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DatePoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DatePoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "Period",
+      "type": "object"
+    },
+    "ProposedClaim": {
+      "additionalProperties": false,
+      "description": "One statement about the candidate's career, proposed and not believed.",
+      "properties": {
+        "employer": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Employer"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/MetricMention"
+          },
+          "maxItems": 20,
+          "title": "Metrics",
+          "type": "array"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Period"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "role_title": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role Title"
+        },
+        "source_ref": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 2000,
+          "minLength": 2,
+          "title": "Text",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "title": "Tools",
+          "type": "array"
+        },
+        "type": {
+          "$ref": "#/$defs/ClaimType"
+        }
+      },
+      "required": [
+        "type",
+        "text",
+        "source_ref",
+        "evidence"
+      ],
+      "title": "ProposedClaim",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/career-agent/schemas/career-agent-import.v1.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Proposed evidence about one person's career. Every claim in this file is a PROPOSAL: importing it confirms nothing, and only the candidate can turn a proposal into a verified claim. A generator must not state that a claim is verified, must not answer a preference or eligibility question, and must keep both the original wording of a date and its normalised form.",
+  "properties": {
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/ProposedClaim"
+      },
+      "maxItems": 2000,
+      "title": "Claims",
+      "type": "array"
+    },
+    "generator": {
+      "$ref": "#/$defs/Generator"
+    },
+    "schema_version": {
+      "enum": [
+        "1.0"
+      ],
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/DeclaredSource"
+      },
+      "maxItems": 10,
+      "minItems": 1,
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "generator",
+    "sources"
+  ],
+  "title": "Career Agent Candidate Intake Package v1.0",
+  "type": "object",
+  "x-refused-keys": {
+    "keys": [
+      "approved",
+      "availability",
+      "citizenship",
+      "compensation_expectation",
+      "confirmed",
+      "desired_role",
+      "desired_salary",
+      "eligibility",
+      "eligible",
+      "eligible_countries",
+      "eligible_scopes",
+      "expected_salary",
+      "is_verified",
+      "notice_period",
+      "preferences",
+      "relocation",
+      "salary_expectation",
+      "verified",
+      "visa_status",
+      "willing_to_relocate",
+      "work_authorisation",
+      "work_authorization"
+    ],
+    "why": "Confirmation is an act by the candidate, so a package may not assert it. Preferences, eligibility, work authorisation and pay expectations are Candidate Profile answers given by the candidate directly: a CV can say where somebody has WORKED, never where they are permitted or willing to."
+  }
+}

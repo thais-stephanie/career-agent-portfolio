@@ -1,0 +1,112 @@
+{
+  "_provenance": "Records archived verbatim in job_provider_payload by the production collect-arbeitnow run of 2026-09-09 (captured_at on each case), extracted from disk on 2026-09-19 for the HTML-residue fix. No request was made to the vendor to build this file. Each case is the vendor's whole feed record for one posting, untouched.",
+  "cases": {
+    "escaped_shortest": {
+      "captured_at": "2026-09-09T20:59:51Z",
+      "description_length": 4203,
+      "record": {
+        "company_name": "Yld",
+        "created_at": 1788980102,
+        "description": "&lt;p&gt;&lt;strong&gt;Location:&lt;/strong&gt; Remote (EU based, GMT timezone)&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Department:&lt;/strong&gt; Engineering&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Employment Type:&lt;/strong&gt; Contract (B2B)&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Contract Length:&lt;/strong&gt; 3 months (with potential for extension)&lt;/p&gt;\n&lt;h3&gt;About YLD:&lt;/h3&gt;\n&lt;p&gt;Our goal is to help our clients keep moving forward. We work with them to build the skills and capabilities they need to stay ahead of the competition, and we know our success only happens when they succeed. We’re a team of curious, talented people, and we’re committed to making YLD a place where great people want to work, grow, and stay.&lt;/p&gt;\n&lt;p&gt;We’re a remote-first consultancy specialising in software engineering, product design, and data. Our teams are based across London, Lisbon, and Porto, and we create digital solutions that continue to deliver value long after our work is done.&lt;/p&gt;\n&lt;h3&gt;About the role:&lt;/h3&gt;\n&lt;p&gt;As a Platform Software Engineer at YLD, you&#39;ll be part of a client team, owning cloud access and identity management along with a large part of their infrastructure-as-code. Day to day, that means controlling who and what can do what across their cloud estate, and standing up the newer tooling that sits alongside it. It&#39;s shared infrastructure that many teams depend on, so much of the role is careful change management, governance, and unblocking others.&lt;/p&gt;\n&lt;h3&gt;Preferred Skills:&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Strong, hands-on AWS experience, particularly IAM, IAM Identity Center / SSO, and AWS Organizations (essential)&lt;/li&gt;\n&lt;li&gt;Terraform&lt;/li&gt;\n&lt;li&gt;Kubernetes&lt;/li&gt;\n&lt;li&gt;Experience running shared, high-blast-radius infrastructure&lt;/li&gt;\n&lt;li&gt;GitHub Actions for CI/CD, including OIDC federation to cloud providers&lt;/li&gt;\n&lt;li&gt;Familiarity with Datadog, CloudWatch, or similar tooling&lt;/li&gt;\n&lt;li&gt;Some Python or JavaScript for scripting&lt;/li&gt;\n&lt;li&gt;Multi-cloud experience is a plus&lt;/li&gt;\n&lt;li&gt;A strong focus on clean engineering practices, including testing and reliability;&lt;/li&gt;\n&lt;li&gt;Use AI tools to augment your work, applying sound judgement to adopt emerging technologies where they genuinely add value and increase your impact as an engineer.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;&lt;strong&gt;What you’ll get in return:&lt;/strong&gt;&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;The chance to work with a forward-thinking, ethical, and fun group of people and to develop and grow your skills in a fast-moving business&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;&lt;strong&gt;Our typical recruitment process:&lt;/strong&gt;&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;1st Interview with a Talent Partner (30/45 mins)&lt;/li&gt;\n&lt;li&gt;Technical Interview with our Senior Developers (1h30)&lt;/li&gt;\n&lt;li&gt;Final chat with our Client Partner (30/45 mins)&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;a href=&quot;https://www.instagram.com/yld.io/&quot;&gt;&lt;strong&gt;Get a glimpse of what it&#39;s like working at YLD! 🤳&lt;/strong&gt;&lt;/a&gt;&lt;/p&gt;\n&lt;p&gt;&lt;a href=&quot;https://www.linkedin.com/company/yld/&quot;&gt;&lt;strong&gt;Check out our LinkedIn page&lt;/strong&gt;&lt;/a&gt;&lt;/p&gt;\n&lt;h3&gt;&lt;strong&gt;We live and breathe our values, and know you will too:&lt;/strong&gt;&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Growing every day&lt;/li&gt;\n&lt;li&gt;Including everyone&lt;/li&gt;\n&lt;li&gt;Relationships built on honesty and ethics&lt;/li&gt;\n&lt;li&gt;Inspiring solutions&lt;/li&gt;\n&lt;li&gt;Winning together&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;We’re an equal-opportunity employer and value diversity in all its forms. We do not discriminate based on race, religion, colour, national origin, gender, sexual orientation, pregnancy or maternity, age, marital status, or disability. We also offer a remote-first working environment, with flexible working and work–life balance as standard for all employees.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;<p>Find <a href=\"https://www.arbeitnow.co.uk\">Jobs in United Kingdom</a> on Arbeitnow</a>",
+        "job_types": [],
+        "location": "",
+        "remote": false,
+        "slug": "contract-platform-engineer-259901",
+        "tags": [
+          "Engineering"
+        ],
+        "title": "Contract Platform Engineer",
+        "url": "https://www.arbeitnow.co.uk/jobs/companies/yld/contract-platform-engineer-259901"
+      }
+    },
+    "escaped_with_list_and_nbsp": {
+      "captured_at": "2026-09-09T20:59:49Z",
+      "description_length": 4342,
+      "record": {
+        "company_name": "Joblogic",
+        "created_at": 1788980117,
+        "description": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h3&gt;&lt;strong&gt;The Joblogic Story&lt;/strong&gt;&lt;/h3&gt;\n&lt;p&gt;Established in 1998,&amp;nbsp;&lt;strong&gt;Joblogic&lt;/strong&gt; is the UK’s #1 &lt;strong&gt;Field Service Management&lt;/strong&gt; (FSM) software platform. We are a global business with offices in the &lt;strong&gt;UK&lt;/strong&gt;, &lt;strong&gt;Pakistan&lt;/strong&gt;, and &lt;strong&gt;Vietnam&lt;/strong&gt;. Since our management buy-out in 2013, we have grown from &lt;strong&gt;~£500K &lt;/strong&gt;ARR to &lt;strong&gt;~£35M+ &lt;/strong&gt;ARR and expanded our team from 11 to 500+ people.&lt;/p&gt;\n&lt;p&gt;Recently, we secured a strategic growth investment from &lt;strong&gt;Vista Equity Partners &lt;/strong&gt;— a global technology investor specialising in enterprise software. This investment includes over &lt;strong&gt;£100&lt;/strong&gt; million in new primary capital and will fuel our next phase of growth by accelerating our &lt;strong&gt;AI-first roadmap&lt;/strong&gt;, expanding our platform into CAFM (Computer-Aided Facilities Management) capabilities, and supporting our expansion across Europe and beyond.&lt;/p&gt;\n&lt;p&gt;With &lt;strong&gt;Vista’s &lt;/strong&gt;backing, we’re transforming from a successful UK business into a global scaling SaaS rocket ship, and we’d love for you to join us on our journey to &lt;strong&gt;£100M &lt;/strong&gt;ARR across international markets.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Joblogic &lt;/strong&gt;provides software to service contractors who install and maintain the built environment. Our platform helps businesses streamline operations, improve profitability, ensure compliance, and achieve rapid growth. With over &lt;strong&gt;100,000&lt;/strong&gt; users across industries including HVAC, plumbing, electrical maintenance, facilities management, and building fabric maintenance, we are entering a new era of intelligent automation, predictive maintenance, and data-driven decision-making for service firms.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;/p&gt;\n&lt;h2 id=&quot;about_the_role_0&quot;&gt;About the role&lt;/h2&gt;\n&lt;p&gt;Fresh out of uni and wondering what&#39;s next? Joblogic is looking for ambitious graduates to join our Sales Development team in Birmingham.&lt;br&gt;No sales experience needed — just drive, curiosity, and the willingness to learn. We&#39;ll teach you the rest.&lt;/p&gt;\n&lt;h2 id=&quot;what_your_main_focus_will_be_1&quot;&gt;What your main focus will be&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Connect with potential customers and generate new business opportunities&lt;/li&gt;\n&lt;li&gt;Learn a proven sales process from a team that genuinely invests in your development&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;\n&lt;div&gt;Build the foundation for a career in sales — SDR is just the start&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2 id=&quot;what_we_offer_2&quot;&gt;What we offer&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Structured onboarding and ongoing coaching&lt;/li&gt;\n&lt;li&gt;Clear progression path (many of our Account Executives and Team Leads started as Graduate SDRs)&lt;/li&gt;\n&lt;li&gt;Competitive base salary + commission&lt;/li&gt;\n&lt;li&gt;Supportive, high-energy team culture&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2 id=&quot;our_process__3&quot;&gt;Our process:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Apply below&lt;/li&gt;\n&lt;li&gt;Complete a short online assessment&lt;/li&gt;\n&lt;li&gt;Fast-track interview day at our Birmingham office — meet our CRO and SDR Manager, take part in a role play, and have lunch with the team&lt;/li&gt;\n&lt;li&gt;Successful candidates will receive an offer on the same day&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Location: Must be based in or around Birmingham or able to commute to our office 3 days a week. No sponsorship available — Must have full right to work in the UK.&lt;/p&gt;\n&lt;h2 id=&quot;remuneration_package_and_benefits_4&quot;&gt;Remuneration package and benefits&lt;/h2&gt;\n&lt;p&gt;At Joblogic, we care about helping you do your best work and grow along the way. Here’s what you can expect:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Free parking onsite&lt;/li&gt;\n&lt;li&gt;25 days plus bank holiday annual leave&lt;/li&gt;\n&lt;li&gt;Pension 5% and many more&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;/p&gt;<p>Find <a href=\"https://www.arbeitnow.co.uk\">Jobs in United Kingdom</a> on Arbeitnow</a>",
+        "job_types": [],
+        "location": "Birmingham",
+        "remote": false,
+        "slug": "graduate-sales-development-representative-birmingham-37541",
+        "tags": [
+          "SDR Team - Joblogic"
+        ],
+        "title": "Graduate Sales Development Representative",
+        "url": "https://www.arbeitnow.co.uk/jobs/companies/joblogic/graduate-sales-development-representative-birmingham-37541"
+      }
+    },
+    "raw_with_list": {
+      "captured_at": "2026-09-09T20:48:20Z",
+      "description_length": 1492,
+      "record": {
+        "company_name": "PolyTALENT GmbH",
+        "created_at": 1788942643,
+        "description": "<h2>Jobbeschreibung</h2>\n<p>Als Anlagenmechaniker SHK erwartet Sie hier ein sicherer Arbeitsplatz, abwechslungsreiche Aufgaben und <strong>wirklich attraktive Rahmenbedingungen</strong> vor Ort in Hamburg.</p>\n<h2><strong>Benefits</strong></h2>\n<ul>\n<li><strong>36 h Woche für mehr Zeit im Alltag</strong></li>\n<li><strong>30 Tage Urlaub für Ihre verdiente Erholung</strong></li>\n<li><strong>sehr attraktives Einstiegsgehalt, das Ihre Qualifikation wirklich wertschätzt</strong></li>\n<li><strong>Unbefristeter Arbeitsvertrag für langfristige Sicherheit</strong></li>\n</ul>\n<h2><strong>Aufgaben</strong></h2>\n<ul>\n<li><strong>Montage von Heizungs- und Sanitäranlagen</strong></li>\n<li><strong>Wartungs- und Instandsetzungsarbeiten</strong></li>\n<li><strong>Modernisierungs- und Sanierungsmaßnahmen</strong></li>\n</ul>\n<h2><strong>Profil</strong></h2>\n<ul>\n<li><strong>Erfolgreich abgeschlossene Berufsausbildung zum Anlagenmechaniker SHK</strong> oder im Bereich SHK</li>\n<li><strong>Idealerweise Erfahrung in den oben genannten Aufgabenfeldern</strong></li>\n<li><strong>Führerschein der Klasse B</strong> ist erforderlich</li>\n<li><strong>Selbstständige, sorgfältige</strong> und <strong>kundenorientierte Arbeitsweise</strong></li>\n</ul>\n<h2><strong>Ansprechpartner</strong></h2>\n<p>Bei Interesse oder Rückfragen wenden Sie sich bitte an:</p>\n<p>PolyTALENT GmbH</p>\n<p>Fabian Hasenbeck<br>\n+49 1588 8630954</p>\n<p>Find <a href=\"https://www.arbeitnow.com\">Jobs in Germany</a> on Arbeitnow</a>",
+        "job_types": [
+          "berufseinstieg"
+        ],
+        "location": "Hamburg",
+        "remote": false,
+        "slug": "anlagenmechaniker-servicetechniker-shk-hamburg-306023",
+        "tags": [
+          "Engineering"
+        ],
+        "title": "Anlagenmechaniker / Servicetechniker SHK ( m/w/d)",
+        "url": "https://www.arbeitnow.com/jobs/companies/polytalent-gmbh/anlagenmechaniker-servicetechniker-shk-hamburg-306023"
+      }
+    },
+    "raw_with_hex_entity": {
+      "captured_at": "2026-09-09T20:48:14Z",
+      "description_length": 1502,
+      "record": {
+        "company_name": "BUYA Ramen",
+        "created_at": 1788963448,
+        "description": "<p><strong>SHIFT LEADER (m/f/d)</strong><br>\n<strong>BUYA &#x26; REI · Berlin-Kreuzberg</strong></p>\n<p><strong>Japanese soul. Kreuzberg energy. Your next move.</strong></p>\n<p>Homemade ramen at BUYA. Japanese sharing plates, cocktails and sake at REI. Two spots with their own personality, right in the heart of Kreuzberg — and we’re looking for a Shift Leader who can keep service running smoothly and make people feel welcome.</p>\n<h2>Tasks</h2>\n<p><strong>Your shift. Your team.</strong></p>\n<p>You’ll lead the floor, support your crew and keep an eye on the details. From the first briefing to the final handover, you’ll coordinate service, stay connected with the kitchen and bar, and handle guest requests with confidence. When things get busy, you bring calm, clear decisions and a hands-on attitude.</p>\n<h2>Requirements</h2>\n<p><strong>What you bring</strong></p>\n<ul>\n<li>Experience in restaurant service and in leading shifts or a team.</li>\n<li>A warm presence with guests and clear communication with colleagues.</li>\n<li>Good judgement, reliability and an eye for what needs doing.</li>\n<li>A love for food, drinks and thoughtful hospitality.</li>\n<li>Availability for evenings and weekends.</li>\n</ul>\n<p><strong>Sound like your kind of place?</strong></p>\n<p>Send us your CV, your availability and a few lines about yourself.</p>\n<p><strong>Let’s make Kreuzberg nights worth coming back for.</strong></p>\n<p>Find <a href=\"https://www.arbeitnow.com\">Jobs in Germany</a> on Arbeitnow</a>",
+        "job_types": [
+          "manager"
+        ],
+        "location": "Berlin",
+        "remote": false,
+        "slug": "schichtleiterin-berlin-210906",
+        "tags": [
+          "Management",
+          "Team Leader"
+        ],
+        "title": "Schichtleiter:in",
+        "url": "https://www.arbeitnow.com/jobs/companies/buya-ramen/schichtleiterin-berlin-210906"
+      }
+    },
+    "raw_with_malformed_anchor": {
+      "captured_at": "2026-09-09T20:48:44Z",
+      "description_length": 4617,
+      "record": {
+        "company_name": "Eraneos",
+        "created_at": 1788908968,
+        "description": "<br><strong>What you can expect from us</strong><p>At Eraneos Germany, we partner with organizations to master complex challenges and shape a sustainable, digital future. As a (Senior) Consultant in our Production &amp; Operations team, you will support leading organizations in navigating change and unlocking performance improvements. Working in multidisciplinary project teams, you will contribute to strategic and operational transformation initiatives, develop valuable industry expertise, and help clients translate ambitious goals into tangible business results.<br><br><strong>Your Responsibilities</strong><ul><li>Support transformation and operational improvement projects across manufacturing, supply chain, and engineering environments</li><li>Analyze business processes and operational performance to identify improvement opportunities and support decision-making</li><li>Contribute to the design of target operating models, governance structures, and transformation roadmaps</li><li>Support operational strategy and optimization initiatives across manufacturing, supply chain, and operations</li><li>Apply lean and continuous improvement methodologies to enhance efficiency, quality, and business outcomes</li><li>Develop client deliverables and support workshops, stakeholder engagement, and project execution activities</li></ul></p><br><strong>Who you are</strong><p>Are you an analytical thinker with strong social skills, are curious and enjoy working as a team player? In addition to a high degree of personal initiative and an entrepreneurial can-do mentality, you possess the following distinguishing qualities:<br><ul><li>2+ years of experience in management consulting, delivering transformation and operational improvement projects across manufacturing, supply chain, and engineering environments</li><li>University degree in engineering, business administration, economics, or a comparable field</li><li>Understanding of operational processes,continuous improvement methodologies and transformation initiatives in industrial environments</li><li>Strong communication and presentation skills with the ability to engage effectively with different stakeholders</li><li>Fluent German and English language skills</li><li>Flexibility and willingness to travel based on client and project needs</li></ul></p><br><strong>Who we are</strong><p>Eraneos is an international consulting group specializing in strategy, transformation, and technology that helps companies succeed in a dynamic digital world. With world-class experts in business and technology, we empower our clients to set new standards for sustainable transformation – from strategy to implementation. Whether designing future-proof organizations, unlocking new potential through data and AI, or safeguarding companies with comprehensive cybersecurity, we deliver results in a pragmatic and goal-oriented manner.<br><br>Our team of approximately 1,300 dedicated employees is based in offices across Germany, Switzerland, The Netherlands, Spain, Denmark, Sweden, Austria, The United Kingdom, Singapore, Japan and The United States and combines global perspectives with strong local roots.<br><br>In addition to challenging projects in a multinational environment, we are characterized by a high degree of entrepreneurial freedom and continuous growth. At our company, we take pride in our strong sense of community, based on mutual appreciation and support. We offer excellent promotion opportunities as well as individual career development mentoring. Our employees are seen as the heart of the company, which is why we provide above-average compensation as well as numerous additional benefits.</p><br><strong>Contact </strong><p>Patricia Herbst - <a ---------- - +49 40 809 081-172<br><br>Our top priority is that you fit us and we fit you, regardless of origin, nationality, sexual orientation, religion, gender identity, age, handicap or other aspects of diversity.<br><br>Our dedicated HR Team will be happy to provide you with further information and is looking forward to receiving your CV and / or your complete and expressive Linked in / Xing profile.<br><br>Are you interested in what our employees and other applicants say about us? Visit us on Kununu and follow us on social media to not miss the latest news about us.<br><br><a target=\"_blank\" href=\"https://www.kununu.com/de/eraneos-germany\" rel=\"noreferrer noopener\">Eraneos Germany als Arbeitgeber: Gehalt, Karriere, Benefits (kununu.com)</a></p><p>Find more <a href=\"https://www.arbeitnow.com/english-speaking-jobs\">English Speaking Jobs in Germany</a> on Arbeitnow</a>",
+        "job_types": [
+          "Experienced",
+          "Permanent",
+          "Full time"
+        ],
+        "location": "Hamburg, München, Düsseldorf, remote",
+        "remote": false,
+        "slug": "remote-senior-consultant-business-value-chain-all-genders-390044",
+        "tags": [
+          "Manufacturing",
+          "Production",
+          "Operations",
+          "Consulting",
+          "Digital Transformation",
+          "Management Consulting",
+          "Business Value Chain",
+          "Supply Chain",
+          "Engineering"
+        ],
+        "title": "(Senior) Consultant Business Value Chain (all genders)",
+        "url": "https://www.arbeitnow.com/jobs/companies/eraneos/remote-senior-consultant-business-value-chain-all-genders-390044"
+      }
+    }
+  }
+}

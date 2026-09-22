@@ -1,0 +1,180 @@
+{
+  "comments": "21/08/2026: Cursor pagination is now available and is the preferred way to page through the feed. Pass the nextCursor value from each response back as ?cursor=. It is faster than offset and will never return the same job twice. The offset parameter is deprecated and will be removed in a future release. 13/03/2026: The API has been updated to include the companySlug field in the response.",
+  "updatedAt": 1788764252,
+  "limit": 20,
+  "totalCount": 105464,
+  "nextCursor": "cursor-page-2",
+  "jobs": [
+    {
+      "title": "Medical Coding Quality Team Lead",
+      "excerpt": "Looking for a way to make an impact and help people?",
+      "companyName": "PacificSource Health Plans",
+      "companySlug": "pacificsource-health-plans",
+      "companyLogo": "https://cdn-images.himalayas.app/4yed264vt1bjdu3udbvoxlfsqocx",
+      "employmentType": "Full Time",
+      "minSalary": 65296.83,
+      "maxSalary": 111004.62,
+      "salaryPeriod": "annual",
+      "seniority": [
+        "Manager"
+      ],
+      "currency": "USD",
+      "locationRestrictions": [
+        "United States"
+      ],
+      "timezoneRestrictions": [
+        -10,
+        -9,
+        -8,
+        -7,
+        -6,
+        -5,
+        14
+      ],
+      "categories": [
+        "Medical-Coding",
+        "Claims-Management",
+        "Healthcare-Quality-Assurance",
+        "Health-Insurance-Administration",
+        "Team-Lead",
+        "Medical-Coding-Quality-Specialist",
+        "Medical-Coding-Lead",
+        "Healthcare-Coding-Lead",
+        "Clinical-Coding-Quality-Analyst",
+        "Medical-Coding-Quality-Auditor",
+        "Medical-Coding-Quality-Assurance"
+      ],
+      "parentCategories": [],
+      "description": "<h3><b>Looking for a way to make an impact and help people?</b></h3><p><i>Join PacificSource and help our members access quality, affordable care!</i></p><p><b>PacificSource is an equal opportunity employer.  All qualified applicants will receive consideration for employment without regard to status as a protected veteran or a qualified individual with a disability, or other protected status, such as race, religion, color, sex, sexual orientation, gender identity, national origin, genetic information or age.</b> PacificSource values the diversity of our community, including those we hire and serve. We are committed to creating and fostering a work environment in which individual differences and diversity are appreciated, respected and responded to in ways that fully develop and utilize each person’s talents and strengths.</p>Supervise and provide leadership to the Claims Audit team, ensuring adherence to company policies, procedures, and workflows across lines of business. Manage claims production and quality to meet or exceed company standards. Resolve adjudication issues, including additional payments and recoveries. Collaborate with Grievance and Appeals to research and determine appropriate claims outcomes. Responsible for hiring, training, coaching, and evaluating team performance. Demonstrate effective leadership by fostering individual growth, team collaboration, innovat</p>",
+      "pubDate": 1788764139,
+      "expiryDate": 1793948138,
+      "applicationLink": "https://himalayas.app/companies/pacificsource-health-plans/jobs/medical-coding-quality-team-lead",
+      "guid": "https://himalayas.app/companies/pacificsource-health-plans/jobs/medical-coding-quality-team-lead"
+    },
+    {
+      "title": "Graduate Sales Development Representative - Canada",
+      "excerpt": "Canonical is a global software company that publishes Ubuntu and open-source enterprise solutions for cloud, developer, IoT and AI.",
+      "companyName": "Canonical",
+      "companySlug": "canonical",
+      "companyLogo": "https://cdn-images.himalayas.app/re8q1jo71m4lmph4ozuxybpu8nei",
+      "employmentType": "Full Time",
+      "minSalary": null,
+      "maxSalary": null,
+      "salaryPeriod": "annual",
+      "seniority": [
+        "Entry-level"
+      ],
+      "currency": null,
+      "locationRestrictions": [
+        "Antigua and Barbuda",
+        "Argentina",
+        "Bahamas",
+        "Barbados",
+        "Belize",
+        "Bolivia",
+        "Brazil",
+        "Canada",
+        "Chile",
+        "Colombia",
+        "Costa Rica",
+        "Cuba",
+        "Dominica",
+        "Dominican Republic",
+        "Ecuador",
+        "El Salvador",
+        "Grenada",
+        "Guatemala",
+        "Guyana",
+        "Haiti",
+        "Honduras",
+        "Jamaica",
+        "Mexico",
+        "Nicaragua",
+        "Panama",
+        "Paraguay",
+        "Peru",
+        "Saint Kitts and Nevis",
+        "Saint Lucia",
+        "Saint Vincent and the Grenadines",
+        "Suriname",
+        "Trinidad and Tobago",
+        "United States",
+        "Uruguay",
+        "Venezuela"
+      ],
+      "timezoneRestrictions": [
+        -10,
+        -9,
+        -8,
+        -7,
+        -6,
+        -5,
+        -4,
+        -3.5,
+        -3,
+        -2,
+        14
+      ],
+      "categories": [
+        "Sales-Development-Representative",
+        "Business-Development",
+        "Sales",
+        "Account-Management",
+        "Technology-Sales",
+        "Entry-Level-Sales-Development-Representative",
+        "Junior-Sales-Development-Representative",
+        "Graduate-Sales-Program",
+        "Sales-Development-Associate",
+        "Sales-Graduate",
+        "Graduate-Sales",
+        "Sales-Development"
+      ],
+      "parentCategories": [
+        "Sales"
+      ],
+      "description": "<p><a href=\"https://himalayas.app/companies/canonical\">Canonical</a> is a global software company that publishes Ubuntu and open-source enterprise solutions for cloud, developer, IoT and AI. Ubuntu is the fastest growing Linux distribution and ranks as the number #1 OS  in the cloud.</p><p>In partnership with Google, Amazon, IBM and Microsoft, <a href=\"https://himalayas.app/companies/canonical\">Canonical</a> helps companies become more agile, productive and adopt new technologies faster. Examples of customer success include  AI, Blockchain, IoT, Advanced Robotics and self-driving cars, where Ubuntu is the preferred development platform.</p><p><strong>The role of a Sales Development Representative at <a href=\"https://himalayas.app/companies/canonical\">Canonical</a></strong></p><p><a href=\"https://himalayas.app/companies/canonical\">Canonical</a> is profitable and growing. We consider our sales development organization to be the best technology sales academy in the market, and as such, we select exceptional and ambitious candidates to join our team. You will enjoy this role if you are organized, persistent, charismatic, and hard-working. You will need to be interested in tech and its business implications. In this role, you will collaborate with a regional sales and marketing team, and your primary objective is to find customer projects that fit our product lines and spread the go</p>",
+      "pubDate": 1788764252,
+      "expiryDate": 1793948251,
+      "applicationLink": "https://himalayas.app/companies/canonical/jobs/graduate-sales-development-representative-canada",
+      "guid": "https://himalayas.app/companies/canonical/jobs/graduate-sales-development-representative-canada"
+    },
+    {
+      "title": "Biology PhD Expert - Fully Remote | Upto $23/hr Part-time",
+      "excerpt": "About the jobMercor connects elite creative and technical talent with leading AI research labs.",
+      "companyName": "mercor",
+      "companySlug": "mercor",
+      "companyLogo": "https://cdn-images.himalayas.app/6jo5q9nua35jgtdfm41nq6b7ocqf",
+      "employmentType": "Contractor",
+      "minSalary": 19,
+      "maxSalary": 23,
+      "salaryPeriod": "hourly",
+      "seniority": [
+        "Senior"
+      ],
+      "currency": "USD",
+      "locationRestrictions": [
+        "Indonesia"
+      ],
+      "timezoneRestrictions": [
+        7,
+        8,
+        9
+      ],
+      "categories": [
+        "AI-Safety-Expert",
+        "Content-Evaluation",
+        "Science-Prompt-Engineer",
+        "AI-Language-Annotator",
+        "Scientific-Reviewer",
+        "Biology-PhD",
+        "Research-Scientist-Biology"
+      ],
+      "parentCategories": [],
+      "description": "<h3>About the job</h3><p><strong>Mercor</strong> connects elite creative and technical talent with leading AI research labs. Headquartered in San Francisco, our investors include <strong>Benchmark</strong>, <strong>General Catalyst</strong>, <strong>Peter Thiel</strong>, <strong>Adam D'Angelo</strong>, <strong>Larry Summers</strong>, and <strong>Jack Dorsey</strong>.</p><p><strong>Position:</strong> Bilingual Indonesian STEM Expert (PhD) — AI Safety<br><strong>Type:</strong><strong>Contract</strong><br><strong>Compensation:</strong><strong>$19–$23/hour</strong><br><strong>Location:</strong><strong>Remote</strong></p><h3>Role Responsibilities</h3><ul>\n<li>Write expert-level prompts in Indonesian across specialized scientific topics.</li>\n<li>Evaluate and annotate model responses for scientific accuracy, helpfulness, and appropriate handling of sensitive content.</li>\n<li>Apply structured guidelines to classify prompts and conversations.</li>\n<li>Work <strong>independently and asynchronously</strong> to meet deadlines while improving <strong>AI model performance</strong>.</li>\n</ul><h3>Qualifications</h3><p></p><p><strong>Must-Have</strong></p><ul>\n<li><strong><strong>PhD</strong> in chemistry, biology, or a closely related field.</strong></li>\n<li><strong>Native or near-native fluency in Indonesian.</strong></li>\n<li><strong>Business-level written English.</strong></li>\n<li><str</p>",
+      "pubDate": 1788764235,
+      "expiryDate": 1793948235,
+      "applicationLink": "https://himalayas.app/companies/mercor/jobs/biology-phd-expert-fully-remote-upto-23-hr-part-time",
+      "guid": "https://himalayas.app/companies/mercor/jobs/biology-phd-expert-fully-remote-upto-23-hr-part-time"
+    }
+  ]
+}

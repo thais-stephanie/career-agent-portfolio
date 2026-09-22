@@ -1,0 +1,96 @@
+{
+  "data": [
+    {
+      "type": "job",
+      "id": "40219",
+      "attributes": {
+        "title": "Revenue Operations Analyst",
+        "remote": true,
+        "countries": [
+          "Chile",
+          "Argentina"
+        ],
+        "published_at": 1788739200,
+        "company": {
+          "data": {
+            "type": "company",
+            "id": "912",
+            "attributes": {
+              "name": "Fintual"
+            }
+          }
+        },
+        "modality": {
+          "data": {
+            "type": "modality",
+            "id": "1",
+            "attributes": {
+              "name": "Full time"
+            }
+          }
+        },
+        "functions_headline": "Funciones del cargo",
+        "functions": "<p>Own the revenue reporting pipeline end to end.</p><ul><li>Model pipeline health in the CRM.</li><li>Automate the weekly forecast pack.</li></ul>",
+        "description_headline": "Requerimientos indispensables",
+        "description": "<ul><li>4+ years in revenue or sales operations.</li><li>SQL and spreadsheet modelling.</li><li>Conversational English.</li></ul>",
+        "desirable_headline": "Deseable",
+        "desirable": "<ul><li>Salesforce administration.</li></ul>",
+        "benefits_headline": "Beneficios que ofrecemos",
+        "benefits": "<ul><li>Fully remote.</li><li>Learning budget.</li></ul>",
+        "projects": "<p>Fintual is rethinking how the region invests, from anywhere in the world.</p>"
+      },
+      "links": {
+        "public_url": "https://www.getonbrd.com/jobs/revenue-operations-analyst-fintual"
+      }
+    },
+    {
+      "type": "job",
+      "id": "40220",
+      "attributes": {
+        "title": "Analista de Integracoes e Automacao",
+        "remote": false,
+        "countries": [
+          "Brazil"
+        ],
+        "published_at": 1788652800,
+        "company": {
+          "data": {
+            "type": "company",
+            "id": "744",
+            "attributes": {
+              "name": "Nubank"
+            }
+          }
+        },
+        "functions_headline": "Funcoes",
+        "functions": "<p>Integrar sistemas internos e automatizar rotinas de dados.</p>",
+        "description": "<ul><li>Experiencia com integracoes e APIs.</li></ul>"
+      },
+      "links": {
+        "public_url": "https://www.getonbrd.com/jobs/analista-integracoes-nubank"
+      }
+    },
+    {
+      "type": "job",
+      "id": "40221",
+      "attributes": {
+        "title": "Solutions Engineer",
+        "remote": true,
+        "countries": [],
+        "published_at": null,
+        "company": {
+          "data": null
+        }
+      },
+      "links": {
+        "public_url": "https://www.getonbrd.com/jobs/solutions-engineer-anon"
+      }
+    }
+  ],
+  "meta": {
+    "total": 3
+  },
+  "links": {
+    "self": "https://www.getonbrd.com/api/v0/categories/programming/jobs?page=1"
+  }
+}

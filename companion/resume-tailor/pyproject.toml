@@ -1,0 +1,48 @@
+# Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+[project]
+name = "resume-tailor"
+version = "0.1.0b1"
+description = "Local-first, evidence-grounded resume tailoring. Standalone MVP whose core services are designed to be lifted into Career Agent."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "httpx>=0.28",
+    "python-dotenv>=1.0",
+    "python-docx>=1.1",
+    "pypdf>=5.0",
+    "typer>=0.12",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+resume-tailor = "resume_tailor.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/resume_tailor"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "C4", "DTZ", "RUF"]
+# Unicode punctuation is intentional input grammar and resume typography.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.File", "typer.Option"]

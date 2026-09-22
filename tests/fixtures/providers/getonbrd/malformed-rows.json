@@ -1,0 +1,40 @@
+{
+  "data": [
+    { "type": "job", "id": "1", "attributes": { "title": "No links object" } },
+    {
+      "type": "job",
+      "id": "2",
+      "attributes": { "title": "Off-host url" },
+      "links": { "public_url": "https://evil.example/jobs/2" }
+    },
+    {
+      "type": "job",
+      "id": "3",
+      "attributes": { "title": "Not https" },
+      "links": { "public_url": "http://www.getonbrd.com/jobs/3" }
+    },
+    {
+      "type": "job",
+      "id": "4",
+      "attributes": { "title": "   " },
+      "links": { "public_url": "https://www.getonbrd.com/jobs/4" }
+    },
+    {
+      "type": "job",
+      "attributes": { "title": "No id" },
+      "links": { "public_url": "https://www.getonbrd.com/jobs/5" }
+    },
+    {
+      "type": "job",
+      "id": "6",
+      "attributes": {
+        "title": "Survives everything",
+        "remote": true,
+        "countries": "Peru",
+        "published_at": -1
+      },
+      "links": { "public_url": "https://www.getonbrd.com/jobs/6" }
+    }
+  ],
+  "meta": { "total": 6 }
+}

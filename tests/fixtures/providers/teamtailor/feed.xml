@@ -1,0 +1,67 @@
+<rss xmlns:tt="https://teamtailor.com/locations" version="2.0">
+  <channel>
+    <title>Teamtailor</title>
+    <description>Current job openings</description>
+    <link>https://career.teamtailor.com/jobs</link>
+    <item>
+      <title>Group Financial Controller</title>
+      <description>&lt;h4&gt;Join Teamtailor and Help Shape the Future of Work!!&lt;br&gt;&lt;/h4&gt;&lt;p&gt;Teamtailor is a global Employer Branding and ATS SaaS platform used by over 13,000 companies, 250,000 users, and available in 90 countries worldwide. 🌍&lt;/p&gt;&lt;p&gt;[fixture trimmed 2026-09-11]&lt;/p&gt;</description>
+      <pubDate>Fri, 24 Jul 2026 13:57:16 +0200</pubDate>
+      <link>https://career.teamtailor.com/jobs/8124573-group-financial-controller</link>
+      <remoteStatus>hybrid</remoteStatus>
+      <guid>3ce2c88b-cbc6-4ae9-8ecb-000466c69037</guid>
+      <tt:locations>
+        <tt:location>
+          <tt:name>Stockholm</tt:name>
+          <tt:address>Östgötagatan 16</tt:address>
+          <tt:zip>116 21</tt:zip>
+          <tt:city>Stockholm</tt:city>
+          <tt:country>Sweden</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Finance</tt:department>
+      <tt:role />
+      <tt:division />
+    </item>
+    <item>
+      <title>Account Executive - UK Enterprise</title>
+      <description>&lt;figure&gt;&lt;lite-youtube videoid="qaCNYmm5eiQ" title="Play: Video" posterquality="sddefault"&gt;&lt;/lite-youtube&gt;&lt;/figure&gt;&lt;h2&gt;&lt;span&gt;Let's build the future together!&lt;/span&gt;&lt;/h2&gt;&lt;p&gt;&lt;a target="_blank" href="https://www.teamtailor.com/en/"&gt;&lt;span&gt;Teamtailor&lt;/span&gt;&lt;/a&gt;&lt;span&gt; is an Employer Branding and ATS SaaS platform used by over 13,000 companies, 250,000 users in over 100 countries around the world.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;[fixture trimmed 2026-09-11]&lt;/p&gt;</description>
+      <pubDate>Mon, 06 Jul 2026 08:58:57 +0200</pubDate>
+      <link>https://career.teamtailor.com/jobs/8021334-account-executive-uk-enterprise</link>
+      <remoteStatus>hybrid</remoteStatus>
+      <guid>a79a10f6-9f69-49b0-9f6d-8bed3d6e3a4f</guid>
+      <tt:locations>
+        <tt:location>
+          <tt:name>London</tt:name>
+          <tt:address>16 Laystall Court</tt:address>
+          <tt:zip>EC1R 4</tt:zip>
+          <tt:city>London</tt:city>
+          <tt:country>United Kingdom</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Sales</tt:department>
+      <tt:role>Account Executive</tt:role>
+      <tt:division />
+    </item>
+    <item>
+      <title>Mid-Market Account Executive (Outbound) - Madrid</title>
+      <description>&lt;h4&gt;&lt;strong&gt;Join us to shape the future!&lt;/strong&gt;&lt;/h4&gt;&lt;p&gt;Teamtailor is a global Employer Branding and ATS SaaS platform used by over &lt;strong&gt;13,000 companies, 250,000 users, and available in 90 countries worldwide.&lt;/strong&gt; 🌍&lt;/p&gt;&lt;p&gt;[fixture trimmed 2026-09-11]&lt;/p&gt;</description>
+      <pubDate>Thu, 23 Apr 2026 12:41:59 +0200</pubDate>
+      <link>https://career.teamtailor.com/jobs/7623275-mid-market-account-executive-outbound-madrid</link>
+      <remoteStatus>fully</remoteStatus>
+      <guid>fb63bcb7-fcdf-4f35-ba55-b800505f8294</guid>
+      <tt:locations>
+        <tt:location>
+          <tt:name>Madrid</tt:name>
+          <tt:address>Monday Chamberi</tt:address>
+          <tt:zip>28010</tt:zip>
+          <tt:city>Madrid</tt:city>
+          <tt:country>Spain</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Sales</tt:department>
+      <tt:role>Account Executive</tt:role>
+      <tt:division />
+    </item>
+    </channel>
+</rss>

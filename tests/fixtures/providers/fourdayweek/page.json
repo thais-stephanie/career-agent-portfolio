@@ -1,0 +1,275 @@
+{
+  "data": [
+    {
+      "id": "01a08f9d-dbec-767d-978d-03b18cb6953e",
+      "slug": "junior-java-developer-at-version-1-8fd328d3",
+      "title": "Junior Java Developer",
+      "description": "#### Company Description\n\nVersion 1 has celebrated 30 years in business and continues to be trusted by global brands to deliver technology and transformation solutions that drive customer success. Our deep expertise enables our customers to navigate the rapidly evolving technology landscape. We foster strong partnerships with global technology leaders including Microsoft, AWS, Oracle, Red Hat, OutSystems, Snowflake, ensuring that our customers are provided with the highest quality solutions and \n\n[fixture trimmed 2026-09-11]",
+      "url": "https://4dayweek.io/job/junior-java-developer-at-version-1-8fd328d3",
+      "category": "engineering",
+      "role": "Java Developer",
+      "level": "mid",
+      "contract_type": "permanent",
+      "schedule_type": "best_place_to_work",
+      "hours_per_week_min": 40,
+      "hours_per_week_max": 40,
+      "work_arrangement": "onsite",
+      "locations": [
+        {
+          "city": "London",
+          "country": "United Kingdom",
+          "continent": "Europe",
+          "latitude": 51.50853,
+          "longitude": -0.12574,
+          "work_arrangement": "onsite",
+          "is_primary": true
+        },
+        {
+          "city": "Edinburgh",
+          "country": "United Kingdom",
+          "continent": "Europe",
+          "latitude": 55.95206,
+          "longitude": -3.19648,
+          "work_arrangement": "onsite"
+        },
+        {
+          "city": "Manchester",
+          "country": "United Kingdom",
+          "continent": "Europe",
+          "latitude": 53.48095,
+          "longitude": -2.23743,
+          "work_arrangement": "onsite"
+        },
+        {
+          "city": "Birmingham",
+          "country": "United Kingdom",
+          "continent": "Europe",
+          "latitude": 52.48142,
+          "longitude": -1.89983,
+          "work_arrangement": "onsite"
+        },
+        {
+          "city": "Belfast",
+          "country": "United Kingdom",
+          "continent": "Europe",
+          "latitude": 54.59682,
+          "longitude": -5.92541,
+          "work_arrangement": "onsite"
+        },
+        {
+          "city": "Newcastle upon Tyne",
+          "state": "England",
+          "country": "United Kingdom",
+          "continent": "Europe",
+          "latitude": 54.978252,
+          "longitude": -1.61778,
+          "work_arrangement": "onsite"
+        }
+      ],
+      "skills": [
+        {
+          "name": "API Development",
+          "slug": "api-development"
+        },
+        {
+          "name": "Agile",
+          "slug": "agile"
+        },
+        {
+          "name": "Distributed Systems",
+          "slug": "distributed-systems"
+        }
+      ],
+      "stack": [
+        {
+          "name": "Groovy",
+          "slug": "groovy"
+        },
+        {
+          "name": "Java",
+          "slug": "java"
+        },
+        {
+          "name": "JavaScript",
+          "slug": "javascript"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Apigee",
+          "slug": "apigee"
+        },
+        {
+          "name": "Azure",
+          "slug": "azure"
+        },
+        {
+          "name": "Git",
+          "slug": "git"
+        }
+      ],
+      "posted_at": "2026-09-11T08:38:02Z",
+      "company": {
+        "id": "019e86f1-a8c0-7e83-b038-d7ad5be4d27e",
+        "slug": "version-1",
+        "name": "Version 1",
+        "url": "https://4dayweek.io/company/version-1",
+        "website": "https://www.version1.com",
+        "logo_url": "https://media.4dayweek.io/files/1780360470079_af364d58e7631770.jpg",
+        "short_description": "IT services and digital-transformation consultancy.",
+        "country": "Ireland",
+        "employees": 3300,
+        "schedule_type": "best_place_to_work",
+        "hours_full_time": 40,
+        "remote_level": "hybrid",
+        "hires_worldwide": false
+      }
+    },
+    {
+      "id": "01a08f98-4645-75db-a827-18c2d37ea3af",
+      "slug": "video-editor-va-long-form-content-at-jobgether-4f383117",
+      "title": "Video Editor VA (Long-Form Content)",
+      "description": "Accountabilities\nEdit long-form video content, including full episodes, interviews, podcasts, training videos, and similar formats.\nReview, splice, trim, and clean raw footage to create polished and cohesive final videos.\nMaintain appropriate pacing, smooth transitions, visual consistency, and overall production quality.\nAdd basic text overlays, graphics, and light visual effects according to project requirements.\nPerform basic audio cleanup and color correction to improve the quality and consis\n\n[fixture trimmed 2026-09-11]",
+      "url": "https://4dayweek.io/job/video-editor-va-long-form-content-at-jobgether-4f383117",
+      "category": "content",
+      "role": "Video Editor",
+      "contract_type": "freelance",
+      "schedule_type": "part_time",
+      "hours_per_week_min": 10,
+      "hours_per_week_max": 20,
+      "work_arrangement": "remote",
+      "locations": [
+        {
+          "country": "Luxembourg",
+          "continent": "Europe",
+          "latitude": 49.82,
+          "longitude": 6.13,
+          "work_arrangement": "remote",
+          "is_primary": true
+        }
+      ],
+      "timezones": [
+        "CST"
+      ],
+      "skills": [
+        {
+          "name": "Audio Cleanup",
+          "slug": "audio-cleanup"
+        },
+        {
+          "name": "Color correction",
+          "slug": "color-correction"
+        },
+        {
+          "name": "Communication",
+          "slug": "communication"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Adobe Premiere Pro",
+          "slug": "adobe-premiere-pro"
+        },
+        {
+          "name": "DaVinci Resolve",
+          "slug": "davinci-resolve"
+        },
+        {
+          "name": "Final Cut Pro",
+          "slug": "final-cut-pro"
+        }
+      ],
+      "posted_at": "2026-09-11T08:31:56Z",
+      "company": {
+        "id": "019e1919-9a2a-7ecc-8246-fefbdabd43fd",
+        "slug": "jobgether",
+        "name": "Jobgether",
+        "url": "https://4dayweek.io/company/jobgether",
+        "website": "https://jobgether.com",
+        "logo_url": "https://media.4dayweek.io/files/1778579828773_89eee67849d9ea09.jpg",
+        "short_description": "AI-powered remote job platform with 27 active part-time roles across engineering, marketing, operations and finance — all remote, hosted on their Lever board.",
+        "country": "Belgium",
+        "schedule_type": "part_time",
+        "hours_full_time": 20,
+        "remote_level": "fully-remote",
+        "hires_worldwide": false
+      },
+      "stack": []
+    },
+    {
+      "id": "01a08f9c-488e-7dd9-b771-3f037efc31f0",
+      "slug": "building-inspector-ii-at-city-of-santa-monica-e294a013",
+      "title": "Building Inspector II",
+      "description": "### City of Santa Monica\n\n## Building Inspector II\n\nSALARY\n\n$59.15 - $73.03 Hourly\n\n$4,732.15 - $5,842.15 Biweekly\n\n$10,253.00 - $12,658.00 Monthly\n\n$123,036.00 - $151,896.00 Annually\n\nLOCATION\n\n\nCity of Santa Monica, CA\n\nJOB TYPE\n\nFull-Time Regular\n\nJOB NUMBER\n\n264026-02\n\nDEPARTMENT\n\nCommunity Development\n\nDIVISION\n\nBuilding & Safety\n\nOPENING DATE\n\n09/11/2026\n\nCLOSING DATE\n\n9/25/2026 5:00 PM Pacific\n\nSALARY\n\n$59.15 - $73.03 Hourly\n\n$4,732.15 - $5,842.15 Biweekly\n\n$10,253.00 - $12,658.00 Monthly\n\n[fixture trimmed 2026-09-11]",
+      "url": "https://4dayweek.io/job/building-inspector-ii-at-city-of-santa-monica-e294a013",
+      "category": "operations",
+      "role": "Building Inspector",
+      "level": "mid",
+      "contract_type": "permanent",
+      "schedule_type": "9_day_fortnight",
+      "hours_per_week_min": 40,
+      "hours_per_week_max": 40,
+      "work_arrangement": "onsite",
+      "locations": [
+        {
+          "city": "Santa Monica",
+          "state": "California",
+          "country": "United States",
+          "continent": "North America",
+          "latitude": 34.0118828,
+          "longitude": -118.4915504,
+          "work_arrangement": "onsite",
+          "is_primary": true
+        }
+      ],
+      "timezones": [
+        "PST"
+      ],
+      "salary_min": 12303600,
+      "salary_max": 15189600,
+      "salary_currency": "USD",
+      "salary_period": "year",
+      "skills": [
+        {
+          "name": "Code Enforcement",
+          "slug": "code-enforcement"
+        },
+        {
+          "name": "Inspection",
+          "slug": "inspection"
+        },
+        {
+          "name": "Public Relations",
+          "slug": "public-relations"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Permit Tracking Systems",
+          "slug": "permit-tracking-systems"
+        }
+      ],
+      "posted_at": "2026-09-11T08:36:19Z",
+      "company": {
+        "id": "01a0002c-8578-7718-b1f4-dc137c2102cb",
+        "slug": "city-of-santa-monica",
+        "name": "City of Santa Monica",
+        "url": "https://4dayweek.io/company/city-of-santa-monica",
+        "website": "https://www.santamonica.gov",
+        "logo_url": "https://media.4dayweek.io/files/1786706155868_56f349988c550dcc.png",
+        "short_description": "The LA-county beach city runs a 9/80 — City Hall closed alternating Fridays, with the compressed schedule written into its union MOU.",
+        "country": "United States",
+        "employees": 2000,
+        "schedule_type": "9_day_fortnight",
+        "hours_full_time": 40,
+        "remote_level": "onsite",
+        "hires_worldwide": false
+      },
+      "stack": []
+    }
+  ],
+  "page": 1,
+  "limit": 100,
+  "total": 23690,
+  "has_more": true
+}

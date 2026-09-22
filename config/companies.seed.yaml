@@ -1,0 +1,267 @@
+# =====================================================================
+# ENGINEERING SEED BOARDS - NOT A TARGET COMPANY LIST
+#   M1A: Greenhouse (11)   M1B: Lever (8)   M1C: Ashby (10)
+#
+# These companies were chosen to exercise the collectors against
+# real-world variation: different board sizes, description formats, HTML
+# styles, location strings and field completeness.
+#
+# They are NOT the candidate's target companies, and their presence here
+# implies nothing about career fit. M1D builds the real curated registry,
+# prioritising international / remote-friendly SaaS and technology companies,
+# target company markets, dream companies and corpus feedback.
+#
+# How the Greenhouse boards were identified: probed the public Greenhouse job
+# board API (GET /v1/boards/{token}/jobs) for a list of candidate tokens derived
+# from well-known technology companies, and kept those returning HTTP 200
+# with a non-empty jobs array on 2026-08-25.
+#
+# How the Lever boards were identified: the same method against
+# GET https://api.lever.co/v0/postings/{site}?mode=json, over 185 candidate
+# slugs on 2026-08-25. Nine boards came back non-empty (2174 postings) and six
+# came back valid-but-empty.
+#
+# Selection favoured spread over volume, at both providers.
+#
+# Greenhouse: 11 boards ranging from 11 to 81 postings, across
+# US / UK / DE / ES / global and across SaaS, fintech, developer tools, open
+# source and non-profit. Very large boards (stripe 590, sumup 391,
+# cloudflare 310) were deliberately left out: they add request load without
+# adding payload variety.
+#
+# Lever: 8 boards, chosen for the ways they are *awkward* rather than for size.
+# Two of them publish no department, one publishes no list sections at all, one
+# discloses salary on every posting, and one is deliberately empty. veeva (877)
+# and gopuff (815) were left out for the same reason stripe was.
+#
+# Ashby: 10 boards, same principle. Probed 79 slugs against
+# GET https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true
+# on 2026-08-26; 42 came back with postings (3105 total) and 5 valid-but-empty.
+# The chosen ten span 0 to 246 postings and cover the extremes measured: one
+# board where workplaceType is null on 100% of postings, one where compensation
+# is on 100%, one on 0%, one that is 82% onsite, one with 24 countries, one
+# where 76% of postings carry secondary locations, and one that is empty.
+# openai (751) and harvey (361) were left out: request load without variety.
+# =====================================================================
+
+schema_version: 1
+purpose: engineering_validation_only
+
+companies:
+  - slug: mattermost
+    name: Mattermost
+    hq_country: US
+    notes: "Open source collaboration; small board, developer-heavy descriptions."
+    boards:
+      - { provider: greenhouse, board_identifier: mattermost }
+
+  - slug: typeform
+    name: Typeform
+    hq_country: ES
+    notes: "Spain-based SaaS; small board, European location strings."
+    boards:
+      - { provider: greenhouse, board_identifier: typeform }
+
+  - slug: wikimedia
+    name: Wikimedia Foundation
+    hq_country: US
+    notes: "Non-profit; long, unusually structured descriptions."
+    boards:
+      - { provider: greenhouse, board_identifier: wikimedia }
+
+  - slug: airtable
+    name: Airtable
+    hq_country: US
+    notes: "SaaS; business-systems adjacent roles appear here."
+    boards:
+      - { provider: greenhouse, board_identifier: airtable }
+
+  - slug: wise
+    name: Wise
+    hq_country: GB
+    notes: "Fintech; multi-office location strings."
+    boards:
+      - { provider: greenhouse, board_identifier: wise }
+
+  - slug: gocardless
+    name: GoCardless
+    hq_country: GB
+    notes: "Fintech; mid-size board."
+    boards:
+      - { provider: greenhouse, board_identifier: gocardless }
+
+  - slug: amplitude
+    name: Amplitude
+    hq_country: US
+    notes: "Analytics SaaS; compensation ranges often present in body text."
+    boards:
+      - { provider: greenhouse, board_identifier: amplitude }
+
+  - slug: n26
+    name: N26
+    hq_country: DE
+    notes: "German fintech; German-language requirements appear in some postings."
+    boards:
+      - { provider: greenhouse, board_identifier: n26 }
+
+  - slug: monzo
+    name: Monzo
+    hq_country: GB
+    notes: "UK fintech; explicit UK-residence language in many postings."
+    boards:
+      - { provider: greenhouse, board_identifier: monzo }
+
+  - slug: postman
+    name: Postman
+    hq_country: US
+    notes: "API tooling; API/integration vocabulary throughout."
+    boards:
+      - { provider: greenhouse, board_identifier: postman }
+
+  - slug: duolingo
+    name: Duolingo
+    hq_country: US
+    notes: "Consumer tech; concise descriptions, distinct HTML style."
+    boards:
+      - { provider: greenhouse, board_identifier: duolingo }
+
+  # ---- M1B: Lever boards -------------------------------------------
+  # Counts are as observed on 2026-08-25 and will drift; they are here to
+  # explain the choice, not as an expectation the collector enforces.
+
+  - slug: alloy-ai
+    name: Alloy.ai
+    hq_country: US
+    notes: "Lever, 5 postings. No `department` - only `team`. salaryRange on 100%."
+    boards:
+      - { provider: lever, board_identifier: alloy }
+
+  - slug: sysdig
+    name: Sysdig
+    hq_country: US
+    notes: "Lever, 13 postings. `description` is only 22% of the text; the rest is lists."
+    boards:
+      - { provider: lever, board_identifier: sysdig }
+
+  - slug: toptal
+    name: Toptal
+    hq_country: US
+    notes: "Lever, 20 postings. No lists and no additional - description carries everything."
+    boards:
+      - { provider: lever, board_identifier: toptal }
+
+  - slug: wattpad
+    name: Wattpad
+    hq_country: CA
+    notes: "Lever, 27 postings. Canadian; salary disclosed on about half."
+    boards:
+      - { provider: lever, board_identifier: wattpad }
+
+  - slug: anchorage-digital
+    name: Anchorage Digital
+    hq_country: US
+    notes: "Lever, 31 postings. Small but international: US / SG / KY / ZA."
+    boards:
+      - { provider: lever, board_identifier: anchorage }
+
+  - slug: match-group
+    name: Match Group
+    hq_country: US
+    notes: "Lever, 78 postings. Nine countries; highest salary-disclosure rate found."
+    boards:
+      - { provider: lever, board_identifier: matchgroup }
+
+  - slug: palantir
+    name: Palantir Technologies
+    hq_country: US
+    notes: "Lever, 308 postings. No `department` at all; 16 countries; long `additional` blocks."
+    boards:
+      - { provider: lever, board_identifier: palantir }
+
+  # Deliberately empty. Returns HTTP 200 with `[]`, which is the case the
+  # closing logic must treat as "the board answered and has no openings"
+  # rather than as a failure. Keeping it in the seed set makes that a
+  # permanent live test instead of a one-off check.
+  - slug: kraken
+    name: Kraken
+    hq_country: US
+    notes: "Lever, 0 postings. Valid empty board - exercises empty-vs-failure."
+    boards:
+      - { provider: lever, board_identifier: kraken }
+
+  # ---- M1C: Ashby boards -------------------------------------------
+  # Counts observed 2026-08-26; they drift, and are here to explain the
+  # choice rather than as an expectation the collector enforces.
+
+  - slug: zed-industries
+    name: Zed Industries
+    hq_country: US
+    notes: "Ashby, 2 postings. Smallest real board; 100% carry secondaryLocations."
+    boards:
+      - { provider: ashby, board_identifier: zed }
+
+  - slug: openevidence
+    name: OpenEvidence
+    hq_country: US
+    notes: "Ashby, 8 postings. 100% OnSite, no compensation, 62% secondary locations."
+    boards:
+      - { provider: ashby, board_identifier: openevidence }
+
+  - slug: posthog
+    name: PostHog
+    hq_country: US
+    notes: "Ashby, 14 postings. Longest descriptions found (avg 11k chars); 86% remote."
+    boards:
+      - { provider: ashby, board_identifier: posthog }
+
+  - slug: hex-technologies
+    name: Hex
+    hq_country: US
+    notes: "Ashby, 29 postings. Sparsest board: no workplaceType, no country, no compensation."
+    boards:
+      - { provider: ashby, board_identifier: hex }
+
+  - slug: temporal-technologies
+    name: Temporal Technologies
+    hq_country: US
+    notes: "Ashby, 53 postings. workplaceType null on 100% - the 'vendor supports it, employer never fills it' case."
+    boards:
+      - { provider: ashby, board_identifier: temporal }
+
+  - slug: baseten
+    name: Baseten
+    hq_country: US
+    notes: "Ashby, 75 postings. Compensation on 100%; department differs from team on 92%."
+    boards:
+      - { provider: ashby, board_identifier: baseten }
+
+  - slug: cohere
+    name: Cohere
+    hq_country: CA
+    notes: "Ashby, 148 postings. 76% carry secondaryLocations - the array case at scale."
+    boards:
+      - { provider: ashby, board_identifier: cohere }
+
+  - slug: sierra-ai
+    name: Sierra
+    hq_country: US
+    notes: "Ashby, 200 postings. 82% OnSite - counterweight to the remote-heavy boards."
+    boards:
+      - { provider: ashby, board_identifier: sierra }
+
+  - slug: elevenlabs
+    name: ElevenLabs
+    hq_country: GB
+    notes: "Ashby, 246 postings. Most international found: 24 countries. Compensation on 0%."
+    boards:
+      - { provider: ashby, board_identifier: elevenlabs }
+
+  # Deliberately empty, like kraken on Lever. Returns HTTP 200 with an empty
+  # jobs array, which the closing logic must read as "the board answered and
+  # has no openings" rather than as a failure.
+  - slug: mercury-financial
+    name: Mercury
+    hq_country: US
+    notes: "Ashby, 0 postings. Valid empty board - exercises empty-vs-failure."
+    boards:
+      - { provider: ashby, board_identifier: mercury }

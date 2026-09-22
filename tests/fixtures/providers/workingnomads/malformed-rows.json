@@ -1,0 +1,32 @@
+[
+  {
+    "title": "No url",
+    "company_name": "Acme",
+    "description": "<p>Body.</p>"
+  },
+  {
+    "url": "https://www.workingnomads.com/job/go/1/",
+    "company_name": "Acme",
+    "description": "<p>Body.</p>"
+  },
+  {
+    "url": "http://elsewhere.example/job/go/2/",
+    "title": "Off host",
+    "company_name": "Acme",
+    "description": "<p>Body.</p>"
+  },
+  {
+    "url": "https://www.workingnomads.com/jobs/no-numeric-id",
+    "title": "No id",
+    "company_name": "Acme",
+    "description": "<p>Body.</p>"
+  },
+  {
+    "url": "https://www.workingnomads.com/job/go/9/",
+    "title": "Fine",
+    "company_name": "Acme",
+    "description": "<p>Body.</p>",
+    "location": "Global",
+    "pub_date": "not a date"
+  }
+]

@@ -1,0 +1,1876 @@
+# =====================================================================
+# The source catalogue.
+#
+# Which job sources this product can reach, and by what means. It lives in
+# DATA and not in Python for the same reason `imitates_provider` does in the
+# demo corpus: `tests/unit/test_provider_neutrality.py` forbids generic code
+# from naming a vendor, and it is right to. Which sources exist is a property
+# of the world, not of the collection layer.
+#
+# TWO FIELDS, TWO QUESTIONS
+#
+# `status` says by what MECHANISM a source is reached:
+#
+#   LIVE_INTEGRATION    an adapter exists AND has persisted real postings
+#   MANUAL_IMPORT       the person may paste a URL or the text; we must not fetch
+#   SEARCH_LINK         we can build a good query URL; the person opens it
+#   UNAVAILABLE         no permitted stable mechanism, or terms unreadable
+#
+# `coverage` says how much of it a person can USE:
+#
+#   OPERATIONAL   retrieval has run; postings from it are in the corpus
+#   PARTIAL       retrieval works and something expected is missing
+#   BLOCKED       a first-party page forbids automated access -- see `reason`
+#   UNSUPPORTED   no documented interface, or the terms could not be read
+#   UNDOCUMENTED  reachable and measured; the vendor publishes no terms,
+#                 so permission is UNDECLARED. Not a green light.
+#   PLANNED       permitted, or apparently so, and NOT yet demonstrated
+#
+# The two were being conflated, and the conflation cost something: MANUAL_IMPORT
+# covered both "the terms forbid us to fetch this" and "we have not written an
+# adapter yet", so the matrix could not be used to decide what to build next.
+# Vagas and Gupy were the same row colour and are completely different problems.
+#
+# OPERATIONAL AND PARTIAL ARE NOT CLAIMS THIS FILE GETS TO MAKE. Both assert
+# that retrieval has RUN. `sources.resolve` downgrades either to PLANNED unless
+# the corpus proves it -- the same treatment LIVE_INTEGRATION already gets.
+#
+# A BRAZILIAN PLATFORM IS NEVER OPERATIONAL WITHOUT A DEMONSTRATED RETRIEVAL.
+# Not "the endpoint looks unauthenticated", not "the docs describe it as free".
+# Until a bounded, authorised call has returned postings, it is PLANNED and
+# `unblocked_by` says exactly what would change that.
+#
+# LIVE_INTEGRATION IS NOT A CLAIM THIS FILE GETS TO MAKE ALONE. It is checked
+# at runtime against the provider registry and against the corpus: a source
+# that names an adapter nobody registered, or that has persisted nothing, is
+# reported as configured-but-unproven rather than live. Saying "live" about a
+# source that has never returned a posting is the kind of claim this project
+# exists not to make.
+#
+# `authorization` records WHY, and every one of them was read from a
+# first-party page on the date in `docs/product/source-capability-matrix.md`.
+# No entry here rests on a blog post or a "how to scrape X" article.
+# =====================================================================
+
+schema_version: 1
+reviewed_on: 2026-09-04
+
+sources:
+
+  # -- Global structured ATS: the three that are actually wired ----------
+  - id: greenhouse
+    name: Greenhouse
+    region: global
+    status: LIVE_INTEGRATION
+    provider: greenhouse
+    authorization: >-
+      Vendor documentation states authentication is not required for any GET
+      endpoint on the job board API.
+    note: >-
+      Descriptions and dates arrive; pay ranges arrive in `metadata` for some
+      boards. `?pay_transparency=true` is not yet sent by the collector.
+    coverage: PARTIAL
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Greenhouse retrieval is complete for the responding registered boards. More jobs require
+      more verified company boards. Some salary custom fields do not state their pay period.
+    reason: >-
+      COLLECTOR COMPLETE FOR KNOWN REGISTRY: the last full family run attempted
+      122 boards, with 121 responding, one NOT_FOUND, nine legitimate empty boards
+      and 11,134 observed, parsed and persisted full descriptions. No malformed
+      postings were skipped. Growth requires registry discovery. Some salary
+      custom fields lack a period; explicit description fallback is preserved.
+      Optional `?pay_transparency=true` enrichment is separate from listing
+      completeness and is not required to fetch the known inventory.
+    unblocked_by: >-
+      Resolve the obsolete board identity and discover/register additional
+      employer-published boards. Do not rebuild the complete listing collector.
+
+  - id: lever
+    name: Lever
+    region: global
+    status: LIVE_INTEGRATION
+    provider: lever
+    authorization: >-
+      Public postings API; reads are unauthenticated per the vendor's own
+      postings-api documentation.
+    note: The list call returns description, salary range, workplace type and date.
+    coverage: OPERATIONAL
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Jobs from Lever boards are in your list, descriptions and all.
+    reason: >-
+      The list call returns everything needed in one request, so no per-job
+      fetch exists to fail.
+
+  - id: ashby
+    name: Ashby
+    region: global
+    status: LIVE_INTEGRATION
+    provider: ashby
+    authorization: >-
+      The vendor documents the Job Postings API at
+      https://developers.ashbyhq.com/docs/public-job-posting-api with a GET
+      example requiring no credentials. The normal LiveKit production call
+      returned its published postings without authentication on 2026-09-10.
+    note: Compensation needs `?includeCompensation=true`, which the collector sends.
+    coverage: OPERATIONAL
+    #: The same answer, for the person reading the panel. Ashby has no
+    #: `reason` because there is no gap to explain, so this row carries the
+    #: plain sentence alone.
+    reason_plain: >-
+      Jobs from Ashby boards are in your list, descriptions and all.
+
+  # -- Global, not wired -------------------------------------------------
+  # CORRECTED 2026-09-05 from a bounded preflight. See
+  # docs/product/source-evidence-2026-09-05.md.
+  #
+  # The old row said the CxS endpoints were unusable. That conflated two
+  # different facts: the vendor does not DOCUMENT them, and they do not WORK.
+  # Only the first is true. They answer, without authentication, and robots.txt
+  # does not mention them.
+  - id: workday
+    name: Workday (CxS)
+    region: global
+    #: CHANGED 2026-09-10, from UNAVAILABLE. The adapter exists, and the two
+    #: things that had to happen first were not writing code: ADR-0018 settled
+    #: the permission, and `scan-career-sites` resolved real board identities
+    #: from employers' own careers pages. Normal production collection now
+    #: proves persisted inventory; the generated matrix verifies that claim.
+    status: LIVE_INTEGRATION
+    provider: workday
+    authorization: >-
+      PERMITTED, and this row said the opposite until ADR-0018.
+
+      No first-party page documents `/wday/cxs/...`, the documented Workday API
+      is authenticated SOAP, the endpoint answers without authentication, and
+      robots.txt does not forbid it. Every one of those facts is unchanged. The
+      SENTENCE that used to follow them -- "silence is not permission" -- was
+      invariant 2 applied to the wrong question, and ADR-0018 reversed it on
+      2026-09-09: invariant 2 is about what a POSTING says about a PERSON, and
+      reading it as a rule about network requests borrowed the weight of a
+      promise to the candidate and spent it on a courtesy to a vendor who had
+      not asked.
+
+      For COLLECTION, silence is now permission under five limits, and none of
+      the five is met here: nothing bypasses authentication, a CAPTCHA, an
+      access control, an explicit block or a rate limit. The sentence that used
+      to end this paragraph -- "what remains is that nobody has built it" -- was
+      true until 2026-09-10 and is not any more.
+    coverage: OPERATIONAL
+    reason_plain: >-
+      Jobs from the verified Purple and Teach For America boards are collected with full
+      descriptions. The separate TFA Pre-Service board currently has no openings.
+    reason: >-
+      Normal production collection on 2026-09-10 persisted 73 Purple and nine
+      TFA Careers postings, with full detail and no failures. TFA Pre-Service
+      successfully returned zero. Both hosts' robots policies were verified
+      again. Coverage is limited to employer-published board identities.
+    note: >-
+      Three pagination traps are measured and must be designed for, not
+      discovered: `total` is only true on the first page; `offset >= total`
+      silently returns page zero again, so a walk that stops on an empty page
+      never terminates; and `limit` above 20 is refused with 400 rather than
+      clamped.
+    unblocked_by: >-
+      Refresh these verified boards normally. Register additional boards only
+      from employer-published complete identities; never guess a tenant or site.
+
+  # CORRECTED 2026-09-05. The adapter and the collector now exist and have run
+  # against the live feed, so the old row -- "it is not built yet" -- had
+  # stopped being true. What has NOT changed is the terms gap, and promoting a
+  # source because we finally wrote its adapter would be exactly backwards.
+  - id: weworkremotely
+    name: We Work Remotely
+    region: global
+    status: LIVE_INTEGRATION
+    provider: wwr
+    authorization: >-
+      robots.txt is permissive and affirmatively allows job pages, and the RSS
+      feed is a deliberate first-party syndication channel. `/terms` and
+      `/terms-of-service` both answer 403 to an automated reader and were never
+      read, which is recorded rather than assumed away.
+    note: >-
+      The feed is a WINDOW, not a board: about thirteen to fifteen of the most
+      recent postings per feed, no pagination parameter and no archive.
+      Collecting it repeatedly accumulates postings over time and never yields
+      a complete board, so nothing may present it as one.
+    coverage: PARTIAL
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      We Work Remotely is collected and reads the whole posting, not a summary. It is a window
+      onto the most recent openings rather than the whole board, so it is never complete.
+    reason: >-
+      Adapter and collector built 2026-09-05 and proven against the live feed:
+      25 new on the first pass, then 0 new and 25 seen again on the second,
+      with descriptions averaging 5,053 characters. Three dedup rules rather
+      than four -- a WWR posting links to WWR, so the origin-URL rule has
+      nothing to resolve against. Production inventory is persisted; the
+      generated matrix measures the current corpus. Feed-window coverage
+      remains partial even when every returned posting is collected.
+    unblocked_by: >-
+      `career-agent collect-wwr --db data/m1d2/career.db`. Separately, and
+      unrelated to the mechanism: one successful read of the terms page.
+
+  # Added 2026-09-05. Listed BEFORE it can run, because a source this product
+  # can reach and deliberately does not is a fact the panel should carry.
+  - id: jooble
+    name: Jooble
+    region: global
+    status: LIVE_INTEGRATION
+    provider: jooble
+    authorization: >-
+      A documented public REST API, reached with a key the vendor issues on
+      request. Their documentation states the limit plainly: 500 requests per
+      key, for the LIFETIME of the key, not per day.
+    note: >-
+      A key belongs to ONE country. Their documentation is explicit -- "Each
+      Jooble domain (country) requires its own unique REST API key" -- and
+      which market a key was issued for cannot be read from the key. So
+      `JOOBLE_DOMAIN` is required configuration with no default, and nothing
+      here guesses it. The credential configured on this machine was issued on
+      `jooble.org`, which their documentation says is the UNITED STATES market.
+      A Brazilian search is a SEPARATE regional credential and a separate row;
+      it is not `location=Brazil` sent to a US key.
+    coverage: PLANNED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Jooble is wired and switched off. Your key can be used 500 times ever, so this product
+      will not spend one without being asked. The key set up here is for the United States
+      market, so it will not find Brazilian jobs however the search is worded.
+    reason: >-
+      The adapter, a ledger that refuses a request BEFORE it is sent, and a
+      redacted-URL path so the key in the URL cannot reach an error message or
+      a cache filename. ONE live request has been made, on 2026-09-06, and the
+      documented contract held: 20 rows, every one carrying a date and a
+      location, `totalCount` 2579 for a query that returns 20.
+      -> `docs/product/source-evidence-2026-09-06-jooble.md`
+
+      Production collection is disabled under the lifetime-quota policy.
+      The bounded research request was a canary, not production inventory.
+      The response carries a SNIPPET of 286 to 329 characters
+      rather than the employer's description, and this product's matcher reads
+      bodies -- so a Jooble posting would score as thin on evidence rather
+      than genuinely thin. And its only origin pointer is a board NAME rather
+      than a URL, so identity cannot be resolved the way ADR-0013 resolves a
+      Speedrun sighting, and every collected posting risks becoming a
+      duplicate of one already held.
+    unblocked_by: >-
+      A decision about snippets: either a rule that a snippet-sourced posting
+      is presented as UNSCOREABLE rather than scored on 300 characters, or a
+      documented detail endpoint to fetch the body from. Brazilian coverage
+      needs a Brazilian key, modelled as its own source row.
+
+  # CORRECTED 2026-09-05, and the correction is not the expected one. The old
+  # row recorded a 403 and a self-contradicting robots.txt. Re-measured, the
+  # endpoint returns 200 and publishes its own terms inside the response.
+  - id: remoteok
+    name: Remote OK
+    region: global
+    status: LIVE_INTEGRATION
+    provider: remoteok
+    authorization: >-
+      `remoteok.com/robots.txt`, read first-party 2026-09-09. The generic group
+      is `User-agent: *` with `Allow: /`, `Crawl-delay: 1` and
+      `Content-Signal: search=yes,ai-train=no,use=reference` -- this product
+      builds no third-party index, trains nothing, and uses postings by
+      reference. **`User-agent: ClaudeBot` carries `Disallow: /`**, and the
+      agent that wrote this adapter IS ClaudeBot, so ZERO live requests were
+      made from this repository: the fixture predates the work and the first
+      live call is the owner's. Same handling as Get on Board, which set the
+      precedent. Separately, the API's own terms ride in element ZERO of every
+      response and are a grant with three conditions -- link back to the Remote
+      OK URL, credit Remote OK, do not use the logo. All three are structural
+      rather than promised.
+    note: >-
+      Built after being refused once, and the refusal was right about the
+      mechanism and wrong about the conclusion. It publishes NO origin pointer:
+      `apply_url` is byte-identical to `url` on every row, so ADR-0013 identity
+      has nothing to resolve against and a posting also carried by an employer's
+      own board becomes two rows. Himalayas shipped on 2026-09-07 with exactly
+      that gap, under a trade written into its collector -- two visible rows for
+      one job is a smaller harm than one invisible job -- and the same trade
+      applies unchanged. What it adds is what this corpus lacks most: the
+      captured window carries a hospitality job in Ipojuca tagged `non tech`
+      beside a customer support role, which is the inventory a career changer
+      needs and an engineering-heavy corpus does not have.
+    coverage: PARTIAL
+    reason_plain: >-
+      Remote jobs from around the world, including non-technical ones, with the whole advert. It
+      is a window of what the board is showing now rather than everything it has ever listed, so
+      collecting it repeatedly is how it fills up.
+    reason: >-
+      One request returns the window; there is no paging parameter and none was
+      invented. Full bodies at 2,000-6,000 characters, a stable numeric id, an
+      RFC 3339 date and the employer's name. `salary_min` and `salary_max`
+      arrive as bare integers with NO CURRENCY anywhere in the record, so they
+      are archived and never read: nothing here converts between currencies and
+      a number with an invented unit is worse than no number.
+      `publishes_hiring_scope` is false -- `location` is where the work is, and
+      it is empty on most rows, which is stored as nothing rather than as
+      `Remote`.
+    unblocked_by: >-
+      Nothing on our side. `career-agent collect-remoteok`, and the first live
+      call is the owner's because this repository's agent is named in the
+      robots file.
+
+  - id: wellfound
+    name: Wellfound
+    region: global
+    status: MANUAL_IMPORT
+    authorization: >-
+      Terms forbid "automated or non-automated harvesting, collection or
+      'scraping'".
+    coverage: BLOCKED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Wellfound's own terms forbid collecting jobs automatically. Open it yourself in a browser
+      instead.
+    reason: >-
+      Terms of service forbid "automated or non-automated harvesting,
+      collection or 'scraping'". Unambiguous and first-party.
+
+  # CORRECTED IN V3. This row used to read SEARCH_LINK / UNSUPPORTED with the
+  # reason "there is no feed to read. It is an application form". That was
+  # wrong, and it was wrong in the direction this file is supposed to guard
+  # against: it asserted the absence of an interface without having looked.
+  #
+  # The first-party developer page documents a public, read-only,
+  # unauthenticated REST API with an OpenAPI 3.1 specification. Every claim
+  # below is measured, and the numbers are dated because they will move.
+  - id: a16z_speedrun
+    name: a16z Speedrun Talent Network
+    region: global
+    status: LIVE_INTEGRATION
+    provider: speedrun
+    authorization: >-
+      The first-party developer page documents the reads as public,
+      unauthenticated and free, and asks callers to self-identify with a
+      `source` parameter and to link to the canonical job URL. Both are
+      honoured. The consent-required actions it documents (join_network,
+      express_interest) appear nowhere in the v1 specification and are never
+      called.
+    search_url: https://speedrun-talent-network.com/developers
+    # PARTIAL, not OPERATIONAL, and the difference is a measured number rather
+    # than a hedge. Retrieval has run and its postings are in the corpus, which
+    # is what OPERATIONAL asks for. What a person would reasonably expect and
+    # cannot have is the WHOLE feed: `page` is capped at 200 and a page holds
+    # 50, so the API will serve at most 10,050 postings at any scope. It
+    # reports 18,479 at `portfolio` and 48,129 at `everywhere`, and a request
+    # above page 200 is silently clamped rather than refused.
+    coverage: PARTIAL
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Jobs from the a16z Speedrun network are in your list. It republishes jobs that companies
+      also post on their own careers pages, so when we already have one we keep the company's
+      version and note that Speedrun carries it too.
+    reason: >-
+      Read-only REST API, verified by a bounded retrieval on 2026-09-05: 2
+      pages, 100 postings, 82 new and 18 already held from the employers' own
+      boards. The whole feed is not reachable. Paging stops at page 200 of 50,
+      so 10,050 postings are servable of the 18,479 this scope reports, and a
+      request beyond that ceiling returns page 200 again instead of an error.
+    unblocked_by: >-
+      A cursor, or any paging parameter that reaches past the 201-page ceiling.
+      Nothing on our side is missing.
+
+  - id: company_career_pages
+    name: Company career pages
+    region: global
+    status: MANUAL_IMPORT
+    authorization: >-
+      Varies per employer. A page a person may read is a page they may paste.
+    coverage: PLANNED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Any single company's careers page can be added by hand today. There is no way to collect
+      all of them, because every company has its own site and its own rules.
+    reason: >-
+      Not one source but thousands, each with its own terms. Manual import is
+      the honest mechanism and it works today.
+
+  # -- Brazil ------------------------------------------------------------
+  # CORRECTED 2026-09-05. "NEVER CALLED" is no longer true: a bounded
+  # read-only preflight ran against the candidate-facing feed, which is a
+  # DIFFERENT surface from the documented employer API.
+  - id: gupy
+    name: Gupy
+    region: br
+    status: LIVE_INTEGRATION
+    provider: gupy
+    authorization: >-
+      Two different surfaces, and only one was ever documented. The published
+      developer API at `api.gupy.io` is employer-facing and requires a Bearer
+      token. The candidate feed at `employability-portal.gupy.io` answers
+      without authentication and is documented nowhere; its host serves no
+      robots.txt at all, and `portal.gupy.io/robots.txt` is a different host
+      whose empty `Disallow:` does not govern it. No authentication, CAPTCHA,
+      access control or rate-limit header was encountered, and none was
+      circumvented. Under the collection policy adopted 2026-09-09
+      (`docs/decisions/ADR-0018`, `docs/product/collection-policy.md`) an
+      undeclared public endpoint may be read, bounded and politely. That
+      REVERSES the rule this file applied to Torre, and the reversal is
+      recorded rather than quietly applied.
+    note: >-
+      The first Brazilian source this corpus has ever collected from, and the
+      answer to its central weakness: on 2026-09-09, 211 of 19,485 open
+      postings were located in Brazil. The feed declares 81,310. Two ceilings
+      bound what a run reaches and they are different facts: the vendor
+      refuses `offset` at 10,000, and this product's own shared page cap of 50
+      pages of 100 binds first at 5,000 per partition. So `remote` (2,115)
+      fits whole, `hybrid` (5,970) does not, and `on-site` (72,682) is
+      reachable only a slice at a time and is never collected by default.
+    coverage: PARTIAL
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Brazilian jobs, with the whole advert and a real city and state on each one. We read the
+      remote and hybrid listings; the on-site list is far too large to read whole, so this is a
+      window on Gupy rather than all of it.
+    reason: >-
+      Measured 2026-09-05 and collected 2026-09-09. `GET /api/v1/jobs` returns
+      200 with `data` and `pagination`, and the FULL description arrives in the
+      listing, so there is no detail request at all. `workplaceType` and
+      separate `city`, `state`, `country` map onto the three questions
+      invariant 3 keeps apart, which is what lets `gates.structured_geography`
+      resolve these postings without anybody claiming a hiring scope: this
+      adapter declares `publishes_hiring_scope: false`, because `country:
+      Brasil` says where the work is. `jobUrl` is on the employer's own
+      `*.gupy.io` subdomain, preserving employer destination separately from
+      source provenance. Two traps are measured
+      and handled: `offset` is refused with 400 at 10,000 and above rather than
+      clamped, so no single query reaches more than 10,000 of the 81,310 and
+      the walk partitions by `workplaceType`; and `pagination.total` returns
+      the page size instead of the real total when `limit=100`, so the count
+      comes from a separate `limit=10` probe. Stated here as well as in the
+      note because a DOWNGRADED row shows this sentence and not that one, and
+      what a feed does not reach is not a detail to lose on the way.
+    unblocked_by: >-
+      Nothing. Collected, and the remaining limits are the two ceilings in the
+      note above rather than a permission question.
+
+  - id: programathor
+    name: Programathor
+    region: br
+    status: LIVE_INTEGRATION
+    provider: programathor
+    authorization: >-
+      `programathor.com.br/robots.txt`, read first-party 2026-09-09: one
+      `User-agent: *` group disallowing exactly `/admin/`, `/user/`, `/users/`
+      and `/company/`. Neither `/jobs` nor a posting page is among them, and
+      the same file DECLARES A SITEMAP, which is an affirmative aid to a
+      crawler rather than the absence of a ban. Nothing was bypassed and no
+      access control was met. This would have been permitted under the
+      stricter policy that preceded ADR-0018.
+    note: >-
+      The most expensive source here per posting, and the richest per posting
+      it manages to serve. The listing carries no description, so each posting
+      costs its own request, and a material fraction of the posting pages
+      answer HTTP 500 -- deterministic per URL, four consecutive requests for
+      one URL returning 500 four times, so neither a rate limit nor transient.
+      The rate was measured three times and moved each time (3 of 6, 12 of 15,
+      then 106 of 112 over eight pages), so it is reported per run rather than
+      assumed and the largest sample is the one to believe. A refused posting
+      is also RETRIED, because the shared fetcher retries a 5xx, which is right
+      for a transient failure and wrong for this one. First corpus run: 112
+      listed, 106 served and stored, 72 new employers, 28 stating pay with both
+      a currency and a period. What buys that back is
+      `baseSalary` with a currency AND a period, and an `employmentType` that
+      on a Brazilian board distinguishes PJ (`CONTRACTOR`) from CLT-shaped work
+      (`FULL_TIME`) -- the structured contract signal `contract_regime` has
+      been waiting for since the column existed.
+    coverage: PARTIAL
+    reason_plain: >-
+      Brazilian developer jobs, with the whole advert and, unusually, what they pay in reais per
+      month. About half the postings this board lists cannot be opened at all right now, which is
+      a fault on their side rather than ours, so we read a window of what works.
+    reason: >-
+      Collected 2026-09-09. Every posting page publishes schema.org
+      `JobPosting` structured data -- a contract a site fills in for machines,
+      not markup to be scraped -- carrying `title`, the whole `description`,
+      `datePosted`, `validThrough`, `baseSalary` with `currency` and
+      `unitText`, `employmentType`, a `PostalAddress` whose `addressCountry` is
+      a bare ISO code, and `hiringOrganization.sameAs` naming the employer's
+      own domain. The JSON must be parsed with `strict=False`: the vendor emits
+      raw newlines inside the description string, and a strict parser drops
+      every posting on the source with the block sitting there the whole time.
+      `publishes_hiring_scope` is false -- `addressCountry: BR` is where the
+      work is, the same reading the Gupy row argues.
+    unblocked_by: >-
+      Nothing on our side. What limits it is the vendor's own 500 rate and the
+      one-request-per-posting cost, both of which are in the note above.
+
+  - id: vagas
+    name: Vagas.com
+    region: br
+    status: MANUAL_IMPORT
+    authorization: "robots.txt: our agent is disallowed from the whole site."
+    coverage: BLOCKED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Vagas.com asks automated tools not to read any part of its site, by name. We respect that.
+      Open it yourself in a browser instead.
+    reason: >-
+      robots.txt names our agent and disallows the entire site: `Disallow: /`.
+      Investigated 2026-09-04 by reading robots.txt only. There is no
+      permitted automated path, and manual import stays the whole answer --
+      the person may read the page, and may paste what they read.
+
+  - id: indeed_br
+    name: Indeed Brasil
+    region: br
+    status: MANUAL_IMPORT
+    authorization: >-
+      Terms prohibit "o uso de qualquer automacao, script ou bots". The Job
+      Search API is deprecated.
+    coverage: BLOCKED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Indeed's terms of use forbid collecting jobs automatically, and the official feed they
+      once offered for this has been shut down. Open it yourself in a browser instead.
+    reason: >-
+      Terms of use prohibit "o uso de qualquer automacao, script ou bots", and
+      the Job Search API that would have been the sanctioned route is
+      deprecated. Investigated 2026-09-04 from the terms page and the developer
+      documentation. Nothing here is a difficulty to be engineered around: it
+      is a prohibition, and manual import is the answer.
+
+  - id: linkedin_br
+    name: LinkedIn
+    region: br
+    status: SEARCH_LINK
+    authorization: >-
+      robots.txt: automated access is strictly prohibited without express
+      permission; the Talent APIs are write-only and partner-gated. A search
+      link the person opens themselves is the only permitted path.
+    search_url: https://www.linkedin.com/jobs/search/
+    coverage: BLOCKED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      LinkedIn forbids automated reading without written permission, and its job APIs are for
+      employers rather than for job seekers. Open it yourself in a browser instead.
+    reason: >-
+      robots.txt prohibits automated access without express written permission,
+      and the Talent APIs are write-only and partner-gated. A link the person
+      opens themselves is the only permitted path and is what this offers.
+
+  - id: catho
+    name: Catho
+    region: br
+    status: UNAVAILABLE
+    authorization: >-
+      robots.txt blocks the search path and the terms page returned 403.
+    coverage: UNSUPPORTED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Catho asks automated tools not to read its job search, and its terms page would not load
+      for us, so we could not find out what else it allows. Without an answer we do not collect
+      from it.
+    reason: >-
+      robots.txt blocks the vacancy search path, and the terms page returned
+      403 so the wider question was never answered. Unsupported is a statement
+      about our evidence, not an accusation.
+
+  - id: infojobs_br
+    name: InfoJobs Brasil
+    region: br
+    status: UNAVAILABLE
+    authorization: >-
+      robots.txt disallows the vacancy detail path; the terms page returned 404.
+    coverage: UNSUPPORTED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      InfoJobs asks automated tools not to read its job pages, and its terms page is missing, so
+      there is no statement either way. Without an answer we do not collect from it.
+    reason: >-
+      robots.txt disallows the vacancy detail path, and the terms page returned
+      404, so there is no first-party statement to rely on either way.
+
+  - id: trampos
+    name: Trampos.co
+    region: br
+    status: MANUAL_IMPORT
+    authorization: >-
+      Terms: crawler copying "esta expressamente proibido".
+    coverage: BLOCKED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Trampos.co's terms state plainly that copying its listings automatically is forbidden.
+      Open it yourself in a browser instead.
+    reason: >-
+      Terms state that copying by crawler "esta expressamente proibido".
+
+  - id: sine
+    name: Emprega Brasil / SINE
+    region: br
+    status: MANUAL_IMPORT
+    authorization: Requires a gov.br login; nothing public to read.
+    coverage: BLOCKED
+    #: The same answer, for the person reading the panel.
+    reason_plain: >-
+      Every job on Emprega Brasil sits behind a gov.br login. Automating a government sign-in is
+      not something we will do. Sign in yourself instead.
+    reason: >-
+      Every posting sits behind a gov.br login. Automating a government
+      single-sign-on is out of the question, and there is no public surface to
+      read instead.
+
+  # -- International remote, added 2026-09-07 -----------------------------
+
+  - id: himalayas
+    name: Himalayas
+    region: global
+    status: LIVE_INTEGRATION
+    provider: himalayas
+    authorization: >-
+      `himalayas.app/robots.txt`, read first-party 2026-09-07: one
+      `User-agent: *` block with `Allow: /`, disallowing `/apply` and the
+      `?page=` pagination of several browse sections. It names no AI crawler,
+      no `ClaudeBot`, and does not mention the feed path. There is no
+      `Content-Signal` directive and the published API page states no terms,
+      no licence, no attribution requirement and no rate limit. Absence of
+      stated terms is not permission for anything unbounded, so the walk is
+      bounded by default.
+    note: >-
+      The second source ever to publish a HIRING SCOPE rather than an office.
+      `locationRestrictions` is an array of countries the employer will hire
+      from -- present on 20 of the first 20 rows read live -- and it is the
+      field the eligibility gate has always needed and almost never had. The
+      feed also carries the whole advert, a salary band with BOTH a currency
+      and a period, an employment type and UTC timezone restrictions. It does
+      NOT carry an employer apply link: `applicationLink` was byte-identical
+      to `guid` on all 20 rows, so ADR-0013 rule 2 is unreachable here.
+    coverage: PARTIAL
+    reason_plain: >-
+      Himalayas is working and its jobs are in your list. It is remote-first and it tells us
+      where each employer may hire, which is the question most boards never answer. We read a
+      bounded slice of it rather than all of it.
+    reason: >-
+      Adapter, collector, fixtures and tests built 2026-09-07. The fixtures are
+      CAPTURED from a real response rather than reconstructed from a contract,
+      which nothing on this host forbids. PARTIAL rather than OPERATIONAL
+      because the feed states a total above a hundred thousand and this reads a
+      bounded walk of it: what is here is real, and it is a window rather than
+      a market.
+    unblocked_by: >-
+      Nothing about permission. A larger slice is one flag:
+      `career-agent collect-himalayas --db data/m1d2/career.db --max-pages 10`.
+
+  - id: jobicy
+    name: Jobicy
+    region: global
+    status: LIVE_INTEGRATION
+    provider: jobicy
+    authorization: >-
+      NOT robots.txt, which could not be read: `jobicy.com/robots.txt` answers
+      HTTP 403 behind an interactive Cloudflare challenge. The challenge was
+      not solved, no alternate identity was used and no job page HTML was ever
+      requested. That 403 is recorded as what it is -- the crawler policy is
+      unreadable -- and it is not treated as either permission or refusal.
+      The grant is a separate and stronger instrument: a first-party statement
+      on `jobicy.com/jobs-rss-feed`, retrieved 2026-09-08 with HTTP 200 and
+      hashed, reading "You may use Jobicy listings in your own products and
+      user experiences without requesting individual permission." The API
+      repeats its conditions in every response envelope: credit Jobicy with a
+      direct link, and send every application button to the original job URL
+      in the feed. Both are implemented rather than promised -- `canonical_url`
+      is the only Apply target the adapter produces, and `ATTRIBUTION` is what
+      the interface shows. The cadence, no more than one poll an hour, is a
+      gate in `pipeline/jobicy_collect.py` measured from the last ATTEMPT and
+      read out of `pipeline_run`, so it survives a restart.
+      An affirmative grant is not the absence of a ban. Torre stays switched
+      off BECAUSE `search.torre.co` merely fails to forbid; this is the other
+      case, and the distinction is the one this whole catalogue turns on.
+    note: >-
+      The THIRD source ever to publish a HIRING SCOPE rather than an office,
+      after We Work Remotely and Himalayas. `jobGeo` is the employer's answer
+      to where applicants may live: measured over one bounded LATAM window,
+      `Brazil` alone on 20 postings, `LATAM` on 26, and multi-country lists
+      naming Brazil beside Canada, Mexico and the USA. That is exactly the
+      field the owner's corpus lacks. The window also carries the whole advert
+      (210-2,326 words, none empty) and a salary band with both a currency and
+      a period on 51 of 200 rows. `Anywhere`, on 52 rows, is the vendor's
+      DEFAULT and is stored as nothing stated -- reading it as worldwide would
+      put 52 postings in front of somebody on the strength of a field nobody
+      filled in. There is no employer apply link, so ADR-0013 rule 2 is
+      unreachable here as it is for Himalayas and Get on Board.
+    coverage: PARTIAL
+    reason_plain: >-
+      Jobicy is collected and its postings are available. It publishes structured hiring
+      geography, including Brazil. It returns recent openings with no next page.
+    reason: >-
+      Adapter, collector, fixtures and tests built 2026-09-08. Production
+      collection on 2026-09-09 persisted 165 postings from 200 returned rows;
+      35 folded into existing postings. Invented test fixtures remain separate
+      from that production evidence. The generated matrix measures current
+      inventory and the run ledger; the endpoint window is not a board total.
+    unblocked_by: >-
+      Nothing. Collected 2026-09-09: 200 rows requested, 165 new postings
+      stored, 148 of them stating where the employer may hire, and 35 folded
+      into jobs another source already held. What remains is the window, not a
+      permission: exactly 200 rows is a REACHED LIMIT rather than a total,
+      there is no next page, and absence from it closes nothing.
+
+  - id: fourdayweek
+    name: 4 Day Week
+    region: global
+    status: LIVE_INTEGRATION
+    provider: fourdayweek
+    authorization: >-
+      `4dayweek.io/robots.txt`, read 2026-09-11: `User-Agent: *`, `Allow: /`,
+      then `Allow: /api/v1`, `Allow: /api/v2` and `Allow: /api/mcp` written out
+      before `Disallow: /api/`, no AI crawler named. The v1 root answers with
+      its own terms in the envelope -- "All we ask is that you link back to
+      https://4dayweek.io" -- and `/api/v2` documents itself at
+      `4dayweek.io/openapi.yaml` with a limit of 60 requests a minute and 100
+      rows a page. The Career-Ops matrix had recorded this source as blocked
+      on one measurement, because that project read `/api/jobs`, which is
+      inside the disallowed prefix; the versioned paths are the allowed ones
+      and are what this adapter reads. The one condition is implemented:
+      Apply opens the 4dayweek.io page and the source is credited.
+    note: >-
+      The SIXTH source to publish a hiring scope. Each listing's `locations`
+      entries carry their own `work_arrangement`, and the OpenAPI names the
+      remote half `remote_allowed` and describes the country filter as
+      matching "office or remote-allowed locations": the remote entries are
+      where the employer allows the role to be done from. A remote role with
+      no remote-allowed entry states nothing. Plain-text bodies, salary in the
+      smallest currency unit with currency and period, `contract_type`,
+      `posted_at`, the employer's website. `total` 23,690 on 2026-09-11, and a
+      default walk reads 50 pages of 100. No apply URL exists in v2, so
+      ADR-0013 rule 2 is unreachable.
+    coverage: PARTIAL
+    reason_plain: >-
+      4 Day Week is collected and its postings are available, including where each
+      employer allows remote work from. A default run reads a fifth of the feed.
+    reason: >-
+      Adapter, collector, captured fixtures and tests built 2026-09-11. The
+      generated matrix measures what was persisted against the total the feed
+      reports.
+    unblocked_by: >-
+      Nothing about permission. A larger walk is one flag:
+      `career-agent collect-fourdayweek --db data/m1d2/career.db --max-pages 237`.
+
+  - id: jobgether
+    name: Jobgether
+    region: global
+    status: LIVE_INTEGRATION
+    provider: jobgether
+    authorization: >-
+      A SPECIFIC GRANT INSIDE A GENERAL PROHIBITION, and the adapter stays
+      inside the grant. `jobgether.com/terms-of-use`, read 2026-09-11, forbids
+      "accessing the Platform or extracting its content by automated means
+      (bots, scrapers, crawlers)" and calls scraping "strictly prohibited".
+      `jobgether.com/robots.txt`, read the same day, publishes `Content-Signal:
+      search=yes, ai-input=yes` and allows exactly one path with a query
+      string, `/astroapi/ai/jobs.json?*`, beside `Disallow: /*?*` for every
+      other; its docs at `/astroapi/ai/jobs/docs` say the endpoint is
+      "Intended for AI agents/assistants answering user job-search queries",
+      capped at 25 rows a page and 10 pages, and the vendor publishes an MCP
+      server for the same purpose. So the documented API, on the allowed alias,
+      within the documented caps, at the robots `Crawl-delay: 2`, and NEVER an
+      `/offer/` page: that page holds the advert, and reading it would be the
+      extraction the terms prohibit. Sending `keyword` or the occupational
+      `jobReferences` taxonomy would put a candidate's vocabulary into
+      ingestion (ADR-0019); neither is ever sent.
+    note: >-
+      The FIFTH source to publish a hiring scope, and the first with no advert.
+      `location` answers where the applicant may be: querying `locations=brazil`
+      returns rows whose `location` is `Anywhere`, `Latin America`, `Brazil`
+      and `North America, Europe`, and the offer page's JSON-LD (read once,
+      by hand, to establish the contract) carries `applicantLocationRequirements`
+      matching it. `Anywhere` is the vendor saying anywhere, not a default: the
+      Brazil filter returns those rows. METADATA ONLY -- title, employer, scope,
+      `remote` work model, `contractType`, `experience`, `postedAt`, sometimes
+      `salaryRange` -- so every posting scores near zero and is visible for the
+      one thing it can say. QUERY-SCOPED: 250 rows a question, page 11 repeats
+      page 10, and `locations=anywhere` alone holds more than 250 postings from
+      three days. Slices are geography cut by the vendor's contract-type and
+      experience lists, each recorded with how it ended (exhausted, capped,
+      caught up). No origin pointer, so ADR-0013 rule 2 is unreachable.
+    coverage: PARTIAL
+    reason_plain: >-
+      Jobgether is collected as leads: each says where the employer may hire, and none
+      carries the advert. Every question it is asked is capped at 250 answers.
+    reason: >-
+      Adapter, collector, captured fixtures and tests built 2026-09-11. The
+      API is query-scoped and metadata only by the vendor's own design; the
+      generated matrix measures what was persisted.
+    unblocked_by: >-
+      A page beyond 10, or a description in the API. Both are the vendor's.
+
+  - id: remotive
+    name: Remotive
+    region: global
+    status: LIVE_INTEGRATION
+    provider: remotive
+    authorization: >-
+      TWO FIRST-PARTY STATEMENTS, and the more specific one decides.
+      `remotive.com/robots.txt`, read 2026-09-11, carries `Disallow: /api/*`
+      under `User-agent: *`, which the Career-Ops matrix recorded as
+      DO_NOT_PORT on 2026-09-07. The same host's own page
+      `remotive.com/remote-jobs/api`, read the same day with HTTP 200, and the
+      README it links, say "API documentation and access is granted so that
+      developers can share our jobs further" -- and the API repeats that grant
+      with its conditions inside every response envelope as `0-legal-notice`.
+      An affirmative grant for a specific programmatic use is the Jobicy
+      precedent, and a crawler directive aimed at search engines does not
+      withdraw it. Conditions, each implemented rather than promised: link back
+      to the Remotive URL and name the source (`canonical_url` is the only
+      Apply target, `ATTRIBUTION` is shown); no submission to third-party
+      sites (this product sends nothing anywhere); at most four polls a day
+      (`MIN_SECONDS_BETWEEN_POLLS` is six hours, measured from the last
+      attempt out of `pipeline_run`); no signup collection (there is none).
+    note: >-
+      The FOURTH source to publish a hiring scope. `candidate_required_location`
+      is documented first-party as "Geographical restriction for the remote
+      candidate, if any", which is the standard Himalayas met. Measured
+      2026-09-11 over the whole public window: 18 postings, `Worldwide` on 6,
+      `LATAM, Europe, USA, Canada, APAC` on 3, `Europe` on 2, `USA` on 2; whole
+      adverts at a median of 6,106 characters; a `salary` string on 10.
+      `job-count` equalled `total-job-count`, so the public window IS the
+      public inventory and the vendor's larger catalogue is a paid product this
+      adapter does not reach for. `limit` is documented and was measured
+      ignored. There is no employer apply link, so ADR-0013 rule 2 is
+      unreachable here as it is for Jobicy.
+    coverage: PARTIAL
+    reason_plain: >-
+      Remotive is collected and its postings are available. It publishes where each
+      employer may hire. Its public window is small and is the whole public feed.
+    reason: >-
+      Adapter, collector, captured fixtures and tests built 2026-09-11. The
+      public window holds 18 postings and the vendor reports that as its whole
+      public inventory; the generated matrix measures what was persisted.
+    unblocked_by: >-
+      Nothing. The window is the bound, not a permission: a larger inventory
+      is the vendor's paid product.
+
+  - id: workingnomads
+    name: Working Nomads
+    region: global
+    status: LIVE_INTEGRATION
+    provider: workingnomads
+    authorization: >-
+      `www.workingnomads.com/robots.txt`, read first-party 2026-09-07: one
+      `User-agent: *` block with an empty `Disallow:`. Nothing is restricted,
+      no AI crawler is named, and the API path is not mentioned. Read-only,
+      one request per collection.
+    note: >-
+      Remote-only by admission policy, so every posting is work somebody
+      outside the company's city could plausibly do. The feed carries the
+      whole advert, 1,281 characters at the shortest and 3,524 at the median.
+      Its `location` string is stored and SHOWN and is deliberately NOT read
+      as a hiring scope: the field is named `location`, nothing first-party
+      says what it means, and it carries bare country names that could be
+      where the company is rather than where it may hire.
+    coverage: PARTIAL
+    reason_plain: >-
+      Working Nomads is working and its jobs are in your list. Every role on it is remote. It
+      publishes a window of the most recent postings rather than a whole board, so this fills
+      up over time rather than all at once.
+    reason: >-
+      Adapter, collector, fixtures and tests built 2026-09-07, with fixtures
+      captured from a real response. PARTIAL rather than OPERATIONAL because
+      the feed is a WINDOW: one request returns 32 postings covering roughly
+      four weeks, and `?limit=200` returns the same 32. Collecting repeatedly
+      accumulates and never completes.
+    unblocked_by: >-
+      Nothing about permission. Coverage grows by collecting again over time:
+      `career-agent collect-workingnomads --db data/m1d2/career.db`.
+
+  - id: arbeitnow
+    name: Arbeitnow
+    region: eu
+    status: LIVE_INTEGRATION
+    provider: arbeitnow
+    authorization: >-
+      Permitted, and measured rather than assumed.
+      `www.arbeitnow.com/robots.txt`, read first-party 2026-09-07 and again
+      2026-09-09, is `User-agent: *` with an empty `Disallow:` and one
+      analytics query-parameter exclusion. **No AI crawler is named and
+      `ClaudeBot` does not appear**, which is what separates this source from
+      Remote OK and Get on Board: the reader here is permitted and the fixtures
+      were captured live. The API states its own terms in `meta.terms` of every
+      response -- "This is a free public API for jobs, please do not abuse. I
+      would appreciate linking back to the site." -- and both halves are
+      honoured structurally: `job.url` is the only Apply target this adapter
+      produces, and "do not abuse" is answered by a page budget with no way to
+      express unlimited.
+    note: >-
+      BUILT AFTER BEING REFUSED, and the refusal was never about permission.
+      The 2026-09-07 evaluation found 11 of 250 rows remote and the rest
+      offices in London, Munich, Paris and Berlin, and called that "volume she
+      cannot take" -- where "she" was the one person then using the product.
+      This row named its own unblocking condition: a candidate whose search
+      includes European on-site work. That reasoning belongs to a FILTER rather
+      than a collector, because the corpus describes work and a later layer
+      decides whether it is wanted. Re-measured 2026-09-09: London 33, Paris
+      22, Berlin 21, Cardiff 11, Munich 8, 15 of 250 remote.
+    coverage: PARTIAL
+    reason_plain: >-
+      European jobs, mostly office-based, with the whole advert. A window of what the board is
+      showing now rather than everything it holds, so collecting it repeatedly is how it fills up.
+    reason: >-
+      A documented free public API: 250 rows a page, real pagination through
+      `links.next`, and full descriptions at around 5,000 characters.
+      `remote` is a real BOOLEAN, which is the structured field
+      `gates.structured_geography` needs, and `resolve_deterministically`
+      reads `false` as UNCLEAR rather than ONSITE because a vendor saying a
+      role is not remote has not said where its desk is. `created_at` is an
+      epoch in SECONDS and not milliseconds -- passing it through unconverted
+      dates every posting to 1970 and makes the board invisible to "since you
+      last looked". `location` is a city, which is an OFFICE, so
+      `publishes_hiring_scope` is false and the field is not mapped to any
+      location dimension. There is no salary field anywhere in the record.
+      `description` ARRIVES IN TWO SHAPES (measured from the archive
+      2026-09-19, 600 rows): 506 raw html and 94 ENTITY-ESCAPED html, both
+      followed by the vendor's own raw link-back footer. The adapter decodes
+      the escaped head once before handing the document to `html_to_text`;
+      until then 94 stored bodies carried the employer's markup as text.
+      See docs/checkpoints/arbeitnow-html-residue.md.
+    unblocked_by: >-
+      Nothing. `career-agent collect-arbeitnow`.
+
+  - id: getonbrd
+    name: Get on Board
+    region: latam
+    status: LIVE_INTEGRATION
+    provider: getonbrd
+    authorization: >-
+      `www.getonbrd.com/robots.txt`, read 2026-09-07, answers `User-agent: *`
+      with `Content-Signal: search=yes,ai-train=no,use=reference` and
+      `Allow: /`. A generic reader is permitted, and `use=reference` describes
+      what a personal job search does. The same file names `ClaudeBot` with
+      `Disallow: /`; this product's collector is not ClaudeBot and trains
+      nothing, but the AGENT that wrote the adapter is, so it never called the
+      endpoint and every fixture is built from the JSON:API contract instead.
+    note: >-
+      The category feeds carry the WHOLE POSTING, split across `functions`,
+      `description`, `desirable`, `benefits` and `perks` -- the fields Get on
+      Board's posting form asks an employer to fill in separately. This entry
+      previously said they carried no description, which was the honest
+      reading of an adapter that took the field literally named `description`
+      and got a requirements list. The owner's first retrieval settled it.
+      Categories are configured for the WORK -- operations, data and machine
+      learning are split out of `programming` on this board, so a candidate
+      whose work is automation and integrations is largely invisible to the
+      programming feed alone.
+    coverage: OPERATIONAL
+    reason_plain: >-
+      Get on Board has run and its postings are here. It lists Latin American roles and gives
+      us the whole advert, so these jobs are read and scored like any other.
+    reason: >-
+      Adapter, fixtures and tests built 2026-09-07 against the documented
+      JSON:API contract. The owner ran the first bounded retrieval on
+      2026-09-07: 5 categories, 409 postings, 133 companies, zero failures.
+      Every one carries a body, so `obtains_full_description` is True and
+      these postings are FULL_CONTENT. OPERATIONAL is asserted here and
+      VERIFIED by `resolve` against the corpus, which is the only thing that
+      can prove it.
+
+  - id: workable
+    name: Jobs by Workable XML
+    region: global
+    status: LIVE_INTEGRATION
+    provider: workable
+    authorization: >-
+      Owner supplied Workable Support confirmation on 2026-09-10:
+      https://www.workable.com/boards/workable.xml is public, unauthenticated,
+      updated hourly, and intended for whole-feed download with local filtering.
+      Apply URLs must remain unchanged for attribution. First-party robots.txt
+      on www.workable.com permits /boards/workable.xml (read 2026-09-10).
+    coverage: PARTIAL
+    reason_plain: >-
+      Downloads Jobs by Workable inventory. Complete records survive an interrupted
+      transfer, and the run reports that coverage is incomplete.
+    reason: >-
+      The XML replaces the rate-limited search API in production. Three live
+      transfers returned HTTP 200 but ended with incomplete bodies, around 62
+      seconds. The largest contained 156,564 complete job records in 776,858,449
+      bytes. No complete-feed denominator is claimed. This feed covers Jobs by
+      Workable, not every customer's private or company board.
+    search_url: https://jobs.workable.com/
+    unblocked_by: >-
+      A complete XML response from Workable. Retain complete records meanwhile;
+      do not repeat the old API or alter application URLs.
+
+  - id: recruiterflow
+    name: Recruiterflow (LATAM agencies)
+    region: latam
+    status: LIVE_INTEGRATION
+    provider: recruiterflow
+    authorization: >-
+      Permitted, and NAMED. `recruiterflow.com/robots.txt`, read first-party
+      2026-09-09, is `User-agent: *` with `Allow: /` and then carries
+      `User-agent: Anthropic` with `Allow: /` and `User-agent: Claude` with
+      `Allow: /`. That is the strongest permission any source in this
+      catalogue gives, and the exact opposite of Remote OK and Get on Board,
+      whose robots files name `ClaudeBot` with `Disallow: /`. The fixtures were
+      captured live. `recruiterflow.com/llms.txt` attaches a licence to the
+      vendor's own MARKETING pages -- "AI models may use this content only for
+      factual reference. Commercial redistribution is prohibited." -- and this
+      product is local, personal and non-commercial, links back to the vendor's
+      own posting page and redistributes nothing. Recorded because the sentence
+      exists, not because it is in doubt.
+    note: >-
+      A FAMILY, and that is why it was built. Six job boards were handed over
+      for evaluation on 2026-09-09 and TWO of them turned out to be the same
+      thing: hireinsouth.com and hirelatam.com both embed a Recruiterflow
+      careers page and nothing else. A board per agency, addressed by slug,
+      the same shape as Greenhouse, Lever and Ashby -- so `discover-boards`
+      gained a fourth provider to probe and every further agency costs a
+      registry row rather than a module. Measured the same day: South 68
+      postings with 32 naming Brazil, HireLatam 89. Marketing, Sales,
+      Accounting, Operations, Administration, Customer Service and Human
+      Resources, against three in software development. United States
+      companies hiring REMOTELY ACROSS LATIN AMERICA, which is the shape this
+      corpus had least of.
+    coverage: PARTIAL
+    reason_plain: >-
+      Jobs at US companies hiring remotely across Latin America, through the recruiting agencies
+      that fill them. Mostly office, finance, sales and support work rather than engineering, and
+      many of the adverts say plainly which countries they will hire from.
+    reason: >-
+      The board page carries `window.jobsList`, a blob holding every opening
+      with `job_id`, `job_name`, `details`, `employment_type`, `remote_type`
+      and `last_opened`, grouped THREE ways -- by department, by group and by
+      location -- so reading more than one grouping returns every posting
+      several times. The advert is not in it: each detail page publishes a
+      schema.org `JobPosting`, parsed with `strict=False` because the vendor
+      writes real newlines inside `description`. `details` is where the work is
+      and `publishes_hiring_scope` is false; `gates.structured_geography` reads
+      it against `remote_type`, which is the machinery V1.5 built for exactly
+      this shape. No salary field exists anywhere.
+    unblocked_by: >-
+      Nothing. It runs through `career-agent collect`, like every other board
+      family. Adding an agency is a row in `config/companies.yaml`.
+
+  - id: hirewithnear
+    name: Hire With Near
+    region: latam
+    status: SEARCH_LINK
+    authorization: >-
+      Permitted. `www.hirewithnear.com/robots.txt` and
+      `jobs.hirewithnear.com/robots.txt`, both read first-party 2026-09-09, are
+      `User-agent: *` with no `Disallow` at all. No AI crawler is named.
+    note: >-
+      MAPPED AND NOT BUILT, and the reason is reachability rather than
+      permission. The board is a Next.js application on `jobs.hirewithnear.com`
+      whose listing is rendered server-side into an RSC payload; the only JSON
+      endpoints found are `/api/facets`, which returns the category, skill,
+      employment-type and workplace vocabularies, and `/api/search`, which is a
+      TYPEAHEAD and returns nothing for an empty query. The facets put the
+      board at roughly 75 openings -- Sales 12, Accounting and Finance 12,
+      Marketing 9, Human Resources 7 -- with `Remote`, `Hybrid` and `On-site`
+      as structured workplace values, and the site itself is offered in
+      Portuguese, which says who it is for.
+
+      Traced further in a browser on 2026-09-09 and the listing is fetched by a
+      Next.js SERVER ACTION: the streamed payload holds only interface strings,
+      and the only request the page makes for data is `/api/facets`. A server
+      action is addressed by an opaque build-specific id and is not a public
+      interface at all -- replaying one is reverse-engineering a bundle, it
+      breaks on the vendor's next deploy, and 75 postings do not justify it.
+      This is where the evaluation stops, and it stops on ENGINEERING rather
+      than on permission.
+    coverage: PLANNED
+    reason_plain: >-
+      Remote jobs at US companies for people in Latin America. We can see the categories but not
+      yet the list itself, so nothing has been collected.
+    reason: >-
+      No public listing endpoint found on 2026-09-09. `/api/facets` answers
+      200 with the vocabularies; `/api/search` answers 200 with an empty list
+      unless given a text query.
+    search_url: https://jobs.hirewithnear.com/
+    unblocked_by: >-
+      Finding the listing route the browse page uses, or a sitemap of postings.
+
+  - id: avlistalent
+    name: Avlis Talent
+    region: latam
+    status: LIVE_INTEGRATION
+    provider: avlis
+    authorization: >-
+      Permitted, and the jobs path is named explicitly.
+      `avlistalent.com/robots.txt`, read first-party 2026-09-09, is
+      `User-agent: *` with `Allow: /` and then `Allow: /jobs` among four more
+      allows, and disallows only `/internal`, `/admin/`, `/mkt` and
+      `/scorecard`. No AI crawler is named.
+    note: >-
+      MEASURED, DECLINED AND THEN BUILT, ALL ON THE SAME DAY. The first row
+      here said: permitted, trivially readable, and not worth an adapter for
+      six postings against a corpus of a hundred thousand.
+
+      That was the same mistake this whole session exists to correct, in a
+      smaller costume. "Six is not worth showing" is a judgement about whether
+      work is WANTED, and ADR-0019 puts that in the filter layer rather than in
+      a collector. Six roles at United States startups, open to Brazilians, is
+      exactly the market one of this product's first three users is looking at.
+
+      Three things it cannot do, each measured rather than assumed. There is NO
+      PER-POSTING URL -- `/jobs/26`, `/job/26`, `/jobs?id=26` and `/jobs#26`
+      all return the same application shell -- so every posting links to the
+      board page and the ADR-0013 CANONICAL_URL rule is switched off for this
+      source alone. `location` is `Remote (US Timezone)` on every row, which is
+      a work model and a TIMEZONE rather than a place. `salary` is free text
+      (`$75-$100k`, `US$75k-US$90k`) with no currency and no period, so nothing
+      reads it.
+    coverage: OPERATIONAL
+    reason_plain: >-
+      A small agency placing Brazilian engineers at US startups. Only a handful of roles at a
+      time, all remote and all on US hours, with the whole advert.
+    reason: >-
+      `GET /api/jobs` returns every open posting as a JSON array with the whole
+      description, a department, an employment type and a creation date. One
+      request, no pagination. `active: false` is the agency saying a role is
+      closed, which is different from a posting vanishing from a feed, and is
+      counted apart.
+    unblocked_by: >-
+      Nothing. `career-agent collect-avlis`.
+
+  - id: somewhere
+    name: Somewhere
+    region: latam
+    status: SEARCH_LINK
+    authorization: >-
+      Permitted, and this reader is named. `somewhere.com/robots.txt`, read
+      first-party 2026-09-09, carries `User-agent: ClaudeBot` with `Allow: /`
+      alongside GPTBot, PerplexityBot and Google-Extended.
+    note: >-
+      THERE IS NO CANDIDATE JOB BOARD HERE, which is a finding rather than a
+      failure. `somewhere.com/jobs` redirects to the homepage and the page it
+      serves is written for EMPLOYERS: a list of role TYPES the agency
+      sources -- CEO, CFO, Account Executive, Chat Support Agent -- with a
+      "hire" call to action. The 1,547 URLs in its sitemap are blog posts,
+      candidate profiles and role-type landing pages. The candidate path is
+      "Refer a Candidate". Nothing here is collectable because nothing here is
+      an opening.
+
+      Filed as NOTHING_PUBLISHED, a value added the same day for this row.
+      UNSUPPORTED derives a FORBIDDEN permission, which is the opposite of what
+      this vendor's robots file says.
+    coverage: NOTHING_PUBLISHED
+    reason_plain: >-
+      This company recruits for US employers and does not publish a list of open jobs you can
+      apply to, so there is nothing for us to collect.
+    reason: >-
+      `/jobs` is an employer marketing page listing role types, not openings.
+      Verified in a browser 2026-09-09: the rendered page offers Direct Hire,
+      Talent On-Demand and EOR services and no job listings.
+    search_url: https://somewhere.com/
+    unblocked_by: >-
+      The company publishing a candidate-facing list of openings.
+
+  - id: remoterocketship
+    name: Remote Rocketship
+    region: global
+    status: SEARCH_LINK
+    authorization: >-
+      MIXED, and the halves point opposite ways.
+      `www.remoterocketship.com/robots.txt`, read first-party 2026-09-09,
+      carries `Disallow: /api` for `User-agent: *` -- with narrow `Allow`
+      exceptions for `/api-docs/`, `/api/$` and a server card, which is how the
+      documentation was read. So the API is EXPLICITLY CLOSED to a crawler. The
+      job pages themselves are not disallowed and the site publishes a
+      `sitemap_job_openings.xml`.
+    note: >-
+      AN OWNER DECISION, not an engineering one, and the largest single source
+      anybody has pointed at: the site advertises 180,000 remote jobs. Its API
+      is a documented POST endpoint over the same feed and requires an API key
+      generated after signing in, WITH AN ACTIVE PAID SUBSCRIPTION. This agent
+      may not create an account or enter a payment method, so the API is hers
+      to open or leave shut. Reading the job PAGES instead is permitted by
+      robots and is declined anyway: their business is selling exactly that
+      data, and building a scraper to reach around a paid API is the same move
+      the Torre row refused when it declined to reach one product's API through
+      a host that happened not to repeat the sentence.
+    coverage: BLOCKED
+    reason_plain: >-
+      A very large remote job board that sells its listings to other products. We do not collect
+      from it, and the link here opens their own search so you can use it yourself.
+    reason: >-
+      `Disallow: /api` in robots for every crawler; the API needs a key issued
+      to an active subscription. Both halves are the owner's to change.
+    search_url: https://www.remoterocketship.com/
+    unblocked_by: >-
+      The owner subscribing and deciding to use the documented API, which is
+      a purchase and a policy decision rather than a code change.
+
+  - id: teamtailor
+    name: Teamtailor
+    region: global
+    status: LIVE_INTEGRATION
+    provider: teamtailor
+    authorization: >-
+      Public per-tenant RSS feed at `{origin}/jobs.rss`, the feed the vendor
+      publishes for every career site. `career.teamtailor.com/robots.txt`,
+      read 2026-09-11: `User-Agent: *` excludes /app/, /messages/,
+      /messenger/, /facebook/tab/ and /jobs/internal/, carries
+      `Content-Signal: search=yes, ai-train=no, ai-input=yes`, and names no
+      AI crawler. `www.teamtailor.com/robots.txt` is `Disallow:` with nothing
+      after it.
+    coverage: OPERATIONAL
+    reason_plain: >-
+      Collects complete listings from verified employer boards, with the employer's
+      own remote status and office locations.
+    reason: >-
+      Reusable board family. Three tenants measured 2026-09-11: the vendor's
+      own company board (career.teamtailor.com, 12 openings), PayFit (9) and
+      CS Puzzle (3), the last two named on their own careers pages in the
+      2026-08 board survey. An unregistered slug answers 404, so a wrong
+      identifier is told apart from an empty board and discovery may probe a
+      bounded set of identifiers. Locations are offices, never a hiring scope.
+    search_url: https://career.teamtailor.com/jobs
+    unblocked_by: Register further employer-published tenant identities.
+
+  - id: rippling
+    name: Rippling ATS
+    region: global
+    status: LIVE_INTEGRATION
+    provider: rippling
+    authorization: >-
+      The public board API behind every `ats.rippling.com/{slug}/jobs` page,
+      documented by the vendor as its Job Board API on developer.rippling.com.
+      `ats.rippling.com/robots.txt`, read 2026-09-11: `User-agent: *`,
+      `Disallow: /internal/`, nothing else. `api.rippling.com/robots.txt`
+      answers 404, which ADR-0018 reads as silence, and silence is permission
+      for a public read. No AI crawler is named on either host.
+    coverage: OPERATIONAL
+    reason_plain: >-
+      Collects complete listings from verified employer boards, with the employer's
+      own remote or hybrid label per opening and pay when the employer states it.
+    reason: >-
+      Reusable board family, list then one detail request per posting. The
+      one identity came from an employer's own careers page:
+      www.rippling.com/careers/open-roles links every role to
+      ats.rippling.com/rippling/jobs/{uuid}, and the API answered 649 rows
+      (540 office, 93 remote, 16 hybrid) on 2026-09-11. An unregistered slug
+      answers 404 RESOURCE_NOT_FOUND. `Remote (United States)` is read as the
+      work model plus a place; a bare city is a desk.
+    search_url: https://ats.rippling.com/rippling/jobs
+    unblocked_by: Register further employer-published board slugs.
+
+  - id: recruitee
+    name: Recruitee (Tellent)
+    region: global
+    status: LIVE_INTEGRATION
+    provider: recruitee
+    authorization: >-
+      Public per-tenant offers API. careers.tellent.com/robots.txt, read 2026-09-10,
+      disallows only /v/. The custom careers origin was already documented in this
+      catalogue on 2026-09-09, not guessed from a company name.
+    coverage: OPERATIONAL
+    reason_plain: >-
+      Collects complete listings from verified employer boards, including pay when stated.
+    reason: >-
+      Reusable board family using /api/offers/. Employer-published custom origins
+      are recorded explicitly. A wildcard tenant returning zero is not discovery
+      evidence. Tellent's measured custom board exposes nine offers. Provider
+      support and further tenant discovery are separate questions.
+    search_url: https://careers.tellent.com/
+    unblocked_by: Register further employer-published board identities.
+
+  - id: wttj
+    name: Welcome to the Jungle
+    region: global
+    status: SEARCH_LINK
+    coverage: BLOCKED
+    authorization: >-
+      Terms of Use dated 27 April 2026, section 10, verified 2026-09-10 at
+      https://www.welcometothejungle.com/en/pages/terms, expressly forbid software
+      or robots to scrape, copy or download website content and services.
+      The public-search-engine exception does not permit this local archive.
+    reason_plain: Automated collection is prohibited by the site's terms.
+    reason: >-
+      Algolia public env and wttj_jobs_production_en answered 200, exposing
+      89,320 hits with a 1,000-result search ceiling. Employer identities and
+      salary fields are present; detail page returned 403. The blocker is an
+      explicit collection prohibition, not aggregator identity or API existence.
+    search_url: https://www.welcometothejungle.com/
+    unblocked_by: Obtain explicit vendor permission for this use.
+
+  - id: remote_com
+    name: Remote.com Jobs
+    region: global
+    status: SEARCH_LINK
+    coverage: BLOCKED
+    authorization: >-
+      https://remote.com/policy/terms-of-use, verified 2026-09-10, prohibits
+      copying, data scraping (spelled 'data scape') and automating Remote content.
+      The permissive robots.txt does not supersede this explicit restriction.
+    reason_plain: Automated collection is prohibited by the site's terms.
+    reason: >-
+      Public /jobs/all server-rendered data exposes 5,817 jobs, 291 pages of 20;
+      page=2 advances. Detail supplies full JobPosting JSON-LD, employer website,
+      hiring countries, salary and applyUrl (null for the sampled quick-apply role).
+      Technically viable; prohibited collection is the blocker, not aggregation.
+    search_url: https://remote.com/jobs
+    unblocked_by: Obtain explicit vendor permission for this use.
+
+  # Known bounded leads retained from source-leads-2026-09-10.md. No new crawl.
+  - id: recruitcrm
+    name: RecruitCRM
+    region: global
+    status: SEARCH_LINK
+    coverage: BLOCKED
+    authorization: >-
+      recruitcrm.io/robots.txt, verified 2026-09-10, names GPTBot,
+      OAI-SearchBot, Claude-Web and anthropic-ai and disallows /jobs/,
+      /job-apply/ and /apply/.
+    reason_plain: Automated access to job and application paths is prohibited.
+    reason: Explicit agent restrictions; previous first-party finding preserved.
+    search_url: https://recruitcrm.io/
+    unblocked_by: Obtain an explicit vendor grant.
+
+  - id: elite_software_automation
+    name: Elite Software Automation
+    region: global
+    status: UNAVAILABLE
+    coverage: UNDOCUMENTED
+    authorization: No first-party grant verified; the security checkpoint must not be bypassed.
+    collection_blocker: Vercel Security Checkpoint replaces the public job board.
+    reason_plain: The board is behind a security checkpoint.
+    reason: >-
+      jobs.elitesoftwareautomation.com returned a Vercel Security Checkpoint
+      in the earlier 2026-09-10 investigation. One employer; no bypass attempted.
+    search_url: https://jobs.elitesoftwareautomation.com/
+    unblocked_by: The employer must provide an accessible feed or board.
+
+  - id: jobbol
+    name: Jobbol
+    region: br
+    status: UNAVAILABLE
+    coverage: UNDOCUMENTED
+    authorization: No first-party statement was reachable; permission remains unresolved.
+    collection_blocker: jobbol.com did not resolve in the recorded investigation.
+    reason_plain: The supplied site could not be reached.
+    reason: >-
+      Earlier 2026-09-10 probes could not resolve the supplied jobbol.com
+      root or robots path. This is reachability evidence, not proof of absence.
+    unblocked_by: Obtain a verified current public URL; no guessed replacement.
+
+  - id: ace_flow
+    name: Ace Flow Builder Portal
+    region: global
+    status: SEARCH_LINK
+    coverage: NOTHING_PUBLISHED
+    authorization: Public form observed; no automated submission is authorized.
+    reason_plain: A single application form, without a board of openings.
+    reason: >-
+      The earlier 2026-09-10 inspection found Builder Application at
+      ace-flow.aceworkflow.io/apply?role=builder, without general inventory.
+    search_url: https://ace-flow.aceworkflow.io/apply?role=builder
+    unblocked_by: No collector planned; revisit only if a job board is published.
+
+  - id: lemon_io
+    name: Lemon.io
+    region: global
+    status: SEARCH_LINK
+    coverage: NOTHING_PUBLISHED
+    authorization: Public talent-marketplace flow observed; no submission authorized.
+    reason_plain: A talent marketplace rather than a public list of job openings.
+    reason: >-
+      The earlier 2026-09-10 inspection of /for-developers found a marketplace
+      intake flow. Ordinary employer job-board inventory was not exposed.
+    search_url: https://lemon.io/for-developers
+    unblocked_by: No collector planned; revisit only if public inventory is published.
+
+  - id: torre
+    name: Torre
+    region: latam
+    # SEARCH_LINK, not LIVE_INTEGRATION, and the distinction is the whole row.
+    # An adapter exists and is registered -- but `status` says by what MECHANISM
+    # this source is reached, and the mechanism is a person opening a search
+    # page. Declaring LIVE_INTEGRATION made `resolve` downgrade the row for
+    # having no postings and print "the connector is written, and no job has
+    # come through it yet", which is true and is NOT the reason. The reason is
+    # that we are not allowed, and it was being hidden by a sentence about
+    # readiness. Same shape as the LinkedIn row above.
+    status: SEARCH_LINK
+    authorization: >-
+      REFUSED. `torre.ai/robots.txt`, read 2026-09-07, answers `User-agent: *`
+      with `Disallow: /api/`. The public opportunity search this adapter would
+      call is reached through `search.torre.co`, which serves no robots.txt at
+      all -- a 404 the same day. Absence is never permission, and reaching one
+      product's API through the host that happens not to repeat the sentence
+      is routing around the sentence.
+    note: >-
+      Built and switched off. Query building, normalisation, identity,
+      deduplication, provider health and the twenty-result ceiling are all
+      implemented and tested offline; the collection path raises before a URL
+      is constructed. Unblocking it means changing a dated observation in
+      `providers/torre.py`, which is an owner decision and a reviewable commit.
+    coverage: BLOCKED
+    reason_plain: >-
+      Torre's own site asks programs not to read its listings automatically, so we do not. You
+      can still search Torre yourself in a browser, and the link here opens it.
+    reason: >-
+      `torre.ai/robots.txt`, `User-agent: *`, `Disallow: /api/`, read
+      2026-09-07. Their search endpoint also caps at 20 results per query and
+      ignores every pagination form, so even if it were permitted, Torre
+      coverage could never be presented as exhaustive.
+    search_url: https://torre.ai/search/jobs
+
+  - id: pinpoint
+    name: Pinpoint
+    region: global
+    status: SEARCH_LINK
+    authorization: >-
+      Permitted on the vendor host. `www.pinpointhq.com/robots.txt`, read
+      2026-09-11: `User-Agent: *` excluding only marketing utility and legal
+      paths, no AI crawler named. A tenant board is `{tenant}.pinpointhq.com`,
+      whose own robots file this product has not read because no tenant is
+      known.
+    note: >-
+      A REUSABLE ATS FAMILY WITH NO VERIFIED TENANT. No Pinpoint identity
+      appears on any of the 286 registered companies, in any archived payload
+      or in any raw body of the 208,000-posting corpus (measured 2026-09-11),
+      and nothing on a vendor site names its customers. The family is
+      therefore not built: the contract (`/postings.json` on a tenant) would
+      be verified against a board nobody published, which is the guess this
+      project refuses. Site detection can be extended the day a careers page
+      names one.
+    coverage: PLANNED
+    reason_plain: >-
+      Nothing forbids it and no employer board is known. The first tenant an
+      employer's own careers page names is what unblocks it.
+    reason: Family unbuilt for want of one published tenant identity.
+    search_url: https://www.pinpointhq.com/
+    unblocked_by: One employer-published `{tenant}.pinpointhq.com` identity.
+
+  - id: personio
+    name: Personio
+    region: eu
+    status: UNAVAILABLE
+    coverage: UNDOCUMENTED
+    authorization: >-
+      UNREADABLE, and unreadable is not silence: no first-party policy has
+      been read. `www.personio.com/robots.txt` and `personio.de/robots.txt`
+      both answered HTTP 429 behind a Vercel Security Checkpoint on
+      2026-09-11; nothing was solved and no alternate identity was used. The 2026-08 board survey excluded Personio for the
+      same reason: it rate-limited every control request.
+    collection_blocker: >-
+      Vercel Security Checkpoint on the vendor's hosts; no first-party policy
+      could be read, and no tenant identity exists in the registry or corpus.
+    reason_plain: >-
+      The vendor's site answers with a security checkpoint, and no employer
+      board on it is known.
+    reason: >-
+      A tenant feed (`{tenant}.jobs.personio.de/xml`) is documented by third
+      parties and by nobody first-party this product could reach. Remote
+      Germany, remote Europe and worldwide would be three different scopes on
+      such a feed and none can be read until one exists.
+    search_url: https://www.personio.com/
+    unblocked_by: >-
+      A readable first-party policy and one employer-published tenant.
+
+  - id: workatastartup
+    name: Y Combinator Work at a Startup
+    region: global
+    status: UNAVAILABLE
+    coverage: UNDOCUMENTED
+    authorization: >-
+      `www.workatastartup.com/robots.txt`, read 2026-09-11: `User-Agent: *`
+      with an empty `Disallow:`. The listing itself refused this product:
+      `/jobs` answered HTTP 406 to a plain HTTPS client, and no first-party
+      page documents a public feed.
+    collection_blocker: >-
+      The listing answered 406 and the openings sit behind a YC account; an
+      authenticated surface is out of scope.
+    reason_plain: The job list needs an account this product will not create.
+    reason: >-
+      AUTH_REQUIRED. Robots permits everything and the site serves its
+      inventory only to signed-in users; no documented public API exists.
+    search_url: https://www.workatastartup.com/jobs
+    unblocked_by: A documented public feed from the vendor.
+
+  - id: dynamitejobs
+    name: Dynamite Jobs
+    region: global
+    status: LIVE_INTEGRATION
+    provider: dynamitejobs
+    authorization: >-
+      `dynamitejobs.com/robots.txt`, read 2026-09-11: `User-agent: *` with
+      `Disallow: /api/`, `/form/`, `/webhook/`, `/job-edit/`,
+      `/company-dashboard/`, `/my-jobs/`, `/admin/` and `/app/`, then four job
+      sitemaps. Posting pages are not excluded and no AI crawler is named.
+      `/terms-and-conditions`, read the same day, is a generic template about
+      accounts, orders and subscriptions with no clause about automated
+      access. Public and not prohibited: ADR-0018.
+    note: >-
+      The SEVENTH source to publish a hiring scope, and the second whose scope
+      is an explicit country allowlist. Each posting page carries a schema.org
+      JobPosting with the whole advert (16,041 characters on the first read),
+      `applicantLocationRequirements` as a list of countries, `datePosted`,
+      `validThrough`, `employmentType`, `estimatedSalary` with a currency and
+      an ISO duration, and the employer's website in `hiringOrganization.sameAs`.
+      `directApply` is false and no employer apply link is published, so
+      ADR-0013 rule 2 is unreachable. The per-category sitemaps are the
+      vendor's own taxonomy and every one is walked, so the listing is the
+      inventory rather than a query; each posting then costs its own request.
+    coverage: PARTIAL
+    reason_plain: >-
+      Dynamite Jobs is collected and its postings are available, including the
+      countries each employer will hire from. A run reads a bounded number of pages.
+    reason: >-
+      Adapter, collector, captured fixtures and tests built 2026-09-11. The
+      generated matrix measures what was persisted against the sitemap listing.
+    unblocked_by: >-
+      Nothing about permission. A larger run is one flag:
+      `career-agent collect-dynamitejobs --db data/m1d2/career.db --max-postings 3000`.
+
+  - id: comeet
+    name: Comeet (Spark Hire Recruit)
+    region: global
+    status: LIVE_INTEGRATION
+    provider: comeet
+    authorization: >-
+      `www.comeet.com/robots.txt`, read 2026-09-11: `User-agent: *` excludes
+      search-result and category pages, `/wp-admin/` and a few theme assets;
+      `/jobs/` is allowed and no AI crawler is named. The Careers API 2.0 is
+      documented for the customer who owns the board's token and notes IP
+      throttling under heavy use; the hosted page embeds that token for every
+      visitor. A JUDGEMENT under ADR-0018 rather than a grant: no first-party
+      sentence addresses a third party reading the hosted page's token, and
+      the owner may reverse it. The token is never persisted, never written
+      to a configuration file and stripped from every archived payload.
+    coverage: OPERATIONAL
+    reason_plain: >-
+      Collects complete adverts from employer-published boards, with the
+      employer's own remote flag and every location a vacancy is open in.
+    reason: >-
+      Reusable ATS family, identity `slug/company_uid` published by the
+      employer and never guessed. TripleTen measured 2026-09-11: 335 rows for
+      47 vacancies, 333 Remote, `location.country` as ISO alpha-2 on every
+      row, 23 rows in Brazil; one vacancy served as one row per location is
+      stored once, keyed on the base uid, with every location. No posted date
+      in the contract; `salary_range` in the schema and absent on that board.
+    search_url: https://www.comeet.com/jobs/tripleten/98.008
+    unblocked_by: Register further employer-published `slug/uid` identities.
+
+  - id: remotesource
+    name: RemoteSource
+    region: global
+    status: SEARCH_LINK
+    authorization: >-
+      `www.remotesource.com/robots.txt`, read 2026-09-11: `User-Agent: *`,
+      `Allow: /`, `Disallow: /api/`, `/admin/`, `/saved-jobs/`, `/alerts/`,
+      the account paths and `/ingest/`; `Sitemap: /sitemap.xml`. `/terms`
+      addresses intellectual property and "interfering with the Service" and
+      says nothing about automated reading. The sitemap and job pages are
+      read; `/api/` is never called.
+    note: >-
+      A BOARD-DISCOVERY INDEX, DELIBERATELY NOT A POSTING SOURCE. Every page
+      sampled (170 of 170, two passes on 2026-09-11) links the employer's
+      original ATS, so `career-agent discover-remotesource` reads one page per
+      employer, asks the family that owns the apply URL to name its board,
+      validates the board through that family's own adapter and registers it
+      (`discovery_method = aggregator_origin_pointer`). No RemoteSource row is
+      stored: its hiring scope is its own parse (`eligibilityConfidence:
+      parsed`) and part of its salary is `market_estimate`, neither of which
+      is evidence under invariant 5, and the postings arrive through the
+      employer's board with the employer's words.
+    coverage: PLANNED
+    reason_plain: >-
+      Used to find employers' own boards; its postings are read from those
+      boards, never from here.
+    reason: >-
+      Measured 2026-09-11: 33,163 posting URLs behind 2,305 employers, 1,809
+      of them not in the registry; origin families in a 150-page sample were
+      Workday 49, Greenhouse 55, Lever 19, Ashby 19, SmartRecruiters 4, iCIMS
+      2, Rippling 2. The value is the board list, not the rows.
+    search_url: https://www.remotesource.com/jobs
+    unblocked_by: >-
+      Nothing: the discovery walk is the integration. Postings come from the
+      registered boards.
+
+  - id: jazzhr
+    name: JazzHR (applytojob.com)
+    region: global
+    status: SEARCH_LINK
+    authorization: >-
+      Every tenant's `robots.txt`, read 2026-09-11, is `User-agent: *`
+      `Disallow: /cb` plus a SemrushBot/dotbot block, and names the platform's
+      five sitemaps at `app.jazz.co/feeds/google/xml/0..4`. `jazzhr.com/
+      robots.txt` names `Claude-Web` with `Allow: /`. The customer terms say
+      nothing about automated access.
+    note: >-
+      REUSABLE ATS FAMILY WITH A VENDOR-PUBLISHED WHOLE-PLATFORM INDEX:
+      115,138 posting URLs across 7,605 tenants on 2026-09-11, a schema.org
+      JobPosting on 43 of 80 sampled pages and an older HTML template on the
+      other 37, one request per posting. Measured as a mostly United States,
+      on-site, small-employer market: 155 of 115,138 slugs mention LATAM and
+      0 of 43 sampled JSON-LD rows name a Latin American country. Not built
+      in the 2026-09-12 milestone, which put RemoteSource discovery and Comeet
+      first; a broad-market provider when it is, never a Brazil one.
+    coverage: PLANNED
+    reason_plain: Permitted and unbuilt; a large, mostly US on-site family.
+    reason: Classified 2026-09-11; deferred behind higher-density work.
+    search_url: https://www.applytojob.com/
+    unblocked_by: >-
+      A family adapter reading JSON-LD where present and the HTML template
+      elsewhere, sliced and budgeted over the five sitemaps.
+
+  - id: builtin
+    name: Built In
+    region: global
+    status: SEARCH_LINK
+    coverage: BLOCKED
+    authorization: >-
+      FORBIDDEN by the terms. `builtin.com/community-terms-of-use`, read
+      2026-09-11, prohibits access "through the use of bots, spiders,
+      scrapers, web crawlers, indexing agents, or other automated devices or
+      mechanisms". Robots allow `/job/` and the apply button is a signup
+      wall; a job page carries a schema.org JobPosting of a posting that
+      originates elsewhere.
+    reason_plain: The site's terms forbid automated collection.
+    reason: Explicit prohibition in the terms, read 2026-09-11. Provenance only.
+    search_url: https://builtin.com/jobs
+    unblocked_by: Written permission from the vendor.
+
+  - id: glassdoor
+    name: Glassdoor
+    region: global
+    status: SEARCH_LINK
+    coverage: BLOCKED
+    authorization: >-
+      `glassdoor.com.br/robots.txt`, read 2026-09-11, disallows
+      `/job-listing/details.htm?*`, `/job-listing/JV.htm?*`, `/partner/`,
+      `/rss/*` and `/graph`; the one job listing tried answered HTTP 403
+      behind Cloudflare. An anti-bot control is obeyed.
+    reason_plain: The listing pages refuse automated access.
+    reason: >-
+      Access control and robots exclusions on the listing surface, read
+      2026-09-11; the vacancy followed there was a syndicated copy of a
+      Comeet original. Provenance only.
+    search_url: https://www.glassdoor.com.br/Vaga/index.htm
+    unblocked_by: A documented public feed.
+
+  - id: opentalent
+    name: OpenTalent
+    region: global
+    status: SEARCH_LINK
+    authorization: >-
+      `opentalent.in/robots.txt`, read 2026-09-11, allows all but
+      `/dashboard/`, `/api/` and `/auth/`; the sitemap lists 220,000 `/jobs/`
+      URLs beside person profiles.
+    note: >-
+      LOW VALUE BY CONSTRUCTION. Every job page names OpenTalent itself as
+      `hiringOrganization`, publishes no external apply URL (the button goes
+      to `/signup`) and was still served twelve days past its own
+      `validThrough`. No origin pointer, so ADR-0013 identity cannot resolve.
+    coverage: PLANNED
+    reason_plain: Permitted and not worth building; a talent marketplace behind a sign-up.
+    reason: >-
+      Classified 2026-09-11 as an aggregator with no origin pointer and a
+      wrong employer field.
+    search_url: https://opentalent.in/jobs
+    unblocked_by: An origin pointer on each posting.
+
+  - id: inhire
+    name: InHire
+    region: brazil
+    status: SEARCH_LINK
+    authorization: >-
+      `ecx.inhire.app/robots.txt` and `api.inhire.app/robots.txt`, read
+      2026-09-05 and again 2026-09-11: `User-agent: *` with `Allow: /` and
+      `Content-Signal: search=yes,ai-train=no,use=reference`, then
+      `User-agent: ClaudeBot` `Disallow: /` beside the other AI crawlers. The
+      AGENT read nothing past `robots.txt` on that host; the owner's own
+      collector is a different reader. The documented API on
+      `docs.inhire.com.br` is a customer API (JWT plus `X-Tenant`).
+    note: >-
+      REUSABLE ATS FAMILY CANDIDATE, BRAZIL, OWNER-MEASURED. Tenant identity
+      is the subdomain (`<tenant>.inhire.app/vagas`), the posting id is a
+      uuid, and the vendor claims 900+ customers. The public page contract,
+      the description, the location semantics and closure are unmeasured
+      until the owner runs the first read under the collector's own agent.
+    coverage: UNDOCUMENTED
+    collection_blocker: >-
+      The tenant hosts' robots.txt name ClaudeBot with `Disallow: /`, so this
+      agent reads nothing past that file; the public page contract is
+      unmeasured until the owner runs the first read.
+    reason_plain: Its robots file names this agent; the first measurement is the owner's.
+    reason: ClaudeBot disallowed on the tenant hosts, read 2026-09-05 and 2026-09-11.
+    search_url: https://ecx.inhire.app/vagas
+    unblocked_by: The owner's first bounded read of a tenant's public pages.
+
+  - id: bairesdev
+    name: BairesDev
+    region: latam
+    status: SEARCH_LINK
+    authorization: >-
+      `www.bairesdev.com/robots.txt`, read 2026-09-11, explicitly ALLOWS
+      `ClaudeBot` and `anthropic-ai`. `applicants.bairesdev.com` serves its
+      SPA shell for `/robots.txt` and `/sitemap.xml` alike.
+    note: >-
+      NO PUBLIC INVENTORY. The applicants site is an Angular application over
+      a mostly authenticated API with no listing endpoint; one unauthenticated
+      job detail answers with a title, a description and a technology and no
+      location. The marketing site's sitemap carries no job pages, and the
+      lead's own `utm_source=linkedinjobposting` says where the list is
+      published: LinkedIn, which the catalogue forbids.
+    coverage: NOTHING_PUBLISHED
+    reason_plain: A valuable employer with no public list of openings.
+    reason: Measured 2026-09-11; not a policy refusal, an absent inventory.
+    search_url: https://www.bairesdev.com/join-us/
+    unblocked_by: A public listing on any surface this product may read.
+
+  - id: virtustant
+    name: Virtustant
+    region: latam
+    status: SEARCH_LINK
+    authorization: >-
+      `jobs.virtustant.com/robots.txt`, read 2026-09-11, allows everything
+      except `/api/`, `/_next/`, `/admin/` and `/private/`, and publishes a
+      sitemap of 243 `job-details` URLs with schema.org JobPosting on each.
+    note: >-
+      ONE STAFFING AGENCY'S BOARD, LATAM, salaried: 8 of 8 sampled postings
+      carry a USD monthly amount, every posting is TELECOMMUTE, the client is
+      anonymised, and the same 70-country `applicantLocationRequirements`
+      list sits on every row: an operating list to be read as a hint, never
+      as a per-posting scope. RE-READ 2026-09-12: robots unchanged, sitemap
+      272 URLs of which 242 are `job-details`; the JobPosting JSON-LD carries
+      title, `datePosted`, `validThrough`, `employmentType`, a `baseSalary`
+      with currency AND period (USD, MONTH) and `hiringOrganization` =
+      Virtustant on every row, but its `description` is a 200-character
+      EXCERPT; the whole advert is server-rendered page markup only. The
+      first-party terms (virtustant.com/terms-and-conditions, linked from
+      the board's footer) address Applicants and Clients; section 3.4
+      forbids scraping the PLATFORM DATABASE of candidate data and does not
+      speak to the public board, which robots and the sitemap invite. Not
+      built: the contract is a sitemap plus an excerpt plus a page layout,
+      and a reader of page layout is the kind of adapter that breaks silently.
+    coverage: PLANNED
+    reason_plain: Permitted and unbuilt; the whole advert lives only in page markup.
+    reason: >-
+      Classified 2026-09-11, re-read 2026-09-12; deferred behind the reusable
+      families. PERMITTED_NOT_BUILT.
+    search_url: https://jobs.virtustant.com/
+    unblocked_by: A sitemap-plus-JSON-LD adapter in the Dynamite Jobs mould.
+
+  - id: hiringcafe
+    name: HiringCafe
+    region: global
+    status: UNAVAILABLE
+    coverage: UNDOCUMENTED
+    authorization: >-
+      `hiringcafe.com/robots.txt`, read 2026-09-11, allows `/jobs` and `/job/`
+      and disallows `/viewjob/`, `/org/`, `/company/`, `/b/` and every
+      `?page=` and `?searchState=` URL. The terms page answered 403 in the
+      2026-09 investigation and has not been read, and no first-party page
+      documents a public API.
+    collection_blocker: >-
+      No documented public API; the listing is a client application over
+      undocumented endpoints, and the terms could not be read. Re-tried
+      2026-09-11 from `hiring.cafe` and `hiringcafe.com`: every allowed
+      surface, the terms page and the sitemaps included, answered HTTP 403
+      behind a Cloudflare JavaScript challenge, from two different clients.
+      An anti-bot control is obeyed. The public GitHub scraper reads Next.js
+      SSR data routes keyed on a rotating buildId and the search pagination
+      robots forbids; engineering evidence, not permission, and not adopted.
+    reason_plain: Every surface refuses automated reading behind a challenge.
+    reason: >-
+      An aggregator that republishes ATS postings, so identity would resolve
+      through ADR-0013 if a readable surface existed. BLOCKED, not FORBIDDEN:
+      nothing first-party forbids it, because nothing first-party can be read.
+    search_url: https://hiringcafe.com/
+    unblocked_by: A documented public API and readable terms.
+
+  - id: getro
+    name: Getro network boards
+    region: global
+    status: UNAVAILABLE
+    coverage: UNDOCUMENTED
+    authorization: >-
+      `jobs.getro.com/robots.txt` and `www.getro.com/robots.txt`, read
+      2026-09-11, allow everything. The official Getro API is documented for
+      network administrators only and issued per network; no first-party
+      grant to the public exists.
+    collection_blocker: >-
+      AUTH_REQUIRED for the official API, which needs a network's own admin
+      credential. The public boards are client applications over an
+      undocumented API, which this product does not reverse-engineer.
+    reason_plain: >-
+      Reading it needs a credential only a network's administrator holds.
+    reason: >-
+      Every Getro board republishes ATS postings with origin pointers, so the
+      duplication question the provider matrix raised in 2026-09 stands and
+      the family would fold into the ATS inventory this corpus already holds.
+    search_url: https://jobs.getro.com/
+    unblocked_by: A documented public surface, or a credential a network owner grants.
+
+  - id: arc_dev
+    name: Arc.dev remote jobs
+    region: global
+    status: SEARCH_LINK
+    authorization: >-
+      `arc.dev/robots.txt`, read 2026-09-11: `User-agent: *` with `Allow: /`
+      and two excluded paths; `User-agent: ClaudeBot` with `Crawl-Delay: 10`.
+      The agent is named and permitted at a delay, which is neither a
+      prohibition nor an owner-only condition; any run must honour ten
+      seconds between requests.
+    note: >-
+      UNBUILT. A developer-only marketplace whose listing pages are category
+      pages (`/remote-jobs/back-end`), which makes the whole inventory
+      reachable only through an occupational taxonomy -- QUERY_SCOPED by
+      construction. Contract and terms unread.
+    coverage: PLANNED
+    reason_plain: Permitted at a ten-second delay; unbuilt, and organised by occupation.
+    reason: Classified 2026-09-11.
+    search_url: https://arc.dev/remote-jobs
+    unblocked_by: A feed or sitemap that is not partitioned by occupation.
+
+  - id: remotejobsglobal
+    name: Remote Jobs Global
+    region: global
+    status: SEARCH_LINK
+    coverage: BLOCKED
+    authorization: >-
+      FORBIDDEN by the terms. `remotejobsglobal.com/terms`, read 2026-09-11:
+      "Not use automated tools (bots/scrapers) to extract data without our
+      written permission." Robots allowed the sitemap and the previous
+      milestone read that as viable; the terms, read this time, are explicit
+      and first-party, and the sitemap lists category pages only (90 URLs,
+      no postings), so there was no permitted surface to build on either way.
+    reason_plain: The site's terms forbid automated collection without written permission.
+    reason: Explicit prohibition in the terms, read 2026-09-11.
+    search_url: https://remotejobsglobal.com/
+    unblocked_by: Written permission from the vendor.
+
+  - id: crossover
+    name: Crossover
+    region: global
+    status: SEARCH_LINK
+    authorization: >-
+      `www.crossover.com/robots.txt`, read 2026-09-11: `User-agent: *` with
+      `Disallow:` empty, then `/*apply$` and `/next-step` excluded. No AI
+      crawler named.
+    note: >-
+      ONE EMPLOYER-MARKETPLACE, NOT A BOARD FAMILY. `/jobs` is a client
+      application over `api.crossover.com`, which is undocumented. Crossover
+      hires for its own portfolio through its own assessment pipeline, so
+      every posting would be one employer's and none would carry an origin
+      pointer.
+    coverage: PLANNED
+    reason_plain: Permitted and unbuilt; one marketplace with no documented feed.
+    reason: Classified 2026-09-11 as low value for a general corpus.
+    search_url: https://www.crossover.com/jobs
+    unblocked_by: A documented public feed.
+
+  - id: smartrecruiters
+    name: SmartRecruiters
+    region: global
+    status: SEARCH_LINK
+    coverage: BLOCKED
+    authorization: >-
+      `api.smartrecruiters.com/robots.txt`, re-read 2026-09-11: `User-agent:
+      LinkedInBot` may read `/v1/companies/`; `User-agent: *` is `Disallow:
+      /`. The posting API this product would read is on that host. Unchanged
+      since the 2026-09-07 reading.
+    reason_plain: Its listing service forbids every reader but one named partner.
+    reason: >-
+      Explicit prohibition on the API host, re-verified. The 2026-08 board
+      survey found five candidate companies on it with live listings; none
+      can be read.
+    search_url: https://www.smartrecruiters.com/
+    unblocked_by: A first-party grant on api.smartrecruiters.com.

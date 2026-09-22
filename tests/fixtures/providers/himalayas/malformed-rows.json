@@ -1,0 +1,35 @@
+{
+  "limit": 20,
+  "totalCount": 3,
+  "nextCursor": null,
+  "jobs": [
+    {
+      "title": "No guid at all",
+      "companyName": "Acme",
+      "description": "<p>Body.</p>"
+    },
+    {
+      "guid": "https://himalayas.app/companies/acme/jobs/no-title",
+      "companyName": "Acme",
+      "description": "<p>Body.</p>"
+    },
+    {
+      "guid": "http://elsewhere.example/jobs/off-host",
+      "title": "Off host",
+      "companyName": "Acme",
+      "description": "<p>Body.</p>"
+    },
+    {
+      "guid": "https://himalayas.app/companies/acme/jobs/ok",
+      "title": "Fine",
+      "companyName": "Acme",
+      "description": "<p>Body.</p>",
+      "locationRestrictions": [],
+      "minSalary": 100,
+      "maxSalary": 200,
+      "salaryPeriod": "weekly",
+      "currency": "EUR",
+      "pubDate": -1
+    }
+  ]
+}

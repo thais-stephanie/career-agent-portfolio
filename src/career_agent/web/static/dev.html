@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Career Agent: dev harness (mock data)</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="mock-fixture" content="../mock/api-fixture.json">
+<link rel="stylesheet" href="./app.css">
+<style>
+  .devbar {
+    margin: 0; padding: 6px 20px; font-size: 11.5px; letter-spacing: 0.04em;
+    background: var(--ochre-wash); color: var(--ochre-ink);
+    border-bottom: 1px solid var(--ochre);
+  }
+  .devbar strong { text-transform: uppercase; letter-spacing: 0.12em; }
+</style>
+<script>
+  /* Classic script: runs before the module graph, so api.js sees the flag.
+     Nothing here opens a socket. Every response comes from the fixture file. */
+  window.__CAREER_AGENT_MOCK__ = true;
+</script>
+</head>
+<body>
+
+<a class="skip" href="#results">Skip to results</a>
+
+<p class="devbar">
+  <strong>Dev harness</strong>, every response comes from
+  <code>web/mock/api-fixture.json</code> inside the browser. No database, no
+  network, no API. Enrichment deliberately answers 503 so the calm "Ollama is
+  not running" path stays visible. Chrome refuses ES modules over
+  <code>file://</code>, so open this page through any static file serving of
+  <code>web/</code>: e.g. <code>python -m http.server --bind 127.0.0.1</code>.
+</p>
+
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="brand__mark" aria-hidden="true">▚</span>
+    <h1 class="brand__name">Career Agent</h1>
+    <span class="brand__tag">local instrument</span>
+  </div>
+
+  <p class="topbar__health" id="health"></p>
+
+  <div class="topbar__controls">
+    <div class="viewswitch" role="group" aria-label="View">
+      <button type="button" id="view-cards" class="viewswitch__btn" aria-pressed="true">Cards</button>
+      <button type="button" id="view-table" class="viewswitch__btn" aria-pressed="false">Table</button>
+      <button type="button" id="view-kanban" class="viewswitch__btn" aria-pressed="false">Kanban</button>
+    </div>
+
+    <label class="sr-only" for="sort">Sort by</label>
+    <select id="sort" class="select">
+      <option value="score">Search Fit</option>
+      <option value="confidence">Data confidence</option>
+      <option value="posted_at">Posted date</option>
+      <option value="company">Company</option>
+      <option value="title">Title</option>
+      <option value="status">Application status</option>
+    </select>
+    <button type="button" id="direction" class="btn btn--dir">Descending ↓</button>
+  </div>
+</header>
+
+<p class="legend">
+  <span class="legend__item"><strong>Search Fit</strong>: how much this is the work you want</span>
+  <span class="legend__item"><strong>Confidence</strong>: how much of the posting we could read.
+    Not how likely you are to be hired.</span>
+  <span class="legend__item"><strong>Eligibility</strong>: a separate answer. Never averaged into the other two.</span>
+</p>
+
+<div class="layout">
+
+  <div class="rail">
+
+    <details class="sidebar" id="filters-disclosure" open>
+      <summary class="sidebar__summary">Filters</summary>
+      <div id="filters-host"></div>
+    </details>
+
+    <details class="sidebar sidebar--retr" id="retr-disclosure">
+      <summary class="sidebar__summary">Retrieve jobs</summary>
+      <div id="retr-host"></div>
+    </details>
+
+    <details class="sidebar sidebar--prefs" id="prefs-disclosure">
+      <summary class="sidebar__summary">Search preferences</summary>
+      <div id="prefs-host"></div>
+    </details>
+
+    <details class="sidebar sidebar--sources" id="sources-disclosure">
+      <summary class="sidebar__summary">Where these come from</summary>
+      <div id="sources-host"></div>
+    </details>
+
+  </div>
+
+  <main class="results" id="results">
+    <div class="chipbar" id="chipbar" hidden></div>
+    <p class="resultcount num" id="resultcount" role="status" aria-live="polite">Loading…</p>
+    <div id="list" class="cards"></div>
+    <nav class="pager" id="pager" aria-label="Pagination" hidden></nav>
+  </main>
+
+</div>
+
+<p class="flash" id="flash" role="status" aria-live="polite" hidden></p>
+<div id="drawer-host"></div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

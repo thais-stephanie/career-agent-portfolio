@@ -1,0 +1,46 @@
+# =====================================================================
+# EXAMPLE career facts - COMMITTED to the repository.
+#
+# Copy to config/career_facts.local.yaml and edit the copy. The local file
+# is gitignored.
+#
+# These are the candidate's verified career claims: the evidence base that a
+# future resume generator is allowed to draw on, and NOTHING ELSE. The rule
+# it will be held to is mechanical:
+#
+#     Every sentence in a generated resume must trace to a claim_key.
+#     A sentence with no claim_key is a bug, not a style choice.
+#
+# Claims deliberately do NOT belong to a search-profile version. Raising a
+# salary floor is a preference change; it must not duplicate every career
+# fact. Editing a claim creates a new revision and supersedes the old one,
+# so history survives without duplication.
+# =====================================================================
+
+schema_version: 1
+candidate_key: example
+
+verified_claims:
+  - claim_key: claim_001
+    revision: 1
+    claim_type: EMPLOYMENT      # EMPLOYMENT | SKILL | TOOL | ACHIEVEMENT
+                                # | METRIC | EDUCATION | CERTIFICATION | PROJECT
+    text: Built integrations between three business systems.
+    employer: Example Co
+    period_start: 2022-01       # YYYY-MM, month precision
+    period_end: 2024-06
+    source: RESUME              # RESUME | LINKEDIN | SELF_ATTESTED | DOCUMENT
+    verified: true              # personally confirmed as true.
+                                # Only verified claims may reach a document.
+    evidence_ref: null
+    tools: [example_crm, example_automation_tool]
+    tags: [system_integration, workflow_automation]
+
+  - claim_key: claim_002
+    revision: 1
+    claim_type: SKILL
+    text: Designed and operated CRM data models for a revenue organisation.
+    source: SELF_ATTESTED
+    verified: false             # a draft: recorded, but not usable yet
+    tools: [example_crm]
+    tags: [crm_architecture, data_modeling_for_business_systems]

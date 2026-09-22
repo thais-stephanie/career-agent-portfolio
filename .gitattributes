@@ -1,0 +1,13 @@
+# Store everything with LF in the repository; check out native on Windows.
+# Without this, line-ending churn shows up as spurious diffs.
+* text=auto
+
+*.py    text eol=lf
+*.toml  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.lock  text eol=lf
+
+BUILD_ID export-subst
