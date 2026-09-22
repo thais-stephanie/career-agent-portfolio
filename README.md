@@ -1,16 +1,115 @@
-[English](README.md) | [Português](README.pt-BR.md) | [Español](README.es.md)
+<p align="center">
+  <a href="README.md"><em>English</em></a> |
+  <a href="README.pt-BR.md"><em>Português</em></a> |
+  <a href="README.es.md"><em>Español</em></a>
+</p>
 
-# Career Agent
+<h1 align="center">✧ <strong>Career</strong> <em>Agent</em> ✧</h1>
 
-Find jobs, see how they match your search, and tailor your resume using experience you can back up.
+<p align="center">
+  Find jobs across <strong>26 integrated sources</strong>, understand why they match your search, and tailor your resume using experience you can back up.
+</p>
 
-![Career Agent](docs/assets/readme/hero.png)
+<p align="center">
+  <img
+    src="docs/assets/readme/hero.png"
+    alt="Career Agent"
+    width="100%"
+  />
+</p>
 
-*Product illustration with invented examples, not a screenshot or measured outcomes. Actual demo screenshots appear below.*
+<p align="center">
+  <em>Product illustration with invented examples, not a screenshot or measured outcomes. Actual demo screenshots appear below.</em>
+</p>
 
-[![Alpha 2](https://img.shields.io/badge/status-Alpha_2-fff08a)](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2) [![Resume Tailor Beta](https://img.shields.io/badge/Resume_Tailor-Beta-d8c8ff)](#resume-tailor-beta) [![Alpha 2 tests](https://img.shields.io/badge/Alpha_2_tests-7%2C232_passed-a7ebcf)](https://github.com/thais-stephanie/career-agent-portfolio/blob/v0.1.0-alpha.2/docs/VALIDATION.md) [![Windows validated for Alpha 2](https://img.shields.io/badge/Alpha_2-Windows_validated-bbd6ff)](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2)
+<p align="center">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2">
+    <img
+      src="https://img.shields.io/badge/status-Alpha_2-fff08a"
+      alt="Alpha 2"
+    />
+  </a>
+  <a href="#resume-tailor-beta">
+    <img
+      src="https://img.shields.io/badge/Resume_Tailor-Beta-d8c8ff"
+      alt="Resume Tailor Beta"
+    />
+  </a>
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/blob/v0.1.0-alpha.2/docs/VALIDATION.md">
+    <img
+      src="https://img.shields.io/badge/Alpha_2_tests-7%2C232_passed-a7ebcf"
+      alt="7,232 tests passed"
+    />
+  </a>
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2">
+    <img
+      src="https://img.shields.io/badge/Alpha_2-Windows_validated-bbd6ff"
+      alt="Windows validated"
+    />
+  </a>
+</p>
 
-**[Download for Windows](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2) · [Try the demo](#demo) · [See the app](#visual-tour)**
+<p align="center">
+  <img
+    src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"
+    alt="Python 3.12"
+  />
+  <img
+    src="https://img.shields.io/badge/JavaScript-ES%20Modules-F7DF1E?logo=javascript&logoColor=111"
+    alt="JavaScript ES Modules"
+  />
+  <img
+    src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white"
+    alt="FastAPI"
+  />
+  <img
+    src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111"
+    alt="React 18"
+  />
+  <img
+    src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white"
+    alt="TypeScript 5"
+  />
+  <img
+    src="https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white"
+    alt="Vite 6"
+  />
+</p>
+
+<p align="center">
+  <img
+    src="https://img.shields.io/badge/pytest-tested-0A9EDC?logo=pytest&logoColor=white"
+    alt="pytest"
+  />
+  <img
+    src="https://img.shields.io/badge/uv-package%20management-DE5FE9"
+    alt="uv"
+  />
+  <img
+    src="https://img.shields.io/badge/local--first-architecture-A7EBCF"
+    alt="Local-first"
+  />
+  <img
+    src="https://img.shields.io/badge/26-job%20sources-FFD966"
+    alt="26 integrated job sources"
+  />
+  <a href="LICENSE">
+    <img
+      src="https://img.shields.io/badge/license-MIT-blue"
+      alt="MIT license"
+    />
+  </a>
+</p>
+
+<p align="center">
+  <strong>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.1.0-alpha.2">Download for Windows</a>
+    &nbsp;·&nbsp;
+    <a href="#demo">Try the demo</a>
+    &nbsp;·&nbsp;
+    <a href="#visual-tour">See the app</a>
+  </strong>
+</p>
 
 ## Project status
 **Alpha v0.1.0-alpha.2**, with **Resume Tailor Beta** included. A working local application, still under active development. Search Fit explains your search preferences; it is not a hiring probability.
