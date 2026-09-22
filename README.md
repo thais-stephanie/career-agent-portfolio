@@ -32,11 +32,34 @@ Double-click the same launcher in the same folder. Your data stays there. Press 
 
 | Step | What you get |
 |---|---|
-| Discover | 25+ integrated source adapters for employer systems, remote boards and aggregators, plus manual posting import. Availability and setup vary by source. |
+| Discover | 26 integrated sources across ATS networks, remote job boards and aggregators, plus manual posting import. Each posting keeps its source and collection provenance. |
 | Check eligibility | Hiring restrictions are separate from preferences. “Remote” does not mean worldwide; missing facts stay unresolved. |
 | Understand Search Fit | A transparent score comparing posting facts with your search preferences, with reasons and missing information visible. It is not a hiring probability. |
 | Review Career Evidence | Extract suggestions from your CV, then confirm, edit or reject them. Importing text does not confirm experience. |
 | Track | Keep the status and notes for applications you choose to send. |
+
+## Job sources
+
+Career Agent currently has **26 integrated job sources** across global, U.S., European, LATAM and Brazilian markets.
+
+| Coverage | Integrated sources |
+|---|---|
+| ATS & employer systems | Greenhouse, Lever, Ashby, Workday, Workable, Teamtailor, Rippling, Recruitee, Comeet, Gupy |
+| Remote & global boards | We Work Remotely, Remote OK, Himalayas, Jobicy, 4 Day Week, Remotive, Working Nomads, Dynamite Jobs, Arbeitnow |
+| Networks & aggregators | a16z Speedrun, Jobgether, Jooble |
+| LATAM & Brazil | Get on Board, Recruiterflow, Avlis Talent, Programathor |
+
+Some sources provide complete structured inventories. Others expose recent-job windows, bounded feeds or metadata-only results, so Career Agent records source coverage instead of treating every connector as equivalent.
+
+[See the source permissions and coverage notes →](docs/SOURCES.md)
+
+### Coming next
+
+**LinkedIn job ingestion is in development.**
+
+The planned pipeline will bring discovered LinkedIn roles through the same normalization, deduplication, eligibility and Search Fit flow used by the existing sources.
+
+LinkedIn ingestion is not included in Alpha 2. The final collection method will be qualified separately before release.
 
 ## Resume Tailor Beta
 Open **Resume Tailor Beta** in the sidebar. From a job, choose **Copy job description**, open Tailor and paste it into **Tailor resume**.
