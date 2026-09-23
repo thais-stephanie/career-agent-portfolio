@@ -150,7 +150,20 @@ export function createSourcesPanel(host) {
     ]);
     host.appendChild(maintenanceSummary(payload.maintenance));
     host.appendChild(el('p', { text: t('settings.sourceHelp') }));
-    host.appendChild(el('div', { className: 'career__cards' }, (payload.refresh || []).map(row => {
+    // EACH SOURCE, ONE CLICK AWAY. Twenty-odd cards, each with a status, a
+    // timing menu and a button, made Settings about ten thousand pixels tall
+    // before a single preference; most people never change one of them, and
+    // "Find jobs now" runs all of them. The count is in the summary.
+    const refreshRows = payload.refresh || [];
+    const pausedCount = refreshRows.filter((row) => row.state === 'PAUSED').length;
+    const each = el('details', { className: 'src__each' }, [
+      el('summary', {
+        className: 'src__eachsummary',
+        text: t('settings.sourceEach', { n: refreshRows.length, paused: pausedCount }),
+      }),
+    ]);
+    host.appendChild(each);
+    each.appendChild(el('div', { className: 'career__cards' }, refreshRows.map(row => {
       const source = sources.find(entry => entry.id === row.source_id) || {};
       return el('article', { className: 'career__card', dataset: { source: row.source_id } }, [
         el('h3', { text: row.name || source.name }),

@@ -2280,6 +2280,7 @@ const EN = {
   'career.aboutEvidence': 'Examples, and what this is used for',
   'board.empty': 'No applications tracked yet. Save a job or change its status in Discover and it appears here.',
   'board.toDiscover': 'Go to Discover',
+  'settings.sourceEach': 'Each job source ({n}, {paused} paused): status and refresh timing',
 };
 
 /**
@@ -4372,6 +4373,7 @@ const PT_BR = {
   'board.empty': 'Nenhuma candidatura acompanhada ainda. Salve uma vaga ou mude o status dela em Descobrir e ela '
     + 'aparece aqui.',
   'board.toDiscover': 'Ir para Descobrir',
+  'settings.sourceEach': 'Cada fonte de vagas ({n}, {paused} pausadas): situação e frequência de atualização',
 };
 
 const CATALOGUES = { en: EN, 'pt-BR': PT_BR };
