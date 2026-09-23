@@ -32,6 +32,7 @@ import re
 import socket
 import sqlite3
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -177,6 +178,14 @@ UPLOAD_PATHS = frozenset({"/api/cv/import", "/api/intake"})
 _DECIMAL = re.compile(r"[0-9]+")
 
 
+#: How long, and how much, a connection closed on an unread body keeps reading
+#: after its response has been sent. See `_Handler._linger_close`. Bounded both
+#: ways so a client that declares a body and never finishes it cannot hold the
+#: thread: the connection is let go at whichever limit comes first.
+LINGER_SECONDS = 2.0
+LINGER_BYTES = 1_048_576
+
+
 def body_limit(path: str) -> int:
     """How large a body this path may carry."""
     return MAX_UPLOAD_BYTES if path in UPLOAD_PATHS else MAX_BODY_BYTES
@@ -213,6 +222,8 @@ class _Handler(BaseHTTPRequestHandler):
     # (chunked, two lengths, a length that is not a number) is refused whole.
     _body_consumed = False
     _status_code = 0
+    #: Set when a response closes the connection over a body nobody read.
+    _linger = False
 
     def send_response_only(self, code: int, message: str | None = None) -> None:
         # Every status line passes through here, including the interim
@@ -251,7 +262,55 @@ class _Handler(BaseHTTPRequestHandler):
             # `send_header` sets `close_connection` when it sees this header.
             self.send_header("Connection", "close")
             self.close_connection = True
+            self._linger = True
         super().end_headers()
+
+    def finish(self) -> None:
+        super().finish()
+        if self._linger:
+            self._linger_close()
+
+    def _linger_close(self) -> None:
+        """Half-close, then read and discard what is still arriving, bounded.
+
+        Closing a socket whose receive buffer still holds bytes makes the
+        operating system RESET the connection instead of closing it, and on
+        Windows a reset that reaches the client before it has read the response
+        throws the response away: the client sees `WSAECONNABORTED` (10053)
+        instead of the 403 it was sent. Measured before this existed: 14-21% of
+        300 refused cross-origin POSTs.
+
+        So the write side is shut first -- the response is already flushed and
+        the client sees its end -- and whatever the client is still sending is
+        read and dropped until it closes, `LINGER_BYTES` have been read or
+        `LINGER_SECONDS` have passed. Only then does the server close.
+
+        NOTHING READ HERE IS PARSED. The request loop has already ended on
+        `close_connection`; these bytes go from `recv` straight to the floor,
+        so a body that is itself a request can never become one. Reading
+        streams in 64 KB chunks and allocates nothing for the body as a whole.
+        """
+        sock = self.connection
+        try:
+            sock.shutdown(socket.SHUT_WR)
+        except OSError:
+            return
+        deadline = time.monotonic() + LINGER_SECONDS
+        drained = 0
+        try:
+            while drained < LINGER_BYTES:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                sock.settimeout(min(remaining, 0.5))
+                chunk = sock.recv(65536)
+                if not chunk:
+                    break
+                drained += len(chunk)
+        except OSError:
+            # A timeout, or the client resetting first: either way there is
+            # nothing left worth waiting for.
+            pass
 
     # -- verbs -----------------------------------------------------------
     def do_GET(self) -> None:  # noqa: N802  (stdlib naming)

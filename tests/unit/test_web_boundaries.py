@@ -935,3 +935,168 @@ def test_expect_continue_does_not_close_the_connection_it_invites_a_body_on(
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+# =========================================================================
+# A refusal that closes the connection still reaches the client
+# =========================================================================
+#
+# Closing on an unread body (above) is what stops smuggling, but a socket
+# closed with unread bytes still in its receive buffer is RESET rather than
+# closed, and on Windows a reset that arrives before the client has read the
+# response throws that response away: `WSAECONNABORTED` (10053) instead of the
+# 403. Measured before the fix: 14-21% of 300 refused cross-origin POSTs. So a
+# refused connection now half-closes after the response and drains what is
+# still arriving -- bounded in time and bytes, never parsed -- before closing.
+# These run the refusal many times, because a race is what they guard against.
+
+_REPEAT = 150
+
+
+def _refused_many_times(port: int, body: bytes, headers: dict[str, str]) -> list[str]:
+    """Send the same refused POST repeatedly; return what went wrong, if anything."""
+    import http.client
+
+    problems: list[str] = []
+    for _ in range(_REPEAT):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        try:
+            conn.request("POST", "/api/import", body=body, headers=headers)
+            response = conn.getresponse()
+            response.read()
+            if response.status not in (403, 415):
+                problems.append(f"status {response.status}")
+        except OSError as error:
+            problems.append(type(error).__name__)
+        finally:
+            conn.close()
+    return problems
+
+
+@pytest.mark.parametrize("size", [2, 2_000, 60_000])
+def test_a_cross_origin_post_is_refused_every_time_not_reset(tmp_path: Path, size: int) -> None:
+    httpd, port = _running_server(tmp_path)
+    try:
+        body = b"{" + b" " * (size - 2) + b"}"
+        headers = {
+            "Host": f"127.0.0.1:{port}",
+            "Origin": "https://evil.example.com",
+            "Content-Type": "application/json",
+        }
+        problems = _refused_many_times(port, body, headers)
+        assert not problems, f"{len(problems)} of {_REPEAT} refusals were lost: {problems[:5]}"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_a_refusal_with_no_body_is_answered_every_time(tmp_path: Path) -> None:
+    """Content-Length: 0 leaves nothing unread; the refusal needs no close at all."""
+    httpd, port = _running_server(tmp_path)
+    try:
+        headers = {"Host": f"127.0.0.1:{port}", "Content-Type": "text/plain"}
+        problems = _refused_many_times(port, b"", headers)
+        assert not problems, problems[:5]
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+@pytest.mark.parametrize(
+    "framing",
+    [
+        b"Transfer-Encoding: chunked\r\n",
+        b"Content-Length: 5\r\nContent-Length: 5\r\n",
+        b"Content-Length: 1e3\r\n",
+    ],
+)
+def test_an_unframeable_refusal_is_answered_every_time(tmp_path: Path, framing: bytes) -> None:
+    """Refused whole, closed, and the 400 arrives -- repeatedly -- with nothing parsed."""
+    httpd, port = _migrated_server(tmp_path)
+    try:
+        payload = (
+            b"POST /api/import HTTP/1.1\r\n"
+            b"Host: 127.0.0.1:" + str(port).encode() + b"\r\n"
+            b"Content-Type: application/json\r\n" + framing + b"\r\n"
+        ) + _smuggled_import(port)
+        for _ in range(40):
+            statuses = _status_lines(_exchange_until_closed(port, payload))
+            assert len(statuses) == 1 and " 400 " in statuses[0], statuses
+        assert _smuggled_rows(tmp_path) == 0
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_a_refused_expect_continue_request_is_answered_and_not_reused(tmp_path: Path) -> None:
+    """The stdlib answers 100 Continue before any check runs; the refusal that
+    follows must still arrive, and the body sent after it must not be parsed."""
+    import socket as _socket
+
+    httpd, port = _migrated_server(tmp_path)
+    try:
+        smuggled = _smuggled_import(port)
+        head = (
+            b"POST /api/import HTTP/1.1\r\n"
+            b"Host: 127.0.0.1:" + str(port).encode() + b"\r\n"
+            b"Origin: https://evil.example\r\n"
+            b"Content-Type: application/json\r\n"
+            b"Content-Length: " + str(len(smuggled)).encode() + b"\r\n"
+            b"Expect: 100-continue\r\n\r\n"
+        )
+        with _socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            sock.sendall(head)
+            sock.sendall(smuggled)
+            chunks = []
+            while data := sock.recv(65536):
+                chunks.append(data)
+        statuses = _status_lines(b"".join(chunks))
+        assert [s.split(" ")[1] for s in statuses] == ["100", "403"], statuses
+        assert _smuggled_rows(tmp_path) == 0
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_a_body_that_never_finishes_cannot_hold_the_connection_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The drain after a refusal is bounded in time: a client that declares a
+    body, sends part of it and then neither sends nor closes gets its 403, and
+    the server lets the connection go at the deadline."""
+    import socket as _socket
+    import time
+
+    from career_agent.web import server as server_module
+
+    monkeypatch.setattr(server_module, "LINGER_SECONDS", 0.4)
+    held: list[float] = []
+    original = server_module._Handler._linger_close
+
+    def timed(self) -> None:
+        started = time.monotonic()
+        original(self)
+        held.append(time.monotonic() - started)
+
+    monkeypatch.setattr(server_module._Handler, "_linger_close", timed)
+    httpd, port = _running_server(tmp_path)
+    try:
+        head = (
+            b"POST /api/import HTTP/1.1\r\n"
+            b"Host: 127.0.0.1:" + str(port).encode() + b"\r\n"
+            b"Origin: https://evil.example\r\n"
+            b"Content-Type: application/json\r\n"
+            b"Content-Length: 100000\r\n\r\n"
+        )
+        with _socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            sock.sendall(head + b"{" * 10)
+            first = sock.recv(65536)
+            assert b" 403 " in first.split(b"\r\n")[0], first[:80]
+            deadline = time.monotonic() + 5
+            while not held and time.monotonic() < deadline:
+                time.sleep(0.05)
+        assert held, "the server never finished with the connection"
+        assert held[0] < 1.5, f"the drain held the connection for {held[0]:.2f}s"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
