@@ -158,6 +158,26 @@ export function createEvidence({ onChanged = null } = {}) {
       ]);
       if (mine !== token) return;
       const home = !openImport && !openPackage;
+      // NOTHING HERE YET. Five empty review sections and three paragraphs of
+      // instructions are not a start; one card that says what this page is
+      // for and opens the CV picker is.
+      const empty = home
+        && !(ledger.claims || []).length
+        && !(imports.imports || []).length
+        && !(packages.packages || []).length;
+      if (empty) {
+        replace(bodyHost, [
+          startCard(),
+          careerWorkspace({ onChanged: () => { if (onChanged) onChanged(); } }),
+          // Kept: it holds the form for writing a fact by hand, which is the
+          // only way in for somebody without a CV. The import review is not
+          // drawn -- there is nothing imported to review.
+          el('details', {}, [el('summary', { text: t('career.evidenceEditor') }),
+            ledgerSection(ledger)]),
+          sourcesFold(packages, imports),
+        ]);
+        return;
+      }
       // THE ORDER IS THE DESIGN. What needs her, then what the product knows
       // about her, then where that came from. It used to be the reverse.
       replace(bodyHost, [
@@ -177,6 +197,26 @@ export function createEvidence({ onChanged = null } = {}) {
         button(t('ledger.retry'), () => refresh(), { className: 'btn' }),
       ]);
     }
+  }
+
+  /** The empty page's one card: what this is, and the CV picker. */
+  function startCard() {
+    return el('section', { className: 'ev__start', attrs: { 'aria-labelledby': 'ev-start-title' } }, [
+      el('h2', { className: 'ev__starttitle', attrs: { id: 'ev-start-title' }, text: t('evstart.title') }),
+      el('p', { className: 'ev__startbody', text: t('evstart.body') }),
+      el('div', { className: 'ev__startactions' }, [
+        button(t('evstart.import'), () => {
+          // The picker lives in "Sources and imports"; open it, then open
+          // the picker itself. The click is the person's, so the browser
+          // lets the file dialog open.
+          const fold = bodyHost.querySelector('.ev__sources');
+          if (fold) fold.open = true;
+          const input = bodyHost.querySelector('#ev-file');
+          if (input) input.click();
+        }, { className: 'btn btn--primary', attrs: { id: 'ev-start-import' } }),
+      ]),
+      el('p', { className: 'ev__starthint', text: t('evstart.hint') }),
+    ]);
   }
 
   function announce(message, tone = 'ok') {
@@ -2253,11 +2293,20 @@ export function createEvidence({ onChanged = null } = {}) {
     //: A skill and a tool are a word. Everything else is a sentence.
     const SHORT = new Set(['SKILL', 'TOOL']);
     const box = () => (SHORT.has(kind.value) ? line : para);
+    // The label names whichever box is showing. It used to point at the
+    // one-line box only, so the paragraph box -- shown for every category but
+    // skills and tools -- reached a screen reader with no name at all.
+    const boxLabel = el('label', {
+      className: 'field__label',
+      attrs: { for: 'ev-new-text' },
+      text: t('ledger.addText'),
+    });
 
     function follow() {
       const short = SHORT.has(kind.value);
       line.hidden = !short;
       para.hidden = short;
+      boxLabel.htmlFor = short ? 'ev-new-text' : 'ev-new-text-long';
       const hintKey = `ledger.hint.${kind.value}`;
       const hintText = t(hintKey);
       hint.textContent = hintText === hintKey ? '' : hintText;
@@ -2281,7 +2330,7 @@ export function createEvidence({ onChanged = null } = {}) {
       el('p', { className: 'ev__note', text: t('ledger.addLede') }),
       field('ev-new-type', t('ledger.addType'), kind),
       el('div', { className: 'ev__addbox' }, [
-        el('label', { className: 'field__label', attrs: { for: 'ev-new-text' }, text: t('ledger.addText') }),
+        boxLabel,
         hint,
         line,
         para,

@@ -37,6 +37,7 @@ from career_agent.config.search_config import (
     effective_search_path,
     local_search_path,
 )
+from career_agent.yaml_io import safe_load
 
 #: The categories a person can edit, and where each one lives in the YAML.
 #: Named here so the API, the interface and the writer cannot disagree about
@@ -226,7 +227,7 @@ def set_patterns(
 def _load_effective(config_dir: Path) -> dict[str, Any]:
     """The local search when present, otherwise neutral policy, never the example."""
     path = effective_search_path(config_dir)
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data = safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise PreferenceError(f"{path} does not contain a configuration mapping")
     return data

@@ -88,8 +88,13 @@ def main() -> int:
         if career:
             career.server_close()
         print(
-            f"Could not open ports {args.port} and {args.port + 1}. Close the other launcher "
-            "or run Start-Career-Agent.ps1 -Port 8875."
+            f"Career Agent could not start: ports {args.port} and {args.port + 1} are already "
+            "in use.\n"
+            "It is probably already running in another launcher window. Use that window's "
+            f"page (http://127.0.0.1:{args.port}/), or close that window and start again.\n"
+            "Nothing was changed; your data is safe.\n"
+            "To run a second copy side by side, open PowerShell in this folder and run:\n"
+            "  .\\Start-Career-Agent.ps1 -Port 8875"
         )
         return 2
     worker = threading.Thread(target=career.serve_forever, daemon=True)
@@ -112,13 +117,18 @@ def main() -> int:
     if not args.no_open:
         threading.Thread(target=open_when_ready, daemon=True).start()
     print(
-        f"Career Agent: http://127.0.0.1:{args.port}/ | Resume Tailor Beta: "
-        f"http://127.0.0.1:{args.port + 1}/\nKeep this window open. Ctrl+C stops both apps."
+        f"Career Agent is running: http://127.0.0.1:{args.port}/\n"
+        f"Resume Tailor Beta: http://127.0.0.1:{args.port + 1}/\n"
+        "If your browser did not open, copy the first address into it.\n"
+        "Keep this window open while you use the apps. Press Ctrl+C here to stop both."
     )
     try:
         server.run(sockets=[tailor_socket])
     except KeyboardInterrupt:
-        print("Both apps are stopping. You can open the launcher again later.")
+        print(
+            "Both apps stopped. Everything you saved stays in this folder. "
+            "Double-click the launcher to open them again."
+        )
     finally:
         career.shutdown()
         career.server_close()

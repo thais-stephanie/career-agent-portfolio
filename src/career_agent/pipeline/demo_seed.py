@@ -40,8 +40,6 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from career_agent.domain.enums import CollectionStatus
 from career_agent.domain.normalize import content_hash
 from career_agent.match.engine import match_job
@@ -62,6 +60,7 @@ from career_agent.storage.repositories import (
     ProviderPayloadRepo,
     SourceBoardRepo,
 )
+from career_agent.yaml_io import safe_load
 
 #: Which provider the demo corpus imitates is read from the corpus FILE, not
 #: written here. A vendor name in generic code is what
@@ -84,7 +83,7 @@ DEMO_PROVIDER_KEY = "imitates_provider"
 
 def load_demo_postings(source: Path) -> tuple[list[dict[str, Any]], str]:
     """The postings, and the provider name the corpus says it imitates."""
-    parsed = yaml.safe_load(source.read_text(encoding="utf-8"))
+    parsed = safe_load(source.read_text(encoding="utf-8"))
     if not isinstance(parsed, dict) or "postings" not in parsed:
         raise ValueError(f"{source} does not look like a demo corpus")
     provider = parsed.get(DEMO_PROVIDER_KEY) or _first_registered_provider()

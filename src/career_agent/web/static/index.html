@@ -252,6 +252,13 @@
      opening a disclosure inside a panel that only exists on one page. The
      panels move; the code behind them does not. -->
 <main class="page page--settings" id="page-settings" hidden>
+  <!-- YOUR ANSWERS, FIRST. Changing where you live or what work you want used
+       to mean finding the right field on a page of sixteen; the guided setup
+       asks each one again, one at a time, starting from what is saved. -->
+  <section class="settings__block settings__block--setup">
+    <h2 class="settings__head" id="settings-setup-head">Your answers</h2>
+    <div id="settings-setup-host"></div>
+  </section>
   <section class="settings__block">
     <h2 class="settings__head" id="settings-prefs-head">Search preferences</h2>
     <div id="search-settings-host"></div>
@@ -323,6 +330,9 @@
          than assertively: it is context for the list, not an alert. -->
     <p class="revnotice" id="revnotice" role="status" aria-live="polite" hidden></p>
     <p class="hiddennotice" id="hiddennotice" role="status" aria-live="polite" hidden></p>
+    <!-- The board says what it is for while nothing is on it. Outside the
+         list, which is a list of columns. -->
+    <div class="boardempty" id="boardempty" hidden></div>
     <div id="list" class="cards"></div>
     <nav class="pager" id="pager" aria-label="Pagination" hidden></nav>
   </main>

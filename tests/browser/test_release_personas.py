@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from tests.browser.conftest import _free_port
+from tests.browser.home_helpers import open_home_past_setup
 from tests.browser.test_browser_acceptance import choose_theme, open_list, set_value
 from tests.browser.test_evidence_workspace import answer, open_evidence
 from tests.browser.test_profile_editing import open_profile
@@ -101,8 +102,7 @@ def input_value(page, selector, value, event="input"):
 def test_complete_persona_journey(page, workspace, persona):
     code, country, level, model, title, phrase, tool, evidence = persona
     ws = workspace
-    page.navigate(ws.base)
-    page.wait_for("document.querySelectorAll('.firstrun__step').length === 6")
+    open_home_past_setup(page, ws.base)
     assert not (ws.config / "search.local.yaml").exists()
     assert ws.app.handle_api("GET", "/api/health", {}, {})["job_count"] == 0
     input_value(page, "#fr-work", phrase)
@@ -205,10 +205,14 @@ def test_complete_persona_journey(page, workspace, persona):
         "document.querySelector('.card .select--status')"
         ".dispatchEvent(new Event('change',{bubbles:true}))"
     )
+    # The page's own signal that the save reached the server -- not the
+    # control's value, which this test set itself and is true at once.
+    page.wait_for("!document.documentElement.hasAttribute('data-saving')")
     page.wait_for("document.querySelector('.card .select--status').value === 'SHORTLISTED'")
     page.evaluate("document.querySelector('.topnav__link[data-page=\"applications\"]').click()")
     page.wait_for("document.querySelector('.kcard .select--status')")
     set_value(page, "document.querySelector('.kcard .select--status')", "TO_APPLY", "change")
+    page.wait_for("!document.documentElement.hasAttribute('data-saving')")
     page.wait_for("document.querySelector('.kcard .select--status').value === 'TO_APPLY'")
     choose_theme(page, "dark")
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
@@ -219,8 +223,7 @@ def test_complete_persona_journey(page, workspace, persona):
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
     ws.stop()
     ws.start()
-    page.navigate(ws.base)
-    page.wait_for("document.querySelectorAll('.firstrun__step').length === 6")
+    open_home_past_setup(page, ws.base)
     with connect(ws.db) as conn:
         assert (
             conn.execute("SELECT status FROM job_application WHERE job_id=?", (job,)).fetchone()[0]

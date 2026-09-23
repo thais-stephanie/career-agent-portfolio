@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from career_agent.domain.enums import Prominence, ResponsibilityCategory, Seniority
 from career_agent.domain.matching import GATE_NAMES, TitleClass
+from career_agent.yaml_io import safe_load
 
 SEARCH_STEM = "search"
 
@@ -493,7 +494,7 @@ def _read_yaml(path: Path) -> dict[str, Any]:
         raise SearchConfigError(f"could not read {path}: {exc}") from exc
 
     try:
-        parsed = yaml.safe_load(raw)
+        parsed = safe_load(raw)
     except yaml.YAMLError as exc:
         raise SearchConfigError(f"{path.name} is not valid YAML: {exc}") from exc
 

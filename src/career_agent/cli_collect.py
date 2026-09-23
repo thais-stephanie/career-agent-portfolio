@@ -21,6 +21,7 @@ from career_agent.pipeline.renormalize import renormalize, shared_rows
 from career_agent.runtime import RuntimeMode, read_identity
 from career_agent.runtime.mode import record_retrieval
 from career_agent.storage.db import connect, migrate, transaction
+from career_agent.yaml_io import safe_load
 
 #: THE FILE THAT DRIVES COLLECTION, and it was not the default here.
 #:
@@ -518,7 +519,7 @@ def coverage_report_command(
     queue_path = config_dir / "company_candidates.yaml"
     if queue_path.exists():
         try:
-            parsed = yaml.safe_load(queue_path.read_text(encoding="utf-8")) or {}
+            parsed = safe_load(queue_path.read_text(encoding="utf-8")) or {}
             rows = parsed.get("candidates") if isinstance(parsed, dict) else None
             candidate_rows = [row for row in rows or [] if isinstance(row, dict)] or None
         except yaml.YAMLError:

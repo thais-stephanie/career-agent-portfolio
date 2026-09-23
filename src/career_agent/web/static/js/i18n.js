@@ -1567,8 +1567,7 @@ const EN = {
     + 'current preferences. That happens when you change what you are looking '
     + 'for: the old scores answered the old question. Recalculating happens on'
     + 'your own computer, costs nothing and takes a few minutes.',
-  'empty.noneCollected': 'No jobs have been collected yet. Open “Retrieve jobs” under Settings '
-    + 'and sources to fetch some.',
+  'empty.noneCollected': 'No jobs have been collected yet. Find jobs checks public job boards for you.',
   'empty.notScoredYet': 'These jobs have not been scored yet.',
   'empty.nothingYet': 'There is nothing here yet.',
   'rescore.progress': 'Recalculating: {done} of {total}',
@@ -1879,7 +1878,7 @@ const EN = {
     + 'it, a posting saying where it hires cannot be checked against anything.',
   'ask.scopes': 'Who is allowed to hire you?',
   'ask.scopesWhy': 'This is a different question from where you live, and it is the one that '
-    + 'decides eligibility. With none of these set, no posting can ever pass'
+    + 'decides eligibility. With none of these set, no posting can ever pass '
     + 'the geography gate: the whole corpus stays unresolved.',
   'ask.pay': 'What are you aiming for?',
   'ask.payWhy': 'Without a target the compensation part of every match score has nothing '
@@ -1907,7 +1906,8 @@ const EN = {
   'profileSection.signals_excludedLead': 'Phrases that remove a job from the eligible view. A posting must SAY one '
     + 'of these; silence never excludes.',
   'profileSection.place': 'Where you can work',
-  'profileSection.placeLead': 'A posting that names none of these fails the geography gate. A posting '
+  'profileSection.placeLead': 'A posting whose stated hiring region includes none of these fails the '
+    + 'geography gate. A posting '
     + 'that says nothing stays unresolved -- silence is not a rejection.',
   'profileSection.blockers': 'What rules a job out',
   'profileSection.blockersLead': 'Things an employer states that you cannot meet. Each one has to quote '
@@ -1966,7 +1966,7 @@ const EN = {
   'fieldHelp.candidate_country':
     'This helps us check which jobs can hire someone where you are.',
   'fieldHelp.eligible_scopes':
-    'We use this to find jobs that are open to people in your part of the world.',
+    'We use this to check whether the region a job hires in includes you.',
   'fieldHelp.eligible_countries':
     'Countries where a company could put you on their payroll without going '
     + 'through anyone else. Leave it empty if there are none.',
@@ -2165,6 +2165,122 @@ const EN = {
     + 'application.',
   'error.noFixture': 'The preview data could not be loaded.',
   'error.noImportHere': 'Adding a posting by hand is switched off in this preview.',
+  'setup.progress': 'Question {n} of {of}',
+  'setup.later': 'Do this later',
+  'setup.back': 'Back',
+  'setup.skip': 'Skip for now',
+  'setup.continue': 'Continue',
+  'setup.saving': 'Saving…',
+  'setup.pickOne': 'Choose at least one, or choose Skip for now.',
+  'setup.welcome.title': 'Let’s set up your job search',
+  'setup.welcome.why': 'A few short questions, one at a time. Each answer is saved as you go, and you can change any '
+    + 'of them later in Settings.',
+  'setup.welcome.point1': 'Describe the kind of work you want, in your own words.',
+  'setup.welcome.point2': 'Say where you live and where companies can hire you, so Career Agent can tell which jobs '
+    + 'are open to you.',
+  'setup.welcome.point3': 'Then find your first jobs from public job boards.',
+  'setup.welcome.privacy': 'Everything stays on this computer. Nothing about you is sent to job sites, and Career '
+    + 'Agent never applies to a job for you.',
+  'setup.welcome.start': 'Start',
+  'setup.work.title': 'What kind of work are you looking for?',
+  'setup.work.why': 'Career Agent reads the whole job description, not only the job title, so describe the work '
+    + 'itself.',
+  'setup.work.label': 'Kinds of work, one per line',
+  'setup.work.example': 'For example: customer onboarding, payroll administration, data analysis.',
+  'setup.work.skillsLabel': 'Tools or skills you use, one per line (optional)',
+  'setup.work.note': 'These describe what you want to find. They are not a claim about your experience.',
+  'setup.work.required': 'Write at least one kind of work, or choose Skip for now.',
+  'setup.work.already': 'Your search already describes the work you want ({n} phrases). You can change them later in '
+    + 'Settings.',
+  'setup.stage.title': 'Where are you in your career?',
+  'setup.stage.why': 'This only changes which explanations and filters you see. It never changes a score or hides a '
+    + 'job.',
+  'setup.stage.legend': 'Choose the one that fits best',
+  'setup.home.title': 'Where do you live?',
+  'setup.home.why': 'Jobs are compared with where you are. Only the country is saved, and only on this computer.',
+  'setup.home.label': 'Country',
+  'setup.home.choose': 'Choose a country',
+  'setup.hire.title': 'Where can companies hire you?',
+  'setup.hire.why': 'Many remote jobs only hire people in certain countries. Tell Career Agent where an employer '
+    + 'could put you on their payroll directly, so it can tell which jobs are open to you.',
+  'setup.hire.homeQuestion': 'Can a company hire you directly in {country}?',
+  'setup.hire.yes': 'Yes, I can work for employers in {country}',
+  'setup.hire.unsure': 'I am not sure yet',
+  'setup.hire.othersLabel': 'Other countries where you can be hired (optional)',
+  'setup.hire.countriesLabel': 'Countries where you can be hired',
+  'setup.hire.pick': 'Choose a country',
+  'setup.hire.add': 'Add',
+  'setup.hire.remove': 'Remove {country}',
+  'setup.hire.note': 'Not sure? Leave it. Jobs will say “not known yet” rather than guess.',
+  'setup.regions.title': 'Any hiring regions that include you?',
+  'setup.regions.why': 'Some jobs name a region instead of countries, such as “Latin America”. Career Agent already '
+    + 'knows which regions contain the countries you gave, so tick a region only to count it on top of those.',
+  'setup.regions.legend': 'Regions whose employers can hire you',
+  'setup.regions.note': 'Leaving a region unticked never counts as a no.',
+  'setup.region.WORLDWIDE': 'Anywhere in the world',
+  'setup.region.AMERICAS': 'The Americas (North, Central and South)',
+  'setup.region.LATAM': 'Latin America',
+  'setup.region.NORTH_AMERICA': 'North America (United States and Canada)',
+  'setup.region.EMEA': 'Europe, the Middle East and Africa',
+  'setup.region.APAC': 'Asia and the Pacific',
+  'setup.level.title': 'Any levels you want to keep off your list?',
+  'setup.level.why': 'Jobs at the levels you tick are hidden from Discover. One click shows them again, and nothing '
+    + 'is deleted.',
+  'setup.level.legend': 'Hide jobs at these levels',
+  'setup.level.note': 'Most people leave all of these unticked.',
+  'setup.pay.title': 'What pay are you aiming for?',
+  'setup.pay.why': 'Used to compare with the salary a job states. You can skip it.',
+  'setup.pay.label': 'Amount per month',
+  'setup.pay.currency': 'Currency',
+  'setup.pay.chooseCurrency': 'Choose a currency',
+  'setup.pay.note': 'It stays on this computer.',
+  'setup.pay.invalid': 'Enter an amount above zero, or leave it empty.',
+  'setup.pay.needCurrency': 'Choose the currency for this amount.',
+  'setup.ready.title': 'You are ready to find jobs',
+  'setup.ready.why': 'This is what you told Career Agent. Change anything now, or later in Settings.',
+  'setup.ready.work': 'Work you want',
+  'setup.ready.home': 'Where you live',
+  'setup.ready.hire': 'Can be hired in',
+  'setup.ready.level': 'Levels hidden',
+  'setup.ready.pay': 'Pay target',
+  'setup.ready.phrases': '{n} phrases',
+  'setup.ready.notAnswered': 'Not answered',
+  'setup.ready.change': 'Change',
+  'setup.ready.changeLabel': 'Change {what}',
+  'setup.ready.note': 'Finding jobs checks public job boards for new postings and can take several minutes. Nothing '
+    + 'about you is sent, and nothing is applied to.',
+  'setup.ready.find': 'Find jobs now',
+  'setup.ready.starting': 'Starting…',
+  'setup.ready.finding': 'Finding jobs…',
+  'setup.ready.progress': 'Checked {done} of {total} job sources',
+  'setup.ready.progressLabel': 'Job sources checked',
+  'setup.ready.keepUsing': 'You can keep using Career Agent while this runs.',
+  'setup.ready.stop': 'Stop',
+  'setup.ready.findAgain': 'Look again',
+  'setup.ready.cancelled': 'Stopped. Jobs from the {ok} sources already checked are kept.',
+  'setup.ready.failed': 'Finding jobs stopped because of a problem. Nothing you saved was changed. Try again in a '
+    + 'moment.',
+  'setup.ready.finished': 'Done: {ok} of {total} sources answered. New jobs are being scored now.',
+  'setup.ready.see': 'See your jobs',
+  'setup.ready.toHome': 'Go to Home',
+  'empty.findJobs': 'Find jobs now',
+  'settings.setupHead': 'Your answers',
+  'settings.setupLede': 'Where you live, where you can be hired, the work you want and your pay target. Go through '
+    + 'them again one at a time, starting from what is saved.',
+  'settings.setupOpen': 'Change my answers',
+  'pagehead.eyebrow.setup': 'Getting started',
+  'pagehead.title.setup': 'Set up your search',
+  'setup.ready.none': 'None',
+  'evstart.title': 'Build your evidence bank',
+  'evstart.body': 'Import your CV and Career Agent lists what it says, one line at a time. Nothing counts as your '
+    + 'experience until you confirm it, and you can edit or reject any line.',
+  'evstart.import': 'Import your CV',
+  'evstart.hint': 'PDF, Word, text or Markdown. It is read on this computer and the file is not kept. You can also '
+    + 'add an experience by hand below.',
+  'career.aboutEvidence': 'Examples, and what this is used for',
+  'board.empty': 'No applications tracked yet. Save a job or change its status in Discover and it appears here.',
+  'board.toDiscover': 'Go to Discover',
+  'settings.sourceEach': 'Each job source ({n}, {paused} paused): status and refresh timing',
 };
 
 /**
@@ -3577,8 +3693,8 @@ const PT_BR = {
     + 'procurando: as notas antigas respondiam à pergunta antiga. O recálculo '
     + 'acontece no seu próprio computador, não custa nada e leva alguns'
     + 'minutos.',
-  'empty.noneCollected': 'Nenhuma vaga foi coletada ainda. Abra “Buscar vagas” em Ajustes e '
-    + 'fontes para trazer algumas.',
+  'empty.noneCollected': 'Nenhuma vaga foi coletada ainda. Encontrar vagas consulta sites de emprego públicos para '
+    + 'você.',
   'empty.notScoredYet': 'Estas vagas ainda não foram pontuadas.',
   'empty.nothingYet': 'Ainda não há nada aqui.',
   'rescore.progress': 'Recalculando: {done} de {total}',
@@ -3892,7 +4008,7 @@ const PT_BR = {
     + 'anúncio que diz onde contrata não tem com o que ser comparado.',
   'ask.scopes': 'Quem pode te contratar?',
   'ask.scopesWhy': 'Esta é uma pergunta diferente de onde você mora, e é a que decide '
-    + 'elegibilidade. Sem nenhuma marcada, nenhum anúncio consegue passar pelo'
+    + 'elegibilidade. Sem nenhuma marcada, nenhum anúncio consegue passar pelo '
     + 'portão de geografia: o corpus inteiro fica sem resposta.',
   'ask.pay': 'Qual é o seu alvo?',
   'ask.payWhy': 'Sem um alvo, a parte de remuneração de cada nota não tem com o que '
@@ -3920,7 +4036,8 @@ const PT_BR = {
   'profileSection.signals_excludedLead': 'Expressões que tiram uma vaga da visão de elegíveis. O anúncio precisa '
     + 'DIZER uma delas; silêncio nunca exclui.',
   'profileSection.place': 'Onde você pode trabalhar',
-  'profileSection.placeLead': 'Um anúncio que não cita nenhuma destas não passa no portão de geografia. '
+  'profileSection.placeLead': 'Um anúncio cuja região de contratação não inclui nenhuma destas não passa '
+    + 'no portão de geografia. '
     + 'Um anúncio que não diz nada fica sem resposta -- silêncio não é recusa.',
   'profileSection.blockers': 'O que descarta uma vaga',
   'profileSection.blockersLead': 'Coisas que um empregador declara e você não atende. Cada uma precisa '
@@ -3973,7 +4090,7 @@ const PT_BR = {
   'fieldHelp.candidate_country':
     'Isso nos ajuda a verificar quais vagas podem contratar pessoas de onde você está.',
   'fieldHelp.eligible_scopes':
-    'Usamos isso para achar vagas abertas para pessoas da sua região.',
+    'Usamos isso para verificar se a região em que a vaga contrata inclui você.',
   'fieldHelp.eligible_countries':
     'Países onde uma empresa poderia colocar você na folha sem passar por mais '
     + 'ninguém. Deixe vazio se não houver nenhum.',
@@ -4142,6 +4259,121 @@ const PT_BR = {
     + 'uma candidatura.',
   'error.noFixture': 'Os dados da prévia não puderam ser carregados.',
   'error.noImportHere': 'Adicionar uma vaga à mão está desligado nesta prévia.',
+  'setup.progress': 'Pergunta {n} de {of}',
+  'setup.later': 'Fazer isso depois',
+  'setup.back': 'Voltar',
+  'setup.skip': 'Pular por enquanto',
+  'setup.continue': 'Continuar',
+  'setup.saving': 'Salvando…',
+  'setup.pickOne': 'Escolha pelo menos uma opção, ou escolha Pular por enquanto.',
+  'setup.welcome.title': 'Vamos configurar sua busca de emprego',
+  'setup.welcome.why': 'Algumas perguntas curtas, uma de cada vez. Cada resposta é salva na hora, e você pode mudar '
+    + 'qualquer uma depois em Configurações.',
+  'setup.welcome.point1': 'Descreva, com suas palavras, o tipo de trabalho que você quer.',
+  'setup.welcome.point2': 'Diga onde você mora e onde empresas podem te contratar, para o Career Agent saber quais '
+    + 'vagas estão abertas para você.',
+  'setup.welcome.point3': 'Depois, encontre suas primeiras vagas em sites de emprego públicos.',
+  'setup.welcome.privacy': 'Tudo fica neste computador. Nada sobre você é enviado aos sites de vagas, e o Career '
+    + 'Agent nunca se candidata a uma vaga por você.',
+  'setup.welcome.start': 'Começar',
+  'setup.work.title': 'Que tipo de trabalho você procura?',
+  'setup.work.why': 'O Career Agent lê a descrição inteira da vaga, não só o título, então descreva o trabalho em si.',
+  'setup.work.label': 'Tipos de trabalho, um por linha',
+  'setup.work.example': 'Por exemplo: onboarding de clientes, administração de folha de pagamento, análise de dados.',
+  'setup.work.skillsLabel': 'Ferramentas ou habilidades que você usa, uma por linha (opcional)',
+  'setup.work.note': 'Isto descreve o que você quer encontrar. Não é uma afirmação sobre a sua experiência.',
+  'setup.work.required': 'Escreva pelo menos um tipo de trabalho, ou escolha Pular por enquanto.',
+  'setup.work.already': 'Sua busca já descreve o trabalho que você quer ({n} frases). Você pode mudá-las depois em '
+    + 'Configurações.',
+  'setup.stage.title': 'Em que momento da carreira você está?',
+  'setup.stage.why': 'Isto só muda as explicações e os filtros que você vê. Nunca muda uma nota nem esconde uma vaga.',
+  'setup.stage.legend': 'Escolha a opção que mais combina',
+  'setup.home.title': 'Onde você mora?',
+  'setup.home.why': 'As vagas são comparadas com o lugar onde você está. Só o país é salvo, e só neste computador.',
+  'setup.home.label': 'País',
+  'setup.home.choose': 'Escolha um país',
+  'setup.hire.title': 'Onde empresas podem te contratar?',
+  'setup.hire.why': 'Muitas vagas remotas só contratam pessoas em certos países. Diga onde um empregador poderia te '
+    + 'colocar na folha de pagamento diretamente, para o Career Agent saber quais vagas estão abertas para você.',
+  'setup.hire.homeQuestion': 'Uma empresa pode te contratar diretamente em {country}?',
+  'setup.hire.yes': 'Sim, posso trabalhar para empregadores em {country}',
+  'setup.hire.unsure': 'Ainda não tenho certeza',
+  'setup.hire.othersLabel': 'Outros países onde você pode ser contratado (opcional)',
+  'setup.hire.countriesLabel': 'Países onde você pode ser contratado',
+  'setup.hire.pick': 'Escolha um país',
+  'setup.hire.add': 'Adicionar',
+  'setup.hire.remove': 'Remover {country}',
+  'setup.hire.note': 'Não tem certeza? Deixe assim. As vagas vão dizer “ainda não se sabe” em vez de adivinhar.',
+  'setup.regions.title': 'Alguma região de contratação inclui você?',
+  'setup.regions.why': 'Algumas vagas citam uma região em vez de países, como “América Latina”. O Career Agent já '
+    + 'sabe quais regiões contêm os países que você informou, então marque uma região só para contá-la além desses.',
+  'setup.regions.legend': 'Regiões cujos empregadores podem te contratar',
+  'setup.regions.note': 'Deixar uma região sem marcar nunca conta como um não.',
+  'setup.region.WORLDWIDE': 'Qualquer lugar do mundo',
+  'setup.region.AMERICAS': 'As Américas (do Norte, Central e do Sul)',
+  'setup.region.LATAM': 'América Latina',
+  'setup.region.NORTH_AMERICA': 'América do Norte (Estados Unidos e Canadá)',
+  'setup.region.EMEA': 'Europa, Oriente Médio e África',
+  'setup.region.APAC': 'Ásia e Pacífico',
+  'setup.level.title': 'Algum nível que você quer tirar da sua lista?',
+  'setup.level.why': 'Vagas nos níveis que você marcar ficam escondidas em Descobrir. Um clique mostra de novo, e '
+    + 'nada é apagado.',
+  'setup.level.legend': 'Esconder vagas nestes níveis',
+  'setup.level.note': 'A maioria das pessoas deixa todos sem marcar.',
+  'setup.pay.title': 'Que salário você busca?',
+  'setup.pay.why': 'Usado para comparar com o salário que a vaga informa. Você pode pular.',
+  'setup.pay.label': 'Valor por mês',
+  'setup.pay.currency': 'Moeda',
+  'setup.pay.chooseCurrency': 'Escolha uma moeda',
+  'setup.pay.note': 'Fica neste computador.',
+  'setup.pay.invalid': 'Digite um valor acima de zero, ou deixe em branco.',
+  'setup.pay.needCurrency': 'Escolha a moeda deste valor.',
+  'setup.ready.title': 'Tudo pronto para encontrar vagas',
+  'setup.ready.why': 'Isto é o que você contou ao Career Agent. Mude o que quiser agora, ou depois em Configurações.',
+  'setup.ready.work': 'Trabalho que você quer',
+  'setup.ready.home': 'Onde você mora',
+  'setup.ready.hire': 'Pode ser contratado em',
+  'setup.ready.level': 'Níveis escondidos',
+  'setup.ready.pay': 'Salário alvo',
+  'setup.ready.phrases': '{n} frases',
+  'setup.ready.notAnswered': 'Não respondido',
+  'setup.ready.change': 'Mudar',
+  'setup.ready.changeLabel': 'Mudar {what}',
+  'setup.ready.note': 'Encontrar vagas consulta sites de emprego públicos em busca de anúncios novos e pode levar '
+    + 'alguns minutos. Nada sobre você é enviado, e nenhuma candidatura é feita.',
+  'setup.ready.find': 'Encontrar vagas agora',
+  'setup.ready.starting': 'Começando…',
+  'setup.ready.finding': 'Encontrando vagas…',
+  'setup.ready.progress': '{done} de {total} fontes de vagas consultadas',
+  'setup.ready.progressLabel': 'Fontes de vagas consultadas',
+  'setup.ready.keepUsing': 'Você pode continuar usando o Career Agent enquanto isso roda.',
+  'setup.ready.stop': 'Parar',
+  'setup.ready.findAgain': 'Procurar de novo',
+  'setup.ready.cancelled': 'Parado. As vagas das {ok} fontes já consultadas foram mantidas.',
+  'setup.ready.failed': 'A busca de vagas parou por causa de um problema. Nada do que você salvou foi alterado. '
+    + 'Tente de novo em instantes.',
+  'setup.ready.finished': 'Pronto: {ok} de {total} fontes responderam. As vagas novas estão sendo avaliadas agora.',
+  'setup.ready.see': 'Ver suas vagas',
+  'setup.ready.toHome': 'Ir para o Início',
+  'empty.findJobs': 'Encontrar vagas agora',
+  'settings.setupHead': 'Suas respostas',
+  'settings.setupLede': 'Onde você mora, onde pode ser contratado, o trabalho que quer e o salário alvo. Revise uma '
+    + 'de cada vez, a partir do que já está salvo.',
+  'settings.setupOpen': 'Mudar minhas respostas',
+  'pagehead.eyebrow.setup': 'Primeiros passos',
+  'pagehead.title.setup': 'Configure sua busca',
+  'setup.ready.none': 'Nenhum',
+  'evstart.title': 'Monte seu banco de evidências',
+  'evstart.body': 'Importe seu currículo e o Career Agent lista o que ele diz, uma linha de cada vez. Nada conta '
+    + 'como sua experiência até você confirmar, e você pode editar ou recusar qualquer linha.',
+  'evstart.import': 'Importar seu currículo',
+  'evstart.hint': 'PDF, Word, texto ou Markdown. Ele é lido neste computador e o arquivo não é guardado. Você também '
+    + 'pode adicionar uma experiência à mão abaixo.',
+  'career.aboutEvidence': 'Exemplos, e para que isto serve',
+  'board.empty': 'Nenhuma candidatura acompanhada ainda. Salve uma vaga ou mude o status dela em Descobrir e ela '
+    + 'aparece aqui.',
+  'board.toDiscover': 'Ir para Descobrir',
+  'settings.sourceEach': 'Cada fonte de vagas ({n}, {paused} pausadas): situação e frequência de atualização',
 };
 
 const CATALOGUES = { en: EN, 'pt-BR': PT_BR };

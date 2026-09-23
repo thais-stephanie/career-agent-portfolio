@@ -35,8 +35,12 @@ export function careerWorkspace({ onChanged } = {}) {
   async function load() {
     data = await api.getCareer();
     replace(header, [
-      el('h2', { text: label('heading') }), paragraph('guidance'), paragraph('example'),
-      paragraph('boundary'),
+      el('h2', { text: label('heading') }), paragraph('guidance'),
+      // The example and what this is used for, one click away: three paragraphs
+      // above the first button was a wall before a single decision.
+      el('details', { className: 'career__more' }, [
+        el('summary', { text: label('aboutEvidence') }), paragraph('example'), paragraph('boundary'),
+      ]),
       el('div', { className: 'career__actions' }, [
         button(label('new'), () => metadata('create')),
         button(label('inboxCount', { count: data.unassigned }), () => choose('inbox')),

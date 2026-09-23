@@ -42,6 +42,7 @@ from pathlib import Path
 
 import pytest
 from tests.browser.chrome import Chrome
+from tests.browser.home_helpers import open_home_past_setup
 
 from career_agent.runtime import RuntimeMode, stamp_identity
 from career_agent.storage.db import connect, migrate, transaction
@@ -108,8 +109,9 @@ def empty_server(tmp_path: Path, committed_config: Path) -> Iterator[str]:
 
 
 def _open_home(page: Chrome, base: str) -> None:
-    page.navigate(base)
-    page.wait_for("document.querySelectorAll('.firstrun__step').length === 6", message="six steps")
+    # A fresh install opens on the guided setup; these tests are about the
+    # six-step list behind "Do this later".
+    open_home_past_setup(page, base)
 
 
 def _step_text(page: Chrome, key: str) -> str:

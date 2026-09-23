@@ -18,6 +18,7 @@ import yaml
 
 from career_agent.config.candidate_writer import HEADER, _validates, _write_atomically
 from career_agent.config.preferences import PreferenceError, _load_effective, local_search_path
+from career_agent.yaml_io import safe_load
 
 REVIEW_FILE = "search-review.local.yaml"
 LEGACY_FILE = "search.legacy-example.yaml"
@@ -49,7 +50,7 @@ def _hash(value: Any) -> str:
 def _read(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
-    value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    value = safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise PreferenceError(f"{path.name} must contain a mapping.")
     return value

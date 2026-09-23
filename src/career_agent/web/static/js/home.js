@@ -24,8 +24,8 @@
  */
 
 import { el, button, replace } from './dom.js';
-import { createOnboarding } from './onboarding.js';
 import { createFirstRun } from './firstrun.js';
+import { createSetup, setupPostponed } from './setup.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
 
@@ -41,22 +41,37 @@ const CARDS = ['new', 'saved', 'applied', 'interviews', 'offers', 'progressed'];
 /** Cards that are meaningless at zero and are simply not drawn. */
 const HIDE_WHEN_EMPTY = new Set(['offers', 'progressed']);
 
-export function createHome({ onOpenJob = null, onGoTo = null } = {}) {
+/** Which card of the guided setup answers each gap `home.profile_gaps` names. */
+const SETUP_FOR_GAP = {
+  work: 'work',
+  residence: 'home',
+  hiring_scopes: 'hire',
+  compensation: 'pay',
+};
+
+/** The first card that answers one of these gaps, or the start. */
+function firstSetupCard(gaps) {
+  const gap = gaps.find((name) => SETUP_FOR_GAP[name]);
+  return gap ? SETUP_FOR_GAP[gap] : 'welcome';
+}
+
+export function createHome({ onOpenJob = null, onGoTo = null, onSetupShown = null } = {}) {
   const root = el('div', { className: 'home' });
-  // The questions, asked HERE rather than on a screen of their own.
-  // Every one of them closes a gap this page has just named, and a
-  // wizard somewhere else would be a second place to be told the same
-  // thing.
-  const ask = createOnboarding({
+  // THE GUIDED SETUP, one question per card. It REPLACES this page on a fresh
+  // install -- where six steps, four zeroes and a second list of the same gaps
+  // used to greet somebody who had not answered anything -- and it is what
+  // every "answer this" button on this page opens, at the right card.
+  // Leaving it ("Do this later", "Go to Home") comes back here.
+  const setup = createSetup({
+    onExit: () => {
+      showingSetup = false;
+      load();
+    },
     onGoTo: (page) => onGoTo && onGoTo(page),
-    // A saved answer changes what is missing, so the page that listed
-    // the gaps re-reads them rather than keeping a stale list.
-    onSaved: () => load(),
   });
-  // Hidden until it is asked for. Home re-renders the section around it
-  // on every load, so this is set once and the flow's own `close` puts
-  // it back.
-  ask.root.hidden = true;
+  //: The card to open at, when something asked for the setup explicitly.
+  let setupAt = null;
+  let showingSetup = false;
 
   // THE SIX STEPS OF A FIRST RUN, above everything else on this page.
   //
@@ -71,6 +86,7 @@ export function createHome({ onOpenJob = null, onGoTo = null } = {}) {
   // had one fact about them would be the product deciding they were finished.
   const firstRun = createFirstRun({
     onGoTo: (page) => onGoTo && onGoTo(page),
+    onSetup: (step) => openSetup(step),
     // Importing documents or answering the career question changes what this
     // page can say, so the page that listed the gaps re-reads them.
     onChanged: () => load(),
@@ -85,6 +101,7 @@ export function createHome({ onOpenJob = null, onGoTo = null } = {}) {
 
   async function load() {
     const mine = ++token;
+    setup.stop();
     replace(root, [el('div', { className: 'sk sk--block' })]);
     try {
       payload = await api.getHome();
@@ -94,6 +111,20 @@ export function createHome({ onOpenJob = null, onGoTo = null } = {}) {
       // as something having just happened.
       await firstRun.load();
       if (mine !== token) return;
+      // A fresh install -- nothing confirmed and no search described -- opens
+      // on the guided setup, unless the person chose to do it later. Asked for
+      // explicitly, it opens at the card that was asked for.
+      if (setupAt !== null || (firstRun.isFresh() && !setupPostponed())) {
+        const at = setupAt;
+        setupAt = null;
+        showingSetup = true;
+        if (onSetupShown) onSetupShown(true);
+        replace(root, [setup.root]);
+        await setup.open(at);
+        return;
+      }
+      showingSetup = false;
+      if (onSetupShown) onSetupShown(false);
       replace(root, render(payload));
     } catch (error) {
       if (mine !== token) return;
@@ -104,13 +135,27 @@ export function createHome({ onOpenJob = null, onGoTo = null } = {}) {
     }
   }
 
+  /** Open the guided setup, at one card or from the start. */
+  function openSetup(step = 'welcome') {
+    setupAt = step;
+    load();
+  }
+
   function render(payload) {
+    // NOTHING SCORED YET. Four zero counters and two lists reading "Nothing
+    // here today" answer no question a new person has; one card that says
+    // what is missing and offers the way to fix it does.
+    const noJobs = firstRun.scoredCount() === 0;
     return [
-      heading(payload),
+      heading(payload, noJobs),
       startHere(),
-      metrics(payload),
-      completeProfile(payload),
-      ...payload.sections.map(section),
+      // With nothing scored the start list is always open, and its last step
+      // is "Find jobs now"; a row of zero counters would say nothing more.
+      noJobs ? null : metrics(payload),
+      // The same gaps the start list names, said again, only once that list
+      // has nothing left in it.
+      firstRun.outstanding() ? null : completeProfile(payload),
+      ...(noJobs ? [] : payload.sections.map(section)),
     ].filter(Boolean);
   }
 
@@ -141,16 +186,20 @@ export function createHome({ onOpenJob = null, onGoTo = null } = {}) {
     ]);
   }
 
-  function heading(payload) {
+  function heading(payload, noJobs) {
     return el('header', { className: 'home__head' }, [
       el('h2', { className: 'home__title', text: t('home.title') }),
-      el('p', {
-        className: 'home__sub',
-        text: payload.last_reviewed_at
-          ? t('home.since', { when: payload.last_reviewed_at.slice(0, 10) })
-          : t('home.neverReviewed'),
-      }),
-    ]);
+      // "Since you last marked the list read" means nothing before there is a
+      // list, so it waits for the first scored job.
+      noJobs
+        ? null
+        : el('p', {
+          className: 'home__sub',
+          text: payload.last_reviewed_at
+            ? t('home.since', { when: payload.last_reviewed_at.slice(0, 10) })
+            : t('home.neverReviewed'),
+        }),
+    ].filter(Boolean));
   }
 
   /**
@@ -213,15 +262,13 @@ export function createHome({ onOpenJob = null, onGoTo = null } = {}) {
         ? el('div', { className: 'home__gapactions' }, [
           // The first thing offered, because it is the one that does not
           // require already knowing which screen holds which answer.
-          button(t('ask.start'), () => {
-            ask.root.hidden = false;
-            ask.open(gaps);
-          }, { className: 'btn btn--primary' }),
+          button(t('ask.start'), () => openSetup(firstSetupCard(gaps)), {
+            className: 'btn btn--primary',
+          }),
           button(t('home.openProfile'), () => onGoTo('profile'), { className: 'btn' }),
           button(t('home.openEvidence'), () => onGoTo('evidence'), { className: 'btn' }),
         ])
         : null,
-      ask.root,
     ].filter(Boolean));
   }
 
@@ -265,8 +312,9 @@ export function createHome({ onOpenJob = null, onGoTo = null } = {}) {
 
   /** Redraw in the reader's language, from what the server already said. */
   function relabel() {
-    if (payload) replace(root, render(payload));
+    if (showingSetup) setup.relabel();
+    else if (payload) replace(root, render(payload));
   }
 
-  return { root, load, relabel };
+  return { root, load, relabel, openSetup };
 }

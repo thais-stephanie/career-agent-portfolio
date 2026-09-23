@@ -27,7 +27,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-import yaml
+from career_agent.yaml_io import safe_load
 
 #: Anchored on the PACKAGE, not on the process working directory.
 #:
@@ -464,7 +464,7 @@ class Source:
 def load_catalogue(path: Path | None = None) -> list[dict[str, Any]]:
     """The raw declarations. No verification; that is :func:`resolve`."""
     source = path or DEFAULT_CATALOGUE
-    data = yaml.safe_load(source.read_text(encoding="utf-8"))
+    data = safe_load(source.read_text(encoding="utf-8"))
     return list(data.get("sources") or [])
 
 

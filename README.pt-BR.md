@@ -167,13 +167,9 @@ Por isso, o Career Agent registra o nível de cobertura de cada fonte em vez de 
 
 [Ver permissões e observações de cobertura das fontes →](docs/SOURCES.md)
 
-### Próxima atualização
+### LinkedIn
 
-**A ingestão de vagas do LinkedIn está em desenvolvimento.**
-
-O pipeline planejado deverá trazer vagas descobertas no LinkedIn para o mesmo fluxo de normalização, deduplicação, elegibilidade e Search Fit usado pelas fontes já integradas.
-
-A ingestão do LinkedIn não faz parte da Alpha 2. O método final de coleta será validado separadamente antes de entrar em uma release.
+**O LinkedIn não é coletado automaticamente.** O LinkedIn proíbe acesso automatizado sem permissão por escrito, então o Career Agent o oferece apenas como um link de busca que você abre no seu navegador. Você pode colar uma vaga do LinkedIn na importação manual e importar a exportação em PDF do seu próprio perfil do LinkedIn para revisão.
 
 ## Resume Tailor Beta
 

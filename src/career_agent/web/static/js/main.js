@@ -50,6 +50,7 @@ const dom = {
   healthSummary: document.getElementById('health-summary'),
   healthMode: document.getElementById('health-mode'),
   list: document.getElementById('list'),
+  boardEmpty: document.getElementById('boardempty'),
   pager: document.getElementById('pager'),
   viewCards: document.getElementById('view-cards'),
   viewTable: document.getElementById('view-table'),
@@ -68,6 +69,11 @@ const dom = {
 let lastResponse = null;      // the response currently on screen
 let lastQueryString = null;   // the query that produced it
 let inFlight = 0;
+//: Whether a list request is being fetched; see `mergeJob`.
+let loading = false;
+//: The in-flight save for each job, chained, so saves for one job reach the
+//: server in the order they were made and the last one wins. See `queueJobSave`.
+const jobSaves = new Map();
 let columnVisibility = loadVisible();
 
 const panel = createFilterPanel(store);
@@ -175,8 +181,16 @@ const home = createHome({
     if (patch) store.set(patch);
     goTo(page);
   },
+  // "How is your search going?" is the wrong heading above "Let's set up your
+  // job search", so Home says which of the two it is showing.
+  onSetupShown: (shown) => {
+    homeHeader = shown ? 'setup' : 'home';
+    if (currentPage === 'home') shell.setPage(homeHeader);
+  },
 });
 PAGES.home.appendChild(home.root);
+//: Which header Home wears: its own, or the guided setup's.
+let homeHeader = 'home';
 
 let currentPage = 'home';
 
@@ -200,7 +214,12 @@ function goTo(page, { push = true } = {}) {
   // EVERY page gets the same header shape, filled from one table. Five call
   // sites setting their own is how five screens come to disagree about how
   // tall a header is.
-  shell.setPage(page);
+  shell.setPage(page === 'home' ? homeHeader : page);
+
+  // The board's empty notice belongs to Applications alone. Discover shares its
+  // container and repaints only when its list arrives; clearing it here keeps
+  // "No applications tracked yet" from lingering over Discover meanwhile.
+  if (page !== 'applications') paintBoardEmpty(false);
 
   if (page === 'applications') {
     // The board IS the applications view. Switching to it also narrows to the
@@ -217,6 +236,7 @@ function goTo(page, { push = true } = {}) {
   // Loaded on arrival rather than on page load: the catalogue answers a
   // question nobody has asked yet, and a list of jobs should not wait on it.
   if (page === 'settings') {
+    renderSetupEntry(document.getElementById('settings-setup-host'));
     renderSearchSettings(document.getElementById('search-settings-host'), store);
     sourcesPanel.load();
     const model = document.getElementById('settings-model');
@@ -444,28 +464,65 @@ store.subscribe((state, meta) => {
 async function load(queryString, state, { quiet = false } = {}) {
   lastQueryString = queryString;
   const token = ++inFlight;
+  loading = true;
   if (!quiet || !lastResponse) {
     showSkeleton(state);
     dom.count.textContent = t('app.loading');
   }
 
   try {
+    // A LIST NEVER OVERTAKES A SAVE. Changing a status and opening Applications
+    // at once used to send the board's request while the save was still in
+    // flight; the board was built without the job, and the save's answer could
+    // only update jobs already on screen. Waiting for pending saves makes the
+    // list the server returns include them.
+    await settledJobSaves();
+    if (token !== inFlight) return;
     const response = await api.listJobs(new URLSearchParams(queryString));
     if (token !== inFlight) return;
+    loading = false;
     lastResponse = response;
     clearSelection();
     panel.syncFacets(response.facets, store.get());
     paint(store.get());
   } catch (error) {
     if (token !== inFlight) return;
+    loading = false;
     lastResponse = null;
     showError(error, queryString);
   }
 }
 
+/**
+ * Nothing tracked yet: say what the board is for and where things come from.
+ * The columns already explain each state; this is the one sentence and the one
+ * way forward a first visit needs. Cleared for every other view.
+ */
+function paintBoardEmpty(show) {
+  if (!dom.boardEmpty) return;
+  dom.boardEmpty.hidden = !show;
+  if (!show) {
+    replace(dom.boardEmpty, []);
+    return;
+  }
+  replace(dom.boardEmpty, [
+    el('p', { className: 'boardempty__text', text: t('board.empty') }),
+    button(t('board.toDiscover'), () => goTo('jobs'), {
+      className: 'btn btn--primary',
+      attrs: { id: 'board-to-discover' },
+    }),
+  ]);
+}
+
 function paint(state) {
   if (!lastResponse) return;
   const items = lastResponse.items || [];
+  if (state.view !== 'kanban') paintBoardEmpty(false);
+  // NO POSTINGS AT ALL. Filters, three views, grouping and a sort order over an
+  // empty database are a wall of controls that can do nothing; they come back
+  // the moment there is something to filter.
+  const toolbar = document.querySelector('.topbar__controls');
+  if (toolbar) toolbar.dataset.corpusEmpty = corpusEmpty() ? 'true' : 'false';
 
   // The board is its own empty state. Seven columns, each saying what would
   // put something in it, is a better answer than a generic "no results" panel
@@ -516,6 +573,7 @@ function paint(state) {
       onOpen: openJob,
       onStatus: changeStatus,
     });
+    paintBoardEmpty(items.length === 0 && activeFilterCount(state) <= 1);
   } else {
     renderCards(dom.list, items, {
       onOpen: openJob,
@@ -1015,6 +1073,44 @@ function healthKnown() {
   return Object.hasOwn(lastHealth, 'job_count');
 }
 
+/**
+ * Settings' first block: change the guided-setup answers, or find jobs.
+ * Both open the same setup that a fresh install starts on, at the right card.
+ */
+function renderSetupEntry(host) {
+  if (!host) return;
+  replace(host, [
+    el('p', { className: 'settings__lede', text: t('settings.setupLede') }),
+    el('div', { className: 'settings__actions' }, [
+      button(t('settings.setupOpen'), () => {
+        home.openSetup('welcome');
+        goTo('home');
+      }, { className: 'btn btn--primary', attrs: { id: 'settings-open-setup' } }),
+      button(t('empty.findJobs'), () => {
+        home.openSetup('ready');
+        goTo('home');
+      }, { className: 'btn', attrs: { id: 'settings-find-jobs' } }),
+    ]),
+  ]);
+}
+
+/** The database holds no postings at all -- known, not merely unanswered. */
+function corpusEmpty() {
+  return healthKnown() && Number(lastHealth.job_count) === 0;
+}
+
+/**
+ * The way out of an empty database: the guided setup's last card, which starts
+ * finding jobs and shows its progress. Replaces directions to a panel inside a
+ * collapsed "Advanced" section of Settings.
+ */
+function findJobsButton() {
+  return button(t('empty.findJobs'), () => {
+    home.openSetup('ready');
+    goTo('home');
+  }, { className: 'btn btn--primary', attrs: { id: 'empty-find-jobs' } });
+}
+
 function emptyHeadline() {
   if (!healthKnown()) return t('empty.headline');
   const stale = Number(lastHealth.job_count) > 0 && Number(lastHealth.scored_count) === 0;
@@ -1150,6 +1246,7 @@ function showEmpty(state) {
     // Only when there is something to recalculate. On a database with no
     // postings at all this would be a button that correctly does nothing.
     !filtered && unscored ? rescoreButton() : null,
+    !filtered && corpusEmpty() ? findJobsButton() : null,
     // The one line of encouragement in the product, and it is only true when
     // nothing is filtered: with a filter on, the answer is the filter, not a
     // reflection on how a career works.
@@ -1192,21 +1289,65 @@ function mergeJob(updated) {
   if (!updated || !lastResponse) return;
   const index = lastResponse.items.findIndex((job) => job.job_id === updated.job_id);
   if (index >= 0) lastResponse.items[index] = { ...lastResponse.items[index], ...updated };
-  paint(store.get());
+  // While a new list is on its way, the one in hand belongs to the previous
+  // query; painting it into the new view would show the wrong jobs. The new
+  // list is fetched after the save settles, so it already carries the change.
+  if (!loading) paint(store.get());
 }
 
-async function changeStatus(jobId, status, appliedAt) {
-  try {
-    const updated = await api.patchStatus(jobId, status, appliedAt);
-    mergeJob(updated);
-    flash(t('flash.movedTo', { status: statusLabel(status) }));
-    // Returned, not only merged: the drawer repaints from this rather than
-    // issuing a second GET for the row it was just handed.
-    return updated;
-  } catch (error) {
-    flash(error.userMessage || error.message, true);
-    return null;
-  }
+// -------------------------------------------------------------------------
+// Saves that change where a job stands, and what waits for them
+// -------------------------------------------------------------------------
+
+/** Resolves when every pending save has finished, whatever its outcome. */
+function settledJobSaves() {
+  return jobSaves.size ? Promise.allSettled([...jobSaves.values()]) : Promise.resolve();
+}
+
+/**
+ * Run a save for one job after any save already queued for it.
+ *
+ * `<html data-saving="status">` is present while any save is in flight: the
+ * page's own signal that what is on screen may be about to change, and the
+ * condition anything relying on confirmed state waits for.
+ */
+function queueJobSave(jobId, save) {
+  const before = jobSaves.get(jobId) || Promise.resolve();
+  const next = before.then(save, save);
+  jobSaves.set(jobId, next);
+  document.documentElement.setAttribute('data-saving', 'status');
+  const done = () => {
+    if (jobSaves.get(jobId) === next) jobSaves.delete(jobId);
+    if (!jobSaves.size) document.documentElement.removeAttribute('data-saving');
+  };
+  next.then(done, done);
+  return next;
+}
+
+/**
+ * A refused save leaves the control showing a status the server never
+ * recorded. Repaint from the last confirmed data, which the refusal did not
+ * touch, so the screen agrees with the server again.
+ */
+function restoreConfirmed() {
+  if (!loading) paint(store.get());
+}
+
+function changeStatus(jobId, status, appliedAt) {
+  return queueJobSave(jobId, async () => {
+    try {
+      const updated = await api.patchStatus(jobId, status, appliedAt);
+      mergeJob(updated);
+      flash(t('flash.movedTo', { status: statusLabel(status) }));
+      // Returned, not only merged: the drawer repaints from this rather than
+      // issuing a second GET for the row it was just handed.
+      return updated;
+    } catch (error) {
+      flash(error.userMessage || error.message, true);
+      restoreConfirmed();
+      return null;
+    }
+  });
 }
 
 /**
@@ -1217,16 +1358,21 @@ async function changeStatus(jobId, status, appliedAt) {
  * not. A confirmation buried in a shared helper is a confirmation nobody can
  * see when reading the call site.
  */
-async function changeAppliedDate(jobId, date) {
-  try {
-    const updated = await api.patchAppliedAt(jobId, date);
-    mergeJob(updated);
-    flash(date ? t('flash.appliedDateSet', { date }) : t('flash.appliedDateCleared'));
-    return updated;
-  } catch (error) {
-    flash(error.userMessage || error.message, true);
-    return null;
-  }
+function changeAppliedDate(jobId, date) {
+  // The same queue as a status change: both move where an application stands,
+  // and an applied date saved beside a status change must land after it.
+  return queueJobSave(jobId, async () => {
+    try {
+      const updated = await api.patchAppliedAt(jobId, date);
+      mergeJob(updated);
+      flash(date ? t('flash.appliedDateSet', { date }) : t('flash.appliedDateCleared'));
+      return updated;
+    } catch (error) {
+      flash(error.userMessage || error.message, true);
+      restoreConfirmed();
+      return null;
+    }
+  });
 }
 
 async function changeSaved(jobId, saved) {
@@ -1908,8 +2054,9 @@ function relabelStaticText() {
   // The rail relabels itself: its destinations now carry an icon beside the
   // word, and writing `textContent` on the button would have thrown the icon
   // away on the first language switch.
-  shell.retranslate(currentPage);
+  shell.retranslate(currentPage === 'home' ? homeHeader : currentPage);
   const settingsHeads = {
+    'settings-setup-head': 'settings.setupHead',
     'settings-prefs-head': 'rail.preferences',
     'settings-sources-head': 'rail.sources',
     'settings-retr-head': 'rail.retrieve',

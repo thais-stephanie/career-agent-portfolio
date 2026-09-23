@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from career_agent.config.loader import ConfigError
 from career_agent.storage.records import CompanyRecord, SourceBoardRecord
 from career_agent.storage.repositories import CompanyRepo, SourceBoardRepo
+from career_agent.yaml_io import safe_load
 
 
 class BoardEntry(BaseModel):
@@ -113,7 +114,7 @@ def load_registry_file(path: Path) -> CompanyRegistry:
     if not path.exists():
         raise ConfigError(f"{path} not found")
     try:
-        parsed: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
+        parsed: Any = safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
         raise ConfigError(f"{path.name} is not valid YAML: {exc}") from exc
     if not isinstance(parsed, dict):

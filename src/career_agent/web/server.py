@@ -32,6 +32,7 @@ import re
 import socket
 import sqlite3
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -172,6 +173,19 @@ MAX_UPLOAD_BYTES = 34 * 1024 * 1024
 UPLOAD_PATHS = frozenset({"/api/cv/import", "/api/intake"})
 
 
+#: A Content-Length this server will frame a body by. ASCII only: `str.isdigit`
+#: also accepts characters such as "²" that `int` then refuses.
+_DECIMAL = re.compile(r"[0-9]+")
+
+
+#: How long, and how much, a connection closed on an unread body keeps reading
+#: after its response has been sent. See `_Handler._linger_close`. Bounded both
+#: ways so a client that declares a body and never finishes it cannot hold the
+#: thread: the connection is let go at whichever limit comes first.
+LINGER_SECONDS = 2.0
+LINGER_BYTES = 1_048_576
+
+
 def body_limit(path: str) -> int:
     """How large a body this path may carry."""
     return MAX_UPLOAD_BYTES if path in UPLOAD_PATHS else MAX_BODY_BYTES
@@ -196,6 +210,107 @@ class _Handler(BaseHTTPRequestHandler):
 
     def address_string(self) -> str:
         return self.client_address[0]
+
+    # -- framing -----------------------------------------------------------
+    # Keep-alive means the bytes after a request are read as the NEXT request.
+    # A refusal sent before the body was read -- a 403 from `_check_origin`, a
+    # 405, a 413 -- used to leave that body on the socket, and a body that was
+    # itself a well-formed request, with our own Host and a JSON content type,
+    # was then served as if nobody had refused anything. A cross-site page can
+    # send such a body as text/plain without a preflight. So: a body this
+    # server did not read ends the connection, and a body it cannot frame
+    # (chunked, two lengths, a length that is not a number) is refused whole.
+    _body_consumed = False
+    _status_code = 0
+    #: Set when a response closes the connection over a body nobody read.
+    _linger = False
+
+    def send_response_only(self, code: int, message: str | None = None) -> None:
+        # Every status line passes through here, including the interim
+        # `100 Continue` that `handle_expect_100` sends BEFORE the body is
+        # read. That one must not close the connection it is inviting a body on.
+        self._status_code = code
+        super().send_response_only(code, message)
+
+    def parse_request(self) -> bool:
+        self._body_consumed = False
+        if not super().parse_request():
+            return False
+        lengths = self.headers.get_all("Content-Length") or []
+        if (
+            "Transfer-Encoding" in self.headers
+            or len(lengths) > 1
+            or (lengths and not _DECIMAL.fullmatch(lengths[0].strip()))
+        ):
+            self.close_connection = True
+            self._send_json(400, {"error": "unsupported request framing"})
+            return False
+        return True
+
+    def _unread_body(self) -> bool:
+        """True when the request declared a body that was not read off the socket."""
+        headers = getattr(self, "headers", None)
+        if headers is None or self._body_consumed:
+            return False
+        if "Transfer-Encoding" in headers:
+            return True
+        length = (headers.get("Content-Length") or "0").strip()
+        return not _DECIMAL.fullmatch(length) or int(length) > 0
+
+    def end_headers(self) -> None:
+        if self._status_code >= 200 and self._unread_body():
+            # `send_header` sets `close_connection` when it sees this header.
+            self.send_header("Connection", "close")
+            self.close_connection = True
+            self._linger = True
+        super().end_headers()
+
+    def finish(self) -> None:
+        super().finish()
+        if self._linger:
+            self._linger_close()
+
+    def _linger_close(self) -> None:
+        """Half-close, then read and discard what is still arriving, bounded.
+
+        Closing a socket whose receive buffer still holds bytes makes the
+        operating system RESET the connection instead of closing it, and on
+        Windows a reset that reaches the client before it has read the response
+        throws the response away: the client sees `WSAECONNABORTED` (10053)
+        instead of the 403 it was sent. Measured before this existed: 14-21% of
+        300 refused cross-origin POSTs.
+
+        So the write side is shut first -- the response is already flushed and
+        the client sees its end -- and whatever the client is still sending is
+        read and dropped until it closes, `LINGER_BYTES` have been read or
+        `LINGER_SECONDS` have passed. Only then does the server close.
+
+        NOTHING READ HERE IS PARSED. The request loop has already ended on
+        `close_connection`; these bytes go from `recv` straight to the floor,
+        so a body that is itself a request can never become one. Reading
+        streams in 64 KB chunks and allocates nothing for the body as a whole.
+        """
+        sock = self.connection
+        try:
+            sock.shutdown(socket.SHUT_WR)
+        except OSError:
+            return
+        deadline = time.monotonic() + LINGER_SECONDS
+        drained = 0
+        try:
+            while drained < LINGER_BYTES:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                sock.settimeout(min(remaining, 0.5))
+                chunk = sock.recv(65536)
+                if not chunk:
+                    break
+                drained += len(chunk)
+        except OSError:
+            # A timeout, or the client resetting first: either way there is
+            # nothing left worth waiting for.
+            pass
 
     # -- verbs -----------------------------------------------------------
     def do_GET(self) -> None:  # noqa: N802  (stdlib naming)
@@ -306,6 +421,7 @@ class _Handler(BaseHTTPRequestHandler):
         if length > limit:
             raise ApiError(413, "request body too large")
         raw = self.rfile.read(length)
+        self._body_consumed = True
         try:
             parsed = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
