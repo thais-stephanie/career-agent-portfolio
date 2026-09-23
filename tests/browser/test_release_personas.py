@@ -205,10 +205,14 @@ def test_complete_persona_journey(page, workspace, persona):
         "document.querySelector('.card .select--status')"
         ".dispatchEvent(new Event('change',{bubbles:true}))"
     )
+    # The page's own signal that the save reached the server -- not the
+    # control's value, which this test set itself and is true at once.
+    page.wait_for("!document.documentElement.hasAttribute('data-saving')")
     page.wait_for("document.querySelector('.card .select--status').value === 'SHORTLISTED'")
     page.evaluate("document.querySelector('.topnav__link[data-page=\"applications\"]').click()")
     page.wait_for("document.querySelector('.kcard .select--status')")
     set_value(page, "document.querySelector('.kcard .select--status')", "TO_APPLY", "change")
+    page.wait_for("!document.documentElement.hasAttribute('data-saving')")
     page.wait_for("document.querySelector('.kcard .select--status').value === 'TO_APPLY'")
     choose_theme(page, "dark")
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
