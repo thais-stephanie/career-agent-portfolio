@@ -67,3 +67,19 @@ def test_empty_evidence_leads_with_importing_a_cv(page: Chrome, fresh: Fresh) ->
     # The worked example sits one click away instead of above the first button.
     assert page.evaluate("Boolean(document.querySelector('.career__more'))")
     assert not page.evaluate("document.querySelector('.career__more').open")
+
+
+def test_each_source_stays_open_while_a_source_is_changed(page: Chrome, fresh: Fresh) -> None:
+    """Settings folds the per-source cards; changing one redraws the panel,
+    and the fold must not snap shut under the control that was just used."""
+    _past_setup(page, fresh.base)
+    _go(page, "settings")
+    page.wait_for("document.querySelector('[data-source=gupy] select')")
+    page.evaluate("document.querySelector('.src__each').open = true")
+    page.evaluate(
+        "(() => { const s = document.querySelector('[data-source=gupy] select');"
+        " s.value = 'PAUSED'; s.dispatchEvent(new Event('change', {bubbles: true})); })()"
+    )
+    # The sentence only a REDRAWN card carries: the panel really was rebuilt.
+    page.wait_for("document.querySelector('[data-source=gupy]').textContent.includes('by you')")
+    assert page.evaluate("document.querySelector('.src__each').open")

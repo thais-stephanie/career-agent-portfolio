@@ -79,6 +79,10 @@ const TONE = {
 };
 
 export function createSourcesPanel(host) {
+  //: Whether "Each job source" is open. The panel redraws after every refresh
+  //: or timing change, and a section that snapped shut under the button just
+  //: pressed would lose the person's place.
+  let eachOpen = false;
   let loaded = false;
   let refreshTimer = null;
 
@@ -156,7 +160,11 @@ export function createSourcesPanel(host) {
     // "Find jobs now" runs all of them. The count is in the summary.
     const refreshRows = payload.refresh || [];
     const pausedCount = refreshRows.filter((row) => row.state === 'PAUSED').length;
-    const each = el('details', { className: 'src__each' }, [
+    const each = el('details', {
+      className: 'src__each',
+      props: { open: eachOpen },
+      on: { toggle: (event) => { eachOpen = event.target.open; } },
+    }, [
       el('summary', {
         className: 'src__eachsummary',
         text: t('settings.sourceEach', { n: refreshRows.length, paused: pausedCount }),
