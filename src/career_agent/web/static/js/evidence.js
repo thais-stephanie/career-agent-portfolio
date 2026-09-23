@@ -2293,11 +2293,20 @@ export function createEvidence({ onChanged = null } = {}) {
     //: A skill and a tool are a word. Everything else is a sentence.
     const SHORT = new Set(['SKILL', 'TOOL']);
     const box = () => (SHORT.has(kind.value) ? line : para);
+    // The label names whichever box is showing. It used to point at the
+    // one-line box only, so the paragraph box -- shown for every category but
+    // skills and tools -- reached a screen reader with no name at all.
+    const boxLabel = el('label', {
+      className: 'field__label',
+      attrs: { for: 'ev-new-text' },
+      text: t('ledger.addText'),
+    });
 
     function follow() {
       const short = SHORT.has(kind.value);
       line.hidden = !short;
       para.hidden = short;
+      boxLabel.htmlFor = short ? 'ev-new-text' : 'ev-new-text-long';
       const hintKey = `ledger.hint.${kind.value}`;
       const hintText = t(hintKey);
       hint.textContent = hintText === hintKey ? '' : hintText;
@@ -2321,7 +2330,7 @@ export function createEvidence({ onChanged = null } = {}) {
       el('p', { className: 'ev__note', text: t('ledger.addLede') }),
       field('ev-new-type', t('ledger.addType'), kind),
       el('div', { className: 'ev__addbox' }, [
-        el('label', { className: 'field__label', attrs: { for: 'ev-new-text' }, text: t('ledger.addText') }),
+        boxLabel,
         hint,
         line,
         para,
