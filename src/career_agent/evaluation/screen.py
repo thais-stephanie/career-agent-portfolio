@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
+from career_agent.yaml_io import safe_load
 
 SCREEN_ARTIFACT = Path("evaluation/free-challenger-screen.yaml")
 
@@ -54,7 +54,7 @@ class Screen:
 
 
 def load_screen(path: Path = SCREEN_ARTIFACT) -> Screen:
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    raw = safe_load(path.read_text(encoding="utf-8")) or {}
     return Screen(
         version=int(raw["version"]),
         frozen_at=str(raw["frozen_at"]),

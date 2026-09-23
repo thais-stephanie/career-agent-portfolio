@@ -36,8 +36,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from career_agent.domain.enums import (
     ExtractionStatus,
     HiringScopeKind,
@@ -51,6 +49,7 @@ from career_agent.domain.fingerprint import (
 )
 from career_agent.domain.verify import verify_quote
 from career_agent.llm.transport import ALL_DIMENSIONS
+from career_agent.yaml_io import safe_load
 
 #: The committed review artifact. It lives beside the cases rather than under
 #: `out/` because it is the thing handed to a reviewer, and a reviewer who has
@@ -155,8 +154,8 @@ def load_case(directory: Path) -> GoldenCase:
         if not (directory / name).exists():
             raise GoldenError(f"{directory.name} is missing {name}")
 
-    meta = yaml.safe_load((directory / "meta.yaml").read_text(encoding="utf-8")) or {}
-    expected = yaml.safe_load((directory / "expected.yaml").read_text(encoding="utf-8")) or {}
+    meta = safe_load((directory / "meta.yaml").read_text(encoding="utf-8")) or {}
+    expected = safe_load((directory / "expected.yaml").read_text(encoding="utf-8")) or {}
 
     return GoldenCase(
         case_id=str(expected.get("case_id", directory.name)),

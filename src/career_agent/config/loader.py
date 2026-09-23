@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from career_agent.domain.claims import VerifiedClaim
 from career_agent.domain.profile import SearchProfile
+from career_agent.yaml_io import safe_load
 
 PROFILE_STEM = "profile"
 CAREER_FACTS_STEM = "career_facts"
@@ -81,7 +82,7 @@ def _read_yaml(path: Path) -> dict[str, Any]:
         raise ConfigError(f"could not read {path}: {exc}") from exc
 
     try:
-        parsed = yaml.safe_load(raw)
+        parsed = safe_load(raw)
     except yaml.YAMLError as exc:
         raise ConfigError(f"{path.name} is not valid YAML: {exc}") from exc
 

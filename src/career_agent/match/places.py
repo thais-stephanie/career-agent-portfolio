@@ -37,7 +37,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import yaml
+from career_agent.yaml_io import safe_load
 
 #: Anchored on the package rather than on the process working directory, for
 #: the reason `sources.catalogue` records at length: a CWD-relative default
@@ -141,7 +141,7 @@ def display_names(path: Path | None = None) -> tuple[dict[str, str], dict[str, s
     the code, which is the behaviour this replaced rather than a new failure.
     """
     source = path or DEFAULT_GAZETTEER
-    data = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    data = safe_load(source.read_text(encoding="utf-8")) or {}
 
     def named(key: str) -> dict[str, str]:
         return {
@@ -157,7 +157,7 @@ def display_names(path: Path | None = None) -> tuple[dict[str, str], dict[str, s
 def load_gazetteer(path: Path | None = None) -> Gazetteer:
     """Read and fold the gazetteer. Cached: `rescore` calls this 18,000 times."""
     source = path or DEFAULT_GAZETTEER
-    data = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    data = safe_load(source.read_text(encoding="utf-8")) or {}
     return Gazetteer.from_mapping(data)
 
 

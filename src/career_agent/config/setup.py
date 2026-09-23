@@ -69,6 +69,7 @@ from career_agent.config.search_config import (
     local_search_path,
     starter_search_path,
 )
+from career_agent.yaml_io import safe_load
 
 #: Where a person's own answers go. Gitignored, and the only file this writes.
 LOCAL_STEM = "search.local.yaml"
@@ -748,7 +749,7 @@ def base_config(config_dir: Path, *, worked_example: bool = False) -> tuple[dict
 
 def _read(path: Path) -> dict[str, Any]:
     try:
-        parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+        parsed = safe_load(path.read_text(encoding="utf-8"))
     except OSError as exc:
         raise SetupError(f"could not read {path}: {exc}") from exc
     except yaml.YAMLError as exc:

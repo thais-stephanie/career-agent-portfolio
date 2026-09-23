@@ -2722,11 +2722,10 @@ def _interactive_answers():
 
 def _answers_from_file(path: Path):
     """Answers read from a YAML file. How the wizard is tested, and scripted."""
-    import yaml
-
     from career_agent.config.setup import Answers
+    from career_agent.yaml_io import safe_load
 
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    raw = safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(raw, dict):
         typer.secho(f"{path} must contain a mapping", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2)

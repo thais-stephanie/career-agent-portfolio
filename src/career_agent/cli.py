@@ -545,13 +545,15 @@ def _report_pattern_drift(config_dir: Path) -> bool:
     """
     import yaml
 
+    from career_agent.yaml_io import safe_load
+
     local = config_dir / "search.local.yaml"
     shipped = config_dir / "search.worked-example.yaml"
     if not local.exists() or not shipped.exists():
         return False
 
     def blockers(path: Path) -> dict[str, set[str]]:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        raw = safe_load(path.read_text(encoding="utf-8")) or {}
         found: dict[str, set[str]] = {}
         for entry in (raw.get("eligibility") or {}).get("blockers") or []:
             found[str(entry.get("id"))] = {str(p).lower() for p in entry.get("patterns") or []}
