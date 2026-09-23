@@ -50,6 +50,7 @@ const dom = {
   healthSummary: document.getElementById('health-summary'),
   healthMode: document.getElementById('health-mode'),
   list: document.getElementById('list'),
+  boardEmpty: document.getElementById('boardempty'),
   pager: document.getElementById('pager'),
   viewCards: document.getElementById('view-cards'),
   viewTable: document.getElementById('view-table'),
@@ -472,9 +473,31 @@ async function load(queryString, state, { quiet = false } = {}) {
   }
 }
 
+/**
+ * Nothing tracked yet: say what the board is for and where things come from.
+ * The columns already explain each state; this is the one sentence and the one
+ * way forward a first visit needs. Cleared for every other view.
+ */
+function paintBoardEmpty(show) {
+  if (!dom.boardEmpty) return;
+  dom.boardEmpty.hidden = !show;
+  if (!show) {
+    replace(dom.boardEmpty, []);
+    return;
+  }
+  replace(dom.boardEmpty, [
+    el('p', { className: 'boardempty__text', text: t('board.empty') }),
+    button(t('board.toDiscover'), () => goTo('jobs'), {
+      className: 'btn btn--primary',
+      attrs: { id: 'board-to-discover' },
+    }),
+  ]);
+}
+
 function paint(state) {
   if (!lastResponse) return;
   const items = lastResponse.items || [];
+  if (state.view !== 'kanban') paintBoardEmpty(false);
   // NO POSTINGS AT ALL. Filters, three views, grouping and a sort order over an
   // empty database are a wall of controls that can do nothing; they come back
   // the moment there is something to filter.
@@ -530,6 +553,7 @@ function paint(state) {
       onOpen: openJob,
       onStatus: changeStatus,
     });
+    paintBoardEmpty(items.length === 0 && activeFilterCount(state) <= 1);
   } else {
     renderCards(dom.list, items, {
       onOpen: openJob,

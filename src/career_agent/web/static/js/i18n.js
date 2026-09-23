@@ -2271,6 +2271,15 @@ const EN = {
   'pagehead.eyebrow.setup': 'Getting started',
   'pagehead.title.setup': 'Set up your search',
   'setup.ready.none': 'None',
+  'evstart.title': 'Build your evidence bank',
+  'evstart.body': 'Import your CV and Career Agent lists what it says, one line at a time. Nothing counts as your '
+    + 'experience until you confirm it, and you can edit or reject any line.',
+  'evstart.import': 'Import your CV',
+  'evstart.hint': 'PDF, Word, text or Markdown. It is read on this computer and the file is not kept. You can also '
+    + 'add an experience by hand below.',
+  'career.aboutEvidence': 'Examples, and what this is used for',
+  'board.empty': 'No applications tracked yet. Save a job or change its status in Discover and it appears here.',
+  'board.toDiscover': 'Go to Discover',
 };
 
 /**
@@ -4353,6 +4362,16 @@ const PT_BR = {
   'pagehead.eyebrow.setup': 'Primeiros passos',
   'pagehead.title.setup': 'Configure sua busca',
   'setup.ready.none': 'Nenhum',
+  'evstart.title': 'Monte seu banco de evidências',
+  'evstart.body': 'Importe seu currículo e o Career Agent lista o que ele diz, uma linha de cada vez. Nada conta '
+    + 'como sua experiência até você confirmar, e você pode editar ou recusar qualquer linha.',
+  'evstart.import': 'Importar seu currículo',
+  'evstart.hint': 'PDF, Word, texto ou Markdown. Ele é lido neste computador e o arquivo não é guardado. Você também '
+    + 'pode adicionar uma experiência à mão abaixo.',
+  'career.aboutEvidence': 'Exemplos, e para que isto serve',
+  'board.empty': 'Nenhuma candidatura acompanhada ainda. Salve uma vaga ou mude o status dela em Descobrir e ela '
+    + 'aparece aqui.',
+  'board.toDiscover': 'Ir para Descobrir',
 };
 
 const CATALOGUES = { en: EN, 'pt-BR': PT_BR };
