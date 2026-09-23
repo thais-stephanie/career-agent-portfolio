@@ -390,7 +390,10 @@ def _positive_scope(
 ) -> tuple[str, SignalHit] | None:
     """A phrase that positively OPENS the geography gate, for a scope we accept.
 
-    Only scopes listed in `eligible_scopes` are consulted. A posting that
+    Only scopes that admit her are consulted, decided by `_region_verdict` --
+    the same geographic containment every other geography path uses, so a
+    worldwide sentence and a `Remote - Worldwide` field agree. Whether the
+    scope is spelled in `eligible_scopes` is not the test. A posting that
     explicitly hires across EMEA and nowhere else has stated a scope, and that
     statement is not evidence for a Brazil-based candidate.
 
@@ -415,9 +418,8 @@ def _positive_scope(
     """
     del title_field
 
-    eligible = set(config.eligibility.eligible_scopes)
     for scope, patterns in config.eligibility.positive_scope_patterns.items():
-        if scope not in eligible:
+        if _region_verdict(config, scope) is not True:
             continue
         blocker = Blocker(
             id=scope, label=f"Hiring scope {scope}", gate="geography", patterns=patterns
@@ -575,12 +577,16 @@ def _resolve_list(text: str) -> ResolvedPlace:
 
 
 def _candidate_countries(config: SearchConfig) -> set[str]:
-    """Every country this candidate may be hired from: the configured list
-    PLUS the country she lives in. `candidate_country` is a fact about the
-    person and it participates wherever the list does, so a settings file
-    with `eligible_countries: []` beside `candidate_country: BR` still knows
-    she is in Brazil. Three readers used to build this set three different
-    ways; two of them forgot the second half."""
+    """The configured list PLUS the country she lives in: every country an
+    employer could NAME and thereby name her. A settings file with
+    `eligible_countries: []` beside `candidate_country: BR` still knows she is
+    in Brazil, so a posting naming Brazil names her. Three readers used to
+    build this set three different ways; two of them forgot the second half.
+
+    This set is for countries an employer names directly. It is NOT evidence
+    for a broad region: residence alone does not prove an employer hiring
+    across LATAM or WORLDWIDE can hire her. `_region_verdict` reads the two
+    halves separately for exactly that reason."""
     countries = {c.upper() for c in config.eligibility.eligible_countries}
     if config.eligibility.candidate_country:
         countries.add(config.eligibility.candidate_country.upper())
@@ -602,38 +608,68 @@ def _candidate_geography_known(config: SearchConfig) -> bool:
     return bool(_candidate_countries(config) or config.eligibility.eligible_scopes)
 
 
+def _region_verdict(config: SearchConfig, region: str) -> bool | None:
+    """Does a region the employer NAMED admit this candidate? True, False or None.
+
+    `eligible_scopes` describes hiring scopes that can include the candidate.
+    It is not a preference filter and it is not an exhaustive allowlist:
+    leaving out a region that provably holds a country she may be hired in is
+    not a refusal of it. The answer comes from geography.
+
+    * **Admits** when the region provably contains a country in
+      `eligible_countries` -- the countries where she can be hired. A Brazil
+      candidate who ticked only LATAM is still inside WORLDWIDE and AMERICAS.
+    * **Admits** when she explicitly SELECTED the region as one that includes
+      her and it provably contains the country she lives in. Both halves: a
+      selected region that cannot hold her (NORTH_AMERICA for somebody in
+      Brazil) is a mistake in a settings file and admits nothing (ADR-0023).
+    * **Refuses** only when the region provably contains NONE of the countries
+      known about her -- where she can be hired and where she lives. `Remote -
+      Europe` does not include Brazil.
+    * **Otherwise unknown.** Where she lives, on its own, never admits a broad
+      region: residence is not proof an employer can hire her there. And a
+      country the gazetteer cannot place answers None from `region_contains`,
+      which is "nobody here knows", never "no".
+    """
+    region = region.strip().upper()
+    confirmed = {c.upper() for c in config.eligibility.eligible_countries}
+    residence = (config.eligibility.candidate_country or "").strip().upper()
+    selected = {s.upper() for s in config.eligibility.eligible_scopes}
+
+    if any(region_contains(region, country) is True for country in confirmed):
+        return True
+    if residence and region in selected and region_contains(region, residence) is True:
+        return True
+    known = confirmed | ({residence} if residence else set())
+    if known and all(region_contains(region, country) is False for country in known):
+        return False
+    return None
+
+
 def _scope_verdict(config: SearchConfig, place: ResolvedPlace, *, exhaustive: bool) -> bool | None:
     """Does a stated place admit this candidate? True, False, or None for unknown.
 
     THE PRECEDENCE, IN ORDER:
 
     1. A country list that NAMES one of the candidate's countries admits.
-    2. A country list that does not, and is EXHAUSTIVE, refuses. `Eligible
-       countries: Argentina, Chile, Colombia, Mexico` is the employer answering
-       the question, and Brazil is not in the answer.
-    3. A country list that does not, and is a list of EXAMPLES, decides
-       nothing on its own and falls through to whatever region it was
-       illustrating.
-    4. A region the employer NAMED admits only when the candidate's settings
-       accept it AND the region geographically contains one of the
-       candidate's countries. Both. A configured scope that cannot contain
-       where the candidate lives -- NORTH_AMERICA for somebody in Brazil --
-       is a mistake in a settings file, and this is where the mistake is
-       made harmless rather than where it becomes a job they cannot take.
-    5. A region the employer named that contains none of the candidate's
-       countries refuses: `Remote - Europe` is a stated scope, and it does
-       not include Brazil.
+       Here the country she lives in counts beside `eligible_countries`: an
+       employer naming Brazil has named where she is.
+    2. A REGION the employer named admits when `_region_verdict` says so --
+       geographic containment of a country she can be hired in, never
+       whether the region is spelled in her `eligible_scopes`. Consulted
+       before a country list may refuse, because `LATAM and USA` is one
+       answer.
+    3. A country list that does not name her, and is EXHAUSTIVE, refuses.
+       `Eligible countries: Argentina, Chile, Colombia, Mexico` is the
+       employer answering the question, and Brazil is not in the answer.
+    4. A country list of EXAMPLES decides nothing on its own and falls
+       through to whatever region it was illustrating.
+    5. Named regions refuse only when EVERY one provably excludes her. Any
+       region whose answer is unknown -- containment only through where she
+       lives, or a country the gazetteer cannot place -- leaves the whole
+       statement unknown.
     6. A region only IMPLIED by the countries in a list never admits. That
        implication is the whole defect.
-    7. A region that DOES contain one of the candidate's countries, but that
-       her settings do not accept, decides nothing. `Remote - Worldwide` for
-       somebody in Brazil who ticked only LATAM is not a refusal: the region
-       provably holds Brazil, so "does not include Brazil" would be false. It
-       does not admit either, because rule 4 needs both halves. The same
-       holds when she has configured no accepted scopes at all.
-    8. A region whose membership the gazetteer cannot answer for her
-       countries -- `region_contains` returning None -- decides nothing.
-       Unknown membership is not a refusal.
 
     Nothing here reads `place.regions`; only `countries` and `stated_regions`.
 
@@ -642,35 +678,18 @@ def _scope_verdict(config: SearchConfig, place: ResolvedPlace, *, exhaustive: bo
     """
     if not _candidate_geography_known(config):
         return None
-    eligible_countries = _candidate_countries(config)
-    eligible_scopes = {s.upper() for s in config.eligibility.eligible_scopes}
 
     countries = {c.upper() for c in place.countries}
     stated = {r.upper() for r in place.stated_regions}
 
-    if countries & eligible_countries:
+    if countries & _candidate_countries(config):
         return True
-    # A region the employer NAMED beside the countries -- `LATAM and USA` --
-    # is consulted before the list is allowed to refuse, because the region
-    # is part of the same answer.
-    membership = {
-        region: [region_contains(region, country) for country in eligible_countries]
-        for region in stated
-    }
-    containing = {region for region, answers in membership.items() if any(answers)}
-    if containing & eligible_scopes:
+    verdicts = [_region_verdict(config, region) for region in sorted(stated)]
+    if any(verdict is True for verdict in verdicts):
         return True
     if countries and exhaustive:
         return False
-    if stated:
-        if containing:
-            # Rule 7: the employer's region holds her country and her settings
-            # do not accept it. Unknown, not refused.
-            return None
-        if any(answer is None for answers in membership.values() for answer in answers):
-            # Rule 8: the gazetteer does not place one of her countries, so
-            # nobody here knows whether the region holds it.
-            return None
+    if verdicts and all(verdict is False for verdict in verdicts):
         return False
     return None
 
@@ -1020,11 +1039,13 @@ def _declared_scope(config: SearchConfig, declared: str) -> tuple[str, SignalHit
     never arrive at this function: a place a company has a desk is not a
     statement about who it may employ, and invariant 3 exists because
     conflating them is the most expensive mistake this system can make.
+
+    Which scopes may admit is `_region_verdict`'s answer, the same one the
+    prose and structured paths use; `eligible_scopes` is not an allowlist.
     """
     field = fold_field(declared)
-    eligible = set(config.eligibility.eligible_scopes)
     for scope, patterns in config.eligibility.positive_scope_patterns.items():
-        if scope not in eligible:
+        if _region_verdict(config, scope) is not True:
             continue
         blocker = Blocker(
             id=scope, label=f"Hiring scope {scope}", gate="geography", patterns=patterns

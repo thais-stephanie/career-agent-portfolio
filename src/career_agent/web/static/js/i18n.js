@@ -1879,7 +1879,7 @@ const EN = {
     + 'it, a posting saying where it hires cannot be checked against anything.',
   'ask.scopes': 'Who is allowed to hire you?',
   'ask.scopesWhy': 'This is a different question from where you live, and it is the one that '
-    + 'decides eligibility. With none of these set, no posting can ever pass'
+    + 'decides eligibility. With none of these set, no posting can ever pass '
     + 'the geography gate: the whole corpus stays unresolved.',
   'ask.pay': 'What are you aiming for?',
   'ask.payWhy': 'Without a target the compensation part of every match score has nothing '
@@ -1907,7 +1907,8 @@ const EN = {
   'profileSection.signals_excludedLead': 'Phrases that remove a job from the eligible view. A posting must SAY one '
     + 'of these; silence never excludes.',
   'profileSection.place': 'Where you can work',
-  'profileSection.placeLead': 'A posting that names none of these fails the geography gate. A posting '
+  'profileSection.placeLead': 'A posting whose stated hiring region includes none of these fails the '
+    + 'geography gate. A posting '
     + 'that says nothing stays unresolved -- silence is not a rejection.',
   'profileSection.blockers': 'What rules a job out',
   'profileSection.blockersLead': 'Things an employer states that you cannot meet. Each one has to quote '
@@ -1966,7 +1967,7 @@ const EN = {
   'fieldHelp.candidate_country':
     'This helps us check which jobs can hire someone where you are.',
   'fieldHelp.eligible_scopes':
-    'We use this to find jobs that are open to people in your part of the world.',
+    'We use this to check whether the region a job hires in includes you.',
   'fieldHelp.eligible_countries':
     'Countries where a company could put you on their payroll without going '
     + 'through anyone else. Leave it empty if there are none.',
@@ -3892,7 +3893,7 @@ const PT_BR = {
     + 'anúncio que diz onde contrata não tem com o que ser comparado.',
   'ask.scopes': 'Quem pode te contratar?',
   'ask.scopesWhy': 'Esta é uma pergunta diferente de onde você mora, e é a que decide '
-    + 'elegibilidade. Sem nenhuma marcada, nenhum anúncio consegue passar pelo'
+    + 'elegibilidade. Sem nenhuma marcada, nenhum anúncio consegue passar pelo '
     + 'portão de geografia: o corpus inteiro fica sem resposta.',
   'ask.pay': 'Qual é o seu alvo?',
   'ask.payWhy': 'Sem um alvo, a parte de remuneração de cada nota não tem com o que '
@@ -3920,7 +3921,8 @@ const PT_BR = {
   'profileSection.signals_excludedLead': 'Expressões que tiram uma vaga da visão de elegíveis. O anúncio precisa '
     + 'DIZER uma delas; silêncio nunca exclui.',
   'profileSection.place': 'Onde você pode trabalhar',
-  'profileSection.placeLead': 'Um anúncio que não cita nenhuma destas não passa no portão de geografia. '
+  'profileSection.placeLead': 'Um anúncio cuja região de contratação não inclui nenhuma destas não passa '
+    + 'no portão de geografia. '
     + 'Um anúncio que não diz nada fica sem resposta -- silêncio não é recusa.',
   'profileSection.blockers': 'O que descarta uma vaga',
   'profileSection.blockersLead': 'Coisas que um empregador declara e você não atende. Cada uma precisa '
@@ -3973,7 +3975,7 @@ const PT_BR = {
   'fieldHelp.candidate_country':
     'Isso nos ajuda a verificar quais vagas podem contratar pessoas de onde você está.',
   'fieldHelp.eligible_scopes':
-    'Usamos isso para achar vagas abertas para pessoas da sua região.',
+    'Usamos isso para verificar se a região em que a vaga contrata inclui você.',
   'fieldHelp.eligible_countries':
     'Países onde uma empresa poderia colocar você na folha sem passar por mais '
     + 'ninguém. Deixe vazio se não houver nenhum.',

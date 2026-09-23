@@ -1083,7 +1083,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         add(
             "place",
             "Where you can work",
-            "A posting that names none of these fails the geography gate. A posting "
+            "A posting whose stated hiring region includes none of these fails the "
+            "geography gate. A posting "
             "that says nothing stays unresolved -- silence is not a rejection.",
             place,
             file=path_name,
