@@ -175,8 +175,16 @@ const home = createHome({
     if (patch) store.set(patch);
     goTo(page);
   },
+  // "How is your search going?" is the wrong heading above "Let's set up your
+  // job search", so Home says which of the two it is showing.
+  onSetupShown: (shown) => {
+    homeHeader = shown ? 'setup' : 'home';
+    if (currentPage === 'home') shell.setPage(homeHeader);
+  },
 });
 PAGES.home.appendChild(home.root);
+//: Which header Home wears: its own, or the guided setup's.
+let homeHeader = 'home';
 
 let currentPage = 'home';
 
@@ -200,7 +208,7 @@ function goTo(page, { push = true } = {}) {
   // EVERY page gets the same header shape, filled from one table. Five call
   // sites setting their own is how five screens come to disagree about how
   // tall a header is.
-  shell.setPage(page);
+  shell.setPage(page === 'home' ? homeHeader : page);
 
   if (page === 'applications') {
     // The board IS the applications view. Switching to it also narrows to the
@@ -217,6 +225,7 @@ function goTo(page, { push = true } = {}) {
   // Loaded on arrival rather than on page load: the catalogue answers a
   // question nobody has asked yet, and a list of jobs should not wait on it.
   if (page === 'settings') {
+    renderSetupEntry(document.getElementById('settings-setup-host'));
     renderSearchSettings(document.getElementById('search-settings-host'), store);
     sourcesPanel.load();
     const model = document.getElementById('settings-model');
@@ -466,6 +475,11 @@ async function load(queryString, state, { quiet = false } = {}) {
 function paint(state) {
   if (!lastResponse) return;
   const items = lastResponse.items || [];
+  // NO POSTINGS AT ALL. Filters, three views, grouping and a sort order over an
+  // empty database are a wall of controls that can do nothing; they come back
+  // the moment there is something to filter.
+  const toolbar = document.querySelector('.topbar__controls');
+  if (toolbar) toolbar.dataset.corpusEmpty = corpusEmpty() ? 'true' : 'false';
 
   // The board is its own empty state. Seven columns, each saying what would
   // put something in it, is a better answer than a generic "no results" panel
@@ -1015,6 +1029,44 @@ function healthKnown() {
   return Object.hasOwn(lastHealth, 'job_count');
 }
 
+/**
+ * Settings' first block: change the guided-setup answers, or find jobs.
+ * Both open the same setup that a fresh install starts on, at the right card.
+ */
+function renderSetupEntry(host) {
+  if (!host) return;
+  replace(host, [
+    el('p', { className: 'settings__lede', text: t('settings.setupLede') }),
+    el('div', { className: 'settings__actions' }, [
+      button(t('settings.setupOpen'), () => {
+        home.openSetup('welcome');
+        goTo('home');
+      }, { className: 'btn btn--primary', attrs: { id: 'settings-open-setup' } }),
+      button(t('empty.findJobs'), () => {
+        home.openSetup('ready');
+        goTo('home');
+      }, { className: 'btn', attrs: { id: 'settings-find-jobs' } }),
+    ]),
+  ]);
+}
+
+/** The database holds no postings at all -- known, not merely unanswered. */
+function corpusEmpty() {
+  return healthKnown() && Number(lastHealth.job_count) === 0;
+}
+
+/**
+ * The way out of an empty database: the guided setup's last card, which starts
+ * finding jobs and shows its progress. Replaces directions to a panel inside a
+ * collapsed "Advanced" section of Settings.
+ */
+function findJobsButton() {
+  return button(t('empty.findJobs'), () => {
+    home.openSetup('ready');
+    goTo('home');
+  }, { className: 'btn btn--primary', attrs: { id: 'empty-find-jobs' } });
+}
+
 function emptyHeadline() {
   if (!healthKnown()) return t('empty.headline');
   const stale = Number(lastHealth.job_count) > 0 && Number(lastHealth.scored_count) === 0;
@@ -1150,6 +1202,7 @@ function showEmpty(state) {
     // Only when there is something to recalculate. On a database with no
     // postings at all this would be a button that correctly does nothing.
     !filtered && unscored ? rescoreButton() : null,
+    !filtered && corpusEmpty() ? findJobsButton() : null,
     // The one line of encouragement in the product, and it is only true when
     // nothing is filtered: with a filter on, the answer is the filter, not a
     // reflection on how a career works.
@@ -1908,8 +1961,9 @@ function relabelStaticText() {
   // The rail relabels itself: its destinations now carry an icon beside the
   // word, and writing `textContent` on the button would have thrown the icon
   // away on the first language switch.
-  shell.retranslate(currentPage);
+  shell.retranslate(currentPage === 'home' ? homeHeader : currentPage);
   const settingsHeads = {
+    'settings-setup-head': 'settings.setupHead',
     'settings-prefs-head': 'rail.preferences',
     'settings-sources-head': 'rail.sources',
     'settings-retr-head': 'rail.retrieve',

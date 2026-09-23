@@ -40,6 +40,8 @@ export const PAGE_HEADERS = {
   profile: { eyebrow: 'pagehead.eyebrow.profile', title: 'pagehead.title.profile' },
   evidence: { eyebrow: 'pagehead.eyebrow.evidence', title: 'pagehead.title.evidence' },
   settings: { eyebrow: 'pagehead.eyebrow.settings', title: 'pagehead.title.settings' },
+  // Not a page of its own: Home, while the guided setup is showing on it.
+  setup: { eyebrow: 'pagehead.eyebrow.setup', title: 'pagehead.title.setup' },
 };
 
 /**

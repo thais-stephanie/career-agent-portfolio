@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from tests.browser.home_helpers import open_home_past_setup
 from tests.browser.test_release_personas import Workspace
 
 from career_agent.storage.db import connect, transaction
@@ -27,8 +28,7 @@ def test_settings_renders_history_without_claiming_a_live_refresh(page, tmp_path
         status = ws.app.handle_api("GET", "/api/source-maintenance", {}, {})
         assert status["last_successful_check"] == "2026-09-21T00:00:00Z"
         assert not status["maintenance_running"] and not status["app_refresh_running"]
-        page.navigate(ws.base)
-        page.wait_for("document.querySelectorAll('.firstrun__step').length === 6")
+        open_home_past_setup(page, ws.base)
         page.evaluate("document.querySelector('.topnav__link[data-page=\"settings\"]').click()")
         page.wait_for("document.querySelector('.maintenance')")
         text = str(page.evaluate("document.querySelector('.maintenance').innerText"))

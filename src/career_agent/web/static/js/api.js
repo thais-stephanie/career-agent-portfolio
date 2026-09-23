@@ -684,6 +684,14 @@ export async function startRetrieval() {
   return request('/retrieval', { method: 'POST', body: {} });
 }
 
+/**
+ * Find jobs: every source that may be refreshed and is not paused, in turn.
+ * Returns at once; progress is `getRetrieval()`, cancel is `cancelRetrieval()`.
+ */
+export async function findJobs() {
+  return request('/sources/refresh-all', { method: 'POST', body: {} });
+}
+
 /** Ask the run to stop after the board it is on. */
 export async function cancelRetrieval() {
   return request('/retrieval/cancel', { method: 'POST', body: {} });

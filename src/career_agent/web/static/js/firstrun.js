@@ -84,7 +84,7 @@ const KINDS = [
 /** What a file picker will accept. The same four `cv/extract.py` can read. */
 const ACCEPT = '.pdf,.docx,.txt,.md';
 
-export function createFirstRun({ onGoTo = null, onChanged = null } = {}) {
+export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null } = {}) {
   const root = el('section', { className: 'firstrun' });
   let state = null;
   let token = 0;
@@ -120,6 +120,21 @@ export function createFirstRun({ onGoTo = null, onChanged = null } = {}) {
   }
 
   /** Whether there is anything left to do. The caller decides what to do with it. */
+  /**
+   * Whether this looks like a first run: the server's own verdict (nothing
+   * confirmed and no search described), which is when Home offers the guided
+   * setup unprompted.
+   */
+  function isFresh() {
+    return Boolean(state && state.fresh);
+  }
+
+  /** How many postings hold a score, from the same state. Zero before any. */
+  function scoredCount() {
+    const jobs = ((state && state.steps) || []).find((step) => step.key === 'jobs');
+    return jobs ? Number(jobs.scored || 0) : 0;
+  }
+
   function outstanding() {
     if (!state) return true;
     return (state.steps || []).some((step) => !step.done);
@@ -200,6 +215,30 @@ export function createFirstRun({ onGoTo = null, onChanged = null } = {}) {
     if (step.key === 'career_stage') return [stageControl(step)];
     if (step.key === 'documents') return [uploadControl()];
     if (step.key === 'work' && !done) return [firstSearchControl()];
+    // WHERE YOU LIVE, AND WHO MAY HIRE YOU: answered in the guided setup, at
+    // the card that asks it, rather than on a profile page of sixteen fields.
+    if (step.key === 'where' && onSetup) {
+      return [
+        el('div', { className: 'firstrun__actions' }, [
+          button(t(`firstrun.go.${step.key}`), () => onSetup('home'), {
+            className: done ? 'btn' : 'btn btn--primary',
+          }),
+        ]),
+      ];
+    }
+    // FIND JOBS starts finding them -- the guided setup's last card, with its
+    // progress and a Stop -- instead of opening an empty list that then has to
+    // explain where the button is.
+    if (step.key === 'jobs' && !done && onSetup) {
+      return [
+        el('div', { className: 'firstrun__actions' }, [
+          button(t('empty.findJobs'), () => onSetup('ready'), {
+            className: 'btn btn--primary',
+            attrs: { id: 'firstrun-find-jobs' },
+          }),
+        ]),
+      ];
+    }
     if (!spec.goTo || !onGoTo) return [];
     return [
       el('div', { className: 'firstrun__actions' }, [
@@ -437,5 +476,5 @@ export function createFirstRun({ onGoTo = null, onChanged = null } = {}) {
     if (state) draw();
   }
 
-  return { root, load, redraw, outstanding };
+  return { root, load, redraw, outstanding, isFresh, scoredCount };
 }
