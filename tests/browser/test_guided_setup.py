@@ -252,3 +252,43 @@ def test_the_setup_speaks_portuguese_and_fits_a_phone(page: Chrome, fresh: Fresh
     )
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
     page.evaluate("document.querySelector('[data-locale=\"en\"]').click()")
+
+
+def test_changing_where_you_live_does_not_carry_the_hiring_answer_over(
+    page: Chrome, fresh: Fresh
+) -> None:
+    """A "Yes" given for one country is not a "Yes" for the next one.
+
+    Answering Yes for Brazil, going back and choosing Portugal as the country
+    you live in, must not arrive at the hiring question with Yes already
+    ticked for Portugal -- pressing Continue would then record an eligibility
+    nobody gave, and drop the one that was given.
+    """
+    _open(page, fresh.base)
+    _click(page, "#setup-next")
+    _wait_card(page, "work")
+    _click(page, "#setup-skip")
+    _wait_card(page, "stage")
+    _click(page, "#setup-skip")
+    _wait_card(page, "home")
+    _value(page, "#setup-country", "BR", "change")
+    _click(page, "#setup-next")
+    _wait_card(page, "hire")
+    _click(page, "#setup-hire-yes")
+    _click(page, "#setup-next")
+    _wait_card(page, "regions")
+
+    _click(page, "#setup-back")
+    _wait_card(page, "hire")
+    _click(page, "#setup-back")
+    _wait_card(page, "home")
+    _value(page, "#setup-country", "PT", "change")
+    _click(page, "#setup-next")
+    _wait_card(page, "hire")
+    assert "Portugal" in str(page.evaluate("document.querySelector('.setup__legend').innerText"))
+    assert not page.evaluate("document.querySelector('#setup-hire-yes').checked")
+    _click(page, "#setup-next")
+    _wait_card(page, "regions")
+    config, _ = load_search_config(fresh.config_dir)
+    assert config.eligibility.candidate_country == "PT"
+    assert config.eligibility.eligible_countries == ["BR"]

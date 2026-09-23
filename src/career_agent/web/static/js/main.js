@@ -211,6 +211,11 @@ function goTo(page, { push = true } = {}) {
   // tall a header is.
   shell.setPage(page === 'home' ? homeHeader : page);
 
+  // The board's empty notice belongs to Applications alone. Discover shares its
+  // container and repaints only when its list arrives; clearing it here keeps
+  // "No applications tracked yet" from lingering over Discover meanwhile.
+  if (page !== 'applications') paintBoardEmpty(false);
+
   if (page === 'applications') {
     // The board IS the applications view. Switching to it also narrows to the
     // tracked statuses, exactly as pressing Board does, so the two routes

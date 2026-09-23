@@ -463,7 +463,11 @@ export function createSetup({ onExit = null, onGoTo = null } = {}) {
     hire: () => {
       const home = value('candidate_country') || '';
       const saved = Array.isArray(value('eligible_countries')) ? value('eligible_countries') : [];
-      const draft = drafts.hire || {
+      // The draft answers a question ABOUT ONE COUNTRY. When where-you-live
+      // changes, the old "Yes" was about somewhere else: start again from what
+      // is saved, or a Continue would record an eligibility nobody gave.
+      const draft = drafts.hire && drafts.hire.home === home ? drafts.hire : {
+        home,
         homeAnswer: home ? (saved.includes(home) ? 'yes' : '') : '',
         others: saved.filter((code) => code !== home),
       };
