@@ -172,6 +172,11 @@ MAX_UPLOAD_BYTES = 34 * 1024 * 1024
 UPLOAD_PATHS = frozenset({"/api/cv/import", "/api/intake"})
 
 
+#: A Content-Length this server will frame a body by. ASCII only: `str.isdigit`
+#: also accepts characters such as "²" that `int` then refuses.
+_DECIMAL = re.compile(r"[0-9]+")
+
+
 def body_limit(path: str) -> int:
     """How large a body this path may carry."""
     return MAX_UPLOAD_BYTES if path in UPLOAD_PATHS else MAX_BODY_BYTES
@@ -196,6 +201,57 @@ class _Handler(BaseHTTPRequestHandler):
 
     def address_string(self) -> str:
         return self.client_address[0]
+
+    # -- framing -----------------------------------------------------------
+    # Keep-alive means the bytes after a request are read as the NEXT request.
+    # A refusal sent before the body was read -- a 403 from `_check_origin`, a
+    # 405, a 413 -- used to leave that body on the socket, and a body that was
+    # itself a well-formed request, with our own Host and a JSON content type,
+    # was then served as if nobody had refused anything. A cross-site page can
+    # send such a body as text/plain without a preflight. So: a body this
+    # server did not read ends the connection, and a body it cannot frame
+    # (chunked, two lengths, a length that is not a number) is refused whole.
+    _body_consumed = False
+    _status_code = 0
+
+    def send_response_only(self, code: int, message: str | None = None) -> None:
+        # Every status line passes through here, including the interim
+        # `100 Continue` that `handle_expect_100` sends BEFORE the body is
+        # read. That one must not close the connection it is inviting a body on.
+        self._status_code = code
+        super().send_response_only(code, message)
+
+    def parse_request(self) -> bool:
+        self._body_consumed = False
+        if not super().parse_request():
+            return False
+        lengths = self.headers.get_all("Content-Length") or []
+        if (
+            "Transfer-Encoding" in self.headers
+            or len(lengths) > 1
+            or (lengths and not _DECIMAL.fullmatch(lengths[0].strip()))
+        ):
+            self.close_connection = True
+            self._send_json(400, {"error": "unsupported request framing"})
+            return False
+        return True
+
+    def _unread_body(self) -> bool:
+        """True when the request declared a body that was not read off the socket."""
+        headers = getattr(self, "headers", None)
+        if headers is None or self._body_consumed:
+            return False
+        if "Transfer-Encoding" in headers:
+            return True
+        length = (headers.get("Content-Length") or "0").strip()
+        return not _DECIMAL.fullmatch(length) or int(length) > 0
+
+    def end_headers(self) -> None:
+        if self._status_code >= 200 and self._unread_body():
+            # `send_header` sets `close_connection` when it sees this header.
+            self.send_header("Connection", "close")
+            self.close_connection = True
+        super().end_headers()
 
     # -- verbs -----------------------------------------------------------
     def do_GET(self) -> None:  # noqa: N802  (stdlib naming)
@@ -306,6 +362,7 @@ class _Handler(BaseHTTPRequestHandler):
         if length > limit:
             raise ApiError(413, "request body too large")
         raw = self.rfile.read(length)
+        self._body_consumed = True
         try:
             parsed = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:

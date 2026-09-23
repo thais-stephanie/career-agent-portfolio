@@ -625,13 +625,15 @@ def _scope_verdict(config: SearchConfig, place: ResolvedPlace, *, exhaustive: bo
        not include Brazil.
     6. A region only IMPLIED by the countries in a list never admits. That
        implication is the whole defect.
-    7. A region that DOES contain one of the candidate's countries, when the
-       candidate has configured NO accepted scopes at all, decides nothing.
-       `Remote - LATAM` for somebody in Brazil who has not yet said which
-       scopes she accepts is not a refusal; it is a question her settings
-       have not answered. An empty list is not an explicit "none": the same
-       reading `eligible_countries: []` gets. A NON-empty list that leaves
-       the region out is her explicit answer and still refuses (rule 4).
+    7. A region that DOES contain one of the candidate's countries, but that
+       her settings do not accept, decides nothing. `Remote - Worldwide` for
+       somebody in Brazil who ticked only LATAM is not a refusal: the region
+       provably holds Brazil, so "does not include Brazil" would be false. It
+       does not admit either, because rule 4 needs both halves. The same
+       holds when she has configured no accepted scopes at all.
+    8. A region whose membership the gazetteer cannot answer for her
+       countries -- `region_contains` returning None -- decides nothing.
+       Unknown membership is not a refusal.
 
     Nothing here reads `place.regions`; only `countries` and `stated_regions`.
 
@@ -651,19 +653,23 @@ def _scope_verdict(config: SearchConfig, place: ResolvedPlace, *, exhaustive: bo
     # A region the employer NAMED beside the countries -- `LATAM and USA` --
     # is consulted before the list is allowed to refuse, because the region
     # is part of the same answer.
-    containing = {
-        region
+    membership = {
+        region: [region_contains(region, country) for country in eligible_countries]
         for region in stated
-        if any(region_contains(region, country) for country in eligible_countries)
     }
+    containing = {region for region, answers in membership.items() if any(answers)}
     if containing & eligible_scopes:
         return True
     if countries and exhaustive:
         return False
     if stated:
-        if containing and not eligible_scopes:
-            # Rule 7: the employer's region holds her country and she has
-            # not said which scopes she accepts. Unknown, not refused.
+        if containing:
+            # Rule 7: the employer's region holds her country and her settings
+            # do not accept it. Unknown, not refused.
+            return None
+        if any(answer is None for answers in membership.values() for answer in answers):
+            # Rule 8: the gazetteer does not place one of her countries, so
+            # nobody here knows whether the region holds it.
             return None
         return False
     return None

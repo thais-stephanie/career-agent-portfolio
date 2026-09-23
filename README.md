@@ -154,13 +154,9 @@ Some sources provide complete structured inventories. Others expose recent-job w
 
 [See the source permissions and coverage notes →](docs/SOURCES.md)
 
-### Coming next
+### LinkedIn
 
-**LinkedIn job ingestion is in development.**
-
-The planned pipeline will bring discovered LinkedIn roles through the same normalization, deduplication, eligibility and Search Fit flow used by the existing sources.
-
-LinkedIn ingestion is not included in Alpha 2. The final collection method will be qualified separately before release.
+**LinkedIn is not collected automatically.** LinkedIn prohibits automated access without written permission, so Career Agent offers it only as a search link you open yourself in your browser. You can paste a LinkedIn posting into manual import, and import your own LinkedIn profile PDF export for review.
 
 ## Resume Tailor Beta
 Open **Resume Tailor Beta** in the sidebar. From a job, choose **Copy job description**, open Tailor and paste it into **Tailor resume**.

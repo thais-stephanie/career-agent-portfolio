@@ -538,10 +538,16 @@ def test_an_empty_scope_list_is_not_an_explicit_refusal_of_a_containing_region(
         assert gate.result is GateResult.UNRESOLVED, location
 
 
-def test_a_non_empty_scope_list_that_leaves_a_region_out_still_refuses(brazil) -> None:
-    """The explicit answer is unchanged: a candidate who accepts WORLDWIDE and
-    LATAM and not EUROPE is refused by `Remote EU`, and a scope list that
-    cannot contain Brazil is inert (ADR-0023) and refuses LATAM."""
+def test_a_scope_list_that_leaves_out_a_region_holding_her_country_does_not_refuse(
+    brazil,
+) -> None:
+    """A region that provably holds Brazil is never a refusal for Brazil.
+
+    This used to refuse: a scope list that cannot contain Brazil (ADR-0023)
+    turned `Remote - LATAM` into VERIFIED_NOT_ELIGIBLE, with a reason saying
+    LATAM does not include Brazil. It does. The inert list still cannot ADMIT
+    (rule 4 needs both halves), so the answer is unknown. A region that does
+    not hold Brazil still refuses."""
     only_north_america = brazil.model_copy(
         update={
             "eligibility": brazil.eligibility.model_copy(
@@ -550,9 +556,105 @@ def test_a_non_empty_scope_list_that_leaves_a_region_out_still_refuses(brazil) -
         }
     )
     assert _verdict(only_north_america, "Remote - LATAM", "REMOTE")[0] is (
-        EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+        EligibilityStatus.UNRESOLVED
     )
     assert _verdict(brazil, "Remote EU", "REMOTE")[0] is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+
+
+def _with_scopes(config, country: str, scopes: list[str]):
+    return config.model_copy(
+        update={
+            "eligibility": config.eligibility.model_copy(
+                update={
+                    "candidate_country": country,
+                    "candidate_country_label": country,
+                    "eligible_countries": [country],
+                    "eligible_scopes": scopes,
+                }
+            )
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "location",
+    ["Remote - Worldwide", "Remote - Americas", "Anywhere in the World"],
+)
+def test_an_unselected_region_that_holds_brazil_is_unknown_not_refused(
+    brazil, location: str
+) -> None:
+    """Brazil ticked only LATAM. WORLDWIDE and AMERICAS both hold Brazil."""
+    latam_only = _with_scopes(brazil, "BR", ["LATAM"])
+    status, gate = _verdict(latam_only, location, "REMOTE")
+    assert status is EligibilityStatus.UNRESOLVED, (location, gate.reason)
+    assert gate.result is GateResult.UNRESOLVED, (location, gate.reason)
+
+
+@pytest.mark.parametrize(
+    ("location", "expected"),
+    [
+        # Positive controls: the same candidate, the same gate, still able to
+        # admit and to refuse -- so the cases above cannot pass by the gate
+        # having stopped deciding anything.
+        ("Remote - LATAM", EligibilityStatus.VERIFIED_ELIGIBLE),
+        ("Remote - EMEA", EligibilityStatus.VERIFIED_NOT_ELIGIBLE),
+    ],
+)
+def test_a_latam_only_candidate_is_still_admitted_and_refused(
+    brazil, location: str, expected: EligibilityStatus
+) -> None:
+    latam_only = _with_scopes(brazil, "BR", ["LATAM"])
+    assert _verdict(latam_only, location, "REMOTE")[0] is expected
+
+
+def test_a_selected_worldwide_scope_still_admits_brazil(brazil) -> None:
+    worldwide = _with_scopes(brazil, "BR", ["WORLDWIDE", "LATAM"])
+    assert _verdict(worldwide, "Remote - Worldwide", "REMOTE")[0] is (
+        EligibilityStatus.VERIFIED_ELIGIBLE
+    )
+
+
+def test_a_declared_scope_that_holds_brazil_is_unknown_not_refused(brazil) -> None:
+    """The declared-scope path reads the same verdict as the location path."""
+    latam_only = _with_scopes(brazil, "BR", ["LATAM"])
+    result = match_job(
+        latam_only,
+        JobFacts(
+            title="Integration Engineer",
+            description=NEUTRAL_BODY,
+            workplace_type="REMOTE",
+            declared_hiring_scope="Anywhere in the World",
+        ),
+        computed_at="2026-09-07T00:00:00Z",
+    )
+    assert result.eligibility_status is EligibilityStatus.UNRESOLVED
+
+
+@pytest.mark.parametrize("country", ["MK", "XK"])
+@pytest.mark.parametrize("location", ["Remote - EMEA", "Remote - Europe"])
+def test_a_country_the_gazetteer_cannot_place_stays_unresolved(
+    brazil, country: str, location: str
+) -> None:
+    """North Macedonia and Kosovo are not in `places.yaml`.
+
+    `region_contains` answers None for them -- "nobody here knows" -- and the
+    gate used to read that None as "not contained" and refuse, with a reason
+    saying EMEA does not include North Macedonia."""
+    from career_agent.match.places import region_contains
+
+    assert region_contains("EMEA", country) is None, "the fixture needs an unplaced country"
+    candidate = _with_scopes(brazil, country, ["EMEA"])
+    status, gate = _verdict(candidate, location, "REMOTE")
+    assert status is EligibilityStatus.UNRESOLVED, (country, location, gate.reason)
+    assert gate.result is GateResult.UNRESOLVED, (country, location, gate.reason)
+
+
+def test_an_unplaced_country_is_still_refused_by_a_list_that_omits_it(brazil) -> None:
+    """Control: an exhaustive country list is an answer without the gazetteer."""
+    candidate = _with_scopes(brazil, "MK", ["EMEA"])
+    assert _verdict(candidate, "Remote (Germany, France)", "REMOTE")[0] is (
+        EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+    )
 
 
 def test_explicit_incompatible_restrictions_are_still_refused_with_only_a_country(

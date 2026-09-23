@@ -671,3 +671,267 @@ def test_a_path_registered_for_two_methods_answers_both(tmp_path: Path) -> None:
     with pytest.raises(ApiError) as caught:
         api.handle_api("PATCH", "/api/health", {}, {})
     assert caught.value.status == 405
+
+
+# =========================================================================
+# A refused request cannot smuggle a second one on the same socket
+# =========================================================================
+#
+# The server speaks HTTP/1.1 keep-alive and used to refuse some requests --
+# cross-origin, non-JSON, wrong method, too large -- before reading their body.
+# The unread body was then parsed as the NEXT request, and a body that was
+# itself a well-formed request, carrying our own Host and a JSON content type,
+# passed `_check_origin`. A cross-site page can send such a body as text/plain
+# with no preflight. These tests drive raw bytes at the socket because the
+# defect lives in how the socket is framed.
+
+_SMUGGLED_TITLE = "Smuggled posting"
+
+
+def _migrated_server(tmp_path: Path):
+    """`_running_server` over a migrated database, so a write can land."""
+    from career_agent.storage.db import connect, migrate
+
+    conn = connect(tmp_path / "x.db")
+    try:
+        migrate(conn)
+    finally:
+        conn.close()
+    return _running_server(tmp_path)
+
+
+def _smuggled_import(port: int) -> bytes:
+    body = json.dumps(
+        {"title": _SMUGGLED_TITLE, "company": "Evil Corp", "description": "x" * 200}
+    ).encode()
+    return (
+        b"POST /api/import HTTP/1.1\r\n"
+        b"Host: 127.0.0.1:" + str(port).encode() + b"\r\n"
+        b"Content-Type: application/json\r\n"
+        b"Content-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body
+    )
+
+
+def _carrier(port: int, request_line: bytes, headers: bytes, body: bytes) -> bytes:
+    """A request whose body is `body`, sent WITHOUT `Connection: close`."""
+    return (
+        request_line
+        + b"\r\nHost: 127.0.0.1:"
+        + str(port).encode()
+        + b"\r\n"
+        + headers
+        + b"Content-Length: "
+        + str(len(body)).encode()
+        + b"\r\n\r\n"
+        + body
+    )
+
+
+def _exchange_until_closed(port: int, payload: bytes) -> bytes:
+    """Send `payload` and read until the SERVER closes the socket.
+
+    A server that leaves the connection open after a refusal is the defect, so
+    a read timeout is a failure here, not a flake.
+    """
+    import socket as _socket
+
+    with _socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+        sock.sendall(payload)
+        chunks = []
+        while True:
+            try:
+                data = sock.recv(65536)
+            except TimeoutError:
+                pytest.fail("the server kept the connection open after refusing the request")
+            if not data:
+                break
+            chunks.append(data)
+    return b"".join(chunks)
+
+
+def _status_lines(raw: bytes) -> list[str]:
+    # A JSON body ends without CRLF, so a second response's status line follows
+    # the first body directly. Splitting on CRLF would miss exactly the response
+    # these tests exist to catch.
+    import re
+
+    return [m.decode("latin-1") for m in re.findall(rb"HTTP/1\.[01] \d{3} [^\r\n]*", raw)]
+
+
+def _smuggled_rows(tmp_path: Path) -> int:
+    import sqlite3
+
+    db = tmp_path / "x.db"
+    if not db.exists():
+        return 0
+    conn = sqlite3.connect(db)
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM job WHERE title = ?", (_SMUGGLED_TITLE,)
+        ).fetchone()[0]
+    except sqlite3.OperationalError:
+        return 0
+    finally:
+        conn.close()
+
+
+def test_the_smuggled_request_is_a_valid_write_on_its_own(tmp_path: Path) -> None:
+    """The control: sent directly, the inner request DOES write.
+
+    Without this, every refusal below could pass because the inner request was
+    malformed rather than because the server declined to parse it.
+    """
+    httpd, port = _migrated_server(tmp_path)
+    try:
+        direct = _smuggled_import(port).replace(b"\r\n\r\n", b"\r\nConnection: close\r\n\r\n", 1)
+        raw = _exchange_until_closed(port, direct)
+        assert " 200 " in _status_lines(raw)[0]
+        assert _smuggled_rows(tmp_path) == 1
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+@pytest.mark.parametrize(
+    ("request_line", "headers", "expected"),
+    [
+        # 405: a non-API path refused before anything reads the body.
+        (b"POST /not-an-api HTTP/1.1", b"Content-Type: text/plain\r\n", " 405 "),
+        # 415: the simple-request content type a cross-site page can send.
+        (b"POST /api/import HTTP/1.1", b"Content-Type: text/plain\r\n", " 415 "),
+        # 403: a page on another origin.
+        (
+            b"POST /api/import HTTP/1.1",
+            b"Origin: https://evil.example\r\nContent-Type: application/json\r\n",
+            " 403 ",
+        ),
+        # 302: a GET route that never reads a body it was sent.
+        (b"GET /resume-tailor HTTP/1.1", b"", " 302 "),
+        # 501: a method the handler does not implement at all.
+        (b"PUT /api/import HTTP/1.1", b"Content-Type: text/plain\r\n", " 501 "),
+    ],
+)
+def test_a_refused_request_cannot_carry_a_second_request(
+    tmp_path: Path, request_line: bytes, headers: bytes, expected: str
+) -> None:
+    httpd, port = _migrated_server(tmp_path)
+    try:
+        raw = _exchange_until_closed(
+            port, _carrier(port, request_line, headers, _smuggled_import(port))
+        )
+        statuses = _status_lines(raw)
+        assert len(statuses) == 1, f"the body was served as a second request: {statuses}"
+        assert expected in statuses[0]
+        assert b"connection: close" in raw.lower()
+        assert _smuggled_rows(tmp_path) == 0
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_an_oversized_body_is_refused_and_the_rest_is_not_parsed(tmp_path: Path) -> None:
+    """413 is decided from the header, before a byte of the body is read."""
+    from career_agent.web.server import MAX_BODY_BYTES
+
+    httpd, port = _migrated_server(tmp_path)
+    try:
+        payload = (
+            b"POST /api/import HTTP/1.1\r\n"
+            b"Host: 127.0.0.1:" + str(port).encode() + b"\r\n"
+            b"Content-Type: application/json\r\n"
+            b"Content-Length: " + str(MAX_BODY_BYTES + 1).encode() + b"\r\n\r\n"
+        ) + _smuggled_import(port)
+        raw = _exchange_until_closed(port, payload)
+        statuses = _status_lines(raw)
+        assert len(statuses) == 1 and " 413 " in statuses[0], statuses
+        assert _smuggled_rows(tmp_path) == 0
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+@pytest.mark.parametrize(
+    "framing",
+    [
+        b"Transfer-Encoding: chunked\r\n",
+        b"Content-Length: 5\r\nContent-Length: 5\r\n",
+        b"Content-Length: -1\r\n",
+        b"Content-Length: 1e3\r\n",
+    ],
+)
+def test_a_body_the_server_cannot_frame_is_refused_whole(tmp_path: Path, framing: bytes) -> None:
+    """Chunked bodies are never read, so they are refused rather than left behind."""
+    httpd, port = _migrated_server(tmp_path)
+    try:
+        payload = (
+            b"POST /api/import HTTP/1.1\r\n"
+            b"Host: 127.0.0.1:" + str(port).encode() + b"\r\n"
+            b"Content-Type: application/json\r\n" + framing + b"\r\n"
+        ) + _smuggled_import(port)
+        raw = _exchange_until_closed(port, payload)
+        statuses = _status_lines(raw)
+        assert len(statuses) == 1 and " 400 " in statuses[0], statuses
+        assert _smuggled_rows(tmp_path) == 0
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_keep_alive_still_serves_two_ordinary_requests(tmp_path: Path) -> None:
+    """Closing on an unread body must not close every connection."""
+    import socket as _socket
+
+    httpd, port = _migrated_server(tmp_path)
+    try:
+        get = b"GET /api/health HTTP/1.1\r\nHost: 127.0.0.1:" + str(port).encode() + b"\r\n\r\n"
+        last = get.replace(b"\r\n\r\n", b"\r\nConnection: close\r\n\r\n")
+        with _socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            sock.sendall(get + last)
+            chunks = []
+            while data := sock.recv(65536):
+                chunks.append(data)
+        statuses = _status_lines(b"".join(chunks))
+        assert len(statuses) == 2 and all(" 200 " in s for s in statuses), statuses
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_expect_continue_does_not_close_the_connection_it_invites_a_body_on(
+    tmp_path: Path,
+) -> None:
+    """`100 Continue` is sent before the body is read, and is not a refusal.
+
+    Closing on it would tell the client to hang up just as the server asks it
+    for the body -- and drop keep-alive for every client that sends Expect."""
+    import socket as _socket
+
+    httpd, port = _migrated_server(tmp_path)
+    try:
+        body = json.dumps({"title": "Ordinary", "company": "Acme", "description": "d" * 50})
+        head = (
+            b"POST /api/import HTTP/1.1\r\n"
+            b"Host: 127.0.0.1:" + str(port).encode() + b"\r\n"
+            b"Content-Type: application/json\r\n"
+            b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+            b"Expect: 100-continue\r\n\r\n"
+        )
+        follow = (
+            b"GET /api/health HTTP/1.1\r\nHost: 127.0.0.1:"
+            + str(port).encode()
+            + b"\r\nConnection: close\r\n\r\n"
+        )
+        with _socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            sock.sendall(head)
+            interim = sock.recv(4096)
+            assert interim.startswith(b"HTTP/1.1 100 "), interim
+            assert b"connection: close" not in interim.lower()
+            sock.sendall(body.encode() + follow)
+            chunks = []
+            while data := sock.recv(65536):
+                chunks.append(data)
+        statuses = _status_lines(b"".join(chunks))
+        assert len(statuses) == 2 and all(" 200 " in s for s in statuses), statuses
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
