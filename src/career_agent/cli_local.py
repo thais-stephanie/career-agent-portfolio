@@ -825,9 +825,6 @@ def source_health_command(
 def cv_import_command(
     path: Annotated[Path, typer.Argument(help="Your CV. PDF, DOCX, TXT or MD.")],
     db: Annotated[Path | None, typer.Option("--db")] = None,
-    accept_all: Annotated[
-        bool, typer.Option("--accept-all", help="Confirm every proposal without reviewing")
-    ] = False,
     review: Annotated[
         bool, typer.Option("--review", help="Decide on each proposal one at a time")
     ] = False,
@@ -847,8 +844,10 @@ def cv_import_command(
     Local and private. No network call, no model of either kind, and the text
     is never written anywhere except the claims you accept.
 
-    A dry run by default. `--no-dry-run --accept-all` confirms everything at
-    once, which is honest only if you have read the list first.
+    A dry run by default. `--no-dry-run --review` goes through the proposals
+    one at a time: accept, edit, reject or stop. There is no way to confirm
+    them all at once, here or anywhere else in Career Agent: every confirmed
+    statement is one somebody read (docs/CAREER_EVIDENCE.md).
     """
     from career_agent.cv.extract import CvError, extract
     from career_agent.cv.propose import read_cv, to_claim
@@ -881,6 +880,12 @@ def cv_import_command(
     typer.echo(f"  sections found : {', '.join(sorted(read.sections)) or 'none'}")
     if read.unread_lines:
         typer.echo(f"  before any heading : {len(read.unread_lines)} lines, not proposed")
+    jobs = [entry for entry in read.entries if entry.section == "experience"]
+    if jobs:
+        typer.echo(f"  experiences found : {len(jobs)}")
+        for entry in jobs:
+            when = entry.span.text if entry.span is not None else "dates not stated"
+            typer.echo(f"    {entry.title or 'not named'} ({when})")
 
     by_type: dict[str, list] = {}
     for proposal in read.proposals:
@@ -895,20 +900,20 @@ def cv_import_command(
 
     if dry_run:
         typer.echo("")
-        typer.echo("  Nothing was stored. Add --no-dry-run --accept-all to confirm all of these,")
-        typer.echo("  or review them one at a time in the interface.")
+        typer.echo("  Nothing was stored. Add --no-dry-run --review to answer them one at a time,")
+        typer.echo("  or review them by experience in Career Evidence.")
         typer.echo("  no network call and no inference call of either kind")
         return
 
-    if not accept_all and not review:
+    if not review:
         typer.secho(
             "\n  Refusing to store proposals nobody accepted."
-            " Add --review to go through them, or --accept-all having read the list above.",
+            " Add --review to answer them one at a time.",
             fg=typer.colors.YELLOW,
         )
         raise typer.Exit(code=1)
 
-    decisions = _review(read.proposals) if review else [(p, p.text) for p in read.proposals]
+    decisions = _review(read.proposals)
     if not decisions:
         typer.echo("\n  Nothing accepted. Nothing stored.")
         return
@@ -924,7 +929,18 @@ def cv_import_command(
         stored = 0
         with transaction(conn):
             for proposal, text in decisions:
-                repo.supersede(candidate_id, to_claim(proposal, text=text))
+                # The company and months of the job the line sits under, as
+                # the listing above showed them. Headings are never claims.
+                job = read.entry(proposal.entry_key)
+                span = job.span if job is not None else None
+                claim = to_claim(
+                    proposal,
+                    text=text,
+                    employer=job.company if job is not None else None,
+                    period_start=span.start if span is not None else None,
+                    period_end=span.end if span is not None else None,
+                )
+                repo.supersede(candidate_id, claim)
                 stored += 1
     finally:
         conn.close()
@@ -961,7 +977,11 @@ def _review(proposals: list) -> list:
         if proposal.has_measurement:
             typer.echo("    this carries a figure. Check it says what you remember saying.")
 
-        answer = typer.prompt("    [a/e/r/q]", default="a").strip().lower()[:1]
+        # NO DEFAULT. An Enter that meant "accept" made holding the key down
+        # (or piping blank lines in) a way to confirm every proposal unread.
+        answer = ""
+        while answer not in {"a", "e", "r", "q"}:
+            answer = typer.prompt("    [a/e/r/q]").strip().lower()[:1]
         if answer == "q":
             typer.echo("    stopping. Everything accepted so far is kept.")
             break
@@ -1006,24 +1026,20 @@ def _sole_candidate(conn) -> str:
 # evidence
 # =====================================================================
 def _waiting_for_review(conn: object) -> int:
-    """How many staged intake claims still have no answer.
+    """How many suggestions still have no answer, in imports she is working on.
 
-    Counted here rather than imported from `intake.store` so that a database
-    predating migration 0023 answers zero instead of raising: this command is
-    also how somebody finds out what state their workspace is in.
+    The SAME definition every screen uses (`storage/review_counts.py`): the
+    intake package in force and every CV read not archived or deleted. A
+    database predating those tables answers zero instead of raising, because
+    this command is also how somebody finds out what state their workspace
+    is in.
     """
-    from career_agent.intake.models import ReviewState
+    from career_agent.storage.review_counts import review_counts
 
     try:
-        row = conn.execute(  # type: ignore[attr-defined]
-            "SELECT COUNT(*) AS n FROM intake_claim c"
-            " JOIN intake_package p ON p.id = c.package_id"
-            " WHERE p.status = 'ACTIVE' AND c.review_state IN (?, ?, ?)",
-            tuple(sorted(ReviewState.ANSWERABLE)),
-        ).fetchone()
+        return review_counts(conn).waiting  # type: ignore[arg-type]
     except Exception:
         return 0
-    return int(row["n"]) if row else 0
 
 
 def evidence_command(
@@ -1065,6 +1081,10 @@ def evidence_command(
             typer.echo(
                 "    uv run career-agent intake-answer --help   # confirm, correct or reject"
             )
+            # The count includes CV reads, which are reviewed in the interface
+            # (Career Evidence), experience by experience.
+            typer.echo("  CV suggestions are reviewed in Career Evidence:")
+            typer.echo("    uv run career-agent serve")
         else:
             typer.echo("")
             typer.echo("  Build a package from your own documents, on this machine:")

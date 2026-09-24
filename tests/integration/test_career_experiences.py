@@ -191,8 +191,11 @@ def test_stale_preview_and_bulk_review_preserve_revisions(career):
         career.apply(command, preview["preview_hash"])
     apply(career, command)
     with pytest.raises(CareerError, match="explicitly confirm"):
-        apply(career, {"action": "confirm", "keys": keys})
-    apply(career, {"action": "confirm", "keys": keys}, reviewed=True)
+        apply(career, {"action": "confirm", "keys": keys[:1]})
+    with pytest.raises(CareerError, match="one statement at a time"):
+        apply(career, {"action": "confirm", "keys": keys}, reviewed=True)
+    for key in keys:
+        apply(career, {"action": "confirm", "keys": [key]}, reviewed=True)
     apply(career, {"action": "category", "keys": keys, "category": "PROJECT"})
     for key in keys:
         rows = career.conn.execute(

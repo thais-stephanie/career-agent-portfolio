@@ -81,10 +81,55 @@ def import_cv(page: Chrome) -> None:
         "   input.dispatchEvent(new Event('change', { bubbles: true }));"
         "})()"
     )
+    # CAREER EVIDENCE V2: the review opens on a SUMMARY -- experiences found,
+    # suggestions, what needs attention -- never on a wall of cards. The
+    # cards are one step in, and "Next item needing review" takes that step.
+    page.wait_for(
+        "document.querySelector('#page-evidence .cvr__summary [data-summary]') !== null",
+        message="the review summary",
+    )
+    assert page.evaluate("document.querySelectorAll('#page-evidence .ev__card').length") == 0
+    open_next(page)
+
+
+def open_next(page: Chrome) -> None:
+    page.evaluate("document.querySelector('#page-evidence [data-action=\"next\"]').click()")
     page.wait_for(
         "document.querySelectorAll('#page-evidence .ev__card').length > 0",
         message="the review cards",
     )
+
+
+def to_summary(page: Chrome) -> None:
+    """From a group back to the list of experiences, if a group is open."""
+    page.evaluate(
+        "(() => { const b = [...document.querySelectorAll('#page-evidence button')]"
+        ".find((x) => x.textContent.includes('Back to all experiences')); if (b) b.click(); })()"
+    )
+    page.wait_for(
+        "document.querySelector('#page-evidence .cvr__summary') !== null",
+        message="the review summary",
+    )
+
+
+def all_cards(page: Chrome) -> list:
+    """Every card in the read: each experience and section, opened in turn."""
+    to_summary(page)
+    count = int(
+        page.evaluate("document.querySelectorAll('#page-evidence .cvr__row button').length")
+    )
+    found: list = []
+    for index in range(count):
+        page.evaluate(
+            f"document.querySelectorAll('#page-evidence .cvr__row button')[{index}].click()"
+        )
+        page.wait_for(
+            "document.querySelector('#page-evidence .cvr__group') !== null",
+            message="one group of the review",
+        )
+        found += cards(page)
+        to_summary(page)
+    return found
 
 
 def cards(page: Chrome) -> list:
@@ -148,6 +193,7 @@ def ledger(page: Chrome) -> list:
 
 
 def back_to_ledger(page: Chrome) -> None:
+    to_summary(page)
     page.evaluate(
         "[...document.querySelectorAll('#page-evidence button')]"
         ".find((b) => b.textContent.includes('Back to your evidence')).click()"
@@ -171,9 +217,11 @@ def back_to_ledger(page: Chrome) -> None:
 def test_reading_a_cv_confirms_nothing(page: Chrome, pristine_server: str) -> None:
     open_evidence(page, pristine_server)
     import_cv(page)
-    assert all(card["decision"] is None for card in cards(page))
-    confirmed = page.evaluate("document.querySelector('#page-evidence .ev__reviewhead') !== null")
-    assert confirmed, "the review did not open"
+    assert all(card["decision"] is None for card in all_cards(page))
+    summary = str(
+        page.evaluate("document.querySelector('#page-evidence [data-summary]').textContent")
+    )
+    assert "suggestions" in summary and "need attention" in summary, summary
 
 
 def test_every_card_shows_the_line_it_was_read_from(page: Chrome, pristine_server: str) -> None:
@@ -182,7 +230,9 @@ def test_every_card_shows_the_line_it_was_read_from(page: Chrome, pristine_serve
     the whole mechanism."""
     open_evidence(page, pristine_server)
     import_cv(page)
-    for card in cards(page):
+    every = all_cards(page)
+    assert len(every) == 11
+    for card in every:
         assert card["source"].strip(), card["proposal"]
         assert card["source"] in SYNTHETIC_CV
 
@@ -192,7 +242,7 @@ def test_a_figure_is_flagged_on_the_card_that_carries_it(
 ) -> None:
     open_evidence(page, pristine_server)
     import_cv(page)
-    flagged = [card for card in cards(page) if card["figure"]]
+    flagged = [card for card in all_cards(page) if card["figure"]]
     assert len(flagged) == 1
     assert "40%" in flagged[0]["proposal"], "the figure was lifted out of its sentence"
 
@@ -271,7 +321,8 @@ def test_answers_survive_a_reload(page: Chrome, pristine_server: str) -> None:
     answered, and the rest are still reviewable."""
     open_evidence(page, pristine_server)
     import_cv(page)
-    total = len(cards(page))
+    total = len(all_cards(page))
+    open_next(page)
     answer(page, 0, "Yes, that is true")
     page.wait_for(
         "document.querySelector('#page-evidence .ev__decision') !== null",
@@ -292,10 +343,10 @@ def test_answers_survive_a_reload(page: Chrome, pristine_server: str) -> None:
         ".find((b) => b.textContent.includes('Continue reviewing')).click()"
     )
     page.wait_for(
-        "document.querySelectorAll('#page-evidence .ev__card').length > 0",
+        "document.querySelector('#page-evidence .cvr__summary') !== null",
         message="the reopened review",
     )
-    decided = [card["decision"] for card in cards(page) if card["decision"]]
+    decided = [card["decision"] for card in all_cards(page) if card["decision"]]
     assert len(decided) == 2
 
 

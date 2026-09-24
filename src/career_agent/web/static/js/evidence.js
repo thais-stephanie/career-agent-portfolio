@@ -30,6 +30,7 @@ import { formatDate } from './format.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
 import { careerWorkspace } from './career.js';
+import { cvReview } from './cv_review.js';
 
 /** Claim kinds somebody may write by hand, in the order they are offered. */
 const TYPES = ['EMPLOYMENT', 'PROJECT', 'ACHIEVEMENT', 'SKILL', 'TOOL', 'EDUCATION',
@@ -184,7 +185,7 @@ export function createEvidence({ onChanged = null } = {}) {
         openImport ? reviewView(openImport) : null,
         home ? careerWorkspace({ onChanged: () => { if (onChanged) onChanged(); } }) : null,
         home ? el('details', {}, [el('summary', { text: t('career.importReview') }),
-          attentionBlock(packages, ledger)]) : null,
+          attentionBlock(packages, ledger, imports)]) : null,
         home ? el('details', {}, [el('summary', { text: t('career.evidenceEditor') }),
           ledgerSection(ledger)]) : null,
         home && ledger.candidate && ledger.claims.length ? addForm() : null,
@@ -319,10 +320,16 @@ export function createEvidence({ onChanged = null } = {}) {
    * the product reads; an archived import with three hundred unanswered
    * proposals is not work waiting to be done, it is work she put down.
    */
-  function attentionBlock(packages, ledger) {
+  function attentionBlock(packages, ledger, imports = {}) {
     const all = packages.packages || [];
     const active = byId(all, packages.active_package_id);
-    const waiting = active ? waitingIn(active.counts || {}) : 0;
+    const inPackage = active ? waitingIn(active.counts || {}) : 0;
+    // ONE DEFINITION OF WAITING (storage/review_counts.py): the package in
+    // force plus every CV read that is not archived. The same figure Home and
+    // the setup show.
+    const counted = (imports.counts || {}).waiting;
+    const waiting = Number.isFinite(counted) ? counted : inPackage;
+    const cvWaiting = (imports.imports || []).find((item) => !item.archived && item.pending);
     const kids = [];
 
     if (waiting) {
@@ -333,7 +340,13 @@ export function createEvidence({ onChanged = null } = {}) {
       kids.push(el('p', { className: 'ev__lede', text: t('attend.waitingLede') }));
       kids.push(el('div', { className: 'ev__attendacts' }, [
         button(t('attend.continue'), async () => {
-          await openPackageReview(active.package_id);
+          if (inPackage) {
+            await openPackageReview(active.package_id);
+            return;
+          }
+          if (!cvWaiting) return;
+          openImport = await api.getCvReview(cvWaiting.import_id);
+          await paintReview();
         }, { className: 'btn btn--primary' }),
       ]));
     } else {
@@ -513,6 +526,15 @@ export function createEvidence({ onChanged = null } = {}) {
         className: 'btn btn--quiet',
       }));
     }
+    // DELETING IS ITS OWN ACT. Archive keeps everything and is undone with
+    // one click; delete removes every unconfirmed claim for good, so it
+    // first shows exactly what goes and what stays, from the server's plan.
+    const confirmHost = el('div', { className: 'ev__confirmhost' });
+    actions.push(button(t('lifecycle.delete'), () => deleteFlow(confirmHost, {
+      name: titleOf(pack),
+      plan: async () => (await api.deleteIntakePackage(pack.package_id)).plan,
+      remove: () => api.deleteIntakePackage(pack.package_id, { confirm: true }),
+    }), { className: 'btn btn--quiet btn--danger', attrs: { 'data-action': 'delete' } }));
 
     return el('li', {
       className: `ev__import${isActive ? ' ev__import--active' : ''}`,
@@ -551,7 +573,52 @@ export function createEvidence({ onChanged = null } = {}) {
         })
         : null,
       el('div', { className: 'ev__importactions' }, actions.filter(Boolean)),
+      confirmHost,
     ].filter(Boolean));
+  }
+
+  /**
+   * THE DELETE CONFIRMATION, for a CV read or a package: what goes, what
+   * stays, and that it cannot be undone -- all from the server's own plan,
+   * so the sentence cannot promise something the delete does not do.
+   */
+  async function deleteFlow(host, { name, plan, remove }) {
+    let counts;
+    try {
+      counts = await plan();
+    } catch (error) {
+      replace(host, [announce(error.userMessage || error.message, 'bad')]);
+      return;
+    }
+    const pending = counts.pending ?? counts.waiting ?? 0;
+    const said = counts.confirmed_kept
+      ? t('cvr.deleteKeeps', { removed: counts.removed, pending, rejected: counts.rejected,
+        confirmed: counts.confirmed_kept })
+      : t('cvr.deleteAll', { removed: counts.removed, pending, rejected: counts.rejected });
+    const yes = button(t('cvr.deleteConfirm'), async () => {
+      yes.disabled = true;
+      try {
+        await remove();
+      } catch (error) {
+        yes.disabled = false;
+        replace(host, [announce(error.userMessage || error.message, 'bad')]);
+        return;
+      }
+      if (onChanged) onChanged();
+      await refresh();
+      bodyHost.prepend(announce(t('lifecycle.deleted', { name }), 'ok'));
+    }, { className: 'btn btn--danger', attrs: { 'data-action': 'delete-confirm' } });
+    replace(host, [el('div', { className: 'cvr__confirm', attrs: { role: 'alertdialog' } }, [
+      el('p', { className: 'cvr__confirmtitle', text: t('cvr.deleteTitle', { name }) }),
+      el('p', { text: said }),
+      el('p', { className: 'ev__note', text: t('cvr.deleteArchiveInstead') }),
+      el('p', { text: t('cvr.deleteForever') }),
+      el('div', { className: 'cvr__actions' }, [
+        yes,
+        button(t('cvr.cancel'), () => replace(host, []), { className: 'btn' }),
+      ]),
+    ])]);
+    yes.focus();
   }
 
   /** Put this reading in force. Reversible, and it confirms nothing. */
@@ -1410,32 +1477,56 @@ export function createEvidence({ onChanged = null } = {}) {
       },
     });
 
-    const rows = (imports.imports || []).map((item) => el('li', { className: 'ev__import' }, [
-      el('div', { className: 'ev__importhead' }, [
-        el('span', { className: 'ev__importname', text: item.source_name }),
-        el('span', {
-          className: `ev__importstate ev__importstate--${item.status.toLowerCase()}`,
-          text: item.pending
-            ? t('cv.pendingCount', { n: item.pending })
-            : t('cv.reviewed'),
+    const rows = (imports.imports || []).map((item) => {
+      const confirmHost = el('div', { className: 'ev__confirmhost' });
+      const open = async () => {
+        openImport = await api.getCvReview(item.import_id);
+        await paintReview();
+      };
+      return el('li', {
+        className: `ev__import${item.archived ? ' ev__import--archived' : ''}`,
+        dataset: { importId: item.import_id },
+      }, [
+        el('div', { className: 'ev__importhead' }, [
+          el('span', { className: 'ev__importname', text: item.source_name }),
+          el('span', {
+            className: `ev__importstate ev__importstate--${item.archived ? 'archived'
+              : item.status.toLowerCase()}`,
+            text: item.archived ? t('cv.archivedState')
+              : (item.pending ? t('cv.pendingCount', { n: item.pending }) : t('cv.reviewed')),
+          }),
+        ]),
+        el('p', {
+          className: 'ev__importmeta',
+          text: t('cv.importMetaJobs', {
+            experiences: item.entries,
+            confirmed: item.confirmed,
+            rejected: item.rejected,
+            total: item.total,
+          }),
         }),
-      ]),
-      el('p', {
-        className: 'ev__importmeta',
-        text: t('cv.importMeta', {
-          confirmed: item.confirmed,
-          rejected: item.rejected,
-          total: item.total,
-        }),
-      }),
-      el('div', { className: 'ev__importactions' }, [
-        button(item.pending ? t('cv.continueReview') : t('cv.reopenReview'), async () => {
-          openImport = await api.getCvReview(item.import_id);
-          await paintReview();
-        }, { className: 'btn' }),
-        button(t('cv.discard'), () => discard(item), { className: 'btn btn--quiet' }),
-      ]),
-    ]));
+        el('div', { className: 'ev__importactions' }, [
+          item.archived
+            ? button(t('cvr.restore'), async () => {
+              await api.restoreCvImport(item.import_id);
+              if (onChanged) onChanged();
+              await refresh();
+            }, { className: 'btn' })
+            : button(item.pending ? t('cv.continueReview') : t('cv.reopenReview'), open,
+              { className: 'btn' }),
+          item.archived ? button(t('cv.inspect'), open, { className: 'btn btn--quiet' })
+            : button(t('cvr.archive'), () => discard(item), {
+              className: 'btn btn--quiet', attrs: { 'data-action': 'archive' },
+            }),
+          button(t('lifecycle.delete'), () => deleteFlow(confirmHost, {
+            name: item.source_name,
+            plan: async () => (await api.deleteCvImport(item.import_id)).plan,
+            remove: () => api.deleteCvImport(item.import_id, { confirm: true }),
+          }), { className: 'btn btn--quiet btn--danger', attrs: { 'data-action': 'delete' } }),
+        ]),
+        confirmHost,
+      ]);
+    });
 
     return section(t('cv.heading'), [
       // The catalogue first, the server's own sentence as the fallback. Both
@@ -1475,17 +1566,20 @@ export function createEvidence({ onChanged = null } = {}) {
     }
   }
 
+  /**
+   * ARCHIVE a read. Reversible and immediate: every row stays, nothing waits,
+   * and the row offers Restore. It used to be a hard delete with this name.
+   */
   async function discard(item) {
-    // A real destruction, so it asks. Everything already confirmed survives it,
-    // and the confirmation says so rather than implying the claims go too.
-    const ok = window.confirm(t('cv.discardConfirm', {
-      name: item.source_name,
-      pending: item.pending,
-      confirmed: item.confirmed,
-    }));
-    if (!ok) return;
-    await api.discardCvImport(item.import_id);
+    try {
+      await api.archiveCvImport(item.import_id);
+    } catch (error) {
+      bodyHost.prepend(announce(error.userMessage || error.message, 'bad'));
+      return;
+    }
+    if (onChanged) onChanged();
     await refresh();
+    bodyHost.prepend(announce(t('cv.archivedFlash', { name: item.source_name }), 'ok'));
   }
 
   async function paintReview() {
@@ -1493,117 +1587,18 @@ export function createEvidence({ onChanged = null } = {}) {
   }
 
   // =====================================================================
-  // The review cards
+  // The review: a summary, then experiences, then suggestions. See
+  // cv_review.js for why it is not one list of cards.
   // =====================================================================
   function reviewView(review) {
-    const pending = review.counts.PENDING;
-    const back = button(t('cv.backToEvidence'), async () => {
-      openImport = null;
-      await refresh();
-      if (onChanged) onChanged();
-    }, { className: 'btn btn--quiet' });
-
-    const groups = (review.groups || []).map((group) => el('section', { className: 'ev__group' }, [
-      el('h4', { className: 'ev__grouphead' }, [
-        el('span', { text: t(`claim.type.${group.claim_type}`) }),
-        el('span', {
-          className: 'ev__groupcount num',
-          text: String(group.proposals.length),
-        }),
-      ]),
-      el('ul', { className: 'ev__cards' }, group.proposals.map((p) => proposalCard(review, p))),
-    ]));
-
-    return el('div', { className: 'ev__review' }, [
-      el('div', { className: 'ev__reviewhead' }, [
-        el('h3', { className: 'd-sec__head', text: t('cv.reviewHeading', {
-          name: review.source_name,
-        }) }),
-        back,
-      ]),
-      el('p', {
-        className: 'ev__lede',
-        text: pending
-          ? t('cv.reviewLede', { pending, total: review.total })
-          : t('cv.reviewDone', { total: review.total }),
-      }),
-      el('p', { className: 'ev__note', text: t('cv.reviewSafety') }),
-      ...groups,
-    ]);
-  }
-
-  /**
-   * One proposal, with the line it came from and three real answers.
-   *
-   * The source line is drawn ALWAYS, even when it is identical to the
-   * proposal. A review whose citation appears only sometimes teaches people to
-   * stop looking for it, and looking for it is the entire mechanism by which
-   * this can be trusted without trusting the reader that produced it.
-   */
-  function proposalCard(review, proposal) {
-    const decided = proposal.decision !== 'PENDING';
-    const editor = el('textarea', {
-      className: 'input ev__editor',
-      attrs: { rows: '3', 'aria-label': t('cv.editLabel') },
-      props: { value: proposal.decided_text || proposal.text, hidden: true },
+    return cvReview(review, {
+      onBack: async () => {
+        openImport = null;
+        await refresh();
+        if (onChanged) onChanged();
+      },
+      onChanged: () => { if (onChanged) onChanged(); },
     });
-
-    const answer = async (decision, text = null) => {
-      const updated = await api.decideProposal(
-        review.import_id, proposal.claim_key, decision, text,
-      );
-      openImport = updated;
-      await paintReview();
-      if (onChanged) onChanged();
-    };
-
-    const actions = el('div', { className: 'ev__actions' }, [
-      button(t('cv.accept'), () => answer('ACCEPTED'), {
-        className: 'btn btn--accept',
-        ariaLabel: t('cv.acceptLabel', { text: proposal.text }),
-      }),
-      button(t('cv.edit'), () => {
-        editor.hidden = !editor.hidden;
-        if (!editor.hidden) editor.focus();
-      }, { className: 'btn' }),
-      button(t('cv.reject'), () => answer('REJECTED'), {
-        className: 'btn btn--reject',
-        ariaLabel: t('cv.rejectLabel', { text: proposal.text }),
-      }),
-    ]);
-
-    const saveEdit = button(t('cv.saveEdit'), () => {
-      const text = editor.value.trim();
-      if (text) answer('EDITED', text);
-    }, { className: 'btn btn--accept' });
-    saveEdit.hidden = true;
-    editor.addEventListener('input', () => { saveEdit.hidden = false; });
-
-    return el('li', {
-      className: `ev__card${decided ? ` is-${proposal.decision.toLowerCase()}` : ''}`,
-    }, [
-      el('div', { className: 'ev__cardhead' }, [
-        el('p', { className: 'ev__proposal', text: proposal.decided_text || proposal.text }),
-        decided
-          ? el('span', {
-            className: `ev__decision ev__decision--${proposal.decision.toLowerCase()}`,
-          }, [
-            el('span', { attrs: { 'aria-hidden': 'true' }, text: markOf(proposal.decision) }),
-            el('span', { text: t(`cv.decision.${proposal.decision}`) }),
-          ])
-          : null,
-      ].filter(Boolean)),
-      el('div', { className: 'ev__from' }, [
-        el('span', { className: 'ev__fromlabel', text: t('cv.fromCv') }),
-        el('p', { className: 'quote', text: proposal.evidence }),
-      ]),
-      proposal.has_measurement
-        ? el('p', { className: 'ev__figure', text: t('cv.carriesFigure') })
-        : null,
-      editor,
-      saveEdit,
-      actions,
-    ].filter(Boolean));
   }
 
   /**
@@ -1648,10 +1643,6 @@ export function createEvidence({ onChanged = null } = {}) {
       ]),
       el('p', { className: 'ev__uses-where', text: t('ledger.uses.where') }),
     ]);
-  }
-
-  function markOf(decision) {
-    return { ACCEPTED: '✓', EDITED: '✎', REJECTED: '✕', PENDING: '·' }[decision] || '·';
   }
 
   // =====================================================================
@@ -1870,7 +1861,7 @@ export function createEvidence({ onChanged = null } = {}) {
   /** Does this claim pass the state filter the toolbar is set to? */
   function passesState(claim) {
     if (stateFilter === 'CONFIRMED') return Boolean(claim.verified);
-    if (stateFilter === 'ASIDE') return !claim.verified;
+    if (stateFilter === 'ASIDE') return !claim.verified && claim.state !== 'DRAFT';
     return true;
   }
 
@@ -2153,7 +2144,7 @@ export function createEvidence({ onChanged = null } = {}) {
         await refresh();
         if (onChanged) onChanged();
       }, { className: 'btn btn--small btn--quiet' })
-      : button(t('ledger.confirm'), async () => {
+      : button(claim.state === 'DRAFT' ? t('ledger.confirmDraft') : t('ledger.confirm'), async () => {
         await api.confirmClaim(claim.claim_key);
         await refresh();
         if (onChanged) onChanged();
@@ -2238,9 +2229,11 @@ export function createEvidence({ onChanged = null } = {}) {
         // is drawn only for the state that is NOT settled, so a screen of
         // confirmed evidence carries no chips at all and anything set aside
         // stands out by being the only marked thing on it.
+        // A DRAFT was never confirmed; only a withdrawn claim is "set aside".
         claim.verified
           ? null
-          : el('span', { className: 'badge evrow__state', text: t('ledger.retiredTag') }),
+          : el('span', { className: 'badge evrow__state',
+            text: claim.state === 'DRAFT' ? t('ledger.draftTag') : t('ledger.retiredTag') }),
         el('span', { className: 'evrow__src', text: t(`ledger.sourceShort.${claim.source}`) }),
         more,
       ].filter(Boolean)),

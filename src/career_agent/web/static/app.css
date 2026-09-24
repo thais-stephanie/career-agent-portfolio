@@ -56,6 +56,53 @@
 .career__review dt { font-weight: 600; }
 .career__review dd { margin: 0 0 0.5rem; }
 
+/* Career Evidence V2: a CV read as experiences (cv_review.js). A summary,
+   then one row per experience, then the suggestions inside one of them. */
+.cvr { display: grid; gap: 1rem; }
+.cvr__head { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+  justify-content: space-between; }
+.cvr__found { font-weight: 600; font-size: 1.05rem; margin: 0; }
+.cvr__flash:empty { display: none; }
+.cvr__flash { margin: 0; padding: 0.5rem 0.75rem; border: 1px solid var(--line);
+  background: var(--clear); color: var(--ink); }
+.cvr__flash--bad { background: var(--block-wash); }
+.cvr__archived { margin: 0; padding: 0.5rem 0.75rem; border: 1px dashed var(--line);
+  background: var(--surface-alt); color: var(--ink); }
+.cvr__actions, .cvr__batch { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.cvr__batch { position: sticky; top: 0; z-index: 2; padding-block: 0.5rem;
+  background: var(--paper); border-bottom: 1px solid var(--line); }
+.cvr__batch[hidden] { display: none; }
+.cvr__subhead { margin: 0.5rem 0 0; }
+.cvr__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.cvr__row { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center;
+  padding: 0.75rem; border: 2px solid var(--line); background: var(--surface); }
+.cvr__row--attention { background: var(--tint-warm); }
+.cvr__rowmain { display: grid; gap: 0.125rem; flex: 1 1 16rem; min-width: 0; }
+.cvr__company { font-weight: 700; overflow-wrap: anywhere; }
+.cvr__role, .cvr__dates { color: var(--body); overflow-wrap: anywhere; }
+.cvr__counts { color: var(--muted); font-variant-numeric: tabular-nums; }
+.cvr__chip { padding: 0.125rem 0.5rem; border: 1px solid var(--line);
+  background: var(--detail-wash); color: var(--detail-ink); font-size: 0.875rem; }
+.cvr__attention { margin: 0; color: var(--ink); background: var(--detail-wash);
+  padding: 0.25rem 0.5rem; }
+.cvr__cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.cvr__card:focus { outline: 2px solid var(--outline); outline-offset: 2px; }
+.cvr__card .ev__cardhead { display: flex; gap: 0.75rem; align-items: start; }
+.cvr__card .ev__cardhead > input { margin-top: 0.3rem; }
+.cvr__move { display: inline-flex; gap: 0.5rem; align-items: center; }
+.cvr__raw summary, .cvr__source summary, .cvr__merge summary { cursor: pointer; }
+.cvr__rawtext { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.25rem 0 0;
+  font-size: 0.875rem; background: var(--tint-metric); padding: 0.5rem; color: var(--ink); }
+.cvr__when { margin: 0; color: var(--faint); font-size: 0.875rem; }
+.cvr__form { display: grid; gap: 0.75rem; max-width: 40rem; padding: 1rem;
+  border: 2px solid var(--line); background: var(--surface); }
+.cvr__confirm { display: grid; gap: 0.5rem; padding: 1rem; border: 2px solid var(--block);
+  background: var(--block-wash); color: var(--ink); }
+.cvr__confirm p, .cvr__confirm h4 { margin: 0; }
+.cvr__confirmtitle { font-weight: 700; }
+.ev__import--archived { opacity: 0.85; }
+.ev__importstate--archived { background: var(--surface-alt); }
+
 :root {
   color-scheme: light;
 

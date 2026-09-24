@@ -283,7 +283,12 @@ def test_discarding_a_review_keeps_the_claims_it_already_produced(api: JobsApi) 
     )
     api.handle_api("POST", f"/api/cv/imports/{review['import_id']}/discard", {}, {})
 
-    assert api.handle_api("GET", "/api/cv/imports", {}, {})["imports"] == []
+    # "Discard" ARCHIVES now (Career Evidence V2). It hard-deleted the read
+    # and every proposal row, including the provenance of what she had
+    # confirmed. Archived, it is kept whole and waits nowhere.
+    imports = api.handle_api("GET", "/api/cv/imports", {}, {})
+    assert [item["archived"] for item in imports["imports"]] == [True]
+    assert imports["counts"]["waiting"] == 0
     assert api.handle_api("GET", "/api/evidence", {}, {})["confirmed"] == 1
 
 

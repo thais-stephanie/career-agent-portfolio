@@ -1005,11 +1005,53 @@ export async function restoreIntakePackage(packageId) {
   return request(`/intake/${encodeURIComponent(packageId)}/restore`, { method: 'POST' });
 }
 
-/** Throw away a staged read. Claims it already produced are not touched. */
-export async function discardCvImport(importId) {
-  return request(`/cv/imports/${encodeURIComponent(importId)}/discard`, {
+/**
+ * ARCHIVE a CV read. Reversible: every row stays, and it waits nowhere until
+ * it is restored. (This used to be a hard delete called "discard".)
+ */
+export async function archiveCvImport(importId) {
+  return request(`/cv/imports/${encodeURIComponent(importId)}/archive`, {
     method: 'POST',
     body: {},
+  });
+}
+
+/** Bring an archived CV read back, exactly as it was. */
+export async function restoreCvImport(importId) {
+  return request(`/cv/imports/${encodeURIComponent(importId)}/restore`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+/**
+ * DELETE a CV read, permanently. Without `confirm` the server only answers
+ * what would be removed and what kept, and changes nothing: the interface
+ * shows that plan before it asks.
+ */
+export async function deleteCvImport(importId, { confirm = false } = {}) {
+  return request(`/cv/imports/${encodeURIComponent(importId)}/delete`, {
+    method: 'POST',
+    body: confirm ? { confirm: true } : {},
+  });
+}
+
+/**
+ * Correct a read's structure: edit_entry, create_entry, move, merge, split,
+ * delete_entry, reject, delete. Never confirms anything.
+ */
+export async function organizeCvImport(importId, body) {
+  return request(`/cv/imports/${encodeURIComponent(importId)}/organize`, {
+    method: 'POST',
+    body,
+  });
+}
+
+/** DELETE an intake package, permanently. Plan first, exactly as for a CV. */
+export async function deleteIntakePackage(packageId, { confirm = false } = {}) {
+  return request(`/intake/${encodeURIComponent(packageId)}/delete`, {
+    method: 'POST',
+    body: confirm ? { confirm: true } : {},
   });
 }
 

@@ -19,6 +19,7 @@ nothing at all. If a future edit makes either of these write a
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 
@@ -72,6 +73,15 @@ class StagedImport:
     accepted: int = 0
     edited: int = 0
     rejected: int = 0
+    #: Put away, reversibly. An archived read is kept whole and counts nowhere.
+    archived_at: str | None = None
+    #: Jobs the reader found in it, and how many of those it could not fully
+    #: read (a company, role or dates it had to leave for the person).
+    entries: int = 0
+
+    @property
+    def archived(self) -> bool:
+        return self.archived_at is not None
 
     @property
     def total(self) -> int:
@@ -122,12 +132,14 @@ class CvReviewRepo(_Repo):
         characters: int,
         text: str,
         proposals: list,
+        entries: list | None = None,
     ) -> str:
-        """Persist one read and everything it proposed.
+        """Persist one read, the jobs it found, and everything it proposed.
 
         `text` is hashed and discarded. The document is not stored: what a
         review needs is the proposals and the lines they came from, and both
-        of those are on the proposal rows.
+        of those are on the proposal rows. The jobs (`cv/structure.Entry`)
+        keep the heading and date lines that stated them, verbatim.
         """
         import_id = new_id()
         stamp = now_utc()
@@ -148,13 +160,46 @@ class CvReviewRepo(_Repo):
                 stamp,
             ),
         )
+        for ordinal, entry in enumerate(entries or [], start=1):
+            span = entry.span
+            self.conn.execute(
+                "INSERT INTO cv_entry"
+                " (id, import_id, entry_key, section, company, role_title, period_text,"
+                "  period_start, period_end, current_role, start_year, end_year, location,"
+                "  label, source_json, unresolved_json, edited, ordinal, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)",
+                (
+                    new_id(),
+                    import_id,
+                    entry.key,
+                    entry.section,
+                    entry.company,
+                    entry.role,
+                    span.text if span else None,
+                    span.start if span else None,
+                    span.end if span else None,
+                    int(bool(span and span.current)),
+                    span.start_year if span else None,
+                    span.end_year if span else None,
+                    entry.location,
+                    entry.label,
+                    json.dumps(
+                        [{"line": line.number, "text": line.raw} for line in entry.lines],
+                        ensure_ascii=False,
+                    ),
+                    json.dumps(entry.unresolved),
+                    ordinal,
+                    stamp,
+                    stamp,
+                ),
+            )
         for ordinal, proposal in enumerate(proposals, start=1):
             self.conn.execute(
                 "INSERT INTO cv_proposal"
                 " (id, import_id, claim_key, claim_type, section, text, evidence,"
                 "  has_measurement, decision, decided_text, decided_at, claim_id,"
-                "  ordinal, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?, ?)"
+                "  ordinal, created_at, entry_key, source_line, source_text)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NULL, NULL, NULL, ?, ?, ?, ?, ?)"
                 " ON CONFLICT (import_id, claim_key) DO NOTHING",
                 (
                     new_id(),
@@ -167,6 +212,9 @@ class CvReviewRepo(_Repo):
                     int(proposal.has_measurement),
                     ordinal,
                     stamp,
+                    getattr(proposal, "entry_key", None),
+                    getattr(proposal, "source_line", None),
+                    getattr(proposal, "source_text", None),
                 ),
             )
         return import_id
@@ -180,7 +228,7 @@ class CvReviewRepo(_Repo):
         """
         return self.conn.execute(
             "SELECT * FROM cv_import WHERE candidate_id = ? AND text_sha256 = ?"
-            " ORDER BY created_at DESC, id DESC",
+            " AND deleted_at IS NULL ORDER BY created_at DESC, id DESC",
             (candidate_id, sha256_text(text)),
         ).fetchall()
 
@@ -193,14 +241,15 @@ class CvReviewRepo(_Repo):
         """
         rows = self.conn.execute(
             "SELECT i.id, i.source_name, i.kind, i.pages, i.characters,"
-            "       i.text_sha256, i.status, i.created_at,"
+            "       i.text_sha256, i.status, i.created_at, i.archived_at,"
+            "       (SELECT COUNT(*) FROM cv_entry e WHERE e.import_id = i.id) AS entries,"
             "       SUM(CASE WHEN p.decision = 'PENDING'  THEN 1 ELSE 0 END) AS pending,"
             "       SUM(CASE WHEN p.decision = 'ACCEPTED' THEN 1 ELSE 0 END) AS accepted,"
             "       SUM(CASE WHEN p.decision = 'EDITED'   THEN 1 ELSE 0 END) AS edited,"
             "       SUM(CASE WHEN p.decision = 'REJECTED' THEN 1 ELSE 0 END) AS rejected"
             "  FROM cv_import i"
             "  LEFT JOIN cv_proposal p ON p.import_id = i.id"
-            " WHERE i.candidate_id = ?"
+            " WHERE i.candidate_id = ? AND i.deleted_at IS NULL"
             " GROUP BY i.id"
             " ORDER BY i.created_at DESC, i.id DESC",
             (candidate_id,),
@@ -219,14 +268,28 @@ class CvReviewRepo(_Repo):
                 accepted=int(row["accepted"] or 0),
                 edited=int(row["edited"] or 0),
                 rejected=int(row["rejected"] or 0),
+                archived_at=row["archived_at"],
+                entries=int(row["entries"] or 0),
             )
             for row in rows
         ]
 
     def get_import(self, candidate_id: str, import_id: str) -> sqlite3.Row | None:
+        """One read she can still see. A deleted read is gone from here."""
         return self.conn.execute(
-            "SELECT * FROM cv_import WHERE id = ? AND candidate_id = ?",
+            "SELECT * FROM cv_import WHERE id = ? AND candidate_id = ? AND deleted_at IS NULL",
             (import_id, candidate_id),
+        ).fetchone()
+
+    def entries(self, import_id: str) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            "SELECT * FROM cv_entry WHERE import_id = ? ORDER BY ordinal", (import_id,)
+        ).fetchall()
+
+    def entry(self, import_id: str, entry_key: str) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM cv_entry WHERE import_id = ? AND entry_key = ?",
+            (import_id, entry_key),
         ).fetchone()
 
     def proposals(self, import_id: str) -> list[sqlite3.Row]:
@@ -290,19 +353,306 @@ class CvReviewRepo(_Repo):
         )
         return finished
 
-    def discard(self, candidate_id: str, import_id: str) -> int:
-        """Throw away a staged read and everything still undecided in it.
+    # -- lifecycle -----------------------------------------------------
+    #
+    # ARCHIVE and DELETE are different acts and the interface names them
+    # differently. See migration 0039 and docs/CAREER_EVIDENCE.md.
+    #
+    #   archive   reversible; every row stays; counts nowhere until restored
+    #   delete    permanent; every UNCONFIRMED suggestion goes; a confirmed one
+    #             keeps its row, because its claim cites it as provenance
+    #
+    # Neither touches `verified_claim`. A confirmed claim stopped belonging to
+    # its import the moment she confirmed it; retiring it is its own act, in
+    # Career Evidence.
 
-        Accepted proposals have already produced claims and those claims are
-        NOT touched: they are facts the person confirmed, and they stopped
-        belonging to this import at the moment she confirmed them.
+    def archive(self, candidate_id: str, import_id: str) -> bool:
+        if self.get_import(candidate_id, import_id) is None:
+            return False
+        self.conn.execute(
+            "UPDATE cv_import SET archived_at = COALESCE(archived_at, ?), updated_at = ?"
+            " WHERE id = ?",
+            (now_utc(), now_utc(), import_id),
+        )
+        return True
+
+    def restore(self, candidate_id: str, import_id: str) -> bool:
+        if self.get_import(candidate_id, import_id) is None:
+            return False
+        self.conn.execute(
+            "UPDATE cv_import SET archived_at = NULL, updated_at = ? WHERE id = ?",
+            (now_utc(), import_id),
+        )
+        return True
+
+    def delete_plan(self, candidate_id: str, import_id: str) -> dict[str, int] | None:
+        """Exactly what deleting this read would remove and keep. Changes nothing."""
+        if self.get_import(candidate_id, import_id) is None:
+            return None
+        row = self.conn.execute(
+            "SELECT SUM(CASE WHEN decision = 'PENDING' THEN 1 ELSE 0 END),"
+            "       SUM(CASE WHEN decision = 'REJECTED' THEN 1 ELSE 0 END),"
+            "       SUM(CASE WHEN decision IN ('ACCEPTED', 'EDITED') THEN 1 ELSE 0 END)"
+            "  FROM cv_proposal WHERE import_id = ?",
+            (import_id,),
+        ).fetchone()
+        pending, rejected, confirmed = (int(value or 0) for value in row)
+        entries = int(
+            self.conn.execute(
+                "SELECT COUNT(*) FROM cv_entry WHERE import_id = ?", (import_id,)
+            ).fetchone()[0]
+        )
+        return {
+            "pending": pending,
+            "rejected": rejected,
+            "removed": pending + rejected,
+            "confirmed_kept": confirmed,
+            "entries": entries,
+        }
+
+    def delete(self, candidate_id: str, import_id: str) -> dict[str, int] | None:
+        """Remove a read for good. Returns what was removed and what was kept.
+
+        With nothing confirmed from it, every row goes: the read, its jobs and
+        its suggestions. With some confirmed, the unconfirmed suggestions go,
+        the confirmed suggestion rows and the jobs they sit under stay as the
+        provenance their claims cite, and the read is marked deleted so it
+        appears nowhere else.
         """
-        owned = self.get_import(candidate_id, import_id)
-        if owned is None:
-            return 0
-        self.conn.execute("DELETE FROM cv_proposal WHERE import_id = ?", (import_id,))
-        self.conn.execute("DELETE FROM cv_import WHERE id = ?", (import_id,))
-        return 1
+        plan = self.delete_plan(candidate_id, import_id)
+        if plan is None:
+            return None
+        keys = [
+            str(row["claim_key"])
+            for row in self.conn.execute(
+                "SELECT claim_key FROM cv_proposal WHERE import_id = ?"
+                " AND decision IN ('PENDING', 'REJECTED')",
+                (import_id,),
+            )
+        ]
+        self.conn.execute(
+            "DELETE FROM cv_proposal WHERE import_id = ? AND decision IN ('PENDING', 'REJECTED')",
+            (import_id,),
+        )
+        if plan["confirmed_kept"]:
+            self.conn.execute(
+                "DELETE FROM cv_entry WHERE import_id = ? AND entry_key NOT IN"
+                " (SELECT entry_key FROM cv_proposal WHERE import_id = ?"
+                "   AND entry_key IS NOT NULL)",
+                (import_id, import_id),
+            )
+            self.conn.execute(
+                "UPDATE cv_import SET deleted_at = ?, archived_at = NULL, status = 'CLOSED',"
+                " updated_at = ? WHERE id = ?",
+                (now_utc(), now_utc(), import_id),
+            )
+        else:
+            self.conn.execute("DELETE FROM cv_entry WHERE import_id = ?", (import_id,))
+            self.conn.execute("DELETE FROM cv_proposal WHERE import_id = ?", (import_id,))
+            self.conn.execute("DELETE FROM cv_import WHERE id = ?", (import_id,))
+        drop_orphan_links(self.conn, candidate_id, keys)
+        return plan
+
+    # -- organising one read -------------------------------------------
+    #
+    # A suggestion's job can be corrected before anything is confirmed: moved
+    # to another job, split into a new one, two jobs merged, a missing job
+    # created. Each changes `entry_key` or an entry's fields and NOTHING ELSE:
+    # the suggestion's text, its source line and its raw source text are never
+    # rewritten, so provenance survives every one of them.
+
+    def update_entry(self, import_id: str, entry_key: str, fields: dict) -> bool:
+        row = self.entry(import_id, entry_key)
+        if row is None:
+            return False
+        merged = {key: row[key] for key in ENTRY_FIELDS}
+        merged.update({key: value for key, value in fields.items() if key in ENTRY_FIELDS})
+        if merged["current_role"]:
+            merged["period_end"] = None
+        start, end = merged["period_start"], merged["period_end"]
+        if end and not start:
+            raise ValueError("an end date needs a start date")
+        if start and end and end < start:
+            raise ValueError("the end date is before the start date")
+        start_year = _year(start) if "period_start" in fields else _year(start) or row["start_year"]
+        end_year = (
+            None
+            if merged["current_role"]
+            else _year(end)
+            if "period_end" in fields
+            else _year(end) or row["end_year"]
+        )
+        self.conn.execute(
+            "UPDATE cv_entry SET company = ?, role_title = ?, period_start = ?, period_end = ?,"
+            " current_role = ?, start_year = ?, end_year = ?, unresolved_json = ?, edited = 1,"
+            " updated_at = ? WHERE import_id = ? AND entry_key = ?",
+            (
+                merged["company"],
+                merged["role_title"],
+                merged["period_start"],
+                merged["period_end"],
+                int(bool(merged["current_role"])),
+                start_year,
+                end_year,
+                json.dumps(_unresolved(merged, dated=bool(start or start_year))),
+                now_utc(),
+                import_id,
+                entry_key,
+            ),
+        )
+        return True
+
+    def create_entry(self, import_id: str, fields: dict, *, section: str = "experience") -> str:
+        count = int(
+            self.conn.execute(
+                "SELECT COUNT(*) FROM cv_entry WHERE import_id = ?", (import_id,)
+            ).fetchone()[0]
+        )
+        existing = {str(r["entry_key"]) for r in self.entries(import_id)}
+        number = count + 1
+        while f"added-e{number:02d}" in existing:
+            number += 1
+        key = f"added-e{number:02d}"
+        stamp = now_utc()
+        self.conn.execute(
+            "INSERT INTO cv_entry (id, import_id, entry_key, section, source_json,"
+            " unresolved_json, edited, ordinal, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, '[]', '[]', 1, ?, ?, ?)",
+            (new_id(), import_id, key, section, count + 1, stamp, stamp),
+        )
+        self.update_entry(import_id, key, fields)
+        return key
+
+    def move(self, import_id: str, claim_keys: list[str], entry_key: str | None) -> int:
+        if entry_key is not None and self.entry(import_id, entry_key) is None:
+            raise ValueError("no such experience in this read")
+        moved = 0
+        for key in claim_keys:
+            moved += self.conn.execute(
+                "UPDATE cv_proposal SET entry_key = ? WHERE import_id = ? AND claim_key = ?",
+                (entry_key, import_id, key),
+            ).rowcount
+        self.conn.execute(
+            "UPDATE cv_import SET updated_at = ? WHERE id = ?", (now_utc(), import_id)
+        )
+        return moved
+
+    def merge_entries(self, import_id: str, source_key: str, target_key: str) -> int:
+        """Fold one job into another. The source's heading lines move with it."""
+        source = self.entry(import_id, source_key)
+        target = self.entry(import_id, target_key)
+        if source is None or target is None or source_key == target_key:
+            raise ValueError("choose two different experiences from this read")
+        moved = self.conn.execute(
+            "UPDATE cv_proposal SET entry_key = ? WHERE import_id = ? AND entry_key = ?",
+            (target_key, import_id, source_key),
+        ).rowcount
+        lines = json.loads(target["source_json"] or "[]") + json.loads(
+            source["source_json"] or "[]"
+        )
+        self.conn.execute(
+            "UPDATE cv_entry SET source_json = ?, edited = 1, updated_at = ?"
+            " WHERE import_id = ? AND entry_key = ?",
+            (json.dumps(lines, ensure_ascii=False), now_utc(), import_id, target_key),
+        )
+        self.conn.execute(
+            "DELETE FROM cv_entry WHERE import_id = ? AND entry_key = ?", (import_id, source_key)
+        )
+        return moved
+
+    def split(self, import_id: str, claim_keys: list[str], fields: dict) -> str:
+        """A new job holding the chosen suggestions."""
+        first = self.conn.execute(
+            "SELECT e.section, e.company FROM cv_proposal p"
+            " JOIN cv_entry e ON e.import_id = p.import_id AND e.entry_key = p.entry_key"
+            " WHERE p.import_id = ? AND p.claim_key = ?",
+            (import_id, claim_keys[0] if claim_keys else ""),
+        ).fetchone()
+        seeded = {"company": first["company"]} if first is not None else {}
+        seeded.update(fields)
+        key = self.create_entry(
+            import_id, seeded, section=str(first["section"]) if first else "experience"
+        )
+        self.move(import_id, claim_keys, key)
+        return key
+
+    def delete_entry(self, import_id: str, entry_key: str) -> bool:
+        """Remove a job with nothing left in it. A job with suggestions is merged
+        or has them moved first, so nothing is lost by removing a heading."""
+        held = self.conn.execute(
+            "SELECT COUNT(*) FROM cv_proposal WHERE import_id = ? AND entry_key = ?",
+            (import_id, entry_key),
+        ).fetchone()[0]
+        if held:
+            raise ValueError("move or merge this experience's suggestions first")
+        return bool(
+            self.conn.execute(
+                "DELETE FROM cv_entry WHERE import_id = ? AND entry_key = ?",
+                (import_id, entry_key),
+            ).rowcount
+        )
+
+    def delete_proposals(self, candidate_id: str, import_id: str, claim_keys: list[str]) -> int:
+        """Remove unconfirmed suggestions for good. A confirmed one is refused:
+        it is evidence now, and withdrawing evidence is retiring it."""
+        removed = 0
+        for key in claim_keys:
+            removed += self.conn.execute(
+                "DELETE FROM cv_proposal WHERE import_id = ? AND claim_key = ?"
+                " AND decision IN ('PENDING', 'REJECTED')",
+                (import_id, key),
+            ).rowcount
+        drop_orphan_links(self.conn, candidate_id, claim_keys)
+        self.close_if_finished(import_id)
+        return removed
+
+
+#: What a person may correct about a job.
+ENTRY_FIELDS = ("company", "role_title", "period_start", "period_end", "current_role")
+
+
+def _year(month: str | None) -> int | None:
+    return int(month[:4]) if month and len(month) >= 4 and month[:4].isdigit() else None
+
+
+def _unresolved(fields: dict, *, dated: bool) -> list[str]:
+    return [
+        reason
+        for reason, missing in (
+            ("company", not fields["company"]),
+            ("role", not fields["role_title"]),
+            ("dates", not dated),
+        )
+        if missing
+    ]
+
+
+def drop_orphan_links(conn: sqlite3.Connection, candidate_id: str, keys: list[str]) -> None:
+    """Forget where a removed suggestion was organised, if nothing else has it.
+
+    `career_evidence_link` is keyed by claim key, and the same key can arrive
+    from two reads of one CV. A link is removed only when no confirmed claim,
+    no remaining CV suggestion and no intake claim still carries the key.
+    """
+    has_links = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE name = 'career_evidence_link'"
+    ).fetchone()
+    if not has_links:
+        return
+    for key in set(keys):
+        alive = conn.execute(
+            "SELECT 1 FROM verified_claim WHERE claim_key = ? AND candidate_id = ?"
+            " UNION ALL SELECT 1 FROM cv_proposal WHERE claim_key = ?"
+            " UNION ALL SELECT 1 FROM intake_claim"
+            "  WHERE COALESCE(resolved_claim_key, claim_key) = ?"
+            " LIMIT 1",
+            (key, candidate_id, key, key),
+        ).fetchone()
+        if not alive:
+            conn.execute(
+                "DELETE FROM career_evidence_link WHERE candidate_id = ? AND claim_key = ?",
+                (candidate_id, key),
+            )
 
 
 class RequirementReviewRepo(_Repo):

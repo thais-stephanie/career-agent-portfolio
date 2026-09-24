@@ -76,8 +76,17 @@ def test_320_evidence_bulk_work_and_lazy_render(page, pristine_server, tmp_path)
     click(page, "Explore evidence")
     page.wait_for("document.querySelectorAll('.career__evidence').length === 32")
     expansion_ms = round((time.perf_counter() - start) * 1000)
+    # CAREER EVIDENCE V2: there is no bulk confirmation. Selecting a whole
+    # experience offers organising and retiring; confirming is one statement,
+    # from its own row, after reading it.
     click(page, "Select all in this experience")
-    click(page, "Review and confirm selected")
+    assert not page.evaluate(
+        "[...document.querySelectorAll('.career button')]"
+        ".some(b => /confirm/i.test(b.textContent) && /select/i.test(b.textContent))"
+    )
+    page.evaluate(
+        "document.querySelector('.career__evidence button[aria-label^=\"Confirm\"]').click()"
+    )
     page.wait_for("document.querySelector('.career__review input[type=checkbox]') !== null")
     assert page.evaluate(
         "[...document.querySelectorAll('.career__review button')]"
@@ -85,10 +94,10 @@ def test_320_evidence_bulk_work_and_lazy_render(page, pristine_server, tmp_path)
     )
     page.evaluate("document.querySelector('.career__review input[type=checkbox]').click()")
     click(page, "Apply reviewed changes", ".career__review")
-    page.wait_for("document.querySelector('.career__cards').textContent.includes('32 confirmed')")
+    page.wait_for("document.querySelector('.career__cards').textContent.includes('1 confirmed')")
     conn = connect(tmp_path / "pristine.db")
     candidate = ensure_candidate(conn)
-    assert sum(c.verified for c in ClaimRepo(conn).current(candidate)) == 32
+    assert sum(c.verified for c in ClaimRepo(conn).current(candidate)) == 1
     conn.close()
     (tmp_path / "performance.json").write_text(
         json.dumps(

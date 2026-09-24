@@ -465,13 +465,18 @@ def _report_workspace(db: Path, config_dir: Path) -> bool:
                     "SELECT COUNT(*) AS n FROM verified_claim"
                     " WHERE superseded_by_id IS NULL AND verified = 1"
                 ).fetchone()["n"]
-                retired = conn.execute(
-                    "SELECT COUNT(*) AS n FROM verified_claim"
-                    " WHERE superseded_by_id IS NULL AND verified = 0"
-                ).fetchone()["n"]
-                pending = conn.execute(
-                    "SELECT COUNT(*) AS n FROM cv_proposal WHERE decision = 'PENDING'"
-                ).fetchone()["n"]
+                from career_agent.storage.repositories import ClaimRepo
+                from career_agent.storage.review_counts import review_counts
+
+                states = [
+                    state
+                    for (candidate,) in conn.execute("SELECT id FROM candidate").fetchall()
+                    for state in ClaimRepo(conn).states(str(candidate)).values()
+                ]
+                retired = states.count("RETIRED")
+                # THE one definition of waiting (storage/review_counts.py):
+                # archived and deleted imports count nowhere.
+                pending = review_counts(conn).waiting
                 reviews = conn.execute("SELECT COUNT(*) AS n FROM requirement_review").fetchone()[
                     "n"
                 ]
@@ -481,12 +486,12 @@ def _report_workspace(db: Path, config_dir: Path) -> bool:
                     typer.echo(f"retired      : {retired} kept, no longer drawn on")
                 if pending:
                     typer.secho(
-                        f"CV review    : {pending} proposals still unanswered",
+                        f"review       : {pending} statements still unanswered",
                         fg=typer.colors.YELLOW,
                     )
                     typer.echo("  open Your career evidence to finish them")
                 else:
-                    typer.echo("CV review    : nothing waiting")
+                    typer.echo("review       : nothing waiting")
                 if reviews:
                     typer.echo(f"your notes   : {reviews} requirement verdicts recorded")
                 if not confirmed:

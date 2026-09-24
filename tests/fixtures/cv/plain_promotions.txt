@@ -1,0 +1,25 @@
+Jordan Example
+jordan@example.invalid | +00 0000 0000
+
+PROFESSIONAL EXPERIENCE
+
+Globex Logistics
+Operations Director
+Jan 2021 {EN} Present
+Leads a team of 40 across three warehouses.
+Cut order-to-ship time by 22% in the first year.
+
+Operations Manager
+Mar 2018 {EN} Dec 2020
+- Introduced weekly capacity planning with the sales team.
+- Rolled out barcode scanning in two sites.
+
+Operations Analyst
+Feb 2016 {EN} Feb 2018
+- Built the first shared KPI dashboard in Excel.
+
+Initech, Operations Analyst (contract), Jun 2015 - Jan 2016
+- Mapped the returns process for the finance team.
+
+SKILLS
+Lean, Six Sigma, Excel, SQL

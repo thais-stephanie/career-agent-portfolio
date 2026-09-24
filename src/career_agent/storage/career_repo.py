@@ -10,6 +10,7 @@ from itertools import combinations
 from typing import Any
 
 from career_agent.clock import new_id, now_utc
+from career_agent.cv.structure import chronology_key
 from career_agent.domain.enums import ClaimType
 from career_agent.domain.experience import CATEGORIES, CATEGORY_TYPES, KINDS, ExperienceMetadata
 from career_agent.intake.conflicts import normalise_employer
@@ -47,6 +48,28 @@ def positions(organization: dict) -> dict:
             if row["experience_id"] is not None
         ],
     }
+
+
+def _span(entry: dict) -> tuple[str | None, str]:
+    """A period as two comparable months. A year alone spans its whole year;
+    an open or current end is the far future."""
+    begin = entry["period_start"] or (
+        f"{entry['start_year']:04d}-01" if entry.get("start_year") else None
+    )
+    end = entry["period_end"] or (
+        f"{entry['end_year']:04d}-12" if entry.get("end_year") else "9999-12"
+    )
+    return begin, end
+
+
+def _overlaps(left: tuple[str | None, str], right: tuple[str | None, str]) -> bool:
+    if left[0] is None or right[0] is None:
+        return False
+    return left[1] >= right[0] and right[1] >= left[0]
+
+
+#: Item states that are not live evidence, and so never need organizing.
+NOT_LIVE = frozenset({"REJECTED", "RETIRED"})
 
 
 class CareerError(ValueError):
@@ -90,19 +113,29 @@ class CareerRepo:
         """
         records: dict[str, dict] = {}
         if self.candidate_id:
-            for claim in ClaimRepo(self.conn).current(self.candidate_id):
+            claims = ClaimRepo(self.conn)
+            # CONFIRMED, RETIRED or DRAFT, from each claim's revision history
+            # (`ClaimRepo.states`). A draft was never confirmed and is shown as
+            # waiting for review; only a claim she withdrew is RETIRED.
+            states = claims.states(self.candidate_id)
+            for claim in claims.current(self.candidate_id):
+                state = states.get(claim.claim_key, "CONFIRMED" if claim.verified else "RETIRED")
                 records[claim.claim_key] = {
                     **claim.model_dump(mode="json"),
-                    "state": "CONFIRMED" if claim.verified else "RETIRED",
+                    "state": "PENDING" if state == "DRAFT" else state,
                     "origin": "claim",
                     "source_records": [],
                     "role_title": None,
                     "current_role": False,
                     "conflict": False,
                 }
+        package_columns = {row[1] for row in self.conn.execute("PRAGMA table_info(intake_package)")}
+        # A deleted package keeps only the rows its confirmed claims cite; they
+        # are provenance, never live suggestions (migration 0039).
+        live = " WHERE p.deleted_at IS NULL" if "deleted_at" in package_columns else ""
         rows = self.conn.execute(
             "SELECT c.*, p.status AS package_status, p.declared_sources FROM intake_claim c"
-            " JOIN intake_package p ON p.id = c.package_id ORDER BY c.created_at, c.id"
+            f" JOIN intake_package p ON p.id = c.package_id{live} ORDER BY c.created_at, c.id"
         ).fetchall()
         resolved = {
             (r["package_id"], r["conflict_group"])
@@ -162,37 +195,107 @@ class CareerRepo:
             if period.get("current") and not record["period_end"]:
                 record["current_role"] = True
         if self.candidate_id:
+            structured = bool(
+                self.conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'cv_entry'").fetchone()
+            )
+            # Before migration 0039 there are no jobs and no lifecycle columns:
+            # the same columns come back empty, and every read counts as live.
+            job = (
+                "i.archived_at, i.deleted_at, p.source_text, p.source_line,"
+                " e.company AS entry_company, e.role_title AS entry_role,"
+                " e.period_text AS entry_period, e.period_start AS entry_start,"
+                " e.period_end AS entry_end, e.current_role AS entry_current,"
+                " e.start_year AS entry_start_year, e.end_year AS entry_end_year"
+                if structured
+                else "NULL AS archived_at, NULL AS deleted_at, NULL AS source_text,"
+                " NULL AS source_line, NULL AS entry_company, NULL AS entry_role,"
+                " NULL AS entry_period, NULL AS entry_start, NULL AS entry_end,"
+                " 0 AS entry_current, NULL AS entry_start_year, NULL AS entry_end_year"
+            )
+            joined = (
+                " LEFT JOIN cv_entry e ON e.import_id = p.import_id AND e.entry_key = p.entry_key"
+                if structured
+                else ""
+            )
             cv_rows = self.conn.execute(
-                "SELECT p.*, i.source_name, i.status AS import_status FROM cv_proposal p"
-                " JOIN cv_import i ON i.id = p.import_id"
-                " WHERE i.candidate_id = ? ORDER BY p.ordinal",
+                f"SELECT p.*, i.source_name, i.status AS import_status, {job}"
+                "  FROM cv_proposal p JOIN cv_import i ON i.id = p.import_id"
+                f"{joined} WHERE i.candidate_id = ? ORDER BY i.created_at, p.ordinal",
                 (self.candidate_id,),
             ).fetchall()
             for row in cv_rows:
                 key = row["claim_key"]
+                # The job the suggestion sits under in its read, as the review
+                # shows it. An organising HINT: it never becomes part of a
+                # claim except through the review that confirms it.
+                period = (
+                    {
+                        "text": row["entry_period"],
+                        # The span as WRITTEN goes on the start, once; the
+                        # end carries only its reading.
+                        "start": {
+                            "original": row["entry_period"],
+                            "normalized": row["entry_start"],
+                        },
+                        "end": {"normalized": row["entry_end"]} if row["entry_end"] else None,
+                        "current": bool(row["entry_current"]),
+                        "start_year": row["entry_start_year"],
+                        "end_year": row["entry_end_year"],
+                    }
+                    if row["entry_period"] or row["entry_start"]
+                    else {}
+                )
                 source_record = {
                     "import_id": row["import_id"],
                     "source_ref": "cv",
-                    "employer": None,
-                    "period": {},
-                    "role_title": None,
+                    "employer": row["entry_company"],
+                    "period": period,
+                    "role_title": row["entry_role"],
                     "text": row["text"],
-                    "evidence": {"quote": row["evidence"]},
+                    "evidence": {
+                        "quote": row["evidence"],
+                        # The line exactly as written, and where. Provenance.
+                        "raw": row["source_text"],
+                        "line": row["source_line"],
+                    },
                     "documents": [{"ref": "cv", "kind": "RESUME", "title": row["source_name"]}],
                 }
                 if key in records:
-                    records[key]["source_records"].append(source_record)
+                    record = records[key]
+                    record["source_records"].append(source_record)
+                    # Organising hints from the job this line sat under -- a
+                    # role, or dates written only as years -- never additions
+                    # to the confirmed claim itself.
+                    if row["entry_role"] and not record["role_title"]:
+                        record["role_title"] = row["entry_role"]
+                    if row["entry_period"] and not record.get("period_label"):
+                        record["period_label"] = row["entry_period"]
+                        record["start_year"] = row["entry_start_year"]
+                        record["end_year"] = row["entry_end_year"]
+                    if row["entry_current"] and not record["period_end"]:
+                        record["current_role"] = True
                     continue
-                if row["import_status"] == "DISCARDED":
+                if (
+                    row["archived_at"]
+                    or row["deleted_at"]
+                    or row["decision"]
+                    in {
+                        "ACCEPTED",
+                        "EDITED",
+                    }
+                ):
+                    # An archived or deleted read is out of every active list.
+                    # A confirmed suggestion whose claim was since removed is
+                    # history, not a new suggestion.
                     continue
                 records[key] = {
                     "claim_key": key,
                     "revision": 0,
                     "claim_type": row["claim_type"],
                     "text": row["decided_text"] or row["text"],
-                    "employer": None,
-                    "period_start": None,
-                    "period_end": None,
+                    "employer": row["entry_company"],
+                    "period_start": row["entry_start"],
+                    "period_end": row["entry_end"],
                     "verified": False,
                     "state": "REJECTED" if row["decision"] == "REJECTED" else "PENDING",
                     "origin": "cv",
@@ -201,9 +304,12 @@ class CareerRepo:
                     "evidence_ref": row["evidence"],
                     "tools": [],
                     "source_records": [source_record],
-                    "role_title": None,
-                    "current_role": False,
+                    "role_title": row["entry_role"],
+                    "current_role": bool(row["entry_current"]),
                     "conflict": False,
+                    "period_label": row["entry_period"],
+                    "start_year": row["entry_start_year"],
+                    "end_year": row["entry_end_year"],
                 }
         links = {r["claim_key"]: r for r in self.organization()["career_evidence_link"]}
         for key, item in records.items():
@@ -228,7 +334,7 @@ class CareerRepo:
                 for reason, missing in (
                     ("company", not item["employer"]),
                     ("role", not item["role_title"]),
-                    ("dates", not item["period_start"]),
+                    ("dates", not (item["period_start"] or item.get("period_label"))),
                     ("conflict", item["conflict"]),
                 )
                 if missing
@@ -265,15 +371,29 @@ class CareerRepo:
                     "confirmed": sum(r["verified"] for r in owned),
                 }
             )
-        experiences.sort(key=lambda e: (e["display_order"], e["created_at"], e["id"]))
-        unassigned = [r for r in items if not r["experience_id"]]
+        # CHRONOLOGY COMES FROM THE DATES. Newest first, current roles first,
+        # undated last; `display_order` only breaks ties between experiences
+        # the dates cannot tell apart, and is never shown as a number to type.
+        experiences.sort(
+            key=lambda e: (
+                *chronology_key(
+                    e["period_start"], None, e["period_end"], None, bool(e["current_role"])
+                ),
+                e["display_order"],
+                e["created_at"],
+                e["id"],
+            )
+        )
+        # NEEDS ORGANIZING, one rule: LIVE evidence with no experience yet.
+        # Live means a confirmed claim, a draft claim, or an unanswered or
+        # unsure suggestion from a CV read or package she is working on.
+        # Never a rejected suggestion (answered), a retired claim (withdrawn),
+        # an archived or deleted import's rows, or a row kept only as the
+        # provenance of something confirmed -- `items()` never lists those.
+        unassigned = [r for r in items if not r["experience_id"] and r["state"] not in NOT_LIVE]
         grouped: dict[tuple, list[dict]] = defaultdict(list)
         for item in unassigned:
-            if (
-                item["employer"]
-                and item["period_start"]
-                and item["state"] not in {"RETIRED", "REJECTED"}
-            ):
+            if item["employer"] and (item["period_start"] or item.get("period_label")):
                 grouped[
                     (
                         item["employer"],
@@ -281,11 +401,12 @@ class CareerRepo:
                         item["period_start"],
                         item["period_end"],
                         item["current_role"],
+                        None if item["period_start"] else item.get("period_label"),
                     )
                 ].append(item)
         proposals = []
         for signature, members in grouped.items():
-            company, title, start, end, current = signature
+            company, title, start, end, current, label = signature
             proposals.append(
                 {
                     "id": digest(signature)[:20],
@@ -294,21 +415,40 @@ class CareerRepo:
                     "period_start": start,
                     "period_end": end,
                     "current_role": current,
+                    # The dates as the document wrote them, when they are not
+                    # stated to the month ("2015 - 2017"). Shown, never
+                    # widened into months nobody wrote.
+                    "period_label": label,
+                    "start_year": members[0].get("start_year"),
+                    "end_year": members[0].get("end_year"),
                     "count": len(members),
                     "keys": [r["claim_key"] for r in members],
                     "needs_role": not title,
-                    "date_unknown": not end and not current,
+                    "date_unknown": not start or (not end and not current),
                     "conflict": any(r["conflict"] for r in members),
                 }
             )
         for proposal in proposals:
-            proposal["overlap"] = any(
+            begin, end = _span(proposal)
+            proposal["overlap"] = begin is not None and any(
                 other is not proposal
                 and other["company"] == proposal["company"]
-                and (other["period_end"] or "9999-12") >= proposal["period_start"]
-                and (proposal["period_end"] or "9999-12") >= other["period_start"]
+                and _overlaps((begin, end), _span(other))
                 for other in proposals
             )
+        proposals.sort(
+            key=lambda p: (
+                *chronology_key(
+                    p["period_start"],
+                    p["start_year"],
+                    p["period_end"],
+                    p["end_year"],
+                    bool(p["current_role"]),
+                ),
+                p["company"],
+                p["title"] or "",
+            )
+        )
         labels = sorted(
             {r["employer"] for r in items if r["employer"]}
             | {c["label"] for c in companies.values() if not c["archived"]}
@@ -412,7 +552,13 @@ class CareerRepo:
         rows = [
             r
             for r in self.items()
-            if (experience != "inbox" or not r["experience_id"])
+            # The inbox is Needs organizing: the same rule as its count, so the
+            # button and the list agree. Retired or rejected items are reached
+            # by asking for that state explicitly.
+            if (
+                experience != "inbox"
+                or (not r["experience_id"] and (state or r["state"] not in NOT_LIVE))
+            )
             and (not experience or experience == "inbox" or r["experience_id"] == experience)
             and (not state or r["state"] == state)
             and (not category or r["category"] == category)
@@ -503,6 +649,12 @@ class CareerRepo:
             raise CareerError(
                 "Reopen rejected imports in the source review before confirming them."
             )
+        if action == "confirm" and len(keys) > 1:
+            # NO MASS CONFIRMATION. Every confirmed statement can reach a real
+            # application, and one click cannot honestly mean somebody read a
+            # hundred of them. Organising, moving and retiring may be batched;
+            # confirming is one statement at a time, each one read.
+            raise CareerError("Confirm one statement at a time, after reading it.")
         if action in {"merge_companies", "keep_separate"}:
             a, b = command.get("first"), command.get("second")
             labels = {r["employer"] for r in items} | {

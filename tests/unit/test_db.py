@@ -110,6 +110,9 @@ EXPECTED_TABLES = {
     "career_evidence_link",
     "career_company_decision",
     "career_history_event",
+    # 0039: the jobs a CV read describes -- company, role, dates, and the
+    # source lines that stated them. Structure, never a claim.
+    "cv_entry",
     # 0031: where a query-scoped walk got to, slice by slice, across runs.
     "source_slice_state",
     # 0033: where a board-discovery walk over an aggregator index got to,

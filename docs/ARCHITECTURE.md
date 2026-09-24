@@ -11,7 +11,7 @@ This avoids a rewrite and preserves the standalone engine, tests and provenance 
 ## Scoring and provenance
 Career Agent gates eligibility separately from Search Fit and data confidence. Missing hiring scope remains unresolved. Remote is not worldwide. Search Fit is deterministic arithmetic over configured preferences and observed posting facts, never a hiring probability. The title does not buy fit points. Quotes remain verifiable substrings of source text.
 
-Career Evidence changes only through explicit review. Resume Tailor's source strength, clause-scoped confirmation, evidence identifiers, conflicts and validator remain in its own engine. Importing a source does not confirm it. Gaps remain visible. Evidence-only export rejects unsupported edits. A generated sentence does not become confirmed evidence in either module.
+Career Evidence changes only through explicit review. Resume Tailor's source strength, clause-scoped confirmation, evidence identifiers, conflicts and validator remain in its own engine. Importing a source does not confirm it. Gaps remain visible. Evidence-only export rejects unsupported edits. A generated sentence does not become confirmed evidence in either module. A CV is read as companies, roles and dates before any claim is proposed, and an import can be archived (reversible) or deleted (permanent, keeping what was confirmed). See [CAREER_EVIDENCE.md](CAREER_EVIDENCE.md).
 
 The public source includes unit, integration and browser tests plus synthetic Tailor invariants. Private golden datasets, research branches and operational results are not release dependencies. See VALIDATION.md for measured coverage and exclusions.
 

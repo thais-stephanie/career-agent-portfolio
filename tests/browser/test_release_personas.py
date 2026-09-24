@@ -11,7 +11,7 @@ import pytest
 from tests.browser.conftest import _free_port
 from tests.browser.home_helpers import open_home_past_setup
 from tests.browser.test_browser_acceptance import choose_theme, open_list, set_value
-from tests.browser.test_evidence_workspace import answer, open_evidence
+from tests.browser.test_evidence_workspace import answer, open_evidence, open_next
 from tests.browser.test_profile_editing import open_profile
 
 from career_agent.clock import now_utc
@@ -141,13 +141,18 @@ def test_complete_persona_journey(page, workspace, persona):
         "const i=document.querySelector('#ev-file'); i.files=d.files;"
         "i.dispatchEvent(new Event('change',{bubbles:true})); })()"
     )
+    # The review opens on its summary: the job this CV describes, read as a
+    # company, a role and dates, and nothing confirmed.
     page.wait_for(
-        "document.querySelectorAll('#page-evidence .ev__card').length > 0"
+        "document.querySelector('#page-evidence .cvr__summary') !== null"
         " || document.querySelector('.ev__flash--bad')"
     )
     assert not page.evaluate("Boolean(document.querySelector('.ev__flash--bad'))"), page.evaluate(
         "document.querySelector('.ev__flash--bad')?.textContent"
     )
+    row = str(page.evaluate("document.querySelector('#page-evidence .cvr__row').textContent"))
+    assert f"Invented Company {code}" in row and title in row, row
+    open_next(page)
     answer(page, 0, "Yes, that is true")
     page.wait_for("document.querySelector('#page-evidence .ev__decision')")
     with connect(ws.db) as conn:

@@ -263,6 +263,12 @@ def proposal_payload(row: sqlite3.Row) -> dict:
         "decision": str(row["decision"]),
         "decided_text": row["decided_text"],
         "decided_at": row["decided_at"],
+        # Which job it sits under, and the RAW provenance: the line number and
+        # the line exactly as the document had it. Sent as text; the interface
+        # never renders an imported line as HTML.
+        "entry_key": _column(row, "entry_key"),
+        "source_line": _column(row, "source_line"),
+        "source_text": _column(row, "source_text"),
     }
 
 
@@ -501,7 +507,12 @@ class WorkspaceRoutes(_MixinBase):
         self.register("POST", r"/api/cv/import", self.cv_import)
         self.register("GET", r"/api/cv/imports/(?P<import_id>[^/]+)", self.cv_review)
         self.register("POST", r"/api/cv/imports/(?P<import_id>[^/]+)/decide", self.decide_proposal)
+        # "Discard" was a hard delete. It is ARCHIVE now, which is what the
+        # word promised; deleting is its own route and asks first.
         self.register("POST", r"/api/cv/imports/(?P<import_id>[^/]+)/discard", self.discard_import)
+        from career_agent.web.cv_api import register_cv_routes
+
+        register_cv_routes(self)
 
         # The Candidate Intake Package. Five routes, and the shape of them is
         # the product decision: a SUMMARY that never returns three hundred
@@ -523,6 +534,7 @@ class WorkspaceRoutes(_MixinBase):
         self.register("POST", r"/api/intake/(?P<package_id>[^/]+)/discard", self.intake_discard)
         self.register("POST", r"/api/intake/(?P<package_id>[^/]+)/select", self.intake_select)
         self.register("POST", r"/api/intake/(?P<package_id>[^/]+)/restore", self.intake_restore)
+        self.register("POST", r"/api/intake/(?P<package_id>[^/]+)/delete", self.intake_delete)
 
         self.register("GET", r"/api/home", self.home)
         self.register("GET", r"/api/daily", self.daily)
@@ -559,10 +571,13 @@ class WorkspaceRoutes(_MixinBase):
                     "counts": {},
                     "confirmed": 0,
                     "retired": 0,
+                    "drafts": 0,
                     "types": list(MANUAL_CLAIM_TYPES),
                     "sources": SOURCE_LABELS,
                 }
-            claims = ClaimRepo(conn).current(candidate_id)
+            repo = ClaimRepo(conn)
+            claims = repo.current(candidate_id)
+            states = repo.states(candidate_id)
             revisions = {
                 str(row["claim_key"]): int(row["n"])
                 for row in conn.execute(
@@ -573,7 +588,13 @@ class WorkspaceRoutes(_MixinBase):
             }
 
         payload = [
-            claim_payload(claim, revisions=revisions.get(claim.claim_key, 1)) for claim in claims
+            {
+                **claim_payload(claim, revisions=revisions.get(claim.claim_key, 1)),
+                # CONFIRMED, RETIRED (withdrawn) or DRAFT (never confirmed):
+                # `verified` alone cannot tell the last two apart.
+                "state": states.get(claim.claim_key, "CONFIRMED" if claim.verified else "RETIRED"),
+            }
+            for claim in claims
         ]
         counts: dict[str, int] = {}
         for claim in claims:
@@ -584,7 +605,8 @@ class WorkspaceRoutes(_MixinBase):
             "claims": payload,
             "counts": counts,
             "confirmed": sum(1 for c in claims if c.verified),
-            "retired": sum(1 for c in claims if not c.verified),
+            "retired": sum(1 for state in states.values() if state == "RETIRED"),
+            "drafts": sum(1 for state in states.values() if state == "DRAFT"),
             "types": list(MANUAL_CLAIM_TYPES),
             "sources": SOURCE_LABELS,
         }
@@ -837,6 +859,9 @@ class WorkspaceRoutes(_MixinBase):
                 return {"packages": [], "active_package_id": None}
             packages = []
             for row in rows:
+                if _column(row, "deleted_at") is not None:
+                    # Deleted, kept only as the provenance of what she confirmed.
+                    continue
                 counts = summary(conn, str(row["id"]))
                 packages.append(
                     {
@@ -1081,10 +1106,10 @@ class WorkspaceRoutes(_MixinBase):
         able to tell those apart.
         """
         del query, body
+        from career_agent.storage.review_counts import review_counts
         from career_agent.storage.workspace_repo import (
             CAREER_STAGE,
             CandidateStateRepo,
-            CvReviewRepo,
             candidate_id_of,
         )
 
@@ -1100,21 +1125,10 @@ class WorkspaceRoutes(_MixinBase):
                     " WHERE superseded_by_id IS NULL AND verified = 1"
                 ).fetchone()[0]
             )
-            staged = CvReviewRepo(conn).imports(candidate_id) if candidate_id else []
-            waiting = sum(item.pending for item in staged)
-            try:
-                packages = int(conn.execute("SELECT COUNT(*) FROM intake_package").fetchone()[0])
-                unanswered = int(
-                    conn.execute(
-                        "SELECT COUNT(*) FROM intake_claim WHERE review_state IN"
-                        " ('UNREVIEWED', 'CONFLICT')"
-                    ).fetchone()[0]
-                )
-            except Exception:
-                # A database predating migration 0023 has no such tables, and
-                # "you have no packages" is the truthful answer rather than a
-                # 500 on the very first screen somebody sees.
-                packages, unanswered = 0, 0
+            # ONE definition of what is waiting, shared with Home, Career
+            # Evidence and the terminal. An archived import is work she put
+            # down: it neither waits here nor keeps the setup unfinished.
+            counts = review_counts(conn, candidate_id)
             scored = int(conn.execute("SELECT COUNT(*) FROM job_match").fetchone()[0])
 
         # The three configuration facts, read from the SAME config object the
@@ -1138,9 +1152,12 @@ class WorkspaceRoutes(_MixinBase):
         steps = [
             {
                 "key": "documents",
-                "done": bool(staged) or packages > 0,
-                "documents": len(staged),
-                "packages": packages,
+                # Added, whether or not it is being worked on now. Archiving a
+                # document is putting it away, not un-adding it.
+                "done": counts.documents + counts.cv_archived + counts.packages_archived > 0,
+                "documents": counts.cv_imports,
+                "packages": counts.packages,
+                "archived": counts.cv_archived + counts.packages_archived,
             },
             {
                 "key": "evidence",
@@ -1149,7 +1166,7 @@ class WorkspaceRoutes(_MixinBase):
                 # whole review step decorative.
                 "done": confirmed > 0,
                 "confirmed": confirmed,
-                "waiting": waiting + unanswered,
+                "waiting": counts.waiting,
             },
             {
                 "key": "where",
@@ -1314,6 +1331,28 @@ class WorkspaceRoutes(_MixinBase):
                 raise ApiError(409, str(exc), for_reader=True) from exc
             active = store.active_package(conn)
         return {"package_id": key, "status": landed, "active_package_id": active}
+
+    def intake_delete(self, *, package_id: str, query: dict, body: dict) -> dict:
+        """Remove a package for good. Without `confirm: true`, only the plan.
+
+        The plan is what the interface shows before anything happens: how many
+        unconfirmed claims go, and how many confirmed ones keep their rows as
+        the provenance their evidence cites. `store.delete` does the rest.
+        """
+        del query
+        from career_agent.intake import store
+        from career_agent.intake.store import IntakeReviewError
+
+        key = _claim_key(package_id)
+        with _closing(self.connect()) as conn:
+            try:
+                if body.get("confirm") is not True:
+                    return {"deleted": False, "plan": store.delete_plan(conn, key)}
+                plan = store.delete(conn, key)
+            except IntakeReviewError as exc:
+                raise ApiError(404, str(exc)) from exc
+            active = store.active_package(conn)
+        return {"deleted": True, "plan": plan, "active_package_id": active}
 
     def intake_claims(self, *, package_id: str, query: dict, body: dict) -> dict:
         """ONE GROUP of claims, or one review state, never the whole package."""
@@ -1539,11 +1578,13 @@ class WorkspaceRoutes(_MixinBase):
         return {"package_id": key, "released": released, "counts": counts, "conflicts": conflicts}
 
     def cv_imports(self, *, query: dict, body: dict) -> dict:
+        from career_agent.storage.review_counts import review_counts
         from career_agent.storage.workspace_repo import CvReviewRepo, candidate_id_of
 
         with _closing(self.connect()) as conn:
             candidate_id = candidate_id_of(conn)
             staged = CvReviewRepo(conn).imports(candidate_id) if candidate_id else []
+            counts = review_counts(conn, candidate_id)
         return {
             "imports": [
                 {
@@ -1560,9 +1601,14 @@ class WorkspaceRoutes(_MixinBase):
                     "edited": item.edited,
                     "rejected": item.rejected,
                     "confirmed": item.confirmed,
+                    "entries": item.entries,
+                    # Put away, reversibly. Its suggestions wait nowhere.
+                    "archived": item.archived,
+                    "archived_at": item.archived_at,
                 }
                 for item in staged
             ],
+            "counts": counts.as_dict(),
             "supported": [".pdf", ".docx", ".txt", ".md"],
             "privacy": (
                 "Your CV is read by Career Agent on this computer. It is not uploaded "
@@ -1582,7 +1628,8 @@ class WorkspaceRoutes(_MixinBase):
         hole that check exists to close.
 
         The bytes are parsed in memory and dropped. Nothing is written to disk
-        except the proposals and the lines they were read from.
+        except the jobs the reader found, the proposals, and the lines they
+        were read from.
         """
         from career_agent.cv.extract import CvError, extract_bytes
         from career_agent.cv.propose import read_cv
@@ -1615,7 +1662,7 @@ class WorkspaceRoutes(_MixinBase):
             )
 
         read = read_cv(found.text)
-        if not read.proposals:
+        if not read.proposals and not read.entries:
             raise ApiError(
                 422,
                 f"{found.source_name} was read, and no section this recognises came out "
@@ -1638,17 +1685,32 @@ class WorkspaceRoutes(_MixinBase):
                     characters=found.characters,
                     text=found.text,
                     proposals=read.proposals,
+                    entries=read.entries,
                 )
 
         payload = self.cv_review(import_id=import_id, query={}, body={})
         payload["seen_before"] = [
-            {"import_id": str(row["id"]), "created_at": str(row["created_at"])} for row in earlier
+            {
+                "import_id": str(row["id"]),
+                "created_at": str(row["created_at"]),
+                "archived": _column(row, "archived_at") is not None,
+            }
+            for row in earlier
         ]
         payload["unread_lines"] = len(read.unread_lines)
         return payload
 
     def cv_review(self, *, import_id: str, query: dict, body: dict) -> dict:
-        """One staged read, with every proposal and the answer it carries."""
+        """One staged read: a summary, its jobs, and every proposal under them.
+
+        THE SHAPE IS THE REVIEW DESIGN. A long CV is a hundred or more
+        suggestions, and a hundred cards is a wall nobody finishes. So the read
+        comes back as JOBS -- company, role, dates, how many wait in each --
+        with the suggestions under the job they belong to, and the ones that
+        belong to no job (skills, education) under their own section. The
+        interface opens on the summary and the list of jobs, never on the
+        cards.
+        """
         from career_agent.storage.workspace_repo import CvReviewRepo, candidate_id_of
 
         key = _claim_key(import_id)
@@ -1661,33 +1723,11 @@ class WorkspaceRoutes(_MixinBase):
             if record is None:
                 raise ApiError(404, "no such import")
             rows = repo.proposals(key)
+            entry_rows = repo.entries(key)
 
-        groups: dict[str, list[dict]] = {}
-        for row in rows:
-            groups.setdefault(str(row["claim_type"]), []).append(proposal_payload(row))
-        decided = {"ACCEPTED": 0, "EDITED": 0, "REJECTED": 0, "PENDING": 0}
-        for row in rows:
-            decided[str(row["decision"])] += 1
+        from career_agent.web.cv_api import cv_review_payload
 
-        return {
-            "import_id": key,
-            "source_name": str(record["source_name"]),
-            "kind": str(record["kind"]),
-            "pages": record["pages"],
-            "characters": int(record["characters"]),
-            "status": str(record["status"]),
-            "created_at": str(record["created_at"]),
-            # Only the types this document actually produced. A review showing
-            # an empty "Certifications" group is describing a feature, not a CV.
-            "groups": [
-                {"claim_type": claim_type, "proposals": items}
-                for claim_type, items in groups.items()
-            ],
-            "counts": decided,
-            "total": len(rows),
-            "seen_before": [],
-            "unread_lines": 0,
-        }
+        return cv_review_payload(record, rows, entry_rows)
 
     def decide_proposal(self, *, import_id: str, query: dict, body: dict) -> dict:
         """Accept, edit, or reject one proposal.
@@ -1697,6 +1737,12 @@ class WorkspaceRoutes(_MixinBase):
         edited text and the ORIGINAL proposal, so the two never merge. REJECT
         records that this line of this document was not wanted and creates
         nothing anywhere.
+
+        A confirmed claim carries the company and the dates of the job it sits
+        under, as the review showed them (and as she corrected them). Only
+        dates stated to the month reach the claim; a year-only span stays on
+        the job, because a claim's period is a month and inventing January
+        would be this code writing a fact.
 
         One proposal per request, committed on its own. A review that saved
         only at the end would lose an hour of decisions to a closed tab, and
@@ -1720,11 +1766,29 @@ class WorkspaceRoutes(_MixinBase):
             if candidate_id is None:
                 raise ApiError(404, "no such import")
             repo = CvReviewRepo(conn)
-            if repo.get_import(candidate_id, key) is None:
+            record = repo.get_import(candidate_id, key)
+            if record is None:
                 raise ApiError(404, "no such import")
+            if record["archived_at"] is not None:
+                raise ApiError(
+                    409, "This CV read is archived. Restore it before answering.", for_reader=True
+                )
             row = repo.proposal(key, claim_key)
             if row is None:
                 raise ApiError(404, "no such proposal")
+            if str(row["decision"]) in {"ACCEPTED", "EDITED"} and decision in {
+                "REJECTED",
+                "PENDING",
+            }:
+                # Withdrawing evidence is retiring it, in Career Evidence, where
+                # it is a revision with its history. A review answer that
+                # quietly un-confirmed a fact would leave the claim verified.
+                raise ApiError(
+                    409,
+                    "That suggestion is confirmed evidence now. Retire it in Career "
+                    "Evidence if it is no longer true.",
+                    for_reader=True,
+                )
 
             with transaction(conn):
                 if decision in {"REJECTED", "PENDING"}:
@@ -1738,8 +1802,19 @@ class WorkspaceRoutes(_MixinBase):
                         evidence=str(row["evidence"]),
                         has_measurement=bool(row["has_measurement"]),
                     )
+                    entry = (
+                        repo.entry(key, str(row["entry_key"]))
+                        if _column(row, "entry_key")
+                        else None
+                    )
                     stored_text = edited if decision == "EDITED" else None
-                    claim = to_claim(proposal, text=stored_text)
+                    claim = to_claim(
+                        proposal,
+                        text=stored_text,
+                        employer=entry["company"] if entry is not None else None,
+                        period_start=entry["period_start"] if entry is not None else None,
+                        period_end=entry["period_end"] if entry is not None else None,
+                    )
                     claim_id = ClaimRepo(conn).supersede(candidate_id, claim)
                     repo.record_decision(
                         key,
@@ -1753,11 +1828,12 @@ class WorkspaceRoutes(_MixinBase):
         return self.cv_review(import_id=key, query={}, body={})
 
     def discard_import(self, *, import_id: str, query: dict, body: dict) -> dict:
-        """Throw away a staged read. Confirmed claims are not touched.
+        """ARCHIVE a read. Reversible, and every row stays.
 
-        A claim stopped belonging to its import the moment somebody confirmed
-        it; discarding the review discards what is still undecided, which is
-        the only thing the review still owns.
+        This route hard-deleted the read and all its proposals, including the
+        rows her confirmed claims cite as provenance, while the button promised
+        only "discard". It archives now; `/delete` is the permanent act and it
+        shows what it will remove before it does.
         """
         from career_agent.storage.db import transaction
         from career_agent.storage.workspace_repo import CvReviewRepo, candidate_id_of
@@ -1768,7 +1844,7 @@ class WorkspaceRoutes(_MixinBase):
             if candidate_id is None:
                 raise ApiError(404, "no such import")
             with transaction(conn):
-                if not CvReviewRepo(conn).discard(candidate_id, key):
+                if not CvReviewRepo(conn).archive(candidate_id, key):
                     raise ApiError(404, "no such import")
         return self.cv_imports(query={}, body={})
 

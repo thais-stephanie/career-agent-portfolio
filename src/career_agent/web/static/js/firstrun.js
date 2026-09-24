@@ -235,7 +235,11 @@ export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null
   function stateLine(step) {
     const words = {
       documents: () => (step.done
-        ? t('firstrun.state.documents', { n: (step.packages || 0) + (step.documents || 0) })
+        // Archived documents still count as read: archiving is putting one
+        // away, and nothing in it waits (see storage/review_counts.py).
+        ? t('firstrun.state.documents', {
+          n: (step.packages || 0) + (step.documents || 0) + (step.archived || 0),
+        })
         : t('firstrun.state.noDocuments')),
       evidence: () => (step.confirmed
         ? t('firstrun.state.confirmed', { n: step.confirmed })

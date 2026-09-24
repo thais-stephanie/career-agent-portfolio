@@ -28,6 +28,16 @@ export function careerWorkspace({ onChanged } = {}) {
   function title(experience) {
     return [experience.company, experience.title || label('roleUnknown')].filter(Boolean).join(' · ');
   }
+  /**
+   * WHEN, in words. Months as months, a year-only span as the document wrote
+   * it ("2015 - 2017"), and "not stated" rather than an invented January.
+   */
+  function when(item) {
+    if (!item.period_start && item.period_label) return item.period_label;
+    const start = item.period_start || label('dateUnknown');
+    const end = item.current_role ? label('current') : item.period_end || label('dateUnknown');
+    return `${start} - ${end}`;
+  }
   function choose(next) {
     scope = next; filters = { q: '', state: '', category: '', offset: 0 };
     selected = new Set(); replace(review, []);
@@ -51,8 +61,7 @@ export function careerWorkspace({ onChanged } = {}) {
         el('article', { className: 'career__card', dataset: { experience: experience.id } }, [
           el('h3', { text: experience.company || label('independent') }),
           el('p', { text: experience.title || label('roleUnknown') }),
-          el('p', { text: `${experience.period_start || label('dateUnknown')} - ${
-            experience.current_role ? label('current') : experience.period_end || label('dateUnknown')}` }),
+          el('p', { text: when(experience) }),
           paragraph('count', { count: experience.count, confirmed: experience.confirmed }),
           button(label('open'), () => choose(experience.id)),
           button(label('edit'), () => metadata('edit', experience)),
@@ -94,7 +103,7 @@ export function careerWorkspace({ onChanged } = {}) {
       ])),
       ...data.proposals.map(proposal => el('div', { className: 'career__card' }, [
         el('h4', { text: title(proposal) }),
-        el('p', { text: `${proposal.period_start} - ${proposal.period_end || label('dateUnknown')}` }),
+        el('p', { text: when(proposal) }),
         paragraph('proposalCount', { count: proposal.count }),
         proposal.needs_role || proposal.overlap || proposal.conflict || proposal.date_unknown
           ? paragraph('ambiguity') : null,
@@ -105,10 +114,13 @@ export function careerWorkspace({ onChanged } = {}) {
   function metadata(action, initial = {}, keys = [...selected]) {
     const form = el('div', { className: 'career__metadata' });
     const inputs = {};
-    for (const name of ['company', 'title', 'period_start', 'period_end', 'display_order']) {
-      inputs[name] = el('input', { className: 'input', attrs: { type: name === 'display_order' ? 'number' :
+    // NO ORDER FIELD. Experiences are ordered by their dates, newest first,
+    // and a number to type was a way of making her maintain what the dates
+    // already say.
+    for (const name of ['company', 'title', 'period_start', 'period_end']) {
+      inputs[name] = el('input', { className: 'input', attrs: { type:
         name.startsWith('period_') ? 'month' : 'text', maxlength: '200' },
-      props: { value: initial[name] ?? (name === 'display_order' ? 0 : '') } });
+      props: { value: initial[name] ?? '' } });
       form.append(control(name, inputs[name]));
     }
     const current = el('input', { className: 'checkbox',
@@ -123,7 +135,7 @@ export function careerWorkspace({ onChanged } = {}) {
     form.append(control('current_role', current), control('kind', kind), paragraph('metadataHelp'),
       button(label('preview'), run(() => {
         const values = Object.fromEntries(Object.entries(inputs).map(([key, input]) =>
-          [key, key === 'display_order' ? Number(input.value) : input.value.trim() || null]));
+          [key, input.value.trim() || null]));
         return preview({ action, keys, ...(action === 'edit' ? { experience_id: initial.id } : {}),
           metadata: { ...values, current_role: current.checked, kind: kind.value } });
       })), button(label('cancel'), () => replace(review, [])));
@@ -185,7 +197,7 @@ export function careerWorkspace({ onChanged } = {}) {
       void showEvidence().catch(fail);
     };
     query.addEventListener('keydown', event => { if (event.key === 'Enter') filter(); });
-    const state = select(['', 'CONFIRMED', 'PENDING', 'RETIRED', 'REJECTED'].map(value =>
+    const state = select(['', 'CONFIRMED', 'PENDING', 'UNRESOLVED', 'RETIRED', 'REJECTED'].map(value =>
       ({ value, label: value ? label(`state.${value}`) : label('anyState') })), filters.state,
     value => { filters.state = value; filter(); });
     const category = select([{ value: '', label: label('anyCategory') }, ...data.categories.map(value =>
@@ -247,6 +259,9 @@ export function careerWorkspace({ onChanged } = {}) {
           }) }),
           item.origin === 'claim' ? button(label('editText'), editText,
             { className: 'btn btn--small btn--quiet' }) : paragraph('editImportHelp'),
+          !['CONFIRMED', 'REJECTED'].includes(item.state) && !item.conflict ? button(label('confirmOne'), run(() =>
+            preview({ action: 'confirm', keys: [item.claim_key] })),
+          { className: 'btn btn--small', ariaLabel: label('confirmOneLabel', { text: item.text }) }) : null,
           editHost, source]),
       ]);
     });
@@ -261,7 +276,9 @@ export function careerWorkspace({ onChanged } = {}) {
         summary ? button(label('selectExperience'), () => {
           selected = new Set(summary.keys); selectionChanged(); }) : null,
         button(label('clear'), () => { selected.clear(); selectionChanged(); }),
-        button(label('action.confirm'), bulk('confirm')), button(label('action.retire'), bulk('retire')),
+        // NO BULK CONFIRM. Confirming is one statement at a time, from its own
+        // row, after reading it; the server refuses a batch as well.
+        button(label('action.retire'), bulk('retire')),
       ]),
       el('details', {}, [el('summary', { text: label('organizeSelected') }),
         control('destination', destination),
