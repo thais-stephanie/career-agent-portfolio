@@ -162,6 +162,44 @@ def test_a_date_conflict_offers_both_and_changes_only_what_is_chosen(workspace) 
     assert entry(took, "Globex Logistics", "Operations Manager")["state"] != "DATE_CONFLICT"
 
 
+def _one_job(dates: str) -> str:
+    return (
+        "Jordan Example\njordan@example.invalid | +00 0000 0000\n\nPROFESSIONAL EXPERIENCE\n\n"
+        f"Initech, Operations Analyst (contract), {dates}\n"
+        "- Mapped the returns process for the finance team.\n"
+        "- Built the first shared KPI dashboard in Excel.\n\nSKILLS\nLean, Six Sigma, Excel, SQL\n"
+    )
+
+
+def test_the_documents_dates_change_only_what_the_document_states(workspace) -> None:
+    """A second CV that gives only a start must not erase the profile's end."""
+    api, _db = workspace
+    first = upload(api, _one_job("Jun 2015 - Jan 2016"), "a.txt")
+    place(api, first, review(api, first)["experiences"][0]["key"], "new")
+    second = upload(api, _one_job("Mar 2015"), "b.txt")
+    conflict = review(api, second)["experiences"][0]
+    assert conflict["state"] == "DATE_CONFLICT"
+    place(api, second, conflict["key"], "existing", dates="document")
+    (experience,) = call(api, "GET", "/api/career")["experiences"]
+    assert experience["period_start"] == "2015-03"
+    assert experience["period_end"] == "2016-01", "a date the document never stated was erased"
+
+
+def test_a_bad_correction_is_a_readable_refusal_not_a_server_fault(workspace) -> None:
+    api, _db = workspace
+    import_id = upload(api, _one_job("Jun 2015 - Jan 2016"), "a.txt")
+    key = review(api, import_id)["experiences"][0]["key"]
+    for fields in (
+        {"period_start": "2020-13"},
+        {"period_start": "2020-05", "period_end": "2019-01"},
+        {"current_role": "false"},
+    ):
+        with pytest.raises(ApiError) as caught:
+            place(api, import_id, key, "new", fields=fields)
+        assert caught.value.status == 400, (fields, caught.value.status)
+    assert call(api, "GET", "/api/career")["experiences"] == []
+
+
 def test_uncertain_structure_asks_for_help(workspace) -> None:
     api, _db = workspace
     text = (

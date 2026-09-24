@@ -40,6 +40,8 @@ import re
 import sqlite3
 from typing import Any
 
+from pydantic import ValidationError
+
 from career_agent.web.server import ApiError
 from career_agent.web.server import closing as _closing
 
@@ -640,7 +642,7 @@ def register_documents_routes(app: Any) -> None:
                             "title": fields.get("title", entry["role"]),
                             "period_start": fields.get("period_start", _stored(entry, "start")),
                             "period_end": fields.get("period_end", _stored(entry, "end")),
-                            "current_role": bool(
+                            "current_role": _flag(
                                 fields.get("current_role", entry["period"]["current"])
                             ),
                         }
@@ -650,11 +652,19 @@ def register_documents_routes(app: Any) -> None:
                     elif choice == "existing" and entry["match"]:
                         target = entry["match"]["experience_id"]
                         if body.get("dates") == "document":
-                            dated = {
-                                "period_start": _stored(entry, "start"),
-                                "period_end": _stored(entry, "end"),
-                                "current_role": bool(entry["period"]["current"]),
-                            }
+                            # Only what the document states: a start-only
+                            # document must not erase the profile's end, nor
+                            # an unstated end its "I work here now".
+                            period = entry["period"]
+                            dated: dict[str, Any] = {}
+                            if _stored(entry, "start"):
+                                dated["period_start"] = _stored(entry, "start")
+                            if period.get("current"):
+                                dated["period_end"] = None
+                                dated["current_role"] = True
+                            elif _stored(entry, "end"):
+                                dated["period_end"] = _stored(entry, "end")
+                                dated["current_role"] = False
                             command = {"action": "edit", "experience_id": target, "metadata": dated}
                             preview = repo.preview(command)
                             repo.apply(command, preview["preview_hash"])
@@ -669,6 +679,15 @@ def register_documents_routes(app: Any) -> None:
                         result = repo.apply(command, preview["preview_hash"])
             except CareerError as exc:
                 raise ApiError(409, str(exc), for_reader=True) from exc
+            except ValidationError as exc:
+                # A corrected field that is not a date, too long, or an end
+                # before the start: the reader's mistake, said as such.
+                problem = (
+                    exc.errors()[0].get("msg", "invalid value") if exc.errors() else "invalid value"
+                )
+                raise ApiError(
+                    400, str(problem).removeprefix("Value error, "), for_reader=True
+                ) from exc
             fresh = review_model(conn, kind, doc)
         return {
             **fresh,
@@ -713,6 +732,15 @@ def register_documents_routes(app: Any) -> None:
     app.register("POST", base + r"/answer", answer)
     app.register("POST", base + r"/place", place)
     app.register("POST", base + r"/skip", skip)
+
+
+def _flag(value: Any) -> bool:
+    """A yes/no from a request body: a real boolean, never the string "false"."""
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise ApiError(400, "current_role must be true or false")
+    return value
 
 
 def _stored(entry: dict, end: str) -> str | None:
