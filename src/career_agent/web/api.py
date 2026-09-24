@@ -1588,24 +1588,42 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         cached from the end of a run, so it stays true after an import, a
         rescore, or a preference change -- none of which are retrievals.
         """
-        _reject_unknown(query, frozenset(), "retrieval")
-        from career_agent.pipeline.retrieval import build_funnel
+        _reject_unknown(query, frozenset({"funnel"}), "retrieval")
+        from career_agent.pipeline.retrieval import build_funnel, now_iso
 
+        # `funnel=false` is for the progress poll. The funnel is seven COUNT
+        # queries over the whole corpus, and a poll every two seconds only
+        # needs the run, which is held in memory.
+        with_funnel = _one(query, "funnel") is None or _bool(query, "funnel")
         config_id, config_version = self._identity()
         cfg = self.search_config()
         shortlist = int(_as_dict(cfg, "thresholds").get("shortlist_min_score", 55))
         with _closing(self.connect()) as conn:
-            funnel = build_funnel(conn, config_id, config_version, shortlist)
+            funnel = (
+                build_funnel(conn, config_id, config_version, shortlist) if with_funnel else None
+            )
             from career_agent.runtime import read_identity
 
             identity = read_identity(conn)
         run = self.retrieval.snapshot()
+        scoring = self.rescore.snapshot()
         return {
             "funnel": funnel,
             "shortlist_min_score": shortlist,
             "last_retrieval_at": identity.last_retrieval_at if identity else None,
             "running": self.retrieval.running,
             "run": run,
+            # Scoring follows a collection on its own runner. Reported here so
+            # one poll can say "reading sources" and then "scoring what came
+            # in" without the page watching two endpoints.
+            "scoring": {
+                "running": self.rescore.running,
+                "done": int(scoring["boards_done"]) if scoring else 0,
+                "total": int(scoring["boards_total"]) if scoring else 0,
+            },
+            # The server's clock, so elapsed time is measured against the
+            # clock that stamped `started_at` rather than the browser's.
+            "now": now_iso(),
         }
 
     def start_retrieval(self, *, query: dict, body: dict) -> dict:

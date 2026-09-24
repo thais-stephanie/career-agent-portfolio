@@ -11,15 +11,15 @@
  * every source down are different situations and lead to different decisions.
  * A source nobody attempted says so rather than looking healthy.
  *
- * POLLED, NOT STREAMED. The run happens on the server's own thread; this asks
- * every couple of seconds while it is going and stops when it is not. No
- * socket, no reconnect logic, nothing to leak if the person closes the tab.
+ * IT DOES NOT POLL. The run happens on the server's own thread and the app has
+ * one watcher for it (`collection.js`), which this panel subscribes to while
+ * Settings is open. The funnel is asked for once when the panel opens and once
+ * when a run ends -- it is seven counts over the whole corpus, and nothing on
+ * it changes fast enough to be worth asking every two seconds.
  */
 
 import { el, button, replace } from './dom.js';
 import { t } from './i18n.js';
-
-const POLL_MS = 2000;
 
 /** The stages, in the order they narrow, with what each one means. */
 //
@@ -29,28 +29,48 @@ const STAGES = [
   'fetched', 'active', 'normalised', 'scored', 'deduplicated', 'eligible', 'recommended',
 ];
 
-export function createRetrievalPanel(mount, api, onFinished) {
-  let timer = null;
+export function createRetrievalPanel(mount, api, collection) {
+  //: The funnel and the last-looked date, from the last full answer.
+  let summary = null;
+  let unsubscribe = null;
+  let unfinish = null;
+  let token = 0;
 
   function stop() {
-    if (timer) { clearTimeout(timer); timer = null; }
+    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+    if (unfinish) { unfinish(); unfinish = null; }
   }
 
-  async function refresh() {
-    stop();
-    let data;
+  async function loadSummary() {
+    const mine = ++token;
     try {
-      data = await api.getRetrieval();
+      const data = await api.getRetrieval();
+      if (mine !== token) return;
+      summary = data;
     } catch (error) {
+      if (mine !== token) return;
       replace(mount, [el('p', { className: 'retr__error', text: error.userMessage || error.message })]);
       return;
     }
-    render(data);
-    if (data.running) {
-      timer = setTimeout(refresh, POLL_MS);
-    } else if (data.run && data.run.status === 'done') {
-      onFinished?.();
-    }
+    draw(collection.state(), 'update');
+  }
+
+  function draw(snapshot, reason) {
+    if (!summary || reason === 'tick') return;
+    render({
+      ...summary,
+      running: snapshot.phase === 'collecting' || snapshot.phase === 'starting',
+      run: snapshot.run || summary.run,
+      error: snapshot.error,
+    });
+  }
+
+  /** Opened: one full answer, then follow the app's watcher. */
+  async function refresh() {
+    stop();
+    unsubscribe = collection.subscribe(draw);
+    unfinish = collection.onFinish(() => loadSummary());
+    await loadSummary();
   }
 
   function render(data) {
@@ -58,28 +78,19 @@ export function createRetrievalPanel(mount, api, onFinished) {
     const running = Boolean(data.running);
     const children = [];
 
-    const startButton = button(running ? t('retrieval.retrieving') : t('rail.retrieve'), async () => {
+    const startButton = button(running ? t('retrieval.retrieving') : t('rail.retrieve'), () => {
       startButton.disabled = true;
-      try {
-        await api.startRetrieval();
-        refresh();
-      } catch (error) {
-        replace(status, [el('span', {
-          className: 'retr__error',
-          text: error.userMessage || error.message,
-        })]);
-        startButton.disabled = false;
-      }
+      collection.start('retrieval');
     }, { className: 'retr__start' });
     startButton.disabled = running;
 
     const status = el('div', { className: 'retr__status' });
+    if (data.error) {
+      status.appendChild(el('span', { className: 'retr__error', text: data.error }));
+    }
     const actions = [startButton];
     if (running) {
-      actions.push(button(t('action.cancel'), async () => {
-        await api.cancelRetrieval();
-        refresh();
-      }, { className: 'retr__cancel' }));
+      actions.push(button(t('action.cancel'), () => collection.cancel(), { className: 'retr__cancel' }));
     }
     children.push(el('div', { className: 'retr__row' }, [...actions, status]));
 

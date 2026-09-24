@@ -2,6 +2,7 @@
 import { el, button, replace, field, select } from './dom.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
+import { formatDate } from './format.js';
 
 let sequence = 0;
 const label = (key, params) => t(`career.${key}`, params);
@@ -66,7 +67,7 @@ export function careerWorkspace({ onChanged } = {}) {
     function append(events) {
       shown += events.length;
       items.append(...events.map(event => el('div', {}, [
-        el('span', { text: `${label(`action.${event.action}`)} · ${event.created_at}` }),
+        el('span', { text: `${label(`action.${event.action}`)} · ${formatDate(event.created_at)}` }),
         event.reversible && !event.undone_by ? button(label('undo'),
           run(() => preview({ action: 'undo', event_id: event.id }))) : null,
       ])));

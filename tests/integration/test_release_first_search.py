@@ -63,6 +63,9 @@ def test_first_search_preserves_candidate_choices(first_api, country, phrase):
         {},
         {"role_examples": [], "skills": []},
         {"role_examples": ["a" * 101], "skills": []},
+        # The bounds the browser now explains line by line stay on the server.
+        {"role_examples": [f"work {n}" for n in range(21)], "skills": []},
+        {"role_examples": ["work"], "skills": ["b" * 101]},
         {"role_examples": "bad", "skills": []},
         {"role_examples": ["work"], "skills": [], "scoring": {}},
     ],

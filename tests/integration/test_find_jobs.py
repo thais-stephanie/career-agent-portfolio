@@ -181,3 +181,60 @@ def test_cancelling_stops_after_the_source_in_flight(personal, monkeypatch):
 
     assert recorder.ran == expected[:1]
     assert personal.retrieval.snapshot()["status"] == "cancelled"
+
+
+def test_the_run_says_which_source_it_is_reading_and_how_many_it_skipped(personal, monkeypatch):
+    """A long source is the normal case. The run names it and says since when,
+    so the screen can tell a person it is still working rather than frozen."""
+    gate = threading.Event()
+    recorder = Recorder(block=gate)
+    recorder.install(monkeypatch, personal)
+    data = personal.handle_api("GET", "/api/sources", {}, {})
+    paused = {row["source_id"] for row in data["refresh"] if row["state"] == "PAUSED"}
+    refreshable = {row["id"] for row in data["sources"] if row["can_refresh"]}
+    from career_agent.sources.health import health
+
+    with connect(personal.config.db_path) as conn:
+        entries = health(conn, catalogue_path=personal.config.config_dir / "source_catalogue.yaml")
+
+    def key_of(provider: str) -> str:
+        stage = _stage_for(provider)
+        return f"collect:{provider}" if stage == "collect" else stage
+
+    # One per collector, the unit "N of M" counts in, and none that also runs.
+    skipped = {
+        key_of(entry.source.provider)
+        for entry in entries
+        if entry.source.id in refreshable and entry.source.id in paused
+    } - set(_expected_keys(personal))
+
+    personal.handle_api("POST", "/api/sources/refresh-all", {}, {})
+    assert recorder.started.wait(5)
+    during = personal.retrieval.snapshot()
+    assert during is not None
+    assert during["current"], "the source being read is not named"
+    assert during["current_started_at"]
+    assert during["skipped"] == len(skipped)
+    gate.set()
+    personal.retrieval.join(10)
+
+    after = personal.retrieval.snapshot()
+    assert after["status"] == "done"
+    assert after["current"] is None and after["current_started_at"] is None
+
+
+def test_the_progress_poll_can_leave_the_funnel_out(personal):
+    """The funnel is seven counts over the whole corpus. The poll that runs
+    every two seconds only needs the run, the scoring and the server's clock."""
+    full = personal.handle_api("GET", "/api/retrieval", {}, {})
+    assert isinstance(full["funnel"], dict)
+    light = personal.handle_api("GET", "/api/retrieval", {"funnel": ["false"]}, {})
+    assert light["funnel"] is None
+    for payload in (full, light):
+        assert payload["now"].endswith("Z")
+        assert set(payload["scoring"]) == {"running", "done", "total"}
+    with pytest.raises(ApiError) as caught:
+        personal.handle_api("GET", "/api/retrieval", {"funnel": ["sometimes"]}, {})
+    assert caught.value.status == 400
+    with pytest.raises(ApiError):
+        personal.handle_api("GET", "/api/retrieval", {"fields": ["run"]}, {})

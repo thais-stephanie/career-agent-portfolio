@@ -28,6 +28,7 @@ import { createFirstRun } from './firstrun.js';
 import { createSetup, setupPostponed } from './setup.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
+import { createProgressView, outcomeText } from './collection.js';
 
 /**
  * The cards, in reading order.
@@ -55,7 +56,9 @@ function firstSetupCard(gaps) {
   return gap ? SETUP_FOR_GAP[gap] : 'welcome';
 }
 
-export function createHome({ onOpenJob = null, onGoTo = null, onSetupShown = null } = {}) {
+export function createHome({
+  onOpenJob = null, onGoTo = null, onSetupShown = null, collection = null,
+} = {}) {
   const root = el('div', { className: 'home' });
   // THE GUIDED SETUP, one question per card. It REPLACES this page on a fresh
   // install -- where six steps, four zeroes and a second list of the same gaps
@@ -68,10 +71,15 @@ export function createHome({ onOpenJob = null, onGoTo = null, onSetupShown = nul
       load();
     },
     onGoTo: (page) => onGoTo && onGoTo(page),
+    collection,
   });
   //: The card to open at, when something asked for the setup explicitly.
   let setupAt = null;
   let showingSetup = false;
+  //: Whether the setup has already opened BY ITSELF during this page session.
+  //: It offers itself once; coming back to Home after leaving it -- or after
+  //: finding jobs from its last card -- must not start it over.
+  let autoOpened = false;
 
   // THE SIX STEPS OF A FIRST RUN, above everything else on this page.
   //
@@ -99,7 +107,25 @@ export function createHome({ onOpenJob = null, onGoTo = null, onSetupShown = nul
   //: navigation above it moved.
   let payload = null;
 
-  async function load() {
+  /**
+   * Draw Home.
+   *
+   * `arrival` is true when the person navigated here. It starts a new visit
+   * for the setup list, which is what decides that a step finished before
+   * they arrived is no longer drawn as an open task.
+   *
+   * THE SETUP IS NOT RESTARTED BY COMING BACK. Leaving Home in the middle of
+   * the guided setup -- or on its last card while jobs are being found -- and
+   * returning shows the same card, with the run still drawn from the app's
+   * one watcher. It used to be rebuilt from the start of Home, which made a
+   * run that was still going look as if it had stopped.
+   */
+  async function load({ arrival = false } = {}) {
+    if (arrival) firstRun.beginVisit();
+    if (showingSetup && setupAt === null && !setup.finished()) {
+      if (onSetupShown) onSetupShown(true);
+      return;
+    }
     const mine = ++token;
     setup.stop();
     replace(root, [el('div', { className: 'sk sk--block' })]);
@@ -114,7 +140,8 @@ export function createHome({ onOpenJob = null, onGoTo = null, onSetupShown = nul
       // A fresh install -- nothing confirmed and no search described -- opens
       // on the guided setup, unless the person chose to do it later. Asked for
       // explicitly, it opens at the card that was asked for.
-      if (setupAt !== null || (firstRun.isFresh() && !setupPostponed())) {
+      if (setupAt !== null || (!autoOpened && firstRun.isFresh() && !setupPostponed())) {
+        autoOpened = true;
         const at = setupAt;
         setupAt = null;
         showingSetup = true;
@@ -148,6 +175,7 @@ export function createHome({ onOpenJob = null, onGoTo = null, onSetupShown = nul
     const noJobs = firstRun.scoredCount() === 0;
     return [
       heading(payload, noJobs),
+      collectionCard(),
       startHere(),
       // With nothing scored the start list is always open, and its last step
       // is "Find jobs now"; a row of zero counters would say nothing more.
@@ -174,16 +202,81 @@ export function createHome({ onOpenJob = null, onGoTo = null, onSetupShown = nul
     // this the six steps kept the words they were first drawn with, and a
     // Portuguese page carried an English checklist.
     firstRun.redraw();
-    const left = firstRun.outstanding();
+    // SETUP THAT WAS ALREADY FINISHED IS NOT A TASK. Nothing is drawn: the
+    // answers are changed from Settings ("Change my answers"), and Home is
+    // for the search itself.
+    if (!firstRun.visible()) return null;
+    const left = firstRun.remaining();
+    const title = firstRun.showingAll()
+      ? t('firstrun.title')
+      : (left ? t('firstrun.finishTitle', { n: left }) : t('firstrun.finished'));
     return el('details', {
       className: 'home__sec home__sec--start',
-      props: { open: left },
+      props: { open: left > 0 },
     }, [
       el('summary', { className: 'home__sechead' }, [
-        el('span', { text: t('firstrun.title') }),
+        el('span', { text: title }),
       ]),
       firstRun.root,
     ]);
+  }
+
+  // -------------------------------------------------------------------
+  // the collection, drawn from the app's one watcher
+  // -------------------------------------------------------------------
+
+  const collectionHost = el('section', {
+    className: 'home__sec home__sec--collect',
+    attrs: { role: 'status', 'aria-live': 'polite', 'aria-labelledby': 'home-collect-head' },
+  });
+  const collectionView = collection ? createProgressView(collection, { stopId: 'home-stop' }) : null;
+  let collectionShape = null;
+
+  /** The run, if there is one worth mentioning. Updated in place, not rebuilt. */
+  function paintCollection(snapshot, reason) {
+    if (!collection) return;
+    const ended = outcomeText(snapshot);
+    collectionHost.hidden = !snapshot.active && !ended && !snapshot.error;
+    if (collectionHost.hidden) {
+      collectionShape = null;
+      return;
+    }
+    if (snapshot.active) {
+      collectionView.update(snapshot);
+      if (collectionShape !== 'active') {
+        collectionShape = 'active';
+        replace(collectionHost, [
+          el('h3', { className: 'home__sechead', attrs: { id: 'home-collect-head' }, text: t('setup.ready.finding') }),
+          collectionView.root,
+          el('p', { className: 'home__lede', text: t('setup.ready.keepUsing') }),
+        ]);
+      }
+      return;
+    }
+    if (reason === 'tick' && collectionShape === 'ended') return;
+    collectionShape = 'ended';
+    replace(collectionHost, [
+      el('h3', { className: 'home__sechead', attrs: { id: 'home-collect-head' }, text: t('collect.lastRun') }),
+      el('p', { className: 'home__lede', text: snapshot.error || ended }),
+      el('div', { className: 'home__gapactions' }, [
+        snapshot.phase === 'failed' || snapshot.error || !onGoTo
+          ? null
+          : button(t('setup.ready.see'), () => onGoTo('jobs'), {
+            className: 'btn btn--primary', attrs: { id: 'home-see-jobs' },
+          }),
+        button(t('collect.dismiss'), () => collection.dismiss(), { className: 'btn btn--quiet' }),
+      ].filter(Boolean)),
+    ]);
+  }
+
+  if (collection) collection.subscribe(paintCollection);
+
+  function collectionCard() {
+    if (!collection) return null;
+    // Redrawn for the language in force; the watcher's state is unchanged.
+    collectionShape = null;
+    paintCollection(collection.state(), 'update');
+    return collectionHost;
   }
 
   function heading(payload, noJobs) {
@@ -316,5 +409,16 @@ export function createHome({ onOpenJob = null, onGoTo = null, onSetupShown = nul
     else if (payload) replace(root, render(payload));
   }
 
-  return { root, load, relabel, openSetup };
+  /** Whether Home is itself showing the run, so the page-wide bar need not. */
+  function showsCollection() {
+    if (!root.isConnected) return false;
+    return !showingSetup || setup.atReady();
+  }
+
+  /** Whether Home is showing the guided setup rather than the dashboard. */
+  function inSetup() {
+    return showingSetup;
+  }
+
+  return { root, load, relabel, openSetup, showsCollection, inSetup };
 }

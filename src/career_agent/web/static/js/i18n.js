@@ -2260,7 +2260,6 @@ const EN = {
   'setup.ready.cancelled': 'Stopped. Jobs from the {ok} sources already checked are kept.',
   'setup.ready.failed': 'Finding jobs stopped because of a problem. Nothing you saved was changed. Try again in a '
     + 'moment.',
-  'setup.ready.finished': 'Done: {ok} of {total} sources answered. New jobs are being scored now.',
   'setup.ready.see': 'See your jobs',
   'setup.ready.toHome': 'Go to Home',
   'empty.findJobs': 'Find jobs now',
@@ -2281,6 +2280,37 @@ const EN = {
   'board.empty': 'No applications tracked yet. Save a job or change its status in Discover and it appears here.',
   'board.toDiscover': 'Go to Discover',
   'settings.sourceEach': 'Each job source ({n}, {paused} paused): status and refresh timing',
+  // Finding jobs: one drawing for every screen that shows a run.
+  'collect.now': 'Now reading {source} ({time})',
+  'collect.elapsed': '{time} so far',
+  'collect.deferred': '{n} sources skipped: paused, or not for the places you can work',
+  'collect.slow': 'Some sources take a few minutes to read. It is still working.',
+  'collect.noEta': 'No time left is shown: each source takes a different amount of time, so an estimate '
+    + 'would be a guess.',
+  'collect.scoring': 'Scoring the jobs that came in: {done} of {total}',
+  'collect.scoringStart': 'Scoring the jobs that came in…',
+  'collect.scoringLabel': 'Jobs scored',
+  'collect.took': 'Reading the sources took {time}.',
+  'collect.stopping': 'Stopping after this source…',
+  'collect.finished': 'Done: {ok} of {total} sources answered, in {time}.',
+  'collect.lastRun': 'Finding jobs',
+  'collect.show': 'Show progress',
+  'collect.dismiss': 'Dismiss',
+  'time.seconds': '{s} s',
+  'time.minutes': '{m} min {s} s',
+  'time.hours': '{h} h {m} min',
+  'date.months': 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec',
+  'firstrun.finishTitle': 'Finish setup · {n} left',
+  'firstrun.finished': 'Setup finished',
+  'firstrun.ledeLeft': 'What is left of your setup. None of it is required, and each says what it lets Career '
+    + 'Agent work out. Change earlier answers any time in Settings.',
+  'tailor.needsCv': 'Resume Tailor Beta works from your CV, and Career Agent has nothing about your career yet. '
+    + 'Add your CV, or write down what you have done, in Career Evidence first.',
+  'tailor.addCv': 'Add your CV',
+  'tailor.openOwn': 'Already gave Resume Tailor your CV? Open Resume Tailor Beta',
+  'setup.work.tooMany': 'That is {n} lines. Keep the 20 that matter most: each one is looked for in every job.',
+  'setup.work.tooLong': 'Line {line} is long for a search phrase. Keep each line to a few words, like a job '
+    + 'title or a tool.',
 };
 
 /**
@@ -4352,7 +4382,6 @@ const PT_BR = {
   'setup.ready.cancelled': 'Parado. As vagas das {ok} fontes já consultadas foram mantidas.',
   'setup.ready.failed': 'A busca de vagas parou por causa de um problema. Nada do que você salvou foi alterado. '
     + 'Tente de novo em instantes.',
-  'setup.ready.finished': 'Pronto: {ok} de {total} fontes responderam. As vagas novas estão sendo avaliadas agora.',
   'setup.ready.see': 'Ver suas vagas',
   'setup.ready.toHome': 'Ir para o Início',
   'empty.findJobs': 'Encontrar vagas agora',
@@ -4374,6 +4403,37 @@ const PT_BR = {
     + 'aparece aqui.',
   'board.toDiscover': 'Ir para Descobrir',
   'settings.sourceEach': 'Cada fonte de vagas ({n}, {paused} pausadas): situação e frequência de atualização',
+  'collect.now': 'Lendo agora {source} ({time})',
+  'collect.elapsed': '{time} até agora',
+  'collect.deferred': '{n} fontes puladas: pausadas, ou fora dos lugares onde você pode trabalhar',
+  'collect.slow': 'Algumas fontes levam alguns minutos para ler. Continua funcionando.',
+  'collect.noEta': 'O tempo restante não aparece: cada fonte leva um tempo diferente, então uma estimativa '
+    + 'seria um palpite.',
+  'collect.scoring': 'Avaliando as vagas que chegaram: {done} de {total}',
+  'collect.scoringStart': 'Avaliando as vagas que chegaram…',
+  'collect.scoringLabel': 'Vagas avaliadas',
+  'collect.took': 'A leitura das fontes levou {time}.',
+  'collect.stopping': 'Parando depois desta fonte…',
+  'collect.finished': 'Pronto: {ok} de {total} fontes responderam, em {time}.',
+  'collect.lastRun': 'Busca de vagas',
+  'collect.show': 'Ver progresso',
+  'collect.dismiss': 'Dispensar',
+  'time.seconds': '{s} s',
+  'time.minutes': '{m} min {s} s',
+  'time.hours': '{h} h {m} min',
+  'date.months': 'jan fev mar abr mai jun jul ago set out nov dez',
+  'firstrun.finishTitle': 'Concluir configuração · faltam {n}',
+  'firstrun.finished': 'Configuração concluída',
+  'firstrun.ledeLeft': 'O que falta da sua configuração. Nada é obrigatório, e cada item diz o que permite ao '
+    + 'Career Agent concluir. Mude respostas anteriores quando quiser em Configurações.',
+  'tailor.needsCv': 'O Resume Tailor Beta trabalha a partir do seu currículo, e o Career Agent ainda não tem nada '
+    + 'sobre a sua carreira. Adicione seu currículo, ou escreva o que você já fez, em Evidências de carreira '
+    + 'primeiro.',
+  'tailor.addCv': 'Adicionar seu currículo',
+  'tailor.openOwn': 'Já deu seu currículo ao Resume Tailor? Abrir Resume Tailor Beta',
+  'setup.work.tooMany': 'São {n} linhas. Fique com as 20 que mais importam: cada uma é procurada em todas as vagas.',
+  'setup.work.tooLong': 'A linha {line} está longa para uma frase de busca. Use poucas palavras em cada linha, '
+    + 'como um cargo ou uma ferramenta.',
 };
 
 const CATALOGUES = { en: EN, 'pt-BR': PT_BR };

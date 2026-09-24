@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Career Agent</title>
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="star.svg" type="image/svg+xml">
+<link rel="alternate icon" href="px/px-star-32.png" type="image/png">
 <link rel="stylesheet" href="./app.css">
 <!-- Classic, not a module, and deliberately in the head: a module is
      deferred, so the page would paint light and then jump. See js/theme.js. -->
@@ -147,6 +148,11 @@
 </nav>
 
 <div class="appmain" id="appmain">
+
+<!-- FINDING JOBS, ON EVERY PAGE. One line while a collection runs and once
+     when it ends, drawn from the app's one watcher (`js/collection.js`). A
+     run continues whatever page is open; this is how every page says so. -->
+<div class="collectbar" id="collectbar" role="status" aria-live="polite" hidden></div>
 
 <!-- THE PAGE HEADER CONTRACT.
      One element, filled per page: a pixel eyebrow, an h1, an optional

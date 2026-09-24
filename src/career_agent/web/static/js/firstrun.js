@@ -41,6 +41,7 @@
 import { el, button, replace } from './dom.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
+import { phraseProblem } from './format.js';
 
 /**
  * The six steps, in the only order that works.
@@ -107,11 +108,26 @@ export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null
   //: message, because it reads as a result.
   let notice = '';
 
+  //: WHICH STEPS THIS VISIT SHOWS. The steps still open when Home was
+  //: arrived at. A step already done then is not an open task and is not
+  //: drawn again as one; a step answered DURING the visit stays where it is,
+  //: ticked, so the answer can be seen and taken back without the row
+  //: jumping away under the cursor. `null` until the first load of a visit.
+  let shown = null;
+
+  /** Start a new visit: the next load decides again which steps are open. */
+  function beginVisit() {
+    shown = null;
+  }
+
   async function load() {
     const mine = ++token;
     try {
       state = await api.getFirstRun();
       if (mine !== token) return;
+      if (shown === null) {
+        shown = new Set((state.steps || []).filter((step) => !step.done).map((step) => step.key));
+      }
       draw();
     } catch (error) {
       if (mine !== token) return;
@@ -140,22 +156,51 @@ export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null
     return (state.steps || []).some((step) => !step.done);
   }
 
+  /** How many steps are still open. */
+  function remaining() {
+    return ((state && state.steps) || []).filter((step) => !step.done).length;
+  }
+
+  /** How many steps this visit draws. Zero means setup was already complete. */
+  function visible() {
+    return visibleSteps().length;
+  }
+
+  /** Whether every step is drawn, which is a first run rather than a finish. */
+  function showingAll() {
+    const steps = (state && state.steps) || [];
+    return steps.length > 0 && visible() === steps.length;
+  }
+
+  function visibleSteps() {
+    const steps = (state && state.steps) || [];
+    return shown === null ? steps : steps.filter((step) => shown.has(step.key));
+  }
+
   function draw() {
-    const steps = state.steps || [];
+    const steps = visibleSteps();
+    const all = showingAll();
     replace(root, [
       el('header', { className: 'firstrun__head' }, [
         // NO HEADING HERE. The `<details>` this is drawn into on Home has a
         // `<summary>` carrying the same words, and the first version rendered
         // "Start here" twice, one line apart. The summary wins because it is
         // what stays visible when the section is collapsed.
-        el('p', { className: 'firstrun__lede', text: t('firstrun.lede') }),
+        el('p', {
+          className: 'firstrun__lede',
+          text: all ? t('firstrun.lede') : t('firstrun.ledeLeft'),
+        }),
         // THE PRIVACY SENTENCE, at the top and not in a footnote. It is the
         // first thing somebody needs to know before choosing a file, and it
         // says what actually happens: a Python program on this computer reads
         // it. Claiming the browser does would be a nicer sentence and a false
         // one, and a false privacy claim is worse than none.
-        el('p', { className: 'firstrun__privacy', text: t('firstrun.privacy') }),
-      ]),
+        // Only while there is a document step on screen: it is a sentence about
+        // choosing a file, and without the step it answers nothing.
+        steps.some((step) => step.key === 'documents')
+          ? el('p', { className: 'firstrun__privacy', text: t('firstrun.privacy') })
+          : null,
+      ].filter(Boolean)),
       el('ol', { className: 'firstrun__steps' }, steps.map(stepRow).filter(Boolean)),
     ]);
   }
@@ -254,9 +299,14 @@ export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null
     const work = el('textarea', { className: 'input', attrs: { id: 'fr-work', rows: '3', maxlength: '2000' } });
     const skills = el('textarea', { className: 'input', attrs: { id: 'fr-skills', rows: '2', maxlength: '2000' } });
     const send = button(t('firstrun.searchSave'), async () => {
+      const split = node => node.value.split('\n').map(v => v.trim()).filter(Boolean);
+      const problem = phraseProblem(split(work)) || phraseProblem(split(skills));
+      if (problem) {
+        status.textContent = problem;
+        return;
+      }
       send.disabled = true;
       try {
-        const split = node => node.value.split('\n').map(v => v.trim()).filter(Boolean);
         await api.createFirstSearch({ role_examples: split(work), skills: split(skills) });
         if (onChanged) onChanged();
         await load();
@@ -476,5 +526,7 @@ export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null
     if (state) draw();
   }
 
-  return { root, load, redraw, outstanding, isFresh, scoredCount };
+  return {
+    root, load, redraw, outstanding, remaining, visible, showingAll, beginVisit, isFresh, scoredCount,
+  };
 }
