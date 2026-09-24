@@ -32,6 +32,8 @@
 import { el, button, replace } from './dom.js';
 import { t, tVocab, getLocale } from './i18n.js';
 import * as api from './api.js';
+import { createProgressView, outcomeText } from './collection.js';
+import { phraseProblem } from './format.js';
 
 /** Remembered in the browser only: "I chose to do this later". */
 const LATER_KEY = 'careerAgent.setup.later.v1';
@@ -130,7 +132,7 @@ function vocab(value) {
   return tVocab(value) || value;
 }
 
-export function createSetup({ onExit = null, onGoTo = null } = {}) {
+export function createSetup({ onExit = null, onGoTo = null, collection = null } = {}) {
   const root = el('section', {
     className: 'setup',
     attrs: { 'aria-labelledby': 'setup-title' },
@@ -140,7 +142,9 @@ export function createSetup({ onExit = null, onGoTo = null } = {}) {
   let firstRun = null;
   //: Unsaved input, per card, so Back and Continue never lose what was typed.
   const drafts = {};
-  let poll = null;
+  //: The last card's subscription to the app's one collection watcher. The
+  //: card only draws what the watcher says; it never asks the server itself.
+  let watching = null;
 
   async function open(stepKey = null) {
     stopPolling();
@@ -175,8 +179,8 @@ export function createSetup({ onExit = null, onGoTo = null } = {}) {
   // ===================================================================
 
   function draw({ focus = true } = {}) {
-    // A progress poll belongs to the last card's nodes; drawing any card
-    // replaces them, and the ready card starts its own poll again.
+    // The last card's subscription belongs to its nodes; drawing any card
+    // replaces them, and the ready card subscribes again.
     stopPolling();
     const step = STEPS[at];
     const body = BODIES[step.key]();
@@ -373,6 +377,17 @@ export function createSetup({ onExit = null, onGoTo = null } = {}) {
             error.textContent = t('setup.work.required');
             work.setAttribute('aria-invalid', 'true');
             work.focus();
+            return;
+          }
+          const problem = [[roles, work], [split(draft.skills), skills]]
+            .map(([lines, box]) => [phraseProblem(lines), box])
+            .find(([text]) => text);
+          if (problem) {
+            const [text, box] = problem;
+            error.textContent = text;
+            box.setAttribute('aria-invalid', 'true');
+            box.setAttribute('aria-describedby', 'setup-why setup-error');
+            box.focus();
             return;
           }
           const submit = root.querySelector('#setup-next');
@@ -710,12 +725,13 @@ export function createSetup({ onExit = null, onGoTo = null } = {}) {
       className: 'setup__find',
       attrs: { role: 'status', 'aria-live': 'polite' },
     });
-    const find = button(t('setup.ready.find'), () => startFinding(status, find), {
+    const find = button(t('setup.ready.find'), () => startFinding(), {
       className: 'btn btn--primary',
       attrs: { id: 'setup-find' },
     });
-    // A run already going (another tab, or a reload) is picked up, not restarted.
-    followRun(status, find, { quiet: true });
+    // A run already going -- started here earlier, on another page, in another
+    // tab or before a reload -- is shown, never restarted.
+    followRun(status, find);
     return {
       nodes: [
         el('dl', { className: 'setup__summary' }, summary.flatMap(([key, text]) => [
@@ -742,89 +758,70 @@ export function createSetup({ onExit = null, onGoTo = null } = {}) {
         button(t('setup.ready.toHome'), () => leave(), { className: 'btn', attrs: { id: 'setup-home' } }),
         find,
       ],
-      submit: () => startFinding(status, find),
+      submit: () => startFinding(),
     };
   }
 
-  async function startFinding(status, find) {
-    find.disabled = true;
-    find.textContent = t('setup.ready.starting');
-    try {
-      await api.findJobs();
-    } catch (failure) {
-      replace(status, [el('p', { className: 'setup__error', text: failure.userMessage || failure.message })]);
-      find.disabled = false;
-      find.textContent = t('setup.ready.find');
-      return;
-    }
-    followRun(status, find);
+  function startFinding() {
+    if (collection) collection.start('all');
   }
 
-  async function followRun(status, find, { quiet = false } = {}) {
+  /** Draw the run from the app's watcher, for as long as this card is shown. */
+  function followRun(status, find) {
     stopPolling();
-    let data;
-    try {
-      data = await api.getRetrieval();
-    } catch (failure) {
-      if (!quiet) {
-        const text = failure.userMessage || failure.message;
-        replace(status, [el('p', { className: 'setup__error', text })]);
+    if (!collection) return;
+    const view = createProgressView(collection, { stopId: 'setup-stop' });
+    const keepUsing = hint(t('setup.ready.keepUsing'));
+    watching = collection.subscribe((snapshot, reason) => {
+      const phase = snapshot.phase;
+      if (snapshot.active) {
+        find.disabled = true;
+        find.textContent = phase === 'starting' ? t('setup.ready.starting') : t('setup.ready.finding');
+        view.update(snapshot);
+        if (view.root.parentNode !== status) replace(status, [view.root, keepUsing]);
+        return;
       }
-      return;
-    }
-    const run = data.run;
-    if (data.running && run) {
-      find.disabled = true;
-      find.textContent = t('setup.ready.finding');
-      const total = run.boards_total || 0;
-      const done = Math.min(run.boards_done || 0, total);
-      const percent = total ? Math.round((done / total) * 100) : 0;
+      if (reason === 'tick') return;
+      find.disabled = false;
+      if (snapshot.error) {
+        find.textContent = t('setup.ready.find');
+        replace(status, [el('p', { className: 'setup__error', text: snapshot.error })]);
+        return;
+      }
+      const text = outcomeText(snapshot);
+      if (!text) {
+        find.textContent = t('setup.ready.find');
+        replace(status, []);
+        return;
+      }
+      find.textContent = t('setup.ready.findAgain');
       replace(status, [
-        el('p', { className: 'setup__findtext', text: t('setup.ready.progress', { done, total }) }),
-        el('div', {
-          className: 'setup__bar',
-          attrs: {
-            role: 'progressbar',
-            'aria-valuemin': '0',
-            'aria-valuemax': String(total || 1),
-            'aria-valuenow': String(done),
-            'aria-label': t('setup.ready.progressLabel'),
-          },
-        }, [el('span', { className: 'setup__barfill', style: { width: `${percent}%` } })]),
-        hint(t('setup.ready.keepUsing')),
-        button(t('setup.ready.stop'), async () => {
-          try { await api.cancelRetrieval(); } catch { /* the next poll reports it */ }
-        }, { className: 'btn btn--quiet', attrs: { id: 'setup-stop' } }),
-      ]);
-      poll = setTimeout(() => followRun(status, find), 2000);
-      return;
-    }
-    if (quiet || !run) return;
-    find.disabled = false;
-    find.textContent = t('setup.ready.findAgain');
-    const sources = run.sources || [];
-    const ok = sources.filter((row) => row.status === 'ok').length;
-    const text = run.status === 'cancelled'
-      ? t('setup.ready.cancelled', { ok })
-      : run.status === 'failed'
-        ? t('setup.ready.failed')
-        : t('setup.ready.finished', { ok, total: sources.length });
-    replace(status, [
-      el('p', { className: 'setup__findtext', text }),
-      run.status === 'failed'
-        ? null
-        : button(t('setup.ready.see'), () => {
-          rememberPostponed(true);
-          if (onGoTo) onGoTo('jobs');
-        }, { className: 'btn btn--primary', attrs: { id: 'setup-see' } }),
-    ].filter(Boolean));
+        el('p', { className: 'setup__findtext', text }),
+        phase === 'failed'
+          ? null
+          : button(t('setup.ready.see'), () => {
+            rememberPostponed(true);
+            if (onGoTo) onGoTo('jobs');
+          }, { className: 'btn btn--primary', attrs: { id: 'setup-see' } }),
+      ].filter(Boolean));
+    });
+    // Ask once on arrival, so a run started elsewhere is on this card now
+    // rather than after the next poll. Shared with any request in flight.
+    collection.refresh();
   }
 
   function stopPolling() {
-    if (poll) {
-      clearTimeout(poll);
-      poll = null;
+    if (watching) {
+      watching();
+      watching = null;
     }
+  }
+
+  /** Whether the person is on the last card and its run has ended. */
+  function finished() {
+    if (!collection || STEPS[at].key !== 'ready') return false;
+    const phase = collection.state().phase;
+    return phase === 'finished' || phase === 'cancelled' || phase === 'failed';
   }
 
   /** Redraw the current card in the reader's language, keeping what was typed. */
@@ -832,5 +829,10 @@ export function createSetup({ onExit = null, onGoTo = null } = {}) {
     if (fields.size) draw({ focus: false });
   }
 
-  return { root, open, relabel, stop: stopPolling };
+  /** Whether the last card -- the one that finds jobs -- is on screen. */
+  function atReady() {
+    return STEPS[at].key === 'ready' && fields.size > 0;
+  }
+
+  return { root, open, relabel, stop: stopPolling, finished, atReady };
 }

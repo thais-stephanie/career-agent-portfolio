@@ -181,11 +181,17 @@ export function parseDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-/** "21 Aug 2026", or an em dash. Locale-fixed so columns stay aligned. */
+/**
+ * "21 Aug 2026" or "21 ago 2026", or an em dash.
+ *
+ * Day, three-letter month, year in every language, so columns stay aligned.
+ * The month is the reader's: the English abbreviations were hard-coded here,
+ * and every date on a Portuguese screen read "Sep".
+ */
 export function formatDate(value) {
   const date = parseDate(value);
   if (!date) return MISSING;
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = t('date.months').split(' ');
   return `${String(date.getUTCDate()).padStart(2, '0')} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
@@ -383,3 +389,22 @@ export function pluralise(count, singular, plural = `${singular}s`) {
 }
 
 export { MISSING };
+
+/**
+ * THE SEARCH-PHRASE BOUNDS, said before sending rather than after.
+ *
+ * Each phrase becomes a pattern looked for in the full text of every posting,
+ * on every rescore, so `POST /api/first-search` refuses more than 20 per box
+ * or one longer than 100 characters. Those limits stay on the server. This is
+ * the same check made where the typing happens, in words about the phrases
+ * rather than about a constraint: it names the line that is too long.
+ */
+export const MAX_SEARCH_PHRASES = 20;
+export const MAX_SEARCH_PHRASE_LENGTH = 100;
+
+/** The first problem with these lines, as a sentence, or '' when there is none. */
+export function phraseProblem(lines) {
+  if (lines.length > MAX_SEARCH_PHRASES) return t('setup.work.tooMany', { n: lines.length });
+  const long = lines.findIndex((line) => line.length > MAX_SEARCH_PHRASE_LENGTH);
+  return long >= 0 ? t('setup.work.tooLong', { line: long + 1 }) : '';
+}

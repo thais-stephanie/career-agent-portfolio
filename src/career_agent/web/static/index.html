@@ -149,6 +149,11 @@
 
 <div class="appmain" id="appmain">
 
+<!-- FINDING JOBS, ON EVERY PAGE. One line while a collection runs and once
+     when it ends, drawn from the app's one watcher (`js/collection.js`). A
+     run continues whatever page is open; this is how every page says so. -->
+<div class="collectbar" id="collectbar" role="status" aria-live="polite" hidden></div>
+
 <!-- THE PAGE HEADER CONTRACT.
      One element, filled per page: a pixel eyebrow, an h1, an optional
      subtitle, and at most one primary action on the right. Every screen has

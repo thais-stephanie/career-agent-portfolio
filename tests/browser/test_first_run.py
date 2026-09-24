@@ -34,6 +34,7 @@ question a first-run flow has to answer.
 from __future__ import annotations
 
 import json
+import shutil
 import socket
 import threading
 from collections.abc import Iterator
@@ -83,6 +84,14 @@ def empty_server(tmp_path: Path, committed_config: Path) -> Iterator[str]:
     is itself part of the first-run story and is done for the person by
     `career-agent start`.
     """
+    # THE SHIPPED CONFIGURATION, WITH NO LOCAL FILE. `committed_config` carries
+    # the worked example as `search.local.yaml`, which answers "where" and
+    # "work" before anybody has -- and Home no longer lists answered steps as
+    # open ones, so a first run has to start from what a first run has.
+    config_dir = tmp_path / "config"
+    shutil.copytree(committed_config, config_dir)
+    for local in config_dir.glob("*.local.yaml*"):
+        local.unlink()
     db_path = tmp_path / "firstrun.db"
     conn = connect(db_path)
     try:
@@ -96,7 +105,7 @@ def empty_server(tmp_path: Path, committed_config: Path) -> Iterator[str]:
     probe.bind(("127.0.0.1", 0))
     port = int(probe.getsockname()[1])
     probe.close()
-    app = JobsApi(ServerConfig(db_path=db_path, config_dir=committed_config, port=port), quiet=True)
+    app = JobsApi(ServerConfig(db_path=db_path, config_dir=config_dir, port=port), quiet=True)
     httpd: ThreadingHTTPServer = build_server(app)
     httpd.handle_error = lambda request, client_address: None  # type: ignore[method-assign]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -224,10 +233,19 @@ def test_answering_the_career_question_writes_immediately(page: Chrome, empty_se
     )
     # And it SURVIVES a reload, which is what "written" means: the answer is in
     # the database rather than in the page. Asserted through a fresh load
-    # rather than by reading the response, because a control that updated only
-    # its own label would pass the check above and lose the answer.
+    # rather than by reading the click's response, because a control that
+    # updated only its own label would pass the check above and lose the
+    # answer. After the reload the step is answered, so Home no longer lists
+    # it as something to do; the server's own record says what was kept.
     _open_home(page, empty_server)
-    assert "Changing careers" in _step_text(page, "career_stage")
+    assert not page.evaluate(
+        "Boolean(document.querySelector('.firstrun__step[data-step=\"career_stage\"]'))"
+    ), "an answered step is still listed as open"
+    stored = page.evaluate(
+        "fetch('/api/firstrun').then(r => r.json())"
+        ".then(j => j.steps.find(s => s.key === 'career_stage'))"
+    )
+    assert stored["done"] and stored["value"] == "CHANGING_CAREERS", stored
 
 
 def test_the_answer_can_be_taken_back(page: Chrome, empty_server: str) -> None:

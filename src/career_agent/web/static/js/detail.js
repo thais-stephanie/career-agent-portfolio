@@ -25,6 +25,7 @@ import * as api from './api.js';
 export function createDrawer({
   onStatus, onSave, onNotes, onClearAppliedAt, onClosed, onChanged,
   getOllama = () => ({}), onEvidence = null,
+  careerContext = null, onAddCareer = null,
 }) {
   let invoker = null;
   let currentJob = null;
@@ -278,20 +279,56 @@ export function createDrawer({
    * gaps, and only then the arithmetic, which is folded away behind a
    * disclosure that says it is the advanced view. Nothing was deleted.
    */
+  /**
+   * The handoff to Resume Tailor, offered only as far as it can be used.
+   *
+   * Tailor builds a resume from the person's own CV. Before Career Agent holds
+   * anything about their career, "Open Resume Tailor" looked like the next
+   * step and led to a tool with nothing to work from, so the next step shown
+   * is the one that gives it something. Tailor keeps its own store, which is
+   * never read from here: somebody who already gave it a CV there still has
+   * the link, one line down.
+   */
   function tailorSection(job) {
-    const note = el('p', { text: t('tailor.note') });
-    const copy = button(t('tailor.copy'), async () => {
-      try {
-        await navigator.clipboard.writeText(job.description || job.description_excerpt || '');
-        note.textContent = t('tailor.copied');
-      } catch {
-        note.textContent = t('tailor.unavailable');
-      }
-    });
-    const link = el('a', { text: t('tailor.open'), attrs: {
-      href: '/resume-tailor', target: '_blank', rel: 'noopener noreferrer',
+    const host = el('section', { className: 'd-tailor' });
+    const link = (text) => el('a', { text, attrs: {
+      href: '/resume-tailor', target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
     } });
-    return el('section', {}, [copy, link, note]);
+    const ready = () => {
+      const note = el('p', { text: t('tailor.note') });
+      const copy = button(t('tailor.copy'), async () => {
+        try {
+          await navigator.clipboard.writeText(job.description || job.description_excerpt || '');
+          note.textContent = t('tailor.copied');
+        } catch {
+          note.textContent = t('tailor.unavailable');
+        }
+      });
+      replace(host, [copy, link(t('tailor.open')), note]);
+      host.dataset.tailor = 'ready';
+    };
+    const needsCareer = () => {
+      replace(host, [
+        el('p', { text: t('tailor.needsCv') }),
+        onAddCareer
+          ? button(t('tailor.addCv'), () => onAddCareer(), {
+            className: 'btn', attrs: { id: 'drawer-add-career' },
+          })
+          : null,
+        el('p', {}, [link(t('tailor.openOwn'))]),
+      ].filter(Boolean));
+      host.dataset.tailor = 'needs-career';
+    };
+    if (!careerContext) {
+      ready();
+      return host;
+    }
+    Promise.resolve(careerContext()).then((known) => {
+      if (currentJob && currentJob.job_id !== job.job_id) return;
+      if (known) ready();
+      else needsCareer();
+    });
+    return host;
   }
 
   function detailSections(job) {

@@ -8146,3 +8146,34 @@ body {
 .src__each { margin: 12px 0; }
 .src__eachsummary { cursor: pointer; font-weight: 600; color: var(--ink); padding: 6px 0; }
 .src__each[open] > .src__eachsummary { margin-bottom: 10px; }
+
+/* FINDING JOBS. The page-wide line (every page while a run is going) and the
+   Home card share one drawing (`js/collection.js`); these are its two sizes. */
+.collectbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 32px;
+  background: var(--mint-wash);
+  border-bottom: var(--edge) solid var(--line);
+  color: var(--ink);
+  font-size: var(--t-body);
+}
+.collectbar[hidden] { display: none; }
+.collectbar__head { font-weight: 700; }
+.collectbar__text { flex: 1 1 auto; min-width: 0; }
+.collect { display: grid; gap: 6px; }
+.collect--compact { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; flex: 1 1 auto; min-width: 0; }
+.collect__line { margin: 0; font-weight: 600; color: var(--ink); }
+.collect__meta { margin: 0; color: var(--body); font-variant-numeric: tabular-nums; }
+.collect__note { margin: 0; color: var(--body); font-size: 12.5px; }
+.collect__line[hidden], .collect__meta[hidden], .collect__note[hidden], .collect .btn[hidden] { display: none; }
+.collect .btn { justify-self: start; }
+.home__sec--collect {
+  padding: 16px 18px;
+  background: var(--surface);
+  border: var(--edge-strong) solid var(--line);
+  border-radius: var(--radius-card);
+}
+.home__sec--collect[hidden] { display: none; }
+@media (max-width: 560px) {
+  .collectbar { padding: 10px 16px; }
+}

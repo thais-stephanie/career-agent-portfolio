@@ -30,6 +30,7 @@ import { renderSearchSettings } from './search-settings.js';
 import { renderProfile } from './profile.js';
 import { LOCALES, getLocale, initialLocale, setLocale, t, tState } from './i18n.js';
 import { createRetrievalPanel } from './retrieval.js';
+import { createCollection, createProgressView, outcomeText } from './collection.js';
 import { createDrawer } from './detail.js';
 import { createEvidence } from './evidence.js';
 import { createDaily } from './daily.js';
@@ -40,6 +41,11 @@ import { createShell } from './shell.js';
 import { humanLabel, statusLabel } from './format.js';
 
 const store = createStore();
+
+//: THE ONE WATCHER of "is Career Agent finding jobs". Every screen that shows
+//: a run subscribes to it; none of them polls, and leaving a page never stops
+//: a run. See `collection.js`.
+const collection = createCollection(api, { disabled: api.MOCK });
 
 const dom = {
   filters: document.getElementById('filters-host'),
@@ -101,6 +107,7 @@ const evidence = createEvidence({
     // Forgetting is enough; the page loads on arrival.
     profileLoaded = false;
     lastLedger = null;
+    careerContextCache = null;
   },
 });
 document.getElementById('evidence-host').appendChild(evidence.root);
@@ -128,6 +135,15 @@ const drawer = createDrawer({
   onEvidence: (row) => {
     goTo('evidence');
     if (row && row.label) evidence.focusOn(row.label);
+  },
+  // Whether Career Agent holds anything about this person's career -- a read
+  // document, or evidence waiting or confirmed. Resume Tailor keeps its own
+  // store, which this never reads; this only decides whether Tailor is
+  // offered as the next step or after the step that gives it something.
+  careerContext: () => careerContext(),
+  onAddCareer: () => {
+    store.set({ openJobId: null });
+    goTo('evidence');
   },
 });
 document.getElementById('drawer-host').appendChild(drawer.root);
@@ -173,6 +189,7 @@ const PAGES = {
 const shell = createShell();
 
 const home = createHome({
+  collection,
   onOpenJob: (jobId) => {
     store.set({ openJobId: jobId });
     drawer.open(jobId, document.querySelector('.topnav__link[data-page="home"]'));
@@ -230,7 +247,12 @@ function goTo(page, { push = true } = {}) {
     store.set({ view: 'cards', group_duplicates: true, status: [] });
   }
 
-  if (page === 'home') home.load();
+  if (page === 'home') home.load({ arrival: true });
+  // What Career Agent knows about the person's career can change on any page;
+  // the drawer asks again on its next open rather than trusting a count from
+  // before.
+  careerContextCache = null;
+  paintCollectBar(collection.state(), 'update');
   if (page === 'profile') loadProfile();
   if (page === 'evidence') evidence.mount(PAGES.evidence);
   // Loaded on arrival rather than on page load: the catalogue answers a
@@ -1736,6 +1758,9 @@ async function loadRailReadouts() {
 store.startHistory();
 showHealth();
 loadRailReadouts();
+// One question at boot: is a run already going (started before a reload, or
+// in another tab)? If so every page shows it; if not, nothing polls.
+collection.refresh();
 
 // First paint. `history: 'none'` so the initial URL is not pushed onto itself.
 const initial = store.get();
@@ -1881,34 +1906,128 @@ async function loadPreferences() {
 // =========================================================================
 
 /**
- * Built once, refreshed when the panel opens.
- *
- * The panel polls only while a run is going, so an idle disclosure costs one
- * request when it is opened and nothing after that.
+ * Built the first time Settings is opened. It follows the app's one watcher
+ * while Settings is on screen and asks for the funnel on arrival; it never
+ * polls on its own.
  */
 let retrievalPanel = null;
 
-/**
- * The retrieval panel, built the first time Settings is opened.
- *
- * It polls only while a run is going, so an unvisited Settings page costs
- * nothing and a visited one costs one request.
- */
 function loadRetrieval() {
   if (!dom.retrHost) return;
-  if (!retrievalPanel) {
-    retrievalPanel = createRetrievalPanel(dom.retrHost, api, () => {
-      // A finished run changed the corpus. Reload the list rather than
-      // leaving the person looking at counts from before it ran.
-      load(store.apiQueryString(), store.get());
-    });
-  }
+  if (!retrievalPanel) retrievalPanel = createRetrievalPanel(dom.retrHost, api, collection);
   retrievalPanel.refresh();
 }
 
-/** Leaving Settings stops the poll. Nothing on screen is reading it. */
+/** Leaving Settings stops following. It never stops the run. */
 function stopRetrieval() {
   if (retrievalPanel) retrievalPanel.stop();
+}
+
+// =========================================================================
+// Finding jobs, on every page
+// =========================================================================
+
+const collectBar = document.getElementById('collectbar');
+const collectBarView = createProgressView(collection, { compact: true });
+let collectBarShape = null;
+
+/**
+ * One line across the top of every page while jobs are being found, and once
+ * when it has finished. Not on Home when Home is itself showing the run: the
+ * same run twice on one screen would be two things to read for one fact.
+ */
+function paintCollectBar(snapshot, reason) {
+  if (!collectBar) return;
+  const ended = outcomeText(snapshot);
+  const hide = (!snapshot.active && !ended)
+    || (currentPage === 'home' && home.showsCollection());
+  collectBar.hidden = hide;
+  if (hide) {
+    collectBarShape = null;
+    return;
+  }
+  if (snapshot.active) {
+    collectBarView.update(snapshot);
+    if (collectBarShape !== 'active') {
+      collectBarShape = 'active';
+      replace(collectBar, [
+        el('strong', { className: 'collectbar__head', text: t('setup.ready.finding') }),
+        collectBarView.root,
+        button(t('collect.show'), () => goTo('home'), {
+          className: 'btn btn--link', attrs: { id: 'collectbar-show' },
+        }),
+      ]);
+    }
+    return;
+  }
+  if (reason === 'tick' && collectBarShape === 'ended') return;
+  collectBarShape = 'ended';
+  replace(collectBar, [
+    el('span', { className: 'collectbar__text', text: ended }),
+    snapshot.phase === 'failed' || currentPage === 'jobs'
+      ? null
+      : button(t('setup.ready.see'), () => goTo('jobs'), {
+        className: 'btn btn--link', attrs: { id: 'collectbar-see' },
+      }),
+    button(t('collect.dismiss'), () => collection.dismiss(), {
+      className: 'btn btn--link', attrs: { id: 'collectbar-dismiss' },
+    }),
+  ].filter(Boolean));
+}
+
+collection.subscribe(paintCollectBar);
+
+// Jobs arrive source by source. On a database that was empty, the list and
+// its toolbar -- filters, sort, views -- stayed hidden until a reload, because
+// "no postings at all" was read once at boot. Read it again as each source
+// finishes, but only while it still says empty: one small request per source,
+// and none once there is something to filter.
+collection.onProgress(() => {
+  if (corpusEmpty()) showHealth();
+});
+
+// A finished run changed the corpus. Everything that counted it asks again,
+// once.
+collection.onFinish(() => {
+  refreshAfterCollection();
+  if (currentPage === 'settings') sourcesPanel.load(true);
+  // Home's counts moved -- unless Home is the setup's last card, which is
+  // already saying "Done" and offering the jobs.
+  if (currentPage === 'home' && !home.inSetup()) home.load();
+});
+
+async function refreshAfterCollection() {
+  await showHealth();
+  load(store.apiQueryString(), store.get(), { quiet: Boolean(lastResponse && lastResponse.items.length) });
+}
+
+// =========================================================================
+// What Career Agent knows about the person's career, for the Tailor handoff
+// =========================================================================
+
+let careerContextCache = null;
+
+/**
+ * True when the person has given Career Agent something about their career:
+ * a document it read, or evidence waiting for review or confirmed. Cached
+ * until the next navigation or evidence change.
+ */
+function careerContext() {
+  if (!careerContextCache) {
+    careerContextCache = api.getFirstRun().then((state) => {
+      const steps = state.steps || [];
+      const documents = steps.find((step) => step.key === 'documents') || {};
+      const evidenceStep = steps.find((step) => step.key === 'evidence') || {};
+      return Boolean(documents.done
+        || Number(evidenceStep.confirmed) > 0
+        || Number(evidenceStep.waiting) > 0);
+    }).catch(() => {
+      careerContextCache = null;
+      // Unknown is not "absent": never hide the way in because a read failed.
+      return true;
+    });
+  }
+  return careerContextCache;
 }
 
 // =========================================================================
@@ -1954,6 +2073,12 @@ function buildLocaleControl(host) {
           // English column headings and state chips under a translated
           // heading. It redraws from the payload it already has.
           sourcesPanel.retranslate();
+          // CAREER EVIDENCE TOO. It is drawn with `t()` when it loads and
+          // never again, so switching language while on it left every
+          // sentence on the page in the old one under a translated menu.
+          // `refresh` redraws whatever is open -- a package, a CV review, the
+          // home view -- rather than going back to the top.
+          if (currentPage === 'evidence') evidence.refresh();
           retranslatePreferences();
           retranslateProfile();
           // The health readout too. It is built with `t()` and drawn once at

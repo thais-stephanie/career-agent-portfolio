@@ -674,9 +674,14 @@ export async function patchProfile(changes) {
 }
 
 
-/** The funnel and the last retrieval. Safe to poll. */
-export async function getRetrieval() {
-  return request('/retrieval');
+/**
+ * The funnel and the last retrieval. Safe to poll.
+ *
+ * `funnel: false` leaves the funnel out: it is counted over the whole corpus,
+ * and the progress poll only needs the run.
+ */
+export async function getRetrieval({ funnel = true } = {}) {
+  return request(funnel ? '/retrieval' : '/retrieval?funnel=false');
 }
 
 /** Begin a collection pass. Returns immediately; poll `getRetrieval`. */

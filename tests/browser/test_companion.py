@@ -4,6 +4,15 @@ from tests.browser.test_browser_acceptance import click, open_list
 
 
 def test_copy_posting_and_companion_entry(page, pristine_server):
+    # The handoff is the next step once Career Agent holds something about the
+    # person's career; before that the drawer asks for it first
+    # (`test_post_merge_continuity.py`). One confirmed, invented skill.
+    page.navigate(pristine_server)
+    page.evaluate(
+        "fetch('/api/evidence', {method: 'POST', headers: {'Content-Type': 'application/json'},"
+        " body: JSON.stringify({claim_type: 'SKILL', text: 'Invented spreadsheet modelling'})})"
+        ".then(r => r.status)"
+    )
     open_list(page, pristine_server)
     page.wait_for("document.querySelector('.card:not(.card--skeleton)')")
     page.evaluate(
