@@ -75,7 +75,7 @@ def test_nothing_is_saveable_until_something_changes(page: Chrome, writable_serv
 
 def test_the_button_says_how_much_is_pending(page: Chrome, writable_server: str) -> None:
     open_profile(page, writable_server)
-    page.evaluate("document.querySelector('#profile-field-work_models-ONSITE').click()")
+    page.evaluate("document.querySelector('#profile-field-work_models-ONSITE-prefer').click()")
     page.wait_for(
         "document.querySelector('.profile__actions .btn--primary').textContent === 'Save 1 change'",
         message="the button to count the change",
@@ -88,12 +88,13 @@ def test_choosing_a_value_back_to_its_original_is_not_a_change(
     """Without this, a person who ticks a box and unticks it has a pending edit
     that would bump the configuration version for nothing."""
     open_profile(page, writable_server)
-    page.evaluate("document.querySelector('#profile-field-work_models-ONSITE').click()")
+    page.evaluate("document.querySelector('#profile-field-work_models-ONSITE-prefer').click()")
     page.wait_for(
         "document.querySelector('.profile__actions .btn--primary').textContent !== 'Save'",
         message="the change to register",
     )
-    page.evaluate("document.querySelector('#profile-field-work_models-ONSITE').click()")
+    # One answer per way of working now: going back is choosing the original.
+    page.evaluate("document.querySelector('#profile-field-work_models-ONSITE-fine').click()")
     page.wait_for(
         "document.querySelector('.profile__actions .btn--primary').disabled === true",
         message="the change to cancel itself out",
@@ -102,7 +103,7 @@ def test_choosing_a_value_back_to_its_original_is_not_a_change(
 
 def test_a_saved_change_survives_a_reload(page: Chrome, writable_server: str) -> None:
     open_profile(page, writable_server)
-    page.evaluate("document.querySelector('#profile-field-work_models-ONSITE').click()")
+    page.evaluate("document.querySelector('#profile-field-work_models-ONSITE-prefer').click()")
     page.evaluate("document.querySelector('.profile__actions .btn--primary').click()")
     page.wait_for(
         "document.querySelector('.profile__save-status').classList.contains('is-ok')",
@@ -113,14 +114,10 @@ def test_a_saved_change_survives_a_reload(page: Chrome, writable_server: str) ->
     )
 
     open_profile(page, writable_server)
-    # `aria-pressed`, because these are chips now rather than checkboxes. Same
-    # control, same ids, same answer -- what changed is where the state lives.
-    chosen = page.evaluate(
-        "[...document.querySelectorAll('[id^=profile-field-work_models-]')]"
-        ".filter(b => b.getAttribute('aria-pressed') === 'true')"
-        ".map(b => b.id.replace('profile-field-work_models-', ''))"
-    )
-    assert "ONSITE" in list(chosen), "the saved choice did not survive the reload"
+    # One radio group per way of working, the same control the setup draws.
+    assert page.evaluate(
+        "document.querySelector('#profile-field-work_models-ONSITE-prefer').checked"
+    ), "the saved choice did not survive the reload"
 
 
 def test_a_country_nobody_has_heard_of_never_reaches_the_save(

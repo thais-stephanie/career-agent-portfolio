@@ -1941,7 +1941,7 @@ const EN = {
   // loud, and each has a `fieldHelp.*` sentence under it saying what the
   // answer is USED FOR -- because "Most travel you would accept" above the
   // number 15 was a label with no unit and no consequence attached to it.
-  'field.work_models': 'How do you prefer to work?',
+  'field.work_models': 'How do you feel about each way of working?',
   'field.require_remote': 'Only show me fully remote roles',
   'field.contract_preferred': 'Which working arrangements work for you?',
   'field.contract_unwanted': 'Any of those you would prefer less?',
@@ -1956,17 +1956,19 @@ const EN = {
 
   // WHAT THE ANSWER DOES. One sentence, in the second person, naming the
   // consequence rather than the mechanism.
-  'fieldHelp.work_models': 'Pick every format that works for you.',
-  'fieldHelp.require_remote':
-    'A stronger version of the answer above: hybrid and on-site roles stop appearing.',
-  'fieldHelp.contract_preferred': 'Select everything you would consider.',
-  'fieldHelp.contract_unwanted':
-    'This does not remove any job. It just puts the ones you prefer first.',
-  'fieldHelp.seniority_preferred': 'Jobs at these levels come first in your recommendations.',
+  'fieldHelp.work_models': 'Prefer adds a little to a job\'s fit and rather avoid takes it away. Never show also '
+    + 'hides those jobs from Discover, with one click to see them again. None of this changes '
+    + 'where you can be hired: remote does not mean a company can hire you anywhere.',
+  'fieldHelp.require_remote': 'Worked out from your answers: on when hybrid and on-site are both never shown.',
+  'fieldHelp.contract_preferred':
+    'Works for me adds a little to a job\'s fit and rather not takes it away. Many postings do '
+    + 'not say, and then nothing changes.',
+  'fieldHelp.contract_unwanted': 'Arrangements you would rather not have. A job that offers one loses a little fit.',
+  'fieldHelp.seniority_preferred': 'Kept for your own reference; it does not change scores yet. To keep a level out of '
+    + 'Discover, use the next question.',
   'fieldHelp.seniority_excluded':
     'Jobs at these levels will not be recommended to you. Anything you are already following stays where it is.',
-  'fieldHelp.travel_max_pct':
-    'Think of the amount of travelling that would still make a job work for you.',
+  'fieldHelp.travel_max_pct': 'Kept for your own reference; it does not change scores or hide jobs yet.',
   'fieldHelp.compensation_target':
     'Use whatever you are aiming for today. Jobs that do not say what they pay still '
     + 'show up as normal.',
@@ -2288,6 +2290,30 @@ const EN = {
   'board.empty': 'No applications tracked yet. Save a job or change its status in Discover and it appears here.',
   'board.toDiscover': 'Go to Discover',
   'settings.sourceEach': 'Each job source ({n}, {paused} paused): status and refresh timing',
+  // choices.js: one answer per row, shared by the setup and Settings.
+  'workModel.REMOTE': 'Remote',
+  'workModel.HYBRID': 'Hybrid',
+  'workModel.ONSITE': 'On-site',
+  'workModel.answer.prefer': 'Prefer',
+  'workModel.answer.fine': 'Fine',
+  'workModel.answer.avoid': 'Rather avoid',
+  'workModel.answer.never': 'Never show',
+  'workModel.summary.prefer': 'Prefer {model}',
+  'workModel.summary.avoid': 'Rather avoid {model}',
+  'workModel.summary.never': 'Never show {model}',
+  'arrangement.FULL_TIME_EMPLOYEE': 'Employee, on the company\'s payroll',
+  'arrangement.CONTRACTOR_B2B': 'Contractor: you invoice the company (for example PJ or B2B)',
+  'arrangement.EOR': 'Hired through an employer of record (EOR)',
+  'arrangement.short.FULL_TIME_EMPLOYEE': 'employee',
+  'arrangement.short.CONTRACTOR_B2B': 'contractor',
+  'arrangement.short.EOR': 'employer of record',
+  'arrangement.answer.yes': 'Works for me',
+  'arrangement.answer.none': 'No preference',
+  'arrangement.answer.no': 'Rather not',
+  'arrangement.summary.yes': 'Works: {kind}',
+  'arrangement.summary.no': 'Rather not: {kind}',
+  'profileRow.workModelsAvoided': 'Ways of working you would rather avoid',
+  'profileRow.workModelsExcluded': 'Ways of working never shown in Discover',
   // Finding jobs: one drawing for every screen that shows a run.
   'collect.now': 'Now reading {source} ({time})',
   'collect.elapsed': '{time} so far',
@@ -4105,9 +4131,9 @@ const PT_BR = {
   'profileRow.aimingFor': 'Você tem como alvo',
   'profileRow.crossCurrency': 'Comparação entre moedas',
   'profileValue.travelUpTo': 'até {pct}% do tempo',
-  'field.work_models': 'Como você prefere trabalhar?',
+  'field.work_models': 'Como você se sente sobre cada formato de trabalho?',
   'field.require_remote': 'Mostrar apenas vagas totalmente remotas',
-  'field.contract_preferred': 'Que formatos de contratação funcionam para você?',
+  'field.contract_preferred': 'Quais formatos de contratação funcionam para você?',
   'field.contract_unwanted': 'Entre eles, existe algum que você prefere menos?',
   'field.seniority_preferred': 'Quais níveis fazem sentido para você agora?',
   'field.seniority_excluded': 'Existe algum nível que você não quer receber?',
@@ -4118,18 +4144,22 @@ const PT_BR = {
   'field.eligible_scopes': 'Em quais regiões você pode trabalhar?',
   'field.eligible_countries': 'Em quais países você pode ser contratado diretamente?',
 
-  'fieldHelp.work_models': 'Escolha um ou mais formatos que funcionam para você.',
+  'fieldHelp.work_models': 'Preferir soma um pouco à aderência da vaga e evitar tira um pouco. Nunca mostrar também '
+    + 'esconde essas vagas em Descobrir, com um clique para vê-las de novo. Nada disso muda '
+    + 'onde você pode ser contratado: remoto não significa que a empresa contrata de qualquer lugar.',
   'fieldHelp.require_remote':
-    'Uma versão mais forte da resposta acima: vagas híbridas e presenciais param de aparecer.',
-  'fieldHelp.contract_preferred': 'Selecione todos os formatos que você consideraria.',
+    'Calculado a partir das suas respostas: ligado quando híbrido e presencial nunca aparecem.',
+  'fieldHelp.contract_preferred':
+    'Funciona para mim soma um pouco à aderência da vaga e prefiro não tira um pouco. Muitas '
+    + 'vagas não dizem, e então nada muda.',
   'fieldHelp.contract_unwanted':
-    'Isso não elimina nenhuma vaga. Só ajuda a priorizar o que você prefere.',
+    'Formatos que você prefere não ter. Uma vaga com um deles perde um pouco de aderência.',
   'fieldHelp.seniority_preferred':
-    'Vagas nesses níveis vêm primeiro nas suas recomendações.',
+    'Guardado para sua referência; ainda não muda notas. Para tirar um nível de Descobrir, '
+    + 'use a próxima pergunta.',
   'fieldHelp.seniority_excluded':
     'Vagas nesses níveis não serão recomendadas para você. O que você já acompanha continua onde está.',
-  'fieldHelp.travel_max_pct':
-    'Pense na frequência de viagens que ainda faria uma vaga funcionar para você.',
+  'fieldHelp.travel_max_pct': 'Guardado para sua referência; ainda não muda notas nem esconde vagas.',
   'fieldHelp.compensation_target':
     'Use sua meta atual. Vagas que não informam salário continuam aparecendo normalmente.',
   'fieldHelp.compensation_currency': 'Moeda',
@@ -4419,6 +4449,29 @@ const PT_BR = {
     + 'aparece aqui.',
   'board.toDiscover': 'Ir para Descobrir',
   'settings.sourceEach': 'Cada fonte de vagas ({n}, {paused} pausadas): situação e frequência de atualização',
+  'workModel.REMOTE': 'Remoto',
+  'workModel.HYBRID': 'Híbrido',
+  'workModel.ONSITE': 'Presencial',
+  'workModel.answer.prefer': 'Prefiro',
+  'workModel.answer.fine': 'Tanto faz',
+  'workModel.answer.avoid': 'Prefiro evitar',
+  'workModel.answer.never': 'Nunca mostrar',
+  'workModel.summary.prefer': 'Prefere {model}',
+  'workModel.summary.avoid': 'Prefere evitar {model}',
+  'workModel.summary.never': 'Nunca mostrar {model}',
+  'arrangement.FULL_TIME_EMPLOYEE': 'Empregado, na folha da empresa (por exemplo CLT)',
+  'arrangement.CONTRACTOR_B2B': 'Prestador: você emite nota para a empresa (por exemplo PJ ou B2B)',
+  'arrangement.EOR': 'Contratado por um empregador de registro (EOR)',
+  'arrangement.short.FULL_TIME_EMPLOYEE': 'empregado',
+  'arrangement.short.CONTRACTOR_B2B': 'prestador',
+  'arrangement.short.EOR': 'empregador de registro',
+  'arrangement.answer.yes': 'Funciona para mim',
+  'arrangement.answer.none': 'Sem preferência',
+  'arrangement.answer.no': 'Prefiro não',
+  'arrangement.summary.yes': 'Funciona: {kind}',
+  'arrangement.summary.no': 'Prefere não: {kind}',
+  'profileRow.workModelsAvoided': 'Formatos de trabalho que você prefere evitar',
+  'profileRow.workModelsExcluded': 'Formatos de trabalho que nunca aparecem em Descobrir',
   'collect.now': 'Lendo agora {source} ({time})',
   'collect.elapsed': '{time} até agora',
   'collect.deferred': '{n} fontes puladas: pausadas, ou fora dos lugares onde você pode trabalhar',

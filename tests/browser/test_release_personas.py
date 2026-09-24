@@ -116,7 +116,7 @@ def test_complete_persona_journey(page, workspace, persona):
         "document.querySelector('#profile-field-eligible_countries')"
         ".dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', bubbles:true}))"
     )
-    page.evaluate(f"document.querySelector('#profile-field-work_models-{model}').click()")
+    page.evaluate(f"document.querySelector('#profile-field-work_models-{model}-prefer').click()")
     page.evaluate(f"document.querySelector('#profile-field-seniority_preferred-{level}').click()")
     page.evaluate("document.querySelector('.profile__actions .btn--primary').click()")
     page.wait_for("document.querySelector('.profile__save-status').classList.contains('is-ok')")

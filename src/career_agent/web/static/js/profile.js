@@ -19,6 +19,9 @@ import { patchProfile } from './api.js';
 import { button, clear, el, field, replace } from './dom.js';
 import { t, tVocab } from './i18n.js';
 import { tagInput } from './tags.js';
+import {
+  ARRANGEMENT_FIELDS, WORK_MODEL_FIELDS, arrangementMatrix, workModelMatrix,
+} from './choices.js';
 
 /**
  * THE FOUR DESTINATIONS, AND WHAT SEPARATES THEM.
@@ -630,32 +633,30 @@ const CHOICE_GROUPS = [
  * FIELDS THAT ARE NOT ASKED, because the answer is already known.
  *
  * `require_remote` was a checkbox reading "Only show me fully remote roles",
- * directly under the question that asks which ways of working she accepts. It
- * asked the same decision twice and let the two answers disagree: Remote and
- * Hybrid both ticked, plus "only remote", is a preference the screen could
- * hold and nobody could mean.
- *
- * It is DERIVED now -- true exactly when Remote is the only way of working
- * she accepts -- and written on save with the rest. The stored field is
- * unchanged and so is every gate that reads it; what changed is that the
- * product works it out instead of asking.
+ * directly under the question that asks about ways of working. It asked the
+ * same decision twice and let the two answers disagree. The SERVER derives it
+ * now -- true exactly when hybrid and on-site are both never to be shown --
+ * so the setup and this screen cannot work it out differently.
  */
 const DERIVED_FIELDS = new Set(['require_remote']);
 
+/**
+ * QUESTIONS DRAWN AS ONE CONTROL, one answer per row (`choices.js`), the same
+ * control the guided setup draws. The first field of each is where it sits;
+ * the others are written by it and never drawn on their own.
+ */
+const COMPOSITES = {
+  work_models: { fields: WORK_MODEL_FIELDS, draw: workModelMatrix },
+  contract_preferred: { fields: ARRANGEMENT_FIELDS, draw: arrangementMatrix },
+};
+const ABSORBED = new Set(Object.values(COMPOSITES)
+  .flatMap((composite) => composite.fields.slice(1)));
+
 /** Answers whose value decides what another question is allowed to offer. */
 const REDRAWS_THE_FORM = new Set([
-  'work_models',          // decides whether "only remote" is true
-  'contract_preferred',   // decides what "prefer less" may offer
-  'seniority_preferred',  // and what may be excluded
+  'seniority_preferred',  // decides what may be excluded
   'seniority_excluded',
 ]);
-
-/** `work_models -> require_remote`, and this is the whole rule. */
-function derivedValue(field, values) {
-  if (field !== 'require_remote') return undefined;
-  const work = values.work_models;
-  return Array.isArray(work) && work.length === 1 && work[0] === 'REMOTE';
-}
 
 /**
  * Which questions share a line, because they are one decision.
@@ -678,11 +679,33 @@ const PAIRED = { compensation_target: 'compensation_currency' };
 const EXCLUSIVE = {
   seniority_excluded: 'seniority_preferred',
   seniority_preferred: 'seniority_excluded',
-  // Not a contradiction but a DEPENDENCY, and it reads through the same
-  // channel: "any of those you would prefer less" must offer exactly the
-  // arrangements she accepted, so it needs to see that answer.
-  contract_unwanted: 'contract_preferred',
 };
+
+/** One of the composite questions, with the same label and help as the rest. */
+function compositeControl(row, composite, byField, change, currentValue, prefix) {
+  const rows = composite.fields.map((field) => byField.get(field));
+  if (rows.some((member) => !member)) return null;
+  const values = Object.fromEntries(rows.map((member) => [member.field, currentValue(member)]));
+  const id = prefix + row.field;
+  const help = helpFor(row);
+  if (help) help.id = `${id}-help`;
+  return el('div', { className: 'choice choice--matrix' }, [
+    el('p', { className: 'choice__q field__label', attrs: { id: `${id}-q` }, text: labelOf(row) }),
+    help,
+    composite.draw({
+      id,
+      describedBy: help ? `${id}-q ${id}-help` : `${id}-q`, // localisation-check: allow ids
+      values,
+      onChange: (next) => {
+        for (const member of rows) {
+          // An empty answer to a list the file never held is not a change.
+          const value = next[member.field];
+          change(member, !value.length && !Array.isArray(member.value) ? member.value : value);
+        }
+      },
+    }),
+  ].filter(Boolean));
+}
 
 function groupedControls(fields, change, currentValue, names, prefix) {
   const placed = new Set(CHOICE_GROUPS.flatMap((group) => group.fields));
@@ -690,6 +713,7 @@ function groupedControls(fields, change, currentValue, names, prefix) {
   const out = [];
   for (const group of CHOICE_GROUPS) {
     const rows = fields.filter((row) => !DERIVED_FIELDS.has(row.field)
+      && !ABSORBED.has(row.field)
       && (group.fields.includes(row.field)
         || (group.key === 'where' && !placed.has(row.field)
           && !Object.values(PAIRED).includes(row.field))));
@@ -698,14 +722,16 @@ function groupedControls(fields, change, currentValue, names, prefix) {
       el('h4', { className: 'choicegroup__head', text: t(`choiceGroup.${group.key}`) }),
       el('p', { className: 'choicegroup__lede', text: t(`choiceGroup.${group.key}Lede`) }),
       el('div', { className: 'choicegroup__body' },
-        rows.map((row) => control(row, change, currentValue, {
-          names,
-          prefix,
-          partner: PAIRED[row.field] ? byField.get(PAIRED[row.field]) : null,
-          against: EXCLUSIVE[row.field]
-            ? currentValue(byField.get(EXCLUSIVE[row.field]))
-            : null,
-        }))),
+        rows.map((row) => (COMPOSITES[row.field]
+          ? compositeControl(row, COMPOSITES[row.field], byField, change, currentValue, prefix)
+          : control(row, change, currentValue, {
+            names,
+            prefix,
+            partner: PAIRED[row.field] ? byField.get(PAIRED[row.field]) : null,
+            against: EXCLUSIVE[row.field]
+              ? currentValue(byField.get(EXCLUSIVE[row.field]))
+              : null,
+          }))).filter(Boolean)),
     ]));
   }
   return out;
@@ -764,26 +790,8 @@ export function editableBlock(fields, source, names, prefix = 'profile-field-') 
     mark();
   }
 
-  /** The answers as they stand, by field, for deriving and for cross-checks. */
-  function snapshot() {
-    const out = {};
-    for (const row of fields) out[row.field] = currentValue(row);
-    return out;
-  }
-
   async function commit() {
     if (!pending.size) return;
-    // The derived answers, worked out from what she actually chose. They are
-    // not asked and they are not guessed: `require_remote` is true exactly
-    // when Remote is the only arrangement she accepts.
-    const values = snapshot();
-    for (const row of fields) {
-      if (!DERIVED_FIELDS.has(row.field)) continue;
-      const derived = derivedValue(row.field, values);
-      if (derived !== undefined && JSON.stringify(derived) !== JSON.stringify(row.value)) {
-        pending.set(row.field, derived);
-      }
-    }
     save.disabled = true;
     cancel.disabled = true;
     status.className = 'profile__save-status';
@@ -1005,11 +1013,7 @@ function control(row, change, currentValue, options = {}) {
     // not accept Employer of Record" and "I prefer Employer of Record less"
     // at once, which is not a preference anybody has. It now offers only what
     // she accepted, and disappears entirely below two.
-    const narrowsAnother = row.field === 'contract_unwanted';
-    const offer = narrowsAnother
-      ? row.choices.filter((choice) => blocked.has(choice))
-      : row.choices.filter((choice) => !blocked.has(choice) || chosen.has(choice));
-    if (narrowsAnother && offer.length < 2) return null;
+    const offer = row.choices.filter((choice) => !blocked.has(choice) || chosen.has(choice));
 
     const chips = offer.map((choice) => {
       // A STABLE ID PER CHOICE. These were checkboxes with
