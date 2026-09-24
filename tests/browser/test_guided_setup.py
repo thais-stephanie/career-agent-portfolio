@@ -119,9 +119,7 @@ def test_enter_advances_and_focus_moves_to_each_question(page: Chrome, fresh: Fr
     page.evaluate("document.querySelector('.setup__card').requestSubmit()")
     _wait_card(page, "work")
     assert page.evaluate("document.activeElement.id") == "setup-title"
-    assert "Question 1 of" in str(
-        page.evaluate("document.querySelector('.setup__count').innerText")
-    )
+    assert str(page.evaluate("document.querySelector('.setup__count').innerText")) == "Step 1"
 
 
 def test_a_missing_answer_is_explained_next_to_the_question(page: Chrome, fresh: Fresh) -> None:
@@ -188,7 +186,9 @@ def test_where_you_live_is_never_turned_into_where_you_can_be_hired(
     _wait_card(page, "hire")
     _click(page, "#setup-hire-yes")
     _click(page, "#setup-next")
-    _wait_card(page, "regions")
+    # Brazil confirmed: every region containing it already admits, so the
+    # regions card has nothing to ask and is not shown.
+    _wait_card(page, "workmodel")
     config, _ = load_search_config(fresh.config_dir)
     assert config.eligibility.eligible_countries == ["BR"]
 
@@ -245,9 +245,7 @@ def test_the_setup_speaks_portuguese_and_fits_a_phone(page: Chrome, fresh: Fresh
     page.set_viewport(390, 844, mobile=True)
     _click(page, "#setup-next")
     _wait_card(page, "work")
-    assert "Pergunta 1 de" in str(
-        page.evaluate("document.querySelector('.setup__count').innerText")
-    )
+    assert str(page.evaluate("document.querySelector('.setup__count').innerText")) == "Passo 1"
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
     page.evaluate("document.querySelector('[data-locale=\"en\"]').click()")
 
@@ -272,7 +270,7 @@ def test_changing_where_you_live_does_not_carry_the_hiring_answer_over(
     _wait_card(page, "hire")
     _click(page, "#setup-hire-yes")
     _click(page, "#setup-next")
-    _wait_card(page, "regions")
+    _wait_card(page, "workmodel")
 
     _click(page, "#setup-back")
     _wait_card(page, "hire")

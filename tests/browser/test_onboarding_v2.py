@@ -10,6 +10,7 @@ Settings write the same configuration.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import socket
 import threading
@@ -209,9 +210,7 @@ def answer_everything(page: Chrome, live: Install) -> None:
     wait_card(page, "hire")
     click(page, "#setup-hire-yes")
     next_card(page)
-    wait_card(page, "regions")
-    click(page, "#setup-eligible_scopes-LATAM")
-    next_card(page)
+    # Brazil confirmed: no region could add anything, so no regions card.
     wait_card(page, "workmodel")
     click(page, "#setup-workmodel-REMOTE-prefer")
     click(page, "#setup-workmodel-HYBRID-fine")
@@ -256,7 +255,14 @@ def test_a_new_person_answers_everything_and_the_configuration_says_so(
     begin(page, install)
     answer_everything(page, install)
     add_cv(page)
-    assert "statements found" in text(page, "#setup-cv-status")
+    # The exact number the server staged, not merely the sentence.
+    staged = page.evaluate(
+        "fetch('/api/cv/imports').then(r => r.json()).then(d => d.imports[0].total)"
+    )
+    assert staged > 0
+    assert text(page, "#setup-cv-status").startswith(f"{staged} statements found"), text(
+        page, "#setup-cv-status"
+    )
     next_card(page)
     wait_card(page, "review")
 
@@ -264,7 +270,6 @@ def test_a_new_person_answers_everything_and_the_configuration_says_so(
     for expected in (
         "customer onboarding",
         "Brazil",
-        "Latin America",
         "Prefer Remote",
         "Rather avoid On-site",
         "Works: contractor",
@@ -286,7 +291,7 @@ def test_a_new_person_answers_everything_and_the_configuration_says_so(
     config = install.config()
     assert config.eligibility.candidate_country == "BR"
     assert config.eligibility.eligible_countries == ["BR"]
-    assert config.eligibility.eligible_scopes == ["LATAM"]
+    assert config.eligibility.eligible_scopes == []
     remote = config.preferences.remote
     assert remote.accepted_work_models == ["REMOTE"]
     assert remote.avoided_work_models == ["ONSITE"]
@@ -320,7 +325,11 @@ def test_a_new_person_answers_everything_and_the_configuration_says_so(
         "#profile-field-contract_preferred-EOR-no",
     ):
         assert page.evaluate(f"document.querySelector({json.dumps(selector)}).checked"), selector
-    assert page.console_errors() == []
+    # This install's own errors. The browser is shared across tests, and a page
+    # from the previous test can report its server's shutdown after the
+    # console was cleared for this one.
+    mine = [e for e in page.console_errors() if install.base in str(e.get("url", install.base))]
+    assert mine == [], mine
 
 
 def test_a_change_in_settings_is_what_the_review_shows(page: Chrome, install: Install) -> None:
@@ -440,11 +449,10 @@ def test_back_all_the_way_shows_every_answer(page: Chrome, install: Install) -> 
         "level": "document.querySelector('#setup-seniority_excluded-LEAD').checked",
         "arrangement": "document.querySelector('#setup-arrangement-EOR-no').checked",
         "workmodel": "document.querySelector('#setup-workmodel-ONSITE-avoid').checked",
-        "regions": "document.querySelector('#setup-eligible_scopes-LATAM').checked",
         "hire": "document.querySelector('#setup-hire-yes').checked",
         "home": "document.querySelector('#setup-country').dataset.code === 'BR'",
     }
-    for key in ("pay", "level", "arrangement", "workmodel", "regions", "hire", "home", "work"):
+    for key in ("pay", "level", "arrangement", "workmodel", "hire", "home", "work"):
         click(page, "#setup-back")
         wait_card(page, key)
         if key in expected:
@@ -469,10 +477,8 @@ def test_a_new_country_asks_the_hiring_question_again(page: Chrome, install: Ins
     wait_card(page, "hire")
     click(page, "#setup-hire-yes")
     next_card(page)
-    wait_card(page, "regions")
-    assert page.evaluate(
-        "[...document.querySelectorAll('[id^=setup-eligible_scopes-]')].map(n => n.value)"
-    ) == ["WORLDWIDE", "AMERICAS", "LATAM"]
+    # A: Brazil confirmed, so no redundant regions card.
+    wait_card(page, "workmodel")
 
     click(page, "#setup-back")
     wait_card(page, "hire")
@@ -486,10 +492,12 @@ def test_a_new_country_asks_the_hiring_question_again(page: Chrome, install: Ins
         "Brazil's answer was carried over to Portugal"
     )
     next_card(page)
+    # Living in Portugal, with Brazil still confirmed: Worldwide already admits
+    # through Brazil, so only EMEA could add something.
     wait_card(page, "regions")
     assert page.evaluate(
         "[...document.querySelectorAll('[id^=setup-eligible_scopes-]')].map(n => n.value)"
-    ) == ["WORLDWIDE", "EMEA"]
+    ) == ["EMEA"]
     config = install.config()
     assert config.eligibility.candidate_country == "PT"
     assert config.eligibility.eligible_countries == ["BR"]
@@ -528,8 +536,6 @@ def test_preferring_remote_is_not_being_hireable_anywhere(page: Chrome, install:
     wait_card(page, "hire")
     click(page, "#setup-hire-yes")
     next_card(page)
-    wait_card(page, "regions")
-    skip(page)
     wait_card(page, "workmodel")
     click(page, "#setup-workmodel-REMOTE-prefer")
     click(page, "#setup-workmodel-ONSITE-never")
@@ -627,7 +633,7 @@ def test_every_card_fits_a_phone(page: Chrome, install: Install) -> None:
         next_card(page)
         wait_card(page, key)
         assert no_overflow(page), key
-    for key in ("pay", "level", "arrangement", "workmodel", "regions", "hire", "home", "work"):
+    for key in ("pay", "level", "arrangement", "workmodel", "hire", "home", "work"):
         page.evaluate("localStorage.setItem('careerAgent.setup.at.v1', " + json.dumps(key) + ")")
         page.reload()
         wait_card(page, key)
@@ -665,9 +671,6 @@ def test_the_setup_can_be_completed_with_a_keyboard(page: Chrome, install: Insta
     tab_to(page, "setup-hire-yes")
     page.press("Space")
     tab_to(page, "setup-next")
-    page.press("Space")
-    wait_card(page, "regions")
-    tab_to(page, "setup-skip")
     page.press("Space")
     wait_card(page, "workmodel")
     # A radio group per row: Tab reaches the chosen answer, arrows move it.
@@ -794,3 +797,149 @@ def test_the_same_answers_in_another_order_are_not_a_change(page: Chrome, instal
         "document.querySelector('.profile__actions .btn--primary').disabled",
         message="the answers back where they were, with nothing to save",
     )
+
+
+# =========================================================================
+# the fresh-user QA findings
+# =========================================================================
+
+
+def skip_to(page: Chrome, target: str) -> None:
+    """Skip forward in this page (so any stub installed on it stays in place)."""
+    for _ in range(12):
+        if card(page) == target:
+            return
+        step = card(page)
+        page.evaluate(
+            "(document.querySelector('#setup-skip')"
+            " || document.querySelector('#setup-next')).click()"
+        )
+        page.wait_for(
+            f"document.querySelector('.setup__card')?.dataset.step !== {json.dumps(step)}"
+        )
+    wait_card(page, target)
+
+
+def test_the_cv_card_shows_the_count_the_server_staged(page: Chrome, install: Install) -> None:
+    """The server says `total: 9`; the card says 9. It said 0 when it counted a
+    list that is not at the top level of the response."""
+    begin(page, install)
+    page.evaluate(
+        "(() => { const real = window.fetch; window.fetch = (url, opts) => {"
+        "  const answer = real(url, opts);"
+        "  if (!String(url).endsWith('/api/cv/import')) return answer;"
+        "  return answer.then((r) => r.json()).then((body) => new Response("
+        "    JSON.stringify({ ...body, total: 9 }),"
+        "    { status: 200, headers: { 'Content-Type': 'application/json' } })); }; })()"
+    )
+    skip_to(page, "cv")
+    add_cv(page)
+    assert text(page, "#setup-cv-status").startswith("9 statements found"), text(
+        page, "#setup-cv-status"
+    )
+
+
+def test_progress_names_the_step_and_never_a_total_that_can_change(
+    page: Chrome, install: Install
+) -> None:
+    begin(page, install)
+    next_card(page)
+    seen = []
+    for _ in range(12):
+        step = card(page)
+        if step in ("review", "ready"):
+            break
+        count = text(page, ".setup__count")
+        bar = page.evaluate(
+            "(() => { const b = document.querySelector('.setup__card [role=progressbar]');"
+            " return [b.getAttribute('aria-valuetext'), Number(b.getAttribute('aria-valuenow'))];"
+            " })()"
+        )
+        assert re.fullmatch(r"Step \d+", count), count
+        assert bar[0] == count, bar
+        seen.append((step, int(count.split()[1]), bar[1]))
+        if step == "home":
+            put(page, "#setup-country", "Brazil", "change")
+            next_card(page)
+            page.wait_for("document.querySelector('.setup__card')?.dataset.step === 'hire'")
+            continue
+        page.evaluate(
+            "(document.querySelector('#setup-skip')"
+            " || document.querySelector('#setup-next')).click()"
+        )
+        page.wait_for(
+            f"document.querySelector('.setup__card')?.dataset.step !== {json.dumps(step)}"
+        )
+    numbers = [number for _, number, _ in seen]
+    assert numbers == list(range(1, len(numbers) + 1)), seen
+    assert [done for _, _, done in seen] == sorted(done for _, _, done in seen), seen
+    assert "regions" in [key for key, _, _ in seen], "the conditional card was not in this walk"
+
+
+def test_an_error_clears_as_soon_as_its_field_is_valid(page: Chrome, install: Install) -> None:
+    begin(page, install)
+    next_card(page)
+    wait_card(page, "work")
+    skip(page)
+    wait_card(page, "home")
+    put(page, "#setup-country", "Atlantis")
+    next_card(page)
+    page.wait_for("document.querySelector('#setup-error').textContent.length > 0")
+    # Another invalid value keeps the error.
+    put(page, "#setup-country", "Atlan")
+    assert text(page, "#setup-error")
+    invalid = "document.querySelector('#setup-country').getAttribute('aria-invalid')"
+    assert page.evaluate(invalid) == "true"
+    # A valid one clears it at once, before Continue.
+    put(page, "#setup-country", "Canada")
+    page.wait_for("document.querySelector('#setup-error').textContent === ''")
+    assert page.evaluate(invalid) is None
+    assert card(page) == "home"
+
+    # An error about one field is not cleared by fixing another.
+    skip(page)
+    skip_to(page, "pay")
+    put(page, "#setup-pay", "-5")
+    put(page, "#setup-currency", "CAD", "change")
+    next_card(page)
+    page.wait_for("document.querySelector('#setup-error').textContent.length > 0")
+    put(page, "#setup-currency", "USD", "change")
+    assert text(page, "#setup-error"), "fixing another field cleared this error"
+    put(page, "#setup-pay", "4000")
+    page.wait_for("document.querySelector('#setup-error').textContent === ''")
+    assert (
+        page.evaluate("document.querySelector('#setup-pay').getAttribute('aria-invalid')") is None
+    )
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_an_invalid_field_is_marked_without_relying_on_colour(
+    page: Chrome, install: Install, scheme: str
+) -> None:
+    page.set_color_scheme(scheme)
+    begin(page, install)
+    next_card(page)
+    wait_card(page, "work")
+    skip(page)
+    wait_card(page, "home")
+    put(page, "#setup-country", "Atlantis")
+    next_card(page)
+    page.wait_for("document.querySelector('#setup-error').textContent.length > 0")
+    field = page.evaluate(
+        "(() => { const s = getComputedStyle(document.querySelector('#setup-country'));"
+        " return [s.outlineStyle, parseFloat(s.outlineWidth)]; })()"
+    )
+    assert field[0] == "solid" and field[1] >= 3, field
+    message = page.evaluate(
+        "(() => { const n = document.querySelector('#setup-error');"
+        " const s = getComputedStyle(n); const mark = getComputedStyle(n, '::before');"
+        " return [s.borderLeftStyle, parseFloat(s.borderLeftWidth), mark.backgroundImage,"
+        "  n.getAttribute('role')]; })()"
+    )
+    assert message[0] == "solid" and message[1] >= 6, message
+    assert "px-warn" in message[2], "the message carries no mark beside its colour"
+    assert message[3] == "alert"
+    assert "setup-error" in str(
+        page.evaluate("document.querySelector('#setup-country').getAttribute('aria-describedby')")
+    )
+    page.set_color_scheme(None)

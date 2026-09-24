@@ -155,7 +155,7 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
         "Candidaturas",
         "Perfil de carreira",
         "Evidências de carreira",
-        "Ajustes e fontes",
+        "Configurações e fontes",
     ], nav(page)
     assert texts(page, "#view-cards") == ["Cartões"]
     # The tagline moved into the rail with the brand it belongs to.
@@ -182,7 +182,7 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
     heads = texts(page, "#page-settings .settings__head")
     assert "Preferências de busca" in heads, heads
     assert "De onde elas vêm" in heads, heads
-    assert texts(page, "#pagehead-title") == ["Ajustes e fontes"]
+    assert texts(page, "#pagehead-title") == ["Configurações e fontes"]
 
 
 def test_a_fresh_reader_gets_english(page: Chrome, server: str) -> None:

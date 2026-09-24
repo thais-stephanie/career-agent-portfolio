@@ -7973,16 +7973,6 @@ body {
   color: var(--muted);
   letter-spacing: 0.04em;
 }
-.setup__dots { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.setup__dot {
-  flex: 1;
-  height: 8px;
-  border: var(--edge) solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-alt);
-}
-.setup__dot.is-done { background: var(--mint); }
-.setup__dot.is-now { background: var(--lilac); }
 .setup__title {
   margin: 0;
   font-size: var(--t-display);
@@ -8204,10 +8194,38 @@ body {
 /* Onboarding V2: the country box, answers already given, and the CV row. */
 .setup__country { width: 100%; max-width: 420px; }
 .setup__row > .setup__country { flex: 1 1 220px; }
-.setup__dot { display: inline-block; }
 .setup__saved { display: grid; gap: 6px; }
 .setup__chips--static .setup__chip { padding-right: 10px; }
 .setup__lead { margin: 0; font-weight: 600; color: var(--ink); }
 .setup__cvrow { align-items: center; }
 .setup__cvstatus { margin: 0; color: var(--ink); }
 .setup__cvstatus:empty { display: none; }
+
+/* AN ANSWER THAT CANNOT BE SAVED YET, in the setup. Never colour alone:
+   the field gets a thick ink outline (an outline, so nothing around it
+   moves) over a pink halo, and the message sits in a bordered pink panel
+   behind the pixel warning mark. Ink on the pink wash measures 12.69:1 in
+   light and 8.73:1 in dark (scripts/contrast_report.py). */
+.setup__card [aria-invalid="true"] {
+  outline: 3px solid var(--block-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 7px var(--block);
+}
+.setup__error:not(:empty) {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 12px;
+  background: var(--block-wash);
+  color: var(--block-ink);
+  border: var(--edge) solid var(--block-ink);
+  border-left-width: 6px;
+  border-radius: var(--radius-control);
+}
+.setup__error:not(:empty)::before {
+  content: '';
+  flex: 0 0 16px; height: 16px; margin-top: 2px;
+  background: url('px/px-warn-16.png') no-repeat center / 16px 16px;
+  image-rendering: pixelated;
+}
+/* "Step 3" and a bar, never "3 of 9": the number of steps is not known in
+   advance, because the regions card appears only when it can add something. */
+.setup__stepbar { height: 10px; }
