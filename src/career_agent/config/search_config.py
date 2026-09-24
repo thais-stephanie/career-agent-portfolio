@@ -257,16 +257,40 @@ class CompensationComponent(_Section):
     contract_unwanted: float
 
 
+class WorkModelComponent(_Section):
+    """What a posting's way of working earns against her stated preference.
+
+    Scored ONLY when she has said something about at least one way of
+    working: a search that never answered keeps exactly the score it had,
+    because a component nobody asked for would move every posting's
+    denominator for a preference that does not exist.
+    """
+
+    max: float = 4.0
+    label: str = "Way of working"
+    preferred: float = 4.0
+    neutral: float = 2.0
+    avoided: float = 0.0
+
+
 class ScoringComponents(_Section):
     responsibilities: WeightedComponent
     technologies: WeightedComponent
     automation_integration: WeightedComponent
     seniority: SeniorityComponent
     compensation_contract: CompensationComponent
+    #: Optional in every file, because every file written before it existed
+    #: must still load. The defaults are the whole rule.
+    work_model: WorkModelComponent = Field(default_factory=WorkModelComponent)
 
     @property
     def maxima(self) -> dict[str, float]:
-        return {name: getattr(self, name).max for name in type(self).model_fields}
+        """The fixed budget: every component scored for every posting."""
+        return {
+            name: getattr(self, name).max
+            for name in type(self).model_fields
+            if name != "work_model"
+        }
 
 
 class SoftPenalties(_Section):
@@ -295,8 +319,19 @@ class Confidence(_Section):
 
 
 class RemotePreference(_Section):
+    #: Ways of working she PREFERS. Earns the work-model component in full.
     accepted_work_models: list[str] = Field(default_factory=list)
+    #: Derived, never asked: true exactly when hybrid and on-site are both
+    #: never to be shown. Read by nothing; kept because files carry it.
     require_remote: bool = False
+    #: Ways of working she would rather avoid. Earns nothing on that
+    #: component. A preference, never a verdict about eligibility.
+    avoided_work_models: list[str] = Field(default_factory=list)
+    #: Ways of working never to show. Scored as avoided AND set aside from
+    #: Discover by default, revealable, exactly like an excluded level. Never
+    #: eligibility: not wanting on-site work does not make a posting one she
+    #: may not take.
+    excluded_work_models: list[str] = Field(default_factory=list)
 
 
 class ContractPreference(_Section):

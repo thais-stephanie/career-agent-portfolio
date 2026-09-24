@@ -1769,6 +1769,13 @@ class JobFilter:
     #: Empty is the neutral value and excludes nothing.
     excluded_seniorities: tuple[str, ...] = ()
     include_excluded_seniority: bool = True
+    #: Ways of working she said never to show, and whether to show them
+    #: anyway. The same kind of narrowing as the levels above: a preference,
+    #: hidden by default, revealable, tracked postings exempt. Never
+    #: eligibility, and a posting that did not state a way of working is
+    #: never hidden by it.
+    excluded_work_models: tuple[str, ...] = ()
+    include_excluded_work_model: bool = True
 
     #: Whether to show postings SHE hid, one at a time, by pressing a control.
     #:
@@ -2103,6 +2110,7 @@ class ScoredJobQuery(_Repo):
                     or not f.include_off_target
                     or (not f.include_unresolved and "UNRESOLVED" not in f.eligibility)
                     or (f.excluded_seniorities and not f.include_excluded_seniority)
+                    or (f.excluded_work_models and not f.include_excluded_work_model)
                 )
             )
         ):
@@ -2233,6 +2241,16 @@ class ScoredJobQuery(_Repo):
                 f"(jm{a}.seniority IS NULL OR jm{a}.seniority NOT IN ({placeholders}){tracked})"
             )
             params.extend(f.excluded_seniorities)
+
+        if f.excluded_work_models and not f.include_excluded_work_model:
+            # Ways of working she said never to show. Unstated stays visible:
+            # a posting that did not say how the work is done has not said it
+            # is the kind she excluded.
+            placeholders = ", ".join("?" for _ in f.excluded_work_models)
+            clauses.append(
+                f"(jm{a}.work_model IS NULL OR jm{a}.work_model NOT IN ({placeholders}){tracked})"
+            )
+            params.extend(f.excluded_work_models)
 
         if not f.include_unresolved and "UNRESOLVED" not in f.eligibility:
             # ASKED FOR BEATS HIDDEN BY DEFAULT. Choosing the "Did not say"
@@ -2687,6 +2705,24 @@ class ScoredJobQuery(_Repo):
         if f.include_excluded_seniority or not f.excluded_seniorities:
             return 0
         widened = replace(f, include_excluded_seniority=True)
+        narrow = (
+            narrow_total if narrow_total is not None else self.count(config_id, config_version, f)
+        )
+        return self.count(config_id, config_version, widened) - narrow
+
+    def hidden_by_work_model(
+        self,
+        config_id: str,
+        config_version: int,
+        f: JobFilter,
+        *,
+        narrow_total: int | None = None,
+    ) -> int:
+        """How many postings this query set aside for a way of working she
+        said never to show. A preference, like the levels above."""
+        if f.include_excluded_work_model or not f.excluded_work_models:
+            return 0
+        widened = replace(f, include_excluded_work_model=True)
         narrow = (
             narrow_total if narrow_total is not None else self.count(config_id, config_version, f)
         )

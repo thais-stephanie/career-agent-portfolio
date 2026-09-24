@@ -79,6 +79,7 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
         "include_ineligible",
         "include_unresolved",
         "include_excluded_seniority",
+        "include_excluded_work_model",
         "include_off_target",
         "include_user_hidden",
         "user_hidden_only",
@@ -1114,9 +1115,25 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         if preferences.remote.accepted_work_models:
             shape.append(
                 {
-                    "label": "Ways of working you accept",
+                    "label": "Ways of working you prefer",
                     "label_key": "profileRow.workModels",
                     "value": ", ".join(preferences.remote.accepted_work_models),
+                }
+            )
+        if preferences.remote.avoided_work_models:
+            shape.append(
+                {
+                    "label": "Ways of working you would rather avoid",
+                    "label_key": "profileRow.workModelsAvoided",
+                    "value": ", ".join(preferences.remote.avoided_work_models),
+                }
+            )
+        if preferences.remote.excluded_work_models:
+            shape.append(
+                {
+                    "label": "Ways of working never shown in Discover",
+                    "label_key": "profileRow.workModelsExcluded",
+                    "value": ", ".join(preferences.remote.excluded_work_models),
                 }
             )
         if preferences.contract.preferred:
@@ -1886,6 +1903,10 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             wrong_level = repo.hidden_by_seniority(
                 config_id, config_version, job_filter, narrow_total=total
             )
+            # And ways of working she said never to show. A preference too.
+            wrong_work_model = repo.hidden_by_work_model(
+                config_id, config_version, job_filter, narrow_total=total
+            )
             # And, separately again, how many SHE hid. Three counts because
             # they are three sentences and three different ways back: a
             # control in the rail, a second control in the rail, and a restore
@@ -1937,6 +1958,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # list is empty until a candidate fills it in, and "not preferred"
             # is deliberately not read as "prohibited".
             "hidden_by_seniority": wrong_level,
+            # Ways of working she said never to show. Zero until she says so.
+            "hidden_by_work_model": wrong_work_model,
             # Hidden by HER, one at a time. Never merged with either number
             # above: those are things that happened to her and this is a thing
             # she did, and only she can put it back.
@@ -2356,6 +2379,11 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 level.value for level in self.search_config().preferences.seniority.excluded
             ),
             include_excluded_seniority=_bool(query, "include_excluded_seniority"),
+            excluded_work_models=tuple(
+                model.upper()
+                for model in self.search_config().preferences.remote.excluded_work_models
+            ),
+            include_excluded_work_model=_bool(query, "include_excluded_work_model"),
             include_off_target=_bool(query, "include_off_target"),
             include_user_hidden=_bool(query, "include_user_hidden"),
             user_hidden_only=user_hidden_only,

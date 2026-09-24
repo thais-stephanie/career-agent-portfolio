@@ -43,6 +43,7 @@ from career_agent.match.score import (
 from career_agent.match.seniority import read_seniority
 from career_agent.match.taxonomy import classify_title
 from career_agent.match.text import fold_field, split_sections
+from career_agent.match.work_model import read_work_model
 from career_agent.providers.base import CompensationBand
 
 
@@ -374,33 +375,7 @@ def match_job(config: SearchConfig, job: JobFacts, *, computed_at: str) -> Match
     )
 
 
-def _work_model(job: JobFacts) -> str | None:
-    """REMOTE / HYBRID / ONSITE, read from what the board itself said.
-
-    **The structured field first.** A board that asks the employer to pick one
-    has an answer, and reading three words out of a free-text location when a
-    form field already holds the answer is inference standing in for evidence.
-
-    The text is the fallback, and only the board's own words -- never the
-    description, because "remote" in a body paragraph is as likely to describe
-    the team as the role. Nothing is inferred beyond that: a location that says
-    none of these returns None, and the interface prints "not stated".
-
-    This is emphatically NOT an eligibility answer. Remote does not mean
-    worldwide; that question belongs to the geography gate and stays there.
-    """
-    if job.workplace_type:
-        return job.workplace_type
-    if not job.location_raw:
-        return None
-    folded = job.location_raw.casefold()
-    if "hybrid" in folded or "hibrido" in folded or "híbrido" in folded:
-        return "HYBRID"
-    if "remote" in folded or "remoto" in folded:
-        return "REMOTE"
-    if "onsite" in folded or "on-site" in folded or "presencial" in folded:
-        return "ONSITE"
-    return None
+_work_model = read_work_model
 
 
 def posting_facts(job: JobFacts) -> dict[str, object]:

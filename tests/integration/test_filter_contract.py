@@ -215,6 +215,9 @@ WIDENING = {
     # because the committed example excludes no level -- which is the default
     # and is the point: "not preferred" is not "prohibited".
     "include_excluded_seniority": "1",
+    # Ways of working she said never to show: a preference too, and it reveals
+    # nothing here because the committed example never-shows none.
+    "include_excluded_work_model": "1",
     "include_user_hidden": "1",
     # The fifth, and the only one whose effect depends on what has been
     # CONFIRMED rather than on the request. It reveals nothing on this fixture
