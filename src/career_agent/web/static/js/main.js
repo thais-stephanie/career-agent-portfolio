@@ -112,6 +112,28 @@ const evidence = createEvidence({
 });
 document.getElementById('evidence-host').appendChild(evidence.root);
 
+//: Text boxes on Career Evidence the person has typed into. A box that is
+//: gone from the page was saved or discarded by the page itself; one still
+//: there with text in it is work a redraw would lose.
+const evidenceEdits = new Set();
+for (const host of [document.getElementById('page-evidence'), evidence.root]) {
+  host?.addEventListener('input', (event) => {
+    const node = event.target;
+    if (node instanceof HTMLTextAreaElement
+      || (node instanceof HTMLInputElement && ['text', ''].includes(node.getAttribute('type') || ''))) {
+      evidenceEdits.add(node);
+    }
+  }, true);
+}
+
+function evidenceHasUnsavedText() {
+  for (const node of [...evidenceEdits]) {
+    if (!node.isConnected) evidenceEdits.delete(node);
+    else if (node.value.trim()) return true;
+  }
+  return false;
+}
+
 const drawer = createDrawer({
   onStatus: (jobId, status) => changeStatus(jobId, status),  // returns the updated job
   onSave: (jobId, saved) => changeSaved(jobId, saved),
@@ -2077,8 +2099,10 @@ function buildLocaleControl(host) {
           // never again, so switching language while on it left every
           // sentence on the page in the old one under a translated menu.
           // `refresh` redraws whatever is open -- a package, a CV review, the
-          // home view -- rather than going back to the top.
-          if (currentPage === 'evidence') evidence.refresh();
+          // home view -- rather than going back to the top. NOT while
+          // something typed there is unsaved: a redraw would throw it away,
+          // and the page translates on its next arrival anyway.
+          if (currentPage === 'evidence' && !evidenceHasUnsavedText()) evidence.refresh();
           retranslatePreferences();
           retranslateProfile();
           // The health readout too. It is built with `t()` and drawn once at

@@ -633,3 +633,40 @@ def test_pressing_find_while_a_status_request_is_in_flight_still_shows_the_run(
     assert fresh.app.retrieval.running
     fresh.gate.set()
     page.wait_for("document.querySelector('#setup-see')", timeout=30)
+
+
+def test_switching_language_on_evidence_never_discards_what_is_being_typed(
+    page: Chrome, package_live: str
+) -> None:
+    """The redraw that translates the page must not cost an unsaved sentence.
+
+    Switching language redraws Career Evidence so it stops being English. A
+    sentence half-written into one of its boxes is the person's work, and a
+    redraw would throw it away: while anything typed there is unsaved, the
+    page keeps its nodes and translates on its next arrival instead.
+    """
+    from tests.browser.test_career_evidence import open_evidence
+
+    open_evidence(page, package_live)
+    page.wait_for("document.querySelector('#page-evidence textarea')", message="a text box")
+    page.evaluate(
+        "(() => { const box = document.querySelector('#page-evidence textarea');"
+        " box.value = 'Ran the weekly supplier review';"
+        " box.dispatchEvent(new Event('input', {bubbles: true})); })()"
+    )
+    page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
+    time.sleep(1.5)
+    kept = page.evaluate(
+        "[...document.querySelectorAll('#page-evidence textarea')]"
+        ".some((box) => box.value === 'Ran the weekly supplier review')"
+    )
+    assert kept, "switching language threw away an unsaved sentence"
+
+    # Nothing typed: the next arrival translates the page as before.
+    _go(page, "home")
+    _go(page, "evidence")
+    page.wait_for(
+        "document.querySelector('#page-evidence').innerText.includes('Suas experiências')",
+        message="the evidence page in Portuguese after the next arrival",
+    )
+    page.evaluate("document.querySelector('[data-locale=\"en\"]').click()")
