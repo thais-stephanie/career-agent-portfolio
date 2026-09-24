@@ -20,7 +20,7 @@ import { tCount } from './i18n.js';
 import * as api from './api.js';
 import {
   badge, chipInput, chips, inlineConfirm, openDrawer, periodLabel, sourceSnippet, toast, uid,
-  keepFocus, workCard,
+  guard, keepFocus, workCard,
 } from './ui.js';
 
 const L = (key, params) => tCount(`evp.${key}`, params);
@@ -46,7 +46,7 @@ export function titleOf(text) {
 export function evidencePage({ onManage = null, onChanged = null, onImport = null } = {}) {
   const root = el('section', { className: 'evp', attrs: { 'aria-label': L('heading') } });
   let ledger = null;
-  let career = null;
+  let career = { experiences: [] };
 
   async function load() {
     [ledger, career] = await Promise.all([
@@ -96,12 +96,12 @@ export function evidencePage({ onManage = null, onChanged = null, onImport = nul
         el('ul', { className: 'evp-aside' }, aside.map((claim) => el('li', {}, [
           el('span', { text: claim.text }),
           badge(claim.state === 'DRAFT' ? L('draft') : L('retired'), 'plain'),
-          button(claim.state === 'DRAFT' ? L('confirmDraft') : L('useAgain'), async () => {
+          button(claim.state === 'DRAFT' ? L('confirmDraft') : L('useAgain'), guard(async () => {
             await api.confirmClaim(claim.claim_key);
             await load();
             if (onChanged) onChanged();
             toast(L('backInUse'));
-          }, { className: 'btn btn--small' }),
+          }), { className: 'btn btn--small' }),
         ]))),
       ]) : null,
       onManage ? el('p', { className: 'evp-manage' }, [
@@ -148,7 +148,7 @@ export function evidencePage({ onManage = null, onChanged = null, onImport = nul
         await load();
         if (onChanged) onChanged();
         toast(L('stopped'), {
-          undo: async () => { await api.confirmClaim(claim.claim_key); await load(); },
+          undo: async () => { await api.confirmClaim(claim.claim_key); await load(); if (onChanged) onChanged(); },
         });
       },
     }), { className: 'cw-action cw-action--danger', ariaLabel: L('stopLabel', { title: title || '' }) });
@@ -191,8 +191,15 @@ export function evidencePage({ onManage = null, onChanged = null, onImport = nul
     ]);
     historyFold.addEventListener('toggle', async () => {
       if (!historyFold.open || history.dataset.loaded) return;
+      let payload;
+      try {
+        payload = await api.getClaimHistory(claim.claim_key);
+      } catch (problem) {
+        replace(history, [el('p', { attrs: { role: 'alert' }, text: problem.userMessage || problem.message })]);
+        return;
+      }
+      // Marked only once it arrived, so closing and reopening retries a failure.
       history.dataset.loaded = 'true';
-      const payload = await api.getClaimHistory(claim.claim_key);
       replace(history, [...payload.revisions.map((revision) => el('div', {
         className: 'evp-history__row',
       }, [
@@ -269,8 +276,12 @@ export function evidencePage({ onManage = null, onChanged = null, onImport = nul
       save.disabled = true;
       try {
         if (claim) {
-          await api.editClaim(claim.claim_key, { text, tools: skills.values(),
-            period_start: when.value || null, period_end: null });
+          // Dates are sent only when changed here: the month box cannot show
+          // a year-only date, and the end date is not edited on this form.
+          const patch = { text, tools: skills.values() };
+          const shown = /^\d{4}-\d{2}$/.test(claim.period_start || '') ? claim.period_start : '';
+          if (when.value !== shown) patch.period_start = when.value || null;
+          await api.editClaim(claim.claim_key, patch);
           const target = link.value || null;
           if ((linkedNow ? linkedNow.id : null) !== target) {
             await api.changeCareer({ action: 'move', keys: [claim.claim_key], experience_id: target });

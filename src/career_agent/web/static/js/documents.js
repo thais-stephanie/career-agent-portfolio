@@ -21,7 +21,7 @@ import { tCount } from './i18n.js';
 import * as api from './api.js';
 import { formatDate } from './format.js';
 import { importReview } from './import_review.js';
-import { badge, inlineConfirm, keepFocus, toast, workCard } from './ui.js';
+import { badge, guard, inlineConfirm, keepFocus, toast, workCard } from './ui.js';
 
 const L = (key, params) => tCount(`docs.${key}`, params);
 
@@ -136,20 +136,20 @@ export function documentsPage({ onChanged = null, onManage = null } = {}) {
     );
     const secondary = [];
     if (doc.status === 'archived') {
-      secondary.push(button(L('restore'), async () => {
+      secondary.push(button(L('restore'), guard(async () => {
         if (doc.kind === 'cv') await api.restoreCvImport(doc.id);
         else await api.restoreIntakePackage(doc.id);
         changed(); await load(); toast(L('restored', { name: doc.name }));
-      }, { className: 'btn btn--small' }));
+      }), { className: 'btn btn--small' }));
       secondary.push(button(L('lookInside'), () => open(doc.kind, doc.id), { className: 'btn btn--small btn--quiet' }));
     } else {
       if (doc.status === 'superseded') {
-        secondary.push(button(L('useThis'), async () => {
+        secondary.push(button(L('useThis'), guard(async () => {
           await api.selectIntakePackage(doc.id);
           changed(); await load(); toast(L('inUse', { name: doc.name }));
-        }, { className: 'btn btn--small' }));
+        }), { className: 'btn btn--small' }));
       }
-      secondary.push(button(L('archive'), async () => {
+      secondary.push(button(L('archive'), guard(async () => {
         if (doc.kind === 'cv') await api.archiveCvImport(doc.id);
         else await api.discardIntakePackage(doc.id);
         changed(); await load();
@@ -160,9 +160,9 @@ export function documentsPage({ onChanged = null, onManage = null } = {}) {
             changed(); await load();
           },
         });
-      }, { className: 'btn btn--small btn--quiet', ariaLabel: L('archiveLabel', { name: doc.name }) }));
+      }), { className: 'btn btn--small btn--quiet', ariaLabel: L('archiveLabel', { name: doc.name }) }));
     }
-    const del = button(L('delete'), async () => {
+    const del = button(L('delete'), guard(async () => {
       const plan = doc.kind === 'cv'
         ? (await api.deleteCvImport(doc.id)).plan
         : (await api.deleteIntakePackage(doc.id)).plan;
@@ -183,7 +183,7 @@ export function documentsPage({ onChanged = null, onManage = null } = {}) {
           changed(); await load(); toast(L('deleted', { name: doc.name }));
         },
       });
-    }, { className: 'btn btn--small btn--quiet btn--danger', ariaLabel: L('deleteLabel', { name: doc.name }) });
+    }), { className: 'btn btn--small btn--quiet btn--danger', ariaLabel: L('deleteLabel', { name: doc.name }) });
     secondary.push(del);
     return workCard({
       className: `docs-card docs-card--${doc.status}`,

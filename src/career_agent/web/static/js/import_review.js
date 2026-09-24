@@ -24,7 +24,7 @@ import { formatDate } from './format.js';
 import { badge, periodLabel, sourceSnippet, toast, uid } from './ui.js';
 
 const L = (key, params) => tCount(`imp.${key}`, params);
-const STEPS = ['experiences', 'skills', 'certifications', 'education', 'summary'];
+const STEPS = ['experiences', 'skills', 'certifications', 'education', 'other', 'summary'];
 /** Still wanting an answer. */
 const isOpen = (item) => ['waiting', 'unsure'].includes(item.state);
 /** An experience with something left to do: unanswered details, or not yet placed. */
@@ -72,9 +72,15 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
     paint();
   }
 
-  async function act(promise, message = '') {
+  // One answer at a time: a double click must not place an experience twice.
+  let busy = false;
+  const keptDates = new Set();
+
+  async function act(start, message = '') {
+    if (busy) return null;
+    busy = true;
     try {
-      const next = await promise;
+      const next = await start();
       model = next.experiences ? next : await api.getDocumentReview(kind, id);
       if (message) {
         status.textContent = message;
@@ -84,9 +90,12 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
       if (onChanged) onChanged();
       return next;
     } catch (problem) {
+      // Not repainted: whatever was being typed stays where it was.
       status.textContent = problem.userMessage || problem.message;
-      paint();
+      toast(status.textContent, { tone: 'bad' });
       return null;
+    } finally {
+      busy = false;
     }
   }
 
@@ -127,11 +136,12 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
     ]);
     const steps = [
       ['experiences', 1, `${s.experiences - model.experiences.filter(unsettled).length}/${s.experiences}`],
-      ['skills', 2, String((model.sections.skills || []).length)],
-      ['certifications', 3, String((model.sections.certifications || []).length)],
-      ['education', 4, String((model.sections.education || []).length)],
-      ['summary', 5, ''],
-    ];
+      ...['skills', 'certifications', 'education', 'other']
+        // "Other details" only when the document had lines no section claimed.
+        .filter((name) => name !== 'other' || (model.sections.other || []).length)
+        .map((name) => [name, 0, String((model.sections[name] || []).length)]),
+      ['summary', 0, ''],
+    ].map(([name, , count], at) => [name, at + 1, count]);
     const list = el('ol', { className: 'imp-rail__steps' }, steps.map(([name, number, count]) => {
       const row = stepRow(name, number, count);
       const done = name === 'experiences'
@@ -223,7 +233,7 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
         ]) : null,
         el('footer', { className: 'imp-foot' }, [
           model.editable && waitingItems.length ? button(L('dontImport'), () => act(
-            api.skipDocumentEntry(kind, id, entry.key), L('skipped', { n: waitingItems.length }),
+            () => api.skipDocumentEntry(kind, id, entry.key), L('skipped', { n: waitingItems.length }),
           ), { className: 'cw-link', ariaLabel: L('dontImportLabel', { role }) }) : el('span'),
           el('div', { className: 'imp-foot__right' }, [
             index > 0 ? button(L('previous'), () => { index -= 1; paint(); }, { className: 'btn' }) : null,
@@ -256,14 +266,14 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
     if (entry.state === 'NEW') {
       return el('div', { className: 'imp-place' }, [
         el('p', { text: L('placeNew') }),
-        button(L('addToProfile'), () => act(api.placeDocumentEntry(kind, id, { entry: entry.key, choice: 'new' }),
+        button(L('addToProfile'), () => act(() => api.placeDocumentEntry(kind, id, { entry: entry.key, choice: 'new' }),
           L('added', { role: entry.role || entry.company || '' })), { className: 'btn btn--primary' }),
       ]);
     }
     if (entry.match && !entry.placed && entry.state !== 'DATE_CONFLICT' && entry.counts.waiting) {
       return el('div', { className: 'imp-place' }, [
         el('p', { text: L('placeExisting', { role: entry.match.title || '', company: entry.match.company || '' }) }),
-        button(L('keepTogether'), () => act(api.placeDocumentEntry(kind, id, {
+        button(L('keepTogether'), () => act(() => api.placeDocumentEntry(kind, id, {
           entry: entry.key, choice: 'existing', dates: 'profile' }), L('keptTogether')), { className: 'btn' }),
       ]);
     }
@@ -273,8 +283,17 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
   function dateChoice(entry) {
     const profile = periodLabel(entry.match.period_start, entry.match.period_end, entry.match.current_role);
     const document = documentPeriod(entry);
-    const option = (label, value, dates) => button('', () => act(api.placeDocumentEntry(kind, id, {
-      entry: entry.key, choice: 'existing', dates }), dates === 'document' ? L('datesUpdated') : L('datesKept')), {
+    // Keeping the profile's dates changes nothing on the server, so the
+    // question would come straight back; it is remembered for this review.
+    if (keptDates.has(entry.key)) {
+      return el('p', { className: 'imp-dates imp-dates--kept', text: L('datesKeptNote', { dates: profile }) });
+    }
+    const option = (label, value, dates) => button('', async () => {
+      if (dates === 'profile') keptDates.add(entry.key);
+      const done = await act(() => api.placeDocumentEntry(kind, id, {
+        entry: entry.key, choice: 'existing', dates }), dates === 'document' ? L('datesUpdated') : L('datesKept'));
+      if (!done) { keptDates.delete(entry.key); }
+    }, {
       className: 'imp-choice',
       attrs: { 'aria-label': L('useDates', { where: label, dates: value }) },
     });
@@ -299,10 +318,10 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
     const save = button(L('saveStructure'), async () => {
       const fields = { role_title: role.value.trim() || null, company: company.value.trim() || null };
       if (kind === 'cv' && entry.editable_structure) {
-        await act(api.organizeCvImport(id, { action: 'edit_entry', entry_key: entry.key, fields }).then(() =>
+        await act(() => api.organizeCvImport(id, { action: 'edit_entry', entry_key: entry.key, fields }).then(() =>
           api.getDocumentReview(kind, id)), L('structureSaved'));
       } else {
-        await act(api.placeDocumentEntry(kind, id, { entry: entry.key, choice: 'new', fields: {
+        await act(() => api.placeDocumentEntry(kind, id, { entry: entry.key, choice: 'new', fields: {
           company: fields.company, title: fields.role_title } }), L('added', { role: fields.role_title || '' }));
       }
     }, { className: 'btn btn--primary btn--small' });
@@ -327,9 +346,9 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
         UNSURE: L('unsure'), REOPEN: L('reopened'),
       }[verb];
       if (verb === 'REJECT' && extra.kept) {
-        return act(api.answerDocument(kind, id, { key: item.key, answer: 'REJECT' }), L('keptExisting'));
+        return act(() => api.answerDocument(kind, id, { key: item.key, answer: 'REJECT' }), L('keptExisting'));
       }
-      return act(api.answerDocument(kind, id, { key: item.key, answer: verb, ...extra }), message);
+      return act(() => api.answerDocument(kind, id, { key: item.key, answer: verb, ...extra }), message);
     };
     const open = ['waiting', 'unsure'].includes(item.state) && model.editable;
     const actions = open ? [
@@ -376,7 +395,7 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
       item.conflict && model.editable ? button(L('chooseThis'), () => answer('CHOOSE',
         { group: item.conflict.group }), { className: 'btn btn--small btn--primary' }) : null,
       sourceSnippet({ origin: 'document', document: model.name, where: item.locator || '',
-        line: item.line, quote: item.quote || item.suggested, raw: item.raw || '' }),
+        line: item.line, quote: item.quote || '', raw: item.raw || '' }),
       item.suggested && item.suggested !== item.text ? el('p', { className: 'imp-item__understood',
         text: L('youChanged', { text: item.suggested }) }) : null,
       editor,
@@ -419,14 +438,14 @@ export function importReview({ kind, id, focusEntry = null, onDone, onChanged = 
     const open = ['waiting', 'unsure'].includes(state) && model.editable;
     const keep = button(`${state === 'confirmed' ? '✓' : '+'} ${item.text}`, () => {
       if (!open) return;
-      act(api.answerDocument(kind, id, { key: item.key, answer: 'CONFIRM' }), L('kept', { name: item.text }));
+      act(() => api.answerDocument(kind, id, { key: item.key, answer: 'CONFIRM' }), L('kept', { name: item.text }));
     }, {
       className: `imp-skill imp-skill--${state}${item.already ? ' is-already' : ''}`,
       ariaLabel: open ? L('keepLabel', { name: item.text })
         : L('stateOf', { state: L(`itemState.${state}`), name: item.text }),
       attrs: open ? {} : { 'aria-disabled': 'true' },
     });
-    const out = open ? button('×', () => act(api.answerDocument(kind, id, { key: item.key, answer: 'REJECT' }),
+    const out = open ? button('×', () => act(() => api.answerDocument(kind, id, { key: item.key, answer: 'REJECT' }),
       L('leftOut', { name: item.text })), {
       className: 'imp-skill__out', ariaLabel: L('leaveOutLabel', { name: item.text }),
     })

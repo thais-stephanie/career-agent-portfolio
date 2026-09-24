@@ -78,8 +78,14 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
   let editing = false;
   let open = null;   // experience id being edited, or 'new'
 
-  async function load() {
+  /**
+   * Fresh data from the server. While an editor is open it is not redrawn
+   * (a language change or a refresh elsewhere would throw away what is being
+   * typed); `force` is for this view's own changes.
+   */
+  async function load({ force = false } = {}) {
     data = await api.getCareer();
+    if (open && !force) return;
     paint();
   }
 
@@ -153,10 +159,12 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
       returnTo: removeBtn,
       onConfirm: async () => {
         const result = await api.changeCareer({ action: 'remove_experience', experience_id: experience.id });
-        await load();
+        await load({ force: true });
         if (onChanged) onChanged();
         toast(L('removed', { role }), {
-          undo: async () => { await api.undoCareer(result.event_id); await load(); if (onChanged) onChanged(); },
+          undo: async () => {
+            await api.undoCareer(result.event_id); await load({ force: true }); if (onChanged) onChanged();
+          },
         });
       },
     }), { className: 'cw-action cw-action--danger', ariaLabel: L('removeLabel', { role, company }) });
@@ -216,8 +224,20 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
       values: (experience ? experience.highlights : []).map((h) => ({ value: h.text, key: h.claim_key })),
       label: L('highlights'), addLabel: L('addHighlight'), placeholder: L('highlightPlaceholder'),
     });
-    const skills = chipInput({ values: experience ? experience.skills : [], label: L('skills'),
-      placeholder: L('skillPlaceholder') });
+    // Only skill statements can be removed here; a tool named on a highlight
+    // leaves when that highlight changes, and says so rather than coming back.
+    const skillKeys = (experience && experience.skill_keys) || {};
+    const ownSkills = (experience ? experience.skills : []).filter((name) => name.toLowerCase() in skillKeys);
+    const toolNames = (experience ? experience.skills : []).filter((name) => !(name.toLowerCase() in skillKeys));
+    const skills = chipInput({ values: ownSkills, label: L('skills'), placeholder: L('skillPlaceholder') });
+    const tools = toolNames.length
+      ? el('p', { className: 'xp-editor__hint', text: L('toolsFromHighlights', { names: toolNames.join(', ') }) })
+      : null;
+    // What a failed save already stored, so pressing Save again does not
+    // store it twice.
+    let createdId = null;
+    const createdLines = new Set();
+    const createdSkills = new Set();
     const kind = select(KINDS.map((value) => ({ value, label: t(`career.kind.${value}`) })),
       (experience && experience.kind) || 'EMPLOYMENT', () => {}, { ariaLabel: L('changeType') });
     const error = el('p', { className: 'xp-editor__error', attrs: { role: 'alert' } });
@@ -228,7 +248,7 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
       try {
         await commit();
         open = null;
-        await load();
+        await load({ force: true });
         if (onChanged) onChanged();
         toast(L('saved'));
       } catch (problem) {
@@ -247,10 +267,12 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
         description: description.value.trim() || null,
         kind: kind.value,
       };
-      const result = await api.changeCareer(isNew
-        ? { action: 'create', keys: [], metadata }
-        : { action: 'edit', experience_id: experience.id, metadata });
-      const experienceId = isNew ? result.experience_id : experience.id;
+      const target = experience ? experience.id : createdId;
+      const result = await api.changeCareer(target
+        ? { action: 'edit', experience_id: target, metadata }
+        : { action: 'create', keys: [], metadata });
+      const experienceId = target || result.experience_id;
+      if (isNew) createdId = experienceId;
       // Highlights: edited wording is a new revision; a removed line leaves
       // this experience (its statement and history stay); a new line is a
       // statement the person wrote.
@@ -259,8 +281,9 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
       const kept = new Set(rows.filter((r) => r.key).map((r) => r.key));
       for (const row of rows) {
         if (row.key && before.get(row.key) !== row.value) await api.editClaim(row.key, { text: row.value });
-        if (!row.key) {
+        if (!row.key && !createdLines.has(row.value)) {
           await api.createClaim({ claim_type: 'ACHIEVEMENT', text: row.value, experience_id: experienceId });
+          createdLines.add(row.value);
         }
       }
       const removed = [...before.keys()].filter((key) => !kept.has(key));
@@ -270,12 +293,12 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
       const names = skills.values();
       const had = new Set((experience ? experience.skills : []).map((s) => s.toLowerCase()));
       for (const name of names) {
-        if (!had.has(name.toLowerCase())) {
+        if (!had.has(name.toLowerCase()) && !createdSkills.has(name.toLowerCase())) {
           await api.createClaim({ claim_type: 'SKILL', text: name, experience_id: experienceId });
+          createdSkills.add(name.toLowerCase());
         }
       }
       const keep = new Set(names.map((s) => s.toLowerCase()));
-      const skillKeys = (experience && experience.skill_keys) || {};
       const dropped = Object.entries(skillKeys).filter(([name]) => !keep.has(name)).map(([, key]) => key);
       if (dropped.length) await api.changeCareer({ action: 'move', keys: dropped, experience_id: null });
     }
@@ -313,11 +336,13 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
       el('div', { className: 'xp-editor__block' }, [
         el('span', { className: 'field__label', text: L('skills') }),
         skills,
+        tools,
       ]),
       typeFold,
       error,
       el('footer', { className: 'xp-editor__foot' }, [
-        button(L('cancel'), () => { open = null; paint(); }, { className: 'btn' }),
+        // A save that failed halfway may have stored part of it: reload.
+        button(L('cancel'), () => { open = null; void load({ force: true }); }, { className: 'btn' }),
         save,
       ]),
     ]);

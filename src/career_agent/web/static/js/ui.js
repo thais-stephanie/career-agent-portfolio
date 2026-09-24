@@ -147,6 +147,8 @@ export function inlineConfirm(host, { message, detail = '', confirmLabel, onConf
     strip.remove();
     if (cancelled && returnTo && document.contains(returnTo)) returnTo.focus();
   }
+  // Pressed twice, it is still one question.
+  for (const open of host.querySelectorAll(':scope > .cw-confirm')) open.remove();
   host.append(strip);
   cancel.focus();
   return { close: () => close(true) };
@@ -159,6 +161,29 @@ const toastRegion = el('div', {
 let toastTimer = null;
 
 /** One short line about what just happened. `undo` only when it truly reverses. */
+/**
+ * A click handler that runs once at a time: its button is disabled while the
+ * request is out, and a failure is said in a toast rather than lost as an
+ * unhandled rejection.
+ */
+export function guard(handler) {
+  let running = false;
+  return async (event) => {
+    if (running) return;
+    running = true;
+    const node = event && event.currentTarget;
+    if (node) node.disabled = true;
+    try {
+      await handler(event);
+    } catch (error) {
+      toast(error.userMessage || error.message, { tone: 'bad' });
+    } finally {
+      running = false;
+      if (node && node.isConnected) node.disabled = false;
+    }
+  };
+}
+
 export function toast(message, { undo = null, tone = 'ok', timeout = 6000 } = {}) {
   if (!document.body.contains(toastRegion)) document.body.append(toastRegion);
   clearTimeout(toastTimer);
@@ -250,11 +275,16 @@ export function openDrawer({ eyebrow = '', title, lede = '', onClose = null }) {
  */
 export function sourceSnippet({ origin = 'document', document: docName = '', where = '',
   line = null, quote = '', raw = '' } = {}) {
-  if (origin === 'self' || !quote) {
+  if (origin === 'self') {
     return el('p', { className: 'cw-source cw-source--self', text: t('ui.writtenByYou') });
   }
   const parts = [docName || t('ui.yourDocument'), where, line ? t('ui.line', { n: line }) : '']
     .filter(Boolean).join(' · ');
+  // From a document, but no line of it was kept: say so, and never put the
+  // reader's own wording in the quote box as if the document had said it.
+  if (!quote) {
+    return el('p', { className: 'cw-source cw-source--noline', text: t('ui.noLine', { where: parts }) });
+  }
   const details = el('details', { className: 'cw-source' }, [
     el('summary', {}, [
       el('span', { className: 'cw-source__label', text: t('ui.source', { where: parts }) }),
