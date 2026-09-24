@@ -87,6 +87,13 @@ class RetrievalState:
     finished_at: str | None = None
     funnel: dict[str, int] = field(default_factory=dict)
     sources: list[dict[str, Any]] = field(default_factory=list)
+    #: The source being read right now, and since when. A long source is the
+    #: normal case, not a stall, and naming it is what lets the screen say so.
+    current: str | None = None
+    current_started_at: str | None = None
+    #: Sources left out of this run on purpose (paused), counted rather than
+    #: silently absent from the total.
+    skipped: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -99,7 +106,15 @@ class RetrievalState:
             "error": self.error,
             "funnel": self.funnel,
             "sources": self.sources,
+            "current": self.current,
+            "current_started_at": self.current_started_at,
+            "skipped": self.skipped,
         }
+
+
+def now_iso() -> str:
+    """UTC now, to the second, in the form every timestamp here uses."""
+    return _now()
 
 
 def _now() -> str:
@@ -229,6 +244,8 @@ class RetrievalRunner:
                 state.status = "failed"
                 state.error = str(exc)
             finally:
+                state.current = None
+                state.current_started_at = None
                 state.finished_at = _now()
 
         self._thread = threading.Thread(target=runner, name=f"retrieval-{run_id}", daemon=True)

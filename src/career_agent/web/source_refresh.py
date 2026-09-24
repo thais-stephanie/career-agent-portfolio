@@ -58,7 +58,23 @@ def can_refresh(entry) -> bool:
     )
 
 
+def warm_commands() -> None:
+    """Read the collector list on a background thread, once per process.
+
+    `commands()` imports the whole command-line app the first time it runs.
+    Done inside the first "Find jobs" request, that import held the request
+    for seconds while the button said only "Starting", which reads as frozen.
+    """
+    import threading
+
+    if commands.cache_info().currsize:
+        return
+    threading.Thread(target=commands, name="warm-collectors", daemon=True).start()
+
+
 def register_source_refresh(app: JobsApi) -> None:
+    warm_commands()
+
     def maintenance_status(*, query: dict, body: dict) -> dict:
         from career_agent.runtime.maintenance_lock import maintenance_running
         from career_agent.sources.maintenance import freshness, read_only
@@ -178,14 +194,21 @@ def register_source_refresh(app: JobsApi) -> None:
         paused = {p.source_id for p in app._refresh_progress(entries) if p.state == "PAUSED"}
         steps: list[tuple[str, str, object]] = []
         seen: set[str] = set()
+        #: Sources that could run but are paused -- by the person, or because
+        #: they serve none of the places they can work. Counted in the same
+        #: unit as "N of M" (one per collector) and said, not silently missing.
+        deferred: set[str] = set()
         for entry in entries:
             provider = entry.source.provider
-            if not provider or not can_refresh(entry) or entry.source.id in paused:
+            if not provider or not can_refresh(entry):
                 continue
             stage = _stage_for(provider)
             # Board families share one collector per provider; every other
             # source is its own `collect-*` command. Never run one twice.
             key = provider if stage == "collect" else stage
+            if entry.source.id in paused:
+                deferred.add(key)
+                continue
             if key in seen:
                 continue
             seen.add(key)
@@ -206,15 +229,18 @@ def register_source_refresh(app: JobsApi) -> None:
         def all_sources(state, cancel):
             from contextlib import suppress
 
-            from career_agent.pipeline.retrieval import RetrievalState, SourceOutcome
+            from career_agent.pipeline.retrieval import RetrievalState, SourceOutcome, now_iso
 
             state.boards_total = len(steps)
+            state.skipped = len(deferred - seen)
             outcomes: list[dict] = []
             try:
                 for done, (source_id, name, work) in enumerate(steps):
                     if cancel.is_set():
                         break
                     state.boards_done = done
+                    state.current = name
+                    state.current_started_at = now_iso()
                     app._active_source_refresh = source_id
                     # Each source's work reports into its own state, so its
                     # board counters do not overwrite "sources checked".
@@ -231,6 +257,8 @@ def register_source_refresh(app: JobsApi) -> None:
                     state.sources = list(outcomes)
                 state.boards_done = len(outcomes)
             finally:
+                state.current = None
+                state.current_started_at = None
                 app._active_source_refresh = None
             # Score what arrived. Targeted: only postings without a current
             # score, so this is proportional to what was collected.
