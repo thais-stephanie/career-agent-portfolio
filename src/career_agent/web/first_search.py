@@ -24,9 +24,13 @@ def register_first_search(app: JobsApi) -> None:
                 or len(values) > 20
                 or any(not isinstance(v, str) or not v.strip() or len(v) > 100 for v in values)
             ):
+                # The bounds protect every later rescore: each phrase is a
+                # pattern looked for in the text of every posting. The browser
+                # says so line by line before sending; this is the backstop.
                 raise ApiError(
                     400,
-                    "Use up to 20 short phrases per box, at most 100 characters each.",
+                    "Keep each line to a short phrase (up to 100 characters), "
+                    "and each box to 20 lines.",
                     for_reader=True,
                 )
         if not body["role_examples"]:
