@@ -513,6 +513,9 @@ class WorkspaceRoutes(_MixinBase):
         from career_agent.web.cv_api import register_cv_routes
 
         register_cv_routes(self)
+        from career_agent.web.documents_api import register_documents_routes
+
+        register_documents_routes(self)
 
         # The Candidate Intake Package. Five routes, and the shape of them is
         # the product decision: a SUMMARY that never returns three hundred

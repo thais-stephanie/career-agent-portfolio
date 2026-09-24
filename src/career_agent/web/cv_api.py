@@ -58,6 +58,8 @@ def entry_payload(row: sqlite3.Row) -> dict:
         "start_year": row["start_year"],
         "end_year": row["end_year"],
         "location": row["location"],
+        # The same place under a neutral name, for readers outside this module.
+        "where": row["location"],
         "label": row["label"],
         # The heading and date lines that stated this job, verbatim. Text for
         # a person to read, never markup to render.
