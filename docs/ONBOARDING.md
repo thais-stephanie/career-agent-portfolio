@@ -16,32 +16,32 @@ Categories:
 
 ## Field matrix
 
-Settings means Career Profile → Preferences unless stated otherwise.
+Settings means Career Profile to Preferences unless stated otherwise.
 
 | Answer | Label in the product | Asked today | Stored at | Read by | Category | Functional | Depends on | In onboarding | Why |
 |---|---|---|---|---|---|---|---|---|---|
-| Kinds of work | Kinds of work, one per line | Setup, Home | `lexicon` + `scoring.components.responsibilities.weights` | `score._weighted_component` | Search Fit | Yes | – | Yes | Main scoring input |
-| Tools and skills | Tools or skills you use | Setup, Home | `lexicon` + `technologies.weights` | same | Search Fit | Yes | – | Yes, same card | Main scoring input |
-| Career stage | Where are you in your career? | Setup, Home step 1 | `candidate_state.career_stage` | nothing except echoing the answer | Inert | No | – | **No (B)** | Copy claimed it changed explanations and filters; nothing reads it |
-| Where you live | Where do you currently live? | Setup, Settings | `eligibility.candidate_country` | gates (residence as a place an employer can name), `plan_refresh` | Eligibility + retrieval | Yes | – | Yes | Decides the gate and which regional sources run |
+| Kinds of work | Kinds of work, one per line | Setup, Home | `lexicon` + `scoring.components.responsibilities.weights` | `score._weighted_component` | Search Fit | Yes | none | Yes | Main scoring input |
+| Tools and skills | Tools or skills you use | Setup, Home | `lexicon` + `technologies.weights` | same | Search Fit | Yes | none | Yes, same card | Main scoring input |
+| Career stage | Where are you in your career? | Setup, Home step 1 | `candidate_state.career_stage` | nothing except echoing the answer | Inert | No | none | **No (B)** | Copy claimed it changed explanations and filters; nothing reads it |
+| Where you live | Where do you currently live? | Setup, Settings | `eligibility.candidate_country` | gates (residence as a place an employer can name), `plan_refresh` | Eligibility + retrieval | Yes | none | Yes | Decides the gate and which regional sources run |
 | Can be hired where you live | Can companies hire you in {country}? | Setup, Settings | `eligibility.eligible_countries` | gates, `plan_refresh` | Eligibility + retrieval | Yes | where you live | Yes | Explicit yes or not sure; residence is never copied |
-| Other hiring countries | Countries that can employ you directly | Setup, Settings | `eligibility.eligible_countries` | gates | Eligibility | Yes | – | Yes, same card | – |
+| Other hiring countries | Countries that can employ you directly | Setup, Settings | `eligibility.eligible_countries` | gates | Eligibility | Yes | none | Yes, same card | none |
 | Hiring regions | Which regions can you work in? | Setup, Settings | `eligibility.eligible_scopes` | `gates._region_verdict` | Eligibility | Only for a region containing where you live | where you live | Yes, only regions that contain the home country, and only once it is known | A scope without a home country fails every on-site and hybrid posting |
-| Ways of working you prefer | How do you prefer to work? | Settings only | `preferences.remote.accepted_work_models` | display only (before V2) | Inert → **Search Fit (A)** | Now yes | – | Yes | Wired: a posting whose stated work model you prefer earns the component maximum |
-| Ways of working you would rather avoid | – (new) | – | `preferences.remote.avoided_work_models` | score | **Search Fit (A)** | Yes | – | Yes, same card | Soft: earns nothing on that component. Never eligibility |
-| Ways of working never to show | – (new) | – | `preferences.remote.excluded_work_models` | score + Discover narrowing | **Search Fit + Narrowing (A)** | Yes | – | Yes, same card | Same safe home as excluded levels: hidden by default, revealable, tracked jobs exempt. Never eligibility |
+| Ways of working you prefer | How do you prefer to work? | Settings only | `preferences.remote.accepted_work_models` | display only (before V2) | Inert before V2, now **Search Fit (A)** | Now yes | none | Yes | Wired: a posting whose stated work model you prefer earns the component maximum |
+| Ways of working you would rather avoid | (new) | none | `preferences.remote.avoided_work_models` | score | **Search Fit (A)** | Yes | none | Yes, same card | Soft: earns nothing on that component. Never eligibility |
+| Ways of working never to show | (new) | none | `preferences.remote.excluded_work_models` | score + Discover narrowing | **Search Fit + Narrowing (A)** | Yes | none | Yes, same card | Same safe home as excluded levels: hidden by default, revealable, tracked jobs exempt. Never eligibility |
 | Only remote | Only show me fully remote roles | derived | `preferences.remote.require_remote` | nothing | Inert | No | ways of working | No | Kept, and derived on the server: true exactly when hybrid and on-site are both "never show". Copy no longer promises a filter it is not |
-| Arrangements that work for you | Which working arrangements work for you? | Settings only | `preferences.contract.preferred` | `score._compensation_component` | Search Fit | Yes (±1 of 75) | – | Yes | Employee, contractor, employer of record: the three the reader recognises |
+| Arrangements that work for you | Which working arrangements work for you? | Settings only | `preferences.contract.preferred` | `score._compensation_component` | Search Fit | Yes (±1 of 75) | none | Yes | Employee, contractor, employer of record: the three the reader recognises |
 | Arrangements you would rather not | Any of those you would prefer less? | Settings only | `preferences.contract.unwanted` | score | Search Fit | **Could never fire** | arrangements | Yes, same card | Settings only offered values already preferred, and the scorer checks preferred first. The two lists are now disjoint, validated on the server |
-| Levels you are looking for | Which levels make sense for you right now? | Settings only | `preferences.seniority.preferred` | display only | Inert | No | – | **No (B)** | The seniority points come from a fixed table; wiring a preference into it needs a scoring decision this phase does not take |
-| Levels to keep off your list | Any levels you would rather not see? | Setup, Settings | `preferences.seniority.excluded` | Discover narrowing | Narrowing | Yes (Discover only) | – | Yes | – |
-| Travel you accept | How much work travel would you be comfortable with? | Settings only | `preferences.travel.max_tolerated_pct` | display only | Inert | No | – | **No (B)** | The travel gate reads phrase blockers, never this number |
-| Pay target | How much would you like to earn each month? | Setup, Settings | `preferences.compensation.target_monthly_amount` | score | Search Fit | Yes (3 of 75) | currency | Yes | – |
-| Pay currency | In which currency? | Setup, Settings | `preferences.compensation.currency` | score (band choice) | Search Fit | Yes | – | Yes, same card | A salary in another currency counts as unknown; no rates are written from the web |
-| CV / career data | Read your CV | Evidence, Home | intake / CV review tables | Career Evidence, Tailor gating | Display / evidence | Yes | – | Yes, optional | Read and staged, never confirmed by being read |
-| Search phrases (desired/negative/excluded) | Settings → Search phrases | Settings | `lexicon`, `soft_penalties`, `eligibility.blockers` | score, gate | Search Fit / Eligibility | Yes | existing signals | No | Edits existing signals only; onboarding writes the first ones |
-| Prefer / avoid / never show keywords | Settings → Search settings | Settings | browser only | Discover ordering and filtering | Display ordering | Yes, Discover only | – | No | A per-browser view preference, not part of the search |
-| Source schedule | Settings → Sources | Settings | `candidate_state` | retrieval | Retrieval | Yes | – | No | Source management is a later phase |
+| Levels you are looking for | Which levels make sense for you right now? | Settings only | `preferences.seniority.preferred` | display only | Inert | No | none | **No (B)** | The seniority points come from a fixed table; wiring a preference into it needs a scoring decision this phase does not take |
+| Levels to keep off your list | Any levels you would rather not see? | Setup, Settings | `preferences.seniority.excluded` | Discover narrowing | Narrowing | Yes (Discover only) | none | Yes | none |
+| Travel you accept | How much work travel would you be comfortable with? | Settings only | `preferences.travel.max_tolerated_pct` | display only | Inert | No | none | **No (B)** | The travel gate reads phrase blockers, never this number |
+| Pay target | How much would you like to earn each month? | Setup, Settings | `preferences.compensation.target_monthly_amount` | score | Search Fit | Yes (3 of 75) | currency | Yes | none |
+| Pay currency | In which currency? | Setup, Settings | `preferences.compensation.currency` | score (band choice) | Search Fit | Yes | none | Yes, same card | A salary in another currency counts as unknown; no rates are written from the web |
+| CV / career data | Read your CV | Evidence, Home | intake / CV review tables | Career Evidence, Tailor gating | Display / evidence | Yes | none | Yes, optional | Read and staged, never confirmed by being read |
+| Search phrases (desired/negative/excluded) | Settings to Search phrases | Settings | `lexicon`, `soft_penalties`, `eligibility.blockers` | score, gate | Search Fit / Eligibility | Yes | existing signals | No | Edits existing signals only; onboarding writes the first ones |
+| Prefer / avoid / never show keywords | Settings to Search settings | Settings | browser only | Discover ordering and filtering | Display ordering | Yes, Discover only | none | No | A per-browser view preference, not part of the search |
+| Source schedule | Settings to Sources | Settings | `candidate_state` | retrieval | Retrieval | Yes | none | No | Source management is a later phase |
 
 ## Decisions
 
@@ -99,4 +99,4 @@ have no preference field, so they are not asked about.
 - The pay target does not convert currencies from the web; a salary in another
   currency counts as unknown.
 - Kinds of work cannot be rewritten inside the setup once saved; they are
-  changed in Settings → Search phrases.
+  changed in Settings to Search phrases.
