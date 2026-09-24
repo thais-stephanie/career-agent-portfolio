@@ -56,7 +56,7 @@ from career_agent.intake.models import (
 from career_agent.intake.parse import package_digest
 from career_agent.storage.db import transaction
 from career_agent.storage.repositories import ClaimRepo, new_id, now_utc
-from career_agent.storage.workspace_repo import ensure_candidate
+from career_agent.storage.workspace_repo import drop_orphan_links, ensure_candidate
 
 
 class IntakeReviewError(ValueError):
@@ -113,7 +113,8 @@ def preview(
     reconciliation = reconcile(package)
     digest = package_digest(package)
     existing = conn.execute(
-        "SELECT id FROM intake_package WHERE package_sha256 = ?", (digest,)
+        "SELECT id FROM intake_package WHERE package_sha256 = ?" + _live(conn),
+        (digest,),
     ).fetchone()
 
     confirmed_keys = _confirmed_claim_keys(conn)
@@ -145,7 +146,8 @@ def import_package(
     """
     digest = package_digest(package)
     existing = conn.execute(
-        "SELECT id FROM intake_package WHERE package_sha256 = ?", (digest,)
+        "SELECT id FROM intake_package WHERE package_sha256 = ?" + _live(conn),
+        (digest,),
     ).fetchone()
     if existing is not None:
         # The same bytes. Returning the review already in progress is the whole
@@ -262,7 +264,34 @@ def summary(conn: sqlite3.Connection, package_id: str) -> dict[str, int]:
     return counts
 
 
+def _live(conn: sqlite3.Connection) -> str:
+    """` AND deleted_at IS NULL`, on a schema that has the column (0039+).
+
+    The store runs against a database before it is migrated in exactly one
+    place, the upgrade tests, and there no package can have been deleted.
+    """
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(intake_package)")}
+    return " AND deleted_at IS NULL" if "deleted_at" in columns else ""
+
+
 def _row(conn: sqlite3.Connection, package_id: str, claim_key: str) -> sqlite3.Row:
+    """The claim an ANSWER is about. Every answer comes through here.
+
+    An archived or deleted package cannot be answered. It is out of every
+    active queue and counter, and a confirmation given inside it would create
+    evidence from a reading she said she was not working from. Restoring it
+    first is one click and says what she means.
+    """
+    package = conn.execute(
+        "SELECT status FROM intake_package WHERE id = ?" + _live(conn), (package_id,)
+    ).fetchone()
+    if (
+        package is None
+        and conn.execute("SELECT 1 FROM intake_package WHERE id = ?", (package_id,)).fetchone()
+    ):
+        raise IntakeReviewError("this import was deleted.")
+    if package is not None and str(package["status"]) == PackageStatus.DISCARDED:
+        raise IntakeReviewError("this import is archived. Restore it before answering.")
     row = conn.execute(
         "SELECT * FROM intake_claim WHERE package_id = ? AND claim_key = ?",
         (package_id, claim_key),
@@ -690,7 +719,9 @@ def active_package(conn: sqlite3.Connection) -> str | None:
     rather than to pick one for her.
     """
     row = conn.execute(
-        "SELECT id FROM intake_package WHERE status = ? ORDER BY created_at DESC LIMIT 1",
+        "SELECT id FROM intake_package WHERE status = ?"
+        + _live(conn)
+        + " ORDER BY created_at DESC LIMIT 1",
         (PackageStatus.ACTIVE,),
     ).fetchone()
     return str(row["id"]) if row is not None else None
@@ -783,6 +814,76 @@ def restore(conn: sqlite3.Connection, package_id: str) -> str:
             (landed, stamp, package_id),
         )
     return landed
+
+
+#: Answers that made a claim. Their rows are the provenance that claim cites.
+_CONFIRMED_STATES = (ReviewState.CONFIRMED, ReviewState.CORRECTED_BY_USER)
+
+
+def delete_plan(conn: sqlite3.Connection, package_id: str) -> dict[str, int]:
+    """Exactly what deleting this package would remove and keep. Writes nothing."""
+    row = conn.execute(
+        "SELECT 1 FROM intake_package WHERE id = ?" + _live(conn), (package_id,)
+    ).fetchone()
+    if row is None:
+        raise IntakeReviewError(f"no such package: {package_id!r}")
+    counts = summary(conn, package_id)
+    confirmed = sum(counts.get(state, 0) for state in _CONFIRMED_STATES)
+    total = sum(counts.values())
+    return {
+        "waiting": sum(counts.get(state, 0) for state in ReviewState.ANSWERABLE),
+        "rejected": counts.get(ReviewState.REJECTED, 0),
+        "removed": total - confirmed,
+        "confirmed_kept": confirmed,
+    }
+
+
+def delete(conn: sqlite3.Connection, package_id: str) -> dict[str, int]:
+    """Remove a package for good: HER act, permanent, and it asked first.
+
+    Different from `discard`, which puts a package away with every row kept.
+    Every claim she did not confirm goes -- unanswered, unsure, rejected and
+    conflicted alike, with the conflict answers that referred to them. A claim
+    she DID confirm keeps its row, because the verified claim it produced
+    cites it as where it came from; the package row stays with it, marked
+    deleted, so it appears nowhere else. With nothing confirmed, nothing stays.
+
+    `verified_claim` is not touched. Withdrawing evidence is retiring it, in
+    Career Evidence, and it is a revision rather than a delete.
+    """
+    plan = delete_plan(conn, package_id)
+    keys = [
+        str(row[0])
+        for row in conn.execute(
+            "SELECT COALESCE(resolved_claim_key, claim_key) FROM intake_claim"
+            " WHERE package_id = ? AND review_state NOT IN (?, ?)",
+            (package_id, *_CONFIRMED_STATES),
+        )
+    ]
+    stamp = now_utc()
+    with transaction(conn):
+        conn.execute(
+            "DELETE FROM intake_claim WHERE package_id = ? AND review_state NOT IN (?, ?)",
+            (package_id, *_CONFIRMED_STATES),
+        )
+        conn.execute("DELETE FROM intake_conflict_resolution WHERE package_id = ?", (package_id,))
+        if plan["confirmed_kept"]:
+            conn.execute(
+                "UPDATE intake_package SET status = ?, superseded_by = NULL, deleted_at = ?,"
+                " updated_at = ? WHERE id = ?",
+                (PackageStatus.DISCARDED, stamp, stamp, package_id),
+            )
+        else:
+            conn.execute("DELETE FROM intake_package WHERE id = ?", (package_id,))
+        # A package that named this one as its successor now points at nothing.
+        conn.execute(
+            "UPDATE intake_package SET superseded_by = NULL WHERE superseded_by = ?",
+            (package_id,),
+        )
+        candidate = conn.execute("SELECT id FROM candidate LIMIT 1").fetchone()
+        if candidate is not None:
+            drop_orphan_links(conn, str(candidate["id"]), keys)
+    return plan
 
 
 # =========================================================================

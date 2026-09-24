@@ -197,29 +197,6 @@ def read_period(line: str) -> Period | None:
     return period
 
 
-def _employer_of(line: str) -> str | None:
-    """The employer a CV's company line names, or None.
-
-    Deliberately shallow: the first comma-separated fragment of a line that
-    carries dates, which is the shape both a CV and a LinkedIn export use --
-    "Northwind, Belo Horizonte, MG, Brazil (remote) Jun 2024". Anything cleverer would
-    be guessing, and a guessed employer anchors a conflict group to the wrong
-    role.
-    """
-    head = line.split(",")[0].strip()
-    head = re.sub(r"\s*\(.*?\)\s*", " ", head).strip()
-    # The long dashes are written as escapes rather than as characters: they
-    # are DATA -- what other people's documents contain -- and writing them
-    # literally would put them in this project's own source.
-    head = _MONTH_YEAR.sub("", head).strip(" -|" + _LONG_DASHES)
-    if not head or len(head) > 120:
-        return None
-    # A fragment that is mostly digits is a date line, not a company.
-    if sum(ch.isdigit() for ch in head) > len(head) / 3:
-        return None
-    return head
-
-
 def _linkedin_claims(text: str, ref: str, filename: str) -> list[ProposedClaim]:
     """The Experience section of an export, as claims.
 
@@ -329,35 +306,26 @@ def build_package(
 
         read = read_cv(document.text)
 
-        # The employer for a run of employment proposals is the nearest line
-        # above them that names one. A CV lists a role, then its bullets; the
-        # bullets belong to the role above.
-        employer: str | None = None
-        period_context: Period | None = None
+        # The company, role and dates for a proposal are those of the JOB it
+        # sits under, which the CV reader works out from the document's own
+        # structure (`cv/structure.py`). This used to carry the last line with
+        # a date on it forward, which read Markdown syntax into employer names
+        # and never reset between sections.
         for proposal in read.proposals:
             if is_export and proposal.claim_type is ClaimType.EMPLOYMENT:
                 # Already read, and read better, above.
                 continue
-            if proposal.claim_type is ClaimType.EMPLOYMENT:
-                named = _employer_of(proposal.evidence)
-                if named and read_period(proposal.evidence) is not None:
-                    employer = named
-                    period_context = read_period(proposal.evidence)
-            else:
-                employer = None
-                period_context = None
+            entry = read.entry(proposal.entry_key)
+            period = read_period(entry.span.text) if entry and entry.span else None
 
             claims.append(
                 ProposedClaim(
                     type=proposal.claim_type,
                     text=proposal.text,
                     source_ref=ref,
-                    employer=employer if proposal.claim_type is ClaimType.EMPLOYMENT else None,
-                    period=(
-                        read_period(proposal.evidence) or period_context
-                        if proposal.claim_type is ClaimType.EMPLOYMENT
-                        else None
-                    ),
+                    employer=(entry.company or None) if entry else None,
+                    role_title=(entry.role or None) if entry else None,
+                    period=period,
                     # The line the proposal came from. `cv.propose` already
                     # keeps it, and it is the whole reason a reviewer can see
                     # the context an item was taken from.

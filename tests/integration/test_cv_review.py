@@ -23,8 +23,9 @@ runner = CliRunner()
 #: Long enough to be a plausible CV. The first version of this fixture was 178
 #: characters, and `extract` correctly refused it as "almost no text" -- a
 #: document that short is a scanned page with no text layer, and the guard was
-#: doing its job. Three proposals come out of the EXPERIENCE section; the rest
-#: is here so the document is realistic rather than to be read.
+#: doing its job. Two proposals come out of the EXPERIENCE section: the line
+#: naming the job is its STRUCTURE (company, role, dates), never a claim of its
+#: own. The rest is here so the document is realistic rather than to be read.
 CV = """Ana Ribeiro
 Sao Paulo, Brazil  |  ana@example.com
 
@@ -113,8 +114,12 @@ def test_accepting_stores_the_line_as_it_stood(workspace) -> None:
 
     claims = stored(db)
     assert len(claims) == 1
-    assert claims[0].text == "Acme Ltda - Senior Systems Analyst, 2021 - present"
+    assert claims[0].text == "Rebuilt the lead routing pipeline, cutting handoff time 40%"
     assert claims[0].verified is True
+    # The job it sat under travels with it: the company as written, and no
+    # month invented for a year-only start.
+    assert claims[0].employer == "Acme Ltda"
+    assert claims[0].period_start is None
 
 
 def test_rejecting_leaves_no_trace(workspace) -> None:
@@ -124,7 +129,7 @@ def test_rejecting_leaves_no_trace(workspace) -> None:
     run(cv, db, "--no-dry-run", "--review", keys="r\na\nq\n")
 
     texts = [claim.text for claim in stored(db)]
-    assert "Acme Ltda - Senior Systems Analyst, 2021 - present" not in texts
+    assert "Rebuilt the lead routing pipeline, cutting handoff time 40%" not in texts
     assert len(texts) == 1
 
 
@@ -141,7 +146,7 @@ def test_editing_stores_the_correction_and_keeps_the_original_as_evidence(
     claims = stored(db)
     assert len(claims) == 1
     assert claims[0].text == "A shorter, truer sentence"
-    assert claims[0].evidence_ref == "Acme Ltda - Senior Systems Analyst, 2021 - present"
+    assert claims[0].evidence_ref == "Rebuilt the lead routing pipeline, cutting handoff time 40%"
 
 
 def test_stopping_keeps_what_was_already_accepted(workspace) -> None:
@@ -156,7 +161,7 @@ def test_accept_all_still_works_for_somebody_who_read_the_list(workspace) -> Non
     cv, db = workspace
     result = run(cv, db, "--no-dry-run", "--accept-all")
     assert result.exit_code == 0, result.output
-    assert len(stored(db)) == 3
+    assert len(stored(db)) == 2
 
 
 # =========================================================================

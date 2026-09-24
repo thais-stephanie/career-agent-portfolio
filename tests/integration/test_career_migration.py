@@ -40,8 +40,15 @@ def test_upgrade_preserves_claim_keys_revisions_sources_and_imports(tmp_path):
             candidate, initial.next_revision(text="Built a shared handover checklist.")
         )
     tables = ("verified_claim", "intake_package", "intake_claim", "candidate_state")
+    # The columns each table had BEFORE the upgrade. A later migration may add
+    # nullable columns (0039 adds `intake_package.deleted_at`); what must not
+    # change is a single byte of what was already there.
+    columns = {
+        table: ", ".join(row[1] for row in conn.execute(f"PRAGMA table_info({table})"))
+        for table in tables
+    }
     before = {
-        table: [tuple(r) for r in conn.execute(f"SELECT * FROM {table} ORDER BY 1")]
+        table: [tuple(r) for r in conn.execute(f"SELECT {columns[table]} FROM {table} ORDER BY 1")]
         for table in tables
     }
     proposed_before = CareerRepo(conn, candidate).overview()["proposals"]
@@ -52,7 +59,7 @@ def test_upgrade_preserves_claim_keys_revisions_sources_and_imports(tmp_path):
     ]
     assert migrate(conn) == []
     assert before == {
-        table: [tuple(r) for r in conn.execute(f"SELECT * FROM {table} ORDER BY 1")]
+        table: [tuple(r) for r in conn.execute(f"SELECT {columns[table]} FROM {table} ORDER BY 1")]
         for table in tables
     }
     assert CareerRepo(conn, candidate).overview()["proposals"] == proposed_before

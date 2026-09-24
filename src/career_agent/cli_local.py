@@ -881,6 +881,12 @@ def cv_import_command(
     typer.echo(f"  sections found : {', '.join(sorted(read.sections)) or 'none'}")
     if read.unread_lines:
         typer.echo(f"  before any heading : {len(read.unread_lines)} lines, not proposed")
+    jobs = [entry for entry in read.entries if entry.section == "experience"]
+    if jobs:
+        typer.echo(f"  experiences found : {len(jobs)}")
+        for entry in jobs:
+            when = entry.span.text if entry.span is not None else "dates not stated"
+            typer.echo(f"    {entry.title or 'not named'} ({when})")
 
     by_type: dict[str, list] = {}
     for proposal in read.proposals:
@@ -924,7 +930,18 @@ def cv_import_command(
         stored = 0
         with transaction(conn):
             for proposal, text in decisions:
-                repo.supersede(candidate_id, to_claim(proposal, text=text))
+                # The company and months of the job the line sits under, as
+                # the listing above showed them. Headings are never claims.
+                job = read.entry(proposal.entry_key)
+                span = job.span if job is not None else None
+                claim = to_claim(
+                    proposal,
+                    text=text,
+                    employer=job.company if job is not None else None,
+                    period_start=span.start if span is not None else None,
+                    period_end=span.end if span is not None else None,
+                )
+                repo.supersede(candidate_id, claim)
                 stored += 1
     finally:
         conn.close()
@@ -1006,24 +1023,20 @@ def _sole_candidate(conn) -> str:
 # evidence
 # =====================================================================
 def _waiting_for_review(conn: object) -> int:
-    """How many staged intake claims still have no answer.
+    """How many suggestions still have no answer, in imports she is working on.
 
-    Counted here rather than imported from `intake.store` so that a database
-    predating migration 0023 answers zero instead of raising: this command is
-    also how somebody finds out what state their workspace is in.
+    The SAME definition every screen uses (`storage/review_counts.py`): the
+    intake package in force and every CV read not archived or deleted. A
+    database predating those tables answers zero instead of raising, because
+    this command is also how somebody finds out what state their workspace
+    is in.
     """
-    from career_agent.intake.models import ReviewState
+    from career_agent.storage.review_counts import review_counts
 
     try:
-        row = conn.execute(  # type: ignore[attr-defined]
-            "SELECT COUNT(*) AS n FROM intake_claim c"
-            " JOIN intake_package p ON p.id = c.package_id"
-            " WHERE p.status = 'ACTIVE' AND c.review_state IN (?, ?, ?)",
-            tuple(sorted(ReviewState.ANSWERABLE)),
-        ).fetchone()
+        return review_counts(conn).waiting  # type: ignore[arg-type]
     except Exception:
         return 0
-    return int(row["n"]) if row else 0
 
 
 def evidence_command(

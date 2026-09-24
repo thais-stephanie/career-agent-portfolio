@@ -1,0 +1,20 @@
+Maria Exemplo
+São Paulo, SP
+
+EXPERIÊNCIA PROFISSIONAL
+
+Analista de Dados Sênior | Empresa Fictícia S.A. | mar. 2021 {EN} atual
+• Automatizei relatórios semanais em Python, economizando 6 horas por semana.
+• Criei painéis no Power BI para a diretoria.
+
+Analista de Dados | Empresa Fictícia S.A. | jan. 2019 {EN} fev. 2021
+• Padronizei a base de clientes com SQL.
+
+Estagiária de BI {EM} Loja Modelo Ltda {EM} 2018
+• Apoiei o time comercial com planilhas de metas.
+
+FORMAÇÃO ACADÊMICA
+Bacharelado em Estatística, Universidade Exemplo, 2018
+
+COMPETÊNCIAS
+Python; SQL; Power BI; Excel avançado

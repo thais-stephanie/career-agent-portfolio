@@ -26,6 +26,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from career_agent.cv.markdown import Line, classify, inline
+from career_agent.cv.structure import SECTION_WORDS, Entry, ExperienceReader, fold
 from career_agent.domain.enums import ClaimSource, ClaimType
 
 #: Section headings, in the two languages this product speaks. Matched on a
@@ -168,9 +170,12 @@ _MAX_LENGTH = 2000
 class Proposal:
     """One thing the CV appears to say, with the line it came from.
 
-    `evidence` is the line VERBATIM. A reviewer compares the proposal against
-    it, which is the whole mechanism by which this can be trusted without
-    trusting the code that produced it.
+    `evidence` is the line as a person reads it: its words, with any Markdown
+    syntax removed. A reviewer compares the proposal against it, which is the
+    whole mechanism by which this can be trusted without trusting the code
+    that produced it. `source_text` is the same line VERBATIM, syntax and all,
+    and `source_line` is where it sits: the raw provenance, kept so anybody can
+    see exactly what the document said.
     """
 
     claim_key: str
@@ -181,6 +186,10 @@ class Proposal:
     #: Whether the line carries a figure. Not the figure itself: a number
     #: lifted out of its sentence is a metric this program invented.
     has_measurement: bool = False
+    #: The job this line sits under, when the document put it under one.
+    entry_key: str | None = None
+    source_line: int | None = None
+    source_text: str | None = None
 
     @property
     def is_verified(self) -> bool:
@@ -198,6 +207,9 @@ class ReadCv:
     #: headings this code does not know is still readable by a person, and
     #: silently dropping half of it would be the worst possible outcome.
     unread_lines: list[str] = field(default_factory=list)
+    #: The jobs the document laid out: company, role, dates. Structure, never
+    #: claims: a heading is how a CV is organised, not something it asserts.
+    entries: list[Entry] = field(default_factory=list)
 
     @property
     def counts(self) -> dict[str, int]:
@@ -206,25 +218,101 @@ class ReadCv:
             out[proposal.claim_type.value] = out.get(proposal.claim_type.value, 0) + 1
         return out
 
+    def entry(self, key: str | None) -> Entry | None:
+        return next((entry for entry in self.entries if entry.key == key), None)
 
-def _normalise(line: str) -> str:
-    stripped = _BULLET.sub("", line).strip()
-    return re.sub(r"\s+", " ", stripped)
+
+#: Section names, folded, for matching. Built once from `HEADINGS`.
+_FOLDED_HEADINGS = {name: section for section, names in HEADINGS.items() for name in names}
+
+#: Sections whose lines are jobs, read with the structure reader.
+EMPLOYMENT_SECTIONS = frozenset({"experience", "volunteering", "internships", "freelance"})
+
+#: Lines that carry no words a person wrote.
+_DECORATION = frozenset({"rule", "fence", "table_rule", "blank", "code"})
+
+
+def _bare(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z ]+", " ", fold(text))).strip()
 
 
 def _heading(line: str) -> str | None:
     """Which section a line NAMES, if it names one.
 
-    A whole-line match, lower-cased, with punctuation trimmed. "Skills:" is a
-    heading; "skills in Python" is a sentence about skills and is not.
+    A whole-line match, lower-cased, accents and punctuation trimmed.
+    "Skills:" is a heading; "skills in Python" is a sentence about skills and
+    is not. "Experiência Profissional" is a heading however it is accented.
     """
-    bare = re.sub(r"[^a-z ]+", " ", _normalise(line).lower()).strip()
+    bare = _bare(inline(_BULLET.sub("", line).strip()))
     if not bare or len(bare) > 40:
         return None
-    for section, names in HEADINGS.items():
-        if bare in names:
-            return section
+    return _FOLDED_HEADINGS.get(bare)
+
+
+def _loose_heading(text: str) -> str | None:
+    """A MARKED heading that names a section in a phrase.
+
+    "Additional experience", "Experiencias anteriores". Only ever asked of a
+    line written with heading syntax, where the document has already said it
+    is a heading and the only question is which one.
+    """
+    exact = _heading(text)
+    if exact:
+        return exact
+    for word in _bare(text).split():
+        if word in SECTION_WORDS:
+            return SECTION_WORDS[word]
     return None
+
+
+def _structure(text: str) -> tuple[list[tuple[str | None, Line, Entry | None, bool]], list[Entry]]:
+    """Every line, with the section it is in and the job it belongs to."""
+    lines = classify(text)
+    blocks: list[tuple[str | None, int, list[Line]]] = []
+    headings: dict[int, str | None] = {}
+    current: str | None = None
+    level = 0
+    body: list[Line] = []
+
+    for line in lines:
+        named: str | None = None
+        opens = False
+        if line.kind == "heading":
+            if current is None or level == 0 or line.level <= level:
+                named = _loose_heading(line.text)
+                # A marked heading at the section's own level or above ends
+                # the section, named or not. An unknown one starts a section
+                # this does not read: reported, never guessed at.
+                opens = named is not None or (current is not None and line.level <= level)
+        elif line.kind == "text":
+            named = _heading(line.raw)
+            opens = named is not None
+        if opens:
+            blocks.append((current, level, body))
+            headings[line.number] = named
+            current = named
+            level = line.level if line.kind == "heading" else 0
+            body = [line]
+            continue
+        body.append(line)
+    blocks.append((current, level, body))
+
+    out: list[tuple[str | None, Line, Entry | None, bool]] = []
+    entries: list[Entry] = []
+    counter = [0]
+    for section, section_level, block in blocks:
+        head = [line for line in block if line.number in headings]
+        rest = [line for line in block if line.number not in headings]
+        out.extend((None, line, None, False) for line in head)
+        if section in EMPLOYMENT_SECTIONS:
+            reader = ExperienceReader(section, section_level, rest, counter)
+            # A structure line (job header, date line) is never proposed; a
+            # claim keeps its section whether or not it sits under a job.
+            out.extend((section, line, entry, claim) for line, entry, claim in reader.read())
+            entries.extend(reader.entries)
+        else:
+            out.extend((section, line, None, True) for line in rest)
+    return out, entries
 
 
 def split_sections(text: str) -> tuple[dict[str, list[str]], list[str]]:
@@ -232,24 +320,28 @@ def split_sections(text: str) -> tuple[dict[str, list[str]], list[str]]:
 
     Returns the sections and the lines that preceded any heading. Both, because
     a CV with no headings at all is common and would otherwise read as empty.
+    Lines are plain text: Markdown syntax is removed and the words are kept.
     """
+    return _sections_of(_structure(text)[0])
+
+
+def _sections_of(
+    structured: list[tuple[str | None, Line, Entry | None, bool]],
+) -> tuple[dict[str, list[str]], list[str]]:
     sections: dict[str, list[str]] = {}
     unread: list[str] = []
-    current: str | None = None
-
-    for raw in text.splitlines():
-        line = _normalise(raw)
-        if not line:
+    for section, line, _entry, _claim in structured:
+        if section is None and line.kind in {"heading", "text"}:
+            named = _loose_heading(line.text) if line.marked else _heading(line.raw)
+            if named:
+                sections.setdefault(named, [])
+                continue
+        if not line.text or line.kind in _DECORATION:
             continue
-        heading = _heading(raw)
-        if heading is not None:
-            current = heading
-            sections.setdefault(current, [])
-            continue
-        if current is None:
-            unread.append(line)
+        if section is None:
+            unread.append(line.text)
         else:
-            sections[current].append(line)
+            sections.setdefault(section, []).append(line.text)
     return sections, unread
 
 
@@ -259,9 +351,15 @@ def _items(line: str, section: str) -> list[str]:
     Only for sections that are written as lists. An experience bullet is a
     sentence and splitting it on commas would turn one accomplishment into
     four fragments that mean nothing apart.
+
+    A list line often starts with a group label, "Integration: Workato,
+    MuleSoft", and the label is how the list is organised rather than a skill.
     """
     if section not in {"skills", "tools", "languages"}:
         return [line]
+    labelled = re.match(r"^([^:,;|]{1,40}):\s+(.+)$", line)
+    if labelled and len(labelled.group(1).split()) <= 4:
+        line = labelled.group(2)
     parts = [part.strip() for part in _SEPARATORS.split(line)]
     return [part for part in parts if len(part) >= _MIN_LENGTH]
 
@@ -278,11 +376,21 @@ def _key(section: str, index: int, text: str) -> str:
 
 
 def read_cv(text: str) -> ReadCv:
-    """Everything one CV appears to say. Nothing here is verified."""
-    sections, unread = split_sections(text)
-    result = ReadCv(sections=sections, unread_lines=unread)
+    """Everything one CV appears to say, organised by job. Nothing is verified.
 
-    for section, lines in sections.items():
+    Headings, date lines and job headers are STRUCTURE: they become entries
+    and never proposals. Only the lines under them, the things the person says
+    they did, knew or earned, are proposed, each carrying the entry it sits
+    under and the source line it came from.
+    """
+    structured, entries = _structure(text)
+    sections, unread = _sections_of(structured)
+    result = ReadCv(sections=sections, unread_lines=unread, entries=entries)
+
+    counters: dict[str, int] = {}
+    for section, line, entry, claim in structured:
+        if section is None or not claim or line.kind not in {"item", "text"} or not line.text:
+            continue
         claim_type = SECTION_CLAIMS.get(section)
         if claim_type is None:
             # A section that is read and shown but proposes nothing. `summary`
@@ -290,29 +398,36 @@ def read_cv(text: str) -> ReadCv:
             # either into a career CLAIM would be this code deciding what a
             # paragraph asserts.
             continue
-
-        index = 0
-        for line in lines:
-            for item in _items(line, section):
-                if not (_MIN_LENGTH <= len(item) <= _MAX_LENGTH):
-                    continue
-                index += 1
-                result.proposals.append(
-                    Proposal(
-                        claim_key=_key(section, index, item),
-                        claim_type=claim_type,
-                        text=item,
-                        section=section,
-                        # The line as it stood, before splitting. A reviewer
-                        # sees the context the item was taken from.
-                        evidence=line,
-                        has_measurement=bool(_MEASURED.search(item)),
-                    )
+        for item in _items(line.text, section):
+            if not (_MIN_LENGTH <= len(item) <= _MAX_LENGTH):
+                continue
+            counters[section] = counters.get(section, 0) + 1
+            result.proposals.append(
+                Proposal(
+                    claim_key=_key(section, counters[section], item),
+                    claim_type=claim_type,
+                    text=item,
+                    section=section,
+                    # The line as it stood, before splitting. A reviewer
+                    # sees the context the item was taken from.
+                    evidence=line.text,
+                    has_measurement=bool(_MEASURED.search(item)),
+                    entry_key=entry.key if entry is not None else None,
+                    source_line=line.number,
+                    source_text=line.raw[:_MAX_LENGTH],
                 )
+            )
     return result
 
 
-def to_claim(proposal: Proposal, *, text: str | None = None):
+def to_claim(
+    proposal: Proposal,
+    *,
+    text: str | None = None,
+    employer: str | None = None,
+    period_start: str | None = None,
+    period_end: str | None = None,
+):
     """One accepted proposal, as a claim the person has confirmed.
 
     `text` lets a reviewer EDIT before accepting, which is the third of the
@@ -331,6 +446,14 @@ def to_claim(proposal: Proposal, *, text: str | None = None):
         text=(text or proposal.text).strip(),
         source=ClaimSource.RESUME,
         verified=True,
+        # The job the suggestion sat under, as the review showed it. Months
+        # only, and only a coherent span: a claim's period is a fact about
+        # when, and a half-read one is left off rather than guessed.
+        employer=(employer or None),
+        period_start=period_start if period_start else None,
+        period_end=(
+            period_end if period_start and period_end and period_end >= period_start else None
+        ),
         # The line the proposal came from, kept with the claim. This is what
         # makes an application-preparation view able to say WHY it believes
         # something about the candidate.

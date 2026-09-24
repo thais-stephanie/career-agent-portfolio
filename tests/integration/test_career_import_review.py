@@ -84,7 +84,8 @@ def test_duplicate_import_proposes_alias_and_keeps_original_sources(staged):
             },
         },
     )
-    apply(staged, {"action": "confirm", "keys": keys}, reviewed=True)
+    for key in keys:
+        apply(staged, {"action": "confirm", "keys": [key]}, reviewed=True)
     claims = ClaimRepo(staged.conn).current(staged.candidate_id)
     assert len(claims) == 2 and all(c.verified for c in claims)
     assert {c.employer for c in claims} == {"Teem", "Teem LLC"}
@@ -146,22 +147,14 @@ def test_disputed_dates_cannot_be_bypassed_by_bulk_confirmation(tmp_path):
     conn.close()
 
 
-def test_failure_after_first_review_rolls_back_every_revision(staged, monkeypatch):
-    from career_agent.intake import store
-
-    original = store.confirm
-    calls = 0
-
-    def fail_second(*args, **kwargs):
-        nonlocal calls
-        calls += 1
-        if calls == 2:
-            raise RuntimeError("Synthetic second-item failure")
-        return original(*args, **kwargs)
-
-    monkeypatch.setattr(store, "confirm", fail_second)
-    with pytest.raises(RuntimeError, match="second-item"):
-        apply(staged, {"action": "confirm", "keys": staged.page()["keys"]}, reviewed=True)
+def test_a_batch_confirmation_is_refused_and_writes_nothing(staged):
+    """Career Evidence V2: there is no mass confirmation. Every confirmed
+    statement can reach a real application, so confirming is one statement at
+    a time, and a batch is refused before anything is written."""
+    keys = staged.page()["keys"]
+    assert len(keys) > 1
+    with pytest.raises(CareerError, match="one statement at a time"):
+        staged.preview({"action": "confirm", "keys": keys})
     assert staged.conn.execute("SELECT count(*) FROM verified_claim").fetchone()[0] == 0
     assert staged.conn.execute("SELECT count(*) FROM career_history_event").fetchone()[0] == 0
     assert all(not r["verified"] for r in staged.items())

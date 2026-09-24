@@ -254,6 +254,10 @@ ORDINARY_WORD_USES: dict[str, frozenset[str]] = {
     # key names WHERE SHE SAID SHE LIVES, read from her own configuration.
     # Nothing in this module reads a provider payload.
     "web/workspace_api.py": frozenset({"country"}),
+    # Where a job in the candidate's OWN CV says it was done ("Remote", "Sao
+    # Paulo"), read by `cv/structure.py` off a date line and stored in
+    # `cv_entry.location`. Her document, never a provider payload.
+    "web/cv_api.py": frozenset({"location"}),
     "storage/mvp_repo.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/api.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/presenter.py": frozenset({"employment_type", "salary"}),
