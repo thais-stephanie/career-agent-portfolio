@@ -63,7 +63,7 @@ import { phraseProblem } from './format.js';
 // stopped sending it and this list stopped drawing it.
 const STEPS = [
   { key: 'documents', icon: '1' },
-  { key: 'evidence', icon: '2', goTo: 'evidence' },
+  { key: 'evidence', icon: '2', goTo: 'documents' },
   { key: 'where', icon: '3', goTo: 'profile' },
   { key: 'work', icon: '4', goTo: 'profile' },
   { key: 'jobs', icon: '5', goTo: 'jobs' },

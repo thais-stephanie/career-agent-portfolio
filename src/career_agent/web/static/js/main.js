@@ -161,7 +161,14 @@ const drawer = createDrawer({
   // package is already waiting to be asked about it. The requirement was
   // always passed here and always discarded, so the trip used to end at the
   // top of a long screen with nothing saying what it was for.
-  onEvidence: () => {
+  onEvidence: (row) => {
+    // A named requirement opens what is waiting about it, narrowed and
+    // droppable; without one, the person writes the evidence down.
+    if (row && row.label) {
+      goTo('manage');
+      evidence.focusOn(row.label);
+      return;
+    }
     goTo('evidence');
     evidenceView.add();
   },
