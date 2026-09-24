@@ -123,7 +123,7 @@ def review_counts(conn: sqlite3.Connection, candidate_id: str | None = None) -> 
         packages, packages_archived = int(row[0] or 0), int(row[1] or 0)
 
     drafts = 0
-    if candidate_id or _has(conn, "verified_claim", "verified"):
+    if _has(conn, "verified_claim", "verified"):
         scope = " AND c.candidate_id = ?" if candidate_id else ""
         drafts = int(
             conn.execute(
