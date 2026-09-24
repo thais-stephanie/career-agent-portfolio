@@ -19,7 +19,7 @@ def _past_setup(page: Chrome, base: str) -> None:
     page.navigate(base)
     page.wait_for("document.querySelector('#setup-later')")
     page.evaluate("document.querySelector('#setup-later').click()")
-    page.wait_for("document.querySelectorAll('.firstrun__step').length === 6")
+    page.wait_for("document.querySelectorAll('.firstrun__step').length === 5")
 
 
 def _go(page: Chrome, name: str) -> None:

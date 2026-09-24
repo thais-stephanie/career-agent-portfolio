@@ -25,7 +25,7 @@
 
 import { el, button, replace } from './dom.js';
 import { createFirstRun } from './firstrun.js';
-import { createSetup, setupPostponed } from './setup.js';
+import { createSetup, setupPostponed, setupResumeStep } from './setup.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
@@ -140,9 +140,13 @@ export function createHome({
       // A fresh install -- nothing confirmed and no search described -- opens
       // on the guided setup, unless the person chose to do it later. Asked for
       // explicitly, it opens at the card that was asked for.
-      if (setupAt !== null || (!autoOpened && firstRun.isFresh() && !setupPostponed())) {
+      // LEFT OPEN, NOT LEFT: a reload, a closed tab or a restart in the
+      // middle of the setup comes back to the card that was open. "Do this
+      // later" is the way out, and it forgets the position.
+      const resume = !autoOpened && !setupPostponed() ? setupResumeStep() : null;
+      if (setupAt !== null || resume || (!autoOpened && firstRun.isFresh() && !setupPostponed())) {
         autoOpened = true;
-        const at = setupAt;
+        const at = setupAt ?? resume;
         setupAt = null;
         showingSetup = true;
         if (onSetupShown) onSetupShown(true);

@@ -8200,3 +8200,14 @@ body {
 @media (max-width: 560px) {
   .choicematrix__row { grid-template-columns: 1fr; }
 }
+
+/* Onboarding V2: the country box, answers already given, and the CV row. */
+.setup__country { width: 100%; max-width: 420px; }
+.setup__row > .setup__country { flex: 1 1 220px; }
+.setup__dot { display: inline-block; }
+.setup__saved { display: grid; gap: 6px; }
+.setup__chips--static .setup__chip { padding-right: 10px; }
+.setup__lead { margin: 0; font-weight: 600; color: var(--ink); }
+.setup__cvrow { align-items: center; }
+.setup__cvstatus { margin: 0; color: var(--ink); }
+.setup__cvstatus:empty { display: none; }

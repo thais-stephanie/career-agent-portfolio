@@ -1218,17 +1218,12 @@ const EN = {
   // -- the first run -----------------------------------------------------
   'firstrun.title': 'Start here',
   'firstrun.lede':
-    'Six things, in this order. None of them is required, and you can stop '
+    'A few things, in this order. None of them is required, and you can stop '
     + 'after any one of them -- each says what it lets Career Agent work out.',
   'firstrun.privacy':
     'Everything below happens on this computer. Your documents are read by '
     + 'Career Agent itself, they are never uploaded anywhere, no AI sees them, '
     + 'and the files are not kept -- only the lines you confirm.',
-  'firstrun.step.career_stage': 'Where are you in your career right now?',
-  'firstrun.why.career_stage':
-    'Changes what this screen explains and which filters it puts in front of '
-    + 'you. It changes no score, rules no job out, and is not stored anywhere '
-    + 'outside this computer.',
   'firstrun.step.documents': 'Import your career information',
   'firstrun.why.documents':
     'A CV is enough to start. A LinkedIn export adds dates, and any other '
@@ -1253,7 +1248,6 @@ const EN = {
   'firstrun.go.where': 'Answer this',
   'firstrun.go.work': 'Describe the work',
   'firstrun.go.jobs': 'Go to jobs',
-  'firstrun.state.unanswered': 'Not answered. That is fine.',
   'firstrun.state.documents': '{n} read',
   'firstrun.state.noDocuments': 'Nothing read yet',
   'firstrun.state.confirmed': '{n} confirmed by you',
@@ -1265,13 +1259,6 @@ const EN = {
   'firstrun.state.noPhrases': 'Not described yet',
   'firstrun.state.scored': '{n} postings scored',
   'firstrun.state.noScores': 'No postings scored yet',
-  'firstrun.stage.CONTINUING': 'Continuing in my field',
-  'firstrun.stage.CHANGING_CAREERS': 'Changing careers',
-  'firstrun.stage.FIRST_OPPORTUNITY': 'Looking for my first job',
-  'firstrun.stage.RECENTLY_QUALIFIED': 'Studied or trained, little work history',
-  'firstrun.stage.RETURNING': 'Returning after a break',
-  'firstrun.stage.PREFER_NOT_TO_SAY': 'I would rather not say',
-  'firstrun.stage.clear': 'Leave this unanswered',
   'firstrun.kind.resume': 'CV or resume',
   'firstrun.kind.linkedin': 'LinkedIn export',
   'firstrun.kind.document': 'Another document',
@@ -2202,14 +2189,9 @@ const EN = {
   'setup.work.required': 'Write at least one kind of work, or choose Skip for now.',
   'setup.work.already': 'Your search already describes the work you want ({n} phrases). You can change them later in '
     + 'Settings.',
-  'setup.stage.title': 'Where are you in your career?',
-  'setup.stage.why': 'This only changes which explanations and filters you see. It never changes a score or hides a '
-    + 'job.',
-  'setup.stage.legend': 'Choose the one that fits best',
   'setup.home.title': 'Where do you live?',
   'setup.home.why': 'Jobs are compared with where you are. Only the country is saved, and only on this computer.',
   'setup.home.label': 'Country',
-  'setup.home.choose': 'Choose a country',
   'setup.hire.title': 'Where can companies hire you?',
   'setup.hire.why': 'Many remote jobs only hire people in certain countries. Tell Career Agent where an employer '
     + 'could put you on their payroll directly, so it can tell which jobs are open to you.',
@@ -2218,14 +2200,14 @@ const EN = {
   'setup.hire.unsure': 'I am not sure yet',
   'setup.hire.othersLabel': 'Other countries where you can be hired (optional)',
   'setup.hire.countriesLabel': 'Countries where you can be hired',
-  'setup.hire.pick': 'Choose a country',
   'setup.hire.add': 'Add',
   'setup.hire.remove': 'Remove {country}',
   'setup.hire.note': 'Not sure? Leave it. Jobs will say “not known yet” rather than guess.',
   'setup.regions.title': 'Any hiring regions that include you?',
   'setup.regions.why': 'Some jobs name a region instead of countries, such as “Latin America”. Career Agent already '
     + 'knows which regions contain the countries you gave, so tick a region only to count it on top of those.',
-  'setup.regions.legend': 'Regions whose employers can hire you',
+  'setup.regions.legend':
+    'Regions that include {country}',
   'setup.regions.note': 'Leaving a region unticked never counts as a no.',
   'setup.region.WORLDWIDE': 'Anywhere in the world',
   'setup.region.AMERICAS': 'The Americas (North, Central and South)',
@@ -2246,13 +2228,10 @@ const EN = {
   'setup.pay.note': 'It stays on this computer.',
   'setup.pay.invalid': 'Enter an amount above zero, or leave it empty.',
   'setup.pay.needCurrency': 'Choose the currency for this amount.',
-  'setup.ready.title': 'You are ready to find jobs',
-  'setup.ready.why': 'This is what you told Career Agent. Change anything now, or later in Settings.',
-  'setup.ready.work': 'Work you want',
-  'setup.ready.home': 'Where you live',
-  'setup.ready.hire': 'Can be hired in',
-  'setup.ready.level': 'Levels hidden',
-  'setup.ready.pay': 'Pay target',
+  'setup.ready.title':
+    'You are ready. What now?',
+  'setup.ready.why':
+    'Find your first jobs now, or come back to it from Home whenever you like.',
   'setup.ready.phrases': '{n} phrases',
   'setup.ready.notAnswered': 'Not answered',
   'setup.ready.change': 'Change',
@@ -2280,6 +2259,102 @@ const EN = {
   'pagehead.eyebrow.setup': 'Getting started',
   'pagehead.title.setup': 'Set up your search',
   'setup.ready.none': 'None',
+  'setup.progressLabel':
+    'Setup progress',
+  'setup.saveAndReturn':
+    'Save and go back',
+  'setup.work.savedRoles':
+    'Kinds of work you gave',
+  'setup.work.savedSkills':
+    'Tools and skills you gave',
+  'setup.work.changeInSettings':
+    'To change these, open Settings, Search phrases: each one is shown with how many jobs it reaches.',
+  'setup.home.placeholder':
+    'Start typing a country',
+  'setup.home.note':
+    'Living somewhere does not mean every company there can hire you. The next question asks that.',
+  'setup.home.unknown':
+    'Choose a country from the list, or leave this empty.',
+  'setup.workmodel.title':
+    'How do you want to work?',
+  'setup.workmodel.why':
+    'Jobs in a way of working you prefer rank a little higher, and ones you would rather avoid a little lower.',
+  'setup.workmodel.legend':
+    'Your answer for each way of working',
+  'setup.workmodel.note':
+    'Never show hides those jobs from Discover, with one click to see them again. Remote is about how '
+    + 'you work, not where companies can hire you: that is the hiring question you already answered.',
+  'setup.arrangement.title':
+    'Which working arrangements work for you?',
+  'setup.arrangement.why':
+    'When a job says how it hires, the ones that work for you rank a little higher. Many jobs do not say.',
+  'setup.arrangement.legend':
+    'Your answer for each arrangement',
+  'setup.arrangement.note':
+    'Nothing here hides a job.',
+  'setup.cv.title':
+    'Add your CV (optional)',
+  'setup.cv.why':
+    'It is read here, on this computer, and nothing in it counts until you confirm it.',
+  'setup.cv.noNeed':
+    'You can search for jobs without adding a CV.',
+  'setup.cv.helps':
+    'Adding your CV helps Career Agent build Career Evidence and makes resume preparation more useful. '
+    + 'Each line becomes a statement for you to confirm or reject later, in Career Evidence.',
+  'setup.cv.added':
+    'Career data added. Review it any time in Career Evidence.',
+  'setup.cv.choose':
+    'Choose a file',
+  'setup.cv.read':
+    'Read this CV',
+  'setup.cv.chooseFirst':
+    'Choose a file first.',
+  'setup.cv.reading':
+    'Reading {name}…',
+  'setup.cv.found':
+    '{n} statements found. None of them counts until you confirm it in Career Evidence.',
+  'setup.cv.privacy':
+    'Reads {kinds}. The file is not kept, and nothing is sent anywhere.',
+  'setup.cv.skip':
+    'Skip for now',
+  'setup.review.title':
+    'Here is what you told Career Agent',
+  'setup.review.why':
+    'Change anything here, or later in Settings.',
+  'setup.review.work':
+    'Kinds of work',
+  'setup.review.home':
+    'Based in',
+  'setup.review.hire':
+    'Can be hired in',
+  'setup.review.workmodel':
+    'Ways of working',
+  'setup.review.arrangement':
+    'Working arrangements',
+  'setup.review.level':
+    'Levels hidden',
+  'setup.review.pay':
+    'Pay target',
+  'setup.review.cv':
+    'Career data',
+  'setup.review.hireUnknown':
+    'Not known yet',
+  'setup.review.noPreference':
+    'No preference',
+  'setup.review.cvAdded':
+    'CV added',
+  'setup.review.cvNotAdded':
+    'Not added yet',
+  'setup.review.note':
+    'Every answer here stays editable in Settings.',
+  'setup.review.looksRight':
+    'Looks right',
+  'setup.ready.noCv':
+    'You can find jobs without a CV. Career Evidence and resume preparation become useful once you add one.',
+  'setup.ready.addCv':
+    'Add career data',
+  'setup.ready.settings':
+    'Review settings',
   'evstart.title': 'Build your evidence bank',
   'evstart.body': 'Import your CV and Career Agent lists what it says, one line at a time. Nothing counts as your '
     + 'experience until you confirm it, and you can edit or reject any line.',
@@ -3410,17 +3485,12 @@ const PT_BR = {
   // -- a primeira execução ------------------------------------------------
   'firstrun.title': 'Comece por aqui',
   'firstrun.lede':
-    'Seis coisas, nesta ordem. Nenhuma é obrigatória, e você pode parar depois '
+    'Algumas coisas, nesta ordem. Nenhuma é obrigatória, e você pode parar depois '
     + 'de qualquer uma -- cada uma diz o que permite ao Career Agent concluir.',
   'firstrun.privacy':
     'Tudo abaixo acontece neste computador. Seus documentos são lidos pelo '
     + 'próprio Career Agent, nunca são enviados a lugar nenhum, nenhuma IA os '
     + 'vê, e os arquivos não são guardados -- só as linhas que você confirmar.',
-  'firstrun.step.career_stage': 'Em que ponto da sua carreira você está agora?',
-  'firstrun.why.career_stage':
-    'Muda o que esta tela explica e quais filtros ela coloca na sua frente. '
-    + 'Não muda nenhuma pontuação, não descarta nenhuma vaga, e não é guardado '
-    + 'em lugar nenhum fora deste computador.',
   'firstrun.step.documents': 'Importe suas informações de carreira',
   'firstrun.why.documents':
     'Um currículo já basta para começar. Uma exportação do LinkedIn acrescenta '
@@ -3446,7 +3516,6 @@ const PT_BR = {
   'firstrun.go.where': 'Responder isto',
   'firstrun.go.work': 'Descrever o trabalho',
   'firstrun.go.jobs': 'Ir para as vagas',
-  'firstrun.state.unanswered': 'Sem resposta. Isso está bem.',
   'firstrun.state.documents': '{n} lido(s)',
   'firstrun.state.noDocuments': 'Nada lido ainda',
   'firstrun.state.confirmed': '{n} confirmado(s) por você',
@@ -3458,13 +3527,6 @@ const PT_BR = {
   'firstrun.state.noPhrases': 'Ainda não descrito',
   'firstrun.state.scored': '{n} vagas pontuadas',
   'firstrun.state.noScores': 'Nenhuma vaga pontuada ainda',
-  'firstrun.stage.CONTINUING': 'Continuando na minha área',
-  'firstrun.stage.CHANGING_CAREERS': 'Mudando de carreira',
-  'firstrun.stage.FIRST_OPPORTUNITY': 'Buscando meu primeiro emprego',
-  'firstrun.stage.RECENTLY_QUALIFIED': 'Estudei ou me formei, pouca experiência de trabalho',
-  'firstrun.stage.RETURNING': 'Voltando depois de uma pausa',
-  'firstrun.stage.PREFER_NOT_TO_SAY': 'Prefiro não dizer',
-  'firstrun.stage.clear': 'Deixar sem resposta',
   'firstrun.kind.resume': 'Currículo',
   'firstrun.kind.linkedin': 'Exportação do LinkedIn',
   'firstrun.kind.document': 'Outro documento',
@@ -4361,13 +4423,9 @@ const PT_BR = {
   'setup.work.required': 'Escreva pelo menos um tipo de trabalho, ou escolha Pular por enquanto.',
   'setup.work.already': 'Sua busca já descreve o trabalho que você quer ({n} frases). Você pode mudá-las depois em '
     + 'Configurações.',
-  'setup.stage.title': 'Em que momento da carreira você está?',
-  'setup.stage.why': 'Isto só muda as explicações e os filtros que você vê. Nunca muda uma nota nem esconde uma vaga.',
-  'setup.stage.legend': 'Escolha a opção que mais combina',
   'setup.home.title': 'Onde você mora?',
   'setup.home.why': 'As vagas são comparadas com o lugar onde você está. Só o país é salvo, e só neste computador.',
   'setup.home.label': 'País',
-  'setup.home.choose': 'Escolha um país',
   'setup.hire.title': 'Onde empresas podem te contratar?',
   'setup.hire.why': 'Muitas vagas remotas só contratam pessoas em certos países. Diga onde um empregador poderia te '
     + 'colocar na folha de pagamento diretamente, para o Career Agent saber quais vagas estão abertas para você.',
@@ -4376,14 +4434,14 @@ const PT_BR = {
   'setup.hire.unsure': 'Ainda não tenho certeza',
   'setup.hire.othersLabel': 'Outros países onde você pode ser contratado (opcional)',
   'setup.hire.countriesLabel': 'Países onde você pode ser contratado',
-  'setup.hire.pick': 'Escolha um país',
   'setup.hire.add': 'Adicionar',
   'setup.hire.remove': 'Remover {country}',
   'setup.hire.note': 'Não tem certeza? Deixe assim. As vagas vão dizer “ainda não se sabe” em vez de adivinhar.',
   'setup.regions.title': 'Alguma região de contratação inclui você?',
   'setup.regions.why': 'Algumas vagas citam uma região em vez de países, como “América Latina”. O Career Agent já '
     + 'sabe quais regiões contêm os países que você informou, então marque uma região só para contá-la além desses.',
-  'setup.regions.legend': 'Regiões cujos empregadores podem te contratar',
+  'setup.regions.legend':
+    'Regiões que incluem {country}',
   'setup.regions.note': 'Deixar uma região sem marcar nunca conta como um não.',
   'setup.region.WORLDWIDE': 'Qualquer lugar do mundo',
   'setup.region.AMERICAS': 'As Américas (do Norte, Central e do Sul)',
@@ -4404,13 +4462,10 @@ const PT_BR = {
   'setup.pay.note': 'Fica neste computador.',
   'setup.pay.invalid': 'Digite um valor acima de zero, ou deixe em branco.',
   'setup.pay.needCurrency': 'Escolha a moeda deste valor.',
-  'setup.ready.title': 'Tudo pronto para encontrar vagas',
-  'setup.ready.why': 'Isto é o que você contou ao Career Agent. Mude o que quiser agora, ou depois em Configurações.',
-  'setup.ready.work': 'Trabalho que você quer',
-  'setup.ready.home': 'Onde você mora',
-  'setup.ready.hire': 'Pode ser contratado em',
-  'setup.ready.level': 'Níveis escondidos',
-  'setup.ready.pay': 'Salário alvo',
+  'setup.ready.title':
+    'Tudo pronto. E agora?',
+  'setup.ready.why':
+    'Encontre suas primeiras vagas agora, ou volte a isso pelo Início quando quiser.',
   'setup.ready.phrases': '{n} frases',
   'setup.ready.notAnswered': 'Não respondido',
   'setup.ready.change': 'Mudar',
@@ -4438,6 +4493,105 @@ const PT_BR = {
   'pagehead.eyebrow.setup': 'Primeiros passos',
   'pagehead.title.setup': 'Configure sua busca',
   'setup.ready.none': 'Nenhum',
+  'setup.progressLabel':
+    'Progresso da configuração',
+  'setup.saveAndReturn':
+    'Salvar e voltar',
+  'setup.work.savedRoles':
+    'Tipos de trabalho que você informou',
+  'setup.work.savedSkills':
+    'Ferramentas e habilidades que você informou',
+  'setup.work.changeInSettings':
+    'Para mudar, abra Configurações, Frases de busca: cada uma aparece com quantas vagas alcança.',
+  'setup.home.placeholder':
+    'Comece a digitar um país',
+  'setup.home.note':
+    'Morar num lugar não quer dizer que toda empresa de lá pode te contratar. A próxima pergunta trata disso.',
+  'setup.home.unknown':
+    'Escolha um país da lista, ou deixe em branco.',
+  'setup.workmodel.title':
+    'Como você quer trabalhar?',
+  'setup.workmodel.why':
+    'Vagas num formato que você prefere sobem um pouco, e as que você prefere evitar descem um pouco.',
+  'setup.workmodel.legend':
+    'Sua resposta para cada formato de trabalho',
+  'setup.workmodel.note':
+    'Nunca mostrar esconde essas vagas em Descobrir, com um clique para vê-las de novo. Remoto é sobre '
+    + 'como você trabalha, não sobre onde as empresas podem te contratar: isso é a pergunta de contratação '
+    + 'que você já respondeu.',
+  'setup.arrangement.title':
+    'Quais formatos de contratação funcionam para você?',
+  'setup.arrangement.why':
+    'Quando a vaga diz como contrata, os formatos que funcionam para você sobem um pouco. Muitas vagas não dizem.',
+  'setup.arrangement.legend':
+    'Sua resposta para cada formato',
+  'setup.arrangement.note':
+    'Nada aqui esconde uma vaga.',
+  'setup.cv.title':
+    'Adicione seu currículo (opcional)',
+  'setup.cv.why':
+    'Ele é lido aqui, neste computador, e nada nele conta até você confirmar.',
+  'setup.cv.noNeed':
+    'Você pode procurar vagas sem adicionar um currículo.',
+  'setup.cv.helps':
+    'Adicionar seu currículo ajuda o Career Agent a montar suas Evidências de carreira e deixa a '
+    + 'preparação do currículo mais útil. Cada linha vira uma afirmação para você confirmar ou recusar '
+    + 'depois, em Evidências de carreira.',
+  'setup.cv.added':
+    'Dados de carreira adicionados. Revise quando quiser em Evidências de carreira.',
+  'setup.cv.choose':
+    'Escolher um arquivo',
+  'setup.cv.read':
+    'Ler este currículo',
+  'setup.cv.chooseFirst':
+    'Escolha um arquivo primeiro.',
+  'setup.cv.reading':
+    'Lendo {name}…',
+  'setup.cv.found':
+    '{n} afirmações encontradas. Nenhuma conta até você confirmar em Evidências de carreira.',
+  'setup.cv.privacy':
+    'Lê {kinds}. O arquivo não é guardado, e nada é enviado para lugar nenhum.',
+  'setup.cv.skip':
+    'Pular por enquanto',
+  'setup.review.title':
+    'Isto é o que você contou ao Career Agent',
+  'setup.review.why':
+    'Mude o que quiser aqui, ou depois em Configurações.',
+  'setup.review.work':
+    'Tipos de trabalho',
+  'setup.review.home':
+    'Mora em',
+  'setup.review.hire':
+    'Pode ser contratado em',
+  'setup.review.workmodel':
+    'Formatos de trabalho',
+  'setup.review.arrangement':
+    'Formatos de contratação',
+  'setup.review.level':
+    'Níveis escondidos',
+  'setup.review.pay':
+    'Salário alvo',
+  'setup.review.cv':
+    'Dados de carreira',
+  'setup.review.hireUnknown':
+    'Ainda não sabe',
+  'setup.review.noPreference':
+    'Sem preferência',
+  'setup.review.cvAdded':
+    'Currículo adicionado',
+  'setup.review.cvNotAdded':
+    'Ainda não adicionado',
+  'setup.review.note':
+    'Todas estas respostas continuam editáveis em Configurações.',
+  'setup.review.looksRight':
+    'Está certo',
+  'setup.ready.noCv':
+    'Você pode encontrar vagas sem currículo. Evidências de carreira e a preparação do currículo ficam '
+    + 'úteis quando você adiciona um.',
+  'setup.ready.addCv':
+    'Adicionar dados de carreira',
+  'setup.ready.settings':
+    'Revisar configurações',
   'evstart.title': 'Monte seu banco de evidências',
   'evstart.body': 'Importe seu currículo e o Career Agent lista o que ele diz, uma linha de cada vez. Nada conta '
     + 'como sua experiência até você confirmar, e você pode editar ou recusar qualquer linha.',
