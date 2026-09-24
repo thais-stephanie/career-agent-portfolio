@@ -270,6 +270,9 @@ function goTo(page, { push = true } = {}) {
   }
 
   if (page === 'home') home.load({ arrival: true });
+  // Walking away from the setup by the navigation is a choice, not an
+  // interruption: the next reload goes to Home, not back into the setup.
+  else home.leftForAnotherPage();
   // What Career Agent knows about the person's career can change on any page;
   // the drawer asks again on its next open rather than trusting a count from
   // before.

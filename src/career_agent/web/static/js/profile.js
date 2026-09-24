@@ -699,8 +699,13 @@ function compositeControl(row, composite, byField, change, currentValue, prefix)
       onChange: (next) => {
         for (const member of rows) {
           // An empty answer to a list the file never held is not a change.
+          // An empty answer to a list the file never held, or the same values
+          // in another order, is not a change: saving it would bump the
+          // configuration version and ask for a rescore over nothing.
           const value = next[member.field];
-          change(member, !value.length && !Array.isArray(member.value) ? member.value : value);
+          const stored = Array.isArray(member.value) ? member.value : [];
+          const same = value.length === stored.length && value.every((item) => stored.includes(item));
+          change(member, same ? member.value : value);
         }
       },
     }),

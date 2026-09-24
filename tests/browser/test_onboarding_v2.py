@@ -737,3 +737,60 @@ def test_each_card_costs_a_bounded_number_of_requests(page: Chrome, install: Ins
     # The save, then one read-back of what the server derived.
     assert asked.count(("PATCH", "/api/profile")) == 1
     assert len(asked) <= 3, asked
+
+
+def test_leaving_the_setup_by_the_navigation_does_not_bring_it_back_on_reload(
+    page: Chrome, install: Install
+) -> None:
+    """Resume is for a reload or a restart in the middle of the setup, not a way
+    for onboarding to reappear on every visit after somebody walked away."""
+    begin(page, install)
+    next_card(page)
+    wait_card(page, "work")
+    # One answer, so this is no longer a fresh install that offers the setup
+    # by itself on every load.
+    put(page, "#setup-work", "customer onboarding")
+    next_card(page)
+    wait_card(page, "home")
+    click(page, '.topnav__link[data-page="jobs"]')
+    page.reload()
+    page.wait_for("document.querySelector('.home__head') || document.querySelector('#list')")
+    click(page, '.topnav__link[data-page="home"]')
+    page.wait_for("document.querySelector('.home__head')", message="Home, not the setup")
+    assert not page.evaluate("Boolean(document.querySelector('.setup__card'))")
+
+
+def test_the_ready_card_is_not_resumed(page: Chrome, install: Install) -> None:
+    begin(page, install)
+    page.evaluate("localStorage.setItem('careerAgent.setup.at.v1', 'review')")
+    page.reload()
+    wait_card(page, "review")
+    next_card(page)
+    wait_card(page, "ready")
+    page.reload()
+    # Nothing was answered, so this is still a fresh install and the setup
+    # offers itself from the start -- but never back on the finished card.
+    page.wait_for(
+        "document.querySelector('.home__head') || document.querySelector('.setup__card')",
+        message="Home or the start of the setup",
+    )
+    assert card(page) in ("", "welcome"), card(page)
+
+
+def test_the_same_answers_in_another_order_are_not_a_change(page: Chrome, install: Install) -> None:
+    """Saving them would bump the configuration version and ask for a rescore."""
+    from career_agent.config.candidate_writer import set_candidate_fields
+
+    set_candidate_fields(install.config_dir, {"work_models": ["HYBRID", "REMOTE"]})
+    install.app._search_config = None
+    begin(page, install)
+    click(page, "#setup-later")
+    page.wait_for("document.querySelector('.home__head')")
+    open_preferences(page)
+    click(page, "#profile-field-work_models-REMOTE-fine")
+    page.wait_for("!document.querySelector('.profile__actions .btn--primary').disabled")
+    click(page, "#profile-field-work_models-REMOTE-prefer")
+    page.wait_for(
+        "document.querySelector('.profile__actions .btn--primary').disabled",
+        message="the answers back where they were, with nothing to save",
+    )

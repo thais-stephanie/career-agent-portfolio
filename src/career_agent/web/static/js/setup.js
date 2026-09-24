@@ -279,7 +279,10 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     const steps = visibleSteps();
     const step = steps[currentIndex()];
     at = step.key;
-    rememberPosition(at);
+    // Remembered so a reload or a restart comes back here -- except the last
+    // card: setup is finished there, and reopening it on every visit would be
+    // onboarding that never ends.
+    rememberPosition(at === 'ready' ? null : at);
     const body = BODIES[step.key]();
     const questions = steps.filter((item) => !NOT_QUESTIONS.has(item.key));
     const question = questions.findIndex((item) => item.key === step.key);
@@ -1198,5 +1201,10 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     return at === 'ready' && fields.size > 0;
   }
 
-  return { root, open, relabel, stop: stopPolling, finished, atReady };
+  /** She went to another page: not "left open", so a reload goes to Home. */
+  function forgetPosition() {
+    rememberPosition(null);
+  }
+
+  return { root, open, relabel, stop: stopPolling, finished, atReady, forgetPosition };
 }

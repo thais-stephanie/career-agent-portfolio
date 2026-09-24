@@ -424,5 +424,10 @@ export function createHome({
     return showingSetup;
   }
 
-  return { root, load, relabel, openSetup, showsCollection, inSetup };
+  /** Called when the person navigates to another page. */
+  function leftForAnotherPage() {
+    if (showingSetup) setup.forgetPosition();
+  }
+
+  return { root, load, relabel, openSetup, showsCollection, inSetup, leftForAnotherPage };
 }
