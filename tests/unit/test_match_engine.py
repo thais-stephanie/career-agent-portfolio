@@ -35,6 +35,32 @@ CONFIG, _ = load_search_config(committed_config_dir())
 COMPUTED_AT = "2026-09-04T00:00:00Z"
 
 
+#: The same search with no answer about ways of working.
+CONFIG_NO_WORK_MODEL = CONFIG.model_copy(
+    update={
+        "preferences": CONFIG.preferences.model_copy(
+            update={
+                "remote": CONFIG.preferences.remote.model_copy(
+                    update={
+                        "accepted_work_models": [],
+                        "avoided_work_models": [],
+                        "excluded_work_models": [],
+                    }
+                )
+            }
+        )
+    }
+)
+
+
+def run_without_work_model(title: str, description: str, **facts: object) -> MatchResult:
+    return match_job(
+        CONFIG_NO_WORK_MODEL,
+        JobFacts(title=title, description=description, **facts),  # type: ignore[arg-type]
+        computed_at=COMPUTED_AT,
+    )
+
+
 def run(title: str, description: str, **facts: object) -> MatchResult:
     return match_job(
         CONFIG,
@@ -308,7 +334,7 @@ def test_every_evidence_quote_is_a_substring_of_the_posting() -> None:
     )
     # role_family and seniority quote their own reasoning; compensation quotes
     # nothing, because a preference is not an observation about the text.
-    derived = {"role_family", "seniority", "compensation_contract"}
+    derived = {"role_family", "seniority", "compensation_contract", "work_model"}
     checked = 0
 
     for title, description in postings:
@@ -354,8 +380,11 @@ def test_match_job_is_pure() -> None:
 def test_confidence_reads_the_metadata_and_the_score_does_not() -> None:
     """Two measurements, never multiplied. Adding a location and a date tells us
     more about the posting without telling us more about the work."""
-    bare = run("GTM Engineer", GTM_SYSTEMS)
-    with_metadata = run(
+    # Without a way-of-working preference. With one, the posting's stated way
+    # of working is exactly what she asked to be scored on; that is pinned in
+    # `test_work_model_preference.py`.
+    bare = run_without_work_model("GTM Engineer", GTM_SYSTEMS)
+    with_metadata = run_without_work_model(
         "GTM Engineer", GTM_SYSTEMS, location_raw="Remote - Brazil", posted_at="2026-09-01"
     )
 

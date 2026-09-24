@@ -591,7 +591,7 @@ def test_too_many_or_too_long_phrases_are_named_before_anything_is_sent(
 
     _type(page, "#setup-work", "customer onboarding")
     _click(page, "#setup-next")
-    page.wait_for("document.querySelector('.setup__card')?.dataset.step === 'stage'")
+    page.wait_for("document.querySelector('.setup__card')?.dataset.step === 'home'")
     config, _ = load_search_config(fresh.config_dir)
     assert config.lexicon
 

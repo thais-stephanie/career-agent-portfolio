@@ -29,11 +29,43 @@ def test_remote_location_conflict(location, expected):
     )
     result = match_job(config, job, computed_at="2026-09-13T00:00:00Z")
     assert str(result.eligibility_status) == expected
-    # Geography changes no Search Fit arithmetic.
-    control = match_job(
-        config, replace(job, location_raw="Remote"), computed_at="2026-09-13T00:00:00Z"
+    # Geography changes no Search Fit arithmetic. Measured without a
+    # way-of-working answer: with one, "Remote" versus a city is the way of
+    # working she asked to be scored on (docs/ONBOARDING.md), not geography.
+    neutral = config.model_copy(
+        update={
+            "preferences": config.preferences.model_copy(
+                update={
+                    "remote": config.preferences.remote.model_copy(
+                        update={
+                            "accepted_work_models": [],
+                            "avoided_work_models": [],
+                            "excluded_work_models": [],
+                        }
+                    )
+                }
+            )
+        }
     )
-    assert result.match_score == control.match_score
+    scored = match_job(neutral, job, computed_at="2026-09-13T00:00:00Z")
+    control = match_job(
+        neutral, replace(job, location_raw="Remote"), computed_at="2026-09-13T00:00:00Z"
+    )
+    assert scored.match_score == control.match_score
+
+
+def test_with_a_work_model_answer_geography_still_changes_no_score():
+    """The same way of working in two different places scores the same."""
+    config, _ = load_search_config(committed_config_dir())
+    assert config.preferences.remote.accepted_work_models, "the example states no preference"
+
+    def score(location: str) -> int:
+        job = JobFacts(
+            title="Systems specialist", description="Build internal tools.", location_raw=location
+        )
+        return match_job(config, job, computed_at="2026-09-13T00:00:00Z").match_score
+
+    assert score("Remote - Brazil") == score("Remote - Europe") == score("Remote")
 
 
 def test_remote_location_alone_never_grants_permission():

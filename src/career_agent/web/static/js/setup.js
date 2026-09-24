@@ -1,32 +1,39 @@
 /**
- * setup.js -- the guided first run: one question per card, in order.
+ * setup.js -- the guided first run: one decision per card, in order.
  *
  * WHY IT EXISTS
  * -------------
  * A fresh install used to open on six numbered steps, four zeroed counters, a
  * second list of the same gaps and two empty sections -- every question the
- * product has, on one screen, before a single job. The questions were right
- * and their order was right; showing all of them at once was the problem.
+ * product has, on one screen, before a single job. So this asks them one at a
+ * time, says why each one matters, and saves each answer the moment Continue
+ * is pressed. Leaving halfway keeps what was answered; coming back -- after a
+ * reload, or a restart -- opens the card that was open. Back shows what was
+ * answered. Nothing is a gate: every question can be skipped, and "Do this
+ * later" leaves the whole flow.
  *
- * So this asks them one at a time, says why each one matters, and saves each
- * answer the moment Continue is pressed. Leaving halfway keeps what was
- * answered. Back shows what was answered. Nothing is a gate: every card except
- * the first and last can be skipped, and "Do this later" leaves the whole flow.
+ * ONLY QUESTIONS WHOSE ANSWER CHANGES SOMETHING
+ * --------------------------------------------
+ * docs/ONBOARDING.md is the audit: every card here changes Search Fit, the
+ * eligibility gate, which jobs Discover shows or what is collected. Career
+ * stage, preferred levels and travel are stored but read by nothing, so they
+ * are not asked.
  *
  * NOTHING HERE INVENTS AN ANSWER
  * ------------------------------
  * Every control starts from what the configuration holds. Where someone lives
  * is never copied into "countries that can hire you": that is asked as its own
- * yes-or-no question, because residence is not proof an employer can hire
- * somebody there, and eligibility must stay unknown until they say so.
+ * question, and eligibility stays unknown until they answer it. Preferring
+ * remote work is never read as "can be hired anywhere".
  *
  * NOTHING HERE IS A NEW WRITE PATH
  * --------------------------------
- * Answers go through the same routes the Career Profile and the first-run list
- * already use -- `PATCH /api/profile`, `POST /api/first-search`,
- * `POST /api/firstrun/stage` -- so their validation and their whitelist apply
- * unchanged. The last card starts `POST /api/sources/refresh-all`, which runs
- * the same collectors as each source's own "Refresh now".
+ * Answers go through the routes Settings uses -- `PATCH /api/profile`,
+ * `POST /api/first-search`, `POST /api/cv/import` -- so their validation and
+ * their whitelist apply unchanged, and the two screens write the same
+ * configuration. Ways of working and arrangements are drawn by `choices.js`,
+ * the same module the Career Profile draws them with. The last card starts
+ * finding jobs through the app's one collection watcher.
  */
 
 import { el, button, replace } from './dom.js';
@@ -34,9 +41,15 @@ import { t, tVocab, getLocale } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
 import { phraseProblem } from './format.js';
+import {
+  arrangementMatrix, arrangementSummary, workModelMatrix, workModelSummary,
+  ARRANGEMENT_FIELDS, WORK_MODEL_FIELDS,
+} from './choices.js';
 
 /** Remembered in the browser only: "I chose to do this later". */
 const LATER_KEY = 'careerAgent.setup.later.v1';
+/** Remembered in the browser only: the card that was open, to come back to. */
+const POSITION_KEY = 'careerAgent.setup.at.v1';
 
 export function setupPostponed() {
   try {
@@ -56,21 +69,50 @@ function rememberPostponed(value) {
   }
 }
 
-/** The cards, in order. `optional` cards offer Skip. */
+/**
+ * The card to reopen, when the setup was left open by a reload, a closed tab
+ * or a restart rather than by "Do this later". Null when there is none.
+ */
+export function setupResumeStep() {
+  try {
+    const key = window.localStorage.getItem(POSITION_KEY);
+    return STEPS.some((step) => step.key === key) ? key : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberPosition(key) {
+  try {
+    if (key) window.localStorage.setItem(POSITION_KEY, key);
+    else window.localStorage.removeItem(POSITION_KEY);
+  } catch {
+    // Without storage a reload starts again from Home; nothing answered is lost.
+  }
+}
+
+/**
+ * The cards, in order. `optional` cards offer Skip. `when` hides a card whose
+ * question has nothing to ask yet: hiring regions are asked only about regions
+ * that contain where you live, so without a country there is nothing to ask.
+ */
 const STEPS = [
   { key: 'welcome' },
   { key: 'work', optional: true },
-  { key: 'stage', optional: true },
   { key: 'home', optional: true },
   { key: 'hire', optional: true },
-  { key: 'regions', optional: true },
+  { key: 'regions', optional: true, when: (setup) => setup.homeRegions().length > 0 },
+  { key: 'workmodel', optional: true },
+  { key: 'arrangement', optional: true },
   { key: 'level', optional: true },
   { key: 'pay', optional: true },
+  { key: 'cv', optional: true },
+  { key: 'review' },
   { key: 'ready' },
 ];
 
-/** The questions counted in "Step n of m": everything between the two ends. */
-const QUESTIONS = STEPS.filter((step) => step.key !== 'welcome' && step.key !== 'ready');
+/** Not counted in "Question n of m": the two ends and the summary. */
+const NOT_QUESTIONS = new Set(['welcome', 'review', 'ready']);
 
 /** ISO 3166-1 alpha-2, named in the reader's language by `Intl.DisplayNames`. */
 const COUNTRY_CODES = (
@@ -91,8 +133,10 @@ const CURRENCIES = [
   'INR', 'JPY', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'ZAR', 'NZD', 'SGD',
 ];
 
-/** The hiring regions the matcher knows, with the words a person would use. */
-const REGIONS = ['WORLDWIDE', 'AMERICAS', 'LATAM', 'NORTH_AMERICA', 'EMEA', 'APAC'];
+const LEVELS = ['INTERN', 'JUNIOR', 'MID', 'SENIOR', 'STAFF', 'PRINCIPAL', 'LEAD'];
+
+/** What a CV picker accepts: the four formats `cv/extract.py` reads. */
+const CV_ACCEPT = '.pdf,.docx,.txt,.md';
 
 function displayNames(type) {
   try {
@@ -128,8 +172,26 @@ function sortedCountries() {
     .sort((a, b) => collator.compare(a.name, b.name));
 }
 
+/** A typed country name, in the reader's language, or a two-letter code. */
+function countryCode(text) {
+  const needle = String(text || '').trim();
+  if (!needle) return '';
+  const folded = needle.toLocaleLowerCase(getLocale());
+  for (const code of COUNTRY_CODES) {
+    if (countryName(code).toLocaleLowerCase(getLocale()) === folded) return code;
+  }
+  const upper = needle.toUpperCase();
+  return COUNTRY_CODES.includes(upper) ? upper : '';
+}
+
 function vocab(value) {
   return tVocab(value) || value;
+}
+
+function sameList(a, b) {
+  const left = Array.isArray(a) ? a : [];
+  const right = Array.isArray(b) ? b : [];
+  return left.length === right.length && left.every((item) => right.includes(item));
 }
 
 export function createSetup({ onExit = null, onGoTo = null, collection = null } = {}) {
@@ -137,10 +199,14 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     className: 'setup',
     attrs: { 'aria-labelledby': 'setup-title' },
   });
-  let at = 0;
+  let at = 'welcome';
   let fields = new Map();
   let firstRun = null;
-  //: Unsaved input, per card, so Back and Continue never lose what was typed.
+  //: Set when a card was opened from the review with "Change": Continue (and
+  //: Back) return to the review rather than walking the rest of the flow.
+  let returnTo = null;
+  //: Unsaved input, per card, so Back, Continue and a language switch never
+  //: lose what was typed.
   const drafts = {};
   //: The last card's subscription to the app's one collection watcher. The
   //: card only draws what the watcher says; it never asks the server itself.
@@ -160,8 +226,12 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
       ]);
       return;
     }
-    const index = stepKey ? STEPS.findIndex((step) => step.key === stepKey) : 0;
-    at = index >= 0 ? index : 0;
+    returnTo = null;
+    // Opened on purpose, so it is no longer "later": a reload from here on
+    // comes back to the card that was open.
+    rememberPostponed(false);
+    const wanted = stepKey && visibleSteps().some((step) => step.key === stepKey) ? stepKey : null;
+    at = wanted || 'welcome';
     draw({ focus: Boolean(stepKey) });
   }
 
@@ -170,8 +240,32 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     return row ? row.value : null;
   }
 
+  function values(names) {
+    return Object.fromEntries(names.map((name) => [name, value(name)]));
+  }
+
   function stepState(key) {
     return (firstRun && (firstRun.steps || []).find((step) => step.key === key)) || {};
+  }
+
+  /** Hiring regions that contain where she lives, from the server's gazetteer. */
+  function homeRegions() {
+    return stepState('where').regions || [];
+  }
+
+  function visibleSteps() {
+    const self = { homeRegions };
+    return STEPS.filter((step) => !step.when || step.when(self));
+  }
+
+  function currentIndex() {
+    const steps = visibleSteps();
+    const index = steps.findIndex((step) => step.key === at);
+    if (index >= 0) return index;
+    // A card with nothing to ask right now: the next one that has something.
+    const order = STEPS.findIndex((step) => step.key === at);
+    const next = steps.findIndex((step) => STEPS.indexOf(step) > order);
+    return next >= 0 ? next : 0;
   }
 
   // ===================================================================
@@ -182,9 +276,16 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     // The last card's subscription belongs to its nodes; drawing any card
     // replaces them, and the ready card subscribes again.
     stopPolling();
-    const step = STEPS[at];
+    const steps = visibleSteps();
+    const step = steps[currentIndex()];
+    at = step.key;
+    // Remembered so a reload or a restart comes back here -- except the last
+    // card: setup is finished there, and reopening it on every visit would be
+    // onboarding that never ends.
+    rememberPosition(at === 'ready' ? null : at);
     const body = BODIES[step.key]();
-    const question = QUESTIONS.findIndex((item) => item.key === step.key);
+    const questions = steps.filter((item) => !NOT_QUESTIONS.has(item.key));
+    const question = questions.findIndex((item) => item.key === step.key);
     const error = el('p', {
       className: 'setup__error',
       attrs: { id: 'setup-error', role: 'alert' },
@@ -205,12 +306,20 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
         ? el('div', { className: 'setup__progress' }, [
           el('p', {
             className: 'setup__count',
-            text: t('setup.progress', { n: question + 1, of: QUESTIONS.length }),
+            text: t('setup.progress', { n: question + 1, of: questions.length }),
           }),
-          el('ol', { className: 'setup__dots', attrs: { 'aria-hidden': 'true' } },
-            QUESTIONS.map((item, index) => el('li', {
-              className: `setup__dot${index < question ? ' is-done' : ''}${index === question ? ' is-now' : ''}`,
-            }))),
+          el('div', {
+            className: 'setup__dots',
+            attrs: {
+              role: 'progressbar',
+              'aria-valuemin': '1',
+              'aria-valuemax': String(questions.length),
+              'aria-valuenow': String(question + 1),
+              'aria-label': t('setup.progressLabel'),
+            },
+          }, questions.map((item, index) => el('span', {
+            className: `setup__dot${index < question ? ' is-done' : ''}${index === question ? ' is-now' : ''}`,
+          }))),
         ])
         : null,
       el('h2', {
@@ -244,38 +353,75 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     }
   }
 
+  function backButton() {
+    return button(t('setup.back'), () => back(), { className: 'btn', attrs: { id: 'setup-back' } });
+  }
+
   function defaultActions(step) {
     return [
-      at > 0 ? button(t('setup.back'), () => go(-1), { className: 'btn', attrs: { id: 'setup-back' } }) : null,
+      currentIndex() > 0 ? backButton() : null,
       step.optional
-        ? button(t('setup.skip'), () => go(1), { className: 'btn btn--quiet', attrs: { id: 'setup-skip' } })
+        ? button(t('setup.skip'), () => advance(), { className: 'btn btn--quiet', attrs: { id: 'setup-skip' } })
         : null,
       el('button', {
         className: 'btn btn--primary',
         attrs: { type: 'submit', id: 'setup-next' },
-        text: t('setup.continue'),
+        text: returnTo ? t('setup.saveAndReturn') : t('setup.continue'),
       }),
     ].filter(Boolean);
   }
 
-  function go(delta) {
-    at = Math.max(0, Math.min(STEPS.length - 1, at + delta));
+  /** Open one card by name. */
+  function show(key) {
+    at = key;
     draw();
+  }
+
+  /** Forward: the next card, or back to the review a "Change" came from. */
+  function advance() {
+    if (returnTo) {
+      const target = returnTo;
+      returnTo = null;
+      show(target);
+      return;
+    }
+    const steps = visibleSteps();
+    show(steps[Math.min(steps.length - 1, currentIndex() + 1)].key);
+  }
+
+  function back() {
+    if (returnTo) {
+      const target = returnTo;
+      returnTo = null;
+      show(target);
+      return;
+    }
+    const steps = visibleSteps();
+    show(steps[Math.max(0, currentIndex() - 1)].key);
+  }
+
+  /** "Change" on the review: that card, and then back to where it was pressed. */
+  function change(key) {
+    returnTo = at;
+    show(key);
   }
 
   function leave() {
     stopPolling();
+    returnTo = null;
+    rememberPosition(null);
     rememberPostponed(true);
     if (onExit) onExit();
   }
 
   /** Save through the existing whitelist, then advance. Errors stay beside the card. */
-  async function save(changes, error) {
+  async function save(changes, error, { refresh = false } = {}) {
     if (!Object.keys(changes).length) {
-      go(1);
+      advance();
       return;
     }
     const submit = root.querySelector('#setup-next');
+    const label = submit ? submit.textContent : '';
     if (submit) {
       submit.disabled = true;
       submit.textContent = t('setup.saving');
@@ -287,12 +433,20 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
         const row = fields.get(field);
         if (row) row.value = next;
       }
-      go(1);
+      // The server derives and resolves some answers from others (only
+      // remote, overlaps between lists, which regions contain a country), so
+      // after those the screen reads back what was actually saved.
+      if (refresh) {
+        const [profile, state] = await Promise.all([api.getProfile(), api.getFirstRun()]);
+        fields = new Map((profile.editable || []).map((row) => [row.field, row]));
+        firstRun = state;
+      }
+      advance();
     } catch (failure) {
       error.textContent = failure.userMessage || failure.message;
       if (submit) {
         submit.disabled = false;
-        submit.textContent = t('setup.continue');
+        submit.textContent = label;
       }
     }
   }
@@ -302,12 +456,58 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     return input;
   }
 
+  function invalid(input, error, text) {
+    error.textContent = text;
+    input.setAttribute('aria-invalid', 'true');
+    input.focus();
+  }
+
   function label(forId, text) {
     return el('label', { className: 'setup__label', attrs: { for: forId }, text });
   }
 
   function hint(text) {
     return el('p', { className: 'setup__hint', text });
+  }
+
+  /**
+   * A country, typed by name in the reader's language or picked from the
+   * browser's own suggestion list. `<datalist>`, as the Career Profile does:
+   * one element, searchable, keyboard-driven, and a plain text box if the
+   * browser offers nothing more. The code is what is stored; the name is
+   * what is shown.
+   */
+  function countryInput({ id, code = '', onInput = null, describe = true }) {
+    const listId = `${id}-list`;
+    const box = el('input', {
+      className: 'input setup__country',
+      attrs: {
+        id,
+        type: 'text',
+        list: listId,
+        autocomplete: 'off',
+        spellcheck: 'false',
+        placeholder: t('setup.home.placeholder'),
+      },
+      props: { value: code ? countryName(code) : '' },
+      dataset: { code: code || '' },
+      on: {
+        input: () => { if (onInput) onInput(box.value); },
+        change: () => {
+          const found = countryCode(box.value);
+          box.dataset.code = found;
+          if (found) {
+            box.value = countryName(found);
+            box.removeAttribute('aria-invalid');
+          }
+          if (onInput) onInput(box.value);
+        },
+      },
+    });
+    if (describe) describedBy(box);
+    const list = el('datalist', { attrs: { id: listId } },
+      sortedCountries().map(({ name }) => el('option', { attrs: { value: name } })));
+    return { box, list };
   }
 
   // ===================================================================
@@ -331,20 +531,36 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           text: t('setup.welcome.start'),
         }),
       ],
-      submit: () => go(1),
+      submit: () => advance(),
     }),
 
     work: () => {
       const described = stepState('work');
       if (described.done) {
+        // ALREADY ANSWERED, and shown back in the words that were typed. They
+        // are changed in Settings, where the phrases can be edited one by one
+        // with the number of jobs each one reaches beside it.
+        const roles = described.roles || [];
+        const skills = described.skills || [];
         return {
           nodes: [
-            el('p', {
-              className: 'setup__done',
-              text: t('setup.work.already', { n: described.phrases || 0 }),
-            }),
-          ],
-          submit: () => go(1),
+            roles.length
+              ? el('div', { className: 'setup__saved' }, [
+                el('p', { className: 'setup__label', text: t('setup.work.savedRoles') }),
+                el('ul', { className: 'setup__chips setup__chips--static' },
+                  roles.map((role) => el('li', { className: 'setup__chip', text: role }))),
+              ])
+              : el('p', { className: 'setup__done', text: t('setup.work.already', { n: described.phrases || 0 }) }),
+            skills.length
+              ? el('div', { className: 'setup__saved' }, [
+                el('p', { className: 'setup__label', text: t('setup.work.savedSkills') }),
+                el('ul', { className: 'setup__chips setup__chips--static' },
+                  skills.map((skill) => el('li', { className: 'setup__chip', text: skill }))),
+              ])
+              : null,
+            hint(t('setup.work.changeInSettings')),
+          ].filter(Boolean),
+          submit: () => advance(),
         };
       }
       const draft = drafts.work || { work: '', skills: '' };
@@ -374,9 +590,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           const split = (text) => text.split('\n').map((line) => line.trim()).filter(Boolean);
           const roles = split(draft.work);
           if (!roles.length) {
-            error.textContent = t('setup.work.required');
-            work.setAttribute('aria-invalid', 'true');
-            work.focus();
+            invalid(work, error, t('setup.work.required'));
             return;
           }
           const problem = [[roles, work], [split(draft.skills), skills]]
@@ -384,93 +598,57 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
             .find(([text]) => text);
           if (problem) {
             const [text, box] = problem;
-            error.textContent = text;
-            box.setAttribute('aria-invalid', 'true');
             box.setAttribute('aria-describedby', 'setup-why setup-error');
-            box.focus();
+            invalid(box, error, text);
             return;
           }
           const submit = root.querySelector('#setup-next');
+          const before = submit.textContent;
           submit.disabled = true;
           submit.textContent = t('setup.saving');
           try {
             await api.createFirstSearch({ role_examples: roles, skills: split(draft.skills) });
             firstRun = await api.getFirstRun();
-            go(1);
+            delete drafts.work;
+            advance();
           } catch (failure) {
             error.textContent = failure.userMessage || failure.message;
             submit.disabled = false;
-            submit.textContent = t('setup.continue');
-          }
-        },
-      };
-    },
-
-    stage: () => {
-      const current = stepState('career_stage').value || null;
-      const stages = (firstRun && firstRun.career_stages) || [];
-      const choice = { value: current };
-      const radios = stages.map((stage) => {
-        const id = `setup-stage-${stage}`;
-        return el('label', { className: 'setup__option', attrs: { for: id } }, [
-          el('input', {
-            className: 'setup__radio',
-            attrs: { type: 'radio', name: 'setup-stage', id, value: stage },
-            props: { checked: stage === current },
-            on: { change: () => { choice.value = stage; } },
-          }),
-          el('span', { text: t(`firstrun.stage.${stage}`) }),
-        ]);
-      });
-      return {
-        nodes: [el('fieldset', { className: 'setup__options' }, [
-          el('legend', { className: 'setup__legend', text: t('setup.stage.legend') }),
-          ...radios,
-        ])],
-        submit: async (error) => {
-          if (!choice.value || choice.value === current) {
-            go(1);
-            return;
-          }
-          const submit = root.querySelector('#setup-next');
-          submit.disabled = true;
-          submit.textContent = t('setup.saving');
-          try {
-            await api.setCareerStage(choice.value);
-            firstRun = await api.getFirstRun();
-            go(1);
-          } catch (failure) {
-            error.textContent = failure.userMessage || failure.message;
-            submit.disabled = false;
-            submit.textContent = t('setup.continue');
+            submit.textContent = before;
           }
         },
       };
     },
 
     home: () => {
-      const current = value('candidate_country') || '';
-      const draft = drafts.home ?? current;
-      const select = describedBy(el('select', {
-        className: 'select setup__select',
-        attrs: { id: 'setup-country', autocomplete: 'country' },
-        on: { change: (event) => { drafts.home = event.target.value; } },
-      }, [
-        el('option', { text: t('setup.home.choose'), attrs: { value: '' } }),
-        ...sortedCountries().map(({ code, name }) => el('option', {
-          text: name,
-          attrs: { value: code, ...(code === draft ? { selected: 'selected' } : {}) },
-        })),
-      ]));
+      const saved = value('candidate_country') || '';
+      // Held as the code when the text names a country, so a language switch
+      // redraws "Brasil" as "Brazil" rather than as a word this locale does
+      // not recognise.
+      const draft = drafts.home || { text: '', code: saved };
+      const { box, list } = countryInput({
+        id: 'setup-country',
+        code: draft.code,
+        onInput: (text) => { drafts.home = { text, code: countryCode(text) }; },
+      });
+      box.value = draft.code ? countryName(draft.code) : draft.text;
       return {
-        nodes: [label('setup-country', t('setup.home.label')), select],
+        nodes: [label('setup-country', t('setup.home.label')), box, list, hint(t('setup.home.note'))],
         submit: (error) => {
-          const code = select.value;
-          if (!code || code === current) {
-            go(1);
+          const typed = box.value.trim();
+          const code = countryCode(typed);
+          if (typed && !code) {
+            invalid(box, error, t('setup.home.unknown'));
             return;
           }
-          save({ candidate_country: code }, error);
+          delete drafts.home;
+          if (!code || code === saved) {
+            advance();
+            return;
+          }
+          // A new country: the regions that contain it are different, so the
+          // screen reads them back before the next card asks about them.
+          save({ candidate_country: code }, error, { refresh: true });
         },
       };
     },
@@ -510,9 +688,9 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           }),
         ]));
       }
-      const list = el('ul', { className: 'setup__chips', attrs: { 'aria-live': 'polite' } });
+      const chips = el('ul', { className: 'setup__chips', attrs: { 'aria-live': 'polite' } });
       function paint() {
-        replace(list, draft.others.map((code) => el('li', { className: 'setup__chip' }, [
+        replace(chips, draft.others.map((code) => el('li', { className: 'setup__chip' }, [
           el('span', { text: countryName(code) }),
           button('×', () => {
             draft.others = draft.others.filter((item) => item !== code);
@@ -524,34 +702,36 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
         ])));
       }
       paint();
-      const picker = el('select', {
-        className: 'select setup__select',
-        attrs: { id: 'setup-hire-other' },
-      }, [
-        el('option', { text: t('setup.hire.pick'), attrs: { value: '' } }),
-        ...sortedCountries()
-          .filter(({ code }) => code !== home)
-          .map(({ code, name }) => el('option', { text: name, attrs: { value: code } })),
-      ]);
+      const picker = countryInput({ id: 'setup-hire-other', describe: false });
       const add = button(t('setup.hire.add'), () => {
-        const code = picker.value;
-        if (code && !draft.others.includes(code)) draft.others.push(code);
-        picker.value = '';
+        const code = countryCode(picker.box.value);
+        if (code && code !== home && !draft.others.includes(code)) draft.others.push(code);
+        picker.box.value = '';
+        picker.box.dataset.code = '';
         paint();
+        picker.box.focus();
       }, { className: 'btn', attrs: { id: 'setup-hire-add' } });
+      // Enter in the country box adds it, rather than submitting the card with
+      // a country typed and not yet added.
+      picker.box.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          add.click();
+        }
+      });
       nodes.push(
         label('setup-hire-other', home ? t('setup.hire.othersLabel') : t('setup.hire.countriesLabel')),
-        el('div', { className: 'setup__row' }, [picker, add]),
-        list,
+        el('div', { className: 'setup__row' }, [picker.box, add]),
+        picker.list,
+        chips,
         hint(t('setup.hire.note')),
       );
       return {
         nodes,
         submit: (error) => {
           const next = [...(draft.homeAnswer === 'yes' && home ? [home] : []), ...draft.others];
-          const same = next.length === saved.length && next.every((code) => saved.includes(code));
-          if (same) {
-            go(1);
+          if (sameList(next, saved)) {
+            advance();
             return;
           }
           save({ eligible_countries: next }, error);
@@ -559,22 +739,76 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
       };
     },
 
+    // Only the regions that CONTAIN where she lives: a scope admits a posting
+    // only through her residence (`gates._region_verdict`), so any other region
+    // would be a box that does nothing.
     regions: () => multiChoice({
       field: 'eligible_scopes',
-      choices: REGIONS,
+      choices: homeRegions(),
       labelOf: (code) => t(`setup.region.${code}`),
-      legend: t('setup.regions.legend'),
+      legend: t('setup.regions.legend', { country: countryName(value('candidate_country') || '') }),
       note: t('setup.regions.note'),
       allowEmpty: false,
     }),
 
+    workmodel: () => {
+      const saved = values(WORK_MODEL_FIELDS);
+      const draft = drafts.workmodel || { ...saved };
+      drafts.workmodel = draft;
+      return {
+        nodes: [
+          workModelMatrix({
+            id: 'setup-workmodel',
+            legend: t('setup.workmodel.legend'),
+            describedBy: 'setup-why',
+            values: draft,
+            onChange: (next) => { Object.assign(draft, next); },
+          }),
+          hint(t('setup.workmodel.note')),
+        ],
+        submit: (error) => {
+          const changes = {};
+          for (const field of WORK_MODEL_FIELDS) {
+            if (!sameList(draft[field], saved[field])) changes[field] = draft[field];
+          }
+          delete drafts.workmodel;
+          save(changes, error, { refresh: true });
+        },
+      };
+    },
+
+    arrangement: () => {
+      const saved = values(ARRANGEMENT_FIELDS);
+      const draft = drafts.arrangement || { ...saved };
+      drafts.arrangement = draft;
+      return {
+        nodes: [
+          arrangementMatrix({
+            id: 'setup-arrangement',
+            legend: t('setup.arrangement.legend'),
+            describedBy: 'setup-why',
+            values: draft,
+            onChange: (next) => { Object.assign(draft, next); },
+          }),
+          hint(t('setup.arrangement.note')),
+        ],
+        submit: (error) => {
+          const changes = {};
+          for (const field of ARRANGEMENT_FIELDS) {
+            if (!sameList(draft[field], saved[field])) changes[field] = draft[field];
+          }
+          delete drafts.arrangement;
+          save(changes, error, { refresh: true });
+        },
+      };
+    },
+
     // LEVELS TO KEEP OFF THE LIST, not "levels you prefer". The preferred list
-    // is recorded but nothing ranks or filters by it today; the excluded list
-    // hides those postings from Discover, with a notice that shows them again.
-    // A first run asks only questions whose answer changes something.
+    // is stored but nothing ranks or filters by it; the excluded list hides
+    // those postings from Discover, with a notice that shows them again.
     level: () => multiChoice({
       field: 'seniority_excluded',
-      choices: ['INTERN', 'JUNIOR', 'MID', 'SENIOR', 'STAFF', 'PRINCIPAL', 'LEAD'],
+      choices: LEVELS,
       labelOf: vocab,
       legend: t('setup.level.legend'),
       note: t('setup.level.note'),
@@ -620,28 +854,31 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
         submit: (error) => {
           const raw = draft.amount.trim();
           if (!raw) {
-            go(1);
+            delete drafts.pay;
+            advance();
             return;
           }
           const number = Number(raw);
           if (!Number.isFinite(number) || number <= 0) {
-            error.textContent = t('setup.pay.invalid');
-            amount.setAttribute('aria-invalid', 'true');
-            amount.focus();
+            invalid(amount, error, t('setup.pay.invalid'));
             return;
           }
           if (!draft.currency) {
-            error.textContent = t('setup.pay.needCurrency');
-            currency.focus();
+            invalid(currency, error, t('setup.pay.needCurrency'));
             return;
           }
           const changes = {};
           if (number !== Number(savedAmount)) changes.compensation_target = number;
           if (draft.currency !== savedCurrency) changes.compensation_currency = draft.currency;
+          delete drafts.pay;
           save(changes, error);
         },
       };
     },
+
+    cv: () => cvCard(),
+
+    review: () => reviewCard(),
 
     ready: () => readyCard(),
   };
@@ -649,7 +886,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
   /** A set of checkboxes for one enum-list field. */
   function multiChoice({ field, choices, labelOf, legend, note = '', allowEmpty }) {
     const saved = Array.isArray(value(field)) ? value(field) : [];
-    const chosen = drafts[field] || new Set(saved);
+    const chosen = drafts[field] || new Set(saved.filter((item) => choices.includes(item)));
     drafts[field] = chosen;
     const boxes = choices.map((choice) => {
       const id = `setup-${field}-${choice}`;
@@ -670,25 +907,29 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     });
     return {
       nodes: [
-        el('fieldset', { className: 'setup__options' }, [
+        el('fieldset', { className: 'setup__options', attrs: { 'aria-describedby': 'setup-why' } }, [
           el('legend', { className: 'setup__legend', text: legend }),
           ...boxes,
         ]),
         note ? hint(note) : null,
       ].filter(Boolean),
       submit: (error) => {
+        // Only what this card offered is its answer. A saved value it does not
+        // offer -- a region that does not contain where she now lives -- admits
+        // nothing, and is dropped when she answers again.
         const next = choices.filter((choice) => chosen.has(choice));
-        const same = next.length === saved.length && next.every((item) => saved.includes(item));
-        if (same) {
-          go(1);
+        delete drafts[field];
+        if (sameList(next, saved)) {
+          advance();
           return;
         }
         if (!next.length && !allowEmpty) {
           if (!saved.length) {
-            go(1);
+            advance();
             return;
           }
           error.textContent = t('setup.pickOne');
+          drafts[field] = chosen;
           return;
         }
         save({ [field]: next }, error);
@@ -697,7 +938,86 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
   }
 
   // ===================================================================
-  // the last card: what was answered, and finding the first jobs
+  // career data: optional, and never confirmed by being read
+  // ===================================================================
+
+  function cvAdded() {
+    return Boolean(stepState('documents').done);
+  }
+
+  /**
+   * Add a CV, or skip. The search works without one; Career Evidence and
+   * resume preparation need one. Read through the same route Career Evidence
+   * uses (`POST /api/cv/import`): every line becomes a proposal, and nothing
+   * is true about her until she confirms it there.
+   */
+  function cvCard() {
+    const status = el('p', {
+      className: 'setup__cvstatus',
+      attrs: { role: 'status', 'aria-live': 'polite', id: 'setup-cv-status' },
+      text: drafts.cvNotice || '',
+    });
+    const input = el('input', {
+      className: 'ev__file',
+      attrs: { type: 'file', id: 'setup-cv-file', accept: CV_ACCEPT, 'aria-describedby': 'setup-why' },
+    });
+    const read = button(t('setup.cv.read'), async () => {
+      const file = input.files && input.files[0];
+      if (!file) {
+        status.textContent = t('setup.cv.chooseFirst');
+        return;
+      }
+      read.disabled = true;
+      status.textContent = t('setup.cv.reading', { name: file.name });
+      try {
+        const bytes = await file.arrayBuffer();
+        const result = await api.importCv(file.name, bytes);
+        const found = (result.proposals || []).length;
+        drafts.cvNotice = t('setup.cv.found', { n: found });
+        firstRun = await api.getFirstRun();
+        draw({ focus: false });
+        const again = root.querySelector('#setup-next');
+        if (again) again.focus();
+      } catch (failure) {
+        status.textContent = failure.userMessage || failure.message;
+        read.disabled = false;
+      }
+    }, { className: 'btn', attrs: { id: 'setup-cv-read' } });
+    const chosenName = el('span', { className: 'setup__hint', attrs: { id: 'setup-cv-name' } });
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      chosenName.textContent = file ? file.name : '';
+    });
+    return {
+      nodes: [
+        el('p', { className: 'setup__lead', text: t('setup.cv.noNeed') }),
+        el('p', { className: 'setup__hint', text: t('setup.cv.helps') }),
+        cvAdded()
+          ? el('p', { className: 'setup__done', attrs: { id: 'setup-cv-added' }, text: t('setup.cv.added') })
+          : null,
+        el('div', { className: 'setup__row setup__cvrow' }, [
+          input,
+          el('label', { className: 'btn ev__filebtn', attrs: { for: 'setup-cv-file' }, text: t('setup.cv.choose') }),
+          chosenName,
+          read,
+        ]),
+        hint(t('setup.cv.privacy', { kinds: CV_ACCEPT.split(',').join(' ') })),
+        status,
+      ].filter(Boolean),
+      actions: [
+        backButton(),
+        el('button', {
+          className: cvAdded() ? 'btn btn--primary' : 'btn',
+          attrs: { type: 'submit', id: 'setup-next' },
+          text: cvAdded() || returnTo ? t('setup.continue') : t('setup.cv.skip'),
+        }),
+      ],
+      submit: () => advance(),
+    };
+  }
+
+  // ===================================================================
+  // the review: every answer, readable, each with Change
   // ===================================================================
 
   /** "9,000 BRL", in the reader's number format, or null when unanswered. */
@@ -708,19 +1028,68 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     return [figure, value('compensation_currency') || ''].join(' ').trim();
   }
 
-  function readyCard() {
-    const summary = [
-      ['work', stepState('work').done
-        ? t('setup.ready.phrases', { n: stepState('work').phrases || 0 })
+  function hiringCoverage() {
+    const countries = (value('eligible_countries') || []).map(countryName);
+    const regions = (value('eligible_scopes') || [])
+      .filter((code) => homeRegions().includes(code))
+      .map((code) => t(`setup.region.${code}`));
+    return [...countries, ...regions].join(', ') || null;
+  }
+
+  function reviewRows() {
+    const work = stepState('work');
+    return [
+      ['work', work.done
+        ? ((work.roles || []).join(', ') || t('setup.ready.phrases', { n: work.phrases || 0 }))
         : null],
       ['home', value('candidate_country') ? countryName(value('candidate_country')) : null],
-      ['hire', (value('eligible_countries') || []).length
-        ? (value('eligible_countries') || []).map(countryName).join(', ')
-        : null],
+      // Unknown stays unknown, and says so: an empty answer here is not "no".
+      ['hire', hiringCoverage() || (value('candidate_country') ? t('setup.review.hireUnknown') : null)],
+      ['workmodel', workModelSummary(values(WORK_MODEL_FIELDS)) || t('setup.review.noPreference')],
+      ['arrangement', arrangementSummary(values(ARRANGEMENT_FIELDS)) || t('setup.review.noPreference')],
       // Skipping this card hides nothing, which is an answer: "None".
       ['level', (value('seniority_excluded') || []).map(vocab).join(', ') || t('setup.ready.none')],
       ['pay', payTarget()],
+      ['cv', cvAdded() ? t('setup.review.cvAdded') : t('setup.review.cvNotAdded')],
     ];
+  }
+
+  function reviewCard() {
+    return {
+      nodes: [
+        el('dl', { className: 'setup__summary' }, reviewRows().flatMap(([key, text]) => [
+          el('dt', { text: t(`setup.review.${key}`) }),
+          el('dd', {}, [
+            el('span', {
+              className: text ? '' : 'setup__unanswered',
+              text: text || t('setup.ready.notAnswered'),
+            }),
+            button(t('setup.ready.change'), () => change(key), {
+              className: 'btn btn--link',
+              attrs: { id: `setup-edit-${key}` },
+              ariaLabel: t('setup.ready.changeLabel', { what: t(`setup.review.${key}`) }),
+            }),
+          ]),
+        ])),
+        hint(t('setup.review.note')),
+      ],
+      actions: [
+        backButton(),
+        el('button', {
+          className: 'btn btn--primary',
+          attrs: { type: 'submit', id: 'setup-next' },
+          text: t('setup.review.looksRight'),
+        }),
+      ],
+      submit: () => advance(),
+    };
+  }
+
+  // ===================================================================
+  // the last card: what now, and finding the first jobs
+  // ===================================================================
+
+  function readyCard() {
     const status = el('div', {
       className: 'setup__find',
       attrs: { role: 'status', 'aria-live': 'polite' },
@@ -734,30 +1103,27 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     followRun(status, find);
     return {
       nodes: [
-        el('dl', { className: 'setup__summary' }, summary.flatMap(([key, text]) => [
-          el('dt', { text: t(`setup.ready.${key}`) }),
-          el('dd', {}, [
-            el('span', {
-              className: text ? '' : 'setup__unanswered',
-              text: text || t('setup.ready.notAnswered'),
-            }),
-            button(t('setup.ready.change'), () => {
-              at = STEPS.findIndex((step) => step.key === key);
-              draw();
-            }, {
-              className: 'btn btn--link',
-              ariaLabel: t('setup.ready.changeLabel', { what: t(`setup.ready.${key}`) }),
-            }),
-          ]),
-        ])),
         hint(t('setup.ready.note')),
+        // Without career data the search still works; this says what adding
+        // it would change, and nothing louder. Resume Tailor is not the next
+        // step until there is something for it to work from.
+        cvAdded() ? null : el('p', { className: 'setup__hint', text: t('setup.ready.noCv') }),
         status,
-      ],
+      ].filter(Boolean),
       actions: [
-        button(t('setup.back'), () => go(-1), { className: 'btn', attrs: { id: 'setup-back' } }),
-        button(t('setup.ready.toHome'), () => leave(), { className: 'btn', attrs: { id: 'setup-home' } }),
+        backButton(),
+        cvAdded()
+          ? null
+          : button(t('setup.ready.addCv'), () => change('cv'), {
+            className: 'btn', attrs: { id: 'setup-add-cv' },
+          }),
+        button(t('setup.ready.settings'), () => {
+          leave();
+          if (onGoTo) onGoTo('settings');
+        }, { className: 'btn btn--quiet', attrs: { id: 'setup-settings' } }),
+        button(t('setup.ready.toHome'), () => leave(), { className: 'btn btn--quiet', attrs: { id: 'setup-home' } }),
         find,
-      ],
+      ].filter(Boolean),
       submit: () => startFinding(),
     };
   }
@@ -801,6 +1167,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           ? null
           : button(t('setup.ready.see'), () => {
             rememberPostponed(true);
+            rememberPosition(null);
             if (onGoTo) onGoTo('jobs');
           }, { className: 'btn btn--primary', attrs: { id: 'setup-see' } }),
       ].filter(Boolean));
@@ -819,7 +1186,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
 
   /** Whether the person is on the last card and its run has ended. */
   function finished() {
-    if (!collection || STEPS[at].key !== 'ready') return false;
+    if (!collection || at !== 'ready') return false;
     const phase = collection.state().phase;
     return phase === 'finished' || phase === 'cancelled' || phase === 'failed';
   }
@@ -831,8 +1198,13 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
 
   /** Whether the last card -- the one that finds jobs -- is on screen. */
   function atReady() {
-    return STEPS[at].key === 'ready' && fields.size > 0;
+    return at === 'ready' && fields.size > 0;
   }
 
-  return { root, open, relabel, stop: stopPolling, finished, atReady };
+  /** She went to another page: not "left open", so a reload goes to Home. */
+  function forgetPosition() {
+    rememberPosition(null);
+  }
+
+  return { root, open, relabel, stop: stopPolling, finished, atReady, forgetPosition };
 }

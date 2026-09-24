@@ -852,17 +852,6 @@ export async function getFirstRun() {
 }
 
 /**
- * Record where the person says they are in their career, or clear it.
- *
- * CONTEXT, never identity. `null` clears the answer, which is a different
- * state from `PREFER_NOT_TO_SAY`: one is "I have not answered" and the other
- * is "I have answered, and my answer is that I would rather not say".
- */
-export async function setCareerStage(stage) {
-  return request('/firstrun/stage', { method: 'POST', body: { stage } });
-}
-
-/**
  * Read one or more career documents on this computer. Confirms nothing.
  *
  * The same promise `importCv` carries, for several documents at once: the

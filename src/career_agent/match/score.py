@@ -71,6 +71,7 @@ from career_agent.domain.matching import (
     ScoreContribution,
     SeniorityReading,
 )
+from career_agent.match.work_model import read_work_model
 from career_agent.providers.base import CompensationBand
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle exists only for the type checker
@@ -432,6 +433,47 @@ def _compensation_component(
     )
 
 
+def _work_model_component(config: SearchConfig, job_facts: JobFacts) -> ScoreComponent | None:
+    """Her work-model preference, or None when she has stated none.
+
+    A posting that did not say how the work is done earns the neutral points:
+    nothing was stated, so nothing is either rewarded or held against it.
+    """
+    remote = config.preferences.remote
+    preferred = {model.upper() for model in remote.accepted_work_models}
+    avoided = {model.upper() for model in remote.avoided_work_models}
+    avoided |= {model.upper() for model in remote.excluded_work_models}
+    if not preferred and not avoided:
+        return None
+    component = config.scoring.components.work_model
+    stated = read_work_model(job_facts)
+    if stated is None:
+        signal_id, points = "work_model_unknown", component.neutral
+    elif stated in avoided:
+        signal_id, points = "work_model_avoided", component.avoided
+    elif stated in preferred:
+        signal_id, points = "work_model_preferred", component.preferred
+    else:
+        signal_id, points = "work_model_neutral", component.neutral
+    return ScoreComponent(
+        component_id="work_model",
+        label=component.label,
+        points=min(points, component.max),
+        max_points=component.max,
+        contributions=(
+            ScoreContribution(
+                signal_id=signal_id,
+                label="Work model preference",
+                prominence=Prominence.INCIDENTAL,
+                weight=points,
+                points=points,
+            ),
+        ),
+        capped=points > component.max,
+        note=None,
+    )
+
+
 def score_components(
     config: SearchConfig,
     *,
@@ -456,7 +498,7 @@ def score_components(
     posting drifting apart is a class of bug worth designing out.
     """
     components = config.scoring.components
-    return (
+    fixed = (
         _weighted_component("responsibilities", components.responsibilities, observed_body),
         _weighted_component("technologies", components.technologies, observed_body),
         _weighted_component(
@@ -465,6 +507,9 @@ def score_components(
         _seniority_component(config, seniority),
         _compensation_component(config, job_facts, employment),
     )
+    # A sixth, only when she stated a way-of-working preference.
+    work_model = _work_model_component(config, job_facts)
+    return fixed + ((work_model,) if work_model else ())
 
 
 def soft_penalties(

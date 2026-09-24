@@ -389,6 +389,8 @@ class Chrome:
         "ArrowLeft": {"windowsVirtualKeyCode": 37, "code": "ArrowLeft", "key": "ArrowLeft"},
         "Home": {"windowsVirtualKeyCode": 36, "code": "Home", "key": "Home"},
         "End": {"windowsVirtualKeyCode": 35, "code": "End", "key": "End"},
+        "ArrowDown": {"windowsVirtualKeyCode": 40, "code": "ArrowDown", "key": "ArrowDown"},
+        "Space": {"windowsVirtualKeyCode": 32, "code": "Space", "key": " ", "text": " "},
     }
 
     def press(self, key: str, *, shift: bool = False) -> None:
@@ -409,6 +411,10 @@ class Chrome:
             if event == "keyUp":
                 payload.pop("text", None)
             self._cdp.call("Input.dispatchKeyEvent", payload)
+
+    def type_text(self, text: str) -> None:
+        """Type into whatever has focus, as a keyboard would insert it."""
+        self._cdp.call("Input.insertText", {"text": text})
 
     def set_color_scheme(self, scheme: str | None) -> None:
         """Emulate `prefers-color-scheme`, or clear the override with `None`.

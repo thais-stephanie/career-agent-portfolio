@@ -147,12 +147,10 @@ def test_answers_save_as_you_go_and_back_shows_them(page: Chrome, fresh: Fresh) 
     _wait_card(page, "work")
     _value(page, "#setup-work", "customer onboarding")
     _click(page, "#setup-next")
-    _wait_card(page, "stage")
+    _wait_card(page, "home")
     config, _ = load_search_config(fresh.config_dir)
     assert config.lexicon, "the work phrases were not saved on Continue"
 
-    _click(page, "#setup-skip")
-    _wait_card(page, "home")
     _value(page, "#setup-country", "BR", "change")
     _click(page, "#setup-next")
     _wait_card(page, "hire")
@@ -161,7 +159,9 @@ def test_answers_save_as_you_go_and_back_shows_them(page: Chrome, fresh: Fresh) 
 
     _click(page, "#setup-back")
     _wait_card(page, "home")
-    assert page.evaluate("document.querySelector('#setup-country').value") == "BR"
+    # The country is shown by name and stored by code.
+    assert page.evaluate("document.querySelector('#setup-country').value") == "Brazil"
+    assert page.evaluate("document.querySelector('#setup-country').dataset.code") == "BR"
 
 
 def test_where_you_live_is_never_turned_into_where_you_can_be_hired(
@@ -171,8 +171,6 @@ def test_where_you_live_is_never_turned_into_where_you_can_be_hired(
     _open(page, fresh.base)
     _click(page, "#setup-next")
     _wait_card(page, "work")
-    _click(page, "#setup-skip")
-    _wait_card(page, "stage")
     _click(page, "#setup-skip")
     _wait_card(page, "home")
     _value(page, "#setup-country", "BR", "change")
@@ -198,9 +196,9 @@ def test_where_you_live_is_never_turned_into_where_you_can_be_hired(
 def test_do_this_later_leaves_and_settings_brings_it_back(page: Chrome, fresh: Fresh) -> None:
     _open(page, fresh.base)
     _click(page, "#setup-later")
-    page.wait_for("document.querySelectorAll('.firstrun__step').length === 6")
+    page.wait_for("document.querySelectorAll('.firstrun__step').length === 5")
     page.reload()
-    page.wait_for("document.querySelectorAll('.firstrun__step').length === 6")
+    page.wait_for("document.querySelectorAll('.firstrun__step').length === 5")
     assert not page.evaluate("Boolean(document.querySelector('.setup__card'))")
 
     _click(page, '.topnav__link[data-page="settings"]')
@@ -267,8 +265,6 @@ def test_changing_where_you_live_does_not_carry_the_hiring_answer_over(
     _open(page, fresh.base)
     _click(page, "#setup-next")
     _wait_card(page, "work")
-    _click(page, "#setup-skip")
-    _wait_card(page, "stage")
     _click(page, "#setup-skip")
     _wait_card(page, "home")
     _value(page, "#setup-country", "BR", "change")

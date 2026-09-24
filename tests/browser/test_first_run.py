@@ -10,7 +10,7 @@ not write software stops at the first one.
 So the assertions here are about a JOURNEY, from a database with nothing in it
 to confirmed evidence, with no terminal and no knowledge of the schema:
 
-  * the six steps appear on a fresh install, in order, each saying what it is
+  * the steps appear on a fresh install, in order, each saying what it is
     FOR rather than only what it is;
   * answering the career question writes, immediately, and can be un-answered;
   * a CV chosen in the file picker is read HERE and produces statements;
@@ -119,7 +119,7 @@ def empty_server(tmp_path: Path, committed_config: Path) -> Iterator[str]:
 
 def _open_home(page: Chrome, base: str) -> None:
     # A fresh install opens on the guided setup; these tests are about the
-    # six-step list behind "Do this later".
+    # step list behind "Do this later".
     open_home_past_setup(page, base)
 
 
@@ -134,7 +134,7 @@ def _step_text(page: Chrome, key: str) -> str:
 # =========================================================================
 
 
-def test_a_fresh_install_shows_six_steps_in_order(page: Chrome, empty_server: str) -> None:
+def test_a_fresh_install_shows_the_steps_in_order(page: Chrome, empty_server: str) -> None:
     """The order is the argument, so the order is what is asserted.
 
     Career context first because it is one click and it changes what the later
@@ -147,7 +147,7 @@ def test_a_fresh_install_shows_six_steps_in_order(page: Chrome, empty_server: st
     keys = page.evaluate(
         "[...document.querySelectorAll('.firstrun__step')].map(n => n.dataset.step)"
     )
-    assert keys == ["career_stage", "documents", "evidence", "where", "work", "jobs"]
+    assert keys == ["documents", "evidence", "where", "work", "jobs"]
 
 
 def test_every_step_says_what_it_is_for(page: Chrome, empty_server: str) -> None:
@@ -162,7 +162,7 @@ def test_every_step_says_what_it_is_for(page: Chrome, empty_server: str) -> None
     whys = page.evaluate(
         "[...document.querySelectorAll('.firstrun__why')].map(n => n.textContent.trim())"
     )
-    assert len(whys) == 6
+    assert len(whys) == 5
     assert all(len(why) > 40 for why in whys), whys
 
 
@@ -200,79 +200,20 @@ def test_the_privacy_sentence_is_above_the_file_picker(page: Chrome, empty_serve
 
 
 # =========================================================================
-# 2. THE CAREER QUESTION
+# 2. THE CAREER QUESTION IS NOT ASKED
 # =========================================================================
 
 
-def test_the_career_question_offers_a_way_to_decline(page: Chrome, empty_server: str) -> None:
-    """ "I would rather not say" is a real answer and a separate one from having
-    not been asked yet. A flow offering only the five substantive answers would
-    make declining look like not having got round to it."""
+def test_career_stage_is_not_asked_because_nothing_reads_it(
+    page: Chrome, empty_server: str
+) -> None:
+    """It was the first step, and no score, filter or explanation ever read the
+    answer (docs/ONBOARDING.md). A setup asks only questions that change
+    something, so it is gone from Home and from the guided setup."""
     _open_home(page, empty_server)
-    answers = page.evaluate(
-        "[...document.querySelectorAll('.firstrun__stagelist button')]"
-        ".map(b => b.getAttribute('aria-pressed'))"
-    )
-    assert len(answers) == 6
-    assert all(value == "false" for value in answers)
-
-
-def test_answering_the_career_question_writes_immediately(page: Chrome, empty_server: str) -> None:
-    """Each answer saves on its own. Leaving halfway keeps what was answered
-    rather than discarding it, which is the whole reason this is not a wizard
-    with a Finish button."""
-    _open_home(page, empty_server)
-    page.evaluate(
-        "[...document.querySelectorAll('.firstrun__stagelist button')]"
-        ".find(b => b.textContent.trim() === 'Changing careers').click()"
-    )
-    page.wait_for(
-        "document.querySelector('.firstrun__step[data-step=\"career_stage\"]')"
-        ".classList.contains('is-done')",
-        message="the step marks itself done",
-    )
-    # And it SURVIVES a reload, which is what "written" means: the answer is in
-    # the database rather than in the page. Asserted through a fresh load
-    # rather than by reading the click's response, because a control that
-    # updated only its own label would pass the check above and lose the
-    # answer. After the reload the step is answered, so Home no longer lists
-    # it as something to do; the server's own record says what was kept.
-    _open_home(page, empty_server)
-    assert not page.evaluate(
-        "Boolean(document.querySelector('.firstrun__step[data-step=\"career_stage\"]'))"
-    ), "an answered step is still listed as open"
-    stored = page.evaluate(
-        "fetch('/api/firstrun').then(r => r.json())"
-        ".then(j => j.steps.find(s => s.key === 'career_stage'))"
-    )
-    assert stored["done"] and stored["value"] == "CHANGING_CAREERS", stored
-
-
-def test_the_answer_can_be_taken_back(page: Chrome, empty_server: str) -> None:
-    """Clearing is a THIRD state, distinct from "I would rather not say".
-
-    One is "I have not answered"; the other is "I have answered, and my answer
-    is that I would rather not say". A control that could only overwrite would
-    make the first unreachable once the second had been chosen.
-    """
-    _open_home(page, empty_server)
-    page.evaluate(
-        "[...document.querySelectorAll('.firstrun__stagelist button')]"
-        ".find(b => b.textContent.trim() === 'Returning after a break').click()"
-    )
-    page.wait_for(
-        "document.querySelector('.firstrun__step[data-step=\"career_stage\"]')"
-        ".classList.contains('is-done')"
-    )
-    page.evaluate(
-        "[...document.querySelectorAll('.firstrun__stages button')]"
-        ".find(b => b.textContent.trim() === 'Leave this unanswered').click()"
-    )
-    page.wait_for(
-        "!document.querySelector('.firstrun__step[data-step=\"career_stage\"]')"
-        ".classList.contains('is-done')",
-        message="the step goes back to unanswered",
-    )
+    assert not page.evaluate("Boolean(document.querySelector('.firstrun__stagelist'))")
+    steps = page.evaluate("fetch('/api/firstrun').then(r => r.json()).then(j => j.steps)")
+    assert "career_stage" not in [step["key"] for step in steps]
 
 
 # =========================================================================
@@ -382,7 +323,7 @@ def test_reading_the_same_document_twice_keeps_the_answers(page: Chrome, empty_s
 def test_the_evidence_step_opens_the_review_that_owns_the_question(
     page: Chrome, empty_server: str
 ) -> None:
-    """Four of the six steps hand off rather than re-implementing.
+    """Three of the five steps hand off rather than re-implementing.
 
     A second evidence review inside the first-run flow would have its own bugs,
     and the authoritative one would be whichever was written last.
@@ -425,7 +366,7 @@ def test_the_whole_flow_moves_language(page: Chrome, empty_server: str) -> None:
     portuguese = page.evaluate(
         "[...document.querySelectorAll('.firstrun__steptitle')].map(n => n.textContent.trim())"
     )
-    assert len(portuguese) == 6
+    assert len(portuguese) == 5
     assert all(pt != en for pt, en in zip(portuguese, english, strict=True))
     # Put the browser back, because the fixture is session scoped and the next
     # test would otherwise open a Portuguese page for reasons it cannot see.
@@ -453,16 +394,5 @@ def test_the_first_screen_is_captured_for_the_readme(
     check run either way.
     """
     _open_home(page, empty_server)
-    # A CHOSEN ANSWER on the first step, because a picture of six untouched
-    # rows does not show what answering one looks like -- and the chosen state
-    # is the part a reader is trying to recognise.
-    page.evaluate(
-        "[...document.querySelectorAll('.firstrun__stagelist button')]"
-        ".find(b => b.textContent.trim() === 'Changing careers').click()"
-    )
-    page.wait_for(
-        "document.querySelector('.firstrun__step[data-step=\"career_stage\"]')"
-        ".classList.contains('is-done')"
-    )
     written = capture("first-run-desktop")
     assert written.exists()

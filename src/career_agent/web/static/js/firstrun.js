@@ -44,27 +44,29 @@ import * as api from './api.js';
 import { phraseProblem } from './format.js';
 
 /**
- * The six steps, in the only order that works.
+ * The steps, in the only order that works.
  *
  * `key` matches what `GET /api/firstrun` returns, so the server decides what
  * is done and this file decides what to say about it. A step whose key the
  * server stops sending simply stops being drawn, rather than being drawn with
  * an invented state.
  *
- * The ORDER is an argument. Career context first because it is one click and
- * it changes what the later steps explain. Documents before evidence because
+ * The ORDER is an argument. Documents before evidence because
  * there is nothing to review until something has been read. "Where you may
  * work" before "what work you want" because the first is the only one that can
  * make the whole list empty. And jobs last, because everything above it
  * changes the answer.
  */
+//
+// CAREER STAGE IS NOT HERE. It was the first step and nothing read its answer
+// -- no score, no filter, no explanation (docs/ONBOARDING.md) -- so the server
+// stopped sending it and this list stopped drawing it.
 const STEPS = [
-  { key: 'career_stage', icon: '1' },
-  { key: 'documents', icon: '2' },
-  { key: 'evidence', icon: '3', goTo: 'evidence' },
-  { key: 'where', icon: '4', goTo: 'profile' },
-  { key: 'work', icon: '5', goTo: 'profile' },
-  { key: 'jobs', icon: '6', goTo: 'jobs' },
+  { key: 'documents', icon: '1' },
+  { key: 'evidence', icon: '2', goTo: 'evidence' },
+  { key: 'where', icon: '3', goTo: 'profile' },
+  { key: 'work', icon: '4', goTo: 'profile' },
+  { key: 'jobs', icon: '5', goTo: 'jobs' },
 ];
 
 /**
@@ -232,9 +234,6 @@ export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null
    */
   function stateLine(step) {
     const words = {
-      career_stage: () => (step.value
-        ? t(`firstrun.stage.${step.value}`)
-        : t('firstrun.state.unanswered')),
       documents: () => (step.done
         ? t('firstrun.state.documents', { n: (step.packages || 0) + (step.documents || 0) })
         : t('firstrun.state.noDocuments')),
@@ -257,7 +256,6 @@ export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null
   }
 
   function controls(step, spec, done) {
-    if (step.key === 'career_stage') return [stageControl(step)];
     if (step.key === 'documents') return [uploadControl()];
     if (step.key === 'work' && !done) return [firstSearchControl()];
     // WHERE YOU LIVE, AND WHO MAY HIRE YOU: answered in the guided setup, at
@@ -323,56 +321,7 @@ export function createFirstRun({ onGoTo = null, onChanged = null, onSetup = null
   }
 
   // =====================================================================
-  // step 1 -- where are you in your career right now
-  // =====================================================================
-  /**
-   * Six answers, one of which is "I would rather not say".
-   *
-   * THAT OPTION IS LOAD-BEARING. "I would rather not answer" and "nobody has
-   * asked me yet" are different facts, and a flow that offered only five would
-   * have made declining look like not having got round to it. Clearing the
-   * answer is a third state again, and the control offers that too.
-   *
-   * It is CONTEXT and the copy says so: it changes what the product explains
-   * and which filters it offers, and it changes no score, no eligibility
-   * verdict and nothing about which postings are collected.
-   */
-  function stageControl(step) {
-    const status = el('p', {
-      className: 'firstrun__status',
-      attrs: { role: 'status', 'aria-live': 'polite' },
-    });
-    const stages = state.career_stages || [];
-    const buttons = stages.map((value) => button(t(`firstrun.stage.${value}`), async () => {
-      try {
-        await api.setCareerStage(value);
-        if (onChanged) onChanged();
-        await load();
-      } catch (error) {
-        status.textContent = error.userMessage || error.message;
-      }
-    }, {
-      className: 'chipbtn',
-      // `aria-pressed` through `attrs`, which is what `button()` accepts.
-      // A toggle that looks chosen and does not SAY it is chosen is invisible
-      // to a screen reader.
-      attrs: { 'aria-pressed': step.value === value ? 'true' : 'false' },
-    }));
-    return el('div', { className: 'firstrun__stages' }, [
-      el('div', { className: 'firstrun__stagelist' }, buttons),
-      step.value
-        ? button(t('firstrun.stage.clear'), async () => {
-          await api.setCareerStage(null);
-          if (onChanged) onChanged();
-          await load();
-        }, { className: 'btn btn--quiet' })
-        : null,
-      status,
-    ].filter(Boolean));
-  }
-
-  // =====================================================================
-  // step 2 -- import your career information
+  // step 1 -- import your career information
   // =====================================================================
   /**
    * The file picker, and the one thing it must not do: claim anything.

@@ -85,7 +85,9 @@ def test_every_advertised_field_can_actually_be_read_back(workspace: Path, field
     [
         ({"work_models": ["TELEPATHY"]}, "not one of"),
         ({"work_models": "REMOTE"}, "list of choices"),
-        ({"work_models": []}, "match nothing"),
+        # Empty is refused only where it would admit nothing at all. An empty
+        # list of preferred ways of working is "no preference", a real answer.
+        ({"eligible_scopes": []}, "match nothing"),
         ({"travel_max_pct": 300}, "0 to 100"),
         ({"travel_max_pct": "lots"}, "0 to 100"),
         ({"compensation_target": -1}, "negative"),

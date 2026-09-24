@@ -281,8 +281,17 @@ def test_the_detail_justifies_every_number(api: JobsApi) -> None:
     job_id = _jobs(api, limit=1)["items"][0]["job_id"]
     detail = api.handle_api("GET", f"/api/jobs/{job_id}", {}, {})
 
-    # Five, since `role_family` stopped paying for the title.
-    assert len(detail["components"]) == 5
+    # Five, since `role_family` stopped paying for the title -- and a sixth,
+    # "Way of working", because the committed example states a preference.
+    ids = [c["component_id"] for c in detail["components"]]
+    assert ids[:5] == [
+        "responsibilities",
+        "technologies",
+        "automation_integration",
+        "seniority",
+        "compensation_contract",
+    ]
+    assert ids[5:] == ["work_model"]
     assert "role_family" not in {c["component_id"] for c in detail["components"]}
     # The budget, whatever it is. The score is a percentage of this sum, so
     # what matters is that the detail exposes it rather than that it is 100.
@@ -293,6 +302,7 @@ def test_the_detail_justifies_every_number(api: JobsApi) -> None:
         for component in detail["components"]
         for contribution in component["contributions"]
         if contribution["signal_id"] not in ("role_family", "seniority", "compensation")
+        and not contribution["signal_id"].startswith("work_model")
         and contribution["points"] > 0
         and contribution.get("quote") is not None
     )
@@ -837,6 +847,7 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
         "include_ineligible": "false",
         "include_unresolved": "false",
         "include_excluded_seniority": "false",
+        "include_excluded_work_model": "false",
         "include_off_target": "false",
         # The third narrowing, and the one she applies herself. Same "false"
         # for the same reason.

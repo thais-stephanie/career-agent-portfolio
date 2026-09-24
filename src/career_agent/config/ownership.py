@@ -130,11 +130,25 @@ FACTS: tuple[Fact, ...] = (
     ),
     # -- how she will work ---------------------------------------------
     Fact(
-        subject="Ways of working you will accept",
+        subject="Ways of working you prefer",
         owner=Owner.CANDIDATE,
         home=Home.SEARCH_CONFIG,
         path="preferences.remote.accepted_work_models",
         field="work_models",
+    ),
+    Fact(
+        subject="Ways of working you would rather avoid",
+        owner=Owner.CANDIDATE,
+        home=Home.SEARCH_CONFIG,
+        path="preferences.remote.avoided_work_models",
+        field="avoided_work_models",
+    ),
+    Fact(
+        subject="Ways of working never to show",
+        owner=Owner.CANDIDATE,
+        home=Home.SEARCH_CONFIG,
+        path="preferences.remote.excluded_work_models",
+        field="excluded_work_models",
     ),
     Fact(
         subject="Only consider remote roles",

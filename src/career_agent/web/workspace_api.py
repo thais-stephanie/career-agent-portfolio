@@ -1127,13 +1127,14 @@ class WorkspaceRoutes(_MixinBase):
             getattr(eligibility, "eligible_countries", ()) or ()
         )
         work_described = bool(getattr(config, "lexicon", {}) or {})
+        roles, skills = _first_search_phrases(config)
+        home_code = (getattr(eligibility, "candidate_country", "") or "").strip().upper()
 
+        # CAREER STAGE IS NOT A STEP. It is stored and nothing reads it -- no
+        # score, no filter, no explanation changes with it (docs/ONBOARDING.md)
+        # -- so asking it as setup would be a question the product ignores.
+        # The answer, if one was given, is kept and still returned below.
         steps = [
-            {
-                "key": "career_stage",
-                "done": stage is not None,
-                "value": stage,
-            },
             {
                 "key": "documents",
                 "done": bool(staged) or packages > 0,
@@ -1153,11 +1154,18 @@ class WorkspaceRoutes(_MixinBase):
                 "key": "where",
                 "done": lives_somewhere and scopes_named,
                 "country": getattr(eligibility, "candidate_country", "") or None,
+                # The hiring regions that CONTAIN where she lives: the only ones
+                # a scope answer can admit through (`gates._region_verdict`),
+                # so the only ones worth asking about.
+                "regions": _regions_containing(home_code) if home_code else [],
             },
             {
                 "key": "work",
                 "done": work_described,
                 "phrases": len(getattr(config, "lexicon", {}) or {}),
+                # The words she gave the setup, so going back shows them.
+                "roles": roles,
+                "skills": skills,
             },
             {
                 "key": "jobs",
@@ -1176,6 +1184,7 @@ class WorkspaceRoutes(_MixinBase):
             # user dismissed a banner": the question is whether the product can
             # conclude anything yet.
             "fresh": confirmed == 0 and not work_described,
+            "career_stage": stage,
             "career_stages": [stage.value for stage in CareerStage],
         }
 
@@ -2149,3 +2158,37 @@ class WorkspaceRoutes(_MixinBase):
                 else:
                     repo.set(candidate_id, job_id, key, verdict=verdict, note=note)
         return self.preparation(job_id=job_id, query={}, body={})
+
+
+def _first_search_phrases(config: object) -> tuple[list[str], list[str]]:
+    """The kinds of work and the skills the setup wrote, as she typed them.
+
+    The setup files a kind of work as a lexicon entry under
+    `responsibility_other` and a skill as an entry weighted in the
+    technologies component; anything else in the lexicon came from somewhere
+    else and is not an answer she gave here.
+    """
+    lexicon = getattr(config, "lexicon", {}) or {}
+    scoring = getattr(config, "scoring", None)
+    weights = scoring.components.technologies.weights if scoring is not None else {}
+    roles: list[str] = []
+    skills: list[str] = []
+    for key, entry in lexicon.items():
+        label = str(getattr(entry, "label", "") or key)
+        responsibility = getattr(entry, "responsibility", None)
+        if str(getattr(responsibility, "value", responsibility) or "") == "responsibility_other":
+            roles.append(label)
+        elif key in weights:
+            skills.append(label)
+    return roles[:20], skills[:20]
+
+
+def _regions_containing(country: str) -> list[str]:
+    from career_agent.config.candidate_writer import FIELDS
+    from career_agent.match.places import region_contains
+
+    return [
+        region
+        for region in FIELDS["eligible_scopes"]["choices"]
+        if region_contains(region, country) is True
+    ]

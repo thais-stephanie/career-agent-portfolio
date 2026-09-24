@@ -8177,3 +8177,37 @@ body {
 @media (max-width: 560px) {
   .collectbar { padding: 10px 16px; }
 }
+
+/* ONE ANSWER PER ROW (js/choices.js), shared by the setup and Settings. Each
+   row is a radio group; its options are pill-shaped labels, the checked one
+   filled, and they wrap on a phone rather than scrolling sideways. */
+.choicematrix { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.choicematrix__legend { padding: 0; margin-bottom: 4px; font-weight: 600; color: var(--ink); }
+.choicematrix__row {
+  display: grid; grid-template-columns: minmax(96px, 11rem) 1fr; align-items: center; gap: 8px;
+  margin: 0; padding: 0; border: 0; min-width: 0;
+}
+.choicematrix__name { float: left; padding: 0; font-weight: 600; color: var(--ink); font-size: var(--t-body); }
+.choicematrix__options { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.choicematrix__option {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 5px 12px; border: var(--edge) solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--body); font-size: var(--t-micro); font-weight: 600;
+}
+.choicematrix__radio { margin: 0; accent-color: var(--ink); }
+.choicematrix__option:has(.choicematrix__radio:checked) { background: var(--mint-wash); color: var(--ink); border-color: var(--ink); }
+.choicematrix__option:has(.choicematrix__radio:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .choicematrix__row { grid-template-columns: 1fr; }
+}
+
+/* Onboarding V2: the country box, answers already given, and the CV row. */
+.setup__country { width: 100%; max-width: 420px; }
+.setup__row > .setup__country { flex: 1 1 220px; }
+.setup__dot { display: inline-block; }
+.setup__saved { display: grid; gap: 6px; }
+.setup__chips--static .setup__chip { padding-right: 10px; }
+.setup__lead { margin: 0; font-weight: 600; color: var(--ink); }
+.setup__cvrow { align-items: center; }
+.setup__cvstatus { margin: 0; color: var(--ink); }
+.setup__cvstatus:empty { display: none; }

@@ -46,11 +46,30 @@ from career_agent.config.preferences import PreferenceError, _load_effective, lo
 #: `eligibility.blockers` and rewrite how matching works from a settings panel.
 #: A field absent from this table cannot be written, whatever the request says.
 FIELDS: dict[str, dict[str, Any]] = {
+    # THREE ANSWERS ABOUT EACH WAY OF WORKING, one list each, never
+    # overlapping: prefer, rather avoid, never show. Unanswered is "fine".
+    # Empty is allowed on all three -- no preference is a real answer -- and
+    # none of them is eligibility: remote is never read as "hires anywhere".
     "work_models": {
         "path": ("preferences", "remote", "accepted_work_models"),
         "kind": "enum_list",
         "choices": ("REMOTE", "HYBRID", "ONSITE"),
-        "label": "Ways of working you will accept",
+        "label": "Ways of working you prefer",
+        "allow_empty": True,
+    },
+    "avoided_work_models": {
+        "path": ("preferences", "remote", "avoided_work_models"),
+        "kind": "enum_list",
+        "choices": ("REMOTE", "HYBRID", "ONSITE"),
+        "label": "Ways of working you would rather avoid",
+        "allow_empty": True,
+    },
+    "excluded_work_models": {
+        "path": ("preferences", "remote", "excluded_work_models"),
+        "kind": "enum_list",
+        "choices": ("REMOTE", "HYBRID", "ONSITE"),
+        "label": "Ways of working never to show",
+        "allow_empty": True,
     },
     "require_remote": {
         "path": ("preferences", "remote", "require_remote"),
@@ -62,6 +81,7 @@ FIELDS: dict[str, dict[str, Any]] = {
         "kind": "enum_list",
         "choices": ("FULL_TIME_EMPLOYEE", "CONTRACTOR_B2B", "EOR"),
         "label": "Engagements you would accept",
+        "allow_empty": True,
     },
     "contract_unwanted": {
         "path": ("preferences", "contract", "unwanted"),
@@ -313,6 +333,69 @@ def _write_atomically(target: Path, text: str) -> None:
         raise
 
 
+#: Lists that answer one question about the same values, so no value may sit in
+#: two of them. A way of working cannot be both preferred and never shown, and
+#: an engagement cannot be both accepted and unwanted: the scorer checks
+#: "preferred" first, so an overlap silently cancels the second answer.
+#:
+#: Files written before these lists were kept apart can already overlap -- the
+#: old profile screen only offered "prefer less" from the accepted list. Such
+#: an overlap is RESOLVED, not refused: the answer being saved now wins and the
+#: value leaves the sibling list, which changes no score, because "preferred"
+#: already won. Only one request naming the same value twice is refused.
+_DISJOINT: tuple[tuple[str, ...], ...] = (
+    ("work_models", "avoided_work_models", "excluded_work_models"),
+    ("contract_preferred", "contract_unwanted"),
+)
+
+_WORK_MODEL_FIELDS = ("work_models", "avoided_work_models", "excluded_work_models")
+
+
+def _read(document: dict[str, Any], path: tuple[str, ...]) -> Any:
+    node: Any = document
+    for key in path:
+        node = node.get(key) if isinstance(node, dict) else None
+        if node is None:
+            return None
+    return node
+
+
+def _keep_disjoint(document: dict[str, Any], changes: dict[str, Any]) -> None:
+    for group in _DISJOINT:
+        named = [field for field in group if field in changes]
+        if not named:
+            continue
+        claimed: dict[str, str] = {}
+        for field in named:
+            for value in _read(document, tuple(FIELDS[field]["path"])) or []:
+                if value in claimed:
+                    raise PreferenceError(
+                        f"{value} cannot be both in {FIELDS[claimed[value]]['label'].lower()} "
+                        f"and in {FIELDS[field]['label'].lower()}."
+                    )
+                claimed[value] = field
+        for field in group:
+            if field in named:
+                continue
+            path = tuple(FIELDS[field]["path"])
+            current = _read(document, path)
+            if current:
+                kept = [value for value in current if value not in claimed]
+                if kept != current:
+                    _place(document, path, kept)
+
+
+def _derive_require_remote(document: dict[str, Any]) -> None:
+    """True exactly when hybrid and on-site are both never to be shown.
+
+    Derived here, once, so the setup and the profile screen cannot disagree
+    about it. Nothing scores or filters on it; it is kept because files carry
+    it and older tools print it.
+    """
+    excluded = set(_read(document, ("preferences", "remote", "excluded_work_models")) or [])
+    _place(document, ("preferences", "remote", "require_remote"), {"HYBRID", "ONSITE"} <= excluded)
+
+
 def set_candidate_fields(config_dir: Path, changes: dict[str, Any]) -> tuple[Path, int, list[str]]:
     """Apply one or more candidate choices. Returns the file, version and fields.
 
@@ -346,6 +429,9 @@ def set_candidate_fields(config_dir: Path, changes: dict[str, Any]) -> tuple[Pat
         spec = FIELDS[field]
         _place(document, tuple(spec["path"]), _coerce(field, spec, value))
         applied.append(field)
+    _keep_disjoint(document, changes)
+    if set(changes) & set(_WORK_MODEL_FIELDS):
+        _derive_require_remote(document)
 
     target = local_search_path(config_dir)
     if document == before and target.exists():
