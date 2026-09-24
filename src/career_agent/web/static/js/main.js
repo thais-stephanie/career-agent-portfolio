@@ -33,6 +33,9 @@ import { createRetrievalPanel } from './retrieval.js';
 import { createCollection, createProgressView, outcomeText } from './collection.js';
 import { createDrawer } from './detail.js';
 import { createEvidence } from './evidence.js';
+import { documentsPage } from './documents.js';
+import { evidencePage } from './evidence_page.js';
+import { experienceView } from './experience.js';
 import { createDaily } from './daily.js';
 import { createHome } from './home.js';
 import { localeFlag } from './icons.js';
@@ -95,28 +98,32 @@ dom.filters.appendChild(panel.root);
  *
  * It is created BEFORE the drawer because the drawer's Prepare tab opens it.
  */
-const evidence = createEvidence({
-  // The confirmed set moved, so any preparation already on screen was computed
-  // against evidence that no longer exists. Re-asking is cheap; showing a stale
-  // answer about what somebody can honestly claim is not.
-  onChanged: () => {
-    if (drawer.job) drawer.reloadPreparation();
-    // AND THE PROFILE IS NOW BEHIND. Its Overview, Experience and Skills tabs
-    // are the confirmed set drawn a different way, so confirming something
-    // here and walking back to the profile would show the count from before.
-    // Forgetting is enough; the page loads on arrival.
-    profileLoaded = false;
-    lastLedger = null;
-    careerContextCache = null;
-  },
-});
+/**
+ * The confirmed set or the career's organisation moved, on any of the career
+ * pages. Any preparation already on screen was computed against evidence that
+ * no longer exists, and the profile's tabs are the same facts drawn another
+ * way. Forgetting is enough; each page loads on arrival.
+ */
+function careerChanged() {
+  if (drawer.job) drawer.reloadPreparation();
+  profileLoaded = false;
+  lastLedger = null;
+  careerContextCache = null;
+}
+
+// THE LEGACY STATEMENT MANAGER. Every capability it had -- the organising
+// workspace, the full statement list with revisions, package review and
+// conflict resolution -- is kept, on a secondary page reached from Evidence
+// and Documents ("Manage all statements"). It is no longer the career's front
+// door: Career Profile, Evidence and Documents are (docs/CAREER_WORKSPACE.md).
+const evidence = createEvidence({ onChanged: () => careerChanged() });
 document.getElementById('evidence-host').appendChild(evidence.root);
 
 //: Text boxes on Career Evidence the person has typed into. A box that is
 //: gone from the page was saved or discarded by the page itself; one still
 //: there with text in it is work a redraw would lose.
 const evidenceEdits = new Set();
-for (const host of [document.getElementById('page-evidence'), evidence.root]) {
+for (const host of [document.getElementById('page-manage'), evidence.root]) {
   host?.addEventListener('input', (event) => {
     const node = event.target;
     if (node instanceof HTMLTextAreaElement
@@ -154,9 +161,9 @@ const drawer = createDrawer({
   // package is already waiting to be asked about it. The requirement was
   // always passed here and always discarded, so the trip used to end at the
   // top of a long screen with nothing saying what it was for.
-  onEvidence: (row) => {
+  onEvidence: () => {
     goTo('evidence');
-    if (row && row.label) evidence.focusOn(row.label);
+    evidenceView.add();
   },
   // Whether Career Agent holds anything about this person's career -- a read
   // document, or evidence waiting or confirmed. Resume Tailor keeps its own
@@ -165,7 +172,7 @@ const drawer = createDrawer({
   careerContext: () => careerContext(),
   onAddCareer: () => {
     store.set({ openJobId: null });
-    goTo('evidence');
+    goTo('documents');
   },
 });
 document.getElementById('drawer-host').appendChild(drawer.root);
@@ -200,6 +207,9 @@ const PAGES = {
   applications: document.getElementById('page-jobs'),
   profile: document.getElementById('page-profile'),
   evidence: document.getElementById('page-evidence'),
+  documents: document.getElementById('page-documents'),
+  // Not in the navigation: the advanced statement manager.
+  manage: document.getElementById('page-manage'),
   // Promoted out of the filter rail. Where the postings come from is not a
   // filter, and reaching it meant opening a disclosure inside a panel that
   // only exists on one page.
@@ -209,6 +219,49 @@ const PAGES = {
 // The rail, the page header and the mobile drawer. See `shell.js` for why the
 // header is a contract rather than five headers that happen to look alike.
 const shell = createShell();
+
+// -- the career pages -------------------------------------------------------
+const evidenceView = evidencePage({
+  onManage: () => goTo('manage'),
+  onChanged: () => careerChanged(),
+});
+PAGES.evidence.appendChild(evidenceView);
+const documentsView = documentsPage({
+  onManage: () => goTo('manage'),
+  onChanged: () => careerChanged(),
+});
+PAGES.documents.appendChild(documentsView);
+
+//: The Experience tab's view, kept across profile redraws so edit mode and an
+//: open editor survive a language change.
+let experienceNode = null;
+let profileTabs = null;
+
+/** Open the import review from the profile ("3 details to review"). */
+function reviewFromProfile() {
+  goTo('documents');
+}
+
+/**
+ * The header's actions, one primary at most. The profile's primary is Edit
+ * profile; Import resume sits beside it as the secondary way in.
+ */
+function headerAction(page) {
+  if (page === 'profile') {
+    return el('div', { className: 'pagehead__buttons' }, [
+      button(t('profileHead.import'), () => { goTo('documents'); documentsView.choose(); },
+        { className: 'btn' }),
+      button(t('profileHead.edit'), () => {
+        if (profileTabs) profileTabs.show('experience');
+        if (experienceNode) experienceNode.startEditing();
+      }, { className: 'btn btn--primary' }),
+    ]);
+  }
+  if (page === 'evidence') {
+    return button(t('evp.add'), () => evidenceView.add(), { className: 'btn btn--primary' });
+  }
+  return null;
+}
 
 const home = createHome({
   collection,
@@ -253,7 +306,7 @@ function goTo(page, { push = true } = {}) {
   // EVERY page gets the same header shape, filled from one table. Five call
   // sites setting their own is how five screens come to disagree about how
   // tall a header is.
-  shell.setPage(page === 'home' ? homeHeader : page);
+  shell.setPage(page === 'home' ? homeHeader : page, { action: headerAction(page) });
 
   // The board's empty notice belongs to Applications alone. Discover shares its
   // container and repaints only when its list arrives; clearing it here keeps
@@ -279,7 +332,9 @@ function goTo(page, { push = true } = {}) {
   careerContextCache = null;
   paintCollectBar(collection.state(), 'update');
   if (page === 'profile') loadProfile();
-  if (page === 'evidence') evidence.mount(PAGES.evidence);
+  if (page === 'evidence') void evidenceView.load().catch(() => {});
+  if (page === 'documents') void documentsView.load().catch(() => {});
+  if (page === 'manage') evidence.mount(PAGES.manage);
   // Loaded on arrival rather than on page load: the catalogue answers a
   // question nobody has asked yet, and a list of jobs should not wait on it.
   if (page === 'settings') {
@@ -1835,9 +1890,23 @@ let lastLedger = null;
  * language is a deliberate act, and the Save button is on screen while
  * anything is pending.
  */
+/**
+ * Draw the profile with the canonical Experience tab. The experience view is
+ * made once and reloaded on each draw, so edit mode is not lost to a redraw
+ * the person did not ask for.
+ */
+function drawProfile(host, tab = null) {
+  if (!experienceNode) {
+    experienceNode = experienceView({ onReview: reviewFromProfile, onChanged: () => careerChanged() });
+  } else {
+    void experienceNode.load().catch(() => {});
+  }
+  profileTabs = renderProfile(host, lastProfile, lastLedger, { experience: experienceNode, tab }) || null;
+}
+
 function retranslateProfile() {
   const host = document.getElementById('page-profile');
-  if (lastProfile && host) renderProfile(host, lastProfile, lastLedger);
+  if (lastProfile && host) drawProfile(host);
 }
 
 /**
@@ -1867,7 +1936,7 @@ async function loadProfile() {
     // Kept so a language switch can redraw without asking again.
     lastProfile = profile;
     lastLedger = ledger;
-    renderProfile(host, lastProfile, lastLedger);
+    drawProfile(host);
   } catch (error) {
     profileLoaded = false;  // let them try again
     host.textContent = error.userMessage || error.message;
@@ -2113,7 +2182,12 @@ function buildLocaleControl(host) {
           // home view -- rather than going back to the top. NOT while
           // something typed there is unsaved: a redraw would throw it away,
           // and the page translates on its next arrival anyway.
-          if (currentPage === 'evidence' && !evidenceHasUnsavedText()) evidence.refresh();
+          if (currentPage === 'manage' && !evidenceHasUnsavedText()) evidence.refresh();
+          // The new career pages redraw from what they already hold.
+          if (currentPage === 'evidence') void evidenceView.load().catch(() => {});
+          if (currentPage === 'documents') void documentsView.load().catch(() => {});
+          shell.setPage(currentPage === 'home' ? homeHeader : currentPage,
+            { action: headerAction(currentPage) });
           retranslatePreferences();
           retranslateProfile();
           // The health readout too. It is built with `t()` and drawn once at
