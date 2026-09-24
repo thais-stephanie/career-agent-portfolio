@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from tests.integration.test_career_evidence_v2 import a_package, stage_package
 from tests.support import committed_config_dir
-from tests.support_cv import load_cv
+from tests.support_cv import EM_DASH, load_cv
 
 from career_agent.runtime import RuntimeMode, stamp_identity
 from career_agent.storage.db import connect, migrate, transaction
@@ -165,7 +165,7 @@ def test_a_date_conflict_offers_both_and_changes_only_what_is_chosen(workspace) 
 def test_uncertain_structure_asks_for_help(workspace) -> None:
     api, _db = workspace
     text = (
-        "EXPERIENCE\nAcme — Globex, 2019 - 2020\n- Built a reporting pipeline.\n"
+        f"EXPERIENCE\nAcme {EM_DASH} Globex, 2019 - 2020\n- Built a reporting pipeline.\n"
         "- Mentored two analysts.\n\nSKILLS\nSQL, Python, Excel\n"
         + "Filler line so the document is long enough to be read.\n"
         * 4
