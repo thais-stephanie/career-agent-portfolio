@@ -627,6 +627,11 @@ class ExclusiveHTTPServer(ThreadingHTTPServer):
     #: set, leaving `SO_REUSEADDR` on as well is contradictory.
     allow_reuse_address = not hasattr(socket, "SO_EXCLUSIVEADDRUSE")
 
+    #: The page loads some forty ES modules at once, and the standard library's
+    #: backlog of 5 refused part of that burst on Windows
+    #: (ERR_CONNECTION_REFUSED on a module, measured in the browser suite).
+    request_queue_size = 64
+
     def server_bind(self) -> None:
         exclusive = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)
         if exclusive is not None:
