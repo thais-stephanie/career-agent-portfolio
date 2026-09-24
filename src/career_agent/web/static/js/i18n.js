@@ -288,6 +288,14 @@ const EN = {
     'Showing jobs that state a requirement you do not meet, alongside the rest.',
   'hidden.eligibilityReveal': 'Show them too',
   'filters.toggle.includeExcludedSeniority': 'Include levels you set aside',
+  'filters.toggle.includeExcludedWorkModel': 'Include ways of working you set aside',
+  'filters.includeExcludedWorkModelHelp':
+    'Off by default, and it does nothing until you say a way of working should never be shown. '
+    + 'It is a preference, not a verdict: nothing is deleted and this brings them back.',
+  'hidden.workModel': '{count} set aside because of a way of working you said never to show.',
+  'hidden.workModelOne': '1 set aside because of a way of working you said never to show.',
+  'hidden.workModelShowing': 'Showing ways of working you set aside.',
+  'hidden.workModelReveal': 'Show those too',
   'filters.includeExcludedSeniorityHelp':
     'Off by default, and it does nothing until you name a level in your profile. These are ' +
     'roles at a level you said you do not want to see, such as Staff or Director. Nothing is ' +
@@ -2564,6 +2572,14 @@ const PT_BR = {
     'Mostrando vagas que declaram uma exigência que você não atende, junto com as demais.',
   'hidden.eligibilityReveal': 'Mostrar essas também',
   'filters.toggle.includeExcludedSeniority': 'Incluir níveis que você deixou de lado',
+  'filters.toggle.includeExcludedWorkModel': 'Incluir formatos de trabalho que você deixou de lado',
+  'filters.includeExcludedWorkModelHelp':
+    'Desligado por padrão, e não faz nada até você dizer que um formato de trabalho nunca deve '
+    + 'aparecer. É uma preferência, não um veredito: nada é apagado e isto traz de volta.',
+  'hidden.workModel': '{count} de lado por um formato de trabalho que você disse nunca querer ver.',
+  'hidden.workModelOne': '1 de lado por um formato de trabalho que você disse nunca querer ver.',
+  'hidden.workModelShowing': 'Mostrando formatos de trabalho que você deixou de lado.',
+  'hidden.workModelReveal': 'Mostrar essas também',
   'filters.includeExcludedSeniorityHelp':
     'Desligado por padrão, e não faz nada até você nomear um nível no seu perfil. São vagas em ' +
     'um nível que você disse não querer ver, como Staff ou Diretor. Nada é apagado e isto traz ' +

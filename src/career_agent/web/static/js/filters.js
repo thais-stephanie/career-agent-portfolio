@@ -94,7 +94,7 @@ export const SECTIONS = [
     helpKey: 'filters.section.qualityHelp',
     keys: ['min_score', 'max_score', 'min_confidence', 'eligibility',
       'include_ineligible', 'include_off_target', 'include_unresolved',
-      'include_excluded_seniority'],
+      'include_excluded_seniority', 'include_excluded_work_model'],
   },
   {
     key: 'place',
@@ -346,6 +346,14 @@ const TOGGLES = [
     section: 'quality',
     helpKey: 'filters.includeExcludedSeniorityHelp',
   },
+  // The same kind of switch, for a way of working she said never to show.
+  // A preference, never eligibility, and it does nothing until she says so.
+  {
+    key: 'include_excluded_work_model',
+    labelKey: 'filters.toggle.includeExcludedWorkModel',
+    section: 'quality',
+    helpKey: 'filters.includeExcludedWorkModelHelp',
+  },
   // The fifth switch that shows MORE, and the only one whose effect depends on
   // what the person has CONFIRMED about themselves.
   //
@@ -478,7 +486,8 @@ export function createFilterPanel(store) {
         // button touches widens it. Clearing "How good a match" used to make
         // jobs disappear, which is the opposite of what the word promises.
         if (key === 'include_ineligible' || key === 'include_off_target'
-          || key === 'include_unresolved' || key === 'include_excluded_seniority') continue;
+          || key === 'include_unresolved' || key === 'include_excluded_seniority'
+          || key === 'include_excluded_work_model') continue;
         patch[key] = DEFAULTS[key];
       }
       store.set(patch);
@@ -1160,7 +1169,8 @@ export function renderChips(mount, state, store) {
     // list says how many are shown and offers to hide them again.
     if (toggle.key === 'include_ineligible' || toggle.key === 'include_off_target'
       || toggle.key === 'include_unresolved'
-      || toggle.key === 'include_excluded_seniority') continue;
+      || toggle.key === 'include_excluded_seniority'
+      || toggle.key === 'include_excluded_work_model') continue;
     if (state[toggle.key]) {
       chips.push(chip(labelOf(toggle), () => store.set({ [toggle.key]: false })));
     }

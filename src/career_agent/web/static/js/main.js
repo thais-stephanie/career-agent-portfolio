@@ -834,6 +834,7 @@ function renderHiddenNotice(state) {
     include_ineligible: lastResponse ? (lastResponse.hidden_by_eligibility || 0) : 0,
     include_unresolved: lastResponse ? (lastResponse.hidden_unresolved || 0) : 0,
     include_excluded_seniority: lastResponse ? (lastResponse.hidden_by_seniority || 0) : 0,
+    include_excluded_work_model: lastResponse ? (lastResponse.hidden_by_work_model || 0) : 0,
     include_off_target: lastResponse ? (lastResponse.hidden_off_target || 0) : 0,
     include_user_hidden: lastResponse ? (lastResponse.hidden_by_you || 0) : 0,
   };
@@ -867,6 +868,13 @@ function renderHiddenNotice(state) {
       hidden: (n) => (n === 1 ? t('hidden.seniorityOne') : t('hidden.seniority', { count: n })),
       showing: () => t('hidden.seniorityShowing'),
       reveal: () => t('hidden.seniorityReveal'),
+    },
+    {
+      // A way of working she said never to show. A preference, like levels.
+      key: 'include_excluded_work_model',
+      hidden: (n) => (n === 1 ? t('hidden.workModelOne') : t('hidden.workModel', { count: n })),
+      showing: () => t('hidden.workModelShowing'),
+      reveal: () => t('hidden.workModelReveal'),
     },
     {
       key: 'include_off_target',

@@ -72,6 +72,7 @@ export const FLAG_KEYS = [
   // narrowing means adding it HERE as well as to the server.
   'include_unresolved',
   'include_excluded_seniority',
+  'include_excluded_work_model',
   // NARROWS, to exactly what she hid. The restore view. A separate key from
   // the one above because "show me these as well" and "show me only these"
   // are different questions, and one flag answering both is how a widening
@@ -91,6 +92,7 @@ export const ELIGIBILITY_KEY = 'careerAgent.includeIneligible.v1';
 export const OFF_TARGET_KEY = 'careerAgent.includeOffTarget.v1';
 export const UNRESOLVED_KEY = 'careerAgent.includeUnresolved.v1';
 export const EXCLUDED_SENIORITY_KEY = 'careerAgent.includeExcludedSeniority.v1';
+export const EXCLUDED_WORK_MODEL_KEY = 'careerAgent.includeExcludedWorkModel.v1';
 
 /**
  * The two ad-hoc phrase lists, remembered between visits.
@@ -247,6 +249,22 @@ export function rememberIncludeExcludedSeniority(value) {
   }
 }
 
+export function storedIncludeExcludedWorkModel() {
+  try {
+    return window.localStorage.getItem(EXCLUDED_WORK_MODEL_KEY) === '1';
+  } catch (error) {
+    return false;
+  }
+}
+
+export function rememberIncludeExcludedWorkModel(value) {
+  try {
+    window.localStorage.setItem(EXCLUDED_WORK_MODEL_KEY, value ? '1' : '0');
+  } catch (error) {
+    /* Applies for this visit either way. */
+  }
+}
+
 /** Numbers, or null when unset. */
 export const NUMBER_KEYS = [
   'min_score', 'max_score', 'min_confidence', 'posted_within_days', 'min_salary',
@@ -339,6 +357,7 @@ export const DEFAULTS = Object.freeze({
   include_user_hidden: false,
   include_unresolved: false,
   include_excluded_seniority: false,
+  include_excluded_work_model: false,
   user_hidden_only: false,
   include_transferable: false,
   posted_within_days: null,
@@ -459,6 +478,9 @@ export function fromSearch(search) {
   }
   if (!params.has('include_excluded_seniority')) {
     state.include_excluded_seniority = storedIncludeExcludedSeniority();
+  }
+  if (!params.has('include_excluded_work_model')) {
+    state.include_excluded_work_model = storedIncludeExcludedWorkModel();
   }
   // The two phrase lists, on the same terms: remembered between visits, and
   // overridden by anything the URL says. A shared link carrying `?keyword=x`
@@ -586,7 +608,8 @@ export function activeFilterCount(state) {
     // "1 filter active" beside a chipless row after pressing "Clear all
     // filters" is the counter disagreeing with the button.
     if (key === 'include_ineligible') continue;
-    if (key === 'include_unresolved' || key === 'include_excluded_seniority') continue;
+    if (key === 'include_unresolved' || key === 'include_excluded_seniority'
+      || key === 'include_excluded_work_model') continue;
     if (state[key]) count += 1;
   }
   for (const key of NUMBER_KEYS) if (state[key] !== null && state[key] !== undefined) count += 1;
@@ -689,6 +712,9 @@ export function createStore() {
       if ('include_unresolved' in clean) rememberIncludeUnresolved(next.include_unresolved);
       if ('include_excluded_seniority' in clean) {
         rememberIncludeExcludedSeniority(next.include_excluded_seniority);
+      }
+      if ('include_excluded_work_model' in clean) {
+        rememberIncludeExcludedWorkModel(next.include_excluded_work_model);
       }
       if ('keyword' in clean) rememberKeywords(next.keyword);
       if ('exclude_keyword' in clean) rememberExcludedKeywords(next.exclude_keyword);
