@@ -177,6 +177,37 @@ class ClaimRepo(_Repo):
         ).fetchall()
         return [self._to_claim(row) for row in rows]
 
+    def states(self, candidate_id: str) -> dict[str, str]:
+        """What each current claim IS, read from its whole revision history.
+
+        `verified = 0` on the current revision means two different things,
+        and the history tells them apart without a new column:
+
+        * CONFIRMED  the current revision is verified.
+        * RETIRED    it is not, and an earlier revision WAS: she stood behind
+                     it once and withdrew it (retiring is the only path that
+                     un-verifies a confirmed claim, and an edit carries the
+                     retirement forward).
+        * DRAFT      no revision was ever verified: a statement recorded but
+                     never confirmed, such as a `verified: false` entry in a
+                     career-facts file. Live, and waiting for a review.
+        """
+        rows = self.conn.execute(
+            "SELECT c.claim_key, c.verified,"
+            "       EXISTS (SELECT 1 FROM verified_claim h"
+            "                WHERE h.candidate_id = c.candidate_id"
+            "                  AND h.claim_key = c.claim_key AND h.verified = 1) AS ever"
+            "  FROM verified_claim c"
+            " WHERE c.candidate_id = ? AND c.superseded_by_id IS NULL",
+            (candidate_id,),
+        ).fetchall()
+        return {
+            str(row["claim_key"]): "CONFIRMED"
+            if row["verified"]
+            else ("RETIRED" if row["ever"] else "DRAFT")
+            for row in rows
+        }
+
     def history(self, candidate_id: str, claim_key: str) -> list[VerifiedClaim]:
         rows = self.conn.execute(
             "SELECT * FROM verified_claim WHERE candidate_id = ? AND claim_key = ?"

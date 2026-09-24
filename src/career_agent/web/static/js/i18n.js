@@ -612,6 +612,8 @@ const EN = {
     + 'stops being drawn on when an application is prepared. You can put it back.',
   'ledger.confirm': 'Use this again',
   'ledger.retiredTag': 'Set aside',
+  'ledger.draftTag': 'Not confirmed yet',
+  'ledger.confirmDraft': 'Confirm',
   'ledger.revision': 'revision {n}',
   'ledger.addHeading': 'Add to your profile',
   // THE LINE THAT MATTERS MOST HERE. Somebody adding their own work should
@@ -3035,6 +3037,8 @@ const PT_BR = {
     + 'ser usado quando uma candidatura é preparada. Você pode colocar de volta.',
   'ledger.confirm': 'Usar isto de novo',
   'ledger.retiredTag': 'De lado',
+  'ledger.draftTag': 'Ainda não confirmada',
+  'ledger.confirmDraft': 'Confirmar',
   'ledger.revision': 'revisão {n}',
   'ledger.addHeading': 'Adicionar ao seu perfil',
   'ledger.addLede': 'Você não precisa escrever de um jeito técnico -- conte do seu jeito, '

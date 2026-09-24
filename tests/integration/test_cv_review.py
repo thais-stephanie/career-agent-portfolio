@@ -157,11 +157,42 @@ def test_stopping_keeps_what_was_already_accepted(workspace) -> None:
     assert len(stored(db)) == 2
 
 
-def test_accept_all_still_works_for_somebody_who_read_the_list(workspace) -> None:
+def test_there_is_no_flag_that_confirms_everything(workspace) -> None:
+    """Career Evidence V2: every confirmed statement is individually reviewed.
+
+    `--accept-all` confirmed a whole CV in one command and is gone. The web
+    and the API already refused the same thing; the terminal was the bypass.
+    """
     cv, db = workspace
     result = run(cv, db, "--no-dry-run", "--accept-all")
+    assert result.exit_code != 0
+    assert stored(db) == []
+
+
+def test_the_only_way_to_store_is_the_one_at_a_time_review() -> None:
+    """No option of `cv-import`, under any name, stores without a review.
+
+    Checked on the command's own parameters, so a mass-confirm flag added
+    under a different name fails here as surely as the old one did.
+    """
+    import typer.main
+
+    command = typer.main.get_command(app).commands["cv-import"]  # type: ignore[attr-defined]
+    options = sorted(opt for param in command.params for opt in param.opts if opt.startswith("-"))
+    assert options == ["--db", "--dry-run", "--review"], options
+
+
+def test_pressing_enter_confirms_nothing(workspace) -> None:
+    """The review's prompt defaulted to "accept", so holding Enter, or piping
+    blank lines in, confirmed every proposal unread. There is no default now:
+    a blank answer asks again."""
+    cv, db = workspace
+    result = run(cv, db, "--no-dry-run", "--review", keys="\n" * 50)
+    assert result.exit_code != 0
+    assert stored(db) == []
+    result = run(cv, db, "--no-dry-run", "--review", keys="\n\na\nq\n")
     assert result.exit_code == 0, result.output
-    assert len(stored(db)) == 2
+    assert len(stored(db)) == 1
 
 
 # =========================================================================
@@ -173,7 +204,7 @@ def test_no_copy_of_the_cv_is_left_behind(workspace, tmp_path: Path) -> None:
     """The extracted text lives in memory and in the claims she accepted. A
     cache of it on disk would be a copy of her CV nobody asked for."""
     cv, db = workspace
-    run(cv, db, "--no-dry-run", "--accept-all")
+    run(cv, db, "--no-dry-run", "--review", keys="a\na\n")
 
     written = {path.name for path in tmp_path.rglob("*") if path.is_file()}
     assert written <= {"cv.txt", "career.db", "career.db-wal", "career.db-shm"}, (

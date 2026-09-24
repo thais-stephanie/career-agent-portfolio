@@ -1861,7 +1861,7 @@ export function createEvidence({ onChanged = null } = {}) {
   /** Does this claim pass the state filter the toolbar is set to? */
   function passesState(claim) {
     if (stateFilter === 'CONFIRMED') return Boolean(claim.verified);
-    if (stateFilter === 'ASIDE') return !claim.verified;
+    if (stateFilter === 'ASIDE') return !claim.verified && claim.state !== 'DRAFT';
     return true;
   }
 
@@ -2144,7 +2144,7 @@ export function createEvidence({ onChanged = null } = {}) {
         await refresh();
         if (onChanged) onChanged();
       }, { className: 'btn btn--small btn--quiet' })
-      : button(t('ledger.confirm'), async () => {
+      : button(claim.state === 'DRAFT' ? t('ledger.confirmDraft') : t('ledger.confirm'), async () => {
         await api.confirmClaim(claim.claim_key);
         await refresh();
         if (onChanged) onChanged();
@@ -2229,9 +2229,11 @@ export function createEvidence({ onChanged = null } = {}) {
         // is drawn only for the state that is NOT settled, so a screen of
         // confirmed evidence carries no chips at all and anything set aside
         // stands out by being the only marked thing on it.
+        // A DRAFT was never confirmed; only a withdrawn claim is "set aside".
         claim.verified
           ? null
-          : el('span', { className: 'badge evrow__state', text: t('ledger.retiredTag') }),
+          : el('span', { className: 'badge evrow__state',
+            text: claim.state === 'DRAFT' ? t('ledger.draftTag') : t('ledger.retiredTag') }),
         el('span', { className: 'evrow__src', text: t(`ledger.sourceShort.${claim.source}`) }),
         more,
       ].filter(Boolean)),

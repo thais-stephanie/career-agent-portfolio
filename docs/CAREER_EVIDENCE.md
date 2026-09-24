@@ -9,7 +9,9 @@ Three rules hold everywhere below:
 - **Reading confirms nothing.** An import produces suggestions. A suggestion
   becomes a `verified_claim` only when the person confirms it, one statement
   at a time. There is no "accept all" and no batch confirmation, in the
-  interface or in the API.
+  interface, the API or the terminal. `career-agent cv-import` stores only
+  through `--review`, which asks about each proposal with no default answer
+  (accept, edit, reject or stop); the old `--accept-all` flag was removed.
 - **Provenance is never rewritten.** Every suggestion keeps the line it came
   from, both as plain words (`evidence`) and exactly as written, Markdown and
   all (`source_text`, with `source_line`). Editing, moving, merging or
@@ -102,15 +104,38 @@ person presses "Delete permanently". "I uploaded the wrong CV" is one Delete.
 "Discard" on a CV read used to delete it and every suggestion, including the
 rows its confirmed claims cited. It archives now.
 
+## Claim states
+
+A claim is a chain of revisions, and `verified` on the current revision does
+not say everything. The whole chain does (`ClaimRepo.states`):
+
+| State | Current revision | Any revision ever verified | Meaning |
+| --- | --- | --- | --- |
+| Confirmed | verified | yes | She stands behind it. |
+| Retired | not verified | yes | She confirmed it once and withdrew it. |
+| Draft | not verified | never | Recorded but never confirmed, such as a `verified: false` career fact. Live, and waiting for review. |
+
+No schema change was needed: retiring is the only path that un-verifies a
+confirmed claim, and editing a retired claim carries the retirement forward.
+
 ## One definition of "needs review"
 
-`storage/review_counts.py`: a suggestion needs review when nobody has
-answered it and it comes from a CV read that is neither archived nor deleted,
-or from the intake package in force. `/api/firstrun` (Home and the setup), the
-Career Evidence summary, `/api/cv/imports` and `career-agent evidence` all
-read it from there, and `tests/integration/test_career_evidence_v2.py` checks
-that they agree. Needs organizing in the Career workspace counts evidence not
-yet placed in an experience, excluding rejected suggestions.
+`storage/review_counts.py`: a statement needs review when nobody has answered
+it and it is live: a suggestion from a CV read that is neither archived nor
+deleted, a suggestion from the intake package in force, or a draft claim.
+`/api/firstrun` (Home and the setup), the Career Evidence summary,
+`/api/cv/imports`, `career-agent status` and `career-agent evidence` all read
+it from there, and `tests/integration/test_career_evidence_v2.py` checks that
+they agree.
+
+## Needs organizing
+
+Live evidence with no experience yet: a confirmed claim, a draft claim, or an
+unanswered or unsure suggestion from an import she is working on. Never a
+rejected suggestion, a retired claim, anything from an archived or deleted
+import, or a row kept only as the provenance of something confirmed. The
+button's count and the list it opens use the same rule; retired and rejected
+items are reached by asking for that state.
 
 ## Existing workspaces
 

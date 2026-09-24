@@ -825,9 +825,6 @@ def source_health_command(
 def cv_import_command(
     path: Annotated[Path, typer.Argument(help="Your CV. PDF, DOCX, TXT or MD.")],
     db: Annotated[Path | None, typer.Option("--db")] = None,
-    accept_all: Annotated[
-        bool, typer.Option("--accept-all", help="Confirm every proposal without reviewing")
-    ] = False,
     review: Annotated[
         bool, typer.Option("--review", help="Decide on each proposal one at a time")
     ] = False,
@@ -847,8 +844,10 @@ def cv_import_command(
     Local and private. No network call, no model of either kind, and the text
     is never written anywhere except the claims you accept.
 
-    A dry run by default. `--no-dry-run --accept-all` confirms everything at
-    once, which is honest only if you have read the list first.
+    A dry run by default. `--no-dry-run --review` goes through the proposals
+    one at a time: accept, edit, reject or stop. There is no way to confirm
+    them all at once, here or anywhere else in Career Agent: every confirmed
+    statement is one somebody read (docs/CAREER_EVIDENCE.md).
     """
     from career_agent.cv.extract import CvError, extract
     from career_agent.cv.propose import read_cv, to_claim
@@ -901,20 +900,20 @@ def cv_import_command(
 
     if dry_run:
         typer.echo("")
-        typer.echo("  Nothing was stored. Add --no-dry-run --accept-all to confirm all of these,")
-        typer.echo("  or review them one at a time in the interface.")
+        typer.echo("  Nothing was stored. Add --no-dry-run --review to answer them one at a time,")
+        typer.echo("  or review them by experience in Career Evidence.")
         typer.echo("  no network call and no inference call of either kind")
         return
 
-    if not accept_all and not review:
+    if not review:
         typer.secho(
             "\n  Refusing to store proposals nobody accepted."
-            " Add --review to go through them, or --accept-all having read the list above.",
+            " Add --review to answer them one at a time.",
             fg=typer.colors.YELLOW,
         )
         raise typer.Exit(code=1)
 
-    decisions = _review(read.proposals) if review else [(p, p.text) for p in read.proposals]
+    decisions = _review(read.proposals)
     if not decisions:
         typer.echo("\n  Nothing accepted. Nothing stored.")
         return
@@ -978,7 +977,11 @@ def _review(proposals: list) -> list:
         if proposal.has_measurement:
             typer.echo("    this carries a figure. Check it says what you remember saying.")
 
-        answer = typer.prompt("    [a/e/r/q]", default="a").strip().lower()[:1]
+        # NO DEFAULT. An Enter that meant "accept" made holding the key down
+        # (or piping blank lines in) a way to confirm every proposal unread.
+        answer = ""
+        while answer not in {"a", "e", "r", "q"}:
+            answer = typer.prompt("    [a/e/r/q]").strip().lower()[:1]
         if answer == "q":
             typer.echo("    stopping. Everything accepted so far is kept.")
             break

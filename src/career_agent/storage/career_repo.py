@@ -68,6 +68,10 @@ def _overlaps(left: tuple[str | None, str], right: tuple[str | None, str]) -> bo
     return left[1] >= right[0] and right[1] >= left[0]
 
 
+#: Item states that are not live evidence, and so never need organizing.
+NOT_LIVE = frozenset({"REJECTED", "RETIRED"})
+
+
 class CareerError(ValueError):
     pass
 
@@ -109,10 +113,16 @@ class CareerRepo:
         """
         records: dict[str, dict] = {}
         if self.candidate_id:
-            for claim in ClaimRepo(self.conn).current(self.candidate_id):
+            claims = ClaimRepo(self.conn)
+            # CONFIRMED, RETIRED or DRAFT, from each claim's revision history
+            # (`ClaimRepo.states`). A draft was never confirmed and is shown as
+            # waiting for review; only a claim she withdrew is RETIRED.
+            states = claims.states(self.candidate_id)
+            for claim in claims.current(self.candidate_id):
+                state = states.get(claim.claim_key, "CONFIRMED" if claim.verified else "RETIRED")
                 records[claim.claim_key] = {
                     **claim.model_dump(mode="json"),
-                    "state": "CONFIRMED" if claim.verified else "RETIRED",
+                    "state": "PENDING" if state == "DRAFT" else state,
                     "origin": "claim",
                     "source_records": [],
                     "role_title": None,
@@ -374,12 +384,13 @@ class CareerRepo:
                 e["id"],
             )
         )
-        # NEEDS ORGANIZING is evidence with no experience yet. A REJECTED
-        # suggestion was answered -- counting it here was how a finished review
-        # still said "Needs organizing". (An unverified claim stays: the ledger
-        # uses `verified = 0` both for a retired claim and for one written but
-        # not yet confirmed, and the second is exactly what needs organizing.)
-        unassigned = [r for r in items if not r["experience_id"] and r["state"] != "REJECTED"]
+        # NEEDS ORGANIZING, one rule: LIVE evidence with no experience yet.
+        # Live means a confirmed claim, a draft claim, or an unanswered or
+        # unsure suggestion from a CV read or package she is working on.
+        # Never a rejected suggestion (answered), a retired claim (withdrawn),
+        # an archived or deleted import's rows, or a row kept only as the
+        # provenance of something confirmed -- `items()` never lists those.
+        unassigned = [r for r in items if not r["experience_id"] and r["state"] not in NOT_LIVE]
         grouped: dict[tuple, list[dict]] = defaultdict(list)
         for item in unassigned:
             if item["employer"] and (item["period_start"] or item.get("period_label")):
@@ -541,7 +552,13 @@ class CareerRepo:
         rows = [
             r
             for r in self.items()
-            if (experience != "inbox" or not r["experience_id"])
+            # The inbox is Needs organizing: the same rule as its count, so the
+            # button and the list agree. Retired or rejected items are reached
+            # by asking for that state explicitly.
+            if (
+                experience != "inbox"
+                or (not r["experience_id"] and (state or r["state"] not in NOT_LIVE))
+            )
             and (not experience or experience == "inbox" or r["experience_id"] == experience)
             and (not state or r["state"] == state)
             and (not category or r["category"] == category)

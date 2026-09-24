@@ -931,3 +931,123 @@ def test_job_dates_are_checked_across_requests(workspace) -> None:
     after = next(e for e in cleared["entries"] if e["entry_key"] == acme["entry_key"])
     assert after["start_year"] is None and "dates" in after["unresolved"]
     assert cleared["entries"][-1]["entry_key"] in {acme["entry_key"], umbrella["entry_key"]}
+
+
+# =========================================================================
+# 10. NEEDS ORGANIZING: LIVE EVIDENCE WITH NO EXPERIENCE, AND NOTHING ELSE
+# =========================================================================
+
+
+def organizing(api: JobsApi) -> tuple[int, set[str]]:
+    """The button's count and the inbox list's keys. They must agree."""
+    count = call(api, "GET", "/api/career")["unassigned"]
+    page = api.handle_api(
+        "GET", "/api/career/evidence", {"experience": ["inbox"], "limit": ["100"]}, {}
+    )
+    assert page["total"] == count, (page["total"], count)
+    return count, set(page["keys"])
+
+
+def add_claim(db: Path, key: str, *, verified: bool, retire: bool = False) -> None:
+    from career_agent.domain.claims import VerifiedClaim
+    from career_agent.domain.enums import ClaimSource, ClaimType
+    from career_agent.storage.repositories import ClaimRepo
+    from career_agent.storage.workspace_repo import ensure_candidate
+
+    conn = connect(db)
+    try:
+        with transaction(conn):
+            candidate = ensure_candidate(conn)
+            claim = VerifiedClaim(
+                claim_key=key,
+                claim_type=ClaimType.PROJECT,
+                text=f"Invented statement {key}.",
+                source=ClaimSource.SELF_ATTESTED,
+                verified=verified,
+            )
+            ClaimRepo(conn).add(candidate, claim)
+            if retire:
+                ClaimRepo(conn).supersede(candidate, claim.next_revision(verified=False))
+    finally:
+        conn.close()
+
+
+def test_needs_organizing_is_live_evidence_only(workspace) -> None:
+    api, db = workspace
+    review = upload(api, load_cv("plain_promotions.txt"), "jordan.txt")
+    import_id = review["import_id"]
+    keys = [p["claim_key"] for p in proposals(review)]
+    total = len(keys)
+
+    # Unconfirmed live suggestions: all of them.
+    count, listed = organizing(api)
+    assert count == total and listed == set(keys)
+
+    # Confirmed but unassigned: still needs an experience, so still listed,
+    # now as confirmed evidence.
+    call(
+        api,
+        "POST",
+        f"/api/cv/imports/{import_id}/decide",
+        {"claim_key": keys[0], "decision": "ACCEPTED"},
+    )
+    count, listed = organizing(api)
+    assert count == total and keys[0] in listed
+
+    # Rejected: answered, so not.
+    call(
+        api,
+        "POST",
+        f"/api/cv/imports/{import_id}/decide",
+        {"claim_key": keys[1], "decision": "REJECTED"},
+    )
+    count, listed = organizing(api)
+    assert count == total - 1 and keys[1] not in listed
+
+    # Retired (withdrawn after confirming): not.
+    call(api, "POST", f"/api/evidence/{keys[0]}/retire")
+    count, listed = organizing(api)
+    assert count == total - 2 and keys[0] not in listed
+
+    # A draft claim (never confirmed) is live: listed, and waiting for review.
+    add_claim(db, "draft-statement", verified=False)
+    add_claim(db, "withdrawn-statement", verified=True, retire=True)
+    count, listed = organizing(api)
+    assert "draft-statement" in listed and "withdrawn-statement" not in listed
+    assert count == total - 1
+    evidence = call(api, "GET", "/api/evidence")
+    states = {c["claim_key"]: c["state"] for c in evidence["claims"]}
+    assert states["draft-statement"] == "DRAFT"
+    assert states["withdrawn-statement"] == "RETIRED"
+    assert (evidence["retired"], evidence["drafts"]) == (2, 1)
+    waiting = waiting_everywhere(api, db)
+    assert set(waiting.values()) == {total - 2 + 1}, waiting
+
+    # Archived: none of the read's suggestions. Restore: they come back.
+    call(api, "POST", f"/api/cv/imports/{import_id}/archive")
+    count, listed = organizing(api)
+    assert listed == {"draft-statement"}
+    call(api, "POST", f"/api/cv/imports/{import_id}/restore")
+    count, listed = organizing(api)
+    assert count == total - 1
+
+    # Deleted: the unconfirmed suggestions are gone, and the row kept only as
+    # the provenance of the (retired) confirmed claim is not a suggestion.
+    call(api, "POST", f"/api/cv/imports/{import_id}/delete", {"confirm": True})
+    count, listed = organizing(api)
+    assert listed == {"draft-statement"}
+    assert rows(db, "SELECT COUNT(*) FROM cv_proposal") == [(1,)]
+
+
+def test_a_deleted_packages_provenance_rows_are_not_suggestions(workspace) -> None:
+    api, db = workspace
+    package_id = stage_package(db, 3)
+    first = rows(db, "SELECT claim_key FROM intake_claim ORDER BY claim_key LIMIT 1")[0][0]
+    call(api, "POST", f"/api/intake/{package_id}/answer", {"claim_key": first, "answer": "CONFIRM"})
+    assert organizing(api)[0] == 9
+    call(api, "POST", f"/api/intake/{package_id}/delete", {"confirm": True})
+    count, listed = organizing(api)
+    # Only the confirmed claim itself: live evidence with no experience.
+    assert count == 1
+    (confirmed,) = rows(db, "SELECT claim_key FROM verified_claim WHERE verified = 1")
+    assert listed == {confirmed[0]}

@@ -10,9 +10,10 @@ finished.
 
 The definition, in words:
 
-    A suggestion NEEDS REVIEW when nobody has answered it yet AND the import
-    it came from is one she is working on: a CV read that is neither
-    archived nor deleted, or the intake package in force.
+    A statement NEEDS REVIEW when nobody has answered it yet AND it is live:
+    a suggestion from a CV read that is neither archived nor deleted, a
+    suggestion from the intake package in force, or a DRAFT claim -- one
+    recorded but never confirmed in any revision (`ClaimRepo.states`).
 
 That is all. An archived import is work she put down, not work waiting. A
 rejected suggestion was answered. A confirmed one is evidence.
@@ -44,6 +45,8 @@ class ReviewCounts:
 
     cv_waiting: int = 0
     package_waiting: int = 0
+    #: Claims recorded but never confirmed (a `verified: false` career fact).
+    drafts: int = 0
     #: CV reads she is working on, and archived ones kept for later.
     cv_imports: int = 0
     cv_archived: int = 0
@@ -53,7 +56,7 @@ class ReviewCounts:
 
     @property
     def waiting(self) -> int:
-        return self.cv_waiting + self.package_waiting
+        return self.cv_waiting + self.package_waiting + self.drafts
 
     @property
     def documents(self) -> int:
@@ -65,6 +68,7 @@ class ReviewCounts:
             "waiting": self.waiting,
             "cv_waiting": self.cv_waiting,
             "package_waiting": self.package_waiting,
+            "drafts": self.drafts,
             "documents": self.documents,
             "cv_imports": self.cv_imports,
             "cv_archived": self.cv_archived,
@@ -118,7 +122,22 @@ def review_counts(conn: sqlite3.Connection, candidate_id: str | None = None) -> 
         ).fetchone()
         packages, packages_archived = int(row[0] or 0), int(row[1] or 0)
 
+    drafts = 0
+    if candidate_id or _has(conn, "verified_claim", "verified"):
+        scope = " AND c.candidate_id = ?" if candidate_id else ""
+        drafts = int(
+            conn.execute(
+                "SELECT COUNT(*) FROM verified_claim c"
+                " WHERE c.superseded_by_id IS NULL AND c.verified = 0"
+                "   AND NOT EXISTS (SELECT 1 FROM verified_claim h"
+                "                    WHERE h.candidate_id = c.candidate_id"
+                f"                      AND h.claim_key = c.claim_key AND h.verified = 1){scope}",
+                (candidate_id,) if candidate_id else (),
+            ).fetchone()[0]
+        )
+
     return ReviewCounts(
+        drafts=drafts,
         cv_waiting=cv_waiting,
         package_waiting=package_waiting,
         cv_imports=cv_imports,

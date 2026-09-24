@@ -571,10 +571,13 @@ class WorkspaceRoutes(_MixinBase):
                     "counts": {},
                     "confirmed": 0,
                     "retired": 0,
+                    "drafts": 0,
                     "types": list(MANUAL_CLAIM_TYPES),
                     "sources": SOURCE_LABELS,
                 }
-            claims = ClaimRepo(conn).current(candidate_id)
+            repo = ClaimRepo(conn)
+            claims = repo.current(candidate_id)
+            states = repo.states(candidate_id)
             revisions = {
                 str(row["claim_key"]): int(row["n"])
                 for row in conn.execute(
@@ -585,7 +588,13 @@ class WorkspaceRoutes(_MixinBase):
             }
 
         payload = [
-            claim_payload(claim, revisions=revisions.get(claim.claim_key, 1)) for claim in claims
+            {
+                **claim_payload(claim, revisions=revisions.get(claim.claim_key, 1)),
+                # CONFIRMED, RETIRED (withdrawn) or DRAFT (never confirmed):
+                # `verified` alone cannot tell the last two apart.
+                "state": states.get(claim.claim_key, "CONFIRMED" if claim.verified else "RETIRED"),
+            }
+            for claim in claims
         ]
         counts: dict[str, int] = {}
         for claim in claims:
@@ -596,7 +605,8 @@ class WorkspaceRoutes(_MixinBase):
             "claims": payload,
             "counts": counts,
             "confirmed": sum(1 for c in claims if c.verified),
-            "retired": sum(1 for c in claims if not c.verified),
+            "retired": sum(1 for state in states.values() if state == "RETIRED"),
+            "drafts": sum(1 for state in states.values() if state == "DRAFT"),
             "types": list(MANUAL_CLAIM_TYPES),
             "sources": SOURCE_LABELS,
         }
