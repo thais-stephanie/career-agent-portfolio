@@ -119,9 +119,13 @@ class CareerRepo:
                     "current_role": False,
                     "conflict": False,
                 }
+        package_columns = {row[1] for row in self.conn.execute("PRAGMA table_info(intake_package)")}
+        # A deleted package keeps only the rows its confirmed claims cite; they
+        # are provenance, never live suggestions (migration 0039).
+        live = " WHERE p.deleted_at IS NULL" if "deleted_at" in package_columns else ""
         rows = self.conn.execute(
             "SELECT c.*, p.status AS package_status, p.declared_sources FROM intake_claim c"
-            " JOIN intake_package p ON p.id = c.package_id ORDER BY c.created_at, c.id"
+            f" JOIN intake_package p ON p.id = c.package_id{live} ORDER BY c.created_at, c.id"
         ).fetchall()
         resolved = {
             (r["package_id"], r["conflict_group"])

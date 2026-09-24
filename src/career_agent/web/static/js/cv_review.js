@@ -74,7 +74,10 @@ export function cvReview(initial, { onBack, onChanged } = {}) {
   let open = null;          // entry_key or `section:<name>` of the open group
   let selected = new Set();
   let focusKey = null;      // the suggestion to put focus on after a repaint
-  const root = el('div', { className: 'cvr', attrs: { 'aria-live': 'polite' } });
+  // Not a live region: the whole review repaints, and announcing all of it
+  // after every answer would drown the one sentence that matters. The flash
+  // line below is the status, and says what just happened.
+  const root = el('div', { className: 'cvr' });
   const flash = el('p', { className: 'cvr__flash', attrs: { role: 'status' } });
 
   const fail = (error) => {
@@ -377,7 +380,7 @@ export function cvReview(initial, { onBack, onChanged } = {}) {
         ...entry.source.map((line) => el('p', { className: 'quote', text: L('sourceLine', {
           line: line.line, text: line.text }) })),
       ]) : null,
-      entry ? el('div', { className: 'cvr__actions' }, [
+      entry && !review.archived ? el('div', { className: 'cvr__actions' }, [
         button(L('editDetails'), () => entryForm(entry, tools), { className: 'btn btn--small' }),
         mergeTarget && targets.length > 1 ? el('details', { className: 'cvr__merge' }, [
           el('summary', { text: L('mergeFold') }),
@@ -447,7 +450,7 @@ export function cvReview(initial, { onBack, onChanged } = {}) {
     editor.addEventListener('input', () => { saveEdit.hidden = false; });
 
     const pick = el('input', { className: 'checkbox', attrs: { type: 'checkbox',
-      'aria-label': L('selectLabel', { text: item.text }) }, props: { disabled: confirmed },
+      'aria-label': L('selectLabel', { text: item.text }) }, props: { disabled: confirmed || review.archived },
       on: { change: (event) => {
         if (event.target.checked) selected.add(item.claim_key); else selected.delete(item.claim_key);
         selectionChanged();
@@ -455,14 +458,16 @@ export function cvReview(initial, { onBack, onChanged } = {}) {
     const here = item.entry_key
       ? [{ value: item.entry_key, label: L('thisExperience') }, ...targets]
       : targets;
-    const move = confirmed ? null : select(here, item.entry_key || '', (value) => {
+    const move = confirmed || review.archived ? null : select(here, item.entry_key || '', (value) => {
       if ((value || null) === (item.entry_key || null)) return;
       void run(() => organize({ action: 'move', keys: [item.claim_key], entry_key: value || null },
         L('moved', { n: 1 })))();
     }, { ariaLabel: L('moveLabel', { text: item.text }) });
 
-    const actions = confirmed
-      ? [el('span', { className: 'ev__note', text: L('confirmedNote') })]
+    // An archived read is kept whole and answers nothing until restored.
+    const locked = review.archived;
+    const actions = confirmed || locked
+      ? [el('span', { className: 'ev__note', text: locked ? L('archivedLede') : L('confirmedNote') })]
       : [
         button(t('cv.accept'), () => answer('ACCEPTED'), { className: 'btn btn--accept',
           ariaLabel: t('cv.acceptLabel', { text: item.text }), attrs: { 'data-answer': 'ACCEPTED' } }),

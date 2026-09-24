@@ -244,7 +244,13 @@ def find_span(text: str) -> tuple[Span, int, int] | None:
         # "a" and "at" are words too; a lone year inside a sentence ("40 stores
         # in 2019") is still a date, which is why a header also needs a name.
         original = text[match.start() : match.end()].strip()
-        period = read_period(original)
+        try:
+            period = read_period(original)
+        except ValueError:
+            # "Dec 2021 - Jan 2021": a typo in the document. The words and
+            # the years are kept; no month is read out of a span that
+            # contradicts itself, and the job says its dates need a look.
+            period = None
         years = [int(y) for y in re.findall(r"(?:19|20)\d{2}", original)]
         end_word = (match.group("end") or "").strip()
         current = bool(end_word) and not re.search(r"\d", end_word)
@@ -289,9 +295,16 @@ class Header:
     ambiguous: bool = False
 
 
+#: Longer than any real job header. A line past this is prose, and parsing
+#: it as a header is only a way to spend time on untrusted input.
+MAX_HEADER = 300
+
+
 def read_header(text: str) -> Header:
     """Company, role and dates from one line, or as much as it states."""
     header = Header()
+    if len(text) > MAX_HEADER:
+        return header
     rest = text
     found = find_span(text)
     if found is not None:
@@ -335,6 +348,8 @@ def read_header(text: str) -> Header:
 
 def is_date_line(text: str) -> tuple[Span, str | None] | None:
     """A line that is a date span, optionally with a place. None otherwise."""
+    if len(text) > MAX_HEADER:
+        return None
     found = find_span(text)
     if found is None:
         return None
@@ -464,16 +479,18 @@ class ExperienceReader:
 
     def _next_is_role_header(self, index: int) -> bool:
         """Whether the next line names a role and has a date on it or under it."""
-        following = [n for n, line in enumerate(self.lines) if n > index and line.kind != "blank"]
-        if not following:
+        position = next(
+            (n for n in range(index + 1, len(self.lines)) if self.lines[n].kind != "blank"), None
+        )
+        if position is None:
             return False
-        first = self.lines[following[0]]
+        first = self.lines[position]
         if first.kind != "text" or first.text.rstrip().endswith("."):
             return False
         header = read_header(first.text)
         if not header.role:
             return False
-        return header.span is not None or self._next_is_date(following[0])
+        return header.span is not None or self._next_is_date(position)
 
     def read(self) -> list[tuple[Line, Entry | None, bool]]:
         """Every line, the job it belongs to, and whether it is a CLAIM.

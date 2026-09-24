@@ -243,6 +243,8 @@ def _heading(line: str) -> str | None:
     "Skills:" is a heading; "skills in Python" is a sentence about skills and
     is not. "Experiência Profissional" is a heading however it is accented.
     """
+    if len(line) > 120:
+        return None
     bare = _bare(inline(_BULLET.sub("", line).strip()))
     if not bare or len(bare) > 40:
         return None

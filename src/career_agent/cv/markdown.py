@@ -97,8 +97,18 @@ class Line:
     marked: bool = False
 
 
+#: The longest line whose inline syntax is read. The emphasis patterns are
+#: quadratic when a marker never closes, and a CV is untrusted input up to
+#: 25 MB with no line limit: a 64 KB line of "**a " took over 20 seconds.
+#: A line longer than any claim (`propose._MAX_LENGTH` is 2000) is kept as
+#: written, whitespace collapsed, and never proposed.
+MAX_INLINE = 2000
+
+
 def inline(text: str) -> str:
     """One run of Markdown inline syntax, as plain text."""
+    if len(text) > MAX_INLINE:
+        return re.sub(r"\s+", " ", text).strip()
     out = _ESCAPE.sub(lambda m: "\x00" + str(ord(m.group(1))) + "\x00", text)
     out = _TAG.sub(" ", out)
     out = _IMAGE.sub(r"\1", out)
@@ -137,6 +147,11 @@ def classify(text: str) -> list[Line]:
     fence: str | None = None
 
     for number, raw in enumerate(raw_lines, start=1):
+        if len(raw) > MAX_INLINE and fence is None:
+            # Too long to be a heading, an item or a claim: plain text, read
+            # without any of the patterns below.
+            out.append(Line(number, raw, "text", 0, inline(raw)))
+            continue
         if fence is not None:
             if raw.strip().startswith(fence):
                 fence = None

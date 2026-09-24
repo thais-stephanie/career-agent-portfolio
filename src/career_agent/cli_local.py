@@ -1078,6 +1078,10 @@ def evidence_command(
             typer.echo(
                 "    uv run career-agent intake-answer --help   # confirm, correct or reject"
             )
+            # The count includes CV reads, which are reviewed in the interface
+            # (Career Evidence), experience by experience.
+            typer.echo("  CV suggestions are reviewed in Career Evidence:")
+            typer.echo("    uv run career-agent serve")
         else:
             typer.echo("")
             typer.echo("  Build a package from your own documents, on this machine:")

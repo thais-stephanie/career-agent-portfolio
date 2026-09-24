@@ -824,3 +824,110 @@ def test_the_career_workspace_suggests_the_cvs_jobs_in_date_order(workspace) -> 
         )
     experiences = [e["company"] for e in call(api, "GET", "/api/career")["experiences"]]
     assert experiences == ["Contoso Health", "Northwind Retail"]
+
+
+# =========================================================================
+# 9. FOUND BY ADVERSARIAL REVIEW, EACH REPRODUCED FIRST
+# =========================================================================
+
+
+def test_a_reversed_date_range_is_unresolved_not_a_crash(workspace) -> None:
+    api, _db = workspace
+    text = load_cv("plain_promotions.txt").replace("Mar 2018", "Mar 2021", 1)
+    review = upload(api, text, "typo.txt")
+    manager = next(e for e in review["entries"] if e["role_title"] == "Operations Manager")
+    assert manager["period_start"] is None and manager["period_text"]
+    assert review["summary"]["suggestions"] == 10
+
+
+def test_long_and_hostile_lines_are_read_in_linear_time(workspace) -> None:
+    api, _db = workspace
+    from career_agent.cv.propose import read_cv
+
+    hostile = "\n".join(
+        [
+            "EXPERIENCE",
+            "**a " * 16000,
+            "# a" + " " * 40000 + "b",
+            "Acme, Consultant, 2020 - 2021",
+            " " * 40000 + "x",
+            *["Name Only" for _ in range(6000)],
+            "- did things",
+        ]
+    )
+    started = time.perf_counter()
+    read = read_cv(hostile)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 5.0, f"{elapsed:.1f}s"
+    assert any(p.text == "did things" for p in read.proposals)
+
+
+def test_a_deleted_package_cannot_be_restored_or_selected(workspace) -> None:
+    api, db = workspace
+    deleted = stage_package(db, 4)
+    first = rows(db, "SELECT claim_key FROM intake_claim ORDER BY claim_key LIMIT 1")[0][0]
+    call(api, "POST", f"/api/intake/{deleted}/answer", {"claim_key": first, "answer": "CONFIRM"})
+    call(api, "POST", f"/api/intake/{deleted}/delete", {"confirm": True})
+    conn = connect(db)
+    try:
+        live = import_package(
+            conn,
+            parse_package({**a_package(2), "generator": {"kind": "SELF", "name": "Other"}}),
+            filename="live.json",
+        )
+    finally:
+        conn.close()
+    assert waiting_everywhere(api, db)["firstrun"] == 6
+    for route in ("restore", "select"):
+        with pytest.raises(ApiError) as refused:
+            call(api, "POST", f"/api/intake/{deleted}/{route}")
+        assert refused.value.status == 404, route
+    assert call(api, "GET", "/api/intake")["active_package_id"] == live
+    assert waiting_everywhere(api, db)["firstrun"] == 6
+    assert all(
+        item.get("package_id") != deleted
+        for item in call(api, "GET", "/api/career/evidence", None).get("items", [])
+    )
+
+
+def test_job_dates_are_checked_across_requests(workspace) -> None:
+    api, _db = workspace
+    review = upload(api, load_cv("overlap_missing.md"), "casey.md")
+    import_id = review["import_id"]
+    umbrella = next(e for e in review["entries"] if e["company"] == "Umbrella Corp")
+    call(
+        api,
+        "POST",
+        f"/api/cv/imports/{import_id}/organize",
+        {
+            "action": "edit_entry",
+            "entry_key": umbrella["entry_key"],
+            "fields": {"period_start": "2022-01"},
+        },
+    )
+    with pytest.raises(ApiError) as refused:
+        call(
+            api,
+            "POST",
+            f"/api/cv/imports/{import_id}/organize",
+            {
+                "action": "edit_entry",
+                "entry_key": umbrella["entry_key"],
+                "fields": {"period_end": "2020-01"},
+            },
+        )
+    assert refused.value.status == 409
+    acme = next(e for e in review["entries"] if e["company"] == "Acme Analytics")
+    cleared = call(
+        api,
+        "POST",
+        f"/api/cv/imports/{import_id}/organize",
+        {
+            "action": "edit_entry",
+            "entry_key": acme["entry_key"],
+            "fields": {"period_start": None, "period_end": None},
+        },
+    )
+    after = next(e for e in cleared["entries"] if e["entry_key"] == acme["entry_key"])
+    assert after["start_year"] is None and "dates" in after["unresolved"]
+    assert cleared["entries"][-1]["entry_key"] in {acme["entry_key"], umbrella["entry_key"]}

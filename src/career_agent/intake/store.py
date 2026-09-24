@@ -739,7 +739,9 @@ def select(conn: sqlite3.Connection, package_id: str) -> None:
     DISCARDED one, which is restored first -- putting something back and
     choosing it are two acts and they get two buttons.
     """
-    row = conn.execute("SELECT status FROM intake_package WHERE id = ?", (package_id,)).fetchone()
+    row = conn.execute(
+        "SELECT status FROM intake_package WHERE id = ?" + _live(conn), (package_id,)
+    ).fetchone()
     if row is None:
         raise IntakeReviewError(f"no such package: {package_id!r}")
     status = str(row["status"])
@@ -776,7 +778,7 @@ def discard(conn: sqlite3.Connection, package_id: str) -> None:
     with transaction(conn):
         conn.execute(
             "UPDATE intake_package SET status = ?, superseded_by = NULL, updated_at = ?"
-            " WHERE id = ?",
+            " WHERE id = ?" + _live(conn),
             (PackageStatus.DISCARDED, now_utc(), package_id),
         )
 
@@ -794,7 +796,7 @@ def restore(conn: sqlite3.Connection, package_id: str) -> str:
     session's own `career-agent start` made once.
     """
     row = conn.execute(
-        "SELECT status, claim_count FROM intake_package WHERE id = ?", (package_id,)
+        "SELECT status, claim_count FROM intake_package WHERE id = ?" + _live(conn), (package_id,)
     ).fetchone()
     if row is None:
         raise IntakeReviewError(f"no such package: {package_id!r}")
@@ -851,17 +853,17 @@ def delete(conn: sqlite3.Connection, package_id: str) -> dict[str, int]:
     `verified_claim` is not touched. Withdrawing evidence is retiring it, in
     Career Evidence, and it is a revision rather than a delete.
     """
-    plan = delete_plan(conn, package_id)
-    keys = [
-        str(row[0])
-        for row in conn.execute(
-            "SELECT COALESCE(resolved_claim_key, claim_key) FROM intake_claim"
-            " WHERE package_id = ? AND review_state NOT IN (?, ?)",
-            (package_id, *_CONFIRMED_STATES),
-        )
-    ]
     stamp = now_utc()
     with transaction(conn):
+        plan = delete_plan(conn, package_id)
+        keys = [
+            str(row[0])
+            for row in conn.execute(
+                "SELECT COALESCE(resolved_claim_key, claim_key) FROM intake_claim"
+                " WHERE package_id = ? AND review_state NOT IN (?, ?)",
+                (package_id, *_CONFIRMED_STATES),
+            )
+        ]
         conn.execute(
             "DELETE FROM intake_claim WHERE package_id = ? AND review_state NOT IN (?, ?)",
             (package_id, *_CONFIRMED_STATES),

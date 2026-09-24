@@ -469,6 +469,19 @@ class CvReviewRepo(_Repo):
         merged.update({key: value for key, value in fields.items() if key in ENTRY_FIELDS})
         if merged["current_role"]:
             merged["period_end"] = None
+        start, end = merged["period_start"], merged["period_end"]
+        if end and not start:
+            raise ValueError("an end date needs a start date")
+        if start and end and end < start:
+            raise ValueError("the end date is before the start date")
+        start_year = _year(start) if "period_start" in fields else _year(start) or row["start_year"]
+        end_year = (
+            None
+            if merged["current_role"]
+            else _year(end)
+            if "period_end" in fields
+            else _year(end) or row["end_year"]
+        )
         self.conn.execute(
             "UPDATE cv_entry SET company = ?, role_title = ?, period_start = ?, period_end = ?,"
             " current_role = ?, start_year = ?, end_year = ?, unresolved_json = ?, edited = 1,"
@@ -479,10 +492,9 @@ class CvReviewRepo(_Repo):
                 merged["period_start"],
                 merged["period_end"],
                 int(bool(merged["current_role"])),
-                _year(merged["period_start"]) or row["start_year"],
-                _year(merged["period_end"])
-                or (None if merged["current_role"] else row["end_year"]),
-                json.dumps(_unresolved(merged, row)),
+                start_year,
+                end_year,
+                json.dumps(_unresolved(merged, dated=bool(start or start_year))),
                 now_utc(),
                 import_id,
                 entry_key,
@@ -603,8 +615,7 @@ def _year(month: str | None) -> int | None:
     return int(month[:4]) if month and len(month) >= 4 and month[:4].isdigit() else None
 
 
-def _unresolved(fields: dict, row: sqlite3.Row) -> list[str]:
-    dated = bool(fields["period_start"] or row["start_year"] or row["period_text"])
+def _unresolved(fields: dict, *, dated: bool) -> list[str]:
     return [
         reason
         for reason, missing in (

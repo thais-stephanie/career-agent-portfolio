@@ -264,3 +264,39 @@ def test_the_review_fits_a_phone_and_every_control_is_named(
     OUT.mkdir(exist_ok=True)
     page.screenshot(OUT / "career-evidence-v2-mobile.png")
     assert page.console_errors() == []
+
+
+#: A CV that tries to be markup. Every line of it must arrive as text.
+HOSTILE_CV = "\n".join(
+    [
+        "# Hostile Invented",
+        "## Experience",
+        "### <img src=x onerror=window.__pwned=1> Corp - Consultant",
+        "2019 - 2021",
+        "- <script>window.__pwned = true</script> built things",
+        "- **[click me](javascript:window.__pwned=true)** and more words here",
+        "## Skills",
+        "- <b>bold</b>, `x`",
+    ]
+    + ["Filler line so the document is long enough to be read as a CV." for _ in range(4)]
+)
+
+
+def test_imported_markup_is_shown_as_text_and_never_run(page: Chrome, pristine_server: str) -> None:
+    open_evidence(page, pristine_server)
+    choose_file(page, HOSTILE_CV, "hostile.md")
+    page.evaluate("document.querySelector('#page-evidence [data-action=\"next\"]').click()")
+    page.wait_for("document.querySelectorAll('#page-evidence .ev__card').length > 0")
+    assert page.evaluate("window.__pwned === undefined")
+    assert (
+        page.evaluate(
+            "document.querySelectorAll('#page-evidence .cvr img, #page-evidence .cvr script,"
+            " #page-evidence .cvr a').length"
+        )
+        == 0
+    )
+    cards = page.evaluate(
+        "[...document.querySelectorAll('#page-evidence .ev__proposal')].map(n => n.textContent)"
+    )
+    assert "<script>window.__pwned = true</script> built things" in cards
+    assert "click me and more words here" in cards
