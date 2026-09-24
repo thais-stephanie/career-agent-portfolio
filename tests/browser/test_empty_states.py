@@ -1,6 +1,6 @@
 """Every empty screen says what it is for and offers one way forward.
 
-A new person meets Discover, Applications and Career Evidence with nothing in
+A new person meets Discover, Applications and Evidence with nothing in
 them. Each used to be either a wall of controls with nothing to act on or
 directions to a panel somewhere else; these hold each to one sentence and one
 action, on a real fresh install.
@@ -57,16 +57,13 @@ def test_empty_applications_explains_itself_and_leads_to_discover(
 def test_empty_evidence_leads_with_importing_a_cv(page: Chrome, fresh: Fresh) -> None:
     _past_setup(page, fresh.base)
     _go(page, "evidence")
-    page.wait_for("document.querySelector('#ev-start-import')")
-    first = page.evaluate("document.querySelector('#page-evidence .ev > *').className")
-    assert "ev__start" in str(first)
-    assert not page.evaluate("document.querySelector('.ev__sources').open")
-    page.evaluate("document.querySelector('#ev-start-import').click()")
-    # Headless Chrome opens no file dialog, but the picker's section is shown.
-    page.wait_for("document.querySelector('.ev__sources').open === true")
-    # The worked example sits one click away instead of above the first button.
-    assert page.evaluate("Boolean(document.querySelector('.career__more'))")
-    assert not page.evaluate("document.querySelector('.career__more').open")
+    page.wait_for("document.querySelector('#page-evidence .evp-empty #evp-import')")
+    # No grid of empty sections: one card that says there is nothing yet.
+    assert page.evaluate("document.querySelectorAll('#page-evidence .evp-section').length") == 0
+    page.evaluate("document.querySelector('#evp-import').click()")
+    page.wait_for("!document.querySelector('#page-documents').hidden")
+    page.wait_for("document.querySelector('#page-documents #docs-file')")
+    assert page.console_errors() == []
 
 
 def test_each_source_stays_open_while_a_source_is_changed(page: Chrome, fresh: Fresh) -> None:

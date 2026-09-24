@@ -58,9 +58,12 @@ def open_evidence(page: Chrome, server: str) -> None:
         message="the global navigation",
     )
     page.evaluate("document.querySelector('.topnav__link[data-page=\"evidence\"]').click()")
+    # The statement manager moved behind Evidence: "Manage all statements".
+    page.wait_for("document.querySelector('#page-evidence .evp-manage .cw-link') !== null")
+    page.evaluate("document.querySelector('#page-evidence .evp-manage .cw-link').click()")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__privacy') !== null",
-        message="the evidence page",
+        "document.querySelector('#page-manage .ev__privacy') !== null",
+        message="the statement manager",
     )
 
 
@@ -85,17 +88,17 @@ def import_cv(page: Chrome) -> None:
     # suggestions, what needs attention -- never on a wall of cards. The
     # cards are one step in, and "Next item needing review" takes that step.
     page.wait_for(
-        "document.querySelector('#page-evidence .cvr__summary [data-summary]') !== null",
+        "document.querySelector('#page-manage .cvr__summary [data-summary]') !== null",
         message="the review summary",
     )
-    assert page.evaluate("document.querySelectorAll('#page-evidence .ev__card').length") == 0
+    assert page.evaluate("document.querySelectorAll('#page-manage .ev__card').length") == 0
     open_next(page)
 
 
 def open_next(page: Chrome) -> None:
-    page.evaluate("document.querySelector('#page-evidence [data-action=\"next\"]').click()")
+    page.evaluate("document.querySelector('#page-manage [data-action=\"next\"]').click()")
     page.wait_for(
-        "document.querySelectorAll('#page-evidence .ev__card').length > 0",
+        "document.querySelectorAll('#page-manage .ev__card').length > 0",
         message="the review cards",
     )
 
@@ -103,11 +106,11 @@ def open_next(page: Chrome) -> None:
 def to_summary(page: Chrome) -> None:
     """From a group back to the list of experiences, if a group is open."""
     page.evaluate(
-        "(() => { const b = [...document.querySelectorAll('#page-evidence button')]"
+        "(() => { const b = [...document.querySelectorAll('#page-manage button')]"
         ".find((x) => x.textContent.includes('Back to all experiences')); if (b) b.click(); })()"
     )
     page.wait_for(
-        "document.querySelector('#page-evidence .cvr__summary') !== null",
+        "document.querySelector('#page-manage .cvr__summary') !== null",
         message="the review summary",
     )
 
@@ -116,15 +119,15 @@ def all_cards(page: Chrome) -> list:
     """Every card in the read: each experience and section, opened in turn."""
     to_summary(page)
     count = int(
-        page.evaluate("document.querySelectorAll('#page-evidence .cvr__row button').length")
+        page.evaluate("document.querySelectorAll('#page-manage .cvr__row button').length")
     )
     found: list = []
     for index in range(count):
         page.evaluate(
-            f"document.querySelectorAll('#page-evidence .cvr__row button')[{index}].click()"
+            f"document.querySelectorAll('#page-manage .cvr__row button')[{index}].click()"
         )
         page.wait_for(
-            "document.querySelector('#page-evidence .cvr__group') !== null",
+            "document.querySelector('#page-manage .cvr__group') !== null",
             message="one group of the review",
         )
         found += cards(page)
@@ -135,7 +138,7 @@ def all_cards(page: Chrome) -> list:
 def cards(page: Chrome) -> list:
     return list(
         page.evaluate(
-            "[...document.querySelectorAll('#page-evidence .ev__card')].map((card) => ({"
+            "[...document.querySelectorAll('#page-manage .ev__card')].map((card) => ({"
             "  proposal: card.querySelector('.ev__proposal').textContent,"
             "  source: card.querySelector('.ev__from .quote').textContent,"
             "  decision: card.querySelector('.ev__decision')"
@@ -150,7 +153,7 @@ def answer(page: Chrome, index: int, label: str) -> None:
     """Click one of the three answers on one card, by its visible words."""
     page.evaluate(
         "(() => {"
-        f" const card = [...document.querySelectorAll('#page-evidence .ev__card')][{index}];"
+        f" const card = [...document.querySelectorAll('#page-manage .ev__card')][{index}];"
         f" const wanted = {json.dumps(label)};"
         "  const found = [...card.querySelectorAll('.ev__actions button')]"
         "    .find((b) => b.textContent.includes(wanted));"
@@ -170,8 +173,8 @@ def open_every_category(page: Chrome) -> None:
     """
     page.evaluate(
         "(() => {"
-        "  for (const d of document.querySelectorAll('#page-evidence .evgroup')) d.open = true;"
-        "  for (const d of document.querySelectorAll('#page-evidence .ev__employer')) {"
+        "  for (const d of document.querySelectorAll('#page-manage .evgroup')) d.open = true;"
+        "  for (const d of document.querySelectorAll('#page-manage .ev__employer')) {"
         "    d.open = true;"
         "  }"
         "})()"
@@ -182,7 +185,7 @@ def ledger(page: Chrome) -> list:
     open_every_category(page)
     return list(
         page.evaluate(
-            "[...document.querySelectorAll('#page-evidence .evrow')].map((row) => ({"
+            "[...document.querySelectorAll('#page-manage .evrow')].map((row) => ({"
             "  text: row.querySelector('.evrow__text').textContent,"
             "  origin: row.querySelector('.quote--origin')"
             "    ? row.querySelector('.quote--origin').textContent : null,"
@@ -195,7 +198,7 @@ def ledger(page: Chrome) -> list:
 def back_to_ledger(page: Chrome) -> None:
     to_summary(page)
     page.evaluate(
-        "[...document.querySelectorAll('#page-evidence button')]"
+        "[...document.querySelectorAll('#page-manage button')]"
         ".find((b) => b.textContent.includes('Back to your evidence')).click()"
     )
     # Waits on the INTAKE section, which is drawn whenever the review is not.
@@ -204,7 +207,7 @@ def back_to_ledger(page: Chrome) -> None:
     # that rejected its only proposal would wait for a list that correctly
     # never appears.
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__privacy') !== null",
+        "document.querySelector('#page-manage .ev__privacy') !== null",
         message="the ledger view",
     )
 
@@ -219,7 +222,7 @@ def test_reading_a_cv_confirms_nothing(page: Chrome, pristine_server: str) -> No
     import_cv(page)
     assert all(card["decision"] is None for card in all_cards(page))
     summary = str(
-        page.evaluate("document.querySelector('#page-evidence [data-summary]').textContent")
+        page.evaluate("document.querySelector('#page-manage [data-summary]').textContent")
     )
     assert "suggestions" in summary and "need attention" in summary, summary
 
@@ -258,7 +261,7 @@ def test_accepting_puts_the_line_in_the_ledger(page: Chrome, pristine_server: st
     first = cards(page)[0]["proposal"]
     answer(page, 0, "Yes, that is true")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__decision') !== null",
+        "document.querySelector('#page-manage .ev__decision') !== null",
         message="the decision mark",
     )
     back_to_ledger(page)
@@ -278,7 +281,7 @@ def test_an_edit_keeps_the_document_line_beside_the_correction(
     answer(page, 1, "Not quite")
     page.evaluate(
         "(() => {"
-        "  const card = [...document.querySelectorAll('#page-evidence .ev__card')][1];"
+        "  const card = [...document.querySelectorAll('#page-manage .ev__card')][1];"
         "  const box = card.querySelector('textarea');"
         f" box.value = {json.dumps(corrected)};"
         "  box.dispatchEvent(new Event('input', { bubbles: true }));"
@@ -287,7 +290,7 @@ def test_an_edit_keeps_the_document_line_beside_the_correction(
         "})()"
     )
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__decision--edited') !== null",
+        "document.querySelector('#page-manage .ev__decision--edited') !== null",
         message="the edited mark",
     )
     back_to_ledger(page)
@@ -304,7 +307,7 @@ def test_rejecting_confirms_nothing(page: Chrome, pristine_server: str) -> None:
     import_cv(page)
     answer(page, 0, "No, drop it")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__decision--rejected') !== null",
+        "document.querySelector('#page-manage .ev__decision--rejected') !== null",
         message="the dropped mark",
     )
     back_to_ledger(page)
@@ -325,25 +328,25 @@ def test_answers_survive_a_reload(page: Chrome, pristine_server: str) -> None:
     open_next(page)
     answer(page, 0, "Yes, that is true")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__decision') !== null",
+        "document.querySelector('#page-manage .ev__decision') !== null",
         message="the first decision",
     )
     answer(page, 1, "No, drop it")
     page.wait_for(
-        "document.querySelectorAll('#page-evidence .ev__decision').length === 2",
+        "document.querySelectorAll('#page-manage .ev__decision').length === 2",
         message="the second decision",
     )
 
     open_evidence(page, pristine_server)
-    pending = page.evaluate("document.querySelector('#page-evidence .ev__importstate').textContent")
+    pending = page.evaluate("document.querySelector('#page-manage .ev__importstate').textContent")
     assert str(pending) == f"{total - 2} still to answer"
 
     page.evaluate(
-        "[...document.querySelectorAll('#page-evidence button')]"
+        "[...document.querySelectorAll('#page-manage button')]"
         ".find((b) => b.textContent.includes('Continue reviewing')).click()"
     )
     page.wait_for(
-        "document.querySelector('#page-evidence .cvr__summary') !== null",
+        "document.querySelector('#page-manage .cvr__summary') !== null",
         message="the reopened review",
     )
     decided = [card["decision"] for card in all_cards(page) if card["decision"]]
@@ -367,20 +370,20 @@ def test_a_fact_written_by_hand_says_it_was_written_by_hand(
         "(() => {"
         "  document.querySelector('.ev__add').open = true;"
         "  const box = [...document.querySelectorAll("
-        "    '#page-evidence .ev__addbox input, #page-evidence .ev__addbox textarea')]"
+        "    '#page-manage .ev__addbox input, #page-manage .ev__addbox textarea')]"
         "    .find((n) => !n.hidden);"
         "  box.value = 'Ran the order-to-cash redesign at Acme';"
-        "  [...document.querySelectorAll('#page-evidence .ev__add button')]"
+        "  [...document.querySelectorAll('#page-manage .ev__add button')]"
         "    .find((b) => b.textContent.includes('Confirm this about me')).click();"
         "})()"
     )
     page.wait_for(
-        "document.querySelector('#page-evidence .evgroup') !== null",
+        "document.querySelector('#page-manage .evgroup') !== null",
         message="the new claim",
     )
     open_every_category(page)
     sources = page.evaluate(
-        "[...document.querySelectorAll('#page-evidence .evrow__src')].map(n => n.textContent)"
+        "[...document.querySelectorAll('#page-manage .evrow__src')].map(n => n.textContent)"
     )
     assert list(sources) == ["Added by you"]
     assert ledger(page)[0]["origin"] is None, "a hand-written claim cited something"
@@ -393,7 +396,7 @@ def test_retiring_keeps_the_claim_and_marks_it(page: Chrome, pristine_server: st
     import_cv(page)
     answer(page, 0, "Yes, that is true")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__decision') !== null",
+        "document.querySelector('#page-manage .ev__decision') !== null",
         message="the decision",
     )
     back_to_ledger(page)
@@ -404,13 +407,13 @@ def test_retiring_keeps_the_claim_and_marks_it(page: Chrome, pristine_server: st
     # sentence and one control; everything that acts on the claim lives
     # behind `Details`, which is what took this screen from three items per
     # viewport to fourteen.
-    page.evaluate("document.querySelector('#page-evidence .evrow .evrow__more').click()")
+    page.evaluate("document.querySelector('#page-manage .evrow .evrow__more').click()")
     page.evaluate(
-        "[...document.querySelectorAll('#page-evidence .evrow button')]"
+        "[...document.querySelectorAll('#page-manage .evrow button')]"
         ".find((b) => b.textContent.includes('Remove from profile')).click()"
     )
     page.wait_for(
-        "document.querySelector('#page-evidence .evrow--aside') !== null",
+        "document.querySelector('#page-manage .evrow--aside') !== null",
         message="the claim that was removed from the profile",
     )
     rows = ledger(page)
@@ -506,7 +509,7 @@ def test_confirmed_evidence_answers_a_requirement_and_shows_itself(
     import_cv(page)
     answer(page, 0, "Yes, that is true")  # the HubSpot workflow line
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__decision') !== null",
+        "document.querySelector('#page-manage .ev__decision') !== null",
         message="the decision",
     )
     open_prepare(page, pristine_server)
