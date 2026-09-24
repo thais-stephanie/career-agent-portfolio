@@ -27,7 +27,13 @@ import re
 from dataclasses import dataclass, field
 
 from career_agent.cv.markdown import Line, classify, inline
-from career_agent.cv.structure import SECTION_WORDS, Entry, ExperienceReader, fold
+from career_agent.cv.structure import (
+    SECTION_WORDS,
+    Entry,
+    ExperienceReader,
+    fold,
+    is_date_line,
+)
 from career_agent.domain.enums import ClaimSource, ClaimType
 
 #: Section headings, in the two languages this product speaks. Matched on a
@@ -313,7 +319,12 @@ def _structure(text: str) -> tuple[list[tuple[str | None, Line, Entry | None, bo
             out.extend((section, line, entry, claim) for line, entry, claim in reader.read())
             entries.extend(reader.entries)
         else:
-            out.extend((section, line, None, True) for line in rest)
+            # Outside a job section a date line ("August 2026 - present /
+            # solo builder") dates the item above it; it is not a statement.
+            out.extend(
+                (section, line, None, not (line.kind == "text" and is_date_line(line.text)))
+                for line in rest
+            )
     return out, entries
 
 

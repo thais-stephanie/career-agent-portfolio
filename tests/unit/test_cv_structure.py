@@ -206,3 +206,67 @@ def test_a_package_built_from_a_markdown_cv_has_clean_jobs() -> None:
     skills = [c for c in package.claims if c.type.value == "SKILL"]
     assert skills and all(c.employer is None for c in skills)
     assert not any("**" in c.text or c.text.startswith("#") for c in package.claims)
+
+
+# =========================================================================
+# 3. THE LAYOUT OF A REAL SENIOR CV (found in the real-workspace QA, invented here)
+# =========================================================================
+
+
+def test_a_company_heading_owns_the_role_lines_beneath_it() -> None:
+    """`### COMPANY - City / Remote`, then a bold `Role | Specialty` line and an
+    italic date line. The specialty after the bar is part of the title, never
+    a company; the rest of the heading is where."""
+    read = read_cv(load_cv("company_headings.md"))
+    contoso = read.entries[0]
+    assert contoso.company == "CONTOSO LLC"
+    assert contoso.role == "Senior Revenue Engineer | Billing Systems, Automation & Data Quality"
+    assert contoso.span is not None and contoso.span.start == "2025-03"
+    assert contoso.location == "Springfield, ST, Invented Country, Remote"
+
+
+def test_a_company_tenure_with_several_roles_is_not_a_job_of_its_own() -> None:
+    read = read_cv(load_cv("company_headings.md"))
+    fabrikam = [e for e in read.entries if e.company == "FABRIKAM INC"]
+    assert [e.role for e in fabrikam] == [
+        "Product Manager | Product Systems & Data",
+        "Senior Solutions Engineer | Finance Automation",
+    ]
+    # The heading and its tenure line travel with each role as its source.
+    assert all(any("FABRIKAM" in line.raw for line in e.lines) for e in fabrikam)
+    assert all(e.location for e in fabrikam)
+
+
+def test_several_titles_on_one_line_stay_one_role() -> None:
+    read = read_cv(load_cv("company_headings.md"))
+    northwind = next(e for e in read.entries if e.company == "NORTHWIND JR.")
+    assert northwind.role == "Process Consultant · Project Manager · Brand Analyst"
+
+
+def test_bold_sub_headings_inside_a_job_are_not_claims() -> None:
+    read = read_cv(load_cv("company_headings.md"))
+    texts = {p.text for p in read.proposals}
+    assert "Reliability and monitoring" not in texts
+    assert "Subscription billing pipeline (CRM to payments)" not in texts
+    contoso = read.entries[0]
+    assert any("Reliability and monitoring" in line.raw for line in contoso.lines)
+
+
+def test_section_headings_with_more_words_are_recognised() -> None:
+    read = read_cv(load_cv("company_headings.md"))
+    by_section = {p.section for p in read.proposals}
+    assert {"projects", "certifications", "education"} <= by_section
+    projects = [p.text for p in read.proposals if p.section == "projects"]
+    # The project's date line dates it; it is not a claim.
+    assert projects == ["Built a local matching tool with an evidence review workflow."]
+    assert read.unread_lines == ["Morgan Invented"]
+
+
+def test_a_title_keeps_its_own_parentheses() -> None:
+    text = (
+        "## Experience\n### Initech {EM} Harbor Town\n"
+        "**Business Process Analyst (Intern)** · *August 2019 {EM} March 2020*\n"
+        "- Mapped a process.\n"
+    ).replace("{EM}", EM_DASH)
+    (entry,) = read_cv(text).entries
+    assert entry.role == "Business Process Analyst (Intern)"

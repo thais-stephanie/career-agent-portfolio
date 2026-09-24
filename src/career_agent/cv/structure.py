@@ -187,6 +187,32 @@ _AT = re.compile(r"\s+(?:at|@|na|no)\s+(?=[A-Z0-9À-Þ])")
 #: A heading that NAMES a section in prose-form: "Additional experience",
 #: "Experiencia relevante". Only ever applied to marked headings.
 SECTION_WORDS = {
+    # Ordered: the first known word in a heading decides. "Certifications and
+    # licenses" is certifications; "Independent engineering projects" is
+    # projects. A heading with none of these starts a section this does not
+    # read, which is reported rather than guessed at.
+    "projects": "projects",
+    "project": "projects",
+    "projetos": "projects",
+    "certifications": "certifications",
+    "certification": "certifications",
+    "certificacoes": "certifications",
+    "licenses": "certifications",
+    "licences": "certifications",
+    "licencas": "certifications",
+    "education": "education",
+    "formacao": "education",
+    "skills": "skills",
+    "competencias": "skills",
+    "habilidades": "skills",
+    "volunteering": "volunteering",
+    "voluntariado": "volunteering",
+    "internships": "internships",
+    "estagios": "internships",
+    "awards": "awards",
+    "premios": "awards",
+    "languages": "languages",
+    "idiomas": "languages",
     "experience": "experience",
     "experiences": "experience",
     "experiencia": "experience",
@@ -293,6 +319,9 @@ class Header:
     #: A name the line gives that could be either a company or a role.
     name: str | None = None
     ambiguous: bool = False
+    #: The parts after the first, when the line named several things and none
+    #: was a title: usually where ("City, Country", "Remote").
+    rest: list[str] = field(default_factory=list)
 
 
 #: Longer than any real job header. A line past this is prose, and parsing
@@ -343,6 +372,7 @@ def read_header(text: str) -> Header:
     # The first part is kept as a label and the structure is left for a person.
     header.name = parts[0]
     header.ambiguous = True
+    header.rest = parts[1:]
     return header
 
 
@@ -388,6 +418,9 @@ class Entry:
     lines: list[Line] = field(default_factory=list)
     #: Why a person should look at the structure itself, if they should.
     unresolved: list[str] = field(default_factory=list)
+    #: Opened by a company heading and not yet holding a role of its own. If
+    #: roles follow it, it was the company's frame, not a job.
+    container: bool = False
 
     def finish(self) -> None:
         self.unresolved = [
@@ -442,6 +475,8 @@ class ExperienceReader:
         self.company: str | None = None
         self.company_level: int | None = None
         self.company_lines: list[Line] = []
+        #: Where the company heading said it is, for every role beneath it.
+        self.company_location: str | None = None
         self.current: Entry | None = None
         #: Whether the current entry has any claim under it yet. A header that
         #: follows claims opens a new entry; one directly under another header
@@ -449,10 +484,24 @@ class ExperienceReader:
         self.has_claims = False
 
     def _new(self) -> Entry:
+        frame = self.current
+        if (
+            frame is not None
+            and frame.container
+            and not self.has_claims
+            and not frame.role
+            and frame.company == self.company
+        ):
+            # A company heading, maybe with its overall tenure, and then roles
+            # of their own: the heading was the COMPANY. It is not a job, so it
+            # is not kept as one; its lines travel with every role beneath it.
+            self.entries.remove(frame)
+            self.company_lines = list(frame.lines)
         self.counter[0] += 1
         entry = Entry(key=f"{self.section}-e{self.counter[0]:02d}", section=self.section)
         if self.company:
             entry.company = self.company
+            entry.location = self.company_location
             entry.lines.extend(self.company_lines)
         self.entries.append(entry)
         self.current = entry
@@ -534,6 +583,13 @@ class ExperienceReader:
                 if header is not None:
                     out.append((line, None, False))
                     continue
+                if self.current is not None and _is_subheading(line):
+                    # "**Reliability and monitoring**" over a few bullets: how
+                    # the job's work is grouped, not a statement about it. Kept
+                    # with the job's source lines.
+                    self.current.lines.append(line)
+                    out.append((line, None, False))
+                    continue
 
             if self.current is None and self.company:
                 # Under a company heading with no role yet: the company is
@@ -570,14 +626,22 @@ class ExperienceReader:
             return
         if self.company_level is not None and line.level <= self.company_level:
             self.company, self.company_level, self.company_lines = None, None, []
+            self.company_location = None
         entry = self._new()
         under_company = self.company is not None
         _name_it(entry, header, as_company=None if not under_company else False)
         if header.name and not under_company and not header.role:
             # A lone name as a heading, with no role in it: most CVs put the
-            # ORGANISATION here and the title on the next line.
+            # ORGANISATION here and the title on the next line. The rest of the
+            # heading ("City, Country / Remote") is where. And it is the company
+            # for every role line beneath it, until the next heading at its level.
             entry.label = None
             entry.company = header.name
+            if header.rest and not entry.location:
+                entry.location = ", ".join(header.rest)
+            entry.container = True
+            self.company, self.company_level, self.company_lines = header.name, line.level, []
+            self.company_location = entry.location
         entry.lines.append(line)
 
     def _header_line(self, index: int, line: Line) -> Header | None:
@@ -604,9 +668,19 @@ class ExperienceReader:
             return header
         if not dated and not self._next_is_date(index):
             return None
-        if header.company and self.company and header.company != self.company:
+        if (
+            self.company
+            and self.company_level is not None
+            and (header.role or header.company or header.name)
+        ):
+            # Under a company HEADING, a role line cannot name another company:
+            # "Senior Engineer | Billing Systems, Automation" is the title and
+            # its specialty. The whole line, dates aside, is kept as the role.
+            header = Header(role=_without_span(text, header.span), span=header.span)
+        elif header.company and self.company and header.company != self.company:
             # A header naming its own organisation ends the one above it.
             self.company, self.company_level, self.company_lines = None, None, []
+            self.company_location = None
         if not dated and not (header.role or header.company) and len(text.split()) > 8:
             return None
         entry = self.current
@@ -617,6 +691,10 @@ class ExperienceReader:
             or (header.role and entry.role)
             or (dated and entry.span is not None)
         )
+        if entry is not None and not opens_new and entry.container and header.role:
+            # The first role under a company heading with no dates of its own:
+            # the heading's entry becomes that job.
+            entry.container = False
         if opens_new:
             entry = self._new()
         assert entry is not None
@@ -636,6 +714,37 @@ class ExperienceReader:
                 entry.location = header.location
         entry.lines.append(line)
         return header
+
+
+_FULLY_EMPHASISED = re.compile(r"^\s*(\*\*|__)(?P<words>[^*_].{0,98}?)\1\s*$")
+
+
+def _is_subheading(line: Line) -> bool:
+    """A short line wholly in bold, with no sentence ending: a label."""
+    match = _FULLY_EMPHASISED.match(line.raw)
+    if match is None:
+        return False
+    return not match.group("words").rstrip().endswith((".", ";", "!"))
+
+
+def _without_span(text: str, span: Span | None) -> str:
+    """A header line with its dates removed, and the separators around them."""
+    found = find_span(text) if span is not None else None
+    if found is not None:
+        _span, start, end = found
+        text = text[:start] + " " + text[end:]
+    cleaned = re.sub(r"\s+", " ", text).strip(" ,;:|" + _DASHES + "\u00b7\u2022")
+    # A parenthesis is trimmed only when it is left unpaired by the dates'
+    # removal: "Analyst (Intern)" keeps both of its own.
+    while cleaned.endswith("(") or (
+        cleaned.endswith(")") and cleaned.count("(") < cleaned.count(")")
+    ):
+        cleaned = cleaned[:-1].rstrip(" ,;:|" + _DASHES + "\u00b7\u2022")
+    while cleaned.startswith(")") or (
+        cleaned.startswith("(") and cleaned.count("(") > cleaned.count(")")
+    ):
+        cleaned = cleaned[1:].lstrip(" ,;:|" + _DASHES + "\u00b7\u2022")
+    return cleaned
 
 
 def chronology_key(
