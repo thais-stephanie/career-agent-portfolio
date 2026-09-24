@@ -459,7 +459,7 @@ def test_tailor_waits_for_career_context_and_says_what_to_add(
         "/resume-tailor"
     )
     _click(page, "#drawer-add-career")
-    page.wait_for("!document.querySelector('#page-evidence').hidden", message="Career Evidence")
+    page.wait_for("!document.querySelector('#page-documents').hidden", message="Documents")
     assert page.console_errors() == []
 
 
@@ -498,13 +498,13 @@ def test_switching_to_portuguese_on_career_evidence_translates_the_page(
     from tests.browser.test_career_evidence import open_evidence
 
     open_evidence(page, package_live)
-    page.wait_for("document.querySelector('#page-evidence').innerText.includes('Your experiences')")
+    page.wait_for("document.querySelector('#page-manage').innerText.includes('Your experiences')")
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
     page.wait_for(
-        "document.querySelector('#page-evidence').innerText.includes('Suas experiências')",
+        "document.querySelector('#page-manage').innerText.includes('Suas experiências')",
         message="the evidence page in Portuguese",
     )
-    text = _text(page, "#page-evidence")
+    text = _text(page, "#page-manage")
     for english in (
         "Your experiences",
         "Sources and imports",
@@ -514,10 +514,10 @@ def test_switching_to_portuguese_on_career_evidence_translates_the_page(
         assert english not in text, f"{english!r} stayed English after the switch"
 
     # The date an import was read carries the reader's month.
-    page.evaluate("document.querySelectorAll('#page-evidence details').forEach(d => d.open = true)")
+    page.evaluate("document.querySelectorAll('#page-manage details').forEach(d => d.open = true)")
     read_line = str(
         page.evaluate(
-            "[...document.querySelectorAll('#page-evidence *')].map(n => n.textContent)"
+            "[...document.querySelectorAll('#page-manage *')].map(n => n.textContent)"
             ".find(t => t.includes('lidos em') && t.length < 200) || ''"
         )
     )
@@ -536,7 +536,7 @@ def test_a_review_open_in_portuguese_stays_open_when_the_language_changes(
     open_package(page, package_live)
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
     page.wait_for(
-        "document.querySelector('#page-evidence').innerText.includes('Voltar às suas evidências')",
+        "document.querySelector('#page-manage').innerText.includes('Voltar às suas evidências')",
         message="the open review, translated in place",
     )
     page.evaluate("document.querySelector('[data-locale=\"en\"]').click()")
@@ -648,16 +648,16 @@ def test_switching_language_on_evidence_never_discards_what_is_being_typed(
     from tests.browser.test_career_evidence import open_evidence
 
     open_evidence(page, package_live)
-    page.wait_for("document.querySelector('#page-evidence textarea')", message="a text box")
+    page.wait_for("document.querySelector('#page-manage textarea')", message="a text box")
     page.evaluate(
-        "(() => { const box = document.querySelector('#page-evidence textarea');"
+        "(() => { const box = document.querySelector('#page-manage textarea');"
         " box.value = 'Ran the weekly supplier review';"
         " box.dispatchEvent(new Event('input', {bubbles: true})); })()"
     )
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
     time.sleep(1.5)
     kept = page.evaluate(
-        "[...document.querySelectorAll('#page-evidence textarea')]"
+        "[...document.querySelectorAll('#page-manage textarea')]"
         ".some((box) => box.value === 'Ran the weekly supplier review')"
     )
     assert kept, "switching language threw away an unsaved sentence"
@@ -665,8 +665,10 @@ def test_switching_language_on_evidence_never_discards_what_is_being_typed(
     # Nothing typed: the next arrival translates the page as before.
     _go(page, "home")
     _go(page, "evidence")
+    page.wait_for("document.querySelector('#page-evidence .evp-manage .cw-link') !== null")
+    page.evaluate("document.querySelector('#page-evidence .evp-manage .cw-link').click()")
     page.wait_for(
-        "document.querySelector('#page-evidence').innerText.includes('Suas experiências')",
+        "document.querySelector('#page-manage').innerText.includes('Suas experiências')",
         message="the evidence page in Portuguese after the next arrival",
     )
     page.evaluate("document.querySelector('[data-locale=\"en\"]').click()")

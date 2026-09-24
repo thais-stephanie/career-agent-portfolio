@@ -212,13 +212,16 @@ def open_evidence(page: Chrome, server: str) -> None:
         message="the global navigation",
     )
     page.evaluate("document.querySelector('.topnav__link[data-page=\"evidence\"]').click()")
+    # The statement manager moved behind Evidence: "Manage all statements".
+    page.wait_for("document.querySelector('#page-evidence .evp-manage .cw-link') !== null")
+    page.evaluate("document.querySelector('#page-evidence .evp-manage .cw-link').click()")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__privacy') !== null",
-        message="the evidence page",
+        "document.querySelector('#page-manage .ev__privacy') !== null",
+        message="the statement manager",
     )
 
 
-def click_text(page: Chrome, needle: str, scope: str = "#page-evidence") -> None:
+def click_text(page: Chrome, needle: str, scope: str = "#page-manage") -> None:
     """Click the button a person would click: by the words on it."""
     page.evaluate(
         "(() => {"
@@ -234,7 +237,7 @@ def click_text(page: Chrome, needle: str, scope: str = "#page-evidence") -> None
 def texts(page: Chrome, selector: str) -> list[str]:
     return list(
         page.evaluate(
-            f"[...document.querySelectorAll('#page-evidence {selector}')].map(n => n.textContent)"
+            f"[...document.querySelectorAll('#page-manage {selector}')].map(n => n.textContent)"
         )
     )
 
@@ -244,7 +247,7 @@ def open_package(page: Chrome, server: str, start: str = "Start review") -> None
     same package by reading the same screen a Portuguese reader reads."""
     open_evidence(page, server)
     page.wait_for(
-        "document.querySelectorAll('#page-evidence .ev__import').length > 0",
+        "document.querySelectorAll('#page-manage .ev__import').length > 0",
         message="the staged import",
     )
     # THE IMPORTS MOVED TO THE BOTTOM AND BEHIND A DISCLOSURE. They are the
@@ -252,7 +255,7 @@ def open_package(page: Chrome, server: str, start: str = "Start review") -> None
     # page answers rather than the first. Opening the fold is what a reader
     # does; the button inside it is the same button.
     page.evaluate(
-        "(() => { const f = document.querySelector('#page-evidence .ev__sources');"
+        "(() => { const f = document.querySelector('#page-manage .ev__sources');"
         " if (f) f.open = true; })()"
     )
     click_text(page, start)
@@ -261,7 +264,7 @@ def open_package(page: Chrome, server: str, start: str = "Start review") -> None
     # that was already on the screen -- which is how this test first "passed"
     # against a page it had never left.
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__reviewhead') !== null",
+        "document.querySelector('#page-manage .ev__reviewhead') !== null",
         message="the package overview",
     )
 
@@ -270,7 +273,7 @@ def open_group(page: Chrome, employer: str) -> None:
     page.evaluate(
         "(() => {"
         f" const wanted = {json.dumps(employer)};"
-        "  const card = [...document.querySelectorAll('#page-evidence .ev__card--group')]"
+        "  const card = [...document.querySelectorAll('#page-manage .ev__card--group')]"
         "    .find((c) => c.querySelector('.ev__proposal')"
         "      && c.querySelector('.ev__proposal').textContent === wanted);"
         "  if (!card) throw new Error('no group for ' + wanted);"
@@ -281,7 +284,7 @@ def open_group(page: Chrome, employer: str) -> None:
     # waiting for one is waiting for something already on the screen -- and a
     # predicate that is true before the click is not a wait at all.
     page.wait_for(
-        "(document.querySelector('#page-evidence .d-sec__head') || {}).textContent === "
+        "(document.querySelector('#page-manage .d-sec__head') || {}).textContent === "
         + json.dumps(employer),
         message=f"the {employer} group",
     )
@@ -301,7 +304,7 @@ def test_the_overview_shows_headings_and_not_the_claims(page: Chrome, package_se
     """
     open_package(page, package_server)
 
-    body = str(page.evaluate("document.querySelector('#page-evidence').innerText"))
+    body = str(page.evaluate("document.querySelector('#page-manage').innerText"))
     assert CONTOSO in body, "the overview did not name the job"
     assert "Ran the billing workstream number 0" not in body, (
         "a proposed sentence reached the overview; that is the wall coming back"
@@ -331,7 +334,7 @@ def test_progress_is_announced_to_a_screen_reader(page: Chrome, package_server: 
     the one fact it carries is invisible to anybody not looking at it."""
     open_package(page, package_server)
     label = page.evaluate(
-        "document.querySelector('#page-evidence .ev__meter').getAttribute('aria-label')"
+        "document.querySelector('#page-manage .ev__meter').getAttribute('aria-label')"
     )
     assert label and "of" in str(label)
 
@@ -363,7 +366,7 @@ def test_every_claim_shows_where_it_came_from(page: Chrome, package_server: str)
     open_group(page, NORTHWIND)
 
     cards = page.evaluate(
-        "[...document.querySelectorAll('#page-evidence .ev__card')].map((card) => ({"
+        "[...document.querySelectorAll('#page-manage .ev__card')].map((card) => ({"
         "  labels: [...card.querySelectorAll('.ev__fromlabel')].map(n => n.textContent),"
         "  cited: card.querySelector('.quote') !== null"
         "      || [...card.querySelectorAll('.ev__meta')].some(n =>"
@@ -439,7 +442,7 @@ def test_settling_it_once_releases_every_claim_it_held(page: Chrome, package_ser
     open_package(page, package_server)
     click_text(page, "These dates are right")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__sidechosen') !== null",
+        "document.querySelector('#page-manage .ev__sidechosen') !== null",
         message="the resolution",
     )
 
@@ -456,16 +459,16 @@ def test_settling_it_confirms_nothing(page: Chrome, package_server: str) -> None
     open_package(page, package_server)
     click_text(page, "These dates are right")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__sidechosen') !== null",
+        "document.querySelector('#page-manage .ev__sidechosen') !== null",
         message="the resolution",
     )
     click_text(page, "Back to your evidence")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__privacy') !== null",
+        "document.querySelector('#page-manage .ev__privacy') !== null",
         message="the evidence page",
     )
 
-    claims = page.evaluate("document.querySelectorAll('#page-evidence .evrow').length")
+    claims = page.evaluate("document.querySelectorAll('#page-manage .evrow').length")
     assert claims == 0, "resolving a disagreement created a verified claim"
 
 
@@ -495,26 +498,26 @@ def test_confirming_one_claim_creates_exactly_one(page: Chrome, package_server: 
 
     click_text(page, "Yes, that is true")
     page.wait_for(
-        "[...document.querySelectorAll('#page-evidence .ev__tag')]"
+        "[...document.querySelectorAll('#page-manage .ev__tag')]"
         ".some(n => n.textContent.includes('Confirmed'))",
         message="the confirmation",
     )
     click_text(page, "Back to the overview")
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__sides') !== null",
+        "document.querySelector('#page-manage .ev__sides') !== null",
         message="the overview",
     )
     click_text(page, "Back to your evidence")
     page.wait_for(
-        "document.querySelector('#page-evidence .evgroup') !== null",
+        "document.querySelector('#page-manage .evgroup') !== null",
         message="the ledger",
     )
     # The categories are compact rows until they are opened, and a work group
     # builds its claims on first open. Nothing is missing before that.
     page.evaluate(
         "(() => {"
-        "  for (const d of document.querySelectorAll('#page-evidence .evgroup')) d.open = true;"
-        "  for (const d of document.querySelectorAll('#page-evidence .ev__employer')) {"
+        "  for (const d of document.querySelectorAll('#page-manage .evgroup')) d.open = true;"
+        "  for (const d of document.querySelectorAll('#page-manage .ev__employer')) {"
         "    d.open = true;"
         "  }"
         "})()"
@@ -531,7 +534,7 @@ def test_an_answer_survives_a_reload(page: Chrome, package_server: str) -> None:
     open_group(page, NORTHWIND)
     click_text(page, "Not sure yet")
     page.wait_for(
-        "[...document.querySelectorAll('#page-evidence .ev__tag')]"
+        "[...document.querySelectorAll('#page-manage .ev__tag')]"
         ".some(n => n.textContent.includes('Not sure yet'))",
         message="the answer",
     )
@@ -578,8 +581,8 @@ def test_a_full_size_package_still_arrives_as_a_screen(
 
     counts = page.evaluate(
         "({"
-        "  cards: document.querySelectorAll('#page-evidence .ev__card').length,"
-        "  quotes: document.querySelectorAll('#page-evidence .quote').length,"
+        "  cards: document.querySelectorAll('#page-manage .ev__card').length,"
+        "  quotes: document.querySelectorAll('#page-manage .quote').length,"
         "})"
     )
     assert counts["cards"] <= 12, counts
@@ -646,7 +649,7 @@ def test_a_requirement_leads_to_what_is_waiting_about_it(
     )
 
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__focus') !== null",
+        "document.querySelector('#page-manage .ev__focus') !== null",
         message="the focused review",
     )
     focus = " ".join(texts(page, ".ev__focus .ev__note"))
@@ -670,7 +673,7 @@ def test_the_overview_opens_with_where_to_start(page: Chrome, package_server: st
     the first thing on the screen should be it."""
     open_package(page, package_server)
     page.wait_for(
-        "document.querySelector('#page-evidence .ev__group--start') !== null",
+        "document.querySelector('#page-manage .ev__group--start') !== null",
         message="the queue",
     )
     # CASE-FOLDED, because the heading is uppercased by the stylesheet and
@@ -680,7 +683,7 @@ def test_the_overview_opens_with_where_to_start(page: Chrome, package_server: st
     assert "where to start" in body.lower()
     # Every step, including the empty ones: a step that vanished when it
     # emptied would make "answered" and "you have none of these" identical.
-    cards = page.evaluate("document.querySelectorAll('#page-evidence .ev__card--step').length")
+    cards = page.evaluate("document.querySelectorAll('#page-manage .ev__card--step').length")
     assert int(cards) == 8, f"expected every step to be listed, saw {cards}"
 
 
@@ -727,7 +730,7 @@ def test_opening_a_step_shows_that_step_and_the_four_answers(
     # would test the opposite of what this test is about.
     page.evaluate(
         "(() => {"
-        "  const cards = [...document.querySelectorAll('#page-evidence .ev__card--step')];"
+        "  const cards = [...document.querySelectorAll('#page-manage .ev__card--step')];"
         "  const card = cards.find((c) => c.querySelector('.ev__actions button')"
         "    && !c.querySelector('.ev__figure'));"
         "  if (!card) throw new Error('no ordinary step is openable');"
@@ -735,7 +738,7 @@ def test_opening_a_step_shows_that_step_and_the_four_answers(
         "})()"
     )
     page.wait_for(
-        "[...document.querySelectorAll('#page-evidence button')]"
+        "[...document.querySelectorAll('#page-manage button')]"
         ".some((b) => b.textContent.includes('Yes, that is true'))",
         message="the claims in the step",
     )
@@ -754,7 +757,7 @@ def test_the_way_back_to_the_groups_and_the_packages_is_on_the_screen(
 ) -> None:
     """A guided path that cannot be left is a cage."""
     open_package(page, package_server)
-    body = str(page.evaluate("document.querySelector('#page-evidence').innerText"))
+    body = str(page.evaluate("document.querySelector('#page-manage').innerText"))
     assert "where to start" in body.lower(), "the queue is not on the overview"
     # The GROUPS are still there, under it. A guided path that replaced the
     # rest of the review would be a cage rather than a path.

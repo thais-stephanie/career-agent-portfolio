@@ -114,17 +114,20 @@ def test_the_production_path(production_shaped) -> None:
     conn, tmp_path = production_shaped
     before = _ledger_rows(conn)
 
-    # 2. Only what main added since runs: 0038, then 0039 (Career Evidence V2).
+    # 2. Only what main added since runs: 0038, 0039 (Career Evidence V2) and
+    # 0040 (an experience description).
     # The foreign rows stand, applied_at included.
     applied = migrate(conn)
     assert [(m.version, m.name) for m in applied] == [
         (38, "score_replay_input_digest"),
         (39, "career_evidence_structure"),
+        (40, "career_experience_description"),
     ]
     after = _ledger_rows(conn)
     assert after[:37] == before
     assert after[37][:2] == (38, "score_replay_input_digest")
     assert after[38][:2] == (39, "career_evidence_structure")
+    assert after[39][:2] == (40, "career_experience_description")
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(job_match)")}
     assert "input_digest" in columns
     assert conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'lane_probe_36'").fetchone()

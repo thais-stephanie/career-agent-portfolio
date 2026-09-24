@@ -334,9 +334,11 @@ def test_the_evidence_step_opens_the_review_that_owns_the_question(
         "document.querySelector('.firstrun__step[data-step=\"evidence\"]')"
         ".querySelector('button').click()"
     )
+    # The review of what was read lives in Documents, one experience at a time.
     page.wait_for(
-        "document.body.innerText.includes('Your career evidence')",
-        message="the evidence surface opens",
+        "!document.querySelector('#page-documents').hidden"
+        " && document.querySelector('#page-documents .docs-card') !== null",
+        message="Documents, with the read document to review",
     )
 
 

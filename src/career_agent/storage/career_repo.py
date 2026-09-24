@@ -26,7 +26,16 @@ ORG_ACTIONS = {
     "split",
     "merge_companies",
     "keep_separate",
+    # Take an experience off the profile. Organisation only, and undoable: the
+    # experience is archived and its statements go back to "not in an
+    # experience". No statement is retired and none is deleted.
+    "remove_experience",
 }
+
+#: Categories that read as what somebody DID in a job, drawn as its highlights.
+HIGHLIGHT_CATEGORIES = frozenset({"ACHIEVEMENT", "RESPONSIBILITY", "PROJECT", "OTHER"})
+#: Categories that name a skill or a tool, drawn as the experience's chips.
+SKILL_CATEGORIES = frozenset({"SKILL", "TOOL"})
 ACTIONS = ORG_ACTIONS | {"category", "confirm", "retire", "undo"}
 
 
@@ -66,6 +75,33 @@ def _overlaps(left: tuple[str | None, str], right: tuple[str | None, str]) -> bo
     if left[0] is None or right[0] is None:
         return False
     return left[1] >= right[0] and right[1] >= left[0]
+
+
+def _origin_of(item: dict) -> str:
+    """Where a statement came from, in three words the interface can say.
+
+    `document` when it cites a source line (a CV read, a package quote);
+    `self` when the person wrote it and it cites nothing. The two must never
+    look alike: a typed assertion is not a quote.
+    """
+    if item.get("evidence_ref") or any(
+        (s.get("evidence") or {}).get("quote") for s in item.get("source_records", [])
+    ):
+        return "document"
+    return "self"
+
+
+def _skills_of(confirmed: list[dict]) -> list[str]:
+    """Skill and tool names on an experience, each once, in first-seen order."""
+    seen: dict[str, str] = {}
+    for item in confirmed:
+        names = [item["text"]] if item["category"] in SKILL_CATEGORIES else []
+        names += list(item.get("tools") or [])
+        for name in names:
+            name = " ".join(str(name).split())
+            if name and len(name) <= 60 and name.casefold() not in seen:
+                seen[name.casefold()] = name
+    return list(seen.values())
 
 
 #: Item states that are not live evidence, and so never need organizing.
@@ -361,6 +397,7 @@ class CareerRepo:
             if entry["archived"]:
                 continue
             owned = [r for r in items if r["experience_id"] == entry["id"]]
+            confirmed = [r for r in owned if r["state"] == "CONFIRMED"]
             experiences.append(
                 {
                     **entry,
@@ -369,6 +406,27 @@ class CareerRepo:
                     "keys": [r["claim_key"] for r in owned],
                     "count": len(owned),
                     "confirmed": sum(r["verified"] for r in owned),
+                    # What the Profile draws: CONFIRMED statements only. A
+                    # suggestion still waiting is counted, never shown as fact.
+                    "highlights": [
+                        {
+                            "claim_key": r["claim_key"],
+                            "text": r["text"],
+                            "category": r["category"],
+                            "origin": _origin_of(r),
+                        }
+                        for r in confirmed
+                        if r["category"] in HIGHLIGHT_CATEGORIES
+                    ],
+                    "skills": _skills_of(confirmed),
+                    # Which chips ARE skill statements (removable one by one);
+                    # the rest are tools named on a highlight.
+                    "skill_keys": {
+                        " ".join(r["text"].split()).casefold(): r["claim_key"]
+                        for r in confirmed
+                        if r["category"] in SKILL_CATEGORIES
+                    },
+                    "waiting": sum(r["state"] not in {*NOT_LIVE, "CONFIRMED"} for r in owned),
                 }
             )
         # CHRONOLOGY COMES FROM THE DATES. Newest first, current roles first,
@@ -614,11 +672,12 @@ class CareerRepo:
         experiences = {e["id"]: e for e in organization["career_experience"] if not e["archived"]}
         target = command.get("experience_id")
         if (
-            action in {"edit", "merge_experiences"} or (action == "move" and target)
+            action in {"edit", "merge_experiences", "remove_experience"}
+            or (action == "move" and target)
         ) and target not in experiences:
             raise CareerError("Choose an existing experience.")
         scope = list(keys)
-        if action in {"edit", "merge_experiences"}:
+        if action in {"edit", "merge_experiences", "remove_experience"}:
             scope = [r["claim_key"] for r in items if r["experience_id"] == target]
         if action == "merge_experiences":
             source = command.get("source_id")
@@ -812,6 +871,16 @@ class CareerRepo:
         elif action == "move":
             for key in keys:
                 self.link(key, target)
+        elif action == "remove_experience":
+            self.conn.execute(
+                "UPDATE career_evidence_link SET experience_id = NULL"
+                " WHERE candidate_id = ? AND experience_id = ?",
+                (self.candidate_id, target),
+            )
+            self.conn.execute(
+                "UPDATE career_experience SET archived = 1 WHERE id = ? AND candidate_id = ?",
+                (target, self.candidate_id),
+            )
         elif action == "merge_experiences":
             source = command["source_id"]
             self.conn.execute(

@@ -37,8 +37,13 @@ export const PAGE_HEADERS = {
     eyebrow: 'pagehead.eyebrow.applications',
     title: 'pagehead.title.applications',
   },
-  profile: { eyebrow: 'pagehead.eyebrow.profile', title: 'pagehead.title.profile' },
-  evidence: { eyebrow: 'pagehead.eyebrow.evidence', title: 'pagehead.title.evidence' },
+  profile: { eyebrow: 'pagehead.eyebrow.profile', title: 'pagehead.title.profile',
+    sub: 'pagehead.sub.profile' },
+  evidence: { eyebrow: 'pagehead.eyebrow.evidence', title: 'pagehead.title.evidence',
+    sub: 'pagehead.sub.evidence' },
+  documents: { eyebrow: 'pagehead.eyebrow.documents', title: 'pagehead.title.documents',
+    sub: 'pagehead.sub.documents' },
+  manage: { eyebrow: 'pagehead.eyebrow.manage', title: 'pagehead.title.manage' },
   settings: { eyebrow: 'pagehead.eyebrow.settings', title: 'pagehead.title.settings' },
   // Not a page of its own: Home, while the guided setup is showing on it.
   setup: { eyebrow: 'pagehead.eyebrow.setup', title: 'pagehead.title.setup' },
@@ -85,7 +90,7 @@ export function createShell() {
     const spec = PAGE_HEADERS[page] || PAGE_HEADERS.home;
     nodes.eyebrow.textContent = t(spec.eyebrow);
     nodes.title.textContent = t(spec.title);
-    nodes.sub.textContent = subtitle;
+    nodes.sub.textContent = subtitle || (spec.sub ? t(spec.sub) : '');
     nodes.actions.replaceChildren(...(action ? [action] : []));
   }
 

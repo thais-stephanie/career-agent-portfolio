@@ -99,15 +99,18 @@
            family as the five around it. -->
       <button type="button" class="topnav__link" data-page="evidence">
         <span class="topnav__icon" aria-hidden="true">&#9635;</span>
-        <span class="topnav__label">Career Evidence</span>
+        <span class="topnav__label">Evidence</span>
+      </button>
+      <!-- DOCUMENTS: every import (CV reads and document packages), their
+           review, and Archive / Restore / Delete. There is something behind
+           it now: the imports themselves. No file is stored -- a CV is read
+           and dropped -- so this lists readings, never a file library. -->
+      <button type="button" class="topnav__link" data-page="documents">
+        <span class="topnav__icon" aria-hidden="true">&#9636;</span>
+        <span class="topnav__label">Documents</span>
       </button>
     </div>
 
-    <!-- THERE IS NO "DOCUMENTS" DESTINATION, and its absence is deliberate.
-         The design has one; this product has no document store, no upload
-         that keeps a file and nothing to list there. A nav item leading to an
-         invented library would be exactly the decorative control the brief
-         forbids. It returns when there is something behind it. -->
     <p class="sidenav__section" id="nav-section-system">System</p>
     <div class="sidenav__group" role="group" aria-labelledby="nav-section-system">
       <button type="button" class="topnav__link" data-page="settings">
@@ -252,6 +255,8 @@
      screen, which made them feel like settings for a list. -->
 <main class="page page--profile" id="page-profile" hidden></main>
 <main class="page page--evidence" id="page-evidence" hidden></main>
+<main class="page page--documents" id="page-documents" hidden></main>
+<main class="page page--manage" id="page-manage" hidden></main>
 
 <!-- SETTINGS AND SOURCES, promoted out of the filter rail.
      Where the postings come from is not a filter, and reaching it meant

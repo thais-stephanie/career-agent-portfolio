@@ -144,17 +144,17 @@ def test_complete_persona_journey(page, workspace, persona):
     # The review opens on its summary: the job this CV describes, read as a
     # company, a role and dates, and nothing confirmed.
     page.wait_for(
-        "document.querySelector('#page-evidence .cvr__summary') !== null"
+        "document.querySelector('#page-manage .cvr__summary') !== null"
         " || document.querySelector('.ev__flash--bad')"
     )
     assert not page.evaluate("Boolean(document.querySelector('.ev__flash--bad'))"), page.evaluate(
         "document.querySelector('.ev__flash--bad')?.textContent"
     )
-    row = str(page.evaluate("document.querySelector('#page-evidence .cvr__row').textContent"))
+    row = str(page.evaluate("document.querySelector('#page-manage .cvr__row').textContent"))
     assert f"Invented Company {code}" in row and title in row, row
     open_next(page)
     answer(page, 0, "Yes, that is true")
-    page.wait_for("document.querySelector('#page-evidence .ev__decision')")
+    page.wait_for("document.querySelector('#page-manage .ev__decision')")
     with connect(ws.db) as conn:
         assert (
             conn.execute("SELECT COUNT(*) FROM verified_claim WHERE verified=1").fetchone()[0] == 1

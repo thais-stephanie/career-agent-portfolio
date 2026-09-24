@@ -1076,3 +1076,31 @@ function base64Of(bytes) {
 export async function getSourceMaintenance() { return request('/source-maintenance'); }
 
 export async function createFirstSearch(body) { return request('/first-search', { method: 'POST', body }); }
+
+/**
+ * One organising change, previewed and applied. Returns `{ event_id, ... }`;
+ * the event id is what Undo sends back. Confirming is never done here.
+ */
+export async function changeCareer(command) {
+  const preview = await previewCareer(command);
+  return applyCareer({ ...preview, command }, false);
+}
+
+/** Undo one organising change by its history event. */
+export async function undoCareer(eventId) {
+  return changeCareer({ action: 'undo', event_id: eventId });
+}
+
+// -- Documents: every import, and the guided review -----------------------
+export const getDocuments = () => request('/documents');
+const docPath = (kind, id) => `/documents/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`;
+export const getDocumentReview = (kind, id) => request(docPath(kind, id));
+/** One statement, one answer: CONFIRM, EDIT, UNSURE, REJECT, REOPEN or CHOOSE. */
+export const answerDocument = (kind, id, body) =>
+  request(`${docPath(kind, id)}/answer`, { method: 'POST', body });
+/** Put an experience on the profile: `choice` new, or existing (with `dates`). */
+export const placeDocumentEntry = (kind, id, body) =>
+  request(`${docPath(kind, id)}/place`, { method: 'POST', body });
+/** "Don't import": reject what is still unanswered in one experience. */
+export const skipDocumentEntry = (kind, id, entry) =>
+  request(`${docPath(kind, id)}/skip`, { method: 'POST', body: { entry } });

@@ -739,7 +739,10 @@ def test_an_existing_workspace_upgrades_in_place(tmp_path: Path) -> None:
         table: [tuple(r) for r in conn.execute(f"SELECT * FROM {table} ORDER BY 1")]
         for table in ("verified_claim", "cv_import", "cv_proposal")
     }
-    assert [m.version for m in migrate(conn)] == [39]
+    # Everything main added after 0038 runs, 0039 first; later migrations
+    # (0040 adds an experience description) must not disturb what 0039 kept.
+    applied = [m.version for m in migrate(conn)]
+    assert applied[0] == 39 and applied == sorted(applied)
     for table, old_rows in before.items():
         width = len(old_rows[0])
         assert [
