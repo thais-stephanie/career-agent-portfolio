@@ -63,13 +63,32 @@ def test_the_words_given_to_the_setup_come_back(api: JobsApi) -> None:
 
 
 @pytest.mark.parametrize(
-    ("country", "regions"),
-    [("BR", ["WORLDWIDE", "AMERICAS", "LATAM"]), ("PT", ["WORLDWIDE", "EMEA"]), ("", [])],
+    ("country", "confirmed", "asked", "around"),
+    [
+        # Nothing confirmed: every region containing where she lives can add
+        # evidence, through her residence.
+        ("BR", [], ["WORLDWIDE", "AMERICAS", "LATAM"], ["WORLDWIDE", "AMERICAS", "LATAM"]),
+        ("PT", [], ["WORLDWIDE", "EMEA"], ["WORLDWIDE", "EMEA"]),
+        # A: Brazil confirmed. Every region containing Brazil already admits
+        # through it, so there is nothing left to ask.
+        ("BR", ["BR"], [], ["WORLDWIDE", "AMERICAS", "LATAM"]),
+        # Portugal confirmed while living in Brazil: Worldwide already admits
+        # through Portugal; the Americas and Latin America could still add.
+        ("BR", ["PT"], ["AMERICAS", "LATAM"], ["WORLDWIDE", "AMERICAS", "LATAM"]),
+        ("", [], [], []),
+    ],
 )
-def test_only_regions_containing_where_she_lives_are_offered(
-    api: JobsApi, country: str, regions: list[str]
+def test_only_regions_that_can_add_something_are_asked(
+    api: JobsApi, country: str, confirmed: list[str], asked: list[str], around: list[str]
 ) -> None:
+    changes: dict[str, object] = {}
     if country:
-        set_candidate_fields(api.config.config_dir, {"candidate_country": country})
+        changes["candidate_country"] = country
+    if confirmed:
+        changes["eligible_countries"] = confirmed
+    if changes:
+        set_candidate_fields(api.config.config_dir, changes)
         api._search_config = None
-    assert steps(api)["where"]["regions"] == regions
+    where = steps(api)["where"]
+    assert where["regions"] == asked
+    assert where["home_regions"] == around

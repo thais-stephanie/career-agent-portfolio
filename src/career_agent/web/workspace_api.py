@@ -34,6 +34,7 @@ from __future__ import annotations
 import base64
 import binascii
 import sqlite3
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 from career_agent.domain.claims import VerifiedClaim
@@ -1154,10 +1155,19 @@ class WorkspaceRoutes(_MixinBase):
                 "key": "where",
                 "done": lives_somewhere and scopes_named,
                 "country": getattr(eligibility, "candidate_country", "") or None,
-                # The hiring regions that CONTAIN where she lives: the only ones
-                # a scope answer can admit through (`gates._region_verdict`),
-                # so the only ones worth asking about.
-                "regions": _regions_containing(home_code) if home_code else [],
+                # The hiring regions that contain where she lives, for showing
+                # an answer back...
+                "home_regions": _regions_containing(home_code) if home_code else [],
+                # ...and the ones worth ASKING about. `gates._region_verdict`
+                # admits a region that contains any confirmed country by
+                # itself, and a region answer adds evidence only through her
+                # residence -- so a region that already holds a confirmed
+                # country would be a question whose answer changes nothing.
+                "regions": _regions_worth_asking(
+                    home_code, getattr(eligibility, "eligible_countries", ()) or ()
+                )
+                if home_code
+                else [],
             },
             {
                 "key": "work",
@@ -2181,6 +2191,18 @@ def _first_search_phrases(config: object) -> tuple[list[str], list[str]]:
         elif key in weights:
             skills.append(label)
     return roles[:20], skills[:20]
+
+
+def _regions_worth_asking(home: str, confirmed: Iterable[str]) -> list[str]:
+    """Regions containing `home` that contain none of the confirmed countries."""
+    from career_agent.match.places import region_contains
+
+    codes = [str(code).upper() for code in confirmed]
+    return [
+        region
+        for region in _regions_containing(home)
+        if not any(region_contains(region, code) is True for code in codes)
+    ]
 
 
 def _regions_containing(country: str) -> list[str]:

@@ -2162,7 +2162,7 @@ const EN = {
     + 'application.',
   'error.noFixture': 'The preview data could not be loaded.',
   'error.noImportHere': 'Adding a posting by hand is switched off in this preview.',
-  'setup.progress': 'Question {n} of {of}',
+  'setup.progress': 'Step {n}',
   'setup.later': 'Do this later',
   'setup.back': 'Back',
   'setup.skip': 'Skip for now',
@@ -2204,8 +2204,8 @@ const EN = {
   'setup.hire.remove': 'Remove {country}',
   'setup.hire.note': 'Not sure? Leave it. Jobs will say “not known yet” rather than guess.',
   'setup.regions.title': 'Any hiring regions that include you?',
-  'setup.regions.why': 'Some jobs name a region instead of countries, such as “Latin America”. Career Agent already '
-    + 'knows which regions contain the countries you gave, so tick a region only to count it on top of those.',
+  'setup.regions.why': 'Some jobs name a region instead of countries, such as “Latin America”. Tick a region only '
+    + 'if employers hiring there can hire someone living where you do.',
   'setup.regions.legend':
     'Regions that include {country}',
   'setup.regions.note': 'Leaving a region unticked never counts as a no.',
@@ -2444,10 +2444,10 @@ const PT_BR = {
   "firstrun.workLabel": "Trabalho que você quer fazer, uma frase curta por linha",
   "firstrun.skillsLabel": "Ferramentas ou habilidades a buscar, uma por linha (opcional)",
   "firstrun.searchHelp": "Estas frases descrevem o trabalho que você procura nas vagas. Não confirmam "
-    + "experiência. Salve aqui e depois edite em Configurações. Vagas existentes "
+    + "experiência. Salve aqui e depois edite em Configurações e fontes. Vagas existentes "
     + "precisam de recálculo após mudanças.",
   "maintenance.title": "Estado da atualização das fontes",
-  "maintenance.unavailable": "Não foi possível ler a atualização. Reabra Configurações para tentar "
+  "maintenance.unavailable": "Não foi possível ler a atualização. Reabra Configurações e fontes para tentar "
     + "novamente; suas vagas salvas continuam disponíveis.",
   "maintenance.running": "Uma atualização está em andamento.",
   "maintenance.idle": "Nenhuma atualização está em andamento neste app ou pelo comando de "
@@ -3615,7 +3615,7 @@ const PT_BR = {
   'card.morePlaces': '+{n} outros',
   // -- the shell: navigation, the rail toggle and Home --------------------
   // Ver a nota em ingles acima: a moldura do produto.
-  'nav.settings': 'Ajustes e fontes',
+  'nav.settings': 'Configurações e fontes',
   'nav.sectionSearch': 'Busca',
   'nav.sectionProfile': 'Perfil',
   'nav.sectionSystem': 'Sistema',
@@ -3637,7 +3637,7 @@ const PT_BR = {
   'pagehead.eyebrow.evidence': 'Evidências',
   'pagehead.title.evidence': 'Suas evidências de carreira',
   'pagehead.eyebrow.settings': 'Sistema',
-  'pagehead.title.settings': 'Ajustes e fontes',
+  'pagehead.title.settings': 'Configurações e fontes',
   'nav.home': 'Início',
   'nav.jobs': 'Descobrir vagas',
   'nav.applications': 'Candidaturas',
@@ -4397,7 +4397,7 @@ const PT_BR = {
     + 'uma candidatura.',
   'error.noFixture': 'Os dados da prévia não puderam ser carregados.',
   'error.noImportHere': 'Adicionar uma vaga à mão está desligado nesta prévia.',
-  'setup.progress': 'Pergunta {n} de {of}',
+  'setup.progress': 'Passo {n}',
   'setup.later': 'Fazer isso depois',
   'setup.back': 'Voltar',
   'setup.skip': 'Pular por enquanto',
@@ -4406,7 +4406,7 @@ const PT_BR = {
   'setup.pickOne': 'Escolha pelo menos uma opção, ou escolha Pular por enquanto.',
   'setup.welcome.title': 'Vamos configurar sua busca de emprego',
   'setup.welcome.why': 'Algumas perguntas curtas, uma de cada vez. Cada resposta é salva na hora, e você pode mudar '
-    + 'qualquer uma depois em Configurações.',
+    + 'qualquer uma depois em Configurações e fontes.',
   'setup.welcome.point1': 'Descreva, com suas palavras, o tipo de trabalho que você quer.',
   'setup.welcome.point2': 'Diga onde você mora e onde empresas podem te contratar, para o Career Agent saber quais '
     + 'vagas estão abertas para você.',
@@ -4422,7 +4422,7 @@ const PT_BR = {
   'setup.work.note': 'Isto descreve o que você quer encontrar. Não é uma afirmação sobre a sua experiência.',
   'setup.work.required': 'Escreva pelo menos um tipo de trabalho, ou escolha Pular por enquanto.',
   'setup.work.already': 'Sua busca já descreve o trabalho que você quer ({n} frases). Você pode mudá-las depois em '
-    + 'Configurações.',
+    + 'Configurações e fontes.',
   'setup.home.title': 'Onde você mora?',
   'setup.home.why': 'As vagas são comparadas com o lugar onde você está. Só o país é salvo, e só neste computador.',
   'setup.home.label': 'País',
@@ -4438,8 +4438,8 @@ const PT_BR = {
   'setup.hire.remove': 'Remover {country}',
   'setup.hire.note': 'Não tem certeza? Deixe assim. As vagas vão dizer “ainda não se sabe” em vez de adivinhar.',
   'setup.regions.title': 'Alguma região de contratação inclui você?',
-  'setup.regions.why': 'Algumas vagas citam uma região em vez de países, como “América Latina”. O Career Agent já '
-    + 'sabe quais regiões contêm os países que você informou, então marque uma região só para contá-la além desses.',
+  'setup.regions.why': 'Algumas vagas citam uma região em vez de países, como “América Latina”. Marque uma região só '
+    + 'se empresas que contratam nela podem contratar alguém que mora onde você mora.',
   'setup.regions.legend':
     'Regiões que incluem {country}',
   'setup.regions.note': 'Deixar uma região sem marcar nunca conta como um não.',
@@ -4502,7 +4502,7 @@ const PT_BR = {
   'setup.work.savedSkills':
     'Ferramentas e habilidades que você informou',
   'setup.work.changeInSettings':
-    'Para mudar, abra Configurações, Frases de busca: cada uma aparece com quantas vagas alcança.',
+    'Para mudar, abra Configurações e fontes, Frases de busca: cada uma aparece com quantas vagas alcança.',
   'setup.home.placeholder':
     'Comece a digitar um país',
   'setup.home.note':
@@ -4556,7 +4556,7 @@ const PT_BR = {
   'setup.review.title':
     'Isto é o que você contou ao Career Agent',
   'setup.review.why':
-    'Mude o que quiser aqui, ou depois em Configurações.',
+    'Mude o que quiser aqui, ou depois em Configurações e fontes.',
   'setup.review.work':
     'Tipos de trabalho',
   'setup.review.home':
@@ -4582,7 +4582,7 @@ const PT_BR = {
   'setup.review.cvNotAdded':
     'Ainda não adicionado',
   'setup.review.note':
-    'Todas estas respostas continuam editáveis em Configurações.',
+    'Todas estas respostas continuam editáveis em Configurações e fontes.',
   'setup.review.looksRight':
     'Está certo',
   'setup.ready.noCv':
@@ -4648,7 +4648,7 @@ const PT_BR = {
   'firstrun.finishTitle': 'Concluir configuração · faltam {n}',
   'firstrun.finished': 'Configuração concluída',
   'firstrun.ledeLeft': 'O que falta da sua configuração. Nada é obrigatório, e cada item diz o que permite ao '
-    + 'Career Agent concluir. Mude respostas anteriores quando quiser em Configurações.',
+    + 'Career Agent concluir. Mude respostas anteriores quando quiser em Configurações e fontes.',
   'tailor.needsCv': 'O Resume Tailor Beta trabalha a partir do seu currículo, e o Career Agent ainda não tem nada '
     + 'sobre a sua carreira. Adicione seu currículo, ou escreva o que você já fez, em Evidências de carreira '
     + 'primeiro.',

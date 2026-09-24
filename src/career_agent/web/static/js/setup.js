@@ -248,9 +248,19 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     return (firstRun && (firstRun.steps || []).find((step) => step.key === key)) || {};
   }
 
-  /** Hiring regions that contain where she lives, from the server's gazetteer. */
+  /**
+   * Hiring regions worth asking about: they contain where she lives and none
+   * of the countries she already confirmed. A region holding a confirmed
+   * country admits by itself (`gates._region_verdict`), so asking about it
+   * would be a question whose answer changes nothing. From the server.
+   */
   function homeRegions() {
     return stepState('where').regions || [];
+  }
+
+  /** Every hiring region containing where she lives, for showing answers back. */
+  function regionsAroundHome() {
+    return stepState('where').home_regions || [];
   }
 
   function visibleSteps() {
@@ -302,24 +312,31 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
         },
       },
     }, [
+      // "STEP 3", NEVER "3 OF 9". The regions card appears only when it can
+      // add something, so the number of questions is not known in advance,
+      // and a total that grows from 8 to 9 mid-way reads as broken. The bar
+      // says how far along this is; the words say which step it is.
       question >= 0
         ? el('div', { className: 'setup__progress' }, [
           el('p', {
             className: 'setup__count',
-            text: t('setup.progress', { n: question + 1, of: questions.length }),
+            attrs: { 'aria-hidden': 'true' },
+            text: t('setup.progress', { n: question + 1 }),
           }),
           el('div', {
-            className: 'setup__dots',
+            className: 'setup__bar setup__stepbar',
             attrs: {
               role: 'progressbar',
-              'aria-valuemin': '1',
-              'aria-valuemax': String(questions.length),
-              'aria-valuenow': String(question + 1),
+              'aria-valuemin': '0',
+              'aria-valuemax': '100',
+              'aria-valuenow': String(Math.round(((question + 1) / questions.length) * 100)),
+              'aria-valuetext': t('setup.progress', { n: question + 1 }),
               'aria-label': t('setup.progressLabel'),
             },
-          }, questions.map((item, index) => el('span', {
-            className: `setup__dot${index < question ? ' is-done' : ''}${index === question ? ' is-now' : ''}`,
-          }))),
+          }, [el('span', {
+            className: 'setup__barfill',
+            style: { width: `${Math.round(((question + 1) / questions.length) * 100)}%` },
+          })]),
         ])
         : null,
       el('h2', {
@@ -456,11 +473,33 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     return input;
   }
 
-  function invalid(input, error, text) {
+  /**
+   * Say what is wrong, beside the field, and take it back the moment it is
+   * right. `isValid` is asked on every input and change; an error clears only
+   * when the field it belongs to becomes valid -- typing another wrong value
+   * keeps it, and an error about a different field is left alone.
+   */
+  function invalid(input, error, text, isValid = null) {
     error.textContent = text;
+    error.dataset.for = input.id;
     input.setAttribute('aria-invalid', 'true');
     input.focus();
+    if (!isValid) return;
+    const recheck = () => {
+      if (!isValid()) return;
+      input.removeAttribute('aria-invalid');
+      if (error.dataset.for === input.id) {
+        error.textContent = '';
+        delete error.dataset.for;
+      }
+      input.removeEventListener('input', recheck);
+      input.removeEventListener('change', recheck);
+    };
+    input.addEventListener('input', recheck);
+    input.addEventListener('change', recheck);
   }
+
+  const lines = (text) => text.split('\n').map((line) => line.trim()).filter(Boolean);
 
   function label(forId, text) {
     return el('label', { className: 'setup__label', attrs: { for: forId }, text });
@@ -587,19 +626,19 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           hint(t('setup.work.note')),
         ],
         submit: async (error) => {
-          const split = (text) => text.split('\n').map((line) => line.trim()).filter(Boolean);
-          const roles = split(draft.work);
+          const roles = lines(draft.work);
           if (!roles.length) {
-            invalid(work, error, t('setup.work.required'));
+            invalid(work, error, t('setup.work.required'),
+              () => lines(work.value).length > 0 && !phraseProblem(lines(work.value)));
             return;
           }
-          const problem = [[roles, work], [split(draft.skills), skills]]
+          const problem = [[roles, work], [lines(draft.skills), skills]]
             .map(([lines, box]) => [phraseProblem(lines), box])
             .find(([text]) => text);
           if (problem) {
             const [text, box] = problem;
             box.setAttribute('aria-describedby', 'setup-why setup-error');
-            invalid(box, error, text);
+            invalid(box, error, text, () => !phraseProblem(lines(box.value)));
             return;
           }
           const submit = root.querySelector('#setup-next');
@@ -607,7 +646,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           submit.disabled = true;
           submit.textContent = t('setup.saving');
           try {
-            await api.createFirstSearch({ role_examples: roles, skills: split(draft.skills) });
+            await api.createFirstSearch({ role_examples: roles, skills: lines(draft.skills) });
             firstRun = await api.getFirstRun();
             delete drafts.work;
             advance();
@@ -638,7 +677,10 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           const typed = box.value.trim();
           const code = countryCode(typed);
           if (typed && !code) {
-            invalid(box, error, t('setup.home.unknown'));
+            // Valid again when it names a country, or when it is emptied:
+            // leaving where you live unanswered is allowed.
+            invalid(box, error, t('setup.home.unknown'),
+              () => !box.value.trim() || Boolean(countryCode(box.value)));
             return;
           }
           delete drafts.home;
@@ -734,7 +776,9 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
             advance();
             return;
           }
-          save({ eligible_countries: next }, error);
+          // Read back afterwards: which regions are worth asking about
+          // depends on the countries just confirmed.
+          save({ eligible_countries: next }, error, { refresh: true });
         },
       };
     },
@@ -860,11 +904,14 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           }
           const number = Number(raw);
           if (!Number.isFinite(number) || number <= 0) {
-            invalid(amount, error, t('setup.pay.invalid'));
+            invalid(amount, error, t('setup.pay.invalid'), () => {
+              const value = amount.value.trim();
+              return !value || (Number.isFinite(Number(value)) && Number(value) > 0);
+            });
             return;
           }
           if (!draft.currency) {
-            invalid(currency, error, t('setup.pay.needCurrency'));
+            invalid(currency, error, t('setup.pay.needCurrency'), () => Boolean(currency.value));
             return;
           }
           const changes = {};
@@ -972,7 +1019,10 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
       try {
         const bytes = await file.arrayBuffer();
         const result = await api.importCv(file.name, bytes);
-        const found = (result.proposals || []).length;
+        // The server's own count of what it staged. The statements travel
+        // grouped by kind; `total` is the number, and counting a list that
+        // is not at the top level is how this said 0 after reading 9.
+        const found = Number(result.total) || 0;
         drafts.cvNotice = t('setup.cv.found', { n: found });
         firstRun = await api.getFirstRun();
         draw({ focus: false });
@@ -1031,7 +1081,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
   function hiringCoverage() {
     const countries = (value('eligible_countries') || []).map(countryName);
     const regions = (value('eligible_scopes') || [])
-      .filter((code) => homeRegions().includes(code))
+      .filter((code) => regionsAroundHome().includes(code))
       .map((code) => t(`setup.region.${code}`));
     return [...countries, ...regions].join(', ') || null;
   }
