@@ -8675,7 +8675,7 @@ body.has-cw-drawer { overflow: hidden; }
 }
 .imp-rail__xp.is-current { background: var(--surface); border-color: var(--line); font-weight: 600; }
 .imp-rail__saved { margin: 0; padding: 12px 16px; font-size: 12px; color: var(--muted); }
-.imp-main { display: grid; gap: 14px; min-width: 0; }
+.imp-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
 .imp-status { margin: 0; }
 .imp-status:empty { display: none; }
 .imp-readonly {
@@ -8683,7 +8683,10 @@ body.has-cw-drawer { overflow: hidden; }
   border: var(--edge) solid var(--line);
 }
 .imp-counter { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.imp-dots { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.imp-dots {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; min-width: 0;
+  list-style: none; margin: 0; padding: 0;
+}
 .imp-dot {
   width: 24px; height: 10px; border: var(--edge) solid var(--line); border-radius: 999px;
   background: var(--surface);
@@ -8740,7 +8743,12 @@ body.has-cw-drawer { overflow: hidden; }
 .imp-item--rejected { background: var(--surface-alt); }
 .imp-item--rejected .imp-item__text { text-decoration: line-through; color: var(--muted); }
 .imp-item__top { display: flex; gap: 8px; align-items: start; flex-wrap: wrap; }
-.imp-item__text { margin: 0; flex: 1 1 280px; max-width: 70ch; }
+.imp-item__text { margin: 0; flex: 1 1 280px; max-width: 70ch; min-width: 0; overflow-wrap: anywhere; }
+/* Real documents carry long unbroken strings (file names, URLs, joined words);
+   none of them may widen the column past a phone's screen. */
+.imp-layout > *, .imp-card, .imp-item, .imp-item__top { min-width: 0; }
+.imp-card__role, .imp-card__company, .cw-source, .imp-rail__doc { overflow-wrap: anywhere; }
+.imp-item__top .cw-badge { max-width: 100%; white-space: normal; }
 .imp-item__conflict {
   margin: 0; font-size: 13px; background: var(--yellow-soft); padding: 6px 10px; border-radius: 6px;
 }
@@ -8784,7 +8792,7 @@ body.has-cw-drawer { overflow: hidden; }
 .imp-tile span { font-size: 13px; color: var(--body); }
 .imp-card > .imp-muted { margin-top: 14px; max-width: 65ch; }
 @media (max-width: 980px) {
-  .imp-layout { grid-template-columns: 1fr; }
+  .imp-layout { grid-template-columns: minmax(0, 1fr); }
   .imp-rail { position: static; }
   .imp-rail__xps { display: none; }
   .imp-rail__steps { display: flex; overflow-x: auto; }
