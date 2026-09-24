@@ -118,9 +118,7 @@ def to_summary(page: Chrome) -> None:
 def all_cards(page: Chrome) -> list:
     """Every card in the read: each experience and section, opened in turn."""
     to_summary(page)
-    count = int(
-        page.evaluate("document.querySelectorAll('#page-manage .cvr__row button').length")
-    )
+    count = int(page.evaluate("document.querySelectorAll('#page-manage .cvr__row button').length"))
     found: list = []
     for index in range(count):
         page.evaluate(

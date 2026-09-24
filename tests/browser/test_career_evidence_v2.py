@@ -173,9 +173,7 @@ def test_the_wrong_cv_is_deleted_after_saying_exactly_what_goes(
     assert "Nothing you confirmed came from it." in said
     assert "cannot be undone" in said and "archive it instead" in said
     assert api(page, "/api/cv/imports")["imports"], "showing the plan deleted something"
-    page.evaluate(
-        "document.querySelector('#page-manage [data-action=\"delete-confirm\"]').click()"
-    )
+    page.evaluate("document.querySelector('#page-manage [data-action=\"delete-confirm\"]').click()")
     page.wait_for("document.querySelector('#page-manage .ev__privacy') !== null")
     assert api(page, "/api/cv/imports")["imports"] == []
     assert waiting(page) == 0
@@ -194,9 +192,7 @@ def test_deleting_after_confirming_says_what_is_kept(page: Chrome, pristine_serv
     said = str(page.evaluate("document.querySelector('#page-manage .cvr__confirm').textContent"))
     assert "9 unconfirmed suggestions are removed" in said
     assert "The 1 you confirmed stay in your evidence" in said
-    page.evaluate(
-        "document.querySelector('#page-manage [data-action=\"delete-confirm\"]').click()"
-    )
+    page.evaluate("document.querySelector('#page-manage [data-action=\"delete-confirm\"]').click()")
     page.wait_for("document.querySelector('#page-manage .ev__privacy') !== null")
     assert api(page, "/api/evidence")["confirmed"] == 1
 
