@@ -419,6 +419,13 @@ class CareerRepo:
                         if r["category"] in HIGHLIGHT_CATEGORIES
                     ],
                     "skills": _skills_of(confirmed),
+                    # Which chips ARE skill statements (removable one by one);
+                    # the rest are tools named on a highlight.
+                    "skill_keys": {
+                        " ".join(r["text"].split()).casefold(): r["claim_key"]
+                        for r in confirmed
+                        if r["category"] in SKILL_CATEGORIES
+                    },
                     "waiting": sum(r["state"] not in {*NOT_LIVE, "CONFIRMED"} for r in owned),
                 }
             )

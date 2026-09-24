@@ -116,7 +116,7 @@ function foldOf(section) {
  * readable on a machine whose evidence has not loaded, and the three
  * candidate tabs simply do not appear.
  */
-export function renderProfile(mount, data, ledger = null) {
+export function renderProfile(mount, data, ledger = null, { experience = null, tab = null } = {}) {
   clear(mount);
 
   // NO PROVENANCE ABOVE THE ANSWERS. Two sentences used to open this page:
@@ -154,7 +154,11 @@ export function renderProfile(mount, data, ledger = null) {
   // most useful thing this page can say on a fresh machine, and an absent tab
   // says nothing at all.
   if (ledger) panels.overview.push(...overviewPanel(roles, skills, confirmed));
-  if (roles.length) panels.experience.push(experiencePanel(roles));
+  // THE CANONICAL EXPERIENCES, when the page was handed them: the career as
+  // `career_experience` holds it, editable in place (experience.js). The
+  // claim-grouped panel below is the fallback for a caller that has none.
+  if (experience) panels.experience.push(experience);
+  else if (roles.length) panels.experience.push(experiencePanel(roles));
   if (skills.length || qualifications(confirmed).length) {
     panels.skills.push(skillsPanel(skills, confirmed));
   }
@@ -208,7 +212,8 @@ export function renderProfile(mount, data, ledger = null) {
   }, buttons.map((entry) => entry.node));
 
   replace(mount, [...preamble, row, body]);
-  show(filled[0].key);
+  show(tab && bodies.has(tab) ? tab : filled[0].key);
+  return { show };
 }
 
 // =========================================================================
