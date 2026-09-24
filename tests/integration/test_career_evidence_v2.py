@@ -764,3 +764,63 @@ def test_the_migration_is_recorded_once(tmp_path: Path) -> None:
     columns = {r[1] for r in conn.execute("PRAGMA table_info(cv_import)")}
     assert {"archived_at", "deleted_at"} <= columns
     conn.close()
+
+
+# =========================================================================
+# 8. THE CAREER WORKSPACE: SUGGESTED EXPERIENCES FROM THE CV'S JOBS, BY DATE
+# =========================================================================
+
+
+def test_the_career_workspace_suggests_the_cvs_jobs_in_date_order(workspace) -> None:
+    api, _db = workspace
+    review = upload(api, load_cv("markdown_complex.md"), "riley.md")
+    northwind = next(e for e in review["entries"] if e["company"] == "Northwind Retail")
+    key = northwind["proposals"][0]["claim_key"]
+    call(
+        api,
+        "POST",
+        f"/api/cv/imports/{review['import_id']}/decide",
+        {"claim_key": key, "decision": "ACCEPTED"},
+    )
+    career = call(api, "GET", "/api/career")
+    suggested = [
+        (p["company"], p["title"], p["period_start"] or p["period_label"])
+        for p in career["proposals"]
+    ]
+    # Every job the CV names, newest first, with the role it gave; year-only
+    # spans as written rather than as invented months.
+    assert [s[0] for s in suggested] == [
+        "Fabrikam Cloud",
+        "Teem",
+        "Fabrikam Cloud",
+        "Contoso Health",
+        "Northwind Retail",
+    ]
+    assert ("Northwind Retail", "Implementation Analyst", f"2015 {EN_DASH} 2017") in suggested
+    confirmed_group = next(p for p in career["proposals"] if p["company"] == "Northwind Retail")
+    assert key in confirmed_group["keys"]
+
+    # Accepting two groups in the wrong order: the list still reads by date.
+    for company in ("Northwind Retail", "Contoso Health"):
+        group = next(
+            p for p in call(api, "GET", "/api/career")["proposals"] if p["company"] == company
+        )
+        command = {
+            "action": "create",
+            "keys": group["keys"],
+            "metadata": {
+                "company": group["company"],
+                "title": group["title"],
+                "period_start": group["period_start"],
+                "period_end": group["period_end"],
+            },
+        }
+        preview = call(api, "POST", "/api/career/preview", command)
+        call(
+            api,
+            "POST",
+            "/api/career/changes",
+            {"command": command, "preview_hash": preview["preview_hash"]},
+        )
+    experiences = [e["company"] for e in call(api, "GET", "/api/career")["experiences"]]
+    assert experiences == ["Contoso Health", "Northwind Retail"]

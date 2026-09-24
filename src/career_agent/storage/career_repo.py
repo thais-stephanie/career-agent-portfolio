@@ -247,7 +247,19 @@ class CareerRepo:
                     "documents": [{"ref": "cv", "kind": "RESUME", "title": row["source_name"]}],
                 }
                 if key in records:
-                    records[key]["source_records"].append(source_record)
+                    record = records[key]
+                    record["source_records"].append(source_record)
+                    # Organising hints from the job this line sat under -- a
+                    # role, or dates written only as years -- never additions
+                    # to the confirmed claim itself.
+                    if row["entry_role"] and not record["role_title"]:
+                        record["role_title"] = row["entry_role"]
+                    if row["entry_period"] and not record.get("period_label"):
+                        record["period_label"] = row["entry_period"]
+                        record["start_year"] = row["entry_start_year"]
+                        record["end_year"] = row["entry_end_year"]
+                    if row["entry_current"] and not record["period_end"]:
+                        record["current_role"] = True
                     continue
                 if (
                     row["archived_at"]

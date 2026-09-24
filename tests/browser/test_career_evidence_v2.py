@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from tests.browser.chrome import Chrome
+from tests.browser.home_helpers import open_home_past_setup
 from tests.browser.test_evidence_workspace import open_evidence
 from tests.support_cv import load_cv, long_cv
 
@@ -138,6 +139,17 @@ def test_archive_and_restore_empty_and_refill_every_counter(
     page.wait_for("document.querySelector('#page-evidence .cvr__archived') !== null")
     assert waiting(page) == 0
     assert api(page, "/api/career")["unassigned"] == 0
+    # HOME AGREES. The reproduced bug was here: archived, and still
+    # "148 statements waiting" in the setup list on Home.
+    open_home_past_setup(page, pristine_server)
+    home = str(page.evaluate("document.querySelector('#page-home, main').textContent"))
+    assert "148" not in home and "statements waiting" not in home
+    open_evidence(page, pristine_server)
+    page.evaluate(
+        "[...document.querySelectorAll('#page-evidence button')]"
+        ".find((b) => b.textContent.trim() === 'Look inside').click()"
+    )
+    page.wait_for("document.querySelector('#page-evidence .cvr__archived') !== null")
     assert not page.evaluate(
         "Boolean(document.querySelector('#page-evidence [data-action=\"next\"]'))"
     )
