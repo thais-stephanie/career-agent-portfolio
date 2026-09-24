@@ -34,6 +34,30 @@ function monthName(value) {
   return date.toLocaleDateString(getLocale(), { month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
+/**
+ * Find a control again after a redraw: the same kind of element with the same
+ * accessible name. A background refresh replaces nodes, and a keyboard user
+ * must not be thrown back to the top of the page because of it.
+ */
+function twinOf(node, scope = document) {
+  if (!node || !node.tagName) return null;
+  const name = node.getAttribute('aria-label') || node.textContent.trim();
+  if (!name) return null;
+  return Array.from(scope.querySelectorAll(node.tagName))
+    .find((n) => (n.getAttribute('aria-label') || n.textContent.trim()) === name) || null;
+}
+
+/** Run `draw()` over `root` and put focus back on the same control, if it was inside. */
+export function keepFocus(root, draw) {
+  const had = document.activeElement;
+  const inside = had && had !== document.body && root.contains(had);
+  draw();
+  if (inside && !root.contains(had)) {
+    const again = twinOf(had, root);
+    if (again) again.focus();
+  }
+}
+
 /** "Apr 2022 to Apr 2023", "2015 to 2017", "Mar 2022 to present", or not stated. */
 export function periodLabel(start, end, current = false, written = null) {
   if (!start && !end && written) return written;
@@ -211,6 +235,7 @@ export function openDrawer({ eyebrow = '', title, lede = '', onClose = null }) {
     document.body.classList.remove('has-cw-drawer');
     if (onClose) onClose();
     if (opener && document.contains(opener)) opener.focus();
+    else if (opener) twinOf(opener)?.focus();
   }
   return { root, body, footer, close };
 }

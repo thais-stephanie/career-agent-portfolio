@@ -20,7 +20,7 @@ import { tCount } from './i18n.js';
 import * as api from './api.js';
 import {
   badge, chipInput, chips, inlineConfirm, openDrawer, periodLabel, sourceSnippet, toast, uid,
-  workCard,
+  keepFocus, workCard,
 } from './ui.js';
 
 const L = (key, params) => tCount(`evp.${key}`, params);
@@ -43,7 +43,7 @@ export function titleOf(text) {
   return { title: '', description: clean };
 }
 
-export function evidencePage({ onManage = null, onChanged = null } = {}) {
+export function evidencePage({ onManage = null, onChanged = null, onImport = null } = {}) {
   const root = el('section', { className: 'evp', attrs: { 'aria-label': L('heading') } });
   let ledger = null;
   let career = null;
@@ -60,7 +60,9 @@ export function evidencePage({ onManage = null, onChanged = null } = {}) {
     return (career.experiences || []).find((e) => (e.keys || []).includes(key)) || null;
   }
 
-  function paint() {
+  function paint() { keepFocus(root, draw); }
+
+  function draw() {
     const claims = (ledger && ledger.claims) || [];
     const live = claims.filter((c) => c.state === 'CONFIRMED' || (c.verified && !c.state));
     const aside = claims.filter((c) => c.state === 'RETIRED' || c.state === 'DRAFT');
@@ -77,6 +79,11 @@ export function evidencePage({ onManage = null, onChanged = null } = {}) {
       anything ? null : el('div', { className: 'evp-empty cw-card' }, [
         el('h3', { text: L('emptyTitle') }),
         el('p', { text: L('emptyBody') }),
+        el('div', { className: 'evp-empty__actions' }, [
+          onImport ? button(L('emptyImport'), onImport, {
+            className: 'btn btn--primary', attrs: { id: 'evp-import' } }) : null,
+          button(L('emptyAdd'), () => editorDrawer(null), { className: 'btn' }),
+        ]),
       ]),
       ...primary.map((group) => section(group)),
       ...groups.filter((g) => !primary.includes(g) && g.items.length).map((group) => el('details', {

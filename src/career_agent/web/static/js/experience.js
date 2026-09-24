@@ -23,7 +23,7 @@ import { el, button, field, select, replace } from './dom.js';
 import { getLocale, t, tCount } from './i18n.js';
 import * as api from './api.js';
 import {
-  chips, chipInput, inlineConfirm, lineList, periodLabel, toast, uid, workCard,
+  chips, chipInput, inlineConfirm, keepFocus, lineList, periodLabel, toast, uid, workCard,
 } from './ui.js';
 
 const L = (key, params) => tCount(`xp.${key}`, params);
@@ -91,7 +91,9 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
     if (target) target.focus();
   }
 
-  function paint() {
+  function paint() { keepFocus(root, draw); }
+
+  function draw() {
     if (!data) return;
     const experiences = data.experiences || [];
     const waiting = experiences.reduce((sum, e) => sum + (e.waiting || 0), 0);

@@ -8549,6 +8549,7 @@ body.has-cw-drawer { overflow: hidden; }
 .evp-toolbar .btn--primary { display: none; }
 .evp-lede { margin: 0; max-width: 65ch; color: var(--body); }
 .evp-empty { padding: 24px; max-width: 65ch; }
+.evp-empty__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .evp-section { display: grid; gap: 14px; }
 .evp-section__head { display: flex; align-items: center; gap: 14px; }
 .evp-section__head h3 {

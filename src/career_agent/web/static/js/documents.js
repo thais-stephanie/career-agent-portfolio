@@ -21,7 +21,7 @@ import { tCount } from './i18n.js';
 import * as api from './api.js';
 import { formatDate } from './format.js';
 import { importReview } from './import_review.js';
-import { badge, inlineConfirm, toast, workCard } from './ui.js';
+import { badge, inlineConfirm, keepFocus, toast, workCard } from './ui.js';
 
 const L = (key, params) => tCount(`docs.${key}`, params);
 
@@ -34,7 +34,10 @@ export function documentsPage({ onChanged = null, onManage = null } = {}) {
 
   async function load() {
     if (reviewing) return;
-    listing = await api.getDocuments();
+    const fresh = await api.getDocuments();
+    // A review opened while the list was on its way must not be painted over.
+    if (reviewing) return;
+    listing = fresh;
     paint();
   }
 
@@ -93,7 +96,9 @@ export function documentsPage({ onChanged = null, onManage = null } = {}) {
   }
 
   // -- the list -------------------------------------------------------------
-  function paint() {
+  function paint() { keepFocus(root, draw); }
+
+  function draw() {
     const documents = (listing && listing.documents) || [];
     const live = documents.filter((d) => d.status !== 'archived');
     const archived = documents.filter((d) => d.status === 'archived');

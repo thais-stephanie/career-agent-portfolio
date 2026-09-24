@@ -223,6 +223,7 @@ const shell = createShell();
 // -- the career pages -------------------------------------------------------
 const evidenceView = evidencePage({
   onManage: () => goTo('manage'),
+  onImport: () => goTo('documents'),
   onChanged: () => careerChanged(),
 });
 PAGES.evidence.appendChild(evidenceView);
