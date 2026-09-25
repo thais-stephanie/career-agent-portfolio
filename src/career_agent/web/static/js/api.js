@@ -1126,6 +1126,19 @@ function base64Of(bytes) {
 /** Read-only maintenance status; never starts collection. */
 export async function getSourceMaintenance() { return request('/source-maintenance'); }
 
+/** Local profiles: listing, creating, renaming, switching, deleting. */
+export async function getLocalProfiles() {
+  if (MOCK) return { enabled: false, active: null, profiles: [] };
+  return request('/profiles');
+}
+export const createLocalProfile = (label) => request('/profiles', { method: 'POST', body: { label } });
+export const renameLocalProfile = (id, label) =>
+  request(`/profiles/${encodeURIComponent(id)}`, { method: 'PATCH', body: { label } });
+export const switchLocalProfile = (profile_id) =>
+  request('/profiles/switch', { method: 'POST', body: { profile_id } });
+export const deleteLocalProfile = (id, confirm_label) =>
+  request(`/profiles/${encodeURIComponent(id)}/delete`, { method: 'POST', body: { confirm_label } });
+
 export async function createFirstSearch(body) { return request('/first-search', { method: 'POST', body }); }
 
 /** Roles in mind: optional search anchors. Never scores or hides a posting. */

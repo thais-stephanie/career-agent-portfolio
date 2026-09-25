@@ -43,6 +43,7 @@ import { createHome } from './home.js';
 import { localeFlag } from './icons.js';
 import { createSourcesPanel } from './sources.js';
 import { createShell } from './shell.js';
+import { createLocalProfiles } from './local-profiles.js';
 import { humanLabel, statusLabel } from './format.js';
 
 const store = createStore();
@@ -2296,6 +2297,7 @@ function buildLocaleControl(host) {
           // English column headings and state chips under a translated
           // heading. It redraws from the payload it already has.
           sourcesPanel.retranslate();
+          localProfiles.retranslate();
           // CAREER EVIDENCE TOO. It is drawn with `t()` when it loads and
           // never again, so switching language while on it left every
           // sentence on the page in the old one under a translated menu.
@@ -2448,6 +2450,7 @@ function relabelStaticText() {
 // render ordered before the locale was known.
 setLocale(initialLocale());
 buildLocaleControl(dom.localeHost);
+const localProfiles = createLocalProfiles(document.getElementById('local-profiles-host'));
 
 // The landing page is HOME. A hash chooses another, so a bookmark and a
 // reload land where the person left off.

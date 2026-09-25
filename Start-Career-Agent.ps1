@@ -2,7 +2,9 @@ param(
     [switch]$Demo,
     [switch]$NoOpen,
     [switch]$Check,
-    [ValidateRange(1024,65534)][int]$Port = 8765
+    [ValidateRange(1024,65534)][int]$Port = 8765,
+    # Start with this local profile (its name). Optional.
+    [string]$ProfileName = ''
 )
 $ErrorActionPreference = 'Stop'
 # Windows PowerShell 5.1 redraws a progress bar for every downloaded chunk, which
@@ -51,6 +53,7 @@ try {
     $launchArgs = @('run','--no-sync','python','scripts/launch.py','--port',"$Port")
     if ($Demo) { $launchArgs += '--demo' }
     if ($NoOpen) { $launchArgs += '--no-open' }
+    if ($ProfileName) { $launchArgs += @('--profile', $ProfileName) }
     if ($Check) { $launchArgs += '--check' }
     & $uvExe @launchArgs
     exit $LASTEXITCODE

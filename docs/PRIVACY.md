@@ -8,6 +8,8 @@ Resume Tailor uses data/tailor-personal under the shared launcher. It stores can
 
 Demo uses data/demo.db, data/demo-config and data/tailor-demo. It never reads the personal workspace or automatically imports a CV. It forces the AI provider to none. Starting the companion's standalone CLI separately can instead use its normal home (~/.resume-tailor); use the root launcher for the distributed experience.
 
+Local profiles (docs/MULTI_PROFILE.md) keep each person's database, private settings and Resume Tailor workspace in separate files, so one person's CV, evidence, scores and applications never appear in another's profile. They are not accounts and not a security boundary: anyone using the same operating-system account can read every profile's files. A profile's backup holds only that profile.
+
 Browser local storage holds presentation preferences such as language, filters and selected candidate. There is no application telemetry or analytics SDK in either product. Data is not encrypted by the application. Operating-system accounts, disk encryption and backups control access to local files.
 
 ## Network paths

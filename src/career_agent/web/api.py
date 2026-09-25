@@ -457,6 +457,11 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.web.first_search import register_first_search
 
         register_first_search(self)
+        from career_agent.web.profiles import register_profiles
+
+        #: Set by the launcher's ProfileHost; None under `serve` and the demo.
+        self.profile_host = None
+        register_profiles(self)
         from career_agent.web.role_anchors_api import register_role_anchors
 
         register_role_anchors(self)
