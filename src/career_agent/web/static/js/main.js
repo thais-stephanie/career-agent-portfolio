@@ -1977,7 +1977,6 @@ function drawRailStatus() {
   node.title = actionable
     ? `${t('sidenav.statusOpenSources')}. ${railStatus.detail || ''}`.trim()
     : (railStatus.detail || '');
-  if (dom.health) dom.health.dataset.summary = railStatus.detail || '';
 }
 
 /**

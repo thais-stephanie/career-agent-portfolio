@@ -1134,14 +1134,8 @@ export function createSetup({
         hint(t('setup.cv.privacy', { kinds: CV_ACCEPT.split(',').join(' ') })),
         status,
       ].filter(Boolean),
-      actions: [
-        backButton(),
-        el('button', {
-          className: cvAdded() ? 'btn btn--primary' : 'btn',
-          attrs: { type: 'submit', id: 'setup-next' },
-          text: cvAdded() || returnTo ? t('setup.continue') : t('setup.cv.skip'),
-        }),
-      ],
+      // The same footer as every other optional card: Back, the one skip,
+      // and Continue as the one primary action.
       submit: () => advance(),
     };
   }

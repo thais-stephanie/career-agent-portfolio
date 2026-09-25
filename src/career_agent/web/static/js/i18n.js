@@ -2362,7 +2362,7 @@ const EN = {
   'setup.skip': 'Skip this step',
   'setup.continue': 'Continue',
   'setup.saving': 'Saving…',
-  'setup.pickOne': 'Choose at least one, or choose Skip for now.',
+  'setup.pickOne': 'Choose at least one, or choose Skip this step.',
   'setup.welcome.title': 'Let’s set up your job search',
   'setup.welcome.why': 'A few short questions, one at a time. Each answer is saved as you go, and you can change any '
     + 'of them later in Settings.',
@@ -2423,7 +2423,7 @@ const EN = {
   'roles.saved': 'Saved.',
   'roles.notSaved': 'Your roles could not be saved. Try again, or skip this step.',
   'roles.settingsTitle': 'Roles in mind',
-  'setup.work.required': 'Write at least one kind of work, or choose Skip for now.',
+  'setup.work.required': 'Write at least one kind of work, or choose Skip this step.',
   'setup.work.already': 'Your search already describes the work you want ({n} phrases). You can change them later in '
     + 'Settings.',
   'setup.home.title': 'Where do you live?',
@@ -2528,7 +2528,7 @@ const EN = {
   'setup.arrangement.note':
     'Nothing here hides a job.',
   'setup.cv.title':
-    'Add your CV (optional)',
+    'Add your CV',
   'setup.cv.why':
     'It is read here, on this computer, and nothing in it counts until you confirm it.',
   'setup.cv.noNeed':
@@ -2550,8 +2550,6 @@ const EN = {
     '{n} statements found. None of them counts until you confirm it in Career Evidence.',
   'setup.cv.privacy':
     'Reads {kinds}. The file is not kept, and nothing is sent anywhere.',
-  'setup.cv.skip':
-    'Skip for now',
   'setup.review.title':
     'Here is what you told Career Agent',
   'setup.review.why':
@@ -5267,7 +5265,7 @@ const PT_BR = {
   'setup.skip': 'Pular esta etapa',
   'setup.continue': 'Continuar',
   'setup.saving': 'Salvando…',
-  'setup.pickOne': 'Escolha pelo menos uma opção, ou escolha Pular por enquanto.',
+  'setup.pickOne': 'Escolha pelo menos uma opção, ou escolha Pular esta etapa.',
   'setup.welcome.title': 'Vamos configurar sua busca de emprego',
   'setup.welcome.why': 'Algumas perguntas curtas, uma de cada vez. Cada resposta é salva na hora, e você pode mudar '
     + 'qualquer uma depois em Configurações e fontes.',
@@ -5328,7 +5326,7 @@ const PT_BR = {
   'roles.saved': 'Salvo.',
   'roles.notSaved': 'Não foi possível salvar seus cargos. Tente de novo ou pule esta etapa.',
   'roles.settingsTitle': 'Cargos em mente',
-  'setup.work.required': 'Escreva pelo menos um tipo de trabalho, ou escolha Pular por enquanto.',
+  'setup.work.required': 'Escreva pelo menos um tipo de trabalho, ou escolha Pular esta etapa.',
   'setup.work.already': 'Sua busca já descreve o trabalho que você quer ({n} frases). Você pode mudá-las depois em '
     + 'Configurações e fontes.',
   'setup.home.title': 'Onde você mora?',
@@ -5434,7 +5432,7 @@ const PT_BR = {
   'setup.arrangement.note':
     'Nada aqui esconde uma vaga.',
   'setup.cv.title':
-    'Adicione seu currículo (opcional)',
+    'Adicione seu currículo',
   'setup.cv.why':
     'Ele é lido aqui, neste computador, e nada nele conta até você confirmar.',
   'setup.cv.noNeed':
@@ -5457,8 +5455,6 @@ const PT_BR = {
     '{n} afirmações encontradas. Nenhuma conta até você confirmar em Evidências de carreira.',
   'setup.cv.privacy':
     'Lê {kinds}. O arquivo não é guardado, e nada é enviado para lugar nenhum.',
-  'setup.cv.skip':
-    'Pular por enquanto',
   'setup.review.title':
     'Isto é o que você contou ao Career Agent',
   'setup.review.why':
