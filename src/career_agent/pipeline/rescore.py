@@ -16,13 +16,15 @@ Crashes between these transactions leave replayable work. See ADR-0026.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
+from career_agent.clock import now_utc
 from career_agent.domain.enums import PipelineRunStatus
 from career_agent.match.engine import match_job
 from career_agent.match.identity import input_digest as reading_identity
@@ -801,9 +803,74 @@ def _has_declared_scope(row: Any) -> bool:
     return bool(row["location_raw"]) and publishes_hiring_scope(row["provider"])
 
 
+#: How long a RUNNING rescore may go without a heartbeat and still be taken
+#: for alive. A heartbeat lands after every page of scores (seconds apart on
+#: the real corpus); the plan before the first page is the long quiet part.
+LIVE_WINDOW = timedelta(minutes=5)
+
+#: What a run killed mid-pass is closed with, so no row says RUNNING for ever.
+INTERRUPTED = "Interrupted: the process stopped before this recalculation finished."
+
+
+def _last_sign_of_life(row: sqlite3.Row) -> datetime | None:
+    try:
+        stats = json.loads(row["stats_json"] or "{}")
+    except (TypeError, ValueError):
+        stats = {}
+    stamp = stats.get("heartbeat_at") or row["started_at"]
+    try:
+        return datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def rescore_in_progress(conn: sqlite3.Connection, *, now: datetime | None = None) -> bool:
+    """Whether some process is scoring right now, judged by its heartbeat.
+
+    **THE STALL THIS EXISTS FOR (2026-09-25).** A rescore of 122,876 postings
+    was killed at 74,000 when the machine ran out of memory. The partial
+    revision was still read as "being built", so the screen said
+    "Recalculating: 74,000 of 122,876 (60%)" for ever, even after a restart,
+    and offered no way to continue. Partly scored is not the same as being
+    scored: a RUNNING row whose last heartbeat is older than `LIVE_WINDOW` is
+    a pass that died.
+    """
+    moment = now or datetime.now(UTC)
+    for row in conn.execute(
+        "SELECT started_at, stats_json FROM pipeline_run"
+        " WHERE stage = 'rescore' AND status = 'RUNNING' AND finished_at IS NULL"
+    ):
+        seen = _last_sign_of_life(row)
+        if seen is not None and moment - seen <= LIVE_WINDOW:
+            return True
+    return False
+
+
+def close_interrupted_runs(conn: sqlite3.Connection, *, now: datetime | None = None) -> int:
+    """Close RUNNING rescore rows whose process is gone, as FAILED, and say why."""
+    moment = now or datetime.now(UTC)
+    stale = [
+        str(row["id"])
+        for row in conn.execute(
+            "SELECT id, started_at, stats_json FROM pipeline_run"
+            " WHERE stage = 'rescore' AND status = 'RUNNING' AND finished_at IS NULL"
+        )
+        if (seen := _last_sign_of_life(row)) is None or moment - seen > LIVE_WINDOW
+    ]
+    for run_id in stale:
+        conn.execute(
+            "UPDATE pipeline_run SET finished_at = ?, status = ?, error = ?"
+            " WHERE id = ? AND finished_at IS NULL",
+            (now_utc(), PipelineRunStatus.FAILED.value, INTERRUPTED, run_id),
+        )
+    return len(stale)
+
+
 def _start_run(conn: sqlite3.Connection) -> str:
     from career_agent.storage.repositories import PipelineRunRepo
 
+    with transaction(conn):
+        close_interrupted_runs(conn)
     return PipelineRunRepo(conn).start("rescore")
 
 

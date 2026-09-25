@@ -844,9 +844,12 @@ class PipelineRunRepo(_Repo):
         NULL and a non-empty `stats_json` is exactly "running, and here is how
         far it got", which is the state this product could not express.
         """
+        # `heartbeat_at` says the run is ALIVE, not just that it began: a
+        # process killed mid-run leaves a RUNNING row behind, and only the age
+        # of its last heartbeat tells that row apart from one still working.
         self.conn.execute(
             "UPDATE pipeline_run SET stats_json = ? WHERE id = ? AND finished_at IS NULL",
-            (json.dumps(stats), run_id),
+            (json.dumps({**stats, "heartbeat_at": now_utc()}), run_id),
         )
 
     def get(self, run_id: str) -> sqlite3.Row | None:

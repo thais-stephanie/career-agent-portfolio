@@ -759,8 +759,11 @@ function watchRecalculation() {
     try {
       status = await api.getRescore();
     } catch {
-      // A failed poll is not a failed rescore. Stop watching rather than
-      // retrying forever; the next list fetch re-establishes the truth.
+      // A failed poll is not a failed rescore, but a bar that simply stops
+      // moving is the stall the owner met at 57% (2026-09-25): the server had
+      // been stopped and nothing on screen said so. Say it, and offer to look
+      // again rather than retrying for ever.
+      showRecalculationLost();
       return;
     }
     // **`load`, NOT the store subscriber.** The subscriber only re-fetches
@@ -803,6 +806,19 @@ function watchRecalculation() {
  * waved it away once would have no way of knowing which preferences the list
  * in front of them belongs to.
  */
+/** "Lost contact while recalculating", in place of a progress bar that froze. */
+function showRecalculationLost() {
+  const node = dom.revision;
+  if (!node) return;
+  node.hidden = false;
+  replace(node, [
+    el('span', { className: 'revnotice__text', attrs: { role: 'status' }, text: t('revision.lost') }),
+    button(t('revision.checkAgain'), () => {
+      load(store.apiQueryString(), store.get(), { quiet: true }).catch(() => {});
+    }, { className: 'revnotice__go' }),
+  ]);
+}
+
 function renderRevisionNotice() {
   const node = dom.revision;
   if (!node) return;
@@ -856,6 +872,27 @@ function renderRevisionNotice() {
     // rescore started from the CLI, from another tab, or resumed after an
     // interrupted one is watched just the same.
     watchRecalculation();
+  } else if (revision.is_interrupted) {
+    // Stopped part way and nothing is running: say where it stopped, never
+    // show it as still moving, and continue from there (a rescore only scores
+    // what is still missing).
+    const done = revision.current.scored;
+    const total = revision.current.scoreable;
+    const pct = total ? Math.floor((100 * done) / total) : 0;
+    parts.push(el('span', {
+      className: 'revnotice__progress num',
+      attrs: { role: 'status' },
+      text: t('revision.interrupted', { done: done.toLocaleString(), total: total.toLocaleString(), pct }),
+    }));
+    parts.push(button(t('revision.resume'), () => {
+      api.startRescore().then(() => {
+        watchRecalculation();
+        return load(store.apiQueryString(), store.get(), { quiet: true });
+      }).catch((error) => {
+        replace(node, [el('span', { className: 'revnotice__text', attrs: { role: 'alert' },
+          text: (error && error.userMessage) || t('rescore.couldNotStart') })]);
+      });
+    }, { className: 'revnotice__go' }));
   } else if (revision.serving) {
     // Stale but nothing running: the recalculation has not been started, or
     // it was interrupted. Either way the way forward is the same button.
@@ -1305,7 +1342,18 @@ function rescoreButton() {
       label.textContent = error.userMessage || t('rescore.couldNotStart');
       return;
     }
-    polling = window.setInterval(() => { poll().catch(() => {}); }, 700);
+    let misses = 0;
+    polling = window.setInterval(() => {
+      poll().then(() => { misses = 0; }).catch(() => {
+        // A few missed polls are a busy server; many are a stopped one.
+        misses += 1;
+        if (misses < 10) return;
+        window.clearInterval(polling);
+        polling = null;
+        control.disabled = false;
+        label.textContent = t('app.rescoreLost');
+      });
+    }, 700);
   });
 
   return control;

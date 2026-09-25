@@ -1866,6 +1866,14 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # never a half-built one; `revision` in the payload is how the
             # screen knows to say which question these jobs answer.
             decision = self._serving(conn)
+            from career_agent.pipeline.rescore import rescore_in_progress
+
+            # Partly scored is not being scored: a pass killed mid-run leaves
+            # the same rows as one still working. Only a live runner here, or
+            # a recent heartbeat from another process, is "recalculating".
+            scoring_now = decision.is_building and (
+                self.rescore.running or rescore_in_progress(conn)
+            )
             config_id, config_version = self._identity()
             if decision.serving is not None:
                 config_id = decision.serving.config_id
@@ -1974,7 +1982,12 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # old answer as the new one -- and it is the difference between a
             # product that looks broken after an edit and one that explains
             # itself. See `storage.revisions`.
-            "revision": decision.as_dict(),
+            "revision": {
+                **decision.as_dict(),
+                "is_building": scoring_now,
+                # Stopped part way, nothing running: say so, and offer to go on.
+                "is_interrupted": decision.is_building and not scoring_now,
+            },
             # Display names for the facets whose buckets are IDENTIFIERS. A
             # signal facet counts `hubspot_platform`, and the configuration
             # already knows that is called "HubSpot platform ownership" -- the

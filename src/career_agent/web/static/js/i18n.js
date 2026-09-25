@@ -1204,6 +1204,12 @@ const EN = {
     + 'are not ready yet.',
   'revision.progress': 'Recalculating: {done} of {total} ({pct}%)',
   'revision.recalculate': 'Recalculate now',
+  'revision.interrupted': 'Recalculation stopped at {done} of {total} ({pct}%) before it finished. '
+    + 'The list still answers your previous preferences.',
+  'revision.resume': 'Continue recalculating',
+  'revision.lost': 'Lost contact with Career Agent while recalculating. It may have stopped.',
+  'revision.checkAgain': 'Check again',
+  'app.rescoreLost': 'Lost contact while recalculating. Try again',
   'prefs.reach': 'Lexical reach: {n} of {total} scored open postings ({pct}%). Title or body.',
   'prefs.reachNone':
     'Lexical reach: no configured phrase was found in the {total} scored open postings. '
@@ -3920,6 +3926,12 @@ const PT_BR = {
     + 'estão prontas.',
   'revision.progress': 'Recalculando: {done} de {total} ({pct}%)',
   'revision.recalculate': 'Recalcular agora',
+  'revision.interrupted': 'O recálculo parou em {done} de {total} ({pct}%) antes de terminar. '
+    + 'A lista ainda responde às suas preferências anteriores.',
+  'revision.resume': 'Continuar o recálculo',
+  'revision.lost': 'O contato com o Career Agent foi perdido durante o recálculo. Ele pode ter parado.',
+  'revision.checkAgain': 'Verificar de novo',
+  'app.rescoreLost': 'Contato perdido durante o recálculo. Tente de novo',
   'prefs.reach': 'Alcance lexical: {n} de {total} vagas abertas pontuadas ({pct}%). Título ou descrição.',
   'prefs.reachNone':
     'Alcance lexical: nenhuma expressão configurada foi encontrada nas {total} vagas abertas '
