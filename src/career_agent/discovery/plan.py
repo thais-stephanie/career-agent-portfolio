@@ -60,6 +60,9 @@ def _work_phrases(config: SearchConfig) -> list[str]:
 
 
 def query_terms(config: SearchConfig, anchors: RoleAnchors) -> tuple[QueryTerm, ...]:
+    from career_agent.discovery.aliases import effective
+
+    anchors = effective(anchors)
     terms: list[QueryTerm] = [QueryTerm(a.text, "anchor") for a in anchors.anchors]
     terms += [QueryTerm(text, "alias") for text in anchors.alias_texts()[:MAX_ALIAS_TERMS]]
     limit = MAX_WORK_TERMS_WITH_ANCHORS if anchors.anchors else MAX_WORK_TERMS_ALONE
@@ -81,6 +84,8 @@ def plan_queries(
     max_queries: int,
 ) -> tuple[Query, ...]:
     """Every term in every scope, in term order, capped at `max_queries`."""
+    if max_queries <= 0:
+        return ()
     plan: list[Query] = []
     seen: set[str] = set()
     for term in terms:

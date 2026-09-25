@@ -34,3 +34,17 @@ A signal that calls half of the neighbouring roles "outside" would push down exa
 ALIGNED is the only reliable output. If it is used later, the use must be one that cannot hide a posting, such as a label or a tie-break, and it must be measured again on real named roles first.
 
 Run it again with `python -m pytest tests/unit/test_role_core.py -q`. The test enforces the floors above, so a later rule change that trades precision for coverage has to say so.
+
+## With real named roles (2026-09-25, read-only, aggregates only)
+
+The owner named 7 roles. A fixed, rule-defined sample of 147 postings was compared:
+- postings retrieved by a named role, and postings retrieved only by work intent;
+- generic full-stack, product-engineer, and data or BI titles at 90 or above;
+- titles ALIGNED to a named role, unusual titles, and the lowest WEAK postings.
+
+For each, the comparison covered Search Fit, title-only alignment, and how the provider's full-description role core relates to the named roles. "Relates" means the share of a named role's domain words (its core without the role noun) that the role core contains.
+
+- **Titles mislead in both directions.** 25 postings with titles OUTSIDE every named role average Search Fit 96, and for 11 of them the role core covers a named role's domain in full. Title-fit points would have demoted exactly those. Of the generic full-stack titles at 90 or above, 6 of 15 do a named role's work in full by their role core, and 8 in part.
+- **The role core is informative but not decisive.** A partial domain match is common in every group, including 16 of 25 postings found only by work intent. It separates obvious non-matches, but it does not rank reliably among postings that already score high.
+
+**Decision, unchanged: no scoring change.** Role anchors remain retrieval guidance. Title alignment and role-core relation stay informational, and no title or role-core rule gates, hides or scores a posting.

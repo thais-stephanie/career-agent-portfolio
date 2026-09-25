@@ -1184,6 +1184,15 @@ const EN = {
   // -- the rest of the interface -----------------------------------------
   'app.loading': 'Loading...',
   'profiles.kicker': 'Profile',
+  'profiles.drawerTitle': 'Local profiles',
+  'profiles.listLabel': 'Profiles on this computer',
+  'profiles.switchHeading': 'Switch profile',
+  'profiles.manageHeading': 'Manage',
+  'profiles.inUse': 'In use',
+  'profiles.newAction': 'New profile',
+  'profiles.renameAction': 'Rename this profile',
+  'profiles.deleteAction': 'Delete a profile',
+  'profiles.cancel': 'Cancel',
   'profiles.activeAria': 'Local profile: {name}. Open to switch or manage profiles.',
   'profiles.explain':
     'Local profiles keep each person\'s CV, evidence, preferences, Search Fit and applications apart in '
@@ -2362,17 +2371,17 @@ const EN = {
   'setup.work.skillsLabel': 'Tools or methods you want to use next, one per line (optional)',
   'setup.work.note': 'Choose these on purpose. They describe what you want to find, are not copied from your CV '
     + 'and are not a claim about your experience.',
-  'setup.roles.title': 'Do you have specific roles in mind?',
+  'setup.roles.title': 'What roles would you like to find?',
   'setup.roles.why':
-    'Optional. Name a few job titles and Career Agent will also search for them, and for titles that mean '
-    + 'the same work. They are search anchors, not limits.',
+    'Optional. Name a few job titles in your own words. Career Agent also searches for titles that mean '
+    + 'the same work, and still finds jobs under other titles.',
   'setup.review.roles': 'Roles in mind',
-  'roles.label': 'Roles in mind',
-  'roles.hint': 'Up to {n} job titles, in your own words. Press Enter after each one.',
+  'roles.label': 'Job titles',
+  'roles.hint': 'Up to {n}. Press Enter after each one.',
   'roles.placeholder': 'For example: Account Executive',
-  'roles.suggestions': 'From your Career Profile. Add one only if you want that role again:',
+  'roles.suggestions': 'Based on your Career Profile, you may also want to consider',
   'roles.add': 'Add {role}',
-  'roles.suggestionsNote': 'Roles you have held are not added unless you choose them.',
+  'roles.suggestionsNote': 'Only added if you choose them.',
   'roles.aliases': 'Also searched for: {list}',
   'roles.notLimits':
     'These help Career Agent ask job sources better questions. Jobs with other titles are still found, '
@@ -4088,6 +4097,15 @@ const PT_BR = {
   // -- the rest of the interface -----------------------------------------
   'app.loading': 'Carregando...',
   'profiles.kicker': 'Perfil',
+  'profiles.drawerTitle': 'Perfis locais',
+  'profiles.listLabel': 'Perfis neste computador',
+  'profiles.switchHeading': 'Trocar de perfil',
+  'profiles.manageHeading': 'Gerenciar',
+  'profiles.inUse': 'Em uso',
+  'profiles.newAction': 'Novo perfil',
+  'profiles.renameAction': 'Renomear este perfil',
+  'profiles.deleteAction': 'Excluir um perfil',
+  'profiles.cancel': 'Cancelar',
   'profiles.activeAria': 'Perfil local: {name}. Abra para trocar ou gerenciar perfis.',
   'profiles.explain':
     'Perfis locais mantêm separados neste app o currículo, as evidências, as preferências, o Search Fit e '
@@ -5227,17 +5245,17 @@ const PT_BR = {
   'setup.work.skillsLabel': 'Ferramentas ou métodos que você quer usar a seguir, um por linha (opcional)',
   'setup.work.note': 'Escolha estes de propósito. Eles descrevem o que você quer encontrar, não são copiados do '
     + 'seu currículo e não são uma afirmação sobre a sua experiência.',
-  'setup.roles.title': 'Você tem cargos específicos em mente?',
+  'setup.roles.title': 'Que cargos você gostaria de encontrar?',
   'setup.roles.why':
-    'Opcional. Diga alguns cargos e o Career Agent também vai buscar por eles, e por cargos que '
-    + 'significam o mesmo trabalho. São âncoras de busca, não limites.',
+    'Opcional. Diga alguns cargos nas suas palavras. O Career Agent também busca títulos que significam o '
+    + 'mesmo trabalho, e continua encontrando vagas com outros títulos.',
   'setup.review.roles': 'Cargos em mente',
-  'roles.label': 'Cargos em mente',
-  'roles.hint': 'Até {n} cargos, nas suas palavras. Pressione Enter depois de cada um.',
+  'roles.label': 'Cargos',
+  'roles.hint': 'Até {n}. Pressione Enter depois de cada um.',
   'roles.placeholder': 'Por exemplo: Executivo de Contas',
-  'roles.suggestions': 'Do seu Perfil de Carreira. Adicione só se quiser esse cargo de novo:',
+  'roles.suggestions': 'Com base no seu Perfil de Carreira, talvez você também queira considerar',
   'roles.add': 'Adicionar {role}',
-  'roles.suggestionsNote': 'Cargos que você já teve não são adicionados a menos que você os escolha.',
+  'roles.suggestionsNote': 'Só entram se você escolher.',
   'roles.aliases': 'Também buscamos por: {list}',
   'roles.notLimits':
     'Eles ajudam o Career Agent a fazer perguntas melhores às fontes de vagas. Vagas com outros títulos '

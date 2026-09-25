@@ -990,7 +990,7 @@ def test_roles_in_mind_are_optional_and_saved_as_the_persons_own_words(
     put(page, "#setup-work", "customer onboarding")
     next_card(page)
     wait_card(page, "roles")
-    assert "not limits" in text(page, ".setup__card")
+    assert "other titles" in text(page, ".setup__card")
     put(page, "#setup-roles-anchors", "Hair Stylist")
     page.evaluate(
         "document.querySelector('#setup-roles-anchors').dispatchEvent("

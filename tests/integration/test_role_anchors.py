@@ -61,7 +61,7 @@ def api(tmp_path: Path) -> JobsApi:
         ("Accountant II", {"Accountant"}),
         ("Quality Assurance Engineer", {"QA Engineer"}),
         ("Software Engineer (Remote)", {"Software Engineer", "Software Developer"}),
-        ("GTM Engineer / AI Engineer", {"GTM Engineer", "AI Engineer"}),
+        ("GTM Coordinator / AI Engineer", {"GTM Coordinator", "AI Engineer"}),
     ],
 )
 def test_aliases_are_the_same_work_under_other_titles(anchor: str, expected: set[str]) -> None:
@@ -218,3 +218,84 @@ def test_clearing_the_roles_clears_their_aliases(api: JobsApi) -> None:
     api.handle_api("PATCH", "/api/role-anchors", {}, {"anchors": [{"text": "Hair Stylist"}]})
     cleared = api.handle_api("PATCH", "/api/role-anchors", {}, {"anchors": []})
     assert cleared["anchors"] == [] and cleared["aliases"] == []
+
+
+@pytest.mark.parametrize(
+    "anchor,expected",
+    [
+        ("GTM Coordinator", {"Go-to-Market Coordinator"}),
+        ("Go-to-Market Analyst", {"GTM Analyst"}),
+        ("Revenue Operations Manager", {"RevOps Manager"}),
+        ("MarTech Specialist", {"Marketing Technology Specialist"}),
+        ("Human Resources Manager", {"HR Manager"}),
+        ("BI Analyst", {"Business Intelligence Analyst"}),
+    ],
+)
+def test_qualifying_abbreviations_are_expanded_and_contracted_in_place(
+    anchor: str, expected: set[str]
+) -> None:
+    assert expected <= {a.text for a in aliases_for(Anchor(text=anchor))}
+
+
+def test_a_qualifier_alone_is_never_a_search_term() -> None:
+    assert [a.text for a in aliases_for(Anchor(text="Revenue Operations"))] == []
+    assert [a.text for a in aliases_for(Anchor(text="GTM"))] == []
+
+
+def test_anchors_saved_before_a_rule_existed_get_its_aliases_at_plan_time(api: JobsApi) -> None:
+    from career_agent.discovery.anchors import RoleAnchors, save_anchors
+
+    save_anchors(api.config.config_dir, RoleAnchors(anchors=(Anchor(text="GTM Coordinator"),)))
+    assert load_anchors(api.config.config_dir).aliases == ()
+    terms = query_terms(api.search_config(), load_anchors(api.config.config_dir))
+    assert any(t.origin == "alias" and t.text == "Go-to-Market Coordinator" for t in terms)
+    shown = api.handle_api("GET", "/api/role-anchors", {}, {})
+    assert "Go-to-Market Coordinator" in {a["text"] for a in shown["aliases"]}
+    assert load_anchors(api.config.config_dir).anchors[0].text == "GTM Coordinator"
+
+
+def test_a_profile_title_is_suggested_as_its_role_with_the_rest_as_context(api: JobsApi) -> None:
+    from career_agent.web.role_anchors_api import split_title
+
+    assert split_title("Operations Lead | billing and reporting") == (
+        "Operations Lead",
+        "billing and reporting",
+    )
+    assert split_title("Nurse Manager - Night shift") == ("Nurse Manager", "Night shift")
+    # A one-word lead before a dash is not the role: never offer "Manager".
+    assert split_title("Manager - Customer Success") == ("Manager - Customer Success", "")
+    assert split_title("Data-Driven Analyst") == ("Data-Driven Analyst", "")
+    with connect(api.config.db_path) as conn:
+        conn.execute(
+            "UPDATE career_experience SET title = 'Barista | espresso bar and training'"
+            " WHERE title = 'Barista'"
+        )
+        conn.commit()
+    listed = api.handle_api("GET", "/api/role-anchors", {}, {})["suggestions"]
+    barista = next(s for s in listed if s["text"] == "Barista")
+    assert barista["context"] == "espresso bar and training"
+    saved = api.handle_api(
+        "PATCH",
+        "/api/role-anchors",
+        {},
+        {"anchors": [{"text": "Barista", "source": "confirmed_suggestion"}]},
+    )
+    assert saved["anchors"] == [{"text": "Barista", "source": "confirmed_suggestion"}]
+
+
+def test_short_forms_match_only_as_written_and_both_spellings_contract() -> None:
+    assert [a.text for a in aliases_for(Anchor(text="Bi Lingual Teacher"))] == []
+    assert "HR Manager" in {a.text for a in aliases_for(Anchor(text="Human Resources Manager"))}
+    assert "GTM Analyst" in {a.text for a in aliases_for(Anchor(text="Go to Market Analyst"))}
+
+
+def test_the_effective_aliases_keep_the_cap_and_drop_removed_anchors() -> None:
+    from career_agent.discovery.aliases import effective
+    from career_agent.discovery.anchors import Alias, RoleAnchors
+
+    stored = tuple(
+        Alias(text=f"Nurse Variant {i}", anchor="ICU Nurse", generator="rule") for i in range(6)
+    ) + (Alias(text="Old Title", anchor="Removed Role", generator="rule"),)
+    merged = effective(RoleAnchors(anchors=(Anchor(text="ICU Nurse"),), aliases=stored))
+    assert len(merged.aliases) == MAX_ALIASES_PER_ANCHOR
+    assert all(a.anchor == "ICU Nurse" for a in merged.aliases)

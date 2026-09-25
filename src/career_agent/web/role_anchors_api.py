@@ -12,6 +12,7 @@ is kept as `confirmed_suggestion`, so the two provenances stay apart.
 
 from __future__ import annotations
 
+import re
 import threading
 from typing import TYPE_CHECKING, Any
 
@@ -63,14 +64,54 @@ def profile_titles(conn: sqlite3.Connection) -> list[str]:
     return out
 
 
+#: "Role | what it involved": the role comes first, and what follows a bar is
+#: context. A spaced dash (hyphen, en or em dash) splits only after a role of
+#: two words or more: "Nurse Manager - Night shift" is a role and its context,
+#: while "Manager - Customer Success" is one title whose role follows the dash.
+_BAR = re.compile(r"\s*\|\s*")
+_DASH = re.compile(r"\s+[-\u2013\u2014]\s+")
+
+
+def split_title(title: str) -> tuple[str, str]:
+    """(the role title, any context after it) for a Career Profile title.
+
+    Presentation only: the stored experience is never changed. A title with
+    no separator is its own role, with no context.
+    """
+    text = clean(title)
+    parts = _BAR.split(text, maxsplit=1)
+    if len(parts) == 1:
+        dashed = _DASH.split(text, maxsplit=1)
+        if len(dashed) == 2 and len(dashed[0].split()) >= 2:
+            parts = dashed
+    role = clean(parts[0])
+    context = clean(parts[1]) if len(parts) > 1 else ""
+    return (role, context) if role else (text, "")
+
+
+def offered_roles(titles: list[str]) -> set[str]:
+    """Folded texts a confirmed suggestion may carry: a title or its role."""
+    return {folded(t) for t in titles} | {folded(split_title(t)[0]) for t in titles}
+
+
 def _payload(anchors: RoleAnchors, titles: list[str]) -> dict[str, Any]:
+    from career_agent.discovery.aliases import effective
+
+    anchors = effective(anchors)
     held = {folded(a.text) for a in anchors.anchors}
+    suggestions: list[dict[str, str]] = []
+    seen: set[str] = set(held)
+    for title in titles:
+        role, context = split_title(title)
+        # Longer than a role may be: not offered, rather than offered cut.
+        if len(role) > MAX_TEXT or folded(role) in seen:
+            continue
+        seen.add(folded(role))
+        suggestions.append({"text": role, "context": context, "from": "career_profile"})
     return {
         "anchors": [a.model_dump() for a in anchors.anchors],
         "aliases": [a.model_dump() for a in anchors.aliases],
-        "suggestions": [
-            {"text": t, "from": "career_profile"} for t in titles if folded(t) not in held
-        ][:MAX_SUGGESTIONS],
+        "suggestions": suggestions[:MAX_SUGGESTIONS],
         "limits": {"anchors": MAX_ANCHORS, "text": MAX_TEXT},
         # Said by the server so no screen can drift from it.
         "affects_scores": False,
@@ -111,7 +152,7 @@ def register_role_anchors(app: JobsApi) -> None:
             )
         with closing(app.connect()) as conn:
             titles = profile_titles(conn)
-        offered = {folded(t) for t in titles}
+        offered = offered_roles(titles)
         with lock:
             held = {
                 folded(a.text)

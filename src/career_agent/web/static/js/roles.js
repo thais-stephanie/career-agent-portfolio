@@ -119,7 +119,14 @@ export function roleAnchorsEditor({ id = 'roles', autosave = false, initial = nu
       same: (a, b) => fold(a) === fold(b),
       onChange: changed,
     });
-    replace(root, [input.root, extras, el('p', { className: 'field__hint', text: t('roles.notLimits') }), status]);
+    // The person's own roles first and largest; suggestions and aliases are
+    // secondary, below, in smaller type.
+    replace(root, [
+      el('div', { className: 'roles__primary' }, [input.root]),
+      el('p', { className: 'field__hint roles__note', text: t('roles.notLimits') }),
+      extras,
+      status,
+    ]);
     drawExtras();
     if (focus) {
       const box = input.root.querySelector('input');
@@ -134,20 +141,49 @@ export function roleAnchorsEditor({ id = 'roles', autosave = false, initial = nu
       .filter((alias) => values.some((value) => fold(value) === fold(alias.anchor)));
     replace(extras, [
       suggestions.length
-        ? el('div', { className: 'roles__suggestions' }, [
-          el('p', { className: 'roles__suggestLabel', text: t('roles.suggestions') }),
-          el('ul', { className: 'roles__suggestList' }, suggestions.map((item) => el('li', {}, [
-            button(t('roles.add', { role: item.text }), () => {
-              if (values.length >= limit()) {
-                status.textContent = t('roles.full', { n: limit() });
-                return;
-              }
-              values = [...values, item.text];
-              sources.set(fold(item.text), 'confirmed_suggestion');
-              // The pressed button is gone; focus goes to the role input.
-              drawInput({ focus: true });
-              if (autosave) save();
-            }, { className: 'btn btn--quiet roles__suggest' }),
+        ? el('section', {
+          className: 'roles__suggestions',
+          attrs: { 'aria-labelledby': `${id}-suggest-heading` },
+        }, [
+          el('h3', {
+            className: 'roles__suggestLabel',
+            attrs: { id: `${id}-suggest-heading` },
+            text: t('roles.suggestions'),
+          }),
+          el('ul', { className: 'roles__suggestList' }, suggestions.map((item, index) => el('li', {}, [
+            el('button', {
+              className: 'roles__chip',
+              attrs: {
+                type: 'button',
+                'aria-label': t('roles.add', { role: item.text }),
+                ...(item.context ? { 'aria-describedby': `${id}-suggest-${index}` } : {}),
+              },
+              on: {
+                click: () => {
+                  if (values.length >= limit()) {
+                    status.textContent = t('roles.full', { n: limit() });
+                    return;
+                  }
+                  values = [...values, item.text];
+                  sources.set(fold(item.text), 'confirmed_suggestion');
+                  // The pressed chip is gone; focus goes to the role input.
+                  drawInput({ focus: true });
+                  if (autosave) save();
+                },
+              },
+            }, [
+              el('span', { className: 'roles__chipPlus', attrs: { 'aria-hidden': 'true' }, text: '+' }),
+              el('span', { className: 'roles__chipText' }, [
+                el('span', { className: 'roles__chipRole', text: item.text }),
+                item.context
+                  ? el('span', {
+                    className: 'roles__chipContext',
+                    attrs: { id: `${id}-suggest-${index}` },
+                    text: item.context,
+                  })
+                  : null,
+              ].filter(Boolean)),
+            ]),
           ]))),
           el('p', { className: 'field__hint', text: t('roles.suggestionsNote') }),
         ])

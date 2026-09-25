@@ -308,7 +308,9 @@ def test_results_are_deduplicated_enriched_and_their_queries_recorded(conn) -> N
     assert tuple(lanes) == (4, 3)
 
     again = _collector(conn, Fake([[RECORDS[0]]])).collect((_query("x y", "country:BR"),))
-    assert again.jobs_seen_again == 1 and again.jobs_new == 0 and again.enrich_attempted == 0
+    assert again.jobs_seen_again == 1 and again.jobs_new == 0
+    # The one posting stored without text in the first run is completed now.
+    assert again.enrich_attempted == 1
 
 
 def test_a_refusal_is_retried_once_then_stops_and_is_never_read_as_no_jobs(conn) -> None:
@@ -493,3 +495,30 @@ def test_the_linkedin_row_is_unavailable_without_the_library(tmp_path: Path, mon
     )
     row = _row(api)
     assert row["experimental"]["available"] is False and row["can_refresh"] is False
+
+
+def test_rows_without_text_are_completed_even_when_no_search_returns_them(conn) -> None:
+    _collector(conn, Fake([[RECORDS[0], RECORDS[2]]])).collect(
+        (_query("a b", "country:BR"),), max_enrich=0
+    )
+    page = {"description": "Plan the weekly menus for the kitchen team."}
+    fake = Fake([], pages={"4000000001": page, "4000000003": page})
+    stats = _collector(conn, fake).collect((), max_enrich=1)
+    assert stats.queries_attempted == 0 and stats.jobs_described_later == 1
+    assert len(fake.enriched) == 1, "the page budget still holds"
+    described = conn.execute(
+        "SELECT count(*) FROM job WHERE provider = 'linkedin' AND content_hash IS NOT NULL"
+    ).fetchone()[0]
+    assert described == 1
+    # Completing a row is not seeing it again: no search returned it.
+    seen = conn.execute(
+        "SELECT count(*) FROM job WHERE provider = 'linkedin' AND last_seen_at != first_seen_at"
+    ).fetchone()[0]
+    assert seen == 0
+
+
+def test_no_page_is_read_right_after_the_searches_were_refused(conn) -> None:
+    _collector(conn, Fake([[RECORDS[0]]])).collect((_query("a b", "country:BR"),), max_enrich=0)
+    fake = Fake(["429", "429"], pages={"4000000001": {"description": "x y z"}})
+    stats = _collector(conn, fake).collect((_query("c d", "country:BR"),), max_enrich=5)
+    assert stats.stopped_reason == "rate_limited" and fake.enriched == []
