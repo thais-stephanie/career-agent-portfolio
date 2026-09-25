@@ -602,7 +602,7 @@ export function createDrawer({
           className: `btn btn--save${job.saved ? ' is-on' : ''}`,
           attrs: { 'aria-pressed': job.saved ? 'true' : 'false' },
         }),
-        extLink(job.url, `${t('card.apply')} ↗`, { className: 'btn btn--link' }),
+        extLink(job.url, `${t('card.apply')} ↗︎`, { className: 'btn btn--link' }),
       ]),
       appliedLine(job),
     ]);

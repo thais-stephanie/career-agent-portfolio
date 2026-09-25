@@ -27,7 +27,7 @@
  */
 
 import { el } from './dom.js';
-import { t } from './i18n.js';
+import { t, getLocale } from './i18n.js';
 
 /** Which pages exist, and what their header says. Keys are `data-page`. */
 export const PAGE_HEADERS = {
@@ -41,6 +41,7 @@ export const PAGE_HEADERS = {
     sub: 'pagehead.sub.profile' },
   evidence: { eyebrow: 'pagehead.eyebrow.evidence', title: 'pagehead.title.evidence',
     sub: 'pagehead.sub.evidence' },
+  // Not in the navigation any more: reached from the Career Profile's import.
   documents: { eyebrow: 'pagehead.eyebrow.documents', title: 'pagehead.title.documents',
     sub: 'pagehead.sub.documents' },
   manage: { eyebrow: 'pagehead.eyebrow.manage', title: 'pagehead.title.manage' },
@@ -126,7 +127,8 @@ export function createShell() {
     ]
       .filter(([, value]) => Number.isFinite(value))
       .map(([key, value, label]) => el('div', { className: `sidenav__stat sidenav__stat--${key}` }, [
-        el('span', { className: 'sidenav__statvalue num', text: String(value) }),
+        // With the reader's own thousands separator: 154,631 or 154.631.
+        el('span', { className: 'sidenav__statvalue num', text: Number(value).toLocaleString(getLocale()) }),
         el('span', { className: 'sidenav__statlabel', text: t(label) }),
       ]));
     nodes.stats.replaceChildren(...tiles);
@@ -171,6 +173,9 @@ export function createShell() {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (!nodes.body.classList.contains('sidenav-open')) return;
+    // The profile menu floats above the drawer: while it is open, Escape
+    // is its own (it closes the menu and gives focus back to its button).
+    if (document.getElementById('lprof-menu')) return;
     // The drawer is the innermost overlay when it is open, so it takes the
     // key and stops it reaching the job drawer behind it.
     event.stopPropagation();
@@ -221,12 +226,10 @@ export function createShell() {
       const node = document.getElementById(id);
       if (node) node.textContent = t(key);
     }
-    const chrome = { 'chrome-appearance': 'sidenav.appearance',
-      'chrome-language': 'sidenav.language' };
-    for (const [id, key] of Object.entries(chrome)) {
-      const node = document.getElementById(id);
-      if (node) node.textContent = t(key);
-    }
+    const tailor = document.getElementById('nav-tailor-label');
+    if (tailor) tailor.textContent = t('nav.tailor');
+    const beta = document.getElementById('nav-tailor-beta');
+    if (beta) beta.textContent = t('nav.beta');
     if (lastStats) setStats(lastStats);
     if (page) setPage(page);
   }

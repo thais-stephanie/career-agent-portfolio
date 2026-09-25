@@ -72,6 +72,7 @@ export function createHome({
     },
     onGoTo: (page) => onGoTo && onGoTo(page),
     collection,
+    onStep: () => onSetupShown && onSetupShown(showingSetup),
   });
   //: The card to open at, when something asked for the setup explicitly.
   let setupAt = null;
@@ -429,5 +430,13 @@ export function createHome({
     if (showingSetup) setup.forgetPosition();
   }
 
-  return { root, load, relabel, openSetup, showsCollection, inSetup, leftForAnotherPage };
+  /** The page header's "Finish setup later": the flow's one global exit. */
+  function leaveSetup() {
+    setup.leave();
+  }
+
+  return {
+    root, load, relabel, openSetup, showsCollection, inSetup, leftForAnotherPage, leaveSetup,
+    offersLater: () => setup.offersLater(),
+  };
 }

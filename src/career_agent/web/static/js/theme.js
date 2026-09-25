@@ -115,60 +115,8 @@
   // The two pictures
   // -----------------------------------------------------------------------
   //
-  // Built here rather than imported from `icons.js`, and the duplication is
-  // deliberate: this file is a CLASSIC script in the head, because a module
-  // is deferred and the page would paint in the wrong theme first. A classic
-  // script cannot import. Twelve lines of SVG builder is a smaller price than
-  // a theme flash on every load.
-  //
-  // `innerHTML` would be shorter and is forbidden by
-  // `scripts/frontend_check.mjs`, for a reason that does not stop applying
-  // because a particular string is safe.
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-
-  const STROKE = {
-    fill: 'none',
-    stroke: 'currentColor',
-    'stroke-width': '2',
-    'stroke-linecap': 'round',
-    'stroke-linejoin': 'round',
-  };
-
-  const SHAPES = {
-    light: [
-      ['circle', { cx: '12', cy: '12', r: '4.2' }],
-      ['path', {
-        d: 'M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6'
-          + 'M4.8 4.8l1.9 1.9M17.3 17.3l1.9 1.9M19.2 4.8l-1.9 1.9M6.7 17.3l-1.9 1.9',
-      }],
-    ],
-    dark: [
-      ['path', { d: 'M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5 8.6 8.6 0 1 0 20.5 14.6Z' }],
-    ],
-  };
-
-  function themeIcon(choice) {
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('class', 'icon icon--theme');
-    // Decoration beside a word. A moon glyph alone means either "you are in
-    // dark" or "press for dark", and nothing on the button says which.
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-    SHAPES[choice].forEach(function (shape) {
-      const node = document.createElementNS(SVG_NS, shape[0]);
-      Object.keys(STROKE).forEach(function (name) {
-        node.setAttribute(name, STROKE[name]);
-      });
-      Object.keys(shape[1]).forEach(function (name) {
-        node.setAttribute(name, shape[1][name]);
-      });
-      svg.appendChild(node);
-    });
-    return svg;
-  }
-
   const LABELS = { light: 'Light', dark: 'Dark' };
+  const GLYPHS = { light: '\u2600\uFE0E', dark: '\u263E' };
   const HINTS = {
     light: 'Always use the light theme, whatever this computer prefers.',
     dark: 'Always use the dark theme, whatever this computer prefers.',
@@ -187,15 +135,21 @@
       button.type = 'button';
       button.className = 'themeswitch__btn';
       button.dataset.theme = choice;
-      button.appendChild(themeIcon(choice));
-      // The WORD stays. `main.js` swaps it into the reader's language once
-      // the catalogue has loaded; these three are the English the shell is
-      // rendered in, exactly like the headings in `index.html`.
+      // A GLYPH, not an emoji and not a picture: the sun and the moon from
+      // the design's geometric set, with the text-presentation selector so
+      // no platform draws a colour emoji. The WORD is kept for screen
+      // readers (visually hidden) and is the tooltip; `main.js` swaps both
+      // into the reader's language once the catalogue has loaded.
+      const glyph = document.createElement('span');
+      glyph.className = 'themeswitch__glyph';
+      glyph.setAttribute('aria-hidden', 'true');
+      glyph.textContent = GLYPHS[choice];
+      button.appendChild(glyph);
       const word = document.createElement('span');
-      word.className = 'themeswitch__word';
+      word.className = 'themeswitch__word sr-only';
       word.textContent = LABELS[choice];
       button.appendChild(word);
-      button.title = HINTS[choice];
+      button.title = LABELS[choice];
       button.setAttribute('aria-label', LABELS[choice] + ' theme. ' + HINTS[choice]);
       button.addEventListener('click', function () {
         remember(choice);

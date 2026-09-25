@@ -34,7 +34,9 @@ from tests.browser.conftest import DESKTOP, MOBILE
 #: there is no Documents page because there is no document store behind one,
 #: and a nav item leading to an invented library is the decorative control the
 #: brief forbids.
-DESTINATIONS = ["home", "jobs", "applications", "profile", "evidence", "documents", "settings"]
+#: Documents is not a destination any more: the imports are reached from
+#: the Career Profile and from Evidence (approved sidebar spec, 1a).
+DESTINATIONS = ["home", "jobs", "applications", "profile", "evidence", "settings"]
 
 #: What a fabricated progress figure looks like on a screen. Read from the
 #: RENDERED text, because that is where one would be composed.

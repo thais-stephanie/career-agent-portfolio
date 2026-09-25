@@ -138,8 +138,12 @@ def test_saving_keeps_provenance_and_generates_aliases(api: JobsApi) -> None:
         ("Hair Stylist", "user"),
     ]
     assert {"Critical Care Nurse", "Hairdresser"} <= {a["text"] for a in saved["aliases"]}
-    # The confirmed suggestion is no longer offered.
-    assert [s["text"] for s in saved["suggestions"]] == ["Barista"]
+    # The confirmed suggestion stays on offer, marked as held, so the screen
+    # shows it as added and can take it back.
+    assert [(s["text"], s["held"]) for s in saved["suggestions"]] == [
+        ("Staff Nurse", True),
+        ("Barista", False),
+    ]
     # Anchors are retrieval helpers: the scoring configuration is untouched.
     assert load_search_config(api.config.config_dir)[1].read_bytes() == before
     # And the targeted lane reads them first.
