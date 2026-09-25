@@ -12,6 +12,7 @@ import json
 import sqlite3
 from dataclasses import asdict, dataclass
 
+from career_agent.storage.catalogue import match_population
 from career_agent.storage.invalidation import read_snapshot
 from career_agent.storage.revisions import resolve
 
@@ -111,11 +112,7 @@ def plan_history(conn: sqlite3.Connection, config_id: str, current: int) -> Rete
             candidates,
             rows,
             size,
-            int(
-                conn.execute(
-                    "SELECT population_revision FROM compute_revision WHERE id='singleton'"
-                ).fetchone()[0]
-            ),
+            match_population(conn),
             hashlib.sha256(json.dumps([tuple(r) for r in identity]).encode()).hexdigest(),
         )
 
@@ -146,7 +143,8 @@ def execute_history(conn: sqlite3.Connection, reviewed: RetentionPlan) -> int:
             if action == sqlite3.SQLITE_UPDATE:
                 return (
                     sqlite3.SQLITE_OK
-                    if table == "compute_revision" and column == "population_revision"
+                    if table in {"compute_revision", "profile_revision"}
+                    and column == "population_revision"
                     else sqlite3.SQLITE_DENY
                 )
             if action == sqlite3.SQLITE_INSERT:
@@ -168,9 +166,7 @@ def execute_history(conn: sqlite3.Connection, reviewed: RetentionPlan) -> int:
             ).rowcount
         if removed != fresh.rows:
             raise RetentionRefused("deleted row count differs from plan")
-        population = conn.execute(
-            "SELECT population_revision FROM compute_revision WHERE id='singleton'"
-        ).fetchone()[0]
+        population = match_population(conn)
         if population != fresh.population_revision + removed:
             raise RetentionRefused("unexpected population invalidation during retention")
         if conn.execute("SELECT COUNT(*) FROM job_score_revision").fetchone()[0] != receipts_before:

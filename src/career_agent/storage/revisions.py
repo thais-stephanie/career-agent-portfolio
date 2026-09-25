@@ -199,18 +199,21 @@ def _decision_key(
     `resolve` reads token and population in one snapshot; a cached decision can
     never be stored under a token from a different committed population.
     """
-    path = conn.execute("PRAGMA database_list").fetchone()[2]
-    revision = conn.execute(
-        "SELECT population_revision FROM compute_revision WHERE id='singleton'"
-    ).fetchone()[0]
+    from career_agent.storage.catalogue import population_token
+
+    paths = [str(row[2]) for row in conn.execute("PRAGMA database_list") if row[2]]
+    revision = population_token(conn)
     # Requests open different connections to the same file: retaining the
     # connection in that key would disable cache reuse on every HTTP request.
     # File identity distinguishes a replaced database at the same path; the
-    # durable token still identifies mutations within that database.
+    # durable token still identifies mutations within that database. A split
+    # profile has two files (its own and the shared catalogue): both count.
     identity: object = conn
-    if path:
-        stat = Path(path).stat()
-        identity = (path, stat.st_dev, stat.st_ino, stat.st_ctime_ns)
+    if paths:
+        identity = tuple(
+            (path, stat.st_dev, stat.st_ino, stat.st_ctime_ns)
+            for path, stat in ((p, Path(p).stat()) for p in paths)
+        )
     return (identity, config_id, config_version, revision)
 
 

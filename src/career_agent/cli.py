@@ -311,7 +311,10 @@ def _report_corpus(db) -> bool:
         typer.echo("  `career-agent init-personal` creates one.")
         return False
 
-    conn = sqlite3.connect(db)
+    from career_agent.storage.catalogue import open_read_only
+
+    # Read-only, and with the shared job catalogue when this profile uses one.
+    conn = open_read_only(db)
     conn.row_factory = sqlite3.Row
     try:
         jobs = int(conn.execute("SELECT COUNT(*) AS n FROM job").fetchone()["n"])
@@ -722,6 +725,7 @@ def doctor(
 
 
 from career_agent import (  # noqa: E402  (avoids a circular import)
+    cli_catalogue,
     cli_collect,
     cli_extract,
     cli_local,
@@ -732,6 +736,7 @@ cli_collect.register(app)
 cli_maintenance.register(app)
 cli_extract.register(app)
 cli_local.register(app)
+cli_catalogue.register(app)
 
 
 if __name__ == "__main__":  # pragma: no cover

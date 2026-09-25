@@ -404,6 +404,40 @@ def check_career_organization(conn: sqlite3.Connection) -> Finding | None:
     return None
 
 
+def check_catalogue_references(conn: sqlite3.Connection) -> Finding | None:
+    """A private row naming a posting the shared catalogue does not hold.
+
+    Only for a profile split from the catalogue (storage/catalogue.py). There,
+    SQLite cannot enforce these references (a foreign key cannot cross into
+    another file), so this is where they are checked instead. Scores and
+    tracking rows have their own checks above; this covers the rest.
+    """
+    from career_agent.storage.catalogue import role
+    from career_agent.storage.catalogue_split import JOB_REFERENCES
+
+    if role(conn) != "profile":
+        return None
+    present = {
+        str(r[0]) for r in conn.execute("SELECT name FROM main.sqlite_master WHERE type='table'")
+    }
+    rows: list[sqlite3.Row] = []
+    for table, column in JOB_REFERENCES.items():
+        if table in {"job_match", "job_application"} or table not in present:
+            continue
+        rows += _rows(
+            conn,
+            f"SELECT '{table}' AS source, p.{column} AS job_id FROM main.{table} p"
+            f" WHERE NOT EXISTS (SELECT 1 FROM job j WHERE j.id = p.{column})",
+        )
+    return _finding(
+        "catalogue_reference",
+        BROKEN,
+        rows,
+        "a private row naming a posting the catalogue lacks",
+        key="job_id",
+    )
+
+
 #: Every check, in reporting order. A list rather than a decorator registry:
 #: the order is meaningful to a reader and a registry would hide it.
 CHECKS = (
@@ -411,6 +445,7 @@ CHECKS = (
     check_career_organization,
     check_orphan_matches,
     check_orphan_applications,
+    check_catalogue_references,
     check_sighting_without_job,
     check_event_without_application,
     check_job_without_company,

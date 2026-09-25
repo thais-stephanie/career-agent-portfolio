@@ -1340,6 +1340,36 @@ def _check_profile_pair(db: Path, config_dir: Path) -> None:
         )
 
 
+def _backup_catalogue(db: Path, out: Path | None) -> None:
+    import tempfile
+
+    from career_agent.storage.backup import create_catalogue_backup
+    from career_agent.storage.catalogue import catalogue_path
+
+    source = catalogue_path(db)
+    if not source.exists():
+        typer.secho(
+            f"no shared job catalogue at {source}: this installation has not been split.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    destination = out or Path("backups") / f"career-agent-catalogue-{_utc_stamp()}.zip"
+    with tempfile.TemporaryDirectory() as scratch:
+        result = create_catalogue_backup(
+            catalogue=source, destination=destination, staging=Path(scratch) / "backup"
+        )
+    typer.secho(f"Wrote {result.path}", bold=True)
+    _table(
+        [
+            ("postings", result.jobs),
+            ("open postings", result.open_jobs),
+            ("profile data", "none: each profile is backed up on its own"),
+            ("database bytes", result.database_bytes),
+        ]
+    )
+
+
 def backup_command(
     db: Annotated[Path | None, typer.Option("--db")] = None,
     config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
@@ -1351,8 +1381,21 @@ def backup_command(
             help="Back up this local profile (name or id): its database and its settings.",
         ),
     ] = None,
+    catalogue: Annotated[
+        bool,
+        typer.Option(
+            "--catalogue",
+            help="Back up the shared job catalogue instead: public job data only, no profile.",
+        ),
+    ] = False,
 ) -> None:
     """Copy everything that would hurt to lose, and nothing that would hurt to keep.
+
+    TWO KINDS OF BACKUP. A PROFILE backup (the default, or `--profile NAME`)
+    holds one person's database and private settings. Once the installation
+    uses the shared job catalogue, that database holds no postings, and the
+    manifest says so. A CATALOGUE backup (`--catalogue`) holds the public job
+    data every profile reads, and no profile's data at all.
 
     This is a local-first product with no server behind it. The corpus, the
     applications, the dates you applied and the search you spent an evening
@@ -1382,6 +1425,9 @@ def backup_command(
             raise typer.BadParameter(f"no local profile is called {profile_name!r}")
         db, config_dir, _ = chosen[0].paths(Path.cwd())
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    if catalogue:
+        _backup_catalogue(db, out)
+        return
     _check_profile_pair(db, config_dir)
     if not db.exists():
         typer.secho(f"no database at {db}", fg=typer.colors.RED, err=True)
@@ -1419,7 +1465,12 @@ def backup_command(
     typer.secho(f"Wrote {result.path}", bold=True)
     _table(
         [
-            ("postings", result.jobs),
+            (
+                "postings",
+                "none: they are in the shared catalogue (`backup --catalogue`)"
+                if result.split
+                else result.jobs,
+            ),
             ("applications tracked", result.applications),
             ("facts you confirmed", result.claims),
             ("CV proposals still to answer", result.pending_proposals),
@@ -1515,8 +1566,14 @@ def _personal_databases() -> list[tuple[Path, int]]:
     if not root.is_dir():
         return found
     for candidate in sorted(root.rglob("*.db")):
+        # A database kept aside by the catalogue split is a rollback copy,
+        # never the one to open.
+        if "legacy" in candidate.parts:
+            continue
         try:
-            conn = sqlite3.connect(f"file:{candidate}?mode=ro", uri=True)
+            from career_agent.storage.catalogue import open_read_only
+
+            conn = open_read_only(candidate)
             try:
                 kind = conn.execute("SELECT kind FROM database_identity LIMIT 1").fetchone()
                 if kind is None or str(kind[0]).upper() != "PERSONAL":

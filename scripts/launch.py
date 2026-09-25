@@ -94,6 +94,12 @@ def main() -> int:
         subprocess.run(
             [sys.executable, "-c", "from career_agent.cli import app; app()", *command], check=True
         )
+        if not args.demo:
+            # A fresh installation starts with the shared job catalogue: its
+            # first profile holds only private state from the beginning.
+            from career_agent.storage.catalogue import link_new_profile
+
+            link_new_profile(db, create=True)
     # Bring an EXISTING database up to this build's schema, as `serve` does.
     # Without this, an updated installation opened through the launcher ran
     # new code on an old schema: migrations only ever reached a database

@@ -64,6 +64,9 @@ class BackupResult:
     claims: int = 0
     pending_proposals: int = 0
     notes: int = 0
+    #: The profile reads its postings from the shared catalogue, which this
+    #: archive does not contain (`career-agent backup --catalogue` does).
+    split: bool = False
 
     @property
     def total_bytes(self) -> int:
@@ -103,8 +106,11 @@ def _snapshot(source: Path, destination: Path) -> dict[str, int]:
         finally:
             target.close()
         live.row_factory = sqlite3.Row
+        split = _count(live, "SELECT COUNT(*) AS n FROM catalogue_link") > 0
         return {
-            "jobs": _count(live, "SELECT COUNT(*) AS n FROM job"),
+            "split": int(split),
+            # A split profile holds no postings: they are in the catalogue.
+            "jobs": 0 if split else _count(live, "SELECT COUNT(*) AS n FROM job"),
             "applications": _count(live, "SELECT COUNT(*) AS n FROM job_application"),
             "claims": _count(
                 live,
@@ -157,8 +163,15 @@ def _manifest(
                 ),
             },
             "contains_public_jobs": (
-                "Yes: until the shared catalogue exists, a profile's database also holds "
-                "the job postings it collected. See docs/MULTI_PROFILE.md."
+                "No. This profile reads job postings from the shared job catalogue "
+                "(data/shared/catalogue.db), which is backed up on its own with "
+                "`career-agent backup --catalogue`. This archive restores this person's "
+                "data; the postings come back from a catalogue backup or the next "
+                "collection."
+                if result.split
+                else "Yes: this profile has not been split into the shared catalogue, so "
+                "its database also holds the job postings it collected. See "
+                "docs/MULTI_PROFILE.md."
             ),
             "excluded": {
                 "credentials": sorted(NEVER_COPIED),
@@ -201,6 +214,7 @@ def create_backup(
     result.claims = counted["claims"]
     result.pending_proposals = counted["pending_proposals"]
     result.notes = counted["notes"]
+    result.split = bool(counted["split"])
     result.database_bytes = snapshot.stat().st_size
 
     copied: list[Path] = []
@@ -238,3 +252,82 @@ def contents(archive_path: Path) -> list[str]:
     tests to assert that a secret is not among them."""
     with zipfile.ZipFile(archive_path) as archive:
         return sorted(archive.namelist())
+
+
+@dataclass
+class CatalogueBackupResult:
+    path: Path
+    database_bytes: int = 0
+    jobs: int = 0
+    open_jobs: int = 0
+    tables: list[str] = field(default_factory=list)
+
+
+def create_catalogue_backup(
+    *, catalogue: Path, destination: Path, staging: Path
+) -> CatalogueBackupResult:
+    """One archive holding the shared job catalogue and nothing else.
+
+    The catalogue holds only public job data (storage/catalogue.py lists what
+    that is), so this archive contains no profile's CV, evidence, preferences,
+    scores or applications. Checked, not assumed: an archive whose database
+    holds any private table is refused before it is written.
+    """
+    from career_agent.storage.catalogue import PRIVATE_TABLES
+
+    result = CatalogueBackupResult(path=destination)
+    staging.mkdir(parents=True, exist_ok=True)
+    snapshot = staging / catalogue.name
+    live = sqlite3.connect(f"file:{catalogue}?mode=ro", uri=True)
+    try:
+        target = sqlite3.connect(snapshot)
+        try:
+            live.backup(target)
+            target.commit()
+        finally:
+            target.close()
+        live.row_factory = sqlite3.Row
+        result.tables = sorted(
+            str(r[0])
+            for r in live.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+            )
+        )
+        if not any(t == "catalogue_identity" for t in result.tables):
+            raise ValueError(f"{catalogue} is not a job catalogue")
+        private = sorted(set(result.tables) & PRIVATE_TABLES)
+        if private:
+            raise ValueError(f"the catalogue holds private tables and was not archived: {private}")
+        result.jobs = _count(live, "SELECT COUNT(*) AS n FROM job")
+        result.open_jobs = _count(live, "SELECT COUNT(*) AS n FROM job WHERE closed_at IS NULL")
+    finally:
+        live.close()
+    result.database_bytes = snapshot.stat().st_size
+    manifest = json.dumps(
+        {
+            "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "scope": "the shared job catalogue of this installation",
+            "database": snapshot.name,
+            "jobs": result.jobs,
+            "open_jobs": result.open_jobs,
+            "contains_profile_data": (
+                "No. Public job data only: postings, descriptions, source payloads, "
+                "employers, boards and the search index. No CV, evidence, preferences, "
+                "Search Fit, saved jobs, notes or applications of any profile."
+            ),
+            "not_included": {
+                "profiles": "Each local profile is backed up on its own (`career-agent backup`).",
+                "credentials": sorted(NEVER_COPIED),
+            },
+            "restore": (
+                "Unzip and put catalogue.db back at data/shared/catalogue.db while Career "
+                "Agent is closed. A profile only opens the catalogue it was linked to."
+            ),
+        },
+        indent=2,
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.write(snapshot, snapshot.name)
+        archive.writestr("MANIFEST.json", manifest)
+    return result

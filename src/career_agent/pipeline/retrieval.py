@@ -265,6 +265,11 @@ class RetrievalRunner:
                 state.status = "failed"
                 state.error = str(exc)
             finally:
+                # A collection that ended without finishing its run record
+                # must not keep the shared catalogue locked for this process.
+                from career_agent.storage.catalogue import release_thread_holds
+
+                release_thread_holds()
                 state.current = None
                 state.current_started_at = None
                 state.finished_at = _now()

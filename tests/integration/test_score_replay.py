@@ -523,9 +523,7 @@ def test_a_scoring_only_schema_move_replays_instead_of_reading_again(corpus):
     from career_agent.domain.matching import MATCH_SCHEMA_VERSION, REPLAY_MIN_SCHEMA
 
     conn, config, tmp_path = corpus
-    assert _age_every_row_to_the_previous_schema(conn, config, REPLAY_MIN_SCHEMA) == len(
-        POSTINGS
-    )
+    assert _age_every_row_to_the_previous_schema(conn, config, REPLAY_MIN_SCHEMA) == len(POSTINGS)
     # Aging by UPDATE fires the population trigger, which drops the score
     # receipts. A row the previous build WROTE keeps its receipt, so put them
     # back: that is the production state this test describes.
