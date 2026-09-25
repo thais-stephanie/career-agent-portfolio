@@ -112,6 +112,10 @@ def partial_reason(stats: Mapping[str, Any]) -> str | None:
         isinstance(failures, int) and failures
     ):
         return REASON_SOME_FAILED
+    # A board family's own slice counts failed boards rather than listing them.
+    failed = stats.get("boards_failed")
+    if isinstance(failed, int) and not isinstance(failed, bool) and failed > 0:
+        return REASON_SOME_FAILED
     return None
 
 
@@ -287,6 +291,11 @@ def _state_of_slice(slice_stats: Mapping[str, Any]) -> RefreshState | None:
         return RefreshState.PARTIAL
     attempted = slice_stats.get("boards_attempted")
     failed = slice_stats.get("boards_failed")
+    if failed is None and slice_stats.get("boards_succeeded") == attempted:
+        # A slice that succeeded on every board it tried need not also say
+        # "0 failed"; reading silence there as unknown marked six fully
+        # collected families PARTIAL for another family's 404s.
+        failed = 0
     if not isinstance(attempted, int) or not isinstance(failed, int) or attempted <= 0:
         return None
     if failed >= attempted:
