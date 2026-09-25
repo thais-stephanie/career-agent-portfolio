@@ -1128,7 +1128,10 @@ export async function getRoleAnchors() {
   if (MOCK) return { anchors: [], aliases: [], suggestions: [], limits: { anchors: 8, text: 80 } };
   return request('/role-anchors');
 }
-export async function saveRoleAnchors(body) { return request('/role-anchors', { method: 'PATCH', body }); }
+export async function saveRoleAnchors(body) {
+  if (MOCK) return { ...(await getRoleAnchors()), anchors: body.anchors, saved: true };
+  return request('/role-anchors', { method: 'PATCH', body });
+}
 
 /**
  * One organising change, previewed and applied. Returns `{ event_id, ... }`;

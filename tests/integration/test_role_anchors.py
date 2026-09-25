@@ -16,7 +16,8 @@ from career_agent.config.search_config import load_search_config
 from career_agent.discovery.aliases import aliases_for, plan_aliases
 from career_agent.discovery.anchors import MAX_ALIASES_PER_ANCHOR, Anchor, load_anchors
 from career_agent.discovery.plan import query_terms
-from career_agent.storage.db import connect, migrate
+from career_agent.runtime import RuntimeMode, stamp_identity
+from career_agent.storage.db import connect, migrate, transaction
 from career_agent.storage.workspace_repo import ensure_candidate
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ApiError, ServerConfig
@@ -29,6 +30,8 @@ def api(tmp_path: Path) -> JobsApi:
     shutil.copytree(source, config, ignore=shutil.ignore_patterns("*.local.*"))
     conn = connect(tmp_path / "personal.db")
     migrate(conn)
+    with transaction(conn):
+        stamp_identity(conn, RuntimeMode.PERSONAL, "role anchors")
     candidate = ensure_candidate(conn)
     for order, (title, current) in enumerate([("Staff Nurse", 1), ("Barista", 0)]):
         conn.execute(
@@ -56,6 +59,7 @@ def api(tmp_path: Path) -> JobsApi:
         ("Senior SDR", {"SDR", "Sales Development Representative"}),
         ("CSM", {"Customer Success Manager"}),
         ("Accountant II", {"Accountant"}),
+        ("Quality Assurance Engineer", {"QA Engineer"}),
         ("Software Engineer (Remote)", {"Software Engineer", "Software Developer"}),
         ("GTM Engineer / AI Engineer", {"GTM Engineer", "AI Engineer"}),
     ],
@@ -65,6 +69,25 @@ def test_aliases_are_the_same_work_under_other_titles(anchor: str, expected: set
     assert expected <= made
     assert anchor not in made
     assert len(made) <= MAX_ALIASES_PER_ANCHOR
+
+
+@pytest.mark.parametrize(
+    "anchor,never",
+    [
+        ("AI/ML Engineer", {"AI", "ML Engineer"}),
+        ("UX/UI Designer", {"UX", "UI Designer"}),
+        ("Technician I/II", {"II", "I"}),
+        ("Sr. / Jr. Developer", {"Sr.", "Jr. Developer"}),
+        ("Manager - Customer Success", {"Manager"}),
+        ("Lead Generation Specialist", {"Generation Specialist"}),
+        ("Staff Accountant", {"Accountant"}),
+    ],
+)
+def test_no_alias_is_a_fragment_that_would_search_for_everything(
+    anchor: str, never: set[str]
+) -> None:
+    made = {a.text for a in aliases_for(Anchor(text=anchor))}
+    assert not made & never, made
 
 
 def test_no_head_noun_is_swapped_and_team_lead_stays_a_title() -> None:
@@ -142,6 +165,52 @@ def test_bad_role_lists_are_refused_and_nothing_is_written(api: JobsApi, body: d
     with pytest.raises(ApiError) as caught:
         api.handle_api("PATCH", "/api/role-anchors", {}, body)
     assert caught.value.status == 400
+    assert load_anchors(api.config.config_dir).anchors == ()
+
+
+def test_a_confirmed_suggestion_stays_one_after_the_profile_changes(api: JobsApi) -> None:
+    api.handle_api(
+        "PATCH",
+        "/api/role-anchors",
+        {},
+        {"anchors": [{"text": "Barista", "source": "confirmed_suggestion"}]},
+    )
+    with connect(api.config.db_path) as conn:
+        conn.execute("UPDATE career_experience SET archived = 1 WHERE title = 'Barista'")
+        conn.commit()
+    again = api.handle_api(
+        "PATCH",
+        "/api/role-anchors",
+        {},
+        {
+            "anchors": [
+                {"text": "Barista", "source": "confirmed_suggestion"},
+                {"text": "Hair Stylist", "source": "user"},
+            ]
+        },
+    )
+    assert again["anchors"][0] == {"text": "Barista", "source": "confirmed_suggestion"}
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        {"text": "Nurse", "source": ["x"]},
+        {"text": 123},
+        {"text": None},
+    ],
+)
+def test_wrong_types_are_a_400_never_a_crash(api: JobsApi, item: dict) -> None:
+    with pytest.raises(ApiError) as caught:
+        api.handle_api("PATCH", "/api/role-anchors", {}, {"anchors": [item]})
+    assert caught.value.status == 400
+
+
+def test_the_demo_never_saves_roles(api: JobsApi, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("career_agent.web.role_anchors_api._is_personal", lambda app: False)
+    with pytest.raises(ApiError) as caught:
+        api.handle_api("PATCH", "/api/role-anchors", {}, {"anchors": [{"text": "Nurse"}]})
+    assert caught.value.status == 409
     assert load_anchors(api.config.config_dir).anchors == ()
 
 

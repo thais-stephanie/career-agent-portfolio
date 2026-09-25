@@ -38,10 +38,15 @@ from career_agent.discovery.anchors import (
 )
 
 GENERATOR = "rule"
+#: Titles are read at most this long: every rule is linear on that.
+MAX_TITLE = 200
 
 _ALTERNATIVES = re.compile(r"\s*(?:/|\||\bor\b|\bou\b)\s*", re.IGNORECASE)
 _PARENTHESES = re.compile(r"\s*[\(\[][^)\]]*[\)\]]")
 _TRAILING_QUALIFIER = re.compile(r"\s+[-,]\s+[^-,]+$")
+#: Removed from the FRONT of a title. "Lead", "Staff", "Principal" and
+#: "Associate" are not here: "Lead Generation Specialist", "Staff Accountant"
+#: and "Associate Attorney" name jobs, not levels.
 _LEVEL_WORDS = (
     "senior",
     "sr",
@@ -49,10 +54,6 @@ _LEVEL_WORDS = (
     "junior",
     "jr",
     "jr.",
-    "lead",
-    "principal",
-    "staff",
-    "associate",
     "entry level",
     "entry-level",
     "mid-level",
@@ -114,12 +115,32 @@ for _family in EQUIVALENTS:
 
 
 def _titlecase_abbreviation(text: str) -> str:
-    return text.upper() if len(text) <= 5 and " " not in text else text
+    """ "sdr" -> "SDR", "qa engineer" -> "QA Engineer"."""
+    first, _, rest = text.partition(" ")
+    return " ".join(p for p in (first.upper(), rest.title()) if p)
+
+
+#: Never a search term on its own: a level ("Sr."), a grade ("II") or a
+#: fragment too short to name a role ("AI", "UX") unless it is a known
+#: abbreviation. Splitting and trimming only ever leave two-word titles, so a
+#: single word here is the person's own role without its level ("Teacher").
+def _worth_searching(text: str) -> bool:
+    words = [w.casefold().strip(".") for w in text.split()]
+    if not words or all(w in _LEVEL_WORDS or w in _GRADES for w in words):
+        return False
+    return len(words) >= 2 or len(words[0]) >= 3 or text.casefold() in ABBREVIATIONS
+
+
+_GRADES = frozenset({"i", "ii", "iii", "iv", "v", "1", "2", "3", "4", "5"})
 
 
 def _strip_qualifiers(title: str) -> str:
-    text = _PARENTHESES.sub("", title)
-    text = _TRAILING_QUALIFIER.sub("", text)
+    text = _PARENTHESES.sub("", clean(title)[:MAX_TITLE])
+    trimmed = _TRAILING_QUALIFIER.sub("", text)
+    # "Manager - Customer Success": the part after the dash is the role, so
+    # a trim that leaves one word is not a qualifier removed.
+    if len(trimmed.split()) >= 2:
+        text = trimmed
     for _ in range(2):
         text = _LEVEL_PREFIX.sub("", text)
         text = _LEVEL_SUFFIX.sub("", text)
@@ -163,14 +184,16 @@ def aliases_for(anchor: Anchor, taken: set[str] | None = None) -> list[Alias]:
             or not text
             or len(text) > MAX_TEXT
             or key in seen
-            or len(key) < 2
+            or not _worth_searching(text)
         ):
             return
         seen.add(key)
         out.append(Alias(text=text, anchor=anchor.text, source="rule", generator=GENERATOR))
 
-    parts = [p for p in _ALTERNATIVES.split(anchor.text) if clean(p)]
-    titles = parts if len(parts) > 1 else [anchor.text]
+    parts = [clean(p) for p in _ALTERNATIVES.split(anchor.text) if clean(p)]
+    # Alternatives only when every side is a title of its own: "GTM Engineer /
+    # AI Engineer" is two, "AI/ML Engineer" and "UX/UI Designer" are one.
+    titles = parts if len(parts) > 1 and all(len(p.split()) >= 2 for p in parts) else [anchor.text]
     for part in titles:
         if len(titles) > 1:
             offer(part)

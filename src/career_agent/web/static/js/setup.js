@@ -671,7 +671,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
 
     roles: () => {
       // Optional search anchors, never limits. One editor, shared with Settings.
-      const editor = roleAnchorsEditor({ id: 'setup-roles' });
+      const editor = roleAnchorsEditor({ id: 'setup-roles', initial: roleAnchors });
       return {
         nodes: [editor.root],
         submit: async (error) => {
@@ -682,7 +682,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
           const submit = root.querySelector('#setup-next');
           if (submit) submit.disabled = true;
           const ok = await editor.save();
-          if (ok) roleAnchors = await api.getRoleAnchors().catch(() => roleAnchors);
+          if (ok) roleAnchors = editor.data || roleAnchors;
           if (submit) submit.disabled = false;
           if (ok) advance();
           else error.textContent = t('roles.notSaved');

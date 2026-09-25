@@ -12,6 +12,7 @@ is kept as `confirmed_suggestion`, so the two provenances stay apart.
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING, Any
 
 from career_agent.discovery.aliases import plan_aliases
@@ -77,7 +78,19 @@ def _payload(anchors: RoleAnchors, titles: list[str]) -> dict[str, Any]:
     }
 
 
+def _is_personal(app: JobsApi) -> bool:
+    from career_agent.runtime import RuntimeMode, read_identity
+
+    with closing(app.connect()) as conn:
+        identity = read_identity(conn)
+    return identity is not None and identity.kind is RuntimeMode.PERSONAL
+
+
 def register_role_anchors(app: JobsApi) -> None:
+    #: One writer at a time: the server is threaded, and two saves racing
+    #: could leave the older list on disk.
+    lock = threading.Lock()
+
     def read(*, query: dict, body: dict) -> dict:
         if query or body:
             raise ApiError(400, "Reading role anchors takes no parameters.")
@@ -88,26 +101,46 @@ def register_role_anchors(app: JobsApi) -> None:
     def write(*, query: dict, body: dict) -> dict:
         if query or set(body) != {"anchors"} or not isinstance(body["anchors"], list):
             raise ApiError(400, "Send the list of roles as `anchors`.")
+        if len(body["anchors"]) > MAX_ANCHORS * 4:
+            raise ApiError(400, f"Name up to {MAX_ANCHORS} roles.", for_reader=True)
+        if not _is_personal(app):
+            # The demo shares the configuration folder; what somebody tries
+            # while exploring it must not steer their own searches later.
+            raise ApiError(
+                409, "The demo does not save roles. Start Career Agent normally.", for_reader=True
+            )
         with closing(app.connect()) as conn:
             titles = profile_titles(conn)
         offered = {folded(t) for t in titles}
-        anchors: list[Anchor] = []
-        for item in body["anchors"]:
-            if not isinstance(item, dict) or set(item) - {"text", "source"}:
-                raise ApiError(400, "Each role is an object with `text` and `source`.")
-            text = clean(item.get("text") if isinstance(item.get("text"), str) else "")
-            source = item.get("source", "user")
-            if not text or len(text) > MAX_TEXT:
-                raise ApiError(
-                    400, f"Keep each role to {MAX_TEXT} characters or fewer.", for_reader=True
-                )
-            if source == "confirmed_suggestion" and folded(text) not in offered:
-                # Provenance is a claim about where words came from. A role
-                # the profile never held cannot have been a suggestion from it.
-                source = "user"
-            if source not in {"user", "confirmed_suggestion"}:
-                raise ApiError(400, "A role is either typed or a confirmed suggestion.")
-            anchors.append(Anchor(text=text, source=source))
+        with lock:
+            held = {
+                folded(a.text)
+                for a in load_anchors(app.config.config_dir).anchors
+                if a.source == "confirmed_suggestion"
+            }
+            anchors: list[Anchor] = []
+            for item in body["anchors"]:
+                if not isinstance(item, dict) or set(item) - {"text", "source"}:
+                    raise ApiError(400, "Each role is an object with `text` and `source`.")
+                text, source = item.get("text"), item.get("source", "user")
+                if not isinstance(text, str) or not clean(text):
+                    raise ApiError(400, "Each role needs some words.", for_reader=True)
+                if not isinstance(source, str) or source not in {"user", "confirmed_suggestion"}:
+                    raise ApiError(400, "A role is either typed or a confirmed suggestion.")
+                text = clean(text)
+                if len(text) > MAX_TEXT:
+                    raise ApiError(
+                        400, f"Keep each role to {MAX_TEXT} characters or fewer.", for_reader=True
+                    )
+                if source == "confirmed_suggestion" and folded(text) not in offered | held:
+                    # Provenance is a claim about where words came from. A role
+                    # the profile never held, and that was never confirmed from
+                    # it, cannot have been a suggestion from it.
+                    source = "user"
+                anchors.append(Anchor(text=text, source=source))
+            return _save(anchors, titles)
+
+    def _save(anchors: list[Anchor], titles: list[str]) -> dict:
         if len({folded(a.text) for a in anchors}) > MAX_ANCHORS:
             raise ApiError(
                 400,

@@ -209,6 +209,8 @@ def answer_everything(page: Chrome, live: Install) -> None:
     put(page, "#setup-work", "customer onboarding\nimplementation")
     put(page, "#setup-skills", "HubSpot")
     next_card(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Brazil", "change")
     next_card(page)
@@ -378,7 +380,7 @@ def test_every_question_can_be_skipped_and_nothing_is_invented(
 ) -> None:
     begin(page, install)
     next_card(page)
-    for key in ("work", "home", "hire", "workmodel", "arrangement", "level", "pay"):
+    for key in ("work", "roles", "home", "hire", "workmodel", "arrangement", "level", "pay"):
         wait_card(page, key)
         skip(page)
     wait_card(page, "cv")
@@ -408,6 +410,8 @@ def test_a_reload_halfway_comes_back_to_the_same_card_with_the_answers(
     wait_card(page, "work")
     put(page, "#setup-work", "payroll administration")
     next_card(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Brazil", "change")
     next_card(page)
@@ -419,6 +423,8 @@ def test_a_reload_halfway_comes_back_to_the_same_card_with_the_answers(
     wait_card(page, "home")
     assert page.evaluate("document.querySelector('#setup-country').dataset.code") == "BR"
     click(page, "#setup-back")
+    wait_card(page, "roles")
+    click(page, "#setup-back")
     wait_card(page, "work")
     assert "payroll administration" in text(page, ".setup__saved")
 
@@ -427,6 +433,8 @@ def test_a_restart_halfway_comes_back_to_the_same_card(page: Chrome, install: In
     begin(page, install)
     next_card(page)
     wait_card(page, "work")
+    skip(page)
+    wait_card(page, "roles")
     skip(page)
     wait_card(page, "home")
     skip(page)
@@ -457,7 +465,7 @@ def test_back_all_the_way_shows_every_answer(page: Chrome, install: Install) -> 
         "hire": "document.querySelector('#setup-hire-yes').checked",
         "home": "document.querySelector('#setup-country').dataset.code === 'BR'",
     }
-    for key in ("pay", "level", "arrangement", "workmodel", "hire", "home", "work"):
+    for key in ("pay", "level", "arrangement", "workmodel", "hire", "home", "roles", "work"):
         click(page, "#setup-back")
         wait_card(page, key)
         if key in expected:
@@ -475,6 +483,8 @@ def test_a_new_country_asks_the_hiring_question_again(page: Chrome, install: Ins
     begin(page, install)
     next_card(page)
     wait_card(page, "work")
+    skip(page)
+    wait_card(page, "roles")
     skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Brazil", "change")
@@ -513,6 +523,8 @@ def test_not_sure_stays_unknown(page: Chrome, install: Install) -> None:
     next_card(page)
     wait_card(page, "work")
     skip(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Brazil", "change")
     next_card(page)
@@ -534,6 +546,8 @@ def test_preferring_remote_is_not_being_hireable_anywhere(page: Chrome, install:
     begin(page, install)
     next_card(page)
     wait_card(page, "work")
+    skip(page)
+    wait_card(page, "roles")
     skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Brazil", "change")
@@ -618,6 +632,8 @@ def test_switching_language_halfway_keeps_answers_and_unsaved_text(
     page.wait_for("document.querySelector('#setup-title').innerText.includes('trabalho')")
     assert page.evaluate("document.querySelector('#setup-work').value") == "gestão de folha"
     next_card(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Brasil")
     page.evaluate("document.querySelector('[data-locale=\"en\"]').click()")
@@ -638,7 +654,7 @@ def test_every_card_fits_a_phone(page: Chrome, install: Install) -> None:
         next_card(page)
         wait_card(page, key)
         assert no_overflow(page), key
-    for key in ("pay", "level", "arrangement", "workmodel", "hire", "home", "work"):
+    for key in ("pay", "level", "arrangement", "workmodel", "hire", "home", "roles", "work"):
         page.evaluate("localStorage.setItem('careerAgent.setup.at.v1', " + json.dumps(key) + ")")
         page.reload()
         wait_card(page, key)
@@ -666,6 +682,9 @@ def test_the_setup_can_be_completed_with_a_keyboard(page: Chrome, install: Insta
     tab_to(page, "setup-work")
     page.type_text("customer onboarding")
     tab_to(page, "setup-next")
+    page.press("Space")
+    wait_card(page, "roles")
+    tab_to(page, "setup-skip")
     page.press("Space")
     wait_card(page, "home")
     tab_to(page, "setup-country")
@@ -708,6 +727,8 @@ def test_errors_are_announced_beside_the_field(page: Chrome, install: Install) -
     next_card(page)
     wait_card(page, "work")
     skip(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Atlantis")
     next_card(page)
@@ -734,6 +755,8 @@ def test_each_card_costs_a_bounded_number_of_requests(page: Chrome, install: Ins
     next_card(page)
     wait_card(page, "work")
     skip(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     assert install.requests(since) == [], "moving between cards asked the server"
 
@@ -759,6 +782,8 @@ def test_leaving_the_setup_by_the_navigation_does_not_bring_it_back_on_reload(
     # by itself on every load.
     put(page, "#setup-work", "customer onboarding")
     next_card(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     click(page, '.topnav__link[data-page="jobs"]')
     page.reload()
@@ -886,6 +911,8 @@ def test_an_error_clears_as_soon_as_its_field_is_valid(page: Chrome, install: In
     next_card(page)
     wait_card(page, "work")
     skip(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Atlantis")
     next_card(page)
@@ -926,6 +953,8 @@ def test_an_invalid_field_is_marked_without_relying_on_colour(
     next_card(page)
     wait_card(page, "work")
     skip(page)
+    wait_card(page, "roles")
+    skip(page)
     wait_card(page, "home")
     put(page, "#setup-country", "Atlantis")
     next_card(page)
@@ -948,3 +977,28 @@ def test_an_invalid_field_is_marked_without_relying_on_colour(
         page.evaluate("document.querySelector('#setup-country').getAttribute('aria-describedby')")
     )
     page.set_color_scheme(None)
+
+
+def test_roles_in_mind_are_optional_and_saved_as_the_persons_own_words(
+    page: Chrome, install: Install
+) -> None:
+    from career_agent.discovery.anchors import load_anchors
+
+    begin(page, install)
+    next_card(page)
+    wait_card(page, "work")
+    put(page, "#setup-work", "customer onboarding")
+    next_card(page)
+    wait_card(page, "roles")
+    assert "not limits" in text(page, ".setup__card")
+    put(page, "#setup-roles-anchors", "Hair Stylist")
+    page.evaluate(
+        "document.querySelector('#setup-roles-anchors').dispatchEvent("
+        "new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))"
+    )
+    page.wait_for("document.querySelector('.tags__pills').children.length > 0")
+    next_card(page)
+    wait_card(page, "home")
+    saved = load_anchors(install.config_dir)
+    assert [(a.text, a.source) for a in saved.anchors] == [("Hair Stylist", "user")]
+    assert "Hairdresser" in {a.text for a in saved.aliases}
