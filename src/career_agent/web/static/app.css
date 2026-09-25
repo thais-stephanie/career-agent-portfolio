@@ -5405,16 +5405,10 @@ body {
    the same reason: two choices with one answer read as one control, and this
    page already has that shape twice.
 
-   THE FLAG IS BESIDE THE CODE, NEVER INSTEAD OF IT. This block used to say
-   "no flag icons -- a flag is a country and a language is not", and half of
-   that is still true: `en` names no country, and the two letters remain what
-   says which language a button chooses. What was wrong was the conclusion.
-   Two bare letter-pairs in a corner are not a control anybody finds, and the
-   owner found neither on her own screen.
-
-   Not the Unicode regional-indicator characters, which is the obvious way to
-   add one: Windows ships no colour flag glyphs, so those render as boxed
-   letters on the machine this product runs on. Inline SVG, in `icons.js`.
+   THE CODE AND NO FLAG. A flag is a country and a language is not, and the
+   approved design system uses no emoji or flag at all: the two letters say
+   which language a button chooses, and the language's own name is its
+   tooltip and accessible name.
 */
 .topbar__locale {
   align-self: center;
@@ -6666,21 +6660,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 
 .icon { display: block; flex: 0 0 auto; }
 
-/* Stroked, and it takes the button's ink -- so it inverts with the button
-   when that button is the pressed one. */
-.icon--theme {
-  width: 14px; height: 14px;
-  color: currentColor;
-}
-
-/* Filled with its own flag's colours, so it does NOT follow the ink. A rule
-   around it keeps the white of one flag and the paper behind it apart. */
-.icon--flag {
-  width: 16px; height: 11px;
-  border: var(--rule-w) solid var(--outline);
-  border-radius: 1px;
-}
-
 .themeswitch__btn,
 .localeswitch__btn {
   display: inline-flex;
@@ -6689,16 +6668,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 }
 
 .localeswitch__code { line-height: 1; }
-
-@media (max-width: 640px) {
-  /* The words go and the pictures stay, which is the one place an icon
-     carries a control on its own. The accessible name is unchanged, so a
-     screen reader still hears "Auto theme. Follow this computer..." -- what
-     is dropped is the sighted label, at the width where the header has to
-     choose between a control and a heading. */
-  .themeswitch__word { display: none; }
-  .icon--theme { width: 16px; height: 16px; }
-}
 
 /* Language and theme, at the end of the navigation line. `margin-left: auto`
    on a wrapping flex line pushes them to the right of whatever shares it. */
@@ -7166,7 +7135,7 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 .sidenav__health.is-actionable { cursor: pointer; }
 .sidenav__health.is-actionable .sidenav__healthtext { text-decoration: underline; text-underline-offset: 2px; }
 .sidenav__health.is-actionable:hover { color: var(--nav-ink); }
-.sidenav__health:disabled { opacity: 1; }
+.sidenav__health[aria-disabled="true"] { cursor: default; }
 .sidenav__health:focus-visible { outline: 2px solid var(--nav-active); outline-offset: 2px; border-radius: 4px; }
 
 /* The population tag: PERSONAL in mint, DEMO in yellow, an outline only. */
@@ -8222,7 +8191,7 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 .pagehead__later { color: var(--muted); font-weight: 600; }
 
 /* THE STEPPER: one pill bar per real step, named under it. */
-.stepper { display: grid; gap: 8px; }
+.stepper { display: grid; gap: 8px; container-type: inline-size; }
 .stepper__list {
   list-style: none; margin: 0; padding: 0;
   display: grid; gap: 8px;
@@ -8243,16 +8212,21 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   display: flex; align-items: baseline; gap: 5px;
   font-size: 12px; font-weight: 500; line-height: 1.3;
   color: var(--ink);
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 .stepper__step--current .stepper__label { font-weight: 700; }
 .stepper__step--upcoming .stepper__label { color: var(--muted); }
 .stepper__mark { font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
 .stepper__now { display: none; margin: 0; font-size: 13px; font-weight: 700; color: var(--ink); }
-@media (max-width: 640px) {
+@container (max-width: 720px) {
   .stepper__list { gap: 4px; }
-  .stepper__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .stepper__label {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
   .stepper__now { display: block; }
+}
+@media (max-width: 640px) {
   .setup__cardbody { padding: 20px 18px 0; }
   .setup__actions { padding: 14px 18px; }
   .setup__title { font-size: 22px; }
@@ -9172,7 +9146,7 @@ body.has-cw-drawer { overflow: hidden; }
 /* ROLES IN MIND (approved spec 1c). The person's own roles are the control:
    a full-width token field. Career Profile titles are cards below it, and
    one callout says what roles do and do not do. */
-.roles { display: grid; gap: 8px; min-width: 0; }
+.roles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
 .roles__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .roles__label { font-size: 13px; font-weight: 700; color: var(--ink); }
 .roles__count { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
@@ -9189,7 +9163,8 @@ body.has-cw-drawer { overflow: hidden; }
 .roles__chips { display: contents; }
 .roles__chip {
   display: inline-flex; align-items: center; gap: 4px;
-  white-space: nowrap; flex-shrink: 0; max-width: 100%;
+  white-space: nowrap; flex-shrink: 0; min-width: 0; max-width: 100%;
+  box-sizing: border-box;
   border: 1.5px solid var(--line);
   border-radius: 7px;
   background: var(--lilac);
@@ -9197,7 +9172,10 @@ body.has-cw-drawer { overflow: hidden; }
   font-size: 13px; font-weight: 600;
   padding: 4px 4px 4px 10px;
 }
-.roles__chiptext { overflow: hidden; text-overflow: ellipsis; }
+.roles__chiptext {
+  display: block; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .roles__chipx {
   border: 0; background: none; padding: 0 5px;
   font-size: 11px; line-height: 1; color: var(--ink);

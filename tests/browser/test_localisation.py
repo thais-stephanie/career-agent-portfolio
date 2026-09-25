@@ -171,7 +171,7 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
     assert page.evaluate(
         "[...document.querySelectorAll('.localeswitch__btn')]"
         ".map((b) => b.getAttribute('aria-label'))"
-    ) == ["Inglês", "Português (Brasil)"]
+    ) == ["English", "Português (Brasil)"], "each language is named in its own words"
     # The page header is the one place every screen states what it is, so it
     # is the one place a missed string is most visible. `in_locale` lands on
     # the job list, so this is the job list's title.

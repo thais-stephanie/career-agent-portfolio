@@ -282,7 +282,7 @@ function headerAction(page) {
   if (page === 'evidence') {
     return button(t('evp.add'), () => evidenceView.add(), { className: 'btn btn--primary' });
   }
-  if (page === 'home' && homeHeader === 'setup') {
+  if (page === 'home' && homeHeader === 'setup' && home.offersLater()) {
     // THE ONE GLOBAL EXIT from the guided setup, in its header. What was
     // answered is kept; the flow offers itself again later.
     return button(t('setup.later'), () => home.leaveSetup(), {
@@ -1463,6 +1463,11 @@ function star() {
   });
 }
 
+//: Re-read the rail's counts and sources after a collection finishes.
+function refreshRail() {
+  loadRailReadouts();
+}
+
 function showEmpty(state) {
   dom.list.className = 'state';
   const filtered = activeFilterCount(state) > 0;
@@ -1923,7 +1928,10 @@ async function showHealth() {
     // the details are the status line's tooltip.
     railStatus.degraded = (health.search_indexed === false ? 1 : 0)
       + (Number(health.stale_scores) > 0 ? 1 : 0);
-    railStatus.detail = dom.health.textContent;
+    railStatus.detail = [...dom.health.children]
+      .map((node) => node.textContent.trim())
+      .filter((text) => text && text !== '\u00b7')
+      .join(' \u00b7 ');
     drawRailStatus();
   } catch {
     dom.health.textContent = t('health.unknown');
@@ -1963,8 +1971,13 @@ function drawRailStatus() {
   dom.healthSummaryText.textContent = text;
   node.classList.toggle('is-attention', attention);
   node.classList.toggle('is-actionable', actionable);
-  node.disabled = !actionable;
-  node.title = actionable ? t('sidenav.statusOpenSources') : (railStatus.detail || '');
+  // Focusable in every state, so its detail can be reached: not `disabled`.
+  node.setAttribute('aria-disabled', String(!actionable));
+  node.setAttribute('aria-describedby', 'health');
+  node.title = actionable
+    ? `${t('sidenav.statusOpenSources')}. ${railStatus.detail || ''}`.trim()
+    : (railStatus.detail || '');
+  if (dom.health) dom.health.dataset.summary = railStatus.detail || '';
 }
 
 /**
@@ -2270,6 +2283,8 @@ collection.onFinish(() => {
 
 async function refreshAfterCollection() {
   await showHealth();
+  // A source that failed during the run, or recovered, changes the status.
+  refreshRail();
   load(store.apiQueryString(), store.get(), { quiet: Boolean(lastResponse && lastResponse.items.length) });
 }
 
@@ -2340,6 +2355,7 @@ function buildLocaleControl(host) {
         click: () => {
           setLocale(locale, { persist: true });
           sync();
+          group.setAttribute('aria-label', t('locale.label'));
           // Repaint everything the catalogue reaches. `store.set({})` is a
           // no-op change that still runs the subscriber, which is exactly
           // what a language switch needs and what a reload would overdo.

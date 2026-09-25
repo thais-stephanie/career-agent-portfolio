@@ -173,8 +173,9 @@ export function createShell() {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (!nodes.body.classList.contains('sidenav-open')) return;
-    // The profile menu floats above the drawer: its Escape is its own.
-    if (event.target instanceof Element && event.target.closest('#lprof-menu')) return;
+    // The profile menu floats above the drawer: while it is open, Escape
+    // is its own (it closes the menu and gives focus back to its button).
+    if (document.getElementById('lprof-menu')) return;
     // The drawer is the innermost overlay when it is open, so it takes the
     // key and stops it reaching the job drawer behind it.
     event.stopPropagation();

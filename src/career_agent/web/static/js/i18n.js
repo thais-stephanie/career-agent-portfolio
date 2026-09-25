@@ -1556,7 +1556,7 @@ const EN = {
   'nav.tailor': 'Resume Tailor',
   'nav.beta': 'Beta',
   'locale.name.en': 'English',
-  'locale.name.pt-BR': 'Portuguese (Brazil)',
+  'locale.name.pt-BR': 'Português (Brasil)',
   'pagehead.eyebrow.home': 'Today',
   'pagehead.title.home': 'How is your search going?',
   'pagehead.eyebrow.jobs': 'Discover',
@@ -2382,7 +2382,8 @@ const EN = {
   'setup.work.note': 'Choose these on purpose. They describe what you want to find, are not copied from your CV '
     + 'and are not a claim about your experience.',
   'setup.roles.title': 'Any roles in mind?',
-  'setup.roles.why': 'Name up to 8 job titles. Career Agent searches for them, and for titles that mean the same work.',
+  'setup.roles.why':
+    'Name up to {n} job titles. Career Agent searches for them, and for titles that mean the same work.',
   'setup.review.roles': 'Roles in mind',
   'roles.count': '{n} / {max}',
   'roles.placeholderMore': 'Add another title',
@@ -4486,7 +4487,7 @@ const PT_BR = {
   'modeTag.UNKNOWN': 'Desconhecido',
   'nav.tailor': 'Resume Tailor',
   'nav.beta': 'Beta',
-  'locale.name.en': 'Inglês',
+  'locale.name.en': 'English',
   'locale.name.pt-BR': 'Português (Brasil)',
   'pagehead.eyebrow.home': 'Hoje',
   'pagehead.title.home': 'Como está sua busca?',
@@ -5286,7 +5287,7 @@ const PT_BR = {
     + 'seu currículo e não são uma afirmação sobre a sua experiência.',
   'setup.roles.title': 'Algum cargo em mente?',
   'setup.roles.why':
-    'Indique até 8 cargos. O Career Agent busca por eles e por cargos que significam o mesmo trabalho.',
+    'Indique até {n} cargos. O Career Agent busca por eles e por cargos que significam o mesmo trabalho.',
   'setup.review.roles': 'Cargos em mente',
   'roles.count': '{n} / {max}',
   'roles.placeholderMore': 'Adicionar outro cargo',

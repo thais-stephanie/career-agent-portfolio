@@ -72,6 +72,7 @@ export function createHome({
     },
     onGoTo: (page) => onGoTo && onGoTo(page),
     collection,
+    onStep: () => onSetupShown && onSetupShown(showingSetup),
   });
   //: The card to open at, when something asked for the setup explicitly.
   let setupAt = null;
@@ -434,5 +435,8 @@ export function createHome({
     setup.leave();
   }
 
-  return { root, load, relabel, openSetup, showsCollection, inSetup, leftForAnotherPage, leaveSetup };
+  return {
+    root, load, relabel, openSetup, showsCollection, inSetup, leftForAnotherPage, leaveSetup,
+    offersLater: () => setup.offersLater(),
+  };
 }

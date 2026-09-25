@@ -1104,3 +1104,22 @@ def test_the_roles_field_tokenises_caps_at_eight_and_keeps_cards_in_sync(
     assert page.evaluate("document.querySelectorAll('#setup-skip').length") == 1
     assert page.evaluate("document.querySelectorAll('#setup-later').length") == 1
     assert page.evaluate("document.querySelector('#setup-later').closest('.pagehead') !== null")
+
+
+def test_a_long_role_never_widens_the_card_on_a_phone(page: Chrome, install: Install) -> None:
+    begin(page, install, width=390, height=844, mobile=True)
+    next_card(page)
+    wait_card(page, "work")
+    skip(page)
+    wait_card(page, "roles")
+    put(page, "#setup-roles-anchors", "Senior " + "Very Long Role Title " * 3 + "Specialist")
+    page.evaluate(
+        "document.querySelector('#setup-roles-anchors').dispatchEvent("
+        "new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))"
+    )
+    page.wait_for("document.querySelectorAll('.roles__chip').length === 1")
+    assert no_overflow(page)
+    assert page.evaluate(
+        "(() => { const f = document.querySelector('.roles__field');"
+        " return f.scrollWidth <= f.clientWidth + 1; })()"
+    ), "the role chip overflows its field"

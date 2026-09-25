@@ -127,6 +127,21 @@ def test_the_profile_menu_floats_lists_every_profile_and_reveals_forms_on_demand
     page.wait_for("document.getElementById('lprof-menu') === null", message="Esc to close")
     assert page.evaluate("document.activeElement.id") == "lprof-trigger"
 
+    # Esc on the button closes it; Shift+Tab from its first item goes back.
+    page.evaluate("document.getElementById('lprof-trigger').click()")
+    page.wait_for("document.getElementById('lprof-menu')", message="the menu")
+    _key(page, "#lprof-trigger", "Escape")
+    page.wait_for("document.getElementById('lprof-menu') === null", message="Esc on the button")
+    page.evaluate("document.getElementById('lprof-trigger').click()")
+    page.wait_for("document.getElementById('lprof-menu')", message="the menu")
+    page.evaluate(
+        "(() => { const first = document.querySelector('#lprof-menu button'); first.focus();"
+        " first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true,"
+        " bubbles: true, cancelable: true })); return true; })()"
+    )
+    page.wait_for("document.getElementById('lprof-menu') === null", message="Shift+Tab out")
+    assert page.evaluate("document.activeElement.id") == "lprof-trigger"
+
     # An outside click closes it too.
     page.evaluate("document.getElementById('lprof-trigger').click()")
     page.wait_for("document.getElementById('lprof-menu')", message="the menu again")

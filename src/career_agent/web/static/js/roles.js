@@ -187,7 +187,7 @@ export function roleAnchorsEditor({
 
   function drawChips() {
     replace(chips, values.map((value) => el('span', { className: 'roles__chip' }, [
-      el('span', { className: 'roles__chiptext', text: value }),
+      el('span', { className: 'roles__chiptext', text: value, attrs: { title: value } }),
       el('button', {
         className: 'roles__chipx',
         attrs: { type: 'button', 'aria-label': t('roles.remove', { role: value }) },
@@ -236,7 +236,7 @@ export function roleAnchorsEditor({
             attrs: {
               type: 'button',
               'aria-pressed': String(added),
-              'aria-label': t('roles.add', { role: item.text }),
+              'aria-label': item.text,
               ...(item.context ? { 'aria-describedby': `${id}-suggest-${index}` } : {}),
             },
             on: {

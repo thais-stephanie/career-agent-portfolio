@@ -462,7 +462,7 @@ function cell(column, job, ctx, aside) {
 
     case 'link':
       return el('td', {}, [
-        extLink(job.url, `${t('action.apply')} ↗`, { className: 'btn btn--link' }),
+        extLink(job.url, `${t('action.apply')} ↗︎`, { className: 'btn btn--link' }),
       ]);
 
     default:

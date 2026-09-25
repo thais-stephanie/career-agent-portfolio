@@ -113,9 +113,6 @@ const STEPS = [
   { key: 'ready' },
 ];
 
-/** Not counted in "Question n of m": the two ends and the summary. */
-const NOT_QUESTIONS = new Set(['welcome', 'review', 'ready']);
-
 /** ISO 3166-1 alpha-2, named in the reader's language by `Intl.DisplayNames`. */
 const COUNTRY_CODES = (
   'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ '
@@ -196,7 +193,9 @@ function sameList(a, b) {
   return left.length === right.length && left.every((item) => right.includes(item));
 }
 
-export function createSetup({ onExit = null, onGoTo = null, collection = null } = {}) {
+export function createSetup({
+  onExit = null, onGoTo = null, collection = null, onStep = null,
+} = {}) {
   const root = el('section', {
     className: 'setup',
     attrs: { 'aria-labelledby': 'setup-title' },
@@ -339,6 +338,8 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     // The last card's subscription belongs to its nodes; drawing any card
     // replaces them, and the ready card subscribes again.
     stopPolling();
+    // The header's "Finish setup later" depends on which card is open.
+    if (onStep) queueMicrotask(onStep);
     const steps = visibleSteps();
     const step = steps[currentIndex()];
     at = step.key;
@@ -375,7 +376,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
         el('p', {
           className: 'setup__why',
           attrs: { id: 'setup-why' },
-          text: t(`setup.${step.key}.why`),
+          text: t(`setup.${step.key}.why`, body.whyParams || null),
         }),
         ...body.nodes,
         error,
@@ -716,6 +717,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
       });
       queueMicrotask(label);
       return {
+        whyParams: { n: (roleAnchors && roleAnchors.limits && roleAnchors.limits.anchors) || 8 },
         nodes: [editor.root],
         submit: async (error) => {
           if (!editor.dirty) {
@@ -1347,5 +1349,13 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     rememberPosition(null);
   }
 
-  return { root, open, relabel, stop: stopPolling, finished, atReady, forgetPosition, leave };
+  /** Whether the header may offer to finish later: not on the last card,
+   *  and not while a card was opened from the review with "Change". */
+  function offersLater() {
+    return at !== 'ready' && !returnTo;
+  }
+
+  return {
+    root, open, relabel, stop: stopPolling, finished, atReady, forgetPosition, leave, offersLater,
+  };
 }

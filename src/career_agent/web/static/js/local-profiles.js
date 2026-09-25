@@ -135,7 +135,6 @@ export function createLocalProfiles(host) {
         'aria-modal': 'false',
         'aria-label': t('profiles.menuLabel'),
       },
-      on: { keydown: onMenuKey },
     });
     document.body.appendChild(menu);
     renderMenu();
@@ -145,6 +144,7 @@ export function createLocalProfiles(host) {
     window.addEventListener('scroll', place, true);
     document.addEventListener('pointerdown', onOutside, true);
     document.addEventListener('focusin', onFocusMove, true);
+    document.addEventListener('keydown', onKey, true);
     const first = menu.querySelector('.lprof__edit, .lprof__switch, button');
     if (first) first.focus();
   }
@@ -155,6 +155,7 @@ export function createLocalProfiles(host) {
     window.removeEventListener('scroll', place, true);
     document.removeEventListener('pointerdown', onOutside, true);
     document.removeEventListener('focusin', onFocusMove, true);
+    document.removeEventListener('keydown', onKey, true);
     menu.remove();
     menu = null;
     panel = null;
@@ -178,13 +179,41 @@ export function createLocalProfiles(host) {
     if (menu && !inside(event.target)) closeMenu({ restore: false });
   }
 
-  function onMenuKey(event) {
-    if (event.key !== 'Escape') return;
-    event.preventDefault();
-    event.stopPropagation();
-    // Esc inside a panel cancels the panel; Esc anywhere else closes the menu.
-    if (panel) togglePanel(null);
-    else closeMenu();
+  function focusable() {
+    return [...menu.querySelectorAll('button, input, select, a[href]')].filter((node) => !node.disabled);
+  }
+
+  /**
+   * The keyboard, while the menu is open, wherever focus is. Esc inside a
+   * panel cancels the panel; Esc anywhere else (the menu or its button)
+   * closes the menu and gives focus back to the button. Tab moves from the
+   * button into the menu and cycles inside it; Shift+Tab from its first item
+   * goes back to the button. The menu is attached to the page rather than to
+   * the rail, so without this Tab would wander into whatever follows it.
+   */
+  function onKey(event) {
+    if (!menu) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (panel && menu.contains(document.activeElement)) togglePanel(null);
+      else closeMenu();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const items = focusable();
+    if (!items.length) return;
+    const active = document.activeElement;
+    if (active === trigger() && !event.shiftKey) {
+      event.preventDefault();
+      items[0].focus();
+    } else if (active === items[0] && event.shiftKey) {
+      event.preventDefault();
+      closeMenu();
+    } else if (active === items[items.length - 1] && !event.shiftKey) {
+      event.preventDefault();
+      items[0].focus();
+    }
   }
 
   function status() {
@@ -473,7 +502,19 @@ export function createLocalProfiles(host) {
 
   function retranslate() {
     draw();
-    if (menu) renderMenu();
+    if (menu) {
+      // Whatever was typed in a panel survives the language changing.
+      const typed = menu.querySelector('#lprof-rename, #lprof-new');
+      const kept = typed ? { id: typed.id, value: typed.value } : null;
+      renderMenu();
+      if (kept) {
+        const box = menu.querySelector(`#${kept.id}`);
+        if (box) {
+          box.value = kept.value;
+          box.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+    }
     drawSettings();
   }
 
