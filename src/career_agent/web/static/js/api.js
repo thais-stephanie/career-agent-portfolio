@@ -1123,6 +1123,13 @@ export async function getSourceMaintenance() { return request('/source-maintenan
 
 export async function createFirstSearch(body) { return request('/first-search', { method: 'POST', body }); }
 
+/** Roles in mind: optional search anchors. Never scores or hides a posting. */
+export async function getRoleAnchors() {
+  if (MOCK) return { anchors: [], aliases: [], suggestions: [], limits: { anchors: 8, text: 80 } };
+  return request('/role-anchors');
+}
+export async function saveRoleAnchors(body) { return request('/role-anchors', { method: 'PATCH', body }); }
+
 /**
  * One organising change, previewed and applied. Returns `{ event_id, ... }`;
  * the event id is what Undo sends back. Confirming is never done here.
