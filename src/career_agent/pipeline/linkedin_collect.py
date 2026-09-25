@@ -398,17 +398,25 @@ class LinkedInCollector:
             return
         text_hash = self.raw.put(text, posting.description_html)
         with transaction(self.conn):
-            self.conn.execute(
-                "UPDATE job SET content_hash = ?, collection_status = ? WHERE id = ?"
-                " AND content_hash IS NULL",
-                (text_hash, CollectionStatus.NORMALISED.value, item.held_id),
-            )
-            self.payloads.put(
-                ProviderPayloadRecord(
-                    job_id=item.held_id, provider=PROVIDER, payload=dict(stub.payload)
+            done = self.conn.execute(
+                "UPDATE job SET content_hash = ?, collection_status = ?, updated_at = ?"
+                " WHERE id = ? AND content_hash IS NULL AND collection_status = ?",
+                (
+                    text_hash,
+                    CollectionStatus.NORMALISED.value,
+                    now_utc(),
+                    item.held_id,
+                    CollectionStatus.FETCHED.value,
+                ),
+            ).rowcount
+            if done:
+                self.payloads.put(
+                    ProviderPayloadRecord(
+                        job_id=item.held_id, provider=PROVIDER, payload=dict(stub.payload)
+                    )
                 )
-            )
-        stats.jobs_described_later += 1
+        if done:
+            stats.jobs_described_later += 1
 
     def _persist(self, record: dict[str, Any], item: _Found, stats: LinkedInStats) -> None:
         if item.held_id is not None and not item.queries:

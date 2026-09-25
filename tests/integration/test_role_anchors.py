@@ -287,6 +287,8 @@ def test_short_forms_match_only_as_written_and_both_spellings_contract() -> None
     assert [a.text for a in aliases_for(Anchor(text="Bi Lingual Teacher"))] == []
     assert "HR Manager" in {a.text for a in aliases_for(Anchor(text="Human Resources Manager"))}
     assert "GTM Analyst" in {a.text for a in aliases_for(Anchor(text="Go to Market Analyst"))}
+    # The phrase alone is not a role, so it is never contracted to a bare "GTM".
+    assert "GTM" not in {a.text for a in aliases_for(Anchor(text="Go to Market"))}
 
 
 def test_the_effective_aliases_keep_the_cap_and_drop_removed_anchors() -> None:

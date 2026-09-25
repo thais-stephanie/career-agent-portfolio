@@ -87,7 +87,12 @@ export function createLocalProfiles(host) {
       eyebrow: t('profiles.kicker'),
       title: t('profiles.drawerTitle'),
       lede: t('profiles.explain'),
-      onClose: () => draw(),
+      onClose: () => {
+        // The rail is redrawn, so focus returns to the new trigger.
+        draw();
+        const trigger = document.getElementById('lprof-trigger');
+        if (trigger) trigger.focus();
+      },
     });
     const status = el('p', {
       className: 'lprof__status',
@@ -134,13 +139,6 @@ export function createLocalProfiles(host) {
               el('span', { className: 'lprof__go', attrs: { 'aria-hidden': 'true' }, text: '\u2192' }),
             ]),
         ])));
-    }
-
-    function fillRow(node, profile) {
-      // `button` takes text; a row needs a dot and a name, so they are added.
-      node.textContent = '';
-      node.append(dot(profile.color), el('span', { className: 'lprof__rowname', text: profile.label }),
-        el('span', { className: 'lprof__go', attrs: { 'aria-hidden': 'true' }, text: '→' }));
     }
 
     function form(key, fields, submitLabel, onSubmit, { danger = false } = {}) {

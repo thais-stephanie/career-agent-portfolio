@@ -129,7 +129,9 @@ def _in_title(title: str) -> Iterable[str]:
         # "Go-to-Market" is also written "Go to Market".
         spelled = re.escape(long).replace("\\-", "[- ]")
         pattern = re.compile(r"\b" + spelled + r"\b", re.IGNORECASE)
-        if pattern.search(title) and len(long.split()) < len(words):
+        # Only inside a longer title: "Go to Market" alone is not a role.
+        match = pattern.search(title)
+        if match and len(match.group(0).split()) < len(words):
             yield clean(pattern.sub(short, title, count=1))
 
 
