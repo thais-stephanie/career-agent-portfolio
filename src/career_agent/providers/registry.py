@@ -78,6 +78,7 @@ from career_agent.providers.jobgether import JobgetherProvider
 from career_agent.providers.jobicy import JobicyProvider
 from career_agent.providers.jooble import JoobleProvider
 from career_agent.providers.lever import LeverProvider
+from career_agent.providers.linkedin_jobspy import LinkedInJobSpyProvider
 from career_agent.providers.programathor import ProgramathorProvider
 from career_agent.providers.recruitee import RecruiteeProvider
 from career_agent.providers.recruiterflow import RecruiterflowProvider
@@ -144,6 +145,7 @@ _FACTORIES: dict[str, Callable[[HttpFetcher], JobProvider]] = {
     "jobicy": JobicyProvider,
     "jooble": _jooble,
     "lever": LeverProvider,
+    "linkedin": LinkedInJobSpyProvider,
     "programathor": ProgramathorProvider,
     "remoteok": RemoteOkProvider,
     "remotive": RemotiveProvider,
@@ -184,6 +186,7 @@ _FIELD_MAPS: dict[str, ProviderFieldMap] = {
     "jobicy": JobicyProvider.field_map,
     "jooble": JoobleProvider.field_map,
     "lever": LeverProvider.field_map,
+    "linkedin": LinkedInJobSpyProvider.field_map,
     "programathor": ProgramathorProvider.field_map,
     "remoteok": RemoteOkProvider.field_map,
     "remotive": RemotiveProvider.field_map,
@@ -226,6 +229,7 @@ _CAPABILITIES: dict[str, ProviderCapabilities] = {
     "jobicy": JobicyProvider.capabilities,
     "jooble": JoobleProvider.capabilities,
     "lever": LeverProvider.capabilities,
+    "linkedin": LinkedInJobSpyProvider.capabilities,
     "programathor": ProgramathorProvider.capabilities,
     "remoteok": RemoteOkProvider.capabilities,
     "remotive": RemotiveProvider.capabilities,
@@ -257,6 +261,7 @@ _KINDS: dict[str, ProviderKind] = {
     "jobicy": JobicyProvider.kind,
     "jooble": JoobleProvider.kind,
     "lever": LeverProvider.kind,
+    "linkedin": LinkedInJobSpyProvider.kind,
     "programathor": ProgramathorProvider.kind,
     "remoteok": RemoteOkProvider.kind,
     "remotive": RemotiveProvider.kind,
@@ -293,6 +298,7 @@ _RETRIEVAL_MODES: dict[str, RetrievalMode] = {
     "jobicy": JobicyProvider.retrieval_mode,
     "jooble": JoobleProvider.retrieval_mode,
     "lever": LeverProvider.retrieval_mode,
+    "linkedin": LinkedInJobSpyProvider.retrieval_mode,
     "programathor": ProgramathorProvider.retrieval_mode,
     "remoteok": RemoteOkProvider.retrieval_mode,
     "remotive": RemotiveProvider.retrieval_mode,

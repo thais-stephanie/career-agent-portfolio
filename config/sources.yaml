@@ -393,6 +393,19 @@ providers:
     # are archived and never read.
     field_map: {}
 
+  linkedin:
+    # EXPERIMENTAL, OFF BY DEFAULT, through python-jobspy. LinkedIn forbids
+    # automated access without express permission (robots.txt); the catalogue
+    # row `linkedin_br` keeps saying so. This adapter runs only for a local
+    # profile whose owner explicitly opted in, never by default.
+    enabled: false
+    strategy: query_driven_guest_search
+    retrieval: query_driven
+    # Mirror of LINKEDIN_FIELD_MAP in providers/linkedin_jobspy.py: EMPTY.
+    # A card's place is where it is listed, not who may apply; JobSpy's salary
+    # line carries a guessed currency. Both are archived and never read.
+    field_map: {}
+
   programathor:
     # BRAZIL, developers. Added 2026-09-09. It publishes schema.org
     # `JobPosting` on every posting page, which is a contract a site fills in

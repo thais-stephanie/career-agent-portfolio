@@ -47,8 +47,42 @@ def commands() -> frozenset[str]:
     )
 
 
-def can_refresh(entry) -> bool:
+def experimental_available(provider: str) -> bool:
+    """Whether an experimental adapter's library is installed here."""
+    from career_agent.providers import linkedin_jobspy
+
+    return provider != linkedin_jobspy.PROVIDER or linkedin_jobspy.available()
+
+
+def opted_in(conn, entries) -> frozenset[str]:
+    """Rows whose experimental override this profile explicitly switched on."""
+    from career_agent.sources.experimental import opted_in_sources
+
+    ids = [e.source.id for e in entries if e.source.experimental_provider]
+    return frozenset(opted_in_sources(conn, ids)) if ids else frozenset()
+
+
+def effective_provider(entry, opted: frozenset[str] = frozenset()) -> str | None:
+    """The adapter a row runs: its own, or its experimental override when this
+    profile opted in. A row's declared permission is never consulted here for
+    the override: it stays FORBIDDEN, and the opt-in is the exception."""
     source = entry.source
+    if source.provider:
+        return source.provider
+    if source.experimental_provider and source.id in opted:
+        return source.experimental_provider
+    return None
+
+
+def can_refresh(entry, opted: frozenset[str] = frozenset()) -> bool:
+    source = entry.source
+    if not source.provider and source.experimental_provider:
+        return bool(
+            source.id in opted
+            and not source.collection_blocker
+            and experimental_available(source.experimental_provider)
+            and _stage_for(source.experimental_provider) in commands()
+        )
     return bool(
         source.provider
         and not source.collection_blocker
@@ -106,7 +140,9 @@ def register_source_refresh(app: JobsApi) -> None:
         ):
             raise ApiError(400, "Choose automatic, enabled or paused refresh.")
         entry = source(body)
-        if not can_refresh(entry):
+        with closing(app.connect()) as conn:
+            opted = opted_in(conn, [entry])
+        if not can_refresh(entry, opted):
             raise ApiError(
                 409, "This source is currently unavailable for refresh.", for_reader=True
             )
@@ -120,22 +156,23 @@ def register_source_refresh(app: JobsApi) -> None:
         if query or set(body) != {"source_id"}:
             raise ApiError(400, "Choose one source to refresh.")
         entry = source(body)
-        if not can_refresh(entry):
+        with closing(app.connect()) as conn:
+            opted = opted_in(conn, [entry])
+            identity = read_identity(conn)
+        if not can_refresh(entry, opted):
             raise ApiError(
                 409, "This source is currently unavailable for refresh.", for_reader=True
             )
-        with closing(app.connect()) as conn:
-            identity = read_identity(conn)
         if not identity or identity.kind is not RuntimeMode.PERSONAL:
             raise ApiError(409, "Demo databases do not collect live jobs.", for_reader=True)
         if app.retrieval.running:
             raise ApiError(409, "A refresh is already running.", for_reader=True)
-        provider = entry.source.provider
-        stage = _stage_for(provider)
+        provider = effective_provider(entry, opted)
+        stage = _stage_for(provider or "")
         if stage == "collect":
             work = app._collect_work(None, provider=provider)
         else:
-            work = feed_work(app.config.db_path, stage)
+            work = feed_work(app.config.db_path, stage, config_dir=app.config.config_dir)
 
         # The runner is shared with the existing refresh action, so a second
         # click cannot start competing collectors in this server.
@@ -169,6 +206,7 @@ def register_source_refresh(app: JobsApi) -> None:
         with closing(app.connect()) as conn:
             identity = read_identity(conn)
             entries = health(conn, catalogue_path=app.config.config_dir / "source_catalogue.yaml")
+            opted = opted_in(conn, entries)
         if not identity or identity.kind is not RuntimeMode.PERSONAL:
             raise ApiError(
                 409,
@@ -200,8 +238,8 @@ def register_source_refresh(app: JobsApi) -> None:
         #: unit as "N of M" (one per collector) and said, not silently missing.
         deferred: set[str] = set()
         for entry in entries:
-            provider = entry.source.provider
-            if not provider or not can_refresh(entry):
+            provider = effective_provider(entry, opted)
+            if not provider or not can_refresh(entry, opted):
                 continue
             stage = _stage_for(provider)
             # Board families share one collector per provider; every other
@@ -300,6 +338,43 @@ def register_source_refresh(app: JobsApi) -> None:
                 for_reader=True,
             ) from exc
 
+    def experimental(*, query: dict, body: dict) -> dict:
+        """Switch a row's local experimental override on or off, for this profile.
+
+        ON requires `acknowledged: true`: the screen shows what the source
+        says about automated access first, and the person confirms they read
+        it. The row's own permission is not touched. OFF is always allowed.
+        """
+        if (
+            query
+            or set(body) - {"source_id", "opted_in", "acknowledged"}
+            or not isinstance(body.get("opted_in"), bool)
+        ):
+            raise ApiError(400, "Say whether to switch the experimental source on or off.")
+        entry = source(body)
+        if not entry.source.experimental_provider:
+            raise ApiError(400, "This source has no experimental option.", for_reader=True)
+        with closing(app.connect()) as conn:
+            identity = read_identity(conn)
+        if not identity or identity.kind is not RuntimeMode.PERSONAL:
+            raise ApiError(
+                409,
+                "The demo never collects live jobs, so it has nothing to switch on.",
+                for_reader=True,
+            )
+        if body["opted_in"] and body.get("acknowledged") is not True:
+            raise ApiError(
+                400,
+                "Read the warning and confirm you understand it before switching this on.",
+                for_reader=True,
+            )
+        from career_agent.sources.experimental import set_opt_in
+
+        with closing(app.connect()) as conn, transaction(conn):
+            value = set_opt_in(conn, entry.source.id, body["opted_in"])
+        return {"source_id": entry.source.id, **value}
+
+    app.register("PATCH", r"/api/sources/experimental", experimental)
     app.register("PATCH", r"/api/sources/schedule", schedule)
     app.register("POST", r"/api/sources/refresh", refresh)
     app.register("POST", r"/api/sources/refresh-all", refresh_all)
@@ -338,7 +413,7 @@ def employer_board_work(app, families):
 
 
 #: Collectors that read the person's settings, and so are told where they are.
-READS_CONFIG = frozenset({"collect-himalayas"})
+READS_CONFIG = frozenset({"collect-himalayas", "collect-linkedin"})
 
 
 def feed_work(db_path, stage, *, config_dir=None):

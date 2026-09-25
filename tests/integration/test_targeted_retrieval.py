@@ -70,18 +70,18 @@ def test_a_brazil_search_open_to_the_region_and_the_world_asks_every_related_sco
         "region:LATAM",
         "region:SOUTH_AMERICA",
         "region:AMERICAS",
-        "worldwide",
         "remote",
+        "remote_worldwide",
     ]
 
 
 def test_a_country_only_search_asks_only_that_country() -> None:
-    assert [s.key for s in market_scopes(config("US", []))] == ["country:US"]
+    assert [s.key for s in market_scopes(config("US", []))] == ["country:US", "remote"]
 
 
 def test_scopes_are_derived_for_any_market() -> None:
     keys = [s.key for s in market_scopes(config("DE", ["EMEA"], ["AT"]))]
-    assert keys == ["country:DE", "country:AT", "region:EMEA"]
+    assert keys == ["country:DE", "country:AT", "region:EMEA", "remote"]
     assert "region:SOUTH_AMERICA" not in keys
 
 

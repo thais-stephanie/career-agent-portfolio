@@ -387,6 +387,12 @@ def _stage_for_source(source) -> str:
     return _stage_for(source.provider or "")
 
 
+def _stage_for_source_provider(provider: str) -> str:
+    from career_agent.sources.matrix import _stage_for
+
+    return _stage_for(provider)
+
+
 def _progress_dict(p, name: str = "") -> dict:
     """One source's refresh, as JSON a screen can draw without arithmetic.
 
@@ -714,8 +720,14 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         said so.
         """
         _reject_unknown(query, frozenset(), "sources")
+        from career_agent.sources.experimental import state as experimental_state
         from career_agent.sources.health import health
-        from career_agent.web.source_refresh import can_refresh, modes
+        from career_agent.web.source_refresh import (
+            can_refresh,
+            experimental_available,
+            modes,
+            opted_in,
+        )
 
         with _closing(self.connect()) as conn:
             # The server's OWN config directory, not whatever folder the
@@ -729,6 +741,12 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # returning anything looked exactly like one that was working.
             observed = health(conn, catalogue_path=self.config.config_dir / "source_catalogue.yaml")
             refresh_modes = modes(conn)
+            opted = opted_in(conn, observed)
+            experimental = {
+                entry.source.id: experimental_state(conn, entry.source.id)
+                for entry in observed
+                if entry.source.experimental_provider
+            }
 
         names = {entry.source.id: entry.source.name for entry in observed}
         counts: dict[str, int] = {}
@@ -741,7 +759,23 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 {
                     **entry.as_dict(),
                     "refresh_mode": refresh_modes.get(entry.source.id, "AUTO"),
-                    "can_refresh": can_refresh(entry),
+                    "can_refresh": can_refresh(entry, opted),
+                    # Only on a row that declares a local experimental
+                    # override: whether THIS profile opted in, and when.
+                    **(
+                        {
+                            "experimental": {
+                                "provider": entry.source.experimental_provider,
+                                "opted_in": entry.source.id in opted,
+                                "available": experimental_available(
+                                    entry.source.experimental_provider or ""
+                                ),
+                                "changed_at": experimental[entry.source.id].get("changed_at"),
+                            }
+                        }
+                        if entry.source.id in experimental
+                        else {}
+                    ),
                 }
                 for entry in observed
             ],
@@ -786,23 +820,30 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         """
         from career_agent.sources.progress import RefreshState, read_progress
         from career_agent.sources.scheduling import plan_refresh
-        from career_agent.web.source_refresh import modes
+        from career_agent.web.source_refresh import (
+            effective_provider,
+            experimental_available,
+            modes,
+            opted_in,
+        )
 
+        with _closing(self.connect()) as conn:
+            opted = opted_in(conn, observed)
+        running = {
+            entry.source.id: provider
+            for entry in observed
+            if (provider := effective_provider(entry, opted)) and experimental_available(provider)
+        }
         stage_for = {
-            entry.source.id: _stage_for_source(entry.source)
-            for entry in observed
-            if entry.source.provider
+            source_id: _stage_for_source_provider(provider)
+            for source_id, provider in running.items()
         }
-        providers = {
-            entry.source.id: (entry.source.provider or "")
-            for entry in observed
-            if entry.source.provider
-        }
+        providers = dict(running)
         if not stage_for:
             return []
 
         regions = {
-            entry.source.id: entry.source.region for entry in observed if entry.source.provider
+            entry.source.id: entry.source.region for entry in observed if entry.source.id in running
         }
         # WHERE THE CANDIDATE MAY WORK, and it lives under `eligibility` rather
         # than `preferences`. The first version read `preferences.
@@ -844,7 +885,11 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 or "Source currently unavailable."
             )
             for entry in observed
-            if entry.source.permission.value == "FORBIDDEN" or entry.source.collection_blocker
+            if entry.source.collection_blocker
+            # An opted-in experimental override runs, so it is judged by its
+            # runs (and can be paused) like any other source. Its permission
+            # still reads FORBIDDEN on the row itself.
+            or (entry.source.permission.value == "FORBIDDEN" and entry.source.id not in opted)
         }
         with _closing(self.connect()) as conn:
             progress = read_progress(

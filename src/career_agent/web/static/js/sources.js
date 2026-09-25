@@ -154,6 +154,13 @@ export function createSourcesPanel(host) {
     ]);
     host.appendChild(maintenanceSummary(payload.maintenance));
     host.appendChild(el('p', { text: t('settings.sourceHelp') }));
+    // EXPERIMENTAL SOURCES, IN THE OPEN. A source the site itself restricts
+    // is never switched on quietly: the warning is on the card, in plain
+    // words, above the switch, and nothing runs until the person ticks that
+    // they read it.
+    for (const source of sources.filter((entry) => entry.experimental)) {
+      host.appendChild(experimentalCard(source));
+    }
     // EACH SOURCE, ONE CLICK AWAY. Twenty-odd cards, each with a status, a
     // timing menu and a button, made Settings about ten thousand pixels tall
     // before a single preference; most people never change one of them, and
@@ -259,6 +266,57 @@ export function createSourcesPanel(host) {
 
     body.appendChild(refreshSection(payload.refresh || []));
     body.appendChild(el('p', { className: 'src__note', text: payload.note || '' }));
+  }
+
+  function experimentalCard(source) {
+    const on = Boolean(source.experimental.opted_in);
+    const usable = source.experimental.available !== false;
+    const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite' } });
+    const ackId = `experimental-ack-${source.id}`;
+    const ack = el('input', { attrs: { type: 'checkbox', id: ackId } });
+    const toggle = button(t(on ? 'experimental.disable' : 'experimental.enable'), async () => {
+      if (!on && !ack.checked) {
+        status.textContent = t('experimental.ackFirst');
+        ack.focus();
+        return;
+      }
+      toggle.disabled = true;
+      try {
+        await api.setExperimentalSource(source.id, !on, !on && ack.checked);
+        await load(true);
+      } catch (error) {
+        status.textContent = error.userMessage || error.message;
+        toggle.disabled = false;
+      }
+    }, { className: on ? 'btn' : 'btn btn--primary', attrs: { id: `experimental-toggle-${source.id}` } });
+    return el('section', {
+      className: 'career__card src__experimental',
+      dataset: { experimental: source.id },
+      attrs: { 'aria-labelledby': `experimental-title-${source.id}` },
+    }, [
+      el('h3', {
+        attrs: { id: `experimental-title-${source.id}` },
+        text: t('experimental.title', { name: source.name }),
+      }),
+      el('span', { className: 'tag tag--warn', text: t('experimental.badge') }),
+      el('p', {
+        className: 'src__experimentalstate',
+        text: on
+          ? t('experimental.on', { date: source.experimental.changed_at
+            ? shortDate(source.experimental.changed_at) : '' })
+          : t('experimental.off'),
+      }),
+      el('ul', { className: 'src__experimentalpoints' }, [
+        'experimental.pointRules', 'experimental.pointDefault', 'experimental.pointBlocks',
+        'experimental.pointPartial', 'experimental.pointAccount',
+      ].map((key) => el('li', { text: t(key) }))),
+      usable ? null : el('p', { className: 'src__reason', text: t('experimental.unavailable') }),
+      on || !usable ? null : el('label', { className: 'src__experimentalack', attrs: { for: ackId } }, [
+        ack, el('span', { text: ' ' + t('experimental.ack') }),
+      ]),
+      usable || on ? toggle : null,
+      status,
+    ].filter(Boolean));
   }
 
   function sourceControls(source, progress) {

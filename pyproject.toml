@@ -32,6 +32,10 @@ dependencies = [
     # import them.
     "pypdf>=5.0",
     "python-docx>=1.1",
+    # Experimental LinkedIn source only (off by default). python-jobspy pins
+    # numpy 1.26.3, which has wheels only up to Python 3.12; on a newer
+    # Python the source reports itself unavailable instead of breaking install.
+    "python-jobspy>=1.1.82; python_version < '3.13'",
 ]
 
 [project.scripts]

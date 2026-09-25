@@ -120,6 +120,27 @@ const EN = {
   'settings.advancedRefresh': 'Advanced refresh diagnostics',
   'settings.sourceHelp': 'Refresh timing follows your target markets. It never filters what a source collects. '
     + 'Jobs already collected remain available in Discover.',
+  'experimental.title': '{name} via JobSpy',
+  'experimental.badge': 'Experimental, optional',
+  'experimental.off': 'Off for this profile. It never runs unless you turn it on here.',
+  'experimental.on': 'On for this profile (since {date}). Find jobs now includes it.',
+  'experimental.pointRules':
+    'LinkedIn restricts automated collection from its site. Turning this on does not change LinkedIn\'s '
+    + 'rules: it is your own choice to run it on your computer.',
+  'experimental.pointDefault': 'It is off by default and only affects this profile.',
+  'experimental.pointBlocks':
+    'LinkedIn may slow down or block these requests at any time, and this can stop working without '
+    + 'notice.',
+  'experimental.pointPartial': 'Results can be partial. Career Agent cannot promise complete LinkedIn coverage.',
+  'experimental.pointAccount':
+    'Career Agent never signs in to LinkedIn and never asks for or stores your LinkedIn password, cookies '
+    + 'or session.',
+  'experimental.ack': 'I have read this and I choose to turn it on for this profile.',
+  'experimental.ackFirst': 'Tick the box to confirm you have read the warning first.',
+  'experimental.enable': 'Turn on for this profile',
+  'experimental.disable': 'Turn off',
+  'experimental.unavailable':
+    'Not available on this installation: the library it needs is missing for this version of Python.',
   'settings.sourceDetails': 'Technical source details',
   'settings.sourceMarket': 'Market: {market}',
   'settings.sourcePaused': 'Paused because this market is outside your current target markets.',
@@ -3093,6 +3114,28 @@ const PT_BR = {
   'settings.advancedRefresh': 'Diagnóstico avançado de atualização',
   'settings.sourceHelp': 'O momento da atualização segue seus mercados desejados. '
     + 'Isso nunca filtra o que uma fonte coleta. Vagas já coletadas continuam disponíveis no Descobrir.',
+  'experimental.title': '{name} via JobSpy',
+  'experimental.badge': 'Experimental, opcional',
+  'experimental.off': 'Desligado neste perfil. Só roda se você ligar aqui.',
+  'experimental.on': 'Ligado neste perfil (desde {date}). Buscar vagas agora inclui esta fonte.',
+  'experimental.pointRules':
+    'O LinkedIn restringe a coleta automatizada do site. Ligar isto não muda as regras do LinkedIn: é uma '
+    + 'escolha sua rodar isto no seu computador.',
+  'experimental.pointDefault': 'Vem desligado e afeta só este perfil.',
+  'experimental.pointBlocks':
+    'O LinkedIn pode desacelerar ou bloquear estas requisições a qualquer momento, e isto pode parar de '
+    + 'funcionar sem aviso.',
+  'experimental.pointPartial':
+    'Os resultados podem ser parciais. O Career Agent não pode prometer cobertura completa do LinkedIn.',
+  'experimental.pointAccount':
+    'O Career Agent nunca entra na sua conta do LinkedIn e nunca pede nem guarda sua senha, cookies ou '
+    + 'sessão do LinkedIn.',
+  'experimental.ack': 'Li isto e escolho ligar esta fonte neste perfil.',
+  'experimental.ackFirst': 'Marque a caixa para confirmar que leu o aviso primeiro.',
+  'experimental.enable': 'Ligar neste perfil',
+  'experimental.disable': 'Desligar',
+  'experimental.unavailable':
+    'Indisponível nesta instalação: a biblioteca necessária não existe para esta versão do Python.',
   'settings.sourceDetails': 'Detalhes técnicos das fontes',
   'settings.sourceMarket': 'Mercado: {market}',
   'settings.sourcePaused': 'Pausada porque este mercado está fora dos seus mercados desejados atuais.',

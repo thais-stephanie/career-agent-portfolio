@@ -349,6 +349,10 @@ RECORDED = {
     # DECLARED path resolves, and declaring none is a claim about the vendor
     # rather than an omission.
     "remoteok": [("feed", lambda d: [r for r in d if "legal" not in r])],
+    # SYNTHETIC, in the shape python-jobspy returns. LinkedIn forbids
+    # automated reading (see the catalogue), so no real response is recorded
+    # in this repository; the adapter is experimental and off by default.
+    "linkedin": [("search", lambda d: d)],
     # RECORDED live 2026-09-09. Nothing in this vendor's robots file restricts
     # this reader and no AI crawler is named, so the response could be captured
     # without doing anything the adapter exists to decline.

@@ -77,12 +77,29 @@ COUNTRY_NAMES: dict[str, str] = {
 @dataclass(frozen=True)
 class MarketScope:
     #: `country:BR`, `region:LATAM`, `region:SOUTH_AMERICA`, `region:AMERICAS`,
-    #: `remote`, `worldwide`.
+    #: `remote`, `remote_worldwide` (or `worldwide` for somebody not remote).
     key: str
     #: The words a search box is given for this scope.
     label: str
     #: The ISO code when the scope is one country.
     country: str | None = None
+    #: Remote roles only. "Remote" (remote roles in the home market) and
+    #: "Remote Worldwide" are different questions from "Brazil" and from each
+    #: other, whatever a board files under them.
+    remote: bool = False
+    #: Where a remote search is anchored, for sources that need a place.
+    home: str | None = None
+
+    @property
+    def location_text(self) -> str:
+        """The place a text-location source (LinkedIn, Indeed...) is asked."""
+        if self.country:
+            return COUNTRY_NAMES.get(self.country, self.country)
+        if self.key == "remote" and self.home:
+            return COUNTRY_NAMES.get(self.home, self.home)
+        if self.key in {"remote_worldwide", "worldwide", "remote"}:
+            return "Worldwide"
+        return self.label
 
 
 def market_scopes(config: SearchConfig) -> tuple[MarketScope, ...]:
@@ -112,8 +129,14 @@ def market_scopes(config: SearchConfig) -> tuple[MarketScope, ...]:
     if "APAC" in regions:
         scopes.append(MarketScope("region:APAC", "Asia Pacific"))
     remote_ok = "REMOTE" in {m.upper() for m in config.preferences.remote.accepted_work_models}
+    if remote_ok and (home or countries):
+        # Remote roles in the home market: a narrower question than the
+        # country itself, and one many boards answer with a different list.
+        scopes.append(MarketScope("remote", "Remote", remote=True, home=home or countries[0]))
     if "WORLDWIDE" in regions:
-        scopes.append(MarketScope("worldwide", "Worldwide"))
-        if remote_ok:
-            scopes.append(MarketScope("remote", "Remote"))
+        scopes.append(
+            MarketScope("remote_worldwide", "Remote Worldwide", remote=True)
+            if remote_ok
+            else MarketScope("worldwide", "Worldwide")
+        )
     return tuple(dict.fromkeys(scopes))
