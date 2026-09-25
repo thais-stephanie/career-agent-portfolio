@@ -6,7 +6,7 @@ its own `generator` name, and these remain the fallback.
 
 Rules, in order, each producing at most a few candidates:
 
-1. **Alternatives in the title.** "GTM Engineer / AI Engineer" is two titles,
+1. **Alternatives in the title.** "GTM Coordinator / AI Engineer" is two titles,
    and so is "Hairdresser or Stylist".
 2. **Qualifiers removed.** "(Remote)", "- LATAM", seniority and grade words
    ("Senior", "Sr.", "Lead", "II", "Pleno"): a search for the base title finds
@@ -33,6 +33,7 @@ from career_agent.discovery.anchors import (
     MAX_TEXT,
     Alias,
     Anchor,
+    RoleAnchors,
     clean,
     folded,
 )
@@ -92,6 +93,47 @@ ABBREVIATIONS: dict[str, str] = {
     "esl teacher": "English as a Second Language Teacher",
 }
 _EXPANSIONS = {folded(v): k for k, v in ABBREVIATIONS.items()}
+
+#: Abbreviations that QUALIFY a role inside a longer title, with the casing
+#: the market writes them in. Expanded and contracted in place, both ways:
+#: "GTM Coordinator" and "Go-to-Market Coordinator", "Revenue Operations Analyst"
+#: and "RevOps Analyst". Only abbreviations with one meaning in a job title.
+IN_TITLE: dict[str, str] = {
+    "HR": "Human Resources",
+    "UX": "User Experience",
+    "ML": "Machine Learning",
+    "BI": "Business Intelligence",
+    "GTM": "Go-to-Market",
+    "RevOps": "Revenue Operations",
+    "SalesOps": "Sales Operations",
+    "MarTech": "Marketing Technology",
+}
+#: Matched as the market writes it, or in capitals: "bi" in "Bi Lingual" or
+#: "ml" in a sentence is not an abbreviation.
+_IN_TITLE_SHORT = {
+    **{k: (k, v) for k, v in IN_TITLE.items()},
+    **{k.upper(): (k, v) for k, v in IN_TITLE.items()},
+}
+
+
+def _in_title(title: str) -> Iterable[str]:
+    """Expand a qualifying abbreviation in place, or contract its phrase."""
+    words = title.split()
+    if len(words) < 2:
+        return
+    for i, word in enumerate(words):
+        hit = _IN_TITLE_SHORT.get(word)
+        if hit:
+            yield " ".join([*words[:i], hit[1], *words[i + 1 :]])
+    for short, long in IN_TITLE.items():
+        # "Go-to-Market" is also written "Go to Market".
+        spelled = re.escape(long).replace("\\-", "[- ]")
+        pattern = re.compile(r"\b" + spelled + r"\b", re.IGNORECASE)
+        # Only inside a longer title: "Go to Market" alone is not a role.
+        match = pattern.search(title)
+        if match and len(match.group(0).split()) < len(words):
+            yield clean(pattern.sub(short, title, count=1))
+
 
 #: Whole titles the market uses for the same work. Symmetric.
 EQUIVALENTS: tuple[tuple[str, ...], ...] = (
@@ -167,6 +209,7 @@ def _variants(title: str) -> Iterable[str]:
             expansion = ABBREVIATIONS.get(word.casefold())
             if expansion and len(words) > 1:
                 yield " ".join([*words[:i], expansion, *words[i + 1 :]])
+        yield from _in_title(candidate)
 
 
 def aliases_for(anchor: Anchor, taken: set[str] | None = None) -> list[Alias]:
@@ -191,7 +234,7 @@ def aliases_for(anchor: Anchor, taken: set[str] | None = None) -> list[Alias]:
         out.append(Alias(text=text, anchor=anchor.text, source="rule", generator=GENERATOR))
 
     parts = [clean(p) for p in _ALTERNATIVES.split(anchor.text) if clean(p)]
-    # Alternatives only when every side is a title of its own: "GTM Engineer /
+    # Alternatives only when every side is a title of its own: "GTM Coordinator /
     # AI Engineer" is two, "AI/ML Engineer" and "UX/UI Designer" are one.
     titles = parts if len(parts) > 1 and all(len(p.split()) >= 2 for p in parts) else [anchor.text]
     for part in titles:
@@ -213,3 +256,28 @@ def plan_aliases(anchors: Iterable[Anchor]) -> tuple[Alias, ...]:
         taken.update(folded(a.text) for a in made)
         out.extend(made)
     return tuple(out)
+
+
+def effective(anchors: RoleAnchors) -> RoleAnchors:
+    """The anchors with their stored aliases PLUS what the current rules make.
+
+    Aliases are derived data: anchors saved before a rule existed get its
+    aliases too, without anybody re-saving and without their words changing.
+    Stored aliases come first (a later AI planner's, for example), and the
+    per-anchor cap still holds.
+    """
+    current = {folded(a.text) for a in anchors.anchors}
+    merged = (*anchors.aliases, *plan_aliases(anchors.anchors))
+    seen: set[str] = set(current)
+    counts: dict[str, int] = {}
+    unique = []
+    for alias in merged:
+        owner, text = folded(alias.anchor), folded(alias.text)
+        if owner not in current or text in seen:
+            continue
+        if counts.get(owner, 0) >= MAX_ALIASES_PER_ANCHOR:
+            continue
+        counts[owner] = counts.get(owner, 0) + 1
+        seen.add(text)
+        unique.append(alias)
+    return RoleAnchors(anchors=anchors.anchors, aliases=tuple(unique))

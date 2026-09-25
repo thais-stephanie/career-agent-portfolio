@@ -68,24 +68,30 @@ def test_the_active_profile_is_always_shown_and_can_be_switched(
 ) -> None:
     base, root = live
     page.navigate(base)
-    page.wait_for("document.querySelector('.lprof__name')", message="the profile chip")
+    page.wait_for("document.querySelector('.lprof__name')", message="the profile control")
     assert _name(page) == "My profile"
-    explain = str(page.evaluate("document.querySelector('.lprof').innerText")).casefold()
-    assert (
-        "not accounts" in explain
-        or "not accounts"
-        in str(page.evaluate("document.querySelector('.lprof__panel').textContent")).casefold()
-    )
+    # The rail holds one compact control and no form.
+    assert page.evaluate("document.querySelectorAll('#local-profiles-host input').length") == 0
 
-    page.evaluate("document.querySelector('.lprof').open = true")
+    page.evaluate("document.getElementById('lprof-trigger').click()")
+    page.wait_for("document.querySelector('.cw-drawer .lprof__list')", message="the drawer")
+    drawer = str(page.evaluate("document.querySelector('.cw-drawer').innerText")).casefold()
+    assert "not accounts" in drawer
+    # Management inputs appear only when their action is chosen.
+    assert page.evaluate("document.querySelectorAll('.cw-drawer input').length") == 0
+    page.evaluate("document.getElementById('lprof-action-create').click()")
+    page.wait_for("document.getElementById('lprof-new')", message="the new-profile field")
+    assert page.evaluate("document.querySelectorAll('.cw-drawer input').length") == 1
     page.evaluate(
         "(() => { const box = document.getElementById('lprof-new'); box.value = 'Synthetic B';"
         " box.closest('form').requestSubmit(); return true; })()"
     )
-    page.wait_for(
-        "document.querySelector('.lprof__switch')",
-        message="a switch button for the new profile",
+    page.wait_for("document.querySelector('.lprof__switch')", message="the new profile's row")
+    assert "Synthetic B" in str(page.evaluate("document.querySelector('.lprof__switch').innerText"))
+    assert page.evaluate("document.activeElement.closest('.cw-drawer') !== null"), (
+        "focus left the drawer"
     )
+    assert page.evaluate("document.querySelectorAll('.cw-drawer input').length") == 0
     assert _name(page) == "My profile", "creating a profile never switches"
 
     page.evaluate("document.querySelector('.lprof__switch').click()")

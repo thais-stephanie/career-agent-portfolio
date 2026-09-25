@@ -342,6 +342,11 @@ class LinkedInCollector:
         # New postings before completing held ones, and most-asked first: a
         # posting several questions returned is the one most worth a page read.
         pending.sort(key=lambda i: (i.held_id is not None, -len(i.queries)))
+        # Then postings held from an earlier run without their text that no
+        # search returned this time: a refused page read must not leave a row
+        # textless until some later search happens to return it again.
+        if stats.stopped_reason not in ("rate_limited", "repeated_failures"):
+            pending.extend(self._held_without_text({i.held_id for i in pending}, max_enrich))
         failures_in_row = 0
         enriching = True
         for item in pending:
@@ -371,7 +376,7 @@ class LinkedInCollector:
                         enriching = False
                         stats.stopped_reason = stats.stopped_reason or "pages_unreadable"
                         stats.failures.append("posting pages unreadable")
-            elif enriching:
+            elif enriching and item.queries:
                 stats.enrich_skipped_budget += 1
             if item.held_id is not None:
                 # Already stored and already counted as seen again: only a
@@ -381,7 +386,42 @@ class LinkedInCollector:
                 continue
             self._persist(record, item, stats)
 
+    def _complete(self, record: dict[str, Any], item: _Found, stats: LinkedInStats) -> None:
+        """Give a held row the text read for it, and nothing else: no search
+        saw it this run, so its last-seen time is not refreshed."""
+        stub = to_stub(record)
+        if stub is None or item.held_id is None:
+            return
+        posting = self.provider.fetch_posting(None, stub)  # type: ignore[arg-type]
+        text = posting.description_text or ""
+        if not text:
+            return
+        text_hash = self.raw.put(text, posting.description_html)
+        with transaction(self.conn):
+            done = self.conn.execute(
+                "UPDATE job SET content_hash = ?, collection_status = ?, updated_at = ?"
+                " WHERE id = ? AND content_hash IS NULL AND collection_status = ?",
+                (
+                    text_hash,
+                    CollectionStatus.NORMALISED.value,
+                    now_utc(),
+                    item.held_id,
+                    CollectionStatus.FETCHED.value,
+                ),
+            ).rowcount
+            if done:
+                self.payloads.put(
+                    ProviderPayloadRecord(
+                        job_id=item.held_id, provider=PROVIDER, payload=dict(stub.payload)
+                    )
+                )
+        if done:
+            stats.jobs_described_later += 1
+
     def _persist(self, record: dict[str, Any], item: _Found, stats: LinkedInStats) -> None:
+        if item.held_id is not None and not item.queries:
+            self._complete(record, item, stats)
+            return
         stub = to_stub(record)
         company = company_of(record)
         if stub is None or not company:
@@ -487,6 +527,33 @@ class LinkedInCollector:
                 )
             self._lanes(str(held["id"]), item)
         stats.jobs_seen_again += 1
+
+    def _held_without_text(self, taken: set[str | None], limit: int) -> list[_Found]:
+        """Open LinkedIn rows stored without a description, newest first."""
+        import json
+
+        if limit <= 0:
+            return []
+        rows = self.conn.execute(
+            "SELECT j.id, p.payload_json FROM job j"
+            " JOIN job_provider_payload p ON p.job_id = j.id AND p.provider = j.provider"
+            " WHERE j.provider = ? AND j.content_hash IS NULL AND j.closed_at IS NULL"
+            " ORDER BY j.first_seen_at DESC, j.id LIMIT ?",
+            (PROVIDER, limit + len(taken)),
+        ).fetchall()
+        out: list[_Found] = []
+        taken = set(taken)
+        for job_id, payload in rows:
+            if str(job_id) in taken or len(out) >= limit:
+                continue
+            taken.add(str(job_id))
+            try:
+                record = json.loads(payload)
+            except ValueError:
+                continue
+            if isinstance(record, dict) and external_id(record):
+                out.append(_Found(record, [], held_id=str(job_id)))
+        return out
 
     def _sighted(self, ident: str) -> str | None:
         row = self.conn.execute(
