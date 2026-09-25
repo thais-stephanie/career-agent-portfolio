@@ -460,7 +460,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.web.profiles import register_profiles
 
         #: Set by the launcher's ProfileHost; None under `serve` and the demo.
-        self.profile_host = None
+        self.profile_host: Any = None
         #: True once a local-profile switch has moved away from this app.
         self.retired = False
         register_profiles(self)

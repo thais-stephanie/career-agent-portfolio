@@ -49,6 +49,7 @@ import os
 import re
 import shutil
 import sqlite3
+import sys
 import tempfile
 import threading
 from dataclasses import asdict, dataclass, replace
@@ -503,7 +504,7 @@ class ProfileLock:
         handle = self.path.open("a+b")
         handle.seek(0)
         try:
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
@@ -525,7 +526,7 @@ class ProfileLock:
             return
         try:
             handle.seek(0)
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)

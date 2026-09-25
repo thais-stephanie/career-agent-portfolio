@@ -86,7 +86,7 @@ class ProfileHost:
         host: str = "127.0.0.1",
         port: int = 8765,
         tailor: SwitchableApp | None = None,
-        tailor_factory: Callable[[], Any] | None = None,
+        tailor_factory: Callable[[Path], Any] | None = None,
     ) -> None:
         self.root = root
         self.host = host
@@ -101,6 +101,7 @@ class ProfileHost:
         #: The profile this process serves, whatever the registry file says.
         self.active: Profile | None = None
         self._held: ProfileLock | None = None
+        self._pending_lock: ProfileLock | None = None
 
     # -- building a profile's app ------------------------------------------
 
