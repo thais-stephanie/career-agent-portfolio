@@ -445,6 +445,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.web.first_search import register_first_search
 
         register_first_search(self)
+        from career_agent.web.role_anchors_api import register_role_anchors
+
+        register_role_anchors(self)
         from career_agent.web.semantic_api import register_semantic
 
         register_semantic(self)

@@ -2322,6 +2322,26 @@ const EN = {
   'setup.work.skillsLabel': 'Tools or methods you want to use next, one per line (optional)',
   'setup.work.note': 'Choose these on purpose. They describe what you want to find, are not copied from your CV '
     + 'and are not a claim about your experience.',
+  'setup.roles.title': 'Do you have specific roles in mind?',
+  'setup.roles.why':
+    'Optional. Name a few job titles and Career Agent will also search for them, and for titles that mean '
+    + 'the same work. They are search anchors, not limits.',
+  'setup.review.roles': 'Roles in mind',
+  'roles.label': 'Roles in mind',
+  'roles.hint': 'Up to {n} job titles, in your own words. Press Enter after each one.',
+  'roles.placeholder': 'For example: Account Executive',
+  'roles.suggestions': 'From your Career Profile. Add one only if you want that role again:',
+  'roles.add': 'Add {role}',
+  'roles.suggestionsNote': 'Roles you have held are not added unless you choose them.',
+  'roles.aliases': 'Also searched for: {list}',
+  'roles.notLimits':
+    'These help Career Agent ask job sources better questions. Jobs with other titles are still found, '
+    + 'and these roles never change a Search Fit.',
+  'roles.full': 'You can name up to {n} roles.',
+  'roles.saving': 'Saving...',
+  'roles.saved': 'Saved.',
+  'roles.notSaved': 'Your roles could not be saved. Try again, or skip this step.',
+  'roles.settingsTitle': 'Roles in mind',
   'setup.work.required': 'Write at least one kind of work, or choose Skip for now.',
   'setup.work.already': 'Your search already describes the work you want ({n} phrases). You can change them later in '
     + 'Settings.',
@@ -5126,6 +5146,26 @@ const PT_BR = {
   'setup.work.skillsLabel': 'Ferramentas ou métodos que você quer usar a seguir, um por linha (opcional)',
   'setup.work.note': 'Escolha estes de propósito. Eles descrevem o que você quer encontrar, não são copiados do '
     + 'seu currículo e não são uma afirmação sobre a sua experiência.',
+  'setup.roles.title': 'Você tem cargos específicos em mente?',
+  'setup.roles.why':
+    'Opcional. Diga alguns cargos e o Career Agent também vai buscar por eles, e por cargos que '
+    + 'significam o mesmo trabalho. São âncoras de busca, não limites.',
+  'setup.review.roles': 'Cargos em mente',
+  'roles.label': 'Cargos em mente',
+  'roles.hint': 'Até {n} cargos, nas suas palavras. Pressione Enter depois de cada um.',
+  'roles.placeholder': 'Por exemplo: Executivo de Contas',
+  'roles.suggestions': 'Do seu Perfil de Carreira. Adicione só se quiser esse cargo de novo:',
+  'roles.add': 'Adicionar {role}',
+  'roles.suggestionsNote': 'Cargos que você já teve não são adicionados a menos que você os escolha.',
+  'roles.aliases': 'Também buscamos por: {list}',
+  'roles.notLimits':
+    'Eles ajudam o Career Agent a fazer perguntas melhores às fontes de vagas. Vagas com outros títulos '
+    + 'continuam aparecendo, e esses cargos nunca mudam um Search Fit.',
+  'roles.full': 'Você pode indicar até {n} cargos.',
+  'roles.saving': 'Salvando...',
+  'roles.saved': 'Salvo.',
+  'roles.notSaved': 'Não foi possível salvar seus cargos. Tente de novo ou pule esta etapa.',
+  'roles.settingsTitle': 'Cargos em mente',
   'setup.work.required': 'Escreva pelo menos um tipo de trabalho, ou escolha Pular por enquanto.',
   'setup.work.already': 'Sua busca já descreve o trabalho que você quer ({n} frases). Você pode mudá-las depois em '
     + 'Configurações e fontes.',

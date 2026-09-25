@@ -55,6 +55,12 @@ export function tagInput({
   // writing in their own words. The country list keeps the default; the
   // phrase editor passes `off`.
   autocapitalize = 'characters',
+  // Optional. `max` refuses to commit past that many values and calls
+  // `onFull` so the caller can say why; `same` decides when two values are
+  // the same one (exact by default).
+  max = Infinity,
+  onFull = null,
+  same = (a, b) => a === b,
 }) {
   let current = [...values];
 
@@ -70,9 +76,16 @@ export function tagInput({
       .filter(Boolean);
     if (!parts.length) return;
     const next = [...current];
+    let full = false;
     for (const part of parts) {
-      if (!next.includes(part)) next.push(part);
+      if (next.some((item) => same(item, part))) continue;
+      if (next.length >= max) {
+        full = true;
+        continue;
+      }
+      next.push(part);
     }
+    if (full && onFull) onFull();
     if (next.length === current.length) return;
     current = next;
     draw();

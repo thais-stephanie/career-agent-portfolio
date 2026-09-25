@@ -36,6 +36,7 @@
  * finding jobs through the app's one collection watcher.
  */
 
+import { roleAnchorsEditor } from './roles.js';
 import { el, button, replace } from './dom.js';
 import { t, tVocab, getLocale } from './i18n.js';
 import * as api from './api.js';
@@ -99,6 +100,7 @@ function rememberPosition(key) {
 const STEPS = [
   { key: 'welcome' },
   { key: 'work', optional: true },
+  { key: 'roles', optional: true },
   { key: 'home', optional: true },
   { key: 'hire', optional: true },
   { key: 'regions', optional: true, when: (setup) => setup.homeRegions().length > 0 },
@@ -202,6 +204,8 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
   let at = 'welcome';
   let fields = new Map();
   let firstRun = null;
+  //: Roles in mind, for the review. Optional; null when unreadable.
+  let roleAnchors = null;
   //: Set when a card was opened from the review with "Change": Continue (and
   //: Back) return to the review rather than walking the rest of the flow.
   let returnTo = null;
@@ -216,9 +220,12 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     stopPolling();
     replace(root, [el('p', { className: 'setup__loading', text: t('app.loading') })]);
     try {
-      const [profile, state] = await Promise.all([api.getProfile(), api.getFirstRun()]);
+      const [profile, state, roles] = await Promise.all([
+        api.getProfile(), api.getFirstRun(), api.getRoleAnchors().catch(() => null),
+      ]);
       fields = new Map((profile.editable || []).map((row) => [row.field, row]));
       firstRun = state;
+      roleAnchors = roles;
     } catch (error) {
       replace(root, [
         el('p', { className: 'state__msg', text: error.userMessage || error.message }),
@@ -662,6 +669,27 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
       };
     },
 
+    roles: () => {
+      // Optional search anchors, never limits. One editor, shared with Settings.
+      const editor = roleAnchorsEditor({ id: 'setup-roles', initial: roleAnchors });
+      return {
+        nodes: [editor.root],
+        submit: async (error) => {
+          if (!editor.dirty) {
+            advance();
+            return;
+          }
+          const submit = root.querySelector('#setup-next');
+          if (submit) submit.disabled = true;
+          const ok = await editor.save();
+          if (ok) roleAnchors = editor.data || roleAnchors;
+          if (submit) submit.disabled = false;
+          if (ok) advance();
+          else error.textContent = t('roles.notSaved');
+        },
+      };
+    },
+
     home: () => {
       const saved = value('candidate_country') || '';
       // Held as the code when the text names a country, so a language switch
@@ -1095,6 +1123,8 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
       ['work', work.done
         ? ((work.roles || []).join(', ') || t('setup.ready.phrases', { n: work.phrases || 0 }))
         : null],
+      ['roles', ((roleAnchors && roleAnchors.anchors) || []).map((anchor) => anchor.text).join(', ')
+        || t('setup.review.noPreference')],
       ['home', value('candidate_country') ? countryName(value('candidate_country')) : null],
       // Unknown stays unknown, and says so: an empty answer here is not "no".
       ['hire', hiringCoverage() || (value('candidate_country') ? t('setup.review.hireUnknown') : null)],
