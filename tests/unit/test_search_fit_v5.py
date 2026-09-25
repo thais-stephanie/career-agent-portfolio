@@ -459,3 +459,21 @@ def test_a_finding_cannot_pay_in_a_sentence_the_phrases_already_used() -> None:
     work = components["responsibilities"]
     payroll = next(c for c in work.contributions if c.signal_id == "w_payroll")
     assert payroll.counted is False
+
+
+def test_a_partial_finding_pays_like_an_incidental_mention() -> None:
+    """A partial finding is a secondary duty or a close neighbour; it pays at
+    the INCIDENTAL multiplier, never at the secondary-section one."""
+    from career_agent.domain.enums import Prominence
+    from career_agent.match.score import SEMANTIC_PROMINENCE
+
+    assert SEMANTIC_PROMINENCE == {"strong": Prominence.PRIMARY, "partial": Prominence.INCIDENTAL}
+    config = config_with()
+    partial = SemanticMatch("responsibilities", "w_invoices", "W1", "partial", "Keep the books")
+    components, _, _ = scored(
+        config, responsibilities("Keep the books."), semantic=evidence(partial)
+    )
+    incidental = config.scoring.components.responsibilities.prominence_multipliers[
+        Prominence.INCIDENTAL
+    ]
+    assert components["responsibilities"].points == pytest.approx(25.0 / 4 * incidental)

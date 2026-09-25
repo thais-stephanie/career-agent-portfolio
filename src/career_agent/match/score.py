@@ -320,7 +320,7 @@ def _weighted_component(
             )
         found = by_signal.get(signal_id)
         if found is not None:
-            prominence = SEMANTIC_PROMINENCE.get(found.strength, Prominence.SECONDARY)
+            prominence = SEMANTIC_PROMINENCE.get(found.strength, Prominence.INCIDENTAL)
             strength = component.prominence_multipliers[prominence] * relative
             if best is None or strength > best[0]:
                 label = observed[signal_id].label if signal_id in observed else signal_id

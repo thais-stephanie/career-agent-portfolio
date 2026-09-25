@@ -61,7 +61,7 @@ class TAspect(BaseModel):
     #: Matches the provider sent that were not matches in this contract's
     #: shape (a "none" strength, a misspelt key), dropped one by one by
     #: `parse_answer` and counted here. Never sent by a provider.
-    malformed: int = 0
+    malformed: int = Field(default=0, ge=0)
 
 
 class TAnswer(BaseModel):

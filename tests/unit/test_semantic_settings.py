@@ -199,7 +199,9 @@ def test_a_saved_key_survives_a_restart_without_the_cli(config_dir, monkeypatch)
     from career_agent.semantic.settings import load_stored_key
 
     env_path(config_dir).write_text(f"DEEPSEEK_API_KEY={KEY}\nOTHER_SECRET=x\n", encoding="utf-8")
-    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    # Registered with monkeypatch first, so whatever load_stored_key writes
+    # is undone after the test and never reaches the rest of the session.
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
     monkeypatch.delenv("OTHER_SECRET", raising=False)
     assert load_stored_key(config_dir) is True
     assert key_state(config_dir).configured

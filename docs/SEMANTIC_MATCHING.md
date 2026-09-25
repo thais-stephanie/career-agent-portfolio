@@ -206,6 +206,8 @@ The first live batches changed three things. Each was measured before it was kep
   - On the 45-case labelled set, false positives fell from 3 to 1 and misses rose from 2 to 3.
   - Fits that move out of STRONG land in GOOD and stay visible.
 
+An existing installation shows its old scores until Search Fit is recalculated once. Evaluations stored under contract 2 are not reused under contract 3, so the first run after upgrading asks those postings again.
+
 ### The live result
 
 After the deterministic rescore of 122,876 postings and 6,100 DeepSeek calls:
