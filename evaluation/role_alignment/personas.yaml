@@ -1,0 +1,137 @@
+# Role-core alignment benchmark: invented people, invented titles.
+#
+# Labels are a person's judgment of the ROLE, written before the classifier
+# was run and never edited to fit it:
+#   ALIGNED   the role they named (any level)
+#   ADJACENT  a neighbouring role they could plausibly want or move into
+#   OUTSIDE   a different job
+#   UNRESOLVED the title names no role
+#
+# Nine occupations, deliberately not the maintainer's.
+personas:
+  - name: stylist
+    roles: [Hair Stylist]
+    work: [hair colouring, haircuts]
+    titles:
+      Senior Hair Stylist: ALIGNED
+      Hairdresser: ALIGNED
+      Hair Stylist - Part Time: ALIGNED
+      Salon Manager: ADJACENT
+      Colorist: ADJACENT
+      Barber: ADJACENT
+      Nail Technician: OUTSIDE
+      Receptionist: OUTSIDE
+      Software Engineer: OUTSIDE
+      General application: UNRESOLVED
+  - name: nurse
+    roles: [ICU Nurse]
+    work: [critical care, patient monitoring]
+    titles:
+      ICU Nurse (Night Shift): ALIGNED
+      Critical Care Nurse: ALIGNED
+      Registered Nurse - Intensive Care Unit: ALIGNED
+      Charge Nurse: ADJACENT
+      ER Nurse: ADJACENT
+      Nurse Educator: ADJACENT
+      Nursing Assistant: ADJACENT
+      Medical Receptionist: OUTSIDE
+      Pharmacist: OUTSIDE
+      Account Executive: OUTSIDE
+  - name: teacher
+    roles: [Math Teacher]
+    work: [lesson planning, classroom management]
+    titles:
+      Mathematics Teacher: ALIGNED
+      Math Teacher, High School: ALIGNED
+      Senior Math Teacher: ALIGNED
+      Science Teacher: ADJACENT
+      Math Tutor: ADJACENT
+      Curriculum Designer: ADJACENT
+      School Counselor: OUTSIDE
+      Bus Driver: OUTSIDE
+      Data Analyst: OUTSIDE
+      Talent Pool: UNRESOLVED
+  - name: sales
+    roles: [Sales Representative]
+    work: [cold calling, pipeline management]
+    titles:
+      Inside Sales Representative: ALIGNED
+      Sales Representative - LATAM: ALIGNED
+      Field Sales Representative: ALIGNED
+      Sales Manager: ADJACENT
+      Business Development Representative: ADJACENT
+      Customer Service Representative: ADJACENT
+      Marketing Manager: OUTSIDE
+      Warehouse Associate: OUTSIDE
+      Accountant: OUTSIDE
+      Talent Community: UNRESOLVED
+  - name: sdr
+    roles: [SDR]
+    work: [outbound prospecting, lead qualification]
+    titles:
+      Sales Development Representative: ALIGNED
+      Senior SDR: ALIGNED
+      SDR (Portuguese speaking): ALIGNED
+      BDR: ADJACENT
+      SDR Team Lead: ALIGNED
+      Account Executive: ADJACENT
+      Sales Operations Analyst: ADJACENT
+      Recruiter: OUTSIDE
+      Frontend Developer: OUTSIDE
+      Nurse: OUTSIDE
+  - name: account executive
+    roles: [Account Executive]
+    work: [closing deals, sales cycle]
+    titles:
+      Enterprise Account Executive: ALIGNED
+      Account Executive, Mid-Market: ALIGNED
+      Senior Account Executive - Brazil: ALIGNED
+      Sales Executive: ALIGNED
+      Account Manager: ADJACENT
+      SDR: ADJACENT
+      Customer Success Manager: ADJACENT
+      Executive Assistant: OUTSIDE
+      Product Designer: OUTSIDE
+      Executive Chef: OUTSIDE
+  - name: customer success
+    roles: [Customer Success Manager]
+    work: [customer onboarding, renewals]
+    titles:
+      CSM: ALIGNED
+      Senior Customer Success Manager: ALIGNED
+      Manager, Customer Success: ALIGNED
+      Customer Success Operations Specialist: ADJACENT
+      Customer Success Associate: ADJACENT
+      Account Manager: ADJACENT
+      Onboarding Specialist: ADJACENT
+      Customer Support Engineer: ADJACENT
+      Product Manager: OUTSIDE
+      Construction Manager: OUTSIDE
+  - name: accountant
+    roles: [Accountant]
+    work: [month-end close, reconciliations]
+    titles:
+      Senior Accountant: ALIGNED
+      Staff Accountant: ALIGNED
+      Accountant II: ALIGNED
+      Tax Accountant: ALIGNED
+      Accounting Manager: ADJACENT
+      Bookkeeper: ADJACENT
+      Financial Analyst: ADJACENT
+      Account Executive: OUTSIDE
+      Software Engineer: OUTSIDE
+      Nurse: OUTSIDE
+  - name: software engineer
+    roles: [Backend Engineer]
+    work: [API design, distributed systems]
+    titles:
+      Senior Backend Engineer: ALIGNED
+      Backend Engineer (Go): ALIGNED
+      Backend Software Engineer: ALIGNED
+      Software Engineer: ADJACENT
+      Platform Engineer: ADJACENT
+      Frontend Engineer: ADJACENT
+      Sales Engineer: OUTSIDE
+      Civil Engineer: OUTSIDE
+      Engineering Manager: ADJACENT
+      Marketing Coordinator: OUTSIDE
