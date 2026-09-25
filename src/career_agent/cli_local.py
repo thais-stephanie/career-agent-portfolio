@@ -2001,7 +2001,25 @@ def semantic_match_command(
     try:
         if since == "last-run":
             row = conn.execute("SELECT max(started_at) FROM semantic_run").fetchone()
+            if not row or not row[0]:
+                typer.secho(
+                    "No earlier semantic run: --since last-run reads the whole pool.",
+                    fg=typer.colors.YELLOW,
+                )
             since = str(row[0]) if row and row[0] else ""
+        elif since:
+            # Compared as text against timestamps written as ...Z, so it is
+            # parsed and written the same way; a typo is refused, never read
+            # as a filter that silently drops everything.
+            from datetime import UTC, datetime
+
+            try:
+                moment = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise typer.BadParameter("--since is an ISO time or 'last-run'") from exc
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=UTC)
+            since = moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         intent = search_intent(config)
         selection = select_candidates(
             conn,

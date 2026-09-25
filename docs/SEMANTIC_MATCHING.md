@@ -253,6 +253,8 @@ The coverage work (#11, #16) added 31,739 postings after the previous semantic r
 
 The cache identity is unchanged: posting text, search-intent digest and semantic contract. A text already evaluated for the same intent is never paid for again.
 
+`--since last-run` starts at the previous run's START. A budget-capped run leaves the rest of its pool unread, and a posting whose text changed keeps its first-seen time, so the run after a capped one should use `--since` with the capped run's own window, or no `--since`, to reach them. Evaluated texts are skipped either way.
+
 **One run, DeepSeek, hard budget $2.00:**
 
 - **Pool.** 8,781 of the new texts passed the prefilter. The run chose the top 2,000 in priority order.
@@ -285,31 +287,20 @@ Share of new postings rated GOOD or STRONG:
 | Targeted (a search built from the person's intent returned it) | 409 | 165 | 40.3% |
 | Exploratory | 31,330 | 1,184 | 3.8% |
 
-**Suspicious high scores.** Some generic full-stack and product-engineer roles score 94 to 100. A fixed, rule-defined sample was inspected, covering:
-
-- the top STRONG postings;
-- full-stack roles at 90 or above;
-- product-engineer roles at 90 or above;
-- data and BI roles at 75 or above;
-- GTM, revenue operations, business systems, MarTech, automation and AI-implementation titles.
+**Suspicious high scores.** Some generic engineering roles score 94 to 100. A fixed, rule-defined sample was inspected: the top STRONG postings, generic engineering and data titles above a score threshold, and titles in the role families closest to the search intent.
 
 What fills those scores:
 
 - In those high scorers, the work component (25) and the tools component (20) are filled by four and three genuine PRIMARY semantic matches.
-- The matches are to work items the search intent itself lists: API integration, business application development, data integration, internal tools, AI agents, and tools such as Node.js, SQL and REST APIs.
+- The matches are to work items and tools the search intent itself lists. Several of those items describe work that generic engineering roles also do centrally.
 - A posting that centrally does four of the stated kinds of work is a fit for that intent.
 - Two individual matches were looser than the contract intends. Those are single provider judgments, not a pattern.
 
-Across all 747 STRONG postings, the provider's own role core (what the role mainly does) was checked:
-
-- 63% mention integration, automation or business systems;
-- 76% mention AI implementation;
-- 21% mention GTM, revenue, CRM or marketing;
-- only 21 of 710 (3%) are primarily generic product or full-stack engineering with none of those.
+Of the 747 STRONG postings, 710 have a recorded role core (the provider's summary of what the role mainly does). Grouped by the families of the search intent, only 21 of those 710 (3%) are primarily generic engineering with none of the intended kinds of work.
 
 **Decision: Search Fit is unchanged.** No scoring component was shown to overpay in general; the breadth comes from the search intent itself. Two changes would narrow what counts, and neither is a scoring change:
 
-- narrower work phrases, since some of the current ones describe generic engineering;
+- narrower work phrases;
 - role anchors, which steer retrieval.
 
-Title-fit points stay out, as the role-alignment benchmark decided. Semantic role-core alignment, reading the whole description, was not promoted to ranking. The owner has named no role anchors, so there is no named role to align to, and the earlier benchmark found only ALIGNED reliable.
+Title-fit points stay out, as the role-alignment benchmark decided. Semantic role-core alignment, reading the whole description, was not promoted to ranking: it needs a named role to align to, and the earlier benchmark found only ALIGNED reliable.
