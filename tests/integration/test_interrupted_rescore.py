@@ -75,7 +75,8 @@ def killed_part_way(api: JobsApi, *, heartbeat_age: timedelta) -> tuple[int, int
         with transaction(conn):
             # Everything the seed scored now answers the PREVIOUS preferences.
             conn.execute(
-                "UPDATE job_match SET config_version = ? WHERE config_id = ? AND config_version = ?",
+                "UPDATE job_match SET config_version = ?"
+                " WHERE config_id = ? AND config_version = ?",
                 (version - 1, config_id, version),
             )
             total = conn.execute(
