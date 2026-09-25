@@ -206,6 +206,24 @@ The first live batches changed three things. Each was measured before it was kep
   - On the 45-case labelled set, false positives fell from 3 to 1 and misses rose from 2 to 3.
   - Fits that move out of STRONG land in GOOD and stay visible.
 
+### The live result
+
+After the deterministic rescore of 122,876 postings and 6,100 DeepSeek calls:
+- **Evaluated:** 5,798 posting texts under contract 3, in relevance order. They are the top of the 13,948 that pass the prefilter.
+- **Answers:** 30 rejected (28 of them before the per-match fix), 0 provider failures.
+- **Tokens:** 13.5M input and 2.2M output.
+- **Cost:** $6.68 at the peak rate. Off-peak calls cost half.
+
+Visible in Discover (81,212 open postings that are not ruled out and not at a hidden level):
+
+| | WEAK | MODERATE | GOOD | STRONG |
+|---|---:|---:|---:|---:|
+| Before (v4) | all | 0 | 0 | 0 |
+| v5 deterministic | 78,884 | 2,259 | 68 | 1 |
+| v5 with semantic findings | 76,643 | 2,909 | 1,250 | 410 |
+
+Hand review of fixed samples of the resulting STRONG band found about seven in ten to be the work the person described. The rest were mostly data, BI or generic full-stack roles that match data and application-development items the person listed themselves. The WEAK samples held no fit.
+
 ## Subscriptions are not APIs
 
 | Provider | How it is reached | Who pays |
