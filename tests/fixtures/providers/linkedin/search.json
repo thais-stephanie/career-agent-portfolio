@@ -1,0 +1,5 @@
+[
+  {"id": "li-4000000001", "site": "linkedin", "job_url": "https://www.linkedin.com/jobs/view/4000000001", "job_url_direct": null, "title": "Marketing Operations Analyst", "company": "Example Widgets", "location": "Sao Paulo, Sao Paulo, Brazil", "date_posted": "2026-09-20", "job_type": null, "is_remote": false, "description": null, "company_url": "https://www.linkedin.com/company/example-widgets"},
+  {"id": "li-4000000002", "site": "linkedin", "job_url": "https://www.linkedin.com/jobs/view/4000000002", "job_url_direct": "https://jobs.example-ats.test/acme/42", "title": "Revenue Operations Specialist", "company": "Acme Test Co", "location": "Brazil", "date_posted": "2026-09-22", "job_type": "fulltime", "is_remote": true, "description": null, "company_url": null},
+  {"id": "li-4000000003", "site": "linkedin", "job_url": "https://www.linkedin.com/jobs/view/4000000003", "job_url_direct": null, "title": "Automation Specialist", "company": "Invented Labs", "location": "Latin America", "date_posted": null, "job_type": null, "is_remote": true, "description": null, "company_url": null}
+]

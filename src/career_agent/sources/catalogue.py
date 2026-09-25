@@ -351,6 +351,11 @@ class Source:
     contradicted_because: str | None = None
     # An access/availability failure is distinct from a vendor prohibition.
     collection_blocker: str | None = None
+    #: An adapter this row MAY run as a local experimental override, when the
+    #: person using this profile explicitly opts in (`sources/experimental.py`).
+    #: The row's permission is unchanged by it: a FORBIDDEN source stays
+    #: FORBIDDEN, and says why, whether or not somebody opted in.
+    experimental_provider: str | None = None
 
     @property
     def permission(self) -> Permission:
@@ -429,6 +434,7 @@ class Source:
             "authorization": self.authorization,
             "note": self.note,
             "search_url": self.search_url,
+            "experimental_provider": self.experimental_provider,
             "collected": self.collected,
             "downgraded_because": self.downgraded_because,
             "coverage": self.coverage.value,
@@ -459,6 +465,15 @@ class Source:
             "content_depth": self.content_depth.value,
             "content_depth_label": self.content_depth.label,
         }
+
+
+def _experimental(declaration: dict[str, Any], registered: set[str]) -> str | None:
+    """The override adapter a row declares, if it is registered."""
+    override = declaration.get("experimental_override")
+    if not isinstance(override, dict):
+        return None
+    provider = override.get("provider")
+    return str(provider) if isinstance(provider, str) and provider in registered else None
 
 
 def load_catalogue(path: Path | None = None) -> list[dict[str, Any]]:
@@ -568,6 +583,7 @@ def resolve(
                 downgraded_because=downgraded,
                 contradicted_because=contradicted,
                 collection_blocker=declaration.get("collection_blocker"),
+                experimental_provider=_experimental(declaration, registered),
                 coverage=coverage,
                 boards=(boards.get(provider) if provider else None),
                 boards_with_postings=(producing.get(provider) if provider else None),

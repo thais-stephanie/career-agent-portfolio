@@ -31,6 +31,11 @@ export const setSourceSchedule = (source_id, mode) => request('/sources/schedule
 export const refreshSource = (source_id) => request('/sources/refresh', {
   method: 'POST', body: { source_id },
 });
+/** A forbidden source's local experimental override, for this profile only. */
+export const setExperimentalSource = (source_id, opted_in, acknowledged = false) =>
+  request('/sources/experimental', {
+    method: 'PATCH', body: { source_id, opted_in, acknowledged },
+  });
 export const getCareerEvidence = (filters = {}) =>
   request(`/career/evidence?${new URLSearchParams(filters)}`);
 export const previewCareer = (command) => request('/career/preview', { method: 'POST', body: command });

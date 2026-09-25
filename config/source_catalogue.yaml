@@ -552,6 +552,17 @@ sources:
       robots.txt prohibits automated access without express written permission,
       and the Talent APIs are write-only and partner-gated. A link the person
       opens themselves is the only permitted path and is what this offers.
+    # A LOCAL EXPERIMENTAL OVERRIDE, added 2026-09-25 at the owner's explicit
+    # request. It does NOT change anything above: LinkedIn still forbids
+    # automated access, this row is still FORBIDDEN, and nothing runs by
+    # default. A person may switch the python-jobspy adapter on for their own
+    # local profile after reading a plain warning; the choice is stored in that
+    # profile only and never shipped. It never logs in and never asks for or
+    # stores a LinkedIn password, cookie or session.
+    experimental_override:
+      provider: linkedin
+      via: python-jobspy
+      default: disabled
 
   - id: catho
     name: Catho

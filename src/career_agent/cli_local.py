@@ -75,6 +75,8 @@ def register(app: typer.Typer) -> None:
     app.command(name="daily")(daily_command)
     app.command(name="collect-wwr")(collect_wwr_command)
     app.command(name="collect-himalayas")(collect_himalayas_command)
+    app.command(name="collect-linkedin")(collect_linkedin_command)
+    app.command(name="experimental-source")(experimental_source_command)
     app.command(name="collect-jobicy")(collect_jobicy_command)
     app.command(name="collect-remotive")(collect_remotive_command)
     app.command(name="collect-jobgether")(collect_jobgether_command)
@@ -3768,6 +3770,142 @@ def collect_himalayas_command(
         typer.secho(f"  failed: {failure}", fg=typer.colors.RED)
     if stats.stopped_early:
         typer.echo("\nThis was a bounded walk, not the whole feed. Raise --max-pages to read more.")
+    typer.echo("\nrun `career-agent rescore` to score the new postings offline")
+
+
+LINKEDIN_SOURCE_ID = "linkedin_br"
+
+
+def experimental_source_command(
+    source_id: Annotated[str, typer.Argument(help="The catalogue row, e.g. linkedin_br.")],
+    on: Annotated[bool, typer.Option("--on/--off", help="Switch the override on or off.")],
+    understood: Annotated[
+        bool,
+        typer.Option(
+            "--i-understand",
+            help="Required to switch on: you read what the source says about automated access.",
+        ),
+    ] = False,
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
+) -> None:
+    """Switch a forbidden source's LOCAL EXPERIMENTAL override on or off.
+
+    The source's own permission does not change: LinkedIn still forbids
+    automated access, and this records only that YOU chose to run the
+    experimental adapter for this profile. Off by default; never shipped on.
+    """
+    from career_agent.sources.catalogue import resolve
+    from career_agent.sources.experimental import set_opt_in
+    from career_agent.storage.db import transaction
+
+    rows = {r.id: r for r in resolve(path=config_dir / "source_catalogue.yaml")}
+    row = rows.get(source_id)
+    if row is None or not row.experimental_provider:
+        raise typer.BadParameter(f"{source_id} has no experimental option")
+    if on and not understood:
+        typer.secho(
+            f"{row.name}: {row.reason_plain or row.reason}\n"
+            "This adapter is experimental and off by default. The site may rate-limit or block "
+            "it, results can be partial, and it never logs in or asks for a password. "
+            "Pass --i-understand to switch it on for this profile.",
+            fg=typer.colors.YELLOW,
+        )
+        raise typer.Exit(code=2)
+    db = resolve_database(RuntimeMode.PERSONAL, db)
+    conn = _open_personal(db)
+    try:
+        with transaction(conn):
+            value = set_opt_in(conn, source_id, on)
+    finally:
+        conn.close()
+    typer.echo(f"{source_id}: experimental override {'ON' if value['opted_in'] else 'OFF'}")
+
+
+def collect_linkedin_command(
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
+    max_queries: Annotated[
+        int, typer.Option("--max-queries", help="At most this many searches. Default 24.")
+    ] = 24,
+    results_per_query: Annotated[
+        int, typer.Option("--results", help="Result cards per search, 1 to 50. Default 25.")
+    ] = 25,
+    hours_old: Annotated[
+        int, typer.Option("--hours-old", help="Only postings this recent. Default 336 (14 days).")
+    ] = 24 * 14,
+    max_enrich: Annotated[
+        int, typer.Option("--max-enrich", help="Posting pages to read, 0 to 200. Default 60.")
+    ] = 60,
+    plan_only: Annotated[
+        bool, typer.Option("--plan", help="Print how many searches would run, and stop.")
+    ] = False,
+) -> None:
+    """EXPERIMENTAL: search LinkedIn through python-jobspy, for an opted-in profile.
+
+    LinkedIn forbids automated access (see `career-agent sources`); this runs
+    only if this profile switched the experimental override on
+    (`career-agent experimental-source linkedin_br --on --i-understand`, or
+    Settings & Sources). It never logs in. Bounded and paced; a refusal from
+    LinkedIn stops it and is reported as such, never as "no jobs".
+    """
+    from career_agent.config.search_config import SearchConfigError, load_search_config
+    from career_agent.discovery.plan import targeted_plan
+    from career_agent.pipeline.linkedin_collect import LinkedInCollector
+    from career_agent.providers.linkedin_jobspy import available
+    from career_agent.sources.experimental import opted_in
+
+    if not available():
+        typer.secho(
+            "python-jobspy is not installed for this Python, so the experimental LinkedIn "
+            "source is unavailable here (it needs Python 3.12, the launcher's version).",
+            fg=typer.colors.YELLOW,
+        )
+        raise typer.Exit(code=2)
+
+    if not 0 <= max_queries <= 60 or not 1 <= results_per_query <= 50:
+        raise typer.BadParameter("--max-queries is 0 to 60 and --results 1 to 50")
+    if not 1 <= hours_old <= 24 * 60 or not 0 <= max_enrich <= 200:
+        raise typer.BadParameter("--hours-old is 1 to 1440 and --max-enrich 0 to 200")
+    try:
+        config, _ = load_search_config(config_dir)
+    except SearchConfigError as exc:
+        raise typer.BadParameter("describe the work you want first (Settings)") from exc
+    from career_agent.pipeline.linkedin_collect import expressible
+
+    queries = targeted_plan(config, config_dir, max_queries=max_queries, scope_filter=expressible)
+    if plan_only:
+        from collections import Counter
+
+        typer.echo(f"{len(queries)} searches")
+        typer.echo(f"by scope: {dict(Counter(q.scope.key for q in queries))}")
+        typer.echo(f"by term origin: {dict(Counter(q.term.origin for q in queries))}")
+        return
+    db = resolve_database(RuntimeMode.PERSONAL, db)
+    conn = _open_personal(db)
+    try:
+        if not opted_in(conn, LINKEDIN_SOURCE_ID):
+            typer.secho(
+                "LinkedIn is not switched on for this profile. It is an experimental, "
+                "opt-in source: see Settings & Sources.",
+                fg=typer.colors.YELLOW,
+            )
+            raise typer.Exit(code=2)
+        stats = LinkedInCollector(conn).collect(
+            queries,
+            results_per_query=results_per_query,
+            hours_old=hours_old,
+            max_enrich=max_enrich,
+            # Checked before every search and page: switching LinkedIn off in
+            # Settings stops a run already in progress.
+            should_stop=lambda: not opted_in(conn, LINKEDIN_SOURCE_ID),
+        )
+    finally:
+        conn.close()
+    typer.secho("LinkedIn (experimental)", bold=True)
+    _table([(k.replace("_", " "), v) for k, v in stats.as_dict().items() if k != "failures"])
+    for failure in stats.failures:
+        typer.secho(f"  {failure}", fg=typer.colors.RED)
     typer.echo("\nrun `career-agent rescore` to score the new postings offline")
 
 
