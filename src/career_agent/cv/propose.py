@@ -254,7 +254,70 @@ def _heading(line: str) -> str | None:
     bare = _bare(inline(_BULLET.sub("", line).strip()))
     if not bare or len(bare) > 40:
         return None
-    return _FOLDED_HEADINGS.get(bare)
+    return _FOLDED_HEADINGS.get(bare) or _skills_heading(bare)
+
+
+#: What a skills or tools heading is made of. The exact list above missed
+#: every qualified form -- "Technical Skills", "Skills & Tools", "Core
+#: Competencies", "Tools & Platforms" -- and a heading this reader does not
+#: recognise proposes nothing, so a CV's whole skills section vanished
+#: (2026-09-25, the owner's own CV: zero skills proposed).
+_SKILL_HEADS = frozenset(
+    {"skills", "skill", "competencies", "competences", "competencias", "habilidades", "expertise"}
+)
+_TOOL_HEADS = frozenset(
+    {
+        "tools",
+        "technologies",
+        "stack",
+        "platforms",
+        "toolkit",
+        "systems",
+        "software",
+        "ferramentas",
+        "tecnologias",
+        "plataformas",
+        "sistemas",
+    }
+)
+_HEADING_QUALIFIERS = frozenset(
+    {
+        "technical",
+        "core",
+        "key",
+        "hard",
+        "soft",
+        "professional",
+        "areas",
+        "area",
+        "of",
+        "and",
+        "my",
+        "e",
+        "de",
+        "tecnicas",
+        "tecnicos",
+        "principais",
+    }
+)
+
+
+def _skills_heading(bare: str) -> str | None:
+    """A whole line made ONLY of skills/tools words and their qualifiers.
+
+    Deterministic: every word must be one of these, and at least one must be
+    a head word. "Technical Skills" and "Tools & Platforms" are headings;
+    "Built tools for the finance team" has other words and stays a sentence.
+    Skills win over tools when a heading names both ("Skills & Tools").
+    """
+    words = bare.split()
+    if not words or any(w not in _SKILL_HEADS | _TOOL_HEADS | _HEADING_QUALIFIERS for w in words):
+        return None
+    if any(w in _SKILL_HEADS for w in words):
+        return "skills"
+    if any(w in _TOOL_HEADS for w in words):
+        return "tools"
+    return None
 
 
 def _loose_heading(text: str) -> str | None:
@@ -401,6 +464,8 @@ def read_cv(text: str) -> ReadCv:
     result = ReadCv(sections=sections, unread_lines=unread, entries=entries)
 
     counters: dict[str, int] = {}
+    # One skill is one proposal: "n8n" under two groups is still one skill.
+    listed: set[str] = set()
     for section, line, entry, claim in structured:
         if section is None or not claim or line.kind not in {"item", "text"} or not line.text:
             continue
@@ -414,6 +479,10 @@ def read_cv(text: str) -> ReadCv:
         for item in _items(line.text, section):
             if not (_MIN_LENGTH <= len(item) <= _MAX_LENGTH):
                 continue
+            if section in {"skills", "tools"}:
+                if fold(item) in listed:
+                    continue
+                listed.add(fold(item))
             counters[section] = counters.get(section, 0) + 1
             result.proposals.append(
                 Proposal(
