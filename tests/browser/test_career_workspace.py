@@ -664,3 +664,72 @@ def test_the_skills_tab_separates_skills_certificates_and_education(
     )
     assert "Education" in headings and "Certificates and study" in headings, headings
     assert "BSc Business Administration" in _text(page, "#page-profile")
+
+
+def _open_skill_input(page: Chrome, ws: Workspace) -> str:
+    """A new experience's skills input, focused the way a person gets there."""
+    _open(page, ws.base, "profile")
+    page.wait_for("document.querySelector('#page-profile .profiletab')")
+    page.evaluate(
+        "[...document.querySelectorAll('#page-profile .profiletab')]"
+        ".find((b) => b.textContent.trim().startsWith('Experience')).click()"
+    )
+    page.wait_for("document.querySelector('.xp-add')")
+    page.evaluate("document.querySelector('.xp-add').click()")
+    page.wait_for(f"document.querySelector({json.dumps(CHIP_INPUT)})")
+    page.wait_for("document.activeElement && document.activeElement.closest('.xp-editor') !== null")
+    page.evaluate(f"document.querySelector({json.dumps(CHIP_INPUT)}).focus()")
+    return f"document.activeElement === document.querySelector({json.dumps(CHIP_INPUT)})"
+
+
+def _chip_names(page: Chrome) -> list[str]:
+    return list(
+        page.evaluate(
+            "[...document.querySelectorAll('.xp-editor .cw-chip span')].map((n) => n.textContent)"
+        )
+    )
+
+
+def _paste(page: Chrome, text: str) -> None:
+    page.evaluate(
+        "(() => { const box = new DataTransfer();"
+        f" box.setData('text/plain', {json.dumps(text)});"
+        f" document.querySelector({json.dumps(CHIP_INPUT)})"
+        ".dispatchEvent(new ClipboardEvent('paste', { clipboardData: box, bubbles: true,"
+        " cancelable: true })); })()"
+    )
+
+
+def test_several_skills_typed_at_once_become_separate_chips(page: Chrome, empty: Workspace) -> None:
+    focused = _open_skill_input(page, empty)
+    page.type_text("HubSpot, n8n, Python")
+    page.press("Enter")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 3")
+    page.type_text("SQL; Power BI")
+    page.press("Enter")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 5")
+    assert _chip_names(page) == ["HubSpot", "n8n", "Python", "SQL", "Power BI"]
+    assert page.evaluate(focused), "focus left the input after a multi-skill entry"
+
+
+def test_a_pasted_list_becomes_chips_and_keeps_focus(page: Chrome, empty: Workspace) -> None:
+    focused = _open_skill_input(page, empty)
+    _paste(page, "SQL\nPower BI\nPython\n")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 3")
+    assert _chip_names(page) == ["SQL", "Power BI", "Python"]
+    assert page.evaluate(focused), "focus left the input after a paste"
+    assert page.evaluate(f"document.querySelector({json.dumps(CHIP_INPUT)}).value") == ""
+
+
+def test_duplicates_are_dropped_and_a_slash_is_never_a_separator(
+    page: Chrome, empty: Workspace
+) -> None:
+    focused = _open_skill_input(page, empty)
+    page.type_text("n8n, N8N, n8n")
+    page.press("Enter")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 1")
+    page.type_text("CI/CD; REST/GraphQL, n8n")
+    page.press("Enter")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 3")
+    assert _chip_names(page) == ["n8n", "CI/CD", "REST/GraphQL"]
+    assert page.evaluate(focused)
