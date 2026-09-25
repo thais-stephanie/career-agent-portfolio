@@ -104,6 +104,54 @@ def _ro(path: Path) -> sqlite3.Connection:
     return sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)
 
 
+class SourceHold:
+    """The source database, held EXCLUSIVELY from before its copies are
+    taken until the moment it is moved aside.
+
+    `locking_mode = EXCLUSIVE` keeps every other connection out, readers and
+    writers alike, in this process and any other: a collection, a rescore or
+    a semantic run started from a terminal while the split is running is
+    refused ("database is locked") instead of committing work that would
+    only reach the file being retired. The write-ahead log is emptied into
+    the file first, so nothing is left behind in it.
+    """
+
+    def __init__(self, source: Path) -> None:
+        self.source = Path(source)
+        self.conn: sqlite3.Connection | None = None
+
+    def __enter__(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.source, isolation_level=None, timeout=5)
+        try:
+            conn.execute("PRAGMA locking_mode = EXCLUSIVE")
+            # A write takes the exclusive lock, and under EXCLUSIVE it is kept.
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("COMMIT")
+            busy, _, _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+            if busy:
+                raise CatalogueError("the source database is in use; close Career Agent first")
+        except sqlite3.OperationalError as exc:
+            conn.close()
+            raise CatalogueError(
+                "the source database is in use by another program; close Career Agent and "
+                "any command using it, then try again"
+            ) from exc
+        except BaseException:
+            conn.close()
+            raise
+        conn.row_factory = sqlite3.Row
+        self.conn = conn
+        return conn
+
+    def release(self) -> None:
+        if self.conn is not None:
+            self.conn.close()
+            self.conn = None
+
+    def __exit__(self, *exc: object) -> None:
+        self.release()
+
+
 def _tables(conn: sqlite3.Connection, schema: str = "main") -> list[str]:
     return [
         str(r[0])
@@ -125,42 +173,55 @@ def _digest(conn: sqlite3.Connection, sql: str) -> str:
     return h.hexdigest()
 
 
-def copy_database(source: Path, destination: Path) -> None:
-    """A consistent, compacted copy of a live database, reading it only."""
+def copy_database(source: sqlite3.Connection | Path, destination: Path) -> None:
+    """A consistent, compacted copy of a database, reading it only."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         raise CatalogueError(f"{destination} already exists")
-    conn = _ro(source)
+    conn = source if isinstance(source, sqlite3.Connection) else _ro(source)
     try:
         conn.execute("VACUUM INTO ?", (str(destination),))
     finally:
-        conn.close()
+        if conn is not source:
+            conn.close()
 
 
-def build(source: Path, staging: Path) -> tuple[Path, Path, str]:
-    """Build `staging/profile.db` and `staging/catalogue.db` from `source`.
+def build(
+    source: Path, staging: Path, *, held: sqlite3.Connection | None = None
+) -> tuple[Path, Path, str]:
+    """Build `staging/personal.db` and `staging/shared/catalogue.db` from
+    `source`. Returns (profile, catalogue, catalogue id). The source is only
+    read, through `held` when the caller holds it (`SourceHold`)."""
+    from career_agent.storage.db import MigrationError, connect, pending_migrations
 
-    Returns (profile, catalogue, catalogue id). The source is only read.
-    """
-    from career_agent.storage.db import connect
-
-    probe = _ro(source)
+    probe = held if held is not None else _ro(source)
     try:
         if role(probe) != "single":
             raise CatalogueError("this database is already split, or is a catalogue")
+        probe.row_factory = sqlite3.Row
+        try:
+            behind = pending_migrations(probe)
+        except MigrationError as exc:
+            raise CatalogueError(str(exc)) from exc
+        if behind:
+            raise CatalogueError(
+                "this database is not at this build's schema yet; start Career Agent once "
+                "(or run `career-agent doctor`) to bring it up to date, then split it"
+            )
     finally:
-        probe.close()
+        if probe is not held:
+            probe.close()
     staging.mkdir(parents=True, exist_ok=True)
     profile = staging / "personal.db"
     catalogue = staging / "shared" / "catalogue.db"
-    copy_database(source, catalogue)
+    copy_database(held if held is not None else source, catalogue)
     conn = connect(catalogue)
     try:
         identity = make_catalogue(conn)
         conn.execute("VACUUM")
     finally:
         conn.close()
-    copy_database(source, profile)
+    copy_database(held if held is not None else source, profile)
     conn = sqlite3.connect(profile, isolation_level=None)
     try:
         make_profile(conn, identity)
@@ -170,10 +231,12 @@ def build(source: Path, staging: Path) -> tuple[Path, Path, str]:
     return profile, catalogue, identity
 
 
-def verify(source: Path, profile: Path, catalogue: Path) -> SplitCheck:
+def verify(
+    source: Path, profile: Path, catalogue: Path, *, held: sqlite3.Connection | None = None
+) -> SplitCheck:
     """Compare the two new files with the source. Reads all three only."""
     check = SplitCheck()
-    src = _ro(source)
+    src = held if held is not None else _ro(source)
     prof = _ro(profile)
     cat = _ro(catalogue)
     try:
@@ -210,13 +273,15 @@ def verify(source: Path, profile: Path, catalogue: Path) -> SplitCheck:
             if not equal:
                 check.problems.append(f"{table}: content differs from the source")
     finally:
-        src.close()
+        if src is not held:
+            src.close()
         prof.close()
         cat.close()
     check.orphans = orphans_after_split(profile, catalogue)
     for table, n in check.orphans.items():
-        # A private row whose posting is not in the source either was already
-        # an orphan there; only NEW orphans are a problem.
+        # Any private row naming a posting the catalogue lacks fails the
+        # split. The source enforces these as foreign keys, so there it has
+        # none; one here would be a posting lost on the way.
         if n:
             check.problems.append(f"{table}: {n} rows name a posting the catalogue lacks")
     return check
@@ -226,11 +291,6 @@ def orphans_after_split(profile: Path, catalogue: Path) -> dict[str, int]:
     conn = _ro(profile)
     try:
         conn.execute("ATTACH DATABASE ? AS catalogue", (f"{catalogue.resolve().as_uri()}?mode=ro",))
-    except sqlite3.OperationalError:
-        conn.close()
-        conn = _ro(profile)
-        conn.execute("ATTACH DATABASE ? AS catalogue", (str(catalogue.resolve()),))
-    try:
         present = set(_tables(conn))
         return {
             table: int(
@@ -253,42 +313,57 @@ class Installed:
     legacy: Path
 
 
-def install(source: Path, staged_profile: Path, staged_catalogue: Path) -> Installed:
+def _sidecars(path: Path) -> list[Path]:
+    return [path.with_name(path.name + suffix) for suffix in ("-wal", "-shm")]
+
+
+def install(
+    source: Path,
+    staged_profile: Path,
+    staged_catalogue: Path,
+    *,
+    hold: SourceHold | None = None,
+) -> Installed:
     """Move the verified files into place; the source goes to `data/legacy/`.
 
-    Renames only, on one volume. Order: the catalogue first (nothing reads it
-    yet), then the source aside, then the new profile where the source was.
-    If the last step fails, the source is put back.
+    Renames only, on one volume, each recorded so that a failure at any step
+    puts every file back where it was. Order: the source aside first (a
+    rename Windows refuses while anything still has it open, which is the
+    refusal wanted), then the new profile where it was, then the catalogue.
+    `hold` is released at the last moment, just before the first rename.
     """
     source = Path(source)
     target_catalogue = catalogue_path(source)
-    if target_catalogue.exists():
-        raise CatalogueError(f"a catalogue already exists at {target_catalogue}")
-    # Nothing of the source may still sit in its write-ahead log.
-    conn = sqlite3.connect(source, isolation_level=None, timeout=30)
-    try:
-        busy, _, _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
-        if busy:
-            raise CatalogueError("the source database is in use; close Career Agent first")
-    finally:
-        conn.close()
+    for path in (target_catalogue, *_sidecars(target_catalogue)):
+        if path.exists():
+            raise CatalogueError(f"{path} already exists; move it away before splitting")
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    legacy_dir = catalogue_path(source).parent.parent / "legacy"
+    legacy_dir = target_catalogue.parent.parent / "legacy"
     legacy_dir.mkdir(parents=True, exist_ok=True)
     legacy = legacy_dir / f"{source.stem}.pre-catalogue-{stamp}{source.suffix}"
     target_catalogue.parent.mkdir(parents=True, exist_ok=True)
-    os.replace(staged_catalogue, target_catalogue)
-    os.replace(source, legacy)
-    for suffix in ("-wal", "-shm"):
-        side = source.with_name(source.name + suffix)
-        if side.exists():
-            os.replace(side, legacy.with_name(legacy.name + suffix))
+    if hold is not None:
+        hold.release()
+    done: list[tuple[Path, Path]] = []
+
+    def move(origin: Path, target: Path) -> None:
+        os.replace(origin, target)
+        done.append((origin, target))
+
     try:
-        os.replace(staged_profile, source)
-    except OSError:
-        os.replace(legacy, source)
-        os.replace(target_catalogue, staged_catalogue)
-        raise
+        move(source, legacy)
+        for side, aside in zip(_sidecars(source), _sidecars(legacy), strict=True):
+            if side.exists():
+                move(side, aside)
+        move(staged_profile, source)
+        move(staged_catalogue, target_catalogue)
+    except OSError as exc:
+        for origin, target in reversed(done):
+            os.replace(target, origin)
+        raise CatalogueError(
+            "the files could not be moved into place (is Career Agent or a command still "
+            f"using the database?); everything was put back as it was: {exc}"
+        ) from exc
     return Installed(profile=source, catalogue=target_catalogue, legacy=legacy)
 
 
@@ -297,13 +372,16 @@ def rollback(profile: Path, legacy: Path) -> Path:
     profile is kept beside it (`.split-rolled-back`), and the catalogue is
     left where it is: nothing is deleted."""
     profile = Path(profile)
+    legacy = Path(legacy)
     aside = profile.with_name(profile.name + ".split-rolled-back")
     if aside.exists():
         raise CatalogueError(f"{aside} already exists")
     os.replace(profile, aside)
-    for suffix in ("-wal", "-shm"):
-        side = profile.with_name(profile.name + suffix)
+    for side, moved in zip(_sidecars(profile), _sidecars(aside), strict=True):
         if side.exists():
-            os.replace(side, aside.with_name(aside.name + suffix))
+            os.replace(side, moved)
     os.replace(legacy, profile)
+    for side, back in zip(_sidecars(legacy), _sidecars(profile), strict=True):
+        if side.exists():
+            os.replace(side, back)
     return aside

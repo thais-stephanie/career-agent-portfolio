@@ -523,3 +523,156 @@ def test_integrity_reports_a_private_row_whose_posting_is_gone(two_profiles: dic
         assert findings["catalogue_reference"].examples == ("no-such-job",)
     finally:
         conn.close()
+
+
+# =========================================================================
+# from the adversarial review
+# =========================================================================
+
+
+def test_another_profiles_pass_never_hides_work_in_dirty_mode(two_profiles: dict) -> None:
+    a_config, _ = load_search_config(two_profiles["a_config"])
+    b_config, _ = load_search_config(two_profiles["b_config"])
+    b = connect(two_profiles["b_db"])
+    try:
+        rescore(b, b_config)
+    finally:
+        b.close()
+    a = connect(two_profiles["a_db"])
+    try:
+        job = a.execute("SELECT id FROM job WHERE content_hash IS NOT NULL ORDER BY id").fetchone()[
+            0
+        ]
+        from career_agent.storage.repositories import JobRawRepo
+
+        with transaction(a):
+            new_hash = JobRawRepo(a).put("A rewritten public description, once more.", None)
+            a.execute("UPDATE job SET content_hash = ? WHERE id = ?", (new_hash, job))
+        rescore(a, a_config, mode=RescoreMode.DIRTY)
+        assert a.execute("SELECT COUNT(*) FROM job_dirty").fetchone()[0] == 0, "A cleared the mark"
+    finally:
+        a.close()
+    b = connect(two_profiles["b_db"])
+    try:
+        assert job in plan(b, b_config, mode=RescoreMode.DIRTY).targets
+    finally:
+        b.close()
+
+
+def test_a_profiles_own_rescore_requests_stay_private(two_profiles: dict) -> None:
+    from career_agent.storage import invalidation
+
+    a_config, _ = load_search_config(two_profiles["a_config"])
+    b_config, _ = load_search_config(two_profiles["b_config"])
+    b = connect(two_profiles["b_db"])
+    try:
+        rescore(b, b_config)
+        assert plan(b, b_config, mode=RescoreMode.TARGETED).targets == []
+    finally:
+        b.close()
+    a = connect(two_profiles["a_db"])
+    try:
+        job = a.execute("SELECT job_id FROM main.job_match ORDER BY job_id").fetchone()[0]
+        revision = a.execute("SELECT revision FROM compute_revision").fetchone()[0]
+        with transaction(a):
+            invalidation.request(a, [job])
+        assert (
+            a.execute("SELECT COUNT(*) FROM job_dirty WHERE reason='REQUESTED'").fetchone()[0] == 0
+        )
+        assert a.execute("SELECT revision FROM compute_revision").fetchone()[0] == revision
+        assert job in plan(a, a_config, mode=RescoreMode.DIRTY).targets
+        rescore(a, a_config, mode=RescoreMode.DIRTY)
+        assert a.execute("SELECT COUNT(*) FROM main.profile_request").fetchone()[0] == 0
+    finally:
+        a.close()
+    b = connect(two_profiles["b_db"])
+    try:
+        assert plan(b, b_config, mode=RescoreMode.TARGETED).targets == [], (
+            "A's request cost B nothing"
+        )
+    finally:
+        b.close()
+
+
+def test_only_whole_public_table_names_lose_their_foreign_keys() -> None:
+    stripped = cat._strip_shared_references(
+        "CREATE TABLE x (a TEXT REFERENCES job_match(id),"
+        " b TEXT REFERENCES job(id) ON DELETE CASCADE,"
+        " FOREIGN KEY (a) REFERENCES job_application(job_id))"
+    )
+    assert "REFERENCES job_match(id)" in stripped
+    assert "REFERENCES job(id)" not in stripped
+    assert "REFERENCES job_application(job_id)" in stripped
+
+
+def _single(tmp_path: Path, name: str) -> Path:
+    db = tmp_path / name / "data" / "personal.db"
+    db.parent.mkdir(parents=True)
+    conn = connect(db)
+    try:
+        migrate(conn)
+        search, _ = load_search_config(
+            _config(tmp_path, f"{name}-config", "search.worked-example.yaml")
+        )
+        seed_demo(conn, search, source=DEMO_FILE)
+    finally:
+        conn.close()
+    return db
+
+
+def test_the_source_is_held_exclusively_while_it_is_split(tmp_path: Path) -> None:
+    db = _single(tmp_path, "held")
+    with catalogue_split.SourceHold(db):
+        other = sqlite3.connect(db, timeout=0.2)
+        try:
+            with pytest.raises(sqlite3.OperationalError, match="locked"):
+                other.execute(
+                    "INSERT INTO pipeline_run (id, stage, started_at, status) VALUES"
+                    " ('x', 'collect', 'x', 'RUNNING')"
+                )
+        finally:
+            other.close()
+
+
+def test_a_database_behind_the_schema_is_refused(tmp_path: Path) -> None:
+    db = _single(tmp_path, "behind")
+    raw = sqlite3.connect(db)
+    try:
+        raw.execute(
+            "DELETE FROM schema_migration"
+            " WHERE version = (SELECT MAX(version) FROM schema_migration)"
+        )
+        raw.commit()
+    finally:
+        raw.close()
+    with pytest.raises(cat.CatalogueError, match="schema"):
+        catalogue_split.build(db, tmp_path / "staging-behind")
+
+
+def test_a_failed_install_puts_every_file_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    db = _single(tmp_path, "undo")
+    profile, shared, _ = catalogue_split.build(db, tmp_path / "staging-undo")
+    real = os.replace
+    calls = {"n": 0}
+
+    def flaky(a, b):  # noqa: ANN001, ANN202
+        calls["n"] += 1
+        if calls["n"] == 3:
+            raise PermissionError("in use")
+        return real(a, b)
+
+    monkeypatch.setattr(catalogue_split.os, "replace", flaky)
+    with pytest.raises(cat.CatalogueError, match="put back"):
+        catalogue_split.install(db, profile, shared)
+    monkeypatch.setattr(catalogue_split.os, "replace", real)
+    assert db.exists() and profile.exists() and shared.exists()
+    assert not cat.catalogue_path(db).exists()
+    conn = connect(db)
+    try:
+        assert cat.role(conn) == "single"
+    finally:
+        conn.close()

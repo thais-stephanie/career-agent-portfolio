@@ -1568,7 +1568,9 @@ def _personal_databases() -> list[tuple[Path, int]]:
     for candidate in sorted(root.rglob("*.db")):
         # A database kept aside by the catalogue split is a rollback copy,
         # never the one to open.
-        if "legacy" in candidate.parts:
+        if "legacy" in candidate.parts or any(
+            part.startswith(".split-") for part in candidate.parts
+        ):
             continue
         try:
             from career_agent.storage.catalogue import open_read_only
@@ -1583,7 +1585,8 @@ def _personal_databases() -> list[tuple[Path, int]]:
                 )
             finally:
                 conn.close()
-        except sqlite3.Error:
+        except (sqlite3.Error, RuntimeError):
+            # RuntimeError: a split profile whose catalogue is missing.
             continue
         found.append((candidate, total))
     return found

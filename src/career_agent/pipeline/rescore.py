@@ -97,6 +97,10 @@ class RescorePlan:
     #: a mark on a posting that closed before the pass reached it.
     closed_candidates: int = 0
     plan_ms: int = 0
+    #: A split profile's own requests read at plan time, `job_id ->
+    #: marked_at`; cleared once each posting is scored (see
+    #: storage/catalogue.PROFILE_REQUEST_TABLE).
+    requested: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -186,6 +190,11 @@ def plan(
     with invalidation.read_snapshot(conn):
         dirty = _read_ledger(conn)
         reasons = _ledger_reasons(conn)
+        requested = _read_requests(conn)
+    split = requested is not None
+    requested = requested or {}
+    for job_id in requested:
+        reasons.setdefault(job_id, "REQUESTED")
     breakdown: dict[str, int] = {}
     examined = 0
     textless = 0
@@ -203,7 +212,10 @@ def plan(
         breakdown["EXPLICIT"] = len(targets)
     else:
         chosen: dict[str, str] = {}
-        if mode is RescoreMode.TARGETED:
+        # A split profile shares the queue with every other profile, and
+        # another's pass may already have cleared the marks this one needs:
+        # its own receipts are what say what is stale, in DIRTY mode too.
+        if mode is RescoreMode.TARGETED or split:
             missing = _missing_or_stale(conn, config_id, config_version, config_digest)
             examined, textless = _open_counts(conn)
             for job_id in missing:
@@ -233,12 +245,23 @@ def plan(
         textless_open=textless,
         closed_candidates=closed,
         plan_ms=_elapsed(started),
+        requested=requested,
     )
 
 
 def _read_ledger(conn: sqlite3.Connection) -> dict[str, int]:
     rows = conn.execute("SELECT job_id, generation FROM job_dirty").fetchall()
     return {str(r["job_id"]): int(r["generation"]) for r in rows}
+
+
+def _read_requests(conn: sqlite3.Connection) -> dict[str, str] | None:
+    """A split profile's own rescore requests; None for a one-file database."""
+    if not conn.execute(
+        "SELECT 1 FROM main.sqlite_master WHERE type='table' AND name='profile_request'"
+    ).fetchone():
+        return None
+    rows = conn.execute("SELECT job_id, marked_at FROM main.profile_request").fetchall()
+    return {str(r[0]): str(r[1]) for r in rows}
 
 
 def _ledger_reasons(conn: sqlite3.Connection) -> dict[str, str]:
@@ -633,6 +656,15 @@ def rescore(
         # Only successful, revision-checked score writes own an acknowledgement.
         # A newer plan-time mark is deliberately left for the next pass.
         chosen.dirty = {j: g for j, g in chosen.dirty.items() if successful.get(j) == g}
+        # This profile's own requests are answered by any successful score in
+        # this pass; one made while it ran (a newer `marked_at`) is kept.
+        answered = [(j, m) for j, m in chosen.requested.items() if j in successful]
+        for start in range(0, len(answered), _PAGE):
+            with transaction(conn):
+                conn.executemany(
+                    "DELETE FROM main.profile_request WHERE job_id = ? AND marked_at = ?",
+                    answered[start : start + _PAGE],
+                )
         chosen.search_refresh = sorted(chosen.dirty)
         search_started = datetime.now(UTC)
         stats.search_refresh, stats.search_rows_indexed, stats.dirty_cleared = _refresh_and_clear(

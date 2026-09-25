@@ -147,6 +147,12 @@ LEDGER_TABLES: frozenset[str] = frozenset({"schema_migration"})
 #: Added by the split, one per side.
 LINK_TABLE = "catalogue_link"
 PROFILE_REVISION_TABLE = "profile_revision"
+#: A split profile's own rescore requests (a semantic finding published, a
+#: forced or explicit rescore). They name postings this PERSON wants scored
+#: again, so they never go to the shared queue: that would tell every other
+#: profile which postings this one evaluated, and force all of them to
+#: rescore work that changed nothing public.
+PROFILE_REQUEST_TABLE = "profile_request"
 IDENTITY_TABLE = "catalogue_identity"
 
 #: Run stages that write the catalogue and therefore take its collection lock.
@@ -368,7 +374,11 @@ _DEFERRABLE = r"(?:\s+(?:NOT\s+)?DEFERRABLE(?:\s+INITIALLY\s+(?:DEFERRED|IMMEDIA
 
 def _strip_shared_references(sql: str) -> str:
     """A CREATE TABLE statement without the foreign keys that name a public table."""
-    names = "|".join(sorted((re.escape(t) for t in SHARED_TABLES), key=len, reverse=True))
+    # Whole names only: `job` must never match the start of `job_match`.
+    names = "|".join(
+        f"{name}(?![\\w])"
+        for name in sorted((re.escape(t) for t in SHARED_TABLES), key=len, reverse=True)
+    )
     table_level = re.compile(
         r",\s*(?:CONSTRAINT\s+\w+\s+)?FOREIGN\s+KEY\s*\([^)]*\)\s*REFERENCES\s+[\"`]?(?:"
         + names
@@ -550,6 +560,11 @@ def make_profile(conn: sqlite3.Connection, linked_to: str) -> SplitReport:
                 rewritten = re.sub(r"\bcompute_revision\b", PROFILE_REVISION_TABLE, sql)
                 conn.execute(rewritten)
 
+            conn.execute(
+                f"CREATE TABLE {PROFILE_REQUEST_TABLE} ("
+                " job_id TEXT PRIMARY KEY,"
+                " marked_at TEXT NOT NULL)"
+            )
             conn.execute(
                 f"CREATE TABLE {LINK_TABLE} ("
                 " id TEXT PRIMARY KEY CHECK (id = 'singleton'),"

@@ -117,16 +117,22 @@ def split_command(
     except ProfileError as exc:
         typer.secho(f"{exc} Close Career Agent first.", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2) from exc
+    hold = catalogue_split.SourceHold(source)
     try:
+        try:
+            held = hold.__enter__()
+        except CatalogueError as exc:
+            typer.secho(str(exc), fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=2) from exc
         started = time.monotonic()
         typer.echo(f"Reading {source} (not changed) and building in {where} ...")
         try:
-            profile, shared, identity = catalogue_split.build(source, where)
+            profile, shared, identity = catalogue_split.build(source, where, held=held)
         except CatalogueError as exc:
             typer.secho(str(exc), fg=typer.colors.RED, err=True)
             raise typer.Exit(code=2) from exc
         built = time.monotonic() - started
-        check = catalogue_split.verify(source, profile, shared)
+        check = catalogue_split.verify(source, profile, shared, held=held)
         payload = {
             "source": str(source),
             "catalogue_id": identity,
@@ -158,9 +164,15 @@ def split_command(
                 shutil.rmtree(where, ignore_errors=True)
             typer.echo("Rehearsal only. Run again with --execute to move the files into place.")
             return
-        # Still holding the profile's lock: nothing can open it while it moves.
-        installed = catalogue_split.install(source, profile, shared)
+        # Still holding the profile's lock and the source itself: the hold
+        # is let go only at the moment the file is moved aside.
+        try:
+            installed = catalogue_split.install(source, profile, shared, hold=hold)
+        except CatalogueError as exc:
+            typer.secho(str(exc), fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=2) from exc
     finally:
+        hold.release()
         guard.release()
     shutil.rmtree(where, ignore_errors=True)
     typer.secho("Split done.", bold=True)
