@@ -124,7 +124,9 @@ def _snapshot(source: Path, destination: Path) -> dict[str, int]:
         live.close()
 
 
-def _manifest(result: BackupResult, database_name: str) -> str:
+def _manifest(
+    result: BackupResult, database_name: str, profile: dict[str, str] | None = None
+) -> str:
     """What this archive is, for whoever opens it in a year.
 
     Including what is deliberately ABSENT. A restore that fails because a key
@@ -134,6 +136,10 @@ def _manifest(result: BackupResult, database_name: str) -> str:
     return json.dumps(
         {
             "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            # ONE PERSON'S DATA. A backup holds one local profile: its
+            # database and its private settings. It never mixes profiles.
+            "scope": "one local profile",
+            "profile": profile or {"id": None, "label": None},
             "database": database_name,
             "jobs": result.jobs,
             "applications": result.applications,
@@ -143,6 +149,17 @@ def _manifest(result: BackupResult, database_name: str) -> str:
             "cv_proposals_awaiting_review": result.pending_proposals,
             "application_notes": result.notes,
             "config_files": sorted(result.config_files),
+            "not_included": {
+                "other_profiles": "Each local profile is backed up on its own.",
+                "resume_tailor": (
+                    "Resume Tailor keeps its own per-candidate backup; its workspace "
+                    "is not in this archive."
+                ),
+            },
+            "contains_public_jobs": (
+                "Yes: until the shared catalogue exists, a profile's database also holds "
+                "the job postings it collected. See docs/MULTI_PROFILE.md."
+            ),
             "excluded": {
                 "credentials": sorted(NEVER_COPIED),
                 "why": (
@@ -161,7 +178,14 @@ def _manifest(result: BackupResult, database_name: str) -> str:
     )
 
 
-def create_backup(*, db: Path, config_dir: Path, destination: Path, staging: Path) -> BackupResult:
+def create_backup(
+    *,
+    db: Path,
+    config_dir: Path,
+    destination: Path,
+    staging: Path,
+    profile: dict[str, str] | None = None,
+) -> BackupResult:
     """Write one archive holding the corpus and the private configuration.
 
     `staging` is a caller-supplied scratch directory, so this function creates
@@ -203,7 +227,7 @@ def create_backup(*, db: Path, config_dir: Path, destination: Path, staging: Pat
         archive.write(snapshot, snapshot.name)
         for target in copied:
             archive.write(target, f"config/{target.name}")
-        archive.writestr("MANIFEST.json", _manifest(result, snapshot.name))
+        archive.writestr("MANIFEST.json", _manifest(result, snapshot.name, profile))
 
     result.skipped_secrets = sorted(set(result.skipped_secrets))
     return result

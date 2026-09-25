@@ -8880,3 +8880,22 @@ body.has-cw-drawer { overflow: hidden; }
 .contrib--uncounted { opacity: 0.7; }
 .contrib__source { font-size: 0.8rem; color: var(--muted); }
 .component--unconfigured .component__note { color: var(--muted); }
+
+/* Local profiles: whose Career Agent this is, under the app's name. */
+.sidenav__profile { margin: 0 0 12px; }
+.lprof__summary {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 6px 8px; border: 1px solid var(--line, #ccc); border-radius: 8px;
+}
+.lprof__kicker { font-size: 0.75rem; opacity: 0.75; }
+.lprof__name { font-weight: 600; overflow-wrap: anywhere; }
+.lprof__dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #2a9d8f; }
+.lprof__dot--violet { background: #7b61ff; }
+.lprof__dot--amber { background: #e9a23b; }
+.lprof__dot--rose { background: #e56b8a; }
+.lprof__dot--sky { background: #3b9ae9; }
+.lprof__dot--lime { background: #7cb342; }
+.lprof__panel { display: grid; gap: 10px; padding: 10px 4px; }
+.lprof__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lprof__form { display: grid; gap: 4px; }
+.lprof__danger { border-top: 1px solid var(--line, #ccc); padding-top: 8px; }

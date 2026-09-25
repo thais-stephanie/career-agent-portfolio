@@ -193,6 +193,13 @@ def build_funnel(
     }
 
 
+class ProfileRetired(Exception):  # noqa: N818 -- a state, not a malfunction
+    """A run was asked of an app whose local profile was switched away.
+
+    Deliberately NOT a RuntimeError, which call sites read as "a run is
+    already going": the server answers this one with a reload instead."""
+
+
 class RetrievalRunner:
     """Owns at most one run at a time, and says so rather than starting a second.
 
@@ -229,6 +236,20 @@ class RetrievalRunner:
         Injected rather than constructed here so the tests can drive the whole
         lifecycle -- start, progress, cancel, failure -- without a network.
         """
+        gate = getattr(self, "admit_lock", None)
+        if gate is not None:
+            # A local-profile switch holds this lock while it retires the old
+            # profile's app: no run may start on a profile that is being left.
+            with gate:
+                if not self.admit():
+                    raise ProfileRetired("this profile is no longer the active one")
+                return self._start(work, run_id)
+        return self._start(work, run_id)
+
+    def admit(self) -> bool:
+        return True
+
+    def _start(self, work: Any, run_id: str) -> dict[str, Any]:
         with self._lock:
             if self._state and self._state.status == "running":
                 raise RuntimeError("a retrieval is already running")

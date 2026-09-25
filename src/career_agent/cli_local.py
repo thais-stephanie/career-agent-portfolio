@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Annotated, Any
@@ -52,6 +53,7 @@ def register(app: typer.Typer) -> None:
     app.command(name="intake-answer")(intake_answer_command)
     app.command(name="integrity")(integrity_command)
     app.command(name="source-health")(source_health_command)
+    app.command(name="profiles")(profiles_command)
     app.command(name="source-coverage")(source_coverage_command)
     app.command(name="discover-employer-boards")(discover_employer_boards_command)
     app.command(name="discover-boards")(discover_boards_command)
@@ -1307,10 +1309,48 @@ def prepare_command(
 # =====================================================================
 # backup
 # =====================================================================
+def _check_profile_pair(db: Path, config_dir: Path) -> None:
+    """Refuse one local profile's database with another profile's settings.
+
+    `rescore --db data/profiles/<B>/personal.db` with the default `config/`
+    would score B's jobs with A's search intent. A database stamped for a
+    profile must be used with that profile's settings folder.
+    """
+    from career_agent.runtime.profiles import ProfileError, bound_profile, load_registry
+    from career_agent.storage.db import connect as _connect
+
+    try:
+        registry = load_registry(Path.cwd())
+    except ProfileError:
+        return
+    if registry is None or not Path(db).exists():
+        return
+    probe = _connect(Path(db))
+    try:
+        bound = bound_profile(probe)
+    finally:
+        probe.close()
+    owner = next((p for p in registry.profiles if p.id == bound), None)
+    if owner is None:
+        return
+    if Path(config_dir).resolve() != (Path.cwd() / owner.config_dir).resolve():
+        raise typer.BadParameter(
+            f"this database belongs to the local profile {owner.label!r}; "
+            f"use --config-dir {owner.config_dir} (its own settings)"
+        )
+
+
 def backup_command(
     db: Annotated[Path | None, typer.Option("--db")] = None,
     config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
     out: Annotated[Path | None, typer.Option("--out", help="Where to write the archive")] = None,
+    profile_name: Annotated[
+        str | None,
+        typer.Option(
+            "--profile",
+            help="Back up this local profile (name or id): its database and its settings.",
+        ),
+    ] = None,
 ) -> None:
     """Copy everything that would hurt to lose, and nothing that would hurt to keep.
 
@@ -1327,15 +1367,45 @@ def backup_command(
     """
     import tempfile
 
+    from career_agent.runtime.profiles import load_registry
     from career_agent.storage.backup import contents, create_backup
 
+    profile_info: dict[str, str] | None = None
+    registry = load_registry(Path.cwd())
+    if profile_name is not None:
+        chosen = [
+            p
+            for p in (registry.profiles if registry else [])
+            if p.id == profile_name or p.label.casefold() == profile_name.casefold()
+        ]
+        if not chosen:
+            raise typer.BadParameter(f"no local profile is called {profile_name!r}")
+        db, config_dir, _ = chosen[0].paths(Path.cwd())
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     if not db.exists():
         typer.secho(f"no database at {db}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2)
+    if registry is not None:
+        from career_agent.runtime.profiles import bound_profile
+        from career_agent.storage.db import connect as _connect
+
+        probe = _connect(db)
+        try:
+            bound = bound_profile(probe)
+        finally:
+            probe.close()
+        match = [p for p in registry.profiles if p.id == bound]
+        if match:
+            profile_info = {"id": match[0].id, "label": match[0].label}
 
     stamp = _utc_stamp()
-    destination = out or Path("backups") / f"career-agent-{stamp}.zip"
+    slug = (
+        re.sub(r"[^a-z0-9]+", "-", profile_info["label"].casefold()).strip("-") + "-"
+        if profile_info
+        else ""
+    )
+    destination = out or Path("backups") / f"career-agent-{slug}{stamp}.zip"
 
     with tempfile.TemporaryDirectory() as scratch:
         result = create_backup(
@@ -1343,6 +1413,7 @@ def backup_command(
             config_dir=config_dir,
             destination=destination,
             staging=Path(scratch) / "backup",
+            profile=profile_info,
         )
 
     typer.secho(f"Wrote {result.path}", bold=True)
@@ -1978,6 +2049,7 @@ def semantic_match_command(
     publication gate and the evaluated postings are scored again.
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     from career_agent.pipeline.rescore import RescoreMode, rescore
     from career_agent.semantic.intent import search_intent
     from career_agent.semantic.routing import resolve
@@ -2133,6 +2205,7 @@ def rescore_command(
     Makes zero network calls and zero inference calls of either kind.
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     from career_agent.pipeline.rescore import RescoreMode, plan, rescore
 
     config, config_path = _load_config(config_dir)
@@ -2298,6 +2371,8 @@ def serve_command(
 
     mode = RuntimeMode.DEMO if demo else RuntimeMode.PERSONAL
     db = resolve_database(mode, db)
+    if mode is RuntimeMode.PERSONAL:
+        _check_profile_pair(db, config_dir)
     config, config_path = _load_config(config_dir)
 
     conn = connect(db)
@@ -2429,6 +2504,7 @@ def import_job_command(
     and it is often several kilobytes of text that would be mangled by quoting.
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     from career_agent.pipeline.manual_import import ImportError_, import_posting
     from career_agent.web.api import _now
 
@@ -2522,6 +2598,7 @@ def enrich_command(
     threshold is enforced unless it is explicitly waived.
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     from career_agent.pipeline.enrich import EnrichmentRejected, EnrichmentUnavailable, enrich_one
 
     config, _ = _load_config(config_dir)
@@ -3478,6 +3555,7 @@ def daily_command(
         candidate_id_of,
     )
 
+    _check_profile_pair(db, config_dir)
     config, config_path = _load_config(config_dir)
     conn = connect(db)
     try:
@@ -3781,6 +3859,7 @@ def collect_himalayas_command(
         except SearchConfigError:
             searches = ()
 
+    _check_profile_pair(db, config_dir)
     conn = connect(db)
     try:
         migrate(conn)
@@ -3936,6 +4015,7 @@ def collect_linkedin_command(
         typer.echo(f"by term origin: {dict(Counter(q.term.origin for q in queries))}")
         return
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     conn = _open_personal(db)
     try:
         if not opted_in(conn, LINKEDIN_SOURCE_ID):
@@ -4982,3 +5062,22 @@ def collect_wwr_command(
         fg=typer.colors.YELLOW,
     )
     typer.secho("  zero inference calls of either kind", fg=typer.colors.GREEN)
+
+
+def profiles_command() -> None:
+    """List this installation's local profiles: name, id and folders.
+
+    Local profiles keep each person's data apart; they are not accounts. The
+    app shows and switches them (the launcher's side rail);
+    `Start-Career-Agent.ps1 -ProfileName NAME` starts with one.
+    """
+    from career_agent.runtime.profiles import load_registry
+
+    registry = load_registry(Path.cwd())
+    if registry is None:
+        typer.echo("No local profiles yet: the launcher creates the first on its next start.")
+        return
+    for profile in registry.profiles:
+        mark = "*" if profile.id == registry.active else " "
+        typer.echo(f"{mark} {profile.label}  ({profile.id})")
+        typer.echo(f"    database {profile.db}  settings {profile.config_dir}")

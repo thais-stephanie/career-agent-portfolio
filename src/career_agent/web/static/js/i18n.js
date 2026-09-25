@@ -1183,6 +1183,29 @@ const EN = {
   'drawer.whySection': 'Why this fits your search',
   // -- the rest of the interface -----------------------------------------
   'app.loading': 'Loading...',
+  'profiles.kicker': 'Profile',
+  'profiles.activeAria': 'Local profile: {name}. Open to switch or manage profiles.',
+  'profiles.explain':
+    'Local profiles keep each person\'s CV, evidence, preferences, Search Fit and applications apart in '
+    + 'this app. They are not accounts and not a security lock: anyone using this computer account can read '
+    + 'the files.',
+  'profiles.others': 'Switch to',
+  'profiles.switchTo': 'Switch to {name}',
+  'profiles.switching': 'Switching...',
+  'profiles.newLabel': 'New profile name',
+  'profiles.newHint': 'A new profile starts empty: nothing of this one is copied into it.',
+  'profiles.create': 'Create profile',
+  'profiles.created': 'Created {name}. Switch to it when you are ready.',
+  'profiles.renameLabel': 'Name of this profile',
+  'profiles.rename': 'Rename',
+  'profiles.renamed': 'Renamed.',
+  'profiles.deleteWhich': 'Delete another profile',
+  'profiles.deleteConfirm': 'Type its name to confirm',
+  'profiles.deleteHint':
+    'Its folder is moved to data/profiles/.trash, where it stays until you remove it. The profile in use '
+    + 'and the original one cannot be deleted here.',
+  'profiles.delete': 'Delete profile',
+  'profiles.deleted': 'Profile deleted.',
   'app.thisPosting': 'this posting',
   'app.rescore': 'Recalculate search fit',
   'app.rescoreFailed': 'Something went wrong. Try again',
@@ -4064,6 +4087,29 @@ const PT_BR = {
   'drawer.whySection': 'Por que se alinha à busca',
   // -- the rest of the interface -----------------------------------------
   'app.loading': 'Carregando...',
+  'profiles.kicker': 'Perfil',
+  'profiles.activeAria': 'Perfil local: {name}. Abra para trocar ou gerenciar perfis.',
+  'profiles.explain':
+    'Perfis locais mantêm separados neste app o currículo, as evidências, as preferências, o Search Fit e '
+    + 'as candidaturas de cada pessoa. Não são contas nem uma trava de segurança: quem usa esta conta do '
+    + 'computador consegue ler os arquivos.',
+  'profiles.others': 'Trocar para',
+  'profiles.switchTo': 'Trocar para {name}',
+  'profiles.switching': 'Trocando...',
+  'profiles.newLabel': 'Nome do novo perfil',
+  'profiles.newHint': 'Um perfil novo começa vazio: nada deste é copiado para ele.',
+  'profiles.create': 'Criar perfil',
+  'profiles.created': '{name} criado. Troque para ele quando quiser.',
+  'profiles.renameLabel': 'Nome deste perfil',
+  'profiles.rename': 'Renomear',
+  'profiles.renamed': 'Renomeado.',
+  'profiles.deleteWhich': 'Excluir outro perfil',
+  'profiles.deleteConfirm': 'Digite o nome dele para confirmar',
+  'profiles.deleteHint':
+    'A pasta dele vai para data/profiles/.trash e fica lá até você removê-la. O perfil em uso e o '
+    + 'original não podem ser excluídos aqui.',
+  'profiles.delete': 'Excluir perfil',
+  'profiles.deleted': 'Perfil excluído.',
   'app.thisPosting': 'este anúncio',
   'app.rescore': 'Recalcular aderência à busca',
   'app.rescoreFailed': 'Algo deu errado. Tente de novo',

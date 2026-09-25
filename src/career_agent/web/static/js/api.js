@@ -97,12 +97,20 @@ function networkError(cause) {
   });
 }
 
+//: The local profile this page was drawn for. Sent with every request once
+//: known, so a tab left open across a profile switch is refused rather than
+//: reading or writing the other person's data.
+let localProfile = null;
+export function setLocalProfile(id) { localProfile = id || null; }
+
 async function request(path, { method = 'GET', body = null, signal = null } = {}) {
   let response;
+  const headers = body ? { 'Content-Type': 'application/json' } : {};
+  if (localProfile) headers['X-Local-Profile'] = localProfile;
   try {
     response = await fetch(`${BASE}${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers,
       body: body ? JSON.stringify(body) : null,
       signal,
     });
@@ -128,6 +136,9 @@ async function request(path, { method = 'GET', body = null, signal = null } = {}
     }
   }
 
+  if (response.status === 409 && payload && payload.code === 'profile_changed') {
+    window.location.reload();
+  }
   if (!response.ok) {
     const said = (payload && (payload.message || payload.error)) || null;
     // Marked for the reader, and there is something to read: her words win.
@@ -1125,6 +1136,19 @@ function base64Of(bytes) {
 
 /** Read-only maintenance status; never starts collection. */
 export async function getSourceMaintenance() { return request('/source-maintenance'); }
+
+/** Local profiles: listing, creating, renaming, switching, deleting. */
+export async function getLocalProfiles() {
+  if (MOCK) return { enabled: false, active: null, profiles: [] };
+  return request('/profiles');
+}
+export const createLocalProfile = (label) => request('/profiles', { method: 'POST', body: { label } });
+export const renameLocalProfile = (id, label) =>
+  request(`/profiles/${encodeURIComponent(id)}`, { method: 'PATCH', body: { label } });
+export const switchLocalProfile = (profile_id) =>
+  request('/profiles/switch', { method: 'POST', body: { profile_id } });
+export const deleteLocalProfile = (id, confirm_label) =>
+  request(`/profiles/${encodeURIComponent(id)}/delete`, { method: 'POST', body: { confirm_label } });
 
 export async function createFirstSearch(body) { return request('/first-search', { method: 'POST', body }); }
 

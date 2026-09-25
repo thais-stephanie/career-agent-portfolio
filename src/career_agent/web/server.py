@@ -40,6 +40,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
+from career_agent.pipeline.retrieval import ProfileRetired
+
 STATIC_ROOT = Path(__file__).parent / "static"
 
 #: Types the platform's own table does not carry, registered rather than hoped
@@ -337,6 +339,22 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             if path.startswith("/api/"):
                 self._check_origin(method)
+                # A tab opened under another local profile must not read or
+                # write this one: it says which profile it belongs to, and a
+                # mismatch is refused so the page reloads.
+                claimed = (self.headers.get("X-Local-Profile") or "").strip()
+                host = getattr(self.app, "profile_host", None)
+                active = getattr(host, "active", None) if host is not None else None
+                if claimed and active is not None and claimed != active.id:
+                    self._send_json(
+                        409,
+                        {
+                            "error": "Another local profile is open now. The page will reload.",
+                            "for_reader": True,
+                            "code": "profile_changed",
+                        },
+                    )
+                    return
                 query = parse_qs(parsed.query, keep_blank_values=False)
                 body = self._read_body(body_limit(path)) if method in ("POST", "PATCH") else {}
                 payload = self.app.handle_api(method, path, query, body)
@@ -345,6 +363,17 @@ class _Handler(BaseHTTPRequestHandler):
             if method != "GET":
                 raise ApiError(405, "method not allowed")
             self._send_static(path)
+        except ProfileRetired:
+            # A request that reached the app of a profile switched away a
+            # moment ago: the page reloads onto the profile now open.
+            self._send_json(
+                409,
+                {
+                    "error": "Another local profile is open now. The page will reload.",
+                    "for_reader": True,
+                    "code": "profile_changed",
+                },
+            )
         except ApiError as exc:
             # `for_reader` rides along only when it is TRUE. A key present on
             # every error payload would make the flag look like a property of
