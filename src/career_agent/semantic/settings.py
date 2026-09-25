@@ -123,6 +123,28 @@ def env_path(config_dir: Path) -> Path:
     return config_dir.parent / ".env"
 
 
+def load_stored_key(config_dir: Path) -> bool:
+    """Bring a key saved in the root `.env` into this process, once, at startup.
+
+    The launcher that opens the app never loads `.env` (only the CLI does), so
+    a key saved from Settings was lost on the next start. Only THIS variable is
+    read, and only when the environment does not already hold one: an explicit
+    environment value wins, and nothing else in `.env` is touched.
+    """
+    if os.environ.get(CREDENTIAL, "").strip():
+        return True
+    path = env_path(config_dir)
+    if not path.is_file():
+        return False
+    from dotenv import dotenv_values
+
+    value = (dotenv_values(path).get(CREDENTIAL) or "").strip()
+    if not value:
+        return False
+    os.environ[CREDENTIAL] = value
+    return True
+
+
 def key_state(config_dir: Path) -> KeyState:
     if os.environ.get(CREDENTIAL, "").strip():
         return KeyState(True, "configured on this computer")

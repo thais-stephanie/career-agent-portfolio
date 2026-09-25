@@ -191,3 +191,36 @@ def test_work_level_and_way_of_working_are_ready_without_any_tools() -> None:
     """A teacher or a nurse may state no tools. That is not missing setup."""
     result = readiness_of(work=True, level=True, work_model=True, tools=False)
     assert result.state is Readiness.READY and result.tool_phrases == 0
+
+
+def test_a_saved_key_survives_a_restart_without_the_cli(config_dir, monkeypatch) -> None:
+    """The launcher never loads `.env`; the key saved from Settings must still
+    be there after the app starts again, and nothing else from `.env` is."""
+    from career_agent.semantic.settings import load_stored_key
+
+    env_path(config_dir).write_text(f"DEEPSEEK_API_KEY={KEY}\nOTHER_SECRET=x\n", encoding="utf-8")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("OTHER_SECRET", raising=False)
+    assert load_stored_key(config_dir) is True
+    assert key_state(config_dir).configured
+    import os
+
+    assert "OTHER_SECRET" not in os.environ
+
+
+def test_an_environment_key_wins_over_the_file(config_dir, monkeypatch) -> None:
+    import os
+
+    from career_agent.semantic.settings import load_stored_key
+
+    env_path(config_dir).write_text(f"DEEPSEEK_API_KEY={KEY}\n", encoding="utf-8")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-" + "e" * 32)
+    load_stored_key(config_dir)
+    assert os.environ["DEEPSEEK_API_KEY"] == "sk-" + "e" * 32
+
+
+def test_no_file_means_no_key(config_dir) -> None:
+    from career_agent.semantic.settings import load_stored_key
+
+    assert load_stored_key(config_dir) is False
+    assert not key_state(config_dir).configured
