@@ -1,0 +1,22 @@
+Jordan Example
+Operations Engineer at Contoso Ltd
+
+Top Skills
+HubSpot
+n8n
+Python
+
+Experience
+Contoso Ltd
+Operations Engineer
+January 2020 - December 2023
+Automated the order-to-cash process for the finance team.
+Skills & Tools: Workato, Salesforce, SQL
+Keywords: CI/CD
+
+Licenses & Certifications
+Salesforce: Certified Administrator (Sep 2026)
+
+Education
+Invented University
+BSc Business Administration, 2015 - 2019

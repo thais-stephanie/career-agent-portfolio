@@ -135,6 +135,8 @@ def _credential(field: str) -> str | None:
 
 def read_certificate(text: str) -> Certificate | None:
     """The fields a certification line states, or None when it is ambiguous."""
+    if "|" not in text:
+        return _read_unpiped(text.strip())
     fields = [f.strip() for f in text.strip().strip("|").split("|")]
     fields = [f for f in fields if f]
     if not fields or len(fields) > 6:
@@ -218,3 +220,30 @@ def _first_month(value: str) -> str:
 
 def _last_month(value: str) -> str:
     return value if len(value) > 4 else f"{value}-12"
+
+
+def _read_unpiped(text: str) -> Certificate | None:
+    """The forms written without columns.
+
+    Issuer: Title            a short issuer, no digits, before one colon
+    Title (Sep 2026)         a date in trailing parentheses
+    Title, 2021              a date after the last comma or spaced hyphen
+    Title                    anything else: the title alone, as written
+    """
+    if not text:
+        return None
+    issuer: str | None = None
+    labelled = re.match(r"^([^:\d]{2,40}):\s+(.+)$", text)
+    if labelled and len(labelled.group(1).split()) <= 4:
+        issuer, text = labelled.group(1).strip(), labelled.group(2).strip()
+    issued: str | None = None
+    dated = re.match(r"^(.+?)\s*\(([^()]+)\)$", text)
+    if dated and _date(dated.group(2)):
+        text, issued = dated.group(1).strip(), _date(dated.group(2))
+    else:
+        tail = re.match(r"^(.+?)(?:,|\s+-)\s*([^,]+)$", text)
+        if tail and _date(tail.group(2)):
+            text, issued = tail.group(1).strip(), _date(tail.group(2))
+    if not text or _date(text):
+        return None
+    return Certificate(title=text, issuer=issuer, issued=issued)
