@@ -243,3 +243,64 @@ Hand review of fixed samples of the resulting STRONG band found about seven in t
 - **READY:** work, level and way of working all stated.
 
 Tools are not required, because many occupations have none worth stating. Readiness does not depend on the corpus, because a rare phrase is rare intent, not incomplete setup.
+
+## Revalidation after the corpus grew (2026-09-25)
+
+The coverage work (#11, #16) added 31,739 postings after the previous semantic run: Greenhouse 16,072, Lever 7,581, Ashby 6,970, Himalayas 234, LinkedIn 215, and smaller ATS families. Evaluating all of them was never the plan. `career-agent semantic-match` gained two options for a revalidation:
+
+- `--since last-run` (or an ISO time) limits the pool to postings collected after the last semantic run, plus any posting a targeted search returned.
+- `--order priority` reads targeted-search postings first, then by deterministic Search Fit, then by full-text relevance. The default stays `relevance` everywhere, including the app.
+
+The cache identity is unchanged: posting text, search-intent digest and semantic contract. A text already evaluated for the same intent is never paid for again.
+
+`--since last-run` starts at the previous run's START. A budget-capped run leaves the rest of its pool unread, and a posting whose text changed keeps its first-seen time, so the run after a capped one should use `--since` with the capped run's own window, or no `--since`, to reach them. Evaluated texts are skipped either way.
+
+**One run, DeepSeek, hard budget $2.00:**
+
+- **Pool.** 8,781 of the new texts passed the prefilter. The run chose the top 2,000 in priority order.
+- **Estimate.** 7.66M input tokens and $3.14 expected ($8.30 worst case). Earlier runs cost about $0.99 per 1,000 postings, below estimate. The budget stop is the hard limit.
+- **Actual.** 1,419 calls, 3.82M input and 0.69M output tokens, **$1.97 spent** (stopped by the budget). 1,418 answers published, 1 refused by the publication gate, 0 failures. 1,830 postings rescored.
+
+**Effect on the 31,739 new postings:**
+
+| band | before | after |
+|---|---|---|
+| STRONG | 16 | 350 |
+| GOOD | 208 | 999 |
+| MODERATE | 3,495 | 2,553 |
+| WEAK | 28,020 | 27,837 |
+
+Main movements: MODERATE to GOOD 793, MODERATE to STRONG 230, GOOD to STRONG 74, WEAK to GOOD 72, WEAK to STRONG 30.
+
+Share of new postings rated GOOD or STRONG:
+
+| source | share |
+|---|---|
+| LinkedIn | 48.8% |
+| Himalayas | 25.6% |
+| Greenhouse | 4.8% |
+| Lever | 3.0% |
+| Ashby | 2.4% |
+
+| lane | postings | GOOD or STRONG | share |
+|---|---|---|---|
+| Targeted (a search built from the person's intent returned it) | 409 | 165 | 40.3% |
+| Exploratory | 31,330 | 1,184 | 3.8% |
+
+**Suspicious high scores.** Some generic engineering roles score 94 to 100. A fixed, rule-defined sample was inspected: the top STRONG postings, generic engineering and data titles above a score threshold, and titles in the role families closest to the search intent.
+
+What fills those scores:
+
+- In those high scorers, the work component (25) and the tools component (20) are filled by four and three genuine PRIMARY semantic matches.
+- The matches are to work items and tools the search intent itself lists. Several of those items describe work that generic engineering roles also do centrally.
+- A posting that centrally does four of the stated kinds of work is a fit for that intent.
+- Two individual matches were looser than the contract intends. Those are single provider judgments, not a pattern.
+
+Of the 747 STRONG postings, 710 have a recorded role core (the provider's summary of what the role mainly does). Grouped by the families of the search intent, only 21 of those 710 (3%) are primarily generic engineering with none of the intended kinds of work.
+
+**Decision: Search Fit is unchanged.** No scoring component was shown to overpay in general; the breadth comes from the search intent itself. Two changes would narrow what counts, and neither is a scoring change:
+
+- narrower work phrases;
+- role anchors, which steer retrieval.
+
+Title-fit points stay out, as the role-alignment benchmark decided. Semantic role-core alignment, reading the whole description, was not promoted to ranking: it needs a named role to align to, and the earlier benchmark found only ALIGNED reliable.

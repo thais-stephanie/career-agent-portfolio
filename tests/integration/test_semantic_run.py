@@ -305,3 +305,54 @@ def test_the_reservation_is_an_upper_bound_for_any_script() -> None:
 
     greek = "Διαχείριση και ανάπτυξη υφιστάμενου πελατολογίου " * 50
     assert ceiling_tokens(greek) >= 2 * estimate_tokens(greek)
+
+
+def test_priority_order_reads_targeted_postings_first_then_by_search_fit(corpus) -> None:
+    conn, config = corpus
+    intent = search_intent(config)
+    plain = select_candidates(conn, config, intent, limit=100)
+    assert len(plain.candidates) >= 2
+    last = plain.candidates[-1].job_id
+    with transaction(conn):
+        conn.execute(
+            "INSERT INTO job_retrieval_lane VALUES (?, 'targeted', 'x', 'q', 'work', 't', 't')",
+            (last,),
+        )
+    ranked = select_candidates(conn, config, intent, limit=100, order="priority")
+    assert ranked.candidates[0].job_id == last
+    scores = dict(
+        conn.execute(
+            "SELECT job_id, match_score FROM job_match WHERE config_version = ?",
+            (config.config_version,),
+        ).fetchall()
+    )
+    rest = [scores[c.job_id] for c in ranked.candidates[1:]]
+    assert rest == sorted(rest, reverse=True)
+    assert {c.job_id for c in ranked.candidates} == {c.job_id for c in plain.candidates}
+    with pytest.raises(ValueError):
+        select_candidates(conn, config, intent, limit=100, order="loudest")
+
+
+def test_since_keeps_new_and_targeted_postings_only(corpus) -> None:
+    conn, config = corpus
+    intent = search_intent(config)
+    everything = select_candidates(conn, config, intent, limit=100).candidates
+    old, targeted = everything[0].job_id, everything[1].job_id
+    with transaction(conn):
+        conn.execute("UPDATE job SET first_seen_at = '2020-01-01T00:00:00Z'")
+        conn.execute(
+            "UPDATE job SET first_seen_at = '2030-01-01T00:00:00Z' WHERE id NOT IN (?, ?)",
+            (old, targeted),
+        )
+        conn.execute(
+            "INSERT INTO job_retrieval_lane VALUES (?, 'targeted', 'x', 'q', 'work', 't', 't')",
+            (targeted,),
+        )
+    chosen = {
+        c.job_id
+        for c in select_candidates(
+            conn, config, intent, limit=100, since="2029-01-01T00:00:00Z"
+        ).candidates
+    }
+    assert old not in chosen and targeted in chosen
+    assert chosen == {c.job_id for c in everything} - {old}
