@@ -82,6 +82,8 @@ from career_agent.domain.matching import (
     ScoreComponent,
     ScoreContribution,
     ScoredJob,
+    SemanticEvidence,
+    SemanticMatch,
     SeniorityReading,
     SignalHit,
     TitleAdjustment,
@@ -307,6 +309,9 @@ def _contribution_to_dict(row: ScoreContribution) -> dict[str, Any]:
         "weight": row.weight,
         "points": row.points,
         "quote": row.quote,
+        "counted": row.counted,
+        "source": row.source,
+        "uncounted_reason": row.uncounted_reason,
     }
 
 
@@ -318,6 +323,9 @@ def _contribution_from_dict(data: dict[str, Any]) -> ScoreContribution:
         weight=data["weight"],
         points=data["points"],
         quote=data.get("quote"),
+        counted=bool(data.get("counted", True)),
+        source=str(data.get("source") or "lexical"),
+        uncounted_reason=data.get("uncounted_reason"),
     )
 
 
@@ -330,6 +338,8 @@ def _component_to_dict(component: ScoreComponent) -> dict[str, Any]:
         "contributions": [_contribution_to_dict(c) for c in component.contributions],
         "capped": component.capped,
         "note": component.note,
+        "configured": component.configured,
+        "guarded": component.guarded,
     }
 
 
@@ -342,6 +352,60 @@ def _component_from_dict(data: dict[str, Any]) -> ScoreComponent:
         contributions=tuple(_contribution_from_dict(c) for c in data.get("contributions", ())),
         capped=bool(data.get("capped", False)),
         note=data.get("note"),
+        configured=bool(data.get("configured", True)),
+        guarded=bool(data.get("guarded", False)),
+    )
+
+
+def semantic_to_dict(evidence: SemanticEvidence | None) -> dict[str, Any] | None:
+    if evidence is None:
+        return None
+    return {
+        "evaluation_id": evidence.evaluation_id,
+        "provider": evidence.provider,
+        "model": evidence.model,
+        "contract": evidence.contract,
+        "intent_digest": evidence.intent_digest,
+        "matches": [
+            {
+                "component_id": m.component_id,
+                "signal_id": m.signal_id,
+                "intent_id": m.intent_id,
+                "strength": m.strength,
+                "quote": m.quote,
+                "sentence": m.sentence,
+            }
+            for m in evidence.matches
+        ],
+        "verdicts": [[component, verdict] for component, verdict in evidence.verdicts],
+        "requested_provider": evidence.requested_provider,
+        "fallback_reason": evidence.fallback_reason,
+    }
+
+
+def semantic_from_dict(data: dict[str, Any] | None) -> SemanticEvidence | None:
+    if not data:
+        return None
+    return SemanticEvidence(
+        evaluation_id=str(data["evaluation_id"]),
+        provider=str(data["provider"]),
+        model=str(data["model"]),
+        contract=str(data["contract"]),
+        intent_digest=str(data["intent_digest"]),
+        matches=tuple(
+            SemanticMatch(
+                component_id=str(m["component_id"]),
+                signal_id=str(m["signal_id"]),
+                intent_id=str(m["intent_id"]),
+                strength=str(m["strength"]),
+                quote=str(m["quote"]),
+                sentence=str(m.get("sentence") or ""),
+            )
+            for m in data.get("matches", ())
+        ),
+        verdicts=tuple((str(c), str(v)) for c, v in data.get("verdicts", ())),
+        requested_provider=data.get("requested_provider"),
+        fallback_reason=data.get("fallback_reason"),
     )
 
 
@@ -435,7 +499,11 @@ def membership_of(result: MatchResult) -> str:
             if component.component_id
             in {"responsibilities", "technologies", "automation_integration"}
             for contribution in component.contributions
-            if contribution.points > 0
+            # FOUND, not PAID. Search Fit v5 keeps a match it did not count
+            # (past the strongest few, or a sentence that already paid) with
+            # zero points; the posting still showed it, so a filter for it
+            # must still find the posting.
+            if contribution.points > 0 or contribution.uncounted_reason
         }
     )
     return (
@@ -529,6 +597,7 @@ def serialise_match(result: MatchResult) -> str:
         # The quote in particular has nowhere else to live: it is the
         # employer's own sentence, and no column holds it.
         "experience": _experience_to_dict(result.experience),
+        "semantic": semantic_to_dict(result.semantic),
         "computed_at": result.computed_at,
     }
     return json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
@@ -678,6 +747,7 @@ def deserialise_match(payload: str) -> MatchResult:
         domestic=_domestic_from_dict(data.get("domestic")),
         experience=_experience_from_dict(data.get("experience")),
         posting_facts=dict(data.get("posting_facts") or {}),
+        semantic=semantic_from_dict(data.get("semantic")),
         computed_at=data.get("computed_at", ""),
     )
 
@@ -1011,7 +1081,12 @@ class MatchRepo(_Repo):
         return str(row["id"])
 
     def replay_source_version(
-        self, config_id: str, target_version: int, input_digest: str, min_schema: int
+        self,
+        config_id: str,
+        target_version: int,
+        input_digest: str,
+        min_schema: int,
+        current_schema: int | None = None,
     ) -> int | None:
         """The newest scored version whose readings this build may reuse.
 
@@ -1024,13 +1099,20 @@ class MatchRepo(_Repo):
         Deliberately NOT the target version. A row already written under the
         version being computed is this pass's own output, and replaying from it
         would be reading an answer to the question being asked.
+
+        ONE EXCEPTION: a target-version row written by an OLDER result schema
+        (`current_schema` given). That row is not this pass's output; it is an
+        older build's answer whose readings are still valid, which is exactly
+        what the schema floor (`REPLAY_MIN_SCHEMA`) certifies. Without this a
+        scoring-only schema bump would re-read the whole corpus.
         """
+        newer = current_schema if current_schema is not None else min_schema
         row = self.conn.execute(
             "SELECT config_version FROM job_match"
-            " WHERE config_id = ? AND config_version <> ?"
-            "   AND input_digest = ? AND schema_version >= ?"
+            " WHERE config_id = ? AND input_digest = ? AND schema_version >= ?"
+            "   AND (config_version <> ? OR schema_version < ?)"
             " ORDER BY config_version DESC LIMIT 1",
-            (config_id, target_version, input_digest, min_schema),
+            (config_id, input_digest, min_schema, target_version, newer),
         ).fetchone()
         return int(row["config_version"]) if row else None
 
@@ -1042,6 +1124,7 @@ class MatchRepo(_Repo):
         source_version: int,
         input_digest: str,
         min_schema: int,
+        below_schema: int | None = None,
     ) -> dict[str, tuple[str, str]]:
         """``job_id -> (result_json, content_hash)`` for rows safe to replay from.
 
@@ -1061,11 +1144,19 @@ class MatchRepo(_Repo):
         for start in range(0, len(ids), 500):
             chunk = ids[start : start + 500]
             marks = ",".join("?" for _ in chunk)
+            ceiling = "" if below_schema is None else " AND schema_version < ?"
             rows = self.conn.execute(
                 f"SELECT job_id, result_json, content_hash FROM job_match"
                 f" WHERE config_id = ? AND config_version = ? AND job_id IN ({marks})"
-                f"   AND input_digest = ? AND schema_version >= ?",
-                (config_id, source_version, *chunk, input_digest, min_schema),
+                f"   AND input_digest = ? AND schema_version >= ?{ceiling}",
+                (
+                    config_id,
+                    source_version,
+                    *chunk,
+                    input_digest,
+                    min_schema,
+                    *(() if below_schema is None else (below_schema,)),
+                ),
             ).fetchall()
             for row in rows:
                 found[str(row["job_id"])] = (str(row["result_json"]), str(row["content_hash"]))

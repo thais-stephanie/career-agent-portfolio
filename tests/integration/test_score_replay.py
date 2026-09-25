@@ -447,16 +447,24 @@ def test_rows_without_a_digest_are_never_replayed_from(corpus):
 # =====================================================================
 
 
-def _age_every_row_to_the_previous_schema(conn: sqlite3.Connection, config: SearchConfig) -> int:
+def _age_every_row_to_the_previous_schema(
+    conn: sqlite3.Connection, config: SearchConfig, schema: int | None = None
+) -> int:
     """Turn the corpus into what production is the moment the build moves
     from MATCH_SCHEMA_VERSION 8 to 9: rows whose digest and content are
-    current and whose result shape is the old one (five gate outcomes)."""
-    from career_agent.domain.matching import MATCH_SCHEMA_VERSION
+    current and whose result shape is the old one (five gate outcomes).
 
+    Aged BELOW the replay floor by default. Schema 10 changed only arithmetic
+    and provenance, so a schema 9 row is a legitimate replay source; the
+    refusal this helper exists to exercise is the one for a READING shape
+    that moved, which is anything under `REPLAY_MIN_SCHEMA`."""
+    from career_agent.domain.matching import REPLAY_MIN_SCHEMA
+
+    aged = REPLAY_MIN_SCHEMA - 1 if schema is None else schema
     with transaction(conn):
         cursor = conn.execute(
             "UPDATE job_match SET schema_version = ? WHERE config_id = ? AND config_version = ?",
-            (MATCH_SCHEMA_VERSION - 1, str(config.config_id), int(config.config_version)),
+            (aged, str(config.config_id), int(config.config_version)),
         )
     return cursor.rowcount
 
@@ -475,9 +483,15 @@ def test_a_row_under_the_previous_result_schema_is_never_a_replay_source(corpus)
     repo = MatchRepo(conn)
     config_id, version = str(config.config_id), int(config.config_version)
     assert repo.stale_schema_count(config_id, version) == len(POSTINGS)
+    from career_agent.domain.matching import REPLAY_MIN_SCHEMA
+
     assert (
         repo.replay_source_version(
-            config_id, version, identity.input_digest(config), MATCH_SCHEMA_VERSION
+            config_id,
+            version,
+            identity.input_digest(config),
+            REPLAY_MIN_SCHEMA,
+            MATCH_SCHEMA_VERSION,
         )
         is None
     )
@@ -494,6 +508,40 @@ def test_a_row_under_the_previous_result_schema_is_never_a_replay_source(corpus)
     for row in conn.execute("SELECT schema_version FROM job_match").fetchall():
         assert int(row["schema_version"]) == MATCH_SCHEMA_VERSION
 
+    read = _snapshot(conn, config)
+    full, _ = _forced_on_a_copy(conn, config, tmp_path)
+    for job_id, record in full.items():
+        assert read[job_id] == record
+
+
+def test_a_scoring_only_schema_move_replays_instead_of_reading_again(corpus):
+    """Schema 10 changed Search Fit's arithmetic and provenance, never a
+    reading. A row written by schema 9 at the CURRENT config version is an
+    older build's answer, not this pass's own output, so it replays: no
+    posting is read again, every row is rewritten under schema 10, and the
+    result equals an independent full pass."""
+    from career_agent.domain.matching import MATCH_SCHEMA_VERSION, REPLAY_MIN_SCHEMA
+
+    conn, config, tmp_path = corpus
+    assert _age_every_row_to_the_previous_schema(conn, config, REPLAY_MIN_SCHEMA) == len(
+        POSTINGS
+    )
+    # Aging by UPDATE fires the population trigger, which drops the score
+    # receipts. A row the previous build WROTE keeps its receipt, so put them
+    # back: that is the production state this test describes.
+    from career_agent.storage import invalidation
+
+    ids = [str(r[0]) for r in conn.execute("SELECT id FROM job").fetchall()]
+    with transaction(conn):
+        for job_id, revision in invalidation.input_revisions(conn, ids).items():
+            invalidation.receipt(conn, job_id, config, revision)
+    stats = rescore(conn, config)
+    assert stats.jobs_scored == len(POSTINGS)
+    assert stats.replay_source_version == int(config.config_version)
+    assert stats.jobs_replayed == len(POSTINGS), stats.replay_refused
+    assert stats.jobs_read_in_full == 0
+    for row in conn.execute("SELECT schema_version FROM job_match").fetchall():
+        assert int(row["schema_version"]) == MATCH_SCHEMA_VERSION
     read = _snapshot(conn, config)
     full, _ = _forced_on_a_copy(conn, config, tmp_path)
     for job_id, record in full.items():

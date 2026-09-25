@@ -30,7 +30,7 @@ produce the same `MatchResult` a full pass would have produced.
 from __future__ import annotations
 
 from career_agent.domain.enums import GateResult
-from career_agent.domain.matching import MatchResult, ObservedSignal
+from career_agent.domain.matching import MatchResult, ObservedSignal, SemanticEvidence
 from career_agent.match.engine import JobFacts, posting_facts
 from career_agent.match.lexicon import body_only, prominence_of
 from career_agent.match.score import (
@@ -105,6 +105,7 @@ def replay(
     job: JobFacts,
     *,
     computed_at: str,
+    semantic: SemanticEvidence | None = None,
 ) -> MatchResult:
     """The result `match_job(config, job)` would return, from stored readings.
 
@@ -124,6 +125,7 @@ def replay(
         seniority=stored.seniority,
         employment=stored.employment,
         job_facts=job,
+        semantic=semantic,
     )
     penalties = soft_penalties(config, scoring_signals)
     score = match_score_from(components, penalties)
@@ -167,5 +169,6 @@ def replay(
         # of the facts this call was handed and `match_job` computes it the same
         # way. If the facts had moved, the replay would have been refused.
         posting_facts=posting_facts(job),
+        semantic=semantic,
         computed_at=computed_at,
     )

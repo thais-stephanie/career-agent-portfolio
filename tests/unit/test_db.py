@@ -113,6 +113,9 @@ EXPECTED_TABLES = {
     # 0039: the jobs a CV read describes -- company, role, dates, and the
     # source lines that stated them. Structure, never a claim.
     "cv_entry",
+    # 0041: published semantic evaluations and the runs that made them.
+    "semantic_evaluation",
+    "semantic_run",
     # 0031: where a query-scoped walk got to, slice by slice, across runs.
     "source_slice_state",
     # 0033: where a board-discovery walk over an aggregator index got to,

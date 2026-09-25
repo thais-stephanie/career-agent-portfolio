@@ -224,6 +224,16 @@ OBSERVED_PRICES: dict[tuple[str, str], ModelPrice] = {
         source="Anthropic pricing documentation (M2.5 §2)",
         observed_at="2026-09-02",
     ),
+    # The PEAK rate. Off-peak is half, and which one applies depends on the UTC
+    # hour the vendor receives the call; estimating at peak means a budget can
+    # only ever be under-spent, never over-spent.
+    ("deepseek", "deepseek-flash"): ModelPrice(
+        input_per_mtok=0.30,
+        output_per_mtok=1.20,
+        cached_input_per_mtok=0.006,
+        source="DeepSeek API pricing, deepseek-flash (DeepSeek-V4.1-Flash), peak rate",
+        observed_at="2026-09-25",
+    ),
 }
 
 

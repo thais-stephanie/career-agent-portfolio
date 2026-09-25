@@ -35,6 +35,21 @@ import { eligibilityTone, humanLabel, scoreDisplay } from './format.js';
 const CONFIDENCE_TITLE = () => t('badge.confidenceHelp');
 const MATCH_TITLE = () => t('badge.matchHelp');
 
+// Whether Career Agent knows enough about what the person wants to score at
+// all. When it does not, Search Fit reads "not ready" instead of a number:
+// a low score must mean "does not fit what you asked for", never "you have
+// not said what you want yet".
+let searchFitReady = true;
+
+/** Set from `/api/search-fit/readiness`; NOT_READY hides every Search Fit number. */
+export function setSearchFitReadiness(state) {
+  searchFitReady = state !== 'NOT_READY';
+}
+
+export function searchFitIsReady() {
+  return searchFitReady;
+}
+
 /**
  * The Match and Confidence chips.
  *
@@ -48,13 +63,21 @@ export function badges(job, { size = 'md', showEligibility = true } = {}) {
   const confidence = scoreDisplay(job.data_confidence);
 
   const children = [
-    chip({
-      kind: 'match',
-      label: t('legend.match'),
-      display: match,
-      band: job.fit_band,
-      title: MATCH_TITLE(),
-    }),
+    searchFitReady
+      ? chip({
+        kind: 'match',
+        label: t('legend.match'),
+        display: match,
+        band: job.fit_band,
+        title: MATCH_TITLE(),
+      })
+      : el('span', {
+        className: 'badge badge--match badge--unscored badge--not-ready',
+        attrs: { title: t('badge.notReadyHelp') },
+      }, [
+        el('span', { className: 'badge__label', text: t('legend.match') }),
+        el('span', { className: 'badge__value', text: t('badge.notReady') }),
+      ]),
     chip({
       kind: 'confidence',
       // "Posting detail", not "Detail". Beside "Match 80%", a bare "Detail

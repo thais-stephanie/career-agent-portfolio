@@ -184,7 +184,10 @@ def test_no_component_ever_exceeds_its_configured_maximum() -> None:
 
     for component in components:
         assert component.points <= component.max_points, component.component_id
-    assert _component(components, "responsibilities").capped is True
+    # Search Fit v5 pays only the strongest few, so a saturating posting never
+    # overflows: the rest are shown as already counted rather than capped.
+    work = _component(components, "responsibilities")
+    assert any(not c.counted and c.uncounted_reason for c in work.contributions)
 
 
 # --- compensation is a preference ------------------------------------------

@@ -188,7 +188,11 @@ postings:
       title_class: PRIMARY
       title_adjustment: PROMOTED
       eligibility_status: VERIFIED_ELIGIBLE
-      min_score: 58
+      # A GOOD fit or better: the band floor, not a number calibrated to the
+      # v4 sums (58). Under Search Fit v5 the work fills its component, the
+      # posting names none of the worked example's tools and states no level,
+      # so GOOD is exactly what it earns.
+      min_score: 55
       must_fire: [gtm_systems_work, crm_architecture, lead_routing, workflow_automation, api_integration]
       no_penalty: [quota_carrying_sales, cold_outbound]
 

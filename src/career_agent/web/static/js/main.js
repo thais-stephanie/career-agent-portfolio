@@ -27,6 +27,8 @@ import { renderTable, tableSkeleton, loadVisible, clearSelection } from './table
 import { renderKanban, kanbanSkeleton } from './kanban.js';
 import { renderPreferences } from './preferences.js';
 import { renderSearchSettings } from './search-settings.js';
+import { renderAiSettings } from './ai-settings.js';
+import { setSearchFitReadiness } from './badges.js';
 import { renderProfile } from './profile.js';
 import { LOCALES, getLocale, initialLocale, setLocale, t, tState } from './i18n.js';
 import { createRetrievalPanel } from './retrieval.js';
@@ -354,6 +356,7 @@ function goTo(page, { push = true } = {}) {
     renderSetupEntry(document.getElementById('settings-setup-host'));
     renderSearchSettings(document.getElementById('search-settings-host'), store);
     sourcesPanel.load();
+    renderAiSettings(document.getElementById('ai-settings-host'));
     const model = document.getElementById('settings-model');
     model.ontoggle = () => { if (model.open) loadPreferences(); };
     if (model.open) loadPreferences();
@@ -576,6 +579,17 @@ store.subscribe((state, meta) => {
  * first load of a query still draws the skeleton, because there is nothing
  * else to show.
  */
+/** Search Fit readiness, read with every list: a setup edit changes it. */
+async function refreshReadiness() {
+  try {
+    const readiness = await api.getSearchFitReadiness();
+    setSearchFitReadiness(readiness.state);
+  } catch {
+    // Unknown is not "not ready": the scores keep their numbers.
+    setSearchFitReadiness('READY');
+  }
+}
+
 async function load(queryString, state, { quiet = false } = {}) {
   lastQueryString = queryString;
   const token = ++inFlight;
@@ -593,7 +607,10 @@ async function load(queryString, state, { quiet = false } = {}) {
     // list the server returns include them.
     await settledJobSaves();
     if (token !== inFlight) return;
-    const response = await api.listJobs(new URLSearchParams(queryString));
+    const [response] = await Promise.all([
+      api.listJobs(new URLSearchParams(queryString)),
+      refreshReadiness(),
+    ]);
     if (token !== inFlight) return;
     loading = false;
     lastResponse = response;
@@ -2354,6 +2371,7 @@ function relabelStaticText() {
     'settings-setup-head': 'settings.setupHead',
     'settings-prefs-head': 'rail.preferences',
     'settings-sources-head': 'rail.sources',
+    'settings-ai-head': 'ai.head',
     'settings-retr-head': 'rail.retrieve',
   };
   for (const [id, key] of Object.entries(settingsHeads)) {

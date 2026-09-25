@@ -40,6 +40,11 @@ ADAPTERS: dict[str, tuple[Callable[..., LLMClient], Callable[..., Any], Callable
         openai_compatible.build_payload,
         openai_compatible.parse_response,
     ),
+    openai_compatible.DEEPSEEK: (
+        openai_compatible.DeepSeekClient,
+        openai_compatible.build_payload,
+        openai_compatible.parse_response,
+    ),
 }
 
 
@@ -59,6 +64,7 @@ CREDENTIAL_VARIABLES: dict[str, tuple[str, ...]] = {
     google.VENDOR: ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
     openai_compatible.CEREBRAS: ("CEREBRAS_API_KEY",),
     openai_compatible.OPENROUTER: ("OPENROUTER_API_KEY",),
+    openai_compatible.DEEPSEEK: ("DEEPSEEK_API_KEY",),
 }
 
 

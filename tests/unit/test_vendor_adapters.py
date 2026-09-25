@@ -77,7 +77,14 @@ def config(vendor: str, **kwargs) -> ModelConfig:
 
 def test_a_fourth_vendor_would_cost_one_file_and_one_entry() -> None:
     """The same test M1B applied to the ATS abstraction, applied to this port."""
-    assert available_vendors() == ["anthropic", "cerebras", "google", "openai", "openrouter"]
+    assert available_vendors() == [
+        "anthropic",
+        "cerebras",
+        "deepseek",
+        "google",
+        "openai",
+        "openrouter",
+    ]
 
     for vendor in available_vendors():
         client = get_client(vendor)

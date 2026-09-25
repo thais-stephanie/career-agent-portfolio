@@ -161,12 +161,17 @@ def test_only_the_phrase_the_person_typed_becomes_a_pattern(config_dir: Path) ->
     assert config["lexicon"]["duckdb_warehousing"]["patterns"] == ["duckdb warehousing"]
 
 
-def test_a_negative_signal_is_a_lexicon_entry_with_a_negative_weight(config_dir: Path) -> None:
-    """Not a separate list. `config/preferences.py` already records why."""
+def test_a_negative_signal_is_a_lexicon_entry_with_a_penalty_magnitude(config_dir: Path) -> None:
+    """Not a separate list. `config/preferences.py` already records why.
+
+    The weight is a POSITIVE magnitude the scorer subtracts. Setup used to
+    write -3, and subtracting -3 added points to every posting that said the
+    thing the person wanted less of.
+    """
     base, _ = base_config(config_dir)
     config, _ = apply_answers(base, Answers(negative_keywords=("door to door",)))
     assert "door_to_door" in config["lexicon"]
-    assert config["scoring"]["soft_penalties"]["weights"]["door_to_door"] < 0
+    assert config["scoring"]["soft_penalties"]["weights"]["door_to_door"] == 3
 
 
 def test_a_dislike_of_something_already_named_weights_that_entry(config_dir: Path) -> None:
@@ -180,7 +185,7 @@ def test_a_dislike_of_something_already_named_weights_that_entry(config_dir: Pat
     config, result = apply_answers(base, Answers(negative_keywords=("cold calling",)))
 
     weights = config["scoring"]["soft_penalties"]["weights"]
-    assert weights["cold_outbound"] < 0
+    assert weights["cold_outbound"] == 3
     assert "cold_calling" not in config["lexicon"]
     assert result.signals_already_present == [("cold calling", "cold_outbound")]
 
@@ -513,7 +518,7 @@ def test_the_same_answers_twice_change_nothing_the_second_time(config_dir: Path)
 
 
 def test_one_phrase_is_penalised_once_however_often_you_answer(config_dir: Path) -> None:
-    """A negative keyword minted a SECOND entry carrying a second -3.
+    """A negative keyword minted a SECOND entry carrying a second penalty.
 
     Two entries whose patterns are the same phrase both fire on the same
     posting, so the penalty doubled every run. Nobody asked to be penalised
@@ -532,7 +537,7 @@ def test_one_phrase_is_penalised_once_however_often_you_answer(config_dir: Path)
     ]
     assert len(matching) == 1, matching
     weights = written["scoring"]["soft_penalties"]["weights"]
-    assert weights[matching[0]] == -3
+    assert weights[matching[0]] == 3
 
 
 def test_a_stated_requirement_is_not_restated_on_every_run(config_dir: Path) -> None:

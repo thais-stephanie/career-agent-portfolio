@@ -48,6 +48,7 @@ unknown; an absent row would read as an absence of problems.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from career_agent.config.search_config import (
@@ -60,6 +61,7 @@ from career_agent.domain.enums import (
     EmploymentRelationship,
     FitBand,
     Prominence,
+    Seniority,
 )
 from career_agent.domain.matching import (
     DEFAULT_SENIORITY,
@@ -69,6 +71,8 @@ from career_agent.domain.matching import (
     Penalty,
     ScoreComponent,
     ScoreContribution,
+    SemanticEvidence,
+    SemanticMatch,
     SeniorityReading,
 )
 from career_agent.match.work_model import read_work_model
@@ -80,6 +84,47 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle exists only for the type ch
 #: How many unfired weighted signals a component names in its `note`. Enough to
 #: be actionable, few enough to read.
 MISSING_SIGNALS_SHOWN = 3
+
+#: How many distinct signals each phrase component pays for, fixed by MEANING
+#: rather than fitted to any corpus: four distinct desired activities make a
+#: role clearly about the work someone wants, three tools or methods make its
+#: toolset clearly theirs, three other desired signals make the rest clear.
+#: More matches than this add nothing, so a verbose posting cannot buy fit by
+#: mentioning everything, and nobody has to keyword-stuff a search to reach
+#: the top. docs/SEMANTIC_MATCHING.md records the design study behind it.
+COUNTED_SIGNALS: dict[str, int] = {
+    "responsibilities": 4,
+    "technologies": 3,
+    "automation_integration": 3,
+}
+
+#: Tools without any of the desired work can earn at most this share of the
+#: tools component. A posting that uses your tools for work you did not ask
+#: for is not a fit for that work.
+TOOLS_WITHOUT_WORK_SHARE = 0.5
+
+#: The seniority ladder for "one step away". LEAD sits between SENIOR and
+#: STAFF: past senior scope, short of the staff track.
+SENIORITY_LADDER: tuple[Seniority, ...] = (
+    Seniority.INTERN,
+    Seniority.JUNIOR,
+    Seniority.MID,
+    Seniority.SENIOR,
+    Seniority.LEAD,
+    Seniority.STAFF,
+    Seniority.PRINCIPAL,
+)
+#: Shares of the seniority maximum when the person stated preferred levels.
+SENIORITY_ADJACENT_SHARE = 0.5
+SENIORITY_OTHER_SHARE = 0.2
+
+#: Semantic strength to the prominence whose multiplier it earns. A strong
+#: finding is central to the role, like a phrase in the role's own section; a
+#: partial one is present but secondary.
+SEMANTIC_PROMINENCE: dict[str, Prominence] = {
+    "strong": Prominence.PRIMARY,
+    "partial": Prominence.SECONDARY,
+}
 
 #: Months in a year. Not a configurable rate and not an observation -- it is the
 #: definition of the two words, which is exactly why an annual figure may be
@@ -184,46 +229,150 @@ def _in_target_currency(
     )
 
 
+def _sentence_key(quote: str | None, signal_id: str) -> str:
+    """What makes two contributions the same sentence. Case and spacing aside."""
+    if not quote:
+        return f"__{signal_id}"
+    return " ".join(quote.casefold().split())
+
+
 def _weighted_component(
     component_id: str,
     component: WeightedComponent,
     observed: dict[str, ObservedSignal],
+    semantic: Sequence[SemanticMatch] | None = None,
 ) -> ScoreComponent:
-    contributions: list[ScoreContribution] = []
-    for signal_id, weight in component.weights.items():
-        signal = observed.get(signal_id)
-        if signal is None or not signal.fired:
-            continue
-        multiplier = component.prominence_multipliers[signal.prominence]
-        contributions.append(
-            ScoreContribution(
-                signal_id=signal_id,
-                label=signal.label,
-                prominence=signal.prominence,
-                weight=weight,
-                points=weight * multiplier,
-                quote=signal.best_quote,
-            )
+    """One phrase component: the strongest few distinct signals, each once.
+
+    UNCONFIGURED IS NOT UNMATCHED. A component with no positive weight is not
+    part of this search, so it leaves the denominator (max 0, `configured`
+    false). A configured component that found nothing stays 0 of its max.
+
+    Each candidate signal is a lexical hit (a configured phrase in the body,
+    scaled by where it appeared) or a published semantic finding (scaled by its
+    strength), whichever is stronger: one intent item never pays twice. Then:
+
+    * one sentence pays for at most HALF of this component's counted signals
+      (rounded up) through the person's own phrases, and for ONE semantic
+      finding, strongest first. A compound bullet ("build workflow
+      automation and REST API integrations") states two activities and pays
+      for both; one line can never fill a component on its own, which is the
+      stuffing this rule exists to stop. A literal "one sentence pays once"
+      was tried first and scored the demo's canonical fit posting MODERATE
+      because its bullets are compound (docs/SEMANTIC_MATCHING.md);
+    * only the strongest `COUNTED_SIGNALS` pay, each worth max / N at full
+      strength, so N central matches fill the component and more add nothing.
+
+    Nothing found is dropped from view: a signal that was found and not paid is
+    kept with `counted` false and the reason, so the drawer can say "already
+    counted" instead of implying the posting never said it.
+    """
+    positive = {sid: w for sid, w in component.weights.items() if w > 0}
+    if not positive:
+        return ScoreComponent(
+            component_id=component_id,
+            label=component.label,
+            points=0.0,
+            max_points=0.0,
+            note="Not part of your search: no phrases are configured here.",
+            configured=False,
         )
+    # Never more slots than the person has phrases: someone whose whole work
+    # intent is "patient care" fills the component by the posting showing it,
+    # instead of being capped at a quarter forever.
+    counted_signals = min(COUNTED_SIGNALS.get(component_id, 3), len(positive))
+    unit = component.max / counted_signals
+    heaviest = max(positive.values())
 
-    contributions.sort(key=lambda row: row.points, reverse=True)
-    uncapped = sum(row.points for row in contributions)
+    by_signal = {m.signal_id: m for m in semantic or () if m.component_id == component_id}
+    # (strength, contribution, [(quote, sentence key), ...] it may pay through)
+    candidates: list[tuple[float, ScoreContribution, list[tuple[str | None, str]]]] = []
+    for signal_id, weight in positive.items():
+        relative = weight / heaviest
+        best: tuple[float, ScoreContribution, list[tuple[str | None, str]]] | None = None
+        signal = observed.get(signal_id)
+        if signal is not None and signal.fired:
+            strength = component.prominence_multipliers[signal.prominence] * relative
+            # Every sentence the phrase appeared in, in order: when the first
+            # already paid for another signal, a later one may still pay.
+            places: list[tuple[str | None, str]] = list(
+                dict.fromkeys(
+                    (hit.quote, _sentence_key(hit.quote, signal_id)) for hit in signal.hits
+                )
+            ) or [(signal.best_quote, _sentence_key(signal.best_quote, signal_id))]
+            best = (
+                strength,
+                ScoreContribution(
+                    signal_id=signal_id,
+                    label=signal.label,
+                    prominence=signal.prominence,
+                    weight=weight,
+                    points=unit * strength,
+                    quote=signal.best_quote,
+                ),
+                places,
+            )
+        found = by_signal.get(signal_id)
+        if found is not None:
+            prominence = SEMANTIC_PROMINENCE.get(found.strength, Prominence.SECONDARY)
+            strength = component.prominence_multipliers[prominence] * relative
+            if best is None or strength > best[0]:
+                label = observed[signal_id].label if signal_id in observed else signal_id
+                best = (
+                    strength,
+                    ScoreContribution(
+                        signal_id=signal_id,
+                        label=label,
+                        prominence=prominence,
+                        weight=weight,
+                        points=unit * strength,
+                        quote=found.quote,
+                        source="semantic",
+                    ),
+                    # Keyed by the SENTENCE the gate found the quote in, so two
+                    # fragments of one bullet are one sentence.
+                    list[tuple[str | None, str]](
+                        [(found.quote, _sentence_key(found.sentence or found.quote, signal_id))]
+                    ),
+                )
+        if best is not None:
+            candidates.append(best)
+
+    candidates.sort(key=lambda row: (-row[0], row[1].signal_id))
+    contributions: list[ScoreContribution] = []
+    per_sentence = -(-counted_signals // 2)
+    paid_sentences: dict[str, int] = {}
+    paid = 0
+    total = 0.0
+    for _strength, row, where in candidates:
+        # A literal phrase is a statement the posting made; an interpretation
+        # of a sentence is one reading of it. A sentence may pay for up to half
+        # the component through phrases the person wrote, and for only one
+        # semantic finding: providers cite one sentence for several items far
+        # more loosely than postings state them (docs/SEMANTIC_MATCHING.md).
+        limit = per_sentence if row.source == "lexical" else 1
+        open_places = [(q, k) for q, k in where if paid_sentences.get(k, 0) < limit]
+        if not open_places:
+            contributions.append(
+                _uncounted(row, "This sentence already paid for as much as one sentence can.")
+            )
+            continue
+        if paid >= counted_signals:
+            contributions.append(
+                _uncounted(row, f"Already counted the {counted_signals} strongest matches here.")
+            )
+            continue
+        quote, key = open_places[0]
+        paid_sentences[key] = paid_sentences.get(key, 0) + 1
+        paid += 1
+        total += row.points
+        contributions.append(row if quote == row.quote else replace(row, quote=quote))
+
     fired = {row.signal_id for row in contributions}
-    missing = [signal_id for signal_id in component.weights if signal_id not in fired]
-
+    missing = [signal_id for signal_id in positive if signal_id not in fired]
     note: str | None = None
-    if missing:
-        # The LABEL, never the id. This read `", ".join(missing)` and printed
-        # "The posting never mentioned crm_architecture, gtm_systems_work,
-        # custom_objects" into the drawer, which is three of this system's own
-        # identifiers in a sentence somebody reads to find out why a job
-        # scored what it did.
-        #
-        # `observed` carries an entry for EVERY signal in the lexicon, fired
-        # or not, each with the label the configuration gave it. So the label
-        # was always one lookup away. The id is the fallback, because a signal
-        # weighted in `scoring` but absent from `lexicon` is a configuration
-        # error and printing its id is how somebody finds it.
+    if missing and paid < counted_signals:
+        # The LABEL, never the id: the drawer is read by a person.
         named = [
             observed[signal_id].label if signal_id in observed else signal_id
             for signal_id in missing
@@ -234,16 +383,70 @@ def _weighted_component(
             if len(missing) > MISSING_SIGNALS_SHOWN
             else ""
         )
-        note = f"No configured body phrase was recognized for {shown}{suffix}."
+        note = (
+            f"No configured body phrase was recognized for {shown}{suffix}."
+            if semantic is None
+            else f"Neither a configured phrase nor a checked finding showed {shown}{suffix}."
+        )
 
     return ScoreComponent(
         component_id=component_id,
         label=component.label,
-        points=min(uncapped, component.max),
+        points=min(total, component.max),
         max_points=component.max,
         contributions=tuple(contributions),
-        capped=uncapped > component.max,
+        # Capped means what the drawer says it means: what was paid exceeded
+        # the component. Signals left unpaid by the rules above are marked on
+        # themselves ("already counted"), not on the component.
+        capped=total > component.max,
         note=note,
+    )
+
+
+def _uncounted(row: ScoreContribution, reason: str) -> ScoreContribution:
+    return ScoreContribution(
+        signal_id=row.signal_id,
+        label=row.label,
+        prominence=row.prominence,
+        weight=row.weight,
+        points=0.0,
+        quote=row.quote,
+        counted=False,
+        source=row.source,
+        uncounted_reason=reason,
+    )
+
+
+def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
+    """Tools without the desired work earn at most half the tools component.
+
+    Applies only when the person DID say what work they want (the work
+    component is configured) and none of it was found. Tools alone then say
+    this role uses the person's toolset for something else, which is worth
+    knowing and is not a fit for the work. An unconfigured work component never
+    triggers the guard: nothing was asked, so nothing is missing.
+    """
+    ceiling = tools.max_points * TOOLS_WITHOUT_WORK_SHARE
+    if not work.configured or not tools.configured or work.points > 0:
+        return tools
+    if tools.points <= ceiling:
+        return tools
+    # The rows are scaled with the component, so what the drawer lists adds up
+    # to what the component actually scored.
+    factor = ceiling / tools.points
+    return ScoreComponent(
+        component_id=tools.component_id,
+        label=tools.label,
+        points=ceiling,
+        max_points=tools.max_points,
+        contributions=tuple(
+            replace(row, points=row.points * factor) if row.counted else row
+            for row in tools.contributions
+        ),
+        capped=False,
+        note="Capped at half: none of the work you want was found in this posting.",
+        configured=tools.configured,
+        guarded=True,
     )
 
 
@@ -258,7 +461,7 @@ def _seniority_component(config: SearchConfig, reading: SeniorityReading) -> Sco
     """
     component = config.scoring.components.seniority
     if reading.is_evidence:
-        points = component.points_for(reading.value)
+        points = _seniority_points(config, reading.value)
         label = f"The posting states a {reading.value.value} role"
     else:
         points = component.unevidenced
@@ -280,6 +483,32 @@ def _seniority_component(config: SearchConfig, reading: SeniorityReading) -> Sco
         ),
         note=None if reading.is_evidence else reading.sentence,
     )
+
+
+def _seniority_points(config: SearchConfig, level: Seniority) -> float:
+    """Evidence points for a stated level, from what the person prefers.
+
+    With preferred levels stated: a preferred level earns the full component,
+    one step away on the ladder earns half, a level the person excluded earns
+    nothing (it is also hidden from Discover, which is a visibility choice and
+    never an eligibility failure), and any other level earns a fifth. Without
+    preferred levels, the configured points table decides, as it always did.
+    """
+    component = config.scoring.components.seniority
+    preference = config.preferences.seniority
+    preferred = set(preference.preferred)
+    if not preferred:
+        return component.points_for(level)
+    if level in preferred:
+        return component.max
+    if level in set(preference.excluded):
+        return 0.0
+    if level in SENIORITY_LADDER:
+        at = SENIORITY_LADDER.index(level)
+        steps = [abs(at - SENIORITY_LADDER.index(p)) for p in preferred if p in SENIORITY_LADDER]
+        if steps and min(steps) == 1:
+            return component.max * SENIORITY_ADJACENT_SHARE
+    return component.max * SENIORITY_OTHER_SHARE
 
 
 #: Engagement spellings a configuration may use that are not enum members.
@@ -481,6 +710,7 @@ def score_components(
     seniority: SeniorityReading,
     employment: EmploymentReading,
     job_facts: JobFacts,
+    semantic: SemanticEvidence | None = None,
 ) -> tuple[ScoreComponent, ...]:
     """The five components, in the order the configuration declares them.
 
@@ -498,11 +728,19 @@ def score_components(
     posting drifting apart is a class of bug worth designing out.
     """
     components = config.scoring.components
+    found = semantic.matches if semantic is not None else None
+    work = _weighted_component(
+        "responsibilities", components.responsibilities, observed_body, found
+    )
+    tools = _guard_tools(
+        work,
+        _weighted_component("technologies", components.technologies, observed_body, found),
+    )
     fixed = (
-        _weighted_component("responsibilities", components.responsibilities, observed_body),
-        _weighted_component("technologies", components.technologies, observed_body),
+        work,
+        tools,
         _weighted_component(
-            "automation_integration", components.automation_integration, observed_body
+            "automation_integration", components.automation_integration, observed_body, found
         ),
         _seniority_component(config, seniority),
         _compensation_component(config, job_facts, employment),
@@ -535,13 +773,17 @@ def soft_penalties(
         if signal is None or not signal.fired:
             continue
         multiplier = penalties.prominence_multipliers[signal.prominence]
+        # A penalty is a MAGNITUDE that is subtracted. The loader already
+        # normalises a legacy negative weight; `abs` is the last line of
+        # defence, because a negative here used to ADD points to the score.
+        magnitude = abs(weight)
         rows.append(
             Penalty(
                 signal_id=signal_id,
                 label=signal.label,
                 prominence=signal.prominence,
-                weight=weight,
-                points=weight * multiplier,
+                weight=magnitude,
+                points=magnitude * multiplier,
                 quote=signal.best_quote,
             )
         )

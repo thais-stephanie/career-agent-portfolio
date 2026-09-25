@@ -74,6 +74,10 @@ from career_agent.yaml_io import safe_load
 #: Where a person's own answers go. Gitignored, and the only file this writes.
 LOCAL_STEM = "search.local.yaml"
 
+#: What a phrase the person wants less of subtracts, before its prominence
+#: multiplier. A positive magnitude: the scorer subtracts it.
+SOFT_PENALTY_MAGNITUDE = 3
+
 #: The work models a person can accept. Our vocabulary, not a vendor's.
 WORK_MODELS: tuple[str, ...] = ("REMOTE", "HYBRID", "ONSITE")
 
@@ -502,13 +506,19 @@ def _apply_signals(config: dict[str, Any], answers: Answers, result: SetupResult
                 lexicon[entry_id] = {"label": cleaned, "patterns": [folded]}
                 held[folded] = entry_id
                 result.signals_added.append(entry_id)
-            # A negative signal IS a lexicon entry that carries a negative
+            # A negative signal IS a lexicon entry that carries a soft-penalty
             # weight; it is not a separate list. `config/preferences.py` already
             # records why: pointing that category anywhere else offered tuning
             # knobs and a mapping of numbers instead of phrases.
-            if weights.get(entry_id) != -3:
-                weights[entry_id] = -3
+            #
+            # The weight is a MAGNITUDE the scorer subtracts. This wrote -3,
+            # and subtracting -3 added points: a phrase the person wanted less
+            # of raised the score. A legacy -3 already on disk is read as 3.
+            if abs(weights.get(entry_id, 0)) != SOFT_PENALTY_MAGNITUDE:
+                weights[entry_id] = SOFT_PENALTY_MAGNITUDE
                 result.changed_sections.append("what you want less of")
+            elif weights.get(entry_id) != SOFT_PENALTY_MAGNITUDE:
+                weights[entry_id] = SOFT_PENALTY_MAGNITUDE
 
 
 def _apply_exclusions(

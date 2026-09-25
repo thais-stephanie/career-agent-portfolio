@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 from career_agent.config.search_config import SearchConfig
 from career_agent.domain.enums import ContentCompleteness, GateResult, ScreeningState
-from career_agent.domain.matching import MatchResult, ObservedSignal
+from career_agent.domain.matching import MatchResult, ObservedSignal, SemanticEvidence
 from career_agent.match.employment import (
     read_domestic_context,
     read_employment,
@@ -240,7 +240,13 @@ def _signal_channel(config: SearchConfig, observed: dict[str, ObservedSignal]) -
     return None
 
 
-def match_job(config: SearchConfig, job: JobFacts, *, computed_at: str) -> MatchResult:
+def match_job(
+    config: SearchConfig,
+    job: JobFacts,
+    *,
+    computed_at: str,
+    semantic: SemanticEvidence | None = None,
+) -> MatchResult:
     """Match one posting. Pure: same inputs, same result, every time.
 
     The two fields are folded here, once, and every step below is handed the
@@ -331,6 +337,7 @@ def match_job(config: SearchConfig, job: JobFacts, *, computed_at: str) -> Match
         # drifting apart is a class of bug worth designing out.
         employment=employment,
         job_facts=job,
+        semantic=semantic,
     )
     penalties = soft_penalties(config, scoring_signals)
     score = match_score_from(components, penalties)
@@ -371,6 +378,7 @@ def match_job(config: SearchConfig, job: JobFacts, *, computed_at: str) -> Match
         domestic=domestic,
         experience=experience,
         posting_facts=posting_facts(job),
+        semantic=semantic,
         computed_at=computed_at,
     )
 
