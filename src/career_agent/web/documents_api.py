@@ -770,7 +770,7 @@ def _hold_placement(app: Any, kind: str, doc: str, key: str) -> None:
     a statement already linked anywhere is never moved.
     """
     from career_agent.storage.career_repo import CareerRepo
-    from career_agent.storage.cv_placement import assign
+    from career_agent.storage.cv_placement import assign, placement_decided
     from career_agent.storage.db import transaction
     from career_agent.storage.workspace_repo import candidate_id_of
 
@@ -798,13 +798,18 @@ def _hold_placement(app: Any, kind: str, doc: str, key: str) -> None:
         )
         if target is None:
             return
+        # NEVER PLACED only: no link row at all. A row whose experience is
+        # NULL is a statement the person took out of an experience (the
+        # Experience editor, Remove experience); that is a decision, and it
+        # stays until they place it again.
+        decided = placement_decided(conn, candidate)
         keys = sorted(
             {
                 i["career_key"]
                 for i in entry["items"]
                 if i["state"] != "rejected"
                 and i["career_key"] in live
-                and not linked.get(i["career_key"])
+                and i["career_key"] not in decided
             }
         )
         if not keys:

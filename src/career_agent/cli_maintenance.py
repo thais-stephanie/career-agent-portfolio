@@ -146,7 +146,11 @@ def _print_placement(plans: list) -> None:
         typer.echo(f"  {p.linked_here} already linked to this experience")
         if p.linked_elsewhere:
             typer.echo(f"  {p.linked_elsewhere} linked to another experience (left as they are)")
-        typer.echo(f"  {len(p.missing)} confirmed but not linked")
+        if p.unlinked_by_person:
+            typer.echo(
+                f"  {p.unlinked_by_person} taken out of an experience by you (left as they are)"
+            )
+        typer.echo(f"  {len(p.missing)} confirmed and never placed")
         if p.proposed:
             typer.echo(f"  -> propose linking {len(p.proposed)} to {p.experience_label}")
             typer.echo(f"     experience {p.experience_id}, because: {p.basis}")

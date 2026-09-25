@@ -18,8 +18,18 @@ what was already confirmed:
 3. **Anything else is ambiguous** -- two experiences, no role, siblings split
    between experiences -- and nothing is moved. It is reported instead.
 
-A statement's own words never decide where it goes. A link that already
-points at an active experience is the person's decision and is never changed.
+A statement's own words never decide where it goes.
+
+THREE STATES, told apart by the `career_evidence_link` row itself:
+
+    NEVER PLACED          no row for the claim key
+    EXPLICITLY UNLINKED   a row whose experience_id is NULL -- the person took
+                          it out of an experience (the Experience editor,
+                          Remove experience)
+    LINKED                a row with an experience
+
+Automatic placement and the repair act on NEVER PLACED statements only. The
+other two are the person's decisions and are never changed here.
 """
 
 from __future__ import annotations
@@ -84,6 +94,8 @@ class EntryRepair:
     confirmed: int
     linked_here: int = 0
     linked_elsewhere: int = 0
+    #: Taken out of an experience by the person: reported, never proposed.
+    unlinked_by_person: int = 0
     missing: list[str] = field(default_factory=list)
     experience_id: str | None = None
     experience_label: str | None = None
@@ -93,6 +105,16 @@ class EntryRepair:
     @property
     def proposed(self) -> list[str]:
         return self.missing if self.experience_id else []
+
+
+def placement_decided(conn: sqlite3.Connection, candidate_id: str) -> set[str]:
+    """Claim keys the person has placed or deliberately unplaced: any link row."""
+    return {
+        str(row[0])
+        for row in conn.execute(
+            "SELECT claim_key FROM career_evidence_link WHERE candidate_id = ?", (candidate_id,)
+        )
+    }
 
 
 def _experiences(conn: sqlite3.Connection, candidate_id: str) -> list[dict]:
@@ -170,10 +192,11 @@ def plan_repair(conn: sqlite3.Connection, candidate_id: str) -> list[EntryRepair
                     " /"
                 )
             for key in confirmed:
-                where = links.get(key)
-                if where not in active:
-                    report.missing.append(key)
-                elif where == target:
+                if key not in links:
+                    report.missing.append(key)  # never placed
+                elif links[key] is None:
+                    report.unlinked_by_person += 1
+                elif links[key] == target:
                     report.linked_here += 1
                 else:
                     report.linked_elsewhere += 1

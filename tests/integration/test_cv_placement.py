@@ -179,3 +179,90 @@ def test_an_ambiguous_mapping_is_reported_and_left_untouched(workspace) -> None:
         assert apply_repair(conn, candidate, [plan]) == 0
     finally:
         conn.close()
+
+
+# =========================================================================
+# C. a statement the person took out of an experience stays out
+#
+# The review found it (PR #7): the Experience editor removes a highlight by
+# moving it to no experience, which leaves its link row with a NULL
+# experience. Placement and the repair treated that like "never placed" and
+# put it back. Only the ABSENCE of a link row means never placed.
+# =========================================================================
+
+
+def _removed_from_the_experience(api) -> tuple[str, str, str, str, str]:
+    """A job added to the profile, A and B confirmed, then A taken out."""
+    import_id = upload(api, load_cv("markdown_complex.md"), "riley.md")
+    job = entry(review(api, import_id), COMPANY, ROLE)
+    target = place(api, import_id, job["key"], "new")["experience_id"]
+    a, b, c = (item["key"] for item in job["items"][:3])
+    answer(api, import_id, a, "CONFIRM")
+    answer(api, import_id, b, "CONFIRM")
+    assert a in highlights_under(api, target)
+    change(api, {"action": "move", "keys": [a], "experience_id": None})
+    assert a not in keys_under(api, target)
+    return import_id, target, a, b, c
+
+
+def test_unlink_then_confirm_sibling_keeps_it_out(workspace) -> None:
+    api, _db = workspace
+    import_id, target, a, b, c = _removed_from_the_experience(api)
+    answer(api, import_id, c, "CONFIRM")
+    assert a not in keys_under(api, target), "a removed statement was put back"
+    assert {b, c} <= highlights_under(api, target)
+
+
+def test_unlink_then_repair_does_not_propose_it(workspace) -> None:
+    api, db = workspace
+    _import_id, target, a, _b, _c = _removed_from_the_experience(api)
+    conn = connect(db)
+    try:
+        candidate = candidate_id_of(conn)
+        (plan,) = [p for p in plan_repair(conn, candidate) if p.company == COMPANY]
+        assert a not in plan.proposed and a not in plan.missing
+        assert plan.unlinked_by_person == 1
+        assert apply_repair(conn, candidate, [plan]) == 0
+    finally:
+        conn.close()
+    assert a not in keys_under(api, target)
+
+
+def test_never_placed_still_repairs(workspace) -> None:
+    api, db = workspace
+    target = experience(api)
+    import_id = upload(api, load_cv("markdown_complex.md"), "riley.md")
+    job = entry(review(api, import_id), COMPANY, ROLE)
+    orphan = job["items"][0]["key"]
+    _confirm_the_old_way(api, import_id, orphan)
+    conn = connect(db)
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM career_evidence_link WHERE claim_key = ?", (orphan,)
+        ).fetchone()
+        assert row is None, "the fixture must be NEVER PLACED: no link row at all"
+        (plan,) = [p for p in plan_repair(conn, candidate_id_of(conn)) if p.company == COMPANY]
+    finally:
+        conn.close()
+    assert plan.proposed == [orphan] and plan.experience_id == target
+
+
+def test_existing_other_experience_is_never_moved(workspace) -> None:
+    api, db = workspace
+    target = experience(api)
+    other = experience(api, company="Northwind Traders", title="Analyst")
+    import_id = upload(api, load_cv("markdown_complex.md"), "riley.md")
+    job = entry(review(api, import_id), COMPANY, ROLE)
+    elsewhere, sibling = job["items"][0]["key"], job["items"][1]["key"]
+    _confirm_the_old_way(api, import_id, elsewhere)
+    change(api, {"action": "move", "keys": [elsewhere], "experience_id": other})
+    answer(api, import_id, sibling, "CONFIRM")
+    conn = connect(db)
+    try:
+        candidate = candidate_id_of(conn)
+        plans = [p for p in plan_repair(conn, candidate) if p.company == COMPANY]
+        assert not any(elsewhere in p.proposed for p in plans)
+        apply_repair(conn, candidate, plans)
+    finally:
+        conn.close()
+    assert elsewhere in keys_under(api, other) and elsewhere not in keys_under(api, target)
