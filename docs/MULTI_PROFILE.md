@@ -36,6 +36,15 @@ data/profiles/.trash/              deleted profiles, moved, not erased
   - A switch builds a fresh `JobsApi` on the chosen profile's database and settings, after checking the identity, and swaps it in for the next request. Resume Tailor is rebuilt on that profile's workspace behind a switchable ASGI wrapper.
   - A switch is refused while a collection, a scoring pass or a semantic run is writing, and the page reloads afterwards. So there is always exactly one writer per profile database, and no screen keeps the previous person's data in memory.
   - `Start-Career-Agent.ps1 -ProfileName NAME` starts on a given profile. `career-agent profiles` lists them.
+- **Safeguards around a switch:**
+  - One lock serialises switching, deleting and every background run start. A switch retires the old app before checking it, so no collection, scoring or semantic run can begin on a profile being left.
+  - The registry is updated before the swap, and any failure puts everything back.
+  - Each served profile holds an operating-system lock on its database. A second Career Agent window cannot serve the same profile, and a crashed process never leaves the lock stale.
+  - Every page sends the id of the profile it was drawn for. A tab left open across a switch is refused (409) and reloads, and other tabs are told to reload when one switches.
+  - Resume Tailor is rebuilt on the new profile's workspace explicitly, and its environment is restored if that fails.
+- **The command line** keeps `--db` and `--config-dir`. A database stamped for a profile is refused with another profile's settings folder, so one person's search intent can never score another's jobs. `career-agent backup --profile NAME` picks both.
+- **A lost or corrupt registry** is never a lockout. A registry that cannot be parsed is a readable refusal. A missing one is rebuilt from the databases themselves: the original workspace keeps the id already stamped in it, and every profile folder comes back under its stored name.
+- **Installation-wide state stays installation-wide:** the `.env` key file and the Jooble daily quota ledger are found from the installation root, never inside a profile's folder.
 - **Creating a profile** gives an empty database, empty settings and an empty Tailor workspace. Nothing of any other profile is copied. The shipped employer boards are added to its database.
 - **Deleting** is refused for the active profile and for the adopted original, and it requires typing the profile's name. The folder is moved to `data/profiles/.trash/`, not erased, and no other profile's files are touched.
 - **Settings isolation.** Search intent, role anchors, semantic matching settings and budget, and the LinkedIn opt-in are per profile. The DeepSeek key stays installation-wide in `.env`.

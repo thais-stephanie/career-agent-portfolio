@@ -119,8 +119,15 @@ class KeyState:
 
 
 def env_path(config_dir: Path) -> Path:
-    """The root `.env`: the folder above `config/`."""
-    return config_dir.parent / ".env"
+    """The installation's `.env`, never a profile's folder.
+
+    `config/` sits in the installation root; a later local profile's settings
+    live in `data/profiles/<id>/config/`, and its key must not be written
+    there: the key is installation-wide and one copy is the only safe number.
+    """
+    from career_agent.runtime.profiles import installation_root
+
+    return installation_root(config_dir) / ".env"
 
 
 def load_stored_key(config_dir: Path) -> bool:

@@ -229,6 +229,20 @@ class RetrievalRunner:
         Injected rather than constructed here so the tests can drive the whole
         lifecycle -- start, progress, cancel, failure -- without a network.
         """
+        gate = getattr(self, "admit_lock", None)
+        if gate is not None:
+            # A local-profile switch holds this lock while it retires the old
+            # profile's app: no run may start on a profile that is being left.
+            with gate:
+                if not self.admit():
+                    raise RuntimeError("this profile is no longer the active one")
+                return self._start(work, run_id)
+        return self._start(work, run_id)
+
+    def admit(self) -> bool:
+        return True
+
+    def _start(self, work: Any, run_id: str) -> dict[str, Any]:
         with self._lock:
             if self._state and self._state.status == "running":
                 raise RuntimeError("a retrieval is already running")

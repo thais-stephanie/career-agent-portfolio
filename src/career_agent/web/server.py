@@ -337,6 +337,22 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             if path.startswith("/api/"):
                 self._check_origin(method)
+                # A tab opened under another local profile must not read or
+                # write this one: it says which profile it belongs to, and a
+                # mismatch is refused so the page reloads.
+                claimed = (self.headers.get("X-Local-Profile") or "").strip()
+                host = getattr(self.app, "profile_host", None)
+                active = getattr(host, "active", None) if host is not None else None
+                if claimed and active is not None and claimed != active.id:
+                    self._send_json(
+                        409,
+                        {
+                            "error": "Another local profile is open now. The page will reload.",
+                            "for_reader": True,
+                            "code": "profile_changed",
+                        },
+                    )
+                    return
                 query = parse_qs(parsed.query, keep_blank_values=False)
                 body = self._read_body(body_limit(path)) if method in ("POST", "PATCH") else {}
                 payload = self.app.handle_api(method, path, query, body)

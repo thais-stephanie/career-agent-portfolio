@@ -1309,6 +1309,37 @@ def prepare_command(
 # =====================================================================
 # backup
 # =====================================================================
+def _check_profile_pair(db: Path, config_dir: Path) -> None:
+    """Refuse one local profile's database with another profile's settings.
+
+    `rescore --db data/profiles/<B>/personal.db` with the default `config/`
+    would score B's jobs with A's search intent. A database stamped for a
+    profile must be used with that profile's settings folder.
+    """
+    from career_agent.runtime.profiles import ProfileError, bound_profile, load_registry
+    from career_agent.storage.db import connect as _connect
+
+    try:
+        registry = load_registry(Path.cwd())
+    except ProfileError:
+        return
+    if registry is None or not Path(db).exists():
+        return
+    probe = _connect(Path(db))
+    try:
+        bound = bound_profile(probe)
+    finally:
+        probe.close()
+    owner = next((p for p in registry.profiles if p.id == bound), None)
+    if owner is None:
+        return
+    if Path(config_dir).resolve() != (Path.cwd() / owner.config_dir).resolve():
+        raise typer.BadParameter(
+            f"this database belongs to the local profile {owner.label!r}; "
+            f"use --config-dir {owner.config_dir} (its own settings)"
+        )
+
+
 def backup_command(
     db: Annotated[Path | None, typer.Option("--db")] = None,
     config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
@@ -1351,6 +1382,7 @@ def backup_command(
             raise typer.BadParameter(f"no local profile is called {profile_name!r}")
         db, config_dir, _ = chosen[0].paths(Path.cwd())
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     if not db.exists():
         typer.secho(f"no database at {db}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2)
@@ -2017,6 +2049,7 @@ def semantic_match_command(
     publication gate and the evaluated postings are scored again.
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     from career_agent.pipeline.rescore import RescoreMode, rescore
     from career_agent.semantic.intent import search_intent
     from career_agent.semantic.routing import resolve
@@ -2172,6 +2205,7 @@ def rescore_command(
     Makes zero network calls and zero inference calls of either kind.
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     from career_agent.pipeline.rescore import RescoreMode, plan, rescore
 
     config, config_path = _load_config(config_dir)
@@ -3820,6 +3854,7 @@ def collect_himalayas_command(
         except SearchConfigError:
             searches = ()
 
+    _check_profile_pair(db, config_dir)
     conn = connect(db)
     try:
         migrate(conn)
@@ -3975,6 +4010,7 @@ def collect_linkedin_command(
         typer.echo(f"by term origin: {dict(Counter(q.term.origin for q in queries))}")
         return
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     conn = _open_personal(db)
     try:
         if not opted_in(conn, LINKEDIN_SOURCE_ID):

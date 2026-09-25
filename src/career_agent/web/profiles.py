@@ -20,6 +20,7 @@ says profiles are unavailable and nothing can be switched.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import threading
 from collections.abc import Callable
@@ -29,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 from career_agent.runtime.profiles import (
     Profile,
     ProfileError,
+    ProfileLock,
     bind_database,
     create_profile,
     delete_profile,
@@ -44,12 +46,26 @@ if TYPE_CHECKING:
     from career_agent.web.api import JobsApi
 
 
-def tailor_environment(root: Path, profile: Profile) -> None:
-    """Point Resume Tailor at this profile's own workspace."""
+TAILOR_ENV = ("RESUME_TAILOR_HOME", "RESUME_TAILOR_DATA")
+
+
+def tailor_environment(root: Path, profile: Profile) -> dict[str, str | None]:
+    """Point Resume Tailor at this profile's own workspace. Returns what the
+    variables held before, so a failed switch can put them back."""
+    previous = {name: os.environ.get(name) for name in TAILOR_ENV}
     home = root / profile.tailor_home
     home.mkdir(parents=True, exist_ok=True)
     os.environ["RESUME_TAILOR_HOME"] = str(home)
     os.environ["RESUME_TAILOR_DATA"] = str(home / "runtime")
+    return previous
+
+
+def restore_environment(previous: dict[str, str | None]) -> None:
+    for name, value in previous.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
 
 
 class SwitchableApp:
@@ -78,20 +94,51 @@ class ProfileHost:
         self.tailor = tailor
         self.tailor_factory = tailor_factory
         self.server: Any = None
-        self._lock = threading.Lock()
+        #: Serialises switching, deleting and EVERY background run start of
+        #: the served app (see `gate`): no run can begin on a profile that is
+        #: being left, and nothing is deleted while it is being switched to.
+        self._lock = threading.RLock()
+        #: The profile this process serves, whatever the registry file says.
+        self.active: Profile | None = None
+        self._held: ProfileLock | None = None
 
     # -- building a profile's app ------------------------------------------
 
-    def open(self, profile: Profile) -> JobsApi:
-        """A `JobsApi` for `profile`, after checking its database is its own."""
+    def gate(self, api: JobsApi, runner: Any) -> None:
+        """Make `runner` refuse to start once `api` has been switched away."""
+        runner.admit_lock = self._lock
+        runner.admit = lambda: not api.retired
+
+    def open(self, profile: Profile, *, lock: bool = True) -> JobsApi:
+        """A `JobsApi` for `profile`, after checking its database is its own.
+
+        With `lock`, the profile's OS lock is taken for this process (and the
+        previous one released by `switch`): another Career Agent window
+        serving the same profile is refused."""
+
+        db, config_dir, _ = profile.paths(self.root)
+        if not db.exists():
+            raise ProfileError("This profile's database is missing.")
+        held = None
+        if lock and not (self.active is not None and self.active.id == profile.id):
+            held = ProfileLock(db)
+            held.acquire()
+        try:
+            api = self._build(profile, db, config_dir)
+        except BaseException:
+            if held is not None:
+                held.release()
+            raise
+        if held is not None:
+            self._pending_lock = held
+        return api
+
+    def _build(self, profile: Profile, db: Path, config_dir: Path) -> JobsApi:
         from career_agent.runtime import RuntimeMode, identity_of
         from career_agent.storage.db import connect, migrate
         from career_agent.web.api import JobsApi
         from career_agent.web.server import ServerConfig
 
-        db, config_dir, _ = profile.paths(self.root)
-        if not db.exists():
-            raise ProfileError("This profile's database is missing.")
         sync_shipped_config(self.root, profile)
         conn = connect(db)
         try:
@@ -109,7 +156,22 @@ class ProfileHost:
             ServerConfig(db_path=db, config_dir=config_dir, host=self.host, port=self.port)
         )
         api.profile_host = self  # type: ignore[attr-defined]
+        self.gate(api, api.retrieval)
+        self.gate(api, api.rescore)
         return api
+
+    def serve(self, profile: Profile, api: JobsApi) -> None:
+        """Record that `profile` is what this process now serves."""
+        previous, self._held = self._held, getattr(self, "_pending_lock", None) or self._held
+        self._pending_lock = None
+        if previous is not None and previous is not self._held:
+            previous.release()
+        self.active = profile
+
+    def close(self) -> None:
+        if self._held is not None:
+            self._held.release()
+            self._held = None
 
     def current(self) -> JobsApi | None:
         if self.server is None:
@@ -130,19 +192,48 @@ class ProfileHost:
         return None
 
     def switch(self, profile_id: str) -> Profile:
+        """Serve `profile_id` from the next request on, or change nothing.
+
+        Order, and why: retire the old app first (so no run can start on it
+        while it is checked), refuse if anything is still running, open the
+        new profile (its identity and its OS lock), record it in the
+        registry, rebuild Resume Tailor, and only then swap. Any failure
+        puts everything back as it was.
+        """
         with self._lock:
             registry = load_registry(self.root) or ensure_registry(self.root)
             profile = registry.get(profile_id)
-            reason = self.busy(self.current())
+            old = self.current()
+            old_active = registry.active
+            if old is not None:
+                old.retired = True
+            reason = self.busy(old)
             if reason:
+                if old is not None:
+                    old.retired = False
                 raise ApiError(409, reason, for_reader=True)
-            api = self.open(profile)
-            if self.tailor is not None and self.tailor_factory is not None:
-                tailor_environment(self.root, profile)
-                self.tailor.inner = self.tailor_factory()
+            previous_env: dict[str, str | None] | None = None
+            try:
+                api = self.open(profile)
+                set_active(self.root, profile.id)
+                if self.tailor is not None and self.tailor_factory is not None:
+                    previous_env = tailor_environment(self.root, profile)
+                    self.tailor.inner = self.tailor_factory(self.root / profile.tailor_home)
+            except BaseException:
+                if old is not None:
+                    old.retired = False
+                if previous_env is not None:
+                    restore_environment(previous_env)
+                pending = getattr(self, "_pending_lock", None)
+                if pending is not None:
+                    pending.release()
+                    self._pending_lock = None
+                with contextlib.suppress(ProfileError):
+                    set_active(self.root, old_active)
+                raise
             if self.server is not None:
                 self.server.RequestHandlerClass.app = api
-            set_active(self.root, profile.id)
+            self.serve(profile, api)
             return profile
 
 
@@ -159,11 +250,15 @@ def _host(app: JobsApi) -> ProfileHost:
 
 def _listing(host: ProfileHost) -> dict[str, Any]:
     registry = load_registry(host.root) or ensure_registry(host.root)
+    # What THIS process serves decides "active", not the registry file: a
+    # second launcher may have rewritten the file since.
+    served = host.active.id if host.active is not None else registry.active
+    current = next((p for p in registry.profiles if p.id == served), registry.current)
     return {
         "enabled": True,
-        "active": registry.current.public(),
+        "active": current.public(),
         "profiles": [
-            {**p.public(), "active": p.id == registry.active, "original": p.legacy}
+            {**p.public(), "active": p.id == served, "original": p.legacy}
             for p in registry.profiles
         ],
         # Said by the server, so no screen can drift from it.
@@ -218,10 +313,16 @@ def register_profiles(app: JobsApi) -> None:
         if query or set(body) != {"confirm_label"} or not isinstance(body["confirm_label"], str):
             raise ApiError(400, "Type the profile's name to confirm.")
         host = _host(app)
-        try:
-            delete_profile(host.root, profile_id, body["confirm_label"])
-        except ProfileError as exc:
-            raise ApiError(409, str(exc), for_reader=True) from exc
+        with host._lock:  # never while that profile is being switched to
+            try:
+                delete_profile(
+                    host.root,
+                    profile_id,
+                    body["confirm_label"],
+                    served=host.active.id if host.active is not None else None,
+                )
+            except ProfileError as exc:
+                raise ApiError(409, str(exc), for_reader=True) from exc
         return {"deleted": profile_id, **_listing(host)}
 
     app.register("GET", r"/api/profiles", listing)

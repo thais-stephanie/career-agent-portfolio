@@ -52,7 +52,7 @@ HubSpot, SQL
 
 
 @pytest.fixture
-def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
     root = tmp_path / "install"
     config = root / "config"
     shutil.copytree(committed_config_dir(), config, ignore=shutil.ignore_patterns("*.local.*"))
@@ -79,7 +79,9 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     host = ProfileHost(root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=create_app)
     api = host.open(first)
     host.server = types.SimpleNamespace(RequestHandlerClass=type("H", (), {"app": api}))
-    return host
+    host.serve(first, api)
+    yield host
+    host.close()
 
 
 def app(host: ProfileHost):
@@ -114,6 +116,12 @@ def fill_profile_a(host: ProfileHost) -> dict:
     api.handle_api("PATCH", f"/api/jobs/{job}/saved", {}, {"saved": True})
     api.handle_api("PATCH", f"/api/jobs/{job}/notes", {}, {"notes": "Profile A note"})
     api.handle_api("PATCH", "/api/sources/schedule", {}, {"source_id": "gupy", "mode": "PAUSED"})
+    api.handle_api(
+        "PATCH",
+        "/api/sources/experimental",
+        {},
+        {"source_id": "linkedin_br", "opted_in": True, "acknowledged": True},
+    )
     created = tailor(host).post("/api/candidates", json={"name": "Synthetic A"})
     assert created.status_code == 200, created.text
     return {"job": job}
@@ -133,6 +141,9 @@ def snapshot(host: ProfileHost) -> dict:
         "saved": sorted(j["job_id"] for j in jobs if j.get("saved")),
         "noted": sorted(j["job_id"] for j in jobs if j.get("notes")),
         "modes": {s["id"]: s["refresh_mode"] for s in sources if s["refresh_mode"] != "AUTO"},
+        "linkedin": next(s for s in sources if s["id"] == "linkedin_br")["experimental"][
+            "opted_in"
+        ],
         "tailor": sorted(c["name"] for c in tailor(host).get("/api/candidates").json()),
         "search_file": (Path(api.config.config_dir) / "search.local.yaml").exists(),
     }
@@ -146,6 +157,7 @@ def test_profile_b_sees_nothing_of_a_and_a_nothing_of_b(install: ProfileHost) ->
     assert a_before["confirmed"] == 1 and a_before["anchors"] == ["Revenue Analyst"]
     assert a_before["saved"] and a_before["noted"] and a_before["modes"] == {"gupy": "PAUSED"}
     assert a_before["tailor"] == ["Synthetic A"] and a_before["search_file"]
+    assert a_before["linkedin"] is True
 
     created = app(host).handle_api("POST", "/api/profiles", {}, {"label": "Synthetic B"})
     second = created["created"]["id"]
@@ -163,6 +175,7 @@ def test_profile_b_sees_nothing_of_a_and_a_nothing_of_b(install: ProfileHost) ->
         "modes": {},
         "tailor": [],
         "search_file": False,
+        "linkedin": False,
     }
     assert app(host).handle_api("GET", "/api/profiles", {}, {})["active"]["label"] == "Synthetic B"
 
@@ -218,6 +231,7 @@ def test_rapid_switches_and_a_restart_keep_every_profile_whole(install: ProfileH
     from resume_tailor.api.app import create_app
 
     app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
+    host.close()  # the first process ends; its OS lock goes with it
     reopened = ProfileHost(
         host.root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=create_app
     )
@@ -225,10 +239,13 @@ def test_rapid_switches_and_a_restart_keep_every_profile_whole(install: ProfileH
     assert active.id == second
     tailor_environment(host.root, active)
     reopened.tailor.inner = create_app()
+    reopened_api = reopened.open(active)
     reopened.server = types.SimpleNamespace(
-        RequestHandlerClass=type("H", (), {"app": reopened.open(active)})
+        RequestHandlerClass=type("H", (), {"app": reopened_api})
     )
+    reopened.serve(active, reopened_api)
     assert snapshot(reopened)["anchors"] == []
+    reopened.close()
 
 
 def test_rename_and_delete_are_deliberate(install: ProfileHost) -> None:
@@ -284,3 +301,88 @@ def test_the_first_profile_adopts_the_workspace_without_moving_it(tmp_path: Path
     )
     assert first.label == "My profile" and first.legacy
     assert ensure_registry(root).current.id == first.id, "adoption happens once"
+
+
+def test_no_run_can_start_on_a_profile_that_was_switched_away(install: ProfileHost) -> None:
+    host = install
+    old = app(host)
+    second = old.handle_api("POST", "/api/profiles", {}, {"label": "B"})["created"]["id"]
+    old.handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
+    assert old.retired
+    with pytest.raises(RuntimeError):
+        old.retrieval.start(lambda state, cancel: None, "run")
+    with pytest.raises(RuntimeError):
+        old.rescore.start(lambda state, cancel: None, "run")
+    # The served app starts runs normally.
+    app(host).rescore.start(lambda state, cancel: None, "run")
+    app(host).rescore.join(5)
+
+
+def test_a_second_window_cannot_serve_the_same_profile(install: ProfileHost) -> None:
+    host = install
+    served = load_registry(host.root).current
+    with pytest.raises(ProfileError):
+        ProfileHost(host.root, port=0).open(served)
+
+
+def test_the_served_profile_cannot_be_deleted_even_if_the_file_says_otherwise(
+    install: ProfileHost,
+) -> None:
+    from career_agent.runtime.profiles import set_active
+
+    host = install
+    api = app(host)
+    second = api.handle_api("POST", "/api/profiles", {}, {"label": "B"})["created"]["id"]
+    api.handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
+    first = next(p for p in load_registry(host.root).profiles if p.legacy).id
+    set_active(host.root, first)  # another window rewrote the registry
+    with pytest.raises(ApiError):
+        app(host).handle_api("POST", f"/api/profiles/{second}/delete", {}, {"confirm_label": "B"})
+    assert app(host).handle_api("GET", "/api/profiles", {}, {})["active"]["id"] == second
+
+
+def test_a_lost_registry_is_rebuilt_from_the_databases(install: ProfileHost) -> None:
+    host = install
+    before = load_registry(host.root)
+    second = app(host).handle_api("POST", "/api/profiles", {}, {"label": "Kept"})["created"]["id"]
+    (host.root / "data" / "profiles.json").unlink()
+    rebuilt = ensure_registry(host.root)
+    assert rebuilt.current.id == before.current.id, "the original keeps its stamped id"
+    assert {p.id: p.label for p in rebuilt.profiles}[second] == "Kept"
+
+
+def test_a_corrupt_registry_is_a_readable_refusal(tmp_path: Path) -> None:
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "profiles.json").write_text("{not json", encoding="utf-8")
+    with pytest.raises(ProfileError):
+        load_registry(tmp_path)
+
+
+def test_secrets_and_the_jooble_quota_stay_installation_wide(tmp_path: Path) -> None:
+    from career_agent.providers.jooble_quota import ledger_for
+    from career_agent.runtime.profiles import installation_data_dir, installation_root
+    from career_agent.semantic.settings import env_path
+
+    profile_config = tmp_path / "data" / "profiles" / "prof-X" / "config"
+    assert installation_root(profile_config) == tmp_path
+    assert env_path(profile_config) == tmp_path / ".env"
+    assert env_path(tmp_path / "config") == tmp_path / ".env"
+    db = tmp_path / "data" / "profiles" / "prof-X" / "personal.db"
+    assert installation_data_dir(db) == tmp_path / "data"
+    assert ledger_for(db).path.parent == tmp_path / "data"
+
+
+def test_the_cli_refuses_one_profiles_database_with_anothers_settings(
+    install: ProfileHost, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import typer
+
+    from career_agent.cli_local import _check_profile_pair
+
+    host = install
+    created = app(host).handle_api("POST", "/api/profiles", {}, {"label": "B"})["created"]
+    b = load_registry(host.root).get(created["id"])
+    monkeypatch.chdir(host.root)
+    with pytest.raises(typer.BadParameter):
+        _check_profile_pair(Path(b.db), Path("config"))
+    _check_profile_pair(Path(b.db), Path(b.config_dir))

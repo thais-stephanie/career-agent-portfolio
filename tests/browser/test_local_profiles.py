@@ -42,10 +42,12 @@ def live(tmp_path: Path) -> Iterator[tuple[str, Path]]:
     port = int(probe.getsockname()[1])
     probe.close()
     host = ProfileHost(root, port=port)
-    api = host.open(ensure_registry(root).current)
+    first = ensure_registry(root).current
+    api = host.open(first)
     httpd = build_server(api)
     httpd.handle_error = lambda request, client_address: None  # type: ignore[method-assign]
     host.server = httpd
+    host.serve(first, api)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     try:
@@ -54,6 +56,7 @@ def live(tmp_path: Path) -> Iterator[tuple[str, Path]]:
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=10)
+        host.close()
 
 
 def _name(page: Chrome) -> str:
@@ -68,9 +71,11 @@ def test_the_active_profile_is_always_shown_and_can_be_switched(
     page.wait_for("document.querySelector('.lprof__name')", message="the profile chip")
     assert _name(page) == "My profile"
     explain = str(page.evaluate("document.querySelector('.lprof').innerText")).casefold()
-    assert "not accounts" in explain or "not accounts" in str(
-        page.evaluate("document.querySelector('.lprof__panel').textContent")
-    ).casefold()
+    assert (
+        "not accounts" in explain
+        or "not accounts"
+        in str(page.evaluate("document.querySelector('.lprof__panel').textContent")).casefold()
+    )
 
     page.evaluate("document.querySelector('.lprof').open = true")
     page.evaluate(
@@ -89,3 +94,28 @@ def test_the_active_profile_is_always_shown_and_can_be_switched(
         message="the page to reload on the new profile",
     )
     assert load_registry(root).current.label == "Synthetic B"
+
+
+def test_a_tab_from_another_profile_is_refused_and_told_to_reload(
+    live: tuple[str, Path],
+) -> None:
+    import json
+    import urllib.error
+    import urllib.request
+
+    base, root = live
+    served = load_registry(root).current.id
+
+    def call(claimed: str) -> tuple[int, dict]:
+        request = urllib.request.Request(
+            f"{base}/api/role-anchors", headers={"X-Local-Profile": claimed}
+        )
+        try:
+            with urllib.request.urlopen(request) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            return error.code, json.loads(error.read())
+
+    assert call(served)[0] == 200
+    status, body = call("prof-01AAAAAAAAAAAAAAAAAAAAAAAA")
+    assert status == 409 and body["code"] == "profile_changed"

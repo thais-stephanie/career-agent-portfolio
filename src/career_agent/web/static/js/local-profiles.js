@@ -16,8 +16,18 @@ import { el, button, replace } from './dom.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
 
+const CHANNEL = 'career-agent-local-profile';
+
 export function createLocalProfiles(host) {
   let data = null;
+  // Every other tab of this app reloads when one switches profile.
+  let channel = null;
+  try {
+    channel = new BroadcastChannel(CHANNEL);
+    channel.onmessage = () => window.location.reload();
+  } catch {
+    channel = null;
+  }
   const status = el('p', { className: 'lprof__status', attrs: { role: 'status', 'aria-live': 'polite' } });
 
   async function load() {
@@ -26,6 +36,7 @@ export function createLocalProfiles(host) {
     } catch {
       data = null;
     }
+    api.setLocalProfile(data && data.enabled && data.active ? data.active.id : null);
     draw();
   }
 
@@ -50,6 +61,7 @@ export function createLocalProfiles(host) {
         status.textContent = t('profiles.switching');
         try {
           await api.switchLocalProfile(profile.id);
+          if (channel) channel.postMessage('switched');
           window.location.reload();
         } catch (error) {
           fail(error);

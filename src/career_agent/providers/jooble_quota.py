@@ -161,4 +161,8 @@ def ledger_for(db_path: Path) -> QuotaLedger:
     and the real corpus are different populations and the person may reasonably
     keep more than one. `data/` is gitignored either way.
     """
-    return QuotaLedger(db_path.parent / LEDGER_FILENAME)
+    # The key's quota is installation-wide: one ledger however many local
+    # profiles use it, or each would spend the whole quota again.
+    from career_agent.runtime.profiles import installation_data_dir
+
+    return QuotaLedger(installation_data_dir(db_path) / LEDGER_FILENAME)

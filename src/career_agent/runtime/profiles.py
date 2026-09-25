@@ -76,6 +76,29 @@ _SPACE = re.compile(r"\s+")
 _COLORS = ("teal", "violet", "amber", "rose", "sky", "lime")
 
 
+def installation_root(config_dir: Path) -> Path:
+    """The installation a profile's settings folder belongs to.
+
+    `config/` sits directly in the installation; a later profile's settings
+    live in `data/profiles/<id>/config/`. Secrets (`.env`) are looked up
+    here, never in a profile's folder.
+    """
+    config_dir = Path(config_dir)
+    parent = config_dir.parent
+    if parent.parent.name == PROFILES_DIR.name and parent.parent.parent.name == "data":
+        return parent.parent.parent.parent
+    return parent
+
+
+def installation_data_dir(db_path: Path) -> Path:
+    """Where installation-wide state next to a database belongs (quotas)."""
+    db_path = Path(db_path)
+    parent = db_path.parent
+    if parent.parent.name == PROFILES_DIR.name and parent.parent.parent.name == "data":
+        return parent.parent.parent
+    return parent
+
+
 class ProfileError(ValueError):
     """A profile operation was refused, with a sentence a person can read."""
 
@@ -155,10 +178,19 @@ def load_registry(root: Path) -> Registry | None:
     path = registry_path(root)
     if not path.exists():
         return None
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if data.get("schema") != SCHEMA:
-        raise ProfileError("The profile registry was written by a different version.")
-    profiles = [Profile(**p) for p in data.get("profiles", [])]
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("schema") != SCHEMA:
+            raise ProfileError("The profile registry was written by a different version.")
+        profiles = [Profile(**p) for p in data.get("profiles", [])]
+    except ProfileError:
+        raise
+    except (OSError, ValueError, TypeError) as exc:
+        raise ProfileError(
+            f"The profile registry ({REGISTRY_FILE.as_posix()}) cannot be read. "
+            "Restore it from a copy, or move it aside to have it rebuilt from the "
+            "profile folders."
+        ) from exc
     if not profiles or not any(p.id == data.get("active") for p in profiles):
         raise ProfileError("The profile registry names no valid active profile.")
     for p in profiles:
@@ -204,22 +236,7 @@ def ensure_registry(root: Path) -> Registry:
     name the data might suggest.
     """
     with _lock:
-        existing = load_registry(root)
-        if existing is not None:
-            return existing
-        first = Profile(
-            id=new_id(),
-            label=DEFAULT_LABEL,
-            created_at=_now(),
-            db=LEGACY_DB.as_posix(),
-            config_dir=LEGACY_CONFIG.as_posix(),
-            tailor_home=LEGACY_TAILOR.as_posix(),
-            color=_COLORS[0],
-            legacy=True,
-        )
-        registry = Registry(active=first.id, profiles=[first])
-        save_registry(root, registry)
-        return registry
+        return ensure_registry_unlocked(root)
 
 
 # =========================================================================
@@ -333,13 +350,38 @@ def create_profile(root: Path, label: str) -> Profile:
         return profile
 
 
+def _stamped(db: Path) -> tuple[str | None, str | None]:
+    """(profile id, label) a database file says it belongs to, read-only."""
+    if not db.exists():
+        return None, None
+    try:
+        conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+        try:
+            row = conn.execute(
+                "SELECT profile_id, label FROM database_identity WHERE id = 'singleton'"
+            ).fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None, None
+    return (str(row[0]) if row and row[0] else None, str(row[1]) if row and row[1] else None)
+
+
 def ensure_registry_unlocked(root: Path) -> Registry:
-    """`ensure_registry` for a caller already holding the lock."""
+    """`ensure_registry` for a caller already holding the lock.
+
+    A registry that was lost (or an installation restored from a backup) is
+    REBUILT from what the databases say: the original workspace keeps the id
+    already stamped in it, and every `data/profiles/<id>/` folder whose
+    database carries its own id comes back under its stored name. Without
+    this, a missing file would lock a person out of her own database.
+    """
     existing = load_registry(root)
     if existing is not None:
         return existing
+    stamped, _ = _stamped(root / LEGACY_DB)
     first = Profile(
-        id=new_id(),
+        id=stamped if stamped and _ID.match(stamped) else new_id(),
         label=DEFAULT_LABEL,
         created_at=_now(),
         db=LEGACY_DB.as_posix(),
@@ -348,7 +390,25 @@ def ensure_registry_unlocked(root: Path) -> Registry:
         color=_COLORS[0],
         legacy=True,
     )
-    registry = Registry(active=first.id, profiles=[first])
+    profiles = [first]
+    folder = root / PROFILES_DIR
+    for base in sorted(folder.iterdir()) if folder.is_dir() else []:
+        found, label = _stamped(base / "personal.db")
+        if base.name.startswith(".") or found != base.name or not _ID.match(found):
+            continue
+        rel = (PROFILES_DIR / base.name).as_posix()
+        profiles.append(
+            Profile(
+                id=found,
+                label=label or found,
+                created_at=_now(),
+                db=f"{rel}/personal.db",
+                config_dir=f"{rel}/config",
+                tailor_home=f"{rel}/tailor",
+                color=_COLORS[len(profiles) % len(_COLORS)],
+            )
+        )
+    registry = Registry(active=first.id, profiles=profiles)
     save_registry(root, registry)
     return registry
 
@@ -381,7 +441,9 @@ def set_active(root: Path, profile_id: str) -> Profile:
         return profile
 
 
-def delete_profile(root: Path, profile_id: str, confirm_label: str) -> Path:
+def delete_profile(
+    root: Path, profile_id: str, confirm_label: str, *, served: str | None = None
+) -> Path:
     """Move a profile's folder to `data/profiles/.trash/` and forget it.
 
     Refused for the active profile (switch first), for the adopted original
@@ -395,7 +457,7 @@ def delete_profile(root: Path, profile_id: str, confirm_label: str) -> Path:
         if registry is None:
             raise ProfileError("There are no local profiles yet.")
         profile = registry.get(profile_id)
-        if profile.id == registry.active:
+        if profile.id in (registry.active, served):
             raise ProfileError("Switch to another profile before deleting this one.")
         if profile.legacy:
             raise ProfileError(
@@ -409,7 +471,69 @@ def delete_profile(root: Path, profile_id: str, confirm_label: str) -> Path:
         trash = root / TRASH_DIR
         trash.mkdir(parents=True, exist_ok=True)
         destination = trash / f"{profile.id}-{_now().replace(':', '')}"
-        shutil.move(str(base), str(destination))
+        try:
+            # A rename or nothing: never the copy-then-delete fallback, which
+            # on Windows half-erases a folder whose database is still open.
+            os.rename(base, destination)
+        except OSError as exc:
+            raise ProfileError(
+                "That profile's files are in use (another Career Agent window or a "
+                "command). Close it and try again."
+            ) from exc
         registry.profiles = [p for p in registry.profiles if p.id != profile_id]
         save_registry(root, registry)
         return destination
+
+
+# =========================================================================
+# one process per profile
+# =========================================================================
+
+
+class ProfileLock:
+    """An operating-system lock on a profile's database, held while a process
+    serves it. Released by the OS if the process dies, so it never goes stale.
+    Two Career Agent windows can therefore never write one profile at once."""
+
+    def __init__(self, db: Path) -> None:
+        self.path = Path(db).resolve().with_suffix(Path(db).suffix + ".profile.lock")
+        self._handle: Any = None
+
+    def acquire(self) -> None:
+        handle = self.path.open("a+b")
+        handle.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            handle.close()
+            raise ProfileError(
+                "This profile is already open in another Career Agent window. "
+                "Use that window, or close it first."
+            ) from exc
+        self._handle = handle
+
+    def release(self) -> None:
+        handle, self._handle = self._handle, None
+        if handle is None:
+            return
+        try:
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        finally:
+            handle.close()

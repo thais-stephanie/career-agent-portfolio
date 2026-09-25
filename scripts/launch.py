@@ -35,12 +35,16 @@ def main() -> int:
     os.environ["RESUME_TAILOR_HOME"] = str(ROOT / "data" / f"tailor-{mode}")
     os.environ["RESUME_TAILOR_DATA"] = str(ROOT / "data" / f"tailor-{mode}" / "runtime")
     profile = None
-    if not args.demo:
+    if not args.demo and not args.check:
         # LOCAL PROFILES. The first start adopts the existing workspace as the
         # first profile, where it already is; nothing is moved or copied.
         from career_agent.runtime.profiles import ProfileError, ensure_registry, set_active
 
-        registry = ensure_registry(ROOT)
+        try:
+            registry = ensure_registry(ROOT)
+        except ProfileError as exc:
+            print(f"Career Agent could not start: {exc}")
+            return 2
         if args.profile:
             wanted = [
                 p
@@ -132,7 +136,12 @@ def main() -> int:
     # rebuild it on that profile's own workspace.
     tailor_app = SwitchableApp(create_app())
     host = (
-        ProfileHost(ROOT, port=args.port, tailor=tailor_app, tailor_factory=create_app)
+        ProfileHost(
+            ROOT,
+            port=args.port,
+            tailor=tailor_app,
+            tailor_factory=lambda home: create_app(home=home),
+        )
         if profile is not None
         else None
     )
@@ -145,14 +154,22 @@ def main() -> int:
             tailor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         tailor_socket.bind(("127.0.0.1", args.port + 1))
         tailor_socket.listen(128)
-        api = (
-            host.open(profile)
-            if host is not None and profile is not None
-            else JobsApi(ServerConfig(db_path=db, config_dir=config, port=args.port))
-        )
+        from career_agent.runtime.profiles import ProfileError
+
+        try:
+            api = (
+                host.open(profile)
+                if host is not None and profile is not None
+                else JobsApi(ServerConfig(db_path=db, config_dir=config, port=args.port))
+            )
+        except ProfileError as exc:
+            tailor_socket.close()
+            print(f"Career Agent could not start: {exc}")
+            return 2
         career = build_server(api)
-        if host is not None:
+        if host is not None and profile is not None:
             host.server = career
+            host.serve(profile, api)
     except OSError:
         tailor_socket.close()
         if career:
@@ -204,6 +221,8 @@ def main() -> int:
     finally:
         career.shutdown()
         career.server_close()
+        if host is not None:
+            host.close()
         tailor_socket.close()
         worker.join(timeout=5)
     return 0
