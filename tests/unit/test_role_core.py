@@ -60,3 +60,11 @@ def test_nothing_that_scores_gates_or_hides_a_posting_imports_it() -> None:
         if path.name != "role_core.py" and "match.role_core" in path.read_text(encoding="utf-8")
     ]
     assert offenders == []
+
+
+def test_the_classifier_reads_a_hostile_title_in_linear_time() -> None:
+    import time
+
+    started = time.monotonic()
+    classify("a" + " " * 20_000 + "b" + "(" * 20_000, IntentCores.of(["Nurse"]))
+    assert time.monotonic() - started < 1.0

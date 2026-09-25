@@ -21,9 +21,8 @@ question of the TITLE alone:
                 that names no role ("General application").
 
 NOTHING READS THIS FOR A SCORE. It awards no title-fit points, changes no
-eligibility and hides nothing. `career-agent role-alignment` reports it so it
-can be measured against real corpora first (docs/SEMANTIC_MATCHING.md records
-the benchmark and the decision).
+eligibility and hides nothing. evaluation/role_alignment/README.md records the
+benchmark and the decision; tests/unit/test_role_core.py keeps both honest.
 
 Occupation-agnostic by construction: the only vocabulary is a short list of
 words that are never a role on their own ("remote", "senior", "team"), and
@@ -37,7 +36,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 
-from career_agent.discovery.aliases import ABBREVIATIONS, _strip_qualifiers
+from career_agent.discovery.aliases import ABBREVIATIONS, MAX_TITLE, _strip_qualifiers
+from career_agent.discovery.anchors import clean
 
 
 class Alignment(StrEnum):
@@ -86,7 +86,7 @@ def role_core(title: str) -> tuple[str, ...]:
     Customer Success" read as "Customer Success Manager"; abbreviations
     expanded, so "SDR" and "Sales Development Representative" meet.
     """
-    text = _strip_qualifiers(title or "")
+    text = _strip_qualifiers(clean(title or "")[:MAX_TITLE])
     # "Manager, Customer Success" and "Head of Sales": the role noun first.
     if "," in text:
         head, _, rest = text.partition(",")
