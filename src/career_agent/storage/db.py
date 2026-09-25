@@ -313,6 +313,10 @@ def migrate(conn: sqlite3.Connection, directory: Path = MIGRATIONS_DIR) -> list[
 
     side = role(conn)
     if side == "profile":
+        from career_agent.storage.catalogue import ensure_profile_tables
+
+        with transaction(conn):
+            ensure_profile_tables(conn)
         # The catalogue is migrated on its own connection, where its tables
         # are `main`, before the profile's own migrations run.
         shared = attached_path(conn)

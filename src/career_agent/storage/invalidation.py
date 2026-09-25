@@ -47,13 +47,20 @@ def request(conn: sqlite3.Connection, ids: Sequence[str]) -> None:
         raise RuntimeError("request requires a write transaction")
     # A split profile keeps its own requests (storage/catalogue.py): the
     # shared queue and the shared input revisions are for public changes.
-    if conn.execute(
-        "SELECT 1 FROM main.sqlite_master WHERE type='table' AND name='profile_request'"
-    ).fetchone():
+    from career_agent.storage.catalogue import ensure_profile_tables, role
+
+    if role(conn) == "profile":
+        ensure_profile_tables(conn)
+        generation = int(
+            conn.execute(
+                "SELECT COALESCE(MAX(generation), 0) FROM main.profile_request"
+            ).fetchone()[0]
+        )
         conn.executemany(
-            "INSERT INTO main.profile_request (job_id, marked_at) VALUES (?, ?)"
-            " ON CONFLICT(job_id) DO UPDATE SET marked_at = excluded.marked_at",
-            [(jid, now_utc()) for jid in ids],
+            "INSERT INTO main.profile_request (job_id, generation, marked_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(job_id) DO UPDATE SET generation = excluded.generation,"
+            " marked_at = excluded.marked_at",
+            [(jid, generation + 1, now_utc()) for jid in ids],
         )
         return
     conn.execute("UPDATE compute_revision SET revision = revision + 1 WHERE id = 'singleton'")

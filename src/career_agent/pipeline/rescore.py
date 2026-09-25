@@ -98,9 +98,9 @@ class RescorePlan:
     closed_candidates: int = 0
     plan_ms: int = 0
     #: A split profile's own requests read at plan time, `job_id ->
-    #: marked_at`; cleared once each posting is scored (see
+    #: generation`; cleared once each posting is scored (see
     #: storage/catalogue.PROFILE_REQUEST_TABLE).
-    requested: dict[str, str] = field(default_factory=dict)
+    requested: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -254,14 +254,18 @@ def _read_ledger(conn: sqlite3.Connection) -> dict[str, int]:
     return {str(r["job_id"]): int(r["generation"]) for r in rows}
 
 
-def _read_requests(conn: sqlite3.Connection) -> dict[str, str] | None:
+def _read_requests(conn: sqlite3.Connection) -> dict[str, int] | None:
     """A split profile's own rescore requests; None for a one-file database."""
+    from career_agent.storage.catalogue import role
+
+    if role(conn) != "profile":
+        return None
     if not conn.execute(
         "SELECT 1 FROM main.sqlite_master WHERE type='table' AND name='profile_request'"
     ).fetchone():
-        return None
-    rows = conn.execute("SELECT job_id, marked_at FROM main.profile_request").fetchall()
-    return {str(r[0]): str(r[1]) for r in rows}
+        return {}
+    rows = conn.execute("SELECT job_id, generation FROM main.profile_request").fetchall()
+    return {str(r[0]): int(r[1]) for r in rows}
 
 
 def _ledger_reasons(conn: sqlite3.Connection) -> dict[str, str]:
@@ -657,13 +661,24 @@ def rescore(
         # A newer plan-time mark is deliberately left for the next pass.
         chosen.dirty = {j: g for j, g in chosen.dirty.items() if successful.get(j) == g}
         # This profile's own requests are answered by any successful score in
-        # this pass; one made while it ran (a newer `marked_at`) is kept.
-        answered = [(j, m) for j, m in chosen.requested.items() if j in successful]
+        # this pass; one made while it ran (a newer generation) is kept. A
+        # request for a posting that closed or has no text can never be
+        # answered, and is dropped rather than read by every plan for ever.
+        answered = [(j, g) for j, g in chosen.requested.items() if j in successful]
+        unanswerable = [(j, g) for j, g in chosen.requested.items() if j not in successful]
         for start in range(0, len(answered), _PAGE):
             with transaction(conn):
                 conn.executemany(
-                    "DELETE FROM main.profile_request WHERE job_id = ? AND marked_at = ?",
+                    "DELETE FROM main.profile_request WHERE job_id = ? AND generation = ?",
                     answered[start : start + _PAGE],
+                )
+        for start in range(0, len(unanswerable), _PAGE):
+            with transaction(conn):
+                conn.executemany(
+                    "DELETE FROM main.profile_request WHERE job_id = ? AND generation = ?"
+                    " AND EXISTS (SELECT 1 FROM job j WHERE j.id = main.profile_request.job_id"
+                    " AND (j.closed_at IS NOT NULL OR j.content_hash IS NULL))",
+                    unanswerable[start : start + _PAGE],
                 )
         chosen.search_refresh = sorted(chosen.dirty)
         search_started = datetime.now(UTC)

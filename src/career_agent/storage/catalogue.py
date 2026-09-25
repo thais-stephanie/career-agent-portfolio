@@ -153,6 +153,14 @@ PROFILE_REVISION_TABLE = "profile_revision"
 #: profile which postings this one evaluated, and force all of them to
 #: rescore work that changed nothing public.
 PROFILE_REQUEST_TABLE = "profile_request"
+#: `generation` is monotonic per profile, so a request made while a pass runs
+#: is never mistaken for the one that pass read (a timestamp could collide).
+PROFILE_REQUEST_DDL = (
+    f"CREATE TABLE IF NOT EXISTS main.{PROFILE_REQUEST_TABLE} ("
+    " job_id TEXT PRIMARY KEY,"
+    " generation INTEGER NOT NULL,"
+    " marked_at TEXT NOT NULL)"
+)
 IDENTITY_TABLE = "catalogue_identity"
 
 #: Run stages that write the catalogue and therefore take its collection lock.
@@ -207,6 +215,13 @@ def role(conn: sqlite3.Connection) -> str:
     if _has_table(conn, IDENTITY_TABLE):
         return "catalogue"
     return "single"
+
+
+def ensure_profile_tables(conn: sqlite3.Connection) -> None:
+    """Tables a split profile needs that an earlier build of the split did
+    not create. Idempotent; the caller holds a write transaction or none."""
+    if role(conn) == "profile":
+        conn.execute(PROFILE_REQUEST_DDL)
 
 
 def is_attached(conn: sqlite3.Connection) -> bool:
@@ -560,11 +575,7 @@ def make_profile(conn: sqlite3.Connection, linked_to: str) -> SplitReport:
                 rewritten = re.sub(r"\bcompute_revision\b", PROFILE_REVISION_TABLE, sql)
                 conn.execute(rewritten)
 
-            conn.execute(
-                f"CREATE TABLE {PROFILE_REQUEST_TABLE} ("
-                " job_id TEXT PRIMARY KEY,"
-                " marked_at TEXT NOT NULL)"
-            )
+            conn.execute(PROFILE_REQUEST_DDL)
             conn.execute(
                 f"CREATE TABLE {LINK_TABLE} ("
                 " id TEXT PRIMARY KEY CHECK (id = 'singleton'),"

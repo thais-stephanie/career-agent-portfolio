@@ -383,6 +383,25 @@ class _Handler(BaseHTTPRequestHandler):
             if exc.for_reader:
                 body["for_reader"] = True
             self._send_json(exc.status, body)
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc) and "busy" not in str(exc):
+                self.app.log(f"unhandled: {type(exc).__name__}: {exc}")
+                self._send_json(500, {"error": "unhandled server fault; see the server log"})
+                return
+            # Another Career Agent window is writing the shared job catalogue
+            # (a collection, or a search-index rebuild) and held it past the
+            # wait. Nothing was saved and nothing is broken: say so.
+            self._send_json(
+                503,
+                {
+                    "error": (
+                        "Career Agent is busy saving in another window. Nothing was "
+                        "changed; try again in a moment."
+                    ),
+                    "for_reader": True,
+                    "code": "busy",
+                },
+            )
         except Exception as exc:  # noqa: BLE001  -- the server must not die
             # The detail goes to the operator's terminal, not to the page.
             # sqlite3 and OSError messages carry absolute filesystem paths and

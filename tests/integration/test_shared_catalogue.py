@@ -676,3 +676,48 @@ def test_a_failed_install_puts_every_file_back(
         assert cat.role(conn) == "single"
     finally:
         conn.close()
+
+
+def test_a_request_made_while_a_pass_runs_survives_it(two_profiles: dict) -> None:
+    from career_agent.storage import invalidation
+
+    a_config, _ = load_search_config(two_profiles["a_config"])
+    a = connect(two_profiles["a_db"])
+    try:
+        job = a.execute("SELECT job_id FROM main.job_match ORDER BY job_id").fetchone()[0]
+        with transaction(a):
+            invalidation.request(a, [job])
+
+        def again(stats) -> None:  # noqa: ANN001
+            other = connect(two_profiles["a_db"])
+            try:
+                with transaction(other):
+                    invalidation.request(other, [job])
+            finally:
+                other.close()
+
+        rescore(a, a_config, mode=RescoreMode.DIRTY, progress=again)
+        left = a.execute("SELECT job_id FROM main.profile_request").fetchall()
+        assert [r[0] for r in left] == [job], "the newer request was acknowledged by an older pass"
+    finally:
+        a.close()
+
+
+def test_a_profile_split_without_the_request_table_is_still_treated_as_split(
+    two_profiles: dict,
+) -> None:
+    from career_agent.storage import invalidation
+
+    b = connect(two_profiles["b_db"])
+    try:
+        with transaction(b):
+            b.execute("DROP TABLE main.profile_request")
+        job = b.execute("SELECT id FROM job ORDER BY id").fetchone()[0]
+        with transaction(b):
+            invalidation.request(b, [job])
+        assert (
+            b.execute("SELECT COUNT(*) FROM job_dirty WHERE reason='REQUESTED'").fetchone()[0] == 0
+        )
+        assert b.execute("SELECT job_id FROM main.profile_request").fetchone()[0] == job
+    finally:
+        b.close()
