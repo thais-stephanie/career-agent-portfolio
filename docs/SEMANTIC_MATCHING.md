@@ -190,6 +190,22 @@ An adversarial review of the pull request found no merge blocker, and these were
 - **The semantic run and a manual rescore refuse to overlap.**
 - **The interface translates every error and stop reason by code.**
 
+## First run on the real corpus (2026-09-25)
+
+The first live batches changed three things. Each was measured before it was kept.
+- **A malformed finding no longer rejects its whole answer.**
+  - 28 of the first 300 answers were rejected whole. They listed items the model had turned down, with strength `none`, or misspelt one key, and so lost every valid finding beside them.
+  - Such a match is now dropped on its own and counted (`malformed_match`). A malformed answer is still rejected whole.
+  - The next 300 answers had 1 rejection.
+- **Contract 3.**
+  - An item with a narrowing qualifier (business, revenue, CRM, AI, a domain) is `strong` only when the posting's work carries that qualifier. `strong` is for the centre of the role, and only supporting items are listed.
+  - On the labelled set it changed agreement by one case (38 against 39 of 45). It is kept because it removed the malformed answers, which the evaluations had already paid for.
+- **A partial finding pays like an incidental mention.**
+  - The contract defines `partial` as a secondary duty or a close neighbour. That is an interpretation of adjacency, and it no longer pays like a statement in a secondary section.
+  - On a fixed sample of 30 STRONG results from the first live batch (hand-labelled: 21 fits, 9 adjacent roles), STRONG held 19 of 28 fits before and 15 of 19 after. The adjacent roles that stayed STRONG fell from 9 to 4.
+  - On the 45-case labelled set, false positives fell from 3 to 1 and misses rose from 2 to 3.
+  - Fits that move out of STRONG land in GOOD and stay visible.
+
 ## Subscriptions are not APIs
 
 | Provider | How it is reached | Who pays |

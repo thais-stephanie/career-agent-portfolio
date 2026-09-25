@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from career_agent.semantic.intent import SearchIntent
 
-CONTRACT_VERSION = "semantic-2"
+CONTRACT_VERSION = "semantic-3"
 
 #: How much of a posting is sent. Quotes must come from the text actually sent,
 #: so a finding can never cite a part of the posting the provider did not see.
@@ -58,6 +58,10 @@ class TAspect(BaseModel):
 
     verdict: Verdict
     matches: list[TMatch] = Field(default_factory=list)
+    #: Matches the provider sent that were not matches in this contract's
+    #: shape (a "none" strength, a misspelt key), dropped one by one by
+    #: `parse_answer` and counted here. Never sent by a provider.
+    malformed: int = 0
 
 
 class TAnswer(BaseModel):
@@ -130,8 +134,17 @@ Then, for each list, find the items the POSTING genuinely supports.
   not strong: building a web application is not "business application
   development" for revenue teams, and a data pipeline is not "systems
   integration" of business platforms, unless the posting says so.
+- When an item carries a qualifier that narrows it (a domain such as
+  business, revenue, finance or CRM, or a field such as AI), "strong" needs
+  the posting's work to carry that same qualifier. The activity without it
+  (generic web, software or data work) is at most "partial".
+- Most postings support only one to three items strongly. "strong" is for
+  items at the centre of role_core; anything else genuinely present is
+  "partial".
 - strength "partial": the item is a stated but secondary duty of this role, or
   a close neighbour of what the person asked for.
+- List ONLY the items the posting supports. Never list an item as "none" or
+  without a quote.
 - Never match from: the company description or mission, benefits, the hiring
   process, other teams' work, or a generic line such as "collaborate with
   stakeholders" or "improve processes". Never match a work item from a tools
@@ -206,6 +219,22 @@ def parse_answer(raw: str) -> TAnswer:
         raise AnswerRejected(f"not a json document: {exc.msg}") from exc
     if not isinstance(data, dict):
         raise AnswerRejected("the answer is not a json object")
+    # A malformed FINDING is refused on its own; it does not take the rest of
+    # a well-formed answer with it. Measured on the first real batch: 28 of
+    # 300 answers listed items the model had rejected with strength "none",
+    # or misspelt one key, and each lost every valid finding beside it.
+    for name in ("work", "tools", "other"):
+        aspect = data.get(name)
+        if isinstance(aspect, dict) and isinstance(aspect.get("matches"), list):
+            kept = []
+            for match in aspect["matches"]:
+                try:
+                    TMatch.model_validate(match)
+                except ValidationError:
+                    continue
+                kept.append(match)
+            aspect["malformed"] = len(aspect["matches"]) - len(kept)
+            aspect["matches"] = kept
     try:
         return TAnswer.model_validate(data)
     except ValidationError as exc:
