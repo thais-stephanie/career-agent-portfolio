@@ -206,15 +206,9 @@ def job_and_package_server(tmp_path: Path, committed_config: Path) -> Iterator[s
 
 
 def open_evidence(page: Chrome, server: str) -> None:
-    page.navigate(server)
-    page.wait_for(
-        "document.querySelector('.topnav__link[data-page=\"evidence\"]') !== null",
-        message="the global navigation",
-    )
-    page.evaluate("document.querySelector('.topnav__link[data-page=\"evidence\"]').click()")
-    # The statement manager moved behind Evidence: "Manage all statements".
-    page.wait_for("document.querySelector('#page-evidence .evp-manage .cw-link') !== null")
-    page.evaluate("document.querySelector('#page-evidence .evp-manage .cw-link').click()")
+    # The old statement manager is a developer tool now: no link in the
+    # product reaches it, only `?debug=statements` in the address.
+    page.navigate(f"{server}/?debug=statements")
     page.wait_for(
         "document.querySelector('#page-manage .ev__privacy') !== null",
         message="the statement manager",
@@ -648,15 +642,16 @@ def test_a_requirement_leads_to_what_is_waiting_about_it(
         ".find((b) => b.textContent.includes('Your career evidence')).click()"
     )
 
+    # Evidence, with the add drawer open and the requirement named in it. Never
+    # the old statement manager, which is no longer a user surface.
     page.wait_for(
-        "document.querySelector('#page-manage .ev__focus') !== null",
-        message="the focused review",
+        "!document.querySelector('#page-evidence').hidden"
+        " && document.querySelector('.cw-drawer [role=dialog]') !== null",
+        message="Evidence, with the add drawer open",
     )
-    focus = " ".join(texts(page, ".ev__focus .ev__note"))
-    assert requirement in focus, focus
-    # And it is a NARROWING she can see and drop, never a screen that quietly
-    # shows a subset of what is waiting.
-    assert any("Show everything waiting" in text for text in texts(page, ".ev__focus button"))
+    lede = str(page.evaluate("document.querySelector('.cw-drawer__lede').textContent"))
+    assert requirement in lede, lede
+    assert page.evaluate("document.querySelector('#page-manage').hidden")
 
 
 # =========================================================================

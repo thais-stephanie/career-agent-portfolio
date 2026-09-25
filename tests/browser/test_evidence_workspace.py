@@ -52,15 +52,9 @@ def open_evidence(page: Chrome, server: str) -> None:
     but reviewing forty proposals is not a thing to do inside a dialog on top
     of a job.
     """
-    page.navigate(server)
-    page.wait_for(
-        "document.querySelector('.topnav__link[data-page=\"evidence\"]') !== null",
-        message="the global navigation",
-    )
-    page.evaluate("document.querySelector('.topnav__link[data-page=\"evidence\"]').click()")
-    # The statement manager moved behind Evidence: "Manage all statements".
-    page.wait_for("document.querySelector('#page-evidence .evp-manage .cw-link') !== null")
-    page.evaluate("document.querySelector('#page-evidence .evp-manage .cw-link').click()")
+    # The old statement manager is a developer tool now: no link in the
+    # product reaches it, only `?debug=statements` in the address.
+    page.navigate(f"{server}/?debug=statements")
     page.wait_for(
         "document.querySelector('#page-manage .ev__privacy') !== null",
         message="the statement manager",

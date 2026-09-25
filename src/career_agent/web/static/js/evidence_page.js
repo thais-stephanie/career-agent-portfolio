@@ -43,7 +43,7 @@ export function titleOf(text) {
   return { title: '', description: clean };
 }
 
-export function evidencePage({ onManage = null, onChanged = null, onImport = null } = {}) {
+export function evidencePage({ onChanged = null, onImport = null } = {}) {
   const root = el('section', { className: 'evp', attrs: { 'aria-label': L('heading') } });
   let ledger = null;
   let career = { experiences: [] };
@@ -103,10 +103,6 @@ export function evidencePage({ onManage = null, onChanged = null, onImport = nul
             toast(L('backInUse'));
           }), { className: 'btn btn--small' }),
         ]))),
-      ]) : null,
-      onManage ? el('p', { className: 'evp-manage' }, [
-        button(L('manage'), onManage, { className: 'cw-link' }),
-        el('span', { text: L('manageHint') }),
       ]) : null,
     ]);
   }
@@ -226,12 +222,13 @@ export function evidencePage({ onManage = null, onChanged = null, onImport = nul
   }
 
   // -- add or edit -----------------------------------------------------------
-  function editorDrawer(claim) {
+  function editorDrawer(claim, { requirement = '' } = {}) {
     const existing = claim ? titleOf(claim.text) : { title: '', description: '' };
     const drawer = openDrawer({
       eyebrow: claim ? L('editEyebrow') : L('newEyebrow'),
       title: claim ? L('editTitle') : L('addTitle'),
-      lede: L('addLede'),
+      // Opened from a job's requirement: say which one this is for.
+      lede: requirement ? L('addForRequirement', { requirement }) : L('addLede'),
     });
     let chosen = claim ? claim.claim_type : 'PROJECT';
     const typeGroup = el('div', { className: 'evp-types', attrs: { role: 'radiogroup',
@@ -319,7 +316,7 @@ export function evidencePage({ onManage = null, onChanged = null, onImport = nul
   }
 
   root.load = load;
-  root.add = () => editorDrawer(null);
+  root.add = ({ requirement = '' } = {}) => editorDrawer(null, { requirement });
   void load().catch((problem) => {
     replace(root, [el('p', { attrs: { role: 'alert' }, text: problem.userMessage || problem.message })]);
   });
