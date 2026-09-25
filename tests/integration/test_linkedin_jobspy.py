@@ -106,7 +106,12 @@ def _row(api: JobsApi) -> dict[str, Any]:
     return next(r for r in data["sources"] if r["id"] == SOURCE)
 
 
-def test_switching_on_needs_the_warning_acknowledged_and_can_be_undone(tmp_path: Path) -> None:
+def test_switching_on_needs_the_warning_acknowledged_and_can_be_undone(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "career_agent.web.source_refresh.experimental_available", lambda provider: True
+    )
     api = _api(tmp_path)
     row = _row(api)
     assert row["experimental"]["opted_in"] is False
@@ -162,6 +167,10 @@ def test_the_demo_cannot_switch_it_on(tmp_path: Path) -> None:
 
 
 def test_find_jobs_runs_linkedin_only_after_the_opt_in(tmp_path: Path, monkeypatch) -> None:
+    # Whatever this Python has installed: availability is tested elsewhere.
+    monkeypatch.setattr(
+        "career_agent.web.source_refresh.experimental_available", lambda provider: True
+    )
     api = _api(tmp_path)
     ran: list[str] = []
 
@@ -452,3 +461,35 @@ def test_switching_off_stops_a_run_in_progress(conn) -> None:
         (_query("a b", "country:BR"), _query("c d", "country:BR")), should_stop=stop
     )
     assert stats.queries_attempted == 1 and stats.stopped_reason == "cancelled"
+
+
+def test_cards_read_before_a_later_page_failed_are_kept(conn) -> None:
+    class Partial(Fake):
+        def scrape(self, **kwargs):
+            self.searches.append(kwargs)
+            return [RECORDS[0]], [200, 500]
+
+    stats = _collector(conn, Partial([])).collect((_query("a b", "country:BR"),), max_enrich=0)
+    assert stats.queries_failed == 1 and stats.unique_results == 1 and stats.jobs_new == 1
+
+
+def test_a_retry_that_fails_is_not_a_recovered_refusal(conn) -> None:
+    stats = _collector(conn, Fake(["429", ValueError("x")])).collect(
+        (_query("a b", "country:BR"),), max_enrich=0
+    )
+    assert stats.retries == 1 and stats.refusals_recovered == 0 and stats.queries_failed == 1
+
+
+def test_the_linkedin_row_is_unavailable_without_the_library(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "career_agent.web.source_refresh.experimental_available", lambda provider: False
+    )
+    api = _api(tmp_path)
+    api.handle_api(
+        "PATCH",
+        "/api/sources/experimental",
+        {},
+        {"source_id": SOURCE, "opted_in": True, "acknowledged": True},
+    )
+    row = _row(api)
+    assert row["experimental"]["available"] is False and row["can_refresh"] is False

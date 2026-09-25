@@ -266,7 +266,8 @@ class LinkedInCollector:
                     stats.stopped_reason = "rate_limited"
                     stats.failures.append(f"rate limited: {query.key}")
                     break
-                stats.refusals_recovered += 1
+                if outcome.status in (OK, EMPTY):
+                    stats.refusals_recovered += 1
             if outcome.status == OK:
                 stats.queries_succeeded += 1
                 failures_in_row = 0
@@ -280,7 +281,11 @@ class LinkedInCollector:
                 if failures_in_row >= MAX_CONSECUTIVE_SEARCH_FAILURES:
                     stats.stopped_reason = "repeated_failures"
                     break
-                continue
+                if not outcome.records:
+                    continue
+                # A later result page failed after earlier ones answered: the
+                # cards already read are kept, and the search still counts
+                # as failed.
             stats.raw_results += len(outcome.records)
             for record in outcome.records:
                 ident = external_id(record)
@@ -348,8 +353,8 @@ class LinkedInCollector:
                 if stats.enrich_attempted:
                     self._sleep(self._pause(ENRICH_PAUSE))
                 stats.enrich_attempted += 1
-                stats.requests += 1
                 status, details = self.provider.enrich(record)
+                stats.requests += int(details.pop("_requests", 0) or 0)
                 if status == OK:
                     stats.enrich_succeeded += 1
                     failures_in_row = 0

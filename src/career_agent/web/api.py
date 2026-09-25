@@ -820,14 +820,19 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         """
         from career_agent.sources.progress import RefreshState, read_progress
         from career_agent.sources.scheduling import plan_refresh
-        from career_agent.web.source_refresh import effective_provider, modes, opted_in
+        from career_agent.web.source_refresh import (
+            effective_provider,
+            experimental_available,
+            modes,
+            opted_in,
+        )
 
         with _closing(self.connect()) as conn:
             opted = opted_in(conn, observed)
         running = {
             entry.source.id: provider
             for entry in observed
-            if (provider := effective_provider(entry, opted))
+            if (provider := effective_provider(entry, opted)) and experimental_available(provider)
         }
         stage_for = {
             source_id: _stage_for_source_provider(provider)

@@ -307,6 +307,10 @@ def _default_scrape(**kwargs: Any) -> tuple[list[dict[str, Any]], list[int]]:
             description_format=DescriptionFormat.MARKDOWN,
         )
     )
+    # A search redirected to the sign-in page answers 200 with no cards: that
+    # is a refusal, not an empty market.
+    if any("linkedin.com/signup" in u or "authwall" in u for u in recording.urls):
+        return [_post(post) for post in response.jobs], [*recording.statuses, 999]
     return [_post(post) for post in response.jobs], recording.statuses
 
 
@@ -413,9 +417,10 @@ class LinkedInJobSpyProvider(JobProvider):
                 logger.removeHandler(listen)
         statuses = found.pop("_statuses", [])
         signin = found.pop("_signin", False)
+        counted = {"_requests": len(statuses)}
         if signin or classify(listen.messages, 1, None, statuses) == RATE_LIMITED:
-            return RATE_LIMITED, {}
-        return (OK, found) if found.get("description") else (FAILED, {})
+            return RATE_LIMITED, counted
+        return (OK, {**found, **counted}) if found.get("description") else (FAILED, counted)
 
     # -- the JobProvider protocol -----------------------------------------
 
