@@ -80,6 +80,39 @@ class RefreshState(StrEnum):
     FAILED = "FAILED"
     #: The vendor or a quota is refusing us, so there is nothing to wait for.
     BLOCKED = "BLOCKED"
+    #: The last successful refresh is older than `STALE_AFTER_HOURS`. Whatever
+    #: that run achieved, the corpus from this source is no longer current,
+    #: and saying "Refresh complete" about a three-day-old read is not true.
+    STALE = "STALE"
+
+
+#: When a successful refresh stops counting as current.
+STALE_AFTER_HOURS = 72
+
+#: Why a refresh is PARTIAL, as codes a screen translates.
+REASON_PAGE_LIMIT = "PAGE_LIMIT"
+REASON_SOURCE_CEILING = "SOURCE_CEILING"
+REASON_REQUEST_BUDGET = "REQUEST_BUDGET"
+REASON_SOME_FAILED = "SOME_FAILED"
+REASON_BOARDS_DEFERRED = "BOARDS_DEFERRED"
+
+
+def partial_reason(stats: Mapping[str, Any]) -> str | None:
+    """The first reason a run left part of the source unread, if any."""
+    if stats.get("ceiling_hit") or stats.get("slices_over_ceiling"):
+        return REASON_SOURCE_CEILING
+    if stats.get("budget_exhausted") or stats.get("slices_capped"):
+        return REASON_REQUEST_BUDGET
+    if stats.get("stopped_early"):
+        return REASON_PAGE_LIMIT
+    if stats.get("boards_deferred"):
+        return REASON_BOARDS_DEFERRED
+    failures = stats.get("failures")
+    if (isinstance(failures, (dict, list)) and failures) or (
+        isinstance(failures, int) and failures
+    ):
+        return REASON_SOME_FAILED
+    return None
 
 
 @dataclass(frozen=True)
@@ -111,6 +144,9 @@ class SourceProgress:
     blocker: str | None = None
     #: Everything else the run recorded, for a details view. Never interpreted.
     detail: Mapping[str, Any] = field(default_factory=dict)
+    #: Why the source is PARTIAL (or was, before it went STALE): a code from
+    #: `partial_reason`, never prose.
+    reason: str | None = None
 
     @property
     def measurable(self) -> bool:
@@ -331,6 +367,18 @@ def _family_history(conn: sqlite3.Connection) -> tuple[dict, dict]:
     return latest, successes
 
 
+def _older_than(stamp: str | None, hours: int, now: datetime) -> bool:
+    if not stamp:
+        return False
+    try:
+        moment = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return (now - moment).total_seconds() > hours * 3600
+
+
 def read_progress(
     conn: sqlite3.Connection,
     *,
@@ -404,6 +452,17 @@ def read_progress(
             if stage == _SHARED_STAGE and provider_slice is not None:
                 state = _state_of_slice(provider_slice) or state
 
+        last_success = (
+            family_successes.get(provider_name)
+            if stage == _SHARED_STAGE and provider_name
+            else successes.get(stage)
+        )
+        reason = partial_reason(counted) if state is RefreshState.PARTIAL else None
+        if state in (RefreshState.COMPLETE, RefreshState.PARTIAL) and _older_than(
+            last_success, STALE_AFTER_HOURS, moment
+        ):
+            state = RefreshState.STALE
+
         retrieved = _first(counted, _RETRIEVED_KEYS)
         total = _first(counted, _TOTAL_KEYS) or _partitioned_total(counted)
         started = str(row["started_at"]) if row is not None else None
@@ -417,11 +476,7 @@ def read_progress(
                 units_done=_first(counted, _UNIT_KEYS),
                 expected_total=total,
                 started_at=started,
-                last_success=(
-                    family_successes.get(provider_name)
-                    if stage == _SHARED_STAGE and provider_name
-                    else successes.get(stage)
-                ),
+                last_success=last_success,
                 eta_seconds=(
                     _eta(started_at=started, retrieved=retrieved, total=total, now=moment)
                     if state is RefreshState.RUNNING
@@ -429,6 +484,7 @@ def read_progress(
                 ),
                 blocker=blocked.get(source_id) or paused.get(source_id),
                 detail=counted,
+                reason=reason,
             )
         )
     out.sort(key=lambda p: (p.state is not RefreshState.RUNNING, p.source_id))

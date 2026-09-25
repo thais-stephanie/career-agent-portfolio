@@ -129,6 +129,84 @@ def load_registry_file(path: Path) -> CompanyRegistry:
         raise ConfigError("\n".join(lines)) from exc
 
 
+def sync_registry(conn: Any, registry: CompanyRegistry) -> int:
+    """Add the registry's boards that the database does not hold yet.
+
+    The web app never called `apply_registry`, so a personal database created
+    by the launcher held no ATS board at all and every board family read
+    "Never run" forever (found 2026-09-25: 292 verified boards in the
+    registry, 0 in the database). This closes that gap on every start.
+
+    ADDITIVE ONLY. A board already present is never touched: `apply_registry`
+    rewrites `active`, which would silently switch back on a board that was
+    switched off after it stopped answering. Returns the number of boards added.
+    """
+    existing = {
+        (str(r[0]), str(r[1]))
+        for r in conn.execute("SELECT provider, board_identifier FROM source_board").fetchall()
+    }
+    missing = [
+        entry
+        for entry in registry.companies
+        if any((b.provider, b.board_identifier) not in existing for b in entry.boards)
+    ]
+    if not missing:
+        return 0
+    companies = CompanyRepo(conn)
+    boards = SourceBoardRepo(conn)
+    added = 0
+    for entry in missing:
+        row = companies.get_by_slug(entry.slug)
+        company_id = (
+            str(row["id"])
+            if row is not None
+            else companies.upsert(
+                CompanyRecord(
+                    slug=entry.slug,
+                    name=entry.name,
+                    website=entry.website,
+                    hq_country=entry.hq_country,
+                    size_estimate=entry.size_estimate,
+                    stage=entry.stage,
+                    industry=entry.industry,
+                    notes=entry.notes,
+                    canonical_domain=entry.canonical_domain,
+                    discovery_source=entry.discovery_source,
+                    priority_reason=entry.priority_reason,
+                )
+            )
+        )
+        for board in entry.boards:
+            if (board.provider, board.board_identifier) in existing:
+                continue
+            boards.upsert(
+                SourceBoardRecord(
+                    company_id=company_id,
+                    provider=board.provider,
+                    board_identifier=board.board_identifier,
+                    board_url=board.board_url,
+                    active=board.active,
+                    discovery_method=board.discovery_method,
+                    verified_at=board.verified_at,
+                )
+            )
+            existing.add((board.provider, board.board_identifier))
+            added += 1
+    return added
+
+
+def sync_registry_file(conn: Any, config_dir: Any) -> int:
+    """`sync_registry` for `config_dir/companies.yaml`, when that file exists."""
+    path = Path(config_dir) / "companies.yaml"
+    if not path.is_file():
+        return 0
+    from career_agent.storage.db import transaction
+
+    registry = load_registry_file(path)
+    with transaction(conn):
+        return sync_registry(conn, registry)
+
+
 def apply_registry(conn: Any, registry: CompanyRegistry) -> RegistryLoadResult:
     """Upsert every company and board. Safe to run repeatedly."""
     companies = CompanyRepo(conn)

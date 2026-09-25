@@ -36,12 +36,14 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from career_agent.clock import now_utc
 from career_agent.domain.enums import CollectionStatus, PipelineRunStatus
 from career_agent.net.fetcher import FetchError, HttpFetcher
 from career_agent.providers.base import canonical_url as canonical_posting_url
 from career_agent.providers.base import resolve_metadata
 from career_agent.providers.himalayas import (
     HimalayasProvider,
+    _external_id,
     company_of,
     to_stub,
 )
@@ -103,6 +105,18 @@ class HimalayasStats:
     failures: list[str] = field(default_factory=list)
     elapsed_ms: int = 0
     http: dict[str, Any] = field(default_factory=dict)
+    #: The targeted lane: intent searches (role anchors, aliases, work
+    #: phrases) in each market scope. Counted apart from the feed walk.
+    queries_planned: int = 0
+    queries_succeeded: int = 0
+    queries_failed: int = 0
+    queries_rate_limited: int = 0
+    search_results: int = 0
+    search_unique: int = 0
+    #: Postings a scope or a term origin added that no earlier query had.
+    unique_by_scope: dict[str, int] = field(default_factory=dict)
+    unique_by_origin: dict[str, int] = field(default_factory=dict)
+    search_stopped_reason: str | None = None
 
     @property
     def duplicates_total(self) -> int:
@@ -130,6 +144,15 @@ class HimalayasStats:
             "failures": list(self.failures),
             "elapsed_ms": self.elapsed_ms,
             "http": dict(self.http),
+            "queries_planned": self.queries_planned,
+            "queries_succeeded": self.queries_succeeded,
+            "queries_failed": self.queries_failed,
+            "queries_rate_limited": self.queries_rate_limited,
+            "search_results": self.search_results,
+            "search_unique": self.search_unique,
+            "unique_by_scope": dict(self.unique_by_scope),
+            "unique_by_origin": dict(self.unique_by_origin),
+            "search_stopped_reason": self.search_stopped_reason,
             # Said in the stats rather than only in a docstring, because this
             # is what a source panel reads.
             "coverage_note": ("a bounded walk of a feed, never a census of remote hiring"),
@@ -160,8 +183,23 @@ class HimalayasCollector:
 
     # -- the pass ----------------------------------------------------------
 
-    def collect(self, on_progress: Any = None, should_stop: Any = None) -> HimalayasStats:
-        """Read the feed once, to the page budget, and persist what is new."""
+    def collect(
+        self,
+        on_progress: Any = None,
+        should_stop: Any = None,
+        *,
+        searches: Any = (),
+        search_pages: int = 1,
+    ) -> HimalayasStats:
+        """Read the feed once, to the page budget, then run the targeted
+        searches, and persist what is new.
+
+        `searches` is a `discovery.plan.Query` sequence. Each runs once; a rate
+        limit stops the rest (no retry loop), and three failures in a row stop
+        them too. Results are deduplicated against the feed and each other, and
+        what each scope and each term origin ADDED is counted, so a scope that
+        never contributes can be dropped on evidence rather than by guess.
+        """
         started = time.monotonic()
         stats = HimalayasStats()
 
@@ -189,13 +227,19 @@ class HimalayasCollector:
         stats.claimed_total = read.claimed_total
         stats.postings_unaddressable = read.unaddressable
 
+        seen_this_run: set[str] = set()
         for index, job in enumerate(read.jobs, start=1):
             if should_stop is not None and should_stop():
                 break
             stats.postings_seen += 1
+            identity = _external_id(job) if isinstance(job, dict) else None
+            if identity:
+                seen_this_run.add(identity)
             self._handle(job, held_external_ids, stats)
             if on_progress is not None:
                 on_progress(index, len(read.jobs))
+
+        self._search(searches, search_pages, seen_this_run, held_external_ids, stats, should_stop)
 
         stats.elapsed_ms = int((time.monotonic() - started) * 1000)
         stats.http = self.fetcher.stats.as_dict()
@@ -203,20 +247,87 @@ class HimalayasCollector:
             self.runs.finish(run_id, PipelineRunStatus.OK, stats=stats.as_dict(), error=None)
         return stats
 
+    # -- the targeted lane -------------------------------------------------
+
+    def _search(
+        self,
+        searches: Any,
+        pages: int,
+        seen_this_run: set[str],
+        held_external_ids: dict[str, str],
+        stats: HimalayasStats,
+        should_stop: Any,
+    ) -> None:
+        queries = list(searches or ())
+        stats.queries_planned = len(queries)
+        consecutive_failures = 0
+        for query in queries:
+            if should_stop is not None and should_stop():
+                stats.search_stopped_reason = "cancelled"
+                break
+            try:
+                jobs, _total = self.provider.read_search(
+                    query.term.text, country=query.scope.country, pages=pages
+                )
+            except (FetchError, ValueError) as exc:
+                status = getattr(exc, "status_code", None)
+                if status == 429:
+                    stats.queries_rate_limited += 1
+                    stats.search_stopped_reason = "rate_limited"
+                    stats.failures.append(f"search rate-limited: {query.key}")
+                    break
+                stats.queries_failed += 1
+                consecutive_failures += 1
+                stats.failures.append(f"search failed: {query.key}: {str(exc)[:160]}")
+                if consecutive_failures >= 3:
+                    stats.search_stopped_reason = "repeated_failures"
+                    break
+                continue
+            consecutive_failures = 0
+            stats.queries_succeeded += 1
+            stats.search_results += len(jobs)
+            for job in jobs:
+                identity = _external_id(job)
+                if not identity or identity in seen_this_run:
+                    continue
+                seen_this_run.add(identity)
+                stats.search_unique += 1
+                stats.unique_by_scope[query.scope.key] = (
+                    stats.unique_by_scope.get(query.scope.key, 0) + 1
+                )
+                stats.unique_by_origin[query.term.origin] = (
+                    stats.unique_by_origin.get(query.term.origin, 0) + 1
+                )
+                stats.postings_seen += 1
+                job_id = self._handle(job, held_external_ids, stats)
+                if job_id:
+                    self._record_lane(job_id, query)
+
+    def _record_lane(self, job_id: str, query: Any) -> None:
+        now = now_utc()
+        with transaction(self.conn):
+            self.conn.execute(
+                "INSERT INTO job_retrieval_lane (job_id, lane, source, query_key, term_origin,"
+                " first_seen_at, last_seen_at) VALUES (?, 'targeted', ?, ?, ?, ?, ?)"
+                " ON CONFLICT (job_id, lane, source, query_key)"
+                " DO UPDATE SET last_seen_at = excluded.last_seen_at",
+                (job_id, PROVIDER, query.key, query.term.origin, now, now),
+            )
+
     # -- one posting -------------------------------------------------------
 
     def _handle(
         self, job: dict[str, Any], held_external_ids: dict[str, str], stats: HimalayasStats
-    ) -> None:
+    ) -> str | None:
         stub = to_stub(job)
         if stub is None:
-            return
+            return None
 
         # RULE 1, checked first because it is free.
         held = held_external_ids.get(stub.external_id)
         if held is not None:
             self._record_sighting(held, stub, job, MATCH_EXTERNAL_ID, stats)
-            return
+            return held
 
         # RULE 2 (ORIGIN_URL) is unreachable. See the module docstring: this
         # feed publishes no employer apply link, measured rather than assumed.
@@ -225,7 +336,7 @@ class HimalayasCollector:
         match = self._job_by_canonical_url(stub.url)
         if match is not None:
             self._record_sighting(match, stub, job, MATCH_CANONICAL_URL, stats)
-            return
+            return match
 
         posting = self.provider.fetch_posting(None, stub)  # type: ignore[arg-type]
         text_hash = (
@@ -248,7 +359,7 @@ class HimalayasCollector:
             # The feed carried no employer. Inventing one from the title is the
             # fuzzy identity ADR-0008 forbids.
             stats.postings_without_company += 1
-            return
+            return None
 
         slug = _slugify(company)
 
@@ -258,9 +369,9 @@ class HimalayasCollector:
             duplicate = self._job_by_content_hash(text_hash, slug=slug, title=stub.title)
             if duplicate is not None:
                 self._record_sighting(duplicate, stub, job, MATCH_CONTENT_HASH, stats)
-                return
+                return duplicate
 
-        self._persist_new(job, stub, posting, text_hash, company, slug, stats)
+        return self._persist_new(job, stub, posting, text_hash, company, slug, stats)
 
     def _record_sighting(
         self, job_id: str, stub: Any, job: dict[str, Any], rule: str, stats: HimalayasStats
@@ -291,7 +402,7 @@ class HimalayasCollector:
         company: str,
         slug: str,
         stats: HimalayasStats,
-    ) -> None:
+    ) -> str:
         """A posting nothing else in the corpus holds.
 
         One board per company, created on demand, which is what keeps ADR-0008
@@ -354,6 +465,8 @@ class HimalayasCollector:
                 )
             )
             resolve_metadata(PROVIDER, self.provider.field_map, job)
+
+        return str(job_id)
 
     # -- corpus lookups ----------------------------------------------------
 

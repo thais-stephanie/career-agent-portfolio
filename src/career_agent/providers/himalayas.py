@@ -452,6 +452,46 @@ class HimalayasProvider(JobProvider):
         del board
         return f"{self._api_host}/jobs"
 
+    def search_url(self, query: str, *, country: str | None = None, page: int = 1) -> str:
+        """One page of the documented search endpoint.
+
+        `country` takes an ISO code and, as documented, INCLUDES worldwide-
+        friendly postings unless `exclude_worldwide` is sent, which it never
+        is here: a worldwide posting is exactly what somebody in that country
+        can apply to. Page-based pagination is the search endpoint's own; the
+        browse feed's cursor is unrelated.
+        """
+        from urllib.parse import urlencode
+
+        params: dict[str, str | int] = {"q": query[:120], "page": max(1, int(page))}
+        if country:
+            params["country"] = country
+        return assert_trusted(f"{self._api_host}/jobs/api/search?{urlencode(params)}")
+
+    def read_search(
+        self, query: str, *, country: str | None = None, pages: int = 1, use_cache: bool = True
+    ) -> tuple[list[Any], int | None]:
+        """The jobs one search returns, up to `pages` pages, and its total.
+
+        Raises on a failed request, like `read_feed`: a search that failed and
+        a search that found nothing are different facts.
+        """
+        jobs: list[Any] = []
+        total: int | None = None
+        for page in range(1, max(1, pages) + 1):
+            body = self._fetcher.get_json(
+                self.search_url(query, country=country, page=page), use_cache=use_cache
+            )
+            if not isinstance(body, dict) or not isinstance(body.get("jobs"), list):
+                raise HimalayasError("Himalayas search returned an unexpected shape")
+            count = body.get("totalCount")
+            if isinstance(count, int) and not isinstance(count, bool):
+                total = count
+            jobs.extend(job for job in body["jobs"] if isinstance(job, dict))
+            if not body["jobs"] or (total is not None and len(jobs) >= total):
+                break
+        return jobs, total
+
     # -- reading -----------------------------------------------------------
 
     def read_feed(self, *, use_cache: bool = True) -> FeedRead:

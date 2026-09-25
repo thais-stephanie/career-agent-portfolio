@@ -67,6 +67,14 @@ def main() -> int:
     connection = connect(db)
     try:
         migrate(connection)
+        if not args.demo:
+            # The employer boards the product ships with. Additive only: a
+            # board already here is never touched. Without this, a personal
+            # database never held an ATS board and every board family read
+            # "Never run" for ever.
+            from career_agent.config.registry import sync_registry_file
+
+            sync_registry_file(connection, config)
     finally:
         connection.close()
     if args.demo:
