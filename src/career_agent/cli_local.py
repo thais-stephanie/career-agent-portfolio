@@ -786,7 +786,7 @@ def source_coverage_command(
 ) -> None:
     """Per source: boards, last attempt and success, status, requests, fetched,
     new, updated, deduplicated, failed, canonical and open jobs, and why a
-    refresh was partial. Read-only; makes no network call."""
+    refresh was partial. Changes no posting and makes no network call."""
     from career_agent.providers.registry import board_providers
     from career_agent.sources.coverage import coverage
 

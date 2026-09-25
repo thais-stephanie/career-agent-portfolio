@@ -116,6 +116,8 @@ EXPECTED_TABLES = {
     # 0041: published semantic evaluations and the runs that made them.
     "semantic_evaluation",
     "semantic_run",
+    # 0042: which retrieval lane and query found a posting. Provenance only.
+    "job_retrieval_lane",
     # 0031: where a query-scoped walk got to, slice by slice, across runs.
     "source_slice_state",
     # 0033: where a board-discovery walk over an aggregator index got to,

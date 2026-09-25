@@ -222,7 +222,11 @@ def test_find_jobs_runs_every_source_through_its_own_work_offline(
         fresh.app, "_collect_work", lambda limit, provider=None: recorder(f"collect:{provider}")
     )
     monkeypatch.setattr(
-        "career_agent.web.source_refresh.feed_work", lambda db, stage: recorder(stage)
+        "career_agent.web.source_refresh.feed_work", lambda db, stage, **_: recorder(stage)
+    )
+    monkeypatch.setattr(
+        "career_agent.web.source_refresh.employer_board_work",
+        lambda app, families: recorder("employer-boards"),
     )
     monkeypatch.setattr(fresh.app.rescore, "start", lambda work, run_id: None)
 

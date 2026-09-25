@@ -53,6 +53,8 @@ CREATED_BY_THE_USER = frozenset(
         "config/career_facts.local.yaml",
         # AI & Semantic Matching settings: written by Career Agent on first save.
         "config/semantic.local.yaml",
+        # Roles in mind: written by Career Agent when the person names one.
+        "config/role_anchors.local.yaml",
     }
 )
 

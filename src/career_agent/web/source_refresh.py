@@ -192,11 +192,6 @@ def register_source_refresh(app: JobsApi) -> None:
             )
 
         paused = {p.source_id for p in app._refresh_progress(entries) if p.state == "PAUSED"}
-        # The shipped employer boards, added to a database that lacks them.
-        from career_agent.config.registry import sync_registry_file
-
-        with closing(app.connect()) as conn:
-            sync_registry_file(conn, app.config.config_dir)
         steps: list[tuple[str, str, object]] = []
         board_ids: set[str] = set()
         seen: set[str] = set()
@@ -221,7 +216,7 @@ def register_source_refresh(app: JobsApi) -> None:
             work = (
                 app._collect_work(None, provider=provider)
                 if stage == "collect"
-                else feed_work(app.config.db_path, stage)
+                else feed_work(app.config.db_path, stage, config_dir=app.config.config_dir)
             )
             if stage == "collect":
                 board_ids.add(entry.source.id)
@@ -238,7 +233,15 @@ def register_source_refresh(app: JobsApi) -> None:
         # a board found this run is collected this run.
         boards = [s for s in steps if s[0] in board_ids]
         steps = [s for s in steps if s[0] not in board_ids]
-        steps.append(("employer-boards", "Employer job boards", employer_board_work(app)))
+        # Only on the families the person has not paused, and not at all when
+        # every one of them is paused or blocked.
+        from career_agent.pipeline.employer_boards import FAMILIES
+
+        probe = tuple(f for f in FAMILIES if f in seen)
+        if probe:
+            steps.append(
+                ("employer-boards", "Employer job boards", employer_board_work(app, probe))
+            )
         steps.extend(boards)
 
         def all_sources(state, cancel):
@@ -249,6 +252,13 @@ def register_source_refresh(app: JobsApi) -> None:
             state.boards_total = len(steps)
             state.skipped = len(deferred - seen)
             outcomes: list[dict] = []
+            # The shipped employer boards, added to a database that lacks them.
+            # In the worker rather than the request: it can wait behind another
+            # writer, and a registry that no longer parses changes nothing.
+            from career_agent.config.registry import sync_registry_quietly
+
+            with closing(app.connect()) as conn:
+                sync_registry_quietly(conn, app.config.config_dir)
             try:
                 for done, (source_id, name, work) in enumerate(steps):
                     if cancel.is_set():
@@ -295,7 +305,7 @@ def register_source_refresh(app: JobsApi) -> None:
     app.register("POST", r"/api/sources/refresh-all", refresh_all)
 
 
-def employer_board_work(app):
+def employer_board_work(app, families):
     """Find the ATS boards of employers the feeds have shown, bounded."""
 
     def work(state, cancel):
@@ -312,7 +322,9 @@ def employer_board_work(app):
             with transaction(conn):
                 run_id = runs.start("discover-employer-boards")
             try:
-                stats = discover_employer_boards(conn, fetcher, should_stop=cancel.is_set)
+                stats = discover_employer_boards(
+                    conn, fetcher, should_stop=cancel.is_set, families=families
+                )
             except Exception as exc:
                 with transaction(conn):
                     runs.finish(
@@ -325,7 +337,11 @@ def employer_board_work(app):
     return work
 
 
-def feed_work(db_path, stage):
+#: Collectors that read the person's settings, and so are told where they are.
+READS_CONFIG = frozenset({"collect-himalayas"})
+
+
+def feed_work(db_path, stage, *, config_dir=None):
     if stage not in commands():
         raise ValueError("No existing collection command supports this source.")
 
@@ -342,7 +358,19 @@ def feed_work(db_path, stage):
         with (
             tempfile.TemporaryFile() as errors,
             subprocess.Popen(
-                [sys.executable, "-m", "career_agent.cli", stage, "--db", str(db_path)],
+                [
+                    sys.executable,
+                    "-m",
+                    "career_agent.cli",
+                    stage,
+                    "--db",
+                    str(db_path),
+                    *(
+                        ["--config-dir", str(config_dir)]
+                        if config_dir is not None and stage in READS_CONFIG
+                        else []
+                    ),
+                ],
                 stdout=subprocess.DEVNULL,
                 stderr=errors,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -357,6 +385,11 @@ def feed_work(db_path, stage):
                 errors.seek(0)
                 tail = errors.read()[-600:].decode("utf-8", errors="replace").strip()
                 last = tail.splitlines()[-1] if tail else "no error output"
-                raise RuntimeError(f"The source refresh failed: {last[:300]}")
+                # To the local console only: the line can carry a local path,
+                # and what reaches a screen says which source, never why.
+                import logging
+
+                logging.getLogger(__name__).warning("%s failed: %s", stage, last[:300])
+                raise RuntimeError("The source refresh failed.")
 
     return work

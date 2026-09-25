@@ -157,6 +157,12 @@ def sync_registry(conn: Any, registry: CompanyRegistry) -> int:
     added = 0
     for entry in missing:
         row = companies.get_by_slug(entry.slug)
+        if row is None and entry.canonical_domain:
+            # The same company held under another slug. Reused as it is:
+            # `CompanyRepo.upsert` would rewrite its name and notes.
+            row = conn.execute(
+                "SELECT id FROM company WHERE canonical_domain = ?", (entry.canonical_domain,)
+            ).fetchone()
         company_id = (
             str(row["id"])
             if row is not None
@@ -205,6 +211,24 @@ def sync_registry_file(conn: Any, config_dir: Any) -> int:
     registry = load_registry_file(path)
     with transaction(conn):
         return sync_registry(conn, registry)
+
+
+def sync_registry_quietly(conn: Any, config_dir: Any) -> int:
+    """`sync_registry_file`, where a broken registry must not stop anything.
+
+    Called on launch and before Refresh all: a hand-edited `companies.yaml`
+    that no longer parses leaves the boards already held exactly as they are
+    and says so on the console, instead of refusing to start.
+    """
+    import logging
+
+    try:
+        return sync_registry_file(conn, config_dir)
+    except (ConfigError, OSError) as exc:
+        logging.getLogger(__name__).warning(
+            "companies.yaml was not read, so no board was added: %s", type(exc).__name__
+        )
+        return 0
 
 
 def apply_registry(conn: Any, registry: CompanyRegistry) -> RegistryLoadResult:

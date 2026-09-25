@@ -171,9 +171,16 @@ def test_targeted_searches_add_unique_postings_and_record_their_lane(conn) -> No
     assert stats.search_results == 4 and stats.search_unique == 1
     assert stats.unique_by_scope == {"country:BR": 1}
     assert stats.unique_by_origin == {"anchor": 1}
-    lanes = conn.execute("SELECT lane, source, term_origin FROM job_retrieval_lane").fetchall()
-    assert {tuple(r) for r in lanes} == {("targeted", "himalayas", "anchor")}
-    assert len(lanes) == 1, "the second query's copy is the same posting"
+    lanes = conn.execute(
+        "SELECT job_id, query_key, term_origin FROM job_retrieval_lane WHERE lane = 'targeted'"
+    ).fetchall()
+    # Every query records every posting it returned, including the one the
+    # feed had already brought in: overlap between the lanes is measured, not
+    # hidden. Two postings, two queries, one row each.
+    assert len(lanes) == 4
+    assert len({r["job_id"] for r in lanes}) == 2
+    assert {r["term_origin"] for r in lanes} == {"anchor", "work"}
+    assert conn.execute("SELECT count(*) FROM job").fetchone()[0] == 2
 
 
 def test_a_rate_limit_stops_the_searches_without_retrying(conn) -> None:
@@ -187,9 +194,9 @@ def test_a_rate_limit_stops_the_searches_without_retrying(conn) -> None:
     stats = collector.collect(searches=_plan(4))
     assert stats.queries_rate_limited == 1 and stats.search_stopped_reason == "rate_limited"
     assert stats.queries_succeeded == 0
-    # The fetcher's own bounded retry may repeat one request; the plan never
-    # moves on to the next query.
-    assert len({c.split("q=")[1].split("&")[0] for c in calls}) == 1
+    # One request, no retry, and the plan never moves on to the next query.
+    assert len(calls) == 1
+    assert collector.fetcher.max_attempts > 1, "the feed keeps its own retries"
 
 
 # =========================================================================
@@ -280,6 +287,110 @@ def test_a_board_is_registered_only_when_it_lists_the_employers_posting(conn) ->
     assert again.employers_considered == 0 and again.requests == 0
 
 
+def _handler_for(boards: dict[str, list[str]], calls: list[str] | None = None) -> Any:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if calls is not None:
+            calls.append(f"{request.url.host}{request.url.path}")
+        if request.url.host == "api.ashbyhq.com":
+            name = request.url.path.rsplit("/", 1)[-1]
+            if name in boards:
+                return httpx.Response(200, json=ashby_board(boards[name]))
+        return httpx.Response(404, text="not found")
+
+    return handler
+
+
+def test_a_board_held_for_another_company_is_never_moved_or_reactivated(conn) -> None:
+    from career_agent.clock import new_id, now_utc
+
+    now = now_utc()
+    conn.execute(
+        "INSERT INTO company (id, slug, name, created_at, updated_at)"
+        " VALUES ('c-held', 'acme', 'Acme', ?, ?)",
+        (now, now),
+    )
+    conn.execute(
+        "INSERT INTO source_board (id, company_id, provider, board_identifier, active)"
+        " VALUES (?, 'c-held', 'ashby', 'acmewidgets', 0)",
+        (new_id(),),
+    )
+    conn.commit()
+    _employer(conn, "acme-widgets", "Acme Widgets", "Widget Engineer", targeted=False)
+    fetcher = HttpFetcher(
+        client=httpx.Client(
+            transport=httpx.MockTransport(_handler_for({"acmewidgets": ["Widget Engineer"]}))
+        )
+    )
+    stats = discover_employer_boards(conn, fetcher, limit=5)
+    assert stats.registered == 0 and stats.already == 1
+    held = conn.execute(
+        "SELECT company_id, active FROM source_board WHERE board_identifier = 'acmewidgets'"
+    ).fetchone()
+    assert tuple(held) == ("c-held", 0)
+    assert (
+        conn.execute(
+            "SELECT outcome FROM board_discovery_lead WHERE employer_key = 'acme-widgets'"
+        ).fetchone()[0]
+        == "ALREADY_REGISTERED"
+    )
+
+
+def test_the_first_word_of_a_longer_name_is_never_guessed(conn) -> None:
+    _employer(conn, "scale-computing", "Scale Computing", "Software Engineer", targeted=False)
+    calls: list[str] = []
+    # Somebody else's board lives at the first word and lists the same title.
+    fetcher = HttpFetcher(
+        client=httpx.Client(
+            transport=httpx.MockTransport(_handler_for({"scale": ["Software Engineer"]}, calls))
+        )
+    )
+    stats = discover_employer_boards(conn, fetcher, limit=5)
+    assert stats.registered == 0
+    assert not any(c.endswith("/scale") for c in calls)
+
+
+def test_a_rate_limit_ends_the_pass_and_a_deferral_is_retried_at_most_three_times(
+    conn,
+) -> None:
+    _employer(conn, "first-employer", "First Employer", "Role A", targeted=False)
+    _employer(conn, "second-employer", "Second Employer", "Role B", targeted=False)
+    calls: list[str] = []
+
+    def limited(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(429, text="slow down")
+
+    fetcher = HttpFetcher(client=httpx.Client(transport=httpx.MockTransport(limited)))
+    stats = discover_employer_boards(conn, fetcher, limit=5)
+    assert stats.stopped_reason == "rate_limited:ashby"
+    assert len(calls) == 1 and stats.employers_probed == 1
+
+    def unavailable(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="down")
+
+    fetcher = HttpFetcher(client=httpx.Client(transport=httpx.MockTransport(unavailable)))
+    for _ in range(3):
+        discover_employer_boards(conn, fetcher, limit=5)
+    tries = dict(
+        conn.execute("SELECT employer_key, times_walked FROM board_discovery_lead").fetchall()
+    )
+    assert tries == {"first-employer": 3, "second-employer": 3}
+    assert discover_employer_boards(conn, fetcher, limit=5).employers_considered == 0
+
+
+def test_paused_families_are_never_asked(conn) -> None:
+    _employer(conn, "acme-widgets", "Acme Widgets", "Widget Engineer", targeted=False)
+    calls: list[str] = []
+    fetcher = HttpFetcher(
+        client=httpx.Client(transport=httpx.MockTransport(_handler_for({}, calls)))
+    )
+    discover_employer_boards(conn, fetcher, limit=5, families=("lever",))
+    assert calls and all("lever" in c for c in calls)
+    assert discover_employer_boards(conn, fetcher, limit=5, families=()).stopped_reason == (
+        "no_family"
+    )
+
+
 def test_targeted_employers_are_probed_first(conn) -> None:
     from career_agent.pipeline.employer_boards import employers_to_probe
 
@@ -291,6 +402,33 @@ def test_targeted_employers_are_probed_first(conn) -> None:
 # =========================================================================
 # registry sync
 # =========================================================================
+
+
+def test_a_broken_registry_changes_nothing_and_stops_nothing(conn, tmp_path: Path) -> None:
+    from career_agent.config.registry import sync_registry_quietly
+
+    (tmp_path / "companies.yaml").write_text("companies: [unclosed", encoding="utf-8")
+    assert sync_registry_quietly(conn, tmp_path) == 0
+
+
+def test_the_registry_never_edits_a_company_held_under_another_slug(conn, tmp_path: Path) -> None:
+    from career_agent.config.registry import sync_registry_file
+
+    conn.execute(
+        "INSERT INTO company (id, slug, name, canonical_domain, notes, created_at, updated_at)"
+        " VALUES ('c1', 'acme-old', 'Acme (kept)', 'acme.test', 'mine', 't', 't')"
+    )
+    conn.commit()
+    (tmp_path / "companies.yaml").write_text(
+        "schema_version: 1\npurpose: curated_registry\ncompanies:\n"
+        "  - slug: acme\n    name: Acme Renamed\n    canonical_domain: acme.test\n"
+        "    boards:\n      - provider: ashby\n        board_identifier: acme\n",
+        encoding="utf-8",
+    )
+    assert sync_registry_file(conn, tmp_path) == 1
+    kept = conn.execute("SELECT name, notes FROM company WHERE id = 'c1'").fetchone()
+    assert tuple(kept) == ("Acme (kept)", "mine")
+    assert conn.execute("SELECT company_id FROM source_board").fetchone()[0] == "c1"
 
 
 def test_the_registry_sync_adds_boards_and_never_reactivates_one(conn, tmp_path: Path) -> None:
@@ -343,6 +481,9 @@ def test_an_old_success_is_stale_and_a_partial_run_says_why(conn) -> None:
     assert rows["a"].state is RefreshState.STALE
     assert rows["b"].state is RefreshState.PARTIAL and rows["b"].reason == "PAGE_LIMIT"
     assert rows["c"].state is RefreshState.NOT_STARTED
+    _run(conn, "collect-gamma2", now - timedelta(hours=1), {"failures": ["search failed"]})
+    listed = read_progress(conn, stage_for={"g": "collect-gamma2"}, now=now)[0]
+    assert listed.state is RefreshState.PARTIAL and listed.reason == "SOME_FAILED"
     assert partial_reason({"slices_capped": 3}) == "REQUEST_BUDGET"
     assert partial_reason({"ceiling_hit": True}) == "SOURCE_CEILING"
     assert partial_reason({}) is None
@@ -354,3 +495,7 @@ def test_the_coverage_report_names_families_with_no_board(conn) -> None:
     rows = {r.provider: r for r in coverage(conn, families={"ashby", "lever"})}
     assert rows["ashby"].status == "NEVER_RUN"
     assert "no employer board" in rows["ashby"].notes[0]
+    now = datetime(2026, 9, 25, 12, tzinfo=UTC)
+    _run(conn, "collect-alpha", now - timedelta(days=4), {"postings_seen": 3})
+    rows = {r.provider: r for r in coverage(conn, families=set(), now=now)}
+    assert rows["alpha"].status == "STALE"

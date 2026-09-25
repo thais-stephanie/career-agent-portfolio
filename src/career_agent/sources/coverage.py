@@ -20,9 +20,16 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
-from career_agent.sources.progress import partial_reason
+from career_agent.sources.progress import (
+    STALE_AFTER_HOURS,
+    RefreshState,
+    _older_than,
+    _state_of_slice,
+    partial_reason,
+)
 
 #: The stage every board family shares.
 SHARED_STAGE = "collect"
@@ -93,7 +100,10 @@ def _stats(row: sqlite3.Row | tuple[Any, ...] | None) -> dict[str, Any]:
     return loaded if isinstance(loaded, dict) else {}
 
 
-def coverage(conn: sqlite3.Connection, *, families: set[str]) -> list[SourceFunnel]:
+def coverage(
+    conn: sqlite3.Connection, *, families: set[str], now: datetime | None = None
+) -> list[SourceFunnel]:
+    moment = now or datetime.now(UTC)
     funnels: dict[str, SourceFunnel] = {}
 
     def get(provider: str) -> SourceFunnel:
@@ -123,11 +133,27 @@ def coverage(conn: sqlite3.Connection, *, families: set[str]) -> list[SourceFunn
             slices = by_provider if isinstance(by_provider, dict) else {}
             for provider, piece in slices.items():
                 if isinstance(piece, dict) and (piece.get("boards_attempted") or 0) > 0:
-                    _apply(get(str(provider)), started, finished, status, piece)
+                    # A family is judged by its own slice: one family failing
+                    # inside a pass does not make the others FAILED.
+                    _apply(
+                        get(str(provider)),
+                        started,
+                        finished,
+                        status,
+                        piece,
+                        slice_state=_state_of_slice(piece),
+                    )
             continue
         provider = str(stage).removeprefix("collect-")
         _apply(get(provider), started, finished, status, stats)
 
+    for funnel in funnels.values():
+        # The same rule the app applies: a success older than this is stale,
+        # whatever the run that produced it said at the time.
+        if funnel.status in {"COMPLETE", "PARTIAL"} and _older_than(
+            funnel.last_success, STALE_AFTER_HOURS, moment
+        ):
+            funnel.status = "STALE"
     for provider in families:
         funnel = get(provider)
         if funnel.status == "NEVER_RUN" and funnel.boards == 0:
@@ -141,12 +167,14 @@ def _apply(
     finished: Any,
     status: Any,
     stats: dict[str, Any],
+    *,
+    slice_state: RefreshState | None = None,
 ) -> None:
     funnel.last_attempt = str(started)
     ok = str(status or "").upper() in {"OK", "SUCCESS", "COMPLETE"} and finished is not None
     if finished is None:
         funnel.status = "RUNNING"
-    elif not ok:
+    elif slice_state is RefreshState.FAILED or (slice_state is None and not ok):
         funnel.status = "FAILED"
     else:
         reason = partial_reason(stats)

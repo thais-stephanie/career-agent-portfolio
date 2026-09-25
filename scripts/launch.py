@@ -72,9 +72,9 @@ def main() -> int:
             # board already here is never touched. Without this, a personal
             # database never held an ATS board and every board family read
             # "Never run" for ever.
-            from career_agent.config.registry import sync_registry_file
+            from career_agent.config.registry import sync_registry_quietly
 
-            sync_registry_file(connection, config)
+            sync_registry_quietly(connection, config)
     finally:
         connection.close()
     if args.demo:

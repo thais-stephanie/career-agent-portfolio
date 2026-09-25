@@ -269,14 +269,9 @@ def _state_of(row: sqlite3.Row, stats: Mapping[str, Any]) -> RefreshState:
     status = str(row["status"] or "").upper()
     if status not in {"OK", "SUCCESS", "COMPLETE"}:
         return RefreshState.FAILED
-    if stats.get("stopped_early") or stats.get("ceiling_hit"):
-        return RefreshState.PARTIAL
-    if stats.get("slices_over_ceiling"):
-        return RefreshState.PARTIAL
-    failures = stats.get("failures")
-    if isinstance(failures, dict) and failures:
-        return RefreshState.PARTIAL
-    if isinstance(failures, int) and failures:
+    # One rule with `partial_reason`, so the app and `source-coverage` can
+    # never disagree about the same run.
+    if partial_reason(stats) is not None:
         return RefreshState.PARTIAL
     return RefreshState.COMPLETE
 

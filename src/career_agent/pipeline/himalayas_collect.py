@@ -227,15 +227,17 @@ class HimalayasCollector:
         stats.claimed_total = read.claimed_total
         stats.postings_unaddressable = read.unaddressable
 
-        seen_this_run: set[str] = set()
+        #: identity -> the job it resolved to this run, so a search result the
+        #: feed already returned still records that the search found it.
+        seen_this_run: dict[str, str | None] = {}
         for index, job in enumerate(read.jobs, start=1):
             if should_stop is not None and should_stop():
                 break
             stats.postings_seen += 1
             identity = _external_id(job) if isinstance(job, dict) else None
+            job_id = self._handle(job, held_external_ids, stats)
             if identity:
-                seen_this_run.add(identity)
-            self._handle(job, held_external_ids, stats)
+                seen_this_run[identity] = job_id
             if on_progress is not None:
                 on_progress(index, len(read.jobs))
 
@@ -253,13 +255,31 @@ class HimalayasCollector:
         self,
         searches: Any,
         pages: int,
-        seen_this_run: set[str],
+        seen_this_run: dict[str, str | None],
         held_external_ids: dict[str, str],
         stats: HimalayasStats,
         should_stop: Any,
     ) -> None:
         queries = list(searches or ())
         stats.queries_planned = len(queries)
+        # One attempt per search: the fetcher's retry would send a
+        # rate-limited query twice more before this loop could stop.
+        attempts = self.fetcher.max_attempts
+        self.fetcher.max_attempts = 1
+        try:
+            self._run_searches(queries, pages, seen_this_run, held_external_ids, stats, should_stop)
+        finally:
+            self.fetcher.max_attempts = attempts
+
+    def _run_searches(
+        self,
+        queries: list[Any],
+        pages: int,
+        seen_this_run: dict[str, str | None],
+        held_external_ids: dict[str, str],
+        stats: HimalayasStats,
+        should_stop: Any,
+    ) -> None:
         consecutive_failures = 0
         for query in queries:
             if should_stop is not None and should_stop():
@@ -288,9 +308,13 @@ class HimalayasCollector:
             stats.search_results += len(jobs)
             for job in jobs:
                 identity = _external_id(job)
-                if not identity or identity in seen_this_run:
+                if not identity:
                     continue
-                seen_this_run.add(identity)
+                if identity in seen_this_run:
+                    known = seen_this_run[identity]
+                    if known:
+                        self._record_lane(known, query)
+                    continue
                 stats.search_unique += 1
                 stats.unique_by_scope[query.scope.key] = (
                     stats.unique_by_scope.get(query.scope.key, 0) + 1
@@ -300,6 +324,7 @@ class HimalayasCollector:
                 )
                 stats.postings_seen += 1
                 job_id = self._handle(job, held_external_ids, stats)
+                seen_this_run[identity] = job_id
                 if job_id:
                     self._record_lane(job_id, query)
 
