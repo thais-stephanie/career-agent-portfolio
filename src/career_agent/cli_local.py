@@ -52,6 +52,8 @@ def register(app: typer.Typer) -> None:
     app.command(name="intake-answer")(intake_answer_command)
     app.command(name="integrity")(integrity_command)
     app.command(name="source-health")(source_health_command)
+    app.command(name="source-coverage")(source_coverage_command)
+    app.command(name="discover-employer-boards")(discover_employer_boards_command)
     app.command(name="discover-boards")(discover_boards_command)
     app.command(name="ingestion-report")(ingestion_report_command)
     app.command(name="source-matrix")(source_matrix_command)
@@ -776,6 +778,72 @@ def discover_boards_command(
             "Promoting one into config/companies.yaml is a REVIEWED step and stays manual: "
             "the registry is what drives collection."
         )
+
+
+def source_coverage_command(
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON rows.")] = False,
+) -> None:
+    """Per source: boards, last attempt and success, status, requests, fetched,
+    new, updated, deduplicated, failed, canonical and open jobs, and why a
+    refresh was partial. Changes no posting and makes no network call."""
+    from career_agent.providers.registry import board_providers
+    from career_agent.sources.coverage import coverage
+
+    db = resolve_database(RuntimeMode.PERSONAL, db)
+    conn = _open_personal(db)
+    try:
+        rows = coverage(conn, families=set(board_providers()))
+    finally:
+        conn.close()
+    if as_json:
+        typer.echo(json.dumps([r.as_dict() for r in rows], indent=1))
+        return
+    total_open = sum(r.open_jobs for r in rows) or 1
+    header = (
+        f"{'source':<16}{'status':<10}{'boards':>7}{'open':>8}{'share':>7}{'fetched':>9}"
+        f"{'new':>7}{'upd':>7}{'dup':>6}{'fail':>5}  last success          why"
+    )
+    typer.echo(header)
+    for r in rows:
+        typer.echo(
+            f"{r.provider:<16}{r.status:<10}{r.boards:>7}{r.open_jobs:>8}"
+            f"{100 * r.open_jobs / total_open:>6.1f}%"
+            f"{(r.raw_fetched if r.raw_fetched is not None else '-'):>9}"
+            f"{(r.new if r.new is not None else '-'):>7}"
+            f"{(r.updated if r.updated is not None else '-'):>7}"
+            f"{(r.deduplicated if r.deduplicated is not None else '-'):>6}"
+            f"{r.failed:>5}  {(r.last_success or '-'):<22}"
+            f"{r.partial_reason or ''}{'; '.join(r.notes)}"
+        )
+
+
+def discover_employer_boards_command(
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    limit: Annotated[
+        int, typer.Option("--limit", help="At most this many employers. Default 40.")
+    ] = 40,
+) -> None:
+    """Find the Ashby, Greenhouse or Lever boards of employers seen on aggregators.
+
+    Most relevant employers first. A board is registered only when it lists a
+    posting title the aggregator showed for that employer, and every employer's
+    answer is recorded so it is never probed twice. Collect the new boards with
+    `career-agent collect` (or Refresh all in the app).
+    """
+    from career_agent.net.fetcher import HttpFetcher
+    from career_agent.pipeline.employer_boards import discover_employer_boards
+
+    if not 1 <= limit <= 400:
+        raise typer.BadParameter("--limit is 1 to 400")
+    db = resolve_database(RuntimeMode.PERSONAL, db)
+    conn = _open_personal(db)
+    try:
+        with HttpFetcher() as fetcher:
+            stats = discover_employer_boards(conn, fetcher, limit=limit)
+    finally:
+        conn.close()
+    _table([(k, v) for k, v in stats.as_dict().items()])
 
 
 def source_health_command(
@@ -3599,9 +3667,23 @@ def collect_workingnomads_command(
 
 def collect_himalayas_command(
     db: Annotated[Path, typer.Option("--db")] = DEFAULT_DB_PATH,
+    config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
     max_pages: Annotated[
         int, typer.Option("--max-pages", help="Pages of 20 to read. Default 2.")
     ] = 2,
+    search: Annotated[
+        bool,
+        typer.Option(
+            "--search/--no-search",
+            help="Also search by your role anchors and work intent in your markets.",
+        ),
+    ] = True,
+    max_queries: Annotated[
+        int, typer.Option("--max-queries", help="At most this many searches. Default 24.")
+    ] = 24,
+    search_pages: Annotated[
+        int, typer.Option("--search-pages", help="Pages of 20 per search. Default 1.")
+    ] = 1,
 ) -> None:
     """Read the Himalayas jobs feed and store what is new.
 
@@ -3619,12 +3701,37 @@ def collect_himalayas_command(
 
     if max_pages < 1:
         raise typer.BadParameter("--max-pages must be at least 1")
+    if not 0 <= max_queries <= 60 or not 1 <= search_pages <= 5:
+        raise typer.BadParameter("--max-queries is 0 to 60 and --search-pages 1 to 5")
+
+    searches: tuple[Any, ...] = ()
+    if search and max_queries:
+        # The TARGETED lane. What leaves the machine is the search words (a
+        # role you named, an alias of it, or one of your work phrases) and a
+        # country code: never a CV, evidence or anything else about you.
+        from career_agent.config.search_config import SearchConfigError, load_search_config
+        from career_agent.discovery.plan import targeted_plan
+
+        try:
+            config, _ = load_search_config(config_dir)
+            searches = targeted_plan(
+                config,
+                config_dir,
+                max_queries=max_queries,
+                # Himalayas' country filter already includes worldwide-friendly
+                # postings, so the country scopes cover the region ones here.
+                scope_filter=lambda scope: scope.country is not None,
+            )
+        except SearchConfigError:
+            searches = ()
 
     conn = connect(db)
     try:
         migrate(conn)
         with HttpFetcher() as fetcher:
-            stats = HimalayasCollector(conn, fetcher, max_pages=max_pages).collect()
+            stats = HimalayasCollector(conn, fetcher, max_pages=max_pages).collect(
+                searches=searches, search_pages=search_pages
+            )
     finally:
         conn.close()
 
@@ -3646,6 +3753,14 @@ def collect_himalayas_command(
             ("states nothing about that", stats.without_hiring_scope),
             ("not addressable", stats.postings_unaddressable),
             ("no company in the row", stats.postings_without_company),
+            (
+                "searches planned / ok / failed",
+                f"{stats.queries_planned} / {stats.queries_succeeded} / {stats.queries_failed}",
+            ),
+            ("searches rate-limited", stats.queries_rate_limited),
+            ("search results / unique", f"{stats.search_results} / {stats.search_unique}"),
+            ("unique by scope", stats.unique_by_scope or "-"),
+            ("unique by term origin", stats.unique_by_origin or "-"),
             ("elapsed ms", stats.elapsed_ms),
         ]
     )

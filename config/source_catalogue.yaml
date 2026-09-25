@@ -650,7 +650,10 @@ sources:
       which nothing on this host forbids. PARTIAL rather than OPERATIONAL
       because the feed states a total above a hundred thousand and this reads a
       bounded walk of it: what is here is real, and it is a window rather than
-      a market.
+      a market. Since 2026-09-25 the same run also asks the documented search
+      endpoint (`/jobs/api/search`, 20 results a page, HTTP 429 on overuse,
+      attribution by linking back) a bounded plan of targeted queries: role
+      anchors and work phrases, one country each. A 429 stops the plan.
     unblocked_by: >-
       Nothing about permission. A larger slice is one flag:
       `career-agent collect-himalayas --db data/m1d2/career.db --max-pages 10`.

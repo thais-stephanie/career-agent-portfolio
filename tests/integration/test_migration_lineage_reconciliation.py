@@ -123,6 +123,7 @@ def test_the_production_path(production_shaped) -> None:
         (39, "career_evidence_structure"),
         (40, "career_experience_description"),
         (41, "semantic_evaluation"),
+        (42, "job_retrieval_lane"),
     ]
     after = _ledger_rows(conn)
     assert after[:37] == before
@@ -130,6 +131,7 @@ def test_the_production_path(production_shaped) -> None:
     assert after[38][:2] == (39, "career_evidence_structure")
     assert after[39][:2] == (40, "career_experience_description")
     assert after[40][:2] == (41, "semantic_evaluation")
+    assert after[41][:2] == (42, "job_retrieval_lane")
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(job_match)")}
     assert "input_digest" in columns
     assert conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'lane_probe_36'").fetchone()

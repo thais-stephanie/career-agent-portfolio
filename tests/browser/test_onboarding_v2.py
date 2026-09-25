@@ -106,7 +106,12 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Install
     finally:
         conn.close()
     monkeypatch.setattr(
-        "career_agent.web.source_refresh.feed_work", lambda db, stage: lambda state, cancel: None
+        "career_agent.web.source_refresh.feed_work",
+        lambda db, stage, **_: lambda state, cancel: None,
+    )
+    monkeypatch.setattr(
+        "career_agent.web.source_refresh.employer_board_work",
+        lambda app, families: lambda state, cancel: None,
     )
     probe = socket.socket()
     probe.bind(("127.0.0.1", 0))

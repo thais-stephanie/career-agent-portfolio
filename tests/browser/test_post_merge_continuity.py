@@ -156,7 +156,11 @@ def _offline_sources(
         live.app, "_collect_work", lambda limit, provider=None: work_for(f"collect:{provider}")
     )
     monkeypatch.setattr(
-        "career_agent.web.source_refresh.feed_work", lambda db, stage: work_for(stage)
+        "career_agent.web.source_refresh.feed_work", lambda db, stage, **_: work_for(stage)
+    )
+    monkeypatch.setattr(
+        "career_agent.web.source_refresh.employer_board_work",
+        lambda app, families: work_for("employer-boards"),
     )
     monkeypatch.setattr(live.app.rescore, "start", lambda work, run_id: None)
 

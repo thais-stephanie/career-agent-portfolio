@@ -48,11 +48,15 @@ class Recorder:
         def collect_work(board_limit, *, provider=None):
             return self._work(f"collect:{provider}")
 
-        def feed(db_path, stage):
+        def feed(db_path, stage, **_):
             return self._work(stage)
 
         monkeypatch.setattr(api, "_collect_work", collect_work)
         monkeypatch.setattr("career_agent.web.source_refresh.feed_work", feed)
+        monkeypatch.setattr(
+            "career_agent.web.source_refresh.employer_board_work",
+            lambda app, families: self._work("employer-boards"),
+        )
         rescores: list[str] = []
         monkeypatch.setattr(api.rescore, "start", lambda work, run_id: rescores.append(run_id))
         self.rescores = rescores
@@ -78,16 +82,24 @@ def _expected_keys(api: JobsApi) -> list[str]:
     refreshable = {row["id"] for row in data["sources"] if row["can_refresh"]}
     with connect(api.config.db_path) as conn:
         entries = health(conn, catalogue_path=api.config.config_dir / "source_catalogue.yaml")
-    keys: list[str] = []
+    feeds: list[str] = []
+    boards: list[str] = []
     for entry in entries:
         if entry.source.id not in refreshable or entry.source.id in paused:
             continue
         provider = entry.source.provider
         stage = _stage_for(provider)
         key = f"collect:{provider}" if stage == "collect" else stage
-        if key not in keys:
-            keys.append(key)
-    return keys
+        group = boards if stage == "collect" else feeds
+        if key not in feeds + boards:
+            group.append(key)
+    # Feeds first; then employer board discovery, which reads the employers
+    # the feeds just brought in, when a family it probes is not paused; then
+    # the boards, so a board found this run is collected this run.
+    from career_agent.pipeline.employer_boards import FAMILIES
+
+    probe = [f"collect:{f}" for f in FAMILIES if f"collect:{f}" in boards]
+    return feeds + (["employer-boards"] if probe else []) + boards
 
 
 def _run(api: JobsApi) -> dict:

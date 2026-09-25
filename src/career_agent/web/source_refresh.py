@@ -193,6 +193,7 @@ def register_source_refresh(app: JobsApi) -> None:
 
         paused = {p.source_id for p in app._refresh_progress(entries) if p.state == "PAUSED"}
         steps: list[tuple[str, str, object]] = []
+        board_ids: set[str] = set()
         seen: set[str] = set()
         #: Sources that could run but are paused -- by the person, or because
         #: they serve none of the places they can work. Counted in the same
@@ -215,8 +216,10 @@ def register_source_refresh(app: JobsApi) -> None:
             work = (
                 app._collect_work(None, provider=provider)
                 if stage == "collect"
-                else feed_work(app.config.db_path, stage)
+                else feed_work(app.config.db_path, stage, config_dir=app.config.config_dir)
             )
+            if stage == "collect":
+                board_ids.add(entry.source.id)
             steps.append((entry.source.id, entry.source.name, work))
         if not steps:
             raise ApiError(
@@ -225,6 +228,21 @@ def register_source_refresh(app: JobsApi) -> None:
                 "Open Settings & Sources to turn one on.",
                 for_reader=True,
             )
+        # Feeds first, then employer board discovery (it reads the employers
+        # the feeds just brought in), then the employer boards themselves, so
+        # a board found this run is collected this run.
+        boards = [s for s in steps if s[0] in board_ids]
+        steps = [s for s in steps if s[0] not in board_ids]
+        # Only on the families the person has not paused, and not at all when
+        # every one of them is paused or blocked.
+        from career_agent.pipeline.employer_boards import FAMILIES
+
+        probe = tuple(f for f in FAMILIES if f in seen)
+        if probe:
+            steps.append(
+                ("employer-boards", "Employer job boards", employer_board_work(app, probe))
+            )
+        steps.extend(boards)
 
         def all_sources(state, cancel):
             from contextlib import suppress
@@ -234,6 +252,13 @@ def register_source_refresh(app: JobsApi) -> None:
             state.boards_total = len(steps)
             state.skipped = len(deferred - seen)
             outcomes: list[dict] = []
+            # The shipped employer boards, added to a database that lacks them.
+            # In the worker rather than the request: it can wait behind another
+            # writer, and a registry that no longer parses changes nothing.
+            from career_agent.config.registry import sync_registry_quietly
+
+            with closing(app.connect()) as conn:
+                sync_registry_quietly(conn, app.config.config_dir)
             try:
                 for done, (source_id, name, work) in enumerate(steps):
                     if cancel.is_set():
@@ -280,25 +305,91 @@ def register_source_refresh(app: JobsApi) -> None:
     app.register("POST", r"/api/sources/refresh-all", refresh_all)
 
 
-def feed_work(db_path, stage):
+def employer_board_work(app, families):
+    """Find the ATS boards of employers the feeds have shown, bounded."""
+
+    def work(state, cancel):
+        from contextlib import closing as _closing
+
+        from career_agent.domain.enums import PipelineRunStatus
+        from career_agent.net.fetcher import HttpFetcher
+        from career_agent.pipeline.employer_boards import discover_employer_boards
+        from career_agent.storage.db import transaction
+        from career_agent.storage.repositories import PipelineRunRepo
+
+        with _closing(app.connect()) as conn, HttpFetcher() as fetcher:
+            runs = PipelineRunRepo(conn)
+            with transaction(conn):
+                run_id = runs.start("discover-employer-boards")
+            try:
+                stats = discover_employer_boards(
+                    conn, fetcher, should_stop=cancel.is_set, families=families
+                )
+            except Exception as exc:
+                with transaction(conn):
+                    runs.finish(
+                        run_id, PipelineRunStatus.FAILED, stats={}, error=type(exc).__name__
+                    )
+                raise
+            with transaction(conn):
+                runs.finish(run_id, PipelineRunStatus.OK, stats=stats.as_dict(), error=None)
+
+    return work
+
+
+#: Collectors that read the person's settings, and so are told where they are.
+READS_CONFIG = frozenset({"collect-himalayas"})
+
+
+def feed_work(db_path, stage, *, config_dir=None):
     if stage not in commands():
         raise ValueError("No existing collection command supports this source.")
 
     def work(state, cancel):
         # Argument list, no shell and no candidate preference passed to ingestion.
         # CLI defaults retain their existing page budgets and collection policy.
-        with subprocess.Popen(
-            [sys.executable, "-m", "career_agent.cli", stage, "--db", str(db_path)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        ) as process:
+        import tempfile
+
+        # stderr goes to a temporary file, not to nowhere: a collector that
+        # crashed used to leave "could not be read" and nothing else, while the
+        # traceback that said why was discarded. Its tail now travels with the
+        # failure. A file rather than a pipe, so a chatty child can never fill
+        # a pipe buffer and hang.
+        with (
+            tempfile.TemporaryFile() as errors,
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "career_agent.cli",
+                    stage,
+                    "--db",
+                    str(db_path),
+                    *(
+                        ["--config-dir", str(config_dir)]
+                        if config_dir is not None and stage in READS_CONFIG
+                        else []
+                    ),
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=errors,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            ) as process,
+        ):
             while process.poll() is None:
                 if cancel.wait(0.25):
                     process.terminate()
                     process.wait(timeout=10)
                     return
             if process.returncode:
-                raise RuntimeError("The source refresh failed. Check its recorded source details.")
+                errors.seek(0)
+                tail = errors.read()[-600:].decode("utf-8", errors="replace").strip()
+                last = tail.splitlines()[-1] if tail else "no error output"
+                # To the local console only: the line can carry a local path,
+                # and what reaches a screen says which source, never why.
+                import logging
+
+                logging.getLogger(__name__).warning("%s failed: %s", stage, last[:300])
+                raise RuntimeError("The source refresh failed.")
 
     return work

@@ -181,6 +181,8 @@ export function createSourcesPanel(host) {
         row.state === 'PAUSED' ? el('p', { text: t(source.refresh_mode === 'PAUSED'
           ? 'settings.sourcePausedByYou' : 'settings.sourcePaused') }) : null,
         row.state === 'FAILED' ? el('p', { text: t('settings.sourceFailure') }) : null,
+        row.reason ? el('p', { className: 'src__reason', text: t(`sources.reason.${row.reason}`) }) : null,
+        row.state === 'STALE' ? el('p', { className: 'src__reason', text: t('sources.staleHelp') }) : null,
         row.state === 'BLOCKED' ? el('p', { text: row.blocker || source.reason_plain }) : null,
         el('p', { text: progressText(row) }),
         el('p', { text: t('settings.sourceUpdated', {

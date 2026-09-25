@@ -408,6 +408,7 @@ def _progress_dict(p, name: str = "") -> dict:
         "last_success": p.last_success,
         "eta_seconds": p.eta_seconds,
         "blocker": p.blocker,
+        "reason": p.reason,
     }
 
 

@@ -466,6 +466,35 @@ def answering_for_unknown_providers() -> list[str]:
     )
 
 
+#: Board families employer board discovery asks about an aggregator's
+#: employer. A subset of `guessable_providers()`: the three whose public board
+#: is one JSON request and whose identifier is usually the company's name.
+_EMPLOYER_PROBE: tuple[str, ...] = ("ashby", "greenhouse", "lever")
+#: Feeds whose every posting already sits on the employer's own ATS board, so
+#: their employers are not leads for finding one.
+_FEEDS_OF_EMPLOYER_BOARDS: frozenset[str] = frozenset({"workable"})
+
+
+def employer_probe_providers() -> tuple[str, ...]:
+    """The families `pipeline.employer_boards` may probe, in probing order."""
+    guessable = set(guessable_providers())
+    return tuple(name for name in _EMPLOYER_PROBE if name in guessable)
+
+
+def employer_lead_providers() -> tuple[str, ...]:
+    """Aggregators whose employers may have an ATS board nobody has found yet."""
+    boards = set(board_providers())
+    return tuple(
+        sorted(
+            name
+            for name, kind in _KINDS.items()
+            if kind is ProviderKind.AGGREGATOR
+            and name not in boards
+            and name not in _FEEDS_OF_EMPLOYER_BOARDS
+        )
+    )
+
+
 def board_providers() -> list[str]:
     """Providers `discover` can ask "does this employer have a board here".
 
