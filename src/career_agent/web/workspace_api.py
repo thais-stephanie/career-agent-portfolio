@@ -242,7 +242,20 @@ def claim_payload(claim: VerifiedClaim, *, revisions: int = 1) -> dict:
         ),
         "tools": list(claim.tools),
         "tags": [tag.value for tag in claim.tags],
+        # A certification line read as its fields, for display only: the claim
+        # text and its source line are unchanged. None when the line does not
+        # have a shape `cv.certifications` reads without guessing.
+        "certificate": _certificate_of(claim),
     }
+
+
+def _certificate_of(claim: VerifiedClaim) -> dict | None:
+    from career_agent.cv.certifications import read_certificate
+
+    if claim.claim_type.value != "CERTIFICATION":
+        return None
+    found = read_certificate(claim.text)
+    return found.as_dict() if found else None
 
 
 def proposal_payload(row: sqlite3.Row) -> dict:

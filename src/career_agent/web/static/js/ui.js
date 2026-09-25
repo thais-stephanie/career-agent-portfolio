@@ -341,7 +341,10 @@ export function lineList({ values = [], label, addLabel, placeholder = '' }) {
 /** Skill chips with a type-and-Enter input. */
 export function chipInput({ values = [], label, placeholder = '' }) {
   let current = [...values];
-  const host = el('div', { className: 'cw-chipinput' });
+  // THE INPUT IS NEVER REDRAWN. Replacing it on every Enter detached the
+  // focused node, so each new skill needed a click before it could be typed.
+  // Only the chips are redrawn; the input stays put and keeps focus.
+  const list = el('div', { className: 'cw-chipinput__chips' });
   const input = el('input', {
     className: 'cw-chipinput__input',
     attrs: { type: 'text', maxlength: '60', 'aria-label': label, placeholder },
@@ -358,11 +361,13 @@ export function chipInput({ values = [], label, placeholder = '' }) {
       },
     },
   });
+  const host = el('div', { className: 'cw-chipinput' }, [list, input]);
   function draw() {
-    replace(host, [chips(current, {
+    replace(list, [chips(current, {
+      // The remove button is gone after the redraw: focus goes back to typing.
       onRemove: (name) => { current = current.filter((v) => v !== name); draw(); input.focus(); },
       label,
-    }), input]);
+    })]);
   }
   draw();
   host.values = () => current;

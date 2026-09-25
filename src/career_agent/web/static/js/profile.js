@@ -17,7 +17,7 @@
 
 import { patchProfile } from './api.js';
 import { button, clear, el, field, replace } from './dom.js';
-import { t, tVocab } from './i18n.js';
+import { getLocale, t, tVocab } from './i18n.js';
 import { tagInput } from './tags.js';
 import {
   ARRANGEMENT_FIELDS, WORK_MODEL_FIELDS, arrangementMatrix, workModelMatrix,
@@ -450,19 +450,35 @@ function experiencePanel(roles) {
  * each skill came from, which is on the chip.
  */
 function skillsPanel(skills, confirmed) {
-  const quals = qualifications(confirmed);
+  const certificates = confirmed.filter((claim) => claim.claim_type === 'CERTIFICATION');
+  const education = confirmed.filter((claim) => claim.claim_type === 'EDUCATION');
+  // One chip per skill: "Python" confirmed twice is still one thing she knows.
+  const seen = new Set();
+  const chips = skills.filter((claim) => {
+    const name = claim.text.trim().toLowerCase();
+    if (seen.has(name)) return false;
+    seen.add(name);
+    return true;
+  });
   const out = [];
-  if (skills.length) {
+  if (chips.length) {
     out.push(el('section', { className: 'card card--static' }, [
       el('h3', { className: 'profile__heading', text: t('profile.skillsHeading') }),
       el('p', { className: 'profile__lead', text: t('profile.skillsLead') }),
-      el('div', { className: 'evchips profile__chips' }, skills.map(skillChip)),
+      el('div', { className: 'evchips profile__chips' }, chips.map(skillChip)),
     ]));
   }
-  if (quals.length) {
+  if (certificates.length) {
     out.push(el('section', { className: 'card card--static' }, [
       el('h3', { className: 'profile__heading', text: t('profile.qualsHeading') }),
-      el('ul', { className: 'role__lines' }, quals.map((claim) => el('li', {
+      el('ul', { className: 'profile__certs' }, certificates.map(certificateItem)),
+    ]));
+  }
+  // Education is a different kind of thing from a certificate, and says so.
+  if (education.length) {
+    out.push(el('section', { className: 'card card--static' }, [
+      el('h3', { className: 'profile__heading', text: t('profile.educationHeading') }),
+      el('ul', { className: 'role__lines' }, education.map((claim) => el('li', {
         className: 'role__line',
       }, [
         el('span', { text: claim.text }),
@@ -471,6 +487,42 @@ function skillsPanel(skills, confirmed) {
     ]));
   }
   return el('section', { className: 'profile__stack' }, out);
+}
+
+/** "Sep 2026", or "2026" when only the year was stated. */
+function monthLabel(value) {
+  const [year, month] = String(value || '').split('-');
+  if (!month) return year || '';
+  return new Date(Date.UTC(Number(year), Number(month) - 1, 1))
+    .toLocaleDateString(getLocale(), { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+/**
+ * One certificate, as the fields its line states. The server reads them
+ * (`cv/certifications.py`) and never guesses: a line it cannot read is shown
+ * exactly as written, and the claim text and its source line are unchanged.
+ */
+function certificateItem(claim) {
+  const cert = claim.certificate;
+  const from = el('span', { className: 'role__from', text: t(`ledger.source.${claim.source}`) });
+  if (!cert) {
+    return el('li', { className: 'profile__cert' }, [
+      el('p', { className: 'profile__certtitle', text: claim.text }), from,
+    ]);
+  }
+  const dates = [
+    cert.issued ? t('profile.certIssued', { date: monthLabel(cert.issued) }) : '',
+    cert.expires ? t('profile.certExpires', { date: monthLabel(cert.expires) })
+      : cert.no_expiry ? t('profile.certNoExpiry') : '',
+  ].filter(Boolean).join(' · ');
+  return el('li', { className: 'profile__cert' }, [
+    el('p', { className: 'profile__certtitle', text: cert.title }),
+    cert.issuer ? el('p', { className: 'profile__certissuer', text: cert.issuer }) : null,
+    dates ? el('p', { className: 'profile__certdates num', text: dates }) : null,
+    cert.credential_id ? el('p', { className: 'profile__certid',
+      text: t('profile.certCredential', { id: cert.credential_id }) }) : null,
+    from,
+  ]);
 }
 
 // =========================================================================
