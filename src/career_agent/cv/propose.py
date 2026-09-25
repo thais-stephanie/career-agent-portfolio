@@ -27,6 +27,16 @@ import re
 from dataclasses import dataclass, field
 
 from career_agent.cv.markdown import Line, classify, inline
+from career_agent.cv.skills import (
+    cells,
+    inline_list,
+    is_certification_header,
+    is_table_row,
+    matrix_skills,
+    skill_column,
+    split_skills,
+)
+from career_agent.cv.skills import heading_section as skill_heading
 from career_agent.cv.structure import (
     SECTION_WORDS,
     Entry,
@@ -60,6 +70,11 @@ HEADINGS: dict[str, tuple[str, ...]] = {
         "licences",
         "licenses",
         "licences and certifications",
+        "licenses and certifications",
+        "licenses certifications",
+        "licences certifications",
+        "licencas e certificacoes",
+        "certificacoes e licencas",
         "certificacoes",
         "cursos",
         "licencas",
@@ -128,6 +143,9 @@ SECTION_CLAIMS: dict[str, ClaimType] = {
     "experience": ClaimType.EMPLOYMENT,
     "skills": ClaimType.SKILL,
     "tools": ClaimType.TOOL,
+    # A named capability list ("Keywords", "Capabilities"): skills, kept apart
+    # in `section` so the context is not lost.
+    "keywords": ClaimType.SKILL,
     "education": ClaimType.EDUCATION,
     "certifications": ClaimType.CERTIFICATION,
     "projects": ClaimType.PROJECT,
@@ -242,7 +260,7 @@ def _bare(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z ]+", " ", fold(text))).strip()
 
 
-def _heading(line: str) -> str | None:
+def _heading(line: str, *, marked: bool = False) -> str | None:
     """Which section a line NAMES, if it names one.
 
     A whole-line match, lower-cased, accents and punctuation trimmed.
@@ -254,7 +272,7 @@ def _heading(line: str) -> str | None:
     bare = _bare(inline(_BULLET.sub("", line).strip()))
     if not bare or len(bare) > 40:
         return None
-    return _FOLDED_HEADINGS.get(bare)
+    return _FOLDED_HEADINGS.get(bare) or skill_heading(bare, marked=marked)
 
 
 def _loose_heading(text: str) -> str | None:
@@ -264,12 +282,28 @@ def _loose_heading(text: str) -> str | None:
     line written with heading syntax, where the document has already said it
     is a heading and the only question is which one.
     """
-    exact = _heading(text)
+    exact = _heading(text, marked=True)
     if exact:
         return exact
     for word in _bare(text).split():
         if word in SECTION_WORDS:
             return SECTION_WORDS[word]
+    return None
+
+
+def _document_title(lines: list[Line]) -> Line | None:
+    """The `#` heading a document is named by, when its sections are `##`.
+
+    "# Jordan Example: career master file" names the file, and the word
+    "career" in it must not open an experience section that swallows every
+    `##` section below it. Deterministic: the FIRST heading is level 1, and a
+    later level-2 heading names a known section exactly.
+    """
+    headings = [line for line in lines if line.kind == "heading"]
+    if not headings or headings[0].level != 1:
+        return None
+    if any(h.level == 2 and _heading(h.text, marked=True) for h in headings[1:]):
+        return headings[0]
     return None
 
 
@@ -281,11 +315,14 @@ def _structure(text: str) -> tuple[list[tuple[str | None, Line, Entry | None, bo
     current: str | None = None
     level = 0
     body: list[Line] = []
+    title = _document_title(lines)
 
     for line in lines:
         named: str | None = None
         opens = False
-        if line.kind == "heading":
+        if line is title:
+            pass  # the document's name, not a section of it
+        elif line.kind == "heading":
             if current is None or level == 0 or line.level <= level:
                 named = _loose_heading(line.text)
                 # A marked heading at the section's own level or above ends
@@ -368,13 +405,20 @@ def _items(line: str, section: str) -> list[str]:
     A list line often starts with a group label, "Integration: Workato,
     MuleSoft", and the label is how the list is organised rather than a skill.
     """
-    if section not in {"skills", "tools", "languages"}:
+    if section not in LIST_SECTIONS | {"languages"}:
         return [line]
     labelled = re.match(r"^([^:,;|]{1,40}):\s+(.+)$", line)
     if labelled and len(labelled.group(1).split()) <= 4:
         line = labelled.group(2)
+    if section in LIST_SECTIONS:
+        # Never split on "/": CI/CD is one skill. See `cv/skills.py`.
+        return split_skills(line)
     parts = [part.strip() for part in _SEPARATORS.split(line)]
     return [part for part in parts if len(part) >= _MIN_LENGTH]
+
+
+#: Sections whose lines are lists of skills.
+LIST_SECTIONS = frozenset({"skills", "tools", "keywords"})
 
 
 def _key(section: str, index: int, text: str) -> str:
@@ -401,9 +445,93 @@ def read_cv(text: str) -> ReadCv:
     result = ReadCv(sections=sections, unread_lines=unread, entries=entries)
 
     counters: dict[str, int] = {}
+    # One skill is one proposal within one context: "n8n" under two groups of
+    # the global list is one skill; "n8n" under a job is that job's.
+    listed: dict[tuple[str | None, str], set[str]] = {}
+    # A technology table: the row above a Markdown table rule is its header.
+    lines_by_number = {line.number: line for _s, line, _e, _c in structured}
+    headers = {
+        number - 1
+        for number, line in lines_by_number.items()
+        if line.kind == "table_rule" and number - 1 in lines_by_number
+    }
+    column: int | None = None
+    header: list[str] | None = None
+    #: Skills a technology table states WITH its context, by name.
+    in_matrix: set[str] = set()
+
+    def propose(text_: str, claim_type: ClaimType, section_: str, line_: Line, entry_) -> None:
+        # One context, one scope: the same skill globally, under job A and in
+        # a technology table is three statements with three contexts.
+        scope = (entry_.key if entry_ is not None else None, section_)
+        if claim_type in {ClaimType.SKILL, ClaimType.TOOL}:
+            seen = listed.setdefault(scope, set())
+            if fold(text_) in seen:
+                return
+            seen.add(fold(text_))
+        counters[section_] = counters.get(section_, 0) + 1
+        result.proposals.append(
+            Proposal(
+                claim_key=_key(section_, counters[section_], text_),
+                claim_type=claim_type,
+                text=text_,
+                section=section_,
+                # The line as it stood, before splitting. A reviewer sees the
+                # context the item was taken from.
+                evidence=line_.text,
+                has_measurement=bool(_MEASURED.search(text_)),
+                entry_key=entry_.key if entry_ is not None else None,
+                source_line=line_.number,
+                source_text=line_.raw[:_MAX_LENGTH],
+            )
+        )
+
     for section, line, entry, claim in structured:
+        if line.kind != "table_rule" and not (line.text and is_table_row(line.raw)):
+            column, header = None, None  # the table, if there was one, has ended
         if section is None or not claim or line.kind not in {"item", "text"} or not line.text:
             continue
+
+        # A TECHNOLOGY TABLE in a skills section: its skill column is the
+        # skill, the other columns are context kept in the evidence.
+        if section in LIST_SECTIONS and is_table_row(line.raw):
+            found = skill_column(cells(line.raw))
+            if line.number in headers or found is not None:
+                column = found if found is not None else 0
+                header = cells(line.raw)
+                continue  # a header row is structure, never a skill
+            if column is not None:
+                kind = ClaimType.TOOL if section == "tools" else ClaimType.SKILL
+                for name, statement in matrix_skills(header, cells(line.raw), column):
+                    in_matrix.add(fold(name))
+                    propose(statement, kind, "matrix", line, entry)
+                continue
+
+        # A certification table's header row names columns, not a credential.
+        if (
+            section == "certifications"
+            and is_table_row(line.raw)
+            and (line.number in headers or is_certification_header(line.raw))
+        ):
+            continue
+
+        # AN INLINE LIST: "Skills & Tools: Workato, Salesforce", "Keywords:
+        # Process Improvement". Under a job it is that job's; elsewhere it is
+        # a global list. Never read from a certification, an education line
+        # or a language: certified is not the same as having used it.
+        if section not in {"certifications", "education", "languages"} and section not in (
+            LIST_SECTIONS
+        ):
+            inline = inline_list(line.text)
+            if inline is not None:
+                named, names = inline
+                kind = ClaimType.TOOL if named == "tools" else ClaimType.SKILL
+                # The list's own kind is the section, and the job, when there
+                # is one, is the entry: both contexts are kept.
+                for name in names:
+                    propose(name, kind, named, line, entry)
+                continue
+
         claim_type = SECTION_CLAIMS.get(section)
         if claim_type is None:
             # A section that is read and shown but proposes nothing. `summary`
@@ -414,22 +542,23 @@ def read_cv(text: str) -> ReadCv:
         for item in _items(line.text, section):
             if not (_MIN_LENGTH <= len(item) <= _MAX_LENGTH):
                 continue
-            counters[section] = counters.get(section, 0) + 1
-            result.proposals.append(
-                Proposal(
-                    claim_key=_key(section, counters[section], item),
-                    claim_type=claim_type,
-                    text=item,
-                    section=section,
-                    # The line as it stood, before splitting. A reviewer
-                    # sees the context the item was taken from.
-                    evidence=line.text,
-                    has_measurement=bool(_MEASURED.search(item)),
-                    entry_key=entry.key if entry is not None else None,
-                    source_line=line.number,
-                    source_text=line.raw[:_MAX_LENGTH],
-                )
+            propose(item, claim_type, section, line, entry)
+
+    # A RICHER OCCURRENCE WINS. A context-free global list naming a skill the
+    # technology table states with its depth ("Top Skills: Boomi" beside
+    # "Boomi | Certified only") must not survive as a plain, unqualified
+    # "Boomi": the table's statement is the truthful one.
+    if in_matrix:
+        result.proposals = [
+            p
+            for p in result.proposals
+            if not (
+                p.entry_key is None
+                and p.section in LIST_SECTIONS
+                and p.claim_type in {ClaimType.SKILL, ClaimType.TOOL}
+                and fold(p.text) in in_matrix
             )
+        ]
     return result
 
 

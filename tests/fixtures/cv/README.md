@@ -9,3 +9,9 @@ Markdown.
 Date ranges in real CVs use en and em dashes. This repository's own text may
 not contain those characters, so the files write `{EN}` and `{EM}` instead, and
 `tests/support_cv.py` substitutes the real characters when a test loads them.
+
+The three `format_*` files are ONE invented career laid out three ways: a
+conventional resume, a LinkedIn-like export (Top Skills, a role's Skills &
+Tools and Keywords) and a Markdown master file (nested headings, a technology
+table, a certification table). `tests/unit/test_cv_ingestion_formats.py`
+requires all three to read as the same skills, job and certificate.

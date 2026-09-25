@@ -1,0 +1,20 @@
+Jordan Example
+jordan@example.invalid | +00 0000 0000
+
+SUMMARY
+Operations engineer who automates revenue workflows.
+
+EXPERIENCE
+Operations Engineer, Contoso Ltd, Jan 2020 - Dec 2023
+- Automated the order-to-cash process for the finance team.
+- Built dashboards used by twelve account managers.
+
+SKILLS
+HubSpot, n8n, Python, SQL
+Workato; Salesforce; CI/CD
+
+CERTIFICATIONS
+Certified Administrator | Salesforce | Sep 2026
+
+EDUCATION
+BSc Business Administration, Invented University, 2019

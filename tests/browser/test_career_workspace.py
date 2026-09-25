@@ -562,3 +562,174 @@ def test_no_ordinary_route_reaches_the_statement_manager(page: Chrome, placed: W
     time.sleep(0.5)
     assert page.evaluate("document.getElementById('page-manage').hidden")
     assert not page.evaluate("document.querySelector('#page-manage .ev__privacy')")
+
+
+# =========================================================================
+# Hotfix 2026-09-25: Career Profile -> Skills
+# =========================================================================
+
+CHIP_INPUT = ".xp-editor .cw-chipinput__input"
+
+
+def test_skills_are_typed_one_after_another_without_the_mouse(
+    page: Chrome, empty: Workspace
+) -> None:
+    _open(page, empty.base, "profile")
+    page.wait_for("document.querySelector('#page-profile .profiletab')")
+    page.evaluate(
+        "[...document.querySelectorAll('#page-profile .profiletab')]"
+        ".find((b) => b.textContent.trim().startsWith('Experience')).click()"
+    )
+    page.wait_for("document.querySelector('.xp-add')")
+    page.evaluate("document.querySelector('.xp-add').click()")
+    page.wait_for(f"document.querySelector({json.dumps(CHIP_INPUT)})")
+    # Opening the editor focuses its first field on the next frame; let that
+    # land first, as it has by the time a person reaches the skills field.
+    page.wait_for(
+        "document.activeElement && document.activeElement.closest('.xp-editor') !== null",
+        message="the editor's own first focus",
+    )
+    page.evaluate(f"document.querySelector({json.dumps(CHIP_INPUT)}).focus()")
+    focused = f"document.activeElement === document.querySelector({json.dumps(CHIP_INPUT)})"
+    for number, name in enumerate(["HubSpot", "n8n", "Python"], start=1):
+        page.type_text(name)
+        page.press("Enter")
+        page.wait_for(
+            f"document.querySelectorAll('.xp-editor .cw-chip').length === {number}",
+            message=f"chip {name}",
+        )
+        assert page.evaluate(focused), f"focus left the skill input after {name}: " + str(
+            page.evaluate(
+                "({ active: document.activeElement?.outerHTML.slice(0, 90),"
+                " editor: !!document.querySelector('.xp-editor'),"
+                " same: document.querySelector('.cw-chipinput__input') ?"
+                " document.querySelector('.cw-chipinput__input').isConnected : null })"
+            )
+        )
+    chips = page.evaluate(
+        "[...document.querySelectorAll('.xp-editor .cw-chip span')].map((n) => n.textContent)"
+    )
+    assert chips == ["HubSpot", "n8n", "Python"], chips
+    # Removing one puts focus back where the typing is.
+    page.evaluate("document.querySelector('.xp-editor .cw-chip__remove').click()")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 2")
+    assert page.evaluate(focused), "focus was lost after removing a skill"
+
+
+def test_the_skills_tab_separates_skills_certificates_and_education(
+    page: Chrome, empty: Workspace
+) -> None:
+    for body in (
+        {"claim_type": "SKILL", "text": "HubSpot"},
+        {"claim_type": "SKILL", "text": "Python"},
+        {
+            "claim_type": "CERTIFICATION",
+            "text": "Certified Administrator | Salesforce | Sep 2026 | Sep 2027 | ABC-12345",
+        },
+        {"claim_type": "CERTIFICATION", "text": "Course | Provider | Other text | Sep 2026"},
+        {"claim_type": "EDUCATION", "text": "BSc Business Administration, Invented University"},
+    ):
+        _call(empty.api, "POST", "/api/evidence", body)
+    _open(page, empty.base, "profile")
+    page.wait_for("document.querySelector('#page-profile .profiletab')")
+    page.evaluate(
+        "[...document.querySelectorAll('#page-profile .profiletab')]"
+        ".find((b) => b.textContent.trim().startsWith('Skills')).click()"
+    )
+    page.wait_for("document.querySelector('.profile__certs')", message="the certificates")
+    chips = page.evaluate(
+        "[...document.querySelectorAll('#page-profile .profile__chips .evchip')]"
+        ".map((n) => n.textContent)"
+    )
+    assert sorted(chips) == ["HubSpot", "Python"], chips
+    certs = page.evaluate(
+        "[...document.querySelectorAll('.profile__cert')].map((n) => ({"
+        " title: n.querySelector('.profile__certtitle')?.textContent,"
+        " issuer: n.querySelector('.profile__certissuer')?.textContent || null,"
+        " dates: n.querySelector('.profile__certdates')?.textContent || null,"
+        " id: n.querySelector('.profile__certid')?.textContent || null }))"
+    )
+    structured = next(c for c in certs if c["title"] == "Certified Administrator")
+    assert structured["issuer"] == "Salesforce"
+    assert "Issued" in structured["dates"] and "Expires" in structured["dates"]
+    assert "2026" in structured["dates"] and "2027" in structured["dates"]
+    assert structured["id"] == "Credential ID: ABC-12345"
+    # No raw pipe-delimited string where the fields could be read.
+    assert "|" not in " ".join(str(v) for v in structured.values())
+    # An ambiguous line is shown exactly as written.
+    assert any(c["title"] == "Course | Provider | Other text | Sep 2026" for c in certs), certs
+    headings = page.evaluate(
+        "[...document.querySelectorAll('#page-profile .profile__heading')]"
+        ".map((n) => n.textContent)"
+    )
+    assert "Education" in headings and "Certificates and study" in headings, headings
+    assert "BSc Business Administration" in _text(page, "#page-profile")
+
+
+def _open_skill_input(page: Chrome, ws: Workspace) -> str:
+    """A new experience's skills input, focused the way a person gets there."""
+    _open(page, ws.base, "profile")
+    page.wait_for("document.querySelector('#page-profile .profiletab')")
+    page.evaluate(
+        "[...document.querySelectorAll('#page-profile .profiletab')]"
+        ".find((b) => b.textContent.trim().startsWith('Experience')).click()"
+    )
+    page.wait_for("document.querySelector('.xp-add')")
+    page.evaluate("document.querySelector('.xp-add').click()")
+    page.wait_for(f"document.querySelector({json.dumps(CHIP_INPUT)})")
+    page.wait_for("document.activeElement && document.activeElement.closest('.xp-editor') !== null")
+    page.evaluate(f"document.querySelector({json.dumps(CHIP_INPUT)}).focus()")
+    return f"document.activeElement === document.querySelector({json.dumps(CHIP_INPUT)})"
+
+
+def _chip_names(page: Chrome) -> list[str]:
+    return list(
+        page.evaluate(
+            "[...document.querySelectorAll('.xp-editor .cw-chip span')].map((n) => n.textContent)"
+        )
+    )
+
+
+def _paste(page: Chrome, text: str) -> None:
+    page.evaluate(
+        "(() => { const box = new DataTransfer();"
+        f" box.setData('text/plain', {json.dumps(text)});"
+        f" document.querySelector({json.dumps(CHIP_INPUT)})"
+        ".dispatchEvent(new ClipboardEvent('paste', { clipboardData: box, bubbles: true,"
+        " cancelable: true })); })()"
+    )
+
+
+def test_several_skills_typed_at_once_become_separate_chips(page: Chrome, empty: Workspace) -> None:
+    focused = _open_skill_input(page, empty)
+    page.type_text("HubSpot, n8n, Python")
+    page.press("Enter")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 3")
+    page.type_text("SQL; Power BI")
+    page.press("Enter")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 5")
+    assert _chip_names(page) == ["HubSpot", "n8n", "Python", "SQL", "Power BI"]
+    assert page.evaluate(focused), "focus left the input after a multi-skill entry"
+
+
+def test_a_pasted_list_becomes_chips_and_keeps_focus(page: Chrome, empty: Workspace) -> None:
+    focused = _open_skill_input(page, empty)
+    _paste(page, "SQL\nPower BI\nPython\n")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 3")
+    assert _chip_names(page) == ["SQL", "Power BI", "Python"]
+    assert page.evaluate(focused), "focus left the input after a paste"
+    assert page.evaluate(f"document.querySelector({json.dumps(CHIP_INPUT)}).value") == ""
+
+
+def test_duplicates_are_dropped_and_a_slash_is_never_a_separator(
+    page: Chrome, empty: Workspace
+) -> None:
+    focused = _open_skill_input(page, empty)
+    page.type_text("n8n, N8N, n8n")
+    page.press("Enter")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 1")
+    page.type_text("CI/CD; REST/GraphQL, n8n")
+    page.press("Enter")
+    page.wait_for("document.querySelectorAll('.xp-editor .cw-chip').length === 3")
+    assert _chip_names(page) == ["n8n", "CI/CD", "REST/GraphQL"]
+    assert page.evaluate(focused)

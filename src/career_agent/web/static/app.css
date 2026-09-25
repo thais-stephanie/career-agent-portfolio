@@ -7413,6 +7413,15 @@ body:not([data-page="jobs"]) #chipbar { display: none !important; }
 
 .profile__glance > .profile__heading { margin-top: 0; }
 .profile__chips { padding: 12px 0 0; }
+/* Certificates as their fields: title, issuer, dates, credential. */
+.profile__certs { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 14px; }
+.profile__cert { padding: 0 0 14px; border-bottom: var(--rule-w) solid var(--rule); }
+.profile__cert:last-child { border-bottom: 0; padding-bottom: 0; }
+.profile__cert p { margin: 0; }
+.profile__certtitle { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.profile__certissuer { color: var(--body); }
+.profile__certdates, .profile__certid { color: var(--muted); font-size: 13px; }
+.profile__certid { overflow-wrap: anywhere; }
 /* A skill you can read but not press. The ledger's chip is a button there
    because it opens the claim; here it is a word, and a thing that looks
    pressable and is not is worse than a plain one. */
@@ -8452,6 +8461,8 @@ body.has-cw-drawer { overflow: hidden; }
 .cw-chipinput__input {
   flex: 1 1 160px; border: 0; background: none; font: inherit; color: var(--ink); min-height: 32px;
 }
+/* The chips' own container, so only it is redrawn; laid out as if it were not there. */
+.cw-chipinput__chips { display: contents; }
 .cw-chipinput__input:focus { outline: none; }
 .cw-chipinput:focus-within { outline: 2px solid var(--outline); outline-offset: 2px; }
 

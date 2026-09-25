@@ -64,6 +64,8 @@ _PACKAGE_STATE = {
 _STEP_OF = {
     "skills": "skills",
     "tools": "skills",
+    "keywords": "skills",
+    "matrix": "skills",
     "SKILL": "skills",
     "TOOL": "skills",
     "certifications": "certifications",

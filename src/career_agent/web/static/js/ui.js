@@ -339,30 +339,67 @@ export function lineList({ values = [], label, addLabel, placeholder = '' }) {
 }
 
 /** Skill chips with a type-and-Enter input. */
+/**
+ * Several skills at once, typed or pasted: "HubSpot, n8n", one per line,
+ * "SQL; Python", "a | b". Trimmed, empty ones dropped, duplicates dropped
+ * case-insensitively keeping the first spelling.
+ *
+ * NEVER SPLIT ON "/": "CI/CD", "REST/GraphQL" and "AS-IS / TO-BE" are one
+ * skill each. The document reader follows the same rule (`cv/skills.py`).
+ */
+export function splitSkills(text) {
+  const out = [];
+  const seen = new Set();
+  for (const part of String(text || '').split(/[,;|\n\r•·]+/)) {
+    const name = part.trim();
+    if (!name || name.length > 80 || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    out.push(name);
+  }
+  return out;
+}
+
 export function chipInput({ values = [], label, placeholder = '' }) {
   let current = [...values];
-  const host = el('div', { className: 'cw-chipinput' });
+  // THE INPUT IS NEVER REDRAWN. Replacing it on every Enter detached the
+  // focused node, so each new skill needed a click before it could be typed.
+  // Only the chips are redrawn; the input stays put and keeps focus.
+  const list = el('div', { className: 'cw-chipinput__chips' });
   const input = el('input', {
     className: 'cw-chipinput__input',
-    attrs: { type: 'text', maxlength: '60', 'aria-label': label, placeholder },
-    on: {
-      keydown: (event) => {
-        if (event.key !== 'Enter' && event.key !== ',') return;
-        event.preventDefault();
-        const name = input.value.trim().replace(/,$/, '');
-        if (name && !current.some((v) => v.toLowerCase() === name.toLowerCase())) {
-          current.push(name);
-          draw();
-        }
-        input.value = '';
-      },
-    },
+    attrs: { type: 'text', maxlength: '500', 'aria-label': label, placeholder },
   });
+  /** Add every skill in `text` not already there, then clear the box. */
+  function add(text) {
+    const known = new Set(current.map((v) => v.toLowerCase()));
+    const fresh = splitSkills(text).filter((name) => !known.has(name.toLowerCase()));
+    if (fresh.length) {
+      current.push(...fresh);
+      draw();
+    }
+    input.value = '';
+  }
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ',' && event.key !== ';') return;
+    event.preventDefault();
+    add(input.value);
+  });
+  // A pasted list becomes chips at once; a single word pastes as text.
+  input.addEventListener('paste', (event) => {
+    const pasted = event.clipboardData ? event.clipboardData.getData('text') : '';
+    if (!/[,;|\n\r]/.test(pasted)) return;
+    event.preventDefault();
+    const at = input.selectionStart ?? input.value.length;
+    const until = input.selectionEnd ?? input.value.length;
+    add(input.value.slice(0, at) + pasted + input.value.slice(until));
+  });
+  const host = el('div', { className: 'cw-chipinput' }, [list, input]);
   function draw() {
-    replace(host, [chips(current, {
+    replace(list, [chips(current, {
+      // The remove button is gone after the redraw: focus goes back to typing.
       onRemove: (name) => { current = current.filter((v) => v !== name); draw(); input.focus(); },
       label,
-    }), input]);
+    })]);
   }
   draw();
   host.values = () => current;

@@ -2202,6 +2202,11 @@ const EN = {
   'profile.skillsLead': 'Each of these is a word you confirmed. There is no proficiency score, '
     + 'because nothing in this product measures one.',
   'profile.qualsHeading': 'Certificates and study',
+  'profile.educationHeading': 'Education',
+  'profile.certIssued': 'Issued {date}',
+  'profile.certExpires': 'Expires {date}',
+  'profile.certNoExpiry': 'No expiration',
+  'profile.certCredential': 'Credential ID: {id}',
 
   // -- CAREER EVIDENCE: WHAT NEEDS YOU, THEN WHAT YOU HAVE ----------------
   //
@@ -4894,7 +4899,12 @@ const PT_BR = {
   'profile.skillsHeading': 'Habilidades e ferramentas',
   'profile.skillsLead': 'Cada uma destas é uma palavra que você confirmou. Não há nota de '
     + 'proficiência aqui, porque nada neste produto mede isso.',
-  'profile.qualsHeading': 'Certificados e formação',
+  'profile.qualsHeading': 'Certificados e cursos',
+  'profile.educationHeading': 'Formação',
+  'profile.certIssued': 'Emitido em {date}',
+  'profile.certExpires': 'Expira em {date}',
+  'profile.certNoExpiry': 'Sem expiração',
+  'profile.certCredential': 'ID da credencial: {id}',
 
   // -- CAREER EVIDENCE: WHAT NEEDS YOU, THEN WHAT YOU HAVE ----------------
   'attend.waiting': '{n} itens precisam da sua revisão',
