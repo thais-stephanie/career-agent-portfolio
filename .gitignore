@@ -1,5 +1,10 @@
 # secrets and personal data - never commit
 .env
+# ...and every variant of it. A key saved as `.env.txt` by an editor that
+# appends its own extension was NOT covered by `.env` and sat in the tree
+# as an untracked, committable file. The template is the one exception.
+.env.*
+!.env.example
 config/*.local.yaml
 # ...and everything the atomic writer leaves beside one. `config_writer`
 # renames a temporary file over the target and keeps the previous version as
