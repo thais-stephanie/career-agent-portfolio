@@ -245,6 +245,8 @@ def _publish_aspect(
     intent: SearchIntent,
     report: GateReport,
 ) -> PublishedAspect:
+    for _ in range(raw.malformed):
+        report.refuse("malformed_match")
     if not intent.configured(aspect):
         # Nothing was asked. Whatever came back cannot be about this person.
         if raw.matches:

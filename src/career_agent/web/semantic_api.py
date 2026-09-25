@@ -37,6 +37,11 @@ def _is_personal(app: JobsApi) -> bool:
 
 def register_semantic(app: JobsApi) -> None:
     from career_agent.pipeline.retrieval import RetrievalRunner
+    from career_agent.semantic.settings import load_stored_key
+
+    # A key saved from Settings lives in the root `.env`, which the launcher
+    # does not load. Demo mode's configuration sits elsewhere and finds none.
+    load_stored_key(app.config.config_dir)
 
     runner = RetrievalRunner()
     # Visible to `start_rescore`, which refuses while a semantic run (and the

@@ -57,6 +57,18 @@ def main() -> int:
         subprocess.run(
             [sys.executable, "-c", "from career_agent.cli import app; app()", *command], check=True
         )
+    # Bring an EXISTING database up to this build's schema, as `serve` does.
+    # Without this, an updated installation opened through the launcher ran
+    # new code on an old schema: migrations only ever reached a database
+    # through CLI commands, and a feature's tables could simply be missing.
+    # Migrations are additive and recorded, so this is a no-op when current.
+    from career_agent.storage.db import connect, migrate
+
+    connection = connect(db)
+    try:
+        migrate(connection)
+    finally:
+        connection.close()
     if args.demo:
         from resume_tailor.workspace import WorkspaceStore
         from resume_tailor.workspace.demo import create_demo_candidate

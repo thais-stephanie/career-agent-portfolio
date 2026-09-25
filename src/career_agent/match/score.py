@@ -119,11 +119,17 @@ SENIORITY_ADJACENT_SHARE = 0.5
 SENIORITY_OTHER_SHARE = 0.2
 
 #: Semantic strength to the prominence whose multiplier it earns. A strong
-#: finding is central to the role, like a phrase in the role's own section; a
-#: partial one is present but secondary.
+#: finding is central to the role, like a phrase in the role's own section. A
+#: partial one is, by the contract's own definition, a secondary duty OR a
+#: close neighbour of what was asked for: an interpretation of adjacency, paid
+#: like an incidental mention rather than like a statement in a secondary
+#: section. Measured on the real corpus (2026-09-25): paid as SECONDARY,
+#: generic full-stack and BI roles filled every slot on neighbour evidence and
+#: read STRONG beside the genuine fits; as INCIDENTAL, false positives on the
+#: labelled set fell from 3 to 1 (docs/SEMANTIC_MATCHING.md).
 SEMANTIC_PROMINENCE: dict[str, Prominence] = {
     "strong": Prominence.PRIMARY,
-    "partial": Prominence.SECONDARY,
+    "partial": Prominence.INCIDENTAL,
 }
 
 #: Months in a year. Not a configurable rate and not an observation -- it is the
@@ -314,7 +320,7 @@ def _weighted_component(
             )
         found = by_signal.get(signal_id)
         if found is not None:
-            prominence = SEMANTIC_PROMINENCE.get(found.strength, Prominence.SECONDARY)
+            prominence = SEMANTIC_PROMINENCE.get(found.strength, Prominence.INCIDENTAL)
             strength = component.prominence_multipliers[prominence] * relative
             if best is None or strength > best[0]:
                 label = observed[signal_id].label if signal_id in observed else signal_id

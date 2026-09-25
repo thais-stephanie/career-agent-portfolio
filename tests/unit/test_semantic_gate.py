@@ -220,7 +220,6 @@ def test_a_plain_none_is_kept_as_none() -> None:
         "[1, 2]",
         '{"work": {"verdict": "strong", "matches": []}}',  # lists missing
         answer(work={"verdict": "certain", "matches": []}),  # unknown verdict
-        answer(work={"verdict": "strong", "matches": [{"intent_id": "W1", "strength": "huge"}]}),
         json.dumps({**json.loads(answer()), "provider_confidence": 7}),
     ],
 )
@@ -308,3 +307,26 @@ def test_the_sentence_is_the_one_the_accepted_span_sits_in() -> None:
     raw = answer(tools={"verdict": "strong", "matches": [match("T1", "SQL")]})
     (found,) = publish(parse_answer(raw), intent, posting).matches
     assert "every day" in found.sentence
+
+
+def test_a_malformed_match_is_dropped_alone_and_counted() -> None:
+    """A "none" strength or a misspelt key costs that match, never the valid
+    findings beside it."""
+    raw = answer(
+        tools={
+            "verdict": "strong",
+            "matches": [
+                match("T1", "Maintain our HubSpot portal"),
+                {"intent_id": "T2", "strength": "none", "quotes": []},
+                {"int_id": "T2", "strength": "partial", "quotes": ["its webhooks"]},
+            ],
+        }
+    )
+    out = published(raw)
+    assert [m.intent_id for m in out.matches] == ["T1"]
+    assert out.report.rejected["malformed_match"] == 2
+
+
+def test_an_answer_whose_shape_is_wrong_is_still_rejected_whole() -> None:
+    with pytest.raises(AnswerRejected):
+        parse_answer(json.dumps({"work": "strong", "tools": [], "other": {}}))
