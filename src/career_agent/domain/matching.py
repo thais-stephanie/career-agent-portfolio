@@ -108,7 +108,23 @@ from career_agent.domain.enums import (
 #: it. Silence on both new gates is the absence of a disqualification, as
 #: on the other exclusionary gates; no score moves across this boundary for
 #: a posting that states neither.
-MATCH_SCHEMA_VERSION = 9
+#: 10: Search Fit v5 (docs/SEMANTIC_MATCHING.md). A phrase component with no
+#: configured phrase leaves the denominator (`configured: false`, max 0); a
+#: configured one that found nothing stays 0/max. Each phrase component pays
+#: its strongest few distinct signals (top-N), one sentence pays for at most half
+#: of a component, tools
+#: are capped at half when no desired work was found, seniority follows the
+#: person's preferred levels, and soft penalties are subtracted magnitudes.
+#: Contributions carry `counted`, `source` and `uncounted_reason`; a result
+#: carries the validated `semantic` evidence it used, if any. Every reading is
+#: unchanged, so a schema 9 row replays (REPLAY_MIN_SCHEMA) rather than being
+#: read again.
+MATCH_SCHEMA_VERSION = 10
+
+#: The oldest result schema whose stored READINGS a replay may reuse. Separate
+#: from MATCH_SCHEMA_VERSION on purpose: 10 changed arithmetic and provenance,
+#: never what a reader observed.
+REPLAY_MIN_SCHEMA = 9
 
 #: The gates the matcher can answer, in the order they are reported. This is
 #: the one vocabulary: `match.gates.GATE_ORDER` is this tuple, and the
@@ -259,8 +275,17 @@ class ScoreContribution:
     #: The configured weight before the prominence multiplier.
     weight: float
     #: What actually landed, after the multiplier and before the component cap.
+    #: Zero when the contribution was found but not counted.
     points: float
     quote: str | None = None
+    #: False when the signal was found and deliberately not paid: the same
+    #: sentence already paid in this component, or it fell outside the
+    #: strongest few this component counts. Shown, never hidden.
+    counted: bool = True
+    #: `lexical` (a configured phrase found in the body) or `semantic` (a
+    #: provider finding that passed the publication gate).
+    source: str = "lexical"
+    uncounted_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,6 +301,44 @@ class ScoreComponent:
     #: instead of implying nothing more was found.
     capped: bool = False
     note: str | None = None
+    #: False when the person configured nothing for this component. It is then
+    #: not part of Search Fit at all (max 0), which is different from a
+    #: configured component the posting did not match (0 of its max).
+    configured: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticMatch:
+    """One published semantic finding, as scoring consumes it."""
+
+    component_id: str
+    signal_id: str
+    intent_id: str
+    #: `strong` or `partial`.
+    strength: str
+    #: Verbatim substring of the posting. The first published quote.
+    quote: str
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticEvidence:
+    """Validated semantic findings and where they came from.
+
+    Only what passed `semantic.gate.publish`. Provider confidence is not here:
+    it is metadata of the evaluation and never becomes points.
+    """
+
+    evaluation_id: str
+    provider: str
+    model: str
+    contract: str
+    intent_digest: str
+    matches: tuple[SemanticMatch, ...] = ()
+    #: `((component_id, verdict), ...)` after the gate.
+    verdicts: tuple[tuple[str, str], ...] = ()
+    #: The provider the person or Auto asked for, when a different one answered.
+    requested_provider: str | None = None
+    fallback_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -547,6 +610,10 @@ class MatchResult:
     #: Two readings of one posting drifting apart is the failure this prevents;
     #: it is why the facts travel with the result instead of beside it.
     posting_facts: dict[str, object] = field(default_factory=dict)
+
+    #: The validated semantic evidence this score used, or None when the score
+    #: is deterministic-only (semantic off, no provider, or nothing evaluated).
+    semantic: SemanticEvidence | None = None
 
     #: ISO-8601 UTC, supplied by the caller.
     computed_at: str = ""

@@ -295,7 +295,16 @@ class ScoringComponents(_Section):
 
 class SoftPenalties(_Section):
     prominence_multipliers: dict[Prominence, float]
+    #: MAGNITUDES, always subtracted. Setup used to write `-3`, and the scorer
+    #: subtracts `weight * multiplier`, so a negative weight ADDED points: a
+    #: phrase the person said they did not want raised the score. A legacy
+    #: negative weight is read as its magnitude, which is what it always meant.
     weights: dict[str, float]
+
+    @field_validator("weights")
+    @classmethod
+    def _magnitudes(cls, value: dict[str, float]) -> dict[str, float]:
+        return {signal_id: abs(float(weight)) for signal_id, weight in value.items()}
 
 
 class Scoring(_Section):

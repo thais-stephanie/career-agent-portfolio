@@ -28,7 +28,12 @@ import yaml
 
 from career_agent.config.search_config import Blocker, SearchConfigError, load_search_config
 from career_agent.domain.enums import EligibilityStatus, GateResult
-from career_agent.domain.matching import GATE_NAMES, MATCH_SCHEMA_VERSION, GateOutcome
+from career_agent.domain.matching import (
+    GATE_NAMES,
+    MATCH_SCHEMA_VERSION,
+    REPLAY_MIN_SCHEMA,
+    GateOutcome,
+)
 from career_agent.match.gates import (
     CRITICAL_GATES,
     GATE_ORDER,
@@ -80,7 +85,10 @@ def test_credential_is_a_gate_and_the_vocabulary_is_shared() -> None:
     assert UNRESOLVED_REASONS["credential"].startswith("The posting does not state")
     assert "credential" not in CRITICAL_GATES, "silence is the absence of a disqualification"
     assert "requirement" not in CRITICAL_GATES
-    assert MATCH_SCHEMA_VERSION == 9, "the gates tuple gained members"
+    # 9 is where the gates tuple gained members; 10 (Search Fit v5) moved
+    # arithmetic only, and its replay floor is exactly 9.
+    assert MATCH_SCHEMA_VERSION >= 9, "the gates tuple gained members"
+    assert REPLAY_MIN_SCHEMA == 9
 
 
 def test_a_typed_hard_exclusion_closes_a_gate_now(tmp_path: Path) -> None:
@@ -349,6 +357,8 @@ def test_the_schema_and_the_reader_identity_moved_together() -> None:
     the same build."""
     from career_agent.match.identity import READER_IDENTITY
 
-    assert MATCH_SCHEMA_VERSION == 9
+    # The reader identity is what a gates change moves. Schema 10 is the
+    # Search Fit v5 arithmetic, which moved no reader, so it stays readers-3.
+    assert MATCH_SCHEMA_VERSION == 10
     assert READER_IDENTITY == "readers-3"
     assert len(GATE_NAMES) == 7 and GATE_ORDER is GATE_NAMES

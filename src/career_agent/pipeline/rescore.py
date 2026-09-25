@@ -26,6 +26,7 @@ from typing import Any
 
 from career_agent.clock import now_utc
 from career_agent.domain.enums import PipelineRunStatus
+from career_agent.domain.matching import REPLAY_MIN_SCHEMA
 from career_agent.match.engine import match_job
 from career_agent.match.identity import input_digest as reading_identity
 from career_agent.match.replay import replay
@@ -370,8 +371,15 @@ def rescore(
     provider: str | None = None,
     board: str | None = None,
     no_replay: bool = False,
+    semantic: bool = False,
 ) -> RescoreStats:
     """Score the postings that need it under the loaded configuration.
+
+    `semantic` lets validated semantic findings (`career_agent.semantic`) take
+    part in each posting's Search Fit: the newest published evaluation of that
+    posting's text, for this Search Intent and this semantic contract. Findings
+    are READ here, never requested: a rescore makes no call of any kind. With
+    it off, or with no evaluation stored, the score is the deterministic one.
 
     With no arguments this is TARGETED: the dirty ledger plus every open
     posting without a current score, and nothing else. `force` recomputes
@@ -456,9 +464,21 @@ def rescore(
         # readings this build may reuse. Resolved before any posting is read,
         # because the answer cannot change while the pass runs.
         source_version = matches.replay_source_version(
-            str(config.config_id), int(config.config_version), identity, MATCH_SCHEMA_VERSION
+            str(config.config_id),
+            int(config.config_version),
+            identity,
+            REPLAY_MIN_SCHEMA,
+            MATCH_SCHEMA_VERSION,
         )
         stats.replay_source_version = source_version
+
+        intent_digest = contract = ""
+        if semantic:
+            from career_agent.semantic.contract import contract_identity
+            from career_agent.semantic.intent import search_intent
+
+            intent_digest = search_intent(config).digest
+            contract = contract_identity()
 
         scoring_started = datetime.now(UTC)
         successful: dict[str, int] = {}
@@ -472,6 +492,9 @@ def rescore(
                 page_ids = [str(row["id"]) for row in rows]
                 payloads = ProviderPayloadRepo(conn).latest_for_jobs(page_ids)
                 sightings = DiscoverySourceRepo(conn).sightings_for_jobs(page_ids)
+                findings = (
+                    _semantic_findings(conn, rows, intent_digest, contract) if semantic else {}
+                )
                 reusable: dict[str, tuple[str, str]] = {}
                 source_receipts: dict[str, int] = {}
                 if source_version is not None:
@@ -480,7 +503,14 @@ def rescore(
                         config_id=str(config.config_id),
                         source_version=source_version,
                         input_digest=identity,
-                        min_schema=MATCH_SCHEMA_VERSION,
+                        min_schema=REPLAY_MIN_SCHEMA,
+                        # The target version itself only lends rows an older
+                        # schema wrote; a current row there is this pass's own.
+                        below_schema=(
+                            MATCH_SCHEMA_VERSION
+                            if source_version == int(config.config_version)
+                            else None
+                        ),
                     )
                     source_receipts = invalidation.score_revisions(
                         conn, page_ids, str(config.config_id), source_version
@@ -537,14 +567,17 @@ def rescore(
                     stats=stats,
                     enabled=_replay_allowed(mode, source_version, no_replay),
                 )
+                evidence = findings.get(str(row["content_hash"]))
                 try:
                     if stored is not None:
                         replay_started = datetime.now(UTC)
-                        result = replay(config, stored, facts, computed_at=_now())
+                        result = replay(
+                            config, stored, facts, computed_at=_now(), semantic=evidence
+                        )
                         stats.replay_ms += _elapsed(replay_started)
                         stats.jobs_replayed += 1
                     else:
-                        result = match_job(config, facts, computed_at=_now())
+                        result = match_job(config, facts, computed_at=_now(), semantic=evidence)
                         stats.jobs_read_in_full += 1
                 except Exception as exc:  # noqa: BLE001
                     # One posting must never abort a corpus pass. The failure
@@ -689,6 +722,21 @@ def _replay_source(
         stats.replay_refused["INPUTS_MOVED"] = stats.replay_refused.get("INPUTS_MOVED", 0) + 1
         return None
     return deserialise_match(result_json)
+
+
+def _semantic_findings(
+    conn: sqlite3.Connection, rows: Sequence[sqlite3.Row], intent_digest: str, contract: str
+) -> dict[str, Any]:
+    """Published semantic evidence for this page, keyed by content hash."""
+    from career_agent.semantic.store import SemanticRepo
+
+    hashes = [str(row["content_hash"]) for row in rows if row["content_hash"]]
+    try:
+        return dict(SemanticRepo(conn).evidence_for(hashes, intent_digest, contract))
+    except sqlite3.OperationalError:
+        # A database from before migration 0041 has no evaluations to read,
+        # which is exactly "no semantic evidence", never a failed pass.
+        return {}
 
 
 def _rows_for(conn: sqlite3.Connection, job_ids: Sequence[str]) -> list[sqlite3.Row]:
