@@ -153,12 +153,24 @@ class Selection:
     reason: str = ""
 
 
+#: How a batch is chosen from the postings the intent's words reach.
+#:
+#: `relevance` (the default everywhere): full-text relevance to the intent.
+#: `priority`: postings a targeted search returned first, then the
+#: deterministic Search Fit already computed, then relevance. For a
+#: revalidation after the corpus grew, where the question is "which of the new
+#: postings deserve a reading first". Neither order changes what is admitted.
+ORDERS = ("relevance", "priority")
+
+
 def select_candidates(
     conn: sqlite3.Connection,
     config: SearchConfig,
     intent: SearchIntent,
     *,
     limit: int,
+    order: str = "relevance",
+    since: str | None = None,
 ) -> Selection:
     if not intent.items:
         return Selection([], 0, STOP_NO_INTENT)
@@ -177,6 +189,18 @@ def select_candidates(
         if hidden
         else ""
     )
+    if order not in ORDERS:
+        raise ValueError(f"order must be one of {ORDERS}")
+    targeted = (
+        "EXISTS (SELECT 1 FROM job_retrieval_lane l WHERE l.job_id = j.id AND l.lane = 'targeted')"
+    )
+    ranking = (
+        f"{targeted} DESC, jm.match_score DESC, bm25(job_search)"
+        if order == "priority"
+        else "bm25(job_search)"
+    )
+    # Collected after `since`, or returned by a targeted search at any time.
+    since_clause = f" AND (j.first_seen_at >= ? OR {targeted})" if since else ""
     # Identities first; the text is read only for the postings chosen.
     rows = conn.execute(
         "SELECT j.id, j.content_hash, j.title"
@@ -187,14 +211,15 @@ def select_candidates(
         " WHERE job_search MATCH ? AND j.closed_at IS NULL"
         "   AND jm.eligibility_status <> 'VERIFIED_NOT_ELIGIBLE'"
         "   AND jm.screening_state = 'NOT_BLOCKED'"
-        f"  AND length(r.description_text) >= ?{hidden_clause}"
-        " ORDER BY bm25(job_search), coalesce(j.posted_at, j.first_seen_at) DESC, j.id",
+        f"  AND length(r.description_text) >= ?{hidden_clause}{since_clause}"
+        f" ORDER BY {ranking}, coalesce(j.posted_at, j.first_seen_at) DESC, j.id",
         (
             str(config.config_id),
             int(config.config_version),
             query,
             MIN_DESCRIPTION_CHARS,
             *hidden,
+            *((since,) if since else ()),
         ),
     ).fetchall()
     # One question per posting TEXT: two jobs sharing a content hash are asked
@@ -310,6 +335,8 @@ def run_semantic(
     requested: str,
     progress: Callable[[RunStats], None] | None = None,
     cancel: threading.Event | None = None,
+    order: str = "relevance",
+    since: str | None = None,
 ) -> RunStats:
     """Evaluate a bounded batch. Returns the run's stats; never raises for a
     provider failure. Marks every evaluated posting for rescoring."""
@@ -335,7 +362,9 @@ def run_semantic(
             repo.start_run(stats)
             repo.finish_run(stats)
         return stats
-    selection = select_candidates(conn, config, intent, limit=run_cap(settings, route))
+    selection = select_candidates(
+        conn, config, intent, limit=run_cap(settings, route), order=order, since=since
+    )
     stats.candidates = len(selection.candidates)
     plan = estimate(route, selection, intent)
     stats.budget_usd = settings.budget_per_run_usd if metered else None

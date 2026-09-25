@@ -1952,6 +1952,22 @@ def semantic_match_command(
     budget: Annotated[
         float, typer.Option("--budget", help="USD hard stop for a metered provider (0: setting).")
     ] = 0.0,
+    order: Annotated[
+        str,
+        typer.Option(
+            "--order",
+            help="relevance (default), or priority: targeted-search postings first, then "
+            "deterministic Search Fit.",
+        ),
+    ] = "relevance",
+    since: Annotated[
+        str,
+        typer.Option(
+            "--since",
+            help="Only postings collected after this ISO time, or 'last-run' (the last semantic "
+            "run's start); targeted-search postings are always included.",
+        ),
+    ] = "",
 ) -> None:
     """Semantic Search Fit: plan, or run, one bounded batch.
 
@@ -1979,10 +1995,22 @@ def semantic_match_command(
     if overrides:
         settings = settings.model_copy(update=overrides)
     route = resolve(settings)
+    if order not in ("relevance", "priority"):
+        raise typer.BadParameter("--order is relevance or priority")
     conn = _open_personal(db)
     try:
+        if since == "last-run":
+            row = conn.execute("SELECT max(started_at) FROM semantic_run").fetchone()
+            since = str(row[0]) if row and row[0] else ""
         intent = search_intent(config)
-        selection = select_candidates(conn, config, intent, limit=run_cap(settings, route))
+        selection = select_candidates(
+            conn,
+            config,
+            intent,
+            limit=run_cap(settings, route),
+            order=order,
+            since=since or None,
+        )
         cost = estimate(route, selection, intent)
         _table(
             [
@@ -2000,7 +2028,15 @@ def semantic_match_command(
         if not run:
             typer.echo("Plan only. Nothing was sent. Add --run to evaluate.")
             return
-        stats = run_semantic(conn, config, settings, route, requested=settings.mode.value)
+        stats = run_semantic(
+            conn,
+            config,
+            settings,
+            route,
+            requested=settings.mode.value,
+            order=order,
+            since=since or None,
+        )
         typer.echo(json.dumps(stats.as_dict(), indent=1))
         if stats.published:
             rescored = rescore(
