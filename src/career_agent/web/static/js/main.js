@@ -116,14 +116,21 @@ function careerChanged() {
 // conflict resolution -- is kept, on a secondary page reached from Evidence
 // and Documents ("Manage all statements"). It is no longer the career's front
 // door: Career Profile, Evidence and Documents are (docs/CAREER_WORKSPACE.md).
-const evidence = createEvidence({ onChanged: () => careerChanged() });
-document.getElementById('evidence-host').appendChild(evidence.root);
+//
+// NOT A USER SURFACE ANY MORE (2026-09-25). The first real walkthrough showed
+// that keeping it one link away brought the whole administrative model back:
+// Needs organizing, imported groups, organization history. It is kept only as
+// a developer tool, opened with `?debug=statements` in the address and linked
+// from nowhere; without that flag it is not even built.
+const DEV_STATEMENTS = new URLSearchParams(window.location.search).get('debug') === 'statements';
+const evidence = DEV_STATEMENTS ? createEvidence({ onChanged: () => careerChanged() }) : null;
+if (evidence) document.getElementById('evidence-host').appendChild(evidence.root);
 
 //: Text boxes on Career Evidence the person has typed into. A box that is
 //: gone from the page was saved or discarded by the page itself; one still
 //: there with text in it is work a redraw would lose.
 const evidenceEdits = new Set();
-for (const host of [document.getElementById('page-manage'), evidence.root]) {
+for (const host of [document.getElementById('page-manage'), evidence && evidence.root]) {
   host?.addEventListener('input', (event) => {
     const node = event.target;
     if (node instanceof HTMLTextAreaElement
@@ -162,15 +169,10 @@ const drawer = createDrawer({
   // always passed here and always discarded, so the trip used to end at the
   // top of a long screen with nothing saying what it was for.
   onEvidence: (row) => {
-    // A named requirement opens what is waiting about it, narrowed and
-    // droppable; without one, the person writes the evidence down.
-    if (row && row.label) {
-      goTo('manage');
-      evidence.focusOn(row.label);
-      return;
-    }
+    // Evidence, with the add drawer open and the requirement named in it: the
+    // person writes down what they did. Never the old statement manager.
     goTo('evidence');
-    evidenceView.add();
+    evidenceView.add({ requirement: (row && row.label) || '' });
   },
   // Whether Career Agent holds anything about this person's career -- a read
   // document, or evidence waiting or confirmed. Resume Tailor keeps its own
@@ -215,8 +217,8 @@ const PAGES = {
   profile: document.getElementById('page-profile'),
   evidence: document.getElementById('page-evidence'),
   documents: document.getElementById('page-documents'),
-  // Not in the navigation: the advanced statement manager.
-  manage: document.getElementById('page-manage'),
+  // The old statement manager: a developer tool, only with ?debug=statements.
+  ...(DEV_STATEMENTS ? { manage: document.getElementById('page-manage') } : {}),
   // Promoted out of the filter rail. Where the postings come from is not a
   // filter, and reaching it meant opening a disclosure inside a panel that
   // only exists on one page.
@@ -229,13 +231,11 @@ const shell = createShell();
 
 // -- the career pages -------------------------------------------------------
 const evidenceView = evidencePage({
-  onManage: () => goTo('manage'),
   onImport: () => goTo('documents'),
   onChanged: () => careerChanged(),
 });
 PAGES.evidence.appendChild(evidenceView);
 const documentsView = documentsPage({
-  onManage: () => goTo('manage'),
   onChanged: () => careerChanged(),
 });
 PAGES.documents.appendChild(documentsView);
@@ -311,6 +311,11 @@ function goTo(page, { push = true } = {}) {
   // else, so it travels with the page rather than sitting above all of them.
   const toolbar = document.querySelector('.topbar__controls');
   if (toolbar) toolbar.dataset.page = page;
+  // JOB CONTROLS BELONG TO DISCOVER, and the page says whose they are. The
+  // toolbar, the filter panel and the active-filter chips are hidden by one
+  // rule on `body[data-page]` (app.css) unless the page is Discover: a list of
+  // pages to hide them on missed Documents, and every new page leaked them.
+  document.body.dataset.page = page;
   // EVERY page gets the same header shape, filled from one table. Five call
   // sites setting their own is how five screens come to disagree about how
   // tall a header is.
@@ -342,7 +347,7 @@ function goTo(page, { push = true } = {}) {
   if (page === 'profile') loadProfile();
   if (page === 'evidence') void evidenceView.load().catch(() => {});
   if (page === 'documents') void documentsView.load().catch(() => {});
-  if (page === 'manage') evidence.mount(PAGES.manage);
+  if (page === 'manage' && evidence) evidence.mount(PAGES.manage);
   // Loaded on arrival rather than on page load: the catalogue answers a
   // question nobody has asked yet, and a list of jobs should not wait on it.
   if (page === 'settings') {
@@ -759,8 +764,11 @@ function watchRecalculation() {
     try {
       status = await api.getRescore();
     } catch {
-      // A failed poll is not a failed rescore. Stop watching rather than
-      // retrying forever; the next list fetch re-establishes the truth.
+      // A failed poll is not a failed rescore, but a bar that simply stops
+      // moving is the stall the owner met at 57% (2026-09-25): the server had
+      // been stopped and nothing on screen said so. Say it, and offer to look
+      // again rather than retrying for ever.
+      showRecalculationLost();
       return;
     }
     // **`load`, NOT the store subscriber.** The subscriber only re-fetches
@@ -803,6 +811,19 @@ function watchRecalculation() {
  * waved it away once would have no way of knowing which preferences the list
  * in front of them belongs to.
  */
+/** "Lost contact while recalculating", in place of a progress bar that froze. */
+function showRecalculationLost() {
+  const node = dom.revision;
+  if (!node) return;
+  node.hidden = false;
+  replace(node, [
+    el('span', { className: 'revnotice__text', attrs: { role: 'status' }, text: t('revision.lost') }),
+    button(t('revision.checkAgain'), () => {
+      load(store.apiQueryString(), store.get(), { quiet: true }).catch(() => {});
+    }, { className: 'revnotice__go' }),
+  ]);
+}
+
 function renderRevisionNotice() {
   const node = dom.revision;
   if (!node) return;
@@ -856,6 +877,27 @@ function renderRevisionNotice() {
     // rescore started from the CLI, from another tab, or resumed after an
     // interrupted one is watched just the same.
     watchRecalculation();
+  } else if (revision.is_interrupted) {
+    // Stopped part way and nothing is running: say where it stopped, never
+    // show it as still moving, and continue from there (a rescore only scores
+    // what is still missing).
+    const done = revision.current.scored;
+    const total = revision.current.scoreable;
+    const pct = total ? Math.floor((100 * done) / total) : 0;
+    parts.push(el('span', {
+      className: 'revnotice__progress num',
+      attrs: { role: 'status' },
+      text: t('revision.interrupted', { done: done.toLocaleString(), total: total.toLocaleString(), pct }),
+    }));
+    parts.push(button(t('revision.resume'), () => {
+      api.startRescore().then(() => {
+        watchRecalculation();
+        return load(store.apiQueryString(), store.get(), { quiet: true });
+      }).catch((error) => {
+        replace(node, [el('span', { className: 'revnotice__text', attrs: { role: 'alert' },
+          text: (error && error.userMessage) || t('rescore.couldNotStart') })]);
+      });
+    }, { className: 'revnotice__go' }));
   } else if (revision.serving) {
     // Stale but nothing running: the recalculation has not been started, or
     // it was interrupted. Either way the way forward is the same button.
@@ -1305,7 +1347,18 @@ function rescoreButton() {
       label.textContent = error.userMessage || t('rescore.couldNotStart');
       return;
     }
-    polling = window.setInterval(() => { poll().catch(() => {}); }, 700);
+    let misses = 0;
+    polling = window.setInterval(() => {
+      poll().then(() => { misses = 0; }).catch(() => {
+        // A few missed polls are a busy server; many are a stopped one.
+        misses += 1;
+        if (misses < 10) return;
+        window.clearInterval(polling);
+        polling = null;
+        control.disabled = false;
+        label.textContent = t('app.rescoreLost');
+      });
+    }, 700);
   });
 
   return control;
@@ -2190,7 +2243,7 @@ function buildLocaleControl(host) {
           // home view -- rather than going back to the top. NOT while
           // something typed there is unsaved: a redraw would throw it away,
           // and the page translates on its next arrival anyway.
-          if (currentPage === 'manage' && !evidenceHasUnsavedText()) evidence.refresh();
+          if (currentPage === 'manage' && evidence && !evidenceHasUnsavedText()) evidence.refresh();
           // The new career pages redraw from what they already hold.
           if (currentPage === 'evidence') void evidenceView.load().catch(() => {});
           if (currentPage === 'documents') void documentsView.load().catch(() => {});
@@ -2337,7 +2390,7 @@ buildLocaleControl(dom.localeHost);
 
 // The landing page is HOME. A hash chooses another, so a bookmark and a
 // reload land where the person left off.
-const wanted = window.location.hash.replace('#', '');
+const wanted = DEV_STATEMENTS ? 'manage' : window.location.hash.replace('#', '');
 goTo(PAGES[wanted] ? wanted : 'home', { push: false });
 
 relabelStaticText();

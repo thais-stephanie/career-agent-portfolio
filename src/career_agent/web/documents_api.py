@@ -596,6 +596,8 @@ def register_documents_routes(app: Any) -> None:
                     package_payload["text"] = text
                 app.intake_answer(package_id=doc, query={}, body=package_payload)
             _keep_placement(app, doc, key)
+        if verb in {"CONFIRM", "EDIT", "CHOOSE"}:
+            _hold_placement(app, kind, doc, key)
         with _closing(app.connect()) as conn:
             return review_model(conn, kind, doc)
 
@@ -753,6 +755,69 @@ def _stored(entry: dict, end: str) -> str | None:
         return str(month)
     year = period.get(f"{end}_year")
     return str(year) if year else None
+
+
+def _hold_placement(app: Any, kind: str, doc: str, key: str) -> None:
+    """A confirmed statement lives in the experience its entry belongs to.
+
+    **THE DEFECT THIS CLOSES (2026-09-25).** A job shown as "Already in your
+    profile" was matched to an experience but the match was never recorded:
+    confirming its lines made claims linked nowhere, and 56 confirmed details
+    stayed off the profile. Now, once a statement is live, every unlinked live
+    statement of the same entry goes to the experience `cv_placement.assign`
+    names -- by entry identity first, then by the same employer AND role --
+    as one recorded, undoable move. Ambiguous entries are left for the person;
+    a statement already linked anywhere is never moved.
+    """
+    from career_agent.storage.career_repo import CareerRepo
+    from career_agent.storage.cv_placement import assign, placement_decided
+    from career_agent.storage.db import transaction
+    from career_agent.storage.workspace_repo import candidate_id_of
+
+    with _closing(app.connect()) as conn:
+        candidate = candidate_id_of(conn)
+        if candidate is None:
+            return
+        model = review_model(conn, kind, doc)
+        entry = next(
+            (e for e in model["experiences"] if any(i["key"] == key for i in e["items"])), None
+        )
+        if entry is None:
+            return
+        profile = _profile(conn, candidate)
+        linked = profile["linked"]
+        live = profile.get("live_keys", set())
+        siblings = {
+            str(linked[i["career_key"]]) for i in entry["items"] if linked.get(i["career_key"])
+        }
+        target, _basis, _why = assign(
+            entry.get("company") or entry.get("label"),
+            entry.get("role"),
+            siblings,
+            profile["experiences"],
+        )
+        if target is None:
+            return
+        # NEVER PLACED only: no link row at all. A row whose experience is
+        # NULL is a statement the person took out of an experience (the
+        # Experience editor, Remove experience); that is a decision, and it
+        # stays until they place it again.
+        decided = placement_decided(conn, candidate)
+        keys = sorted(
+            {
+                i["career_key"]
+                for i in entry["items"]
+                if i["state"] != "rejected"
+                and i["career_key"] in live
+                and i["career_key"] not in decided
+            }
+        )
+        if not keys:
+            return
+        with transaction(conn):
+            repo = CareerRepo(conn, candidate)
+            command = {"action": "move", "keys": keys, "experience_id": target}
+            repo.apply(command, repo.preview(command)["preview_hash"])
 
 
 def _keep_placement(app: Any, package_id: str, key: str) -> None:

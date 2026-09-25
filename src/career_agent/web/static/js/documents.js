@@ -25,7 +25,7 @@ import { badge, guard, inlineConfirm, keepFocus, toast, workCard } from './ui.js
 
 const L = (key, params) => tCount(`docs.${key}`, params);
 
-export function documentsPage({ onChanged = null, onManage = null } = {}) {
+export function documentsPage({ onChanged = null } = {}) {
   const root = el('section', { className: 'docs', attrs: { 'aria-label': L('heading') } });
   let listing = null;
   let reviewing = null;
@@ -110,10 +110,6 @@ export function documentsPage({ onChanged = null, onManage = null } = {}) {
       archived.length ? el('details', { className: 'evp-fold' }, [
         el('summary', { text: L('archivedFold', { n: archived.length }) }),
         el('ul', { className: 'docs-list' }, archived.map((doc) => el('li', {}, [row(doc)]))),
-      ]) : null,
-      onManage ? el('p', { className: 'evp-manage' }, [
-        button(L('manage'), onManage, { className: 'cw-link' }),
-        el('span', { text: L('manageHint') }),
       ]) : null,
     ]);
   }

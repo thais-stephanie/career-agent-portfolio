@@ -6067,11 +6067,14 @@ body {
   background: var(--paper-2);
 }
 
-/* The results toolbar belongs to the job list. It is meaningless on Home,
-   on the profile and on the evidence ledger. */
-.topbar__controls[data-page="home"],
-.topbar__controls[data-page="profile"],
-.topbar__controls[data-page="evidence"] { display: none; }
+/* JOB CONTROLS BELONG TO DISCOVER ALONE. An allow-list, set by `goTo` on
+   `body[data-page]`: the toolbar, the filter panel and the chips of active
+   filters exist only on Discover Jobs. The deny-list this replaces (home,
+   profile, evidence, settings) missed Documents, and Applications, which
+   shares the job page, still showed the filters. */
+body:not([data-page="jobs"]) .topbar,
+body:not([data-page="jobs"]) #filterpanel,
+body:not([data-page="jobs"]) #chipbar { display: none !important; }
 
 /* -- the pages -------------------------------------------------------- */
 .page { padding: 20px; max-width: 1100px; }
@@ -7235,7 +7238,6 @@ body {
    ground of its own on the pages that do not use it. */
 .topbar { position: static; border-bottom: 0; background: transparent; }
 .topbar__controls { padding: 16px 32px; }
-.topbar__controls[data-page="settings"] { display: none; }
 .topbar__mode { margin: 0; font-size: 11px; color: var(--nav-muted); }
 .topbar__status { font-size: 11px; }
 .topbar__status .health__summary { color: var(--nav-idle); cursor: pointer; }
@@ -8573,10 +8575,6 @@ body.has-cw-drawer { overflow: hidden; }
 .evp-aside { list-style: none; padding: 0; display: grid; gap: 10px; }
 .evp-aside li { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .evp-aside li > span:first-child { flex: 1 1 280px; }
-.evp-manage {
-  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline;
-  color: var(--muted); font-size: 13px;
-}
 .evp-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .evp-type {
   display: grid; gap: 4px; text-align: left; padding: 12px; cursor: pointer; font: inherit;

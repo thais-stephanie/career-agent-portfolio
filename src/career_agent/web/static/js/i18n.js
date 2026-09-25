@@ -1204,6 +1204,12 @@ const EN = {
     + 'are not ready yet.',
   'revision.progress': 'Recalculating: {done} of {total} ({pct}%)',
   'revision.recalculate': 'Recalculate now',
+  'revision.interrupted': 'Recalculation stopped at {done} of {total} ({pct}%) before it finished. '
+    + 'The list still answers your previous preferences.',
+  'revision.resume': 'Continue recalculating',
+  'revision.lost': 'Lost contact with Career Agent while recalculating. It may have stopped.',
+  'revision.checkAgain': 'Check again',
+  'app.rescoreLost': 'Lost contact while recalculating. Try again',
   'prefs.reach': 'Lexical reach: {n} of {total} scored open postings ({pct}%). Title or body.',
   'prefs.reachNone':
     'Lexical reach: no configured phrase was found in the {total} scored open postings. '
@@ -2651,8 +2657,6 @@ const EN = {
   'evp.confirmDraft': 'Confirm',
   'evp.useAgain': 'Use again',
   'evp.backInUse': 'Back in use.',
-  'evp.manage': 'Manage all statements',
-  'evp.manageHint': 'Advanced: every statement, its revisions and how it is organised.',
   'evp.open': 'Open',
   'evp.openLabel': 'Open {title}',
   'evp.stopUsing': 'Stop using',
@@ -2676,6 +2680,8 @@ const EN = {
   'evp.addTitle': 'Add evidence',
   'evp.editTitle': 'Edit evidence',
   'evp.addLede': 'Proof behind your experience. Application preparation quotes it when it explains a match.',
+  'evp.addForRequirement': 'For the requirement "{requirement}". '
+    + 'Write down what you did; it is saved as a statement you made.',
   'evp.typeLabel': 'Type',
   'evp.title': 'Title',
   'evp.titlePlaceholder': 'e.g. Checkout redesign',
@@ -2708,8 +2714,6 @@ const EN = {
   'docs.yourImports': 'Your imports',
   'docs.empty': 'Nothing imported yet.',
   'docs.archivedFold': 'Archived ({n})',
-  'docs.manage': 'Manage all statements',
-  'docs.manageHint': 'Advanced: packages built from several documents, conflicts between them, every revision.',
   'docs.status.archived': 'Archived',
   'docs.status.replaced': 'Replaced by a newer reading',
   'docs.status.waiting': '{n} to review',
@@ -3920,6 +3924,12 @@ const PT_BR = {
     + 'estão prontas.',
   'revision.progress': 'Recalculando: {done} de {total} ({pct}%)',
   'revision.recalculate': 'Recalcular agora',
+  'revision.interrupted': 'O recálculo parou em {done} de {total} ({pct}%) antes de terminar. '
+    + 'A lista ainda responde às suas preferências anteriores.',
+  'revision.resume': 'Continuar o recálculo',
+  'revision.lost': 'O contato com o Career Agent foi perdido durante o recálculo. Ele pode ter parado.',
+  'revision.checkAgain': 'Verificar de novo',
+  'app.rescoreLost': 'Contato perdido durante o recálculo. Tente de novo',
   'prefs.reach': 'Alcance lexical: {n} de {total} vagas abertas pontuadas ({pct}%). Título ou descrição.',
   'prefs.reachNone':
     'Alcance lexical: nenhuma expressão configurada foi encontrada nas {total} vagas abertas '
@@ -5329,8 +5339,6 @@ const PT_BR = {
   'evp.confirmDraft': 'Confirmar',
   'evp.useAgain': 'Usar de novo',
   'evp.backInUse': 'De volta ao uso.',
-  'evp.manage': 'Gerenciar todas as afirmações',
-  'evp.manageHint': 'Avançado: todas as afirmações, as revisões e como estão organizadas.',
   'evp.open': 'Abrir',
   'evp.openLabel': 'Abrir {title}',
   'evp.stopUsing': 'Deixar de usar',
@@ -5355,6 +5363,8 @@ const PT_BR = {
   'evp.addTitle': 'Adicionar evidência',
   'evp.editTitle': 'Editar evidência',
   'evp.addLede': 'A prova por trás da sua experiência. A preparação de candidaturas a cita ao explicar uma vaga.',
+  'evp.addForRequirement': 'Para o requisito "{requirement}". '
+    + 'Escreva o que você fez; fica salvo como uma afirmação sua.',
   'evp.typeLabel': 'Tipo',
   'evp.title': 'Título',
   'evp.titlePlaceholder': 'ex.: Redesenho do checkout',
@@ -5387,8 +5397,6 @@ const PT_BR = {
   'docs.yourImports': 'Suas importações',
   'docs.empty': 'Nada importado ainda.',
   'docs.archivedFold': 'Arquivados ({n})',
-  'docs.manage': 'Gerenciar todas as afirmações',
-  'docs.manageHint': 'Avançado: pacotes feitos de vários documentos, conflitos entre eles, todas as revisões.',
   'docs.status.archived': 'Arquivado',
   'docs.status.replaced': 'Substituído por uma leitura mais nova',
   'docs.status.waiting': '{n} para revisar',

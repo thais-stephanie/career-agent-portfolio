@@ -71,3 +71,23 @@ every source line, exactly as before.
   that stated only years is not forced into invented months.
 
 Everything else is an adapter over the existing tables.
+
+## Post-merge corrections (first real walkthrough, 2026-09-25)
+
+- **The old statement manager is not a user surface.** Keeping it one link
+  away ("Manage all statements") brought the whole administrative model back.
+  No link, button or route in the product opens it; a job requirement answered
+  with "it is not in my profile" opens Evidence with the add drawer, naming the
+  requirement. It survives only as a developer tool behind `?debug=statements`,
+  and without that flag it is not built.
+- **Job controls belong to Discover alone.** The toolbar, the filter panel and
+  the active-filter chips are shown by an allow-list on `body[data-page]`, not
+  hidden page by page.
+- **Placement is recorded.** A statement confirmed in the guided review goes
+  to the experience its CV entry belongs to (`storage/cv_placement.py`):
+  entry identity first, then the same employer and role; ambiguous entries are
+  left for the person. `career-agent repair-placement` reports, and with
+  `--apply` links, confirmed details that were left outside their experience.
+- **A recalculation that died says so.** A partly scored revision with no
+  live heartbeat is "stopped at N of M", with Continue recalculating, never a
+  bar frozen at a percentage.

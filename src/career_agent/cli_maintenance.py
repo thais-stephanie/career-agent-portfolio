@@ -93,6 +93,76 @@ def refresh(
 def register(app: typer.Typer) -> None:
     app.command(name="refresh")(refresh)
     app.command(name="refresh-status")(refresh_status)
+    app.command(name="repair-placement")(repair_placement)
+
+
+def repair_placement(
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    apply: Annotated[
+        bool, typer.Option("--apply", help="Link the unambiguous ones. Dry run otherwise.")
+    ] = False,
+) -> None:
+    """Report, and with --apply link, confirmed CV details outside their experience.
+
+    A DRY RUN BY DEFAULT: it opens the database read-only and changes nothing.
+    With --apply, each link is an Organization history event that can be
+    undone. Ambiguous entries are only ever reported. See `storage/cv_placement`.
+    """
+    from career_agent.storage.cv_placement import apply_repair, plan_repair
+    from career_agent.storage.workspace_repo import candidate_id_of
+
+    path = resolve_database(RuntimeMode.PERSONAL, db)
+    with read_only(path) as conn:
+        if pending_migrations(conn):
+            raise typer.BadParameter("Run `career-agent migrate` first.")
+        candidate = candidate_id_of(conn)
+        plans = plan_repair(conn, candidate) if candidate else []
+    _print_placement(plans)
+    if not apply:
+        typer.echo("")
+        typer.echo(
+            "DRY RUN: nothing was changed. Run again with --apply to link the proposed ones."
+        )
+        return
+    if candidate is None or not any(plan.proposed for plan in plans):
+        typer.echo("")
+        typer.echo("Nothing to link.")
+        return
+    conn = connect(path)
+    try:
+        # Planned again on the writable connection: never apply a stale plan.
+        linked = apply_repair(conn, candidate, plan_repair(conn, candidate))
+    finally:
+        conn.close()
+    typer.echo("")
+    typer.echo(f"Linked {linked} confirmed details. Each move is in Organization history.")
+
+
+def _print_placement(plans: list) -> None:
+    for p in plans:
+        typer.echo("")
+        typer.echo(f"{p.company or '(no employer)'} / {p.role or '(no role)'}  [{p.import_name}]")
+        typer.echo(f"  {p.imported} imported details, {p.confirmed} confirmed")
+        typer.echo(f"  {p.linked_here} already linked to this experience")
+        if p.linked_elsewhere:
+            typer.echo(f"  {p.linked_elsewhere} linked to another experience (left as they are)")
+        if p.unlinked_by_person:
+            typer.echo(
+                f"  {p.unlinked_by_person} taken out of an experience by you (left as they are)"
+            )
+        typer.echo(f"  {len(p.missing)} confirmed and never placed")
+        if p.proposed:
+            typer.echo(f"  -> propose linking {len(p.proposed)} to {p.experience_label}")
+            typer.echo(f"     experience {p.experience_id}, because: {p.basis}")
+        elif p.missing:
+            typer.echo(f"  -> AMBIGUOUS, not moved: {p.ambiguous}")
+    proposed = sum(len(p.proposed) for p in plans)
+    ambiguous = sum(len(p.missing) for p in plans if not p.experience_id)
+    typer.echo("")
+    typer.echo(
+        f"SUMMARY: {len(plans)} CV entries with confirmed details, "
+        f"{proposed} links proposed, {ambiguous} confirmed details ambiguous."
+    )
 
 
 def refresh_status(db: Annotated[Path | None, typer.Option("--db")] = None) -> None:

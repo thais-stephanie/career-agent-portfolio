@@ -664,9 +664,7 @@ def test_switching_language_on_evidence_never_discards_what_is_being_typed(
 
     # Nothing typed: the next arrival translates the page as before.
     _go(page, "home")
-    _go(page, "evidence")
-    page.wait_for("document.querySelector('#page-evidence .evp-manage .cw-link') !== null")
-    page.evaluate("document.querySelector('#page-evidence .evp-manage .cw-link').click()")
+    page.navigate(f"{package_live}/?debug=statements")
     page.wait_for(
         "document.querySelector('#page-manage').innerText.includes('Suas experiências')",
         message="the evidence page in Portuguese after the next arrival",

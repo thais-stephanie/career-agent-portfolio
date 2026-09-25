@@ -236,6 +236,13 @@ def test_a_fresh_resume_is_reviewed_experience_by_experience(
         "document.querySelector('.imp-item[data-state=waiting]').dataset.key"
     )
     _press(page, "Not sure yet", f'.imp-item[data-key="{second_key}"]')
+    # On a CV the line stays "waiting", so the state cannot say the answer
+    # landed; the review's status line does. Answers run one at a time, and a
+    # click made while this one is still out would be ignored.
+    page.wait_for(
+        "document.querySelector('.imp-status')?.textContent === 'Left for later.'",
+        message="the Not sure yet answer saved",
+    )
     page.wait_for(_is(second_key, "waiting"))
     assert _verified(empty.db) == 1
 
@@ -497,3 +504,61 @@ def _open_update_review_pt(page: Chrome, ws: Workspace) -> None:
         ".querySelector('.btn--primary').click()"
     )
     page.wait_for("document.querySelector('.imp-card')")
+
+
+# =========================================================================
+# Hotfix 2026-09-25: job controls belong to Discover; no legacy manager
+# =========================================================================
+
+SHOWN = (
+    # Rendered at all: a hidden ancestor leaves an element no boxes.
+    "(sel) => { const n = document.querySelector(sel);"
+    " return !!n && n.getClientRects().length > 0; }"
+)
+
+
+def _shown(page: Chrome, selector: str) -> bool:
+    return bool(page.evaluate(f"({SHOWN})({json.dumps(selector)})"))
+
+
+def test_job_controls_belong_to_discover_alone(page: Chrome, pristine_server: str) -> None:
+    from tests.browser.home_helpers import open_home_past_setup
+
+    open_home_past_setup(page, pristine_server)
+    _nav(page, "jobs")
+    page.wait_for(f"({SHOWN})('.topbar')", message="the job toolbar on Discover")
+    if not _shown(page, "#filterpanel"):
+        page.evaluate("document.getElementById('rail-toggle').click()")
+    page.wait_for(f"({SHOWN})('#filterpanel')", message="the filters, opened")
+    for name in ("profile", "evidence", "documents", "home", "applications", "settings"):
+        if name == "applications":
+            # Applications shares Discover's container; the link says it is current.
+            page.evaluate("document.querySelector('.topnav__link[data-page=applications]').click()")
+            page.wait_for(
+                "document.querySelector('.topnav__link[data-page=applications]')"
+                ".getAttribute('aria-current') === 'page'"
+            )
+        else:
+            _nav(page, name)
+        for control in (".topbar", "#filterpanel", "#chipbar", "#rail-toggle"):
+            assert not _shown(page, control), f"{control} leaked onto {name}"
+    _nav(page, "jobs")
+    page.wait_for(f"({SHOWN})('.topbar') && ({SHOWN})('#filterpanel')", message="filters back")
+    assert _own_errors(page, pristine_server) == []
+
+
+def test_no_ordinary_route_reaches_the_statement_manager(page: Chrome, placed: Workspace) -> None:
+    _open(page, placed.base, "evidence")
+    page.wait_for("document.querySelector('.evp-card')")
+    for name in ("evidence", "documents", "profile"):
+        _nav(page, name)
+        time.sleep(0.5)
+        words = str(page.evaluate("document.body.innerText"))
+        assert "Manage all statements" not in words and "All statements" not in words, name
+    assert not page.evaluate("Boolean(document.querySelector('.topnav__link[data-page=manage]'))")
+    # Not even an old bookmark opens it.
+    page.navigate(f"{placed.base}/#manage")
+    page.wait_for("document.querySelector('.topnav__link[data-page=home]') !== null")
+    time.sleep(0.5)
+    assert page.evaluate("document.getElementById('page-manage').hidden")
+    assert not page.evaluate("document.querySelector('#page-manage .ev__privacy')")
