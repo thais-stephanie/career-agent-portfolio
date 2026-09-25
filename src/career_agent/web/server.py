@@ -40,6 +40,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
+from career_agent.pipeline.retrieval import ProfileRetired
+
 STATIC_ROOT = Path(__file__).parent / "static"
 
 #: Types the platform's own table does not carry, registered rather than hoped
@@ -361,6 +363,17 @@ class _Handler(BaseHTTPRequestHandler):
             if method != "GET":
                 raise ApiError(405, "method not allowed")
             self._send_static(path)
+        except ProfileRetired:
+            # A request that reached the app of a profile switched away a
+            # moment ago: the page reloads onto the profile now open.
+            self._send_json(
+                409,
+                {
+                    "error": "Another local profile is open now. The page will reload.",
+                    "for_reader": True,
+                    "code": "profile_changed",
+                },
+            )
         except ApiError as exc:
             # `for_reader` rides along only when it is TRUE. A key present on
             # every error payload would make the flag look like a property of

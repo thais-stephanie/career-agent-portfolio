@@ -309,10 +309,11 @@ def test_no_run_can_start_on_a_profile_that_was_switched_away(install: ProfileHo
     second = old.handle_api("POST", "/api/profiles", {}, {"label": "B"})["created"]["id"]
     old.handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
     assert old.retired
-    with pytest.raises(RuntimeError):
-        old.retrieval.start(lambda state, cancel: None, "run")
-    with pytest.raises(RuntimeError):
-        old.rescore.start(lambda state, cancel: None, "run")
+    from career_agent.pipeline.retrieval import ProfileRetired
+
+    for runner in (old.retrieval, old.rescore, old.semantic_runner):
+        with pytest.raises(ProfileRetired):
+            runner.start(lambda state, cancel: None, "run")
     # The served app starts runs normally.
     app(host).rescore.start(lambda state, cancel: None, "run")
     app(host).rescore.join(5)
@@ -386,3 +387,11 @@ def test_the_cli_refuses_one_profiles_database_with_anothers_settings(
     with pytest.raises(typer.BadParameter):
         _check_profile_pair(Path(b.db), Path("config"))
     _check_profile_pair(Path(b.db), Path(b.config_dir))
+
+
+def test_a_rename_is_kept_when_the_registry_is_rebuilt(install: ProfileHost) -> None:
+    host = install
+    created = app(host).handle_api("POST", "/api/profiles", {}, {"label": "Before"})["created"]
+    app(host).handle_api("PATCH", f"/api/profiles/{created['id']}", {}, {"label": "After"})
+    (host.root / "data" / "profiles.json").unlink()
+    assert {p.id: p.label for p in ensure_registry(host.root).profiles}[created["id"]] == "After"

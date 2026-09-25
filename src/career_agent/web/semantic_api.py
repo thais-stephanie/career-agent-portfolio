@@ -43,10 +43,8 @@ def register_semantic(app: JobsApi) -> None:
     # does not load. Demo mode's configuration sits elsewhere and finds none.
     load_stored_key(app.config.config_dir)
 
+    # Gated by the local-profile host, when there is one, once it attaches.
     runner = RetrievalRunner()
-    host = getattr(app, "profile_host", None)
-    if host is not None:
-        host.gate(app, runner)
     # Visible to `start_rescore`, which refuses while a semantic run (and the
     # rescore it ends with) is writing scores. Two passes on two connections
     # would contend for the same rows.

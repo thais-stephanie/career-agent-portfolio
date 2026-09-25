@@ -428,6 +428,20 @@ def rename_profile(root: Path, profile_id: str, label: str) -> Profile:
         renamed = replace(target, label=clean)
         registry.profiles = [renamed if p.id == profile_id else p for p in registry.profiles]
         save_registry(root, registry)
+        # The database keeps the name too, so a registry rebuilt from the
+        # databases brings the profile back under its current name.
+        db = root / renamed.db
+        if db.exists():
+            conn = sqlite3.connect(db, timeout=5)
+            try:
+                with conn:
+                    conn.execute(
+                        "UPDATE database_identity SET label = ? WHERE id = 'singleton'", (clean,)
+                    )
+            except sqlite3.Error:
+                pass
+            finally:
+                conn.close()
         return renamed
 
 
@@ -469,6 +483,11 @@ def delete_profile(
         base = (root / profile.db).parent
         if base.parent.resolve() != (root / PROFILES_DIR).resolve():
             raise ProfileError("This profile's folder is not where profiles live.")
+        # Nobody may be serving it: on Linux and macOS a rename succeeds on a
+        # folder another process still writes, so the lock is asked first.
+        guard = ProfileLock(root / profile.db)
+        guard.acquire()
+        guard.release()
         trash = root / TRASH_DIR
         trash.mkdir(parents=True, exist_ok=True)
         destination = trash / f"{profile.id}-{_now().replace(':', '')}"

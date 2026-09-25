@@ -2371,6 +2371,8 @@ def serve_command(
 
     mode = RuntimeMode.DEMO if demo else RuntimeMode.PERSONAL
     db = resolve_database(mode, db)
+    if mode is RuntimeMode.PERSONAL:
+        _check_profile_pair(db, config_dir)
     config, config_path = _load_config(config_dir)
 
     conn = connect(db)
@@ -2502,6 +2504,7 @@ def import_job_command(
     and it is often several kilobytes of text that would be mangled by quoting.
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     from career_agent.pipeline.manual_import import ImportError_, import_posting
     from career_agent.web.api import _now
 
@@ -2595,6 +2598,7 @@ def enrich_command(
     threshold is enforced unless it is explicitly waived.
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
+    _check_profile_pair(db, config_dir)
     from career_agent.pipeline.enrich import EnrichmentRejected, EnrichmentUnavailable, enrich_one
 
     config, _ = _load_config(config_dir)
@@ -3551,6 +3555,7 @@ def daily_command(
         candidate_id_of,
     )
 
+    _check_profile_pair(db, config_dir)
     config, config_path = _load_config(config_dir)
     conn = connect(db)
     try:

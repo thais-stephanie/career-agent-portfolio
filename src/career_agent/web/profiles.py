@@ -157,8 +157,11 @@ class ProfileHost:
             ServerConfig(db_path=db, config_dir=config_dir, host=self.host, port=self.port)
         )
         api.profile_host = self  # type: ignore[attr-defined]
-        self.gate(api, api.retrieval)
-        self.gate(api, api.rescore)
+        # Every runner this app owns, the semantic one included: it is built
+        # while the app is constructed, before this host is attached to it.
+        for runner in (api.retrieval, api.rescore, getattr(api, "semantic_runner", None)):
+            if runner is not None:
+                self.gate(api, runner)
         return api
 
     def serve(self, profile: Profile, api: JobsApi) -> None:
