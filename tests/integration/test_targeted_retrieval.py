@@ -485,8 +485,36 @@ def test_an_old_success_is_stale_and_a_partial_run_says_why(conn) -> None:
     listed = read_progress(conn, stage_for={"g": "collect-gamma2"}, now=now)[0]
     assert listed.state is RefreshState.PARTIAL and listed.reason == "SOME_FAILED"
     assert partial_reason({"slices_capped": 3}) == "REQUEST_BUDGET"
+    assert partial_reason({"boards_attempted": 139, "boards_failed": 6}) == "SOME_FAILED"
     assert partial_reason({"ceiling_hit": True}) == "SOURCE_CEILING"
     assert partial_reason({}) is None
+
+
+def test_a_family_that_read_every_board_is_complete_whatever_another_family_did(conn) -> None:
+    now = datetime(2026, 9, 25, 12, tzinfo=UTC)
+    _run(
+        conn,
+        "collect",
+        now - timedelta(hours=1),
+        {
+            "failures": ["one board answered 404"],
+            "by_provider": {
+                "alpha": {"boards_attempted": 3, "boards_succeeded": 3},
+                "beta": {"boards_attempted": 4, "boards_succeeded": 3, "boards_failed": 1},
+            },
+        },
+    )
+    rows = {
+        p.source_id: p
+        for p in read_progress(
+            conn,
+            stage_for={"alpha": "collect", "beta": "collect"},
+            providers={"alpha": "alpha", "beta": "beta"},
+            now=now,
+        )
+    }
+    assert rows["alpha"].state is RefreshState.COMPLETE
+    assert rows["beta"].state is RefreshState.PARTIAL and rows["beta"].reason == "SOME_FAILED"
 
 
 def test_the_coverage_report_names_families_with_no_board(conn) -> None:
