@@ -693,7 +693,9 @@ export function createDrawer({
             }),
           })
           : null,
-        component.note ? el('p', { className: 'component__note', text: component.note }) : null,
+        component.guarded
+          ? el('p', { className: 'component__note', text: t('drawer.toolsGuard') })
+          : component.note ? el('p', { className: 'component__note', text: component.note }) : null,
         (component.contributions || []).length
           ? el('ul', { className: 'contribs' }, component.contributions.map(contribution))
           : el('p', { className: 'component__note', text: t('drawer.nothingMatchedHere') }),

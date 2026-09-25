@@ -55,7 +55,12 @@ from career_agent.semantic.contract import (
 from career_agent.semantic.evidence import to_evidence
 from career_agent.semantic.gate import publish
 from career_agent.semantic.intent import SearchIntent, search_intent
-from career_agent.semantic.providers import Billing, ProviderAnswer, ProviderFailed
+from career_agent.semantic.providers import (
+    Billing,
+    ProviderAnswer,
+    ProviderFailed,
+    SemanticProvider,
+)
 from career_agent.semantic.routing import Route
 from career_agent.semantic.settings import SemanticSettings
 from career_agent.semantic.store import RunStats, SemanticRepo, StoredEvaluation
@@ -127,12 +132,24 @@ def intent_match_query(intent: SearchIntent) -> str | None:
     return " OR ".join(dict.fromkeys(parts)) or None
 
 
+#: Why a run stopped or selected nothing, as CODES the interface translates.
+STOP_NO_PROVIDER = "NO_PROVIDER"
+STOP_NO_INTENT = "NO_INTENT"
+STOP_NO_INDEX = "NO_INDEX"
+STOP_NOTHING_NEW = "NOTHING_NEW"
+STOP_BUDGET = "BUDGET"
+STOP_PROVIDER = "PROVIDER_STOPPED"
+STOP_CANCELLED = "CANCELLED"
+STOP_PRICE_UNKNOWN = "PRICE_UNKNOWN"
+STOP_ERROR = "ERROR"
+
+
 @dataclass
 class Selection:
     candidates: list[Candidate]
-    #: Every posting that passed the prefilter, before the per-run cap.
+    #: Every posting text that passed the prefilter, before the per-run cap.
     eligible: int
-    #: Why nothing could be selected, when that is the case.
+    #: Why nothing could be selected, as a code, when that is the case.
     reason: str = ""
 
 
@@ -144,14 +161,14 @@ def select_candidates(
     limit: int,
 ) -> Selection:
     if not intent.items:
-        return Selection([], 0, "No search intent is configured yet.")
+        return Selection([], 0, STOP_NO_INTENT)
     query = intent_match_query(intent)
     if query is None:
-        return Selection([], 0, "No search intent is configured yet.")
+        return Selection([], 0, STOP_NO_INTENT)
     # A stale index still answers for every posting it holds; it only misses
     # the newest, which the next run picks up. A missing one answers nothing.
     if not _index_has_rows(conn):
-        return Selection([], 0, "The search index is not built yet. Recalculate Search Fit first.")
+        return Selection([], 0, STOP_NO_INDEX)
     contract = contract_identity()
     done = SemanticRepo(conn).evaluated_hashes(intent.digest, contract)
     hidden = [str(level.value) for level in config.preferences.seniority.excluded]
@@ -160,8 +177,9 @@ def select_candidates(
         if hidden
         else ""
     )
+    # Identities first; the text is read only for the postings chosen.
     rows = conn.execute(
-        "SELECT j.id, j.content_hash, j.title, r.description_text"
+        "SELECT j.id, j.content_hash, j.title"
         " FROM job_search s"
         " JOIN job j ON j.id = s.job_id"
         " JOIN job_match jm ON jm.job_id = j.id AND jm.config_id = ? AND jm.config_version = ?"
@@ -179,12 +197,40 @@ def select_candidates(
             *hidden,
         ),
     ).fetchall()
-    fresh = [r for r in rows if str(r[1]) not in done]
+    # One question per posting TEXT: two jobs sharing a content hash are asked
+    # about once, and the answer reaches both.
+    fresh: dict[str, tuple[str, str]] = {}
+    for job_id, content_hash, title in rows:
+        key = str(content_hash)
+        if key not in done and key not in fresh:
+            fresh[key] = (str(job_id), str(title or ""))
+    picked = list(fresh.items())[:limit]
+    texts = _descriptions(conn, [content_hash for content_hash, _ in picked])
     chosen = [
-        Candidate(job_id=str(r[0]), content_hash=str(r[1]), title=str(r[2] or ""), description=r[3])
-        for r in fresh[:limit]
+        Candidate(job_id=job_id, content_hash=content_hash, title=title, description=text)
+        for content_hash, (job_id, title) in picked
+        if (text := texts.get(content_hash))
     ]
     return Selection(chosen, len(fresh))
+
+
+def _descriptions(conn: sqlite3.Connection, hashes: list[str]) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for start in range(0, len(hashes), 500):
+        chunk = hashes[start : start + 500]
+        marks = ",".join("?" for _ in chunk)
+        for content_hash, text in conn.execute(
+            f"SELECT content_hash, description_text FROM job_raw WHERE content_hash IN ({marks})",
+            chunk,
+        ):
+            found[str(content_hash)] = str(text or "")
+    return found
+
+
+def jobs_sharing(conn: sqlite3.Connection, content_hash: str) -> list[str]:
+    """Every job whose text this is: one evaluation serves all of them."""
+    rows = conn.execute("SELECT id FROM job WHERE content_hash = ?", (content_hash,)).fetchall()
+    return [str(r[0]) for r in rows]
 
 
 def _index_has_rows(conn: sqlite3.Connection) -> bool:
@@ -195,7 +241,23 @@ def _index_has_rows(conn: sqlite3.Connection) -> bool:
 
 
 def estimate_tokens(text: str) -> int:
+    """A typical count, for the EXPECTED estimate shown before a run."""
     return int(len(text) / CHARS_PER_TOKEN) + 1
+
+
+#: Tokens a chat template adds around the two messages, generously.
+TEMPLATE_OVERHEAD_TOKENS = 64
+
+
+def ceiling_tokens(text: str) -> int:
+    """An UPPER bound, for the reservation a budget relies on.
+
+    Byte-level tokenizers never emit more tokens than the text has UTF-8
+    bytes. Characters per token is only an average: for Chinese or Greek a
+    posting holds two or three times the tokens the average predicts, and a
+    reservation made from it could be exceeded by the real bill.
+    """
+    return len(text.encode("utf-8")) + TEMPLATE_OVERHEAD_TOKENS
 
 
 @dataclass(frozen=True)
@@ -257,33 +319,85 @@ def run_semantic(
     provider = route.provider
     if provider is None:
         stats.status = "SKIPPED"
-        stats.stop_reason = route.reason or "No semantic provider is available."
+        stats.stop_reason = STOP_NO_PROVIDER
         with transaction(conn):
             repo.start_run(stats)
             repo.finish_run(stats)
         return stats
     stats.provider = provider.id
+    metered = provider.capabilities().billing is Billing.METERED_API
+    if metered and provider.estimate_cost(1, 1) is None:
+        # A metered provider with no recorded price cannot be held to a
+        # budget, so it is not run at all.
+        stats.status = "SKIPPED"
+        stats.stop_reason = STOP_PRICE_UNKNOWN
+        with transaction(conn):
+            repo.start_run(stats)
+            repo.finish_run(stats)
+        return stats
     selection = select_candidates(conn, config, intent, limit=run_cap(settings, route))
     stats.candidates = len(selection.candidates)
     plan = estimate(route, selection, intent)
-    metered = provider.capabilities().billing is Billing.METERED_API
     stats.budget_usd = settings.budget_per_run_usd if metered else None
     stats.estimated_usd = plan.expected_usd
     with transaction(conn):
         repo.start_run(stats)
     if not selection.candidates:
         stats.status = "DONE"
-        stats.stop_reason = selection.reason or "Nothing new to evaluate."
+        stats.stop_reason = selection.reason or STOP_NOTHING_NEW
         with transaction(conn):
             repo.finish_run(stats)
         return stats
+    try:
+        _evaluate(
+            conn,
+            config,
+            intent,
+            route,
+            provider,
+            selection,
+            stats,
+            requested,
+            metered,
+            progress,
+            cancel,
+        )
+    except Exception:
+        stats.status = "FAILED"
+        stats.stop_reason = stats.stop_reason or STOP_ERROR
+        raise
+    finally:
+        # Whatever happened, the run row is closed: a run that died must not
+        # read as running for ever.
+        if stats.status == "RUNNING":
+            stats.status = "DONE"
+        with transaction(conn):
+            repo.finish_run(stats)
+        if progress is not None:
+            progress(stats)
+    return stats
+
+
+def _evaluate(
+    conn: sqlite3.Connection,
+    config: SearchConfig,
+    intent: SearchIntent,
+    route: Route,
+    provider: SemanticProvider,
+    selection: Selection,
+    stats: RunStats,
+    requested: str,
+    metered: bool,
+    progress: Callable[[RunStats], None] | None,
+    cancel: threading.Event | None,
+) -> None:
+    repo = SemanticRepo(conn)
 
     contract = contract_identity()
     lock = threading.Lock()
     reserved = [0.0]
     stop = threading.Event()
     failures = [0]
-    evaluated: list[str] = []
     ceiling = int(getattr(provider, "max_output_tokens", 2_500))
     workers = max(1, min(provider.capabilities().max_concurrency, 4))
     slots = threading.Semaphore(workers)
@@ -292,7 +406,7 @@ def run_semantic(
         text = SYSTEM_PROMPT + user_message(
             intent, candidate.title, posting_text(candidate.description)
         )
-        return provider.estimate_cost(estimate_tokens(text), ceiling) or 0.0
+        return provider.estimate_cost(ceiling_tokens(text), ceiling) or 0.0
 
     def ask(candidate: Candidate) -> tuple[Candidate, ProviderAnswer | None, str | None]:
         try:
@@ -308,7 +422,7 @@ def run_semantic(
             stats.failed += 1
             failures[0] += 1
             if failures[0] >= CONSECUTIVE_FAILURES_STOP:
-                stats.stop_reason = f"The provider stopped answering ({error})."
+                stats.stop_reason = STOP_PROVIDER
                 stop.set()
             return
         failures[0] = 0
@@ -337,7 +451,11 @@ def run_semantic(
                 "; ".join(f"{f['preferred']}: {f['reason']}" for f in route.fallbacks) or None
             ),
         )
+        # The evaluation and the marks for every job with this text commit
+        # together: an evaluation stored without its rescore request would be
+        # skipped by every later run and never reach a score.
         with transaction(conn):
+            invalidation.request(conn, jobs_sharing(conn, candidate.content_hash))
             repo.save(
                 StoredEvaluation(
                     job_id=candidate.job_id,
@@ -355,7 +473,6 @@ def run_semantic(
                 )
             )
         stats.published += 1
-        evaluated.append(candidate.job_id)
 
     with cf.ThreadPoolExecutor(max_workers=workers) as pool:
         pending: dict[cf.Future, float] = {}
@@ -366,7 +483,7 @@ def run_semantic(
             reserve = worst_case(candidate) if metered else 0.0
             with lock:
                 if metered and stats.spent_usd + reserved[0] + reserve > (stats.budget_usd or 0.0):
-                    stats.stop_reason = "The run's budget was reached."
+                    stats.stop_reason = STOP_BUDGET
                     slots.release()
                     stop.set()
                     break
@@ -389,12 +506,4 @@ def run_semantic(
                 progress(stats)
 
     if cancel is not None and cancel.is_set() and not stats.stop_reason:
-        stats.stop_reason = "Cancelled."
-    stats.status = "DONE"
-    with transaction(conn):
-        if evaluated:
-            invalidation.request(conn, evaluated)
-        repo.finish_run(stats)
-    if progress is not None:
-        progress(stats)
-    return stats
+        stats.stop_reason = STOP_CANCELLED

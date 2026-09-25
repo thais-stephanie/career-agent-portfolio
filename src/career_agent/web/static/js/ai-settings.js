@@ -18,6 +18,31 @@ import {
 
 const MODES = ['auto', 'deepseek', 'codex', 'claude_code', 'laya', 'deterministic'];
 const POLL_MS = 1500;
+const STOP_CODES = new Set([
+  'BUDGET', 'PROVIDER_STOPPED', 'CANCELLED', 'NOTHING_NEW', 'NO_PROVIDER', 'NO_INTENT',
+  'NO_INDEX', 'PRICE_UNKNOWN', 'ERROR',
+]);
+
+// One poll for the whole page. Each visit to Settings draws the panel again,
+// and an interval per drawing kept polling for panels nobody could see.
+let activePoll = null;
+
+function stopPolling() {
+  if (activePoll) clearInterval(activePoll);
+  activePoll = null;
+}
+
+/** A failure, in the reader's language. Never the server's own sentence. */
+function failureText(error, invalidKey = 'ai.error.failed') {
+  const status = error && error.status;
+  if (status === 400) return t(invalidKey);
+  if (status === 409) return t('ai.error.busy');
+  return t('ai.error.failed');
+}
+
+function stopText(code) {
+  return STOP_CODES.has(code) ? t(`ai.stop.${code}`) : '';
+}
 
 function money(value) {
   if (value === null || value === undefined) return '';
@@ -53,8 +78,8 @@ function stateText(row) {
 
 export function renderAiSettings(host) {
   let data = null;
-  let polling = null;
   let message = '';
+  stopPolling();
 
   async function load(refresh = false) {
     try {
@@ -62,7 +87,7 @@ export function renderAiSettings(host) {
       draw();
       if (data.run && data.run.status === 'running') poll();
     } catch (error) {
-      replace(host, [el('p', { className: 'ai__error', text: error.userMessage || error.message })]);
+      replace(host, [el('p', { className: 'ai__error', text: failureText(error) })]);
     }
   }
 
@@ -71,19 +96,22 @@ export function renderAiSettings(host) {
       await patchSemantic(changes);
       message = t('ai.saved');
     } catch (error) {
-      message = error.userMessage || error.message;
+      message = failureText(error, 'ai.error.setting');
     }
     await load();
   }
 
   function poll() {
-    if (polling) return;
-    polling = setInterval(async () => {
+    if (activePoll) return;
+    activePoll = setInterval(async () => {
+      if (!host.isConnected) {
+        stopPolling();
+        return;
+      }
       try {
         const status = await getSemanticRun();
         if (!status.run || status.run.status !== 'running') {
-          clearInterval(polling);
-          polling = null;
+          stopPolling();
           await load();
           return;
         }
@@ -94,8 +122,7 @@ export function renderAiSettings(host) {
           });
         }
       } catch {
-        clearInterval(polling);
-        polling = null;
+        stopPolling();
       }
     }, POLL_MS);
   }
@@ -127,7 +154,7 @@ export function renderAiSettings(host) {
           const result = await checkSemanticProvider(row.id);
           message = `${providerName(row.id)}: ${t(`ai.state.${result.state}`)}`;
         } catch (error) {
-          message = error.userMessage || error.message;
+          message = failureText(error);
         }
         await load(true);
       }, { className: 'btn btn--quiet' }));
@@ -149,7 +176,7 @@ export function renderAiSettings(host) {
         await saveDeepseekKey(key);
         message = t('ai.key.saved');
       } catch (error) {
-        message = error.userMessage || error.message;
+        message = failureText(error, 'ai.error.key');
       }
       await load(true);
     }, { className: 'btn' })];
@@ -159,7 +186,7 @@ export function renderAiSettings(host) {
           await removeDeepseekKey();
           message = t('ai.key.removed');
         } catch (error) {
-          message = error.userMessage || error.message;
+          message = failureText(error);
         }
         await load(true);
       }, { className: 'btn btn--quiet' }));
@@ -193,7 +220,7 @@ export function renderAiSettings(host) {
         const plan = await planSemantic();
         replace(planHost, planRows(plan));
       } catch (error) {
-        replace(planHost, [el('p', { text: error.userMessage || error.message })]);
+        replace(planHost, [el('p', { text: failureText(error) })]);
       }
       estimate.disabled = false;
     }, { className: 'btn' });
@@ -215,7 +242,7 @@ export function renderAiSettings(host) {
 
   function planRows(plan) {
     if (!plan.provider) return [el('p', { text: t('ai.summary.unavailable') })];
-    if (!plan.candidates) return [el('p', { text: t('ai.planNone') })];
+    if (!plan.candidates) return [el('p', { text: stopText(plan.reason) || t('ai.planNone') })];
     const text = plan.billing === 'METERED_API'
       ? t('ai.plan', {
         candidates: plan.candidates, eligible: plan.eligible,
@@ -230,7 +257,7 @@ export function renderAiSettings(host) {
           await startSemantic();
           message = t('ai.recalc');
         } catch (error) {
-          message = error.userMessage || error.message;
+          message = failureText(error);
         }
         await load();
       }, { className: 'btn btn--primary' }),
@@ -248,9 +275,8 @@ export function renderAiSettings(host) {
       text: run.budget_usd === null || run.budget_usd === undefined
         ? t('ai.lastSubscription', values) : t('ai.last', values),
     })];
-    const reason = String(run.stop_reason || '');
-    if (reason.includes('budget')) lines.push(el('p', { text: t('ai.stop.budget') }));
-    if (reason.includes('stopped answering')) lines.push(el('p', { text: t('ai.stop.provider') }));
+    const reason = stopText(String(run.stop_reason || ''));
+    if (reason) lines.push(el('p', { text: reason }));
     return el('div', {}, lines);
   }
 

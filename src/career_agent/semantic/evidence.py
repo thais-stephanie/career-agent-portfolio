@@ -25,6 +25,7 @@ def to_evidence(
             intent_id=m.intent_id,
             strength=m.strength.value,
             quote=m.quotes[0],
+            sentence=m.sentence,
         )
         for m in published.matches
     )

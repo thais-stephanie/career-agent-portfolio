@@ -241,7 +241,7 @@ def test_tools_without_any_desired_work_earn_at_most_half() -> None:
     components, _, _ = scored(config, body)
     tools = components["technologies"]
     assert tools.points == pytest.approx(10.0)
-    assert tools.capped and tools.note and "half" in tools.note
+    assert tools.guarded and tools.note and "half" in tools.note
 
 
 def test_one_piece_of_desired_work_lifts_the_tools_guard() -> None:
@@ -394,3 +394,47 @@ def test_one_sentence_pays_for_only_one_semantic_finding() -> None:
     work = components["responsibilities"]
     assert [c.counted for c in work.contributions].count(True) == 1
     assert work.points == pytest.approx(25.0 / 4)
+
+
+def test_two_fragments_of_one_sentence_are_one_sentence() -> None:
+    """The per-sentence rule compares SENTENCES, not whatever fragment a
+    provider chose to quote."""
+    config = config_with()
+    sentence = "Keep the books balanced and the team paid."
+    found = evidence(
+        SemanticMatch("responsibilities", "w_invoices", "W1", "strong", "Keep the books", sentence),
+        SemanticMatch("responsibilities", "w_payroll", "W2", "strong", "the team paid", sentence),
+    )
+    components, _, _ = scored(config, responsibilities(sentence), semantic=found)
+    assert [c.counted for c in components["responsibilities"].contributions].count(True) == 1
+
+
+def test_a_phrase_found_again_later_pays_from_its_own_sentence() -> None:
+    config = config_with()
+    body = responsibilities(
+        "You will reconcile invoices and run payroll and onboard vendors",
+        "Every Friday you will onboard vendors",
+    )
+    components, _, _ = scored(config, body)
+    work = components["responsibilities"]
+    assert [c.counted for c in work.contributions].count(True) == 3
+    vendors = next(c for c in work.contributions if c.signal_id == "w_vendors")
+    assert vendors.counted and "Friday" in (vendors.quote or "")
+
+
+def test_capped_means_the_component_overflowed_not_that_a_rule_refused() -> None:
+    config = config_with()
+    body = responsibilities("You will reconcile invoices and run payroll and onboard vendors")
+    components, _, _ = scored(config, body)
+    work = components["responsibilities"]
+    assert work.points < work.max_points and work.capped is False
+
+
+def test_the_guarded_rows_add_up_to_what_the_component_scored() -> None:
+    config = config_with()
+    body = responsibilities("Use ledgerbook", "Use gridsheet", "Use bankfeed", "Use taxpal")
+    components, _, _ = scored(config, body)
+    tools = components["technologies"]
+    assert tools.guarded and not tools.capped
+    paid = sum(c.points for c in tools.contributions if c.counted)
+    assert paid == pytest.approx(tools.points)

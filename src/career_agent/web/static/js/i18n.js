@@ -2948,8 +2948,6 @@ const EN = {
   'ai.last': 'Last run: {published} postings evaluated, {failed} failed, {calls} calls, {tokens} tokens, {spent} '
     + 'spent.',
   'ai.lastSubscription': 'Last run: {published} postings evaluated, {failed} failed, {calls} calls, {tokens} tokens.',
-  'ai.stop.budget': 'The run stopped at its budget.',
-  'ai.stop.provider': 'The run stopped because the provider stopped answering.',
   'readiness.NOT_READY': 'Search Fit is not ready: tell Career Agent what work you want next.',
   'readiness.PARTIAL': 'Search Fit is usable. It becomes more precise when you also say {missing}.',
   'readiness.READY': 'Search Fit is ready: it knows the work, the level and the way of working you want.',
@@ -2970,6 +2968,20 @@ const EN = {
     + 'posting.',
   'setup.work.intent': 'This is your search intent: the work you want next, which may be different from what you '
     + 'have done. Your background lives in your Career Profile and is never used as a search phrase.',
+  'ai.error.failed': 'That did not work. Nothing was changed; try again in a moment.',
+  'ai.error.busy': 'Something else is running. Try again when it finishes.',
+  'ai.error.key': 'That does not look like a DeepSeek API key.',
+  'ai.error.setting': 'That setting is not valid.',
+  'ai.stop.BUDGET': 'The run stopped at its budget.',
+  'ai.stop.PROVIDER_STOPPED': 'The run stopped because the provider stopped answering.',
+  'ai.stop.CANCELLED': 'The run was stopped.',
+  'ai.stop.NOTHING_NEW': 'Nothing new to evaluate.',
+  'ai.stop.NO_PROVIDER': 'No AI provider is available.',
+  'ai.stop.NO_INTENT': 'Tell Career Agent what work you want first.',
+  'ai.stop.NO_INDEX': 'Recalculate Search Fit first, then try again.',
+  'ai.stop.PRICE_UNKNOWN': 'This provider has no known price, so it cannot be held to a budget.',
+  'ai.stop.ERROR': 'The run stopped because of an error.',
+  'drawer.toolsGuard': 'Held at half: this posting uses tools you want, and none of the work you want was found in it.',
 };
 
 /**
@@ -5740,8 +5752,6 @@ const PT_BR = {
     + '{spent} gastos.',
   'ai.lastSubscription': 'Última execução: {published} vagas avaliadas, {failed} falharam, {calls} chamadas, '
     + '{tokens} tokens.',
-  'ai.stop.budget': 'A execução parou no orçamento.',
-  'ai.stop.provider': 'A execução parou porque o provedor deixou de responder.',
   'readiness.NOT_READY': 'A aderência à busca ainda não está pronta: diga ao Career Agent que trabalho você quer a '
     + 'seguir.',
   'readiness.PARTIAL': 'A aderência à busca já pode ser usada. Ela fica mais precisa quando você também informa '
@@ -5766,6 +5776,22 @@ const PT_BR = {
     + 'conferida com a vaga.',
   'setup.work.intent': 'Esta é a sua intenção de busca: o trabalho que você quer a seguir, que pode ser diferente '
     + 'do que você já fez. A sua trajetória fica no seu Perfil de Carreira e nunca é usada como frase de busca.',
+  'ai.error.failed': 'Não funcionou. Nada foi alterado; tente de novo em instantes.',
+  'ai.error.busy': 'Outra coisa está em andamento. Tente de novo quando terminar.',
+  'ai.error.key': 'Isso não parece uma chave de API da DeepSeek.',
+  'ai.error.setting': 'Essa configuração não é válida.',
+  'ai.stop.BUDGET': 'A execução parou no orçamento.',
+  'ai.stop.PROVIDER_STOPPED': 'A execução parou porque o provedor deixou de responder.',
+  'ai.stop.CANCELLED': 'A execução foi interrompida.',
+  'ai.stop.NOTHING_NEW': 'Nada novo para avaliar.',
+  'ai.stop.NO_PROVIDER': 'Nenhum provedor de IA está disponível.',
+  'ai.stop.NO_INTENT': 'Diga primeiro ao Career Agent que trabalho você quer.',
+  'ai.stop.NO_INDEX': 'Recalcule a aderência primeiro e tente de novo.',
+  'ai.stop.PRICE_UNKNOWN': 'Este provedor não tem preço conhecido, então não pode ser limitado por um orçamento.',
+  'ai.stop.ERROR': 'A execução parou por causa de um erro.',
+  'drawer.toolsGuard':
+    'Limitado à metade: esta vaga usa ferramentas que você quer, e nenhum trabalho que você quer foi '
+    + 'encontrado nela.',
 };
 
 const CATALOGUES = { en: EN, 'pt-BR': PT_BR };

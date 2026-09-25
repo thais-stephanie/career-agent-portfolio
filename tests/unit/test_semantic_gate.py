@@ -272,3 +272,27 @@ def test_the_provider_sees_intent_ids_and_text_but_never_signal_ids() -> None:
     sent = json.dumps(INTENT.for_provider())
     assert "W1" in sent and "Workflow automation" in sent
     assert "workflow_automation" not in sent
+
+
+@pytest.mark.parametrize("quote", ["the", "and to", "de la"])
+def test_function_words_alone_are_never_evidence(quote: str) -> None:
+    posting = "Use the ledger and to de la things"
+    assert locate(quote, posting) is None
+
+
+def test_a_quote_must_sit_on_word_boundaries() -> None:
+    assert locate("SQL", "Strong MySQLi skills") is None
+    assert locate("SQL", "Strong SQL skills") == "SQL"
+
+
+def test_a_work_quote_needs_words_enough_to_state_work() -> None:
+    raw = answer(work={"verdict": "strong", "matches": [match("W2", "HubSpot")]})
+    assert published(raw).matches == ()
+
+
+def test_the_published_finding_knows_its_sentence() -> None:
+    raw = answer(
+        work={"verdict": "strong", "matches": [match("W2", "Maintain our HubSpot portal")]}
+    )
+    (found,) = published(raw).matches
+    assert found.sentence == "- Maintain our HubSpot portal and its webhooks."

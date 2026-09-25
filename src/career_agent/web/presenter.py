@@ -311,6 +311,7 @@ def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: li
             "capped": c.capped,
             "note": c.note,
             "configured": c.configured,
+            "guarded": c.guarded,
             "contributions": [
                 {
                     "signal_id": k.signal_id,

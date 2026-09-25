@@ -39,6 +39,10 @@ def register_semantic(app: JobsApi) -> None:
     from career_agent.pipeline.retrieval import RetrievalRunner
 
     runner = RetrievalRunner()
+    # Visible to `start_rescore`, which refuses while a semantic run (and the
+    # rescore it ends with) is writing scores. Two passes on two connections
+    # would contend for the same rows.
+    app.semantic_runner = runner
     lock = threading.Lock()
     last: dict[str, Any] = {}
 
@@ -93,11 +97,13 @@ def register_semantic(app: JobsApi) -> None:
             "settings": settings.model_dump(mode="json"),
             "demo": not personal,
             "active_provider": route.provider.id if route and route.provider else None,
-            "active_reason": (
-                "Demo mode never uses AI." if not personal else (route.reason if route else "")
-            ),
+            "active_reason": "DEMO"
+            if not personal
+            else ("" if route and route.provider else "NO_PROVIDER"),
             "fallbacks": route.fallbacks if route else [],
-            "providers": provider_rows(fresh),
+            # `resolve` above already refreshed each status when asked; asking
+            # the CLIs a second time would double a slow GET for nothing.
+            "providers": provider_rows(),
             "deepseek_key": {"configured": key.configured},
             "last_run": last_run,
             "run": runner.snapshot(),
@@ -187,7 +193,7 @@ def register_semantic(app: JobsApi) -> None:
         cost = estimate(route, selection, intent)
         return {
             "provider": route.provider.id if route.provider else None,
-            "reason": selection.reason or route.reason,
+            "reason": selection.reason or ("" if route.provider else "NO_PROVIDER"),
             "fallbacks": route.fallbacks,
             "candidates": cost.candidates,
             "eligible": cost.eligible,
@@ -244,12 +250,17 @@ def register_semantic(app: JobsApi) -> None:
 def _mark_evaluated_for_rescore(app: JobsApi) -> None:
     """Semantic evidence switched on or off: every posting that has any must
     be scored again, and only those."""
-    from career_agent.semantic.store import SemanticRepo
     from career_agent.storage import invalidation
     from career_agent.storage.db import transaction
 
     with closing(app.connect()) as conn:
-        ids = SemanticRepo(conn).jobs_with_evaluations()
+        ids = [
+            str(row[0])
+            for row in conn.execute(
+                "SELECT id FROM job WHERE content_hash IN"
+                " (SELECT content_hash FROM semantic_evaluation)"
+            ).fetchall()
+        ]
         if ids:
             with transaction(conn):
                 invalidation.request(conn, ids)

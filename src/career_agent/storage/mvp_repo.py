@@ -339,6 +339,7 @@ def _component_to_dict(component: ScoreComponent) -> dict[str, Any]:
         "capped": component.capped,
         "note": component.note,
         "configured": component.configured,
+        "guarded": component.guarded,
     }
 
 
@@ -352,6 +353,7 @@ def _component_from_dict(data: dict[str, Any]) -> ScoreComponent:
         capped=bool(data.get("capped", False)),
         note=data.get("note"),
         configured=bool(data.get("configured", True)),
+        guarded=bool(data.get("guarded", False)),
     )
 
 
@@ -371,6 +373,7 @@ def semantic_to_dict(evidence: SemanticEvidence | None) -> dict[str, Any] | None
                 "intent_id": m.intent_id,
                 "strength": m.strength,
                 "quote": m.quote,
+                "sentence": m.sentence,
             }
             for m in evidence.matches
         ],
@@ -396,6 +399,7 @@ def semantic_from_dict(data: dict[str, Any] | None) -> SemanticEvidence | None:
                 intent_id=str(m["intent_id"]),
                 strength=str(m["strength"]),
                 quote=str(m["quote"]),
+                sentence=str(m.get("sentence") or ""),
             )
             for m in data.get("matches", ())
         ),

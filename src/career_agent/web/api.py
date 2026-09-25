@@ -432,6 +432,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         # exist. The class is generic -- it runs a callable on a thread and
         # reports on it -- so this costs one line and no new machinery.
         self.rescore = RetrievalRunner()
+        #: Set by `register_semantic`; read by `start_rescore`.
+        self.semantic_runner: RetrievalRunner | None = None
 
         self.register("GET", r"/api/health", self.health)
         self.register("GET", r"/api/config", self.config_summary)
@@ -1719,6 +1721,10 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
         if self.rescore.running:
             raise ApiError(409, "a rescore is already running", for_reader=True)
+        semantic = getattr(self, "semantic_runner", None)
+        if semantic is not None and semantic.running:
+            # A semantic run ends with its own rescore of what it evaluated.
+            raise ApiError(409, "Semantic matching is still running.", for_reader=True)
         return self.rescore.start(self._rescore_work(), new_id())
 
     def _rescore_work(self):

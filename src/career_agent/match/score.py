@@ -48,6 +48,7 @@ unknown; an absent row would read as an absence of problems.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from career_agent.config.search_config import (
@@ -284,13 +285,21 @@ def _weighted_component(
     heaviest = max(positive.values())
 
     by_signal = {m.signal_id: m for m in semantic or () if m.component_id == component_id}
-    candidates: list[tuple[float, ScoreContribution]] = []
+    # (strength, contribution, [(quote, sentence key), ...] it may pay through)
+    candidates: list[tuple[float, ScoreContribution, list[tuple[str | None, str]]]] = []
     for signal_id, weight in positive.items():
         relative = weight / heaviest
-        best: tuple[float, ScoreContribution] | None = None
+        best: tuple[float, ScoreContribution, list[tuple[str | None, str]]] | None = None
         signal = observed.get(signal_id)
         if signal is not None and signal.fired:
             strength = component.prominence_multipliers[signal.prominence] * relative
+            # Every sentence the phrase appeared in, in order: when the first
+            # already paid for another signal, a later one may still pay.
+            places: list[tuple[str | None, str]] = list(
+                dict.fromkeys(
+                    (hit.quote, _sentence_key(hit.quote, signal_id)) for hit in signal.hits
+                )
+            ) or [(signal.best_quote, _sentence_key(signal.best_quote, signal_id))]
             best = (
                 strength,
                 ScoreContribution(
@@ -301,6 +310,7 @@ def _weighted_component(
                     points=unit * strength,
                     quote=signal.best_quote,
                 ),
+                places,
             )
         found = by_signal.get(signal_id)
         if found is not None:
@@ -319,6 +329,11 @@ def _weighted_component(
                         quote=found.quote,
                         source="semantic",
                     ),
+                    # Keyed by the SENTENCE the gate found the quote in, so two
+                    # fragments of one bullet are one sentence.
+                    list[tuple[str | None, str]](
+                        [(found.quote, _sentence_key(found.sentence or found.quote, signal_id))]
+                    ),
                 )
         if best is not None:
             candidates.append(best)
@@ -329,15 +344,15 @@ def _weighted_component(
     paid_sentences: dict[str, int] = {}
     paid = 0
     total = 0.0
-    for _strength, row in candidates:
-        key = _sentence_key(row.quote, row.signal_id)
+    for _strength, row, where in candidates:
         # A literal phrase is a statement the posting made; an interpretation
         # of a sentence is one reading of it. A sentence may pay for up to half
         # the component through phrases the person wrote, and for only one
         # semantic finding: providers cite one sentence for several items far
         # more loosely than postings state them (docs/SEMANTIC_MATCHING.md).
         limit = per_sentence if row.source == "lexical" else 1
-        if paid_sentences.get(key, 0) >= limit:
+        open_places = [(q, k) for q, k in where if paid_sentences.get(k, 0) < limit]
+        if not open_places:
             contributions.append(
                 _uncounted(row, "This sentence already paid for as much as one sentence can.")
             )
@@ -347,10 +362,11 @@ def _weighted_component(
                 _uncounted(row, f"Already counted the {counted_signals} strongest matches here.")
             )
             continue
+        quote, key = open_places[0]
         paid_sentences[key] = paid_sentences.get(key, 0) + 1
         paid += 1
         total += row.points
-        contributions.append(row)
+        contributions.append(row if quote == row.quote else replace(row, quote=quote))
 
     fired = {row.signal_id for row in contributions}
     missing = [signal_id for signal_id in positive if signal_id not in fired]
@@ -379,7 +395,10 @@ def _weighted_component(
         points=min(total, component.max),
         max_points=component.max,
         contributions=tuple(contributions),
-        capped=len(candidates) > paid,
+        # Capped means what the drawer says it means: what was paid exceeded
+        # the component. Signals left unpaid by the rules above are marked on
+        # themselves ("already counted"), not on the component.
+        capped=total > component.max,
         note=note,
     )
 
@@ -412,15 +431,22 @@ def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
         return tools
     if tools.points <= ceiling:
         return tools
+    # The rows are scaled with the component, so what the drawer lists adds up
+    # to what the component actually scored.
+    factor = ceiling / tools.points
     return ScoreComponent(
         component_id=tools.component_id,
         label=tools.label,
         points=ceiling,
         max_points=tools.max_points,
-        contributions=tools.contributions,
-        capped=True,
+        contributions=tuple(
+            replace(row, points=row.points * factor) if row.counted else row
+            for row in tools.contributions
+        ),
+        capped=False,
         note="Capped at half: none of the work you want was found in this posting.",
         configured=tools.configured,
+        guarded=True,
     )
 
 

@@ -95,13 +95,29 @@ def completed(stdout: str = "", stderr: str = "", code: int = 0):
     return subprocess.CompletedProcess(args=[], returncode=code, stdout=stdout, stderr=stderr)
 
 
-def test_a_subscription_cli_never_inherits_api_billing_credentials(monkeypatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-not-pass")
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-should-not-pass")
-    monkeypatch.setenv("CAREER_AGENT_HARMLESS", "1")
+@pytest.mark.parametrize(
+    "variable",
+    [
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "CODEX_API_KEY",
+        "CLAUDE_CODE_USE_BEDROCK",
+        "ANTHROPIC_BASE_URL",
+        "DEEPSEEK_API_KEY",
+        "GOOGLE_API_KEY",
+        "SOMETHING_NOBODY_LISTED",
+    ],
+)
+def test_a_subscription_cli_receives_only_an_allowlisted_environment(
+    monkeypatch, variable: str
+) -> None:
+    """Posting text is third-party input; a child that inherited this process's
+    environment would be one prompt injection away from quoting a key back."""
+    monkeypatch.setenv(variable, "should-not-pass")
+    monkeypatch.setenv("PATH", "/usr/bin")
     env = local_cli._child_env()
-    assert "ANTHROPIC_API_KEY" not in env and "OPENAI_API_KEY" not in env
-    assert env["CAREER_AGENT_HARMLESS"] == "1"
+    assert variable not in env
+    assert env["PATH"] == "/usr/bin"
 
 
 def test_claude_is_run_as_its_executable_never_through_a_batch_shim(tmp_path, monkeypatch) -> None:
@@ -191,6 +207,8 @@ def test_codex_reads_its_last_message_and_usage(monkeypatch) -> None:
         out.write_text('{"work": {"verdict": "none", "matches": []}}', encoding="utf-8")
         assert "--sandbox" in argv and argv[argv.index("--sandbox") + 1] == "read-only"
         assert "--ephemeral" in argv and "--ignore-user-config" in argv
+        disabled = {argv[i + 1] for i, arg in enumerate(argv) if arg == "--disable"}
+        assert {"shell_tool", "unified_exec", "browser_use", "computer_use"} <= disabled
         events = [
             {"type": "thread.started"},
             {"type": "turn.completed", "usage": {"input_tokens": 100, "output_tokens": 9}},

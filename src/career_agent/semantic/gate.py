@@ -35,8 +35,87 @@ from career_agent.semantic.intent import Aspect, SearchIntent
 MIN_QUOTE_CHARS = 3
 MAX_QUOTE_CHARS = 400
 MAX_QUOTES_PER_MATCH = 3
+#: Work and other signals are activities and conditions, which take words to
+#: state: "the", "and" or "for" is a substring of every posting and proves
+#: nothing. A tool is the one legitimate short quote ("SQL", "n8n").
+MIN_QUOTE_WORDS: dict[Aspect, int] = {Aspect.WORK: 3, Aspect.OTHER: 3, Aspect.TOOLS: 1}
 
 _WS = re.compile(r"\s+")
+_WORD = re.compile(r"[^\W_]+")
+#: Words that carry no meaning alone, in the languages postings arrive in
+#: most. A quote made only of these proves nothing, whatever list it is for.
+_FUNCTION_WORDS = frozenset(
+    [
+        "a",
+        "an",
+        "and",
+        "or",
+        "the",
+        "of",
+        "to",
+        "in",
+        "on",
+        "at",
+        "for",
+        "with",
+        "by",
+        "from",
+        "as",
+        "is",
+        "are",
+        "be",
+        "we",
+        "you",
+        "our",
+        "your",
+        "this",
+        "that",
+        "it",
+        "e",
+        "o",
+        "os",
+        "as",
+        "de",
+        "da",
+        "do",
+        "das",
+        "dos",
+        "em",
+        "no",
+        "na",
+        "nos",
+        "nas",
+        "para",
+        "com",
+        "por",
+        "um",
+        "uma",
+        "y",
+        "el",
+        "la",
+        "los",
+        "las",
+        "en",
+        "con",
+        "del",
+        "al",
+        "und",
+        "der",
+        "die",
+        "das",
+        "mit",
+        "zu",
+        "von",
+        "le",
+        "les",
+        "des",
+        "et",
+        "du",
+    ]
+)
+#: Where a sentence ends inside a posting: terminal punctuation followed by
+#: space, or a line break. A bullet is a sentence.
+_SENTENCE_END = re.compile(r"[.!?](?=\s)|\n")
 
 
 @dataclass(frozen=True)
@@ -47,6 +126,10 @@ class PublishedMatch:
     strength: Strength
     #: Verbatim substrings of the posting.
     quotes: tuple[str, ...]
+    #: The posting sentence the first quote sits in, verbatim. What "one
+    #: sentence pays once" compares, so two fragments of one bullet are one
+    #: sentence however the provider chose to cut them.
+    sentence: str = ""
 
 
 @dataclass(frozen=True)
@@ -86,13 +169,49 @@ class Published:
         return tuple(m for a in self.aspects for m in a.matches)
 
 
-def locate(quote: str, posting: str) -> str | None:
+def _bounded(posting: str, start: int, end: int) -> bool:
+    """The span starts and ends on word boundaries: "SQL" is not in "MySQLi"."""
+    before = posting[start - 1] if start > 0 else " "
+    after = posting[end] if end < len(posting) else " "
+    return not (before.isalnum() and posting[start].isalnum()) and not (
+        after.isalnum() and posting[end - 1].isalnum()
+    )
+
+
+def locate(quote: str, posting: str, min_words: int = 1) -> str | None:
     """The verbatim posting span this quote cites, or None."""
+    span = _span(quote, posting, min_words)
+    return posting[span[0] : span[1]] if span else None
+
+
+def sentence_of(quote: str, posting: str) -> str:
+    """The verbatim posting sentence that contains this (verbatim) quote."""
+    at = posting.find(quote)
+    if at < 0:
+        return quote
+    start = 0
+    for found in _SENTENCE_END.finditer(posting, 0, at):
+        start = found.end()
+    ending = _SENTENCE_END.search(posting, at + len(quote))
+    end = ending.end() if ending else len(posting)
+    return posting[start:end].strip() or quote
+
+
+def _span(quote: str, posting: str, min_words: int) -> tuple[int, int] | None:
     quote = quote.strip()
     if len(quote) < MIN_QUOTE_CHARS or len(quote) > MAX_QUOTE_CHARS:
         return None
-    if quote in posting:
-        return quote
+    words = _WORD.findall(quote)
+    if len(words) < min_words:
+        return None
+    if all(word.casefold() in _FUNCTION_WORDS for word in words):
+        # "the", "and to", "de la": in every posting, evidence of nothing.
+        return None
+    at = posting.find(quote)
+    while at >= 0:
+        if _bounded(posting, at, at + len(quote)):
+            return at, at + len(quote)
+        at = posting.find(quote, at + 1)
     folded_quote = _WS.sub(" ", quote)
     # Map each folded position back to the original text.
     pieces: list[str] = []
@@ -110,11 +229,13 @@ def locate(quote: str, posting: str) -> str | None:
         origin.append(index)
     folded = "".join(pieces)
     at = folded.find(folded_quote)
-    if at < 0:
-        return None
-    start = origin[at]
-    end = origin[at + len(folded_quote) - 1] + 1
-    return posting[start:end]
+    while at >= 0:
+        start = origin[at]
+        end = origin[at + len(folded_quote) - 1] + 1
+        if _bounded(posting, start, end):
+            return start, end
+        at = folded.find(folded_quote, at + 1)
+    return None
 
 
 def publish(answer: TAnswer, intent: SearchIntent, posting: str) -> Published:
@@ -156,7 +277,7 @@ def _publish_aspect(
             continue
         quotes: list[str] = []
         for quote in match.quotes[:MAX_QUOTES_PER_MATCH]:
-            span = locate(quote, posting)
+            span = locate(quote, posting, MIN_QUOTE_WORDS[aspect])
             if span is None:
                 report.refuse("quote_not_in_posting")
                 continue
@@ -173,6 +294,7 @@ def _publish_aspect(
             aspect=aspect,
             strength=match.strength,
             quotes=tuple(quotes),
+            sentence=sentence_of(quotes[0], posting),
         )
         # One intent item appears once. The stronger reading wins.
         current = best.get(item.intent_id)

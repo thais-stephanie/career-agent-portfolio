@@ -165,7 +165,9 @@ def _write_env(path: Path, lines: list[str]) -> None:
     """Atomic, and deliberately WITHOUT the `.backup` sibling other local
     files keep: a backup of this file is a second copy of a secret."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, name = tempfile.mkstemp(dir=path.parent, prefix=".tmp-env-")
+    # Named `.env.tmp-*` so that even a temporary copy left by a hard kill is
+    # covered by the `.env.*` ignore rule and never looks committable.
+    descriptor, name = tempfile.mkstemp(dir=path.parent, prefix=".env.tmp-")
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write("\n".join(lines) + ("\n" if lines else ""))

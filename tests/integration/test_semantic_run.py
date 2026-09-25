@@ -196,7 +196,7 @@ def test_the_budget_is_a_hard_stop(corpus) -> None:
     stats = run(conn, config, provider, budget_per_run_usd=0.5)
     assert stats.candidates >= 2, "the budget, not the candidates, must end this run"
     assert stats.spent_usd <= 0.5
-    assert stats.stop_reason and "budget" in stats.stop_reason
+    assert stats.stop_reason == "BUDGET"
     assert len(provider.calls) == 1
 
 
@@ -246,7 +246,7 @@ def test_no_provider_means_a_skipped_run_and_no_call(corpus) -> None:
     stats = run_semantic(
         conn, config, SemanticSettings(), Route(None, reason="nothing"), requested="auto"
     )
-    assert stats.status == "SKIPPED" and stats.stop_reason == "nothing"
+    assert stats.status == "SKIPPED" and stats.stop_reason == "NO_PROVIDER"
 
 
 def _posting(conn, job_id: str) -> str:
@@ -256,3 +256,52 @@ def _posting(conn, job_id: str) -> str:
         (job_id,),
     ).fetchone()
     return str(row[0])
+
+
+def test_every_job_sharing_a_text_is_marked_with_its_evaluation(corpus) -> None:
+    """Marked in the same transaction as the save: an evaluation can never be
+    stored without the rescore request that makes it reach a score."""
+    conn, config = corpus
+    run(conn, config, FakeProvider())
+    stored = {str(r[0]) for r in conn.execute("SELECT content_hash FROM semantic_evaluation")}
+    sharing = {
+        str(r[0])
+        for r in conn.execute(
+            f"SELECT id FROM job WHERE content_hash IN ({','.join('?' * len(stored))})",
+            tuple(stored),
+        )
+    }
+    marked = {str(r[0]) for r in conn.execute("SELECT job_id FROM job_dirty")}
+    assert sharing and sharing <= marked
+
+
+def test_a_run_that_dies_is_still_closed(corpus) -> None:
+    conn, config = corpus
+
+    class Exploding(FakeProvider):
+        def evaluate(self, intent, title, posting):
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        run(conn, config, Exploding())
+    status = conn.execute("SELECT status FROM semantic_run").fetchone()[0]
+    assert status != "RUNNING"
+
+
+def test_a_metered_provider_without_a_price_is_never_run(corpus) -> None:
+    conn, config = corpus
+
+    class Unpriced(FakeProvider):
+        def estimate_cost(self, input_tokens, output_tokens):
+            return None
+
+    provider = Unpriced()
+    stats = run(conn, config, provider)
+    assert provider.calls == [] and stats.stop_reason == "PRICE_UNKNOWN"
+
+
+def test_the_reservation_is_an_upper_bound_for_any_script() -> None:
+    from career_agent.semantic.runner import ceiling_tokens, estimate_tokens
+
+    greek = "Διαχείριση και ανάπτυξη υφιστάμενου πελατολογίου " * 50
+    assert ceiling_tokens(greek) >= 2 * estimate_tokens(greek)

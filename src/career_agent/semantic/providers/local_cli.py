@@ -7,20 +7,21 @@ the marginal price of a call, so it reports none.
 SUBSCRIPTION IS NOT API BILLING
 -------------------------------
 Claude Code prefers `ANTHROPIC_API_KEY` over a claude.ai sign-in when both are
-present, which would quietly move a subscription user onto API billing. The
-child process therefore never inherits that variable (or the auth token
-variable), and a CLI that is signed in ONLY with an API key is reported as
-needing a subscription sign-in rather than used. The same rule applies to
-Codex: "Logged in using ChatGPT" is the subscription; an API-key login is not
-used silently.
+present, which would quietly move a subscription user onto API billing, and
+Codex honours `CODEX_API_KEY` the same way. The child process receives an
+allowlisted environment that contains none of them, and a CLI that is signed
+in ONLY with an API key is reported as needing a subscription sign-in rather
+than used. For Codex, "Logged in using ChatGPT" is the subscription; an
+API-key login is not used silently.
 
 WHAT THE CHILD CAN DO
 ---------------------
 Nothing but answer. Claude Code runs with no tools, no MCP servers, no skills,
 no settings files and no session persistence, in an empty temporary directory.
-Codex runs ephemeral, read-only sandboxed, ignoring user config and rules, in
-an empty temporary directory. The prompt arrives on stdin, so a long posting
-never meets a command-line length limit.
+Codex runs ephemeral, read-only sandboxed, ignoring user config and rules, with
+its shell, exec, browser, apps, plugins and web search disabled, in an empty
+temporary directory. Both receive an ALLOWLISTED environment. The prompt
+arrives on stdin, so a long posting never meets a command-line length limit.
 """
 
 from __future__ import annotations
@@ -47,15 +48,79 @@ from career_agent.semantic.providers.base import (
 
 TIMEOUT_SECONDS = 180
 STATUS_TIMEOUT_SECONDS = 20
-#: Variables that would move a subscription CLI onto API billing.
-API_BILLING_VARIABLES = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY")
+
+#: The ONLY environment a child CLI receives: enough for the operating system,
+#: the user's home (where the CLI keeps its own sign-in) and temporary files.
+#: An allowlist rather than a denylist, for two reasons found in review.
+#: Posting text is third-party input, and a child that inherited this
+#: process's environment would hold every key `.env` loaded, one prompt
+#: injection away from quoting it back. And every variable that moves a CLI
+#: onto API billing (`ANTHROPIC_API_KEY`, `CODEX_API_KEY`, `OPENAI_API_KEY`,
+#: `CLAUDE_CODE_USE_BEDROCK`, `ANTHROPIC_BASE_URL`, ...) is excluded by not
+#: being listed, including ones nobody has named yet.
+CHILD_ENVIRONMENT = frozenset(
+    {
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "HOME",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+        "PROGRAMFILES(X86)",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "USERNAME",
+        "USER",
+        "LOGNAME",
+        "LANG",
+        "LC_ALL",
+        "OS",
+        "PROCESSOR_ARCHITECTURE",
+        "NUMBER_OF_PROCESSORS",
+        "CODEX_HOME",
+        "CLAUDE_CONFIG_DIR",
+        "XDG_CONFIG_HOME",
+    }
+)
+#: Kept for readers and tests: the billing variables the allowlist excludes.
+API_BILLING_VARIABLES = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "OPENAI_API_KEY",
+    "CODEX_API_KEY",
+)
+#: Codex tools that could act on this machine or reach beyond the answer.
+#: Disabled, so a posting that says "run this command" meets a model that
+#: cannot (verified 2026-09-25: it answers that it could not run it).
+CODEX_DISABLED_FEATURES = (
+    "shell_tool",
+    "unified_exec",
+    "apps",
+    "browser_use",
+    "browser_use_external",
+    "computer_use",
+    "in_app_browser",
+    "plugins",
+    "remote_plugin",
+    "tool_suggest",
+    "sleep_tool",
+)
 
 _LIMIT_WORDS = ("limit", "quota", "rate", "429", "overloaded", "capacity", "usage")
 _AUTH_WORDS = ("log in", "login", "logged in", "sign in", "authenticat", "unauthorized", "401")
 
 
 def _child_env() -> dict[str, str]:
-    return {k: v for k, v in os.environ.items() if k not in API_BILLING_VARIABLES}
+    return {k: v for k, v in os.environ.items() if k.upper() in CHILD_ENVIRONMENT}
 
 
 def _run(
@@ -243,8 +308,9 @@ class ClaudeCodeProvider:
 
 
 def find_codex() -> str | None:
+    """The Codex EXECUTABLE, never a batch shim (see `find_claude`)."""
     found = shutil.which("codex")
-    if found:
+    if found and Path(found).suffix.lower() not in (".cmd", ".bat"):
         return found
     # The Codex desktop app on Windows ships its CLI outside PATH.
     local = os.environ.get("LOCALAPPDATA")
@@ -332,6 +398,9 @@ class CodexProvider:
                 self.model,
                 "-c",
                 f'model_reasoning_effort="{self.reasoning}"',
+                "-c",
+                'web_search="disabled"',
+                *(arg for feature in CODEX_DISABLED_FEATURES for arg in ("--disable", feature)),
                 "-",
             ]
             try:

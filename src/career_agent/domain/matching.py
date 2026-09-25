@@ -305,6 +305,9 @@ class ScoreComponent:
     #: not part of Search Fit at all (max 0), which is different from a
     #: configured component the posting did not match (0 of its max).
     configured: bool = True
+    #: True when the tools guard held this component at half: tools were
+    #: found and none of the desired work was.
+    guarded: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -318,6 +321,9 @@ class SemanticMatch:
     strength: str
     #: Verbatim substring of the posting. The first published quote.
     quote: str
+    #: The posting sentence the quote sits in, verbatim; what the per-sentence
+    #: rule compares. Empty on evidence stored before it existed.
+    sentence: str = ""
 
 
 @dataclass(frozen=True, slots=True)
