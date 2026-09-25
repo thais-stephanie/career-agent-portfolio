@@ -442,6 +442,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.web.first_search import register_first_search
 
         register_first_search(self)
+        from career_agent.web.semantic_api import register_semantic
+
+        register_semantic(self)
         self._active_source_refresh: str | None = None
         self.register("GET", r"/api/preferences", self.preferences)
         self.register("GET", r"/api/profile", self.profile)
@@ -1749,7 +1752,10 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 # configuration version, so every posting is missing a current
                 # score and all of them are targeted -- the same work `force`
                 # did. Pressed with nothing to do, this now costs seconds.
-                stats = run_rescore(conn, config, progress=progress)
+                from career_agent.semantic.settings import load_settings
+
+                semantic = load_settings(self.config.config_dir).uses_findings
+                stats = run_rescore(conn, config, progress=progress, semantic=semantic)
 
             state.funnel = {
                 "considered": stats.jobs_considered,

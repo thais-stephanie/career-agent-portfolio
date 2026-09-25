@@ -2307,13 +2307,14 @@ const EN = {
   'setup.welcome.privacy': 'Everything stays on this computer. Nothing about you is sent to job sites, and Career '
     + 'Agent never applies to a job for you.',
   'setup.welcome.start': 'Start',
-  'setup.work.title': 'What kind of work are you looking for?',
+  'setup.work.title': 'What work do you want to do next?',
   'setup.work.why': 'Career Agent reads the whole job description, not only the job title, so describe the work '
     + 'itself.',
   'setup.work.label': 'Kinds of work, one per line',
   'setup.work.example': 'For example: customer onboarding, payroll administration, data analysis.',
-  'setup.work.skillsLabel': 'Tools or skills you use, one per line (optional)',
-  'setup.work.note': 'These describe what you want to find. They are not a claim about your experience.',
+  'setup.work.skillsLabel': 'Tools or methods you want to use next, one per line (optional)',
+  'setup.work.note': 'Choose these on purpose. They describe what you want to find, are not copied from your CV '
+    + 'and are not a claim about your experience.',
   'setup.work.required': 'Write at least one kind of work, or choose Skip for now.',
   'setup.work.already': 'Your search already describes the work you want ({n} phrases). You can change them later in '
     + 'Settings.',
@@ -2870,6 +2871,105 @@ const EN = {
     + 'application preparation can draw on; Search Fit is not affected.',
   'imp.reviewWaiting': 'Review what is left',
   'imp.finish': 'Back to documents',
+  'ai.head': 'AI & Semantic Matching',
+  'ai.intro': 'Career Agent can ask an AI to recognise the work you want in postings that describe it in other '
+    + 'words. The AI only interprets: Career Agent checks every quote against the posting and does all of the '
+    + 'scoring itself.',
+  'ai.enabled': 'Use AI semantic matching',
+  'ai.provider': 'Provider',
+  'ai.mode.auto': 'Auto',
+  'ai.mode.deepseek': 'DeepSeek Flash',
+  'ai.mode.codex': 'Codex',
+  'ai.mode.claude_code': 'Claude Code',
+  'ai.mode.laya': 'Laya (local)',
+  'ai.mode.deterministic': 'Deterministic only',
+  'ai.mode.fake': 'Test provider',
+  'ai.summary.ready': 'AI semantic matching: ready',
+  'ai.summary.off': 'AI semantic matching is off. Search Fit uses your phrases only.',
+  'ai.summary.deterministic': 'Deterministic only. Search Fit uses your phrases, without AI.',
+  'ai.summary.unavailable': 'No AI provider is available. Search Fit uses your phrases only.',
+  'ai.summary.demo': 'Demo mode never uses AI.',
+  'ai.using': 'Using {provider}',
+  'ai.fellBack': '{preferred} is not available, so {used} is used instead.',
+  'ai.fellBackDeterministic': '{preferred} is not available. Search Fit uses your phrases only until it is.',
+  'ai.saved': 'Saved.',
+  'ai.providersHead': 'Providers and privacy',
+  'ai.state.AVAILABLE': 'Available',
+  'ai.state.CONNECTED': 'Connected',
+  'ai.state.NOT_INSTALLED': 'Not installed',
+  'ai.state.SIGN_IN_REQUIRED': 'Sign-in required',
+  'ai.state.KEY_MISSING': 'API key missing',
+  'ai.state.CONNECTION_FAILED': 'Connection failed',
+  'ai.state.LIMIT_OR_ERROR': 'Unavailable or limit reached',
+  'ai.state.UNSUPPORTED': 'Not supported for semantic matching',
+  'ai.authApiKey': 'Signed in with an API key, which would bill the API instead of your subscription. Sign in with '
+    + 'your subscription to use it here.',
+  'ai.billing.METERED_API': 'Paid per use with your own API key. Career Agent estimates each run and stops at your '
+    + 'budget.',
+  'ai.billing.SUBSCRIPTION': 'Uses your own subscription and its limits. Career Agent cannot know a price for it.',
+  'ai.billing.LOCAL': 'Runs on this computer.',
+  'ai.sends.deepseek': 'Sends your search intent and each evaluated posting to DeepSeek.',
+  'ai.sends.codex': 'Sends your search intent and each evaluated posting through your own Codex sign-in.',
+  'ai.sends.claude_code': 'Sends your search intent and each evaluated posting through your own Claude Code sign-in.',
+  'ai.sends.laya': 'Nothing leaves this computer.',
+  'ai.laya.why': 'Laya answers without quoting the posting, so its answers cannot be checked as evidence. It is '
+    + 'not used for Search Fit.',
+  'ai.check': 'Check connection',
+  'ai.checking': 'Checking',
+  'ai.key.label': 'DeepSeek API key',
+  'ai.key.placeholder': 'Paste your key',
+  'ai.key.configured': 'An API key is configured on this computer.',
+  'ai.key.missing': 'No API key yet.',
+  'ai.key.add': 'Save key',
+  'ai.key.replace': 'Replace key',
+  'ai.key.remove': 'Remove key',
+  'ai.key.help': 'Kept only in the .env file on this computer. It is never shown again, never saved in the '
+    + 'database and never sent anywhere except to DeepSeek.',
+  'ai.key.saved': 'Key saved.',
+  'ai.key.removed': 'Key removed.',
+  'ai.privacyHead': 'What leaves this computer',
+  'ai.privacy.sends': 'Sent to the provider: the work, tools and other signals you said you want, and the title '
+    + 'and text of each posting evaluated.',
+  'ai.privacy.never': 'Never sent: your Career Profile, your evidence, CV files, application history, other '
+    + 'postings or your database.',
+  'ai.runHead': 'Evaluate postings',
+  'ai.budget': 'DeepSeek budget per run (USD)',
+  'ai.budgetHelp': 'A hard stop: a run ends before it could spend more.',
+  'ai.estimate': 'Estimate',
+  'ai.plan': '{candidates} postings this run, of {eligible} that match your intent. Estimated {expected}, at most '
+    + '{worst}, within a budget of {budget}.',
+  'ai.planSubscription': '{candidates} postings this run, of {eligible} that match your intent. Uses your '
+    + 'subscription limits.',
+  'ai.planNone': 'Nothing new to evaluate.',
+  'ai.run': 'Evaluate {count} postings',
+  'ai.running': 'Evaluating {done} of {total}',
+  'ai.cancel': 'Stop',
+  'ai.recalc': 'Search Fit will be recalculated for the evaluated postings.',
+  'ai.last': 'Last run: {published} postings evaluated, {failed} failed, {calls} calls, {tokens} tokens, {spent} '
+    + 'spent.',
+  'ai.lastSubscription': 'Last run: {published} postings evaluated, {failed} failed, {calls} calls, {tokens} tokens.',
+  'ai.stop.budget': 'The run stopped at its budget.',
+  'ai.stop.provider': 'The run stopped because the provider stopped answering.',
+  'readiness.NOT_READY': 'Search Fit is not ready: tell Career Agent what work you want next.',
+  'readiness.PARTIAL': 'Search Fit is usable. It becomes more precise when you also say {missing}.',
+  'readiness.READY': 'Search Fit is ready: it knows the work, the level and the way of working you want.',
+  'readiness.missing.level': 'the level you want',
+  'readiness.missing.work_model': 'how you want to work',
+  'readiness.missing.work': 'the work you want',
+  'readiness.join': ' and ',
+  'badge.notReady': 'Not ready',
+  'badge.notReadyHelp': 'Search Fit needs to know what work you want next. Add it in the guided setup or in Settings.',
+  'component.responsibilities': 'Work you want',
+  'component.technologies': 'Tools and methods',
+  'component.automation_integration': 'Other desired signals',
+  'drawer.notConfigured': 'Not part of your search: you have not listed anything here, so it does not count for or '
+    + 'against this posting.',
+  'drawer.alreadyCounted': 'Already counted',
+  'drawer.semanticFinding': 'Recognised by AI, quoted from the posting',
+  'drawer.semanticUsed': '{provider} helped recognise the work you want; every quote below was checked against the '
+    + 'posting.',
+  'setup.work.intent': 'This is your search intent: the work you want next, which may be different from what you '
+    + 'have done. Your background lives in your Career Profile and is never used as a search phrase.',
 };
 
 /**
@@ -4992,12 +5092,13 @@ const PT_BR = {
   'setup.welcome.privacy': 'Tudo fica neste computador. Nada sobre você é enviado aos sites de vagas, e o Career '
     + 'Agent nunca se candidata a uma vaga por você.',
   'setup.welcome.start': 'Começar',
-  'setup.work.title': 'Que tipo de trabalho você procura?',
+  'setup.work.title': 'Que trabalho você quer fazer a seguir?',
   'setup.work.why': 'O Career Agent lê a descrição inteira da vaga, não só o título, então descreva o trabalho em si.',
   'setup.work.label': 'Tipos de trabalho, um por linha',
   'setup.work.example': 'Por exemplo: onboarding de clientes, administração de folha de pagamento, análise de dados.',
-  'setup.work.skillsLabel': 'Ferramentas ou habilidades que você usa, uma por linha (opcional)',
-  'setup.work.note': 'Isto descreve o que você quer encontrar. Não é uma afirmação sobre a sua experiência.',
+  'setup.work.skillsLabel': 'Ferramentas ou métodos que você quer usar a seguir, um por linha (opcional)',
+  'setup.work.note': 'Escolha estes de propósito. Eles descrevem o que você quer encontrar, não são copiados do '
+    + 'seu currículo e não são uma afirmação sobre a sua experiência.',
   'setup.work.required': 'Escreva pelo menos um tipo de trabalho, ou escolha Pular por enquanto.',
   'setup.work.already': 'Sua busca já descreve o trabalho que você quer ({n} frases). Você pode mudá-las depois em '
     + 'Configurações e fontes.',
@@ -5560,6 +5661,111 @@ const PT_BR = {
     + 'preparação de candidaturas pode usar; o Search Fit não muda.',
   'imp.reviewWaiting': 'Revisar o que falta',
   'imp.finish': 'Voltar aos documentos',
+  'ai.head': 'IA e correspondência semântica',
+  'ai.intro': 'O Career Agent pode pedir a uma IA que reconheça o trabalho que você quer em vagas que o descrevem '
+    + 'com outras palavras. A IA só interpreta: o Career Agent confere cada citação com a vaga e faz todo o '
+    + 'cálculo da pontuação.',
+  'ai.enabled': 'Usar correspondência semântica com IA',
+  'ai.provider': 'Provedor',
+  'ai.mode.auto': 'Automático',
+  'ai.mode.deepseek': 'DeepSeek Flash',
+  'ai.mode.codex': 'Codex',
+  'ai.mode.claude_code': 'Claude Code',
+  'ai.mode.laya': 'Laya (local)',
+  'ai.mode.deterministic': 'Somente determinístico',
+  'ai.mode.fake': 'Provedor de teste',
+  'ai.summary.ready': 'Correspondência semântica com IA: pronta',
+  'ai.summary.off': 'A correspondência semântica com IA está desligada. A aderência usa só as suas frases.',
+  'ai.summary.deterministic': 'Somente determinístico. A aderência usa as suas frases, sem IA.',
+  'ai.summary.unavailable': 'Nenhum provedor de IA está disponível. A aderência usa só as suas frases.',
+  'ai.summary.demo': 'O modo demonstração nunca usa IA.',
+  'ai.using': 'Usando {provider}',
+  'ai.fellBack': '{preferred} não está disponível, então {used} é usado no lugar.',
+  'ai.fellBackDeterministic': '{preferred} não está disponível. A aderência usa só as suas frases até que esteja.',
+  'ai.saved': 'Salvo.',
+  'ai.providersHead': 'Provedores e privacidade',
+  'ai.state.AVAILABLE': 'Disponível',
+  'ai.state.CONNECTED': 'Conectado',
+  'ai.state.NOT_INSTALLED': 'Não instalado',
+  'ai.state.SIGN_IN_REQUIRED': 'Login necessário',
+  'ai.state.KEY_MISSING': 'Chave de API ausente',
+  'ai.state.CONNECTION_FAILED': 'Falha na conexão',
+  'ai.state.LIMIT_OR_ERROR': 'Indisponível ou limite atingido',
+  'ai.state.UNSUPPORTED': 'Não suportado para correspondência semântica',
+  'ai.authApiKey': 'Conectado com uma chave de API, que cobraria a API em vez da sua assinatura. Entre com a sua '
+    + 'assinatura para usar aqui.',
+  'ai.billing.METERED_API': 'Pago por uso com a sua própria chave de API. O Career Agent estima cada execução e '
+    + 'para no seu orçamento.',
+  'ai.billing.SUBSCRIPTION': 'Usa a sua própria assinatura e os limites dela. O Career Agent não tem como saber um '
+    + 'preço.',
+  'ai.billing.LOCAL': 'Roda neste computador.',
+  'ai.sends.deepseek': 'Envia a sua intenção de busca e cada vaga avaliada para a DeepSeek.',
+  'ai.sends.codex': 'Envia a sua intenção de busca e cada vaga avaliada pelo seu próprio login do Codex.',
+  'ai.sends.claude_code': 'Envia a sua intenção de busca e cada vaga avaliada pelo seu próprio login do Claude Code.',
+  'ai.sends.laya': 'Nada sai deste computador.',
+  'ai.laya.why': 'O Laya responde sem citar a vaga, então as respostas dele não podem ser conferidas como '
+    + 'evidência. Ele não é usado na aderência.',
+  'ai.check': 'Verificar conexão',
+  'ai.checking': 'Verificando',
+  'ai.key.label': 'Chave de API da DeepSeek',
+  'ai.key.placeholder': 'Cole a sua chave',
+  'ai.key.configured': 'Há uma chave de API configurada neste computador.',
+  'ai.key.missing': 'Ainda não há chave de API.',
+  'ai.key.add': 'Salvar chave',
+  'ai.key.replace': 'Substituir chave',
+  'ai.key.remove': 'Remover chave',
+  'ai.key.help': 'Fica só no arquivo .env deste computador. Nunca é mostrada de novo, nunca é salva no banco de '
+    + 'dados e nunca é enviada a nenhum lugar além da DeepSeek.',
+  'ai.key.saved': 'Chave salva.',
+  'ai.key.removed': 'Chave removida.',
+  'ai.privacyHead': 'O que sai deste computador',
+  'ai.privacy.sends': 'Enviado ao provedor: o trabalho, as ferramentas e os outros sinais que você disse querer, e '
+    + 'o título e o texto de cada vaga avaliada.',
+  'ai.privacy.never': 'Nunca enviado: seu Perfil de Carreira, suas evidências, arquivos de currículo, histórico de '
+    + 'candidaturas, outras vagas ou o seu banco de dados.',
+  'ai.runHead': 'Avaliar vagas',
+  'ai.budget': 'Orçamento da DeepSeek por execução (USD)',
+  'ai.budgetHelp': 'Um limite rígido: a execução termina antes de poder gastar mais.',
+  'ai.estimate': 'Estimar',
+  'ai.plan': '{candidates} vagas nesta execução, de {eligible} que combinam com a sua intenção. Estimativa de '
+    + '{expected}, no máximo {worst}, dentro de um orçamento de {budget}.',
+  'ai.planSubscription': '{candidates} vagas nesta execução, de {eligible} que combinam com a sua intenção. Usa os '
+    + 'limites da sua assinatura.',
+  'ai.planNone': 'Nada novo para avaliar.',
+  'ai.run': 'Avaliar {count} vagas',
+  'ai.running': 'Avaliando {done} de {total}',
+  'ai.cancel': 'Parar',
+  'ai.recalc': 'A aderência será recalculada para as vagas avaliadas.',
+  'ai.last': 'Última execução: {published} vagas avaliadas, {failed} falharam, {calls} chamadas, {tokens} tokens, '
+    + '{spent} gastos.',
+  'ai.lastSubscription': 'Última execução: {published} vagas avaliadas, {failed} falharam, {calls} chamadas, '
+    + '{tokens} tokens.',
+  'ai.stop.budget': 'A execução parou no orçamento.',
+  'ai.stop.provider': 'A execução parou porque o provedor deixou de responder.',
+  'readiness.NOT_READY': 'A aderência à busca ainda não está pronta: diga ao Career Agent que trabalho você quer a '
+    + 'seguir.',
+  'readiness.PARTIAL': 'A aderência à busca já pode ser usada. Ela fica mais precisa quando você também informa '
+    + '{missing}.',
+  'readiness.READY': 'A aderência à busca está pronta: ela conhece o trabalho, o nível e o jeito de trabalhar que '
+    + 'você quer.',
+  'readiness.missing.level': 'o nível que você quer',
+  'readiness.missing.work_model': 'como você quer trabalhar',
+  'readiness.missing.work': 'o trabalho que você quer',
+  'readiness.join': ' e ',
+  'badge.notReady': 'Não pronta',
+  'badge.notReadyHelp': 'A aderência à busca precisa saber que trabalho você quer a seguir. Informe isso na '
+    + 'configuração guiada ou em Configurações.',
+  'component.responsibilities': 'Trabalho que você quer',
+  'component.technologies': 'Ferramentas e métodos',
+  'component.automation_integration': 'Outros sinais desejados',
+  'drawer.notConfigured': 'Não faz parte da sua busca: você não listou nada aqui, então isto não conta a favor nem '
+    + 'contra esta vaga.',
+  'drawer.alreadyCounted': 'Já contado',
+  'drawer.semanticFinding': 'Reconhecido por IA, citado da vaga',
+  'drawer.semanticUsed': '{provider} ajudou a reconhecer o trabalho que você quer; cada citação abaixo foi '
+    + 'conferida com a vaga.',
+  'setup.work.intent': 'Esta é a sua intenção de busca: o trabalho que você quer a seguir, que pode ser diferente '
+    + 'do que você já fez. A sua trajetória fica no seu Perfil de Carreira e nunca é usada como frase de busca.',
 };
 
 const CATALOGUES = { en: EN, 'pt-BR': PT_BR };

@@ -618,6 +618,9 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
       });
       return {
         nodes: [
+          // Background and search intent are different things, and this is
+          // where a new person first meets the difference.
+          hint(t('setup.work.intent')),
           label('setup-work', t('setup.work.label')),
           work,
           hint(t('setup.work.example')),
@@ -1151,8 +1154,23 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     // A run already going -- started here earlier, on another page, in another
     // tab or before a reload -- is shown, never restarted.
     followRun(status, find);
+    // Whether Search Fit can mean anything yet, in words. A person who
+    // skipped the work question must not meet a page of low scores and read
+    // them as "nothing fits".
+    const readiness = el('p', {
+      className: 'setup__readiness',
+      attrs: { id: 'setup-readiness', role: 'status' },
+    });
+    api.getSearchFitReadiness().then((result) => {
+      const missing = (result.missing || []).map((code) => t(`readiness.missing.${code}`));
+      readiness.textContent = t(`readiness.${result.state}`, {
+        missing: missing.join(t('readiness.join')),
+      });
+      readiness.dataset.state = result.state;
+    }).catch(() => {});
     return {
       nodes: [
+        readiness,
         hint(t('setup.ready.note')),
         // Without career data the search still works; this says what adding
         // it would change, and nothing louder. Resume Tailor is not the next

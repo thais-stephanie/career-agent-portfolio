@@ -22,6 +22,9 @@ import { createPrepare } from './prepare.js';
 import { t, tState } from './i18n.js';
 import * as api from './api.js';
 
+/** The phrase components the product names itself (Search Fit v5). */
+const PHRASE_COMPONENTS = new Set(['responsibilities', 'technologies', 'automation_integration']);
+
 export function createDrawer({
   onStatus, onSave, onNotes, onClearAppliedAt, onClosed, onChanged,
   getOllama = () => ({}), onEvidence = null,
@@ -447,9 +450,14 @@ export function createDrawer({
     const strengths = (job.top_strengths || []).length;
     const blockers = (job.blockers || []).length;
 
-    const howClose = score >= 70 ? t('drawer.closeStrong')
-      : score >= 50 ? t('drawer.closeReasonable')
-        : score >= 30 ? t('drawer.closePartial') : t('drawer.closeWeak');
+    // The BAND the score was given, never a second set of cut-offs. This
+    // sentence used 70/50/30 while every band used 75/55/35, so a 72 was
+    // called a strong fit beside a badge that said GOOD.
+    const howClose = {
+      STRONG: t('drawer.closeStrong'),
+      GOOD: t('drawer.closeReasonable'),
+      MODERATE: t('drawer.closePartial'),
+    }[job.fit_band] || t('drawer.closeWeak');
 
     const parts = [t('drawer.scoredOutOf', { score, howClose })];
     // Counted from the list that is actually drawn, not from `top_strengths`,
@@ -469,6 +477,9 @@ export function createDrawer({
     }
     if (blockers) {
       parts.push(t('drawer.wouldRuleOut'));
+    }
+    if (job.semantic) {
+      parts.push(t('drawer.semanticUsed', { provider: t(`ai.mode.${job.semantic.provider}`) }));
     }
 
     return section(t('drawer.secWhyMatches'), [
@@ -496,7 +507,7 @@ export function createDrawer({
     const rows = [];
     for (const component of job.components || []) {
       for (const contrib of component.contributions || []) {
-        if (Number(contrib.points) > 0) rows.push(contrib);
+        if (Number(contrib.points) > 0 && contrib.counted !== false) rows.push(contrib);
       }
     }
     rows.sort((a, b) => Number(b.points) - Number(a.points));
@@ -654,9 +665,21 @@ export function createDrawer({
     }
 
     for (const component of components) {
+      if (component.configured === false) {
+        // Not part of this search at all: no phrases were configured here.
+        // Different from a configured component the posting did not match,
+        // which keeps its 0 of max below.
+        body.push(el('article', { className: 'component component--unconfigured' }, [
+          el('header', { className: 'component__head' }, [
+            el('h4', { className: 'component__label', text: componentLabel(component) }),
+          ]),
+          el('p', { className: 'component__note', text: t('drawer.notConfigured') }),
+        ]));
+        continue;
+      }
       body.push(el('article', { className: 'component' }, [
         el('header', { className: 'component__head' }, [
-          el('h4', { className: 'component__label', text: component.label || humanLabel(component.component_id) }),
+          el('h4', { className: 'component__label', text: componentLabel(component) }),
           el('span', {
             className: 'component__points num',
             text: `${Number(component.points || 0).toFixed(1)} / ${Number(component.max_points || 0).toFixed(1)}`,
@@ -704,11 +727,26 @@ export function createDrawer({
     ]);
   }
 
+  function componentLabel(component) {
+    // The three phrase components are named by the product, in the reader's
+    // language, whatever an older configuration file called them.
+    const named = PHRASE_COMPONENTS.has(component.component_id)
+      ? t(`component.${component.component_id}`) : '';
+    return named || component.label || humanLabel(component.component_id);
+  }
+
   function contribution(row) {
-    return el('li', { className: 'contrib' }, [
+    const uncounted = row.counted === false;
+    return el('li', { className: `contrib${uncounted ? ' contrib--uncounted' : ''}` }, [
       el('div', { className: 'contrib__head' }, [
         el('span', { className: 'contrib__label', text: row.label || humanLabel(row.signal_id) }),
-        el('span', { className: 'contrib__prominence', text: prominenceWords(row.prominence) }),
+        row.source === 'semantic'
+          ? el('span', { className: 'contrib__source', text: t('drawer.semanticFinding') })
+          : null,
+        el('span', {
+          className: 'contrib__prominence',
+          text: uncounted ? t('drawer.alreadyCounted') : prominenceWords(row.prominence),
+        }),
         el('span', {
           className: `contrib__points num ${Number(row.points) < 0 ? 'is-negative' : ''}`,
           text: formatPoints(row.points),

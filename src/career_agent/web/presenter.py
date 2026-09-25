@@ -310,6 +310,7 @@ def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: li
             "max_points": c.max_points,
             "capped": c.capped,
             "note": c.note,
+            "configured": c.configured,
             "contributions": [
                 {
                     "signal_id": k.signal_id,
@@ -318,12 +319,29 @@ def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: li
                     "weight": k.weight,
                     "points": round(k.points, 1),
                     "quote": k.quote,
+                    "counted": k.counted,
+                    "source": k.source,
+                    "uncounted_reason": k.uncounted_reason,
                 }
                 for k in c.contributions
             ],
         }
         for c in result.components
     ]
+    # Provenance of the semantic findings this score used: who answered,
+    # under which contract, and who had been asked for when that differs.
+    # Never provider confidence and never raw provider text.
+    card["semantic"] = (
+        {
+            "provider": result.semantic.provider,
+            "model": result.semantic.model,
+            "contract": result.semantic.contract,
+            "requested_provider": result.semantic.requested_provider,
+            "fallback_reason": result.semantic.fallback_reason,
+        }
+        if result.semantic is not None
+        else None
+    )
     card["penalties"] = [
         {
             "signal_id": p.signal_id,

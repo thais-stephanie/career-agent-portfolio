@@ -657,6 +657,52 @@ export async function getSearchReview() {
   return request('/search-review');
 }
 
+// ---------------------------------------------------------------------------
+// AI & Semantic Matching. HOW postings are interpreted, never WHAT you want.
+// No response here ever carries a credential; the key goes in and is only
+// ever reported as configured or not.
+// ---------------------------------------------------------------------------
+
+export async function getSemantic(refresh = false) {
+  return request(`/semantic${refresh ? '?refresh=1' : ''}`);
+}
+
+export async function patchSemantic(changes) {
+  return request('/semantic', { method: 'PATCH', body: changes });
+}
+
+export async function saveDeepseekKey(key) {
+  return request('/semantic/deepseek-key', { method: 'POST', body: { key } });
+}
+
+export async function removeDeepseekKey() {
+  return request('/semantic/deepseek-key/remove', { method: 'POST', body: {} });
+}
+
+export async function checkSemanticProvider(provider) {
+  return request('/semantic/healthcheck', { method: 'POST', body: { provider } });
+}
+
+export async function planSemantic() {
+  return request('/semantic/plan', { method: 'POST', body: {} });
+}
+
+export async function startSemantic() {
+  return request('/semantic/run', { method: 'POST', body: {} });
+}
+
+export async function getSemanticRun() {
+  return request('/semantic/run');
+}
+
+export async function cancelSemantic() {
+  return request('/semantic/run/cancel', { method: 'POST', body: {} });
+}
+
+export async function getSearchFitReadiness() {
+  return request('/search-fit/readiness');
+}
+
 export async function patchSearchReview(patch) {
   return request('/search-review', { method: 'PATCH', body: patch });
 }

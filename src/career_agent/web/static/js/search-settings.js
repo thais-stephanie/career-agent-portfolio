@@ -2,7 +2,7 @@
 import { el, button, replace } from './dom.js';
 import { tagInput } from './tags.js';
 import { t } from './i18n.js';
-import { getProfile } from './api.js';
+import { getProfile, getSearchFitReadiness } from './api.js';
 import { editableBlock } from './profile.js';
 
 export function renderSearchSettings(host, store) {
@@ -18,7 +18,13 @@ export function renderSearchSettings(host, store) {
       loaded = false; controls.append(el('p', { text: error.userMessage || error.message }));
     }
   });
-  replace(host, [el('p', { text: t('settings.searchHelp') }), controls,
+  const readiness = el('p', { className: 'settings__readiness', attrs: { role: 'status' } });
+  getSearchFitReadiness().then((result) => {
+    const missing = (result.missing || []).map((code) => t(`readiness.missing.${code}`));
+    readiness.textContent = t(`readiness.${result.state}`, { missing: missing.join(t('readiness.join')) });
+    readiness.dataset.state = result.state;
+  }).catch(() => {});
+  replace(host, [readiness, el('p', { text: t('settings.searchHelp') }), controls,
     ...['prefer_keyword', 'avoid_keyword', 'exclude_keyword'].map(key => {
       const row = el('div', { className: 'settings__phrases', dataset: { preference: key } });
       function draw() {

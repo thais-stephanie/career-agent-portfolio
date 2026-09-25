@@ -8815,3 +8815,30 @@ body.has-cw-drawer { overflow: hidden; }
   .imp-foot { position: sticky; bottom: 0; padding: 12px 16px; }
   .imp-item__actions .btn { min-height: 44px; }
 }
+
+/* ======================================================================
+   AI & Semantic Matching (Settings & Sources). How postings are read,
+   never what the person wants. Two lines by default; the rest waits in
+   disclosures.
+   ====================================================================== */
+.ai__intro { color: var(--body); max-width: 70ch; }
+.ai__summary { font-weight: 600; margin-block: 0.5rem; }
+.ai__summary--ready::before { content: "\2713\00a0"; }
+.ai__fallback, .ai__note, .ai__billing, .ai__sends, .ai__last { color: var(--muted); max-width: 70ch; }
+.ai__toggle { display: flex; gap: 0.5rem; align-items: center; margin-block: 0.75rem; }
+.ai__details { margin-block: 0.75rem; }
+.ai__details > summary { cursor: pointer; font-weight: 600; }
+.ai__providers { list-style: none; padding: 0; margin: 0.75rem 0; display: grid; gap: 0.75rem; }
+.ai__provider { border: 1px solid var(--rule2); border-radius: 8px; padding: 0.75rem 1rem; background: var(--surface); }
+.ai__provider-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: baseline; }
+.ai__state { font-size: 0.875rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--sand); color: var(--ink); }
+.ai__state--ok { background: var(--mint-soft); }
+.ai__key, .ai__actions { margin-top: 0.5rem; display: grid; gap: 0.5rem; }
+.ai__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.ai__subhead { font-size: 1rem; margin-top: 1rem; }
+.ai__message { color: var(--body); }
+.settings__readiness, .setup__readiness { font-weight: 600; }
+.badge--not-ready .badge__value { font-size: 0.8em; }
+.contrib--uncounted { opacity: 0.7; }
+.contrib__source { font-size: 0.8rem; color: var(--muted); }
+.component--unconfigured .component__note { color: var(--muted); }
