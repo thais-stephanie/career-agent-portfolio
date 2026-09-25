@@ -26,6 +26,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from career_agent.match.text import sentence_at
 from career_agent.semantic.contract import Strength, TAnswer, TAspect, Verdict
 from career_agent.semantic.intent import Aspect, SearchIntent
 
@@ -113,9 +114,6 @@ _FUNCTION_WORDS = frozenset(
         "du",
     ]
 )
-#: Where a sentence ends inside a posting: terminal punctuation followed by
-#: space, or a line break. A bullet is a sentence.
-_SENTENCE_END = re.compile(r"[.!?](?=\s)|\n")
 
 
 @dataclass(frozen=True)
@@ -182,19 +180,6 @@ def locate(quote: str, posting: str, min_words: int = 1) -> str | None:
     """The verbatim posting span this quote cites, or None."""
     span = _span(quote, posting, min_words)
     return posting[span[0] : span[1]] if span else None
-
-
-def sentence_of(quote: str, posting: str) -> str:
-    """The verbatim posting sentence that contains this (verbatim) quote."""
-    at = posting.find(quote)
-    if at < 0:
-        return quote
-    start = 0
-    for found in _SENTENCE_END.finditer(posting, 0, at):
-        start = found.end()
-    ending = _SENTENCE_END.search(posting, at + len(quote))
-    end = ending.end() if ending else len(posting)
-    return posting[start:end].strip() or quote
 
 
 def _span(quote: str, posting: str, min_words: int) -> tuple[int, int] | None:
@@ -276,13 +261,20 @@ def _publish_aspect(
             report.refuse("intent_id_in_wrong_list")
             continue
         quotes: list[str] = []
+        sentence = ""
         for quote in match.quotes[:MAX_QUOTES_PER_MATCH]:
-            span = locate(quote, posting, MIN_QUOTE_WORDS[aspect])
-            if span is None:
+            found = _span(quote, posting, MIN_QUOTE_WORDS[aspect])
+            if found is None:
                 report.refuse("quote_not_in_posting")
                 continue
+            span = posting[found[0] : found[1]]
             if span not in quotes:
                 quotes.append(span)
+            if not sentence:
+                # The lexicon's own sentence rule, at the word-bounded span the
+                # gate accepted: a semantic finding and a phrase hit in one
+                # sentence carry the same key, so one sentence is one sentence.
+                sentence = sentence_at(posting, found[0], found[1])
         if len(match.quotes) > MAX_QUOTES_PER_MATCH:
             report.refuse("extra_quotes_ignored")
         if not quotes:
@@ -294,7 +286,7 @@ def _publish_aspect(
             aspect=aspect,
             strength=match.strength,
             quotes=tuple(quotes),
-            sentence=sentence_of(quotes[0], posting),
+            sentence=sentence,
         )
         # One intent item appears once. The stronger reading wins.
         current = best.get(item.intent_id)

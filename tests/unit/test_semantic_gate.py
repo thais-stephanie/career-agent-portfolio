@@ -295,4 +295,16 @@ def test_the_published_finding_knows_its_sentence() -> None:
         work={"verdict": "strong", "matches": [match("W2", "Maintain our HubSpot portal")]}
     )
     (found,) = published(raw).matches
-    assert found.sentence == "- Maintain our HubSpot portal and its webhooks."
+    from career_agent.match.text import sentence_at
+
+    at = POSTING.index("Maintain our HubSpot portal")
+    assert found.sentence == sentence_at(POSTING, at, at + len("Maintain our HubSpot portal"))
+    assert "webhooks" in found.sentence
+
+
+def test_the_sentence_is_the_one_the_accepted_span_sits_in() -> None:
+    posting = "Strong MySQLi skills.\nYou will write SQL every day."
+    intent = SearchIntent(items=(IntentItem("T1", Aspect.TOOLS, "sql", "SQL"),))
+    raw = answer(tools={"verdict": "strong", "matches": [match("T1", "SQL")]})
+    (found,) = publish(parse_answer(raw), intent, posting).matches
+    assert "every day" in found.sentence

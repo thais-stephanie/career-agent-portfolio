@@ -89,6 +89,16 @@ CHILD_ENVIRONMENT = frozenset(
         "CODEX_HOME",
         "CLAUDE_CONFIG_DIR",
         "XDG_CONFIG_HOME",
+        # How this machine reaches the internet and which certificates it
+        # trusts. Without them a CLI behind a corporate proxy cannot sign in.
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+        "ALL_PROXY",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "REQUESTS_CA_BUNDLE",
+        "NODE_EXTRA_CA_CERTS",
     }
 )
 #: Kept for readers and tests: the billing variables the allowlist excludes.

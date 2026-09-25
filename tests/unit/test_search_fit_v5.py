@@ -438,3 +438,24 @@ def test_the_guarded_rows_add_up_to_what_the_component_scored() -> None:
     assert tools.guarded and not tools.capped
     paid = sum(c.points for c in tools.contributions if c.counted)
     assert paid == pytest.approx(tools.points)
+
+
+def test_a_finding_cannot_pay_in_a_sentence_the_phrases_already_used() -> None:
+    """The gate cuts sentences with the lexicon's own rule, so a semantic
+    finding and a phrase hit in one sentence are one sentence."""
+    from career_agent.match.text import sentence_at
+
+    config = config_with()
+    line = "You will reconcile invoices and keep the team paid"
+    body = responsibilities(line)
+    at = body.index("keep the team paid")
+    sentence = sentence_at(body, at, at + len("keep the team paid"))
+    found = evidence(
+        SemanticMatch(
+            "responsibilities", "w_payroll", "W2", "strong", "keep the team paid", sentence
+        )
+    )
+    components, _, _ = scored(config, body, semantic=found)
+    work = components["responsibilities"]
+    payroll = next(c for c in work.contributions if c.signal_id == "w_payroll")
+    assert payroll.counted is False

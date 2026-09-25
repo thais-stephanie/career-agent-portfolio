@@ -140,10 +140,10 @@ The benchmark used a fixed, non-cherry-picked sample of 230 stored postings: the
 | v4 as stored | 34 | 0 | 11 | n/a | n/a | n/a |
 | v5 deterministic | 36 | 0 | 7 | n/a | n/a | n/a |
 | DeepSeek Flash, contract 1 | 38 | 4 | 0 | 1.6 s | 1,820 / 178 | $0.0008 |
-| DeepSeek Flash, contract 2 | 40 | 2 | 1 | 1.7 s | 2,043 / 181 | $0.0008 |
-| DeepSeek Flash, contract 2, thinking low | 39 of 44 | 2 | 1 | 6.9 s | 2,059 / 1,415 | $0.0023 |
+| DeepSeek Flash, contract 2 | 39 | 3 | 1 | 1.7 s | 2,043 / 181 | $0.0008 |
+| DeepSeek Flash, contract 2, thinking low | 38 of 44 | 2 | 1 | 6.9 s | 2,059 / 1,415 | $0.0023 |
 | Claude Code (claude-sonnet-5, subscription) | 39 | 2 | 2 | 11.6 s | 7,560 / 1,043 | your plan limits |
-| Codex (gpt-6-sol at low effort, subscription) | 40 | 1 | 2 | 8.8 s | 21,986 / 178 | your plan limits |
+| Codex (gpt-6-sol at low effort, subscription) | 39 | 2 | 2 | 8.8 s | 21,986 / 178 | your plan limits |
 
 - **Quote compliance:** every provider quoted the postings verbatim. With the final gate, which also requires word boundaries, no function-word-only quote and at least three words for a work or other-signal quote, these claimed quotes were published:
   - DeepSeek 114 of 118;
@@ -151,8 +151,8 @@ The benchmark used a fixed, non-cherry-picked sample of 230 stored postings: the
   - Codex 84 of 87;
   - DeepSeek with thinking 115 of 122.
 
-  The refusals are fragments too short to state work ("HubSpot" offered as evidence of CRM architecture), not invented text. Before this hardening, only thinking-low had invented a quote, once. One thinking-low answer was cut off at its output ceiling and produced no finding.
-- **Shared over-promotions:** the semantic arms promoted the same two adjacent postings to STRONG (Codex and DeepSeek one of them after the final gate). Both are data roles, and the person's own intent lists data integration, data modelling, data quality, Power BI, Python and SQL. That is the breadth of the stated intent, not a provider error.
+  The refusals are fragments too short to state work (a single tool name offered as evidence of a kind of work), not invented text. Before this hardening, only thinking-low had invented a quote, once. One thinking-low answer was cut off at its output ceiling and produced no finding.
+- **Shared over-promotions:** the semantic arms promoted the same adjacent data postings to STRONG. Both are data roles, and the person's stated intent is broad across data work. That is the breadth of the stated intent, not a provider error.
 - **Shared miss:** a business-systems architect posting that names none of the person's tools and no level. MODERATE is what the arithmetic says it should be.
 - **DeepSeek's only unique false positive:** a manufacturing test-automation role scored GOOD.
 - **Stratum results:** across the 227 of 230 postings DeepSeek answered with contract 2, the low, median, sparse, verbose and obvious-non-match strata stayed WEAK. The strata with work evidence rose.
@@ -170,7 +170,7 @@ Auto uses the first available provider in this order:
 3. Codex, when signed in with ChatGPT;
 4. otherwise deterministic scoring.
 
-There is no escalation. Claude Code and Codex agreed with the labels no more often than DeepSeek (39 and 40 of 45, against DeepSeek's 40). Neither fixed DeepSeek's one unique error without adding one of its own. They were 5 to 7 times slower, and they spend the person's plan limits.
+There is no escalation. Claude Code and Codex agreed with the labels exactly as often as DeepSeek (39 of 45 each). Neither fixed DeepSeek's one unique error without adding one of its own. They were 5 to 7 times slower, and they spend the person's plan limits.
 
 Thinking is off: it roughly tripled the cost and quadrupled the latency without moving the agreement. A provider the person selects is respected. When it is unavailable, scoring falls back to deterministic, never to another vendor, and the fallback is recorded.
 
@@ -195,8 +195,8 @@ An adversarial review of the pull request found no merge blocker, and these were
 | Provider | How it is reached | Who pays |
 |---|---|---|
 | DeepSeek | `DEEPSEEK_API_KEY` in the root `.env` (addable from the settings panel), through the existing chat-completions adapter | Metered, estimated before a run, hard-stopped at the per-run budget |
-| Claude Code | The person's signed-in `claude` executable (never a batch shim): no tools, no MCP servers, no settings, no session persistence, in an empty temporary directory | Their Claude subscription. `ANTHROPIC_API_KEY` is removed from the child environment, and an API-key-only sign-in is reported instead of used |
-| Codex | The person's signed-in `codex exec`: ephemeral, read-only sandbox, user config ignored, empty temporary directory | Their ChatGPT plan. An API-key login is reported instead of used |
+| Claude Code | The person's signed-in `claude` executable (never a batch shim): no tools, no MCP servers, no settings, no session persistence, in an empty temporary directory, with an allowlisted environment | Their Claude subscription. No API-billing variable reaches the child, and an API-key-only sign-in is reported instead of used |
+| Codex | The person's signed-in `codex exec` (never a batch shim): ephemeral, read-only sandbox, user config ignored, shell, exec, browser, apps, plugins and web search disabled, empty temporary directory, allowlisted environment | Their ChatGPT plan. `CODEX_API_KEY` never reaches the child, and an API-key login is reported instead of used |
 | Laya | Detection only | n/a |
 
 ## Readiness

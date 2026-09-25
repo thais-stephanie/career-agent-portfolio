@@ -284,8 +284,8 @@ def test_a_run_that_dies_is_still_closed(corpus) -> None:
 
     with pytest.raises(KeyboardInterrupt):
         run(conn, config, Exploding())
-    status = conn.execute("SELECT status FROM semantic_run").fetchone()[0]
-    assert status != "RUNNING"
+    status, reason = conn.execute("SELECT status, stop_reason FROM semantic_run").fetchone()
+    assert (status, reason) == ("FAILED", "ERROR")
 
 
 def test_a_metered_provider_without_a_price_is_never_run(corpus) -> None:

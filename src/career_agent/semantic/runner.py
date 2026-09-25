@@ -362,7 +362,8 @@ def run_semantic(
             progress,
             cancel,
         )
-    except Exception:
+    except BaseException:
+        # Interrupted or crashed, it is recorded as what it was: never DONE.
         stats.status = "FAILED"
         stats.stop_reason = stats.stop_reason or STOP_ERROR
         raise
