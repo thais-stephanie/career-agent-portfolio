@@ -39,44 +39,27 @@
 <nav class="sidenav" id="sidenav" aria-label="Career Agent">
 
   <div class="sidenav__logo">
-    <!-- THE MARK. The pixel star from the committed asset set, which is what
-         the design puts beside the name. It used to be a staircase of six
-         squares drawn with `box-shadow` while the star sat on a nav item; the
-         two have swapped, so the identity is at the top and the destinations
-         all wear glyphs from one family. -->
-    <img class="sidenav__mark" src="./px/px-star-16.png" alt="" width="16" height="16">
+    <!-- THE MARK: the official Career Agent star (`star.svg`, the same file
+         as the favicon), drawn at 16px beside the name. Never a Unicode
+         star, an emoji or a redrawn icon. -->
+    <img class="sidenav__mark" src="./star.svg" alt="" width="16" height="16">
     <span class="sidenav__name">Career Agent</span>
-    <span class="sidenav__tag" id="sidenav-tag">runs on your computer</span>
+    <span class="sidenav__tag" id="sidenav-tag">Runs on your computer</span>
   </div>
-  <!-- WHOSE CAREER AGENT THIS IS. A local profile, not an account: shown
-       only when the launcher runs profiles, and always visible then. -->
+  <!-- WHOSE CAREER AGENT THIS IS. A local profile, not an account: one
+       compact button, shown only when the launcher runs profiles. Everything
+       else (switch, rename, new) lives in the menu it opens, which floats
+       over the navigation and never pushes it down. -->
   <div class="sidenav__profile" id="local-profiles-host" hidden></div>
 
-  <!-- THERE IS NO USER CARD HERE, and its absence is the decision.
-       The design's first revision put an avatar, a name, a role, `LVL 7` and
-       a 72% completion bar in this slot; its second revision deleted all of
-       it, because the app cannot measure any of it and so must not claim it.
-       This product had already refused the level and the percentage and had
-       put the EVIDENCE REVIEW here instead -- answered out of arrived, a
-       fraction with a denominator somebody can point at.
-
-       That is gone too, and for a different reason than dishonesty. A review
-       that is finished still printed its total on every screen, so a number
-       that is only actionable inside Evidence followed the reader through
-       Jobs, Applications and Settings with nothing to do about it there. The
-       progress belongs where the work is. The navigation now starts directly
-       under the logo, which is what the design asks for. -->
-
-  <a class="topnav__link" href="/resume-tailor" target="_blank" rel="noopener noreferrer">Resume Tailor Beta</a>
   <div class="sidenav__nav">
-    <!-- `topnav__link` is kept as the class on every destination. The
-         navigation moved from the top of the page into this rail; it is the
-         same control, doing the same job, and renaming it would rewrite
-         twenty test call sites for nothing a reader would see. -->
+    <!-- `topnav__link` is kept as the class on every destination: the same
+         control, doing the same job, since the navigation moved into this
+         rail. The glyphs are the design's geometric set, never emoji. -->
     <p class="sidenav__section" id="nav-section-search">Search</p>
     <div class="sidenav__group" role="group" aria-labelledby="nav-section-search">
       <button type="button" class="topnav__link" data-page="home" aria-current="page">
-        <span class="topnav__icon" aria-hidden="true">&#9723;</span>
+        <span class="topnav__icon" aria-hidden="true">&#9713;</span>
         <span class="topnav__label">Home</span>
       </button>
       <button type="button" class="topnav__link" data-page="jobs">
@@ -84,7 +67,7 @@
         <span class="topnav__label">Discover Jobs</span>
       </button>
       <button type="button" class="topnav__link" data-page="applications">
-        <span class="topnav__icon" aria-hidden="true">&#9673;</span>
+        <span class="topnav__icon" aria-hidden="true">&#9636;</span>
         <span class="topnav__label">Applications</span>
       </button>
     </div>
@@ -95,60 +78,52 @@
         <span class="topnav__icon" aria-hidden="true">&#9671;</span>
         <span class="topnav__label">Career Profile</span>
       </button>
-      <!-- A GLYPH, not the star. The star is the product's MARK: it belongs
-           beside the name at the top of this rail and nowhere else, and using
-           it here made it read as the icon for one destination rather than as
-           the identity of the app. `&#9635;` keeps this item in the same
-           family as the five around it. -->
       <button type="button" class="topnav__link" data-page="evidence">
-        <span class="topnav__icon" aria-hidden="true">&#9635;</span>
+        <span class="topnav__icon" aria-hidden="true">&#9733;</span>
         <span class="topnav__label">Evidence</span>
       </button>
-      <!-- DOCUMENTS: every import (CV reads and document packages), their
-           review, and Archive / Restore / Delete. There is something behind
-           it now: the imports themselves. No file is stored -- a CV is read
-           and dropped -- so this lists readings, never a file library. -->
-      <button type="button" class="topnav__link" data-page="documents">
-        <span class="topnav__icon" aria-hidden="true">&#9636;</span>
-        <span class="topnav__label">Documents</span>
-      </button>
+      <!-- RESUME TAILOR is a destination like the others, under PROFILE,
+           with a small BETA tag. It opens the companion app in its own tab.
+           (Documents is no longer a destination: imports are reached from
+           the Career Profile and from Evidence, where they are made.) -->
+      <a class="topnav__link topnav__link--tailor" href="/resume-tailor" target="_blank" rel="noopener noreferrer">
+        <span class="topnav__icon" aria-hidden="true">&#9998;&#65038;</span>
+        <span class="topnav__label" id="nav-tailor-label">Resume Tailor</span>
+        <span class="topnav__beta" id="nav-tailor-beta">Beta</span>
+      </a>
     </div>
 
     <p class="sidenav__section" id="nav-section-system">System</p>
     <div class="sidenav__group" role="group" aria-labelledby="nav-section-system">
       <button type="button" class="topnav__link" data-page="settings">
-        <span class="topnav__icon" aria-hidden="true">&#9678;</span>
+        <span class="topnav__icon" aria-hidden="true">&#9881;&#65038;</span>
         <span class="topnav__label">Settings &amp; Sources</span>
       </button>
     </div>
   </div>
 
-  <!-- LANGUAGE AND THEME, in the rail rather than beside a job list.
-       Both live in the browser and deliberately NOT in `search.local.yaml`:
-       every section of that file is about how to READ and rank a posting, and
-       a language or a theme change there would bump `config_version` and
-       invalidate every score in the corpus. -->
-  <div class="sidenav__chrome">
-    <div class="sidenav__control">
-      <p class="sidenav__label" id="chrome-appearance">Appearance</p>
+  <!-- THE FOOT: theme and language on one row, then one status card.
+       Both preferences live in the browser, never in `search.local.yaml`: a
+       change there would bump `config_version` and invalidate every score. -->
+  <div class="sidenav__foot">
+    <div class="sidenav__chrome">
       <div class="topbar__theme" id="theme-host"></div>
-    </div>
-    <div class="sidenav__control">
-      <p class="sidenav__label" id="chrome-language">Language</p>
       <div class="topbar__locale" id="locale-host"></div>
     </div>
-  </div>
-
-  <!-- WHICH POPULATION AM I LOOKING AT, and how big it is. This stays on the
-       surface and always has: the whole point of the runtime-mode work is
-       that a person can never mistake invented postings for their own. -->
-  <div class="sidenav__foot">
-    <p class="topbar__mode" id="health-mode"></p>
-    <div class="sidenav__stats" id="sidenav-stats"></div>
-    <details class="topbar__status">
-      <summary class="health__summary" id="health-summary">Everything is working</summary>
-      <p class="topbar__health" id="health"></p>
-    </details>
+    <!-- WHICH POPULATION AM I LOOKING AT, and how big it is. One status
+         line (a button to Settings & Sources when a source needs
+         attention), the population tag, and three counts with nouns. -->
+    <div class="sidenav__status" id="sidenav-status">
+      <div class="sidenav__statusrow">
+        <button type="button" class="sidenav__health" id="health-summary">
+          <span class="sidenav__dot" aria-hidden="true"></span>
+          <span class="sidenav__healthtext" id="health-summary-text">All sources working</span>
+        </button>
+        <p class="topbar__mode" id="health-mode"></p>
+      </div>
+      <div class="sidenav__stats" id="sidenav-stats"></div>
+      <p class="topbar__health" id="health" hidden></p>
+    </div>
   </div>
 
 </nav>
@@ -296,6 +271,12 @@
   <section class="settings__block">
     <h2 class="settings__head" id="settings-sources-head">Where these come from</h2>
     <div id="sources-host"></div>
+  </section>
+  <!-- LOCAL PROFILES: deleting one. Kept out of the profile menu, which is
+       for switching, renaming and adding; shown only when profiles run. -->
+  <section class="settings__block" id="settings-profiles-block" hidden>
+    <h2 class="settings__head" id="settings-profiles-head">Profiles on this computer</h2>
+    <div id="settings-profiles-host"></div>
   </section>
   <!-- HOW postings are interpreted. What the person wants stays in Search
        preferences above; this block never edits it. -->

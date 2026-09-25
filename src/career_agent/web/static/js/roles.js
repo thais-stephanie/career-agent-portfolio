@@ -1,18 +1,26 @@
 /**
- * roles.js -- "Do you have specific roles in mind?", for onboarding and Settings.
+ * roles.js -- "Any roles in mind?", for onboarding and Settings.
  *
  * Optional. The roles are SEARCH ANCHORS, not limits: they help Career Agent
  * ask job sources better questions, and they never hide, rule out or score a
- * posting. Jobs under other titles are still found.
+ * posting. Jobs under other titles are still found. That is said ONCE, in
+ * the callout under the suggestions.
  *
- * Titles from the Career Profile are offered as suggestions and are added only
- * when the person presses one: what somebody has done is not automatically
- * what they want next. A pressed suggestion is kept as a confirmed suggestion,
- * so the two kinds of words stay apart.
+ * THE PERSON'S OWN ROLES ARE THE CONTROL. A full-width token field: type a
+ * title and press Enter, and it becomes a chip; Backspace in the empty field
+ * removes the last one; a title already there is ignored; it stops at the
+ * limit and says so. The counter says how many of the limit are used.
+ *
+ * Titles from the Career Profile are offered as CARDS below, and are added
+ * only when the person presses one: what somebody has done is not
+ * automatically what they want next. A card and its chip are the same role,
+ * so adding either shows both as added, and removing the chip un-adds the
+ * card. A pressed suggestion is kept as a confirmed suggestion, so the two
+ * kinds of words stay apart. "Role | context" titles are shown as the role
+ * with its context under it; the stored experience is never changed.
  */
 
-import { el, button, replace } from './dom.js';
-import { tagInput } from './tags.js';
+import { el, replace } from './dom.js';
 import { t } from './i18n.js';
 import { getRoleAnchors, saveRoleAnchors } from './api.js';
 
@@ -20,34 +28,66 @@ const fold = (text) => String(text || '').trim().replace(/\s+/g, ' ').toLocaleLo
 
 /**
  * The editor. `autosave` saves on every change (Settings); without it the
- * caller saves with `save()` (onboarding's Continue).
+ * caller saves with `save()` (onboarding's Continue). `onChange` hears the
+ * number of roles after every change, so a caller can say what Continue
+ * carries forward.
  */
-export function roleAnchorsEditor({ id = 'roles', autosave = false, initial = null } = {}) {
+export function roleAnchorsEditor({
+  id = 'roles', autosave = false, initial = null, onChange = null, draft = null,
+} = {}) {
   const root = el('div', { className: 'roles', dataset: { roles: id } });
   const status = el('p', { className: 'roles__status', attrs: { role: 'status', 'aria-live': 'polite' } });
-  //: Suggestions and aliases: redrawn freely. The input above them is never
-  //: rebuilt by a save, so focus and a half-typed role survive every response.
-  const extras = el('div', { className: 'roles__extras' });
   let data = null;
   let values = [];
   //: folded text -> 'user' | 'confirmed_suggestion'
   const sources = new Map();
-  let input = null;
   //: Saves run one at a time; a change made meanwhile is sent once the one in
-  //: flight returns, so an older answer can never overwrite newer pills.
+  //: flight returns, so an older answer can never overwrite newer chips.
   let saving = null;
   let queued = false;
 
+  // The parts that are redrawn. The text box itself is never rebuilt, so
+  // focus and a half-typed title survive every change and every save.
+  const counter = el('span', { className: 'roles__count num', attrs: { id: `${id}-count` } });
+  const chips = el('span', { className: 'roles__chips' });
+  const box = el('input', {
+    className: 'roles__input',
+    attrs: {
+      type: 'text',
+      id: `${id}-anchors`,
+      autocomplete: 'off',
+      autocapitalize: 'off',
+      spellcheck: 'false',
+      'aria-describedby': [`${id}-hint`, `${id}-count`].join(' '),
+    },
+  });
+  const field = el('div', {
+    className: 'roles__field',
+    on: {
+      // A click anywhere in the field (between the chips) is a click in it.
+      click: (event) => {
+        if (event.target === field || event.target === chips) box.focus();
+      },
+    },
+  }, [chips, box]);
+  const cards = el('div', { className: 'roles__suggestions' });
+  const aliasLine = el('p', { className: 'roles__aliases' });
+
   const limit = () => (data && data.limits && data.limits.anchors) || 8;
+  const maxText = () => (data && data.limits && data.limits.text) || 80;
+  const has = (text) => values.some((value) => fold(value) === fold(text));
 
   async function load() {
     replace(root, [el('p', { className: 'roles__loading', text: t('app.loading') })]);
     try {
       data = initial || await getRoleAnchors();
-      values = (data.anchors || []).map((anchor) => anchor.text);
+      // A draft (unsaved roles kept by the caller across a redraw) wins over
+      // what is saved, so a language switch never loses what was typed.
+      const start = draft || data.anchors || [];
+      values = start.map((anchor) => anchor.text);
       sources.clear();
-      for (const anchor of data.anchors || []) sources.set(fold(anchor.text), anchor.source);
-      drawInput();
+      for (const anchor of start) sources.set(fold(anchor.text), anchor.source);
+      build();
     } catch (error) {
       replace(root, [el('p', { className: 'state__msg', text: error.userMessage || error.message })]);
     }
@@ -63,12 +103,13 @@ export function roleAnchorsEditor({ id = 'roles', autosave = false, initial = nu
     const sent = payload();
     const next = await saveRoleAnchors(sent);
     // The server's answer updates what it alone knows (aliases, suggestions).
-    // The pills stay as they are unless nothing changed since this was sent.
+    // The chips stay as they are unless nothing changed since this was sent.
     data = next;
     if (JSON.stringify(sent) === JSON.stringify(payload())) {
       for (const anchor of next.anchors || []) sources.set(fold(anchor.text), anchor.source);
     }
-    drawExtras();
+    drawSuggestions();
+    drawAliases();
   }
 
   async function save() {
@@ -95,106 +136,173 @@ export function roleAnchorsEditor({ id = 'roles', autosave = false, initial = nu
     return saving;
   }
 
-  function changed(next) {
-    values = next;
+  function changed() {
     for (const key of [...sources.keys()]) {
       if (!values.some((value) => fold(value) === key)) sources.delete(key);
     }
-    drawExtras();
+    drawChips();
+    drawSuggestions();
+    drawAliases();
+    if (onChange) onChange(values.length, payload().anchors);
     if (autosave) save();
   }
 
-  function drawInput({ focus = false } = {}) {
-    input = tagInput({
-      id: `${id}-anchors`,
-      label: t('roles.label'),
-      values,
-      hint: t('roles.hint', { n: limit() }),
-      placeholder: t('roles.placeholder'),
-      normalise: (value) => value.trim().replace(/\s+/g, ' ')
-        .slice(0, (data && data.limits && data.limits.text) || 80),
-      autocapitalize: 'off',
-      max: limit(),
-      onFull: () => { status.textContent = t('roles.full', { n: limit() }); },
-      same: (a, b) => fold(a) === fold(b),
-      onChange: changed,
-    });
-    // The person's own roles first and largest; suggestions and aliases are
-    // secondary, below, in smaller type.
-    replace(root, [
-      el('div', { className: 'roles__primary' }, [input.root]),
-      el('p', { className: 'field__hint roles__note', text: t('roles.notLimits') }),
-      extras,
-      status,
-    ]);
-    drawExtras();
-    if (focus) {
-      const box = input.root.querySelector('input');
-      if (box) box.focus();
+  /** Add one title. Returns whether it was added. */
+  function add(text, source = 'user') {
+    const clean = String(text || '').trim().replace(/\s+/g, ' ').slice(0, maxText());
+    if (!clean || has(clean)) return false;
+    if (values.length >= limit()) {
+      status.textContent = t('roles.full', { n: limit() });
+      return false;
     }
+    values = [...values, clean];
+    sources.set(fold(clean), source);
+    status.textContent = '';
+    changed();
+    return true;
   }
 
-  function drawExtras() {
-    const suggestions = ((data && data.suggestions) || [])
-      .filter((item) => !values.some((value) => fold(value) === fold(item.text)));
-    const aliases = ((data && data.aliases) || [])
-      .filter((alias) => values.some((value) => fold(value) === fold(alias.anchor)));
-    replace(extras, [
-      suggestions.length
-        ? el('section', {
-          className: 'roles__suggestions',
-          attrs: { 'aria-labelledby': `${id}-suggest-heading` },
-        }, [
-          el('h3', {
-            className: 'roles__suggestLabel',
-            attrs: { id: `${id}-suggest-heading` },
-            text: t('roles.suggestions'),
-          }),
-          el('ul', { className: 'roles__suggestList' }, suggestions.map((item, index) => el('li', {}, [
-            el('button', {
-              className: 'roles__chip',
-              attrs: {
-                type: 'button',
-                'aria-label': t('roles.add', { role: item.text }),
-                ...(item.context ? { 'aria-describedby': `${id}-suggest-${index}` } : {}),
+  function remove(text) {
+    values = values.filter((value) => fold(value) !== fold(text));
+    changed();
+  }
+
+  box.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      // Enter inside a form would submit it; a comma would land in the box.
+      event.preventDefault();
+      if (add(box.value) || has(box.value)) box.value = '';
+      return;
+    }
+    if (event.key === 'Backspace' && !box.value && values.length) {
+      event.preventDefault();
+      remove(values[values.length - 1]);
+    }
+  });
+  // Leaving the box keeps what was typed as a role, as a person expects when
+  // they type a title and press Continue.
+  box.addEventListener('blur', () => {
+    if (box.value.trim() && (add(box.value) || has(box.value))) box.value = '';
+  });
+
+  function drawChips() {
+    replace(chips, values.map((value) => el('span', { className: 'roles__chip' }, [
+      el('span', { className: 'roles__chiptext', text: value }),
+      el('button', {
+        className: 'roles__chipx',
+        attrs: { type: 'button', 'aria-label': t('roles.remove', { role: value }) },
+        on: {
+          click: () => {
+            remove(value);
+            box.focus();
+          },
+        },
+        text: '✕',
+      }),
+    ])));
+    counter.textContent = t('roles.count', { n: values.length, max: limit() });
+    box.placeholder = values.length ? t('roles.placeholderMore') : t('roles.placeholder');
+  }
+
+  function drawSuggestions() {
+    const offered = [...((data && data.suggestions) || [])];
+    // A suggestion chosen on an earlier visit arrives among the anchors, not
+    // the suggestions; it is shown as an added card all the same.
+    for (const anchor of (data && data.anchors) || []) {
+      if (anchor.source === 'confirmed_suggestion'
+        && !offered.some((item) => fold(item.text) === fold(anchor.text))) {
+        offered.push({ text: anchor.text, context: anchor.context || '' });
+      }
+    }
+    if (!offered.length) {
+      replace(cards, []);
+      return;
+    }
+    replace(cards, [
+      el('h3', {
+        className: 'roles__eyebrow',
+        attrs: { id: `${id}-suggest-heading` },
+        text: t('roles.suggestions'),
+      }),
+      el('p', { className: 'roles__suggestnote', text: t('roles.suggestionsNote') }),
+      el('ul', {
+        className: 'roles__grid',
+        attrs: { 'aria-labelledby': `${id}-suggest-heading` },
+      }, offered.map((item, index) => {
+        const added = has(item.text);
+        return el('li', {}, [
+          el('button', {
+            className: `roles__card${added ? ' is-added' : ''}`,
+            attrs: {
+              type: 'button',
+              'aria-pressed': String(added),
+              'aria-label': t('roles.add', { role: item.text }),
+              ...(item.context ? { 'aria-describedby': `${id}-suggest-${index}` } : {}),
+            },
+            on: {
+              click: () => {
+                if (has(item.text)) remove(item.text);
+                else add(item.text, 'confirmed_suggestion');
+                // The cards redraw; keep the keyboard on the same card.
+                const again = cards.querySelectorAll('.roles__card')[index];
+                if (again) again.focus();
               },
-              on: {
-                click: () => {
-                  if (values.length >= limit()) {
-                    status.textContent = t('roles.full', { n: limit() });
-                    return;
-                  }
-                  values = [...values, item.text];
-                  sources.set(fold(item.text), 'confirmed_suggestion');
-                  // The pressed chip is gone; focus goes to the role input.
-                  drawInput({ focus: true });
-                  if (autosave) save();
-                },
-              },
-            }, [
-              el('span', { className: 'roles__chipPlus', attrs: { 'aria-hidden': 'true' }, text: '+' }),
-              el('span', { className: 'roles__chipText' }, [
-                el('span', { className: 'roles__chipRole', text: item.text }),
-                item.context
-                  ? el('span', {
-                    className: 'roles__chipContext',
-                    attrs: { id: `${id}-suggest-${index}` },
-                    text: item.context,
-                  })
-                  : null,
-              ].filter(Boolean)),
-            ]),
-          ]))),
-          el('p', { className: 'field__hint', text: t('roles.suggestionsNote') }),
-        ])
-        : null,
-      aliases.length
-        ? el('p', {
-          className: 'roles__aliases',
-          text: t('roles.aliases', { list: aliases.map((alias) => alias.text).join(', ') }),
-        })
-        : null,
-    ].filter(Boolean));
+            },
+          }, [
+            el('span', { className: 'roles__cardtext' }, [
+              el('span', { className: 'roles__cardrole', text: item.text }),
+              item.context
+                ? el('span', {
+                  className: 'roles__cardcontext',
+                  attrs: { id: `${id}-suggest-${index}` },
+                  text: item.context,
+                })
+                : null,
+            ].filter(Boolean)),
+            el('span', {
+              className: 'roles__cardtag',
+              attrs: { 'aria-hidden': 'true' },
+              text: added ? t('roles.added') : t('roles.addShort'),
+            }),
+          ]),
+        ]);
+      })),
+    ]);
+  }
+
+  function drawAliases() {
+    const aliases = ((data && data.aliases) || []).filter((alias) => has(alias.anchor));
+    aliasLine.textContent = aliases.length
+      ? t('roles.aliases', { list: aliases.map((alias) => alias.text).join(', ') })
+      : '';
+  }
+
+  function build() {
+    replace(root, [
+      el('div', { className: 'roles__head' }, [
+        el('label', { className: 'roles__label', attrs: { for: `${id}-anchors` }, text: t('roles.label') }),
+        counter,
+      ]),
+      field,
+      el('p', { className: 'roles__hint', attrs: { id: `${id}-hint` }, text: t('roles.hint') }),
+      aliasLine,
+      cards,
+      el('div', { className: 'roles__callout' }, [
+        el('img', {
+          className: 'roles__callouticon',
+          attrs: { src: './px/px-globe-16.png', alt: '', width: '16', height: '16' },
+        }),
+        el('p', {}, [
+          el('strong', { text: t('roles.calloutLead') }),
+          ` ${t('roles.calloutBody')}`,
+        ]),
+      ]),
+      status,
+    ]);
+    drawChips();
+    drawSuggestions();
+    drawAliases();
+    if (onChange) onChange(values.length);
   }
 
   load();
@@ -204,6 +312,9 @@ export function roleAnchorsEditor({ id = 'roles', autosave = false, initial = nu
     //: The server's last answer, so a caller can reuse it without asking again.
     get data() {
       return data;
+    },
+    get count() {
+      return values.length;
     },
     get dirty() {
       const saved = ((data && data.anchors) || []).map((anchor) => fold(anchor.text)).join('\n');

@@ -53,35 +53,3 @@ export function svgIcon(viewBox, shapes, { className = 'icon', attrs = {} } = {}
   }
   return root;
 }
-
-/**
- * The flags, one per locale this product speaks.
- *
- * `pt-BR` names a country, so its flag is not a guess. `en` does not, and the
- * flag beside it is a MNEMONIC rather than a claim: the two letters are what
- * name the language, and they are still there. The Union Flag is used for
- * English because its geometry survives being 16 pixels wide, which the fifty
- * stars of the other candidate do not.
- *
- * Employer text is never translated and no flag appears near a posting. These
- * sit on one control, in the header, beside the theme.
- */
-const FLAGS = {
-  en: () => svgIcon('0 0 60 40', [
-    ['rect', { width: '60', height: '40', fill: '#012169' }],
-    ['path', { d: 'M0 0 60 40 M60 0 0 40', stroke: '#FFFFFF', 'stroke-width': '8' }],
-    ['path', { d: 'M30 0 V40 M0 20 H60', stroke: '#FFFFFF', 'stroke-width': '13' }],
-    ['path', { d: 'M30 0 V40 M0 20 H60', stroke: '#C8102E', 'stroke-width': '7' }],
-  ], { className: 'icon icon--flag' }),
-  'pt-BR': () => svgIcon('0 0 60 42', [
-    ['rect', { width: '60', height: '42', fill: '#009B3A' }],
-    ['path', { d: 'M30 4 56 21 30 38 4 21 Z', fill: '#FEDF00' }],
-    ['circle', { cx: '30', cy: '21', r: '9', fill: '#002776' }],
-  ], { className: 'icon icon--flag' }),
-};
-
-/** The flag for a locale, or nothing at all rather than a wrong one. */
-export function localeFlag(locale) {
-  const make = FLAGS[locale];
-  return make ? make() : null;
-}

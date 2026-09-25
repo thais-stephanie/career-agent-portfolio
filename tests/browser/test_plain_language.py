@@ -445,12 +445,14 @@ def test_the_status_line_says_how_much_is_worth_opening_it_for(page: Chrome, ser
     assert summary, "the summary is empty"
     assert "#" not in summary, f"a database reference reached the summary: {summary}"
 
-    # And the detail is still there, in full, for somebody who opens it.
-    page.evaluate(
-        "(() => { document.querySelector('.topbar__status').open = true; return true; })()"
-    )
-    detail = str(page.evaluate("document.getElementById('health').innerText"))
+    # And the detail is still there, in full: the status line's tooltip.
+    detail = str(page.evaluate("document.getElementById('health').textContent"))
     assert "jobs" in detail.lower(), detail
+    title = str(page.evaluate("document.getElementById('health-summary').title"))
+    degraded = page.evaluate(
+        "document.getElementById('health-summary').classList.contains('is-attention')"
+    )
+    assert not degraded or "jobs" in title.lower(), title
 
 
 def test_the_board_and_the_dropdown_use_the_same_words(page: Chrome, server: str) -> None:

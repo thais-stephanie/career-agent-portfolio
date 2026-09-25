@@ -114,6 +114,12 @@ def placed(tmp_path: Path, committed_config: Path) -> Iterator[Workspace]:
 
 
 def _nav(page: Chrome, name: str) -> None:
+    if name == "documents":
+        # Not a destination in the rail any more: the import buttons reach it,
+        # and so does its address.
+        page.evaluate("location.hash = '#documents'; location.reload()")
+        page.wait_for("!document.querySelector('#page-documents').hidden")
+        return
     page.wait_for(f"document.querySelector('.topnav__link[data-page=\"{name}\"]') !== null")
     page.evaluate(f"document.querySelector('.topnav__link[data-page=\"{name}\"]').click()")
     page.wait_for(f"!document.querySelector('#page-{name}').hidden")

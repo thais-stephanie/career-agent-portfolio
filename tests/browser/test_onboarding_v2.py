@@ -10,7 +10,6 @@ Settings write the same configuration.
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import socket
 import threading
@@ -869,7 +868,7 @@ def test_the_cv_card_shows_the_count_the_server_staged(page: Chrome, install: In
     )
 
 
-def test_progress_names_the_step_and_never_a_total_that_can_change(
+def test_the_stepper_names_every_step_and_shows_done_current_and_upcoming(
     page: Chrome, install: Install
 ) -> None:
     begin(page, install)
@@ -879,15 +878,19 @@ def test_progress_names_the_step_and_never_a_total_that_can_change(
         step = card(page)
         if step in ("review", "ready"):
             break
-        count = text(page, ".setup__count")
-        bar = page.evaluate(
-            "(() => { const b = document.querySelector('.setup__card [role=progressbar]');"
-            " return [b.getAttribute('aria-valuetext'), Number(b.getAttribute('aria-valuenow'))];"
+        state = page.evaluate(
+            "(() => { const steps = [...document.querySelectorAll('.stepper__step')];"
+            " const at = steps.findIndex((s) => s.getAttribute('aria-current') === 'step');"
+            " const done = steps.filter((s) => s.classList.contains('stepper__step--done'));"
+            " return [at + 1, done.length,"
+            " steps.slice(at + 1).every((s) => s.classList.contains('stepper__step--upcoming')),"
+            " steps.every((s) => s.querySelector('.stepper__name').innerText.trim() !== '')];"
             " })()"
         )
-        assert re.fullmatch(r"Step \d+", count), count
-        assert bar[0] == count, bar
-        seen.append((step, int(count.split()[1]), bar[1]))
+        number, done, rest_upcoming, all_named = state
+        assert all_named and rest_upcoming, state
+        assert done == number - 1, state
+        seen.append((step, number, done))
         if step == "home":
             put(page, "#setup-country", "Brazil", "change")
             next_card(page)
@@ -996,9 +999,108 @@ def test_roles_in_mind_are_optional_and_saved_as_the_persons_own_words(
         "document.querySelector('#setup-roles-anchors').dispatchEvent("
         "new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))"
     )
-    page.wait_for("document.querySelector('.tags__pills').children.length > 0")
+    page.wait_for("document.querySelectorAll('.roles__chip').length > 0")
+    assert text(page, "#setup-next") == "Continue with 1 role"
     next_card(page)
     wait_card(page, "home")
     saved = load_anchors(install.config_dir)
     assert [(a.text, a.source) for a in saved.anchors] == [("Hair Stylist", "user")]
     assert "Hairdresser" in {a.text for a in saved.aliases}
+
+
+def test_the_roles_field_tokenises_caps_at_eight_and_keeps_cards_in_sync(
+    page: Chrome, install: Install
+) -> None:
+    """Approved onboarding spec (1c): a full-width token field, Enter adds,
+    Backspace on an empty field removes the last role, duplicates are
+    ignored, it stops at 8, and a Career Profile card and its chip are the
+    same role."""
+    from career_agent.clock import new_id, now_utc
+    from career_agent.storage.workspace_repo import ensure_candidate
+
+    conn = connect(install.db)
+    try:
+        with transaction(conn):
+            candidate = ensure_candidate(conn)
+            company = new_id()
+            conn.execute(
+                "INSERT INTO career_company (id, candidate_id, label, merged_into, archived)"
+                " VALUES (?, ?, 'Example Clinic', NULL, 0)",
+                (company, candidate),
+            )
+            conn.execute(
+                "INSERT INTO career_experience (id, candidate_id, company_id, title,"
+                " period_start, period_end, current_role, kind, display_order, archived,"
+                " created_at, description) VALUES (?, ?, ?, 'Staff Nurse | Night ward',"
+                " NULL, NULL, 0, 'ROLE', 0, 0, ?, NULL)",
+                (new_id(), candidate, company, now_utc()),
+            )
+    finally:
+        conn.close()
+
+    begin(page, install)
+    next_card(page)
+    wait_card(page, "work")
+    skip(page)
+    wait_card(page, "roles")
+    page.wait_for("document.querySelector('.roles__card')", message="the suggestion card")
+    card = "document.querySelector('.roles__card')"
+    assert text(page, ".roles__cardrole") == "Staff Nurse"
+    assert text(page, ".roles__cardcontext") == "Night ward"
+    width = page.evaluate(
+        "document.querySelector('.roles__field').getBoundingClientRect().width"
+        " / document.querySelector('.setup__cardbody').getBoundingClientRect().width"
+    )
+    assert width > 0.85, f"the roles field is not full width ({width:.2f})"
+
+    def enter(value: str) -> None:
+        put(page, "#setup-roles-anchors", value)
+        page.evaluate(
+            "document.querySelector('#setup-roles-anchors').dispatchEvent("
+            "new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))"
+        )
+
+    def chips() -> list[str]:
+        return list(
+            page.evaluate(
+                "[...document.querySelectorAll('.roles__chiptext')].map((n) => n.textContent)"
+            )
+        )
+
+    enter("Barista")
+    enter("barista")
+    assert chips() == ["Barista"], "a duplicate is ignored"
+    assert text(page, ".roles__count") == "1 / 8"
+
+    # The card adds its role, and shows it as added; removing the chip un-adds it.
+    page.evaluate(f"{card}.click()")
+    page.wait_for(f"{card}.getAttribute('aria-pressed') === 'true'", message="the card as added")
+    assert chips() == ["Barista", "Staff Nurse"]
+    assert text(page, "#setup-next") == "Continue with 2 roles"
+    page.evaluate(
+        "[...document.querySelectorAll('.roles__chip')]"
+        ".find((c) => c.textContent.includes('Staff Nurse')).querySelector('button').click()"
+    )
+    page.wait_for(f"{card}.getAttribute('aria-pressed') === 'false'", message="the card un-added")
+
+    # Backspace on the empty field removes the last role.
+    put(page, "#setup-roles-anchors", "")
+    page.evaluate(
+        "document.querySelector('#setup-roles-anchors').dispatchEvent("
+        "new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }))"
+    )
+    assert chips() == []
+    assert text(page, "#setup-next") == "Continue"
+
+    # It stops at eight.
+    for index in range(9):
+        enter(f"Role {index + 1}")
+    assert len(chips()) == 8
+    assert text(page, ".roles__count") == "8 / 8"
+    assert "8" in text(page, ".roles__status")
+
+    # One explanation, one local skip, one global exit.
+    assert page.evaluate("document.querySelectorAll('.roles__callout').length") == 1
+    assert page.evaluate("document.querySelectorAll('#setup-skip').length") == 1
+    assert page.evaluate("document.querySelectorAll('#setup-later').length") == 1
+    assert page.evaluate("document.querySelector('#setup-later').closest('.pagehead') !== null")

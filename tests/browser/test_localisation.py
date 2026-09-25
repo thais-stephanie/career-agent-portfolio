@@ -155,16 +155,23 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
         "Candidaturas",
         "Perfil de carreira",
         "Evidências",
-        "Documentos",
+        "Resume Tailor",
         "Configurações e fontes",
     ], nav(page)
     assert texts(page, "#view-cards") == ["Cartões"]
     # The tagline moved into the rail with the brand it belongs to.
-    assert texts(page, "#sidenav-tag") == ["roda no seu computador"]
+    assert texts(page, "#sidenav-tag") == ["Roda no seu computador"]
     # ...and so did the section headings above the destinations, which are
     # product-authored text like any other.
     assert texts(page, ".sidenav__section") == ["Busca", "Perfil", "Sistema"]
-    assert texts(page, ".sidenav__label") == ["Aparência", "Idioma"]
+    # Theme and language are glyphs and codes; their words are the names.
+    assert page.evaluate(
+        "[...document.querySelectorAll('.themeswitch__btn')].map((b) => b.title)"
+    ) == ["Claro", "Escuro"]
+    assert page.evaluate(
+        "[...document.querySelectorAll('.localeswitch__btn')]"
+        ".map((b) => b.getAttribute('aria-label'))"
+    ) == ["Inglês", "Português (Brasil)"]
     # The page header is the one place every screen states what it is, so it
     # is the one place a missed string is most visible. `in_locale` lands on
     # the job list, so this is the job list's title.

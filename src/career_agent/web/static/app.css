@@ -491,13 +491,11 @@
      reason it reads as the frame around the product rather than a surface
      inside it. */
   --nav-bg: #1a1a1a;
-  --nav-card: #242424;
   --nav-rule: #2e2e2e;
   --nav-edge: #3e3e3e;
   --nav-ink: #ffffff;
-  --nav-idle: #a0a0a0;
+  --nav-idle: #b8b5ac;
   --nav-muted: #8a8a8a;
-  --nav-faint: #6f6f6f;
   --nav-accent: #a8f0cc;
   /* `--nav-accent-ink: #1a2e24` was here, and it went with the rail's user
      card: it was the ground behind the mint-bordered avatar tile and had no
@@ -507,7 +505,19 @@
   --nav-active: #ddd0ff;
   --nav-active-ink: #1a1a1a;
   --nav-yellow: #fef08a;
+  /* The approved sidebar spec (1a): idle ink, hover ground, group label,
+     brand eyebrow, status card ground and its ink. */
+  --nav-hover: #2e2e2a;
+  --nav-group: #8a877e;
+  --nav-eyebrow: #8c8c8c;
+  --nav-status: #20201c;
+  --nav-status-ink: #cfcbc0;
+  --nav-statlabel: #a3a096;
+  --nav-open: #f5f2e8;
+  --nav-button: #242420;
   --nav-w: 220px;
+  /* How many named steps the setup stepper shows; set per card. */
+  --steps: 4;
 
   /* The pixel eyebrow. The face is Press Start 2P now, served from this
      machine, and 9px is the design's own upper bound for it -- the type scale
@@ -6954,63 +6964,70 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   z-index: 30;
 }
 
-/* THE MARK BESIDE THE NAME, not above it. The design draws "* Career Agent"
-   on one line; a grid put the star on a row of its own and the wordmark read
-   as two things stacked. `grid-template-areas` keeps the tagline under the
-   name rather than under the star. */
+/* THE BRAND. The official star (`star.svg`) at 16px beside the name, and
+   the eyebrow under the name. Approved sidebar spec (1a): Fraunces 700 20px
+   white on one line; Press Start 2P 6px #7c7c7c for the eyebrow. */
 .sidenav__logo {
-  padding: 24px 20px 20px;
+  padding: 22px 18px 16px;
   border-bottom: 2px solid var(--nav-rule);
   display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas: "mark name" ". tag";
+  grid-template-columns: 16px 1fr;
+  grid-template-areas: "mark name" "tag tag";
   align-items: center;
   column-gap: 8px;
-  row-gap: 4px;
+  row-gap: 8px;
 }
 .sidenav__mark { grid-area: mark; }
 .sidenav__name { grid-area: name; }
 .sidenav__tag { grid-area: tag; }
-/* Five squares in a staircase, drawn with box-shadow so it scales with the
-   type, needs no request and cannot fail to load. It was a character once,
-   which renders as a different shape on every platform. */
-/* The mark, at its native 16px so the pixel grid stays square. */
 .sidenav__mark {
   display: block;
   width: 16px; height: 16px;
-  margin: 0 0 6px;
   image-rendering: pixelated;
 }
 .sidenav__name {
   font-family: var(--display);
-  font-size: 20px; font-weight: 700; line-height: 1.1;
+  font-size: 20px; font-weight: 700; line-height: 1;
+  white-space: nowrap;
   color: var(--nav-ink);
 }
 .sidenav__tag {
-  font-family: var(--mono);
-  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--nav-faint);
+  font-family: var(--pixel);
+  font-size: 6px; letter-spacing: 0.15em; line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--nav-eyebrow);
+}
+
+/* -- the profile control (the menu itself is in local-profiles) ------- */
+.sidenav__profile {
+  padding: 12px 12px 14px;
+  border-bottom: 2px solid var(--nav-rule);
 }
 
 /* -- the destinations ------------------------------------------------- */
-.sidenav__nav { padding: 8px 12px 12px; display: grid; gap: 2px; }
+.sidenav__nav {
+  flex: 1 0 auto;
+  padding: 14px 10px;
+  display: flex; flex-direction: column; gap: 14px;
+}
 .sidenav__section {
-  margin: 12px 0 6px;
-  padding: 0;
-  font-family: var(--mono);
-  font-size: 9px; font-weight: 700;
+  margin: 0 0 4px;
+  padding: 0 10px;
+  font-family: var(--pixel);
+  font-size: 6px; font-weight: 400;
   letter-spacing: 0.15em; text-transform: uppercase;
-  color: var(--nav-faint);
+  color: var(--nav-group);
 }
 .sidenav__group { display: grid; gap: 2px; }
 
 .topnav__link {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   width: 100%;
-  font: inherit; font-size: 14px; font-weight: 500;
-  text-align: left; cursor: pointer;
-  padding: 8px 12px;
-  border: 1px solid transparent;
+  box-sizing: border-box;
+  font: inherit; font-family: var(--sans); font-size: 14px; font-weight: 500;
+  text-align: left; cursor: pointer; text-decoration: none;
+  padding: 8px 10px;
+  border: 0;
   border-radius: 8px;
   color: var(--nav-idle);
   background: transparent;
@@ -7018,15 +7035,12 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 }
 .topnav__icon {
   flex: 0 0 16px; width: 16px;
-  font-size: 13px; line-height: 1;
-  color: var(--nav-faint);
+  font-size: 12px; line-height: 1;
+  color: var(--nav-group);
   text-align: center;
 }
-/* The one destination whose icon is a committed pixel asset rather than a
-   glyph: Evidence is where the product own star belongs. */
-
-.topnav__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.topnav__link:hover { color: var(--nav-ink); background: var(--nav-card); }
+.topnav__label { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topnav__link:hover { color: var(--nav-ink); background: var(--nav-hover); }
 .topnav__link:focus-visible {
   outline: 2px solid var(--nav-active);
   outline-offset: -2px;
@@ -7036,54 +7050,43 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   background: var(--nav-active);
   color: var(--nav-active-ink);
   font-weight: 700;
-  border-color: var(--nav-active);
 }
 .topnav__link[aria-current="page"] .topnav__icon { color: var(--nav-active-ink); }
+/* The BETA tag inside the Resume Tailor item, right-aligned. */
+.topnav__beta {
+  display: inline-flex; align-items: center;
+  flex-shrink: 0; white-space: nowrap;
+  border: 1.5px solid var(--nav-active-ink);
+  border-radius: 4px;
+  background: var(--nav-yellow);
+  color: var(--nav-active-ink);
+  font-family: var(--pixel);
+  font-size: 6px; letter-spacing: 0.08em; line-height: 1;
+  text-transform: uppercase;
+  padding: 3px 4px;
+}
 
-/* -- theme and language ----------------------------------------------- */
-.sidenav__chrome {
-  margin-top: auto;
+/* -- the foot: theme and language on one row, then the status card ------ */
+.sidenav__foot {
   padding: 12px;
   border-top: 2px solid var(--nav-rule);
-  display: grid; gap: 10px;
+  display: flex; flex-direction: column; gap: 10px;
 }
-.sidenav__control { display: grid; gap: 6px; }
-.sidenav__label {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 9px; font-weight: 700;
-  letter-spacing: 0.15em; text-transform: uppercase;
-  color: var(--nav-faint);
+.sidenav__chrome {
+  display: flex; gap: 8px;
 }
+.sidenav__chrome > * { flex: 1 1 0; min-width: 0; }
 
-/* -------------------------------------------------------------------
-   THE TWO SWITCHES, RE-SIZED FOR THE RAIL.
-
-   `.themeswitch` and `.localeswitch` are shared with the top bar, where
-   the line is as wide as the viewport and a control may take its natural
-   width. Dropped into a 220px rail unchanged, each measured 282px: the
-   rail's `scrollWidth` was 294 against a `clientWidth` of 220, `overflow-y:
-   auto` made `overflow-x` compute to `auto` as well, and the result was a
-   horizontal scrollbar under the navigation with the third theme option
-   cut off at "AU".
-
-   So the fix is that they FIT, and `overflow-x: hidden` on the rail is the
-   guarantee rather than the fix -- clipping alone would have hidden the
-   scrollbar and kept the truncated button, which is the same defect with
-   its evidence removed.
-
-   The geometry is the design's: one bordered rounded frame, halves at
-   `flex: 1`, a hairline between them, the chosen half on lilac with ink
-   text. `min-width: 0` on the button is what actually lets three segments
-   share 196px, because a flex item's default `min-width: auto` refuses to
-   go under its content width and would push the frame wide again.
-   ------------------------------------------------------------------- */
+/* THE TWO SWITCHES, as two equal segmented controls: one hairline frame,
+   halves at `flex: 1`, the chosen half on lilac with ink text. Glyphs for
+   the theme and codes for the language; the words are in the tooltips and
+   the accessible names, never flags. */
 .sidenav__chrome .themeswitch,
 .sidenav__chrome .localeswitch {
   display: flex;
   width: 100%;
   box-sizing: border-box;
-  border: var(--rule-w) solid var(--nav-edge);
+  border: 1px solid var(--nav-edge);
   border-radius: 8px;
   background: transparent;
   box-shadow: none;
@@ -7093,64 +7096,109 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 .sidenav__chrome .localeswitch__btn {
   flex: 1 1 0;
   min-width: 0;
-  justify-content: center;
-  gap: 5px;
-  padding: 6px 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 6px 0;
   border: 0;
-  border-right: var(--rule-w) solid var(--nav-edge);
+  border-left: 1px solid var(--nav-edge);
   border-radius: 0;
   background: transparent;
   color: var(--nav-idle);
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: var(--mono);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0;
   text-transform: none;
+  box-shadow: none;
+  transform: none;
   transition: background-color 100ms ease, color 100ms ease;
 }
-.sidenav__chrome .themeswitch__btn:last-child,
-.sidenav__chrome .localeswitch__btn:last-child { border-right: 0; }
+.sidenav__chrome .themeswitch__btn:first-child,
+.sidenav__chrome .localeswitch__btn:first-child { border-left: 0; }
+.sidenav__chrome .themeswitch__btn { font-family: var(--sans); font-size: 12px; }
 .sidenav__chrome .themeswitch__btn:hover,
 .sidenav__chrome .localeswitch__btn:hover {
-  background: var(--nav-rule);
+  background: var(--nav-hover);
   color: var(--nav-ink);
 }
-/* The chosen half. Lilac with ink text in BOTH themes, because the rail
-   does not theme: it is the frame around the product rather than a surface
-   inside it, and `--nav-active` is a literal for that reason. */
+.sidenav__chrome .themeswitch__btn:focus-visible,
+.sidenav__chrome .localeswitch__btn:focus-visible {
+  outline: 2px solid var(--nav-active);
+  outline-offset: -2px;
+}
 .sidenav__chrome .themeswitch__btn[aria-pressed="true"],
 .sidenav__chrome .localeswitch__btn[aria-pressed="true"] {
   background: var(--nav-active);
   color: var(--nav-active-ink);
-}
-/* The word is what overflows first, and it is the half that carries the
-   meaning for a sighted reader, so the ICON goes before the word does.
-   The accessible name is on the button and is untouched either way. */
-@media (max-width: 1100px) {
-  .sidenav__chrome .themeswitch__btn { gap: 0; }
-  .sidenav__chrome .icon--theme { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sidenav__chrome .themeswitch__btn,
   .sidenav__chrome .localeswitch__btn { transition: none; }
 }
 
-/* -- the foot --------------------------------------------------------- */
-.sidenav__foot {
-  padding: 12px 16px 16px;
-  border-top: 2px solid var(--nav-rule);
-  display: grid; gap: 8px;
+/* THE STATUS CARD. Row 1: a dot and one status line, and the population
+   tag. Row 2: three counts, each with its noun. */
+.sidenav__status {
+  border: 1px solid var(--nav-edge);
+  border-radius: 10px;
+  background: var(--nav-status);
+  padding: 10px;
+  display: grid; gap: 10px;
 }
+.sidenav__statusrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-width: 0;
+}
+.sidenav__health {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-width: 0; min-height: 24px;
+  padding: 0; border: 0; background: none;
+  font: inherit; font-family: var(--sans); font-size: 11px;
+  color: var(--nav-status-ink);
+  text-align: left;
+  cursor: default;
+}
+.sidenav__healthtext { min-width: 0; line-height: 1.3; }
+.sidenav__dot {
+  width: 7px; height: 7px; flex-shrink: 0;
+  border-radius: 99px;
+  background: var(--nav-accent);
+}
+.sidenav__health.is-attention .sidenav__dot { background: var(--nav-yellow); }
+.sidenav__health.is-actionable { cursor: pointer; }
+.sidenav__health.is-actionable .sidenav__healthtext { text-decoration: underline; text-underline-offset: 2px; }
+.sidenav__health.is-actionable:hover { color: var(--nav-ink); }
+.sidenav__health:disabled { opacity: 1; }
+.sidenav__health:focus-visible { outline: 2px solid var(--nav-active); outline-offset: 2px; border-radius: 4px; }
+
+/* The population tag: PERSONAL in mint, DEMO in yellow, an outline only. */
+.sidenav__statusrow .topbar__mode { margin: 0; flex-shrink: 0; display: flex; }
+.sidenav__statusrow .health__mode {
+  display: inline-flex; align-items: center;
+  white-space: nowrap;
+  border: 1px solid var(--nav-accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--nav-accent);
+  font-family: var(--pixel);
+  font-size: 5px; letter-spacing: 0.08em; line-height: 1;
+  text-transform: uppercase;
+  padding: 3px 4px;
+}
+.sidenav__statusrow .health__mode--demo,
+.sidenav__statusrow .health__mode--unknown { border-color: var(--nav-yellow); color: var(--nav-yellow); }
+
 .sidenav__stats {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 6px; text-align: center;
+  display: grid; grid-template-columns: 1.6fr 1fr 1fr;
+  gap: 6px;
 }
-.sidenav__stat { display: grid; gap: 2px; }
+.sidenav__stat { display: grid; gap: 1px; min-width: 0; }
 .sidenav__statvalue {
   font-family: var(--mono); font-size: 13px; font-weight: 700;
   color: var(--nav-accent);
+  white-space: nowrap;
 }
-.sidenav__stat--open .sidenav__statvalue { color: var(--nav-active); }
+.sidenav__stat--open .sidenav__statvalue { color: var(--nav-open); }
 .sidenav__stat--interview .sidenav__statvalue { color: var(--nav-yellow); }
-.sidenav__statlabel { font-size: 10px; color: var(--nav-muted); }
+.sidenav__statlabel { font-size: 10px; line-height: 1.25; color: var(--nav-statlabel); overflow-wrap: break-word; }
 
 /* -------------------------------------------------------------------
    The page header contract
@@ -8023,43 +8071,51 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   .card__apply { grid-column: 2; }
 }
 
-/* Companion launch remains a normal link, separate from page navigation. */
-.sidenav a.topnav__link {
-  display: block;
-  width: auto;
-  box-sizing: border-box;
-  margin: 8px 12px;
-  padding: 12px;
-  border: 1px solid #c5b1ff;
-  border-radius: 8px;
-  color: #eee7ff;
-  font: inherit;
-  text-decoration: none;
-}
-
 /* =========================================================================
    GUIDED SETUP -- one question per card, on a fresh install.
    One card at a time, centred, with the same hard edge and offset shadow as
    every other card in the product, so the first screen is recognisably the
    same application as the rest of it rather than a separate wizard skin.
    ========================================================================= */
+/* The approved onboarding composition (1c): a named stepper, then one card
+   whose footer is inside it. One content column, 760px, centred. */
 .setup {
   display: grid;
-  justify-items: center;
-  gap: 12px;
-  padding: 8px 0 32px;
+  gap: 22px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 8px 0 40px;
 }
 .setup__loading { color: var(--muted); }
 .setup__card {
   width: 100%;
-  max-width: 640px;
+  box-sizing: border-box;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 6px 6px 0 var(--line);
+  overflow: hidden;
+}
+.setup__cardbody {
   display: grid;
   gap: 14px;
-  background: var(--surface);
-  border: var(--edge-strong) solid var(--line);
-  border-radius: var(--radius-card);
-  box-shadow: var(--offset-lg) var(--offset-lg) 0 var(--line);
-  padding: 24px;
+  padding: 24px 28px 0;
+  min-width: 0;
+}
+.setup__titlerow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.setup__optional {
+  display: inline-flex; align-items: center;
+  white-space: nowrap; flex-shrink: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-alt);
+  color: var(--ink);
+  font-family: var(--pixel);
+  font-size: 6px; letter-spacing: 0.1em; line-height: 1;
+  text-transform: uppercase;
+  padding: 4px 6px;
 }
 .setup__progress { display: grid; gap: 8px; }
 .setup__count {
@@ -8071,13 +8127,14 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 }
 .setup__title {
   margin: 0;
-  font-size: var(--t-display);
+  font-family: var(--display);
+  font-size: 26px; font-weight: 900;
   line-height: 1.15;
   color: var(--ink);
 }
 .setup__title:focus { outline: none; }
 .setup__title:focus-visible { outline: var(--edge-strong) solid var(--focus); outline-offset: 4px; }
-.setup__why { margin: 0; font-size: var(--t-body); color: var(--body); line-height: 1.5; }
+.setup__why { margin: 0; font-size: 14px; color: var(--body); line-height: 1.6; max-width: 60ch; }
 .setup__label { font-weight: 600; font-size: var(--t-body); color: var(--ink); }
 .setup__hint { margin: 0; font-size: var(--t-micro); color: var(--muted); line-height: 1.5; }
 .setup__done {
@@ -8143,16 +8200,63 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 .setup__chipx:focus-visible { outline: var(--edge-strong) solid var(--focus); outline-offset: 1px; }
 .setup__error { margin: 0; color: var(--block-ink); font-weight: 600; font-size: var(--t-body); }
 .setup__error:empty { display: none; }
+/* THE FOOTER, inside the card: Back on the left, the one skip and the one
+   primary on the right. */
 .setup__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
   justify-content: flex-end;
-  padding-top: 6px;
-  border-top: var(--rule-w, 1px) solid var(--rule);
+  gap: 12px 16px;
+  margin-top: 24px;
+  padding: 16px 28px;
+  border-top: 2px solid var(--line);
+  background: var(--surface-alt);
 }
-.setup__actions .btn { min-height: 40px; padding-inline: 18px; }
-.setup__later { color: var(--muted); }
+.setup__actions .btn { min-height: 40px; padding-inline: 16px; }
+.setup__actions .setup__back { margin-right: auto; }
+.setup__back::before { content: "\2190\00a0" / ""; }
+.setup__next::after { content: "\00a0\2192" / ""; }
+.setup__actions .btn--primary { white-space: nowrap; }
+.setup__skip { color: var(--muted); font-weight: 600; }
+.pagehead__later { color: var(--muted); font-weight: 600; }
+
+/* THE STEPPER: one pill bar per real step, named under it. */
+.stepper { display: grid; gap: 8px; }
+.stepper__list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
+}
+.stepper__step { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.stepper__bar {
+  display: block;
+  height: 8px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+}
+.stepper__step--done .stepper__bar { background: var(--mint); }
+.stepper__step--current .stepper__bar { background: var(--yellow); }
+.stepper__label {
+  display: flex; align-items: baseline; gap: 5px;
+  font-size: 12px; font-weight: 500; line-height: 1.3;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.stepper__step--current .stepper__label { font-weight: 700; }
+.stepper__step--upcoming .stepper__label { color: var(--muted); }
+.stepper__mark { font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
+.stepper__now { display: none; margin: 0; font-size: 13px; font-weight: 700; color: var(--ink); }
+@media (max-width: 640px) {
+  .stepper__list { gap: 4px; }
+  .stepper__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .stepper__now { display: block; }
+  .setup__cardbody { padding: 20px 18px 0; }
+  .setup__actions { padding: 14px 18px; }
+  .setup__title { font-size: 22px; }
+}
 .setup__summary {
   margin: 0;
   display: grid;
@@ -8881,71 +8985,302 @@ body.has-cw-drawer { overflow: hidden; }
 .contrib__source { font-size: 0.8rem; color: var(--muted); }
 .component--unconfigured .component__note { color: var(--muted); }
 
-/* Local profiles: one compact control in the rail; management in the drawer. */
-.sidenav__profile { margin: 0 12px 12px; }
-.lprof__trigger {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 6px 8px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px;
-  background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
-}
-.lprof__trigger:hover { border-color: rgba(255, 255, 255, 0.4); }
-.lprof__trigger:focus-visible { outline: 2px solid var(--match, #2a9d8f); outline-offset: 2px; }
-.lprof__text { display: grid; min-width: 0; flex: 1; line-height: 1.2; }
-.lprof__kicker { font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.04em; }
-.lprof__name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lprof__caret { opacity: 0.7; flex: none; }
-.lprof__dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #2a9d8f; }
-.lprof__dot--violet { background: #7b61ff; }
-.lprof__dot--amber { background: #e9a23b; }
-.lprof__dot--rose { background: #e56b8a; }
-.lprof__dot--sky { background: #3b9ae9; }
-.lprof__dot--lime { background: #7cb342; }
-.lprof__label { margin: 4px 0 6px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
-.lprof__label--quiet { margin-top: 18px; }
-.lprof__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.lprof__row {
-  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
-  padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px;
-  background: var(--paper, transparent); color: var(--ink); font: inherit; text-align: left;
-}
-button.lprof__row { cursor: pointer; }
-button.lprof__row:hover { border-color: var(--match); }
-.lprof__row--active { border-color: var(--match); background: var(--match-wash); }
-.lprof__rowname { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
-.lprof__inuse { font-size: 12px; color: var(--match-ink); }
-.lprof__go { color: var(--ink-faint); }
-.lprof__actions { display: flex; flex-wrap: wrap; gap: 4px 16px; }
-.lprof__action.is-open { text-decoration: underline; }
-.lprof__slot:empty { display: none; }
-.lprof__form {
-  display: grid; gap: 10px; margin-top: 10px; padding: 12px;
-  border: 1px solid var(--rule); border-radius: 8px;
-}
-.lprof__form--danger { border-color: var(--block-ink, #b3261e); }
-.lprof__field { display: grid; gap: 4px; }
-.lprof__formactions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.lprof__danger { color: var(--block-ink, #b3261e); border-color: var(--block-ink, #b3261e); }
-.lprof__status:empty { display: none; }
+/* =====================================================================
+   LOCAL PROFILES (approved spec 1b)
 
-/* Roles in mind: the person's own roles first; suggestions quietly below. */
-.roles { display: grid; gap: 12px; }
-.roles__primary .tags__input { max-width: none; width: 100%; font-size: 1rem; padding: 10px 12px; box-sizing: border-box; }
-.roles__note { margin: 0; }
-.roles__extras { display: grid; gap: 10px; }
-.roles__suggestions { border-top: 1px solid var(--rule); padding-top: 12px; display: grid; gap: 8px; }
-.roles__suggestLabel { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
-.roles__suggestList { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.roles__suggestList li { max-width: 100%; }
-.roles__chip {
-  display: inline-flex; align-items: flex-start; gap: 6px; max-width: 100%;
-  padding: 5px 12px; border: 1px dashed var(--rule-strong); border-radius: 999px;
-  background: transparent; color: var(--ink); font: inherit; font-size: 13px;
+   In the rail: an eyebrow and ONE compact button. The menu it opens floats
+   over the navigation (fixed, attached to the page so the rail's own scroll
+   never clips it) and may overhang the rail's edge. The menu is a light
+   surface in both themes, like the rail is dark in both: it is part of the
+   frame, not of the page.
+   ===================================================================== */
+.lprof__eyebrow {
+  margin: 0 4px 8px;
+  font-family: var(--pixel);
+  font-size: 6px; letter-spacing: 0.15em; line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--nav-group);
+}
+.lprof__trigger {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid var(--nav-edge);
+  border-radius: 8px;
+  background: var(--nav-button);
+  color: var(--nav-ink);
+  font: inherit; font-family: var(--sans);
   text-align: left; cursor: pointer;
 }
-.roles__chip:hover, .roles__chip:focus-visible { border-style: solid; border-color: var(--match); }
-.roles__chipPlus { color: var(--match-ink); font-weight: 700; }
-.roles__chipText { display: grid; min-width: 0; }
-.roles__chipRole { font-weight: 600; overflow-wrap: anywhere; }
-.roles__chipContext { font-size: 12px; color: var(--ink-faint); overflow-wrap: anywhere; }
-.roles__aliases { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.lprof__trigger:hover { background: #2c2c27; }
+.lprof__trigger.is-open { border-color: var(--nav-accent); }
+.lprof__trigger:focus-visible { outline: 2px solid var(--nav-active); outline-offset: 2px; }
+.lprof__name {
+  flex: 1; min-width: 0;
+  font-size: 13px; font-weight: 600; color: #f2efe6;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lprof__caret { flex-shrink: 0; font-size: 10px; color: #8a8a82; }
+
+/* The initials tile: each profile its own pastel, ink text, mono. */
+.lprof__tile {
+  width: 24px; height: 24px; flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid #1a1a1a; border-radius: 6px;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: #1a1a1a;
+  background: #a8f0cc;
+}
+.lprof__tile--small { width: 22px; height: 22px; font-size: 9px; }
+.lprof__tile--teal { background: #a8f0cc; }
+.lprof__tile--violet { background: #ddd0ff; }
+.lprof__tile--amber { background: #fef08a; }
+.lprof__tile--sky { background: #bcd7ff; }
+.lprof__tile--rose { background: #ffd0dc; }
+.lprof__tile--lime { background: #d9f5a8; }
+
+.lprof__menu {
+  position: fixed;
+  z-index: 60;
+  box-sizing: border-box;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 2px solid #1a1a1a;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 #000000;
+  font-family: var(--sans);
+}
+.lprof__heading {
+  margin: 0;
+  padding: 10px 12px 6px;
+  font-family: var(--pixel);
+  font-size: 6px; letter-spacing: 0.12em; line-height: 1.4;
+  text-transform: uppercase;
+  color: #6b6b6b;
+}
+.lprof__list {
+  list-style: none; margin: 0;
+  padding: 0 6px 6px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.lprof__row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px;
+  border-radius: 7px;
+}
+.lprof__row.is-current { background: #f8f5ec; }
+.lprof__rowtext { flex: 1; min-width: 0; display: block; }
+.lprof__rowname {
+  display: block;
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lprof__meta { display: block; font-size: 11px; color: #5c5c5c; }
+.lprof__edit {
+  width: 26px; height: 26px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid #1a1a1a; border-radius: 6px;
+  background: #ffffff; color: #1a1a1a;
+  font-size: 12px; cursor: pointer;
+}
+.lprof__edit:hover, .lprof__edit.is-open { background: #fef08a; }
+.lprof__switch {
+  flex-shrink: 0;
+  border: 0; background: none; padding: 0 4px;
+  font: inherit; font-family: var(--sans); font-size: 12px; font-weight: 600;
+  color: #4a4a4a;
+  text-decoration: underline; text-underline-offset: 2px;
+  cursor: pointer;
+}
+.lprof__switch:hover { color: #1a1a1a; }
+.lprof__menu button:focus-visible,
+.lprof__menu input:focus-visible {
+  outline: 2px solid #7b61ff;
+  outline-offset: 2px;
+}
+
+.lprof__panel {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 12px;
+  border-top: 1.5px solid #e0ddd0;
+  background: #f8f5ec;
+}
+.lprof__panel--rename { background: #fef9d0; }
+.lprof__panellabel { font-size: 12px; font-weight: 600; }
+.lprof__input {
+  width: 100%; box-sizing: border-box;
+  border: 2px solid #1a1a1a; border-radius: 8px;
+  background: #ffffff; color: #1a1a1a;
+  padding: 7px 9px;
+  font: inherit; font-family: var(--sans); font-size: 13px;
+}
+.lprof__input::placeholder { color: #767676; }
+.lprof__hint { margin: 0; font-size: 11px; line-height: 1.4; color: #5c5c5c; }
+.lprof__panelactions { display: flex; gap: 6px; justify-content: flex-end; }
+.lprof__btn {
+  border: 1.5px solid #1a1a1a; border-radius: 7px;
+  background: #ffffff; color: #1a1a1a;
+  padding: 5px 10px;
+  font: inherit; font-family: var(--sans); font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.lprof__btn--primary { background: #1a1a1a; color: #fffdf5; font-weight: 700; }
+.lprof__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.lprof__newrow { padding: 6px; border-top: 1.5px solid #e0ddd0; }
+.lprof__new {
+  width: 100%;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 6px;
+  border: 0; border-radius: 7px;
+  background: none; color: #1a1a1a;
+  font: inherit; font-family: var(--sans); font-size: 13px; font-weight: 600;
+  text-align: left; cursor: pointer;
+}
+.lprof__new:hover { background: #f8f5ec; }
+.lprof__plus {
+  width: 22px; height: 22px; flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px dashed #1a1a1a; border-radius: 6px;
+  font-size: 13px;
+}
+.lprof__status { margin: 0; padding: 0 12px 8px; font-size: 12px; color: #4a4a4a; }
+.lprof__status:empty { display: none; }
+.lprof__note {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin-top: auto;
+  padding: 9px 12px;
+  border-top: 1.5px solid #1a1a1a;
+  background: #fff8f0;
+}
+.lprof__note p { margin: 0; font-size: 11px; line-height: 1.45; color: #4a4a4a; }
+.lprof__noteicon {
+  width: 12px; height: 12px; flex-shrink: 0; margin-top: 2px;
+  image-rendering: pixelated;
+}
+
+/* Deleting a profile, in Settings & Sources. */
+.lprof__delete { display: grid; gap: 12px; }
+.lprof__danger { color: var(--block-ink); border-color: var(--block-ink); justify-self: start; }
+.lprof__settingsstatus { margin: 0; }
+.lprof__settingsstatus:empty { display: none; }
+
+/* ROLES IN MIND (approved spec 1c). The person's own roles are the control:
+   a full-width token field. Career Profile titles are cards below it, and
+   one callout says what roles do and do not do. */
+.roles { display: grid; gap: 8px; min-width: 0; }
+.roles__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.roles__label { font-size: 13px; font-weight: 700; color: var(--ink); }
+.roles__count { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.roles__field {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  width: 100%; min-height: 48px; box-sizing: border-box;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 8px 10px;
+  cursor: text;
+}
+.roles__field:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.roles__chips { display: contents; }
+.roles__chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  white-space: nowrap; flex-shrink: 0; max-width: 100%;
+  border: 1.5px solid var(--line);
+  border-radius: 7px;
+  background: var(--lilac);
+  color: var(--ink);
+  font-size: 13px; font-weight: 600;
+  padding: 4px 4px 4px 10px;
+}
+.roles__chiptext { overflow: hidden; text-overflow: ellipsis; }
+.roles__chipx {
+  border: 0; background: none; padding: 0 5px;
+  font-size: 11px; line-height: 1; color: var(--ink);
+  cursor: pointer;
+}
+.roles__chipx:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; border-radius: 3px; }
+.roles__input {
+  flex: 1 1 200px; min-width: 0;
+  border: 0; background: none; outline: none;
+  padding: 6px 4px;
+  font: inherit; font-size: 14px;
+  color: var(--ink);
+}
+.roles__input::placeholder { color: var(--muted); }
+.roles__hint { margin: 0; font-size: 12px; color: var(--muted); }
+.roles__aliases { margin: 0; font-size: 12px; color: var(--muted); }
+.roles__aliases:empty { display: none; }
+
+.roles__suggestions { display: grid; gap: 6px; margin-top: 14px; }
+.roles__suggestions:empty { display: none; }
+.roles__eyebrow {
+  margin: 0;
+  font-family: var(--pixel);
+  font-size: 7px; font-weight: 400; letter-spacing: 0.1em; line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.roles__suggestnote { margin: 0 0 6px; font-size: 13px; color: var(--body); }
+.roles__grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+}
+.roles__card {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; height: 100%; box-sizing: border-box;
+  text-align: left; cursor: pointer;
+  font: inherit; color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: var(--surface);
+  box-shadow: 3px 3px 0 var(--line);
+  transition: transform 75ms ease, box-shadow 75ms ease, background-color 75ms ease;
+}
+.roles__card:hover { background: var(--surface-alt); }
+.roles__card:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.roles__card.is-added {
+  background: var(--mint-soft);
+  box-shadow: none;
+  transform: translate(3px, 3px);
+}
+.roles__cardtext { flex: 1; min-width: 0; display: block; }
+.roles__cardrole { display: block; font-size: 14px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.roles__cardcontext {
+  display: block; margin-top: 2px;
+  font-size: 12px; line-height: 1.4; color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.roles__cardtag {
+  display: inline-flex; align-items: center;
+  white-space: nowrap; flex-shrink: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px; font-weight: 700;
+  padding: 4px 9px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.roles__card.is-added .roles__cardtag { background: var(--btn-bg); color: var(--btn-fg); }
+@media (prefers-reduced-motion: reduce) { .roles__card { transition: none; } }
+
+/* One callout, the only place roles are explained. */
+.roles__callout {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin-top: 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--tint-warm);
+  padding: 12px 14px;
+}
+.roles__callout p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--body); }
+.roles__callout strong { color: var(--ink); }
+.roles__callouticon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; image-rendering: pixelated; }
+.roles__status { margin: 0; font-size: 12px; color: var(--muted); }
 .roles__status:empty { display: none; }

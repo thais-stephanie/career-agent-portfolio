@@ -3,27 +3,43 @@
  *
  * LOCAL PROFILES, NOT ACCOUNTS. There is no sign-in and no password: a
  * profile keeps one person's CV, evidence, preferences, scores and
- * applications apart from another's in this app on this computer. The panel
- * says so, because anybody using the same computer account can still read
- * the files.
+ * applications apart from another's in this app on this computer. The menu
+ * says so in two lines, because anybody using the same computer account can
+ * still open every profile.
  *
- * THE RAIL STAYS SHORT. The side rail shows one compact control: whose
- * profile this is, and a way in. Everything else (switching, creating,
- * renaming, deleting) lives in the app's standard side drawer, where
- * switching comes first and each management action reveals its one input
- * only when chosen. Switching reloads the page, so nothing of the previous
- * profile stays in memory on any screen.
+ * THE RAIL STAYS SHORT. The side rail shows one compact button: whose
+ * profile this is. It opens a small MENU that floats over the navigation (it
+ * never pushes it down): every profile on this computer, the open one first
+ * in its place, one click to switch to another. Renaming and creating are
+ * revealed only on demand and never at the same time. Deleting a profile is
+ * rarer and permanent enough to live in Settings & Sources instead, behind a
+ * typed confirmation (`mountSettings`).
+ *
+ * Switching reloads the page on Home, so nothing of the previous profile
+ * stays in memory on any screen, and other tabs of this app reload too.
  */
 
 import { el, button, replace } from './dom.js';
-import { t } from './i18n.js';
-import { openDrawer } from './ui.js';
+import { t, getLocale } from './i18n.js';
 import * as api from './api.js';
 
 const CHANNEL = 'career-agent-local-profile';
 
+/** The initials on a profile's tile: up to two, from its name's words. */
+export function initials(label) {
+  const words = String(label || '').split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word));
+  const letters = words.slice(0, 2).map((word) => word.match(/[\p{L}\p{N}]/u)[0].toLocaleUpperCase());
+  return letters.join('') || '?';
+}
+
 export function createLocalProfiles(host) {
   let data = null;
+  //: The menu, while it is open; null otherwise.
+  let menu = null;
+  //: Which panel the menu shows: null, 'rename' or 'create'. Never both.
+  let panel = null;
+  let settingsHost = null;
+
   // Every other tab of this app reloads when one switches profile.
   let channel = null;
   try {
@@ -41,12 +57,14 @@ export function createLocalProfiles(host) {
     }
     api.setLocalProfile(data && data.enabled && data.active ? data.active.id : null);
     draw();
+    drawSettings();
   }
 
-  function dot(color) {
+  function tile(profile, size = '') {
     return el('span', {
-      className: `lprof__dot lprof__dot--${color || 'teal'}`,
+      className: `lprof__tile lprof__tile--${profile.color || 'teal'}${size ? ` lprof__tile--${size}` : ''}`,
       attrs: { 'aria-hidden': 'true' },
+      text: initials(profile.label),
     });
   }
 
@@ -54,219 +72,411 @@ export function createLocalProfiles(host) {
   function draw() {
     if (!host) return;
     if (!data || !data.enabled || !data.active) {
+      closeMenu({ restore: false });
       replace(host, []);
       host.hidden = true;
       return;
     }
     host.hidden = false;
     const active = data.active;
+    const open = Boolean(menu);
     replace(host, [
+      el('p', { className: 'lprof__eyebrow', attrs: { id: 'lprof-eyebrow' }, text: t('profiles.kicker') }),
       el('button', {
-        className: 'lprof__trigger',
+        className: `lprof__trigger${open ? ' is-open' : ''}`,
         attrs: {
           type: 'button',
           id: 'lprof-trigger',
           'aria-haspopup': 'dialog',
+          'aria-expanded': String(open),
+          'aria-controls': 'lprof-menu',
           'aria-label': t('profiles.activeAria', { name: active.label }),
         },
-        on: { click: () => manage() },
+        on: { click: () => (menu ? closeMenu() : openMenu()) },
       }, [
-        dot(active.color),
-        el('span', { className: 'lprof__text' }, [
-          el('span', { className: 'lprof__kicker', text: t('profiles.kicker') }),
-          el('span', { className: 'lprof__name', text: active.label }),
-        ]),
-        el('span', { className: 'lprof__caret', attrs: { 'aria-hidden': 'true' }, text: '▾' }),
+        tile(active),
+        el('span', { className: 'lprof__name', text: active.label }),
+        el('span', { className: 'lprof__caret', attrs: { 'aria-hidden': 'true' }, text: open ? '▴' : '▾' }),
       ]),
     ]);
   }
 
-  // -------------------------------------------------------------- the drawer
-  function manage() {
-    const drawer = openDrawer({
-      eyebrow: t('profiles.kicker'),
-      title: t('profiles.drawerTitle'),
-      lede: t('profiles.explain'),
-      onClose: () => {
-        // The rail is redrawn, so focus returns to the new trigger.
-        draw();
-        const trigger = document.getElementById('lprof-trigger');
-        if (trigger) trigger.focus();
+  // ---------------------------------------------------------------- the menu
+  function trigger() {
+    return document.getElementById('lprof-trigger');
+  }
+
+  /**
+   * The menu is attached to the page, not to the rail: the rail scrolls on
+   * its own and would clip anything that overhangs its edge. It is placed
+   * under the button, fixed, and follows it on resize and scroll.
+   */
+  function place() {
+    if (!menu) return;
+    const anchor = trigger();
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(252, window.innerWidth - 16);
+    const left = Math.max(8, Math.min(rect.left - 2, window.innerWidth - width - 8));
+    menu.style.width = `${width}px`;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.maxHeight = `${Math.max(160, window.innerHeight - rect.bottom - 16)}px`;
+  }
+
+  function openMenu() {
+    if (menu || !data || !data.enabled) return;
+    panel = null;
+    menu = el('div', {
+      className: 'lprof__menu',
+      attrs: {
+        id: 'lprof-menu',
+        role: 'dialog',
+        'aria-modal': 'false',
+        'aria-label': t('profiles.menuLabel'),
       },
+      on: { keydown: onMenuKey },
     });
-    const status = el('p', {
-      className: 'lprof__status',
-      attrs: { role: 'status', 'aria-live': 'polite', tabindex: '-1' },
-    });
-    const slot = el('div', { className: 'lprof__slot', attrs: { id: 'lprof-slot' } });
-    let open = null;
+    document.body.appendChild(menu);
+    renderMenu();
+    draw();
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    document.addEventListener('pointerdown', onOutside, true);
+    document.addEventListener('focusin', onFocusMove, true);
+    const first = menu.querySelector('.lprof__edit, .lprof__switch, button');
+    if (first) first.focus();
+  }
 
-    function fail(error) {
-      status.textContent = error.userMessage || error.message;
+  function closeMenu({ restore = true } = {}) {
+    if (!menu) return;
+    window.removeEventListener('resize', place);
+    window.removeEventListener('scroll', place, true);
+    document.removeEventListener('pointerdown', onOutside, true);
+    document.removeEventListener('focusin', onFocusMove, true);
+    menu.remove();
+    menu = null;
+    panel = null;
+    draw();
+    if (restore) {
+      const back = trigger();
+      if (back) back.focus();
     }
+  }
 
-    function list() {
-      return el('ul', { className: 'lprof__list', attrs: { 'aria-label': t('profiles.listLabel') } },
-        data.profiles.map((profile) => el('li', {}, [
-          profile.active
-            ? el('div', { className: 'lprof__row lprof__row--active', attrs: { 'aria-current': 'true' } }, [
-              dot(profile.color),
-              el('span', { className: 'lprof__rowname', text: profile.label }),
-              el('span', { className: 'lprof__inuse', text: t('profiles.inUse') }),
-            ])
-            : el('button', {
-              className: 'lprof__row lprof__switch',
-              dataset: { profile: profile.id },
-              attrs: { type: 'button', 'aria-label': t('profiles.switchTo', { name: profile.label }) },
-              on: {
-                click: async (event) => {
-                  const target = event.currentTarget;
-                  target.disabled = true;
-                  status.textContent = t('profiles.switching');
-                  try {
-                    await api.switchLocalProfile(profile.id);
-                    if (channel) channel.postMessage('switched');
-                    window.location.reload();
-                  } catch (error) {
-                    fail(error);
-                    target.disabled = false;
-                  }
-                },
-              },
-            }, [
-              dot(profile.color),
-              el('span', { className: 'lprof__rowname', text: profile.label }),
-              el('span', { className: 'lprof__go', attrs: { 'aria-hidden': 'true' }, text: '\u2192' }),
-            ]),
-        ])));
+  function inside(target) {
+    const anchor = trigger();
+    return Boolean(menu && (menu.contains(target) || (anchor && anchor.contains(target))));
+  }
+
+  function onOutside(event) {
+    if (menu && !inside(event.target)) closeMenu({ restore: false });
+  }
+
+  function onFocusMove(event) {
+    if (menu && !inside(event.target)) closeMenu({ restore: false });
+  }
+
+  function onMenuKey(event) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    // Esc inside a panel cancels the panel; Esc anywhere else closes the menu.
+    if (panel) togglePanel(null);
+    else closeMenu();
+  }
+
+  function status() {
+    return menu ? menu.querySelector('.lprof__status') : null;
+  }
+
+  function fail(error) {
+    const line = status();
+    if (line) line.textContent = error.userMessage || error.message;
+  }
+
+  function createdOn(profile) {
+    const when = profile.created_at ? new Date(profile.created_at) : null;
+    if (!when || Number.isNaN(when.getTime())) return '';
+    const date = when.toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
+    return t('profiles.createdOn', { date });
+  }
+
+  async function switchTo(profile, target) {
+    if (target) target.disabled = true;
+    const line = status();
+    if (line) line.textContent = t('profiles.switching');
+    try {
+      await api.switchLocalProfile(profile.id);
+      if (channel) channel.postMessage('switched');
+      // Land on Home, whatever page this was.
+      window.location.assign(window.location.pathname);
+    } catch (error) {
+      fail(error);
+      if (target) target.disabled = false;
     }
+  }
 
-    function form(key, fields, submitLabel, onSubmit, { danger = false } = {}) {
-      const node = el('form', {
-        className: `lprof__form${danger ? ' lprof__form--danger' : ''}`,
-        dataset: { action: key },
-        on: {
-          submit: async (event) => {
-            event.preventDefault();
-            try { await onSubmit(); } catch (error) { fail(error); }
+  function row(profile) {
+    const current = Boolean(profile.active);
+    return el('li', {
+      className: `lprof__row${current ? ' is-current' : ''}`,
+      dataset: { profile: profile.id },
+      attrs: current ? { 'aria-current': 'true' } : {},
+    }, [
+      tile(profile, 'small'),
+      el('span', { className: 'lprof__rowtext' }, [
+        el('span', { className: 'lprof__rowname', text: profile.label }),
+        el('span', { className: 'lprof__meta', text: current ? t('profiles.openNow') : createdOn(profile) }),
+      ]),
+      current
+        ? el('button', {
+          className: `lprof__edit${panel === 'rename' ? ' is-open' : ''}`,
+          attrs: {
+            type: 'button',
+            id: 'lprof-action-rename',
+            title: t('profiles.renameThis'),
+            'aria-label': t('profiles.renameThis'),
+            'aria-expanded': String(panel === 'rename'),
+            'aria-controls': 'lprof-panel',
           },
-        },
-      }, [
-        ...fields,
-        el('div', { className: 'lprof__formactions' }, [
-          el('button', {
-            className: danger ? 'btn lprof__danger' : 'btn btn--primary',
-            attrs: { type: 'submit' },
-            text: submitLabel,
-          }),
-          button(t('profiles.cancel'), () => toggle(null), { className: 'btn btn--link' }),
-        ]),
-      ]);
-      return node;
-    }
+          on: { click: () => togglePanel('rename') },
+          text: '✎︎',
+        })
+        : el('button', {
+          className: 'lprof__switch',
+          attrs: { type: 'button', 'aria-label': t('profiles.switchTo', { name: profile.label }) },
+          on: { click: (event) => switchTo(profile, event.currentTarget) },
+          text: t('profiles.switch'),
+        }),
+    ]);
+  }
 
-    function field(id, label, input, hint = '') {
-      return el('div', { className: 'lprof__field' }, [
-        el('label', { attrs: { for: id }, text: label }),
-        input,
-        hint ? el('p', { className: 'field__hint', text: hint }) : null,
-      ].filter(Boolean));
-    }
-
-    const forms = {
-      create: () => {
-        const box = el('input', {
-          className: 'input', attrs: { id: 'lprof-new', type: 'text', maxlength: '40', autocomplete: 'off' },
-        });
-        return form('create', [field('lprof-new', t('profiles.newLabel'), box, t('profiles.newHint'))],
-          t('profiles.create'), async () => {
-            data = await api.createLocalProfile(box.value);
-            status.textContent = t('profiles.created', { name: data.created.label });
-            toggle(null, { focus: status });
-          });
-      },
-      rename: () => {
-        const box = el('input', {
-          className: 'input',
-          attrs: { id: 'lprof-rename', type: 'text', maxlength: '40', autocomplete: 'off' },
-          props: { value: data.active.label },
-        });
-        return form('rename', [field('lprof-rename', t('profiles.renameLabel'), box)],
-          t('profiles.rename'), async () => {
-            data = await api.renameLocalProfile(data.active.id, box.value);
-            status.textContent = t('profiles.renamed');
-            toggle(null, { focus: status });
-          });
-      },
-      remove: () => {
-        const deletable = data.profiles.filter((p) => !p.active && !p.original);
-        const which = el('select', { className: 'input', attrs: { id: 'lprof-delete-which' } },
-          deletable.map((p) => el('option', { attrs: { value: p.id }, text: p.label })));
-        const typed = el('input', {
-          className: 'input', attrs: { id: 'lprof-delete-confirm', type: 'text', autocomplete: 'off' },
-        });
-        return form('remove', [
-          field('lprof-delete-which', t('profiles.deleteWhich'), which),
-          field('lprof-delete-confirm', t('profiles.deleteConfirm'), typed, t('profiles.deleteHint')),
-        ], t('profiles.delete'), async () => {
-          data = await api.deleteLocalProfile(which.value, typed.value);
-          status.textContent = t('profiles.deleted');
-          toggle(null, { focus: status });
-        }, { danger: true });
-      },
+  function renamePanel() {
+    const box = el('input', {
+      className: 'lprof__input',
+      attrs: { id: 'lprof-rename', type: 'text', maxlength: '40', autocomplete: 'off' },
+      props: { value: data.active.label },
+    });
+    const save = async () => {
+      const name = box.value.trim();
+      if (!name || name === data.active.label) {
+        togglePanel(null);
+        return;
+      }
+      try {
+        data = await api.renameLocalProfile(data.active.id, name);
+        draw();
+        togglePanel(null);
+        const line = status();
+        if (line) line.textContent = t('profiles.renamed');
+      } catch (error) {
+        fail(error);
+      }
     };
+    box.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        save();
+      }
+    });
+    return el('div', { className: 'lprof__panel lprof__panel--rename', attrs: { id: 'lprof-panel' } }, [
+      el('label', { className: 'lprof__panellabel', attrs: { for: 'lprof-rename' }, text: t('profiles.renameThis') }),
+      box,
+      el('div', { className: 'lprof__panelactions' }, [
+        button(t('profiles.cancel'), () => togglePanel(null), { className: 'lprof__btn' }),
+        button(t('profiles.save'), save, { className: 'lprof__btn lprof__btn--primary', attrs: { id: 'lprof-save' } }),
+      ]),
+    ]);
+  }
 
-    function toggle(key, { focus = null } = {}) {
-      const previous = open;
-      open = open === key ? null : key;
-      render();
-      // Never let focus fall out of the drawer when its content is redrawn:
-      // into the revealed field, back onto the action that closed, or onto
-      // the status line that says what happened.
-      if (open) {
-        const first = slot.querySelector('input, select');
-        if (first) first.focus();
-      } else if (focus) {
-        focus.focus();
-      } else if (previous) {
-        const back = document.getElementById(`lprof-action-${previous}`);
-        if (back) back.focus();
+  function createPanel() {
+    const box = el('input', {
+      className: 'lprof__input',
+      attrs: {
+        id: 'lprof-new',
+        type: 'text',
+        maxlength: '40',
+        autocomplete: 'off',
+        placeholder: t('profiles.newPlaceholder'),
+        'aria-describedby': 'lprof-new-hint',
+      },
+    });
+    const create = button(t('profiles.create'), () => submit(), {
+      className: 'lprof__btn lprof__btn--primary',
+      attrs: { id: 'lprof-create' },
+    });
+    const ready = () => box.value.trim().length > 0;
+    const sync = () => { create.disabled = !ready(); };
+    async function submit() {
+      if (!ready()) return;
+      create.disabled = true;
+      try {
+        const made = await api.createLocalProfile(box.value.trim());
+        // A new profile is where its creator wants to be: open it.
+        await switchTo(made.created, null);
+      } catch (error) {
+        fail(error);
+        sync();
       }
     }
+    box.addEventListener('input', sync);
+    box.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submit();
+      }
+    });
+    sync();
+    return el('div', { className: 'lprof__panel lprof__panel--create', attrs: { id: 'lprof-panel' } }, [
+      el('label', { className: 'lprof__panellabel', attrs: { for: 'lprof-new' }, text: t('profiles.newLabel') }),
+      box,
+      el('p', { className: 'lprof__hint', attrs: { id: 'lprof-new-hint' }, text: t('profiles.newHint') }),
+      el('div', { className: 'lprof__panelactions' }, [
+        button(t('profiles.cancel'), () => togglePanel(null), { className: 'lprof__btn' }),
+        create,
+      ]),
+    ]);
+  }
 
-    function actions() {
-      const deletable = data.profiles.some((p) => !p.active && !p.original);
-      const action = (key, label) => button(label, () => toggle(key), {
-        className: `btn btn--link lprof__action${open === key ? ' is-open' : ''}`,
-        attrs: {
-          id: `lprof-action-${key}`,
-          'aria-expanded': String(open === key),
-          'aria-controls': 'lprof-slot',
+  function togglePanel(key) {
+    const previous = panel;
+    panel = panel === key ? null : key;
+    renderMenu();
+    if (panel === 'rename') {
+      const box = menu.querySelector('#lprof-rename');
+      if (box) {
+        box.focus();
+        box.select();
+      }
+    } else if (panel === 'create') {
+      const box = menu.querySelector('#lprof-new');
+      if (box) box.focus();
+    } else if (previous) {
+      // Focus goes back to what opened the panel, never out of the menu.
+      const back = menu.querySelector(previous === 'rename' ? '#lprof-action-rename' : '#lprof-action-create');
+      if (back) back.focus();
+    }
+  }
+
+  function renderMenu() {
+    if (!menu) return;
+    replace(menu, [
+      el('p', { className: 'lprof__heading', text: t('profiles.onThisComputer') }),
+      el('ul', { className: 'lprof__list', attrs: { 'aria-label': t('profiles.listLabel') } },
+        data.profiles.map(row)),
+      panel === 'rename' ? renamePanel() : null,
+      panel === 'create'
+        ? createPanel()
+        : el('div', { className: 'lprof__newrow' }, [
+          el('button', {
+            className: 'lprof__new',
+            attrs: {
+              type: 'button',
+              id: 'lprof-action-create',
+              'aria-expanded': 'false',
+              'aria-controls': 'lprof-panel',
+            },
+            on: { click: () => togglePanel('create') },
+          }, [
+            el('span', { className: 'lprof__plus', attrs: { 'aria-hidden': 'true' }, text: '+' }),
+            el('span', { text: t('profiles.newAction') }),
+          ]),
+        ]),
+      el('p', { className: 'lprof__status', attrs: { role: 'status', 'aria-live': 'polite' } }),
+      el('div', { className: 'lprof__note' }, [
+        el('img', {
+          className: 'lprof__noteicon',
+          attrs: { src: './px/px-noentry-16.png', alt: '', width: '12', height: '12' },
+        }),
+        el('p', { text: t('profiles.privacyShort') }),
+      ]),
+    ].filter(Boolean));
+    place();
+  }
+
+  // ------------------------------------------------ deleting, in Settings
+  /**
+   * Deleting is permanent enough to be kept out of the menu: it lives in
+   * Settings & Sources, lists only profiles that may be deleted (never the
+   * open one, never the installation's original) and asks for the name to be
+   * typed. The folder is moved to the trash, not erased.
+   */
+  function drawSettings() {
+    if (!settingsHost) return;
+    const block = settingsHost.closest('section');
+    const enabled = Boolean(data && data.enabled && data.active);
+    if (block) block.hidden = !enabled;
+    if (!enabled) {
+      replace(settingsHost, []);
+      return;
+    }
+    const deletable = data.profiles.filter((p) => !p.active && !p.original);
+    const note = el('p', { className: 'field__hint', text: t('profiles.explain') });
+    if (!deletable.length) {
+      replace(settingsHost, [note, el('p', { className: 'field__hint', text: t('profiles.nothingToDelete') })]);
+      return;
+    }
+    const which = el('select', { className: 'input', attrs: { id: 'lprof-delete-which' } },
+      deletable.map((p) => el('option', { attrs: { value: p.id }, text: p.label })));
+    const typed = el('input', {
+      className: 'input',
+      attrs: {
+        id: 'lprof-delete-confirm',
+        type: 'text',
+        autocomplete: 'off',
+        'aria-describedby': 'lprof-delete-hint',
+      },
+    });
+    const line = el('p', { className: 'lprof__settingsstatus', attrs: { role: 'status', 'aria-live': 'polite' } });
+    const form = el('form', {
+      className: 'lprof__delete',
+      on: {
+        submit: async (event) => {
+          event.preventDefault();
+          try {
+            data = await api.deleteLocalProfile(which.value, typed.value);
+            draw();
+            drawSettings();
+            const after = settingsHost.querySelector('.lprof__settingsstatus');
+            if (after) after.textContent = t('profiles.deleted');
+          } catch (error) {
+            line.textContent = error.userMessage || error.message;
+          }
         },
-      });
-      return el('div', { className: 'lprof__actions' }, [
-        action('create', t('profiles.newAction')),
-        action('rename', t('profiles.renameAction')),
-        deletable ? action('remove', t('profiles.deleteAction')) : null,
-      ].filter(Boolean));
-    }
+      },
+    }, [
+      el('div', { className: 'field' }, [
+        el('label', {
+          className: 'field__label', attrs: { for: 'lprof-delete-which' }, text: t('profiles.deleteWhich'),
+        }),
+        which,
+      ]),
+      el('div', { className: 'field' }, [
+        el('label', {
+          className: 'field__label', attrs: { for: 'lprof-delete-confirm' }, text: t('profiles.deleteConfirm'),
+        }),
+        typed,
+        el('p', { className: 'field__hint', attrs: { id: 'lprof-delete-hint' }, text: t('profiles.deleteHint') }),
+      ]),
+      el('button', { className: 'btn lprof__danger', attrs: { type: 'submit' }, text: t('profiles.delete') }),
+      line,
+    ]);
+    replace(settingsHost, [note, form]);
+  }
 
-    function render() {
-      const rows = list();
-      replace(slot, open ? [forms[open]()] : []);
-      replace(drawer.body, [
-        el('p', { className: 'lprof__label', text: t('profiles.switchHeading') }),
-        rows,
-        el('p', { className: 'lprof__label lprof__label--quiet', text: t('profiles.manageHeading') }),
-        actions(),
-        slot,
-        status,
-      ]);
-    }
+  function mountSettings(node) {
+    settingsHost = node;
+    drawSettings();
+  }
 
-    render();
+  function retranslate() {
+    draw();
+    if (menu) renderMenu();
+    drawSettings();
   }
 
   load();
-  return { retranslate: draw, reload: load };
+  return { retranslate, reload: load, mountSettings };
 }

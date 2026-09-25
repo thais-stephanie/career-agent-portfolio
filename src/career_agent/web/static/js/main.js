@@ -40,7 +40,6 @@ import { evidencePage } from './evidence_page.js';
 import { experienceView } from './experience.js';
 import { createDaily } from './daily.js';
 import { createHome } from './home.js';
-import { localeFlag } from './icons.js';
 import { createSourcesPanel } from './sources.js';
 import { createShell } from './shell.js';
 import { createLocalProfiles } from './local-profiles.js';
@@ -60,6 +59,7 @@ const dom = {
   hidden: document.getElementById('hiddennotice'),
   revision: document.getElementById('revnotice'),
   healthSummary: document.getElementById('health-summary'),
+  healthSummaryText: document.getElementById('health-summary-text'),
   healthMode: document.getElementById('health-mode'),
   list: document.getElementById('list'),
   boardEmpty: document.getElementById('boardempty'),
@@ -282,6 +282,14 @@ function headerAction(page) {
   if (page === 'evidence') {
     return button(t('evp.add'), () => evidenceView.add(), { className: 'btn btn--primary' });
   }
+  if (page === 'home' && homeHeader === 'setup') {
+    // THE ONE GLOBAL EXIT from the guided setup, in its header. What was
+    // answered is kept; the flow offers itself again later.
+    return button(t('setup.later'), () => home.leaveSetup(), {
+      className: 'btn btn--link pagehead__later',
+      attrs: { id: 'setup-later' },
+    });
+  }
   return null;
 }
 
@@ -299,7 +307,7 @@ const home = createHome({
   // job search", so Home says which of the two it is showing.
   onSetupShown: (shown) => {
     homeHeader = shown ? 'setup' : 'home';
-    if (currentPage === 'home') shell.setPage(homeHeader);
+    if (currentPage === 'home') shell.setPage(homeHeader, { action: headerAction('home') });
   },
 });
 PAGES.home.appendChild(home.root);
@@ -1837,11 +1845,11 @@ async function showHealth() {
           // exists to end: server text arriving already translated into one
           // language. The banner stays as the fallback for a mode this
           // catalogue has never heard of, which is better than an enum.
-          text: tState('mode', runtime.mode, runtime.banner || ''),
+          text: tState('modeTag', runtime.mode, runtime.banner || ''),
           attrs: {
-            title: runtime.is_personal
+            title: `${tState('mode', runtime.mode, runtime.banner || '')}. ${runtime.is_personal
               ? t('health.modePersonalHelp')
-              : t('health.modeDemoHelp'),
+              : t('health.modeDemoHelp')}`,
           },
         }),
       ]);
@@ -1910,23 +1918,53 @@ async function showHealth() {
       }),
     ]);
 
-    // How many of those statuses are something a person might act on. The
-    // summary says so, so the disclosure is worth opening when it matters
-    // and ignorable when it does not.
-    const wrong = (health.search_indexed === false ? 1 : 0)
+    // How many of those statuses are something a person might act on. They
+    // are not sources, so they only speak when no source needs attention;
+    // the details are the status line's tooltip.
+    railStatus.degraded = (health.search_indexed === false ? 1 : 0)
       + (Number(health.stale_scores) > 0 ? 1 : 0);
-    if (dom.healthSummary) {
-      // Two keys rather than one with a pluralised noun. `pluralise` adds an
-      // English `s`, and Portuguese does not inflect "coisa" the same way a
-      // count of one and a count of many inflect everything around it.
-      dom.healthSummary.textContent = wrong
-        ? (wrong === 1 ? t('health.worthKnowingOne') : t('health.worthKnowing', { n: wrong }))
-        : t('health.allWorking');
-      dom.healthSummary.className = wrong ? 'health__summary is-degraded' : 'health__summary';
-    }
+    railStatus.detail = dom.health.textContent;
+    drawRailStatus();
   } catch {
     dom.health.textContent = t('health.unknown');
   }
+}
+
+//: What the rail's one status line is drawn from: sources whose last refresh
+//: failed (from `/api/sources`, the same rows Settings & Sources shows) and
+//: local conditions worth knowing (from `/api/health`).
+const railStatus = { failed: null, degraded: 0, detail: '' };
+
+/**
+ * ONE status line. A source that needs attention wins, is yellow, and is a
+ * button to Settings & Sources, where it can be dealt with. Otherwise a
+ * local condition worth knowing is yellow with its details as the tooltip.
+ * Otherwise mint: every source working.
+ */
+function drawRailStatus() {
+  const node = dom.healthSummary;
+  if (!node || !dom.healthSummaryText) return;
+  const failed = Number(railStatus.failed) || 0;
+  let text = t('sidenav.statusOk');
+  let attention = false;
+  let actionable = false;
+  if (failed > 0) {
+    text = failed === 1 ? t('sidenav.statusAttentionOne') : t('sidenav.statusAttention', { n: failed });
+    attention = true;
+    actionable = true;
+  } else if (railStatus.degraded > 0) {
+    // Two keys rather than one with a pluralised noun: Portuguese does not
+    // inflect "coisa" the way an English `s` would.
+    text = railStatus.degraded === 1
+      ? t('health.worthKnowingOne')
+      : t('health.worthKnowing', { n: railStatus.degraded });
+    attention = true;
+  }
+  dom.healthSummaryText.textContent = text;
+  node.classList.toggle('is-attention', attention);
+  node.classList.toggle('is-actionable', actionable);
+  node.disabled = !actionable;
+  node.title = actionable ? t('sidenav.statusOpenSources') : (railStatus.detail || '');
 }
 
 /**
@@ -1957,6 +1995,11 @@ async function loadRailReadouts() {
       interview: metric('interviews'),
     });
   } catch { /* the frame stays blank rather than shouting */ }
+  try {
+    const sources = await api.getSources();
+    railStatus.failed = (sources.refresh || []).filter((row) => row.state === 'FAILED').length;
+    drawRailStatus();
+  } catch { /* the status line keeps what it last knew */ }
 
   // The evidence review used to be fetched here as well, to fill a progress
   // bar in the rail. The bar is gone -- the review's progress belongs inside
@@ -1964,6 +2007,11 @@ async function loadRailReadouts() {
   // request that fed it. A call whose only reader has been deleted is a call
   // to delete, not one to leave running into a variable nobody reads.
 }
+
+// The status line leads to Settings & Sources when a source needs attention.
+dom.healthSummary?.addEventListener('click', () => {
+  if (dom.healthSummary.classList.contains('is-actionable')) goTo('settings');
+});
 
 store.startHistory();
 showHealth();
@@ -2276,14 +2324,18 @@ function buildLocaleControl(host) {
   });
 
   const buttons = LOCALES.map((locale) => {
-    // The flag is decoration BESIDE the code, never instead of it. A flag is
-    // a country and a language is not -- `pt-BR` happens to name one and `en`
-    // does not -- so the two letters remain the thing that says which
-    // language this is, and the SVG is `aria-hidden`.
-    const flag = localeFlag(locale);
+    // THE CODE, AND NO FLAG. A flag is a country and a language is not, and
+    // the design system uses no emoji or flag at all; the language's own
+    // name is the tooltip and the accessible name.
     const button = el('button', {
       className: 'segmented__btn localeswitch__btn',
-      attrs: { type: 'button', 'data-locale': locale, lang: locale },
+      attrs: {
+        type: 'button',
+        'data-locale': locale,
+        lang: locale,
+        title: t(`locale.name.${locale}`),
+        'aria-label': t(`locale.name.${locale}`),
+      },
       on: {
         click: () => {
           setLocale(locale, { persist: true });
@@ -2322,8 +2374,9 @@ function buildLocaleControl(host) {
         },
       },
     });
-    if (flag) button.appendChild(flag);
-    button.appendChild(el('span', { className: 'localeswitch__code', text: t(`locale.${locale}`) }));
+    button.appendChild(el('span', {
+      className: 'localeswitch__code', attrs: { 'aria-hidden': 'true' }, text: t(`locale.${locale}`),
+    }));
     group.appendChild(button);
     return button;
   });
@@ -2366,7 +2419,7 @@ function relabelTheme() {
     const hint = t(`theme.${choice}Hint`);
     const word = button.querySelector('.themeswitch__word');
     if (word) word.textContent = label;
-    button.title = hint;
+    button.title = label;
     button.setAttribute('aria-label', t('theme.buttonLabel', { label, hint }));
   }
   const group = document.querySelector('.themeswitch');
@@ -2417,6 +2470,7 @@ function relabelStaticText() {
     'settings-prefs-head': 'rail.preferences',
     'settings-sources-head': 'rail.sources',
     'settings-ai-head': 'ai.head',
+    'settings-profiles-head': 'profiles.settingsHead',
     'settings-retr-head': 'rail.retrieve',
   };
   for (const [id, key] of Object.entries(settingsHeads)) {
@@ -2451,6 +2505,7 @@ function relabelStaticText() {
 setLocale(initialLocale());
 buildLocaleControl(dom.localeHost);
 const localProfiles = createLocalProfiles(document.getElementById('local-profiles-host'));
+localProfiles.mountSettings(document.getElementById('settings-profiles-host'));
 
 // The landing page is HOME. A hash chooses another, so a bookmark and a
 // reload land where the person left off.

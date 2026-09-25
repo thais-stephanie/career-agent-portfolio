@@ -2605,8 +2605,11 @@ def test_the_header_says_which_population_is_on_screen(page: Chrome, server: str
         "Boolean(document.querySelector('.health__mode'))",
         message="the runtime banner",
     )
+    # A short tag on the status card, with the full sentence as its title.
     banner = str(page.evaluate("document.querySelector('.health__mode').textContent"))
-    assert banner.strip() == "Demo data", banner
+    assert banner.strip() == "Demo", banner
+    title = str(page.evaluate("document.querySelector('.health__mode').title"))
+    assert title.startswith("Demo data"), title
 
     # And the database is named, never shown as a path.
     named = str(page.evaluate("document.querySelector('.health__db').textContent"))

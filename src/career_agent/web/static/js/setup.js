@@ -289,6 +289,52 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
   // drawing
   // ===================================================================
 
+  /**
+   * THE STEPPER: every real step, by name, done / current / upcoming. The
+   * questions and the review, not the two ends. The regions step is listed
+   * only once there is something to ask there, so the list can grow by one
+   * while it is being walked; every segment is named, so that reads as a step
+   * appearing rather than as a total that changed.
+   */
+  function stepper(steps, current) {
+    const named = steps.filter((item) => !['welcome', 'ready'].includes(item.key));
+    const at = named.findIndex((item) => item.key === current);
+    const finished = current === 'ready';
+    const state = (index) => {
+      if (finished || (at >= 0 && index < at)) return 'done';
+      return index === at ? 'current' : 'upcoming';
+    };
+    const now = named[at] || null;
+    return el('nav', { className: 'stepper', attrs: { 'aria-label': t('setup.stepsLabel') } }, [
+      el('ol', {
+        className: 'stepper__list',
+        style: { '--steps': String(named.length) },
+      }, named.map((item, index) => {
+        const kind = state(index);
+        return el('li', {
+          className: `stepper__step stepper__step--${kind}`,
+          attrs: kind === 'current' ? { 'aria-current': 'step' } : {},
+        }, [
+          el('span', { className: 'stepper__bar', attrs: { 'aria-hidden': 'true' } }),
+          el('span', { className: 'stepper__label' }, [
+            el('span', {
+              className: 'stepper__mark num',
+              attrs: { 'aria-hidden': 'true' },
+              text: kind === 'done' ? '\u2713' : String(index + 1),
+            }),
+            el('span', { className: 'stepper__name', text: t(`setup.step.${item.key}`) }),
+            el('span', { className: 'sr-only', text: ` (${t(`setup.stepState.${kind}`)})` }),
+          ]),
+        ]);
+      })),
+      // On a narrow screen the names do not fit under the bars: the current
+      // one is said once, under all of them.
+      now
+        ? el('p', { className: 'stepper__now', attrs: { 'aria-hidden': 'true' }, text: t(`setup.step.${now.key}`) })
+        : null,
+    ].filter(Boolean));
+  }
+
   function draw({ focus = true } = {}) {
     // The last card's subscription belongs to its nodes; drawing any card
     // replaces them, and the ready card subscribes again.
@@ -301,8 +347,6 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     // onboarding that never ends.
     rememberPosition(at === 'ready' ? null : at);
     const body = BODIES[step.key]();
-    const questions = steps.filter((item) => !NOT_QUESTIONS.has(item.key));
-    const question = questions.findIndex((item) => item.key === step.key);
     const error = el('p', {
       className: 'setup__error',
       attrs: { id: 'setup-error', role: 'alert' },
@@ -319,57 +363,29 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
         },
       },
     }, [
-      // "STEP 3", NEVER "3 OF 9". The regions card appears only when it can
-      // add something, so the number of questions is not known in advance,
-      // and a total that grows from 8 to 9 mid-way reads as broken. The bar
-      // says how far along this is; the words say which step it is.
-      question >= 0
-        ? el('div', { className: 'setup__progress' }, [
-          el('p', {
-            className: 'setup__count',
-            attrs: { 'aria-hidden': 'true' },
-            text: t('setup.progress', { n: question + 1 }),
+      el('div', { className: 'setup__cardbody' }, [
+        el('div', { className: 'setup__titlerow' }, [
+          el('h2', {
+            className: 'setup__title',
+            attrs: { id: 'setup-title', tabindex: '-1' },
+            text: t(`setup.${step.key}.title`, body.titleParams || null),
           }),
-          el('div', {
-            className: 'setup__bar setup__stepbar',
-            attrs: {
-              role: 'progressbar',
-              'aria-valuemin': '0',
-              'aria-valuemax': '100',
-              'aria-valuenow': String(Math.round(((question + 1) / questions.length) * 100)),
-              'aria-valuetext': t('setup.progress', { n: question + 1 }),
-              'aria-label': t('setup.progressLabel'),
-            },
-          }, [el('span', {
-            className: 'setup__barfill',
-            style: { width: `${Math.round(((question + 1) / questions.length) * 100)}%` },
-          })]),
-        ])
-        : null,
-      el('h2', {
-        className: 'setup__title',
-        attrs: { id: 'setup-title', tabindex: '-1' },
-        text: t(`setup.${step.key}.title`, body.titleParams || null),
-      }),
-      el('p', {
-        className: 'setup__why',
-        attrs: { id: 'setup-why' },
-        text: t(`setup.${step.key}.why`),
-      }),
-      ...body.nodes,
-      error,
+          step.optional ? el('span', { className: 'setup__optional', text: t('setup.optional') }) : null,
+        ].filter(Boolean)),
+        el('p', {
+          className: 'setup__why',
+          attrs: { id: 'setup-why' },
+          text: t(`setup.${step.key}.why`),
+        }),
+        ...body.nodes,
+        error,
+      ]),
+      // THE FOOTER, inside the card: Back on the left; on the right the one
+      // local skip and the one primary action.
       el('div', { className: 'setup__actions' }, body.actions || defaultActions(step)),
-    ].filter(Boolean));
+    ]);
 
-    replace(root, [
-      form,
-      step.key !== 'ready'
-        ? button(t('setup.later'), () => leave(), {
-          className: 'btn btn--link setup__later',
-          attrs: { id: 'setup-later' },
-        })
-        : null,
-    ].filter(Boolean));
+    replace(root, [stepper(steps, step.key), form]);
 
     if (focus) {
       const heading = root.querySelector('#setup-title');
@@ -378,20 +394,35 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
   }
 
   function backButton() {
-    return button(t('setup.back'), () => back(), { className: 'btn', attrs: { id: 'setup-back' } });
+    return el('button', {
+      className: 'btn setup__back',
+      attrs: { type: 'button', id: 'setup-back' },
+      on: { click: () => back() },
+    }, [t('setup.back')]);
+  }
+
+  /** "Continue", with an arrow: the primary action of a card. */
+  function continueButton(label = null) {
+    return el('button', {
+      className: 'btn btn--primary setup__next',
+      attrs: { type: 'submit', id: 'setup-next' },
+    }, [
+      el('span', {
+        className: 'setup__nextlabel',
+        text: label || (returnTo ? t('setup.saveAndReturn') : t('setup.continue')),
+      }),
+    ]);
   }
 
   function defaultActions(step) {
     return [
       currentIndex() > 0 ? backButton() : null,
       step.optional
-        ? button(t('setup.skip'), () => advance(), { className: 'btn btn--quiet', attrs: { id: 'setup-skip' } })
+        ? button(t('setup.skip'), () => advance(), {
+          className: 'btn btn--link setup__skip', attrs: { id: 'setup-skip' },
+        })
         : null,
-      el('button', {
-        className: 'btn btn--primary',
-        attrs: { type: 'submit', id: 'setup-next' },
-        text: returnTo ? t('setup.saveAndReturn') : t('setup.continue'),
-      }),
+      continueButton(),
     ].filter(Boolean);
   }
 
@@ -570,13 +601,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
         ]),
         hint(t('setup.welcome.privacy')),
       ],
-      actions: [
-        el('button', {
-          className: 'btn btn--primary',
-          attrs: { type: 'submit', id: 'setup-next' },
-          text: t('setup.welcome.start'),
-        }),
-      ],
+      actions: [continueButton(t('setup.welcome.start'))],
       submit: () => advance(),
     }),
 
@@ -671,18 +696,40 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
 
     roles: () => {
       // Optional search anchors, never limits. One editor, shared with Settings.
-      const editor = roleAnchorsEditor({ id: 'setup-roles', initial: roleAnchors });
+      let editor = null;
+      const label = () => {
+        const node = root.querySelector('#setup-next .setup__nextlabel');
+        if (!node || returnTo) return;
+        const n = editor ? editor.count : 0;
+        node.textContent = n === 0
+          ? t('setup.continue')
+          : (n === 1 ? t('setup.roles.continueOne') : t('setup.roles.continueMany', { n }));
+      };
+      editor = roleAnchorsEditor({
+        id: 'setup-roles',
+        initial: roleAnchors,
+        draft: drafts.roles || null,
+        onChange: (count, anchors) => {
+          if (anchors) drafts.roles = anchors;
+          label();
+        },
+      });
+      queueMicrotask(label);
       return {
         nodes: [editor.root],
         submit: async (error) => {
           if (!editor.dirty) {
+            delete drafts.roles;
             advance();
             return;
           }
           const submit = root.querySelector('#setup-next');
           if (submit) submit.disabled = true;
           const ok = await editor.save();
-          if (ok) roleAnchors = editor.data || roleAnchors;
+          if (ok) {
+            roleAnchors = editor.data || roleAnchors;
+            delete drafts.roles;
+          }
           if (submit) submit.disabled = false;
           if (ok) advance();
           else error.textContent = t('roles.notSaved');
@@ -1158,11 +1205,7 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
       ],
       actions: [
         backButton(),
-        el('button', {
-          className: 'btn btn--primary',
-          attrs: { type: 'submit', id: 'setup-next' },
-          text: t('setup.review.looksRight'),
-        }),
+        continueButton(t('setup.review.looksRight')),
       ],
       submit: () => advance(),
     };
@@ -1304,5 +1347,5 @@ export function createSetup({ onExit = null, onGoTo = null, collection = null } 
     rememberPosition(null);
   }
 
-  return { root, open, relabel, stop: stopPolling, finished, atReady, forgetPosition };
+  return { root, open, relabel, stop: stopPolling, finished, atReady, forgetPosition, leave };
 }

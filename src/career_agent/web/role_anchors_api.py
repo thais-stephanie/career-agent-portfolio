@@ -99,15 +99,24 @@ def _payload(anchors: RoleAnchors, titles: list[str]) -> dict[str, Any]:
 
     anchors = effective(anchors)
     held = {folded(a.text) for a in anchors.anchors}
-    suggestions: list[dict[str, str]] = []
-    seen: set[str] = set(held)
+    suggestions: list[dict[str, Any]] = []
+    seen: set[str] = set()
     for title in titles:
         role, context = split_title(title)
         # Longer than a role may be: not offered, rather than offered cut.
         if len(role) > MAX_TEXT or folded(role) in seen:
             continue
         seen.add(folded(role))
-        suggestions.append({"text": role, "context": context, "from": "career_profile"})
+        # A role already among the anchors stays on offer, marked as held,
+        # so the screen can show it as added and let it be taken back.
+        suggestions.append(
+            {
+                "text": role,
+                "context": context,
+                "from": "career_profile",
+                "held": folded(role) in held,
+            }
+        )
     return {
         "anchors": [a.model_dump() for a in anchors.anchors],
         "aliases": [a.model_dump() for a in anchors.aliases],
