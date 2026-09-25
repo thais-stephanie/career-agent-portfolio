@@ -35,7 +35,8 @@ AREAS = "document.querySelectorAll('#prefs-host .prefs__signal .tags')"
 def open_panel(page: Chrome, server: str) -> None:
     """Land on the product first: `open_settings` presses a nav destination,
     and there is no nav until a page has loaded."""
-    open_list(page, server)
+    # The scoring vocabulary is a developer view, reached with `?debug=1`.
+    open_list(page, server, "?debug=1")
     open_settings(page)
     page.evaluate("document.getElementById('settings-model').open = true")
     page.wait_for(f"{AREAS}.length > 0", message="the preference editor")

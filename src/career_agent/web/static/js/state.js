@@ -438,6 +438,8 @@ function normalise(patch) {
       clean[key] = value === null || value === '' || value === undefined ? null : Number(value);
       if (Number.isNaN(clean[key])) clean[key] = null;
       if ((key === 'limit' || key === 'offset') && clean[key] === null) clean[key] = DEFAULTS[key];
+    } else if (key === 'search') {
+      clean[key] = value === null || value === undefined ? '' : String(value).slice(0, SEARCH_MAX);
     } else {
       clean[key] = value === null || value === undefined ? DEFAULTS[key] : value;
     }
@@ -445,12 +447,21 @@ function normalise(patch) {
   return clean;
 }
 
+/**
+ * The longest free-text search the list accepts, in characters.
+ *
+ * The server refuses anything longer with a 400 (`SEARCH_MAX_CHARS` in
+ * `web/api.py`), so the box, the URL reader and the store all cut to the same
+ * length rather than letting a pasted paragraph turn into an error.
+ */
+export const SEARCH_MAX = 200;
+
 /** Read a state object out of a query string. Unknown parameters are ignored. */
 export function fromSearch(search) {
   const params = new URLSearchParams(search || '');
   const state = cloneState(DEFAULTS);
 
-  if (params.has('search')) state.search = params.get('search') || '';
+  if (params.has('search')) state.search = (params.get('search') || '').slice(0, SEARCH_MAX);
   for (const key of LIST_KEYS) {
     const values = params.getAll(key).filter(Boolean);
     if (values.length) state[key] = Array.from(new Set(values)).sort();

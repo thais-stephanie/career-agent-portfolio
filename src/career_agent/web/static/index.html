@@ -190,6 +190,12 @@
     <button type="button" class="railtoggle" id="rail-toggle" aria-expanded="true"
             aria-controls="rail">Hide filters</button>
 
+    <!-- SEARCH THE LIST. Title, company, place and posting text, answered by
+         the local server from the postings already collected; it never
+         reaches the internet. Built by `filters.js` beside the panel it
+         combines with. -->
+    <div class="toolsearch-host" id="toolbar-search"></div>
+
     <!-- GROUP 1: which shape the results take. A segmented selector, so the
          three choices read as one control with one answer rather than as
          three unrelated buttons. Rounded on the outside edges only; the
@@ -274,7 +280,10 @@
     <h2 class="settings__head" id="settings-prefs-head">Search preferences</h2>
     <div id="search-settings-host"></div>
   </section>
-  <section class="settings__block">
+  <!-- THE SCORING VOCABULARY, a developer view. Hidden unless the address
+       carries `?debug=1` (see DEV_SCORING in main.js). The configuration
+       files and the /api/preferences endpoints behind it are unchanged. -->
+  <section class="settings__block" id="settings-model-block" hidden>
     <h2 class="settings__head" id="settings-model-head">Your search model</h2>
     <details id="settings-model">
       <summary id="settings-model-summary">Review concepts and advanced scoring vocabulary</summary>

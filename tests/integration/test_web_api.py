@@ -198,6 +198,36 @@ def test_a_search_term_only_in_the_description_finds_the_job(api: JobsApi) -> No
     assert not any("lead routing" in item["title"].casefold() for item in payload["items"])
 
 
+def test_the_search_box_also_finds_the_place(api: JobsApi) -> None:
+    """Discover's toolbar search covers title, company, place and posting text.
+
+    The place is not in the full-text index, so it is matched separately; every
+    posting whose location names the term must come back.
+    """
+    everything = _jobs(api, limit=500)["items"]
+    for term in ("emea", "latam", "americas", "brazil", "uk"):
+        expected = {
+            item["job_id"] for item in everything if term in (item["location_raw"] or "").casefold()
+        }
+        if expected:
+            break
+    assert expected, "the demo corpus names no place this test can search for"
+    found = {item["job_id"] for item in _jobs(api, search=term, limit=500)["items"]}
+    assert expected <= found, (term, expected - found)
+
+
+def test_the_search_box_escapes_like_wildcards(api: JobsApi) -> None:
+    """`_` is a LIKE wildcard. Unescaped, `remote_` would match `Remote,` in
+    most locations; escaped it means itself and matches nothing here."""
+    assert _jobs(api, search="remote_", limit=500)["total"] == 0
+
+
+def test_an_overlong_search_is_refused(api: JobsApi) -> None:
+    assert _jobs(api, search="x" * 200, limit=5)["total"] == 0
+    with pytest.raises(ApiError):
+        _jobs(api, search="x" * 201, limit=5)
+
+
 def test_sorting_is_whitelisted(api: JobsApi) -> None:
     with pytest.raises((ApiError, ValueError)):
         _jobs(api, sort="match_score; DROP TABLE job")

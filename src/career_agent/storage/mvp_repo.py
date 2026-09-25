@@ -2263,6 +2263,15 @@ class ScoredJobQuery(_Repo):
 
         if f.search:
             clause, search_params = self._search_clause(f.search, a)
+            # The search box also finds the PLACE. `location_raw` is not in
+            # the full-text index, and it lives on `job`, which every query
+            # already joins, so a bounded LIKE over one short column adds the
+            # place without a migration. Only for the free-text box: keyword
+            # phrases keep their own semantics. A search that matches nothing
+            # searchable ("1 = 0") stays empty rather than matching places.
+            if clause != "1 = 0":
+                clause = f"({clause} OR LOWER(j{a}.location_raw) LIKE ? ESCAPE '\\')"
+                search_params = [*search_params, _like_term(f.search.strip())]
             clauses.append(clause)
             params.extend(search_params)
 

@@ -116,12 +116,6 @@ export function plainVocabLabel(value) {
   return humanLabel(raw);
 }
 
-/** "Greenhouse · ATS structured", where the posting came from and how. */
-export function sourceLabel(provider, accessMethod) {
-  const left = provider ? vocabLabel(provider) : t('absent.source');
-  return accessMethod ? `${left} · ${vocabLabel(accessMethod)}` : left;
-}
-
 /**
  * "Remote, Americas · Remote" is noise. Only add the work model when the
  * location string does not already say it.

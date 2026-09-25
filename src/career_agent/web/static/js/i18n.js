@@ -48,6 +48,7 @@ export const DEFAULT_LOCALE = 'en';
  * somebody.
  */
 const EN = {
+  "tailor.groupLabel": "Resume Tailor",
   "tailor.note": "Copy this posting into Tailor resume. Review evidence separately in Resume Tailor Beta.",
   "tailor.copy": "Copy job description",
   "tailor.open": "Open Resume Tailor Beta",
@@ -1058,8 +1059,7 @@ const EN = {
   'card.salaryUnstated': 'Salary not stated',
   'card.toolsLabel': 'Tools named in this posting',
   'card.moreTools': '{n} more. Open the job to see them.',
-  'card.posted': 'Posted: {age}',
-  'card.postedOn': 'Posted {date}',
+  'card.posted': 'Posted: {date}',
   'card.noPostedDate': 'No publication date recorded',
   'card.you': 'You:',
   // -- the filter rail ---------------------------------------------------
@@ -1094,7 +1094,8 @@ const EN = {
   'filters.activeIn': '{n} active in {section}',
   'filters.startingPoints': 'Starting points',
   'filters.startFrom': 'Start from',
-  'filters.searchPlaceholder': 'Job title, company or anything in the text',
+  'filters.searchPlaceholder': 'Search title, company, place or posting text',
+  'filters.searchClear': 'Clear the search',
   'filters.posted': 'Posted',
   'filters.posted.any': 'Any time',
   'filters.posted.3': 'Last 3 days',
@@ -1152,7 +1153,6 @@ const EN = {
   'drawer.localModelNote': 'Read by a model on your own computer. It never changes the score.',
   'drawer.localModelIdle': 'Nothing yet. This runs on your machine, only when you ask.',
   'drawer.jobBoard': 'Job board',
-  'drawer.howRead': 'How we read it',
   'drawer.postedOn': 'Posted',
   'drawer.firstSeen': 'First seen',
   'drawer.lastSeen': 'Last seen',
@@ -1178,10 +1178,8 @@ const EN = {
   'app.stale': 'Your preferences changed. These matches are out of date.',
   'table.caption': 'Job postings',
   'table.help': 'Job list. Scrolls sideways.',
-  'table.bulkStatus': 'Move the ticked jobs to a different stage',
   'table.visibleColumns': 'Visible columns',
   'table.columns': 'Columns',
-  'table.selectAll': 'Select every row on this page',
   'table.gatedShort': 'States a requirement you do not meet',
   'table.offTargetShort': 'Not the kind of work you asked for',
   'table.noneRecorded': 'none recorded',
@@ -1543,7 +1541,6 @@ const EN = {
     + 'to match.',
   'home.openProfile': 'Open your profile',
   'home.openEvidence': 'Add your evidence',
-  'table.moveTo': 'Move the ticked jobs to...',
   'kanban.closed': 'Closed',
   'kanban.columnLabel': '{column}, {n} jobs',
   // Dismissing the sentence, never the state.
@@ -1652,7 +1649,6 @@ const EN = {
   'table.groupTitle': 'Published as {n} postings: {places}',
   'table.groupTitleBare': 'Published as {n} separate postings',
   'table.groupLabel': 'stands for {n} postings',
-  'table.selectRow': 'Select {title}',
   'table.openDetails': 'Open details for {title} at {company}',
   'table.andMoreTools': 'and {n} more: {names}',
   'table.markApplied': 'Mark {title} as applied',
@@ -1844,7 +1840,6 @@ const EN = {
   'column.applied_at': 'Applied date',
   'column.saved': 'Saved',
   'column.link': 'Link',
-  'column.select': 'Pick',
   'kanban.emptyShortlisted': 'Nothing marked interesting yet. Set a job to Interested in Cards or '
     + 'Table.',
   'kanban.emptyToApply': 'Nothing queued to apply to.',
@@ -3023,6 +3018,7 @@ const EN = {
  * subject.
  */
 const PT_BR = {
+  "tailor.groupLabel": "Resume Tailor",
   "tailor.note": "Copie a vaga e cole em Tailor resume. Revise as evidências separadamente no Resume Tailor Beta.",
   "tailor.copy": "Copiar descrição da vaga",
   "tailor.open": "Abrir Resume Tailor Beta",
@@ -3925,8 +3921,7 @@ const PT_BR = {
   'card.salaryUnstated': 'Remuneração não informada',
   'card.toolsLabel': 'Ferramentas citadas neste anúncio',
   'card.moreTools': 'Mais {n}. Abra a vaga para ver.',
-  'card.posted': 'Publicada: {age}',
-  'card.postedOn': 'Publicada em {date}',
+  'card.posted': 'Publicada: {date}',
   'card.noPostedDate': 'Nenhuma data de publicação registrada',
   'card.you': 'Você:',
   // -- the filter rail ---------------------------------------------------
@@ -3962,7 +3957,8 @@ const PT_BR = {
   'filters.activeIn': '{n} ativos em {section}',
   'filters.startingPoints': 'Pontos de partida',
   'filters.startFrom': 'Começar por',
-  'filters.searchPlaceholder': 'Título da vaga, empresa ou qualquer coisa no texto',
+  'filters.searchPlaceholder': 'Busque por título, empresa, local ou texto da vaga',
+  'filters.searchClear': 'Limpar a busca',
   'filters.posted': 'Publicada',
   'filters.posted.any': 'Qualquer data',
   'filters.posted.3': 'Últimos 3 dias',
@@ -4015,7 +4011,6 @@ const PT_BR = {
   'drawer.localModelNote': 'Lido por um modelo no seu próprio computador. Nunca muda a nota.',
   'drawer.localModelIdle': 'Nada ainda. Isto roda na sua máquina, só quando você pede.',
   'drawer.jobBoard': 'Quadro de vagas',
-  'drawer.howRead': 'Como lemos',
   'drawer.postedOn': 'Publicada',
   'drawer.firstSeen': 'Vista primeiro',
   'drawer.lastSeen': 'Vista por último',
@@ -4041,10 +4036,8 @@ const PT_BR = {
   'app.stale': 'Suas preferências mudaram. Estas correspondências estão desatualizadas.',
   'table.caption': 'Anúncios de vaga',
   'table.help': 'Lista de vagas. Rola para os lados.',
-  'table.bulkStatus': 'Mover as vagas marcadas para outra etapa',
   'table.visibleColumns': 'Colunas visíveis',
   'table.columns': 'Colunas',
-  'table.selectAll': 'Selecionar todas as linhas desta página',
   'table.gatedShort': 'Declara uma exigência que você não atende',
   'table.offTargetShort': 'Não é o tipo de trabalho que você pediu',
   'table.noneRecorded': 'nenhum registrado',
@@ -4395,7 +4388,6 @@ const PT_BR = {
     + 'um anúncio corresponder.',
   'home.openProfile': 'Abrir seu perfil',
   'home.openEvidence': 'Adicionar suas evidências',
-  'table.moveTo': 'Mover as vagas marcadas para...',
   'kanban.closed': 'Encerradas',
   'kanban.columnLabel': '{column}, {n} vagas',
   // Dismissing the sentence, never the state.
@@ -4505,7 +4497,6 @@ const PT_BR = {
   'table.groupTitle': 'Publicada como {n} anúncios: {places}',
   'table.groupTitleBare': 'Publicada como {n} anúncios separados',
   'table.groupLabel': 'representa {n} anúncios',
-  'table.selectRow': 'Selecionar {title}',
   'table.openDetails': 'Abrir detalhes de {title} em {company}',
   'table.andMoreTools': 'e mais {n}: {names}',
   'table.markApplied': 'Marcar {title} como enviada',
@@ -4701,7 +4692,6 @@ const PT_BR = {
   'column.applied_at': 'Data de envio',
   'column.saved': 'Salva',
   'column.link': 'Link',
-  'column.select': 'Marcar',
   'kanban.emptyShortlisted': 'Nada marcado como interessante ainda. Defina uma vaga como Tenho '
     + 'interesse em Cartões ou Tabela.',
   'kanban.emptyToApply': 'Nada na fila para se candidatar.',
