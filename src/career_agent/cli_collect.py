@@ -254,7 +254,10 @@ def _score_marked(conn: Any, config_dir: Path) -> Any:
     except SearchConfigError as exc:
         typer.secho(f"not scored: {exc}", fg=typer.colors.YELLOW)
         return None
-    return rescore(conn, config, mode=RescoreMode.DIRTY)
+    from career_agent.semantic.settings import load_settings
+
+    semantic = load_settings(config_dir).uses_findings
+    return rescore(conn, config, mode=RescoreMode.DIRTY, semantic=semantic)
 
 
 def _print_stats(stats: CollectionStats) -> None:

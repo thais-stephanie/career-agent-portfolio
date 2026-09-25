@@ -59,6 +59,7 @@ from career_agent.llm.vendors.schema_dialect import openai_strict
 
 CEREBRAS = "cerebras"
 OPENROUTER = "openrouter"
+DEEPSEEK = "deepseek"
 
 
 @dataclass(frozen=True)
@@ -94,6 +95,11 @@ class Route:
     #: Parameters", HTTP 404, and a frozen arm that looked unroutable when the
     #: blocker was the name of a field.
     max_output_field: str = "max_completion_tokens"
+    #: DeepSeek thinks by default, at high effort, and bills the thinking as
+    #: output. Its switch is a `thinking` object in `extra_body`; an arm whose
+    #: reasoning is None or "none" asks for it OFF rather than inheriting a
+    #: default that multiplies the output bill.
+    thinking_toggle: bool = False
     source: str = "unrecorded"
     observed_at: str = "unknown"
 
@@ -118,6 +124,15 @@ ROUTES: dict[str, Route] = {
         max_output_field="max_tokens",
         source="OpenRouter API reference and provider-routing documentation",
         observed_at="2026-09-03",
+    ),
+    DEEPSEEK: Route(
+        vendor=DEEPSEEK,
+        base_url="https://api.deepseek.com",
+        credential_variable="DEEPSEEK_API_KEY",
+        max_output_field="max_tokens",
+        thinking_toggle=True,
+        source="DeepSeek API documentation: pricing, JSON output and thinking mode",
+        observed_at="2026-09-25",
     ),
 }
 
@@ -203,7 +218,13 @@ def build_payload(request: LLMRequest, config: ModelConfig) -> dict[str, Any]:
     if pinned_endpoint(config.vendor, config.identifier) is not None:
         extra["provider"] = {"allow_fallbacks": False}
 
-    if config.reasoning:
+    if route is not None and route.thinking_toggle:
+        if config.reasoning in (None, "none"):
+            extra["thinking"] = {"type": "disabled"}
+        else:
+            extra["thinking"] = {"type": "enabled"}
+            payload["reasoning_effort"] = config.reasoning
+    elif config.reasoning:
         if route is not None and route.reasoning_object:
             extra["reasoning"] = {"effort": config.reasoning}
         else:
@@ -483,6 +504,9 @@ class ChatCompletionsClient:
     #: An explicit key, as on every other adapter. `None` -- which is what
     #: `get_client` always passes -- means read the route's own variable.
     api_key: str | None = None
+    #: Seconds before an unanswered request is abandoned. None keeps the SDK's
+    #: own default, which is what the extraction benchmark always ran with.
+    timeout_seconds: float | None = None
 
     #: Plain fields rather than properties, because `LLMClient` declares them as
     #: attributes and a read-only property does not satisfy that. Derived from
@@ -528,6 +552,7 @@ class ChatCompletionsClient:
             client = openai.OpenAI(
                 api_key=self._credential() or None,
                 base_url=self.route.base_url,
+                timeout=self.timeout_seconds if self.timeout_seconds else openai.NOT_GIVEN,
                 # The SDK retries 408/409/429/5xx TWICE by default, sleeping on
                 # the response's own Retry-After. That is a second, invisible
                 # retry policy underneath ours: one `complete()` on a 429 sends
@@ -588,6 +613,14 @@ def CerebrasClient(api_key: str | None = None) -> ChatCompletionsClient:
 
 def OpenRouterClient(api_key: str | None = None) -> ChatCompletionsClient:
     return ChatCompletionsClient(route=ROUTES[OPENROUTER], api_key=api_key)
+
+
+def DeepSeekClient(
+    api_key: str | None = None, timeout_seconds: float | None = None
+) -> ChatCompletionsClient:
+    return ChatCompletionsClient(
+        route=ROUTES[DEEPSEEK], api_key=api_key, timeout_seconds=timeout_seconds
+    )
 
 
 #: The families each route can hold to a vendor-enforced schema, given the

@@ -36,6 +36,9 @@ class Family(StrEnum):
     PROVIDER = "provider"
     ROLE = "role"
     CONDITIONS = "conditions"
+    #: Semantic Search Fit interpretation (`career_agent.semantic`). Not an
+    #: extraction family: it never produces a fingerprint.
+    SEMANTIC = "semantic"
 
 
 class Runner(StrEnum):

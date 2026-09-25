@@ -43,6 +43,7 @@ DEFAULT_DEMO_FILE = Path("evaluation/demo/demo_postings.yaml")
 def register(app: typer.Typer) -> None:
     app.command(name="search-config")(search_config_command)
     app.command(name="rescore")(rescore_command)
+    app.command(name="semantic-match")(semantic_match_command)
     app.command(name="rebuild-bodies")(rebuild_bodies_command)
     app.command(name="intake-build")(intake_build_command)
     app.command(name="intake-validate")(intake_validate_command)
@@ -124,6 +125,13 @@ def _load_config(config_dir: Path):
     except SearchConfigError as exc:
         typer.secho(str(exc), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc
+
+
+def _semantic_on(config_dir: Path) -> bool:
+    """Whether stored semantic findings take part in scoring. Reads a file."""
+    from career_agent.semantic.settings import load_settings
+
+    return load_settings(config_dir).uses_findings
 
 
 # =====================================================================
@@ -1856,6 +1864,84 @@ def rebuild_bodies_command(
 
 
 # =====================================================================
+# semantic-match
+# =====================================================================
+def semantic_match_command(
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
+    run: Annotated[
+        bool,
+        typer.Option(
+            "--run",
+            help="Send the selected postings to the provider. Without it nothing is sent.",
+        ),
+    ] = False,
+    limit: Annotated[
+        int, typer.Option("--limit", help="At most N postings this run (0: the setting).")
+    ] = 0,
+    budget: Annotated[
+        float, typer.Option("--budget", help="USD hard stop for a metered provider (0: setting).")
+    ] = 0.0,
+) -> None:
+    """Semantic Search Fit: plan, or run, one bounded batch.
+
+    Without `--run` this is a plan: which provider Auto (or your choice)
+    would use, how many postings pass the prefilter and what it would cost.
+    Nothing leaves the computer. With `--run`, each selected posting and your
+    search intent go to that provider; answers pass the deterministic
+    publication gate and the evaluated postings are scored again.
+    """
+    db = resolve_database(RuntimeMode.PERSONAL, db)
+    from career_agent.pipeline.rescore import RescoreMode, rescore
+    from career_agent.semantic.intent import search_intent
+    from career_agent.semantic.routing import resolve
+    from career_agent.semantic.runner import estimate, run_cap, run_semantic, select_candidates
+    from career_agent.semantic.settings import load_settings
+
+    config, _ = _load_config(config_dir)
+    settings = load_settings(config_dir)
+    overrides: dict[str, Any] = {}
+    if limit > 0:
+        overrides["max_jobs_per_run"] = limit
+        overrides["max_jobs_per_subscription_run"] = min(limit, 500)
+    if budget > 0:
+        overrides["budget_per_run_usd"] = budget
+    if overrides:
+        settings = settings.model_copy(update=overrides)
+    route = resolve(settings)
+    conn = _open_personal(db)
+    try:
+        intent = search_intent(config)
+        selection = select_candidates(conn, config, intent, limit=run_cap(settings, route))
+        cost = estimate(route, selection, intent)
+        _table(
+            [
+                ("provider", route.provider.id if route.provider else "deterministic only"),
+                ("why", route.reason or "-"),
+                ("fallbacks", route.fallbacks or "-"),
+                ("postings passing the prefilter", selection.eligible),
+                ("postings this run", cost.candidates),
+                ("estimated input tokens", cost.input_tokens),
+                ("expected USD", cost.expected_usd if cost.expected_usd is not None else "n/a"),
+                ("worst case USD", cost.worst_usd if cost.worst_usd is not None else "n/a"),
+                ("budget USD", settings.budget_per_run_usd),
+            ]
+        )
+        if not run:
+            typer.echo("Plan only. Nothing was sent. Add --run to evaluate.")
+            return
+        stats = run_semantic(conn, config, settings, route, requested=settings.mode.value)
+        typer.echo(json.dumps(stats.as_dict(), indent=1))
+        if stats.published:
+            rescored = rescore(
+                conn, config, mode=RescoreMode.DIRTY, semantic=settings.uses_findings
+            )
+            typer.echo(f"rescored {rescored.jobs_scored} postings")
+    finally:
+        conn.close()
+
+
+# =====================================================================
 # rescore
 # =====================================================================
 def rescore_command(
@@ -1969,6 +2055,7 @@ def rescore_command(
             limit=limit or None,
             include_closed=include_closed,
             no_replay=no_replay,
+            semantic=_semantic_on(config_dir),
         )
     finally:
         conn.close()
