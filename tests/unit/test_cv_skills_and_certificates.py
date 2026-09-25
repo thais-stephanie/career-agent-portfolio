@@ -133,7 +133,8 @@ def test_no_expiration_is_read_only_when_the_line_says_it() -> None:
     assert stated is not None and stated.no_expiry and stated.expires is None
     assert stated.credential_id == "ID-4432"
     # An empty column is "not stated", never "does not expire".
-    empty = read_certificate("Course | Provider | Mar 2024 | — | ID-4432")
+    dash = chr(0x2014)  # an em dash: the empty cell of a table
+    empty = read_certificate(f"Course | Provider | Mar 2024 | {dash} | ID-4432")
     assert empty is not None and not empty.no_expiry and empty.expires is None
 
 

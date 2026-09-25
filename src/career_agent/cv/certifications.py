@@ -118,7 +118,8 @@ def _empty(field: str) -> bool:
     NOTHING -- in the expiry column it means "not stated", never "does not
     expire"."""
     value = fold(field).strip()
-    return bool(value) and (set(value) <= set("-–—") or value in {"n/a", "na", "none"})
+    dashes = {"-", chr(0x2013), chr(0x2014)}  # hyphen, en dash, em dash
+    return bool(value) and (set(value) <= dashes or value in {"n/a", "na", "none"})
 
 
 def _credential(field: str) -> str | None:
