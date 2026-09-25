@@ -2240,6 +2240,36 @@ body.has-drawer { overflow: hidden; }
 
 .input--search::-webkit-search-cancel-button { filter: grayscale(1); }
 
+/* THE DISCOVER SEARCH BOX, in the toolbar. It grows into the free space of
+   the row and stops at a readable width. The native cancel glyph is hidden
+   because the box carries its own clear button, which every browser shows
+   and a keyboard can reach. */
+.toolsearch-host { display: flex; flex: 1 1 240px; min-width: 200px; max-width: 420px; }
+.toolsearch { position: relative; width: 100%; }
+.toolsearch__input { padding-right: 36px; }
+.toolsearch__input::-webkit-search-cancel-button { display: none; }
+.toolsearch__clear {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.toolsearch__clear:hover { color: var(--ink); }
+.toolsearch__clear:focus-visible { outline: var(--edge-strong) solid var(--focus); outline-offset: 1px; }
+.toolsearch__clear[hidden] { display: none; }
+@media (max-width: 460px) {
+  .toolsearch-host { max-width: none; }
+}
+
 
 
 /* A ROW, not a column. These are five mutually exclusive starting points and
@@ -2896,10 +2926,6 @@ body.has-drawer { overflow: hidden; }
 
 .tablebar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-.tablebar__sel { margin: 0; font-size: 12px; color: var(--ink-soft); min-width: 80px; }
-
-.tablebar .select { width: auto; font-size: 12px; }
-
 
 
 .colmenu { position: relative; margin-left: auto; }
@@ -3067,8 +3093,6 @@ table.jobs thead th {
 }
 
 table.jobs tbody tr:hover { background: var(--paper-2); }
-
-table.jobs tbody tr.is-selected { background: var(--match-wash); }
 
 .row--blocked { background: var(--block-wash); }
 
@@ -3270,6 +3294,18 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 }
 
 .d-sec__lede { margin: 0 0 10px; font-size: 12px; color: var(--ink-soft); max-width: 60ch; }
+
+/* THE RESUME TAILOR ACTION GROUP. One row of same-height controls with one
+   gap, wrapping onto a second row in a narrow drawer instead of squeezing.
+   A link styled as a button keeps the button's size, so the copy action and
+   the way out read as siblings rather than as a button beside a sentence. */
+.d-tailor__actions { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 0 0 8px; }
+.d-tailor__btn { min-height: 36px; text-decoration: none; text-align: center; white-space: normal; }
+.d-tailor__note { margin: 0 0 8px; font-size: 12px; color: var(--ink-soft); max-width: 60ch; }
+@media (max-width: 520px) {
+  .d-tailor__actions { flex-direction: column; }
+  .d-tailor__btn { width: 100%; }
+}
 
 .d-company { margin: 0 0 10px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
 
@@ -6074,7 +6110,9 @@ body {
    shares the job page, still showed the filters. */
 body:not([data-page="jobs"]) .topbar,
 body:not([data-page="jobs"]) #filterpanel,
-body:not([data-page="jobs"]) #chipbar { display: none !important; }
+body:not([data-page="jobs"]) #chipbar,
+/* The hidden-jobs notices speak about the Discover list alone. */
+body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 
 /* -- the pages -------------------------------------------------------- */
 .page { padding: 20px; max-width: 1100px; }

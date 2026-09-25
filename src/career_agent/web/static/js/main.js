@@ -23,7 +23,7 @@ import {
 } from './state.js';
 import { createFilterPanel, renderChips } from './filters.js';
 import { renderCards, cardsSkeleton } from './cards.js';
-import { renderTable, tableSkeleton, loadVisible, clearSelection } from './table.js';
+import { renderTable, tableSkeleton, loadVisible } from './table.js';
 import { renderKanban, kanbanSkeleton } from './kanban.js';
 import { renderPreferences } from './preferences.js';
 import { renderSearchSettings } from './search-settings.js';
@@ -87,7 +87,7 @@ let loading = false;
 const jobSaves = new Map();
 let columnVisibility = loadVisible();
 
-const panel = createFilterPanel(store);
+const panel = createFilterPanel(store, { searchHost: document.getElementById('toolbar-search') });
 dom.filters.appendChild(panel.root);
 
 /**
@@ -125,6 +125,17 @@ function careerChanged() {
 // a developer tool, opened with `?debug=statements` in the address and linked
 // from nowhere; without that flag it is not even built.
 const DEV_STATEMENTS = new URLSearchParams(window.location.search).get('debug') === 'statements';
+
+// THE SCORING VOCABULARY IS NOT A USER SURFACE EITHER (2026-09-25). The phrase
+// groups, their reach and the concept review are how the scoring policy is
+// tuned, and showing them in Settings made weights and a lexicon look like
+// something a person had to manage. The panel is kept as a developer view,
+// shown only with `?debug=1` (or `?debug=scoring`) in the address. Nothing
+// behind it changed: the configuration files, the /api/preferences and
+// /api/search-review endpoints and the CLI still read and write the same data.
+const DEV_SCORING = ['1', 'scoring'].includes(new URLSearchParams(window.location.search).get('debug'));
+const scoringBlock = document.getElementById('settings-model-block');
+if (scoringBlock) scoringBlock.hidden = !DEV_SCORING;
 const evidence = DEV_STATEMENTS ? createEvidence({ onChanged: () => careerChanged() }) : null;
 if (evidence) document.getElementById('evidence-host').appendChild(evidence.root);
 
@@ -327,6 +338,10 @@ function goTo(page, { push = true } = {}) {
   // container and repaints only when its list arrives; clearing it here keeps
   // "No applications tracked yet" from lingering over Discover meanwhile.
   if (page !== 'applications') paintBoardEmpty(false);
+  // The hidden-jobs notices belong to Discover alone. Applications shares the
+  // container, and "Show them too" over a board of tracked jobs would widen a
+  // search nobody is looking at.
+  renderHiddenNotice(store.get());
 
   if (page === 'applications') {
     // The board IS the applications view. Switching to it also narrows to the
@@ -358,8 +373,10 @@ function goTo(page, { push = true } = {}) {
     sourcesPanel.load();
     renderAiSettings(document.getElementById('ai-settings-host'));
     const model = document.getElementById('settings-model');
-    model.ontoggle = () => { if (model.open) loadPreferences(); };
-    if (model.open) loadPreferences();
+    if (DEV_SCORING && model) {
+      model.ontoggle = () => { if (model.open) loadPreferences(); };
+      if (model.open) loadPreferences();
+    }
     loadRetrieval();
   } else {
     stopRetrieval();
@@ -541,7 +558,7 @@ dom.direction.addEventListener('click', () => {
 // =========================================================================
 
 store.subscribe((state, meta) => {
-  panel.syncState(state);
+  panel.syncState(state, meta);
   syncRailCount(renderChips(dom.chips, state, store));
   syncHeader(state);
 
@@ -614,7 +631,6 @@ async function load(queryString, state, { quiet = false } = {}) {
     if (token !== inFlight) return;
     loading = false;
     lastResponse = response;
-    clearSelection();
     panel.syncFacets(response.facets, store.get());
     paint(store.get());
   } catch (error) {
@@ -681,7 +697,6 @@ function paint(state) {
       },
       onOpen: openJob,
       onStatus: changeStatus,
-      onBulkStatus: (ids, status) => Promise.all(ids.map((id) => changeStatus(id, status))),
       onSave: changeSaved,
       onAppliedDate: (jobId, date) => {
         // Both directions go to /applied-at, never to /status. Routing an
@@ -698,7 +713,6 @@ function paint(state) {
         if (!ok) return paint(store.get());
         return changeAppliedDate(jobId, null);
       },
-      onRerender: () => paint(store.get()),
     });
   } else if (state.view === 'kanban') {
     renderKanban(dom.list, items, {
@@ -947,6 +961,15 @@ function renderRevisionNotice() {
  * disclosure that is always on screen stops being read.
  */
 function renderHiddenNotice(state) {
+  // DISCOVER ONLY. Every narrowing below is about the discovery list; on any
+  // other page (Applications shares this container) the notice is cleared
+  // rather than left saying something about a list that is not on screen.
+  if (currentPage !== 'jobs' || !lastResponse) {
+    clear(dom.hidden);
+    dom.hidden.hidden = true;
+    return;
+  }
+
   // TWO narrowings, two sentences, never one number.
   //
   // An employer stating a requirement you do not meet, and your own search
@@ -1027,20 +1050,38 @@ function renderHiddenNotice(state) {
   const rows = [];
   for (const notice of NOTICES) {
     const speaking = Boolean(state[notice.key] || counts[notice.key]);
-    // A notice with nothing to say forgets it was dismissed. Otherwise the
-    // first "3 hidden" a person waves away would be the last one they ever
-    // saw, and a later collection could hide thirty in silence.
-    if (!speaking) {
-      undismiss(notice.key);
-      continue;
-    }
-    if (dismissed(notice.key)) continue;
-
+    if (!speaking) continue;
+    // DISMISSED BY CATEGORY, NEVER BY COUNT. The stored key is the notice's
+    // kind (its state key, which never changes), not the sentence it printed.
+    // A dismissal used to be forgotten whenever the count reached zero, so a
+    // filter that briefly emptied a category brought the notice straight back
+    // with a new number; a changed count is the same notice and stays quiet.
+    //
     // Showing them is a STATE, and the way back out lives here rather than on
     // a filter chip: that row is for things that narrow, and "Clear all
-    // filters" deliberately does not touch these.
+    // filters" deliberately does not touch these. So a notice whose state is
+    // IN FORCE is never suppressed, dismissed or not: hiding it would take
+    // "Hide them again" with it.
     const showing = Boolean(state[notice.key]);
-    rows.push(el('span', { className: 'hidden__row' }, [
+    if (dismissed(notice.key) && !showing) {
+      // WHAT SHE HID HERSELF HAS NO OTHER DOOR. The eligibility, place and
+      // seniority narrowings all have a control in the filter panel; the
+      // postings she set aside do not. So a dismissed "hidden by you" notice
+      // leaves a compact entry behind that cannot be dismissed, and waving
+      // the sentence away can never strand them.
+      if (notice.only && counts[notice.key]) {
+        rows.push(el('span', {
+          className: 'hidden__row hidden__row--compact',
+          dataset: { notice: `${notice.key}-compact` },
+        }, [
+          button(t('hidden.byYouCompact', { n: counts[notice.key] }), notice.only, {
+            className: 'hidden__show hidden__compact',
+          }),
+        ]));
+      }
+      continue;
+    }
+    rows.push(el('span', { className: 'hidden__row', dataset: { notice: notice.key } }, [
       el('span', {
         className: 'hidden__text',
         text: showing ? notice.showing() : notice.hidden(counts[notice.key]),
@@ -1057,13 +1098,16 @@ function renderHiddenNotice(state) {
       notice.only && !showing
         ? button(t('hidden.restoreView'), notice.only, { className: 'hidden__show' })
         : null,
-      button('×', () => {
-        dismiss(notice.key);
-        renderHiddenNotice(store.get());
-      }, {
-        className: 'hidden__dismiss',
-        ariaLabel: t('hidden.dismiss'),
-      }),
+      // Only while they are hidden: the showing sentence carries the way back.
+      showing
+        ? null
+        : button('×', () => {
+          dismiss(notice.key);
+          renderHiddenNotice(store.get());
+        }, {
+          className: 'hidden__dismiss',
+          ariaLabel: t('hidden.dismiss'),
+        }),
     ].filter(Boolean)));
   }
 
@@ -1104,19 +1148,18 @@ function writeDismissed(set) {
   } catch { /* not remembered, still dismissed for this visit */ }
 }
 
+//: Dismissed this visit even when storage refuses the write, so the × always
+//: works; storage only decides whether it is remembered after a reload.
+const dismissedThisVisit = new Set();
+
 function dismissed(key) {
-  return dismissedSet().has(key);
+  return dismissedThisVisit.has(key) || dismissedSet().has(key);
 }
 
 function dismiss(key) {
+  dismissedThisVisit.add(key);
   const set = dismissedSet();
   set.add(key);
-  writeDismissed(set);
-}
-
-function undismiss(key) {
-  const set = dismissedSet();
-  if (!set.delete(key)) return;
   writeDismissed(set);
 }
 

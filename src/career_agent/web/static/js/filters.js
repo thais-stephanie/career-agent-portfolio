@@ -39,7 +39,7 @@ import { helpNote } from './help.js';
 import { vocabLabel } from './format.js';
 import { eligibilityWords } from './badges.js';
 import {
-  DEFAULTS, FLAG_KEYS, LIST_KEYS, NUMBER_KEYS, clearedFilters, debounce, isTrackedSet,
+  DEFAULTS, FLAG_KEYS, LIST_KEYS, NUMBER_KEYS, SEARCH_MAX, clearedFilters, debounce, isTrackedSet,
 } from './state.js';
 
 export const SHORTLIST_THRESHOLD = 70;
@@ -81,7 +81,10 @@ export const SECTIONS = [
     key: 'find',
     labelKey: 'filters.section.find',
     helpKey: 'filters.section.findHelp',
-    keys: ['search', 'keyword', 'exclude_keyword'],
+    // Not `search`: the free-text box lives in the Discover toolbar, and a
+    // section that counted and cleared a control it does not hold would be
+    // a count nobody can trace. The chip bar still lists and clears it.
+    keys: ['keyword', 'exclude_keyword'],
   },
   {
     key: 'quick',
@@ -438,7 +441,7 @@ function fixed(node, key) {
 }
 
 
-export function createFilterPanel(store) {
+export function createFilterPanel(store, { searchHost = null } = {}) {
   const root = el('form', {
     className: 'filters',
     attrs: { 'aria-label': t('rail.filters') },
@@ -521,22 +524,74 @@ export function createFilterPanel(store) {
   const into = (key) => sections.get(key).body;
 
   // -- find --------------------------------------------------------------
-  const pushSearch = debounce((value) => store.set({ search: value }), 250);
+  //
+  // THE SEARCH BOX, IN THE DISCOVER TOOLBAR. It filters the list already
+  // collected, by title, company, place and posting text, through the local
+  // server's own `/api/jobs?search=`: nothing typed here leaves this machine.
+  // It is the same `search` state as before, so it combines with every filter
+  // in this panel, shows as a chip and survives a reload in the address.
+  // Debounced so a word is one request rather than one per key.
+  //
+  // `pendingSearch` is what the debounce is holding, or null, and
+  // `searchFromBox` is true only while the box itself is writing. Together
+  // they tell a change the box made from one made elsewhere ("Clear all", a
+  // chip's x, the back button), and an external change to `search` CANCELS
+  // the pending one: otherwise a word typed a moment before "Clear all" came
+  // back 250 ms after it.
+  let pendingSearch = null;
+  let searchFromBox = false;
+  const pushSearch = debounce((value) => {
+    pendingSearch = null;
+    searchFromBox = true;
+    try {
+      store.set({ search: value });
+    } finally {
+      searchFromBox = false;
+    }
+  }, 250);
   const searchInput = el('input', {
-    className: 'input input--search',
+    className: 'input input--search toolsearch__input',
     attrs: {
-      type: 'search', id: 'f-search', autocomplete: 'off',
+      type: 'search', id: 'f-search', autocomplete: 'off', maxlength: String(SEARCH_MAX),
       placeholder: t('filters.searchPlaceholder'),
     },
-    on: { input: (event) => pushSearch(event.target.value) },
+    on: {
+      input: (event) => {
+        searchClear.hidden = !event.target.value;
+        pendingSearch = event.target.value;
+        pushSearch(event.target.value);
+      },
+      // Escape empties the box, the way a native search field does in most
+      // browsers; handled here so it behaves the same in all of them.
+      keydown: (event) => {
+        if (event.key === 'Escape' && searchInput.value) {
+          event.preventDefault();
+          clearSearch();
+        }
+      },
+    },
   });
-  into('find').appendChild(el('div', { className: 'filters__block' }, [
+  const searchClear = button('×', () => { clearSearch(); searchInput.focus(); }, {
+    className: 'toolsearch__clear',
+    ariaLabel: t('filters.searchClear'),
+    attrs: { id: 'f-search-clear' },
+  });
+  searchClear.hidden = true;
+  function clearSearch() {
+    searchInput.value = '';
+    searchClear.hidden = true;
+    pushSearch.flush('');
+  }
+  const searchBlock = el('div', { className: 'toolsearch', attrs: { role: 'search' } }, [
     fixed(
-      el('label', { className: 'filters__sublabel', attrs: { for: 'f-search' } }),
+      el('label', { className: 'sr-only', attrs: { for: 'f-search' } }),
       'filters.search',
     ),
     searchInput,
-  ]));
+    searchClear,
+  ]);
+  if (searchHost) searchHost.appendChild(searchBlock);
+  else into('find').appendChild(el('div', { className: 'filters__block' }, [searchBlock]));
 
   // FOUR PHRASE LISTS, IN TWO PAIRS, AND THE ORDER SAYS WHICH IS WHICH.
   //
@@ -762,8 +817,17 @@ export function createFilterPanel(store) {
     salaryCurrency.value = chosen;
   }
 
-  function syncState(state) {
-    if (document.activeElement !== searchInput) searchInput.value = state.search || '';
+  function syncState(state, meta = {}) {
+    const search = state.search || '';
+    const changed = meta.changed || [];
+    const touched = changed.includes('search') || changed.includes('*');
+    if (touched && !searchFromBox && pendingSearch !== null) {
+      pushSearch.cancel();
+      pendingSearch = null;
+      searchInput.value = search;
+    }
+    if (document.activeElement !== searchInput) searchInput.value = search;
+    searchClear.hidden = !searchInput.value;
     scoreSlider.set(state.min_score);
     confidenceSlider.set(state.min_confidence);
     if (document.activeElement !== salaryAmount) {
@@ -871,6 +935,7 @@ export function createFilterPanel(store) {
     }
 
     searchInput.setAttribute('placeholder', t('filters.searchPlaceholder'));
+    searchClear.setAttribute('aria-label', t('filters.searchClear'));
 
     // And every label that recorded its own key when it was built.
     for (const [node, key] of RELABELLED) node.textContent = t(key);

@@ -293,12 +293,26 @@ export function createDrawer({
    * the link, one line down.
    */
   function tailorSection(job) {
-    const host = el('section', { className: 'd-tailor' });
-    const link = (text) => el('a', { text, attrs: {
+    // ONE ACTION GROUP. The copy button, the link out and the note used to be
+    // three loose siblings of different sizes; they are one labelled group
+    // now, with the controls on a single row that wraps on a narrow drawer.
+    // The heading names the group for a screen reader as well as on screen.
+    const host = el('section', {
+      className: 'd-sec d-tailor',
+      attrs: { role: 'group', 'aria-labelledby': 'd-tailor-head' },
+    });
+    const heading = () => el('h3', {
+      className: 'd-sec__head', text: t('tailor.groupLabel'), attrs: { id: 'd-tailor-head' },
+    });
+    host.appendChild(heading());
+    const link = (text, className) => el('a', { className, text, attrs: {
       href: '/resume-tailor', target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
     } });
+    const actions = (children) => el('div', { className: 'd-tailor__actions' }, children.filter(Boolean));
     const ready = () => {
-      const note = el('p', { text: t('tailor.note') });
+      const note = el('p', {
+        className: 'd-tailor__note', text: t('tailor.note'), attrs: { 'aria-live': 'polite' },
+      });
       const copy = button(t('tailor.copy'), async () => {
         try {
           await navigator.clipboard.writeText(job.description || job.description_excerpt || '');
@@ -306,20 +320,27 @@ export function createDrawer({
         } catch {
           note.textContent = t('tailor.unavailable');
         }
-      });
-      replace(host, [copy, link(t('tailor.open')), note]);
+      }, { className: 'btn d-tailor__btn' });
+      replace(host, [
+        heading(),
+        actions([copy, link(t('tailor.open'), 'btn btn--primary d-tailor__btn')]),
+        note,
+      ]);
       host.dataset.tailor = 'ready';
     };
     const needsCareer = () => {
       replace(host, [
-        el('p', { text: t('tailor.needsCv') }),
-        onAddCareer
-          ? button(t('tailor.addCv'), () => onAddCareer(), {
-            className: 'btn', attrs: { id: 'drawer-add-career' },
-          })
-          : null,
-        el('p', {}, [link(t('tailor.openOwn'))]),
-      ].filter(Boolean));
+        heading(),
+        el('p', { className: 'd-tailor__note', text: t('tailor.needsCv') }),
+        actions([
+          onAddCareer
+            ? button(t('tailor.addCv'), () => onAddCareer(), {
+              className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-add-career' },
+            })
+            : null,
+          link(t('tailor.openOwn'), 'btn d-tailor__btn'),
+        ]),
+      ]);
       host.dataset.tailor = 'needs-career';
     };
     if (!careerContext) {
@@ -1071,8 +1092,6 @@ export function createDrawer({
       el('dl', { className: 'kv' }, [
         el('dt', { text: t('drawer.jobBoard') }),
         el('dd', { text: vocabLabel(job.provider) }),
-        el('dt', { text: t('drawer.howRead') }),
-        el('dd', { text: vocabLabel(job.access_method) }),
         el('dt', { text: t('drawer.postedOn') }),
         el('dd', { text: `${formatDate(job.posted_at)} (${relativeAge(job.posted_at)})` }),
         el('dt', { text: t('drawer.firstSeen') }),

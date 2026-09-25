@@ -26,8 +26,8 @@
 
 import { el, button, extLink, select, replace } from './dom.js';
 import {
-  statusOptions, compactPlace, formatSalary, freshness, prominenceWords, sourceLabel,
-  vocabLabel,
+  statusOptions, compactPlace, formatDate, formatSalary, freshness, parseDate, prominenceWords,
+  relativeAge, vocabLabel,
 } from './format.js';
 import { badges } from './badges.js';
 import { t } from './i18n.js';
@@ -435,8 +435,16 @@ function footer(job, handlers) {
   // One line, and it TRUNCATES rather than wrapping: a long source string
   // pushing the controls onto a second row is how a footer stops being a
   // footer. The full string stays in the `title`.
-  const provenance = sourceLabel(job.provider, job.access_method);
-  const meta = `${provenance} \u00b7 ${t('card.posted', { age: age.label.toLowerCase() })}`;
+  //
+  // The source is the board alone. How it was read (ATS structured,
+  // aggregator API) is plumbing, not something a reader decides with. The
+  // date part appears ONLY when the employer published one: `first_seen_at`
+  // is when this app collected the posting, and printing it as "Posted" would
+  // pass a collection timestamp off as the employer's date.
+  const provenance = job.provider ? vocabLabel(job.provider) : t('absent.source');
+  const postedDate = parseDate(job.posted_at) ? formatDate(job.posted_at) : null;
+  const posted = postedDate ? t('card.posted', { date: postedDate }) : null;
+  const meta = posted ? `${provenance} \u00b7 ${posted}` : provenance;
 
   return el('div', { className: 'card__footer' }, [
     el('div', { className: 'card__foot-top' }, [
@@ -444,9 +452,9 @@ function footer(job, handlers) {
         className: `card__age card__age--${age.tone}`,
         text: meta,
         attrs: {
-          title: job.posted_at
-            ? `${provenance} \u00b7 ${t('card.postedOn', { date: job.posted_at })}`
-            : `${provenance} \u00b7 ${t('card.noPostedDate')}`,
+          title: posted
+            ? `${meta} (${relativeAge(job.posted_at)})`
+            :`${provenance} \u00b7 ${t('card.noPostedDate')}`,
         },
       }),
       el('span', { className: 'card__foot-right' }, [saved, hide]),

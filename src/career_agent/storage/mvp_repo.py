@@ -91,7 +91,13 @@ from career_agent.domain.matching import (
     TitleClassification,
 )
 from career_agent.match.lexicon import TECHNOLOGY_SIGNALS
-from career_agent.storage.search_index import is_current, to_match_query
+from career_agent.storage.search_index import (
+    FOLD_FUNCTION,
+    is_current,
+    register_fold,
+    search_tokens,
+    to_match_query,
+)
 
 #: What a job's workflow status is when nobody has touched it. A job with no
 #: `job_application` row is DISCOVERED; there is no second place that decides.
@@ -2237,6 +2243,9 @@ class ScoredJobQuery(_Repo):
         self.now: str | None = None
         #: Whether the FTS index is current. Resolved once per query object.
         self._indexed: bool | None = None
+        # The free-text clause folds places in SQL (`ca_fold`). Registering is
+        # idempotent and per connection.
+        register_fold(conn)
 
     # -- the shared clause ------------------------------------------------
 
@@ -2262,7 +2271,7 @@ class ScoredJobQuery(_Repo):
         params: list[Any] = [config_id, config_version]
 
         if f.search:
-            clause, search_params = self._search_clause(f.search, a)
+            clause, search_params = self._free_text_clause(f.search, a)
             clauses.append(clause)
             params.extend(search_params)
 
@@ -2637,6 +2646,54 @@ class ScoredJobQuery(_Repo):
             ),
             [term, term, term],
         )
+
+    def _free_text_clause(self, text: str, a: str) -> tuple[str, list[Any]]:
+        """The search box: title, company, posting text AND place, per word.
+
+        Every word must be found SOMEWHERE, and each word may be found in a
+        different field: "engineer brazil" is an engineer posting located in
+        Brazil. That is the FTS rule (words ANDed across fields) with the
+        place added as one more field a word can live in.
+
+        The place is not in the full-text index, so it is matched here, on a
+        WORD boundary of the folded location: "us" finds "Remote (US)" and not
+        "Australia" or "Milwaukee", and "sao paulo" finds "São Paulo". Both
+        sides go through `fold_text` (casefold, no diacritics), and the word
+        is still LIKE-escaped, so `_` and `%` mean themselves.
+
+        Keyword phrases do not come through here. They keep
+        :meth:`_search_clause`, whose semantics their own tests pin.
+        """
+        tokens = search_tokens(text)
+        if not tokens:
+            # Only punctuation was typed. Nothing is searchable, so nothing
+            # matches, for the reason given in `_search_clause`.
+            return "1 = 0", []
+        indexed = self._search_is_indexed()
+        place = f"(' ' || {FOLD_FUNCTION}(j{a}.location_raw) || ' ') LIKE ? ESCAPE '\\'"
+        clauses: list[str] = []
+        params: list[Any] = []
+        for index, token in enumerate(tokens):
+            word = f"% {_escape_like(token)} %"
+            if indexed:
+                # Quoted, so FTS5 reads it as a literal. The LAST word is a
+                # prefix, as in `to_match_query`, so a half-typed word finds.
+                match = f'"{token}"*' if index == len(tokens) - 1 else f'"{token}"'
+                clauses.append(
+                    f"(j{a}.id IN (SELECT job_id FROM job_search WHERE job_search MATCH ?)"
+                    f" OR {place})"
+                )
+                params.extend([match, word])
+            else:
+                term = _like_term(token)
+                clauses.append(
+                    f"(LOWER(j{a}.title) LIKE ? ESCAPE '\\'"
+                    f" OR LOWER(c{a}.name) LIKE ? ESCAPE '\\'"
+                    f" OR LOWER(jr{a}.description_text) LIKE ? ESCAPE '\\'"
+                    f" OR {place})"
+                )
+                params.extend([term, term, term, word])
+        return "(" + " AND ".join(clauses) + ")", params
 
     def _search_is_indexed(self) -> bool:
         """Cached per query object: `is_current` costs an aggregate over `job`,

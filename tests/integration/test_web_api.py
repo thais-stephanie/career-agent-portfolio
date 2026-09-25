@@ -21,6 +21,7 @@ from career_agent.config.search_config import load_search_config
 from career_agent.pipeline.demo_seed import seed_demo
 from career_agent.storage.db import connect, migrate
 from career_agent.storage.mvp_repo import SET_VALUED_FACETS
+from career_agent.storage.search_index import is_current, rebuild
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ApiError, ServerConfig
 
@@ -196,6 +197,95 @@ def test_a_search_term_only_in_the_description_finds_the_job(api: JobsApi) -> No
     payload = _jobs(api, search="lead routing", limit=500)
     assert payload["total"] >= 1
     assert not any("lead routing" in item["title"].casefold() for item in payload["items"])
+
+
+def test_the_search_box_also_finds_the_place(api: JobsApi) -> None:
+    """Discover's toolbar search covers title, company, place and posting text.
+
+    The place is not in the full-text index, so it is matched separately; every
+    posting whose location names the term must come back.
+    """
+    everything = _jobs(api, limit=500)["items"]
+    for term in ("emea", "latam", "americas", "brazil", "uk"):
+        expected = {
+            item["job_id"] for item in everything if term in (item["location_raw"] or "").casefold()
+        }
+        if expected:
+            break
+    assert expected, "the demo corpus names no place this test can search for"
+    found = {item["job_id"] for item in _jobs(api, search=term, limit=500)["items"]}
+    assert expected <= found, (term, expected - found)
+
+
+def test_the_search_box_escapes_like_wildcards(api: JobsApi) -> None:
+    """`_` is a LIKE wildcard. Unescaped, `remote_` would match `Remote,` in
+    most locations; escaped it means itself and matches nothing here."""
+    assert _jobs(api, search="remote_", limit=500)["total"] == 0
+
+
+@pytest.fixture(scope="module", params=["like-fallback", "fts-index"])
+def placed(
+    request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory
+) -> tuple[JobsApi, list[dict]]:
+    """A seeded database whose first three visible postings get invented places.
+
+    Written straight into `job.location_raw`. Run twice: once without the
+    full-text index (the LIKE fallback) and once with it built, which is the
+    path the product normally takes. The place is not in the index either way.
+    """
+    tmp = tmp_path_factory.mktemp("webapi-places")
+    db_path = tmp / "demo.db"
+    conn = connect(db_path)
+    migrate(conn)
+    config, _ = load_search_config(CONFIG_DIR)
+    seed_demo(conn, config, source=DEMO_FILE)
+    conn.close()
+    api = JobsApi(ServerConfig(db_path=db_path, config_dir=CONFIG_DIR), quiet=True)
+    chosen = _jobs(api, limit=3)["items"]
+    assert len(chosen) == 3
+    places = ["São Paulo, Brazil", "Zqxton, Zqxland", "Brazqxil"]
+    conn = connect(db_path)
+    with conn:
+        for item, place in zip(chosen, places, strict=True):
+            conn.execute("UPDATE job SET location_raw = ? WHERE id = ?", (place, item["job_id"]))
+    if request.param == "fts-index":
+        rebuild(conn)
+        assert is_current(conn)
+    conn.close()
+    return api, chosen
+
+
+def _ids(api: JobsApi, search: str) -> set[str]:
+    return {item["job_id"] for item in _jobs(api, search=search, limit=500)["items"]}
+
+
+def test_every_search_word_may_be_found_in_a_different_field(placed) -> None:
+    """A word from the title and a word from the place, together."""
+    api, chosen = placed
+    title_word = next(w for w in chosen[0]["title"].casefold().split() if w.isalpha())
+    assert chosen[0]["job_id"] in _ids(api, f"{title_word} brazil")
+    assert chosen[0]["job_id"] in _ids(api, f"brazil {title_word}")
+
+
+def test_the_place_is_matched_without_accents_or_case(placed) -> None:
+    api, chosen = placed
+    assert chosen[0]["job_id"] in _ids(api, "sao paulo")
+    assert chosen[0]["job_id"] in _ids(api, "SÃO PAULO")
+
+
+def test_the_place_is_matched_on_whole_words(placed) -> None:
+    """`zqx` is not a word of "Brazqxil", so a short term cannot match inside
+    a longer place name (the "us" in Australia, the "uk" in Milwaukee)."""
+    api, chosen = placed
+    assert chosen[1]["job_id"] in _ids(api, "zqxland")
+    assert chosen[2]["job_id"] not in _ids(api, "zqx")
+    assert chosen[2]["job_id"] in _ids(api, "brazqxil")
+
+
+def test_an_overlong_search_is_refused(api: JobsApi) -> None:
+    assert _jobs(api, search="x" * 200, limit=5)["total"] == 0
+    with pytest.raises(ApiError):
+        _jobs(api, search="x" * 201, limit=5)
 
 
 def test_sorting_is_whitelisted(api: JobsApi) -> None:

@@ -198,7 +198,9 @@ def neutral_server(tmp_path, committed_config, pristine_server):
 
 
 def test_new_candidate_has_no_occupational_defaults_and_market_pause(page, neutral_server):
-    page.navigate(neutral_server + "/#settings")
+    # `?debug=1`: the concept review below lives in the scoring-vocabulary
+    # panel, which is a developer view now.
+    page.navigate(neutral_server + "/?debug=1#settings")
     page.wait_for("document.querySelector('[data-source=gupy]') !== null")
     assert page.evaluate(
         "document.querySelector('[data-source=gupy]').textContent.includes('Paused')"

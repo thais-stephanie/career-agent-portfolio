@@ -1569,7 +1569,8 @@ def test_a_keyword_preference_can_be_edited_without_opening_the_yaml(
     detach the corpus from its scores. See the fixture for the full reason.
     """
     server = writable_server
-    open_list(page, server)
+    # The scoring vocabulary is a developer view, reached with `?debug=1`.
+    open_list(page, server, "?debug=1")
     page.wait_for(f"{RENDERED_COUNT} > 0", message="the list")
     open_settings(page)
     page.evaluate("document.getElementById('settings-model').open = true")
@@ -1631,7 +1632,7 @@ def test_a_keyword_preference_can_be_edited_without_opening_the_yaml(
     # "show nothing": serve the previous answer and say which question it
     # answers. The owner met the old behaviour on her own corpus on
     # 2026-09-08 and read the empty list as the product having broken.
-    page.navigate(f"{server}/")
+    page.navigate(f"{server}/?debug=1")
     page.wait_for(
         f"{RENDERED_COUNT} > 0 || Boolean(document.querySelector('.state__head'))",
         message="the list after a preference edit",

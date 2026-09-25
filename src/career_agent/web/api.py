@@ -118,6 +118,12 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
     }
 )
 
+#: The longest free-text `search` accepted, in characters. The box in the
+#: Discover toolbar cuts to the same length (`SEARCH_MAX` in `state.js`), so
+#: this is only ever met by a hand-built URL, and it keeps a pasted page of
+#: text from becoming a LIKE pattern scanned against every description.
+SEARCH_MAX_CHARS = 200
+
 #: The closed vocabularies, keyed by the parameter that carries them. Values
 #: are compared case-insensitively and normalised to the stored spelling, so
 #: `role_class=primary` works -- it used to return zero rows in silence,
@@ -2349,6 +2355,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         offset = _int(query, "offset") or 0
         if offset < 0:
             raise ApiError(400, "offset must not be negative")
+        search = _one(query, "search")
+        if search is not None and len(search) > SEARCH_MAX_CHARS:
+            raise ApiError(400, f"search must be at most {SEARCH_MAX_CHARS} characters")
 
         # A minimum salary without a currency is not a question this system can
         # answer. Nothing here converts between currencies -- there is no

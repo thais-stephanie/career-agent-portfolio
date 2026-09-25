@@ -116,12 +116,6 @@ export function plainVocabLabel(value) {
   return humanLabel(raw);
 }
 
-/** "Greenhouse · ATS structured", where the posting came from and how. */
-export function sourceLabel(provider, accessMethod) {
-  const left = provider ? vocabLabel(provider) : t('absent.source');
-  return accessMethod ? `${left} · ${vocabLabel(accessMethod)}` : left;
-}
-
 /**
  * "Remote, Americas · Remote" is noise. Only add the work model when the
  * location string does not already say it.
@@ -192,6 +186,15 @@ export function formatDate(value) {
   const date = parseDate(value);
   if (!date) return MISSING;
   const months = t('date.months').split(' ');
+  // A value that STARTS with a calendar date is printed as that date. Going
+  // through a Date shifted it: `2026-09-10T23:30:00-03:00` is the 11th in UTC,
+  // and an offsetless datetime was read in the browser's own zone. The day
+  // the source wrote is the day shown.
+  const calendar = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (calendar) {
+    const month = months[Number(calendar[2]) - 1];
+    if (month) return `${calendar[3]} ${month} ${calendar[1]}`;
+  }
   return `${String(date.getUTCDate()).padStart(2, '0')} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 

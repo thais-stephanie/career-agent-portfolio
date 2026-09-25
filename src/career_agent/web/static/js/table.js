@@ -23,7 +23,6 @@ const STORAGE_KEY = 'careerAgent.table.columns.v1';
 
 /** Column order is the reading order of the working view. */
 export const COLUMNS = [
-  { id: 'select', labelKey: 'column.select', fixed: true, sortable: false, className: 'col--pick' },
   { id: 'score', labelKey: 'column.score', sort: 'score', className: 'col--num' },
   // Detail, not Confidence. The card, the legend, the filter and the sort
   // control all say Detail; this column said Confidence for the same number,
@@ -73,8 +72,6 @@ function saveVisible(visible) {
   }
 }
 
-const selected = new Set();
-
 /**
  * @param {HTMLElement} mount
  * @param {object[]} items
@@ -84,16 +81,13 @@ const selected = new Set();
 export function renderTable(mount, items, ctx) {
   mount.className = 'tablewrap';
   const visible = ctx.visible || loadVisible();
-  for (const id of Array.from(selected)) {
-    if (!items.some((job) => job.job_id === id)) selected.delete(id);
-  }
 
   // How common each signal is across the rows actually on screen. A signal 12
   // of 14 rows share distinguishes nothing; the two rarest do.
   const context = { ...ctx, frequency: signalFrequency(items) };
 
   const table = el('table', { className: 'jobs', attrs: { 'aria-label': t('table.caption') } }, [
-    head(items, visible, context),
+    head(visible, context),
     body(items, visible, context),
   ]);
 
@@ -103,7 +97,7 @@ export function renderTable(mount, items, ctx) {
   }, [table]);
   const wrap = el('div', { className: 'tablescrollwrap' }, [scroller]);
 
-  replace(mount, [toolbar(items, visible, context), wrap]);
+  replace(mount, [toolbar(visible, context), wrap]);
   watchScrollEdges(wrap, scroller);
   return mount;
 }
@@ -165,30 +159,11 @@ function signalLabels(job) {
   return Array.from(seen);
 }
 
-function toolbar(items, visible, ctx) {
-  const bar = el('div', { className: 'tablebar' });
-  const count = el('p', {
-    className: 'tablebar__sel',
-    attrs: { 'aria-live': 'polite' },
-    text: selected.size ? `${selected.size} selected` : '',
-  });
-
-  const bulk = select(
-    [{ value: '', label: t('table.moveTo') }, ...statusOptions()],
-    '',
-    (value, event) => {
-      if (!value || !selected.size) return;
-      ctx.onBulkStatus(Array.from(selected), value);
-      event.target.value = '';
-    },
-    { className: 'select', ariaLabel: t('table.bulkStatus') },
-  );
-  bulk.disabled = selected.size === 0;
-
-  bar.appendChild(count);
-  bar.appendChild(bulk);
-  bar.appendChild(columnMenu(visible, ctx));
-  return bar;
+// No bulk "move the ticked jobs" control and no row checkboxes. Each row
+// already carries its own status select, and ticking rows existed only to feed
+// that one bulk control, so both went together.
+function toolbar(visible, ctx) {
+  return el('div', { className: 'tablebar' }, [columnMenu(visible, ctx)]);
 }
 
 function columnMenu(visible, ctx) {
@@ -223,28 +198,10 @@ function columnMenu(visible, ctx) {
   ]);
 }
 
-function head(items, visible, ctx) {
+function head(visible, ctx) {
   const row = el('tr');
   for (const column of COLUMNS) {
     if (!visible.has(column.id)) continue;
-
-    if (column.id === 'select') {
-      const allOn = items.length > 0 && items.every((job) => selected.has(job.job_id));
-      const box = el('input', {
-        className: 'checkbox',
-        attrs: { type: 'checkbox', 'aria-label': t('table.selectAll') },
-        props: { checked: allOn },
-        on: {
-          change: (event) => {
-            if (event.target.checked) for (const job of items) selected.add(job.job_id);
-            else selected.clear();
-            ctx.onRerender();
-          },
-        },
-      });
-      row.appendChild(el('th', { className: 'col--pick', attrs: { scope: 'col' } }, [box]));
-      continue;
-    }
 
     const isSorted = column.sort && column.sort === ctx.sort;
     const th = el('th', {
@@ -284,7 +241,7 @@ function row(job, visible, ctx) {
   const offTarget = String(job.screening_state).toUpperCase() === 'BLOCKED';
   const tone = gated ? 'row--blocked' : (offTarget ? 'row--offtarget' : '');
   const tr = el('tr', {
-    className: `${tone}${selected.has(job.job_id) ? ' is-selected' : ''}`.trim(),
+    className: tone,
     dataset: { jobId: job.job_id },
   });
 
@@ -339,22 +296,6 @@ function groupMarker(job) {
 
 function cell(column, job, ctx, aside) {
   switch (column.id) {
-    case 'select': {
-      const box = el('input', {
-        className: 'checkbox',
-        attrs: { type: 'checkbox', 'aria-label': t('table.selectRow', { title: job.title }) },
-        props: { checked: selected.has(job.job_id) },
-        on: {
-          change: (event) => {
-            if (event.target.checked) selected.add(job.job_id);
-            else selected.delete(job.job_id);
-            ctx.onRerender();
-          },
-        },
-      });
-      return el('td', { className: 'col--pick' }, [box]);
-    }
-
     case 'score':
       return el('td', { className: 'col--num' }, [scoreCell(job.match_score, 'match')]);
 
@@ -411,7 +352,6 @@ function cell(column, job, ctx, aside) {
     case 'source':
       return el('td', {}, [
         el('span', { text: vocabLabel(job.provider) }),
-        el('span', { className: 'cell__sub', text: vocabLabel(job.access_method) }),
       ]);
 
     case 'technologies': {
@@ -548,6 +488,3 @@ export function tableSkeleton(mount, count = 8) {
   mount.appendChild(el('div', { className: 'tablescroll' }, [table]));
 }
 
-export function clearSelection() {
-  selected.clear();
-}
