@@ -531,7 +531,24 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
   // It is the same `search` state as before, so it combines with every filter
   // in this panel, shows as a chip and survives a reload in the address.
   // Debounced so a word is one request rather than one per key.
-  const pushSearch = debounce((value) => store.set({ search: value }), 250);
+  //
+  // `pendingSearch` is what the debounce is holding, or null, and
+  // `searchFromBox` is true only while the box itself is writing. Together
+  // they tell a change the box made from one made elsewhere ("Clear all", a
+  // chip's x, the back button), and an external change to `search` CANCELS
+  // the pending one: otherwise a word typed a moment before "Clear all" came
+  // back 250 ms after it.
+  let pendingSearch = null;
+  let searchFromBox = false;
+  const pushSearch = debounce((value) => {
+    pendingSearch = null;
+    searchFromBox = true;
+    try {
+      store.set({ search: value });
+    } finally {
+      searchFromBox = false;
+    }
+  }, 250);
   const searchInput = el('input', {
     className: 'input input--search toolsearch__input',
     attrs: {
@@ -541,6 +558,7 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
     on: {
       input: (event) => {
         searchClear.hidden = !event.target.value;
+        pendingSearch = event.target.value;
         pushSearch(event.target.value);
       },
       // Escape empties the box, the way a native search field does in most
@@ -799,8 +817,16 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
     salaryCurrency.value = chosen;
   }
 
-  function syncState(state) {
-    if (document.activeElement !== searchInput) searchInput.value = state.search || '';
+  function syncState(state, meta = {}) {
+    const search = state.search || '';
+    const changed = meta.changed || [];
+    const touched = changed.includes('search') || changed.includes('*');
+    if (touched && !searchFromBox && pendingSearch !== null) {
+      pushSearch.cancel();
+      pendingSearch = null;
+      searchInput.value = search;
+    }
+    if (document.activeElement !== searchInput) searchInput.value = search;
     searchClear.hidden = !searchInput.value;
     scoreSlider.set(state.min_score);
     confidenceSlider.set(state.min_confidence);

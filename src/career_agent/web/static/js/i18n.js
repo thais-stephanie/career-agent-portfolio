@@ -1953,6 +1953,7 @@ const EN = {
   'hidden.byYouShowing': 'Showing the ones you set aside, alongside the rest.',
   'hidden.byYouReveal': 'Show them too',
   'hidden.restoreView': 'See only what you set aside',
+  'hidden.byYouCompact': 'Hidden by you ({n})',
   // One of them, said in the singular. Portuguese inflects the noun, the
   // article and the pronoun together, so a count spliced into a plural
   // sentence reads as broken grammar rather than as a number.
@@ -4805,6 +4806,7 @@ const PT_BR = {
   'hidden.byYouShowing': 'Mostrando as que você deixou de lado, junto com as demais.',
   'hidden.byYouReveal': 'Mostrar também',
   'hidden.restoreView': 'Ver só o que você deixou de lado',
+  'hidden.byYouCompact': 'Ocultadas por você ({n})',
   // One of them, said in the singular. Portuguese inflects the noun, the
   // article and the pronoun together, so a count spliced into a plural
   // sentence reads as broken grammar rather than as a number.

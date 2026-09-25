@@ -213,3 +213,13 @@ def test_a_missing_index_reads_as_stale_rather_than_raising() -> None:
     bare.row_factory = sqlite3.Row
     _corpus(bare)
     assert is_current(bare) is False
+
+
+def test_fold_text_casefolds_strips_diacritics_and_keeps_words() -> None:
+    from career_agent.storage.search_index import fold_text, search_tokens
+
+    assert fold_text("São Paulo, BR") == "sao paulo br"
+    assert fold_text("Remote (US) / Zürich") == "remote us zurich"
+    assert fold_text(None) == ""
+    assert search_tokens("  C++ / .NET  ") == ["c", "net"]
+    assert search_tokens("***") == []

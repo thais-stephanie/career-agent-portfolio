@@ -34,6 +34,7 @@ from tests.browser.test_card_density import _row, inject
 SEARCH = "document.getElementById('f-search')"
 NOTICE = "document.getElementById('hiddennotice')"
 BY_YOU = f"{NOTICE}.querySelector('[data-notice=\"include_user_hidden\"]')"
+COMPACT = f"{NOTICE}.querySelector('[data-notice=\"include_user_hidden-compact\"]')"
 
 # -- A: the toolbar search ----------------------------------------------------
 
@@ -105,6 +106,10 @@ def test_a_card_says_posted_only_beside_a_published_date(
                 freshness="UNKNOWN",
                 first_seen_at="2026-09-01T00:00:00+00:00",
             ),
+            # The day the source wrote, whatever its offset: 23:30 at -03:00
+            # is the 11th in UTC, and an offsetless time is not the reader's.
+            _row("syn-offset", companies[2], posted_at="2026-09-10T23:30:00-03:00"),
+            _row("syn-local", companies[3], posted_at="2026-09-10T00:30:00"),
         ],
     )
     footer = '(id) => document.querySelector(`[data-job-id="${id}"] .card__age`).textContent'
@@ -112,6 +117,9 @@ def test_a_card_says_posted_only_beside_a_published_date(
     undated = str(page.evaluate(f"({footer})('syn-undated')"))
 
     assert "Posted: 10 Sep 2026" in dated, dated
+    for job_id in ("syn-offset", "syn-local"):
+        text = str(page.evaluate(f"({footer})({json.dumps(job_id)})"))
+        assert "Posted: 10 Sep 2026" in text, (job_id, text)
     assert "Posted" not in undated, undated
     assert "Sep 2026" not in undated, "a collection date was printed as the posting date"
     for text in (dated, undated):
@@ -181,8 +189,14 @@ def test_a_dismissed_notice_stays_dismissed_by_kind_and_only_speaks_on_discover(
     time.sleep(0.5)
     assert not page.evaluate(f"Boolean({BY_YOU})"), "the dismissal did not survive a reload"
 
+    # THE DOOR STAYS. What she hid has no control in the filter panel, so a
+    # compact entry that cannot be dismissed still leads to it.
+    assert page.evaluate(f"Boolean({COMPACT})"), "dismissing stranded the hidden postings"
+    assert not page.evaluate(f"Boolean({COMPACT}.querySelector('.hidden__dismiss'))")
+    assert "(2)" in str(page.evaluate(f"{COMPACT}.innerText"))
+
     # Any other kind still offers its way in, and "Show them too" still works.
-    other = '.hidden__row:not([data-notice="include_user_hidden"]) .hidden__show'
+    other = '.hidden__row:not([data-notice^="include_user_hidden"]) .hidden__show'
     reveal = f"{NOTICE}.querySelector({json.dumps(other)})"
     if page.evaluate(f"Boolean({reveal})"):
         kind = str(page.evaluate(f"{reveal}.closest('.hidden__row').dataset.notice"))
@@ -192,6 +206,14 @@ def test_a_dismissed_notice_stays_dismissed_by_kind_and_only_speaks_on_discover(
             message="the reveal to widen the list",
         )
 
+    # The compact entry opens the restore view. While that state is IN FORCE
+    # the full notice speaks again, dismissed or not, and offers no x: its
+    # sentence carries the way back out.
+    page.evaluate(f"{COMPACT}.querySelector('button').click()")
+    page.wait_for("location.search.includes('user_hidden_only=1')", message="the restore view")
+    page.wait_for(f"Boolean({BY_YOU})", message="the notice while its state is in force")
+    assert not page.evaluate(f"Boolean({BY_YOU}.querySelector('.hidden__dismiss'))")
+
     # Applications shares the container; the notices do not follow it there.
     page.evaluate("document.querySelector('.topnav__link[data-page=\"applications\"]').click()")
     page.wait_for("document.body.dataset.page === 'applications'", message="Applications")
@@ -200,3 +222,48 @@ def test_a_dismissed_notice_stays_dismissed_by_kind_and_only_speaks_on_discover(
         message="the Discover notices to stay on Discover",
     )
     assert page.console_errors() == []
+
+
+# -- the review's follow-ups --------------------------------------------------
+
+
+def test_the_debug_flag_survives_a_filter_change_and_a_reload(page: Chrome, server: str) -> None:
+    settings = "document.querySelector('.topnav__link[data-page=\"settings\"]').click()"
+    block = "document.getElementById('settings-model-block')"
+
+    open_list(page, server)
+    page.evaluate(settings)
+    page.wait_for("document.body.dataset.page === 'settings'", message="Settings")
+    assert page.evaluate(f"{block}.hidden"), "the scoring vocabulary shows without the flag"
+
+    open_list(page, server, "?debug=1")
+    page.evaluate("document.getElementById('direction').click()")
+    page.wait_for("location.search.includes('direction=')", message="a state change")
+    assert "debug=1" in str(page.evaluate("location.search")), "the flag fell out of the URL"
+    page.reload()
+    page.wait_for("Boolean(document.querySelector('.topnav__link'))", message="the reload")
+    page.evaluate(settings)
+    page.wait_for(f"!{block}.hidden", message="the scoring vocabulary after a reload")
+
+
+def test_a_pending_search_does_not_come_back_after_clear_all(page: Chrome, server: str) -> None:
+    open_list(page, server, SHOW_EVERYTHING)
+    set_value(page, SEARCH, "zzzzznothingmatches", "input")
+    page.wait_for(
+        f"{RENDERED_COUNT} === 0 && Boolean(document.querySelector('.chip--clear'))",
+        message="a committed search and its Clear all",
+    )
+    # Type more, then press Clear all before the 250 ms debounce fires.
+    page.evaluate(
+        f"(() => {{ const box = {SEARCH}; box.value = 'zzzzznothingmatchesq';"
+        " box.dispatchEvent(new Event('input', { bubbles: true }));"
+        " document.querySelector('.chip--clear').click(); return true; })()"
+    )
+    # Clear all also resets the include flags, so the count is not the one
+    # the page opened with; what matters is that it is not the search's zero.
+    page.wait_for(f"{RENDERED_COUNT} > 0", message="the list after Clear all")
+    before = int(page.evaluate(RENDERED_COUNT))
+    time.sleep(0.6)
+    assert "search=" not in str(page.evaluate("location.search")), "the typed search came back"
+    assert page.evaluate(f"{SEARCH}.value") == ""
+    assert int(page.evaluate(RENDERED_COUNT)) == before

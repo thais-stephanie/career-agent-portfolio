@@ -532,6 +532,13 @@ export function fromSearch(search) {
 /** Serialise a state object. Defaults are omitted, so a clean URL stays clean. */
 export function toSearch(state) {
   const params = new URLSearchParams();
+  // `debug` is not state: it is read once at load (`?debug=1` shows the
+  // scoring vocabulary). It is CARRIED so the first filter change does not
+  // drop it from the address and a reload keeps what the page was opened with.
+  // Copied as written; nothing here reads or enables anything from it.
+  const debug = typeof window === 'undefined'
+    ? null : new URLSearchParams(window.location.search).get('debug');
+  if (debug) params.set('debug', debug);
   if (state.search) params.set('search', state.search);
   for (const key of LIST_KEYS) {
     for (const value of state[key] || []) params.append(key, value);

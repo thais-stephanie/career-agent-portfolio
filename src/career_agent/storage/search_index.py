@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import unicodedata
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
@@ -27,6 +28,40 @@ _BATCH = 2000
 #: every one of these is stripped rather than escaped -- escaping them would
 #: preserve an operator the person did not mean to type.
 _FTS_SYNTAX = re.compile(r"[^\w\s]", flags=re.UNICODE)
+
+
+#: A run of word characters, after folding. Everything else separates words.
+_WORD = re.compile(r"\w+", flags=re.UNICODE)
+
+#: The SQLite name :func:`fold_text` is registered under. A connection that
+#: runs the free-text clause must have it (see `ScoredJobQuery.__init__`).
+FOLD_FUNCTION = "ca_fold"
+
+
+def fold_text(value: object) -> str:
+    """Casefolded, without diacritics, as space-separated words.
+
+    `São Paulo, BR` becomes `sao paulo br`. SQLite's own LOWER folds ASCII
+    only, so "sao paulo" never found "São Paulo"; this is the deterministic
+    fold both sides of a place comparison go through. The same fold the FTS
+    index applies (`unicode61 remove_diacritics 2`), so a token folded here
+    also matches the index.
+    """
+    if value is None:
+        return ""
+    decomposed = unicodedata.normalize("NFKD", str(value).casefold())
+    plain = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return " ".join(_WORD.findall(plain))
+
+
+def register_fold(conn: sqlite3.Connection) -> None:
+    """Make :func:`fold_text` callable from SQL on this connection."""
+    conn.create_function(FOLD_FUNCTION, 1, fold_text, deterministic=True)
+
+
+def search_tokens(text: str) -> list[str]:
+    """The words of a free-text search, folded. Empty when nothing is searchable."""
+    return fold_text(text).split()
 
 
 def to_match_query(text: str) -> str | None:

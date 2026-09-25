@@ -558,7 +558,7 @@ dom.direction.addEventListener('click', () => {
 // =========================================================================
 
 store.subscribe((state, meta) => {
-  panel.syncState(state);
+  panel.syncState(state, meta);
   syncRailCount(renderChips(dom.chips, state, store));
   syncHeader(state);
 
@@ -1056,14 +1056,31 @@ function renderHiddenNotice(state) {
     // A dismissal used to be forgotten whenever the count reached zero, so a
     // filter that briefly emptied a category brought the notice straight back
     // with a new number; a changed count is the same notice and stays quiet.
-    // The control that actually changes the population is in the filter
-    // panel and is always there.
-    if (dismissed(notice.key)) continue;
-
+    //
     // Showing them is a STATE, and the way back out lives here rather than on
     // a filter chip: that row is for things that narrow, and "Clear all
-    // filters" deliberately does not touch these.
+    // filters" deliberately does not touch these. So a notice whose state is
+    // IN FORCE is never suppressed, dismissed or not: hiding it would take
+    // "Hide them again" with it.
     const showing = Boolean(state[notice.key]);
+    if (dismissed(notice.key) && !showing) {
+      // WHAT SHE HID HERSELF HAS NO OTHER DOOR. The eligibility, place and
+      // seniority narrowings all have a control in the filter panel; the
+      // postings she set aside do not. So a dismissed "hidden by you" notice
+      // leaves a compact entry behind that cannot be dismissed, and waving
+      // the sentence away can never strand them.
+      if (notice.only && counts[notice.key]) {
+        rows.push(el('span', {
+          className: 'hidden__row hidden__row--compact',
+          dataset: { notice: `${notice.key}-compact` },
+        }, [
+          button(t('hidden.byYouCompact', { n: counts[notice.key] }), notice.only, {
+            className: 'hidden__show hidden__compact',
+          }),
+        ]));
+      }
+      continue;
+    }
     rows.push(el('span', { className: 'hidden__row', dataset: { notice: notice.key } }, [
       el('span', {
         className: 'hidden__text',
@@ -1081,13 +1098,16 @@ function renderHiddenNotice(state) {
       notice.only && !showing
         ? button(t('hidden.restoreView'), notice.only, { className: 'hidden__show' })
         : null,
-      button('×', () => {
-        dismiss(notice.key);
-        renderHiddenNotice(store.get());
-      }, {
-        className: 'hidden__dismiss',
-        ariaLabel: t('hidden.dismiss'),
-      }),
+      // Only while they are hidden: the showing sentence carries the way back.
+      showing
+        ? null
+        : button('×', () => {
+          dismiss(notice.key);
+          renderHiddenNotice(store.get());
+        }, {
+          className: 'hidden__dismiss',
+          ariaLabel: t('hidden.dismiss'),
+        }),
     ].filter(Boolean)));
   }
 
