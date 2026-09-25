@@ -236,6 +236,13 @@ def test_a_fresh_resume_is_reviewed_experience_by_experience(
         "document.querySelector('.imp-item[data-state=waiting]').dataset.key"
     )
     _press(page, "Not sure yet", f'.imp-item[data-key="{second_key}"]')
+    # On a CV the line stays "waiting", so the state cannot say the answer
+    # landed; the review's status line does. Answers run one at a time, and a
+    # click made while this one is still out would be ignored.
+    page.wait_for(
+        "document.querySelector('.imp-status')?.textContent === 'Left for later.'",
+        message="the Not sure yet answer saved",
+    )
     page.wait_for(_is(second_key, "waiting"))
     assert _verified(empty.db) == 1
 
