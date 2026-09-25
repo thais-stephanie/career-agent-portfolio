@@ -20,8 +20,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: The documents a person actually follows.
 USER_FACING = (
-    "README.md", "README.pt-BR.md", "README.es.md", "FIRST_RUN.md",
-    "CONTRIBUTING.md", "docs/PRIVACY.md", "THIRD_PARTY_NOTICES.md",
+    "README.md",
+    "README.pt-BR.md",
+    "README.es.md",
+    "FIRST_RUN.md",
+    "CONTRIBUTING.md",
+    "docs/PRIVACY.md",
+    "THIRD_PARTY_NOTICES.md",
 )
 
 

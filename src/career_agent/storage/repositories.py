@@ -809,6 +809,13 @@ class PipelineRunRepo(_Repo):
             " VALUES (?, ?, ?, ?, '{}')",
             (run_id, stage, now_utc(), PipelineRunStatus.RUNNING.value),
         )
+        # A run that writes the shared job catalogue holds its collection lock
+        # until it finishes. Taken after the insert, inside the caller's
+        # transaction: when another process holds it, the refusal rolls the
+        # row back and nothing was started.
+        from career_agent.storage.catalogue import hold_for_run
+
+        hold_for_run(self.conn, run_id, stage)
         return run_id
 
     def finish(
@@ -823,6 +830,9 @@ class PipelineRunRepo(_Repo):
             " WHERE id = ?",
             (now_utc(), status.value, json.dumps(stats or {}), error, run_id),
         )
+        from career_agent.storage.catalogue import release_for_run
+
+        release_for_run(self.conn, run_id)
 
     def progress(self, run_id: str, stats: dict[str, Any]) -> None:
         """Record what a run has done SO FAR, without ending it.

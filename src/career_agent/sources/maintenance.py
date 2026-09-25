@@ -31,7 +31,9 @@ def timestamp(value: str) -> float:
 
 @contextmanager
 def read_only(path: Path) -> Iterator[sqlite3.Connection]:
-    conn = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+    from career_agent.storage.catalogue import open_read_only
+
+    conn = open_read_only(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA query_only = ON")
     try:

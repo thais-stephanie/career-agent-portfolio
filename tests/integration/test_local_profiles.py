@@ -51,8 +51,11 @@ HubSpot, SQL
 """
 
 
-@pytest.fixture
-def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
+@pytest.fixture(params=["single", "split"])
+def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):  # noqa: ANN201
+    """An installation whose original profile either holds its own postings
+    (stage 1) or has been split into the shared job catalogue (stage 2).
+    Every isolation test runs against both."""
     root = tmp_path / "install"
     config = root / "config"
     shutil.copytree(committed_config_dir(), config, ignore=shutil.ignore_patterns("*.local.*"))
@@ -70,6 +73,12 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         seed_demo(conn, search, source=DEMO_FILE)
     finally:
         conn.close()
+    if request.param == "split":
+        from career_agent.storage import catalogue_split
+
+        profile, shared, _ = catalogue_split.build(db, tmp_path / "staging")
+        assert catalogue_split.verify(db, profile, shared).ok
+        catalogue_split.install(db, profile, shared)
     monkeypatch.setenv("RESUME_TAILOR_HOME", str(root / "unused"))
     registry = ensure_registry(root)
     first = registry.current

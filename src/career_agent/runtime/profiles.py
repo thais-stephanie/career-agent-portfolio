@@ -36,10 +36,12 @@ A DATABASE BELONGS TO ONE PROFILE. `bind_database` stamps the profile id into
 `database_identity` the first time a profile opens it and refuses, from then
 on, to open it as any other profile.
 
-SHARED PUBLIC CATALOGUE: NOT YET. Each profile currently holds its own copy
-of the job postings it collects. docs/MULTI_PROFILE.md describes the staged
-split into one shared public catalogue plus private per-profile state, and
-why it is staged.
+SHARED PUBLIC CATALOGUE. Public job data lives once, in
+`data/shared/catalogue.db`, and each profile's database holds only that
+person's private state (storage/catalogue.py). A profile created while a
+catalogue exists is linked to it; an installation whose original profile
+still holds its own postings keeps them until it is split explicitly with
+`career-agent catalogue split` (docs/MULTI_PROFILE.md).
 """
 
 from __future__ import annotations
@@ -346,6 +348,11 @@ def create_profile(root: Path, label: str) -> Profile:
             bind_database(conn, profile_id)
         finally:
             conn.close()
+        # With a shared job catalogue, the new profile holds only its own
+        # private state and reads postings from the catalogue.
+        from career_agent.storage.catalogue import link_new_profile
+
+        link_new_profile(db, create=False)
         registry.profiles.append(profile)
         save_registry(root, registry)
         return profile

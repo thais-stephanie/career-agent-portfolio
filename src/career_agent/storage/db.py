@@ -60,6 +60,16 @@ class MigrationError(RuntimeError):
 #: line; the line is a comment to SQL and a declaration to the runner.
 _RECONCILES = re.compile(r"^\s*--\s*reconciles:\s*([A-Za-z0-9_]+)\s*$", re.MULTILINE)
 
+#: Which file of a split installation a migration changes. From
+#: `SCOPED_SINCE` on, every migration names one: a split profile database
+#: holds only private tables and the shared catalogue only public ones, so a
+#: migration written for "the database" would find half its tables missing.
+#: A one-file database (the demo, tests, a profile not split yet) holds both
+#: and runs every migration. The other side records the file as considered,
+#: so the ledgers stay comparable. See storage/catalogue.py.
+_SCOPE = re.compile(r"^\s*--\s*scope:\s*(profile|catalogue)\s*$", re.MULTILINE)
+SCOPED_SINCE = 44
+
 
 @dataclass(frozen=True)
 class Migration:
@@ -71,6 +81,9 @@ class Migration:
     #: with no statements whose number another lineage already spent in a
     #: database this build must still be able to open.
     reconciles: frozenset[str] = frozenset()
+    #: `profile`, `catalogue`, or None for the migrations written before the
+    #: split, which both files ran while they were still one.
+    scope: str | None = None
 
     @property
     def sql(self) -> str:
@@ -109,6 +122,15 @@ def connect(db_path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode = WAL")
     # Rows indexable by column name instead of position.
     conn.row_factory = sqlite3.Row
+    # A split profile database opens with its shared job catalogue attached.
+    # Any other database (one file holding everything) is left as it is.
+    from career_agent.storage.catalogue import attach
+
+    try:
+        attach(conn, db_path)
+    except BaseException:
+        conn.close()
+        raise
     return conn
 
 
@@ -205,8 +227,22 @@ def discover_migrations(directory: Path = MIGRATIONS_DIR) -> list[Migration]:
                 f"{path.name} declares `reconciles:` and also contains statements; "
                 "a reserved slot must be empty"
             )
+        scopes = _SCOPE.findall(text)
+        if len(scopes) > 1:
+            raise MigrationError(f"{path.name} declares more than one `scope:`")
+        if int(prefix) >= SCOPED_SINCE and not scopes and not reconciles:
+            raise MigrationError(
+                f"{path.name} must declare `-- scope: profile` or `-- scope: catalogue`: "
+                "since the shared catalogue, every migration changes one file"
+            )
         migrations.append(
-            Migration(version=int(prefix), name=remainder, path=path, reconciles=reconciles)
+            Migration(
+                version=int(prefix),
+                name=remainder,
+                path=path,
+                reconciles=reconciles,
+                scope=scopes[0] if scopes else None,
+            )
         )
 
     versions = [m.version for m in migrations]
@@ -273,11 +309,29 @@ def migrate(conn: sqlite3.Connection, directory: Path = MIGRATIONS_DIR) -> list[
     records it: either the tables and the ledger entry both exist, or neither
     does.
     """
+    from career_agent.storage.catalogue import attached_path, role
+
+    side = role(conn)
+    if side == "profile":
+        from career_agent.storage.catalogue import ensure_profile_tables
+
+        with transaction(conn):
+            ensure_profile_tables(conn)
+        # The catalogue is migrated on its own connection, where its tables
+        # are `main`, before the profile's own migrations run.
+        shared = attached_path(conn)
+        if shared is not None:
+            other = connect(shared)
+            try:
+                migrate(other, directory)
+            finally:
+                other.close()
     applied: list[Migration] = []
     for migration in pending_migrations(conn, directory):
+        runs = side == "single" or migration.scope is None or migration.scope == side
         try:
             with transaction(conn):
-                for statement in split_statements(migration.sql):
+                for statement in split_statements(migration.sql) if runs else ():
                     conn.execute(statement)
                 conn.execute(
                     "INSERT INTO schema_migration (version, name, applied_at) VALUES (?, ?, ?)",

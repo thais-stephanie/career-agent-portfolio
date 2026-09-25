@@ -45,6 +45,24 @@ def request(conn: sqlite3.Connection, ids: Sequence[str]) -> None:
     """Persist explicit work before processing, so a crashed request can be retried."""
     if not conn.in_transaction:
         raise RuntimeError("request requires a write transaction")
+    # A split profile keeps its own requests (storage/catalogue.py): the
+    # shared queue and the shared input revisions are for public changes.
+    from career_agent.storage.catalogue import ensure_profile_tables, role
+
+    if role(conn) == "profile":
+        ensure_profile_tables(conn)
+        generation = int(
+            conn.execute(
+                "SELECT COALESCE(MAX(generation), 0) FROM main.profile_request"
+            ).fetchone()[0]
+        )
+        conn.executemany(
+            "INSERT INTO main.profile_request (job_id, generation, marked_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(job_id) DO UPDATE SET generation = excluded.generation,"
+            " marked_at = excluded.marked_at",
+            [(jid, generation + 1, now_utc()) for jid in ids],
+        )
+        return
     conn.execute("UPDATE compute_revision SET revision = revision + 1 WHERE id = 'singleton'")
     conn.executemany(
         "INSERT INTO job_dirty(job_id, reason, generation, marked_at)"
