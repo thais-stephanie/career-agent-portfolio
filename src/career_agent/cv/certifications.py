@@ -196,6 +196,8 @@ def read_certificate(text: str) -> Certificate | None:
             no_expiry, stage = True, 3
             continue
         if stage == 0 and _credential(field) is None:
+            if not _looks_like_issuer(field):
+                return None  # prose in the issuer's place: show the line as written
             issuer, stage = field, 1
             continue
         if stage >= 1 and (found := _credential(field)) is not None and stage <= 3:
@@ -222,6 +224,28 @@ def _last_month(value: str) -> str:
     return value if len(value) > 4 else f"{value}-12"
 
 
+#: Labels a note starts with. "Note: renewal pending" is a remark about a
+#: certificate, not an issuer and a title.
+_NOT_ISSUERS = frozenset(
+    {"note", "notes", "status", "comment", "obs", "nota", "observacao", "pending", "renewal"}
+)
+
+
+def _looks_like_issuer(field: str) -> bool:
+    """A name, not a sentence: short, no figures, and written like a name.
+
+    "Salesforce", "HubSpot Academy", "Scrum Alliance" are issuers. "reduced
+    cost by 30%" is a result somebody wrote beside a title, and structuring it
+    as an issuer would put words in the certificate's mouth.
+    """
+    value = field.strip()
+    if not value or len(value) > 60 or len(value.split()) > 6:
+        return False
+    if re.search(r"[\d%]", value):
+        return False
+    return value[:1].isupper() or value[:1] in "#&("
+
+
 def _read_unpiped(text: str) -> Certificate | None:
     """The forms written without columns.
 
@@ -234,7 +258,13 @@ def _read_unpiped(text: str) -> Certificate | None:
         return None
     issuer: str | None = None
     labelled = re.match(r"^([^:\d]{2,40}):\s+(.+)$", text)
-    if labelled and len(labelled.group(1).split()) <= 4:
+    if (
+        labelled
+        and _looks_like_issuer(labelled.group(1))
+        and not re.search(r"certif", fold(labelled.group(1)))
+        and fold(labelled.group(1)).strip() not in _NOT_ISSUERS
+        and labelled.group(2)[:1].isupper()
+    ):
         issuer, text = labelled.group(1).strip(), labelled.group(2).strip()
     issued: str | None = None
     dated = re.match(r"^(.+?)\s*\(([^()]+)\)$", text)

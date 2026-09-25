@@ -32,6 +32,7 @@ from career_agent.cv.skills import (
     inline_list,
     is_certification_header,
     is_table_row,
+    matrix_skills,
     skill_column,
     split_skills,
 )
@@ -259,7 +260,7 @@ def _bare(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z ]+", " ", fold(text))).strip()
 
 
-def _heading(line: str) -> str | None:
+def _heading(line: str, *, marked: bool = False) -> str | None:
     """Which section a line NAMES, if it names one.
 
     A whole-line match, lower-cased, accents and punctuation trimmed.
@@ -271,7 +272,7 @@ def _heading(line: str) -> str | None:
     bare = _bare(inline(_BULLET.sub("", line).strip()))
     if not bare or len(bare) > 40:
         return None
-    return _FOLDED_HEADINGS.get(bare) or skill_heading(bare)
+    return _FOLDED_HEADINGS.get(bare) or skill_heading(bare, marked=marked)
 
 
 def _loose_heading(text: str) -> str | None:
@@ -281,7 +282,7 @@ def _loose_heading(text: str) -> str | None:
     line written with heading syntax, where the document has already said it
     is a heading and the only question is which one.
     """
-    exact = _heading(text)
+    exact = _heading(text, marked=True)
     if exact:
         return exact
     for word in _bare(text).split():
@@ -301,7 +302,7 @@ def _document_title(lines: list[Line]) -> Line | None:
     headings = [line for line in lines if line.kind == "heading"]
     if not headings or headings[0].level != 1:
         return None
-    if any(h.level == 2 and _heading(h.text) for h in headings[1:]):
+    if any(h.level == 2 and _heading(h.text, marked=True) for h in headings[1:]):
         return headings[0]
     return None
 
@@ -446,7 +447,7 @@ def read_cv(text: str) -> ReadCv:
     counters: dict[str, int] = {}
     # One skill is one proposal within one context: "n8n" under two groups of
     # the global list is one skill; "n8n" under a job is that job's.
-    listed: dict[str | None, set[str]] = {}
+    listed: dict[tuple[str | None, str], set[str]] = {}
     # A technology table: the row above a Markdown table rule is its header.
     lines_by_number = {line.number: line for _s, line, _e, _c in structured}
     headers = {
@@ -455,9 +456,14 @@ def read_cv(text: str) -> ReadCv:
         if line.kind == "table_rule" and number - 1 in lines_by_number
     }
     column: int | None = None
+    header: list[str] | None = None
+    #: Skills a technology table states WITH its context, by name.
+    in_matrix: set[str] = set()
 
     def propose(text_: str, claim_type: ClaimType, section_: str, line_: Line, entry_) -> None:
-        scope = entry_.key if entry_ is not None else None
+        # One context, one scope: the same skill globally, under job A and in
+        # a technology table is three statements with three contexts.
+        scope = (entry_.key if entry_ is not None else None, section_)
         if claim_type in {ClaimType.SKILL, ClaimType.TOOL}:
             seen = listed.setdefault(scope, set())
             if fold(text_) in seen:
@@ -482,7 +488,7 @@ def read_cv(text: str) -> ReadCv:
 
     for section, line, entry, claim in structured:
         if line.kind != "table_rule" and not (line.text and is_table_row(line.raw)):
-            column = None  # the table, if there was one, has ended
+            column, header = None, None  # the table, if there was one, has ended
         if section is None or not claim or line.kind not in {"item", "text"} or not line.text:
             continue
 
@@ -492,13 +498,13 @@ def read_cv(text: str) -> ReadCv:
             found = skill_column(cells(line.raw))
             if line.number in headers or found is not None:
                 column = found if found is not None else 0
+                header = cells(line.raw)
                 continue  # a header row is structure, never a skill
             if column is not None:
-                row = cells(line.raw)
-                if column < len(row):
-                    for name in split_skills(row[column]):
-                        kind = ClaimType.TOOL if section == "tools" else ClaimType.SKILL
-                        propose(name, kind, "matrix", line, entry)
+                kind = ClaimType.TOOL if section == "tools" else ClaimType.SKILL
+                for name, statement in matrix_skills(header, cells(line.raw), column):
+                    in_matrix.add(fold(name))
+                    propose(statement, kind, "matrix", line, entry)
                 continue
 
         # A certification table's header row names columns, not a credential.
@@ -537,6 +543,22 @@ def read_cv(text: str) -> ReadCv:
             if not (_MIN_LENGTH <= len(item) <= _MAX_LENGTH):
                 continue
             propose(item, claim_type, section, line, entry)
+
+    # A RICHER OCCURRENCE WINS. A context-free global list naming a skill the
+    # technology table states with its depth ("Top Skills: Boomi" beside
+    # "Boomi | Certified only") must not survive as a plain, unqualified
+    # "Boomi": the table's statement is the truthful one.
+    if in_matrix:
+        result.proposals = [
+            p
+            for p in result.proposals
+            if not (
+                p.entry_key is None
+                and p.section in LIST_SECTIONS
+                and p.claim_type in {ClaimType.SKILL, ClaimType.TOOL}
+                and fold(p.text) in in_matrix
+            )
+        ]
     return result
 
 

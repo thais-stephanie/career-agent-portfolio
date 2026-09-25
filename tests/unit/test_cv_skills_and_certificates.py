@@ -66,18 +66,29 @@ def test_each_skill_keeps_the_line_it_came_from() -> None:
         "Skills & Tools",
         "Core Competencies",
         "Key Skills",
+        "Top Skills",
+        "Keywords",
         "Tools & Platforms",
-        "Technical Stack",
         "Competências Técnicas",
         "Ferramentas e Tecnologias",
-        "Areas of Expertise",
-        "Toolkit",
     ],
 )
-def test_a_qualified_skills_heading_is_read_as_one(heading: str) -> None:
+def test_an_explicit_skills_heading_is_read_plain_or_marked(heading: str) -> None:
     plain = skills(f"Riley\n\n{heading}\nHubSpot, n8n, Python\n" + TAIL)
     marked = skills(f"# Riley\n\n## {heading}\nHubSpot, n8n, Python\n" + TAIL)
     assert len(plain) == 3 and len(marked) == 3, (heading, plain, marked)
+
+
+@pytest.mark.parametrize(
+    "heading",
+    ["Technical Stack", "Areas of Expertise", "Toolkit", "Technology", "Core Systems"],
+)
+def test_a_generic_heading_needs_heading_syntax(heading: str) -> None:
+    """A generic noun names a section only when the document MARKS it one."""
+    marked = skills(f"# Riley\n\n## {heading}\nHubSpot, n8n, Python\n" + TAIL)
+    plain = skills(f"Riley\n\n{heading}\nHubSpot, n8n, Python\n" + TAIL)
+    assert len(marked) == 3, (heading, marked)
+    assert plain == [], (heading, plain)
 
 
 def test_a_sentence_about_tools_is_not_a_heading() -> None:

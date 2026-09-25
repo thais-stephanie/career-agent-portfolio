@@ -11,6 +11,8 @@ All three fixtures are synthetic (`tests/fixtures/cv/format_*`).
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from tests.support_cv import load_cv
 
@@ -31,9 +33,14 @@ def skill_proposals(name: str):
     return [p for p in read_cv(load_cv(name)).proposals if p.claim_type in SKILLISH]
 
 
+def base(text: str) -> str:
+    """The skill a statement names: "n8n (Built & owned)" names n8n."""
+    return re.sub(r" \([^()]*\)$", "", text)
+
+
 @pytest.mark.parametrize("name", FORMATS)
 def test_every_layout_yields_the_same_skills(name: str) -> None:
-    assert {p.text for p in skill_proposals(name)} == CANONICAL
+    assert {base(p.text) for p in skill_proposals(name)} == CANONICAL
 
 
 @pytest.mark.parametrize("name", FORMATS)
@@ -60,13 +67,14 @@ def test_every_layout_yields_the_same_certificate(name: str) -> None:
 def test_every_skill_keeps_the_line_it_literally_came_from(name: str) -> None:
     for proposal in skill_proposals(name):
         assert proposal.source_line is not None
-        assert proposal.source_text and proposal.text in proposal.source_text, proposal
-        assert proposal.evidence and proposal.text in proposal.evidence
+        name = base(proposal.text)
+        assert proposal.source_text and name in proposal.source_text, proposal
+        assert proposal.evidence and name in proposal.evidence
 
 
 def test_the_contexts_the_documents_state_are_kept_apart() -> None:
     def contexts(name: str) -> dict[str, tuple[str, bool]]:
-        return {p.text: (p.section, p.entry_key is not None) for p in skill_proposals(name)}
+        return {base(p.text): (p.section, p.entry_key is not None) for p in skill_proposals(name)}
 
     # A conventional resume: one global list.
     assert set(contexts("format_conventional_resume.txt").values()) == {("skills", False)}
@@ -80,8 +88,10 @@ def test_the_contexts_the_documents_state_are_kept_apart() -> None:
 
 
 def test_a_technology_table_keeps_its_other_columns_as_context() -> None:
-    (n8n,) = [p for p in skill_proposals("format_master_career_file.md") if p.text == "n8n"]
-    assert "Built & owned" in n8n.evidence and "Billing pipeline" in n8n.evidence
+    (n8n,) = [p for p in skill_proposals("format_master_career_file.md") if base(p.text) == "n8n"]
+    # The depth is part of the statement; the rest of the row is its context.
+    assert n8n.text == "n8n (Built & owned)"
+    assert "Billing pipeline" in n8n.evidence
 
 
 def test_table_header_rows_are_structure_not_claims() -> None:

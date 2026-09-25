@@ -34,10 +34,12 @@ import re
 
 from career_agent.cv.structure import fold
 
-#: Between skills: comma, semicolon, pipe, a bullet or middle dot, a spaced
-#: hyphen. NEVER a slash: "CI/CD", "REST/GraphQL" and "AS-IS / TO-BE" are
-#: one skill each, and splitting them would invent fragments.
-_SEPARATORS = re.compile(r"\s*[,;|•·]\s*|\s+-\s+")
+#: Between skills: comma, semicolon, pipe, a bullet or a middle dot. NEVER a
+#: slash ("CI/CD", "REST/GraphQL", "AS-IS / TO-BE" are one skill each) and
+#: NEVER a spaced hyphen: "Boomi - Certified only" is one skill with its
+#: qualifier, and splitting it would state a plain "Boomi" and invent a skill
+#: called "Certified only".
+_SEPARATORS = re.compile(r"\s*[,;|•·]\s*")
 
 #: What a skills, tools or keywords heading is made of. A heading made ONLY
 #: of these words, with at least one head word, names that section.
@@ -161,11 +163,41 @@ def _bare(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z ]+", " ", fold(text))).strip()
 
 
-def heading_section(bare: str) -> str | None:
-    """ "skills", "tools" or "keywords" for a line made only of their words."""
+#: The words that name a skills section ON THEIR OWN, on a line with no
+#: heading syntax. A bare generic noun -- "Technology", "Systems",
+#: "Platforms", "Expertise" -- is also a department, an industry or a team
+#: name, and inside a job it must stay part of that job (the adversarial
+#: review, 2026-09-25: a "Technology" line turned a job's bullets into tools).
+EXPLICIT_HEADS = frozenset(
+    {
+        "skills",
+        "skill",
+        "competencies",
+        "competences",
+        "competencias",
+        "habilidades",
+        "keywords",
+        "keyword",
+        "tools",
+        "ferramentas",
+    }
+)
+
+
+def heading_section(bare: str, *, marked: bool = False) -> str | None:
+    """ "skills", "tools" or "keywords" for a line made only of their words.
+
+    `marked` is STRUCTURAL EVIDENCE: a Markdown heading, or a label followed
+    by ":" and a list. With it, the whole vocabulary applies ("## Tools &
+    Platforms", "Technologies: a, b"). Without it, the line must carry an
+    explicit head word ("Top Skills", "Technical Skills", "Keywords"): a
+    generic noun alone never opens a section.
+    """
     words = bare.split()
     vocabulary = SKILL_HEADS | TOOL_HEADS | KEYWORD_HEADS | QUALIFIERS
     if not words or any(w not in vocabulary for w in words):
+        return None
+    if not marked and not any(w in EXPLICIT_HEADS for w in words):
         return None
     if any(w in KEYWORD_HEADS for w in words):
         return "keywords"
@@ -200,11 +232,18 @@ def inline_list(text: str) -> tuple[str, list[str]] | None:
     labelled = re.match(r"^\s*([^:]{1,40}):\s+(.+)$", text)
     if not labelled:
         return None
-    section = heading_section(_bare(labelled.group(1)))
+    # The colon is the structure; the label must still be only list words.
+    section = heading_section(_bare(labelled.group(1)), marked=True)
     if section is None:
         return None
     names = split_skills(labelled.group(2))
-    return (section, names) if names else None
+    # And what follows must be a LIST of short names, not a sentence:
+    # "Systems: migrated the billing system" is a sentence with a colon.
+    if not names or any(len(name.split()) > 5 for name in names):
+        return None
+    if len(names) == 1 and len(names[0].split()) > 3:
+        return None
+    return section, names
 
 
 def cells(raw: str) -> list[str]:
@@ -231,6 +270,34 @@ def skill_column(header: list[str]) -> int | None:
         if cell in _SKILL_COLUMNS:
             return index
     return None
+
+
+#: A technology table's column that says HOW a skill is held. It changes what
+#: can honestly be claimed ("Certified only" is not hands-on use), so it is
+#: kept in the statement itself and never dropped.
+_DEPTH_COLUMNS = frozenset({"depth", "level", "proficiency", "nivel", "profundidade"})
+
+
+def matrix_skills(header: list[str] | None, row: list[str], column: int) -> list[tuple[str, str]]:
+    """(skill name, statement) for one technology-table row.
+
+    The statement carries the row's depth when the table states one:
+    "Boomi (Certified only)", "n8n (Built & owned)". Every other column
+    (Where) stays as context in the evidence line.
+    """
+    if column >= len(row):
+        return []
+    qualifier = ""
+    if header:
+        folded = [_bare(cell) for cell in header]
+        depth = next((i for i, cell in enumerate(folded) if cell in _DEPTH_COLUMNS), None)
+        if depth is not None and depth < len(row):
+            value = row[depth].strip()
+            if value and set(value) - {"-", chr(0x2013), chr(0x2014)}:
+                qualifier = value
+    return [
+        (name, f"{name} ({qualifier})" if qualifier else name) for name in split_skills(row[column])
+    ]
 
 
 def is_certification_header(raw: str) -> bool:
