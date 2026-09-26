@@ -2,8 +2,8 @@
 
 Career Agent Beta with Resume Tailor Beta (0.2.0b1), for people who run it on
 their own computer. It replaces v0.1.0-alpha.2. To update, extract it into a
-new folder and copy the old folder's `data`, `config\*.local.yaml` and `.env`
-files into it ([how](docs/INSTALL.md#updating-to-a-new-version)); the old
+new folder and copy the old folder's `data`, `config\*.local.yaml` and both
+`.env` files into it ([how](docs/INSTALL.md#updating-to-a-new-version)); the old
 folder is not changed.
 
 ## New

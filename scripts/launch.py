@@ -196,8 +196,8 @@ def main() -> int:
                 '  .\\Start-Career-Agent.cmd -Port 8875 -ProfileName "Profile name"'
                 if sys.platform == "win32"
                 else "To open the demo or another profile side by side, run in this folder:\n"
-                "  uv run python scripts/launch.py --port 8875 --demo\n"
-                '  uv run python scripts/launch.py --port 8875 --profile "Profile name"'
+                "  uv run --no-sync python scripts/launch.py --port 8875 --demo\n"
+                '  uv run --no-sync python scripts/launch.py --port 8875 --profile "Profile name"'
             )
         )
         return 2

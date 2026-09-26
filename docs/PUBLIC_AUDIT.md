@@ -12,7 +12,7 @@ Scope: the explicit staged public tree and its newly created history. Developmen
 | Protocol response fixtures | PASS | Public vendor responses retained for connector regression tests, separate from the synthetic demo. They are not the private corpus or personal applications. Remaining vendor HR contacts are public posting text, not candidate contacts; signed URLs and request tokens were removed. |
 | Assets | PASS | README captures show synthetic jobs or empty first-run state and Alex Morgan. Decorative icons replaced with original geometric glyphs. Fonts and compiled dependency license notices retained. |
 | Licenses | PASS | Root MIT, vendored Tailor Apache-2.0, OFL fonts, React MIT and Career-Ops notice retain explicit boundaries. |
-| Commit metadata | NOTE | The alpha.2 history used the GitHub noreply address and imported no old parents. Commits merged after alpha.2 carry the maintainer's configured Git identities in author, committer and co-author fields. These are the project's own contributors, not candidate data; the history is published and was not rewritten. |
+| Commit metadata | NOTE | The alpha.2 history used the GitHub noreply address and imported no old parents. Commits merged after alpha.2 carry the contributors' configured Git identities in author, committer and co-author fields. These are the project's own contributors, not candidate data; the history is published and was not rewritten. |
 | Tags and release assets | PASS | alpha.1 is untouched in development. alpha.2 and v0.2.0-beta.1, with their assets, are created only after the integrated gate passes on the commit that is tagged. |
 
 ## Exclusion policy

@@ -65,7 +65,7 @@ class BackupResult:
     pending_proposals: int = 0
     notes: int = 0
     #: The profile reads its postings from the shared catalogue, which this
-    #: archive does not contain (`career-agent backup --catalogue` does).
+    #: archive does not contain (`career-agent backup --catalogue --profile NAME` does).
     split: bool = False
 
     @property

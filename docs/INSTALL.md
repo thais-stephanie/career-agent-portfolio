@@ -105,7 +105,7 @@ Follow these rules:
    (Resume Tailor). Then stop the demo by ending the process you started,
    and check that ports 8765 and 8766 are free again.
 7. Only after the demo works, run the normal launcher once with its check
-   option (Windows: Start-Career-Agent.cmd -Check -NoOpen; macOS/Linux:
+   option (Windows: .\Start-Career-Agent.cmd -Check -NoOpen; macOS/Linux:
    uv run --no-sync python scripts/launch.py --check) and show me that it
    printed "Setup complete". Then tell me to start Career Agent myself by
    double-clicking Start-Career-Agent.cmd (Windows) or with the command in the
@@ -159,9 +159,10 @@ syncing can damage a database that is in use. On many Windows 11 computers
 
 In the extracted folder, double-click **Start-Demo.cmd**.
 
-If a blue **Windows protected your PC** window appears, the Unblock step was
-skipped. Click **More info**, then **Run anyway**; or close it, unblock the ZIP
-as in step 2 and extract it again.
+If Windows shows a security warning (a blue **Windows protected your PC**
+window, or an **Open File** warning), the Unblock step was skipped. Click
+**More info**, then **Run anyway** (or **Run** in the Open File warning); or
+close it, unblock the ZIP as in step 2 and extract it again.
 
 A black or blue window opens. This is the launcher. The first time, it shows
 three steps:
@@ -606,7 +607,8 @@ launcher again. Nothing you saved was changed.
 
 Career Agent is probably already running in another launcher window. Use that
 window's page (<http://127.0.0.1:8765/>), or press **Ctrl+C** in that window
-and start again. The demo and personal mode cannot run at the same time.
+and start again. The demo and personal mode cannot use the same ports at the
+same time.
 
 To open the demo, or another profile, next to the one already running,
 [open PowerShell in the Career Agent folder](#windows-open-powershell) and run
