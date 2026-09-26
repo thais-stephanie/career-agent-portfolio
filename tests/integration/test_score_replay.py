@@ -587,13 +587,19 @@ def test_a_schema_10_reading_replays_into_the_mid_fallback(corpus):
     # Editing a row fires the trigger that drops its score receipt; a real
     # schema-10 row keeps it, so the receipts are put back after the edit.
     receipts = conn.execute("SELECT * FROM job_score_revision").fetchall()
+    planted = 0
     with transaction(conn):
         for row in conn.execute("SELECT job_id, result_json FROM job_match").fetchall():
             result = json.loads(str(row["result_json"]))
             for component in result.get("components", []):
-                if component.get("key") == "seniority":
+                if component.get("component_id") == "seniority":
+                    # What schema 10 wrote for an unstated level: nothing.
                     component["points"] = 0
-                    component["label"] = "stale schema 10 label"
+                    component["note"] = "stale schema 10 note"
+                    for contribution in component.get("contributions", []):
+                        contribution["label"] = "stale schema 10 label"
+                        contribution["points"] = 0
+                    planted += 1
             conn.execute(
                 "UPDATE job_match SET schema_version = 10, result_json = ? WHERE job_id = ?",
                 (json.dumps(result), row["job_id"]),
@@ -603,6 +609,14 @@ def test_a_schema_10_reading_replays_into_the_mid_fallback(corpus):
             [tuple(r) for r in receipts],
         )
 
+    assert planted == len(POSTINGS), "the stale seniority rows were never written"
+    unstated = [
+        r["job_id"]
+        for r in conn.execute("SELECT job_id, result_json FROM job_match").fetchall()
+        if json.loads(str(r["result_json"]))["seniority"]["source"] == "DEFAULT"
+    ]
+    assert unstated, "the corpus needs a posting that states no level"
+
     stats = rescore(conn, config)
     assert stats.jobs_replayed == len(POSTINGS), stats.replay_refused
     assert stats.jobs_read_in_full == 0
@@ -611,4 +625,11 @@ def test_a_schema_10_reading_replays_into_the_mid_fallback(corpus):
     full, _ = _forced_on_a_copy(conn, config, tmp_path)
     for job_id, record in full.items():
         assert replayed[job_id] == record, f"{job_id} did not replay into schema 11"
-    assert "stale schema 10 label" not in json.dumps(replayed)
+    assert "stale schema 10" not in json.dumps(replayed)
+    for job_id in unstated:
+        seniority = next(
+            c
+            for c in replayed[job_id]["result_json"]["components"]
+            if c["component_id"] == "seniority"
+        )
+        assert seniority["points"] > 0, f"{job_id}: an unstated level still scores zero"
