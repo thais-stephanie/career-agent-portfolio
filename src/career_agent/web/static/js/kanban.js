@@ -43,7 +43,6 @@ export const COLUMNS = Object.freeze([
   //
   // `CLOSED` has no status of its own: it is the one column carrying three.
   { key: 'SHORTLISTED', statuses: ['SHORTLISTED'] },
-  { key: 'TO_APPLY', statuses: ['TO_APPLY'] },
   { key: 'APPLIED', statuses: ['APPLIED'] },
   { key: 'INTERVIEW', statuses: ['INTERVIEW'] },
   { key: 'OFFER', statuses: ['OFFER'] },
@@ -150,7 +149,6 @@ function renderColumn(column, jobs, handlers) {
 function emptyText(key) {
   switch (key) {
     case 'SHORTLISTED': return t('kanban.emptyShortlisted');
-    case 'TO_APPLY': return t('kanban.emptyToApply');
     case 'APPLIED': return t('kanban.emptyApplied');
     case 'INTERVIEW': return t('kanban.emptyInterview');
     case 'OFFER': return t('kanban.emptyOffer');

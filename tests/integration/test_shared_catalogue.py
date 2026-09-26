@@ -384,7 +384,7 @@ def _migrations_with(tmp_path: Path, name: str, body: str) -> Path:
 
 
 def test_a_new_migration_must_name_the_file_it_changes(tmp_path: Path) -> None:
-    folder = _migrations_with(tmp_path, "0044_unscoped.sql", "CREATE TABLE x (id TEXT);\n")
+    folder = _migrations_with(tmp_path, "0999_unscoped.sql", "CREATE TABLE x (id TEXT);\n")
     with pytest.raises(MigrationError, match="scope"):
         discover_migrations(folder)
 
@@ -394,7 +394,7 @@ def test_a_scoped_migration_runs_on_its_side_and_is_recorded_on_the_other(
 ) -> None:
     folder = _migrations_with(
         tmp_path,
-        "0044_profile_note.sql",
+        "0999_profile_note.sql",
         "-- scope: profile\nCREATE TABLE private_note (id TEXT);\n",
     )
     conn = connect(two_profiles["b_db"])
@@ -406,7 +406,7 @@ def test_a_scoped_migration_runs_on_its_side_and_is_recorded_on_the_other(
     shared = connect(two_profiles["catalogue"])
     try:
         assert "private_note" not in _main_tables(shared)
-        assert shared.execute("SELECT name FROM schema_migration WHERE version = 44").fetchone()[
+        assert shared.execute("SELECT name FROM schema_migration WHERE version = 999").fetchone()[
             0
         ] == ("profile_note")
     finally:

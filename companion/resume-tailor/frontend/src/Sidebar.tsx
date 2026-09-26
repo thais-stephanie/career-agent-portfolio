@@ -1,3 +1,4 @@
+// Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 import { useEffect, useRef, useState } from "react";
 import { BackupToast, ImportBackupDialog, useBackup } from "./backup";
 import { Segmented } from "./components";
@@ -52,6 +53,17 @@ export function Sidebar() {
         <span className="ver">{STR.local}</span>
       </div>
 
+      {app.mode === "profile" && app.profile ? (
+        // One profile, one workspace: nothing to switch here. Switching
+        // happens in Career Agent, and this page follows it.
+        <>
+          <div className="sb-label">{STR.profile}</div>
+          <div className="sb-cand sb-profile" data-profile-id={app.profile.id}>
+            <div className="nm" style={{ fontWeight: 700 }}>{app.profile.label}</div>
+            <div className="note" style={{ fontSize: 11, opacity: 0.8 }}>{STR.followsCareerAgent}</div>
+          </div>
+        </>
+      ) : (<>
       <div className="sb-label">{STR.candidate}</div>
       <div className="sb-cand" ref={menuRef}>
         <button aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
@@ -75,6 +87,7 @@ export function Sidebar() {
           </div>
         )}
       </div>
+      </>)}
 
       {NAV.map((g) => (
         <div key={g.group}>

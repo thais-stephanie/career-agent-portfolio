@@ -288,9 +288,12 @@ export function createDrawer({
    * Tailor builds a resume from the person's own CV. Before Career Agent holds
    * anything about their career, "Open Resume Tailor" looked like the next
    * step and led to a tool with nothing to work from, so the next step shown
-   * is the one that gives it something. Tailor keeps its own store, which is
-   * never read from here: somebody who already gave it a CV there still has
-   * the link, one line down.
+   * is the one that gives it something.
+   *
+   * The link names this posting by its id and nothing else: Resume Tailor
+   * follows the active local profile and reads the posting, its status and
+   * the confirmed Career Profile from Career Agent itself, so nothing private
+   * travels in the address and there is nothing to copy and paste.
    */
   function tailorSection(job) {
     // ONE ACTION GROUP. The copy button, the link out and the note used to be
@@ -306,24 +309,15 @@ export function createDrawer({
     });
     host.appendChild(heading());
     const link = (text, className) => el('a', { className, text, attrs: {
-      href: '/resume-tailor', target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
+      href: `/resume-tailor?job=${encodeURIComponent(job.job_id)}`,
+      target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
     } });
     const actions = (children) => el('div', { className: 'd-tailor__actions' }, children.filter(Boolean));
     const ready = () => {
-      const note = el('p', {
-        className: 'd-tailor__note', text: t('tailor.note'), attrs: { 'aria-live': 'polite' },
-      });
-      const copy = button(t('tailor.copy'), async () => {
-        try {
-          await navigator.clipboard.writeText(job.description || job.description_excerpt || '');
-          note.textContent = t('tailor.copied');
-        } catch {
-          note.textContent = t('tailor.unavailable');
-        }
-      }, { className: 'btn d-tailor__btn' });
+      const note = el('p', { className: 'd-tailor__note', text: t('tailor.note') });
       replace(host, [
         heading(),
-        actions([copy, link(t('tailor.open'), 'btn btn--primary d-tailor__btn')]),
+        actions([link(t('tailor.open'), 'btn btn--primary d-tailor__btn')]),
         note,
       ]);
       host.dataset.tailor = 'ready';

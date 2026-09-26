@@ -469,14 +469,14 @@ def test_set_status_appends_exactly_one_event_per_move(conn: sqlite3.Connection)
     repo = ApplicationRepo(conn)
 
     repo.set_status(job_id, ApplicationStatus.SHORTLISTED, now="2026-09-01T09:00:00Z")
-    repo.set_status(job_id, ApplicationStatus.TO_APPLY, now="2026-09-02T09:00:00Z")
+    repo.set_status(job_id, ApplicationStatus.DISCOVERED, now="2026-09-02T09:00:00Z")
     repo.set_status(job_id, ApplicationStatus.APPLIED, now="2026-09-03T09:00:00Z", note="sent")
 
     history = repo.history(job_id)
     assert [(e["from_status"], e["to_status"]) for e in history] == [
         (None, "SHORTLISTED"),
-        ("SHORTLISTED", "TO_APPLY"),
-        ("TO_APPLY", "APPLIED"),
+        ("SHORTLISTED", "DISCOVERED"),
+        ("DISCOVERED", "APPLIED"),
     ]
     assert history[-1]["note"] == "sent"
     assert history[-1]["applied_at"] == "2026-09-03"

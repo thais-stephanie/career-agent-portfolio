@@ -252,7 +252,7 @@
       "primary_gap": null,
       "blockers": [],
       "unknown_count": 2,
-      "application_status": "TO_APPLY",
+      "application_status": "SHORTLISTED",
       "applied_at": null,
       "has_applied": false,
       "saved": true,
@@ -738,9 +738,8 @@
     ],
     "status": [
       { "key": "DISCOVERED", "label": "DISCOVERED", "count": 8 },
-      { "key": "SHORTLISTED", "label": "SHORTLISTED", "count": 2 },
+      { "key": "SHORTLISTED", "label": "SHORTLISTED", "count": 3 },
       { "key": "ARCHIVED", "label": "ARCHIVED", "count": 2 },
-      { "key": "TO_APPLY", "label": "TO_APPLY", "count": 1 },
       { "key": "APPLIED", "label": "APPLIED", "count": 1 },
       { "key": "REJECTED", "label": "REJECTED", "count": 1 }
     ],

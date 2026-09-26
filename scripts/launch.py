@@ -137,16 +137,17 @@ def main() -> int:
     from career_agent.web.api import JobsApi
     from career_agent.web.profiles import ProfileHost, SwitchableApp
     from career_agent.web.server import ServerConfig, build_server
+    from career_agent.web.tailor_bridge import tailor_app
 
     # The Tailor app is reached through a switch, so a profile change can
     # rebuild it on that profile's own workspace.
-    tailor_app = SwitchableApp(create_app())
+    tailor_app_obj = SwitchableApp(create_app())
     host = (
         ProfileHost(
             ROOT,
             port=args.port,
-            tailor=tailor_app,
-            tailor_factory=lambda home: create_app(home=home),
+            tailor=tailor_app_obj,
+            tailor_factory=tailor_app,
         )
         if profile is not None
         else None
@@ -176,6 +177,8 @@ def main() -> int:
         if host is not None and profile is not None:
             host.server = career
             host.serve(profile, api)
+            # Resume Tailor follows this profile from the first request on.
+            tailor_app_obj.inner = tailor_app(ROOT / profile.tailor_home, profile, api)
     except OSError:
         tailor_socket.close()
         if career:
@@ -193,7 +196,7 @@ def main() -> int:
     worker = threading.Thread(target=career.serve_forever, daemon=True)
     worker.start()
     server = uvicorn.Server(
-        uvicorn.Config(tailor_app, host="127.0.0.1", port=args.port + 1, log_level="warning")
+        uvicorn.Config(tailor_app_obj, host="127.0.0.1", port=args.port + 1, log_level="warning")
     )
 
     def open_when_ready():

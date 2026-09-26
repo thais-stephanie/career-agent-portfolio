@@ -5,5 +5,6 @@ Distributed under Apache-2.0. The original LICENSE and bundled OFL font notices 
 Public edition changes: safe default with no AI provider, local HTTP boundary,
 shared Python 3.12 launcher, explicit Beta metadata and UI, accurate privacy
 copy, original replacement glyphs, lint cleanup, development dependency security
-updates, per-file modification notices and integration documentation.
+updates, per-file modification notices, integration documentation, and a
+profile bridge that follows the active Career Agent local profile.
 The evidence engine remains the reused standalone implementation.

@@ -529,10 +529,10 @@ def test_saving_a_job_does_not_disturb_its_status(api: JobsApi) -> None:
     job_id = next(
         i for i in _jobs(api, limit=500)["items"] if i["company_slug"] == "ferris-automation"
     )["job_id"]
-    api.handle_api("PATCH", f"/api/jobs/{job_id}/status", {}, {"status": "TO_APPLY"})
+    api.handle_api("PATCH", f"/api/jobs/{job_id}/status", {}, {"status": "SHORTLISTED"})
     saved = api.handle_api("PATCH", f"/api/jobs/{job_id}/saved", {}, {"saved": True})
     assert saved["saved"] is True
-    assert saved["application_status"] == "TO_APPLY"
+    assert saved["application_status"] == "SHORTLISTED"
 
 
 def test_manual_import_scores_immediately_and_keeps_its_provenance(api: JobsApi) -> None:

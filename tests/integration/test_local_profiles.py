@@ -31,6 +31,7 @@ from career_agent.runtime.profiles import (
 from career_agent.storage.db import connect, migrate, transaction
 from career_agent.web.profiles import ProfileHost, SwitchableApp, tailor_environment
 from career_agent.web.server import ApiError
+from career_agent.web.tailor_bridge import tailor_app
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_FILE = REPO_ROOT / "evaluation" / "demo" / "demo_postings.yaml"
@@ -85,7 +86,7 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.Fix
     tailor_environment(root, first)
     from resume_tailor.api.app import create_app
 
-    host = ProfileHost(root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=create_app)
+    host = ProfileHost(root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=tailor_app)
     api = host.open(first)
     host.server = types.SimpleNamespace(RequestHandlerClass=type("H", (), {"app": api}))
     host.serve(first, api)
@@ -100,7 +101,9 @@ def app(host: ProfileHost):
 
 
 def tailor(host: ProfileHost) -> TestClient:
-    return TestClient(host.tailor, base_url=TAILOR)
+    """Resume Tailor as a page opened on the active profile sees it."""
+    headers = {"X-Local-Profile": host.active.id} if host.active is not None else {}
+    return TestClient(host.tailor, base_url=TAILOR, headers=headers)
 
 
 def fill_profile_a(host: ProfileHost) -> dict:
@@ -242,7 +245,7 @@ def test_rapid_switches_and_a_restart_keep_every_profile_whole(install: ProfileH
     app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
     host.close()  # the first process ends; its OS lock goes with it
     reopened = ProfileHost(
-        host.root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=create_app
+        host.root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=tailor_app
     )
     active = load_registry(host.root).current
     assert active.id == second
@@ -404,3 +407,36 @@ def test_a_rename_is_kept_when_the_registry_is_rebuilt(install: ProfileHost) -> 
     app(host).handle_api("PATCH", f"/api/profiles/{created['id']}", {}, {"label": "After"})
     (host.root / "data" / "profiles.json").unlink()
     assert {p.id: p.label for p in ensure_registry(host.root).profiles}[created["id"]] == "After"
+
+
+def test_a_tailor_tab_left_open_after_a_switch_cannot_touch_the_new_profile(
+    install: ProfileHost,
+) -> None:
+    host = install
+    """A switch rebuilds Resume Tailor on the new profile behind the same
+    port. A page still showing the old profile sends the old id and is
+    refused, so it can neither read nor write the new profile."""
+    first = host.active
+    job = app(host).handle_api("GET", "/api/jobs", {"limit": ["1"]}, {})["items"][0]["job_id"]
+    old_page = TestClient(host.tailor, base_url=TAILOR, headers={"X-Local-Profile": first.id})
+    created = app(host).handle_api("POST", "/api/profiles", {}, {"label": "Synthetic B"})
+    second = created["created"]["id"]
+    app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
+    for method, path, body in (
+        ("GET", "/api/career/applications", None),
+        ("PATCH", f"/api/career/applications/{job}", {"status": "APPLIED"}),
+        ("POST", "/api/career/evidence/import", {}),
+        ("GET", "/api/candidates", None),
+    ):
+        response = old_page.request(method, path, json=body, headers={"Origin": TAILOR})
+        assert response.status_code == 409, (method, path, response.text)
+        assert "Reload" in response.json()["detail"]
+    with connect(Path(host.root) / load_registry(host.root).current.db) as conn:
+        row = conn.execute("SELECT status FROM job_application WHERE job_id = ?", (job,)).fetchone()
+    assert row is None, "the old page wrote the new profile's application"
+    # A page that reloaded follows the new profile.
+    fresh = TestClient(host.tailor, base_url=TAILOR)
+    info = fresh.get("/api/workspace").json()
+    assert info["profile"]["id"] == second
+    new_page = TestClient(host.tailor, base_url=TAILOR, headers={"X-Local-Profile": second})
+    assert new_page.get("/api/career/applications").status_code == 200

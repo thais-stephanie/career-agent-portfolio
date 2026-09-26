@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from career_agent.domain.application import ApplicationStatus
+from career_agent.domain.application import ApplicationStatus, canonical_status
 from career_agent.domain.enums import Seniority
 from career_agent.match.places import REGIONS
 from career_agent.runtime import database_ref, read_identity
@@ -239,6 +239,10 @@ def _vocab(query: dict, key: str) -> tuple[str, ...]:
     out: list[str] = []
     for raw in values:
         match = folded.get(raw.strip().casefold())
+        if match is None and key == "status":
+            # A bookmark or a remembered filter from before migration 0044.
+            match = canonical_status(raw.strip().upper())
+            match = match if match in accepted else None
         if match is None:
             raise ApiError(
                 400,
@@ -2136,7 +2140,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         if not isinstance(raw, str):
             raise ApiError(400, "status is required")
         try:
-            status = ApplicationStatus(raw)
+            status = ApplicationStatus(canonical_status(raw) or raw)
         except ValueError as exc:
             raise ApiError(400, f"unknown status: {raw!r}") from exc
 

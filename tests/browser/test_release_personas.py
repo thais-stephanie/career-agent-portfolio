@@ -216,9 +216,9 @@ def test_complete_persona_journey(page, workspace, persona):
     page.wait_for("document.querySelector('.card .select--status').value === 'SHORTLISTED'")
     page.evaluate("document.querySelector('.topnav__link[data-page=\"applications\"]').click()")
     page.wait_for("document.querySelector('.kcard .select--status')")
-    set_value(page, "document.querySelector('.kcard .select--status')", "TO_APPLY", "change")
+    set_value(page, "document.querySelector('.kcard .select--status')", "APPLIED", "change")
     page.wait_for("!document.documentElement.hasAttribute('data-saving')")
-    page.wait_for("document.querySelector('.kcard .select--status').value === 'TO_APPLY'")
+    page.wait_for("document.querySelector('.kcard .select--status').value === 'APPLIED'")
     choose_theme(page, "dark")
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
     page.set_viewport(390, 844)
@@ -232,7 +232,7 @@ def test_complete_persona_journey(page, workspace, persona):
     with connect(ws.db) as conn:
         assert (
             conn.execute("SELECT status FROM job_application WHERE job_id=?", (job,)).fetchone()[0]
-            == "TO_APPLY"
+            == "APPLIED"
         )
         assert (
             conn.execute("SELECT COUNT(*) FROM verified_claim WHERE verified=1").fetchone()[0] == 1

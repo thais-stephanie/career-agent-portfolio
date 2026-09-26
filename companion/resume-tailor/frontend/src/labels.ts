@@ -1,4 +1,4 @@
-// Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+// Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 // Central display-label helpers (Phase 20). Every user-visible status string and
 // status color comes from here — components never hardcode internal vocabulary.
 // All strings live in one dictionary so a PT-BR translation can be added without
@@ -67,6 +67,28 @@ export const STR = {
   leaveForLater: "Leave for later",
   addToExperience: "Add to experience",
   waitingForReview: "Waiting for review",
+  // Career Agent profile (2026-09-26)
+  profile: "PROFILE",
+  followsCareerAgent: "Follows the active Career Agent profile",
+  noBaseResume: "No base resume yet",
+  noBaseResumeWhy: "Tailoring starts from a base resume. Make one from your confirmed Career Profile, or upload one.",
+  fromProfile: "Use my Career Profile",
+  fromProfileBusy: "Making a base resume from your confirmed Career Profile…",
+  fromProfileDone: (roles: number, details: number) =>
+    `Base resume made from your Career Profile: ${roles} role${roles === 1 ? "" : "s"}, ${details} confirmed detail${details === 1 ? "" : "s"}. Nothing was added that you have not confirmed.`,
+  fromProfileFailed: "A base resume could not be made from your Career Profile.",
+  uploadResume: "Upload a resume",
+  uploadFormats: "PDF, Word (.docx) or Markdown (.md). It stays on this computer.",
+  uploading: (name: string) => `Uploading “${name}”…`,
+  uploadFailed: "The resume could not be uploaded.",
+  fromCareerAgent: "FROM CAREER AGENT",
+  handoffLoading: "Reading the posting from Career Agent…",
+  handoffOtherProfile: "This link was opened for another Career Agent profile. It shows the active profile's data.",
+  careerStatus: "Status in Career Agent",
+  tailorThis: "Tailor",
+  noTrackedJobs: "No postings are marked yet. In Career Agent, mark a posting Interested and it appears here.",
+  otherResumes: "Other tailored resumes",
+  importEvidence: "Update from Career Profile",
 } as const;
 
 // verdict labels arrive from the API already humanized; tones live here

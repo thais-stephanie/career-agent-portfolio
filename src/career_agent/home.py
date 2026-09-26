@@ -140,7 +140,7 @@ def metrics(
 def progressed(conn: sqlite3.Connection, *, since: str | None) -> int:
     """UNIQUE applications that moved UP the ladder since the checkpoint.
 
-    Unique, because an application that went TO_APPLY -> APPLIED -> INTERVIEW
+    Unique, because an application that went SHORTLISTED -> APPLIED -> INTERVIEW
     in one afternoon progressed once as far as a person is concerned; counting
     two would make a busy afternoon look like two opportunities.
 

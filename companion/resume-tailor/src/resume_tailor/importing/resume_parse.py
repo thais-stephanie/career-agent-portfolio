@@ -1,4 +1,4 @@
-# Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+# Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 """Parse an uploaded resume (DOCX / PDF / plain text) into a reviewable draft.
 
 Deliberately honest about what a heuristic parser is: it produces a *draft* base
@@ -83,9 +83,9 @@ def extract_text(filename: str, data: bytes) -> str:
 
         reader = PdfReader(io.BytesIO(data))
         return "\n".join(page.extract_text() or "" for page in reader.pages)
-    if low.endswith((".txt", ".md")):
+    if low.endswith((".txt", ".md", ".markdown")):
         return data.decode("utf-8", errors="replace")
-    raise ValueError("Please upload a Word (.docx), PDF or plain-text resume.")
+    raise ValueError("Please upload a PDF, Word (.docx) or Markdown (.md) resume.")
 
 
 def _section_of(line: str) -> str | None:

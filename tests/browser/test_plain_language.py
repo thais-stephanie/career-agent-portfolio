@@ -193,7 +193,7 @@ def test_no_view_prints_a_name_this_system_chose(page: Chrome, server: str, view
         page.wait_for(
             "document.querySelector('.kanban')"
             " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
-            " && document.querySelectorAll('.kcol').length === 7",
+            " && document.querySelectorAll('.kcol').length === 6",
             message="the board",
         )
     else:
@@ -481,7 +481,7 @@ def test_the_board_and_the_dropdown_use_the_same_words(page: Chrome, server: str
     ]
 
     page.navigate(f"{server}/?view=kanban")
-    page.wait_for("document.querySelectorAll('.kcol').length === 7", message="the board")
+    page.wait_for("document.querySelectorAll('.kcol').length === 6", message="the board")
     columns = [
         str(name).strip().lower()
         for name in page.evaluate(

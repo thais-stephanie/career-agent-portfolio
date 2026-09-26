@@ -2151,7 +2151,6 @@ body.has-drawer { overflow: hidden; }
    closed state. */
 .select--status { font-weight: 600; }
 .select--status[data-value="SHORTLISTED"] { background-color: var(--lilac); }
-.select--status[data-value="TO_APPLY"] { background-color: var(--yellow); }
 .select--status[data-value="APPLIED"] { background-color: var(--blue); }
 .select--status[data-value="INTERVIEW"] { background-color: var(--orange); }
 .select--status[data-value="OFFER"] { background-color: var(--emerald); }
