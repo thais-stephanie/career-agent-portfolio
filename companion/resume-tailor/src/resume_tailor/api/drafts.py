@@ -48,7 +48,7 @@ def build_drafts_router(store: WorkspaceStore) -> APIRouter:
             raise HTTPException(404, str(e)) from e
         run = ws.run_store().load(run_id)
         if run is None:
-            raise HTTPException(404, "Unknown application.")
+            raise user_error(404, "application_not_found", "Unknown application.")
         return ws, run
 
     def view(ws, run, doc, advanced: bool = False) -> dict[str, Any]:

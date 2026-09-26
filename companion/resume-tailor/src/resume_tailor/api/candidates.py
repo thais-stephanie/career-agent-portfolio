@@ -78,7 +78,7 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
         try:
             return TailorService(ws.load_index(), ws.load_resumes(), ws.load_profiles(), get_llm())
         except WorkspaceError as e:
-            raise HTTPException(409, str(e)) from e
+            raise user_error(409, "no_experience_data", str(e)) from e
 
     # ------------------------------------------------------------- candidates
     @router.get("")
@@ -254,14 +254,17 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
             body.resume_id or ws.settings().get("default_resume_id") or next(iter(svc.resumes), "")
         )
         if resume_id not in svc.resumes:
-            raise HTTPException(
+            raise user_error(
                 400,
+                "no_base_resume",
                 "There is no base resume yet. Create one from your Career Profile or upload one.",
             )
         career_job: dict[str, Any] | None = None
         if body.career_job_id:
             if bridge is None:
-                raise HTTPException(400, "Resume Tailor is not connected to Career Agent.")
+                raise user_error(
+                    400, "not_connected", "Resume Tailor is not connected to Career Agent."
+                )
             try:
                 career_job = bridge.job(body.career_job_id)
             except Exception as e:
@@ -343,7 +346,7 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
         ws = ws_for(cid)
         meta_path = ws.root / "applications" / run_id / "application.json"
         if not meta_path.exists():
-            raise HTTPException(404, "Unknown application.")
+            raise user_error(404, "application_not_found", "Unknown application.")
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         if body.status is not None:
             if body.status not in labels.APPLICATION_STATUSES:
@@ -371,7 +374,7 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
         if st is None:
-            raise HTTPException(404, "Unknown application.")
+            raise user_error(404, "application_not_found", "Unknown application.")
         if st.get("status") != "done":
             return JSONResponse({"status": st})
         run = run_store.load(run_id)
@@ -389,7 +392,7 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
         ws = ws_for(cid)
         run = ws.run_store().load(run_id)
         if run is None:
-            raise HTTPException(404, "Unknown application.")
+            raise user_error(404, "application_not_found", "Unknown application.")
         exp = EXPORTERS.get(fmt)
         if exp is None:
             raise HTTPException(400, f"unknown format {fmt}; choose from {sorted(EXPORTERS)}")

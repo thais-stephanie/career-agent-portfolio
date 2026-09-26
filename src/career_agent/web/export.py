@@ -18,6 +18,9 @@ import csv
 import io
 from typing import Any
 
+#: Rows read per query while exporting (the list's own page ceiling).
+PAGE_SIZE = 500
+
 #: The two Search Fit bands the export holds, strongest first.
 GOOD_PLUS = ("STRONG", "GOOD")
 
@@ -53,7 +56,7 @@ def _cell(value: Any) -> str:
     if value is None:
         return ""
     text = str(value)
-    if text[:1] in ("=", "+", "-", "@"):
+    if text[:1] in ("=", "+", "-", "@", "\t", "\r"):
         return "'" + text
     return text
 

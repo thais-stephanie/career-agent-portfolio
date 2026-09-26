@@ -147,3 +147,59 @@ def test_awkward_values_survive_a_spreadsheet() -> None:
 def test_the_route_is_not_a_job_id(api: JobsApi) -> None:
     # `/api/jobs/<id>` must not swallow the export.
     assert isinstance(api.handle_api("GET", "/api/jobs/export.csv", EVERYTHING, {}), Download)
+
+
+def test_the_export_walks_every_page(api: JobsApi, monkeypatch) -> None:
+    from career_agent.web import export
+
+    monkeypatch.setattr(export, "PAGE_SIZE", 2)
+    expected = api.handle_api(
+        "GET", "/api/jobs", {**EVERYTHING, "fit_band": ["GOOD", "STRONG"], "limit": ["500"]}, {}
+    )["total"]
+    assert expected > 4, "the corpus must need several pages of two"
+    rows = _rows(_export(api, EVERYTHING))
+    assert len(rows) == expected
+    assert len({r["Job id"] for r in rows}) == expected, "a page was read twice"
+
+
+def test_grouping_on_exports_what_the_list_shows(api: JobsApi) -> None:
+    grouped = {**EVERYTHING, "group_duplicates": ["1"]}
+    expected = api.handle_api(
+        "GET", "/api/jobs", {**grouped, "fit_band": ["GOOD", "STRONG"], "limit": ["500"]}, {}
+    )["total"]
+    assert len(_rows(_export(api, grouped))) == expected
+
+
+def test_leading_tab_and_carriage_return_are_neutralised() -> None:
+    body = good_strong_csv([{"title": "\t=cmd", "company_name": "\r@x"}])
+    row = next(csv.DictReader(io.StringIO(body.decode("utf-8")[1:])))
+    assert row["Title"].startswith("'") and row["Company"].startswith("'")
+
+
+def test_the_file_is_sent_as_an_attachment(api: JobsApi) -> None:
+    import dataclasses
+    import http.client
+    import threading
+
+    from career_agent.web.server import build_server
+
+    httpd = build_server(api)
+    port = int(httpd.server_address[1])
+    api.config = dataclasses.replace(api.config, port=port)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+        conn.request("GET", "/api/jobs/export.csv?include_ineligible=1")
+        response = conn.getresponse()
+        body = response.read()
+        assert response.status == 200
+        assert response.getheader("Content-Type").startswith("text/csv")
+        disposition = response.getheader("Content-Disposition")
+        assert disposition.startswith('attachment; filename="career-agent-good-strong-')
+        assert response.getheader("Cache-Control") == "no-store"
+        assert response.getheader("X-Content-Type-Options") == "nosniff"
+        assert body.startswith(b"\xef\xbb\xbf"), "the byte-order mark reaches the file"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()

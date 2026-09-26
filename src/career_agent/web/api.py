@@ -1951,16 +1951,16 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         person's own status only: no CV, evidence, search phrases, notes or
         which query found a posting."""
         from career_agent.storage.mvp_repo import ScoredJobQuery
-        from career_agent.web.export import GOOD_PLUS, good_strong_csv
+        from career_agent.web import export
         from career_agent.web.server import Download
 
         chosen = [str(b).upper() for b in query.get("fit_band") or []]
-        bands = [b for b in GOOD_PLUS if not chosen or b in chosen]
+        bands = [b for b in export.GOOD_PLUS if not chosen or b in chosen]
         rows: list[dict] = []
         if bands:
             params = {k: v for k, v in query.items() if k not in ("offset", "limit")}
             params["fit_band"] = bands
-            params["limit"] = ["500"]
+            params["limit"] = [str(export.PAGE_SIZE)]
             job_filter = self._filter_from(params)
             with _closing(self.connect()) as conn:
                 decision = self._serving(conn)
@@ -1979,7 +1979,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                     )
         stamp = utc_today()
         return Download(
-            body=good_strong_csv(rows),
+            body=export.good_strong_csv(rows),
             content_type="text/csv; charset=utf-8",
             filename=f"career-agent-good-strong-{stamp}.csv",
         )

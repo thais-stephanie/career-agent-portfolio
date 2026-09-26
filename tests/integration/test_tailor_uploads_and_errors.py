@@ -160,7 +160,7 @@ def test_every_error_carries_a_code(client, cid) -> None:
     missing = client.get("/api/candidates/nobody-here/resumes")
     assert missing.status_code == 404 and missing.json()["detail"]["code"] == "not_found"
     unknown_resume = client.get(f"/api/candidates/{cid}/resumes/nope")
-    assert unknown_resume.json()["detail"]["code"] == "not_found"
+    assert unknown_resume.json()["detail"]["code"] == "resume_not_found"
     invalid = client.post(f"/api/candidates/{cid}/tailor", json={}, headers=HEAD)
     assert invalid.status_code == 422
     assert invalid.json()["detail"]["code"] == "invalid_request"
@@ -197,3 +197,29 @@ def test_the_shared_check_is_the_only_one() -> None:
     assert "check_document(" in source
     assert "RESUME_TYPES" not in source and "def check_resume_upload" not in source
     assert io is not None
+
+
+def test_a_source_uploaded_before_hashing_is_still_recognised(client, cid, tmp_path) -> None:
+    import json
+
+    sources = tmp_path / "home" / "candidates" / cid / "sources"
+    (sources / "files").mkdir(parents=True, exist_ok=True)
+    (sources / "files" / "old-1.md").write_bytes(MD)
+    (sources / "sources.json").write_text(
+        json.dumps([{"id": "old-1", "name": "old", "kind": "other", "file": "files/old-1.md"}]),
+        encoding="utf-8",
+    )
+    again = _upload(client, f"/api/candidates/{cid}/sources", "again.md", MD, "text/markdown")
+    assert again.json()["already"] is True and again.json()["id"] == "old-1"
+
+
+def test_an_invalid_resume_edit_says_nothing_about_internals(client, cid) -> None:
+    url = f"/api/candidates/{cid}/resumes/upload"
+    rid = _upload(client, url, "Resume.md", MD, "text/markdown").json()["id"]
+    bad = client.patch(
+        f"/api/candidates/{cid}/resumes/{rid}", json={"positions": "notalist"}, headers=HEAD
+    )
+    assert bad.status_code == 400
+    detail = bad.json()["detail"]
+    assert detail["code"] == "invalid_resume_edit"
+    assert "notalist" not in str(detail) and "pydantic" not in str(detail)

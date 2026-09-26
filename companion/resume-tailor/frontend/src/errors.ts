@@ -73,6 +73,12 @@ const EN: Words = {
   internal: () => "Something went wrong in Resume Tailor. Nothing was changed; try again.",
   network: () => "Resume Tailor is not answering. Is it still running?",
   backup_too_new: () => "This backup was made by a newer version of Resume Tailor. Update Resume Tailor, then try again.",
+  no_experience_data: () => "There is no experience to tailor from yet. Use your Career Profile, or add a resume or a source first.",
+  application_not_found: () => "That tailored resume is no longer here. Reload Resume Tailor.",
+  resume_not_found: () => "That base resume is no longer here. Reload Resume Tailor.",
+  invalid_resume_edit: () => "That change is not valid. Check what you entered and try again.",
+  source_backs_details: () => "Experience details came from this source. Confirm the removal to keep them out of your resumes.",
+  source_not_found: () => "That source is no longer here. Reload Resume Tailor.",
   pdf_unavailable: () => "PDF export isn't available on this computer yet: it needs Microsoft Word or LibreOffice installed. Word and Markdown export still work.",
 };
 
@@ -106,6 +112,12 @@ const PT: Words = {
   internal: () => "Algo deu errado no Resume Tailor. Nada foi alterado; tente de novo.",
   network: () => "O Resume Tailor não está respondendo. Ele ainda está aberto?",
   backup_too_new: () => "Este backup foi feito por uma versão mais nova do Resume Tailor. Atualize o Resume Tailor e tente de novo.",
+  no_experience_data: () => "Ainda não há experiência para adaptar. Use seu Perfil de Carreira ou adicione um currículo ou uma fonte antes.",
+  application_not_found: () => "Esse currículo adaptado não está mais aqui. Recarregue o Resume Tailor.",
+  resume_not_found: () => "Esse currículo base não está mais aqui. Recarregue o Resume Tailor.",
+  invalid_resume_edit: () => "Essa alteração não é válida. Confira o que foi preenchido e tente de novo.",
+  source_backs_details: () => "Detalhes da sua experiência vieram desta fonte. Confirme a remoção para deixá-los fora dos currículos.",
+  source_not_found: () => "Essa fonte não está mais aqui. Recarregue o Resume Tailor.",
   pdf_unavailable: () => "A exportação em PDF ainda não está disponível neste computador: ela precisa do Microsoft Word ou do LibreOffice. As exportações Word e Markdown continuam funcionando.",
 };
 
@@ -128,7 +140,9 @@ export function sentenceFor(detail: unknown, status: number): { code: string; te
   const words = CATALOGUES[current];
   if (detail && typeof detail === "object" && "code" in (detail as object)) {
     const d = detail as { code: string; message?: string; params?: Params };
-    if (GENERIC.has(d.code) && d.message) return { code: d.code, text: d.message };
+    // The server's own sentence is English: kept for English readers, whom it
+    // tells more; a Portuguese reader gets the Portuguese sentence for the kind.
+    if (GENERIC.has(d.code) && d.message && current === "en") return { code: d.code, text: d.message };
     const known = words[d.code];
     if (known) return { code: d.code, text: known(d.params ?? {}) };
     // A code this page does not know yet: the server's own sentence.
@@ -136,7 +150,7 @@ export function sentenceFor(detail: unknown, status: number): { code: string; te
   }
   const code = status >= 500 ? "internal" : status === 404 ? "not_found" : "invalid";
   // A plain sentence from the server (below 500) is shown as written.
-  if (typeof detail === "string" && detail && status < 500) return { code, text: detail };
+  if (typeof detail === "string" && detail && status < 500 && current === "en") return { code, text: detail };
   return { code, text: words[code]({}) };
 }
 

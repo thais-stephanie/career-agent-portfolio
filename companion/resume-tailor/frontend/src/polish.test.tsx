@@ -61,10 +61,19 @@ describe("error sentences", () => {
     expect(sentenceFor({ code: "internal", message: "Traceback at C:\\\\private" }, 500).text).not.toContain("private");
     setLocale("pt-BR");
     expect(sentence("stale_profile")).toContain("Recarregue");
-    expect(sentenceFor("A plain sentence for the reader.", 404).text).toBe("A plain sentence for the reader.");
+    expect(sentenceFor("A plain sentence for the reader.", 404).text).toBe(sentence("not_found"));
     expect(sentenceFor("anything", 500).text).toBe(sentence("internal"));
     expect(sentenceFor({ code: "a_new_code", message: "The server's own sentence." }, 400).text)
       .toBe("The server's own sentence.");
+  });
+
+  it("give Portuguese readers Portuguese even for a plain server sentence", () => {
+    setLocale("pt-BR");
+    expect(sentenceFor({ code: "not_found", message: "Unknown base resume." }, 404).text).toBe(sentence("not_found"));
+    expect(sentenceFor({ code: "resume_not_found", message: "Unknown base resume." }, 404).text)
+      .toContain("currículo base");
+    setLocale("en");
+    expect(sentenceFor({ code: "not_found", message: "Unknown base resume." }, 404).text).toBe("Unknown base resume.");
   });
 
   it("follow the language Career Agent passes, and remember it", () => {

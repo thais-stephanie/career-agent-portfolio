@@ -15,6 +15,7 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from resume_tailor.api import errors
 from resume_tailor.api.errors import user_error
 from resume_tailor.core.models import BaseResume
 from resume_tailor.importing.resume_parse import parse_resume, to_base_resume_json
@@ -112,7 +113,7 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
     def resume_detail(cid: str, resume_id: str) -> dict[str, Any]:
         r = ws_for(cid).load_resumes().get(resume_id)
         if not r:
-            raise HTTPException(404, "Unknown base resume.")
+            raise user_error(404, "resume_not_found", "Unknown base resume.")
         return r.model_dump(mode="json")
 
     @router.post("/resumes/upload")
@@ -160,7 +161,7 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
         ws = ws_for(cid)
         r = ws.load_resumes().get(resume_id)
         if not r:
-            raise HTTPException(404, "Unknown base resume.")
+            raise user_error(404, "resume_not_found", "Unknown base resume.")
         data = r.model_dump(mode="json")
         for key in ("name", "headline", "summary", "skills", "positions"):
             if key in body:
@@ -168,7 +169,10 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
         try:
             updated = BaseResume.model_validate(data)
         except Exception as e:
-            raise HTTPException(400, f"That change is not valid: {e}") from e
+            # The validator's own words name fields and values; they go to the
+            # log, never to the page.
+            errors.log.info("base resume edit refused: %s", e)
+            raise user_error(400, "invalid_resume_edit", "That change is not valid.") from e
         ws.save_base_resume(updated)
         return updated.model_dump(mode="json")
 
@@ -177,7 +181,7 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
         ws = ws_for(cid)
         r = ws.load_resumes().get(resume_id)
         if not r:
-            raise HTTPException(404, "Unknown base resume.")
+            raise user_error(404, "resume_not_found", "Unknown base resume.")
         data = r.model_dump(mode="json")
         data["id"] = f"{r.id}_copy"
         n = 2
@@ -192,7 +196,7 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
     def set_default_resume(cid: str, resume_id: str) -> dict[str, Any]:
         ws = ws_for(cid)
         if resume_id not in ws.load_resumes():
-            raise HTTPException(404, "Unknown base resume.")
+            raise user_error(404, "resume_not_found", "Unknown base resume.")
         settings = ws.settings()
         settings["default_resume_id"] = resume_id
         ws.save_settings(settings)
@@ -203,7 +207,7 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
         ws = ws_for(cid)
         p = ws.root / "base_resumes" / f"{resume_id}.json"
         if not p.exists() or resume_id not in ws.load_resumes():
-            raise HTTPException(404, "Unknown base resume.")
+            raise user_error(404, "resume_not_found", "Unknown base resume.")
         if not confirm:
             raise HTTPException(
                 400, "Deleting a base resume cannot be undone. Confirm to continue."
@@ -254,7 +258,7 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
             "id": entry["id"],
             "name": entry["name"],
             "already": bool(entry.get("already")),
-            "extracted": entry["extracted"],
+            "extracted": entry.get("extracted", {}),
             "note": "Nothing was added to your experience yet. Review the extracted details to decide.",
         }
 
@@ -283,7 +287,9 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
         try:
             return src.remove_source(ws_for(cid), source_id, force=force)
         except WorkspaceError as e:
-            raise HTTPException(409 if "came from this source" in str(e) else 404, str(e)) from e
+            if "came from this source" in str(e):
+                raise user_error(409, "source_backs_details", str(e)) from e
+            raise user_error(404, "source_not_found", str(e)) from e
 
     # --------------------------------------------------- experience & evidence
     def _open_conflicts(ws) -> list[dict[str, Any]]:

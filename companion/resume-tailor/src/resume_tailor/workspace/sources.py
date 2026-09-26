@@ -79,7 +79,12 @@ def add_source(
 
     digest = content_hash(data)
     for known in read_registry(ws):
-        if known.get("sha256") == digest:
+        stored = known.get("sha256")
+        if stored is None and known.get("file"):
+            # Registered before sources were hashed: hash the stored file.
+            path = ws.root / "sources" / str(known["file"])
+            stored = content_hash(path.read_bytes()) if path.is_file() else None
+        if stored == digest:
             return {**known, "already": True}
     parsed = parse_resume(filename, data)
     base = _slug(name or filename.rsplit(".", 1)[0])
