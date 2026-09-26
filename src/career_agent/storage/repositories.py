@@ -825,11 +825,36 @@ class PipelineRunRepo(_Repo):
         stats: dict[str, Any] | None = None,
         error: str | None = None,
     ) -> None:
+        finished = now_utc()
         self.conn.execute(
             "UPDATE pipeline_run SET finished_at = ?, status = ?, stats_json = ?, error = ?"
             " WHERE id = ?",
-            (now_utc(), status.value, json.dumps(stats or {}), error, run_id),
+            (finished, status.value, json.dumps(stats or {}), error, run_id),
         )
+        # How the collection went, for every profile (sources/public_health.py):
+        # outcome and counts only, never this profile's queries. Never allowed
+        # to break the run it describes.
+        row = self.conn.execute(
+            "SELECT stage, started_at FROM pipeline_run WHERE id = ?", (run_id,)
+        ).fetchone()
+        if row is not None:
+            import sqlite3
+
+            from career_agent.sources import public_health
+
+            try:
+                public_health.record(
+                    self.conn,
+                    stage=str(row[0]),
+                    started_at=str(row[1]),
+                    finished_at=finished,
+                    status=status.value,
+                    stats=stats or {},
+                )
+            except sqlite3.Error:
+                import logging
+
+                logging.getLogger(__name__).warning("source health not recorded", exc_info=True)
         from career_agent.storage.catalogue import release_for_run
 
         release_for_run(self.conn, run_id)

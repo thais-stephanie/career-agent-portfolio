@@ -425,6 +425,12 @@ def _progress_dict(p, name: str = "") -> dict:
         "eta_seconds": p.eta_seconds,
         "blocker": p.blocker,
         "reason": p.reason,
+        "last_attempt": p.last_attempt,
+        # One rule for "is anything wrong" and "what runs next", read by
+        # Settings & Sources, the sidebar and "Refresh due sources" alike.
+        "needs_attention": p.needs_attention,
+        "due": p.due,
+        "cooldown_until": p.cooldown_until,
     }
 
 
@@ -910,6 +916,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # still reads FORBIDDEN on the row itself.
             or (entry.source.permission.value == "FORBIDDEN" and entry.source.id not in opted)
         }
+        from career_agent.sources import public_health
+
         with _closing(self.connect()) as conn:
             progress = read_progress(
                 conn,
@@ -917,6 +925,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 providers=providers,
                 paused=paused,
                 blocked=blocked,
+                public=public_health.read(conn),
             )
         if self._active_source_refresh and self.retrieval.running:
             return [

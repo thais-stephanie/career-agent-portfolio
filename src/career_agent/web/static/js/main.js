@@ -471,7 +471,7 @@ try {
 // The source matrix, loaded the first time somebody opens the panel. Not on
 // page load: it answers a question nobody has asked yet, and a list of jobs
 // should not wait on a catalogue read.
-const sourcesPanel = createSourcesPanel(document.getElementById('sources-host'));
+const sourcesPanel = createSourcesPanel(document.getElementById('sources-host'), { collection });
 
 // =========================================================================
 // Header controls
@@ -2030,7 +2030,9 @@ async function loadRailReadouts() {
   } catch { /* the frame stays blank rather than shouting */ }
   try {
     const sources = await api.getSources();
-    railStatus.failed = (sources.refresh || []).filter((row) => row.state === 'FAILED').length;
+    // The same rule Settings & Sources uses (`needs_attention`): stale,
+    // failed or refused. One definition, so the two can never disagree.
+    railStatus.failed = (sources.refresh || []).filter((row) => row.needs_attention).length;
     drawRailStatus();
   } catch { /* the status line keeps what it last knew */ }
 

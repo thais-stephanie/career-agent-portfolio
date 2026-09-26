@@ -84,10 +84,23 @@ class RefreshState(StrEnum):
     #: that run achieved, the corpus from this source is no longer current,
     #: and saying "Refresh complete" about a three-day-old read is not true.
     STALE = "STALE"
+    #: Fine, and old enough that the next refresh should include it
+    #: (`DUE_AFTER_HOURS`). Not a problem yet; STALE is.
+    DUE = "DUE"
+    #: The provider refused us (429, 999, 403, a sign-in wall). A refusal is
+    #: never "no jobs": nothing is retried until `REFUSAL_COOLDOWN_HOURS` pass.
+    RATE_LIMITED = "RATE_LIMITED"
 
 
-#: When a successful refresh stops counting as current.
+#: When a successful refresh stops counting as current, and needs attention.
+#: Well inside the product rule that no enabled source goes a week unseen.
 STALE_AFTER_HOURS = 72
+#: When a successful refresh is old enough to be refreshed again.
+DUE_AFTER_HOURS = 24
+#: How long a failed attempt waits before it is due again.
+FAILURE_COOLDOWN_HOURS = 1
+#: How long a refusal is respected before the source is asked again.
+REFUSAL_COOLDOWN_HOURS = 24
 
 #: Why a refresh is PARTIAL, as codes a screen translates.
 REASON_PAGE_LIMIT = "PAGE_LIMIT"
@@ -151,6 +164,31 @@ class SourceProgress:
     #: Why the source is PARTIAL (or was, before it went STALE): a code from
     #: `partial_reason`, never prose.
     reason: str | None = None
+    #: When a refresh of this source last began, successful or not.
+    last_attempt: str | None = None
+    #: When a refused or failed source may be asked again, if it is waiting.
+    cooldown_until: str | None = None
+
+    @property
+    def needs_attention(self) -> bool:
+        """One rule, read by Settings & Sources and by the sidebar alike."""
+        return self.state in (RefreshState.STALE, RefreshState.FAILED, RefreshState.RATE_LIMITED)
+
+    @property
+    def due(self) -> bool:
+        """Whether "Refresh due sources" should run it now.
+
+        Never a paused, blocked or running source, and never one still
+        cooling down after a refusal or a failure."""
+        if self.cooldown_until is not None:
+            return False
+        return self.state in (
+            RefreshState.DUE,
+            RefreshState.STALE,
+            RefreshState.NOT_STARTED,
+            RefreshState.FAILED,
+            RefreshState.RATE_LIMITED,
+        )
 
     @property
     def measurable(self) -> bool:
@@ -271,6 +309,10 @@ def _state_of(row: sqlite3.Row, stats: Mapping[str, Any]) -> RefreshState:
     if row["finished_at"] is None:
         return RefreshState.RUNNING
     status = str(row["status"] or "").upper()
+    from career_agent.sources.public_health import rate_limited
+
+    if rate_limited(stats):
+        return RefreshState.RATE_LIMITED
     if status not in {"OK", "SUCCESS", "COMPLETE"}:
         return RefreshState.FAILED
     # One rule with `partial_reason`, so the app and `source-coverage` can
@@ -383,6 +425,31 @@ def _older_than(stamp: str | None, hours: int, now: datetime) -> bool:
     return (now - moment).total_seconds() > hours * 3600
 
 
+def _later(first: str | None, second: str | None) -> str | None:
+    if not first:
+        return second
+    if not second:
+        return first
+    return max(first, second)
+
+
+def _plus_hours(stamp: str, hours: int) -> datetime | None:
+    moment = _parse(stamp)
+    if moment is None:
+        return None
+    from datetime import timedelta
+
+    return moment + timedelta(hours=hours)
+
+
+_OUTCOME_STATE = {
+    "COMPLETE": RefreshState.COMPLETE,
+    "PARTIAL": RefreshState.PARTIAL,
+    "RATE_LIMITED": RefreshState.RATE_LIMITED,
+    "FAILED": RefreshState.FAILED,
+}
+
+
 def read_progress(
     conn: sqlite3.Connection,
     *,
@@ -391,6 +458,7 @@ def read_progress(
     paused: Mapping[str, str] | None = None,
     blocked: Mapping[str, str] | None = None,
     now: datetime | None = None,
+    public: Mapping[str, Any] | None = None,
 ) -> list[SourceProgress]:
     """One row per source the caller names, newest run first.
 
@@ -462,10 +530,41 @@ def read_progress(
             else successes.get(stage)
         )
         reason = partial_reason(counted) if state is RefreshState.PARTIAL else None
-        if state in (RefreshState.COMPLETE, RefreshState.PARTIAL) and _older_than(
-            last_success, STALE_AFTER_HOURS, moment
-        ):
-            state = RefreshState.STALE
+        last_attempt = str(row["started_at"]) if row is not None else None
+
+        # THE SHARED CATALOGUE'S OWN RECORD (migration 0045). Another profile
+        # may have refreshed this public source since this profile last did;
+        # when its record is newer, it decides.
+        key = f"{_SHARED_STAGE}:{provider_name}" if stage == _SHARED_STAGE else stage
+        seen = (public or {}).get(key)
+        if seen is not None:
+            last_success = _later(last_success, seen.last_success_at)
+            newer = last_attempt is None or seen.last_attempt_at > last_attempt
+            if newer and state not in (
+                RefreshState.BLOCKED,
+                RefreshState.PAUSED,
+                RefreshState.RUNNING,
+            ):
+                state = _OUTCOME_STATE.get(seen.last_outcome, state)
+                reason = seen.last_reason if state is RefreshState.PARTIAL else None
+            last_attempt = _later(last_attempt, seen.last_attempt_at)
+
+        if state in (RefreshState.COMPLETE, RefreshState.PARTIAL):
+            if _older_than(last_success, STALE_AFTER_HOURS, moment):
+                state = RefreshState.STALE
+            elif _older_than(last_success, DUE_AFTER_HOURS, moment):
+                state = RefreshState.DUE
+
+        cooldown = None
+        if last_attempt and state in (RefreshState.RATE_LIMITED, RefreshState.FAILED):
+            wait = (
+                REFUSAL_COOLDOWN_HOURS
+                if state is RefreshState.RATE_LIMITED
+                else FAILURE_COOLDOWN_HOURS
+            )
+            until = _plus_hours(last_attempt, wait)
+            if until is not None and until > moment:
+                cooldown = until.isoformat(timespec="seconds").replace("+00:00", "Z")
 
         retrieved = _first(counted, _RETRIEVED_KEYS)
         total = _first(counted, _TOTAL_KEYS) or _partitioned_total(counted)
@@ -489,6 +588,8 @@ def read_progress(
                 blocker=blocked.get(source_id) or paused.get(source_id),
                 detail=counted,
                 reason=reason,
+                last_attempt=last_attempt,
+                cooldown_until=cooldown,
             )
         )
     out.sort(key=lambda p: (p.state is not RefreshState.RUNNING, p.source_id))

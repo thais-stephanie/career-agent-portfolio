@@ -210,7 +210,15 @@ export function createCollection(api, { disabled = false } = {}) {
     syncTicker();
     emit();
     try {
-      const run = kind === 'retrieval' ? await api.startRetrieval() : await api.findJobs();
+      const run = kind === 'retrieval' ? await api.startRetrieval()
+        : kind === 'due' ? await api.refreshDueSources()
+          : await api.findJobs();
+      if (run && run.started === false) {
+        // Nothing was due: no run exists, and the caller says so.
+        starting = false;
+        emit();
+        return { ...state(), nothingDue: true, coolingDown: run.cooling_down || [] };
+      }
       if (run && run.run_id) {
         watched = run.run_id;
         finishedReported = false;
