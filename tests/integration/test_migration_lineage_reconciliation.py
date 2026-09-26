@@ -127,6 +127,7 @@ def test_the_production_path(production_shaped) -> None:
         (42, "job_retrieval_lane"),
         (43, "profile_identity"),
         (44, "merge_to_apply_into_interested"),
+        (45, "source_health"),
     ]
     after = _ledger_rows(conn)
     assert after[:37] == before

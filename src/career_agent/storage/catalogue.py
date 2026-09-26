@@ -88,6 +88,8 @@ SHARED_TABLES: frozenset[str] = frozenset(
         "source_board",
         "board_discovery_lead",
         "source_slice_state",
+        # how each collector last went; outcome and counts, never a query
+        "source_health",
         # the full-text index over them
         "job_search",
         "search_index_map",

@@ -78,7 +78,7 @@ const TONE = {
   BLOCKED_PROVIDER: 'warn',
 };
 
-export function createSourcesPanel(host) {
+export function createSourcesPanel(host, { collection = null } = {}) {
   //: Whether "Each job source" is open. The panel redraws after every refresh
   //: or timing change, and a section that snapped shut under the button just
   //: pressed would lose the person's place.
@@ -136,6 +136,78 @@ export function createSourcesPanel(host) {
     }
   }
 
+  /**
+   * SOURCE HEALTH, one row per source that can run: when it last worked and
+   * what that means now. Read from the same rows as the cards below and the
+   * sidebar's "N sources need attention", so the three never disagree.
+   * "Refresh due sources" runs only the due ones; nothing runs by opening it.
+   */
+  //: What the last "Refresh due sources" press led to. Kept here, not in the
+  //: node, because the panel redraws after the press and must say it again.
+  let healthNotice = '';
+
+  function healthTable(rows, sources) {
+    const due = rows.filter((row) => row.due).length;
+    const attention = rows.filter((row) => row.needs_attention).length;
+    const notice = el('p', {
+      className: 'src__note', text: healthNotice, attrs: { 'aria-live': 'polite', id: 'health-notice' },
+    });
+    const running = rows.some((row) => row.state === 'RUNNING');
+    const refreshDue = button(t('sources.refreshDue'), async () => {
+      if (!collection) return;
+      refreshDue.disabled = true;
+      notice.textContent = t('sources.refreshDueStarting');
+      const outcome = await collection.start('due');
+      if (outcome && outcome.nothingDue) {
+        healthNotice = t('sources.nothingDue');
+      } else if (outcome && outcome.error) {
+        healthNotice = outcome.error;
+      } else if (outcome && outcome.alreadyRunning) {
+        healthNotice = t('sources.alreadyRunning');
+      } else {
+        const started = outcome && typeof outcome.due === 'number' ? outcome.due : due;
+        healthNotice = t('sources.refreshDueStarted', { n: started });
+      }
+      notice.textContent = healthNotice;
+      refreshDue.disabled = false;
+      void load(true);
+    }, { className: 'btn', attrs: { id: 'refresh-due' } });
+    refreshDue.disabled = running || !collection || Boolean(collection.state().active);
+    const table = el('table', { className: 'src__health-table' }, [
+      el('thead', {}, [el('tr', {}, [
+        el('th', { text: t('sources.healthSource') }),
+        el('th', { text: t('sources.healthLastSuccess') }),
+        el('th', { text: t('sources.healthStatus') }),
+      ])]),
+      el('tbody', {}, rows.map((row) => {
+        const source = sources.find((entry) => entry.id === row.source_id) || {};
+        const detail = row.cooldown_until
+          ? t('sources.coolingDown', { date: shortDate(row.cooldown_until) })
+          : row.reason ? t(`sources.reason.${row.reason}`) : '';
+        return el('tr', {
+          dataset: { healthSource: row.source_id, state: row.state, due: String(Boolean(row.due)) },
+          className: row.needs_attention ? 'is-attention' : '',
+        }, [
+          el('td', {}, [
+            el('span', { text: row.name || source.name || row.source_id }),
+            source.experimental ? el('span', { className: 'tag tag--warn', text: t('sources.experimentalTag') }) : null,
+          ].filter(Boolean)),
+          el('td', { text: row.last_success ? shortDate(row.last_success) : t('sources.neverFresh') }),
+          el('td', {}, [
+            el('strong', { text: t(`sources.state.${row.state}`) }),
+            detail ? el('span', { className: 'src__reason', text: ` ${detail}` }) : null,
+          ].filter(Boolean)),
+        ]);
+      })),
+    ]);
+    return el('section', { className: 'src__health', attrs: { 'aria-labelledby': 'health-head' } }, [
+      el('h3', { text: t('sources.healthTitle'), attrs: { id: 'health-head' } }),
+      el('p', { text: t('sources.healthSummary', { due, attention }) }),
+      el('div', { className: 'src__health-actions' }, [refreshDue, notice]),
+      table,
+    ]);
+  }
+
   function render(payload) {
     const sources = payload.sources || [];
     const groups = new Map(ORDER.map((key) => [key, []]));
@@ -152,6 +224,7 @@ export function createSourcesPanel(host) {
     const body = el('details', { className: 'src' }, [
       el('summary', { text: t('settings.sourceDetails') }),
     ]);
+    host.appendChild(healthTable(payload.refresh || [], sources));
     host.appendChild(maintenanceSummary(payload.maintenance));
     host.appendChild(el('p', { text: t('settings.sourceHelp') }));
     // EXPERIMENTAL SOURCES, IN THE OPEN. A source the site itself restricts

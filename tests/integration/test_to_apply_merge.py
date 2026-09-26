@@ -86,7 +86,8 @@ def test_to_apply_becomes_interested_and_nothing_else_moves(before_0044) -> None
     old_events = [dict(r) for r in conn.execute("SELECT * FROM job_application_event ORDER BY id")]
 
     applied = migrate(conn)
-    assert [m.version for m in applied] == [44]
+    # 0044 runs here; later migrations may follow it.
+    assert [m.version for m in applied][0] == 44
 
     after = _state(conn)
     assert {k: v["status"] for k, v in after.items()} == {

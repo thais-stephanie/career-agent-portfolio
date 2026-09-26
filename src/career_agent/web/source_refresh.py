@@ -163,6 +163,21 @@ def register_source_refresh(app: JobsApi) -> None:
             raise ApiError(
                 409, "This source is currently unavailable for refresh.", for_reader=True
             )
+        cooling = next(
+            (
+                p
+                for p in app._refresh_progress([entry])
+                if p.state == "RATE_LIMITED" and p.cooldown_until
+            ),
+            None,
+        )
+        if cooling is not None:
+            raise ApiError(
+                409,
+                "This site refused the last requests. Career Agent will not ask it again"
+                f" before {cooling.cooldown_until[:16].replace('T', ' ')} UTC.",
+                for_reader=True,
+            )
         if not identity or identity.kind is not RuntimeMode.PERSONAL:
             raise ApiError(409, "Demo databases do not collect live jobs.", for_reader=True)
         if app.retrieval.running:
@@ -185,28 +200,7 @@ def register_source_refresh(app: JobsApi) -> None:
         except RuntimeError as exc:
             raise ApiError(409, "A refresh is already running.", for_reader=True) from exc
 
-    def refresh_all(*, query: dict, body: dict) -> dict:
-        """Find jobs: every source a per-source button would refresh, in turn.
-
-        A fresh install had no single way to collect anything. Each source had
-        its own "Refresh now", one run at a time, so a first search meant about
-        twenty clicks with a wait between each -- and the only all-at-once
-        control collected just the employer boards already in the database,
-        which a fresh database has none of.
-
-        This adds no collection policy of its own. The sources are exactly the
-        ones `can_refresh` admits, minus every one the person or their target
-        markets have PAUSED (the same verdict `/api/sources` shows beside each
-        row), and each is run through the same work its own button starts. One
-        source failing does not stop the rest; cancelling stops after the source
-        in flight. New postings are then scored by the normal targeted rescore.
-        """
-        if query or body:
-            raise ApiError(400, "Finding jobs takes no parameters.")
-        with closing(app.connect()) as conn:
-            identity = read_identity(conn)
-            entries = health(conn, catalogue_path=app.config.config_dir / "source_catalogue.yaml")
-            opted = opted_in(conn, entries)
+    def _refuse_unless_ready(identity) -> None:
         if not identity or identity.kind is not RuntimeMode.PERSONAL:
             raise ApiError(
                 409,
@@ -229,15 +223,24 @@ def register_source_refresh(app: JobsApi) -> None:
                 for_reader=True,
             )
 
-        paused = {p.source_id for p in app._refresh_progress(entries) if p.state == "PAUSED"}
+    def _plan(entries, opted, *, only: set[str] | None, discover: bool):
+        """The collection steps for `entries`, in the order they must run.
+
+        One policy for "Find jobs" and "Refresh due sources": the sources
+        `can_refresh` admits, minus every PAUSED one; with `only`, just those
+        source ids. Returns (steps, deferred collector keys, collector keys)."""
+        rows = app._refresh_progress(entries)
+        paused = {p.source_id for p in rows if p.state == "PAUSED"}
+        # A refusal is respected by EVERY button: a source the site refused is
+        # not asked again inside its cooldown, by "Find jobs" either.
+        refused = {p.source_id for p in rows if p.state == "RATE_LIMITED" and p.cooldown_until}
         steps: list[tuple[str, str, object]] = []
         board_ids: set[str] = set()
         seen: set[str] = set()
-        #: Sources that could run but are paused -- by the person, or because
-        #: they serve none of the places they can work. Counted in the same
-        #: unit as "N of M" (one per collector) and said, not silently missing.
         deferred: set[str] = set()
         for entry in entries:
+            if only is not None and entry.source.id not in only:
+                continue
             provider = effective_provider(entry, opted)
             if not provider or not can_refresh(entry, opted):
                 continue
@@ -245,7 +248,7 @@ def register_source_refresh(app: JobsApi) -> None:
             # Board families share one collector per provider; every other
             # source is its own `collect-*` command. Never run one twice.
             key = provider if stage == "collect" else stage
-            if entry.source.id in paused:
+            if entry.source.id in paused or entry.source.id in refused:
                 deferred.add(key)
                 continue
             if key in seen:
@@ -259,29 +262,22 @@ def register_source_refresh(app: JobsApi) -> None:
             if stage == "collect":
                 board_ids.add(entry.source.id)
             steps.append((entry.source.id, entry.source.name, work))
-        if not steps:
-            raise ApiError(
-                409,
-                "No job source is switched on for the places you can work. "
-                "Open Settings & Sources to turn one on.",
-                for_reader=True,
-            )
         # Feeds first, then employer board discovery (it reads the employers
         # the feeds just brought in), then the employer boards themselves, so
         # a board found this run is collected this run.
         boards = [s for s in steps if s[0] in board_ids]
         steps = [s for s in steps if s[0] not in board_ids]
-        # Only on the families the person has not paused, and not at all when
-        # every one of them is paused or blocked.
         from career_agent.pipeline.employer_boards import FAMILIES
 
         probe = tuple(f for f in FAMILIES if f in seen)
-        if probe:
+        if discover and probe:
             steps.append(
                 ("employer-boards", "Employer job boards", employer_board_work(app, probe))
             )
         steps.extend(boards)
+        return steps, deferred, seen
 
+    def _run(steps, deferred, seen):
         def all_sources(state, cancel):
             from contextlib import suppress
 
@@ -324,7 +320,8 @@ def register_source_refresh(app: JobsApi) -> None:
                 state.current_started_at = None
                 app._active_source_refresh = None
             # Score what arrived. Targeted: only postings without a current
-            # score, so this is proportional to what was collected.
+            # score, so this is proportional to what was collected. Never a
+            # semantic (paid) pass: that is only ever started by the person.
             if not app.rescore.running:
                 with suppress(RuntimeError):
                     app.rescore.start(app._rescore_work(), new_id())
@@ -337,6 +334,76 @@ def register_source_refresh(app: JobsApi) -> None:
                 "Career Agent is already looking for jobs. Wait for it to finish.",
                 for_reader=True,
             ) from exc
+
+    def refresh_all(*, query: dict, body: dict) -> dict:
+        """Find jobs: every source a per-source button would refresh, in turn.
+
+        A fresh install had no single way to collect anything. Each source had
+        its own "Refresh now", one run at a time, so a first search meant about
+        twenty clicks with a wait between each -- and the only all-at-once
+        control collected just the employer boards already in the database,
+        which a fresh database has none of.
+
+        This adds no collection policy of its own. The sources are exactly the
+        ones `can_refresh` admits, minus every one the person or their target
+        markets have PAUSED (the same verdict `/api/sources` shows beside each
+        row), and each is run through the same work its own button starts. One
+        source failing does not stop the rest; cancelling stops after the source
+        in flight. New postings are then scored by the normal targeted rescore.
+        """
+        if query or body:
+            raise ApiError(400, "Finding jobs takes no parameters.")
+        with closing(app.connect()) as conn:
+            identity = read_identity(conn)
+            entries = health(conn, catalogue_path=app.config.config_dir / "source_catalogue.yaml")
+            opted = opted_in(conn, entries)
+        _refuse_unless_ready(identity)
+        steps, deferred, seen = _plan(entries, opted, only=None, discover=True)
+        if not steps and any(
+            p.state == "RATE_LIMITED" and p.cooldown_until for p in app._refresh_progress(entries)
+        ):
+            raise ApiError(
+                409,
+                "The sources you can use refused the last requests and are cooling down. "
+                "Try again later; Settings & Sources says when.",
+                for_reader=True,
+            )
+        if not steps:
+            raise ApiError(
+                409,
+                "No job source is switched on for the places you can work. "
+                "Open Settings & Sources to turn one on.",
+                for_reader=True,
+            )
+        return _run(steps, deferred, seen)
+
+    def refresh_due(*, query: dict, body: dict) -> dict:
+        """Refresh due sources: only the ones whose health says they are due.
+
+        Due is one rule (`SourceProgress.due`): never refreshed, older than a
+        day, stale, or failed or refused and past its cooldown. Nothing paused,
+        blocked, running or still cooling down; nothing switched on by this
+        button. An experimental source (LinkedIn) is here only when this
+        profile already opted in, and a recent refusal keeps it out: it is
+        never asked again inside its cooldown. Nothing runs when nothing is due.
+        """
+        if query or body:
+            raise ApiError(400, "Refreshing due sources takes no parameters.")
+        with closing(app.connect()) as conn:
+            identity = read_identity(conn)
+            entries = health(conn, catalogue_path=app.config.config_dir / "source_catalogue.yaml")
+            opted = opted_in(conn, entries)
+        _refuse_unless_ready(identity)
+        rows = app._refresh_progress(entries)
+        due = {p.source_id for p in rows if p.due}
+        waiting = sorted(p.source_id for p in rows if p.cooldown_until)
+        if not due:
+            return {"started": False, "due": 0, "cooling_down": waiting}
+        steps, deferred, seen = _plan(entries, opted, only=due, discover=False)
+        if not steps:
+            return {"started": False, "due": 0, "cooling_down": waiting}
+        run = _run(steps, deferred, seen)
+        return {**run, "started": True, "due": len(steps), "cooling_down": waiting}
 
     def experimental(*, query: dict, body: dict) -> dict:
         """Switch a row's local experimental override on or off, for this profile.
@@ -378,6 +445,7 @@ def register_source_refresh(app: JobsApi) -> None:
     app.register("PATCH", r"/api/sources/schedule", schedule)
     app.register("POST", r"/api/sources/refresh", refresh)
     app.register("POST", r"/api/sources/refresh-all", refresh_all)
+    app.register("POST", r"/api/sources/refresh-due", refresh_due)
 
 
 def employer_board_work(app, families):

@@ -787,6 +787,14 @@ export async function findJobs() {
   return request('/sources/refresh-all', { method: 'POST', body: {} });
 }
 
+/**
+ * Refresh due sources: only the sources whose health says they are due.
+ * `{started: false}` when nothing is due; otherwise a run like `findJobs`.
+ */
+export async function refreshDueSources() {
+  return request('/sources/refresh-due', { method: 'POST', body: {} });
+}
+
 /** Ask the run to stop after the board it is on. */
 export async function cancelRetrieval() {
   return request('/retrieval/cancel', { method: 'POST', body: {} });
