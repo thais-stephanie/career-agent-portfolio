@@ -5375,8 +5375,8 @@ const PT_BR = {
   'setup.welcome.point2': 'Diga onde você mora e onde empresas podem te contratar, para o Career Agent saber quais '
     + 'vagas estão abertas para você.',
   'setup.welcome.point3': 'Depois, encontre suas primeiras vagas em sites de emprego públicos.',
-  'setup.welcome.privacy': 'Suas respostas ficam neste computador. Nada sobre você é enviado aos sites de vagas, e o Career '
-    + 'Agent nunca se candidata a uma vaga por você.',
+  'setup.welcome.privacy': 'Suas respostas ficam neste computador. Nada sobre você é enviado aos sites de vagas, '
+    + 'e o Career Agent nunca se candidata a uma vaga por você.',
   'setup.welcome.start': 'Começar',
   'setup.work.title': 'Que trabalho você quer fazer a seguir?',
   'setup.work.why': 'O Career Agent lê a descrição inteira da vaga, não só o título, então descreva o trabalho em si.',
