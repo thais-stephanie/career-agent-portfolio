@@ -995,84 +995,116 @@ export function createDrawer({
     return t('drawer.localModelUntried');
   }
 
+  /**
+   * THE LOCAL READING, as a state the server keeps. A reading takes minutes on
+   * a laptop, so it runs in the background: this section starts it, asks for
+   * its state every second and a half, and cancels it. Closing the drawer only
+   * stops asking; opening it again picks the same reading back up. Every
+   * state has its own sentence, so nobody needs the developer console to
+   * learn what happened. Only the model on this computer is ever asked.
+   */
   function enrichmentSection(job) {
     const ollama = getOllama() || {};
-    const unavailable = ollama.reachable === false || ollama.configured === false;
-
+    const model = ollama.model || t('drawer.theLocalModel');
     const enrichment = job.enrichment && Object.keys(job.enrichment).length ? job.enrichment : null;
-    const messageHost = el('p', { className: 'enrich__msg', attrs: { 'aria-live': 'polite' } });
-    // Updated every second, so it is hidden from the accessibility tree: the
-    // polite message beside it carries the state a screen reader needs.
-    const elapsedHost = el('span', { className: 'enrich__elapsed', attrs: { 'aria-hidden': 'true' } });
-
+    const messageHost = el('p', { className: 'enrich__msg', attrs: { 'aria-live': 'polite', id: 'enrich-msg' } });
+    const elapsedHost = el('span', { className: 'enrich__elapsed num', attrs: { 'aria-hidden': 'true' } });
     const hint = el('p', {
-      className: `enrich__hint${unavailable ? ' enrich__hint--blocked' : ''}`,
+      className: `enrich__hint${ollama.reachable === false ? ' enrich__hint--blocked' : ''}`,
       attrs: { id: 'enrich-hint' },
       text: enrichHint(ollama),
     });
 
-    let controller = null;
-    let timer = null;
+    let poller = null;
+    let stopped = false;
 
-    const cancelButton = button(t('action.cancel'), () => {
-      if (controller) controller.abort();
-    }, { className: 'btn', ariaLabel: t('drawer.cancelLocalModel') });
-    cancelButton.hidden = true;
-
-    function stopTimer() {
-      if (timer) clearInterval(timer);
-      timer = null;
-      controller = null;
-      enrichCleanup = null;
-      cancelButton.hidden = true;
-      elapsedHost.textContent = '';
+    function stopPolling() {
+      if (poller) clearTimeout(poller);
+      poller = null;
     }
 
-    const runButton = button(t('drawer.askLocalModel'), async () => {
-      controller = new AbortController();
-      const started = Date.now();
-      const seconds = () => Math.round((Date.now() - started) / 1000);
-
+    function running(state) {
       runButton.disabled = true;
       cancelButton.hidden = false;
+      cancelButton.disabled = Boolean(state.cancel_requested);
       messageHost.className = 'enrich__msg';
-      messageHost.textContent = t('drawer.asking', {
-        model: ollama.model || t('drawer.theLocalModelLower'),
+      messageHost.dataset.state = 'RUNNING';
+      messageHost.textContent = state.cancel_requested
+        ? t('local.cancelling')
+        : t(`local.phase.${state.phase || 'checking'}`, { model: state.model || model, tokens: state.tokens || 0 });
+      elapsedHost.textContent = `${Math.round(state.elapsed_s || 0)}s`;
+    }
+
+    function finished(state) {
+      stopPolling();
+      runButton.disabled = false;
+      cancelButton.hidden = true;
+      elapsedHost.textContent = '';
+      messageHost.dataset.state = state.state;
+      messageHost.className = state.state === 'SUCCESS' ? 'enrich__msg' : 'enrich__msg enrich__msg--calm';
+      const seconds = Math.round(state.elapsed_s || 0);
+      const key = state.code === 'below_threshold' ? 'local.state.belowThreshold' : `local.state.${state.state}`;
+      messageHost.textContent = t(key, {
+        seconds, model: state.model || model, error: state.message || '',
       });
-      elapsedHost.textContent = '0s';
-      timer = setInterval(() => { elapsedHost.textContent = `${seconds()}s`; }, 1000);
-      enrichCleanup = () => {
-        if (controller) controller.abort();
-        stopTimer();
-      };
-
-      try {
-        const updated = await api.enrichJob(job.job_id, controller.signal);
-        const took = seconds();
-        stopTimer();
-        messageHost.textContent = t('drawer.doneIn', { seconds: took });
-        if (onChanged) onChanged(updated);
-        open(job.job_id, invoker);
-      } catch (error) {
-        stopTimer();
-        // `expected` covers the two normal outcomes: the model is not running
-        // (503) and the person pressed Cancel. Neither is a fault, so neither
-        // is phrased or logged as one.
-        messageHost.className = 'enrich__msg enrich__msg--calm';
-        messageHost.textContent = error.expected
-          ? (error.userMessage || error.message)
-          : t('drawer.localModelFailed', { error: error.userMessage || error.message });
-        runButton.disabled = false;
+      if (state.state === 'SUCCESS') {
+        // The reading is stored with the posting: draw it from the job.
+        api.getJob(job.job_id).then((updated) => {
+          if (stopped) return;
+          if (onChanged) onChanged(updated);
+          open(job.job_id, invoker);
+        }).catch(() => {});
       }
-    }, { className: 'btn', attrs: { 'aria-describedby': 'enrich-hint' } });
+    }
 
-    if (unavailable) runButton.disabled = true;
+    function show(state) {
+      if (stopped || !state) return;
+      if (state.state === 'RUNNING') {
+        running(state);
+        poller = setTimeout(poll, 1500);
+      } else if (state.state === 'NOT_RUN') {
+        messageHost.textContent = '';
+        runButton.disabled = ollama.configured === false;
+      } else {
+        finished(state);
+      }
+    }
+
+    async function poll() {
+      try {
+        show(await api.enrichStatus(job.job_id));
+      } catch (error) {
+        finished({ state: 'ERROR', message: error.userMessage || error.message });
+      }
+    }
+
+    const cancelButton = button(t('action.cancel'), async () => {
+      cancelButton.disabled = true;
+      messageHost.textContent = t('local.cancelling');
+      try { await api.cancelEnrich(job.job_id); } catch { /* the next poll says what happened */ }
+    }, { className: 'btn', ariaLabel: t('drawer.cancelLocalModel'), attrs: { id: 'enrich-cancel' } });
+    cancelButton.hidden = true;
+
+    const runButton = button(enrichment ? t('local.askAgain') : t('drawer.askLocalModel'), async () => {
+      runButton.disabled = true;
+      try {
+        show(await api.startEnrich(job.job_id));
+      } catch (error) {
+        finished({ state: 'ERROR', message: error.userMessage || error.message });
+      }
+    }, { className: 'btn', attrs: { 'aria-describedby': 'enrich-hint', id: 'enrich-run' } });
+    if (ollama.configured === false) runButton.disabled = true;
+
+    // Leaving the drawer stops asking, never the reading.
+    enrichCleanup = () => {
+      stopped = true;
+      stopPolling();
+    };
+    // A reading may already be running from before this drawer was opened.
+    api.enrichStatus(job.job_id).then(show).catch(() => {});
 
     const body = [
-      el('p', {
-        className: 'enrich__banner',
-        text: t('drawer.localModelNote'),
-      }),
+      el('p', { className: 'enrich__banner', text: t('drawer.localModelNote') }),
       enrichment
         ? el('dl', { className: 'kv kv--enrich' }, Object.entries(enrichment).flatMap(([key, value]) => [
           el('dt', { text: humanLabel(key) }),

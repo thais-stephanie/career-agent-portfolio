@@ -309,35 +309,23 @@ export async function patchNotes(jobId, notes) {
  * @param {string} jobId
  * @param {AbortSignal} [signal] -- the Cancel button in the drawer.
  */
-export async function enrichJob(jobId, signal = null) {
+export async function startEnrich(jobId) {
   if (MOCK) {
-    // The harness exists to make these states real rather than theoretical, and
-    // "waiting on a local model" is a state with an elapsed counter and a Cancel
-    // button in it. So the mock waits, cancellably, before it refuses.
-    await slowly(MOCK_ENRICH_MS, signal);
-    throw new ApiError({
-      kind: 'http',
-      status: 503,
-      expected: true,
-      message: t('error.localModelOff'),
-    });
+    return { job_id: jobId, state: 'OLLAMA_UNAVAILABLE', message: t('error.localModelOff'), elapsed_s: 0 };
   }
-  try {
-    return await request(`/jobs/${encodeURIComponent(jobId)}/enrich`, {
-      method: 'POST', body: {}, signal,
-    });
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 503) {
-      throw new ApiError({
-        kind: 'http',
-        status: 503,
-        expected: true,
-        message: error.userMessage,
-        detail: error.detail,
-      });
-    }
-    throw error;
-  }
+  return request(`/jobs/${encodeURIComponent(jobId)}/enrich`, { method: 'POST', body: {} });
+}
+
+/** Where this posting's local reading stands (`local_ai/runner.py`). */
+export async function enrichStatus(jobId) {
+  if (MOCK) return { job_id: jobId, state: 'NOT_RUN' };
+  return request(`/jobs/${encodeURIComponent(jobId)}/local-reading`);
+}
+
+/** Stop this posting's local reading; the next status says CANCELLED. */
+export async function cancelEnrich(jobId) {
+  if (MOCK) return { job_id: jobId, state: 'CANCELLED' };
+  return request(`/jobs/${encodeURIComponent(jobId)}/enrich/cancel`, { method: 'POST', body: {} });
 }
 
 export async function importJob(payload) {
@@ -621,16 +609,6 @@ function tick() {
   return new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS));
 }
 
-/** A cancellable wait, so the mock enrichment can be aborted like the real one. */
-function slowly(ms, signal) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
-    if (!signal) return;
-    if (signal.aborted) { clearTimeout(timer); reject(abortError()); return; }
-    signal.addEventListener('abort', () => { clearTimeout(timer); reject(abortError()); }, { once: true });
-  });
-}
-
 function abortError() {
   return new ApiError({
     kind: 'aborted', status: 0, expected: true,
@@ -639,7 +617,6 @@ function abortError() {
 }
 
 const MOCK_LATENCY_MS = 120;
-const MOCK_ENRICH_MS = 6000;
 
 
 /** The editable phrase groups. */

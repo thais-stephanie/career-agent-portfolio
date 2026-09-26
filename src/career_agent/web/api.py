@@ -463,6 +463,10 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.profile_host: Any = None
         #: True once a local-profile switch has moved away from this app.
         self.retired = False
+        from career_agent.local_ai.runner import LocalReadings
+
+        #: Local-model readings running in the background, one per posting.
+        self.local_readings = LocalReadings()
         register_profiles(self)
         from career_agent.web.role_anchors_api import register_role_anchors
 
@@ -492,6 +496,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/hidden", self.patch_hidden)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/notes", self.patch_notes)
         self.register("POST", r"/api/jobs/(?P<job_id>[^/]+)/enrich", self.enrich_job)
+        self.register("GET", r"/api/jobs/(?P<job_id>[^/]+)/local-reading", self.enrich_status)
+        self.register("POST", r"/api/jobs/(?P<job_id>[^/]+)/enrich/cancel", self.enrich_cancel)
         self.register("POST", r"/api/import", self.import_job)
         # The candidate half of the product. Registered from its own module so
         # that the two sets of truth rules stay in two files.
@@ -2287,57 +2293,125 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
     # -- the only route that may open a socket, and only to localhost ----
     def enrich_job(self, *, job_id: str, query: dict, body: dict) -> dict:
-        """Run the local model over one job. Never called automatically.
+        """START a local reading of one job, in the background. Never automatic.
 
-        A 503 here is a normal, expected state, not a failure of the product:
-        Ollama is not running. The interface says so and everything else keeps
-        working.
+        Returns the reading's state at once (RUNNING, or the one already
+        running for this posting); the page asks `GET .../local-reading` for
+        progress and the final state, and `POST .../enrich/cancel` cancels. See
+        `local_ai/runner.py` for the states. Only the local Ollama client is
+        ever called: there is no hosted fallback on this path.
         """
         validate_job_id(job_id)
-        from career_agent.local_ai.ollama import OllamaInvalidOutput
+        if self.retired:
+            raise ApiError(409, "This profile is no longer the active one.", for_reader=True)
+        from career_agent.local_ai.ollama import OllamaSettings
+
+        settings = OllamaSettings.from_env(dict(os.environ))
+        config_id, config_version = self._identity()
+        # Deterministic triage runs FIRST, here as well as in the CLI: the
+        # model sees only postings that already survived scoring.
+        thresholds = _as_dict(self.search_config(), "thresholds")
+        minimum = thresholds.get("local_ai_min_score")
+        work = self._local_reading_work(
+            job_id, config_id, config_version, int(minimum) if minimum is not None else None
+        )
+        return self.local_readings.start(job_id, settings.model, work)
+
+    def enrich_status(self, *, job_id: str, query: dict, body: dict) -> dict:
+        """Where this posting's local reading stands. NOT_RUN if never asked in
+        this session; a stored reading is on the job itself (`enrichment`)."""
+        validate_job_id(job_id)
+        from career_agent.local_ai.ollama import OllamaSettings
+        from career_agent.local_ai.runner import NOT_RUN
+
+        found = self.local_readings.status(job_id)
+        if found is not None:
+            return found
+        return {
+            "job_id": job_id,
+            "model": OllamaSettings.from_env(dict(os.environ)).model,
+            "state": NOT_RUN,
+            "phase": None,
+        }
+
+    def enrich_cancel(self, *, job_id: str, query: dict, body: dict) -> dict:
+        """Stop this posting's reading: the connection to Ollama is closed."""
+        validate_job_id(job_id)
+        found = self.local_readings.cancel(job_id)
+        if found is None:
+            raise ApiError(404, "No local reading is running for this posting.", for_reader=True)
+        return found
+
+    def _local_reading_work(
+        self, job_id: str, config_id: str, config_version: int, minimum: int | None
+    ) -> Any:
+        """The body of one background reading. Maps every outcome to a state."""
+        from career_agent.local_ai import runner
         from career_agent.local_ai.prompt import LocalPromptChanged
         from career_agent.pipeline.enrich import (
+            EnrichmentCancelled,
+            EnrichmentModelMissing,
             EnrichmentRejected,
+            EnrichmentTimedOut,
             EnrichmentUnavailable,
             enrich_one,
         )
 
-        config_id, config_version = self._identity()
-        # Deterministic triage runs FIRST, here as well as in the CLI. Without
-        # this the button was a way around the whole point of the threshold:
-        # the model would see any posting a person happened to click, instead
-        # of only the ones that already survived scoring.
-        thresholds = _as_dict(self.search_config(), "thresholds")
-        minimum = thresholds.get("local_ai_min_score")
-        try:
-            with _closing(self.connect()) as conn:
-                self._ollama_state = enrich_one(
-                    conn,
-                    job_id,
-                    config_id=config_id,
-                    config_version=config_version,
-                    state=self._ollama_state,
-                    min_score=int(minimum) if minimum is not None else None,
-                )
-        except EnrichmentUnavailable as exc:
-            # 503 and not 500: Ollama being down is an expected state, and the
-            # interface says so calmly while everything else keeps working.
-            raise ApiError(503, str(exc), for_reader=True) from exc
-        except EnrichmentRejected as exc:
-            raise ApiError(409, str(exc), for_reader=True) from exc
-        except OllamaInvalidOutput as exc:
-            # The model answered and the answer was unusable. 502: an upstream
-            # gave us something we could not accept, which is not a bug in
-            # this server and must not read as one.
-            raise ApiError(
-                502, f"the local model returned an unusable answer: {exc}", for_reader=True
-            ) from exc
-        except LocalPromptChanged as exc:
-            # The prompt bytes no longer match their recorded digest. Refusing
-            # is the point: an edited prompt must become a new version rather
-            # than silently answering under the old one's name.
-            raise ApiError(500, str(exc)) from exc
-        return self.get_job(job_id=job_id, query={}, body={})
+        def work(reading: runner.LocalReading) -> None:
+            def progress(phase: str, tokens: int) -> None:
+                reading.phase = phase
+                reading.tokens = tokens
+
+            try:
+                with _closing(self.connect()) as conn:
+                    self._ollama_state = enrich_one(
+                        conn,
+                        job_id,
+                        config_id=config_id,
+                        config_version=config_version,
+                        state=self._ollama_state,
+                        min_score=minimum,
+                        should_stop=reading.cancel.is_set,
+                        on_progress=progress,
+                    )
+            except EnrichmentCancelled:
+                reading.finish(runner.CANCELLED, "Cancelled. The local model was stopped.")
+                return
+            except EnrichmentTimedOut:
+                self._ollama_seen(reachable=True, note="the last reading timed out")
+                reading.finish(runner.TIMEOUT, "The local model didn't finish in time.")
+                return
+            except EnrichmentModelMissing as exc:
+                self._ollama_seen(reachable=True, note=str(exc))
+                reading.finish(runner.MODEL_MISSING, str(exc))
+                return
+            except EnrichmentUnavailable as exc:
+                self._ollama_seen(reachable=False, note=str(exc))
+                reading.finish(runner.OLLAMA_UNAVAILABLE, str(exc))
+                return
+            except EnrichmentRejected as exc:
+                code = "below_threshold" if "threshold" in str(exc) else "unverifiable"
+                reading.finish(runner.ERROR, str(exc), code)
+                return
+            except LocalPromptChanged as exc:
+                reading.finish(runner.ERROR, str(exc), "prompt_changed")
+                return
+            reading.finish(runner.SUCCESS)
+
+        return work
+
+    def _ollama_seen(self, *, reachable: bool, note: str) -> None:
+        """What the last reading learned about Ollama, failures included, so
+        the status line never says "not contacted" after a failed attempt."""
+        from datetime import UTC, datetime
+
+        state = dict(self._ollama_state)
+        state.update(
+            reachable=reachable,
+            note=note,
+            checked_at=datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        )
+        self._ollama_state = state
 
     def import_job(self, *, query: dict, body: dict) -> dict:
         """Manual import: the universal path for every source we may not fetch.

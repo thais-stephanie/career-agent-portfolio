@@ -1823,6 +1823,21 @@ const EN = {
   'drawer.secPay': 'Pay and contract',
   'drawer.secDescription': 'Description',
   'drawer.secHistory': 'Status history',
+  'local.askAgain': 'Ask the local model again',
+  'local.cancelling': 'Stopping the local model...',
+  'local.phase.checking': 'Checking that {model} is ready on this computer...',
+  'local.phase.loading': 'Loading {model} into memory. The first reading after a start takes longer.',
+  'local.phase.reading': '{model} is reading the posting.',
+  'local.phase.writing': '{model} is writing what it read ({tokens} pieces so far).',
+  'local.phase.verifying': 'Checking every quote against the posting...',
+  'local.state.SUCCESS': 'Done in {seconds}s.',
+  'local.state.CANCELLED': 'Cancelled. The local model was stopped.',
+  'local.state.MODEL_MISSING': 'Ollama is running, but {model} is not installed. Install it with: ollama pull {model}',
+  'local.state.OLLAMA_UNAVAILABLE': 'Ollama is not running on this computer. Start it and try again. '
+    + 'Nothing was sent anywhere else.',
+  'local.state.TIMEOUT': 'The local model didn\'t finish in time ({seconds}s). Nothing changed; you can try again.',
+  'local.state.ERROR': 'The local model could not finish: {error}',
+  'local.state.belowThreshold': 'This job\'s Search Fit is below the local model\'s threshold, so it was not read.',
   'drawer.secEnrich': 'What the local model saw',
   'drawer.secPlaces': 'Posted in several places',
   'drawer.secProvenance': 'Where we found this',
@@ -1860,9 +1875,6 @@ const EN = {
   'drawer.localModelUntried': 'The local model has not been asked about this job yet. Opening a page '
     + 'never asks it. The first run may take a few minutes, and you can cancel'
     + 'it.',
-  'drawer.asking': 'Asking {model}: this can take a few minutes.',
-  'drawer.doneIn': 'Done in {seconds}s.',
-  'drawer.localModelFailed': 'The local model could not be reached: {error}',
   'drawer.placesLede': '{company} published this role as {n} separate postings, one per '
     + 'location. Each has its own link at the provider; this drawer describes'
     + 'the highest-scoring one.',
@@ -4771,6 +4783,24 @@ const PT_BR = {
   'drawer.secPay': 'Remuneração e contrato',
   'drawer.secDescription': 'Descrição',
   'drawer.secHistory': 'Histórico de situação',
+  'local.askAgain': 'Pedir de novo ao modelo local',
+  'local.cancelling': 'Parando o modelo local...',
+  'local.phase.checking': 'Verificando se {model} está pronto neste computador...',
+  'local.phase.loading': 'Carregando {model} na memória. A primeira leitura depois de iniciar '
+    + 'demora mais.',
+  'local.phase.reading': '{model} está lendo a vaga.',
+  'local.phase.writing': '{model} está escrevendo o que leu ({tokens} partes até agora).',
+  'local.phase.verifying': 'Conferindo cada citação com o texto da vaga...',
+  'local.state.SUCCESS': 'Pronto em {seconds}s.',
+  'local.state.CANCELLED': 'Cancelado. O modelo local foi parado.',
+  'local.state.MODEL_MISSING': 'O Ollama está rodando, mas {model} não está instalado. Instale com: '
+    + 'ollama pull {model}',
+  'local.state.OLLAMA_UNAVAILABLE': 'O Ollama não está rodando neste computador. Inicie-o e tente de novo. '
+    + 'Nada foi enviado para nenhum outro lugar.',
+  'local.state.TIMEOUT': 'O modelo local não terminou a tempo ({seconds}s). Nada mudou; você pode tentar de novo.',
+  'local.state.ERROR': 'O modelo local não conseguiu terminar: {error}',
+  'local.state.belowThreshold': 'O Search Fit desta vaga está abaixo do limite do modelo local, '
+    + 'então ela não foi lida.',
   'drawer.secEnrich': 'O que o modelo local viu',
   'drawer.secPlaces': 'Publicada em vários lugares',
   'drawer.secProvenance': 'Onde encontramos isto',
@@ -4809,9 +4839,6 @@ const PT_BR = {
   'drawer.localModelUntried': 'O modelo local ainda não foi perguntado sobre esta vaga. Abrir uma '
     + 'página nunca pergunta a ele. A primeira rodada pode levar alguns'
     + 'minutos, e você pode cancelar.',
-  'drawer.asking': 'Perguntando a {model}: isto pode levar alguns minutos.',
-  'drawer.doneIn': 'Pronto em {seconds}s.',
-  'drawer.localModelFailed': 'Não foi possível alcançar o modelo local: {error}',
   'drawer.placesLede': '{company} publicou esta função como {n} anúncios separados, um por '
     + 'localidade. Cada um tem o próprio link no provedor; esta gaveta descreve'
     + 'o de maior pontuação.',

@@ -65,7 +65,12 @@ class _FakeClient:
     def is_model_available(self) -> bool:
         return bool(self.models)
 
-    def enrich(self, messages: list[dict[str, str]], *, schema: dict) -> tuple[Any, dict]:
+    def loaded_models(self) -> list[str]:
+        return []
+
+    def enrich(
+        self, messages: list[dict[str, str]], *, schema: dict, **_stream: Any
+    ) -> tuple[Any, dict]:
         self.calls += 1
         answer = self.answers.pop(0)
         if isinstance(answer, Exception):
