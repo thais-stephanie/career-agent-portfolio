@@ -159,8 +159,15 @@ def _ours(record: dict[str, Any]) -> bool:
 
 def _skills_in(text: str, skills: list[str]) -> list[str]:
     """The experience's confirmed skills that this statement itself names."""
-    low = text.casefold()
-    return [s for s in skills if str(s).strip() and str(s).casefold() in low]
+    import re
+
+    out = []
+    for skill in skills:
+        name = str(skill).strip()
+        # Whole words only: "Go" must not be found in "good", nor "R" anywhere.
+        if name and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text, re.IGNORECASE):
+            out.append(skill)
+    return out
 
 
 def evidence_bank(evidence: dict[str, Any], existing: dict[str, Any] | None) -> dict[str, Any]:
@@ -190,7 +197,18 @@ def evidence_bank(evidence: dict[str, Any], existing: dict[str, Any] | None) -> 
             "INTERNSHIP": "internship",
             "INDEPENDENT": "independent",
         }.get(str(experience.get("kind") or "").upper(), "employment")
-        if pid not in taken:
+        if pid in taken:
+            # Kept because one of Tailor's own records uses it: its facts
+            # still follow Career Agent.
+            for position in positions:
+                if position.get("id") == pid:
+                    position.update(
+                        company=experience.get("company") or "",
+                        title=experience.get("title") or "",
+                        start=start,
+                        end=end,
+                    )
+        else:
             positions.append(
                 {
                     "id": pid,

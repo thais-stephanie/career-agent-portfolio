@@ -653,3 +653,10 @@ def _ws(profile: Profile):  # noqa: ANN202
 
     store = WorkspaceStore(Path(profile.tailor_home))
     return ca.profile_candidate(store, {"id": profile.id, "label": profile.label})
+
+
+def test_a_skill_is_matched_as_a_whole_word() -> None:
+    from resume_tailor.integration.career import _skills_in
+
+    assert _skills_in("Did good work in R&D with Go.", ["Go", "R", "SQL"]) == ["Go", "R"]
+    assert _skills_in("Did good work.", ["Go", "R"]) == []
