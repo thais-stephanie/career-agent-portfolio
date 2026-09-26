@@ -1467,7 +1467,7 @@ def backup_command(
         [
             (
                 "postings",
-                "none: they are in the shared catalogue (`backup --catalogue`)"
+                "none: they are in the shared catalogue (`backup --catalogue --profile NAME`)"
                 if result.split
                 else result.jobs,
             ),

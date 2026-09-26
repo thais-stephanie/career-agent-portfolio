@@ -117,9 +117,10 @@ escrito para quem nunca usou um terminal. Ele está em inglês.
   [mensagem de instalação pronta](docs/INSTALL.md#path-a-install-with-claude-code-or-codex)
   nele. Ele instala o Career Agent, roda a demonstração e explica como abrir
   de novo.
-- **Quero instalar sozinho:**
+- **Quero instalar por conta própria:**
   - **Windows:** baixe `Career-Agent-v0.2.0-beta.1-Windows.zip` na
     [página da versão](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1),
+    desbloqueie o arquivo (botão direito, **Propriedades**, **Desbloquear**),
     clique com o botão direito, escolha **Extrair tudo** e dê dois cliques em
     **Start-Demo.cmd** na pasta extraída. Você não precisa instalar Python
     antes: o launcher baixa o uv, que instala o Python 3.12 e as bibliotecas
@@ -129,8 +130,9 @@ escrito para quem nunca usou um terminal. Ele está em inglês.
     Essas plataformas não foram testadas nesta versão.
 
 A demonstração abre com 21 vagas inventadas e uma pessoa candidata inventada,
-Alex Morgan, em um armazenamento separado do seu. Depois dela, dê dois cliques em
-**Start-Career-Agent.cmd** para configurar a sua busca. O guia também explica
+Alex Morgan, em um armazenamento separado do seu. Pare a demonstração com
+**Ctrl+C** na janela dela e dê dois cliques em **Start-Career-Agent.cmd** para
+configurar a sua busca. O guia também explica
 como [abrir de novo](docs/INSTALL.md#how-to-open-career-agent-next-time),
 [fazer backup](docs/INSTALL.md#backups), [atualizar](docs/INSTALL.md#updating-to-a-new-version),
 [resolver problemas](docs/INSTALL.md#troubleshooting) e
@@ -162,7 +164,7 @@ ela também tem português.
 | Elegibilidade | Restrições de contratação (país, autorização de trabalho, credencial de segurança) são verificadas separadamente das preferências. "Remoto" nunca é lido como "qualquer lugar do mundo"; uma vaga que não diz onde contrata fica sem resolução. |
 | Search Fit | Uma nota de 0 a 100 com uma faixa (STRONG, GOOD, MODERATE, WEAK), motivos citados da vaga e o que a vaga não informou. **Posting completeness** aparece ao lado e nunca altera a nota. |
 | Career Evidence | O Career Agent lê seu currículo no seu computador e propõe afirmações. Cada uma só entra no seu Career Profile quando você a confirma. |
-| Candidaturas | Status (Found, Interested, Applied, Interviewing, Offer, Rejected e outros), notas e histórico das vagas em que você age. |
+| Candidaturas | Status (Encontrada, Tenho interesse, Candidatura enviada, Em entrevista, Proposta, Recusada e outros), notas e histórico das vagas em que você age. |
 | Resume Tailor Beta | Preparação de currículo para uma vaga, a partir de experiência confirmada, com exportação em Markdown, Word e PDF. |
 
 ### O que é estável, opcional, experimental ou inexistente

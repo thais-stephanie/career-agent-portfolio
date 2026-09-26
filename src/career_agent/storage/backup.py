@@ -165,8 +165,8 @@ def _manifest(
             "contains_public_jobs": (
                 "No. This profile reads job postings from the shared job catalogue "
                 "(data/shared/catalogue.db), which is backed up on its own with "
-                "`career-agent backup --catalogue`. This archive restores this person's "
-                "data; the postings come back from a catalogue backup or the next "
+                "`career-agent backup --catalogue --profile NAME`. This archive restores "
+                "this person's data; the postings come back from a catalogue backup or the next "
                 "collection."
                 if result.split
                 else "Yes: this profile has not been split into the shared catalogue, so "

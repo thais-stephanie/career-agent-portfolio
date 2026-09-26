@@ -61,13 +61,14 @@ coding assistant only for this is not necessary.
 <details>
 <summary>How do I open Claude Code or Codex?</summary>
 
-Open a terminal ([Windows](#windows-open-powershell),
-[macOS](#macos-open-terminal), [Linux](#linux-open-a-terminal)). Then type
-`claude` for Claude Code, or `codex` for Codex, and press **Enter**.
+Open a terminal. On Windows, press the **Windows key**, type `PowerShell`
+and press **Enter**. On macOS, see [open Terminal](#macos-open-terminal); on
+Linux, [open a terminal](#linux-open-a-terminal). Then type `claude` for Claude
+Code, or `codex` for Codex, and press **Enter**.
 
 If the terminal says the command is not recognised, the assistant is not
 installed. Follow the official instructions:
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) or
+[Claude Code](https://docs.claude.com/en/docs/claude-code/overview) or
 [Codex CLI](https://developers.openai.com/codex/cli).
 
 </details>
@@ -101,9 +102,14 @@ Follow these rules:
 6. Start the demo first (Start-Demo.cmd on Windows, or the --demo command on
    macOS/Linux) and check that both addresses answer:
    http://127.0.0.1:8765/ (Career Agent) and http://127.0.0.1:8766/
-   (Resume Tailor). Then stop the demo with Ctrl+C.
-7. Only after the demo works, start the normal launcher once and check the
-   same two addresses. Leave it running for me.
+   (Resume Tailor). Then stop the demo by ending the process you started,
+   and check that ports 8765 and 8766 are free again.
+7. Only after the demo works, run the normal launcher once with its check
+   option (Windows: Start-Career-Agent.cmd -Check -NoOpen; macOS/Linux:
+   uv run --no-sync python scripts/launch.py --check) and show me that it
+   printed "Setup complete". Then tell me to start Career Agent myself by
+   double-clicking Start-Career-Agent.cmd (Windows) or with the command in the
+   guide (macOS/Linux).
 8. Do not turn on LinkedIn collection, semantic matching or any AI provider.
    Do not collect jobs. I will do that myself later.
 9. At the end, tell me: the folder you installed into, everything you
@@ -135,17 +141,27 @@ program inside can run.
 1. Open **File Explorer** (the yellow folder icon on the taskbar) and go to
    **Downloads**.
 2. Right-click **Career-Agent-v0.2.0-beta.1-Windows.zip** and choose
-   **Extract All...**.
-3. Windows suggests a folder with the same name inside Downloads. Click
+   **Properties**. If the bottom of the **General** tab shows **Unblock**,
+   tick it and click **OK**. This tells Windows you trust the file you
+   downloaded, so it does not block the launcher later.
+3. Right-click the ZIP again and choose **Extract All...**.
+4. Windows suggests a folder with the same name inside Downloads. Click
    **Extract**. A new window opens showing the extracted files.
 
-You can keep the folder in Downloads or move it to **Documents**. Do not put
-it in `C:\Program Files`, because Career Agent saves your data inside its own
-folder and Program Files is read-only for normal programs.
+Decide where the folder lives before you start it for the first time; the
+Downloads folder is fine. Do not put it in `C:\Program Files` (read-only for
+normal programs), and do not put it in a folder that OneDrive, Dropbox or
+another service syncs: your private `data` folder would be uploaded, and
+syncing can damage a database that is in use. On many Windows 11 computers
+**Documents** and **Desktop** are synced to OneDrive.
 
 ### 3. Start the demo
 
 In the extracted folder, double-click **Start-Demo.cmd**.
+
+If a blue **Windows protected your PC** window appears, the Unblock step was
+skipped. Click **More info**, then **Run anyway**; or close it, unblock the ZIP
+as in step 2 and extract it again.
 
 A black or blue window opens. This is the launcher. The first time, it shows
 three steps:
@@ -206,7 +222,9 @@ Copy this line into the Terminal and press **Enter**:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-This is the official installer from the uv project
+On Linux, if the terminal says `curl: command not found`, install curl with
+your system's software installer first. This is the official installer from
+the uv project
 ([documentation](https://docs.astral.sh/uv/getting-started/installation/)).
 When it finishes, **close the Terminal window and open a new one**, so the
 new `uv` command is found.
@@ -300,7 +318,8 @@ of them can run at a time.
 
 ## Set up your own search
 
-Start the normal launcher:
+Stop the demo first (**Ctrl+C** in its window), then start the normal
+launcher:
 
 - **Windows:** double-click **Start-Career-Agent.cmd** in the Career Agent
   folder.
@@ -452,26 +471,35 @@ The old folder stays as it was until you decide to delete it, so nothing is
 lost if something goes wrong.
 
 1. Stop Career Agent (**Ctrl+C** in the launcher window).
-2. Make a [profile backup](#backups) and a catalogue backup.
+2. Make a [profile backup](#backups) and a catalogue backup. If the old
+   folder is **v0.1.0-alpha.2**, skip this step: its backup command is older
+   and works differently. The update does not change the old folder, so it
+   stays as your copy.
 3. Download and extract the new version, as in
    [Path B](#path-b-on-windows-download-and-double-click). It gets a new
    folder name, for example **Career-Agent-v0.2.1-Windows**.
-4. From the **old** folder, copy these into the **new** folder:
+4. In File Explorer, open **View**, then **Show**, and tick **File name
+   extensions**, so you see full names such as `search.local.yaml`.
+5. From the **old** folder, copy these into the **new** folder:
    - the whole `data` folder;
-   - the files in `config` whose names end in `.local.yaml`;
+   - the files in `config` whose names end in `.local.yaml` (into the new
+     `config` folder);
    - the `.env` file, if you have one;
+   - `companion\resume-tailor\.env`, if you created one (into the same place
+     in the new folder);
    - the `backups` folder, if you want your backups next to the new version.
    If Windows asks whether to replace files, choose **Replace**.
-5. Double-click **Start-Career-Agent.cmd** in the **new** folder. The first
+6. Double-click **Start-Career-Agent.cmd** in the **new** folder. The first
    start installs the new version's libraries and updates your data to the
    new format. Your jobs, profiles and applications stay.
-6. When everything looks right, you can delete the old folder. You do not
+7. When everything looks right, you can delete the old folder. You do not
    have to.
 
 On macOS and Linux, copy the same items between the two folders, then run the
 install and start commands from [Path B](#4-install) in the new folder.
 
-An installation from **v0.1.0-alpha.2** updates the same way. It becomes the
+An installation from **v0.1.0-alpha.2** updates the same way (skip the
+backup commands in step 2). It becomes the
 first local profile, **My profile**, and keeps its postings in its own
 database. Moving them into the shared catalogue is a separate step
 (`career-agent catalogue split`, described in
@@ -540,13 +568,15 @@ hosted ones charge you for use.
 To turn it on under the launcher (Windows):
 
 1. Stop Career Agent.
-2. In the Career Agent folder, open `companion\resume-tailor`, create a file
-   named `.env` and put one line in it, with your own key:
+2. Open **Notepad** and type one line, with your own key:
    ```text
    ANTHROPIC_API_KEY=YOUR_API_KEY_HERE
    ```
-   Do not share this value, paste it into an issue or show it in a
-   screenshot.
+   Choose **File**, **Save as**, go to the Career Agent folder and then
+   `companion\resume-tailor`, set **Save as type** to **All files**, type
+   `.env` as the file name and click **Save**. Without **All files**, Notepad
+   saves `.env.txt`, which is not read. Do not share this value, paste it into
+   an issue or show it in a screenshot.
 3. [Open PowerShell in the Career Agent folder](#windows-open-powershell) and
    run these two lines:
    ```powershell
@@ -578,14 +608,17 @@ Career Agent is probably already running in another launcher window. Use that
 window's page (<http://127.0.0.1:8765/>), or press **Ctrl+C** in that window
 and start again. The demo and personal mode cannot run at the same time.
 
-To run a second copy side by side,
-[open PowerShell in the Career Agent folder](#windows-open-powershell) and run:
+To open the demo, or another profile, next to the one already running,
+[open PowerShell in the Career Agent folder](#windows-open-powershell) and run
+one of these:
 
 ```powershell
-.\Start-Career-Agent.cmd -Port 8875
+.\Start-Career-Agent.cmd -Port 8875 -Demo
+.\Start-Career-Agent.cmd -Port 8875 -ProfileName "Profile name"
 ```
 
-That copy uses <http://127.0.0.1:8875/> and <http://127.0.0.1:8876/>.
+That copy uses <http://127.0.0.1:8875/> and <http://127.0.0.1:8876/>. The same
+profile cannot be open in two windows at once.
 
 #### PowerShell says running scripts is disabled
 
@@ -634,13 +667,15 @@ copy in the `.tools` folder.
 ## Asking for help
 
 Open an issue at
-<https://github.com/thais-stephanie/career-agent-portfolio/issues> and
-include:
+<https://github.com/thais-stephanie/career-agent-portfolio/issues> (you need a
+free GitHub account) and include:
 
 - your operating system and version (for example Windows 11);
 - the Career Agent version (v0.2.0-beta.1);
 - what you did: the file you double-clicked or the exact command;
-- the exact error text, copied from the launcher window.
+- the exact error text, copied from the launcher window: select it with the
+  mouse and press **Ctrl+C** (Windows; with text selected this copies instead
+  of stopping anything) or **Command + C** (macOS) to copy it.
 
 Do **not** include: your `.env` file, API keys, your CV, your Career Profile
 or evidence, your search settings, application notes, anything from the
@@ -660,8 +695,9 @@ Everything Career Agent stores is inside its folder:
 | everything else | The program itself. |
 
 **To remove the program and keep your data:** stop Career Agent, copy the
-`data` folder, the `config\*.local.yaml` files, `.env` and `backups` to a
-safe place, then delete the Career Agent folder.
+`data` folder, the `config\*.local.yaml` files, both `.env` files and
+`backups` to a safe place (not a synced folder), then delete the Career Agent
+folder.
 
 **To remove everything, including your data:** first check that you do not
 need anything from the private items above. Then stop Career Agent and delete
@@ -671,4 +707,5 @@ uv also keeps Python and a download cache outside the folder, which it
 can share with other programs that use uv. On Windows they are in
 `%APPDATA%\uv` and `%LOCALAPPDATA%\uv`; on macOS and Linux in `~/.local/share/uv`
 and `~/.cache/uv`. They hold no personal data. Delete them only if nothing
-else on your computer uses uv.
+else on your computer uses uv. On macOS and Linux the `uv` program itself is
+`~/.local/bin/uv`.

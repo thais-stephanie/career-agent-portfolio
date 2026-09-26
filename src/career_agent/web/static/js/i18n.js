@@ -2419,7 +2419,7 @@ const EN = {
   'setup.welcome.point2': 'Say where you live and where companies can hire you, so Career Agent can tell which jobs '
     + 'are open to you.',
   'setup.welcome.point3': 'Then find your first jobs from public job boards.',
-  'setup.welcome.privacy': 'Everything stays on this computer. Nothing about you is sent to job sites, and Career '
+  'setup.welcome.privacy': 'Your answers stay on this computer. Nothing about you is sent to job sites, and Career '
     + 'Agent never applies to a job for you.',
   'setup.welcome.start': 'Start',
   'setup.work.title': 'What work do you want to do next?',
@@ -5375,7 +5375,7 @@ const PT_BR = {
   'setup.welcome.point2': 'Diga onde você mora e onde empresas podem te contratar, para o Career Agent saber quais '
     + 'vagas estão abertas para você.',
   'setup.welcome.point3': 'Depois, encontre suas primeiras vagas em sites de emprego públicos.',
-  'setup.welcome.privacy': 'Tudo fica neste computador. Nada sobre você é enviado aos sites de vagas, e o Career '
+  'setup.welcome.privacy': 'Suas respostas ficam neste computador. Nada sobre você é enviado aos sites de vagas, e o Career '
     + 'Agent nunca se candidata a uma vaga por você.',
   'setup.welcome.start': 'Começar',
   'setup.work.title': 'Que trabalho você quer fazer a seguir?',

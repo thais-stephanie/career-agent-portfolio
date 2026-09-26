@@ -119,7 +119,8 @@ escrito para quien nunca usó una terminal. Está en inglés.
 - **Quiero instalarlo por mi cuenta:**
   - **Windows:** descarga `Career-Agent-v0.2.0-beta.1-Windows.zip` en la
     [página de la versión](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1),
-    haz clic derecho, elige **Extraer todo** y haz doble clic en
+    desbloquéalo (clic derecho, **Propiedades**, **Desbloquear**), haz clic
+    derecho, elige **Extraer todo** y haz doble clic en
     **Start-Demo.cmd** en la carpeta extraída. No necesitas instalar Python
     antes: el launcher descarga uv, que instala Python 3.12 y las bibliotecas
     bloqueadas. [Paso a paso](docs/INSTALL.md#path-b-on-windows-download-and-double-click).
@@ -128,8 +129,9 @@ escrito para quien nunca usó una terminal. Está en inglés.
     Estas plataformas no se probaron en esta versión.
 
 La demo abre con 21 ofertas inventadas y una persona candidata inventada, Alex
-Morgan, en un almacenamiento separado del tuyo. Después, haz doble clic en
-**Start-Career-Agent.cmd** para configurar tu búsqueda. La guía también explica
+Morgan, en un almacenamiento separado del tuyo. Detén la demo con **Ctrl+C**
+en su ventana y haz doble clic en **Start-Career-Agent.cmd** para configurar tu
+búsqueda. La guía también explica
 cómo [abrirlo de nuevo](docs/INSTALL.md#how-to-open-career-agent-next-time),
 [hacer copias de seguridad](docs/INSTALL.md#backups), [actualizar](docs/INSTALL.md#updating-to-a-new-version),
 [resolver problemas](docs/INSTALL.md#troubleshooting) y

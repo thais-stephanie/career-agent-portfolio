@@ -1,9 +1,10 @@
 # v0.2.0-beta.1
 
 Career Agent Beta with Resume Tailor Beta (0.2.0b1), for people who run it on
-their own computer. It replaces v0.1.0-alpha.2 and updates an alpha.2
-installation in place: copy its `data` folder and `config\*.local.yaml` into
-the new folder ([how](docs/INSTALL.md#updating-to-a-new-version)).
+their own computer. It replaces v0.1.0-alpha.2. To update, extract it into a
+new folder and copy the old folder's `data`, `config\*.local.yaml` and `.env`
+files into it ([how](docs/INSTALL.md#updating-to-a-new-version)); the old
+folder is not changed.
 
 ## New
 
@@ -14,7 +15,7 @@ the new folder ([how](docs/INSTALL.md#updating-to-a-new-version)).
 - **Shared job catalogue.** Public postings are stored once in
   `data/shared/catalogue.db` and read by every profile. Which profile's search
   found a posting stays private to that profile. `career-agent backup
-  --catalogue` backs it up separately from a profile.
+  --catalogue --profile NAME` backs it up separately from a profile.
 - **Role anchors.** Optional job titles you have in mind, with a role-family
   planner, steer targeted searches. They add no Search Fit points.
 - **Semantic matching (optional).** DeepSeek, or your own signed-in Claude Code
@@ -60,8 +61,12 @@ the new folder ([how](docs/INSTALL.md#updating-to-a-new-version)).
   and can narrow Discover.
 - `career-agent cv-import --accept-all` was removed: each proposal is confirmed
   one at a time, as in the app.
-- The launcher's port-conflict advice now names `Start-Career-Agent.cmd`,
-  because Windows blocks the `.ps1` file from a downloaded ZIP.
+- The launcher's port-conflict advice names `Start-Career-Agent.cmd`, because
+  Windows blocks the `.ps1` file from a downloaded ZIP, and suggests the demo
+  or another profile, since one profile cannot be open twice.
+- The first-run privacy line says "Your answers stay on this computer" instead
+  of "Everything stays on this computer", which was not true once collection or
+  an optional provider is used.
 - The source archive now extracts into a `Career-Agent-v0.2.0-beta.1` folder.
 
 ## Fixed
@@ -88,8 +93,9 @@ the new folder ([how](docs/INSTALL.md#updating-to-a-new-version)).
   work phrases. Scoring is unchanged until an evidence-quality benchmark
   exists.
 - LinkedIn may refuse or rate-limit the experimental source.
-- `career-agent backup` needs `--profile NAME`; without it, it looks for a
-  database at an older default location and stops with "no database".
+- `career-agent backup` needs `--profile NAME` (also with `--catalogue`);
+  without it, it looks for a database at an older default location and stops
+  with "no database".
 - Resume Tailor's interface is in English.
 - PDF export needs Word or LibreOffice. No live hosted AI provider was called
   in release testing.

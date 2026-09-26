@@ -189,8 +189,16 @@ def main() -> int:
             "It is probably already running in another launcher window. Use that window's "
             f"page (http://127.0.0.1:{args.port}/), or close that window and start again.\n"
             "Nothing was changed; your data is safe.\n"
-            "To run a second copy side by side, open PowerShell in this folder and run:\n"
-            "  .\\Start-Career-Agent.cmd -Port 8875"
+            + (
+                "To open the demo or another profile side by side, open PowerShell in this "
+                "folder and run:\n"
+                "  .\\Start-Career-Agent.cmd -Port 8875 -Demo\n"
+                '  .\\Start-Career-Agent.cmd -Port 8875 -ProfileName "Profile name"'
+                if sys.platform == "win32"
+                else "To open the demo or another profile side by side, run in this folder:\n"
+                "  uv run python scripts/launch.py --port 8875 --demo\n"
+                '  uv run python scripts/launch.py --port 8875 --profile "Profile name"'
+            )
         )
         return 2
     worker = threading.Thread(target=career.serve_forever, daemon=True)
