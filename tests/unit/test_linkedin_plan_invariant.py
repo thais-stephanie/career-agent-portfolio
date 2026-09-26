@@ -32,7 +32,9 @@ def _with_tools(n: int) -> SearchConfig:
     duties = data["scoring"]["components"]["responsibilities"]["weights"]
     keep = next(iter(duties))
     data["scoring"]["components"]["responsibilities"]["weights"] = {keep: duties[keep]}
-    weights = dict(data["scoring"]["components"]["technologies"]["weights"])
+    # No shipped tools either: the baseline then holds no tool signal at all,
+    # so a leak changes the terms whether or not roles are named.
+    weights: dict[str, float] = {}
     for i in range(n):
         sid = f"synthetic_tool_{i:03d}"
         data["lexicon"][sid] = {
@@ -61,9 +63,10 @@ NO_ANCHORS = RoleAnchors()
 @pytest.mark.parametrize("tools", [10, 60, 200])
 def test_tools_never_change_the_linkedin_terms(tools: int, anchors: RoleAnchors) -> None:
     baseline = plan.query_terms(_with_tools(0), anchors)
-    assert len(baseline) < len(anchors.anchors) + plan.MAX_ALIAS_TERMS + (
-        plan.MAX_WORK_TERMS_WITH_ANCHORS if anchors.anchors else plan.MAX_WORK_TERMS_ALONE
-    ), "the cap must have room left, or a leak could hide behind it"
+    work_cap = plan.MAX_WORK_TERMS_WITH_ANCHORS if anchors.anchors else plan.MAX_WORK_TERMS_ALONE
+    assert sum(t.origin == "work" for t in baseline) < work_cap, (
+        "the work-phrase cap must have room left, or a leak could hide behind it"
+    )
     grown = plan.query_terms(_with_tools(tools), anchors)
     assert grown == baseline, "a tool became a search term"
     assert all(term.origin in {"anchor", "alias", "work"} for term in grown)
