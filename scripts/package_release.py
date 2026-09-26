@@ -57,7 +57,8 @@ def main() -> None:
         )
     with tarfile.open(source) as archive:
         names = archive.getnames()
-        assert all(n.startswith(f"Career-Agent-{version}/") for n in names), "tar prefix"
+        top = f"Career-Agent-{version}"
+        assert all(n == top or n.startswith(top + "/") for n in names), "tar prefix"
         member = archive.extractfile(f"Career-Agent-{version}/BUILD_ID")
         assert member is not None and member.read().decode().strip() == commit
     with zipfile.ZipFile(windows) as archive:
