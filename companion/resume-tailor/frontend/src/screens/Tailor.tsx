@@ -1,6 +1,8 @@
+// Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
-import { Card, CheckOption, Chip, Disclosure, Eyebrow, Pill, Strip } from "../components";
+import { api, CareerJob } from "../api";
+import { Banner, Card, CheckOption, Chip, Disclosure, Eyebrow, Pill, Strip } from "../components";
+import { BaseResumeStart } from "../resumeStart";
 import { ExportMenu, ExportToast, useExportNotice } from "../export";
 import { resultTone, STR } from "../labels";
 import { useApp } from "../state";
@@ -14,7 +16,9 @@ const ROWS_FIRST = 8;
 
 export function Tailor() {
   const app = useApp();
-  const [resumes, setResumes] = useState<any[]>([]);
+  const [resumes, setResumes] = useState<any[] | null>(null);
+  const [careerJob, setCareerJob] = useState<CareerJob | null>(null);
+  const [handoffError, setHandoffError] = useState("");
   const [jd, setJd] = useState("");
   const [resumeId, setResumeId] = useState("");
   const [opts, setOpts] = useState({ evidence_only_claims: true, max_two_pages: true, use_llm: false });
@@ -31,14 +35,28 @@ export function Tailor() {
   const [editing, setEditing] = useState<{ bulletId: string; text: string } | null>(null);
   const exportNotice = useExportNotice();
 
-  useEffect(() => {
+  const loadResumes = () => {
     if (!app.candidateId) return;
     void api.resumes(app.candidateId).then((rows) => {
       setResumes(rows);
       const def = rows.find((r) => r.default) ?? rows[0];
       if (def) setResumeId(def.id);
     }).catch(() => setResumes([]));
-  }, [app.candidateId]);
+  };
+  useEffect(loadResumes, [app.candidateId]);
+
+  // A posting handed over from Career Agent: read it, and fill the
+  // description with the posting's own text, never a copy of a copy.
+  useEffect(() => {
+    if (app.mode !== "profile" || !app.handoff) return;
+    setHandoffError("");
+    void api.careerJob(app.handoff.jobId).then((job) => {
+      setCareerJob(job);
+      setJd(job.description ?? "");
+    }).catch((e: Error) => setHandoffError(e.message || "This posting could not be read from Career Agent."));
+  }, [app.mode, app.handoff?.jobId]);
+  const otherProfile = Boolean(
+    app.handoff?.profileId && app.profile && app.handoff.profileId !== app.profile.id);
 
   const refreshDraft = (id = appId) => {
     if (id) void api.draft(app.candidateId, id).then(setDraft).catch(() => setDraft(null));
@@ -46,10 +64,11 @@ export function Tailor() {
 
   const analyze = async () => {
     setError("");
+    if (!resumes?.length || !resumeId) { setError("Add a base resume first: use your Career Profile or upload one."); return; }
     if (jd.trim().length < 40) { setError("Paste the job description first."); return; }
     setRunning(true);
     try {
-      const { application_id } = await api.startTailor(app.candidateId, jd, resumeId, opts);
+      const { application_id } = await api.startTailor(app.candidateId, jd, resumeId, opts, careerJob?.job_id ?? "");
       setAppId(application_id);
       for (let i = 0; i < 240; i++) {
         const d = await api.application(app.candidateId, application_id, app.advanced);
@@ -94,7 +113,8 @@ export function Tailor() {
   const rows = view?.match?.rows ?? [];
   const visibleRows = showAllRows ? rows : rows.slice(0, ROWS_FIRST);
   const resume = draft?.resume;
-  const baseName = resumes.find((r) => r.id === resumeId)?.name ?? "your base resume";
+  const baseName = (resumes ?? []).find((r) => r.id === resumeId)?.name ?? "your base resume";
+  const noResume = resumes !== null && resumes.length === 0;
   const checksOk = view ? view.checks.filter((c: any) => c.level === "ok").length : 0;
   const pagesLine = view
     ? (view.pages.verified ? `${STR.pagesVerified(view.pages.actual)} · ${view.pages.how}` : `About ${view.pages.estimate} pages (estimated)`)
@@ -120,6 +140,24 @@ export function Tailor() {
         )}
       </header>
       <ExportToast notice={exportNotice.notice} onDismiss={exportNotice.dismiss} />
+      {(careerJob || handoffError || (app.handoff && app.mode === "profile")) && (
+        <div className="page-body" style={{ paddingBottom: 0 }}>
+          {otherProfile && <Banner tone="yellow-soft">{STR.handoffOtherProfile}</Banner>}
+          {handoffError ? (
+            <Banner tone="yellow-soft"><span role="alert">{handoffError}</span></Banner>
+          ) : careerJob ? (
+            <Banner tone="blue-soft">
+              <span className="career-job" data-job-id={careerJob.job_id}>
+                <span className="eyebrow" style={{ marginRight: 8 }}>{STR.fromCareerAgent}</span>
+                <b>{careerJob.title}</b>{careerJob.company ? ` · ${careerJob.company}` : ""}
+                {" · "}{STR.careerStatus}: <b className="career-status">{careerJob.status_label}</b>
+              </span>
+            </Banner>
+          ) : (
+            <Banner tone="surface-alt">{STR.handoffLoading}</Banner>
+          )}
+        </div>
+      )}
 
       <div className="page-body" style={{ maxWidth: 1700, display: "flex", flexWrap: "wrap", gap: 14 }}>
         {/* ------------------------------------------------------------ setup */}
@@ -148,12 +186,17 @@ export function Tailor() {
               <textarea rows={8} value={jd} onChange={(e) => setJd(e.target.value)}
                         placeholder="Paste the job posting here" aria-label="Job description" />
               <hr className="hair" />
-              <label style={{ fontSize: 12, fontWeight: 600 }}>
-                Base resume
-                <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} style={{ marginTop: 4 }}>
-                  {resumes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-              </label>
+              {noResume ? (
+                <BaseResumeStart onDone={loadResumes} />
+              ) : (
+                <label style={{ fontSize: 12, fontWeight: 600 }}>
+                  Base resume
+                  <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} style={{ marginTop: 4 }}
+                          aria-label="Base resume">
+                    {(resumes ?? []).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </label>
+              )}
               <hr className="hair" />
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <CheckOption on={opts.evidence_only_claims}
@@ -163,7 +206,9 @@ export function Tailor() {
                              onToggle={() => setOpts({ ...opts, max_two_pages: !opts.max_two_pages })}
                              label="Keep to two pages" hint="Checked in Word when it is installed." />
               </div>
-              <button className="btn" style={{ width: "100%", marginTop: 12 }} onClick={analyze} disabled={running}>
+              <button className="btn" id="analyze" style={{ width: "100%", marginTop: 12 }} onClick={analyze}
+                      disabled={running || noResume || resumes === null}
+                      title={noResume ? STR.noBaseResume : undefined}>
                 {running ? "Working…" : STR.analyze}
               </button>
               {error && <p role="alert" style={{ color: "var(--ink)", background: "var(--yellow-soft)", border: "1.5px solid var(--line)", borderRadius: 8, padding: 8, fontSize: 12, margin: "10px 0 0" }}>{error}</p>}

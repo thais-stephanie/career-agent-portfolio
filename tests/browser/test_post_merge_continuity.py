@@ -459,9 +459,9 @@ def test_tailor_waits_for_career_context_and_says_what_to_add(
         "Tailor still reads as the next step"
     )
     # Access is kept for a CV already given to Tailor itself.
-    assert page.evaluate("document.querySelector('#drawer-open-tailor').getAttribute('href')") == (
-        "/resume-tailor"
-    )
+    assert page.evaluate(
+        "document.querySelector('#drawer-open-tailor').getAttribute('href')"
+    ).startswith("/resume-tailor?job=")
     _click(page, "#drawer-add-career")
     page.wait_for("!document.querySelector('#page-documents').hidden", message="Documents")
     assert page.console_errors() == []

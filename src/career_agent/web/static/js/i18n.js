@@ -49,11 +49,8 @@ export const DEFAULT_LOCALE = 'en';
  */
 const EN = {
   "tailor.groupLabel": "Resume Tailor",
-  "tailor.note": "Copy this posting into Tailor resume. Review evidence separately in Resume Tailor Beta.",
-  "tailor.copy": "Copy job description",
+  "tailor.note": "Opens Resume Tailor Beta with this posting and your confirmed Career Profile. Its status stays here.",
   "tailor.open": "Open Resume Tailor Beta",
-  "tailor.copied": "Copied. Open Resume Tailor Beta and paste into Tailor resume.",
-  "tailor.unavailable": "Clipboard unavailable. Select and copy the description below.",
 
   "firstrun.searchSave": "Save my search phrases",
   "firstrun.workLabel": "Work you want to do, one short phrase per line",
@@ -3134,11 +3131,9 @@ const EN = {
  */
 const PT_BR = {
   "tailor.groupLabel": "Resume Tailor",
-  "tailor.note": "Copie a vaga e cole em Tailor resume. Revise as evidências separadamente no Resume Tailor Beta.",
-  "tailor.copy": "Copiar descrição da vaga",
+  "tailor.note": "Abre o Resume Tailor Beta com esta vaga e o seu Perfil de Carreira confirmado. "
+    + "O status continua aqui.",
   "tailor.open": "Abrir Resume Tailor Beta",
-  "tailor.copied": "Copiado. Abra Resume Tailor Beta e cole em Tailor resume.",
-  "tailor.unavailable": "Área de transferência indisponível. Selecione e copie a descrição abaixo.",
 
   "firstrun.searchSave": "Salvar as frases da minha busca",
   "firstrun.workLabel": "Trabalho que você quer fazer, uma frase curta por linha",

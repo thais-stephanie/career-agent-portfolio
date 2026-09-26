@@ -42,7 +42,9 @@ describe("export backup", () => {
   it("downloads the candidate and confirms with the friendly filename only", async () => {
     stubFetch({ ok: true, body: {} });
     render(<AppProvider><Settings /></AppProvider>);
-    fireEvent.click(await screen.findByText("↑ Export backup"));
+    // Export waits for a candidate: an empty id once produced `/api/candidates//backup`.
+    await waitFor(() => expect(screen.getByText("↑ Export backup")).not.toBeDisabled());
+    fireEvent.click(screen.getByText("↑ Export backup"));
     await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
     const toast = screen.getByRole("status").textContent ?? "";
     expect(toast).toContain("Alex Morgan - Resume Tailor Backup.zip");
@@ -55,7 +57,8 @@ describe("export backup", () => {
 describe("import backup", () => {
   const openDialogWithFile = async () => {
     render(<AppProvider><Settings /></AppProvider>);
-    fireEvent.click(await screen.findByText("↓ Import backup"));
+    await waitFor(() => expect(screen.getByText("↓ Import backup")).not.toBeDisabled());
+    fireEvent.click(screen.getByText("↓ Import backup"));
     const dialog = await screen.findByRole("dialog");
     const file = new File(["zip"], "Alex Morgan - Resume Tailor Backup.zip", { type: "application/zip" });
     fireEvent.change(screen.getByLabelText("Backup file"), { target: { files: [file] } });

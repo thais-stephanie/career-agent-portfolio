@@ -31,6 +31,7 @@ from career_agent.runtime.profiles import (
 from career_agent.storage.db import connect, migrate, transaction
 from career_agent.web.profiles import ProfileHost, SwitchableApp, tailor_environment
 from career_agent.web.server import ApiError
+from career_agent.web.tailor_bridge import tailor_app
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_FILE = REPO_ROOT / "evaluation" / "demo" / "demo_postings.yaml"
@@ -85,7 +86,7 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.Fix
     tailor_environment(root, first)
     from resume_tailor.api.app import create_app
 
-    host = ProfileHost(root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=create_app)
+    host = ProfileHost(root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=tailor_app)
     api = host.open(first)
     host.server = types.SimpleNamespace(RequestHandlerClass=type("H", (), {"app": api}))
     host.serve(first, api)
@@ -242,7 +243,7 @@ def test_rapid_switches_and_a_restart_keep_every_profile_whole(install: ProfileH
     app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
     host.close()  # the first process ends; its OS lock goes with it
     reopened = ProfileHost(
-        host.root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=create_app
+        host.root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=tailor_app
     )
     active = load_registry(host.root).current
     assert active.id == second

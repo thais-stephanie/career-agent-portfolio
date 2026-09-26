@@ -86,7 +86,9 @@ class ProfileHost:
         host: str = "127.0.0.1",
         port: int = 8765,
         tailor: SwitchableApp | None = None,
-        tailor_factory: Callable[[Path], Any] | None = None,
+        #: Builds Resume Tailor for a profile: (its Tailor home, the profile,
+        #: the profile's app). See `tailor_bridge.tailor_app`.
+        tailor_factory: Callable[[Path, Profile, JobsApi], Any] | None = None,
     ) -> None:
         self.root = root
         self.host = host
@@ -227,7 +229,9 @@ class ProfileHost:
                 set_active(self.root, profile.id)
                 if self.tailor is not None and self.tailor_factory is not None:
                     previous_env = tailor_environment(self.root, profile)
-                    self.tailor.inner = self.tailor_factory(self.root / profile.tailor_home)
+                    self.tailor.inner = self.tailor_factory(
+                        self.root / profile.tailor_home, profile, api
+                    )
             except BaseException:
                 if old is not None:
                     old.retired = False

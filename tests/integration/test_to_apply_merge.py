@@ -83,9 +83,7 @@ def _state(conn):  # noqa: ANN001, ANN202
 def test_to_apply_becomes_interested_and_nothing_else_moves(before_0044) -> None:
     conn, _, _, jobs = before_0044
     before = _state(conn)
-    old_events = [
-        dict(r) for r in conn.execute("SELECT * FROM job_application_event ORDER BY id")
-    ]
+    old_events = [dict(r) for r in conn.execute("SELECT * FROM job_application_event ORDER BY id")]
 
     applied = migrate(conn)
     assert [m.version for m in applied] == [44]
@@ -101,9 +99,7 @@ def test_to_apply_becomes_interested_and_nothing_else_moves(before_0044) -> None
         assert after[app_id] == moved, f"{app_id}: something besides the status changed"
 
     events = [dict(r) for r in conn.execute("SELECT * FROM job_application_event ORDER BY id")]
-    assert [e for e in events if e["id"].startswith("ev-")] == old_events, (
-        "history was rewritten"
-    )
+    assert [e for e in events if e["id"].startswith("ev-")] == old_events, "history was rewritten"
     merged = [e for e in events if e["id"].startswith("m0044-")]
     assert sorted(e["job_id"] for e in merged) == sorted([jobs[0], jobs[1]])
     for event in merged:
@@ -115,9 +111,7 @@ def test_to_apply_becomes_interested_and_nothing_else_moves(before_0044) -> None
 
     # Idempotent: a second run applies nothing and adds no event.
     assert migrate(conn) == []
-    assert conn.execute("SELECT COUNT(*) FROM job_application_event").fetchone()[0] == len(
-        events
-    )
+    assert conn.execute("SELECT COUNT(*) FROM job_application_event").fetchone()[0] == len(events)
     conn.close()
 
 

@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 from career_agent.pipeline.retrieval import ProfileRetired
 
@@ -331,8 +331,20 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             if path == "/resume-tailor" and method == "GET":
                 self._check_origin(method)
+                # The posting travels as its id only, never its text: Resume
+                # Tailor reads the rest through the profile bridge. The
+                # profile id lets a page notice it outlived a switch.
+                target = f"http://127.0.0.1:{self.app.config.port + 1}/"
+                wanted = (parse_qs(parsed.query).get("job") or [""])[0]
+                if wanted and JOB_ID_PATTERN.match(wanted):
+                    params = {"job": wanted}
+                    host = getattr(self.app, "profile_host", None)
+                    active = getattr(host, "active", None) if host is not None else None
+                    if active is not None:
+                        params["profile"] = active.id
+                    target += "?" + urlencode(params)
                 self.send_response(302)
-                self.send_header("Location", f"http://127.0.0.1:{self.app.config.port + 1}/")
+                self.send_header("Location", target)
                 self.send_header("Referrer-Policy", "no-referrer")
                 self.send_header("Content-Length", "0")
                 self.end_headers()

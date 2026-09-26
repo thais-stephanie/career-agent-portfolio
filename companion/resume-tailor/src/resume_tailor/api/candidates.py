@@ -1,4 +1,4 @@
-# Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+# Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 """Candidate-scoped API.
 
 Every route names its candidate explicitly (`/api/candidates/{cid}/...`); there is no
@@ -46,6 +46,10 @@ class CandidateIn(BaseModel):
 class TailorIn(BaseModel):
     jd_text: str
     resume_id: str = ""
+    #: The Career Agent posting this resume is for, when Tailor follows a
+    #: profile. The resume attaches to that posting; the posting's own
+    #: status stays Career Agent's.
+    career_job_id: str = ""
     target_profile: str | None = None
     options: dict[str, Any] = {}
 
@@ -57,7 +61,7 @@ class ApplicationPatch(BaseModel):
     note: str | None = None
 
 
-def build_router(store: WorkspaceStore, get_llm) -> APIRouter:
+def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> APIRouter:
     router = APIRouter(prefix="/api/candidates")
 
     def ws_for(cid: str):
@@ -214,13 +218,33 @@ def build_router(store: WorkspaceStore, get_llm) -> APIRouter:
     # ----------------------------------------------------------------- tailor
     @router.post("/{cid}/tailor")
     def tailor(cid: str, body: TailorIn) -> dict[str, str]:
-        svc = service(cid)
         ws = ws_for(cid)
+        if not ws.load_resumes():
+            # Said before anything else: without a base resume nothing can be
+            # tailored, whatever else the workspace holds.
+            raise HTTPException(
+                400,
+                "There is no base resume yet. Create one from your Career Profile or upload one.",
+            )
+        svc = service(cid)
         resume_id = (
             body.resume_id or ws.settings().get("default_resume_id") or next(iter(svc.resumes), "")
         )
         if resume_id not in svc.resumes:
-            raise HTTPException(400, "Choose a base resume first.")
+            raise HTTPException(
+                400,
+                "There is no base resume yet. Create one from your Career Profile or upload one.",
+            )
+        career_job: dict[str, Any] | None = None
+        if body.career_job_id:
+            if bridge is None:
+                raise HTTPException(400, "Resume Tailor is not connected to Career Agent.")
+            try:
+                career_job = bridge.job(body.career_job_id)
+            except Exception as e:
+                from resume_tailor.api.career import _http
+
+                raise _http(e) from e
         req = TailorRequest(
             jd_text=body.jd_text,
             resume_id=resume_id,
@@ -237,7 +261,7 @@ def build_router(store: WorkspaceStore, get_llm) -> APIRouter:
                     req, run_id, progress=lambda s: run_store.set_status(run_id, "running", s)
                 )
                 run_store.save(run)
-                _write_application_meta(ws, run_id, run)
+                _write_application_meta(ws, run_id, run, career_job)
             except Exception as e:
                 run_store.set_status(
                     run_id, "error", "failed", f"{e}\n{traceback.format_exc()[-1500:]}"
@@ -246,15 +270,21 @@ def build_router(store: WorkspaceStore, get_llm) -> APIRouter:
         threading.Thread(target=work, daemon=True).start()
         return {"application_id": run_id}
 
-    def _write_application_meta(ws, run_id: str, run: TailorRun) -> None:
+    def _write_application_meta(
+        ws, run_id: str, run: TailorRun, career_job: dict[str, Any] | None = None
+    ) -> None:
         meta = {
             "status": "Considering",
-            "role": run.job_analysis.role_title or run.generated_resume.headline,
-            "company": run.job_analysis.company or "",
+            "role": (career_job or {}).get("title")
+            or run.job_analysis.role_title
+            or run.generated_resume.headline,
+            "company": (career_job or {}).get("company") or run.job_analysis.company or "",
             "created_at": datetime.now(UTC).isoformat(),
             "base_resume": run.request.resume_id,
             "note": "",
         }
+        if career_job is not None:
+            meta["career_job_id"] = career_job["job_id"]
         (ws.root / "applications" / run_id / "application.json").write_text(
             json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
         )
@@ -280,6 +310,7 @@ def build_router(store: WorkspaceStore, get_llm) -> APIRouter:
                     "base_resume": base.name if base else meta.get("base_resume", ""),
                     "match": row.get("overall_coverage"),
                     "state": row.get("status", ""),
+                    "career_job_id": meta.get("career_job_id"),
                 }
             )
         return out

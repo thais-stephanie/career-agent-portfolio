@@ -1,4 +1,4 @@
-# Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+# Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 """Local candidate workspaces.
 
 Every candidate owns one isolated directory under the application home
@@ -51,6 +51,10 @@ from resume_tailor.storage.runs import RunStore
 from resume_tailor.workspace.migrations import CURRENT_SCHEMA, check_schema
 
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,80}$")
+
+
+#: The target profile a workspace without a profiles file tailors with.
+NEUTRAL_PROFILES: dict[str, Any] = {"general": {"name": "General"}}
 
 
 class WorkspaceError(Exception):
@@ -182,8 +186,12 @@ class CandidateWorkspace:
         return self._cached("resumes", files or [self.root / "base_resumes"], build)
 
     def load_profiles(self) -> dict[str, Any]:
+        # A candidate created in the app has no target-profile file. The
+        # planner needs at least one profile, and an empty set used to end
+        # every tailoring run in a StopIteration. A neutral profile names no
+        # titles, so the resume keeps the base resume's own headline.
         if not self.profiles_file.exists():
-            return {}
+            return dict(NEUTRAL_PROFILES)
         return self._cached(
             "profiles",
             [self.profiles_file],

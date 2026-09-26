@@ -67,6 +67,8 @@ describe("match hierarchy", () => {
   async function tailored() {
     render(<AppProvider><Tailor /></AppProvider>);
     await waitFor(() => expect(screen.getByLabelText("Job description")).toBeInTheDocument());
+    // Analyze waits for the base resumes to load.
+    await waitFor(() => expect(screen.getByLabelText("Base resume")).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Job description"), { target: { value: "x".repeat(60) } });
     fireEvent.click(screen.getByText(STR.analyze));
     await waitFor(() => expect(screen.getByText("What this job asks for")).toBeInTheDocument());

@@ -1,5 +1,7 @@
+// Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
+import { api, CareerJob, StatusOption } from "../api";
+import { BaseResumeStart, ProgressLine, RESUME_ACCEPT, useResumeUpload } from "../resumeStart";
 import { BackupToast, ImportBackupDialog, useBackup } from "../backup";
 import { Card, Chip, Eyebrow, Pill } from "../components";
 import { ExportMenu, ExportToast, useExportNotice } from "../export";
@@ -10,20 +12,14 @@ import { useApp } from "../state";
 
 export function BaseResumes() {
   const app = useApp();
-  const [rows, setRows] = useState<any[]>([]);
-  const [notice, setNotice] = useState("");
+  const [rows, setRows] = useState<any[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
     if (app.candidateId) void api.resumes(app.candidateId).then(setRows).catch(() => setRows([]));
   };
   useEffect(refresh, [app.candidateId]);
-
-  const upload = async (file: File) => {
-    const out = await api.uploadResume(app.candidateId, file);
-    setNotice(`Added “${out.name}” — found ${out.extracted.roles} roles, ${out.extracted.details} experience details, ${out.extracted.skills} skills. ${STR.uploadReassurance}`);
-    refresh();
-  };
+  const { progress, upload, fromProfile } = useResumeUpload(refresh);
 
   return (
     <div>
@@ -33,15 +29,23 @@ export function BaseResumes() {
           <h1 className="page-title">Base resumes</h1>
           <div className="page-sub">Starting points for tailoring. Uploading a resume never changes your confirmed experience.</div>
         </div>
-        <button className="btn" onClick={() => fileRef.current?.click()}>+ Add base resume</button>
-        <input ref={fileRef} type="file" accept=".docx,.pdf,.txt" style={{ display: "none" }}
+        <div style={{ display: "flex", gap: 8 }}>
+          {app.mode === "profile" && (rows?.length ?? 0) > 0 && (
+            <button className="btn2" disabled={progress.state === "busy"} onClick={() => void fromProfile()}>
+              {STR.fromProfile}
+            </button>
+          )}
+          <button className="btn" disabled={progress.state === "busy"} onClick={() => fileRef.current?.click()}>+ Add base resume</button>
+        </div>
+        <input ref={fileRef} type="file" accept={RESUME_ACCEPT} style={{ display: "none" }}
                aria-label="Upload base resume"
-               onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} />
+               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f); }} />
       </header>
       <div className="page-body">
-        {notice && <Card tone="mint-soft" style={{ marginBottom: 12 }}><p style={{ margin: 0 }}>{notice}</p></Card>}
+        {rows !== null && rows.length === 0 && <div style={{ maxWidth: 560, marginBottom: 12 }}><BaseResumeStart onDone={refresh} /></div>}
+        {(rows?.length ?? 0) > 0 && <div style={{ marginBottom: 12 }}><ProgressLine progress={progress} /></div>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
-          {rows.map((r) => (
+          {(rows ?? []).map((r) => (
             <Card key={r.id}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                 <h3 style={{ fontSize: 18 }}>{r.name}</h3>
@@ -64,10 +68,12 @@ export function BaseResumes() {
               </div>
             </Card>
           ))}
-          <button className="dropzone" onClick={() => fileRef.current?.click()} style={{ minHeight: 140 }}>
-            <b>Add a Word or PDF resume</b>
-            <br />{STR.uploadReassurance}
-          </button>
+          {(rows?.length ?? 0) > 0 && (
+            <button className="dropzone" onClick={() => fileRef.current?.click()} style={{ minHeight: 140 }}>
+              <b>Add a PDF, Word or Markdown resume</b>
+              <br />{STR.uploadReassurance}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -203,24 +209,94 @@ function ExtractedDetailRow(props: { detail: any; sourceId: string; onAdded: () 
 
 export function Applications() {
   const app = useApp();
-  const [rows, setRows] = useState<any[]>([]);
+  return app.mode === "profile" ? <CareerApplications /> : <TailorApplications />;
+}
+
+/** With Career Agent: its tracked postings are the applications. Status is
+ *  Career Agent's and is changed there, through the bridge; each tailored
+ *  resume sits under the posting it was made for. */
+function CareerApplications() {
+  const app = useApp();
+  const [jobs, setJobs] = useState<CareerJob[] | null>(null);
+  const [statuses, setStatuses] = useState<StatusOption[]>(app.statuses);
+  const [error, setError] = useState("");
   const exportNotice = useExportNotice();
   const refresh = () => {
-    if (app.candidateId) void api.applications(app.candidateId).then(setRows).catch(() => setRows([]));
+    void api.careerApplications().then((out) => { setJobs(out.jobs); setStatuses(out.statuses); setError(""); })
+      .catch((e: Error) => { setJobs([]); setError(e.message || "Career Agent could not be read."); });
   };
-  useEffect(refresh, [app.candidateId]);
-  const cols = "2fr 1.4fr 1fr 70px 130px 100px";
+  useEffect(refresh, []);
+  const change = async (jobId: string, status: string) => {
+    try {
+      await api.setCareerStatus(jobId, status);
+      refresh();
+    } catch (e: any) { setError(e?.message || "The status could not be changed."); }
+  };
+  const cols = "2fr 1.4fr 150px 1.2fr 90px";
   return (
     <div>
       <header className="page-head">
         <div>
           <Eyebrow>WORK</Eyebrow>
           <h1 className="page-title">Applications</h1>
-          <div className="page-sub">Every tailored resume, with where it went. {STR.exportUsesSaved}</div>
+          <div className="page-sub">The postings you marked in Career Agent. A status changed here is changed there. {STR.exportUsesSaved}</div>
         </div>
       </header>
       <ExportToast notice={exportNotice.notice} onDismiss={exportNotice.dismiss} />
       <div className="page-body">
+        {error && <p role="alert" style={{ background: "var(--yellow-soft)", border: "1.5px solid var(--line)", borderRadius: 8, padding: 8, fontSize: 12 }}>{error}</p>}
+        <div className="table career-applications">
+          <div className="thead" style={{ gridTemplateColumns: cols }}>
+            <span>Role</span><span>Company</span><span>{STR.careerStatus}</span><span>Tailored resumes</span><span></span>
+          </div>
+          {(jobs ?? []).map((job) => (
+            <div key={job.job_id} className="trow" data-job-id={job.job_id} style={{ gridTemplateColumns: cols }}>
+              <div style={{ fontWeight: 600 }}>{job.title}</div>
+              <span style={{ fontSize: 12 }}>{job.company}</span>
+              <select value={job.status} aria-label={`${STR.careerStatus}: ${job.title}`} className="career-status-select"
+                      style={{ padding: "4px 6px", fontSize: 11 }}
+                      onChange={(e) => void change(job.job_id, e.target.value)}>
+                {statuses.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {(job.tailored ?? []).length === 0 && <span style={{ fontSize: 11, color: "var(--muted)" }}>None yet</span>}
+                {(job.tailored ?? []).map((t) => (
+                  <div key={t.id} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11 }}>
+                    <span>{t.date?.slice(0, 10)}</span>
+                    {t.state === "done"
+                      ? <ExportMenu compact candidateId={app.candidateId} applicationId={t.id} onNotice={exportNotice.show} />
+                      : <span style={{ color: "var(--muted)" }}>{t.state === "error" ? "Did not finish" : "Still working…"}</span>}
+                  </div>
+                ))}
+              </div>
+              <button className="btn2 sm" onClick={() => app.tailorJob(job.job_id)}>{STR.tailorThis}</button>
+            </div>
+          ))}
+          {jobs !== null && !jobs.length && <div className="trow" style={{ gridTemplateColumns: "1fr" }}>
+            <span style={{ color: "var(--muted)" }}>{STR.noTrackedJobs}</span></div>}
+        </div>
+        <h3 style={{ marginTop: 20 }}>{STR.otherResumes}</h3>
+        <TailorApplications embedded />
+      </div>
+    </div>
+  );
+}
+
+/** Tailored resumes as Resume Tailor records them. Standalone, this is the
+ *  Applications screen; with Career Agent, it lists only the resumes that
+ *  were not made for one of its postings. */
+function TailorApplications(props: { embedded?: boolean }) {
+  const app = useApp();
+  const [rows, setRows] = useState<any[]>([]);
+  const exportNotice = useExportNotice();
+  const refresh = () => {
+    if (app.candidateId) void api.applications(app.candidateId)
+      .then((all) => setRows(props.embedded ? all.filter((a) => !a.career_job_id) : all))
+      .catch(() => setRows([]));
+  };
+  useEffect(refresh, [app.candidateId]);
+  const cols = "2fr 1.4fr 1fr 70px 130px 100px";
+  const table = (
         <div className="table">
           <div className="thead" style={{ gridTemplateColumns: cols }}>
             <span>Role</span><span>Company</span><span>Base resume</span><span>Match</span><span>Status</span><span>Export</span>
@@ -247,7 +323,19 @@ export function Applications() {
           {!rows.length && <div className="trow" style={{ gridTemplateColumns: "1fr" }}>
             <span style={{ color: "var(--muted)" }}>No applications yet.</span></div>}
         </div>
-      </div>
+  );
+  if (props.embedded) return <>{table}<ExportToast notice={exportNotice.notice} onDismiss={exportNotice.dismiss} /></>;
+  return (
+    <div>
+      <header className="page-head">
+        <div>
+          <Eyebrow>WORK</Eyebrow>
+          <h1 className="page-title">Applications</h1>
+          <div className="page-sub">Every tailored resume, with where it went. {STR.exportUsesSaved}</div>
+        </div>
+      </header>
+      <ExportToast notice={exportNotice.notice} onDismiss={exportNotice.dismiss} />
+      <div className="page-body">{table}</div>
     </div>
   );
 }
@@ -283,8 +371,8 @@ export function Settings() {
             Save this candidate to a file you control, or bring one back.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn2 sm" onClick={() => void backup.exportNow()}>{STR.exportBackup}</button>
-            <button className="btn2 sm" onClick={() => setImportOpen(true)}>{STR.importBackup}</button>
+            <button className="btn2 sm" disabled={!app.candidateId} onClick={() => void backup.exportNow()}>{STR.exportBackup}</button>
+            <button className="btn2 sm" disabled={app.mode === "loading"} onClick={() => setImportOpen(true)}>{STR.importBackup}</button>
           </div>
           <ImportBackupDialog open={importOpen} onClose={() => setImportOpen(false)} onDone={backup.show} />
           <BackupToast notice={backup.notice} onDismiss={backup.dismiss} />

@@ -1,4 +1,4 @@
-# Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+# Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 """Local HTTP API + static UI. Thin: every endpoint delegates to core services.
 
 Two route families:
@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from resume_tailor.api.candidates import build_router
+from resume_tailor.api.career import build_career_router
 from resume_tailor.api.drafts import build_drafts_router
 from resume_tailor.api.material import build_material_router
 from resume_tailor.core.models import TailorRequest
@@ -39,7 +40,9 @@ UI_DIR = Path(__file__).resolve().parents[1] / "ui" / "static"
 UI_V2_DIR = Path(__file__).resolve().parents[1] / "ui" / "static_v2"
 
 
-def create_app(home: Path | None = None) -> FastAPI:
+def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
+    """The Resume Tailor app. With `bridge` (Career Agent's, see
+    integration/career.py) it follows that app's active local profile."""
     load_dotenv(paths.PACKAGE_ROOT / ".env")
     app = FastAPI(title="Resume Tailor", version="0.1.0b1")
 
@@ -57,6 +60,18 @@ def create_app(home: Path | None = None) -> FastAPI:
             {"127.0.0.1", "localhost", "::1"} | ({"testserver"} if home is not None else set())
         ):
             return JSONResponse({"detail": "Local requests only"}, status_code=403)
+        # A candidate-scoped call with no candidate in it is a page bug, and
+        # it must never reach a route: `/api/candidates//resumes/upload` once
+        # did, and nothing on screen said why the upload failed.
+        path = request.url.path
+        if path.startswith("/api/candidates/") and (
+            "//" in path[len("/api/candidates") :]
+            or path.split("/")[3] in {"", "undefined", "null"}
+        ):
+            return JSONResponse(
+                {"detail": "No candidate is selected. Reload Resume Tailor and try again."},
+                status_code=400,
+            )
         origin = request.headers.get("origin")
         if origin is not None and origin != "http://" + host:
             return JSONResponse({"detail": "Same-origin requests only"}, status_code=403)
@@ -84,7 +99,8 @@ def create_app(home: Path | None = None) -> FastAPI:
             state["llm"] = build_provider(cache_dir=paths.cache_dir())
         return state["llm"]
 
-    app.include_router(build_router(store, llm))
+    app.include_router(build_career_router(store, bridge))
+    app.include_router(build_router(store, llm, bridge))
     app.include_router(build_material_router(store))
     app.include_router(build_drafts_router(store))
 

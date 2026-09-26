@@ -1,5 +1,8 @@
+// Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 // Candidate backup: export the selected candidate to a ZIP the user keeps, and
-// bring one back. All copy stays in product language — what the file contains
+// bring one back. Following a Career Agent profile, a backup can only be
+// restored INTO that profile's workspace: a second candidate beside it would
+// be invisible here and easy to mistake for the profile. All copy stays in product language — what the file contains
 // and what will happen, never how it is stored.
 import { useRef, useState } from "react";
 import { api } from "./api";
@@ -39,7 +42,8 @@ export function BackupToast(props: { notice: BackupNotice | null; onDismiss: () 
 export function ImportBackupDialog(props: { open: boolean; onClose: () => void; onDone: (n: BackupNotice) => void }) {
   const app = useApp();
   const [file, setFile] = useState<File | null>(null);
-  const [mode, setMode] = useState<"new" | "replace">("new");
+  const profileMode = app.mode === "profile";
+  const [mode, setMode] = useState<"new" | "replace">(profileMode ? "replace" : "new");
   const [replaceId, setReplaceId] = useState("");
   const [confirmName, setConfirmName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,19 +51,24 @@ export function ImportBackupDialog(props: { open: boolean; onClose: () => void; 
 
   if (!props.open) return null;
 
-  const reset = () => { setFile(null); setMode("new"); setReplaceId(""); setConfirmName(""); setError(""); };
+  const reset = () => { setFile(null); setMode(profileMode ? "replace" : "new"); setReplaceId(""); setConfirmName(""); setError(""); };
   const close = () => { reset(); props.onClose(); };
 
   const doImport = async () => {
     if (!file) { setError("Choose a backup file first."); return; }
-    if (mode === "replace" && !replaceId) { setError("Choose which candidate to replace."); return; }
+    const target = profileMode ? app.candidateId : replaceId;
+    if (mode === "replace" && !target) { setError("Choose which candidate to replace."); return; }
     setBusy(true);
     setError("");
     try {
-      const res = await api.importBackup(file, mode === "replace" ? { id: replaceId, confirmName } : undefined);
-      await app.refreshCandidates();
-      app.switchCandidate(res.id);
-      props.onDone({ kind: "ok", text: `“${res.name}” was imported and is now selected.` });
+      const res = await api.importBackup(file, mode === "replace" ? { id: target, confirmName } : undefined);
+      if (profileMode) {
+        props.onDone({ kind: "ok", text: "The backup was restored into this profile. Reload to see everything it brought." });
+      } else {
+        await app.refreshCandidates();
+        app.switchCandidate(res.id);
+        props.onDone({ kind: "ok", text: `“${res.name}” was imported and is now selected.` });
+      }
       close();
     } catch (e: any) {
       setError(e?.message || "This backup could not be imported.");
@@ -84,6 +93,11 @@ export function ImportBackupDialog(props: { open: boolean; onClose: () => void; 
                  onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
 
+        {profileMode ? (
+          <div className="inner-box" style={{ background: "var(--tint-warm)", marginBottom: 12, fontSize: 12 }}>
+            The backup replaces this profile{"’"}s Resume Tailor data ({app.profile?.label}). Your Career Agent data is not touched.
+          </div>
+        ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
           <label className="check">
             <input type="radio" name="import-mode" checked={mode === "new"} onChange={() => setMode("new")} />
@@ -96,18 +110,19 @@ export function ImportBackupDialog(props: { open: boolean; onClose: () => void; 
               <span className="h">Everything that candidate has now is replaced by the backup.</span></span>
           </label>
         </div>
+        )}
 
         {mode === "replace" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600 }}>
+            {!profileMode && <label style={{ fontSize: 12, fontWeight: 600 }}>
               Candidate to replace
               <select value={replaceId} onChange={(e) => setReplaceId(e.target.value)} style={{ marginTop: 4 }}>
                 <option value="">Choose…</option>
                 {app.candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-            </label>
+            </label>}
             <label style={{ fontSize: 12, fontWeight: 600 }}>
-              Type their name to confirm
+              {profileMode ? `Type “${app.candidateName}” to confirm` : "Type their name to confirm"}
               <input type="text" value={confirmName} onChange={(e) => setConfirmName(e.target.value)}
                      placeholder="Their exact name" style={{ marginTop: 4 }} />
             </label>

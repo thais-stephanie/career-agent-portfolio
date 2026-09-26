@@ -159,7 +159,7 @@ Some sources provide complete structured inventories. Others expose recent-job w
 **LinkedIn is not collected automatically.** LinkedIn prohibits automated access without written permission, so Career Agent offers it only as a search link you open yourself in your browser. You can paste a LinkedIn posting into manual import, and import your own LinkedIn profile PDF export for review.
 
 ## Resume Tailor Beta
-Open **Resume Tailor Beta** in the sidebar. From a job, choose **Copy job description**, open Tailor and paste it into **Tailor resume**.
+Open **Resume Tailor Beta** in the sidebar, or from a job choose **Open Resume Tailor Beta**: Tailor opens on that posting, follows your active local profile, lists the jobs you marked (Interested, Applied, Interviewing and so on) and can start a base resume from your confirmed Career Profile or from an uploaded PDF, Word or Markdown resume.
 
 Create a candidate, add a base resume and sources, review evidence, analyze the job, inspect matches and gaps, generate, edit, validate and export. Markdown and Word exports work without AI. PDF needs Microsoft Word or LibreOffice installed locally; otherwise the app explains that PDF is unavailable.
 
@@ -180,7 +180,7 @@ The two evidence stores are separate. No profile or evidence is automatically sy
 | ![Resume Tailor Beta](docs/assets/readme/tailor.png) | ![First-run setup](docs/assets/readme/first-run.png) |
 
 ## Privacy
-Your settings, jobs, notes and evidence are stored locally. Tailor retains uploaded source documents; Career Agent extracts CV text without keeping the uploaded file. Optional AI providers can receive content when you configure and use them. Collection and employer links also use internet. No telemetry is implemented. Read the [privacy model](docs/PRIVACY.md), including backups and clipboard handling.
+Your settings, jobs, notes and evidence are stored locally. Tailor retains uploaded source documents; Career Agent extracts CV text without keeping the uploaded file. Optional AI providers can receive content when you configure and use them. Collection and employer links also use internet. No telemetry is implemented. Read the [privacy model](docs/PRIVACY.md), including backups and what the Tailor handoff carries.
 
 ## What it deliberately does not do
 It does not auto-apply, promise interviews, turn remote work into worldwide eligibility, hide evidence gaps, or treat model output as confirmed experience.

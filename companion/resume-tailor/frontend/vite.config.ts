@@ -1,4 +1,4 @@
-// Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+// Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
@@ -11,7 +11,7 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "../src/resume_tailor/ui/static_v2"),
     emptyOutDir: true,
-    rollupOptions: { output: { banner: "/*! Modified for the Career Agent public edition (2026-09-22). See NOTICE. Apache-2.0. */" } },
+    rollupOptions: { output: { banner: "/*! Modified for the Career Agent public edition (2026-09-26). See NOTICE. Apache-2.0. */" } },
   },
   server: {
     proxy: { "/api": "http://127.0.0.1:8000" },
