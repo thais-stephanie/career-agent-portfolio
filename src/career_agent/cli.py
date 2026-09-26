@@ -78,7 +78,7 @@ _force_utf8_output()
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Career Agent - Personal Alpha job discovery and eligibility agent.",
+    help="Career Agent: local job discovery, eligibility and Search Fit.",
 )
 
 ConfigDirOption = Annotated[

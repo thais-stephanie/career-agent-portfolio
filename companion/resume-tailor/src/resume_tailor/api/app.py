@@ -45,7 +45,7 @@ def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
     """The Resume Tailor app. With `bridge` (Career Agent's, see
     integration/career.py) it follows that app's active local profile."""
     load_dotenv(paths.PACKAGE_ROOT / ".env")
-    app = FastAPI(title="Resume Tailor", version="0.1.0b1")
+    app = FastAPI(title="Resume Tailor", version="0.2.0b1")
 
     # Public edition: reject DNS rebinding and cross-origin requests, including forms.
     @app.middleware("http")

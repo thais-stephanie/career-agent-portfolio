@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import tomllib
 import zipfile
@@ -17,6 +18,16 @@ def git(*args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
 
 
+def release_name(pep440: str) -> tuple[str, str]:
+    """Map a PEP 440 pre-release version to its tag and stage: 0.2.0b1 -> v0.2.0-beta.1."""
+    match = re.fullmatch(r"(\d+\.\d+\.\d+)(a|b|rc)(\d+)", pep440)
+    if not match:
+        raise SystemExit(f"{pep440} is not a pre-release version this recipe publishes.")
+    base, stage, number = match.groups()
+    label, status = {"a": ("alpha", "Alpha"), "b": ("beta", "Beta"), "rc": ("rc", "RC")}[stage]
+    return f"v{base}-{label}.{number}", status
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ref", default="HEAD")
@@ -26,9 +37,8 @@ def main() -> None:
         raise SystemExit("Commit the reviewed changes before packaging.")
     commit = git("rev-parse", args.ref + "^{commit}")
     project = tomllib.loads(git("show", commit + ":pyproject.toml"))["project"]
-    if project["version"] != "0.1.0a2":
-        raise SystemExit("This release recipe is for 0.1.0a2.")
-    version = "v0.1.0-alpha.2"
+    tailor = tomllib.loads(git("show", commit + ":companion/resume-tailor/pyproject.toml"))
+    version, status = release_name(project["version"])
     args.output.mkdir(parents=True, exist_ok=True)
     windows = args.output / f"Career-Agent-{version}-Windows.zip"
     source = args.output / f"Career-Agent-{version}-source.tar.gz"
@@ -43,15 +53,36 @@ def main() -> None:
             assert not Path(name).name.startswith("out-"), name
             assert not any(
                 p
-                in {".git", ".venv", "node_modules", ".tools", "backups", "data", "out", ".claude"}
+                in {
+                    ".git",
+                    ".venv",
+                    "node_modules",
+                    ".tools",
+                    "backups",
+                    "data",
+                    "out",
+                    ".claude",
+                    ".playwright-mcp",
+                }
                 for p in parts
             ), name
             assert not (
                 ".local.yaml" in name
                 or name.endswith((".db", ".sqlite", ".backup"))
-                or Path(name).name == ".env"
+                or Path(name).name in {".env", "profiles.json"}
             ), name
+        migrations = [
+            n for n in archive.namelist() if n.startswith("src/career_agent/storage/migrations/")
+        ]
+        assert any(n.endswith(".sql") for n in migrations), "migrations missing"
         for name in (
+            "src/career_agent/web/static/index.html",
+            "companion/resume-tailor/src/resume_tailor/ui/static_v2/index.html",
+            "config/companies.yaml",
+            "config/source_catalogue.yaml",
+            "uv.lock",
+            "FIRST_RUN.md",
+            "docs/INSTALL.md",
             "Start-Career-Agent.cmd",
             "Start-Career-Agent.ps1",
             "Start-Demo.cmd",
@@ -68,8 +99,8 @@ def main() -> None:
     manifest = {
         "version": version,
         "commit": commit,
-        "status": "Alpha",
-        "resume_tailor": "0.1.0b1 (Beta)",
+        "status": status,
+        "resume_tailor": f"{tailor['project']['version']} (Beta)",
         "sha256": hashes,
     }
     (args.output / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")
