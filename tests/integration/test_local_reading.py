@@ -258,3 +258,81 @@ def test_a_load_that_outlives_the_deadline_times_out(world) -> None:
         final = _wait(api, job, seconds=15)
     assert final["state"] == runner.TIMEOUT
     assert final["elapsed_s"] < 6
+
+
+@pytest.mark.parametrize(
+    ("setting", "said"),
+    [
+        ({"error_chunk": "model requires more system memory"}, "more system memory"),
+        ({"error_status": 500, "error_chunk": "llama runner process has terminated"}, "terminated"),
+        ({"cut_after": 2, "chunks": 8}, "closed before the answer finished"),
+    ],
+)
+def test_an_ollama_failure_is_named_in_its_own_words(world, setting, said) -> None:
+    """Ollama running and failing is not "Ollama is not running", and a stream
+    cut off is not "the quotes could not be verified"."""
+    api, job = world["api"], world["job"]
+    with FakeOllama() as fake:
+        fake.behaviour.quote = world["quote"]
+        for key, value in setting.items():
+            setattr(fake.behaviour, key, value)
+        world["monkeypatch"].setenv("OLLAMA_BASE_URL", fake.url)
+        api.handle_api("POST", f"/api/jobs/{job}/enrich", {}, {})
+        final = _wait(api, job)
+        assert len(fake.behaviour.chats) == 1, "a failure Ollama reported is not retried"
+    assert final["state"] == runner.ERROR and final["code"] == "ollama_error", final
+    assert said in final["message"]
+    assert api.handle_api("GET", "/api/health", {}, {})["ollama"]["reachable"] is True
+
+
+def test_a_hung_ollama_does_not_hold_the_reading(world) -> None:
+    """Ollama accepts the connection and never answers its model list."""
+    from career_agent.local_ai import ollama
+
+    api, job = world["api"], world["job"]
+    world["monkeypatch"].setattr(ollama, "META_TIMEOUT_S", 1.0)
+    with FakeOllama() as fake:
+        fake.behaviour.tags_delay = 30
+        world["monkeypatch"].setenv("OLLAMA_BASE_URL", fake.url)
+        started = time.monotonic()
+        api.handle_api("POST", f"/api/jobs/{job}/enrich", {}, {})
+        final = _wait(api, job, seconds=15)
+    assert final["state"] == runner.OLLAMA_UNAVAILABLE
+    assert time.monotonic() - started < 8
+
+
+def test_one_reading_at_a_time(world) -> None:
+    from career_agent.web.server import ApiError
+
+    api, job = world["api"], world["job"]
+    other = next(
+        j
+        for j in api.handle_api("GET", "/api/jobs", {"limit": ["50"]}, {})["items"]
+        if j["job_id"] != job
+    )["job_id"]
+    with FakeOllama() as fake:
+        fake.behaviour.quote = world["quote"]
+        fake.behaviour.first_delay = 30
+        world["monkeypatch"].setenv("OLLAMA_BASE_URL", fake.url)
+        api.handle_api("POST", f"/api/jobs/{job}/enrich", {}, {})
+        with pytest.raises(ApiError) as refused:
+            api.handle_api("POST", f"/api/jobs/{other}/enrich", {}, {})
+        assert refused.value.status == 409 and refused.value.for_reader
+        # Asking again for the same posting returns the reading already running.
+        again = api.handle_api("POST", f"/api/jobs/{job}/enrich", {}, {})
+        assert again["state"] == runner.RUNNING
+        api.handle_api("POST", f"/api/jobs/{job}/enrich/cancel", {}, {})
+        assert _wait(api, job, seconds=10)["state"] == runner.CANCELLED
+
+
+def test_an_unexpected_failure_never_reaches_the_page_raw(world) -> None:
+    api, job = world["api"], world["job"]
+
+    def explode(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        raise RuntimeError("sqlite said something internal at /private/path")
+
+    world["monkeypatch"].setattr(enrich_module, "enrich_one", explode)
+    api.handle_api("POST", f"/api/jobs/{job}/enrich", {}, {})
+    final = _wait(api, job)
+    assert final["state"] == runner.ERROR and final["code"] == "unexpected"
+    assert "private" not in final["message"] and "sqlite" not in final["message"]

@@ -43,6 +43,7 @@ from career_agent.local_ai.contract import VerifiedEnrichment, json_schema, veri
 from career_agent.local_ai.ollama import (
     OllamaCancelled,
     OllamaClient,
+    OllamaFailed,
     OllamaInvalidOutput,
     OllamaRefused,
     OllamaSettings,
@@ -83,7 +84,16 @@ class EnrichmentUnavailable(RuntimeError):
 
 
 class EnrichmentRejected(RuntimeError):
-    """The model answered, and what it said could not be verified."""
+    """The reading was refused or could not be verified. `code` says which:
+    `no_such_job`, `below_threshold` or `unverifiable`."""
+
+    def __init__(self, message: str, code: str = "unverifiable") -> None:
+        super().__init__(message)
+        self.code = code
+
+
+class EnrichmentFailed(RuntimeError):
+    """Ollama answered and could not finish; the message is Ollama's words."""
 
 
 class EnrichmentModelMissing(EnrichmentUnavailable):
@@ -138,13 +148,14 @@ def enrich_one(
 
     row = _load_job(conn, job_id)
     if row is None:
-        raise EnrichmentRejected(f"no such job: {job_id}")
+        raise EnrichmentRejected(f"no such job: {job_id}", code="no_such_job")
 
     score = _stored_score(conn, job_id, config_id, config_version)
     if min_score is not None and (score is None or score < min_score):
         raise EnrichmentRejected(
             f"job scores {score if score is not None else 'nothing'} and the local model "
-            f"threshold is {min_score}. Deterministic triage runs first."
+            f"threshold is {min_score}. Deterministic triage runs first.",
+            code="below_threshold",
         )
 
     settings = settings or OllamaSettings.from_env(env if env is not None else dict(os.environ))
@@ -185,6 +196,8 @@ def enrich_one(
             "everything else in this application works without it."
         ) from exc
 
+    if stop():
+        raise EnrichmentCancelled("the reading was cancelled")
     if not client.is_model_available():
         raise EnrichmentModelMissing(
             f"Ollama is running but the model {settings.model!r} is not installed. "
@@ -199,6 +212,8 @@ def enrich_one(
     )
     schema = json_schema()
 
+    if stop():
+        raise EnrichmentCancelled("the reading was cancelled")
     wanted = settings.model.removesuffix(":latest")
     loaded = any(name.removesuffix(":latest") == wanted for name in client.loaded_models())
     last_error: str | None = None
@@ -228,6 +243,8 @@ def enrich_one(
             raise EnrichmentCancelled(str(exc)) from exc
         except OllamaTimedOut as exc:
             raise EnrichmentTimedOut(str(exc)) from exc
+        except OllamaFailed as exc:
+            raise EnrichmentFailed(str(exc)) from exc
         except OllamaUnavailable as exc:
             raise EnrichmentUnavailable(f"Ollama became unreachable mid-request: {exc}") from exc
         loaded = True

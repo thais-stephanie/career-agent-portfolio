@@ -72,6 +72,10 @@ DEFAULT_MODEL = "qwen3:4b"
 #: a total deadline, not a per-read timeout: the old per-read 300 s limit
 #: could be met twice over (and then retried) before anything was shown.
 DEFAULT_TIMEOUT_MS = 360_000
+#: The limit for the small questions asked before a reading (`/api/tags`,
+#: `/api/ps`). They answer in milliseconds; a server that accepts the
+#: connection and then says nothing must not hold a reading for minutes.
+META_TIMEOUT_S = 10.0
 
 #: The longest answer the model may write. The contract's answer is a few
 #: hundred tokens; without a cap a constrained-JSON generation can keep going
@@ -112,6 +116,12 @@ class OllamaRefused(RuntimeError):
 
 class OllamaInvalidOutput(RuntimeError):
     """The endpoint answered, and the answer was not a valid enrichment."""
+
+
+class OllamaFailed(RuntimeError):
+    """Ollama answered, and could not produce an answer: it said why (out of
+    memory, a model that failed to load), or the stream ended before `done`.
+    Not an outage: the message carries Ollama's own words."""
 
 
 class OllamaTimedOut(RuntimeError):
@@ -402,7 +412,9 @@ class _RawResponse:
         while True:
             while b"\r\n" not in self._buffer:
                 if not self._more():
-                    return
+                    raise OllamaFailed(
+                        "The connection to Ollama closed before the answer finished."
+                    )
             size_line, self._buffer = self._buffer.split(b"\r\n", 1)
             try:
                 size = int(size_line.split(b";")[0].strip() or b"0", 16)
@@ -412,7 +424,9 @@ class _RawResponse:
                 return
             while len(self._buffer) < size + 2:
                 if not self._more():
-                    return
+                    raise OllamaFailed(
+                        "The connection to Ollama closed before the answer finished."
+                    )
             yield self._buffer[:size]
             self._buffer = self._buffer[size + 2 :]
 
@@ -427,6 +441,11 @@ class _RawResponse:
             yield pending.decode("utf-8", errors="replace")
 
 
+def _ollama_words(text: str) -> str:
+    """What Ollama said, short and on one line."""
+    return " ".join(str(text).split())[:240]
+
+
 def _read_stream(
     response: Any,
     content: list[str],
@@ -434,12 +453,26 @@ def _read_stream(
     should_stop: Callable[[], bool],
     on_chunk: Callable[[dict[str, Any]], None],
 ) -> dict[str, Any]:
-    """Assemble the streamed chunks; stop on cancel or the deadline."""
+    """Assemble the streamed chunks; stop on cancel or the deadline.
+
+    A stream that ends without its `done` chunk is a failure, never an empty
+    answer: an empty answer used to be retried and then reported as "could
+    not be verified", which blamed the model for Ollama stopping."""
     import time
 
     if response.status_code != 200:
-        raise OllamaUnavailable(
-            "the local Ollama endpoint answered /api/chat with a non-200 status."
+        said = ""
+        for line in response.iter_lines():
+            try:
+                said = str(json.loads(line).get("error") or "")
+            except (ValueError, AttributeError):
+                said = line
+            if said:
+                break
+        raise OllamaFailed(
+            f"Ollama said: {_ollama_words(said)}"
+            if said
+            else f"Ollama answered with status {response.status_code}."
         )
     for line in response.iter_lines():
         if should_stop():
@@ -455,14 +488,14 @@ def _read_stream(
         if not isinstance(chunk, dict):
             continue
         if chunk.get("error"):
-            raise OllamaUnavailable("the local Ollama endpoint reported an error.")
+            raise OllamaFailed(f"Ollama said: {_ollama_words(chunk['error'])}")
         piece = (chunk.get("message") or {}).get("content") or ""
         if piece:
             content.append(piece)
         on_chunk(chunk)
         if chunk.get("done"):
             return chunk
-    return {}
+    raise OllamaFailed("The connection to Ollama closed before the answer finished.")
 
 
 class OllamaClient:
@@ -500,11 +533,13 @@ class OllamaClient:
         method: str,
         path: str,
         json_body: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> tuple[int, dict[str, Any]]:
         url = self._url(path)
+        limit = self.settings.timeout_seconds if timeout is None else timeout
         try:
-            return self._transport(method, url, json_body, self.settings.timeout_seconds)
-        except (OllamaUnavailable, OllamaRefused, OllamaInvalidOutput):
+            return self._transport(method, url, json_body, limit)
+        except (OllamaUnavailable, OllamaRefused, OllamaInvalidOutput, OllamaFailed):
             raise
         except Exception as exc:
             # Connection refused, timeout, DNS, a transport bug: from here they
@@ -517,7 +552,7 @@ class OllamaClient:
 
     def health(self) -> list[str]:
         """Model names the local server currently has. Raises if it cannot say."""
-        status, body = self._call("GET", "/api/tags")
+        status, body = self._call("GET", "/api/tags", timeout=META_TIMEOUT_S)
         if status != 200:
             raise OllamaUnavailable(
                 "the local Ollama endpoint answered with a non-200 status for "
@@ -546,7 +581,7 @@ class OllamaClient:
         Only used to say "loading the model" rather than "reading" while the
         first reading after a start pays the load."""
         try:
-            status, body = self._call("GET", "/api/ps")
+            status, body = self._call("GET", "/api/ps", timeout=META_TIMEOUT_S)
         except OllamaUnavailable:
             return []
         models = body.get("models") if status == 200 else None

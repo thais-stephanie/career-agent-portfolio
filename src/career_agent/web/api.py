@@ -2306,6 +2306,15 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             raise ApiError(409, "This profile is no longer the active one.", for_reader=True)
         from career_agent.local_ai.ollama import OllamaSettings
 
+        # One reading at a time: Ollama serves one request at a time, and a
+        # second reading would only wait in its queue until its own deadline.
+        busy = self.local_readings.running_job()
+        if busy is not None and busy != job_id:
+            raise ApiError(
+                409,
+                "The local model is reading another posting. Wait for it, or cancel it there.",
+                for_reader=True,
+            )
         settings = OllamaSettings.from_env(dict(os.environ))
         config_id, config_version = self._identity()
         # Deterministic triage runs FIRST, here as well as in the CLI: the
@@ -2350,6 +2359,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.local_ai.prompt import LocalPromptChanged
         from career_agent.pipeline.enrich import (
             EnrichmentCancelled,
+            EnrichmentFailed,
             EnrichmentModelMissing,
             EnrichmentRejected,
             EnrichmentTimedOut,
@@ -2389,12 +2399,18 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 self._ollama_seen(reachable=False, note=str(exc))
                 reading.finish(runner.OLLAMA_UNAVAILABLE, str(exc))
                 return
+            except EnrichmentFailed as exc:
+                # Ollama is running and said why it could not finish.
+                self._ollama_seen(reachable=True, note=str(exc))
+                reading.finish(runner.ERROR, str(exc), "ollama_error")
+                return
             except EnrichmentRejected as exc:
-                code = "below_threshold" if "threshold" in str(exc) else "unverifiable"
-                reading.finish(runner.ERROR, str(exc), code)
+                reading.finish(runner.ERROR, str(exc), exc.code)
                 return
             except LocalPromptChanged as exc:
-                reading.finish(runner.ERROR, str(exc), "prompt_changed")
+                # A build problem, not the reader's: said plainly, logged whole.
+                self.log(f"local prompt changed: {exc}")
+                reading.finish(runner.ERROR, "", "prompt_changed")
                 return
             reading.finish(runner.SUCCESS)
 

@@ -31,6 +31,14 @@ class Behaviour:
     chunks: int = 8
     chunk_delay: float = 0.0
     done_reason: str = "stop"
+    #: An error Ollama reports: in the stream (`error_chunk`) or as the whole
+    #: answer with a non-200 status (`error_status`).
+    error_chunk: str = ""
+    error_status: int = 0
+    #: Close the connection after this many chunks, before `done`.
+    cut_after: int | None = None
+    #: Seconds `/api/tags` waits before answering (a hung server).
+    tags_delay: float = 0.0
     #: Filled in by the server: requests seen, and whether a client left early.
     chats: list[dict[str, Any]] = field(default_factory=list)
     disconnects: int = 0
@@ -56,6 +64,7 @@ class FakeOllama:
             def do_GET(self) -> None:  # noqa: N802
                 b = fake.behaviour
                 if self.path == "/api/tags":
+                    time.sleep(b.tags_delay)
                     self._json(200, {"models": [{"name": m} for m in b.models]})
                 elif self.path == "/api/ps":
                     self._json(200, {"models": [{"name": m} for m in b.loaded]})
@@ -67,6 +76,9 @@ class FakeOllama:
                 length = int(self.headers.get("Content-Length") or 0)
                 body = json.loads(self.rfile.read(length) or b"{}")
                 b.chats.append(body)
+                if b.error_status:
+                    self._json(b.error_status, {"error": b.error_chunk or "failed"})
+                    return
                 answer = json.dumps(
                     {
                         "summary": "A synthetic reading of the posting.",
@@ -88,7 +100,14 @@ class FakeOllama:
                     self.send_header("Content-Type", "application/x-ndjson")
                     self.end_headers()
                     time.sleep(b.first_delay)
-                    for piece in pieces:
+                    if b.error_chunk:
+                        line = {"error": b.error_chunk}
+                        self.wfile.write((json.dumps(line) + "\n").encode())
+                        self.wfile.flush()
+                        return
+                    for index, piece in enumerate(pieces):
+                        if b.cut_after is not None and index >= b.cut_after:
+                            return
                         line = {"message": {"role": "assistant", "content": piece}, "done": False}
                         self.wfile.write((json.dumps(line) + "\n").encode())
                         self.wfile.flush()

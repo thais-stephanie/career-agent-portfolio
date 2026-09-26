@@ -1838,6 +1838,12 @@ const EN = {
   'local.state.TIMEOUT': 'The local model didn\'t finish in time ({seconds}s). Nothing changed; you can try again.',
   'local.state.ERROR': 'The local model could not finish: {error}',
   'local.state.belowThreshold': 'This job\'s Search Fit is below the local model\'s threshold, so it was not read.',
+  'local.state.unverifiable': 'The local model answered, but its quotes could not be found in the posting, '
+    + 'so nothing was saved. You can try again.',
+  'local.state.ollamaError': 'Ollama could not finish the reading: {error}',
+  'local.state.noSuchJob': 'This posting is no longer in this profile.',
+  'local.state.unexpected': 'Something unexpected stopped the reading. Nothing was saved; you can try again.',
+  'local.state.busy': 'The local model is reading another posting. Wait for it, or cancel it there.',
   'drawer.secEnrich': 'What the local model saw',
   'drawer.secPlaces': 'Posted in several places',
   'drawer.secProvenance': 'Where we found this',
@@ -4801,6 +4807,12 @@ const PT_BR = {
   'local.state.ERROR': 'O modelo local não conseguiu terminar: {error}',
   'local.state.belowThreshold': 'O Search Fit desta vaga está abaixo do limite do modelo local, '
     + 'então ela não foi lida.',
+  'local.state.unverifiable': 'O modelo local respondeu, mas as citações não foram encontradas na vaga, '
+    + 'então nada foi salvo. Você pode tentar de novo.',
+  'local.state.ollamaError': 'O Ollama não conseguiu terminar a leitura: {error}',
+  'local.state.noSuchJob': 'Esta vaga não está mais neste perfil.',
+  'local.state.unexpected': 'Algo inesperado interrompeu a leitura. Nada foi salvo; você pode tentar de novo.',
+  'local.state.busy': 'O modelo local está lendo outra vaga. Espere terminar ou cancele por lá.',
   'drawer.secEnrich': 'O que o modelo local viu',
   'drawer.secPlaces': 'Publicada em vários lugares',
   'drawer.secProvenance': 'Onde encontramos isto',

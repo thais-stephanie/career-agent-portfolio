@@ -131,10 +131,29 @@ def test_a_reading_runs_shows_progress_and_is_shown_again(page: Chrome, local_se
             timeout=30,
             message="the stored reading drawn in the drawer",
         )
+        # Redrawn once, then stable: a finished reading must not reopen the
+        # drawer again and again (it did, every 1.5s, while it stayed open).
+        job_calls = (
+            "performance.getEntriesByType('resource').filter((e) =>"
+            " /\\/api\\/jobs\\/[^/?]+$/.test(new URL(e.name).pathname)).length"
+        )
+        page.wait_for("document.querySelector('.kv--enrich')", message="the redrawn drawer")
+        import time
+
+        time.sleep(1.0)
+        settled = page.evaluate(job_calls)
+        time.sleep(4.0)
+        assert page.evaluate(job_calls) == settled, "the drawer kept reopening itself"
     # Reopening shows the stored reading without asking the model again.
     _open_drawer(page, world)
     page.wait_for("document.querySelector('.kv--enrich')", message="the stored reading")
     assert "again" in str(page.evaluate("document.getElementById('enrich-run').textContent"))
+    import time
+
+    time.sleep(1.0)
+    settled = page.evaluate(job_calls)
+    time.sleep(4.0)
+    assert page.evaluate(job_calls) == settled, "a reopened drawer kept reopening itself"
 
 
 def test_cancel_in_the_drawer_stops_the_reading(page: Chrome, local_server) -> None:

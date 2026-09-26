@@ -1017,6 +1017,24 @@ export function createDrawer({
 
     let poller = null;
     let stopped = false;
+    // Only a reading this drawer SAW running may redraw it on success. The
+    // server keeps a finished reading's state, so the status asked for on
+    // open answers SUCCESS again; redrawing on that reopened the drawer,
+    // which asked again, for as long as it stayed open.
+    let sawRunning = false;
+
+    //: Error codes (`local_ai/runner.py` states, `web/api.py`) with a
+    //: sentence of their own in the reader's language.
+    const ERROR_KEYS = {
+      below_threshold: 'local.state.belowThreshold',
+      unverifiable: 'local.state.unverifiable',
+      ollama_error: 'local.state.ollamaError',
+      no_such_job: 'local.state.noSuchJob',
+      prompt_changed: 'local.state.unexpected',
+      unexpected: 'local.state.unexpected',
+      no_answer: 'local.state.unexpected',
+      busy: 'local.state.busy',
+    };
 
     function stopPolling() {
       if (poller) clearTimeout(poller);
@@ -1024,6 +1042,7 @@ export function createDrawer({
     }
 
     function running(state) {
+      sawRunning = true;
       runButton.disabled = true;
       cancelButton.hidden = false;
       cancelButton.disabled = Boolean(state.cancel_requested);
@@ -1043,11 +1062,12 @@ export function createDrawer({
       messageHost.dataset.state = state.state;
       messageHost.className = state.state === 'SUCCESS' ? 'enrich__msg' : 'enrich__msg enrich__msg--calm';
       const seconds = Math.round(state.elapsed_s || 0);
-      const key = state.code === 'below_threshold' ? 'local.state.belowThreshold' : `local.state.${state.state}`;
+      const key = (state.state === 'ERROR' && ERROR_KEYS[state.code]) || `local.state.${state.state}`;
       messageHost.textContent = t(key, {
         seconds, model: state.model || model, error: state.message || '',
       });
-      if (state.state === 'SUCCESS') {
+      if (state.state === 'SUCCESS' && sawRunning) {
+        sawRunning = false;
         // The reading is stored with the posting: draw it from the job.
         api.getJob(job.job_id).then((updated) => {
           if (stopped) return;
@@ -1061,6 +1081,9 @@ export function createDrawer({
       if (stopped || !state) return;
       if (state.state === 'RUNNING') {
         running(state);
+        // One polling chain only: the status asked for on open and a Run
+        // pressed before it answered must not start two.
+        stopPolling();
         poller = setTimeout(poll, 1500);
       } else if (state.state === 'NOT_RUN') {
         messageHost.textContent = '';
@@ -1090,7 +1113,11 @@ export function createDrawer({
       try {
         show(await api.startEnrich(job.job_id));
       } catch (error) {
-        finished({ state: 'ERROR', message: error.userMessage || error.message });
+        finished({
+          state: 'ERROR',
+          code: error.status === 409 ? 'busy' : '',
+          message: error.userMessage || error.message,
+        });
       }
     }, { className: 'btn', attrs: { 'aria-describedby': 'enrich-hint', id: 'enrich-run' } });
     if (ollama.configured === false) runButton.disabled = true;

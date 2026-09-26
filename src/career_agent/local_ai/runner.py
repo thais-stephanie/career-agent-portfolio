@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import threading
 import time
+import traceback
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -105,11 +106,14 @@ class LocalReadings:
         def run() -> None:
             try:
                 work(reading)
-            except Exception as exc:  # noqa: BLE001 -- reported, never raised into a thread
+            except Exception:  # noqa: BLE001 -- reported, never raised into a thread
+                # The detail goes to the terminal; the page gets a state with
+                # a sentence of its own, never a raw exception.
+                traceback.print_exc()
                 if reading.state == RUNNING:
-                    reading.finish(ERROR, f"The local model could not finish: {exc}", "unexpected")
+                    reading.finish(ERROR, "", "unexpected")
             if reading.state == RUNNING:
-                reading.finish(ERROR, "The local model stopped without an answer.", "no_answer")
+                reading.finish(ERROR, "", "no_answer")
 
         threading.Thread(target=run, name=f"local-reading-{job_id}", daemon=True).start()
         return reading.as_dict()
@@ -127,6 +131,11 @@ class LocalReadings:
         if reading.state == RUNNING:
             reading.cancel.set()
         return reading.as_dict()
+
+    def running_job(self) -> str | None:
+        """The posting being read right now, if any."""
+        with self._lock:
+            return next((j for j, r in self._runs.items() if r.state == RUNNING), None)
 
     def cancel_all(self) -> None:
         with self._lock:
