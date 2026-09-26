@@ -9,7 +9,7 @@ import { STR } from "./labels";
 import { useApp } from "./state";
 
 /** The files a base resume may be. The server checks the same list. */
-export const RESUME_ACCEPT = ".pdf,.docx,.md,.markdown,.txt";
+export const RESUME_ACCEPT = ".docx,.markdown,.md,.pdf,.txt";
 
 type Progress = { state: "idle" | "busy" | "ok" | "err"; text: string };
 
@@ -20,10 +20,12 @@ export function useResumeUpload(onDone: () => void) {
     setProgress({ state: "busy", text: STR.uploading(file.name) });
     try {
       const out = await api.uploadResume(app.candidateId, file);
-      setProgress({
-        state: "ok",
-        text: `Added “${out.name}”: ${out.extracted.roles} roles, ${out.extracted.details} experience details, ${out.extracted.skills} skills. ${STR.uploadReassurance}`,
-      });
+      setProgress(out.already
+        ? { state: "ok", text: STR.alreadyUploaded(out.name) }
+        : {
+          state: "ok",
+          text: `Added “${out.name}”: ${out.extracted.roles} roles, ${out.extracted.details} experience details, ${out.extracted.skills} skills. ${STR.uploadReassurance}`,
+        });
       onDone();
     } catch (e: any) {
       setProgress({ state: "err", text: e?.message || STR.uploadFailed });

@@ -430,7 +430,7 @@ def test_a_tailor_tab_left_open_after_a_switch_cannot_touch_the_new_profile(
     ):
         response = old_page.request(method, path, json=body, headers={"Origin": TAILOR})
         assert response.status_code == 409, (method, path, response.text)
-        assert "Reload" in response.json()["detail"]
+        assert "Reload" in response.json()["detail"]["message"]
     with connect(Path(host.root) / load_registry(host.root).current.db) as conn:
         row = conn.execute("SELECT status FROM job_application WHERE job_id = ?", (job,)).fetchone()
     assert row is None, "the old page wrote the new profile's application"

@@ -103,7 +103,7 @@ describe("following a Career Agent profile", () => {
     fireEvent.click(screen.getByText(STR.tailorCta));
     await waitFor(() => expect(screen.getByText(STR.noBaseResume)).toBeInTheDocument());
     const input = screen.getByLabelText(STR.uploadResume) as HTMLInputElement;
-    expect(input.accept).toBe(".pdf,.docx,.md,.markdown,.txt");
+    expect(input.accept).toBe(".docx,.markdown,.md,.pdf,.txt");
     fireEvent.change(input, { target: { files: [new File(["x"], "cv.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("not really a .pdf"));
   });

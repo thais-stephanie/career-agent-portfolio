@@ -139,7 +139,8 @@ def test_an_empty_candidate_id_is_refused_before_any_route(two) -> None:
     ):
         response = client.post(path, files=files, headers={"Origin": TAILOR})
         assert response.status_code == 400, path
-        assert "No candidate is selected" in response.json()["detail"]
+        assert "No candidate is selected" in response.json()["detail"]["message"]
+        assert response.json()["detail"]["code"] == "no_candidate"
 
 
 # ------------------------------------------------------------------ handoff
@@ -201,7 +202,7 @@ def test_a_switched_away_profile_refuses_the_bridge(two) -> None:
     api.retired = True
     response = client.get("/api/workspace")
     assert response.status_code == 409
-    assert "Reload" in response.json()["detail"]
+    assert "Reload" in response.json()["detail"]["message"]
 
 
 # ------------------------------------------------------------------ evidence
@@ -257,7 +258,7 @@ def test_no_career_profile_means_a_clear_refusal(two) -> None:
     (_, _, client), _ = two
     response = client.post("/api/career/base-resume", json={}, headers={"Origin": TAILOR})
     assert response.status_code == 400
-    assert "no confirmed experience" in response.json()["detail"]
+    assert "no confirmed experience" in response.json()["detail"]["message"]
 
 
 # -------------------------------------------------------------- attachment
@@ -303,7 +304,7 @@ def test_tailoring_without_a_base_resume_says_what_to_do(two) -> None:
         headers={"Origin": TAILOR},
     )
     assert response.status_code == 400
-    assert "no base resume yet" in response.json()["detail"]
+    assert "no base resume yet" in response.json()["detail"]["message"]
 
 
 # ------------------------------------------------------------------ uploads
@@ -406,7 +407,10 @@ def test_a_bad_upload_is_refused_in_words(two, name, kind, data, said) -> None:
         headers={"Origin": TAILOR},
     )
     assert response.status_code == 400, response.text
-    assert said in response.json()["detail"]
+    assert said in response.json()["detail"]["message"]
+    # A code the page words in the reader's language, and the file's name.
+    detail = response.json()["detail"]
+    assert detail["code"] and detail["params"]["file"] == name
     assert client.get(f"/api/candidates/{cid}/resumes").json() == []
 
 
@@ -451,6 +455,12 @@ def test_the_redirect_forwards_only_a_valid_posting_id_and_the_profile(tmp_path:
         # Anything that is not a posting id is dropped, never forwarded.
         assert location("/resume-tailor?job=<script>") == f"http://127.0.0.1:{port + 1}/"
         assert location("/resume-tailor") == f"http://127.0.0.1:{port + 1}/"
+        # The reader's language, from a closed list only.
+        assert location("/resume-tailor?lang=pt-BR") == f"http://127.0.0.1:{port + 1}/?lang=pt-BR"
+        assert location("/resume-tailor?lang=<x>") == f"http://127.0.0.1:{port + 1}/"
+        assert location(f"/resume-tailor?job={job_id}&lang=en") == (
+            f"http://127.0.0.1:{port + 1}/?job={job_id}&profile={profile.id}&lang=en"
+        )
     finally:
         httpd.shutdown()
         httpd.server_close()
@@ -634,7 +644,7 @@ def test_a_backup_restores_only_into_the_profile(two) -> None:
     exported = client.get(f"/api/candidates/{cid}/backup").content
     files = {"file": ("b.zip", exported, "application/zip")}
     new = client.post("/api/candidates/import", files=files, headers={"Origin": TAILOR})
-    assert new.status_code == 400 and "only be restored into" in new.json()["detail"]
+    assert new.status_code == 400 and "only be restored into" in new.json()["detail"]["message"]
     name = client.get(f"/api/candidates/{cid}").json()["name"]
     restored = client.post(
         "/api/candidates/import",

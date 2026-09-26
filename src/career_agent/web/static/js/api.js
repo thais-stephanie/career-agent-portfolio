@@ -170,6 +170,57 @@ export async function getHealth() {
   return request('/health');
 }
 
+/**
+ * Every GOOD and STRONG posting of the current list as a CSV file, saved by
+ * the browser. The same query as the list (all pages, no paging); the
+ * server narrows the band. Returns the number of postings in the file.
+ */
+export async function exportGoodStrong(query) {
+  const params = new URLSearchParams(query);
+  params.delete('offset');
+  params.delete('limit');
+  const headers = localProfile ? { 'X-Local-Profile': localProfile } : {};
+  let response;
+  try {
+    response = await fetch(`${BASE}/jobs/export.csv?${params.toString()}`, { headers });
+  } catch (cause) {
+    throw networkError(cause);
+  }
+  if (response.status === 409) {
+    window.location.reload();
+  }
+  if (!response.ok) {
+    throw new ApiError({
+      kind: 'http', status: response.status, message: faultMessage(response.status), detail: null,
+    });
+  }
+  const blob = await response.blob();
+  const text = await blob.text();
+  // Rows, not lines: a quoted cell may hold a line break.
+  const rows = Math.max(0, countCsvRows(text) - 1);
+  const named = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '');
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = named ? named[1] : 'career-agent-good-strong.csv';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return rows;
+}
+
+function countCsvRows(text) {
+  let rows = 0;
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i];
+    if (c === '"') quoted = !quoted;
+    else if (c === '\n' && !quoted) rows += 1;
+  }
+  return rows;
+}
+
 /** @param {URLSearchParams} query -- built by state.apiQuery(), never by a view. */
 export async function listJobs(query) {
   const queryString = query.toString();

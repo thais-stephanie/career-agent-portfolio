@@ -69,6 +69,16 @@ for _extension, _mime in (
 _JOB_ID = r"(?P<job_id>[A-Za-z0-9_-]{1,64})"
 
 
+@dataclass(frozen=True)
+class Download:
+    """A route's answer that is a FILE, not JSON: sent as an attachment,
+    never cached, never sniffed."""
+
+    body: bytes
+    content_type: str
+    filename: str
+
+
 class ApiError(Exception):
     """An error with an HTTP status and a message for the interface.
 
@@ -335,13 +345,20 @@ class _Handler(BaseHTTPRequestHandler):
                 # Tailor reads the rest through the profile bridge. The
                 # profile id lets a page notice it outlived a switch.
                 target = f"http://127.0.0.1:{self.app.config.port + 1}/"
-                wanted = (parse_qs(parsed.query).get("job") or [""])[0]
+                asked = parse_qs(parsed.query)
+                wanted = (asked.get("job") or [""])[0]
+                params: dict[str, str] = {}
                 if wanted and JOB_ID_PATTERN.match(wanted):
-                    params = {"job": wanted}
+                    params["job"] = wanted
                     host = getattr(self.app, "profile_host", None)
                     active = getattr(host, "active", None) if host is not None else None
                     if active is not None:
                         params["profile"] = active.id
+                # The reader's language, from a closed list only.
+                lang = (asked.get("lang") or [""])[0]
+                if lang in ("en", "pt-BR"):
+                    params["lang"] = lang
+                if params:
                     target += "?" + urlencode(params)
                 self.send_response(302)
                 self.send_header("Location", target)
@@ -370,6 +387,9 @@ class _Handler(BaseHTTPRequestHandler):
                 query = parse_qs(parsed.query, keep_blank_values=False)
                 body = self._read_body(body_limit(path)) if method in ("POST", "PATCH") else {}
                 payload = self.app.handle_api(method, path, query, body)
+                if isinstance(payload, Download):
+                    self._send_download(payload)
+                    return
                 self._send_json(200, payload)
                 return
             if method != "GET":
@@ -426,6 +446,17 @@ class _Handler(BaseHTTPRequestHandler):
             # pressed a button in a browser to go and find a window she may
             # never have opened -- `career-agent start` is how this runs.
             self._send_json(500, {"error": "unhandled server fault; see the server log"})
+
+    def _send_download(self, download: Download) -> None:
+        safe = "".join(c for c in download.filename if c.isalnum() or c in "-_.") or "export"
+        self.send_response(200)
+        self.send_header("Content-Type", download.content_type)
+        self.send_header("Content-Disposition", f'attachment; filename="{safe}"')
+        self.send_header("Content-Length", str(len(download.body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(download.body)
 
     def _check_origin(self, method: str) -> None:
         """Refuse requests that another website made on the user's behalf.

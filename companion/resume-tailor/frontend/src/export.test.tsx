@@ -51,7 +51,7 @@ function stubFetch(opts: { pdfOk: boolean }) {
     if (url.endsWith("/export/pdf")) {
       return opts.pdfOk
         ? file("Alex Morgan - Automation Engineer.pdf", { "X-Resume-Pages": "2" })
-        : ({ ok: false, status: 501, json: async () => ({ detail: PDF_UNAVAILABLE }) } as Response);
+        : ({ ok: false, status: 501, json: async () => ({ detail: { code: "pdf_unavailable", message: PDF_UNAVAILABLE, params: {} } }) } as Response);
     }
     if (url.endsWith("/tailor")) return body({ application_id: "app-1" });
     if (url.includes("/applications/app-1/draft")) return body(DRAFT);

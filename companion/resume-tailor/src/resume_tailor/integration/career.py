@@ -41,6 +41,14 @@ PREFIX = "careeragent-"
 BASE_RESUME_ID = "career_agent_profile"
 
 
+class ProfileNotReady(WorkspaceError):
+    """The Career Profile cannot make a base resume yet; `code` says why."""
+
+    def __init__(self, message: str, code: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 class CareerSource(Protocol):
     """What Resume Tailor needs from Career Agent. Implemented there."""
 
@@ -347,12 +355,16 @@ def base_resume_from_profile(ws: CandidateWorkspace, evidence: dict[str, Any]) -
             skills.setdefault(str(skill).casefold(), str(skill))
     if not positions:
         undated = sum(1 for e in evidence.get("experiences", []) if e.get("highlights"))
-        raise WorkspaceError(
-            "Your Career Profile's confirmed experience needs its dates first: add the start"
-            " and end months in Career Agent, then try again."
-            if undated
-            else "Your Career Profile has no confirmed experience yet. Confirm some in Career"
-            " Agent, or upload a resume here."
+        if undated:
+            raise ProfileNotReady(
+                "Your Career Profile's confirmed experience needs its dates first: add the"
+                " start and end months in Career Agent, then try again.",
+                "profile_needs_dates",
+            )
+        raise ProfileNotReady(
+            "Your Career Profile has no confirmed experience yet. Confirm some in Career"
+            " Agent, or upload a resume here.",
+            "profile_empty",
         )
     resume = BaseResume.model_validate(
         {

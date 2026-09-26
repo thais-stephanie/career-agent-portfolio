@@ -493,6 +493,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("GET", r"/api/rescore", self.rescore_status)
         self.register("POST", r"/api/rescore", self.start_rescore)
         self.register("GET", r"/api/jobs", self.list_jobs)
+        # Before any `/api/jobs/<id>` route: "export.csv" is not a job id.
+        self.register("GET", r"/api/jobs/export\.csv", self.export_good_strong)
         self.register("GET", r"/api/jobs/(?P<job_id>[^/]+)", self.get_job)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/status", self.patch_status)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/applied-at", self.patch_applied_at)
@@ -1939,6 +1941,48 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                     self.rescore.start(self._rescore_work(), new_id())
 
         return work
+
+    def export_good_strong(self, *, query: dict, body: dict) -> Any:
+        """Every GOOD and STRONG posting of the current list, as a CSV file.
+
+        The same filters, search and sort as the list, over ALL pages, with
+        the Search Fit band always narrowed to GOOD and STRONG (intersected
+        with a band filter already chosen). Public posting facts and the
+        person's own status only: no CV, evidence, search phrases, notes or
+        which query found a posting."""
+        from career_agent.storage.mvp_repo import ScoredJobQuery
+        from career_agent.web import export
+        from career_agent.web.server import Download
+
+        chosen = [str(b).upper() for b in query.get("fit_band") or []]
+        bands = [b for b in export.GOOD_PLUS if not chosen or b in chosen]
+        rows: list[dict] = []
+        if bands:
+            params = {k: v for k, v in query.items() if k not in ("offset", "limit")}
+            params["fit_band"] = bands
+            params["limit"] = [str(export.PAGE_SIZE)]
+            job_filter = self._filter_from(params)
+            with _closing(self.connect()) as conn:
+                decision = self._serving(conn)
+                config_id, config_version = self._identity()
+                if decision.serving is not None:
+                    config_id = decision.serving.config_id
+                    config_version = decision.serving.config_version
+                repo = ScoredJobQuery(conn)
+                total = repo.count(config_id, config_version, job_filter)
+                today = utc_today()
+                for offset in range(0, total, job_filter.limit):
+                    page = repo.page(config_id, config_version, replace(job_filter, offset=offset))
+                    rows.extend(
+                        job_card(r, bands=self._bands, today=today, recency=self._recency)
+                        for r in page
+                    )
+        stamp = utc_today()
+        return Download(
+            body=export.good_strong_csv(rows),
+            content_type="text/csv; charset=utf-8",
+            filename=f"career-agent-good-strong-{stamp}.csv",
+        )
 
     def list_jobs(self, *, query: dict, body: dict) -> dict:
         from career_agent.storage.mvp_repo import ScoredJobQuery

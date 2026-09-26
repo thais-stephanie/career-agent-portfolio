@@ -140,5 +140,5 @@ def test_pdf_without_a_local_renderer_explains_itself(rig, monkeypatch):
     monkeypatch.setattr(pagination, "docx_to_pdf", lambda _b: None)
     r = client.get(f"/api/candidates/{cid}/applications/{run_id}/export/pdf")
     assert r.status_code == 501
-    assert "Word" in r.json()["detail"] and "Markdown" in r.json()["detail"]
+    assert "Word" in r.json()["detail"]["message"] and "Markdown" in r.json()["detail"]["message"]
     assert_simple_payload(r.json())
