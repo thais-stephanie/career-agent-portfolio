@@ -5145,7 +5145,7 @@ def profiles_command() -> None:
 
     Local profiles keep each person's data apart; they are not accounts. The
     app shows and switches them (the launcher's side rail);
-    `Start-Career-Agent.ps1 -ProfileName NAME` starts with one.
+    `Start-Career-Agent.cmd -ProfileName NAME` starts with one.
     """
     from career_agent.runtime.profiles import load_registry
 

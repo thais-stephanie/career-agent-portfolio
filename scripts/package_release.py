@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import subprocess
+import tarfile
 import tomllib
 import zipfile
 from pathlib import Path
@@ -42,10 +43,23 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     windows = args.output / f"Career-Agent-{version}-Windows.zip"
     source = args.output / f"Career-Agent-{version}-source.tar.gz"
-    for path, fmt in ((windows, "zip"), (source, "tar.gz")):
+    # Windows "Extract All" already makes a folder named after the ZIP. A tarball
+    # carries its own top folder, so unpacking it on macOS or Linux gives the
+    # Career-Agent-<version> folder docs/INSTALL.md names.
+    for path, fmt, prefix in (
+        (windows, "zip", ""),
+        (source, "tar.gz", f"Career-Agent-{version}/"),
+    ):
         subprocess.run(
-            ["git", "archive", "--format=" + fmt, "-o", str(path), commit], cwd=ROOT, check=True
+            ["git", "archive", "--format=" + fmt, "--prefix=" + prefix, "-o", str(path), commit],
+            cwd=ROOT,
+            check=True,
         )
+    with tarfile.open(source) as archive:
+        names = archive.getnames()
+        assert all(n.startswith(f"Career-Agent-{version}/") for n in names), "tar prefix"
+        member = archive.extractfile(f"Career-Agent-{version}/BUILD_ID")
+        assert member is not None and member.read().decode().strip() == commit
     with zipfile.ZipFile(windows) as archive:
         assert archive.read("BUILD_ID").decode().strip() == commit
         for name in archive.namelist():

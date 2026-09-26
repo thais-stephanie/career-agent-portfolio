@@ -190,7 +190,7 @@ def main() -> int:
             f"page (http://127.0.0.1:{args.port}/), or close that window and start again.\n"
             "Nothing was changed; your data is safe.\n"
             "To run a second copy side by side, open PowerShell in this folder and run:\n"
-            "  .\\Start-Career-Agent.ps1 -Port 8875"
+            "  .\\Start-Career-Agent.cmd -Port 8875"
         )
         return 2
     worker = threading.Thread(target=career.serve_forever, daemon=True)

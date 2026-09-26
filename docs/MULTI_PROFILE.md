@@ -36,7 +36,7 @@ data/profiles/.trash/              deleted profiles, moved, not erased
 - **Switching in the one running app.** The launcher runs Career Agent and Resume Tailor in one process.
   - A switch builds a fresh `JobsApi` on the chosen profile's database and settings, after checking the identity, and swaps it in for the next request. Resume Tailor is rebuilt on that profile's workspace behind a switchable ASGI wrapper, with a profile bridge bound to that profile (see ARCHITECTURE.md, "One person, one profile"); the previous bridge refuses every call from then on.
   - A switch is refused while a collection, a scoring pass or a semantic run is writing, and the page reloads afterwards. So there is always exactly one writer per profile database, and no screen keeps the previous person's data in memory.
-  - `Start-Career-Agent.ps1 -ProfileName NAME` starts on a given profile. `career-agent profiles` lists them.
+  - `.\Start-Career-Agent.cmd -ProfileName NAME` starts on a given profile. `career-agent profiles` lists them.
 - **Safeguards around a switch:**
   - One lock serialises switching, deleting and every background run start. A switch retires the old app before checking it, so no collection, scoring or semantic run can begin on a profile being left.
   - The registry is updated before the swap, and any failure puts everything back.

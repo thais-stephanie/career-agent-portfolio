@@ -16,6 +16,12 @@ npm test
 npm run build
 ```
 
+The release gate runs these on one Windows 11 computer with 16 GB of RAM, one
+suite at a time: running the unit, integration and browser suites or the
+Tailor frontend build at the same time exhausted memory. There is no
+continuous integration. Before a release also run `uv lock --check` at the
+root and in `companion/resume-tailor`.
+
 Python tests use synthetic or public protocol fixtures, never local configuration or a production database. Browser tests need Chrome or Edge; skipped tests must be reported as skipped. Use Node 24 for frontend development; users of the Windows ZIP do not need Node. Rebuild Tailor's bundled interface after frontend edits and preserve its font licenses and Apache modification notices.
 
 Do not commit personal CVs, .env, local settings, databases, exports, caches or backups. The release gate audits the actual tracked tree and distribution, not only .gitignore. Preserve deterministic scoring, source permission checks and evidence provenance. Keep Search Fit separate from Tailor Match. No live model calls are necessary for this test gate.
