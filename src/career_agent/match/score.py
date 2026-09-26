@@ -457,21 +457,26 @@ def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
 
 
 def _seniority_component(config: SearchConfig, reading: SeniorityReading) -> ScoreComponent:
-    """Alignment with the level the posting asked for, when it asked for one.
+    """Alignment with the level the posting asked for, or the MID fallback.
 
-    The `source` decides whether anything is paid at all. A reading the posting
-    did not support is worth `unevidenced` -- zero, in the shipped configuration
-    -- because these are EVIDENCE points and there is no evidence. Paying the
-    MID rate for the MID fallback is how a posting that said nothing about its
-    level used to collect nine of its points from our own default.
+    THE PRODUCT RULE (owner decision, 2026-09-26): a posting that states no
+    level is treated as MID / PLENO, and it is SCORED as MID: the same points a
+    posting stating "mid-level" earns under the same preferences. It used to
+    earn `unevidenced` (zero) while the drawer said "treating it as mid-level",
+    so an unstated level scored below a stated wrong one. What a posting did
+    not say is an UNKNOWN, not a mismatch.
+
+    The difference that remains is honest and lives elsewhere: the reading's
+    source is DEFAULT (never presented as evidence, no quote), and Posting
+    completeness does not award "level stated". `unevidenced` in a
+    configuration is read and ignored.
     """
     component = config.scoring.components.seniority
+    points = _seniority_points(config, reading.value)
     if reading.is_evidence:
-        points = _seniority_points(config, reading.value)
         label = f"The posting states a {reading.value.value} role"
     else:
-        points = component.unevidenced
-        label = "The posting did not state a level"
+        label = "The posting did not state a level; scored as mid-level"
     return ScoreComponent(
         component_id="seniority",
         label=component.label,
@@ -887,8 +892,8 @@ def measurable_items(
         ),
         "seniority_determinable": (
             seniority.is_evidence,
-            f"The body reads as {seniority.value}.",
-            "Nothing in the body indicates a seniority level.",
+            "The posting states the level.",
+            "The posting does not state a level (Search Fit treats it as mid-level).",
         ),
         "posted_date_known": (
             bool(posted_at.strip()),

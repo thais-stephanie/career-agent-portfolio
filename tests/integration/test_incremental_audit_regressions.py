@@ -18,8 +18,10 @@ def test_explicit_pass_preserves_unprocessed_fact_changes(corpus, tmp_path):
     conn, config, ids, _ = corpus
     a, b = ids["seed-0"], ids["seed-2"]
     with transaction(conn):
+        # A level that scores differently from the MID fallback, so the fact
+        # change is guaranteed to move the score.
         conn.execute(
-            "UPDATE job SET title='Senior Integration Specialist' WHERE id IN (?,?)", (a, b)
+            "UPDATE job SET title='Junior Integration Specialist' WHERE id IN (?,?)", (a, b)
         )
     rescore(conn, config, job_ids=[a])
     pending = plan(conn, config).targets

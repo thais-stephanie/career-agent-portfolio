@@ -292,10 +292,10 @@ const EN = {
   'rail.sources': 'Where these come from',
 
   // -- the legend, which is the thing people most often get wrong --------
-  'legend.summary': 'What Match and Posting detail mean',
+  'legend.summary': 'What Match and Posting completeness mean',
   'legend.match': 'Search Fit',
   'legend.matchBody': 'posting alignment with your search. It does not measure your capability.',
-  'legend.detail': 'Posting detail',
+  'legend.detail': 'Posting completeness',
   'legend.detailBody':
     'how much the posting actually told us. Not your chances of getting hired.',
   'legend.eligible': 'Can you take it',
@@ -412,7 +412,7 @@ const EN = {
   'absent.contract': 'Contract type not stated',
   'absent.salary': 'Salary not stated',
   'absent.generic': 'Not stated',
-  'absent.levelSentence': 'The posting does not state a level. Treating it as mid-level.',
+  'absent.levelSentence': 'The posting does not state a level. Search Fit treats it as mid-level.',
 
   // -- how the work is engaged, and where the employment sits -----------
   //
@@ -1364,7 +1364,7 @@ const EN = {
   'health.staleFacetsHelp': 'These jobs were scored before the country, region, office and salary '
     + 'filters existed, so those four will not find them. Recalculating fixes'
     + 'it, on your own computer and at no cost.',
-  'filters.qualityHint': 'Match is how close the work is to what you want. Posting detail is how '
+  'filters.qualityHint': 'Match is how close the work is to what you want. Posting completeness is how '
     + 'much the employer actually wrote down. A short posting scores low on'
     + 'detail however good the job is.',
   'filters.salaryHint': 'Pick a currency too. Nothing here converts between currencies, so '
@@ -1697,7 +1697,7 @@ const EN = {
   // box.
   'chip.minScore': 'Search Fit at least {n}',
   'chip.maxScore': 'Search Fit at most {n}',
-  'chip.minConfidence': 'Posting detail at least {n}',
+  'chip.minConfidence': 'Posting completeness at least {n}',
   'chip.postedWithinOne': 'Posted in the last 1 day',
   'chip.postedWithin': 'Posted in the last {n} days',
   'chip.contains': 'Contains “{text}”',
@@ -1802,7 +1802,21 @@ const EN = {
   'drawer.secStrengths': 'What this job has that you asked for',
   'drawer.secGaps': 'What the posting did not spell out',
   'drawer.secGates': 'Could you take this job',
-  'drawer.secConfidence': 'How much the posting told us',
+  'drawer.completenessNotFit': 'How much the employer wrote down. It never lowers Search Fit: a '
+    + 'missing salary or level is something the posting left out, not a sign you are a worse fit.',
+  'confidence.item.description_present': 'Description present',
+  'confidence.item.description_substantial': 'Detailed description',
+  'confidence.item.location_stated': 'Location stated',
+  'confidence.item.hiring_scope_explicit': 'Where they hire is stated',
+  'confidence.item.employment_type_known': 'Engagement type stated',
+  'confidence.item.salary_known': 'Compensation stated',
+  'confidence.item.seniority_determinable': 'Level stated',
+  'confidence.item.posted_date_known': 'Posting date known',
+  'confidence.note.salary_known.no': 'The posting states no compensation.',
+  'confidence.note.seniority_determinable.yes': 'The posting states the level.',
+  'confidence.note.seniority_determinable.no': 'The posting does not state a level. Search Fit treats it as '
+    + 'mid-level.',
+  'drawer.secConfidence': 'Posting completeness',
   'drawer.secUnknowns': 'Never mentioned in the posting',
   'drawer.secSignals': 'Tools and skills it names',
   'drawer.secPay': 'Pay and contract',
@@ -1888,7 +1902,7 @@ const EN = {
   'absent.source': 'Source not recorded',
   'absent.place': 'Location not stated',
   'column.score': 'Search Fit',
-  'column.confidence': 'Posting detail',
+  'column.confidence': 'Posting completeness',
   'column.company': 'Company',
   'column.title': 'Title',
   'column.location': 'Location',
@@ -1935,7 +1949,7 @@ const EN = {
     + 'looking for turned up at all. Nothing is wrong with them; they are a'
     + 'different kind of work. A LOW match is not this and is always shown.',
   'filters.matchAtLeast': 'Search Fit at least',
-  'filters.detailAtLeast': 'Posting detail at least',
+  'filters.detailAtLeast': 'Posting completeness at least',
   'stage.fetched': 'Fetched',
   'stage.active': 'Active',
   'stage.normalised': 'Readable',
@@ -3344,10 +3358,10 @@ const PT_BR = {
   'rail.preferences': 'Preferências de busca',
   'rail.sources': 'De onde elas vêm',
 
-  'legend.summary': 'O que significam Correspondência e Detalhe do anúncio',
+  'legend.summary': 'O que significam Correspondência e Completude do anúncio',
   'legend.match': 'Aderência à busca',
   'legend.matchBody': 'relação do anúncio com sua busca. Não mede sua capacidade profissional.',
-  'legend.detail': 'Detalhe do anúncio',
+  'legend.detail': 'Completude do anúncio',
   'legend.detailBody':
     'o quanto o anúncio realmente contou. Não são suas chances de ser contratada.',
   'legend.eligible': 'Você pode aceitar',
@@ -3442,7 +3456,7 @@ const PT_BR = {
   'absent.contract': 'Tipo de contrato não informado',
   'absent.salary': 'Salário não informado',
   'absent.generic': 'Não informado',
-  'absent.levelSentence': 'O anúncio não informa o nível. Tratando como pleno.',
+  'absent.levelSentence': 'O anúncio não informa o nível. O Search Fit o trata como pleno.',
 
   'employment.stated': 'O anúncio diz isso',
   'employment.likely': 'Provável, pelos benefícios oferecidos',
@@ -4302,7 +4316,7 @@ const PT_BR = {
     + 'região, escritório e remuneração, então esses quatro não vão'
     + 'encontrá-las. Recalcular resolve, no seu próprio computador e sem custo.',
   'filters.qualityHint': 'Compatibilidade é o quanto o trabalho se aproxima do que você quer. '
-    + 'Detalhe do anúncio é o quanto o empregador realmente escreveu. Um'
+    + 'Completude do anúncio é o quanto o empregador realmente escreveu. Um'
     + 'anúncio curto pontua baixo em detalhe por melhor que a vaga seja.',
   'filters.salaryHint': 'Escolha também uma moeda. Nada aqui converte entre moedas, então sem ela '
     + 'não há com o que comparar. Anúncios que citam mês ou hora são '
@@ -4627,7 +4641,7 @@ const PT_BR = {
   // box.
   'chip.minScore': 'Correspondência de pelo menos {n}',
   'chip.maxScore': 'Correspondência de no máximo {n}',
-  'chip.minConfidence': 'Detalhe do anúncio de pelo menos {n}',
+  'chip.minConfidence': 'Completude do anúncio de pelo menos {n}',
   'chip.postedWithinOne': 'Publicada no último 1 dia',
   'chip.postedWithin': 'Publicada nos últimos {n} dias',
   'chip.contains': 'Contém “{text}”',
@@ -4735,7 +4749,21 @@ const PT_BR = {
   'drawer.secStrengths': 'O que esta vaga tem do que você pediu',
   'drawer.secGaps': 'O que o anúncio não deixou claro',
   'drawer.secGates': 'Você poderia aceitar esta vaga',
-  'drawer.secConfidence': 'Quanto o anúncio contou',
+  'drawer.completenessNotFit': 'Quanto o empregador escreveu. Nunca reduz o Search Fit: um salário ou '
+    + 'nível ausente é algo que o anúncio omitiu, não um sinal de que você combina menos.',
+  'confidence.item.description_present': 'Descrição presente',
+  'confidence.item.description_substantial': 'Descrição detalhada',
+  'confidence.item.location_stated': 'Local informado',
+  'confidence.item.hiring_scope_explicit': 'Onde contratam está informado',
+  'confidence.item.employment_type_known': 'Tipo de vínculo informado',
+  'confidence.item.salary_known': 'Remuneração informada',
+  'confidence.item.seniority_determinable': 'Nível informado',
+  'confidence.item.posted_date_known': 'Data de publicação conhecida',
+  'confidence.note.salary_known.no': 'O anúncio não informa remuneração.',
+  'confidence.note.seniority_determinable.yes': 'O anúncio informa o nível.',
+  'confidence.note.seniority_determinable.no': 'O anúncio não informa o nível. O Search Fit o trata como '
+    + 'pleno.',
+  'drawer.secConfidence': 'Completude do anúncio',
   'drawer.secUnknowns': 'Nunca mencionado no anúncio',
   'drawer.secSignals': 'Ferramentas e habilidades que ele cita',
   'drawer.secPay': 'Remuneração e contrato',
@@ -4823,7 +4851,7 @@ const PT_BR = {
   'absent.source': 'Origem não registrada',
   'absent.place': 'Localidade não informada',
   'column.score': 'Aderência à busca',
-  'column.confidence': 'Detalhe do anúncio',
+  'column.confidence': 'Completude do anúncio',
   'column.company': 'Empresa',
   'column.title': 'Título',
   'column.location': 'Localidade',
@@ -4870,7 +4898,7 @@ const PT_BR = {
     + 'apareceu. Não há nada de errado com elas; são outro tipo de trabalho.'
     + 'Uma correspondência BAIXA não é isto e aparece sempre.',
   'filters.matchAtLeast': 'Aderência à busca de pelo menos',
-  'filters.detailAtLeast': 'Detalhe do anúncio de pelo menos',
+  'filters.detailAtLeast': 'Completude do anúncio de pelo menos',
   'stage.fetched': 'Coletadas',
   'stage.active': 'Ativas',
   'stage.normalised': 'Legíveis',

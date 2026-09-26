@@ -119,7 +119,10 @@ from career_agent.domain.enums import (
 #: carries the validated `semantic` evidence it used, if any. Every reading is
 #: unchanged, so a schema 9 row replays (REPLAY_MIN_SCHEMA) rather than being
 #: read again.
-MATCH_SCHEMA_VERSION = 10
+#: 11: arithmetic only -- a posting that states no level is scored as MID
+#: (the MID fallback), not zero. What a reader observed is unchanged, so a
+#: schema 9 or 10 row replays rather than being read again.
+MATCH_SCHEMA_VERSION = 11
 
 #: The oldest result schema whose stored READINGS a replay may reuse. Separate
 #: from MATCH_SCHEMA_VERSION on purpose: 10 changed arithmetic and provenance,
@@ -515,7 +518,7 @@ class SeniorityReading:
     def sentence(self) -> str:
         """One plain line for a reader, honest about which of the two it is."""
         if not self.is_evidence:
-            return "The posting does not state a level. Treating it as mid-level."
+            return "The posting does not state a level. Search Fit treats it as mid-level."
         # `.get`, not a subscript, and the reason is a 500 this file served.
         # Adding STAFF and PRINCIPAL to `Seniority` left this table behind, and
         # the first real Principal posting to reach a card took the whole jobs

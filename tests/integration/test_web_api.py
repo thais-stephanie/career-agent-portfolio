@@ -1128,8 +1128,10 @@ def test_silence_is_one_click_away_and_counted(api: JobsApi) -> None:
 
 def test_a_low_score_is_never_treated_as_ineligible(api: JobsApi) -> None:
     """A weak match is not a conflict, and must not be hidden by this."""
-    weak = [i for i in _jobs(api, limit=500)["items"] if (i["match_score"] or 0) < 30]
-    assert weak, "the demo corpus must contain a low-scoring posting to prove this"
+    items = _jobs(api, limit=500)["items"]
+    low = [i for i in items if (i["match_score"] or 0) < 40]
+    assert low, "the demo corpus must list a low-scoring posting to prove this"
+    assert all(i["eligibility_status"] != "VERIFIED_NOT_ELIGIBLE" for i in low)
 
 
 def test_the_hidden_count_is_what_the_toggle_would_reveal(api: JobsApi) -> None:

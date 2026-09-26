@@ -716,7 +716,9 @@ export function createDrawer({
           : null,
         component.guarded
           ? el('p', { className: 'component__note', text: t('drawer.toolsGuard') })
-          : component.note ? el('p', { className: 'component__note', text: component.note }) : null,
+          : component.component_id === 'seniority' && component.note
+            ? el('p', { className: 'component__note', text: t('absent.levelSentence') })
+            : component.note ? el('p', { className: 'component__note', text: component.note }) : null,
         (component.contributions || []).length
           ? el('ul', { className: 'contribs' }, component.contributions.map(contribution))
           : el('p', { className: 'component__note', text: t('drawer.nothingMatchedHere') }),
@@ -811,12 +813,29 @@ export function createDrawer({
   }
 
   // -- confidence --------------------------------------------------------
+  /** A completeness row's words, in the reader's language when the catalogue
+   *  knows the item; the configuration's own label otherwise. */
+  function confidenceLabel(item) {
+    const key = `confidence.item.${item.item_id}`;
+    const translated = t(key);
+    return translated !== key ? translated : (item.label || humanLabel(item.item_id));
+  }
+
+  function confidenceNote(item) {
+    const key = `confidence.note.${item.item_id}.${item.awarded ? 'yes' : 'no'}`;
+    const translated = t(key);
+    return translated !== key ? translated : (item.note || '');
+  }
+
   function confidenceSection(job) {
     const items = job.confidence_items || [];
     if (!items.length) return null;
     const awarded = items.filter((item) => item.awarded);
     const missing = items.filter((item) => !item.awarded);
     return section(t('drawer.secConfidence'), [
+      // Completeness is about the POSTING, never about the person: say so
+      // before the first "0 / 10", so an omission is not read as a bad fit.
+      el('p', { className: 'd-note', text: t('drawer.completenessNotFit') }),
       el('p', {
         className: 'd-note',
         text: t('drawer.covered', { awarded: awarded.length, total: items.length }),
@@ -825,9 +844,9 @@ export function createDrawer({
         className: `conf__item${item.awarded ? '' : ' conf__item--missing'}`,
       }, [
         el('span', { className: 'conf__glyph', text: item.awarded ? '✓' : '·', attrs: { 'aria-hidden': 'true' } }),
-        el('span', { className: 'conf__label', text: item.label || humanLabel(item.item_id) }),
+        el('span', { className: 'conf__label', text: confidenceLabel(item) }),
         el('span', { className: 'conf__points num', text: item.awarded ? `+${item.points}` : `0 / ${item.points}` }),
-        item.note ? el('span', { className: 'conf__note', text: item.note }) : null,
+        confidenceNote(item) ? el('span', { className: 'conf__note', text: confidenceNote(item) }) : null,
       ]))),
       missing.length
         ? el('p', {
@@ -888,7 +907,7 @@ export function createDrawer({
               ? el('blockquote', { className: 'quote quote--tight', text: job.seniority_evidence })
               : null,
           ].filter(Boolean)
-          : [el('span', { text: job.seniority_sentence || t('drawer.notStated') })]),
+          : [el('span', { text: t('absent.levelSentence') })]),
       ]),
     ]);
   }
