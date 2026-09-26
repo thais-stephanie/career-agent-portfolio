@@ -17,6 +17,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from resume_tailor.api import errors
+from resume_tailor.api.errors import user_error
 from resume_tailor.integration import career as ca
 from resume_tailor.workspace import WorkspaceError, WorkspaceStore
 
@@ -28,12 +30,17 @@ class StatusIn(BaseModel):
 def _http(exc: Exception) -> HTTPException:
     name = type(exc).__name__
     if name == "BridgeRetired":
-        return HTTPException(409, str(exc))
+        return user_error(409, "stale_profile", str(exc))
     if name == "BridgeNotFound":
-        return HTTPException(404, str(exc))
+        return user_error(404, "posting_not_found", str(exc))
+    if isinstance(exc, ca.ProfileNotReady):
+        return user_error(400, exc.code, str(exc))
     if isinstance(exc, (ValueError, WorkspaceError)):
-        return HTTPException(400, str(exc))
-    return HTTPException(500, "Career Agent could not answer. Try again in a moment.")
+        return user_error(400, "invalid", str(exc))
+    errors.log.exception("Career Agent bridge failed")
+    return user_error(
+        503, "career_unavailable", "Career Agent could not answer. Try again in a moment."
+    )
 
 
 def artefacts_by_job(ws: Any) -> dict[str, list[dict[str, Any]]]:
@@ -65,7 +72,9 @@ def build_career_router(store: WorkspaceStore, bridge: Any | None) -> APIRouter:
 
     def need_bridge() -> Any:
         if bridge is None:
-            raise HTTPException(404, "Resume Tailor is not connected to Career Agent.")
+            raise user_error(
+                404, "not_connected", "Resume Tailor is not connected to Career Agent."
+            )
         return bridge
 
     def workspace() -> Any:

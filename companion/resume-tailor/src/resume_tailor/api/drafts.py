@@ -1,4 +1,4 @@
-# Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+# Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 """Editable resume draft routes: view, edit, undo/redo, restore automatic.
 
 The canonical generated run is never mutated; drafts live in the workspace
@@ -15,6 +15,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from resume_tailor.api.errors import user_error
 from resume_tailor.workspace import WorkspaceError, WorkspaceStore
 from resume_tailor.workspace import drafts as dr
 from resume_tailor.workspace.migrations import SchemaTooNew
@@ -42,7 +43,7 @@ def build_drafts_router(store: WorkspaceStore) -> APIRouter:
         try:
             ws = store.get(cid)
         except SchemaTooNew as e:
-            raise HTTPException(409, str(e)) from e
+            raise user_error(409, "backup_too_new", str(e)) from e
         except WorkspaceError as e:
             raise HTTPException(404, str(e)) from e
         run = ws.run_store().load(run_id)

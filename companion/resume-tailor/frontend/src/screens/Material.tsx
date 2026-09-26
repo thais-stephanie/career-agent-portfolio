@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, CareerJob, StatusOption } from "../api";
 import { BaseResumeStart, ProgressLine, RESUME_ACCEPT, useResumeUpload } from "../resumeStart";
+import { getLocale, Locale, setLocale } from "../errors";
 import { BackupToast, ImportBackupDialog, useBackup } from "../backup";
 import { Card, Chip, Eyebrow, Pill } from "../components";
 import { ExportMenu, ExportToast, useExportNotice } from "../export";
@@ -86,7 +87,23 @@ export function Sources() {
   const app = useApp();
   const [rows, setRows] = useState<any[]>([]);
   const [details, setDetails] = useState<{ id: string; items: any[] } | null>(null);
+  const [progress, setProgress] = useState<{ state: "idle" | "busy" | "ok" | "err"; text: string }>({ state: "idle", text: "" });
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Every outcome is on screen: uploading, added, already there, or refused
+  // in the reader's language. Nothing fails only in the developer console.
+  const addSource = async (file: File) => {
+    setProgress({ state: "busy", text: STR.uploading(file.name) });
+    try {
+      const out = await api.addSource(app.candidateId, file, "other");
+      setProgress(out.already
+        ? { state: "ok", text: STR.alreadyUploaded(out.name) }
+        : { state: "ok", text: STR.sourceAdded(out.name, out.extracted?.details ?? 0) });
+      refresh();
+    } catch (e: any) {
+      setProgress({ state: "err", text: e?.message || STR.uploadFailed });
+    }
+  };
 
   const refresh = () => {
     if (app.candidateId) void api.sources(app.candidateId).then(setRows).catch(() => setRows([]));
@@ -102,14 +119,12 @@ export function Sources() {
           <div className="page-sub">The documents your experience details come from.</div>
         </div>
         <button className="btn" onClick={() => fileRef.current?.click()}>+ Add source</button>
-        <input ref={fileRef} type="file" accept=".docx,.pdf,.txt,.md" style={{ display: "none" }}
+        <input ref={fileRef} type="file" accept={RESUME_ACCEPT} style={{ display: "none" }}
                aria-label="Upload source document"
-               onChange={async (e) => {
-                 const f = e.target.files?.[0];
-                 if (f) { await api.addSource(app.candidateId, f, "other"); refresh(); }
-               }} />
+               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addSource(f); }} />
       </header>
       <div className="page-body">
+        <div style={{ marginBottom: 12 }}><ProgressLine progress={progress} /></div>
         {rows.map((s) => (
           <div key={s.id} className="row-card" style={{ marginBottom: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ minWidth: 0, flex: 1 }}>
@@ -344,6 +359,7 @@ function TailorApplications(props: { embedded?: boolean }) {
 
 export function Settings() {
   const app = useApp();
+  const [locale, setLocaleState] = useState<Locale>(getLocale());
   const backup = useBackup();
   const [importOpen, setImportOpen] = useState(false);
   return (
@@ -363,6 +379,16 @@ export function Settings() {
           <div className="seg" role="group" aria-label="Detail level">
             <button className={!app.advanced ? "on" : ""} onClick={() => app.setAdvanced(false)}>{STR.simple}</button>
             <button className={app.advanced ? "on" : ""} onClick={() => app.setAdvanced(true)}>{STR.advanced} (technical)</button>
+          </div>
+        </Card>
+        <Card>
+          <h3>{STR.language}</h3>
+          <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--body)" }}>{STR.languageHint}</p>
+          <div className="seg" role="group" aria-label={STR.language}>
+            {([["en", "English"], ["pt-BR", "Português"]] as const).map(([code, label]) => (
+              <button key={code} className={locale === code ? "on" : ""}
+                      onClick={() => { setLocale(code); setLocaleState(code); }}>{label}</button>
+            ))}
           </div>
         </Card>
         <Card>

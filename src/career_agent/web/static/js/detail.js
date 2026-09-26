@@ -19,7 +19,7 @@ import {
 import { badges } from './badges.js';
 import { helpNote } from './help.js';
 import { createPrepare } from './prepare.js';
-import { t, tState } from './i18n.js';
+import { getLocale, t, tState } from './i18n.js';
 import * as api from './api.js';
 
 /** The phrase components the product names itself (Search Fit v5). */
@@ -309,7 +309,7 @@ export function createDrawer({
     });
     host.appendChild(heading());
     const link = (text, className) => el('a', { className, text, attrs: {
-      href: `/resume-tailor?job=${encodeURIComponent(job.job_id)}`,
+      href: `/resume-tailor?job=${encodeURIComponent(job.job_id)}&lang=${encodeURIComponent(getLocale())}`,
       target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
     } });
     const actions = (children) => el('div', { className: 'd-tailor__actions' }, children.filter(Boolean));

@@ -89,6 +89,11 @@ export const STR = {
   noTrackedJobs: "No postings are marked yet. In Career Agent, mark a posting Interested and it appears here.",
   otherResumes: "Other tailored resumes",
   importEvidence: "Update from Career Profile",
+  alreadyUploaded: (name: string) => `Already uploaded as “${name}”. Nothing new was added.`,
+  sourceAdded: (name: string, details: number) =>
+    `Added “${name}”: ${details} detail${details === 1 ? "" : "s"} to review. Nothing was added to your experience yet.`,
+  language: "Language for messages",
+  languageHint: "Career Agent passes its own language when it opens Resume Tailor.",
 } as const;
 
 // verdict labels arrive from the API already humanized; tones live here

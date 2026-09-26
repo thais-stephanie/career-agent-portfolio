@@ -24,6 +24,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
+from resume_tailor.api.errors import user_error
 from resume_tailor.core.models import TailorOptions, TailorRequest, TailorRun
 from resume_tailor.core.pipeline import TailorService
 from resume_tailor.export.exporters import EXPORTERS, export_filename
@@ -68,7 +69,7 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
         try:
             return store.get(cid)
         except SchemaTooNew as e:
-            raise HTTPException(409, str(e)) from e
+            raise user_error(409, "backup_too_new", str(e)) from e
         except WorkspaceError as e:
             raise HTTPException(404, str(e)) from e
 
@@ -177,15 +178,17 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
 
             own = ca.profile_candidate(store, bridge.profile())
             if replace_id != own.id:
-                raise HTTPException(
-                    400, "A backup can only be restored into this profile's Resume Tailor data."
+                raise user_error(
+                    400,
+                    "backup_this_profile_only",
+                    "A backup can only be restored into this profile's Resume Tailor data.",
                 )
         try:
             ws = import_backup(
                 store, data, replace_id=replace_id or None, confirm_name=confirm_name
             )
         except SchemaTooNew as e:
-            raise HTTPException(409, str(e)) from e
+            raise user_error(409, "backup_too_new", str(e)) from e
         except WorkspaceError as e:
             raise HTTPException(400, str(e)) from e
         if own is not None:
@@ -241,8 +244,9 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
         if not ws.load_resumes():
             # Said before anything else: without a base resume nothing can be
             # tailored, whatever else the workspace holds.
-            raise HTTPException(
+            raise user_error(
                 400,
+                "no_base_resume",
                 "There is no base resume yet. Create one from your Career Profile or upload one.",
             )
         svc = service(cid)
@@ -401,7 +405,7 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
         try:
             body = exp.render(resume)
         except NotImplementedError as e:
-            raise HTTPException(501, str(e)) from e
+            raise user_error(501, "pdf_unavailable", str(e)) from e
         name = export_filename(
             resume.candidate.name, run.job_analysis.role_title, resume.headline, exp.extension
         )

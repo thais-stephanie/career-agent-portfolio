@@ -23,7 +23,9 @@ def test_the_handoff_names_the_posting_and_nothing_private(page, pristine_server
     href = page.evaluate("document.querySelector('#drawer-open-tailor').getAttribute('href')")
     parsed = urlparse(href)
     assert parsed.path == "/resume-tailor"
-    assert parse_qs(parsed.query) == {"job": [job_id]}, "only the posting id travels"
+    assert parse_qs(parsed.query) == {"job": [job_id], "lang": ["en"]}, (
+        "only the posting id and the reader's language travel"
+    )
     assert page.evaluate("document.querySelector('#drawer-open-tailor').target") == "_blank"
     assert page.evaluate("document.querySelector('#drawer-open-tailor').dataset.page") is None
     # No copy-and-paste step any more: Tailor reads the posting itself.

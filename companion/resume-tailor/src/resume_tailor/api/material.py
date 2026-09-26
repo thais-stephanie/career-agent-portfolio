@@ -9,14 +9,22 @@ workspace/sources.py — these routes only translate them to HTTP.
 from __future__ import annotations
 
 import json
-import re
+import os
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from resume_tailor.api.errors import user_error
 from resume_tailor.core.models import BaseResume
 from resume_tailor.importing.resume_parse import parse_resume, to_base_resume_json
+from resume_tailor.importing.upload_check import (
+    UploadRefused,
+    check_document,
+    content_hash,
+    no_text,
+    unreadable,
+)
 from resume_tailor.presentation import labels
 from resume_tailor.workspace import WorkspaceError, WorkspaceStore
 from resume_tailor.workspace import sources as src
@@ -41,53 +49,33 @@ class AcceptDetailIn(BaseModel):
     end: str | None = None
 
 
-#: What a base resume may be, by extension: the declared types a browser may
-#: send for it, and the first bytes a real file of that kind starts with.
-RESUME_TYPES: dict[str, tuple[frozenset[str], bytes | None]] = {
-    ".pdf": (frozenset({"application/pdf", "application/x-pdf"}), b"%PDF-"),
-    ".docx": (
-        frozenset({"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}),
-        b"PK\x03\x04",
-    ),
-    ".md": (frozenset({"text/markdown", "text/x-markdown", "text/plain"}), None),
-    ".markdown": (frozenset({"text/markdown", "text/x-markdown", "text/plain"}), None),
-    ".txt": (frozenset({"text/plain"}), None),
-}
-#: What a browser sends when it does not know a file's type (common for .md).
-UNDECLARED = frozenset({"", "application/octet-stream"})
-MAX_RESUME_BYTES = 10 * 1024 * 1024
+def refused(e: UploadRefused) -> HTTPException:
+    return user_error(400, e.code, str(e), **e.params)
 
 
-def check_resume_upload(filename: str, content_type: str, data: bytes) -> None:
-    """Refuse, in words a person can act on, anything that is not a PDF, a
-    Word document or Markdown/plain text of that kind. The extension, the
-    declared type and the bytes must agree."""
-    import os.path
+def read_document(filename: str, content_type: str, data: bytes) -> Any:
+    """Check, then parse, one uploaded document. Every refusal is coded."""
+    try:
+        check_document(filename, content_type, data)
+    except UploadRefused as e:
+        raise refused(e) from e
+    try:
+        parsed = parse_resume(filename, data)
+    except Exception as e:  # a damaged file is the file's problem, said as such
+        raise refused(unreadable(filename)) from e
+    if not parsed.raw_text.strip():
+        raise refused(no_text(filename))
+    return parsed
 
-    ext = os.path.splitext(filename.lower())[1]
-    if ext not in RESUME_TYPES:
-        raise HTTPException(
-            400, "Upload a PDF, Word (.docx) or Markdown (.md) resume. Other files are not read."
-        )
-    if not data:
-        raise HTTPException(400, f"“{filename}” is empty.")
-    if len(data) > MAX_RESUME_BYTES:
-        raise HTTPException(400, f"“{filename}” is larger than 10 MB. Upload a smaller copy.")
-    declared, magic = RESUME_TYPES[ext]
-    kind = content_type.split(";")[0].strip().lower()
-    if kind not in declared and kind not in UNDECLARED:
-        raise HTTPException(
-            400, f"“{filename}” says it is {kind}, not a {ext} file. Save it again and retry."
-        )
-    if magic is not None and not data.startswith(magic):
-        raise HTTPException(400, f"“{filename}” is not really a {ext} file.")
-    if magic is None:
-        if b"\x00" in data[:4096]:
-            raise HTTPException(400, f"“{filename}” is not a text file.")
-        try:
-            data.decode("utf-8")
-        except UnicodeDecodeError as e:
-            raise HTTPException(400, f"“{filename}” is not UTF-8 text.") from e
+
+def numbered(name: str, taken: set[str]) -> str:
+    """`name`, or `name (2)`, `name (3)`... the first one nobody has."""
+    if name not in taken:
+        return name
+    n = 2
+    while f"{name} ({n})" in taken:
+        n += 1
+    return f"{name} ({n})"
 
 
 def build_material_router(store: WorkspaceStore) -> APIRouter:
@@ -97,7 +85,7 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
         try:
             return store.get(cid)
         except SchemaTooNew as e:
-            raise HTTPException(409, str(e)) from e
+            raise user_error(409, "backup_too_new", str(e)) from e
         except WorkspaceError as e:
             raise HTTPException(404, str(e)) from e
 
@@ -135,36 +123,28 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
         separate, optional step (`/sources` with the same file), never automatic."""
         ws = ws_for(cid)
         data = await file.read()
-        filename = file.filename or "resume"
-        check_resume_upload(filename, file.content_type or "", data)
-        try:
-            parsed = parse_resume(filename, data)
-        except ValueError as e:
-            raise HTTPException(400, str(e)) from e
-        except Exception as e:  # a damaged file is the file's problem, said as such
-            raise HTTPException(
-                400, f"“{filename}” could not be read. Is it a complete, unprotected file?"
-            ) from e
-        if not parsed.raw_text.strip():
-            raise HTTPException(
-                400,
-                f"No text was found in “{filename}”. A scanned PDF has no text to read;"
-                " upload the Word or Markdown version instead.",
-            )
-        display = (
-            name.strip()
-            or parsed.headline
-            or (file.filename or "Uploaded resume").rsplit(".", 1)[0]
-        )
-        rid = re.sub(r"[^a-z0-9]+", "_", display.lower()).strip("_")[:48] or "uploaded_resume"
+        filename = os.path.basename(file.filename or "resume")
+        parsed = read_document(filename, file.content_type or "", data)
         existing = ws.load_resumes()
+        # IDENTITY IS THE CONTENT, NEVER THE NAME. The same file again is
+        # the resume already here, not a second copy; a different file with
+        # the same name is kept beside it under a numbered name. The id is
+        # internal and never shown.
+        rid = f"r-{content_hash(data)[:16]}"
         if rid in existing:
-            rid = f"{rid}_{len(existing) + 1}"
-        doc = to_base_resume_json(parsed, rid, display, file.filename or "")
+            return {
+                "id": rid,
+                "name": existing[rid].name,
+                "already": True,
+                "extracted": parsed.summary_counts(),
+            }
+        display = numbered(name.strip() or filename, {r.name for r in existing.values()})
+        doc = to_base_resume_json(parsed, rid, display, filename)
         ws.save_base_resume(BaseResume.model_validate(doc))
         return {
             "id": rid,
             "name": display,
+            "already": False,
             "extracted": parsed.summary_counts(),
             "next_steps": {
                 "use_for_tailoring": {"enabled": True, "label": "Use this resume for tailoring"},
@@ -262,13 +242,18 @@ def build_material_router(store: WorkspaceStore) -> APIRouter:
     ) -> dict[str, Any]:
         ws = ws_for(cid)
         data = await file.read()
+        filename = os.path.basename(file.filename or "document")
+        read_document(filename, file.content_type or "", data)
         try:
-            entry = src.add_source(ws, file.filename or "document", data, kind=kind, name=name)
+            entry = src.add_source(ws, filename, data, kind=kind, name=name)
+        except UploadRefused as e:
+            raise refused(e) from e
         except ValueError as e:
-            raise HTTPException(400, str(e)) from e
+            raise refused(unreadable(filename)) from e
         return {
             "id": entry["id"],
             "name": entry["name"],
+            "already": bool(entry.get("already")),
             "extracted": entry["extracted"],
             "note": "Nothing was added to your experience yet. Review the extracted details to decide.",
         }

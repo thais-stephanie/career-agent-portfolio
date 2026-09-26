@@ -1,4 +1,6 @@
 // Modified for the Career Agent public edition (2026-09-26). See NOTICE.
+import { ApiProblem, sentence, sentenceFor } from "./errors";
+
 // Thin fetch layer. Every candidate-scoped call names the candidate explicitly —
 // the backend has no ambient "active candidate".
 
@@ -20,7 +22,7 @@ export type CareerJob = {
  *  produce `/api/candidates//resumes/upload`, which failed with nothing on
  *  screen. It now fails here, with a sentence, before any request. */
 export function candidatePath(cid: string): string {
-  if (!cid || !cid.trim()) throw new Error("No candidate is selected yet. Reload Resume Tailor and try again.");
+  if (!cid || !cid.trim()) throw new ApiProblem("no_candidate", sentence("no_candidate"), 0);
   return `/api/candidates/${encodeURIComponent(cid)}`;
 }
 export type ExportFormat = "docx" | "pdf" | "md";
@@ -37,13 +39,26 @@ function withProfile(init?: RequestInit): RequestInit | undefined {
   return { ...init, headers };
 }
 
-async function j<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(path, withProfile(init));
-  if (!r.ok) {
-    let detail = r.statusText;
-    try { detail = (await r.json()).detail ?? detail; } catch { /* keep statusText */ }
-    throw new Error(detail);
+/** The error a failed response becomes: its code and a sentence in the
+ *  reader's language (errors.ts). Never the server's technical words. */
+async function problem(r: Response): Promise<ApiProblem> {
+  let detail: unknown = null;
+  try { detail = (await r.json()).detail ?? null; } catch { /* no body to read */ }
+  const { code, text } = sentenceFor(detail, r.status);
+  return new ApiProblem(code, text, r.status);
+}
+
+async function send(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(path, withProfile(init));
+  } catch {
+    throw new ApiProblem("network", sentence("network"), 0);
   }
+}
+
+async function j<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await send(path, init);
+  if (!r.ok) throw await problem(r);
   return r.json() as Promise<T>;
 }
 
@@ -111,12 +126,8 @@ export const api = {
    *  Returns the friendly filename the server chose and, for PDFs, the page count the
    *  local renderer produced (informational — the Word measurement stays canonical). */
   download: async (path: string): Promise<{ name: string; pages?: number }> => {
-    const r = await fetch(path, withProfile());
-    if (!r.ok) {
-      let detail = "The file could not be created.";
-      try { detail = (await r.json()).detail ?? detail; } catch { /* keep default */ }
-      throw new Error(detail);
-    }
+    const r = await send(path);
+    if (!r.ok) throw await problem(r);
     const blob = await r.blob();
     const m = /filename="([^"]+)"/.exec(r.headers.get("Content-Disposition") ?? "");
     const name = m?.[1] ?? "download";

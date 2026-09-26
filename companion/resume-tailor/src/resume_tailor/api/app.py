@@ -24,6 +24,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from resume_tailor.api import errors
 from resume_tailor.api.candidates import build_router
 from resume_tailor.api.career import build_career_router
 from resume_tailor.api.drafts import build_drafts_router
@@ -59,7 +60,7 @@ def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
         if hostname not in (
             {"127.0.0.1", "localhost", "::1"} | ({"testserver"} if home is not None else set())
         ):
-            return JSONResponse({"detail": "Local requests only"}, status_code=403)
+            return JSONResponse(errors.body("local_only", "Local requests only"), status_code=403)
         # A candidate-scoped call with no candidate in it is a page bug, and
         # it must never reach a route: `/api/candidates//resumes/upload` once
         # did, and nothing on screen said why the upload failed.
@@ -69,7 +70,9 @@ def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
             or path.split("/")[3] in {"", "undefined", "null"}
         ):
             return JSONResponse(
-                {"detail": "No candidate is selected. Reload Resume Tailor and try again."},
+                errors.body(
+                    "no_candidate", "No candidate is selected. Reload Resume Tailor and try again."
+                ),
                 status_code=400,
             )
         # Following a Career Agent profile, a page names the profile it was
@@ -88,30 +91,82 @@ def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
                     current = ""
                 if not claimed or claimed != current:
                     return JSONResponse(
-                        {
-                            "detail": "Career Agent switched to another local profile."
-                            " Reload Resume Tailor to follow it."
-                        },
+                        errors.body(
+                            "stale_profile",
+                            "Career Agent switched to another local profile."
+                            " Reload Resume Tailor to follow it.",
+                        ),
                         status_code=409,
                     )
         origin = request.headers.get("origin")
         if origin is not None and origin != "http://" + host:
-            return JSONResponse({"detail": "Same-origin requests only"}, status_code=403)
+            return JSONResponse(
+                errors.body("refused", "Same-origin requests only"), status_code=403
+            )
         if request.headers.get("sec-fetch-site") == "cross-site":
-            return JSONResponse({"detail": "Cross-site requests refused"}, status_code=403)
+            return JSONResponse(
+                errors.body("refused", "Cross-site requests refused"), status_code=403
+            )
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             content = request.headers.get("content-type", "").split(";")[0]
             if content == "multipart/form-data" and origin != "http://" + host:
                 return JSONResponse(
-                    {"detail": "Uploads require a same-origin browser"}, status_code=403
+                    errors.body("refused", "Uploads require a same-origin browser"),
+                    status_code=403,
                 )
             if content not in {"application/json", "multipart/form-data"}:
-                return JSONResponse({"detail": "JSON required"}, status_code=415)
+                return JSONResponse(errors.body("refused", "JSON required"), status_code=415)
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Frame-Options"] = "DENY"
         return response
+
+    # EVERY ERROR A PAGE RECEIVES HAS A CODE. A coded error passes through;
+    # a plain one gets the code of its kind, so the page can always say it in
+    # the reader's language. Validation and unexpected failures never show
+    # their internals: the detail goes to the local log.
+    from fastapi.exceptions import RequestValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    def _coded(status: int, detail: Any) -> dict[str, Any]:
+        if isinstance(detail, dict) and detail.get("code"):
+            return detail
+        kind = (
+            "not_found"
+            if status == 404
+            else "conflict"
+            if status == 409
+            else "not_available"
+            if status == 501
+            else "internal"
+            if status >= 500
+            else "invalid"
+        )
+        # Below 500 the server's sentence is kept: it is written for a reader
+        # and often names what to do. A 5xx never shows its words.
+        message = errors.INTERNAL_MESSAGE if kind == "internal" else str(detail or "")
+        return {"code": kind, "message": message, "params": {}}
+
+    @app.exception_handler(StarletteHTTPException)
+    async def coded_http(request, exc):
+        if exc.status_code >= 500:
+            errors.log.warning("HTTP %s on %s: %s", exc.status_code, request.url.path, exc.detail)
+        return JSONResponse(
+            {"detail": _coded(exc.status_code, exc.detail)},
+            status_code=exc.status_code,
+            headers=getattr(exc, "headers", None),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def coded_validation(request, exc):
+        errors.log.info("invalid request on %s: %s", request.url.path, exc.errors())
+        return JSONResponse(errors.body("invalid_request", errors.INVALID_MESSAGE), status_code=422)
+
+    @app.exception_handler(Exception)
+    async def coded_internal(request, exc):
+        errors.log.exception("unexpected failure on %s", request.url.path)
+        return JSONResponse(errors.body("internal", errors.INTERNAL_MESSAGE), status_code=500)
 
     state: dict[str, Any] = {}
     store = WorkspaceStore(home)

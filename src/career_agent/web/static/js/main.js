@@ -17,6 +17,7 @@
 
 import * as api from './api.js';
 import { el, button, replace, clear } from './dom.js';
+import { toast } from './ui.js';
 import {
   createStore, SORTS, VIEW_GROUPING, activeFilterCount, clearedFilters, TRACKED_STATUSES,
   LIST_KEYS, FLAG_KEYS,
@@ -67,6 +68,7 @@ const dom = {
   viewCards: document.getElementById('view-cards'),
   viewTable: document.getElementById('view-table'),
   viewKanban: document.getElementById('view-kanban'),
+  exportGoodStrong: document.getElementById('export-good-strong'),
   prefsHost: document.getElementById('prefs-host'),
   profileDisclosure: document.getElementById('profile-disclosure'),
   profileHost: document.getElementById('profile-host'),
@@ -480,6 +482,24 @@ const sourcesPanel = createSourcesPanel(document.getElementById('sources-host'))
 // value lands in the URL, and the button beside these two shows what it became.
 // Cards is the reading view and groups; Table is the "show me every row" view
 // and does not.
+if (dom.exportGoodStrong) {
+  dom.exportGoodStrong.addEventListener('click', async () => {
+    const control = dom.exportGoodStrong;
+    control.disabled = true;
+    const label = control.textContent;
+    control.textContent = t('export.working');
+    try {
+      const rows = await api.exportGoodStrong(lastQueryString || '');
+      toast(t('export.done', { n: rows }));
+    } catch (error) {
+      toast(error.userMessage || t('export.failed'), { tone: 'bad' });
+    } finally {
+      control.disabled = false;
+      control.textContent = label;
+    }
+  });
+}
+
 for (const [node, view] of [[dom.viewCards, 'cards'], [dom.viewTable, 'table'], [dom.viewKanban, 'kanban']]) {
   node.addEventListener('click', () => {
     const patch = { view, group_duplicates: VIEW_GROUPING[view] };
@@ -1767,6 +1787,7 @@ function syncHeader(state) {
   dom.viewCards.setAttribute('aria-pressed', state.view === 'cards' ? 'true' : 'false');
   dom.viewTable.setAttribute('aria-pressed', state.view === 'table' ? 'true' : 'false');
   dom.viewKanban.setAttribute('aria-pressed', state.view === 'kanban' ? 'true' : 'false');
+  if (dom.exportGoodStrong) dom.exportGoodStrong.hidden = state.view !== 'table';
   dom.group.setAttribute('aria-pressed', state.group_duplicates ? 'true' : 'false');
   dom.group.classList.toggle('is-on', Boolean(state.group_duplicates));
   dom.group.textContent = state.group_duplicates
@@ -2450,6 +2471,10 @@ function relabelStaticText() {
   swap('#view-cards', 'view.cards');
   swap('#view-table', 'view.table');
   swap('#view-kanban', 'view.board');
+  swap('#export-good-strong', 'export.goodStrong');
+  // Resume Tailor opens in the reader's language (its messages follow it).
+  const tailorLink = document.querySelector('.topnav__link--tailor');
+  if (tailorLink) tailorLink.setAttribute('href', `/resume-tailor?lang=${encodeURIComponent(getLocale())}`);
   // The two toolbar controls whose words depend on STATE rather than only
   // on the catalogue: which way the sort runs, and whether duplicates are
   // folded. `syncHeader` already knows how to label both from the state,

@@ -1,4 +1,4 @@
-# Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+# Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 """Sources and experience details inside a candidate workspace.
 
 A *source* is a document the candidate added (resume, LinkedIn PDF, project
@@ -70,16 +70,35 @@ def _bank_json(ws: CandidateWorkspace) -> dict[str, Any]:
 def add_source(
     ws: CandidateWorkspace, filename: str, data: bytes, kind: str, name: str = ""
 ) -> dict[str, Any]:
-    """Register a document and extract suggestions. The evidence bank is untouched."""
+    """Register a document and extract suggestions. The evidence bank is untouched.
+
+    The same document again is the source already registered (returned with
+    `already`), never a second copy. The id carries the content's hash: a
+    count-based id reused a removed source's id and overwrote its file."""
+    from resume_tailor.importing.upload_check import content_hash
+
+    digest = content_hash(data)
+    for known in read_registry(ws):
+        if known.get("sha256") == digest:
+            return {**known, "already": True}
     parsed = parse_resume(filename, data)
-    sid = f"{_slug(name or filename.rsplit('.', 1)[0])}-{len(read_registry(ws)) + 1}"
+    base = _slug(name or filename.rsplit(".", 1)[0])
+    sid = f"{base}-{digest[:10]}"
     files = ws.root / "sources" / "files"
     files.mkdir(parents=True, exist_ok=True)
     ext = Path(filename).suffix or ".bin"
     (files / f"{sid}{ext}").write_bytes(data)
+    taken = {e.get("name") for e in read_registry(ws)}
+    label = name or Path(filename).name
+    n = 2
+    shown = label
+    while shown in taken:
+        shown = f"{label} ({n})"
+        n += 1
     entry = {
         "id": sid,
-        "name": name or Path(filename).stem,
+        "sha256": digest,
+        "name": shown,
         "kind": kind,
         "file": f"files/{sid}{ext}",
         "added_at": _now(),
