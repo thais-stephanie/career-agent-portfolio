@@ -185,7 +185,7 @@ export function createSourcesPanel(host, { collection = null } = {}) {
           ? t('sources.coolingDown', { date: shortDate(row.cooldown_until) })
           : row.reason ? t(`sources.reason.${row.reason}`) : '';
         return el('tr', {
-          dataset: { source: row.source_id, state: row.state, due: String(Boolean(row.due)) },
+          dataset: { healthSource: row.source_id, state: row.state, due: String(Boolean(row.due)) },
           className: row.needs_attention ? 'is-attention' : '',
         }, [
           el('td', {}, [
