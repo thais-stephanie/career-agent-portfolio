@@ -813,9 +813,17 @@ export function createDrawer({
   }
 
   // -- confidence --------------------------------------------------------
-  /** A completeness row's words, in the reader's language when the catalogue
-   *  knows the item; the configuration's own label otherwise. */
+  /** The labels the shipped search files give the completeness items. A
+   *  label that is still one of these is replaced by the catalogue's words in
+   *  the reader's language; a label somebody wrote themselves is kept. */
+  const SHIPPED_CONFIDENCE_LABELS = new Set([
+    'Full description text available', 'Description is substantial', 'Location stated',
+    'Hiring scope explicitly stated', 'Employment type known', 'Compensation stated',
+    'Seniority determinable from the body', 'Posting date known',
+  ]);
+
   function confidenceLabel(item) {
+    if (item.label && !SHIPPED_CONFIDENCE_LABELS.has(item.label)) return item.label;
     const key = `confidence.item.${item.item_id}`;
     const translated = t(key);
     return translated !== key ? translated : (item.label || humanLabel(item.item_id));
@@ -907,7 +915,10 @@ export function createDrawer({
               ? el('blockquote', { className: 'quote quote--tight', text: job.seniority_evidence })
               : null,
           ].filter(Boolean)
-          : [el('span', { text: t('absent.levelSentence') })]),
+          // No Search Fit yet (`seniority_stated` null): nothing is assumed.
+          : [el('span', {
+            text: job.seniority_stated === false ? t('absent.levelSentence') : t('drawer.notStated'),
+          })]),
       ]),
     ]);
   }

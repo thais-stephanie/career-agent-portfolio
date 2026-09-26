@@ -1087,7 +1087,7 @@ const EN = {
   'filters.section.find': 'Find',
   'filters.section.findHelp': 'Searches the whole posting, not just the job title.',
   'filters.section.quick': 'Quick filters',
-  'filters.section.quality': 'Search fit and posting detail',
+  'filters.section.quality': 'Search fit and posting completeness',
   'filters.section.qualityHelp': 'Two separate numbers. Neither is a prediction about your chances. ',
   'filters.preset.all': 'Everything',
   'filters.preset.allHelp': 'Every job collected so far, with nothing filtered out.',
@@ -1365,8 +1365,8 @@ const EN = {
     + 'filters existed, so those four will not find them. Recalculating fixes'
     + 'it, on your own computer and at no cost.',
   'filters.qualityHint': 'Match is how close the work is to what you want. Posting completeness is how '
-    + 'much the employer actually wrote down. A short posting scores low on'
-    + 'detail however good the job is.',
+    + 'much the employer actually wrote down. A short posting scores low on '
+    + 'completeness however good the job is.',
   'filters.salaryHint': 'Pick a currency too. Nothing here converts between currencies, so '
     + 'without one there is nothing to compare against. Postings that quote a '
     + 'month or an hour are converted to a year first. Most postings never '
@@ -1734,7 +1734,7 @@ const EN = {
   'count.filtersActive': '{n} filters active',
   'count.noFilters': 'no filters',
   'advice.matchBelow': 'asking for a Match below {n}',
-  'advice.detailBelow': 'asking for a Detail below {n}',
+  'advice.detailBelow': 'asking for completeness below {n}',
   'advice.searchingLess': 'searching for less than “{text}”',
   'advice.eligibility': 'allowing jobs that did not say whether you could take them',
   'advice.removingFilter': 'removing the {what} filter',
@@ -1810,10 +1810,11 @@ const EN = {
   'confidence.item.hiring_scope_explicit': 'Where they hire is stated',
   'confidence.item.employment_type_known': 'Engagement type stated',
   'confidence.item.salary_known': 'Compensation stated',
-  'confidence.item.seniority_determinable': 'Level stated',
+  'confidence.item.seniority_determinable': 'Level indicated',
   'confidence.item.posted_date_known': 'Posting date known',
   'confidence.note.salary_known.no': 'The posting states no compensation.',
-  'confidence.note.seniority_determinable.yes': 'The posting states the level.',
+  'confidence.note.seniority_determinable.yes': 'The posting indicates the level '
+    + '(its title, a statement or the years it asks for).',
   'confidence.note.seniority_determinable.no': 'The posting does not state a level. Search Fit treats it as '
     + 'mid-level.',
   'drawer.secConfidence': 'Posting completeness',
@@ -1831,7 +1832,7 @@ const EN = {
   'drawer.noneQuoted': 'None of these had a line worth quoting. They matched on something the '
     + 'posting implies rather than says.',
   'drawer.gapsLede': 'These are not marks against the job. They are things the employer left '
-    + 'out, and they are why the detail number is not higher.',
+    + 'out, and they are why the completeness number is not higher.',
   'drawer.saved': '★ Saved',
   'drawer.save': '☆ Save',
   'drawer.appliedOn': 'Applied on {date}. ',
@@ -4046,7 +4047,7 @@ const PT_BR = {
   'filters.section.find': 'Buscar',
   'filters.section.findHelp': 'Procura no anúncio inteiro, não só no título da vaga.',
   'filters.section.quick': 'Filtros rápidos',
-  'filters.section.quality': 'Aderência à busca e detalhe do anúncio',
+  'filters.section.quality': 'Aderência à busca e completude do anúncio',
   'filters.section.qualityHelp': 'Dois números separados. Nenhum dos dois é uma previsão sobre suas '
     + 'chances.',
   'filters.preset.all': 'Tudo',
@@ -4316,8 +4317,8 @@ const PT_BR = {
     + 'região, escritório e remuneração, então esses quatro não vão'
     + 'encontrá-las. Recalcular resolve, no seu próprio computador e sem custo.',
   'filters.qualityHint': 'Compatibilidade é o quanto o trabalho se aproxima do que você quer. '
-    + 'Completude do anúncio é o quanto o empregador realmente escreveu. Um'
-    + 'anúncio curto pontua baixo em detalhe por melhor que a vaga seja.',
+    + 'Completude do anúncio é o quanto o empregador realmente escreveu. Um '
+    + 'anúncio curto pontua baixo em completude por melhor que a vaga seja.',
   'filters.salaryHint': 'Escolha também uma moeda. Nada aqui converte entre moedas, então sem ela '
     + 'não há com o que comparar. Anúncios que citam mês ou hora são '
     + 'convertidos para ano antes. A maioria dos anúncios nunca informa '
@@ -4679,7 +4680,7 @@ const PT_BR = {
   'count.filtersActive': '{n} filtros ativos',
   'count.noFilters': 'sem filtros',
   'advice.matchBelow': 'pedir correspondência abaixo de {n}',
-  'advice.detailBelow': 'pedir detalhe abaixo de {n}',
+  'advice.detailBelow': 'pedir completude abaixo de {n}',
   'advice.searchingLess': 'buscar por menos que “{text}”',
   'advice.eligibility': 'permitir vagas que não disseram se você poderia aceitá-las',
   'advice.removingFilter': 'remover o filtro de {what}',
@@ -4757,10 +4758,11 @@ const PT_BR = {
   'confidence.item.hiring_scope_explicit': 'Onde contratam está informado',
   'confidence.item.employment_type_known': 'Tipo de vínculo informado',
   'confidence.item.salary_known': 'Remuneração informada',
-  'confidence.item.seniority_determinable': 'Nível informado',
+  'confidence.item.seniority_determinable': 'Nível indicado',
   'confidence.item.posted_date_known': 'Data de publicação conhecida',
   'confidence.note.salary_known.no': 'O anúncio não informa remuneração.',
-  'confidence.note.seniority_determinable.yes': 'O anúncio informa o nível.',
+  'confidence.note.seniority_determinable.yes': 'O anúncio indica o nível '
+    + '(pelo título, por uma frase ou pelos anos que pede).',
   'confidence.note.seniority_determinable.no': 'O anúncio não informa o nível. O Search Fit o trata como '
     + 'pleno.',
   'drawer.secConfidence': 'Completude do anúncio',
@@ -4778,7 +4780,7 @@ const PT_BR = {
   'drawer.noneQuoted': 'Nenhuma delas tinha uma linha que valesse citar. Corresponderam a algo '
     + 'que o anúncio sugere em vez de dizer.',
   'drawer.gapsLede': 'Isto não é ponto contra a vaga. São coisas que o empregador deixou de '
-    + 'fora, e é por isso que o número de detalhe não é mais alto.',
+    + 'fora, e é por isso que o número de completude não é mais alto.',
   'drawer.saved': '★ Salva',
   'drawer.save': '☆ Salvar',
   'drawer.appliedOn': 'Enviada em {date}. ',

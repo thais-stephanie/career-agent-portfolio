@@ -459,7 +459,7 @@ def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
 def _seniority_component(config: SearchConfig, reading: SeniorityReading) -> ScoreComponent:
     """Alignment with the level the posting asked for, or the MID fallback.
 
-    THE PRODUCT RULE (owner decision, 2026-09-26): a posting that states no
+    THE PRODUCT RULE (owner decision): a posting that states no
     level is treated as MID / PLENO, and it is SCORED as MID: the same points a
     posting stating "mid-level" earns under the same preferences. It used to
     earn `unevidenced` (zero) while the drawer said "treating it as mid-level",
@@ -892,7 +892,7 @@ def measurable_items(
         ),
         "seniority_determinable": (
             seniority.is_evidence,
-            "The posting states the level.",
+            "The posting indicates the level (its title, a statement or the years it asks for).",
             "The posting does not state a level (Search Fit treats it as mid-level).",
         ),
         "posted_date_known": (

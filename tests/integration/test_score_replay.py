@@ -572,3 +572,43 @@ def test_the_population_stays_served_while_the_schema_pass_is_under_way(corpus):
     assert rest.jobs_scored == len(POSTINGS) - 2, "the two rewritten rows were rewritten again"
     assert repo.stale_schema_count(config_id, version) == 0
     assert repo.count_for(config_id, version) == len(POSTINGS)
+
+
+# =====================================================================
+# Schema 11: an unstated level is scored as MID, and stored rows replay
+# =====================================================================
+
+
+def test_a_schema_10_reading_replays_into_the_mid_fallback(corpus):
+    """Rows written under schema 10 scored an unstated level as unevidenced.
+    The bump is arithmetic only: every row replays, nothing is read again, and
+    the result equals a full pass, including the seniority label."""
+    conn, config, tmp_path = corpus
+    # Editing a row fires the trigger that drops its score receipt; a real
+    # schema-10 row keeps it, so the receipts are put back after the edit.
+    receipts = conn.execute("SELECT * FROM job_score_revision").fetchall()
+    with transaction(conn):
+        for row in conn.execute("SELECT job_id, result_json FROM job_match").fetchall():
+            result = json.loads(str(row["result_json"]))
+            for component in result.get("components", []):
+                if component.get("key") == "seniority":
+                    component["points"] = 0
+                    component["label"] = "stale schema 10 label"
+            conn.execute(
+                "UPDATE job_match SET schema_version = 10, result_json = ? WHERE job_id = ?",
+                (json.dumps(result), row["job_id"]),
+            )
+        conn.executemany(
+            "INSERT OR REPLACE INTO job_score_revision VALUES (?, ?, ?, ?)",
+            [tuple(r) for r in receipts],
+        )
+
+    stats = rescore(conn, config)
+    assert stats.jobs_replayed == len(POSTINGS), stats.replay_refused
+    assert stats.jobs_read_in_full == 0
+
+    replayed = _snapshot(conn, config)
+    full, _ = _forced_on_a_copy(conn, config, tmp_path)
+    for job_id, record in full.items():
+        assert replayed[job_id] == record, f"{job_id} did not replay into schema 11"
+    assert "stale schema 10 label" not in json.dumps(replayed)
