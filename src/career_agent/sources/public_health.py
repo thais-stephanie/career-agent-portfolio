@@ -54,9 +54,17 @@ def rate_limited(stats: Mapping[str, Any]) -> bool:
     provider refused (429, 999, 403, a sign-in wall)."""
     return bool(
         stats.get("queries_rate_limited")
-        or stats.get("stopped_reason") == "rate_limited"
+        or str(stats.get("stopped_reason") or "").startswith("rate_limited")
         or stats.get("rate_limited")
     )
+
+
+def query_driven(stats: Mapping[str, Any]) -> bool:
+    """A collector that searches with ONE profile's questions (its roles and
+    work phrases). What it found answers those questions, not the market, so
+    its successes and counts are that profile's own and are never shared.
+    Only a refusal is: it is the same machine being refused."""
+    return "queries_planned" in stats or "queries_attempted" in stats
 
 
 def outcome_of(status: str, stats: Mapping[str, Any]) -> tuple[str, str | None]:
@@ -128,8 +136,17 @@ def record(
         return
     for key, own_status, part in _slices(stage, status, stats):
         outcome, reason = outcome_of(own_status, part)
+        shared_counts = True
+        if query_driven(part):
+            if outcome != RATE_LIMITED:
+                continue
+            shared_counts = False
         success = finished_at if outcome in (COMPLETE, PARTIAL) else None
-        new = _count(part, _NEW)
+        if stage == SHARED_STAGE and not (part.get("boards_succeeded") or 0) > 0:
+            # A family the pass deferred before reading any board is not fresh.
+            success = None
+        new = _count(part, _NEW) if shared_counts else None
+        seen = _count(part, _SEEN) if shared_counts else None
         useful = finished_at if success and (new or 0) > 0 else None
         conn.execute(
             f"INSERT INTO {table} (source_key, last_attempt_at, last_finished_at,"
@@ -151,7 +168,7 @@ def record(
                 useful,
                 outcome,
                 reason,
-                _count(part, _SEEN),
+                seen,
                 new,
                 finished_at,
             ),
@@ -162,18 +179,21 @@ def read(conn: sqlite3.Connection) -> dict[str, PublicHealth]:
     table = _table(conn)
     if table is None:
         return {}
-    conn.row_factory = sqlite3.Row
+    columns = (
+        "source_key, last_attempt_at, last_finished_at, last_success_at, last_useful_at,"
+        " last_outcome, last_reason, jobs_seen, jobs_new"
+    )
     return {
-        str(r["source_key"]): PublicHealth(
-            source_key=str(r["source_key"]),
-            last_attempt_at=str(r["last_attempt_at"]),
-            last_finished_at=r["last_finished_at"],
-            last_success_at=r["last_success_at"],
-            last_useful_at=r["last_useful_at"],
-            last_outcome=str(r["last_outcome"]),
-            last_reason=r["last_reason"],
-            jobs_seen=r["jobs_seen"],
-            jobs_new=r["jobs_new"],
+        str(r[0]): PublicHealth(
+            source_key=str(r[0]),
+            last_attempt_at=str(r[1]),
+            last_finished_at=r[2],
+            last_success_at=r[3],
+            last_useful_at=r[4],
+            last_outcome=str(r[5]),
+            last_reason=r[6],
+            jobs_seen=r[7],
+            jobs_new=r[8],
         )
-        for r in conn.execute(f"SELECT * FROM {table}")
+        for r in conn.execute(f"SELECT {columns} FROM {table}")
     }

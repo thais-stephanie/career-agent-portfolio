@@ -55,6 +55,10 @@ export function createCollection(api, { disabled = false } = {}) {
   let starting = false;
   let stopping = false;
   let startError = '';
+  //: Set by a start that found a run already going (here or elsewhere).
+  let alreadyRunning = false;
+  //: How many collectors a "Refresh due sources" start actually began.
+  let dueStarted = null;
   //: A run this page saw running. Its scoring afterwards belongs to it, and
   //: its end is worth saying; a run that ended before the page opened is not.
   let watched = null;
@@ -204,7 +208,7 @@ export function createCollection(api, { disabled = false } = {}) {
    * or `retrieval` (the three documented ATS APIs, from Settings).
    */
   async function start(kind = 'all') {
-    if (active()) return state();
+    if (active()) return { ...state(), alreadyRunning: true };
     starting = true;
     startError = '';
     syncTicker();
@@ -219,6 +223,7 @@ export function createCollection(api, { disabled = false } = {}) {
         emit();
         return { ...state(), nothingDue: true, coolingDown: run.cooling_down || [] };
       }
+      if (run && typeof run.due === 'number') dueStarted = run.due;
       if (run && run.run_id) {
         watched = run.run_id;
         finishedReported = false;
@@ -232,6 +237,8 @@ export function createCollection(api, { disabled = false } = {}) {
       // Already running elsewhere (another tab, a reload): follow that one.
       if (!(error && error.status === 409 && /already/i.test(error.message || ''))) {
         startError = error.userMessage || error.message;
+      } else {
+        alreadyRunning = true;
       }
     } finally {
       starting = false;
@@ -240,7 +247,11 @@ export function createCollection(api, { disabled = false } = {}) {
     // would absorb a stale "nothing running" and schedule no further poll, so
     // wait for it and ask again.
     if (inflight) await inflight;
-    return refresh();
+    const after = await refresh();
+    const answer = { ...after, alreadyRunning, due: dueStarted };
+    alreadyRunning = false;
+    dueStarted = null;
+    return answer;
   }
 
   /** Only this stops a run. Leaving a page never does. */

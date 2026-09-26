@@ -531,12 +531,17 @@ def read_progress(
         )
         reason = partial_reason(counted) if state is RefreshState.PARTIAL else None
         last_attempt = str(row["started_at"]) if row is not None else None
+        last_finished = str(row["finished_at"]) if row is not None and row["finished_at"] else None
 
         # THE SHARED CATALOGUE'S OWN RECORD (migration 0045). Another profile
         # may have refreshed this public source since this profile last did;
         # when its record is newer, it decides.
         key = f"{_SHARED_STAGE}:{provider_name}" if stage == _SHARED_STAGE else stage
         seen = (public or {}).get(key)
+        # A source this profile has blocked or paused is not its business:
+        # another profile's use of it is never shown here.
+        if state in (RefreshState.BLOCKED, RefreshState.PAUSED):
+            seen = None
         if seen is not None:
             last_success = _later(last_success, seen.last_success_at)
             newer = last_attempt is None or seen.last_attempt_at > last_attempt
@@ -548,6 +553,8 @@ def read_progress(
                 state = _OUTCOME_STATE.get(seen.last_outcome, state)
                 reason = seen.last_reason if state is RefreshState.PARTIAL else None
             last_attempt = _later(last_attempt, seen.last_attempt_at)
+            if newer:
+                last_finished = seen.last_finished_at or last_finished
 
         if state in (RefreshState.COMPLETE, RefreshState.PARTIAL):
             if _older_than(last_success, STALE_AFTER_HOURS, moment):
@@ -556,13 +563,16 @@ def read_progress(
                 state = RefreshState.DUE
 
         cooldown = None
-        if last_attempt and state in (RefreshState.RATE_LIMITED, RefreshState.FAILED):
+        # From when it FAILED, not when it began: a long run must not use up
+        # its own cooldown while it runs.
+        ended = last_finished or last_attempt
+        if ended and state in (RefreshState.RATE_LIMITED, RefreshState.FAILED):
             wait = (
                 REFUSAL_COOLDOWN_HOURS
                 if state is RefreshState.RATE_LIMITED
                 else FAILURE_COOLDOWN_HOURS
             )
-            until = _plus_hours(last_attempt, wait)
+            until = _plus_hours(ended, wait)
             if until is not None and until > moment:
                 cooldown = until.isoformat(timespec="seconds").replace("+00:00", "Z")
 

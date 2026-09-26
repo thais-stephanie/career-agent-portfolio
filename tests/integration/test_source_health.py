@@ -58,11 +58,15 @@ def _iso(delta_hours: float) -> str:
 
 def test_a_finished_feed_run_writes_outcome_and_counts_only(tmp_path) -> None:
     conn = _db(tmp_path)
+    _finish(conn, "collect-remotive", PipelineRunStatus.OK, {"postings_seen": 7, "jobs_new": 2})
+    feed = _public(conn)["collect-remotive"]
+    assert (feed.jobs_seen, feed.jobs_new, feed.last_outcome) == (7, 2, "COMPLETE")
     _finish(
         conn,
         "collect-linkedin",
         PipelineRunStatus.OK,
         {
+            "queries_planned": 3,
             "queries_rate_limited": 1,
             "stopped_reason": "rate_limited",
             "failures": [f"rate limited: {PRIVATE_QUERY}|BR"],
@@ -72,7 +76,8 @@ def test_a_finished_feed_run_writes_outcome_and_counts_only(tmp_path) -> None:
     )
     row = _public(conn)["collect-linkedin"]
     assert row.last_outcome == "RATE_LIMITED" and row.last_reason == "REFUSED"
-    assert row.jobs_seen == 7 and row.jobs_new == 2
+    # A query-driven source's counts answer one profile's questions: not shared.
+    assert row.jobs_seen is None and row.jobs_new is None
     assert row.last_success_at is None, "a refusal is not a success"
     everything = str(conn.execute("SELECT * FROM source_health").fetchall())
     assert PRIVATE_QUERY not in everything, "a private query reached the shared record"
@@ -306,3 +311,119 @@ def test_the_sidebar_and_settings_share_one_rule(api) -> None:
         assert {"due", "needs_attention", "cooldown_until", "last_attempt"} <= set(row)
     main = Path(__file__).resolve().parents[2] / "src/career_agent/web/static/js/main.js"
     assert "row.needs_attention" in main.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------- review fixes
+
+
+def test_a_query_driven_success_is_never_shared(two_profiles) -> None:  # noqa: F811
+    """Profile A's LinkedIn run answered A's roles: B still owes its own."""
+    a = connect(two_profiles["a_db"])
+    try:
+        _finish(
+            a,
+            "collect-linkedin",
+            PipelineRunStatus.OK,
+            {"queries_planned": 4, "queries_succeeded": 4, "raw_results": 30, "jobs_new": 9},
+        )
+        assert "collect-linkedin" not in _public(a)
+    finally:
+        a.close()
+    b = connect(two_profiles["b_db"])
+    try:
+        row = read_progress(b, stage_for={"li": "collect-linkedin"}, public=_public(b))[0]
+    finally:
+        b.close()
+    assert row.state is RefreshState.NOT_STARTED and row.due
+
+
+def test_a_refusal_is_shared_because_the_machine_was_refused(two_profiles) -> None:  # noqa: F811
+    a = connect(two_profiles["a_db"])
+    try:
+        _finish(
+            a,
+            "collect-linkedin",
+            PipelineRunStatus.OK,
+            {"queries_planned": 4, "queries_rate_limited": 1, "stopped_reason": "rate_limited"},
+        )
+    finally:
+        a.close()
+    b = connect(two_profiles["b_db"])
+    try:
+        row = read_progress(b, stage_for={"li": "collect-linkedin"}, public=_public(b))[0]
+    finally:
+        b.close()
+    assert row.state is RefreshState.RATE_LIMITED and not row.due and row.cooldown_until
+
+
+def test_a_blocked_or_paused_row_shows_nothing_from_other_profiles(tmp_path) -> None:
+    conn = _db(tmp_path)
+    _finish(conn, "collect-gupy", PipelineRunStatus.OK, {"postings_seen": 3})
+    public = _public(conn)
+    conn.execute("DELETE FROM pipeline_run")
+    for kind in ("blocked", "paused"):
+        row = read_progress(
+            conn, stage_for={"gupy": "collect-gupy"}, public=public, **{kind: {"gupy": "x"}}
+        )[0]
+        assert row.last_success is None and row.last_attempt is None, kind
+
+
+def test_a_family_deferred_before_any_board_is_not_fresh(tmp_path) -> None:
+    conn = _db(tmp_path)
+    _finish(
+        conn,
+        "collect",
+        PipelineRunStatus.OK,
+        {"by_provider": {"ashby": {"boards_attempted": 0, "boards_deferred": 5}}},
+    )
+    row = _public(conn)["collect:ashby"]
+    assert row.last_outcome == "PARTIAL" and row.last_success_at is None
+
+
+def test_a_partial_refusal_keeps_the_results_it_stored(tmp_path) -> None:
+    conn = _db(tmp_path)
+    _finish(
+        conn,
+        "collect-linkedin",
+        PipelineRunStatus.OK,
+        {"queries_planned": 24, "queries_succeeded": 20, "queries_rate_limited": 1},
+    )
+    row = read_progress(conn, stage_for={"li": "collect-linkedin"}, public=_public(conn))[0]
+    assert row.state is RefreshState.RATE_LIMITED
+    assert row.last_success is not None, "the results it did store still count"
+
+
+def test_the_cooldown_starts_when_the_run_ended(tmp_path) -> None:
+    conn = _db(tmp_path)
+    with transaction(conn):
+        conn.execute(
+            "INSERT INTO source_health (source_key, last_attempt_at, last_finished_at,"
+            " last_outcome, updated_at) VALUES ('collect-gupy', ?, ?, 'FAILED', ?)",
+            (_iso(3), _iso(0.5), _iso(0.5)),
+        )
+    row = read_progress(conn, stage_for={"gupy": "collect-gupy"}, public=_public(conn))[0]
+    assert row.state is RefreshState.FAILED and row.cooldown_until and not row.due
+
+
+def test_find_jobs_also_respects_a_refusal(api, monkeypatch) -> None:
+    from career_agent.web import source_refresh
+
+    ran: list[str] = []
+    monkeypatch.setattr(
+        source_refresh,
+        "feed_work",
+        lambda db, stage, config_dir=None: lambda s, c: ran.append(stage),
+    )
+    monkeypatch.setattr(api, "_collect_work", lambda *a, **k: lambda s, c: ran.append("boards"))
+    monkeypatch.setattr(api, "_rescore_work", lambda: lambda s, c: None)
+    monkeypatch.setattr(
+        api, "_refresh_progress", lambda entries: _rows(api, set(), cooling={"remotive"})
+    )
+    api.handle_api("POST", "/api/sources/refresh-all", {}, {})
+    for _ in range(200):
+        if not api.retrieval.running:
+            break
+        import threading
+
+        threading.Event().wait(0.05)
+    assert "collect-remotive" not in ran and ran, ran

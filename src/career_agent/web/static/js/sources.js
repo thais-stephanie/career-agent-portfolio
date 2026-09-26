@@ -162,14 +162,17 @@ export function createSourcesPanel(host, { collection = null } = {}) {
         healthNotice = t('sources.nothingDue');
       } else if (outcome && outcome.error) {
         healthNotice = outcome.error;
+      } else if (outcome && outcome.alreadyRunning) {
+        healthNotice = t('sources.alreadyRunning');
       } else {
-        healthNotice = t('sources.refreshDueStarted', { n: due });
+        const started = outcome && typeof outcome.due === 'number' ? outcome.due : due;
+        healthNotice = t('sources.refreshDueStarted', { n: started });
       }
       notice.textContent = healthNotice;
       refreshDue.disabled = false;
       void load(true);
     }, { className: 'btn', attrs: { id: 'refresh-due' } });
-    refreshDue.disabled = running || !collection;
+    refreshDue.disabled = running || !collection || Boolean(collection.state().active);
     const table = el('table', { className: 'src__health-table' }, [
       el('thead', {}, [el('tr', {}, [
         el('th', { text: t('sources.healthSource') }),

@@ -163,6 +163,21 @@ def register_source_refresh(app: JobsApi) -> None:
             raise ApiError(
                 409, "This source is currently unavailable for refresh.", for_reader=True
             )
+        cooling = next(
+            (
+                p
+                for p in app._refresh_progress([entry])
+                if p.state == "RATE_LIMITED" and p.cooldown_until
+            ),
+            None,
+        )
+        if cooling is not None:
+            raise ApiError(
+                409,
+                "This site refused the last requests. Career Agent will not ask it again"
+                f" before {cooling.cooldown_until[:16].replace('T', ' ')} UTC.",
+                for_reader=True,
+            )
         if not identity or identity.kind is not RuntimeMode.PERSONAL:
             raise ApiError(409, "Demo databases do not collect live jobs.", for_reader=True)
         if app.retrieval.running:
@@ -214,7 +229,11 @@ def register_source_refresh(app: JobsApi) -> None:
         One policy for "Find jobs" and "Refresh due sources": the sources
         `can_refresh` admits, minus every PAUSED one; with `only`, just those
         source ids. Returns (steps, deferred collector keys, collector keys)."""
-        paused = {p.source_id for p in app._refresh_progress(entries) if p.state == "PAUSED"}
+        rows = app._refresh_progress(entries)
+        paused = {p.source_id for p in rows if p.state == "PAUSED"}
+        # A refusal is respected by EVERY button: a source the site refused is
+        # not asked again inside its cooldown, by "Find jobs" either.
+        refused = {p.source_id for p in rows if p.state == "RATE_LIMITED" and p.cooldown_until}
         steps: list[tuple[str, str, object]] = []
         board_ids: set[str] = set()
         seen: set[str] = set()
@@ -229,7 +248,7 @@ def register_source_refresh(app: JobsApi) -> None:
             # Board families share one collector per provider; every other
             # source is its own `collect-*` command. Never run one twice.
             key = provider if stage == "collect" else stage
-            if entry.source.id in paused:
+            if entry.source.id in paused or entry.source.id in refused:
                 deferred.add(key)
                 continue
             if key in seen:
