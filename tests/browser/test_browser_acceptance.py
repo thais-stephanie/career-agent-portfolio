@@ -1211,7 +1211,7 @@ def test_the_published_screenshots_show_only_invented_data(
     page.wait_for(
         "document.querySelector('.kanban')"
         " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
-        " && document.querySelectorAll('.kcol').length === 7",
+        " && document.querySelectorAll('.kcol').length === 6",
         message="the tracker board to photograph",
     )
     written.append(capture("kanban-desktop"))
@@ -1338,7 +1338,7 @@ def test_the_published_screenshots_show_only_invented_data(
         page.wait_for(
             "document.querySelector('.kanban')"
             " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
-            " && document.querySelectorAll('.kcol').length === 7",
+            " && document.querySelectorAll('.kcol').length === 6",
             message="the board on a narrow screen",
         )
         written.append(capture("kanban-mobile"))
@@ -1391,14 +1391,14 @@ def test_the_board_shows_tracked_jobs_and_says_so(page: Chrome, server: str) -> 
     disagreeing is the defect this codebase keeps closing.
     """
     page.navigate(f"{server}/?view=kanban")
-    # The SKELETON also draws seven columns, so waiting on the column count
+    # The SKELETON also draws six columns, so waiting on the column count
     # alone races the real render. `renderKanban` clears `aria-busy`, which is
     # the only signal that says "this is the data, not the placeholder".
     page.wait_for(
         "document.querySelector('.kanban')"
         " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
-        " && document.querySelectorAll('.kcol').length === 7",
-        message="the seven tracker columns, painted with real data",
+        " && document.querySelectorAll('.kcol').length === 6",
+        message="the six tracker columns, painted with real data",
     )
 
     # Every card the board draws is in a column, and the header agrees.
