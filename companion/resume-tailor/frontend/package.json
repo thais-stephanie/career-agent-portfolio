@@ -1,8 +1,8 @@
 {
-  "_publicEditionNotice": "Modified for the Career Agent public edition (2026-09-22). See NOTICE.",
+  "_publicEditionNotice": "Modified for the Career Agent public edition (2026-09-26). See NOTICE.",
   "name": "resume-tailor-frontend",
   "private": true,
-  "version": "0.1.0-beta.1",
+  "version": "0.2.0-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

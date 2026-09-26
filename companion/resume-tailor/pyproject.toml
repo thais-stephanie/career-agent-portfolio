@@ -1,7 +1,7 @@
-# Modified for the Career Agent public edition (2026-09-22). See NOTICE.
+# Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 [project]
 name = "resume-tailor"
-version = "0.1.0b1"
+version = "0.2.0b1"
 description = "Local-first, evidence-grounded resume tailoring. Standalone MVP whose core services are designed to be lifted into Career Agent."
 readme = "README.md"
 requires-python = ">=3.12"

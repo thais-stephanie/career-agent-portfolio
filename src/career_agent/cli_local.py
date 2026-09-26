@@ -1385,7 +1385,8 @@ def backup_command(
         bool,
         typer.Option(
             "--catalogue",
-            help="Back up the shared job catalogue instead: public job data only, no profile.",
+            help="Back up the shared job catalogue instead: public job data only, no profile's "
+            "data. Needs --profile NAME to find it.",
         ),
     ] = False,
 ) -> None:
@@ -1394,7 +1395,7 @@ def backup_command(
     TWO KINDS OF BACKUP. A PROFILE backup (the default, or `--profile NAME`)
     holds one person's database and private settings. Once the installation
     uses the shared job catalogue, that database holds no postings, and the
-    manifest says so. A CATALOGUE backup (`--catalogue`) holds the public job
+    manifest says so. A CATALOGUE backup (`--catalogue --profile NAME`) holds the public job
     data every profile reads, and no profile's data at all.
 
     This is a local-first product with no server behind it. The corpus, the
@@ -1467,7 +1468,7 @@ def backup_command(
         [
             (
                 "postings",
-                "none: they are in the shared catalogue (`backup --catalogue`)"
+                "none: they are in the shared catalogue (`backup --catalogue --profile NAME`)"
                 if result.split
                 else result.jobs,
             ),
@@ -5145,7 +5146,7 @@ def profiles_command() -> None:
 
     Local profiles keep each person's data apart; they are not accounts. The
     app shows and switches them (the launcher's side rail);
-    `Start-Career-Agent.ps1 -ProfileName NAME` starts with one.
+    `Start-Career-Agent.cmd -ProfileName NAME` starts with one.
     """
     from career_agent.runtime.profiles import load_registry
 

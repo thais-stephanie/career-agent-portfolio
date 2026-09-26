@@ -1,7 +1,7 @@
 [project]
 name = "career-agent"
-version = "0.1.0a2"
-description = "Personal Alpha job discovery and eligibility agent"
+version = "0.2.0b1"
+description = "Local job discovery, eligibility and Search Fit, with local profiles and Resume Tailor"
 readme = "README.md"
 requires-python = ">=3.12"
 

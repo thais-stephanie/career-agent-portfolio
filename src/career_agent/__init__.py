@@ -1,3 +1,3 @@
-"""Career Agent - Personal Alpha."""
+"""Career Agent: local job discovery, eligibility and Search Fit."""
 
-__version__ = "0.1.0a2"
+__version__ = "0.2.0b1"
