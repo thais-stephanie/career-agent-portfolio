@@ -7,7 +7,7 @@ contain the word ``DISCOVERED`` and they mean different things:
                         (FETCHED, NORMALISED, FINGERPRINTED, CLOSED...)
 
     ApplicationStatus   where the PERSON has taken this posting
-                        (SHORTLISTED, TO_APPLY, APPLIED, INTERVIEW...)
+                        (SHORTLISTED, APPLIED, INTERVIEW...)
 
 A job can be ``CLOSED`` by the collector because the board took it down while
 the candidate is still at ``INTERVIEW``. One field could not hold both facts,
@@ -28,14 +28,17 @@ from enum import StrEnum
 
 
 class ApplicationStatus(StrEnum):
-    """The canonical workflow vocabulary. One field, ten values, no synonyms."""
+    """The canonical workflow vocabulary. One field, nine values, no synonyms.
+
+    There was a tenth, ``TO_APPLY`` ("decided to apply; not yet applied").
+    Nobody could say how it differed from Interested, so it was merged into
+    ``SHORTLISTED`` by migration 0044. See ``LEGACY_STATUSES``.
+    """
 
     #: Collected and scored. Nothing has been decided.
     DISCOVERED = "DISCOVERED"
-    #: Worth a real read.
+    #: Interested: worth a real read, and possibly an application.
     SHORTLISTED = "SHORTLISTED"
-    #: Decided to apply; not yet applied.
-    TO_APPLY = "TO_APPLY"
     #: The application was submitted -- BY THE PERSON. This system never
     #: submits one, and no code path sets this status without a human action.
     APPLIED = "APPLIED"
@@ -80,7 +83,6 @@ TERMINAL_STATUSES: frozenset[ApplicationStatus] = frozenset(
 STATUS_ORDER: tuple[ApplicationStatus, ...] = (
     ApplicationStatus.DISCOVERED,
     ApplicationStatus.SHORTLISTED,
-    ApplicationStatus.TO_APPLY,
     ApplicationStatus.APPLIED,
     ApplicationStatus.INTERVIEW,
     ApplicationStatus.OFFER,
@@ -89,6 +91,22 @@ STATUS_ORDER: tuple[ApplicationStatus, ...] = (
     ApplicationStatus.WITHDRAWN,
     ApplicationStatus.ARCHIVED,
 )
+
+
+#: Retired values that may still appear in the append-only history, and what
+#: each one means now. Current rows never hold one (migration 0044 moved
+#: them); `job_application_event` rows written before it still do, because
+#: history is never rewritten. Every reader of a stored status goes through
+#: `canonical_status`.
+LEGACY_STATUSES: dict[str, ApplicationStatus] = {"TO_APPLY": ApplicationStatus.SHORTLISTED}
+
+
+def canonical_status(value: str | None) -> str | None:
+    """A stored status as today's vocabulary spells it (legacy values mapped)."""
+    if value is None:
+        return None
+    legacy = LEGACY_STATUSES.get(str(value))
+    return legacy.value if legacy is not None else str(value)
 
 
 #: The rungs of a ladder, and only the rungs.
@@ -106,7 +124,6 @@ STATUS_ORDER: tuple[ApplicationStatus, ...] = (
 ADVANCEMENT_LADDER: tuple[ApplicationStatus, ...] = (
     ApplicationStatus.DISCOVERED,
     ApplicationStatus.SHORTLISTED,
-    ApplicationStatus.TO_APPLY,
     ApplicationStatus.APPLIED,
     ApplicationStatus.INTERVIEW,
     ApplicationStatus.OFFER,
@@ -126,7 +143,8 @@ def moved_forward(from_status: str | None, to_status: str | None) -> bool:
     a dashboard counts. That is section 23's "do not count arbitrary edits".
     """
     ladder = {status.value: index for index, status in enumerate(ADVANCEMENT_LADDER)}
-    start, end = ladder.get(str(from_status)), ladder.get(str(to_status))
+    start = ladder.get(str(canonical_status(from_status)))
+    end = ladder.get(str(canonical_status(to_status)))
     if start is None or end is None:
         return False
     return end > start
@@ -163,7 +181,7 @@ def normalise_application_state(
     stays pure and testable.
 
     **A date is never dropped here, at any status.** It used to be: moving
-    APPLIED back to SHORTLISTED, TO_APPLY or DISCOVERED set the column to
+    APPLIED back to SHORTLISTED or DISCOVERED set the column to
     NULL. The reasoning was that keeping it would make ``has_applied`` say yes
     about a job the person had stepped back from -- which reads sensibly until
     you notice what the two fields actually mean.

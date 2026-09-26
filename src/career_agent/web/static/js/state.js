@@ -307,7 +307,7 @@ export const VIEWS = Object.freeze(['cards', 'table', 'kanban']);
  * again with worse ergonomics.
  */
 export const TRACKED_STATUSES = Object.freeze([
-  'SHORTLISTED', 'TO_APPLY', 'APPLIED', 'INTERVIEW', 'OFFER', 'HIRED',
+  'SHORTLISTED', 'APPLIED', 'INTERVIEW', 'OFFER', 'HIRED',
   'REJECTED', 'WITHDRAWN', 'ARCHIVED',
 ]);
 

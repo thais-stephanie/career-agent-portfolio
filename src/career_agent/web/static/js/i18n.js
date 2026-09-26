@@ -398,7 +398,7 @@ const EN = {
   // does to candidates, and this status is a person saying she likes a job.
   // The board and the dropdown both read it from here.
   'status.SHORTLISTED': 'Interested',
-  'status.TO_APPLY': 'To apply',
+  'statusRetired.TO_APPLY': 'To apply (now Interested)',
   'status.APPLIED': 'Applied',
   'status.INTERVIEW': 'Interviewing',
   'status.OFFER': 'Offer',
@@ -1940,7 +1940,6 @@ const EN = {
   'column.link': 'Link',
   'kanban.emptyShortlisted': 'Nothing marked interesting yet. Set a job to Interested in Cards or '
     + 'Table.',
-  'kanban.emptyToApply': 'Nothing queued to apply to.',
   'kanban.emptyApplied': 'No applications sent yet.',
   'kanban.emptyInterview': 'No interviews in progress.',
   'kanban.emptyOffer': 'No offers.',
@@ -3463,7 +3462,7 @@ const PT_BR = {
   'seniority.LEAD': 'Líder',
   'status.DISCOVERED': 'Encontrada',
   'status.SHORTLISTED': 'Tenho interesse',
-  'status.TO_APPLY': 'Para enviar',
+  'statusRetired.TO_APPLY': 'Para enviar (agora Tenho interesse)',
   'status.APPLIED': 'Candidatura enviada',
   'status.INTERVIEW': 'Em entrevista',
   'status.OFFER': 'Proposta',
@@ -4912,7 +4911,6 @@ const PT_BR = {
   'column.link': 'Link',
   'kanban.emptyShortlisted': 'Nada marcado como interessante ainda. Defina uma vaga como Tenho '
     + 'interesse em Cartões ou Tabela.',
-  'kanban.emptyToApply': 'Nada na fila para se candidatar.',
   'kanban.emptyApplied': 'Nenhuma candidatura enviada ainda.',
   'kanban.emptyInterview': 'Nenhuma entrevista em andamento.',
   'kanban.emptyOffer': 'Nenhuma proposta.',

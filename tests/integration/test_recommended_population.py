@@ -204,7 +204,6 @@ def test_tracking_an_ineligible_posting_does_not_recommend_it_again(
         for body in (
             {"saved": True},
             {"status": "SHORTLISTED"},
-            {"status": "TO_APPLY"},
             {"status": "APPLIED"},
             {"status": "INTERVIEW"},
             {"status": "REJECTED"},

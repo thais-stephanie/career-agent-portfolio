@@ -130,10 +130,10 @@ def test_opening_applications_mid_save_shows_the_job(page: Chrome, slowed: Slowe
 def test_rapid_changes_settle_on_the_last_one(page: Chrome, slowed: Slowed) -> None:
     job_id = _open_discover(page, slowed.base)
     slowed.delay = 0.3
-    for status in ("SHORTLISTED", "TO_APPLY", "APPLIED"):
+    for status in ("SHORTLISTED", "INTERVIEW", "APPLIED"):
         _set_status(page, job_id, status)
     page.wait_for(SETTLED)
-    assert slowed.saves == ["SHORTLISTED", "TO_APPLY", "APPLIED"], (
+    assert slowed.saves == ["SHORTLISTED", "INTERVIEW", "APPLIED"], (
         "saves reached the server out of order"
     )
     assert _server_status(slowed.db, job_id) == "APPLIED"

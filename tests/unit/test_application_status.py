@@ -29,7 +29,7 @@ def test_status_order_covers_the_whole_vocabulary() -> None:
     """A guard on the guard: if a status is added and not ordered, the
     parametrised tests below would silently stop covering it."""
     assert set(ALL_STATUSES) == set(ApplicationStatus)
-    assert len(ALL_STATUSES) == 10
+    assert len(ALL_STATUSES) == 9, "TO_APPLY was merged into SHORTLISTED (migration 0044)"
 
 
 # --- has_applied ------------------------------------------------------------
@@ -57,7 +57,6 @@ def test_pre_application_statuses_without_a_date_are_not_applied() -> None:
     for status in (
         ApplicationStatus.DISCOVERED,
         ApplicationStatus.SHORTLISTED,
-        ApplicationStatus.TO_APPLY,
     ):
         assert has_applied(status, None) is False
 
@@ -86,7 +85,6 @@ def test_an_existing_date_is_never_overwritten_by_the_default() -> None:
     [
         ApplicationStatus.DISCOVERED,
         ApplicationStatus.SHORTLISTED,
-        ApplicationStatus.TO_APPLY,
     ],
 )
 def test_stepping_back_from_applied_keeps_the_date(status: ApplicationStatus) -> None:
@@ -104,7 +102,7 @@ def test_stepping_back_from_applied_keeps_the_date(status: ApplicationStatus) ->
     That is the single most expensive fact this product stores, destroyed by
     the gesture the board most invites. ADR-0012.
 
-    Parameterised over all three pre-application statuses because the old
+    Parameterised over every pre-application status because the old
     behaviour was a property of the whole branch, not of SHORTLISTED.
     """
     resolved, applied_at = normalise_application_state(status, A_DATE, default_applied_at=TODAY)
@@ -119,7 +117,6 @@ def test_a_status_that_never_had_a_date_still_has_none() -> None:
     for status in (
         ApplicationStatus.DISCOVERED,
         ApplicationStatus.SHORTLISTED,
-        ApplicationStatus.TO_APPLY,
         ApplicationStatus.REJECTED,
         ApplicationStatus.ARCHIVED,
     ):

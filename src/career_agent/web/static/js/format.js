@@ -324,7 +324,7 @@ export function gateTone(result) {
 }
 
 export const APPLICATION_STATUSES = [
-  'DISCOVERED', 'SHORTLISTED', 'TO_APPLY', 'APPLIED', 'INTERVIEW',
+  'DISCOVERED', 'SHORTLISTED', 'APPLIED', 'INTERVIEW',
   'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN', 'ARCHIVED',
 ];
 
@@ -361,7 +361,9 @@ export const STATUS_WORDS = {
  */
 export function statusLabel(value) {
   const key = String(value || '').toUpperCase();
-  const translated = tState('status', key, '');
+  // A retired stage (migration 0044) can still be named by an old history
+  // row, which is never rewritten.
+  const translated = tState('status', key, '') || tState('statusRetired', key, '');
   return translated || STATUS_WORDS[key] || humanLabel(key);
 }
 

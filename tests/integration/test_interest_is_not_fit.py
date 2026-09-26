@@ -140,7 +140,7 @@ def test_the_match_package_imports_nothing_that_knows_where_she_is() -> None:
     "status",
     [
         ApplicationStatus.SHORTLISTED,
-        ApplicationStatus.TO_APPLY,
+        ApplicationStatus.INTERVIEW,
         ApplicationStatus.APPLIED,
         ApplicationStatus.REJECTED,
     ],
