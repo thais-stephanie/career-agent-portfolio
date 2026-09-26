@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/Beta_1_tests-9%2C088_passed-a7ebcf"
-      alt="9,088 tests passed"
+      src="https://img.shields.io/badge/Beta_1_tests-9%2C087_passed-a7ebcf"
+      alt="9,087 tests passed"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -293,12 +293,12 @@ an Ollama address that is not local. The full inventory is in
 
 ## Validation
 
-The v0.2.0-beta.1 release gate passed **9,088 tests** with 6 skipped and 0
+The v0.2.0-beta.1 release gate passed **9,087 tests** with 7 skipped and 0
 failed, on Windows 11 with Python 3.12:
 
 | Suite | Passed |
 |---|---:|
-| Career Agent unit | 7,002 |
+| Career Agent unit | 7,001 |
 | Career Agent integration | 1,656 |
 | Career Agent browser | 370 |
 | Resume Tailor Python | 22 |

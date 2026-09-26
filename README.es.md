@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/pruebas_Beta_1-9.088_aprobadas-a7ebcf"
-      alt="9.088 pruebas aprobadas"
+      src="https://img.shields.io/badge/pruebas_Beta_1-9.087_aprobadas-a7ebcf"
+      alt="9.087 pruebas aprobadas"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -299,12 +299,12 @@ en [PRIVACY.md](docs/PRIVACY.md).
 
 ## Validación
 
-La verificación de la versión v0.2.0-beta.1 pasó **9.088 pruebas**, con 6
+La verificación de la versión v0.2.0-beta.1 pasó **9.087 pruebas**, con 7
 omitidas y 0 fallos, en Windows 11 con Python 3.12:
 
 | Conjunto | Aprobadas |
 |---|---:|
-| Career Agent, unitarias | 7.002 |
+| Career Agent, unitarias | 7.001 |
 | Career Agent, integración | 1.656 |
 | Career Agent, navegador | 370 |
 | Resume Tailor, Python | 22 |

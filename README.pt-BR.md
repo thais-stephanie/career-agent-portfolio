@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/testes_Beta_1-9.088_aprovados-a7ebcf"
-      alt="9.088 testes aprovados"
+      src="https://img.shields.io/badge/testes_Beta_1-9.087_aprovados-a7ebcf"
+      alt="9.087 testes aprovados"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -298,12 +298,12 @@ um endereço do Ollama que não seja local. O inventário completo está em
 
 ## Validação
 
-A verificação da versão v0.2.0-beta.1 passou em **9.088 testes**, com 6
+A verificação da versão v0.2.0-beta.1 passou em **9.087 testes**, com 7
 ignorados e 0 falhas, no Windows 11 com Python 3.12:
 
 | Conjunto | Aprovados |
 |---|---:|
-| Career Agent, unitários | 7.002 |
+| Career Agent, unitários | 7.001 |
 | Career Agent, integração | 1.656 |
 | Career Agent, navegador | 370 |
 | Resume Tailor, Python | 22 |
