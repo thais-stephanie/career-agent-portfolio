@@ -118,6 +118,9 @@ describe("following a Career Agent profile", () => {
     expect(Array.from(select.options).some((o) => o.value === "TO_APPLY")).toBe(false);
     fireEvent.change(select, { target: { value: "APPLIED" } });
     await waitFor(() => expect(calls.some((c) => c.url === `/api/career/applications/${JOB.job_id}` && c.init?.method === "PATCH")).toBe(true));
+    // Every call names the profile the page was opened for (a stale tab is refused).
+    const patch = calls.find((c) => c.url === `/api/career/applications/${JOB.job_id}`);
+    expect(new Headers(patch?.init?.headers).get("X-Local-Profile")).toBe(PROFILE.id);
   });
 });
 

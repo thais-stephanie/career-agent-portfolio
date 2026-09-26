@@ -25,8 +25,20 @@ export function candidatePath(cid: string): string {
 }
 export type ExportFormat = "docx" | "pdf" | "md";
 
+/** The Career Agent profile this page was opened for. Sent on every call
+ *  so the server can refuse a tab that outlived a profile switch. */
+let followedProfile = "";
+export function followProfile(id: string) { followedProfile = id; }
+
+function withProfile(init?: RequestInit): RequestInit | undefined {
+  if (!followedProfile) return init;
+  const headers = new Headers(init?.headers);
+  headers.set("X-Local-Profile", followedProfile);
+  return { ...init, headers };
+}
+
 async function j<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(path, init);
+  const r = await fetch(path, withProfile(init));
   if (!r.ok) {
     let detail = r.statusText;
     try { detail = (await r.json()).detail ?? detail; } catch { /* keep statusText */ }
@@ -99,7 +111,7 @@ export const api = {
    *  Returns the friendly filename the server chose and, for PDFs, the page count the
    *  local renderer produced (informational — the Word measurement stays canonical). */
   download: async (path: string): Promise<{ name: string; pages?: number }> => {
-    const r = await fetch(path);
+    const r = await fetch(path, withProfile());
     if (!r.ok) {
       let detail = "The file could not be created.";
       try { detail = (await r.json()).detail ?? detail; } catch { /* keep default */ }

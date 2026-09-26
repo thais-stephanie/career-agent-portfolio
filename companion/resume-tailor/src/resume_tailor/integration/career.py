@@ -35,9 +35,9 @@ from resume_tailor.workspace.store import _ID, CandidateWorkspace, WorkspaceErro
 
 PROFILE_KEY = "career_agent_profile_id"
 SOURCE = "career_agent"
-#: Prefix of every position and record this module writes, so a re-import can
-#: replace its own rows and leave everything else alone.
-PREFIX = "ca-"
+#: Prefix of the ids this module writes. Which rows are ours is decided by
+#: provenance (`_ours`); the prefix only keeps the ids apart from Tailor's.
+PREFIX = "careeragent-"
 BASE_RESUME_ID = "career_agent_profile"
 
 
@@ -83,7 +83,10 @@ def profile_candidate(store: WorkspaceStore, profile: dict[str, str]) -> Candida
             meta[PROFILE_KEY] = profile["id"]
             ws.save_meta(meta)
         return ws
-    claimed = [m for m in store.list_candidates(include_archived=True) if m.get(PROFILE_KEY)]
+    claimed = sorted(
+        (m for m in store.list_candidates(include_archived=True) if m.get(PROFILE_KEY)),
+        key=lambda m: str(m["id"]),
+    )
     for meta in claimed:
         if meta[PROFILE_KEY] == profile["id"]:
             return store.get(meta["id"])
@@ -133,40 +136,75 @@ def _month(value: Any) -> str:
     return text[:7] if len(text) >= 7 else text
 
 
+def _dated(experience: dict[str, Any]) -> bool:
+    """Whether Tailor can place this experience without inventing a date.
+
+    Tailor's engine reads a missing end as "current" (order, recency, "Most
+    recently at"), so a past role with no stated end, or any role with no
+    start, is not imported: the person adds the date in Career Agent."""
+    if not _month(experience.get("start")):
+        return False
+    return bool(experience.get("current")) or bool(_month(experience.get("end")))
+
+
+def _usable(evidence: dict[str, Any]) -> list[dict[str, Any]]:
+    return [e for e in evidence.get("experiences", []) if e.get("highlights") and _dated(e)]
+
+
+def _ours(record: dict[str, Any]) -> bool:
+    """A record this import wrote. By PROVENANCE, never by an id pattern:
+    Tailor's own ids are slugs that can start with anything."""
+    return record.get("source_file") == SOURCE and SOURCE in (record.get("sources") or [])
+
+
+def _skills_in(text: str, skills: list[str]) -> list[str]:
+    """The experience's confirmed skills that this statement itself names."""
+    low = text.casefold()
+    return [s for s in skills if str(s).strip() and str(s).casefold() in low]
+
+
 def evidence_bank(evidence: dict[str, Any], existing: dict[str, Any] | None) -> dict[str, Any]:
     """The workspace's evidence bank with the Career Agent part replaced.
 
-    Positions and records written by an earlier import (``ca-`` ids) are
-    dropped and written again from `evidence`; everything else, and the
-    conflicts and sources Tailor recorded, is kept as it was."""
+    Records this import wrote before (by provenance) are dropped and written
+    again from `evidence`. Their positions go too, unless one of Tailor's own
+    records still uses the position. Everything else, and the conflicts and
+    sources Tailor recorded, is kept exactly as it was."""
     bank = dict(existing or {})
+    kept_records = [r for r in bank.get("records", []) if not _ours(r)]
+    used = {r.get("position_id") for r in kept_records}
+    old_ours = {r.get("position_id") for r in bank.get("records", []) if _ours(r)}
     positions = [
-        p for p in bank.get("positions", []) if not str(p.get("id", "")).startswith(PREFIX)
+        p
+        for p in bank.get("positions", [])
+        if not (p.get("id") in old_ours and str(p.get("id", "")).startswith(PREFIX))
+        or p.get("id") in used
     ]
-    records = [r for r in bank.get("records", []) if not str(r.get("id", "")).startswith(PREFIX)]
-    for experience in evidence.get("experiences", []):
-        if not experience.get("highlights"):
-            continue
+    taken = {p.get("id") for p in positions}
+    records = list(kept_records)
+    for experience in _usable(evidence):
         pid = _key("position", str(experience["id"]))
         start = _month(experience.get("start"))
-        # No end and not current is "not stated", never "present".
         end = None if experience.get("current") else _month(experience.get("end"))
         kind = {
             "INTERNSHIP": "internship",
             "INDEPENDENT": "independent",
         }.get(str(experience.get("kind") or "").upper(), "employment")
-        positions.append(
-            {
-                "id": pid,
-                "company": experience.get("company") or "",
-                "title": experience.get("title") or "",
-                "start": start,
-                "end": end,
-                "kind": kind,
-            }
-        )
+        if pid not in taken:
+            positions.append(
+                {
+                    "id": pid,
+                    "company": experience.get("company") or "",
+                    "title": experience.get("title") or "",
+                    "start": start,
+                    "end": end,
+                    "kind": kind,
+                }
+            )
+            taken.add(pid)
+        skills = [str(s) for s in experience.get("skills") or []]
         for highlight in experience["highlights"]:
-            text = " ".join(str(highlight["text"]).split())
+            text = str(highlight["text"]).strip()
             records.append(
                 {
                     "id": _key("record", str(highlight["key"])),
@@ -177,7 +215,7 @@ def evidence_bank(evidence: dict[str, Any], existing: dict[str, Any] | None) -> 
                     "end": end,
                     "claim": text,
                     "resume_text": text,
-                    "skills": list(experience.get("skills") or []),
+                    "skills": _skills_in(text, skills),
                     "source_file": SOURCE,
                     "source_reference": str(highlight["key"]),
                     "sources": [SOURCE],
@@ -188,36 +226,76 @@ def evidence_bank(evidence: dict[str, Any], existing: dict[str, Any] | None) -> 
     sources = dict(bank.get("sources", {}))
     sources[SOURCE] = "Career Agent (confirmed Career Profile)"
     candidate = dict(bank.get("candidate") or {})
-    candidate.setdefault("name", evidence.get("name") or "")
     if not candidate.get("name"):
         candidate["name"] = evidence.get("name") or "Candidate"
-    bank.update(
-        candidate=candidate,
-        positions=positions,
-        records=records,
-        sources=sources,
-    )
+    bank.update(candidate=candidate, positions=positions, records=records, sources=sources)
     bank.setdefault("education", [])
     bank.setdefault("certifications", [])
     bank.setdefault("conflicts", [])
     return bank
 
 
+def _overrides_for(bank: dict[str, Any], doc: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Tailor decisions on Career Agent rows that no longer exist (the claim
+    was retired there) move to the document's history, which the loader never
+    applies. Nothing else in the document changes."""
+    if doc is None:
+        return None
+    ids = {r["id"] for r in bank["records"]} | {p["id"] for p in bank["positions"]}
+    keep, gone = [], []
+    for entry in doc.get("overrides", []):
+        target = str(entry.get("target_id") or "")
+        stale = entry.get("applies_to") in ("record", "position") and target.startswith(PREFIX)
+        (gone if stale and target not in ids else keep).append(entry)
+    if not gone:
+        return doc
+    return {**doc, "overrides": keep, "history": [*doc.get("history", []), *gone]}
+
+
 def import_evidence(ws: CandidateWorkspace, evidence: dict[str, Any]) -> dict[str, int]:
+    """Replace the Career Agent part of the evidence, or change nothing.
+
+    The new bank (and the overrides it needs) is validated from temporary
+    files first; only a bank Tailor can read replaces the one on disk."""
+    import os
+    import tempfile
+
+    from resume_tailor.core.evidence.bank import load_index
+
     existing = (
         json.loads(ws.evidence_file.read_text(encoding="utf-8"))
         if ws.evidence_file.exists()
         else None
     )
+    overrides = (
+        json.loads(ws.overrides_file.read_text(encoding="utf-8"))
+        if ws.overrides_file.exists()
+        else None
+    )
     bank = evidence_bank(evidence, existing)
+    new_overrides = _overrides_for(bank, overrides)
+    ws.evidence_file.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=ws.root) as tmp:
+        bank_tmp = os.path.join(tmp, "evidence_bank.json")
+        with open(bank_tmp, "w", encoding="utf-8") as fh:
+            json.dump(bank, fh, indent=2, ensure_ascii=False)
+        over_tmp = None
+        if new_overrides is not None:
+            over_tmp = os.path.join(tmp, "user_overrides.json")
+            with open(over_tmp, "w", encoding="utf-8") as fh:
+                json.dump(new_overrides, fh, indent=2, ensure_ascii=False)
+        from pathlib import Path
+
+        load_index(Path(bank_tmp), Path(over_tmp) if over_tmp else None)  # raises: nothing written
+    if new_overrides is not overrides and new_overrides is not None:
+        ws.write_overrides(new_overrides)
     ws.write_evidence(bank)
-    ws.load_index()  # refuse to leave a bank Tailor cannot read
-    ours = [r for r in bank["records"] if str(r["id"]).startswith(PREFIX)]
+    ours = [r for r in bank["records"] if _ours(r)]
     return {
         "experiences": len({r["position_id"] for r in ours}),
         "details": len(ours),
-        "skipped_without_statements": sum(
-            1 for e in evidence.get("experiences", []) if not e.get("highlights")
+        "skipped_undated": sum(
+            1 for e in evidence.get("experiences", []) if e.get("highlights") and not _dated(e)
         ),
     }
 
@@ -232,9 +310,7 @@ def base_resume_from_profile(ws: CandidateWorkspace, evidence: dict[str, Any]) -
     positions = []
     skills: dict[str, str] = {}
     headline = ""
-    for experience in evidence.get("experiences", []):
-        if not experience.get("highlights"):
-            continue
+    for experience in _usable(evidence):
         if not headline and experience.get("title"):
             headline = str(experience["title"])
         positions.append(
@@ -242,7 +318,7 @@ def base_resume_from_profile(ws: CandidateWorkspace, evidence: dict[str, Any]) -
                 "position_id": _key("position", str(experience["id"])),
                 "bullets": [
                     {
-                        "text": " ".join(str(h["text"]).split()),
+                        "text": str(h["text"]).strip(),
                         "evidence_ids": [_key("record", str(h["key"]))],
                     }
                     for h in experience["highlights"]
@@ -252,9 +328,13 @@ def base_resume_from_profile(ws: CandidateWorkspace, evidence: dict[str, Any]) -
         for skill in experience.get("skills") or []:
             skills.setdefault(str(skill).casefold(), str(skill))
     if not positions:
+        undated = sum(1 for e in evidence.get("experiences", []) if e.get("highlights"))
         raise WorkspaceError(
-            "Your Career Profile has no confirmed experience yet. Confirm some in Career Agent,"
-            " or upload a resume here."
+            "Your Career Profile's confirmed experience needs its dates first: add the start"
+            " and end months in Career Agent, then try again."
+            if undated
+            else "Your Career Profile has no confirmed experience yet. Confirm some in Career"
+            " Agent, or upload a resume here."
         )
     resume = BaseResume.model_validate(
         {

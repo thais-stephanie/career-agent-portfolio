@@ -47,16 +47,20 @@ export function Tailor() {
 
   // A posting handed over from Career Agent: read it, and fill the
   // description with the posting's own text, never a copy of a copy.
+  const otherProfile = Boolean(
+    app.handoff?.profileId && app.profile && app.handoff.profileId !== app.profile.id);
   useEffect(() => {
-    if (app.mode !== "profile" || !app.handoff) return;
+    // A link opened for another profile is not followed: its posting would
+    // be tailored against this profile's evidence without anyone asking.
+    if (app.mode !== "profile" || !app.handoff || otherProfile) return;
     setHandoffError("");
     void api.careerJob(app.handoff.jobId).then((job) => {
       setCareerJob(job);
       setJd(job.description ?? "");
+      // Read once: a reload must not overwrite a description edited since.
+      app.clearHandoff();
     }).catch((e: Error) => setHandoffError(e.message || "This posting could not be read from Career Agent."));
-  }, [app.mode, app.handoff?.jobId]);
-  const otherProfile = Boolean(
-    app.handoff?.profileId && app.profile && app.handoff.profileId !== app.profile.id);
+  }, [app.mode, app.handoff?.jobId, otherProfile]);
 
   const refreshDraft = (id = appId) => {
     if (id) void api.draft(app.candidateId, id).then(setDraft).catch(() => setDraft(null));
@@ -140,12 +144,12 @@ export function Tailor() {
         )}
       </header>
       <ExportToast notice={exportNotice.notice} onDismiss={exportNotice.dismiss} />
-      {(careerJob || handoffError || (app.handoff && app.mode === "profile")) && (
+      {(careerJob || handoffError || otherProfile || (app.handoff && app.mode === "profile")) && (
         <div className="page-body" style={{ paddingBottom: 0 }}>
           {otherProfile && <Banner tone="yellow-soft">{STR.handoffOtherProfile}</Banner>}
           {handoffError ? (
             <Banner tone="yellow-soft"><span role="alert">{handoffError}</span></Banner>
-          ) : careerJob ? (
+          ) : otherProfile ? null : careerJob ? (
             <Banner tone="blue-soft">
               <span className="career-job" data-job-id={careerJob.job_id}>
                 <span className="eyebrow" style={{ marginRight: 8 }}>{STR.fromCareerAgent}</span>

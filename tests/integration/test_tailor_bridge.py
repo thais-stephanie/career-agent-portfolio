@@ -67,7 +67,11 @@ def _profile(tmp_path: Path, pid: str, label: str) -> tuple[Profile, JobsApi, Te
         tailor_home=str(base / "tailor"),
     )
     api = JobsApi(ServerConfig(db_path=db, config_dir=config, port=0), quiet=True)
-    client = TestClient(tailor_app(base / "tailor", profile, api), base_url=TAILOR)
+    client = TestClient(
+        tailor_app(base / "tailor", profile, api),
+        base_url=TAILOR,
+        headers={"X-Local-Profile": profile.id},
+    )
     return profile, api, client
 
 
@@ -117,7 +121,9 @@ def test_a_single_unclaimed_candidate_is_adopted_not_duplicated(tmp_path: Path) 
     home = Path(profile.tailor_home)
     standalone = TestClient(create_app(home=home), base_url=TAILOR)
     made = standalone.post("/api/candidates", json={"name": "Earlier Tailor use"}).json()
-    client = TestClient(tailor_app(home, profile, api), base_url=TAILOR)
+    client = TestClient(
+        tailor_app(home, profile, api), base_url=TAILOR, headers={"X-Local-Profile": profile.id}
+    )
     info = client.get("/api/workspace").json()
     assert info["candidate_id"] == made["id"], "the earlier candidate was not adopted"
     assert len(client.get("/api/candidates").json()) == 1
@@ -181,6 +187,13 @@ def test_career_agent_status_is_the_truth_and_stays_in_its_profile(two) -> None:
         f"/api/career/applications/{job_id}", json={"status": "MAYBE"}, headers={"Origin": TAILOR}
     )
     assert bad.status_code == 400
+
+
+def test_a_page_for_another_profile_is_refused(two) -> None:
+    (profile_a, _, _), (_, _, client_b) = two
+    for headers in ({"X-Local-Profile": profile_a.id}, {"X-Local-Profile": ""}):
+        response = client_b.get("/api/career/applications", headers=headers)
+        assert response.status_code == 409, headers
 
 
 def test_a_switched_away_profile_refuses_the_bridge(two) -> None:
@@ -441,3 +454,202 @@ def test_the_redirect_forwards_only_a_valid_posting_id_and_the_profile(tmp_path:
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+# ------------------------------------------------------------ re-import safety
+
+
+def _cid(client: TestClient) -> str:
+    return client.get("/api/workspace").json()["candidate_id"]
+
+
+def _synthetic_evidence(*, end: str | None = "2023-06", current: bool = False) -> dict:
+    return {
+        "name": "Synthetic",
+        "experiences": [
+            {
+                "id": "exp-1",
+                "company": "Example Systems",
+                "title": "Integration Specialist",
+                "start": "2021-02",
+                "end": end,
+                "current": current,
+                "kind": "EMPLOYMENT",
+                "highlights": [
+                    {
+                        "key": "k1",
+                        "text": "Built a synthetic  REST API bridge.\n",
+                        "origin": "self",
+                    },
+                    {"key": "k2", "text": "Wrote invented runbooks.", "origin": "self"},
+                ],
+                "skills": ["REST API", "SQL"],
+            }
+        ],
+    }
+
+
+def test_tailor_data_survives_a_re_import_whatever_its_ids(two) -> None:
+    """Tailor's own ids are slugs and may look like anything, including this
+    import's prefix. Only rows this import wrote (by provenance) are replaced."""
+    from resume_tailor.integration import career as ca
+
+    (profile, _, _), _ = two
+    ws = _ws(profile)
+    own = {
+        "candidate": {"name": "Synthetic"},
+        "positions": [
+            {
+                "id": "careeragent-own-slug",
+                "company": "Own Co",
+                "title": "Own",
+                "start": "2019-01",
+                "end": "2020-01",
+            },
+            {
+                "id": "ca-technologies-engineer",
+                "company": "CA Tech",
+                "title": "Engineer",
+                "start": "2018-01",
+                "end": "2019-01",
+            },
+        ],
+        "records": [
+            {
+                "id": "careeragent-own-slug-001",
+                "position_id": "careeragent-own-slug",
+                "company": "Own Co",
+                "role": "Own",
+                "start": "2019-01",
+                "end": "2020-01",
+                "claim": "Own claim.",
+                "resume_text": "Own claim.",
+                "source_file": "sources/files/own.pdf",
+                "sources": ["resume_own"],
+            },
+            {
+                "id": "ca-resume-1-001",
+                "position_id": "ca-technologies-engineer",
+                "company": "CA Tech",
+                "role": "Engineer",
+                "start": "2018-01",
+                "end": "2019-01",
+                "claim": "Tailor claim.",
+                "resume_text": "Tailor claim.",
+                "source_file": "sources/files/ca.pdf",
+                "sources": ["ca_resume"],
+            },
+        ],
+    }
+    ws.write_evidence(own)
+    ca.import_evidence(ws, _synthetic_evidence())
+    ca.import_evidence(ws, _synthetic_evidence())
+    import json
+
+    bank = json.loads(ws.evidence_file.read_text(encoding="utf-8"))
+    ids = {r["id"] for r in bank["records"]}
+    assert {"careeragent-own-slug-001", "ca-resume-1-001"} <= ids, "Tailor's own rows were dropped"
+    assert sum(1 for r in bank["records"] if r.get("source_file") == "career_agent") == 2
+    ws.load_index()
+    texts = {r["resume_text"] for r in bank["records"] if r.get("source_file") == "career_agent"}
+    assert "Built a synthetic  REST API bridge." in texts, "the statement was not kept verbatim"
+    skills = {
+        r["resume_text"]: r["skills"]
+        for r in bank["records"]
+        if r.get("source_file") == "career_agent"
+    }
+    assert skills["Wrote invented runbooks."] == [], (
+        "a statement vouched for a skill it never names"
+    )
+    assert skills["Built a synthetic  REST API bridge."] == ["REST API"]
+
+
+def test_a_decision_on_a_retired_claim_moves_to_history_and_the_bank_stays_readable(two) -> None:
+    from resume_tailor.integration import career as ca
+
+    (profile, _, _), _ = two
+    ws = _ws(profile)
+    ca.import_evidence(ws, _synthetic_evidence())
+    rid = ca._key("record", "k2")
+    ws.write_overrides(
+        {
+            "overrides": [
+                {
+                    "id": "user_confirmation_001",
+                    "topic": "t",
+                    "applies_to": "record",
+                    "target_id": rid,
+                    "values": {"include_by_default": True},
+                    "record_verification": {rid: "user_verified"},
+                    "note": "",
+                    "confirmed_at": "2026-09-26",
+                }
+            ]
+        }
+    )
+    retired = _synthetic_evidence()
+    retired["experiences"][0]["highlights"] = retired["experiences"][0]["highlights"][:1]
+    ca.import_evidence(ws, retired)
+    ws.load_index()
+    import json
+
+    doc = json.loads(ws.overrides_file.read_text(encoding="utf-8"))
+    assert doc["overrides"] == [] and doc["history"][0]["target_id"] == rid
+
+
+def test_an_import_that_would_break_the_bank_changes_nothing(two, monkeypatch) -> None:
+    from resume_tailor.integration import career as ca
+
+    (profile, _, _), _ = two
+    ws = _ws(profile)
+    ca.import_evidence(ws, _synthetic_evidence())
+    before = ws.evidence_file.read_bytes()
+    broken = _synthetic_evidence()
+    broken["experiences"][0]["highlights"].append(
+        {"key": "k1", "text": "Duplicate id.", "origin": "self"}
+    )
+    with pytest.raises(ValueError):
+        ca.import_evidence(ws, broken)
+    assert ws.evidence_file.read_bytes() == before
+
+
+def test_a_past_role_without_an_end_date_is_not_imported_with_an_invented_one(two) -> None:
+    from resume_tailor.integration import career as ca
+
+    (profile, _, _), _ = two
+    ws = _ws(profile)
+    out = ca.import_evidence(ws, _synthetic_evidence(end=None))
+    assert out["details"] == 0 and out["skipped_undated"] == 1
+    current = ca.import_evidence(ws, _synthetic_evidence(end=None, current=True))
+    assert current["details"] == 2
+    import json
+
+    bank = json.loads(ws.evidence_file.read_text(encoding="utf-8"))
+    assert {p["end"] for p in bank["positions"] if p["id"].startswith("careeragent-")} == {None}
+
+
+def test_a_backup_restores_only_into_the_profile(two) -> None:
+    (_, _, client), _ = two
+    cid = _cid(client)
+    exported = client.get(f"/api/candidates/{cid}/backup").content
+    files = {"file": ("b.zip", exported, "application/zip")}
+    new = client.post("/api/candidates/import", files=files, headers={"Origin": TAILOR})
+    assert new.status_code == 400 and "only be restored into" in new.json()["detail"]
+    name = client.get(f"/api/candidates/{cid}").json()["name"]
+    restored = client.post(
+        "/api/candidates/import",
+        files=files,
+        data={"replace_id": cid, "confirm_name": name},
+        headers={"Origin": TAILOR},
+    )
+    assert restored.status_code == 200, restored.text
+    assert [c["id"] for c in client.get("/api/candidates").json()] == [cid]
+
+
+def _ws(profile: Profile):  # noqa: ANN202
+    """The profile's Tailor workspace, opened the way the bridge opens it."""
+    from resume_tailor.integration import career as ca
+    from resume_tailor.workspace import WorkspaceStore
+
+    store = WorkspaceStore(Path(profile.tailor_home))
+    return ca.profile_candidate(store, {"id": profile.id, "label": profile.label})

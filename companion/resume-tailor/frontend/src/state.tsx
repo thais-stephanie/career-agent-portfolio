@@ -1,6 +1,6 @@
 // Modified for the Career Agent public edition (2026-09-26). See NOTICE.
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { api, Candidate, StatusOption, Workspace } from "./api";
+import { api, Candidate, followProfile, StatusOption, Workspace } from "./api";
 
 export type Screen = "overview" | "tailor" | "applications" | "base" | "experience" | "sources" | "settings";
 
@@ -85,6 +85,7 @@ export function AppProvider(props: { children: ReactNode }) {
       const ws: Workspace = answer?.mode === "profile" && answer.candidate_id ? answer : { mode: "standalone" };
       setWorkspace(ws);
       if (ws.mode === "profile") {
+        followProfile(ws.profile.id);
         setCandidateId(ws.candidate_id);
         setCandidates([{ id: ws.candidate_id, name: ws.candidate_name, archived: false, base_resumes: 0, applications: 0 }]);
       }

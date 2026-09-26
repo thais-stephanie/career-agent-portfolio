@@ -169,6 +169,17 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
         from resume_tailor.workspace.backup import import_backup
 
         data = await file.read()
+        own = None
+        if bridge is not None:
+            # Following a profile, a backup restores INTO that profile's
+            # workspace: a second candidate would be invisible here.
+            from resume_tailor.integration import career as ca
+
+            own = ca.profile_candidate(store, bridge.profile())
+            if replace_id != own.id:
+                raise HTTPException(
+                    400, "A backup can only be restored into this profile's Resume Tailor data."
+                )
         try:
             ws = import_backup(
                 store, data, replace_id=replace_id or None, confirm_name=confirm_name
@@ -177,6 +188,14 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
             raise HTTPException(409, str(e)) from e
         except WorkspaceError as e:
             raise HTTPException(400, str(e)) from e
+        if own is not None:
+            # The backup's own profile stamp is not trusted: this workspace is
+            # this profile's, whatever file it came from.
+            from resume_tailor.integration.career import PROFILE_KEY
+
+            meta = ws.meta()
+            meta[PROFILE_KEY] = bridge.profile()["id"]
+            ws.save_meta(meta)
         return {"id": ws.id, "name": ws.meta().get("name", "")}
 
     # ----------------------------------------------------------------- config

@@ -72,6 +72,28 @@ def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
                 {"detail": "No candidate is selected. Reload Resume Tailor and try again."},
                 status_code=400,
             )
+        # Following a Career Agent profile, a page names the profile it was
+        # opened for. After a switch the server serves the NEW profile, so a
+        # tab still showing the old one is refused rather than allowed to
+        # read or write someone else's applications and evidence. The
+        # profile's own routes need the header; /api/workspace is how a page
+        # learns it.
+        if bridge is not None and path.startswith("/api/") and path != "/api/workspace":
+            claimed = (request.headers.get("x-local-profile") or "").strip()
+            needs = path.startswith(("/api/career/", "/api/candidates"))
+            if claimed or needs:
+                try:
+                    current = str(bridge.profile()["id"])
+                except Exception:  # a retired bridge answers the same way
+                    current = ""
+                if not claimed or claimed != current:
+                    return JSONResponse(
+                        {
+                            "detail": "Career Agent switched to another local profile."
+                            " Reload Resume Tailor to follow it."
+                        },
+                        status_code=409,
+                    )
         origin = request.headers.get("origin")
         if origin is not None and origin != "http://" + host:
             return JSONResponse({"detail": "Same-origin requests only"}, status_code=403)
