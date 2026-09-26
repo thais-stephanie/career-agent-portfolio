@@ -427,3 +427,33 @@ def test_find_jobs_also_respects_a_refusal(api, monkeypatch) -> None:
 
         threading.Event().wait(0.05)
     assert "collect-remotive" not in ran and ran, ran
+
+
+def test_a_partial_pass_that_never_succeeded_stays_due(tmp_path) -> None:
+    conn = _db(tmp_path)
+    _finish(
+        conn,
+        "collect",
+        PipelineRunStatus.OK,
+        {"by_provider": {"ashby": {"boards_attempted": 0, "boards_deferred": 5}}},
+    )
+    conn.execute("DELETE FROM pipeline_run")
+    row = read_progress(
+        conn, stage_for={"ashby": "collect"}, providers={"ashby": "ashby"}, public=_public(conn)
+    )[0]
+    assert row.state is RefreshState.PARTIAL and row.last_success is None and row.due
+
+
+def test_find_jobs_says_when_everything_is_cooling_down(api, monkeypatch) -> None:
+    from career_agent.sources.health import health
+    from career_agent.web.server import ApiError
+
+    with connect(api.config.db_path) as conn:
+        every = {
+            e.source.id
+            for e in health(conn, catalogue_path=api.config.config_dir / "source_catalogue.yaml")
+        }
+    monkeypatch.setattr(api, "_refresh_progress", lambda entries: _rows(api, set(), cooling=every))
+    with pytest.raises(ApiError) as refused:
+        api.handle_api("POST", "/api/sources/refresh-all", {}, {})
+    assert "cooling down" in refused.value.message

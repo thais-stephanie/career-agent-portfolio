@@ -182,6 +182,10 @@ class SourceProgress:
         cooling down after a refusal or a failure."""
         if self.cooldown_until is not None:
             return False
+        # A partial pass that never succeeded (deferred before reading
+        # anything) has no age to go stale by: it is due until it succeeds.
+        if self.state is RefreshState.PARTIAL and self.last_success is None:
+            return True
         return self.state in (
             RefreshState.DUE,
             RefreshState.STALE,

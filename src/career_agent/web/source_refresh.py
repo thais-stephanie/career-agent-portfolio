@@ -359,6 +359,15 @@ def register_source_refresh(app: JobsApi) -> None:
             opted = opted_in(conn, entries)
         _refuse_unless_ready(identity)
         steps, deferred, seen = _plan(entries, opted, only=None, discover=True)
+        if not steps and any(
+            p.state == "RATE_LIMITED" and p.cooldown_until for p in app._refresh_progress(entries)
+        ):
+            raise ApiError(
+                409,
+                "The sources you can use refused the last requests and are cooling down. "
+                "Try again later; Settings & Sources says when.",
+                for_reader=True,
+            )
         if not steps:
             raise ApiError(
                 409,
