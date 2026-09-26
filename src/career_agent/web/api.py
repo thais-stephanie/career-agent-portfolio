@@ -2308,13 +2308,6 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
         # One reading at a time: Ollama serves one request at a time, and a
         # second reading would only wait in its queue until its own deadline.
-        busy = self.local_readings.running_job()
-        if busy is not None and busy != job_id:
-            raise ApiError(
-                409,
-                "The local model is reading another posting. Wait for it, or cancel it there.",
-                for_reader=True,
-            )
         settings = OllamaSettings.from_env(dict(os.environ))
         config_id, config_version = self._identity()
         # Deterministic triage runs FIRST, here as well as in the CLI: the
@@ -2324,7 +2317,17 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         work = self._local_reading_work(
             job_id, config_id, config_version, int(minimum) if minimum is not None else None
         )
-        return self.local_readings.start(job_id, settings.model, work)
+        # One reading at a time: Ollama serves one request at a time, and a
+        # second reading would only wait in its queue until its own deadline.
+        # Checked inside `start`, under the same lock that registers it.
+        started = self.local_readings.start(job_id, settings.model, work, exclusive=True)
+        if started is None:
+            raise ApiError(
+                409,
+                "The local model is reading another posting. Wait for it, or cancel it there.",
+                for_reader=True,
+            )
+        return started
 
     def enrich_status(self, *, job_id: str, query: dict, body: dict) -> dict:
         """Where this posting's local reading stands. NOT_RUN if never asked in

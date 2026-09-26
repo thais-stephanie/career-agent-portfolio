@@ -1034,6 +1034,7 @@ export function createDrawer({
       unexpected: 'local.state.unexpected',
       no_answer: 'local.state.unexpected',
       busy: 'local.state.busy',
+      refused: 'local.state.refused',
     };
 
     function stopPolling() {
@@ -1115,7 +1116,9 @@ export function createDrawer({
       } catch (error) {
         finished({
           state: 'ERROR',
-          code: error.status === 409 ? 'busy' : '',
+          // The server's own sentence says which 409 this is (another
+          // reading running, or a profile that is no longer active).
+          code: 'refused',
           message: error.userMessage || error.message,
         });
       }

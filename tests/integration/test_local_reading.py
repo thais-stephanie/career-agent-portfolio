@@ -8,6 +8,7 @@ TIMEOUT, MODEL_MISSING, OLLAMA_UNAVAILABLE and ERROR. Synthetic postings only.
 
 from __future__ import annotations
 
+import contextlib
 import shutil
 import socket
 import time
@@ -336,3 +337,40 @@ def test_an_unexpected_failure_never_reaches_the_page_raw(world) -> None:
     final = _wait(api, job)
     assert final["state"] == runner.ERROR and final["code"] == "unexpected"
     assert "private" not in final["message"] and "sqlite" not in final["message"]
+
+
+def test_two_starts_arriving_together_run_one_reading(world) -> None:
+    import threading
+
+    from career_agent.web.server import ApiError
+
+    api, job = world["api"], world["job"]
+    other = next(
+        j
+        for j in api.handle_api("GET", "/api/jobs", {"limit": ["50"]}, {})["items"]
+        if j["job_id"] != job
+    )["job_id"]
+    with FakeOllama() as fake:
+        fake.behaviour.quote = world["quote"]
+        fake.behaviour.first_delay = 30
+        world["monkeypatch"].setenv("OLLAMA_BASE_URL", fake.url)
+        outcomes: list[str] = []
+        gate = threading.Barrier(2)
+
+        def start(target: str) -> None:
+            gate.wait()
+            try:
+                api.handle_api("POST", f"/api/jobs/{target}/enrich", {}, {})
+                outcomes.append("started")
+            except ApiError as exc:
+                outcomes.append(str(exc.status))
+
+        threads = [threading.Thread(target=start, args=(j,)) for j in (job, other)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert sorted(outcomes) == ["409", "started"], outcomes
+        for target in (job, other):
+            with contextlib.suppress(ApiError):
+                api.handle_api("POST", f"/api/jobs/{target}/enrich/cancel", {}, {})

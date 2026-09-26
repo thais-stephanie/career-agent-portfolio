@@ -93,13 +93,24 @@ class LocalReadings:
         self._runs: dict[str, LocalReading] = {}
 
     def start(
-        self, job_id: str, model: str, work: Callable[[LocalReading], None]
-    ) -> dict[str, Any]:
-        """Begin a reading, or return the one already running for this posting."""
+        self,
+        job_id: str,
+        model: str,
+        work: Callable[[LocalReading], None],
+        *,
+        exclusive: bool = False,
+    ) -> dict[str, Any] | None:
+        """Begin a reading, or return the one already running for this posting.
+
+        With `exclusive`, returns None instead when ANOTHER posting's reading
+        is running; the check and the registration share one lock, so two
+        requests arriving together cannot both start."""
         with self._lock:
             current = self._runs.get(job_id)
             if current is not None and current.state == RUNNING:
                 return current.as_dict()
+            if exclusive and any(r.state == RUNNING for r in self._runs.values()):
+                return None
             reading = LocalReading(job_id=job_id, model=model)
             self._runs[job_id] = reading
 
@@ -131,11 +142,6 @@ class LocalReadings:
         if reading.state == RUNNING:
             reading.cancel.set()
         return reading.as_dict()
-
-    def running_job(self) -> str | None:
-        """The posting being read right now, if any."""
-        with self._lock:
-            return next((j for j, r in self._runs.items() if r.state == RUNNING), None)
 
     def cancel_all(self) -> None:
         with self._lock:

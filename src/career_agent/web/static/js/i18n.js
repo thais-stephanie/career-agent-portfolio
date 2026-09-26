@@ -1837,6 +1837,7 @@ const EN = {
     + 'Nothing was sent anywhere else.',
   'local.state.TIMEOUT': 'The local model didn\'t finish in time ({seconds}s). Nothing changed; you can try again.',
   'local.state.ERROR': 'The local model could not finish: {error}',
+  'local.state.refused': '{error}',
   'local.state.belowThreshold': 'This job\'s Search Fit is below the local model\'s threshold, so it was not read.',
   'local.state.unverifiable': 'The local model answered, but its quotes could not be found in the posting, '
     + 'so nothing was saved. You can try again.',
@@ -4805,6 +4806,7 @@ const PT_BR = {
     + 'Nada foi enviado para nenhum outro lugar.',
   'local.state.TIMEOUT': 'O modelo local não terminou a tempo ({seconds}s). Nada mudou; você pode tentar de novo.',
   'local.state.ERROR': 'O modelo local não conseguiu terminar: {error}',
+  'local.state.refused': '{error}',
   'local.state.belowThreshold': 'O Search Fit desta vaga está abaixo do limite do modelo local, '
     + 'então ela não foi lida.',
   'local.state.unverifiable': 'O modelo local respondeu, mas as citações não foram encontradas na vaga, '
