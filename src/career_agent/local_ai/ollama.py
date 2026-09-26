@@ -47,7 +47,7 @@ or captured by a crash reporter cannot carry them by accident.
 
 import ipaddress
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import urlsplit
@@ -66,9 +66,28 @@ ENV_TIMEOUT_MS = "OLLAMA_TIMEOUT_MS"
 DEFAULT_BASE_URL = "http://localhost:11434"
 DEFAULT_MODEL = "qwen3:4b"
 
-#: Five minutes. A 4B model on CPU is slow, not broken, and a timeout that fires
-#: mid-generation looks exactly like a crash while wasting the whole run.
-DEFAULT_TIMEOUT_MS = 300_000
+#: Six minutes for the WHOLE reading, first-run model load included. A 4B
+#: model on a laptop CPU is slow, not broken: measured on 2026-09-26, qwen3:4b
+#: took ~15 s to load and ~3 minutes to read a 5,000-character posting. It is
+#: a total deadline, not a per-read timeout: the old per-read 300 s limit
+#: could be met twice over (and then retried) before anything was shown.
+DEFAULT_TIMEOUT_MS = 360_000
+#: The limit for the small questions asked before a reading (`/api/tags`,
+#: `/api/ps`). They answer in milliseconds; a server that accepts the
+#: connection and then says nothing must not hold a reading for minutes.
+META_TIMEOUT_S = 10.0
+
+#: The longest answer the model may write. The contract's answer is a few
+#: hundred tokens; without a cap a constrained-JSON generation can keep going
+#: until the context is full.
+DEFAULT_NUM_PREDICT = 1536
+
+#: How long Ollama keeps the model loaded after a reading, so a second posting
+#: read soon after does not pay the load again.
+KEEP_ALIVE = "10m"
+
+#: A streamed chat: every decoded line, with a deadline and a way to stop.
+StreamTransport = Callable[..., "dict[str, Any]"]
 
 
 class OllamaUnavailable(RuntimeError):
@@ -97,6 +116,21 @@ class OllamaRefused(RuntimeError):
 
 class OllamaInvalidOutput(RuntimeError):
     """The endpoint answered, and the answer was not a valid enrichment."""
+
+
+class OllamaFailed(RuntimeError):
+    """Ollama answered, and could not produce an answer: it said why (out of
+    memory, a model that failed to load), or the stream ended before `done`.
+    Not an outage: the message carries Ollama's own words."""
+
+
+class OllamaTimedOut(RuntimeError):
+    """The reading did not finish before its total deadline."""
+
+
+class OllamaCancelled(RuntimeError):
+    """The person cancelled the reading. The connection was closed, which is
+    what makes Ollama stop generating."""
 
 
 def assert_loopback(base_url: str) -> str:
@@ -172,6 +206,7 @@ class OllamaSettings:
     stream: bool = False
     temperature: float = 0.0
     seed: int = 0
+    num_predict: int = DEFAULT_NUM_PREDICT
     #: Not in the environment on purpose. Context size is a property of the
     #: prompt we send, not of the machine, and a caller changing it gets a
     #: different cache key rather than a different answer under the same one.
@@ -224,6 +259,7 @@ class OllamaSettings:
             "temperature": self.temperature,
             "seed": self.seed,
             "num_ctx": self.num_ctx,
+            "num_predict": self.num_predict,
         }
 
     def with_model(self, model: str) -> "OllamaSettings":
@@ -258,6 +294,210 @@ def _httpx_transport(
     return response.status_code, body if isinstance(body, dict) else {}
 
 
+def _loopback_stream_chat(
+    url: str,
+    body: dict[str, Any],
+    *,
+    deadline: float,
+    should_stop: Callable[[], bool],
+    on_chunk: Callable[[dict[str, Any]], None],
+) -> dict[str, Any]:
+    """POST a STREAMED /api/chat and assemble it, or stop.
+
+    Streaming is what makes a local reading stoppable and bounded. Returns the
+    final chunk with the whole `message.content` assembled into it.
+
+    While Ollama loads the model or reads the prompt NOTHING arrives, not even
+    the response headers, so a check between chunks alone makes Cancel wait
+    minutes. Neither closing an httpx client nor shutting a socket down from
+    another thread reliably interrupts a read already blocked on Windows
+    (measured: a live cancel during a cold load took 37s). So this owns the
+    socket and never blocks on it for more than 0.2s: every wait is a
+    `select`, and between waits the cancel flag and the total deadline are
+    checked. Leaving closes the connection, which is Ollama's signal to stop.
+    """
+    import select
+    import socket
+    import time
+    from urllib.parse import urlsplit
+
+    assert_loopback(url)
+    parts = urlsplit(url)
+    host = parts.hostname or "127.0.0.1"
+    port = parts.port or 80
+    try:
+        sock = socket.create_connection((host, port), timeout=10)
+    except OSError as exc:
+        raise OllamaUnavailable(
+            "could not reach the local Ollama endpoint. Is `ollama serve` running?"
+        ) from exc
+    content: list[str] = []
+    try:
+        payload = json.dumps(body).encode("utf-8")
+        head = "\r\n".join(
+            [
+                f"POST {parts.path or '/api/chat'} HTTP/1.1",
+                f"Host: {host}:{port}",
+                "Content-Type: application/json",
+                f"Content-Length: {len(payload)}",
+                "Connection: close",
+                "",
+                "",
+            ]
+        ).encode("ascii")
+        sock.sendall(head + payload)
+
+        def receive() -> bytes:
+            """The next bytes, waiting at most 0.2s at a time; b"" at the end."""
+            while True:
+                if should_stop():
+                    raise OllamaCancelled("the reading was cancelled")
+                if time.monotonic() > deadline:
+                    raise OllamaTimedOut("the local model did not finish in time")
+                ready, _, _ = select.select([sock], [], [], 0.2)
+                if ready:
+                    return sock.recv(65536)
+
+        final = _read_stream(_RawResponse(receive), content, deadline, should_stop, on_chunk)
+    except OSError as exc:
+        raise OllamaUnavailable(
+            "the connection to the local Ollama endpoint failed during the reading."
+        ) from exc
+    finally:
+        sock.close()
+    message = dict(final.get("message") or {})
+    message["content"] = "".join(content)
+    final = dict(final)
+    final["message"] = message
+    return final
+
+
+class _RawResponse:
+    """A minimal HTTP/1.1 response reader over `receive()`, exposing the two
+    members `_read_stream` uses (`status_code`, `iter_lines`). Handles the
+    chunked transfer Ollama streams with, and a body delimited by the
+    connection closing."""
+
+    def __init__(self, receive: Callable[[], bytes]) -> None:
+        self._receive = receive
+        self._buffer = b""
+        while b"\r\n\r\n" not in self._buffer:
+            data = receive()
+            if not data:
+                raise OllamaUnavailable("the local Ollama endpoint closed without answering.")
+            self._buffer += data
+        head, self._buffer = self._buffer.split(b"\r\n\r\n", 1)
+        lines = head.decode("iso-8859-1").split("\r\n")
+        try:
+            self.status_code = int(lines[0].split(" ")[1])
+        except (IndexError, ValueError) as exc:
+            raise OllamaUnavailable("the local Ollama endpoint sent no HTTP status.") from exc
+        headers = {
+            name.strip().lower(): value.strip()
+            for name, _, value in (line.partition(":") for line in lines[1:])
+        }
+        self._chunked = "chunked" in headers.get("transfer-encoding", "").lower()
+
+    def _more(self) -> bool:
+        data = self._receive()
+        self._buffer += data
+        return bool(data)
+
+    def _body(self) -> Iterator[bytes]:
+        if not self._chunked:
+            while self._buffer or self._more():
+                piece, self._buffer = self._buffer, b""
+                yield piece
+            return
+        while True:
+            while b"\r\n" not in self._buffer:
+                if not self._more():
+                    raise OllamaFailed(
+                        "The connection to Ollama closed before the answer finished."
+                    )
+            size_line, self._buffer = self._buffer.split(b"\r\n", 1)
+            try:
+                size = int(size_line.split(b";")[0].strip() or b"0", 16)
+            except ValueError as exc:
+                raise OllamaUnavailable("the local Ollama endpoint sent a broken stream.") from exc
+            if size == 0:
+                return
+            while len(self._buffer) < size + 2:
+                if not self._more():
+                    raise OllamaFailed(
+                        "The connection to Ollama closed before the answer finished."
+                    )
+            yield self._buffer[:size]
+            self._buffer = self._buffer[size + 2 :]
+
+    def iter_lines(self) -> Iterator[str]:
+        pending = b""
+        for piece in self._body():
+            pending += piece
+            *complete, pending = pending.split(b"\n")
+            for line in complete:
+                yield line.decode("utf-8", errors="replace")
+        if pending:
+            yield pending.decode("utf-8", errors="replace")
+
+
+def _ollama_words(text: str) -> str:
+    """What Ollama said, short and on one line."""
+    return " ".join(str(text).split())[:240]
+
+
+def _read_stream(
+    response: Any,
+    content: list[str],
+    deadline: float,
+    should_stop: Callable[[], bool],
+    on_chunk: Callable[[dict[str, Any]], None],
+) -> dict[str, Any]:
+    """Assemble the streamed chunks; stop on cancel or the deadline.
+
+    A stream that ends without its `done` chunk is a failure, never an empty
+    answer: an empty answer used to be retried and then reported as "could
+    not be verified", which blamed the model for Ollama stopping."""
+    import time
+
+    if response.status_code != 200:
+        said = ""
+        for line in response.iter_lines():
+            try:
+                said = str(json.loads(line).get("error") or "")
+            except (ValueError, AttributeError):
+                said = line
+            if said:
+                break
+        raise OllamaFailed(
+            f"Ollama said: {_ollama_words(said)}"
+            if said
+            else f"Ollama answered with status {response.status_code}."
+        )
+    for line in response.iter_lines():
+        if should_stop():
+            raise OllamaCancelled("the reading was cancelled")
+        if time.monotonic() > deadline:
+            raise OllamaTimedOut("the local model did not finish in time")
+        if not line.strip():
+            continue
+        try:
+            chunk = json.loads(line)
+        except ValueError as exc:
+            raise OllamaInvalidOutput("the stream carried a line that is not JSON") from exc
+        if not isinstance(chunk, dict):
+            continue
+        if chunk.get("error"):
+            raise OllamaFailed(f"Ollama said: {_ollama_words(chunk['error'])}")
+        piece = (chunk.get("message") or {}).get("content") or ""
+        if piece:
+            content.append(piece)
+        on_chunk(chunk)
+        if chunk.get("done"):
+            return chunk
+    raise OllamaFailed("The connection to Ollama closed before the answer finished.")
+
+
 class OllamaClient:
     """A minimal client for the two Ollama endpoints this project uses.
 
@@ -265,12 +505,22 @@ class OllamaClient:
     does not justify either, and a stateless client is trivially fake-able.
     """
 
-    def __init__(self, settings: OllamaSettings, transport: Transport | None = None) -> None:
+    def __init__(
+        self,
+        settings: OllamaSettings,
+        transport: Transport | None = None,
+        stream_transport: StreamTransport | None = None,
+    ) -> None:
         # Refuse at construction so a misconfigured URL fails where the mistake
         # was made, not later inside whatever happened to call enrich().
         assert_loopback(settings.base_url)
         self.settings = settings
         self._transport: Transport = transport or _httpx_transport
+        # Streaming is the real path. A test that injects only a plain
+        # transport keeps the one-shot request it was written against.
+        self._stream_transport: StreamTransport | None = stream_transport or (
+            None if transport is not None else _loopback_stream_chat
+        )
 
     def _url(self, path: str) -> str:
         # Re-checked immediately before every request. Frozen settings protect
@@ -283,11 +533,13 @@ class OllamaClient:
         method: str,
         path: str,
         json_body: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> tuple[int, dict[str, Any]]:
         url = self._url(path)
+        limit = self.settings.timeout_seconds if timeout is None else timeout
         try:
-            return self._transport(method, url, json_body, self.settings.timeout_seconds)
-        except (OllamaUnavailable, OllamaRefused, OllamaInvalidOutput):
+            return self._transport(method, url, json_body, limit)
+        except (OllamaUnavailable, OllamaRefused, OllamaInvalidOutput, OllamaFailed):
             raise
         except Exception as exc:
             # Connection refused, timeout, DNS, a transport bug: from here they
@@ -300,7 +552,7 @@ class OllamaClient:
 
     def health(self) -> list[str]:
         """Model names the local server currently has. Raises if it cannot say."""
-        status, body = self._call("GET", "/api/tags")
+        status, body = self._call("GET", "/api/tags", timeout=META_TIMEOUT_S)
         if status != 200:
             raise OllamaUnavailable(
                 "the local Ollama endpoint answered with a non-200 status for "
@@ -323,11 +575,28 @@ class OllamaClient:
         wanted = _strip_latest(self.settings.model)
         return any(_strip_latest(name) == wanted for name in self.health())
 
+    def loaded_models(self) -> list[str]:
+        """Models Ollama has in memory right now (`/api/ps`); empty if unknown.
+
+        Only used to say "loading the model" rather than "reading" while the
+        first reading after a start pays the load."""
+        try:
+            status, body = self._call("GET", "/api/ps", timeout=META_TIMEOUT_S)
+        except OllamaUnavailable:
+            return []
+        models = body.get("models") if status == 200 else None
+        if not isinstance(models, list):
+            return []
+        return [str(entry.get("name", "")) for entry in models if isinstance(entry, dict)]
+
     def enrich(
         self,
         messages: list[dict[str, str]],
         *,
         schema: dict[str, Any],
+        deadline: float | None = None,
+        should_stop: Callable[[], bool] | None = None,
+        on_chunk: Callable[[dict[str, Any]], None] | None = None,
     ) -> tuple[LocalEnrichment, dict[str, Any]]:
         """One chat completion, schema-enforced, parsed into the contract.
 
@@ -348,14 +617,33 @@ class OllamaClient:
                 "temperature": self.settings.temperature,
                 "seed": self.settings.seed,
                 "num_ctx": self.settings.num_ctx,
+                "num_predict": self.settings.num_predict,
             },
         }
-        status, payload = self._call("POST", "/api/chat", body)
+        if self._stream_transport is not None:
+            import time
 
-        if status != 200:
-            raise OllamaUnavailable(
-                "the local Ollama endpoint answered /api/chat with a non-200 status."
+            body["stream"] = True
+            body["keep_alive"] = KEEP_ALIVE
+            payload = self._stream_transport(
+                self._url("/api/chat"),
+                body,
+                deadline=deadline
+                if deadline is not None
+                else time.monotonic() + self.settings.timeout_seconds,
+                should_stop=should_stop or (lambda: False),
+                on_chunk=on_chunk or (lambda chunk: None),
             )
+        else:
+            status, payload = self._call("POST", "/api/chat", body)
+            if status != 200:
+                raise OllamaUnavailable(
+                    "the local Ollama endpoint answered /api/chat with a non-200 status."
+                )
+
+        if payload.get("done_reason") == "length":
+            # Cut off at the token cap: whatever JSON arrived is incomplete.
+            raise OllamaInvalidOutput("the model's answer was cut off before it finished.")
 
         message = payload.get("message")
         if not isinstance(message, dict):

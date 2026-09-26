@@ -41,10 +41,13 @@ from career_agent.local_ai.cache import (
 )
 from career_agent.local_ai.contract import VerifiedEnrichment, json_schema, verify
 from career_agent.local_ai.ollama import (
+    OllamaCancelled,
     OllamaClient,
+    OllamaFailed,
     OllamaInvalidOutput,
     OllamaRefused,
     OllamaSettings,
+    OllamaTimedOut,
     OllamaUnavailable,
 )
 from career_agent.local_ai.prompt import LOCAL_PROMPT_VERSION, PROMPT_DIGEST, build_messages
@@ -52,6 +55,12 @@ from career_agent.storage.db import transaction
 
 #: Where accepted local answers are archived. `out/` is already gitignored.
 CACHE_ROOT = Path("out") / "local_ai"
+
+#: The longest posting text sent to the model. On a laptop CPU the model reads
+#: roughly 25 tokens a second, so the prompt, not the answer, is what grows a
+#: reading past its deadline. A quote cut from the first part of a posting is
+#: still verified against that part, so nothing unverifiable can pass.
+MAX_DESCRIPTION_CHARS = 6000
 
 #: The capability sentence the model is given about the candidate.
 #:
@@ -75,7 +84,28 @@ class EnrichmentUnavailable(RuntimeError):
 
 
 class EnrichmentRejected(RuntimeError):
-    """The model answered, and what it said could not be verified."""
+    """The reading was refused or could not be verified. `code` says which:
+    `no_such_job`, `below_threshold` or `unverifiable`."""
+
+    def __init__(self, message: str, code: str = "unverifiable") -> None:
+        super().__init__(message)
+        self.code = code
+
+
+class EnrichmentFailed(RuntimeError):
+    """Ollama answered and could not finish; the message is Ollama's words."""
+
+
+class EnrichmentModelMissing(EnrichmentUnavailable):
+    """Ollama is running, and the configured model is not installed."""
+
+
+class EnrichmentTimedOut(RuntimeError):
+    """The reading did not finish before its total deadline."""
+
+
+class EnrichmentCancelled(RuntimeError):
+    """The person cancelled the reading."""
 
 
 def _now() -> str:
@@ -96,6 +126,9 @@ def enrich_one(
     env: dict[str, str] | None = None,
     min_score: int | None = None,
     max_attempts: int = 2,
+    should_stop: Any = None,
+    deadline: float | None = None,
+    on_progress: Any = None,
 ) -> dict[str, Any]:
     """Enrich one job. Returns the updated Ollama state for the health payload.
 
@@ -105,21 +138,31 @@ def enrich_one(
     behind a retry loop would waste the candidate's laptop and the finding.
     """
     import os
+    import time
+
+    stop = should_stop or (lambda: False)
+
+    def progress(phase: str, tokens: int = 0) -> None:
+        if on_progress is not None:
+            on_progress(phase, tokens)
 
     row = _load_job(conn, job_id)
     if row is None:
-        raise EnrichmentRejected(f"no such job: {job_id}")
+        raise EnrichmentRejected(f"no such job: {job_id}", code="no_such_job")
 
     score = _stored_score(conn, job_id, config_id, config_version)
     if min_score is not None and (score is None or score < min_score):
         raise EnrichmentRejected(
             f"job scores {score if score is not None else 'nothing'} and the local model "
-            f"threshold is {min_score}. Deterministic triage runs first."
+            f"threshold is {min_score}. Deterministic triage runs first.",
+            code="below_threshold",
         )
 
     settings = settings or OllamaSettings.from_env(env if env is not None else dict(os.environ))
     cache = cache or LocalEnrichmentCache(CACHE_ROOT)
-    description = row["description_text"] or ""
+    description = (row["description_text"] or "")[:MAX_DESCRIPTION_CHARS]
+    if deadline is None:
+        deadline = time.monotonic() + settings.timeout_seconds
 
     key = local_cache_key(
         description_digest=text_digest(description),
@@ -144,6 +187,7 @@ def enrich_one(
         # exact failure this whole package exists to make impossible.
         raise EnrichmentUnavailable(f"refused to call a non-local endpoint: {exc}") from exc
 
+    progress("checking")
     try:
         available = client.health()
     except OllamaUnavailable as exc:
@@ -152,8 +196,10 @@ def enrich_one(
             "everything else in this application works without it."
         ) from exc
 
+    if stop():
+        raise EnrichmentCancelled("the reading was cancelled")
     if not client.is_model_available():
-        raise EnrichmentUnavailable(
+        raise EnrichmentModelMissing(
             f"Ollama is running but the model {settings.model!r} is not installed. "
             f"Install it with `ollama pull {settings.model}`. Installed: {', '.join(available)}"
         )
@@ -166,15 +212,43 @@ def enrich_one(
     )
     schema = json_schema()
 
+    if stop():
+        raise EnrichmentCancelled("the reading was cancelled")
+    wanted = settings.model.removesuffix(":latest")
+    loaded = any(name.removesuffix(":latest") == wanted for name in client.loaded_models())
     last_error: str | None = None
     for attempt in range(1, max_attempts + 1):
+        if stop():
+            raise EnrichmentCancelled("the reading was cancelled")
+        if time.monotonic() > deadline:
+            raise EnrichmentTimedOut("the local model did not finish in time")
+        progress("reading" if loaded else "loading")
+        tokens = 0
+
+        def chunk(part: dict[str, Any]) -> None:
+            nonlocal tokens
+            if (part.get("message") or {}).get("content"):
+                tokens += 1
+                progress("writing", tokens)
+
         try:
-            enrichment, stats = client.enrich(messages, schema=schema)
+            enrichment, stats = client.enrich(
+                messages, schema=schema, deadline=deadline, should_stop=stop, on_chunk=chunk
+            )
         except OllamaInvalidOutput as exc:
             last_error = f"attempt {attempt}: {exc}"
+            loaded = True
             continue
+        except OllamaCancelled as exc:
+            raise EnrichmentCancelled(str(exc)) from exc
+        except OllamaTimedOut as exc:
+            raise EnrichmentTimedOut(str(exc)) from exc
+        except OllamaFailed as exc:
+            raise EnrichmentFailed(str(exc)) from exc
         except OllamaUnavailable as exc:
             raise EnrichmentUnavailable(f"Ollama became unreachable mid-request: {exc}") from exc
+        loaded = True
+        progress("verifying", tokens)
 
         verified = verify(enrichment, description)
         stats = dict(stats)

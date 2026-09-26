@@ -12,6 +12,7 @@ third party with no credential involved, so nothing downstream would notice.
 """
 
 import importlib
+import importlib.util
 import json
 from typing import Any
 
@@ -391,7 +392,13 @@ def test_importing_the_module_touches_no_network_stack(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(httpx, "Client", explode)
 
-    reloaded = importlib.reload(ollama_module)
+    # A FRESH copy under another name, never a reload of the shared module:
+    # `importlib.reload` replaces the module's exception classes, and every
+    # other module that imported them would then fail to catch the new ones.
+    spec = importlib.util.spec_from_file_location("ollama_fresh_copy", ollama_module.__file__)
+    assert spec is not None and spec.loader is not None
+    reloaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(reloaded)
     client = reloaded.OllamaClient(
         reloaded.OllamaSettings(),
         transport=FakeTransport((200, {"models": [{"name": "qwen3:4b"}]})),

@@ -211,6 +211,11 @@ class ProfileHost:
             old_active = registry.active
             if old is not None:
                 old.retired = True
+                # A local reading is interruptible: stop it rather than let it
+                # run on against a profile that is no longer on screen.
+                readings = getattr(old, "local_readings", None)
+                if readings is not None:
+                    readings.cancel_all()
             reason = self.busy(old)
             if reason:
                 if old is not None:

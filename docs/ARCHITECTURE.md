@@ -26,5 +26,10 @@ Search Fit separates UNKNOWN (the posting is silent) from UNMATCHED (the posting
 
 **Posting completeness** (formerly "Posting detail", `data_confidence`) measures how much the employer wrote down: description, location, hiring scope, engagement, compensation, a stated level, a date. It is reported beside Search Fit and never multiplied into it (ADR-0004). A missing salary or level lowers completeness, not fit.
 
+### The local model reading
+Reading a posting with the local model (Ollama, `qwen3:4b` by default) takes minutes on a laptop CPU, so it runs in the background, one reading per posting (`local_ai/runner.py`). `POST /api/jobs/{id}/enrich` starts it, `GET /api/jobs/{id}/local-reading` reports its state, `POST /api/jobs/{id}/enrich/cancel` stops it. The states are NOT_RUN, RUNNING (phase: checking, loading, reading, writing, verifying), SUCCESS, CANCELLED, MODEL_MISSING, OLLAMA_UNAVAILABLE, TIMEOUT and ERROR; each has its own sentence in the drawer.
+
+The request is streamed, over a socket the reader owns and never blocks on for more than 0.2s, so Cancel and the total deadline (6 minutes by default, `OLLAMA_TIMEOUT_MS`) act within a fraction of a second even while the model is still loading and has sent nothing. A cut-off answer is an error, not a result. A successful reading is stored per profile and posting, shown again on every visit, and never changes Search Fit. Switching profiles cancels any reading still running.
+
 ## Storage and HTTP boundaries
 Each module owns its files. The shared launcher scopes both to this installation, with separate demo and personal roots. Neither HTTP service is a multi-user service. No remote bind or reverse-proxy deployment is supported. See PRIVACY.md for the concrete network and file inventory.

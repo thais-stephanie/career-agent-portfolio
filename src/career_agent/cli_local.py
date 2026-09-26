@@ -2659,7 +2659,14 @@ def enrich_command(
     """
     db = resolve_database(RuntimeMode.PERSONAL, db)
     _check_profile_pair(db, config_dir)
-    from career_agent.pipeline.enrich import EnrichmentRejected, EnrichmentUnavailable, enrich_one
+    from career_agent.pipeline.enrich import (
+        EnrichmentCancelled,
+        EnrichmentFailed,
+        EnrichmentRejected,
+        EnrichmentTimedOut,
+        EnrichmentUnavailable,
+        enrich_one,
+    )
 
     config, _ = _load_config(config_dir)
     thresholds = getattr(config, "thresholds", None)
@@ -2690,6 +2697,15 @@ def enrich_command(
     except EnrichmentRejected as exc:
         typer.secho(str(exc), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from exc
+    except EnrichmentTimedOut as exc:
+        typer.secho("The local model didn't finish in time.", fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(code=4) from exc
+    except EnrichmentFailed as exc:
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+    except (EnrichmentCancelled, KeyboardInterrupt) as exc:
+        typer.secho("Cancelled. The local model was stopped.", fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(code=130) from exc
     finally:
         conn.close()
 
