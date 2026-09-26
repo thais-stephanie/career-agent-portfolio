@@ -359,6 +359,7 @@ def test_the_schema_and_the_reader_identity_moved_together() -> None:
 
     # The reader identity is what a gates change moves. Schema 10 is the
     # Search Fit v5 arithmetic, which moved no reader, so it stays readers-3.
-    assert MATCH_SCHEMA_VERSION == 10
+    # 11 changed arithmetic only (the MID fallback is scored as MID).
+    assert MATCH_SCHEMA_VERSION == 11
     assert READER_IDENTITY == "readers-3"
     assert len(GATE_NAMES) == 7 and GATE_ORDER is GATE_NAMES

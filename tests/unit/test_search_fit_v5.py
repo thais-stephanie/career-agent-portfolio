@@ -286,10 +286,15 @@ def test_seniority_points_follow_the_preferred_levels(level: Seniority, expected
     assert components["seniority"].points == pytest.approx(expected)
 
 
-def test_an_unstated_level_earns_nothing_whatever_is_preferred() -> None:
-    config = config_with(preferred=["MID"])
+@pytest.mark.parametrize(
+    ("preferred", "expected"),
+    [(["MID"], 10.0), (["SENIOR"], 5.0), (["STAFF"], 2.0)],
+)
+def test_an_unstated_level_is_scored_as_mid(preferred: list[str], expected: float) -> None:
+    """The MID fallback earns what a stated MID would, under each preference."""
+    config = config_with(preferred=preferred)
     components, _, _ = scored(config, responsibilities("x"))
-    assert components["seniority"].points == 0
+    assert components["seniority"].points == pytest.approx(expected)
 
 
 def test_without_preferred_levels_the_configured_table_decides() -> None:

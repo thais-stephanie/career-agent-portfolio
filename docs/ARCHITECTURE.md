@@ -15,5 +15,16 @@ Career Evidence changes only through explicit review. Resume Tailor's source str
 
 The public source includes unit, integration and browser tests plus synthetic Tailor invariants. Private golden datasets, research branches and operational results are not release dependencies. See VALIDATION.md for measured coverage and exclusions.
 
+### What a posting did not say
+
+Search Fit separates UNKNOWN (the posting is silent) from UNMATCHED (the posting contradicts what the person wants). Audited per component (result schema 11):
+
+- **Seniority:** precedence is a level stated in the title, then a level the body genuinely determines, then MID / PLENO. The MID fallback is SCORED as MID, the same points a stated mid-level posting earns under the same preferences. Before schema 11 it earned zero while saying "treating it as mid-level", below a stated wrong level. That was the one inversion. The stored `job_match.seniority` of an unstated posting is MID too, so a person who EXCLUDES mid-level also stops seeing postings that never stated a level: treated as MID means treated as MID everywhere. The `unevidenced` weight in older search files is ignored.
+- **Compensation and contract:** already three-valued. An unstated salary earns the `salary_unknown` points, between "below target" and "meets target". An unstated engagement earns `contract_unknown`, between unwanted and preferred.
+- **Work model:** an unstated model earns the neutral share, the same as a stated neutral one.
+- **Responsibilities, tools, automation:** these are evidence points for the work a person asked for, and a posting that never mentions that work earns none of them. That is not a penalty, because nothing is subtracted, and it is unchanged.
+
+**Posting completeness** (formerly "Posting detail", `data_confidence`) measures how much the employer wrote down: description, location, hiring scope, engagement, compensation, a stated level, a date. It is reported beside Search Fit and never multiplied into it (ADR-0004). A missing salary or level lowers completeness, not fit.
+
 ## Storage and HTTP boundaries
 Each module owns its files. The shared launcher scopes both to this installation, with separate demo and personal roots. Neither HTTP service is a multi-user service. No remote bind or reverse-proxy deployment is supported. See PRIVACY.md for the concrete network and file inventory.

@@ -145,18 +145,22 @@ def test_seniority_defaults_without_claiming_the_posting_said_so() -> None:
     assert "does not state a level" in reading.sentence
 
 
-def test_a_defaulted_seniority_earns_no_points() -> None:
-    """Absence is never permission, in the dimension it is easiest to miss."""
+def test_an_unstated_level_is_scored_as_mid() -> None:
+    """The product rule: no stated level means MID / PLENO, and it is SCORED as
+    MID. It used to earn zero while saying "treating it as mid-level"."""
     components, _ = _scored("Analyst", "You will own our internal tools.")
     component = _component(components, "seniority")
-    assert component.points == CONFIG.scoring.components.seniority.unevidenced
-    assert component.points == 0
+    stated, _ = _scored("Analyst", "This is a mid-level position. You will own our internal tools.")
+    assert component.points == _component(stated, "seniority").points
+    assert component.points > 0
+    assert "mid-level" in (component.note or "")
 
 
-def test_an_evidenced_mid_outscores_a_defaulted_one() -> None:
-    stated, _ = _scored("Analyst", "This is a mid-level position. You own internal tools.")
+def test_an_unstated_level_never_scores_below_a_stated_wrong_one() -> None:
+    """What the posting did not say is UNKNOWN, not a mismatch."""
     silent, _ = _scored("Analyst", "You own internal tools.")
-    assert _component(stated, "seniority").points > _component(silent, "seniority").points
+    junior, _ = _scored("Junior Analyst", "You own internal tools.")
+    assert _component(silent, "seniority").points >= _component(junior, "seniority").points
 
 
 # --- the budget ------------------------------------------------------------

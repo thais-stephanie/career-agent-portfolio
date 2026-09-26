@@ -213,10 +213,10 @@ class SeniorityComponent(_Section):
     max: float
     label: str
     points: dict[Seniority, float]
-    #: What a reading with no evidence behind it is worth. Separate from
-    #: `points` on purpose: the fallback level is MID, and paying it the MID
-    #: rate is what let a posting that stated nothing collect the same points as
-    #: one that said "this is a mid-level position".
+    #: IGNORED since result schema 11. It priced a posting that stated no
+    #: level (it was zero, while the posting was said to be treated as MID).
+    #: The product rule now scores that posting as MID; the field is still
+    #: read so that existing configuration files keep loading.
     unevidenced: float = 0.0
 
     def points_for(self, level: Seniority) -> float:

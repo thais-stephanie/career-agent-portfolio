@@ -357,7 +357,9 @@ def test_the_default_sentence_never_asserts_the_level() -> None:
     """The wording is the product decision. "This is a mid-level role" about a
     posting that said nothing is the whole defect in one sentence."""
     default = read_seniority("Analyst", "You will own our internal tools.")
-    assert default.sentence == "The posting does not state a level. Treating it as mid-level."
+    assert (
+        default.sentence == "The posting does not state a level. Search Fit treats it as mid-level."
+    )
 
     stated = read_seniority("Analyst", "This is a mid-level position.")
     assert stated.sentence == "The posting states this is a mid-level role."

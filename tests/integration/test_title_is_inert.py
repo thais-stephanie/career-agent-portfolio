@@ -169,16 +169,16 @@ def test_a_level_in_the_title_is_evidence_and_does_move_the_score(config) -> Non
     """The ONE thing a title may still pay for, and it is not the role name.
 
     A stated level is evidence about the job. `SeniorityReading` records that
-    it came from the title, and the scorer asks the SOURCE rather than the
-    value -- a level nobody stated earns nothing.
+    it came from the title. A level nobody stated is scored as MID (the
+    fallback), so a stated level other than MID moves the score.
     """
-    senior = score(config, "Senior Business Systems Analyst")
+    junior = score(config, "Junior Business Systems Analyst")
     unstated = score(config, "Business Systems Analyst")
 
-    assert senior.seniority.value == "SENIOR"
-    assert senior.seniority.source.value == "TITLE_GRADE"
+    assert junior.seniority.value == "JUNIOR"
+    assert junior.seniority.source.value == "TITLE_GRADE"
     assert unstated.seniority.source.value == "DEFAULT"
-    assert senior.match_score > unstated.match_score
+    assert junior.match_score != unstated.match_score
 
 
 def test_the_level_pays_regardless_of_which_role_name_carries_it(config) -> None:
