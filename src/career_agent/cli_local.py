@@ -192,8 +192,9 @@ def _refuse_missing(db: Path) -> None:
     """Refuse a database path that does not exist; `connect` would create it."""
     if not Path(db).exists():
         typer.secho(
-            f"No database at {db}. Pass --db with your database, or start Career Agent "
-            "once so it registers your local profile.",
+            f"No database at {db}. Pass --db with your database (and --config-dir with "
+            "its settings folder for any profile other than the first), or start Career "
+            "Agent once so it registers your local profile.",
             fg=typer.colors.RED,
             err=True,
         )
