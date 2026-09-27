@@ -132,3 +132,33 @@ def test_the_notice_is_absent_when_the_answer_is_current(page: Chrome, server: s
     page.wait_for(f"{RENDERED_COUNT} > 0", message="the ordinary list")
 
     assert not page.evaluate(NOTICE_SHOWN), "a notice appeared with nothing to report"
+
+
+def test_scores_from_an_earlier_version_offer_the_recalculation(
+    page: Chrome, pristine_server: str, tmp_path
+) -> None:
+    """After an update that moves the Search Fit schema, the preferences are
+    unchanged, so no revision notice fires. The older scores are still served;
+    the notice says so and carries the same recalculate button, and pressing
+    it brings every score to the current schema without a terminal."""
+    from career_agent.domain.matching import MATCH_SCHEMA_VERSION
+    from career_agent.storage.db import connect
+
+    db = tmp_path / "pristine.db"
+    conn = connect(db)
+    conn.execute("UPDATE job_match SET schema_version = ?", (MATCH_SCHEMA_VERSION - 1,))
+    conn.commit()
+    conn.close()
+
+    open_list(page, pristine_server)
+    page.wait_for(f"{NOTICE_SHOWN} && {NOTICE}.querySelector('button')", message="the notice")
+    assert "earlier version" in str(page.evaluate(f"{NOTICE}.textContent"))
+
+    page.evaluate(f"{NOTICE}.querySelector('button').click()")
+    page.wait_for(f"!({NOTICE_SHOWN})", message="the notice to clear", timeout=60)
+    conn = connect(db)
+    older = conn.execute(
+        "SELECT COUNT(*) FROM job_match WHERE schema_version < ?", (MATCH_SCHEMA_VERSION,)
+    ).fetchone()[0]
+    conn.close()
+    assert older == 0

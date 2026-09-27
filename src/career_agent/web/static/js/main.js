@@ -891,6 +891,22 @@ function renderRevisionNotice() {
   // No payload, or the answer matches the question: nothing to say. Silence
   // here is the ordinary case and it should look like nothing at all.
   if (!revision || revision.is_current) {
+    // Unless the scores were written by an earlier version of the program (a
+    // Search Fit schema change after an update). The preferences are current,
+    // so the revision is too, and nothing else would offer the recalculation.
+    const older = Number(lastHealth && lastHealth.stale_scores) || 0;
+    if (older > 0) {
+      node.hidden = false;
+      replace(node, [
+        el('span', {
+          className: 'revnotice__text',
+          attrs: { role: 'status' },
+          text: t('revision.olderScores', { n: older.toLocaleString() }),
+        }),
+        rescoreButton(),
+      ]);
+      return;
+    }
     clear(node);
     node.hidden = true;
     return;
@@ -1846,6 +1862,7 @@ async function showHealth() {
   try {
     const health = await api.getHealth();
     lastHealth = health;
+    renderRevisionNotice();
     // The empty state's sentence depends on this payload, and the list can
     // finish first: on a fast list and a slow health call the person was told
     // "the database has no postings, run a collection" while it was loading
