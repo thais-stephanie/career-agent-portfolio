@@ -122,7 +122,11 @@ from career_agent.domain.enums import (
 #: 11: arithmetic only -- a posting that states no level is scored as MID
 #: (the MID fallback), not zero. What a reader observed is unchanged, so a
 #: schema 9 or 10 row replays rather than being read again.
-MATCH_SCHEMA_VERSION = 11
+#: 12: arithmetic only -- the tools guard is lifted by CENTRAL work evidence
+#: (a counted work contribution at PRIMARY or SECONDARY prominence), not by an
+#: incidental mention or a partial semantic finding. Readings and stored
+#: semantic findings are unchanged, so older rows replay.
+MATCH_SCHEMA_VERSION = 12
 
 #: The oldest result schema whose stored READINGS a replay may reuse. Separate
 #: from MATCH_SCHEMA_VERSION on purpose: 10 changed arithmetic and provenance,
@@ -309,7 +313,7 @@ class ScoreComponent:
     #: configured component the posting did not match (0 of its max).
     configured: bool = True
     #: True when the tools guard held this component at half: tools were
-    #: found and none of the desired work was.
+    #: found and none of the desired work was, as a central duty.
     guarded: bool = False
 
 

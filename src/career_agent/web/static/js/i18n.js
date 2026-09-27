@@ -3134,7 +3134,9 @@ const EN = {
   'ai.stop.NO_INDEX': 'Recalculate Search Fit first, then try again.',
   'ai.stop.PRICE_UNKNOWN': 'This provider has no known price, so it cannot be held to a budget.',
   'ai.stop.ERROR': 'The run stopped because of an error.',
-  'drawer.toolsGuard': 'Held at half: this posting uses tools you want, and none of the work you want was found in it.',
+  'drawer.toolsGuard':
+    'Held at half: this posting uses tools you want, and none of the work you want was found as a '
+    + 'central duty in it.',
 };
 
 /**
@@ -6104,7 +6106,7 @@ const PT_BR = {
   'ai.stop.ERROR': 'A execução parou por causa de um erro.',
   'drawer.toolsGuard':
     'Limitado à metade: esta vaga usa ferramentas que você quer, e nenhum trabalho que você quer foi '
-    + 'encontrado nela.',
+    + 'encontrado nela como atividade central.',
 };
 
 const CATALOGUES = { en: EN, 'pt-BR': PT_BR };
