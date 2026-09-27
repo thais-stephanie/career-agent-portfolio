@@ -293,21 +293,22 @@ an Ollama address that is not local. The full inventory is in
 
 ## Validation
 
-The v0.2.0-beta.2 release gate passed **9,087 tests** with 7 skipped and 0
+The v0.2.0-beta.2 release gate passed **9,102 tests** with 7 skipped and 0
 failed, on Windows 11 with Python 3.12:
 
 | Suite | Passed |
 |---|---:|
-| Career Agent unit | 7,001 |
+| Career Agent unit | 7,015 |
 | Career Agent integration | 1,656 |
-| Career Agent browser | 370 |
+| Career Agent browser | 371 |
 | Resume Tailor Python | 22 |
 | Resume Tailor frontend | 38 |
 
 Ruff, the formatter check, mypy and the frontend checks were clean. The
 release ZIP was installed in a new folder whose path contains spaces, with no
 uv or Python available beforehand, and the demo, personal mode, a port
-conflict, restart and shutdown were checked. There is no continuous
+conflict, restart and shutdown were checked, as was an update from
+v0.2.0-beta.1 with synthetic data. There is no continuous
 integration: the gate runs on the maintainer's Windows computer.
 [Release validation](docs/VALIDATION.md) lists the skips and the install
 checks.

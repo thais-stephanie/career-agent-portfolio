@@ -299,21 +299,22 @@ en [PRIVACY.md](docs/PRIVACY.md).
 
 ## Validación
 
-La verificación de la versión v0.2.0-beta.2 pasó **9.087 pruebas**, con 7
+La verificación de la versión v0.2.0-beta.2 pasó **9.102 pruebas**, con 7
 omitidas y 0 fallos, en Windows 11 con Python 3.12:
 
 | Conjunto | Aprobadas |
 |---|---:|
-| Career Agent, unitarias | 7.001 |
+| Career Agent, unitarias | 7.015 |
 | Career Agent, integración | 1.656 |
-| Career Agent, navegador | 370 |
+| Career Agent, navegador | 371 |
 | Resume Tailor, Python | 22 |
 | Resume Tailor, frontend | 38 |
 
 Ruff, la verificación de formato, mypy y las verificaciones del frontend
 pasaron. El ZIP de la versión se instaló en una carpeta nueva cuya ruta tiene
 espacios, sin uv ni Python disponibles antes, y se comprobaron la demo, el modo
-personal, un conflicto de puertos, el reinicio y el cierre. No hay integración
+personal, un conflicto de puertos, el reinicio y el cierre, además de una
+actualización desde v0.2.0-beta.1 con datos sintéticos. No hay integración
 continua: la verificación se ejecuta en la computadora Windows de quien
 mantiene el proyecto. La [validación de la versión](docs/VALIDATION.md) lista
 las pruebas omitidas y las comprobaciones de instalación.

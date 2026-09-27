@@ -298,21 +298,22 @@ um endereço do Ollama que não seja local. O inventário completo está em
 
 ## Validação
 
-A verificação da versão v0.2.0-beta.2 passou em **9.087 testes**, com 7
+A verificação da versão v0.2.0-beta.2 passou em **9.102 testes**, com 7
 ignorados e 0 falhas, no Windows 11 com Python 3.12:
 
 | Conjunto | Aprovados |
 |---|---:|
-| Career Agent, unitários | 7.001 |
+| Career Agent, unitários | 7.015 |
 | Career Agent, integração | 1.656 |
-| Career Agent, navegador | 370 |
+| Career Agent, navegador | 371 |
 | Resume Tailor, Python | 22 |
 | Resume Tailor, frontend | 38 |
 
 Ruff, a verificação de formatação, o mypy e as verificações do frontend
 passaram. O ZIP da versão foi instalado em uma pasta nova cujo caminho tem
 espaços, sem uv nem Python disponíveis antes, e foram verificados a
-demonstração, o modo pessoal, conflito de portas, reinício e encerramento. Não
+demonstração, o modo pessoal, conflito de portas, reinício e encerramento, além de uma
+atualização a partir da v0.2.0-beta.1 com dados sintéticos. Não
 há integração contínua: a verificação roda no computador Windows de
 quem mantém o projeto. A [validação da versão](docs/VALIDATION.md) lista os testes
 ignorados e as verificações de instalação.
