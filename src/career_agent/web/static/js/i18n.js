@@ -1259,6 +1259,9 @@ const EN = {
     + 'are not ready yet.',
   'revision.progress': 'Recalculating: {done} of {total} ({pct}%)',
   'revision.recalculate': 'Recalculate now',
+  'revision.olderScores': '{n} scores were calculated by an earlier version of Career Agent and '
+    + 'may be out of date. Recalculating runs on this computer, calls no AI provider and takes a '
+    + 'few minutes on a large list.',
   'revision.interrupted': 'Recalculation stopped at {done} of {total} ({pct}%) before it finished. '
     + 'The list still answers your previous preferences.',
   'revision.resume': 'Continue recalculating',
@@ -1377,9 +1380,8 @@ const EN = {
   'health.searchSlowHelp': 'Searching is slower than usual, and it matches a little differently: it '
     + 'finds your words inside longer words, and looks in one place rather than'
     + 'everywhere. Recalculating your matches fixes it.',
-  'health.staleFacetsHelp': 'These jobs were scored before the country, region, office and salary '
-    + 'filters existed, so those four will not find them. Recalculating fixes'
-    + 'it, on your own computer and at no cost.',
+  'health.staleFacetsHelp': 'An earlier version of Career Agent calculated these scores. Recalculate '
+    + 'search fit to update them, on your own computer and at no cost.',
   'filters.qualityHint': 'Match is how close the work is to what you want. Posting completeness is how '
     + 'much the employer actually wrote down. A short posting scores low on '
     + 'completeness however good the job is.',
@@ -1646,7 +1648,7 @@ const EN = {
   'health.jobs': '{n} jobs',
   'health.jobsUnknown': 'an unknown number of jobs',
   'health.localModelUp': 'local model {model} up',
-  'health.staleScores': '{n} scores predate the filters',
+  'health.staleScores': '{n} scores from an earlier version',
   'health.localModelHelp': 'Everything on this page works with the local model stopped.',
   'health.worthKnowing': '{n} things worth knowing',
   'health.worthKnowingOne': '1 thing worth knowing',
@@ -4253,6 +4255,9 @@ const PT_BR = {
     + 'estão prontas.',
   'revision.progress': 'Recalculando: {done} de {total} ({pct}%)',
   'revision.recalculate': 'Recalcular agora',
+  'revision.olderScores': '{n} pontuações foram calculadas por uma versão anterior do Career Agent '
+    + 'e podem estar desatualizadas. O recálculo roda neste computador, não chama nenhum provedor '
+    + 'de IA e leva alguns minutos numa lista grande.',
   'revision.interrupted': 'O recálculo parou em {done} de {total} ({pct}%) antes de terminar. '
     + 'A lista ainda responde às suas preferências anteriores.',
   'revision.resume': 'Continuar o recálculo',
@@ -4366,9 +4371,8 @@ const PT_BR = {
   'health.searchSlowHelp': 'A busca está mais lenta que o normal, e corresponde um pouco diferente: '
     + 'encontra suas palavras dentro de palavras maiores, e procura em um lugar'
     + 'em vez de em todos. Recalcular suas correspondências resolve.',
-  'health.staleFacetsHelp': 'Estas vagas foram pontuadas antes de existirem os filtros de país, '
-    + 'região, escritório e remuneração, então esses quatro não vão'
-    + 'encontrá-las. Recalcular resolve, no seu próprio computador e sem custo.',
+  'health.staleFacetsHelp': 'Uma versão anterior do Career Agent calculou estas pontuações. '
+    + 'Recalcule a aderência para atualizá-las, no seu próprio computador e sem custo.',
   'filters.qualityHint': 'Compatibilidade é o quanto o trabalho se aproxima do que você quer. '
     + 'Completude do anúncio é o quanto o empregador realmente escreveu. Um '
     + 'anúncio curto pontua baixo em completude por melhor que a vaga seja.',
@@ -4628,7 +4632,7 @@ const PT_BR = {
   'health.jobs': '{n} vagas',
   'health.jobsUnknown': 'um número desconhecido de vagas',
   'health.localModelUp': 'modelo local {model} no ar',
-  'health.staleScores': '{n} pontuações são anteriores aos filtros',
+  'health.staleScores': '{n} pontuações de uma versão anterior',
   'health.localModelHelp': 'Tudo nesta página funciona com o modelo local desligado.',
   'health.worthKnowing': '{n} coisas que vale saber',
   'health.worthKnowingOne': '1 coisa que vale saber',
