@@ -1259,6 +1259,8 @@ const EN = {
     + 'are not ready yet.',
   'revision.progress': 'Recalculating: {done} of {total} ({pct}%)',
   'revision.recalculate': 'Recalculate now',
+  'revision.olderScoresOne': '1 score was calculated by an earlier version of Career Agent and may '
+    + 'be out of date. Recalculating runs on this computer and calls no AI provider.',
   'revision.olderScores': '{n} scores were calculated by an earlier version of Career Agent and '
     + 'may be out of date. Recalculating runs on this computer, calls no AI provider and takes a '
     + 'few minutes on a large list.',
@@ -4255,6 +4257,8 @@ const PT_BR = {
     + 'estão prontas.',
   'revision.progress': 'Recalculando: {done} de {total} ({pct}%)',
   'revision.recalculate': 'Recalcular agora',
+  'revision.olderScoresOne': '1 pontuação foi calculada por uma versão anterior do Career Agent e '
+    + 'pode estar desatualizada. O recálculo roda neste computador e não chama nenhum provedor de IA.',
   'revision.olderScores': '{n} pontuações foram calculadas por uma versão anterior do Career Agent '
     + 'e podem estar desatualizadas. O recálculo roda neste computador, não chama nenhum provedor '
     + 'de IA e leva alguns minutos numa lista grande.',
