@@ -264,6 +264,97 @@ def test_the_guard_never_fires_when_no_work_was_asked_for() -> None:
     assert components["technologies"].points == pytest.approx(20.0)
 
 
+# Central work lifts the guard; adjacency does not (docs/SEMANTIC_MATCHING.md,
+# evidence-quality benchmark 2026-09-27). One generic line, read as a partial
+# match for a narrow work item, used to unlock the whole tools component.
+GENERIC = "Build scalable solutions with ledgerbook, gridsheet and bankfeed."
+TOOLS_ONLY_BODY = responsibilities(GENERIC, "Use taxpal")
+
+
+def test_a_partial_finding_on_a_generic_line_does_not_lift_the_tools_guard() -> None:
+    config = config_with()
+    partial = SemanticMatch("responsibilities", "w_invoices", "W1", "partial", GENERIC)
+    components, _, _ = scored(config, TOOLS_ONLY_BODY, semantic=evidence(partial))
+    work, tools = components["responsibilities"], components["technologies"]
+    # The finding still pays its own points and stays visible: nothing is hidden.
+    assert work.points > 0 and work.contributions[0].counted
+    assert tools.guarded and tools.points == pytest.approx(10.0)
+
+
+def test_several_partial_findings_still_do_not_lift_it() -> None:
+    config = config_with()
+    lines = ("Improve processes across teams.", "Deliver results quickly.", "Work with data.")
+    found = evidence(
+        *(
+            SemanticMatch("responsibilities", signal, f"W{i}", "partial", line)
+            for i, (signal, line) in enumerate(
+                zip(("w_invoices", "w_payroll", "w_audits"), lines, strict=True)
+            )
+        )
+    )
+    components, _, _ = scored(config, responsibilities(*lines, GENERIC), semantic=found)
+    assert components["responsibilities"].points > 0
+    assert components["technologies"].points == pytest.approx(10.0)
+
+
+def test_a_strong_finding_in_other_words_lifts_it() -> None:
+    """Specific equivalent wording is central work, whatever words it uses."""
+    config = config_with()
+    quote = "Match every supplier bill against the ledger before payment."
+    strong = SemanticMatch("responsibilities", "w_invoices", "W1", "strong", quote)
+    components, _, _ = scored(
+        config, responsibilities(quote, GENERIC, "Use taxpal"), semantic=evidence(strong)
+    )
+    assert components["technologies"].points == pytest.approx(20.0)
+
+
+def test_a_literal_phrase_in_a_requirements_section_lifts_it() -> None:
+    """SECONDARY prominence is central enough: the posting states the work."""
+    config = config_with()
+    body = "Requirements\n- Experience to reconcile invoices\n" + TOOLS_ONLY_BODY
+    components, _, _ = scored(config, body)
+    assert components["responsibilities"].contributions[0].prominence.value == "SECONDARY"
+    assert components["technologies"].points == pytest.approx(20.0)
+
+
+def test_an_incidental_literal_mention_does_not_lift_it() -> None:
+    config = config_with()
+    body = "We sometimes reconcile invoices.\n" + TOOLS_ONLY_BODY
+    components, _, _ = scored(config, body)
+    assert components["responsibilities"].contributions[0].prominence.value == "INCIDENTAL"
+    assert components["technologies"].points == pytest.approx(10.0)
+
+
+def _tools_for(config: SearchConfig, title: str, body: str):
+    observed = body_only(config, observe(config, title, body))
+    components = score_components(
+        config,
+        observed_body=observed,
+        seniority=DEFAULT_SENIORITY,
+        employment=read_employment(body),
+        job_facts=JobFacts(title=title, description=body),
+    )
+    return next(c for c in components if c.component_id == "technologies")
+
+
+def test_the_title_plays_no_part_in_lifting_it() -> None:
+    """Central work in the body lifts the guard under any title; the work named
+    only in the title lifts nothing."""
+    config = config_with()
+    central = responsibilities("You will reconcile invoices", GENERIC)
+    assert not _tools_for(config, "Ledger Wizard", central).guarded
+    assert not _tools_for(config, "Senior Software Engineer", central).guarded
+    assert _tools_for(config, "Reconcile Invoices Lead", TOOLS_ONLY_BODY).guarded
+
+
+def test_no_work_evidence_stays_unknown_not_a_mismatch() -> None:
+    """No finding is no evidence: work scores 0 of its max and nothing is subtracted."""
+    config = config_with()
+    components, penalties, _ = scored(config, responsibilities("Use ledgerbook"))
+    assert components["responsibilities"].points == 0 and not penalties
+    assert components["technologies"].points == pytest.approx(20.0 / 3)
+
+
 # =========================================================================
 # seniority follows the person's preference
 # =========================================================================

@@ -38,7 +38,7 @@ Formula changes alone only redistribute evidence that was found. Semantic interp
   - The study proposed "one sentence pays once". Implemented literally, it scored the demo's canonical fit posting MODERATE: its bullets are compound ("Build workflow automation and REST API integrations"), and each states two activities.
   - Relaxing the rule for semantic findings as well had a measured cost: an AWS DevOps posting labelled a non-match rose to GOOD under both DeepSeek and Claude Code. Providers cite one sentence for several items more loosely than postings state them.
   - So the relaxation applies to the person's literal phrases only.
-- **The tools guard.** When the person stated the work they want and none of it was found, tools earn at most half their component.
+- **The tools guard.** When the person stated the work they want and none of it was found as a central duty, tools earn at most half their component. Central means a counted work match at PRIMARY or SECONDARY prominence: a strong semantic finding, or a literal phrase in a role or requirements section or repeated in the posting. A partial finding or a single incidental mention still pays its own work points, and does not lift the guard (schema 12, see "Evidence quality" below).
 - **Seniority follows the preferred levels.**
 
   | Level in the posting | Share of the component |
@@ -304,3 +304,34 @@ Of the 747 STRONG postings, 710 have a recorded role core (the provider's summar
 - role anchors, which steer retrieval.
 
 Title-fit points stay out, as the role-alignment benchmark decided. Semantic role-core alignment, reading the whole description, was not promoted to ranking: it needs a named role to align to, and the earlier benchmark found only ALIGNED reliable.
+
+## Evidence quality (2026-09-27)
+
+A private audit found GOOD false positives at 40% (10 of 25) and asked whether the cause was the arithmetic or the evidence. A score or threshold change had already been tested and rejected, so this study read the evidence itself.
+
+**Benchmark.** 175 postings from one real search, read from stored results only: no model call, no rescore, no collection.
+- Strata: STRONG, GOOD, MODERATE, postings just below GOOD, tool-heavy and partial-only postings, short postings, targeted-lane postings and WEAK controls, at most one posting per company, across 20 sources.
+- Split before any rule was designed: 112 for development (including the 80 of the earlier audit), 63 held out.
+- Two independent read-only reviewers labelled every posting (fit class) and every work finding (quality and section) without seeing scores or bands. They agreed on valid versus false positive for 109 of 112 and 60 of 63 postings, and on finding quality for 81% and 87% of findings. Disagreements were settled by reading the posting: by the rule designer on the development set, and by a separate adjudicator on the holdout. The postings, the intent and the labels stay private and local.
+
+**What pays in a false positive.** On the development set, 21 of the 29 false positives at GOOD or above had only non-central work evidence: partial semantic findings or incidental mentions. Only 7 of the 63 valid postings did. About three quarters of the partial findings in false positives were generic lines ("build scalable solutions"), a broader concept read as a narrower one, a tool name, or company text. Strong findings in valid postings were almost all specific. One partial finding was enough to lift the tools guard, and the tools component then filled to its maximum on common languages and API mentions.
+
+**What did not explain them.** Whether a generic line appears at all (it appears in valid postings as often), a quote sitting in a requirements section, short postings, and the source. A rule removing requirement-section quotes moved 3 of 29 false positives.
+
+**Rules tried on the development set** (GOOD or above, false positives / valid):
+
+| Rule | False positives | Valid |
+|---|---:|---:|
+| As stored | 29 | 63 |
+| Partial work findings need a central one beside them | 8 | 56 |
+| Partial work findings never pay | 5 | 54 |
+| Quotes from requirement sentences never pay | 26 | 63 |
+| **Central work lifts the tools guard** | **10** | **57** |
+
+The last rule was chosen: it is one condition in an existing guard, it keeps every finding and its points visible, and it moved 7 postings from MODERATE to WEAK in the whole corpus where the first rule moved 855. It was frozen, with success criteria written down, before the holdout was scored.
+
+**Holdout, scored once:** false positives at GOOD or above 15 to 6; valid postings kept at GOOD or above 25 of 29 (86%), both surprising-title fits kept, 11 of 13 obvious fits kept. Every change was GOOD to MODERATE; nothing moved up. The valid postings that moved land at 49 to 54 and stay visible. They are postings whose central work the provider marked partial, a provider judgment this rule cannot correct.
+
+**In the whole corpus:** 1,249 of 2,510 GOOD postings move to MODERATE and 7 MODERATE postings to WEAK. No STRONG posting moves, because every STRONG result already had central work. Stored readings and semantic findings are unchanged, so a targeted rescore replays every row (schema 12) and calls no provider.
+
+**What remains:** false positives whose strong finding is itself too loose (4 of 47 STRONG on the development set) are a provider judgment. Reducing them needs a change to the semantic contract, not to the arithmetic.

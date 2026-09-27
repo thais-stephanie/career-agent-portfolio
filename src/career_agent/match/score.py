@@ -98,9 +98,9 @@ COUNTED_SIGNALS: dict[str, int] = {
     "automation_integration": 3,
 }
 
-#: Tools without any of the desired work can earn at most this share of the
-#: tools component. A posting that uses your tools for work you did not ask
-#: for is not a fit for that work.
+#: Tools without any of the desired work as a central duty can earn at most
+#: this share of the tools component. A posting that uses your tools for work
+#: you did not ask for is not a fit for that work.
 TOOLS_WITHOUT_WORK_SHARE = 0.5
 
 #: The seniority ladder for "one step away". LEAD sits between SENIOR and
@@ -427,13 +427,27 @@ def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
     """Tools without the desired work earn at most half the tools component.
 
     Applies only when the person DID say what work they want (the work
-    component is configured) and none of it was found. Tools alone then say
-    this role uses the person's toolset for something else, which is worth
-    knowing and is not a fit for the work. An unconfigured work component never
-    triggers the guard: nothing was asked, so nothing is missing.
+    component is configured) and none of it was found as a CENTRAL duty. Tools
+    alone then say this role uses the person's toolset for something else,
+    which is worth knowing and is not a fit for the work. An unconfigured work
+    component never triggers the guard: nothing was asked, so nothing is
+    missing.
+
+    Central means a counted work contribution at PRIMARY or SECONDARY
+    prominence: a strong semantic finding, or a literal phrase in a role or
+    requirements section or repeated (`prominence_of`). A single incidental
+    mention, and a partial semantic finding (the
+    contract's own "secondary duty or close neighbour"), still pay their own
+    work points but do not lift the guard. Measured 2026-09-27 on 175
+    hand-labelled postings (docs/SEMANTIC_MATCHING.md): most GOOD false
+    positives had only such evidence, mostly generic lines, and it unlocked
+    the full tools component for common languages and API mentions.
     """
     ceiling = tools.max_points * TOOLS_WITHOUT_WORK_SHARE
-    if not work.configured or not tools.configured or work.points > 0:
+    central = any(
+        row.counted and row.prominence is not Prominence.INCIDENTAL for row in work.contributions
+    )
+    if not work.configured or not tools.configured or central:
         return tools
     if tools.points <= ceiling:
         return tools
@@ -450,7 +464,9 @@ def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
             for row in tools.contributions
         ),
         capped=False,
-        note="Capped at half: none of the work you want was found in this posting.",
+        note=(
+            "Capped at half: none of the work you want was found as a central duty of this posting."
+        ),
         configured=tools.configured,
         guarded=True,
     )
