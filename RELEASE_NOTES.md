@@ -30,8 +30,8 @@ tools such as Python, SQL or APIs carry the posting into a higher band.
 ### What schema 12 does not change
 
 A check of the results after the change still found false positives among
-postings that stayed GOOD. Most come from semantic findings the provider marked
-strong for work the posting only touches. Schema 12 changes only the
+postings that stayed GOOD: 12 of 25 sampled. In 7 of those 12, a semantic
+finding the provider marked strong paid for work the posting only touches. Schema 12 changes only the
 arithmetic, and findings are read as before. Reducing those false positives
 needs a revised semantic contract with its own benchmark.
 
@@ -46,17 +46,20 @@ press it, the list shows the older scores.
 
 ## Fixed
 
-- **Command line.** Run without `--db`, `career-agent rescore`, `serve` and the
-  other commands that open your database now use the active profile's database
-  when that profile's settings are the `config` folder. They used to look for
-  an old path, `data/m1d2/career.db`, and `rescore --plan` created an empty
-  database there. `serve`, `start`, `rescore` and the other commands that open
-  a personal database to read or plan now refuse a file that does not exist
-  instead of creating it.
+- **Command line.** Run without `--db`, `rescore`, `serve`, `start`, `daily`
+  and the other commands that resolve the personal database now use the active
+  profile's database when that profile's settings are the `config` folder.
+  They used to look for an old path, `data/m1d2/career.db` (`daily` used
+  `data/career.db`), and `rescore --plan` created an empty database there.
+  These commands now refuse a database file that does not exist instead of
+  creating it. Some collectors and `migrate` still default to
+  `data/career.db`; pass `--db` to them.
+  [MULTI_PROFILE.md](docs/MULTI_PROFILE.md) lists which commands do what.
 - **Older scores are explained.** The status line said such scores "predate
   the filters", a message from an earlier migration. It now says they come
   from an earlier version, and the notice above the list offers the
-  recalculation.
+  recalculation. It counts open postings only, the ones a recalculation
+  updates.
 - **Documentation.** The schema 12 counts are labelled as the Discover
   population; across every scored row, including postings ruled out by
   eligibility, they are 1,377 and 20.
