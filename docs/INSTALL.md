@@ -1,7 +1,7 @@
 # Install Career Agent
 
 This guide takes you from nothing installed to a running Career Agent, with no
-programming knowledge needed. It covers version **v0.2.0-beta.1**.
+programming knowledge needed. It covers version **v0.2.0-beta.2**.
 
 Career Agent runs on your own computer. It is a program that opens in your web
 browser, but the pages come from your computer, not from a website.
@@ -82,7 +82,7 @@ explain each step in plain words before you do it, and ask me before anything
 that needs administrator rights.
 
 Project: https://github.com/thais-stephanie/career-agent-portfolio
-Release: v0.2.0-beta.1
+Release: v0.2.0-beta.2
 Install guide: docs/INSTALL.md in that repository.
 
 Follow these rules:
@@ -128,9 +128,9 @@ downloads what it needs.
 ### 1. Download the ZIP file
 
 1. Open this page in your browser:
-   <https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1>
+   <https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2>
 2. Scroll down to **Assets**.
-3. Click **Career-Agent-v0.2.0-beta.1-Windows.zip**. Your browser saves it in
+3. Click **Career-Agent-v0.2.0-beta.2-Windows.zip**. Your browser saves it in
    your **Downloads** folder.
 
 ### 2. Extract it
@@ -140,7 +140,7 @@ program inside can run.
 
 1. Open **File Explorer** (the yellow folder icon on the taskbar) and go to
    **Downloads**.
-2. Right-click **Career-Agent-v0.2.0-beta.1-Windows.zip** and choose
+2. Right-click **Career-Agent-v0.2.0-beta.2-Windows.zip** and choose
    **Properties**. If the bottom of the **General** tab shows **Unblock**,
    tick it and click **OK**. This tells Windows you trust the file you
    downloaded, so it does not block the launcher later.
@@ -241,11 +241,11 @@ If you see something like `uv 0.11.7`, continue. If you see
 
 ### 2. Download and extract Career Agent
 
-1. Open <https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1>.
-2. Under **Assets**, click **Career-Agent-v0.2.0-beta.1-source.tar.gz**. It
+1. Open <https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2>.
+2. Under **Assets**, click **Career-Agent-v0.2.0-beta.2-source.tar.gz**. It
    goes to your **Downloads** folder.
 3. Double-click the downloaded file. macOS and most Linux desktops extract it
-   into a folder called **Career-Agent-v0.2.0-beta.1** in Downloads.
+   into a folder called **Career-Agent-v0.2.0-beta.2** in Downloads.
 
 ### 3. Enter the Career Agent folder
 
@@ -253,7 +253,7 @@ A terminal always works "inside" one folder. `cd` means "change folder".
 Copy this and press **Enter**:
 
 ```sh
-cd ~/Downloads/Career-Agent-v0.2.0-beta.1
+cd ~/Downloads/Career-Agent-v0.2.0-beta.2
 ```
 
 `~` means your home folder. If you moved the folder somewhere else, type
@@ -261,7 +261,7 @@ cd ~/Downloads/Career-Agent-v0.2.0-beta.1
 window, and press **Enter**.
 
 To check where you are, type `pwd` and press **Enter**. The last part of the
-answer should be `Career-Agent-v0.2.0-beta.1`.
+answer should be `Career-Agent-v0.2.0-beta.2`.
 
 ### 4. Install
 
@@ -359,7 +359,7 @@ Windows, macOS or Linux user account can open every profile's files.
 **Windows**
 
 1. Open File Explorer and go to the Career Agent folder (for example
-   Downloads, then **Career-Agent-v0.2.0-beta.1-Windows**).
+   Downloads, then **Career-Agent-v0.2.0-beta.2-Windows**).
 2. Double-click **Start-Career-Agent.cmd**.
 3. Keep the window open while you use Career Agent.
 
@@ -372,7 +372,7 @@ shortcut)**. The shortcut starts the launcher from its own folder.
 1. Open Terminal.
 2. Enter the folder:
    ```sh
-   cd ~/Downloads/Career-Agent-v0.2.0-beta.1
+   cd ~/Downloads/Career-Agent-v0.2.0-beta.2
    ```
 3. Start it:
    ```sh
@@ -407,7 +407,7 @@ A PowerShell window opens. The line before the cursor ends with the Career
 Agent folder's name, for example:
 
 ```text
-PS C:\Users\you\Downloads\Career-Agent-v0.2.0-beta.1-Windows>
+PS C:\Users\you\Downloads\Career-Agent-v0.2.0-beta.2-Windows>
 ```
 
 Commands in this guide are pasted there, one at a time, followed by
@@ -673,7 +673,7 @@ Open an issue at
 free GitHub account) and include:
 
 - your operating system and version (for example Windows 11);
-- the Career Agent version (v0.2.0-beta.1);
+- the Career Agent version (v0.2.0-beta.2);
 - what you did: the file you double-clicked or the exact command;
 - the exact error text, copied from the launcher window: select it with the
   mouse and press **Ctrl+C** (Windows; with text selected this copies instead

@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
     <img
       src="https://img.shields.io/badge/status-Beta_1-fff08a"
       alt="Beta 1"
@@ -86,7 +86,7 @@
   <strong>
     <a href="docs/INSTALL.md">Install guide</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1">Download for Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Download for Windows</a>
     &nbsp;·&nbsp;
     <a href="#screenshots">See the app</a>
   </strong>
@@ -103,7 +103,7 @@ because there is none.
 
 > [!NOTE]
 >
-> This is **v0.2.0-beta.1**: Career Agent Beta with Resume Tailor Beta, for
+> This is **v0.2.0-beta.2**: Career Agent Beta with Resume Tailor Beta, for
 > people who run it on their own computer. Search Fit describes how a posting
 > matches your search preferences. It does not estimate your chances of being
 > hired.
@@ -118,8 +118,8 @@ for people who have never used a terminal.
   into it. It installs Career Agent, runs the demo and tells you how to start
   it again.
 - **I want to install it myself:**
-  - **Windows:** download `Career-Agent-v0.2.0-beta.1-Windows.zip` from the
-    [release page](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1),
+  - **Windows:** download `Career-Agent-v0.2.0-beta.2-Windows.zip` from the
+    [release page](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
     unblock it (right-click, **Properties**, **Unblock**), right-click it and
     choose **Extract All**, then double-click
     **Start-Demo.cmd** in the extracted folder. You do not need to install
@@ -293,7 +293,7 @@ an Ollama address that is not local. The full inventory is in
 
 ## Validation
 
-The v0.2.0-beta.1 release gate passed **9,087 tests** with 7 skipped and 0
+The v0.2.0-beta.2 release gate passed **9,087 tests** with 7 skipped and 0
 failed, on Windows 11 with Python 3.12:
 
 | Suite | Passed |

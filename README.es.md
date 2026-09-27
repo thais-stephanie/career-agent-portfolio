@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
     <img
       src="https://img.shields.io/badge/status-Beta_1-fff08a"
       alt="Beta 1"
@@ -86,7 +86,7 @@
   <strong>
     <a href="docs/INSTALL.md">Guía de instalación (en inglés)</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1">Descargar para Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Descargar para Windows</a>
     &nbsp;·&nbsp;
     <a href="#capturas-de-pantalla">Ver la aplicación</a>
   </strong>
@@ -103,7 +103,7 @@ Career Agent; nada se sube a un servidor de Career Agent, porque no existe.
 
 > [!NOTE]
 >
-> Esta es la versión **v0.2.0-beta.1**: Career Agent Beta con Resume Tailor
+> Esta es la versión **v0.2.0-beta.2**: Career Agent Beta con Resume Tailor
 > Beta, para quien lo ejecuta en su propia computadora. Search Fit describe
 > cómo una oferta encaja con tus preferencias de búsqueda. No estima tus
 > probabilidades de ser contratado o contratada.
@@ -117,8 +117,8 @@ escrito para quien nunca usó una terminal. Está en inglés.
   [mensaje de instalación preparado](docs/INSTALL.md#path-a-install-with-claude-code-or-codex).
   Instala Career Agent, ejecuta la demo y te explica cómo abrirlo de nuevo.
 - **Quiero instalarlo por mi cuenta:**
-  - **Windows:** descarga `Career-Agent-v0.2.0-beta.1-Windows.zip` en la
-    [página de la versión](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1),
+  - **Windows:** descarga `Career-Agent-v0.2.0-beta.2-Windows.zip` en la
+    [página de la versión](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
     desbloquéalo (clic derecho, **Propiedades**, **Desbloquear**), haz clic
     derecho, elige **Extraer todo** y haz doble clic en
     **Start-Demo.cmd** en la carpeta extraída. No necesitas instalar Python
@@ -299,7 +299,7 @@ en [PRIVACY.md](docs/PRIVACY.md).
 
 ## Validación
 
-La verificación de la versión v0.2.0-beta.1 pasó **9.087 pruebas**, con 7
+La verificación de la versión v0.2.0-beta.2 pasó **9.087 pruebas**, con 7
 omitidas y 0 fallos, en Windows 11 con Python 3.12:
 
 | Conjunto | Aprobadas |
