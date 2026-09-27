@@ -901,7 +901,9 @@ function renderRevisionNotice() {
         el('span', {
           className: 'revnotice__text',
           attrs: { role: 'status' },
-          text: t('revision.olderScores', { n: older.toLocaleString() }),
+          text: older === 1
+            ? t('revision.olderScoresOne')
+            : t('revision.olderScores', { n: older.toLocaleString() }),
         }),
         rescoreButton(),
       ]);

@@ -1238,10 +1238,15 @@ class MatchRepo(_Repo):
         computed before the filter columns existed" instead of four filters
         quietly answering zero. The same discipline as the stale search index,
         which is reported for the same reason.
+
+        Open postings only: a recalculation rescores open postings, so a
+        closed one's older row would keep the count, and the notice that
+        offers the recalculation, above zero forever.
         """
         row = self.conn.execute(
-            "SELECT COUNT(*) AS n FROM job_match"
-            " WHERE config_id = ? AND config_version = ? AND schema_version < ?",
+            "SELECT COUNT(*) AS n FROM job_match m JOIN job j ON j.id = m.job_id"
+            " WHERE m.config_id = ? AND m.config_version = ? AND m.schema_version < ?"
+            " AND j.closed_at IS NULL",
             (config_id, config_version, MATCH_SCHEMA_VERSION),
         ).fetchone()
         return int(row["n"])
