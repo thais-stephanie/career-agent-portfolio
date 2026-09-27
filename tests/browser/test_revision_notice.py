@@ -147,6 +147,12 @@ def test_scores_from_an_earlier_version_offer_the_recalculation(
     db = tmp_path / "pristine.db"
     conn = connect(db)
     conn.execute("UPDATE job_match SET schema_version = ?", (MATCH_SCHEMA_VERSION - 1,))
+    # A closed posting keeps its older score (a recalculation rescores open
+    # postings only), and must not keep the notice up forever.
+    conn.execute(
+        "UPDATE job SET closed_at = '2026-01-01T00:00:00Z'"
+        " WHERE id = (SELECT job_id FROM job_match LIMIT 1)"
+    )
     conn.commit()
     conn.close()
 
@@ -158,7 +164,9 @@ def test_scores_from_an_earlier_version_offer_the_recalculation(
     page.wait_for(f"!({NOTICE_SHOWN})", message="the notice to clear", timeout=60)
     conn = connect(db)
     older = conn.execute(
-        "SELECT COUNT(*) FROM job_match WHERE schema_version < ?", (MATCH_SCHEMA_VERSION,)
+        "SELECT COUNT(*) FROM job_match m JOIN job j ON j.id = m.job_id"
+        " WHERE m.schema_version < ? AND j.closed_at IS NULL",
+        (MATCH_SCHEMA_VERSION,),
     ).fetchone()[0]
     conn.close()
     assert older == 0
