@@ -188,6 +188,18 @@ def search_config_command(
     typer.echo("\nno network calls and no inference calls were made by this command")
 
 
+def _refuse_missing(db: Path) -> None:
+    """Refuse a database path that does not exist; `connect` would create it."""
+    if not Path(db).exists():
+        typer.secho(
+            f"No database at {db}. Pass --db with your database, or start Career Agent "
+            "once so it registers your local profile.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
 def _open_personal(db: Path) -> Any:
     """Open a personal database, refusing one that belongs to the other kind.
 
@@ -197,7 +209,12 @@ def _open_personal(db: Path) -> Any:
     population. The committed screenshots are demo-mode precisely because that
     population contains no real employer name, so the missing check undermined
     the leak guard too.
+
+    A path that does not exist is refused BEFORE `connect`, which would create
+    it: a new file has no identity, so the check below always refused it
+    anyway, after leaving an empty migrated database behind.
     """
+    _refuse_missing(db)
     conn = connect(db)
     try:
         migrate(conn)
@@ -2434,6 +2451,7 @@ def serve_command(
     db = resolve_database(mode, db)
     if mode is RuntimeMode.PERSONAL:
         _check_profile_pair(db, config_dir)
+        _refuse_missing(db)
     config, config_path = _load_config(config_dir)
 
     conn = connect(db)

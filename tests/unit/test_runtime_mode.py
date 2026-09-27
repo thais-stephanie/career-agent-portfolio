@@ -124,8 +124,9 @@ def test_demo_mode_ignores_an_explicit_path(tmp_path: pathlib.Path) -> None:
 
 
 def test_personal_mode_prefers_explicit_then_environment_then_default(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.chdir(tmp_path)  # no profile registry here
     explicit = tmp_path / "explicit.db"
     assert resolve_database(RuntimeMode.PERSONAL, explicit) == explicit
     assert resolve_database(
@@ -134,9 +135,52 @@ def test_personal_mode_prefers_explicit_then_environment_then_default(
     assert resolve_database(RuntimeMode.PERSONAL, None, env={}) == DEFAULT_PERSONAL_DB_PATH
 
 
-def test_personal_mode_never_resolves_to_the_demo_database() -> None:
+def test_personal_mode_never_resolves_to_the_demo_database(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Stated as its own test because it is the whole bug in one line."""
+    monkeypatch.chdir(tmp_path)
     assert resolve_database(RuntimeMode.PERSONAL, None, env={}) != DEMO_DB_PATH
+
+
+def test_without_db_personal_mode_uses_the_active_default_profile(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An installation with local profiles never has the historical corpus
+    path. The active profile's database is used when its settings are the
+    default `config/`, so a default database and default settings are always
+    one person's; any other profile must be named."""
+    from career_agent.runtime.profiles import Profile, Registry, save_registry
+
+    monkeypatch.chdir(tmp_path)
+
+    def activate(config_dir: str) -> Profile:
+        profile = Profile(
+            id="prof-" + "0" * 26,
+            label="Synthetic",
+            created_at="2026-01-01T00:00:00Z",
+            db="data/profiles/p/personal.db",
+            config_dir=config_dir,
+            tailor_home="data/profiles/p/tailor",
+        )
+        save_registry(tmp_path, Registry(active=profile.id, profiles=[profile]))
+        return profile
+
+    profile = activate("config")
+    explicit = tmp_path / "explicit.db"
+    assert resolve_database(RuntimeMode.PERSONAL, None, env={}) == pathlib.Path(profile.db)
+    assert resolve_database(RuntimeMode.PERSONAL, explicit, env={}) == explicit
+    assert resolve_database(
+        RuntimeMode.PERSONAL, None, env={"CAREER_AGENT_DB": "data/from-env.db"}
+    ) == pathlib.Path("data/from-env.db")
+    assert resolve_database(RuntimeMode.DEMO, None) == DEMO_DB_PATH
+
+    activate("data/profiles/p/config")
+    assert resolve_database(RuntimeMode.PERSONAL, None, env={}) == DEFAULT_PERSONAL_DB_PATH
+
+    (tmp_path / "data" / "profiles.json").write_text("not json", encoding="utf-8")
+    assert resolve_database(RuntimeMode.PERSONAL, None, env={}) == DEFAULT_PERSONAL_DB_PATH
+    assert not (tmp_path / "data" / "profiles" / "p").exists()
 
 
 # =========================================================================
