@@ -334,4 +334,4 @@ The last rule was chosen: it is one condition in an existing guard, it keeps eve
 
 **In the Discover population** (open, not ruled out, not hidden): 1,249 of 2,510 GOOD postings move to MODERATE and 7 MODERATE postings to WEAK. Across every scored row, including postings ruled out by eligibility, the counts are 1,377 and 20. No STRONG posting moves, because every STRONG result already had central work. Stored readings and semantic findings are unchanged, so a targeted rescore replays every row (schema 12) and calls no provider.
 
-**What remains:** false positives whose strong finding is itself too loose (4 of 47 STRONG on the development set) are a provider judgment. Reducing them needs a change to the semantic contract, not to the arithmetic.
+**What remains:** false positives whose strong finding is itself too loose (4 of 47 STRONG on the development set) are a provider judgment. Reducing them needs a change to the semantic contract; the arithmetic cannot see which strong findings are loose.

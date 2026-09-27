@@ -493,7 +493,12 @@ lost if something goes wrong.
 6. Double-click **Start-Career-Agent.cmd** in the **new** folder. The first
    start installs the new version's libraries and updates your data to the
    new format. Your jobs, profiles and applications stay.
-7. When everything looks right, you can delete the old folder. You do not
+7. If the old folder is **v0.2.0-beta.1** or older, a notice above your job
+   list says how many scores were calculated by an earlier version. Press
+   **Recalculate search fit** in that notice once. It stays on your computer,
+   calls no AI provider and takes a few minutes on a large list. Until then the
+   list shows the older scores.
+8. When everything looks right, you can delete the old folder. You do not
    have to.
 
 On macOS and Linux, copy the same items between the two folders, then run the

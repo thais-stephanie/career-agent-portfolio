@@ -1,3 +1,71 @@
+# v0.2.0-beta.2
+
+Career Agent 0.2.0b2 with Resume Tailor 0.2.0b1, which did not change. It
+replaces v0.2.0-beta.1. To update, extract it into a new folder and copy the
+old folder's `data`, `config\*.local.yaml` and both `.env` files into it
+([how](docs/INSTALL.md#updating-to-a-new-version)), then press **Recalculate
+search fit** once, as described below.
+
+## Changed: Search Fit schema 12
+
+Tools can now earn their full Search Fit component only when the posting also
+shows the work you asked for as a central duty. A partial semantic match or an
+incidental mention still earns its own work points, but no longer lets common
+tools such as Python, SQL or APIs carry the posting into a higher band.
+
+- Central work is a strong semantic finding, or one of your work phrases in
+  the posting's role or requirements section, or repeated in the posting.
+- Without central work, the tools component is held at half, the rule that
+  already applied when no work evidence was found at all.
+- Measured on 175 hand-labelled postings from one real search, split before
+  the rule was chosen. The rule was frozen and then scored once on 63 held-out
+  postings: false positives at GOOD or above went from 15 to 6, and 25 of 29
+  valid postings stayed at GOOD or above. No posting moved up a band.
+- In that search's Discover list (open postings that are not ruled out or
+  hidden), 1,249 postings moved from GOOD to MODERATE and 7 from MODERATE to
+  WEAK. No STRONG result changed. Your own numbers depend on your search.
+- The benchmark and the rules that were rejected are in
+  [docs/SEMANTIC_MATCHING.md](docs/SEMANTIC_MATCHING.md#evidence-quality-2026-09-27).
+
+### What schema 12 does not change
+
+A check of the results after the change still found false positives among
+postings that stayed GOOD. Most come from semantic findings the provider marked
+strong for work the posting only touches. Schema 12 changes only the
+arithmetic, and findings are read as before. Reducing those false positives
+needs a revised semantic contract with its own benchmark.
+
+## After updating: recalculate once
+
+Scores stored by v0.2.0-beta.1 stay on screen after the update, and a notice
+above the job list says how many were calculated by an earlier version. Press
+**Recalculate search fit** in that notice. It reuses the readings and AI
+findings already stored, calls no AI provider and sends nothing over the
+network. On a list of about 156,000 postings it took five minutes. Until you
+press it, the list shows the older scores.
+
+## Fixed
+
+- **Command line.** Run without `--db`, `career-agent rescore`, `serve` and the
+  other commands that open your database now use the active profile's database
+  when that profile's settings are the `config` folder. They used to look for
+  an old path, `data/m1d2/career.db`, and `rescore --plan` created an empty
+  database there. `serve`, `start`, `rescore` and the other commands that open
+  a personal database to read or plan now refuse a file that does not exist
+  instead of creating it.
+- **Older scores are explained.** The status line said such scores "predate
+  the filters", a message from an earlier migration. It now says they come
+  from an earlier version, and the notice above the list offers the
+  recalculation.
+- **Documentation.** The schema 12 counts are labelled as the Discover
+  population; across every scored row, including postings ruled out by
+  eligibility, they are 1,377 and 20.
+
+## Validation
+
+See [docs/VALIDATION.md](docs/VALIDATION.md) for this release's test counts,
+installation checks and the v0.2.0-beta.1 to v0.2.0-beta.2 update test.
+
 # v0.2.0-beta.1
 
 Career Agent Beta with Resume Tailor Beta (0.2.0b1), for people who run it on
