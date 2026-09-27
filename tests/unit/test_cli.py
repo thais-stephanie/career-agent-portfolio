@@ -552,3 +552,27 @@ def test_serve_without_db_creates_no_database(
     assert result.exit_code == 2
     assert "No database at" in result.output
     assert _files(tmp_path) == before
+
+
+def test_daily_without_db_creates_no_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CAREER_AGENT_DB", raising=False)
+    before = _files(tmp_path)
+    result = runner.invoke(app, ["daily", "--config-dir", str(committed_config_dir())])
+    assert result.exit_code == 2
+    assert "No database at" in result.output
+    assert _files(tmp_path) == before
+
+
+def test_daily_without_db_reads_the_active_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CAREER_AGENT_DB", raising=False)
+    _personal_db(tmp_path / "data" / "personal.db")
+    _registry(tmp_path, "data/personal.db")
+    result = runner.invoke(app, ["daily", "--config-dir", str(committed_config_dir())])
+    assert result.exit_code == 0, result.output
+    assert not (tmp_path / "data" / "career.db").exists()

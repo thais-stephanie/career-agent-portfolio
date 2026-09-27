@@ -3621,7 +3621,7 @@ def jooble_probe_command(
 # daily
 # =====================================================================
 def daily_command(
-    db: Annotated[Path, typer.Option("--db")] = DEFAULT_DB_PATH,
+    db: Annotated[Path | None, typer.Option("--db")] = None,
     config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
     days: Annotated[int, typer.Option("--days", help="How far back 'recent' reaches.")] = 7,
     show: Annotated[int, typer.Option("--show", help="Rows per section.")] = 8,
@@ -3651,7 +3651,9 @@ def daily_command(
         candidate_id_of,
     )
 
+    db = resolve_database(RuntimeMode.PERSONAL, db)
     _check_profile_pair(db, config_dir)
+    _refuse_missing(db)
     config, config_path = _load_config(config_dir)
     conn = connect(db)
     try:
