@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from tests.support import committed_config_dir
 from typer.testing import CliRunner
 
 from career_agent.cli import app
@@ -351,6 +352,7 @@ def test_start_falls_back_only_when_nothing_was_stated(
 ) -> None:
     """An empty default beside one corpus is the single most common way to be
     confused by this product, and nobody chose the default."""
+    monkeypatch.chdir(tmp_path)  # never the developer's own profile registry
     from career_agent import cli_local
     from career_agent.runtime import mode
 
@@ -375,6 +377,7 @@ def test_start_refuses_to_choose_between_two_populated_databases(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Guessing here is how invented rows end up somewhere real."""
+    monkeypatch.chdir(tmp_path)  # never the developer's own profile registry
     from career_agent import cli_local
     from career_agent.runtime import mode
 
@@ -450,3 +453,102 @@ def test_discover_remotesource_preflight_makes_no_network_call(
     assert "PREFLIGHT. Nothing was fetched." in result.output
     assert "employers this run, at most" in result.output
     assert "workday" in result.output and "recruitee" in result.output
+
+
+# =========================================================================
+# rescore without --db: never create a database to find out it is missing
+# =========================================================================
+
+
+def _files(root: Path) -> set[Path]:
+    return {p.relative_to(root) for p in root.rglob("*")}
+
+
+def _personal_db(path: Path) -> Path:
+    from career_agent.runtime.mode import RuntimeMode, stamp_identity
+    from career_agent.storage.db import migrate
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = connect(path)
+    migrate(conn)
+    stamp_identity(conn, RuntimeMode.PERSONAL, "synthetic")
+    conn.close()
+    return path
+
+
+def _registry(root: Path, db: str) -> None:
+    from career_agent.runtime.profiles import Profile, Registry, save_registry
+
+    profile = Profile(
+        id="prof-" + "1" * 26,
+        label="Synthetic",
+        created_at="2026-01-01T00:00:00Z",
+        db=db,
+        config_dir="config",
+        tailor_home="data/tailor-personal",
+    )
+    save_registry(root, Registry(active=profile.id, profiles=[profile]))
+
+
+def test_rescore_plan_without_db_creates_no_legacy_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CAREER_AGENT_DB", raising=False)
+    before = _files(tmp_path)
+    result = runner.invoke(app, ["rescore", "--plan", "--config-dir", str(committed_config_dir())])
+    assert result.exit_code == 2
+    assert "No database at" in result.output
+    assert _files(tmp_path) == before
+
+
+def test_rescore_plan_without_db_uses_the_active_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CAREER_AGENT_DB", raising=False)
+    _personal_db(tmp_path / "data" / "personal.db")
+    _registry(tmp_path, "data/personal.db")
+    result = runner.invoke(app, ["rescore", "--plan", "--config-dir", str(committed_config_dir())])
+    assert result.exit_code == 0, result.output
+    assert "personal.db" in result.output and "nothing scored" in result.output
+    assert not (tmp_path / "data" / "m1d2").exists()
+
+
+def test_rescore_plan_refuses_a_missing_profile_database_and_creates_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CAREER_AGENT_DB", raising=False)
+    _registry(tmp_path, "data/profiles/gone/personal.db")
+    before = _files(tmp_path)
+    result = runner.invoke(app, ["rescore", "--plan", "--config-dir", str(committed_config_dir())])
+    assert result.exit_code == 2
+    assert "No database at" in result.output
+    assert _files(tmp_path) == before
+
+
+def test_rescore_plan_with_explicit_db_still_wins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _registry(tmp_path, "data/profiles/gone/personal.db")
+    db = _personal_db(tmp_path / "elsewhere" / "mine.db")
+    result = runner.invoke(
+        app,
+        ["rescore", "--plan", "--db", str(db), "--config-dir", str(committed_config_dir())],
+    )
+    assert result.exit_code == 0, result.output
+    assert "mine.db" in result.output
+
+
+def test_serve_without_db_creates_no_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CAREER_AGENT_DB", raising=False)
+    before = _files(tmp_path)
+    result = runner.invoke(app, ["serve", "--no-open", "--config-dir", str(committed_config_dir())])
+    assert result.exit_code == 2
+    assert "No database at" in result.output
+    assert _files(tmp_path) == before

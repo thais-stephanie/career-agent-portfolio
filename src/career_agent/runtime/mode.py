@@ -228,7 +228,13 @@ def resolve_database(
     """Which file this mode is allowed to open.
 
     Precedence for personal mode: an explicit `--db`, then the
-    ``CAREER_AGENT_DB`` environment variable, then the known personal corpus.
+    ``CAREER_AGENT_DB`` environment variable, then the ACTIVE LOCAL PROFILE's
+    database from `data/profiles.json` in the working directory when that
+    profile's settings are the default `config/`, then the historical corpus
+    path. A corrupt registry is skipped here, as `_check_profile_pair` does.
+    Without the profile step, every command run without `--db` in an
+    installation with local profiles resolved `data/m1d2/career.db`, which
+    such an installation never has.
     Demo mode ignores all of it and uses :data:`DEMO_DB_PATH`, because "demo"
     means one specific throwaway database and letting it be redirected is how
     invented rows end up somewhere real.
@@ -243,6 +249,16 @@ def resolve_database(
     override = source.get(PERSONAL_DB_ENV)
     if override:
         return Path(override)
+    from career_agent.runtime.profiles import LEGACY_CONFIG, ProfileError, load_registry
+
+    try:
+        registry = load_registry(Path.cwd())
+    except ProfileError:
+        registry = None
+    # Only the profile whose settings ARE the default `config/`: a default
+    # database and a default settings folder must belong to the same person.
+    if registry is not None and Path(registry.current.config_dir) == LEGACY_CONFIG:
+        return Path(registry.current.db)
     return DEFAULT_PERSONAL_DB_PATH
 
 
