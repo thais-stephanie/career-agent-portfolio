@@ -30,8 +30,9 @@ tools such as Python, SQL or APIs carry the posting into a higher band.
 ### What schema 12 does not change
 
 A check of the results after the change still found false positives among
-postings that stayed GOOD: 12 of 25 sampled. In 7 of those 12, a semantic
-finding the provider marked strong paid for work the posting only touches. Schema 12 changes only the
+postings that stayed GOOD: 12 of 25 sampled from that search. In 7 of those
+12, a semantic finding the provider marked strong paid for work the posting
+only touches. Schema 12 changes only the
 arithmetic, and findings are read as before. Reducing those false positives
 needs a revised semantic contract with its own benchmark.
 
@@ -52,7 +53,8 @@ press it, the list shows the older scores.
   They used to look for an old path, `data/m1d2/career.db` (`daily` used
   `data/career.db`), and `rescore --plan` created an empty database there.
   These commands now refuse a database file that does not exist instead of
-  creating it. Some collectors and `migrate` still default to
+  creating it. Every other command, including the collectors, `init`,
+  `doctor`, `migrate` and `migrate-profile`, still defaults to
   `data/career.db`; pass `--db` to them.
   [MULTI_PROFILE.md](docs/MULTI_PROFILE.md) lists which commands do what.
 - **Older scores are explained.** The status line said such scores "predate

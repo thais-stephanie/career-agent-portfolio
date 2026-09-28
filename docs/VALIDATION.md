@@ -121,7 +121,7 @@ hosted AI providers.
 ## Public audit
 
 gitleaks 8.30.1 found no leaks in the extracted Windows ZIP (13.65 MB) or in
-the release branch history (gitleaks reports 105 commits scanned). A
+the 98 non-merge commits in the history of the gated commit `aaecaef`. A
 deterministic scan of the ZIP found no databases, `.env`, `*.local.yaml`,
 `profiles.json`, backups, runtime folders or key-shaped strings. The only
 owner-identity matches are the two negative privacy tests that assert those
