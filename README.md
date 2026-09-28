@@ -25,8 +25,8 @@
 <p align="center">
   <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
     <img
-      src="https://img.shields.io/badge/status-Beta_1-fff08a"
-      alt="Beta 1"
+      src="https://img.shields.io/badge/status-Beta_2-fff08a"
+      alt="Beta 2"
     />
   </a>
   <a href="#resume-tailor-beta">
@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/Beta_1_tests-9%2C087_passed-a7ebcf"
-      alt="9,087 tests passed"
+      src="https://img.shields.io/badge/Beta_2_tests-9%2C105_passed-a7ebcf"
+      alt="9,105 tests passed"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -293,12 +293,12 @@ an Ollama address that is not local. The full inventory is in
 
 ## Validation
 
-The v0.2.0-beta.2 release gate passed **9,102 tests** with 7 skipped and 0
+The v0.2.0-beta.2 release gate passed **9,105 tests** with 7 skipped and 0
 failed, on Windows 11 with Python 3.12:
 
 | Suite | Passed |
 |---|---:|
-| Career Agent unit | 7,015 |
+| Career Agent unit | 7,018 |
 | Career Agent integration | 1,656 |
 | Career Agent browser | 371 |
 | Resume Tailor Python | 22 |

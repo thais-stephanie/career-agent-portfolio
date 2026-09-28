@@ -25,8 +25,8 @@
 <p align="center">
   <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
     <img
-      src="https://img.shields.io/badge/status-Beta_1-fff08a"
-      alt="Beta 1"
+      src="https://img.shields.io/badge/status-Beta_2-fff08a"
+      alt="Beta 2"
     />
   </a>
   <a href="#resume-tailor-beta">
@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/pruebas_Beta_1-9.087_aprobadas-a7ebcf"
-      alt="9.087 pruebas aprobadas"
+      src="https://img.shields.io/badge/pruebas_Beta_2-9.105_aprobadas-a7ebcf"
+      alt="9.105 pruebas aprobadas"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -299,12 +299,12 @@ en [PRIVACY.md](docs/PRIVACY.md).
 
 ## Validación
 
-La verificación de la versión v0.2.0-beta.2 pasó **9.102 pruebas**, con 7
+La verificación de la versión v0.2.0-beta.2 pasó **9.105 pruebas**, con 7
 omitidas y 0 fallos, en Windows 11 con Python 3.12:
 
 | Conjunto | Aprobadas |
 |---|---:|
-| Career Agent, unitarias | 7.015 |
+| Career Agent, unitarias | 7.018 |
 | Career Agent, integración | 1.656 |
 | Career Agent, navegador | 371 |
 | Resume Tailor, Python | 22 |

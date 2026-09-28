@@ -25,8 +25,8 @@
 <p align="center">
   <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
     <img
-      src="https://img.shields.io/badge/status-Beta_1-fff08a"
-      alt="Beta 1"
+      src="https://img.shields.io/badge/status-Beta_2-fff08a"
+      alt="Beta 2"
     />
   </a>
   <a href="#resume-tailor-beta">
@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/testes_Beta_1-9.087_aprovados-a7ebcf"
-      alt="9.087 testes aprovados"
+      src="https://img.shields.io/badge/testes_Beta_2-9.105_aprovados-a7ebcf"
+      alt="9.105 testes aprovados"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -298,12 +298,12 @@ um endereço do Ollama que não seja local. O inventário completo está em
 
 ## Validação
 
-A verificação da versão v0.2.0-beta.2 passou em **9.102 testes**, com 7
+A verificação da versão v0.2.0-beta.2 passou em **9.105 testes**, com 7
 ignorados e 0 falhas, no Windows 11 com Python 3.12:
 
 | Conjunto | Aprovados |
 |---|---:|
-| Career Agent, unitários | 7.015 |
+| Career Agent, unitários | 7.018 |
 | Career Agent, integração | 1.656 |
 | Career Agent, navegador | 371 |
 | Resume Tailor, Python | 22 |
