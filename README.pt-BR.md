@@ -23,10 +23,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
     <img
-      src="https://img.shields.io/badge/status-Beta_1-fff08a"
-      alt="Beta 1"
+      src="https://img.shields.io/badge/status-Beta_2-fff08a"
+      alt="Beta 2"
     />
   </a>
   <a href="#resume-tailor-beta">
@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/testes_Beta_1-9.087_aprovados-a7ebcf"
-      alt="9.087 testes aprovados"
+      src="https://img.shields.io/badge/testes_Beta_2-9.105_aprovados-a7ebcf"
+      alt="9.105 testes aprovados"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -86,7 +86,7 @@
   <strong>
     <a href="docs/INSTALL.md">Guia de instalação (em inglês)</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1">Baixar para Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Baixar para Windows</a>
     &nbsp;·&nbsp;
     <a href="#capturas-de-tela">Ver o aplicativo</a>
   </strong>
@@ -103,7 +103,7 @@ Agent; nada é enviado para um servidor do Career Agent, porque ele não existe.
 
 > [!NOTE]
 >
-> Esta é a versão **v0.2.0-beta.1**: Career Agent Beta com Resume Tailor Beta,
+> Esta é a versão **v0.2.0-beta.2**: Career Agent Beta com Resume Tailor Beta,
 > para quem roda no próprio computador. O Search Fit descreve como uma vaga
 > combina com as suas preferências de busca. Ele não estima suas chances de
 > contratação.
@@ -118,8 +118,8 @@ escrito para quem nunca usou um terminal. Ele está em inglês.
   nele. Ele instala o Career Agent, roda a demonstração e explica como abrir
   de novo.
 - **Quero instalar por conta própria:**
-  - **Windows:** baixe `Career-Agent-v0.2.0-beta.1-Windows.zip` na
-    [página da versão](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1),
+  - **Windows:** baixe `Career-Agent-v0.2.0-beta.2-Windows.zip` na
+    [página da versão](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
     desbloqueie o arquivo (botão direito, **Propriedades**, **Desbloquear**),
     clique com o botão direito, escolha **Extrair tudo** e dê dois cliques em
     **Start-Demo.cmd** na pasta extraída. Você não precisa instalar Python
@@ -298,21 +298,22 @@ um endereço do Ollama que não seja local. O inventário completo está em
 
 ## Validação
 
-A verificação da versão v0.2.0-beta.1 passou em **9.087 testes**, com 7
+A verificação da versão v0.2.0-beta.2 passou em **9.105 testes**, com 7
 ignorados e 0 falhas, no Windows 11 com Python 3.12:
 
 | Conjunto | Aprovados |
 |---|---:|
-| Career Agent, unitários | 7.001 |
+| Career Agent, unitários | 7.018 |
 | Career Agent, integração | 1.656 |
-| Career Agent, navegador | 370 |
+| Career Agent, navegador | 371 |
 | Resume Tailor, Python | 22 |
 | Resume Tailor, frontend | 38 |
 
 Ruff, a verificação de formatação, o mypy e as verificações do frontend
 passaram. O ZIP da versão foi instalado em uma pasta nova cujo caminho tem
 espaços, sem uv nem Python disponíveis antes, e foram verificados a
-demonstração, o modo pessoal, conflito de portas, reinício e encerramento. Não
+demonstração, o modo pessoal, conflito de portas, reinício e encerramento, além de uma
+atualização a partir da v0.2.0-beta.1 com dados sintéticos. Não
 há integração contínua: a verificação roda no computador Windows de
 quem mantém o projeto. A [validação da versão](docs/VALIDATION.md) lista os testes
 ignorados e as verificações de instalação.

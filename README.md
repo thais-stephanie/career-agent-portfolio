@@ -23,10 +23,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
     <img
-      src="https://img.shields.io/badge/status-Beta_1-fff08a"
-      alt="Beta 1"
+      src="https://img.shields.io/badge/status-Beta_2-fff08a"
+      alt="Beta 2"
     />
   </a>
   <a href="#resume-tailor-beta">
@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/Beta_1_tests-9%2C087_passed-a7ebcf"
-      alt="9,087 tests passed"
+      src="https://img.shields.io/badge/Beta_2_tests-9%2C105_passed-a7ebcf"
+      alt="9,105 tests passed"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -86,7 +86,7 @@
   <strong>
     <a href="docs/INSTALL.md">Install guide</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1">Download for Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Download for Windows</a>
     &nbsp;·&nbsp;
     <a href="#screenshots">See the app</a>
   </strong>
@@ -103,7 +103,7 @@ because there is none.
 
 > [!NOTE]
 >
-> This is **v0.2.0-beta.1**: Career Agent Beta with Resume Tailor Beta, for
+> This is **v0.2.0-beta.2**: Career Agent Beta with Resume Tailor Beta, for
 > people who run it on their own computer. Search Fit describes how a posting
 > matches your search preferences. It does not estimate your chances of being
 > hired.
@@ -118,8 +118,8 @@ for people who have never used a terminal.
   into it. It installs Career Agent, runs the demo and tells you how to start
   it again.
 - **I want to install it myself:**
-  - **Windows:** download `Career-Agent-v0.2.0-beta.1-Windows.zip` from the
-    [release page](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.1),
+  - **Windows:** download `Career-Agent-v0.2.0-beta.2-Windows.zip` from the
+    [release page](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
     unblock it (right-click, **Properties**, **Unblock**), right-click it and
     choose **Extract All**, then double-click
     **Start-Demo.cmd** in the extracted folder. You do not need to install
@@ -293,21 +293,22 @@ an Ollama address that is not local. The full inventory is in
 
 ## Validation
 
-The v0.2.0-beta.1 release gate passed **9,087 tests** with 7 skipped and 0
+The v0.2.0-beta.2 release gate passed **9,105 tests** with 7 skipped and 0
 failed, on Windows 11 with Python 3.12:
 
 | Suite | Passed |
 |---|---:|
-| Career Agent unit | 7,001 |
+| Career Agent unit | 7,018 |
 | Career Agent integration | 1,656 |
-| Career Agent browser | 370 |
+| Career Agent browser | 371 |
 | Resume Tailor Python | 22 |
 | Resume Tailor frontend | 38 |
 
 Ruff, the formatter check, mypy and the frontend checks were clean. The
 release ZIP was installed in a new folder whose path contains spaces, with no
 uv or Python available beforehand, and the demo, personal mode, a port
-conflict, restart and shutdown were checked. There is no continuous
+conflict, restart and shutdown were checked, as was an update from
+v0.2.0-beta.1 with synthetic data. There is no continuous
 integration: the gate runs on the maintainer's Windows computer.
 [Release validation](docs/VALIDATION.md) lists the skips and the install
 checks.
