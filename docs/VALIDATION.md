@@ -7,8 +7,8 @@ in any test below. The release's validation.json names the commit.
 
 The test gate ran on commit `aaecaef` in a fresh worktree, like a public
 checkout, and its logs record that commit. The release commit differs from it
-only in documentation: this page, one row of PUBLIC_AUDIT.md and the test
-counts and badges in the three READMEs. There is no continuous integration. The gate runs on one computer,
+only in Markdown documentation, including the test counts and badges in the
+three READMEs; no code, test, script or configuration file differs. There is no continuous integration. The gate runs on one computer,
 one suite at a time: the unit, integration and browser suites and the Tailor
 frontend exhausted memory when an earlier gate ran them together.
 
