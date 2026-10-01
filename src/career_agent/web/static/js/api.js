@@ -179,10 +179,19 @@ export async function exportGoodStrong(query) {
   const params = new URLSearchParams(query);
   params.delete('offset');
   params.delete('limit');
+  return downloadCsv(`/jobs/export.csv?${params.toString()}`, 'career-agent-good-strong.csv');
+}
+
+/** This profile's Search Fit answers as a private CSV. Returns the row count. */
+export async function exportFitFeedback() {
+  return downloadCsv('/fit-feedback/export.csv', 'career-agent-search-fit-feedback.csv');
+}
+
+async function downloadCsv(path, fallbackName) {
   const headers = localProfile ? { 'X-Local-Profile': localProfile } : {};
   let response;
   try {
-    response = await fetch(`${BASE}/jobs/export.csv?${params.toString()}`, { headers });
+    response = await fetch(`${BASE}${path}`, { headers });
   } catch (cause) {
     throw networkError(cause);
   }
@@ -202,7 +211,7 @@ export async function exportGoodStrong(query) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = named ? named[1] : 'career-agent-good-strong.csv';
+  link.download = named ? named[1] : fallbackName;
   document.body.append(link);
   link.click();
   link.remove();
@@ -340,6 +349,15 @@ export async function patchHidden(jobId, hidden, scope = 'posting', reason = nul
   return request(`/jobs/${encodeURIComponent(jobId)}/hidden`, {
     method: 'PATCH',
     body,
+  });
+}
+
+/** What the person thinks of the score on screen. Changes no score. */
+export async function patchFitFeedback(jobId, verdict, reason, note, matchScore) {
+  if (MOCK) return mockPatch(jobId, { fit_feedback: { verdict, reason, note } }, 'fit_feedback');
+  return request(`/jobs/${encodeURIComponent(jobId)}/fit-feedback`, {
+    method: 'PATCH',
+    body: { verdict, reason, note, match_score: matchScore },
   });
 }
 

@@ -135,6 +135,7 @@ PRIVATE_TABLES: frozenset[str] = frozenset(
         "job_score_revision",
         "job_application",
         "job_application_event",
+        "search_fit_feedback",
         "requirement_review",
         "job_retrieval_lane",
         "job_enrichment",

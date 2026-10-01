@@ -118,6 +118,8 @@ EXPECTED_TABLES = {
     "semantic_run",
     # 0042: which retrieval lane and query found a posting. Provenance only.
     "job_retrieval_lane",
+    # 0046: what the person thought of a Search Fit score. Observation only.
+    "search_fit_feedback",
     # 0031: where a query-scoped walk got to, slice by slice, across runs.
     "source_slice_state",
     "source_health",

@@ -116,7 +116,7 @@ def test_the_production_path(production_shaped) -> None:
 
     # 2. Only what main added since runs: 0038, 0039 (Career Evidence V2),
     # 0040 (an experience description), 0041 (semantic evaluations) and the
-    # later ones through 0044 (To apply merged into Interested).
+    # later ones through 0046 (Search Fit feedback).
     # The foreign rows stand, applied_at included.
     applied = migrate(conn)
     assert [(m.version, m.name) for m in applied] == [
@@ -128,6 +128,7 @@ def test_the_production_path(production_shaped) -> None:
         (43, "profile_identity"),
         (44, "merge_to_apply_into_interested"),
         (45, "source_health"),
+        (46, "search_fit_feedback"),
     ]
     after = _ledger_rows(conn)
     assert after[:37] == before

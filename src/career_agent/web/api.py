@@ -507,6 +507,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/saved", self.patch_saved)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/hidden", self.patch_hidden)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/notes", self.patch_notes)
+        self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/fit-feedback", self.patch_fit_feedback)
+        self.register("GET", r"/api/fit-feedback/export\.csv", self.export_fit_feedback)
         self.register("POST", r"/api/jobs/(?P<job_id>[^/]+)/enrich", self.enrich_job)
         self.register("GET", r"/api/jobs/(?P<job_id>[^/]+)/local-reading", self.enrich_status)
         self.register("POST", r"/api/jobs/(?P<job_id>[^/]+)/enrich/cancel", self.enrich_cancel)
@@ -2171,6 +2173,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         return display_names()[1]
 
     def get_job(self, *, job_id: str, query: dict, body: dict) -> dict:
+        from career_agent.storage.fit_feedback import FitFeedbackRepo
         from career_agent.storage.mvp_repo import ApplicationRepo, ScoredJobQuery
 
         validate_job_id(job_id)
@@ -2180,9 +2183,12 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             if row is None:
                 raise ApiError(404, "no such job")
             history = ApplicationRepo(conn).history(job_id)
-        return job_detail(
+            feedback = FitFeedbackRepo(conn).current(job_id, config_id, config_version)
+        detail = job_detail(
             row, bands=self._bands, today=utc_today(), recency=self._recency, history=history
         )
+        detail["fit_feedback"] = feedback
+        return detail
 
     # -- mutations -------------------------------------------------------
     def patch_status(self, *, job_id: str, query: dict, body: dict) -> dict:
@@ -2347,6 +2353,55 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         with _closing(self.connect()) as conn:
             ApplicationRepo(conn).set_notes(job_id, notes, now=_now())
         return self.get_job(job_id=job_id, query={}, body={})
+
+    def patch_fit_feedback(self, *, job_id: str, query: dict, body: dict) -> dict:
+        """What the person thinks of the score on screen. Observation only:
+        nothing that scores, ranks, filters or retrieves reads it."""
+        from career_agent.storage.fit_feedback import (
+            FeedbackRefused,
+            FitFeedbackRepo,
+            ScoreChanged,
+        )
+
+        validate_job_id(job_id)
+        fields = {k: body.get(k) for k in ("verdict", "reason", "note")}
+        if any(v is not None and not isinstance(v, str) for v in fields.values()):
+            raise ApiError(400, "verdict, reason and note must be strings")
+        seen = body.get("match_score")
+        if seen is not None and (isinstance(seen, bool) or not isinstance(seen, int | float)):
+            raise ApiError(400, "match_score must be a number")
+        config_id, config_version = self._identity()
+        with _closing(self.connect()) as conn:
+            try:
+                FitFeedbackRepo(conn).save(
+                    job_id,
+                    config_id,
+                    config_version,
+                    verdict=fields["verdict"] or "",
+                    reason=fields["reason"] or None,
+                    note=fields["note"],
+                    seen_score=seen,
+                    now=_now(),
+                )
+            except ScoreChanged as exc:
+                raise ApiError(409, str(exc), for_reader=True) from exc
+            except FeedbackRefused as exc:
+                raise ApiError(400, str(exc)) from exc
+        return self.get_job(job_id=job_id, query={}, body={})
+
+    def export_fit_feedback(self, *, query: dict, body: dict) -> Any:
+        """Every Search Fit answer of THIS profile, as a private CSV."""
+        from career_agent.storage.fit_feedback import FitFeedbackRepo
+        from career_agent.web import export
+        from career_agent.web.server import Download
+
+        with _closing(self.connect()) as conn:
+            rows = FitFeedbackRepo(conn).export_rows()
+        return Download(
+            body=export.fit_feedback_csv(rows),
+            content_type="text/csv; charset=utf-8",
+            filename=f"career-agent-search-fit-feedback-{utc_today()}.csv",
+        )
 
     # -- the only route that may open a socket, and only to localhost ----
     def enrich_job(self, *, job_id: str, query: dict, body: dict) -> dict:

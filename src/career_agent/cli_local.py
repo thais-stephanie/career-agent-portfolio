@@ -3417,8 +3417,8 @@ def forget_command(
 
     `settings`   removes config/search.local.yaml. The shipped example takes
                  over, so the product keeps working.
-    `tracking`   clears saved jobs, application statuses, dates and notes. The
-                 postings themselves stay.
+    `tracking`   clears saved jobs, application statuses, dates and notes, and
+                 your Search Fit answers. The postings themselves stay.
     `everything` both of the above.
 
     It always says exactly what it is about to remove, and how many rows, before
@@ -3448,7 +3448,7 @@ def forget_command(
         )
 
     conn = None
-    counts = {"saved": 0, "tracked": 0, "notes": 0, "events": 0}
+    counts = {"saved": 0, "tracked": 0, "notes": 0, "events": 0, "fit": 0}
     if doing_tracking:
         path = resolve_database(RuntimeMode.PERSONAL, db)
         conn = _open_personal(path)
@@ -3463,9 +3463,11 @@ def forget_command(
             "SELECT COUNT(*) FROM job_application WHERE notes IS NOT NULL AND notes != ''"
         ).fetchone()[0]
         counts["events"] = conn.execute("SELECT COUNT(*) FROM job_application_event").fetchone()[0]
+        counts["fit"] = conn.execute("SELECT COUNT(*) FROM search_fit_feedback").fetchone()[0]
         plan.append(
             f"clear tracking in {path}: {counts['saved']} saved, {counts['tracked']} tracked, "
-            f"{counts['notes']} with notes, {counts['events']} history entries"
+            f"{counts['notes']} with notes, {counts['events']} history entries, "
+            f"{counts['fit']} Search Fit answers"
         )
 
     typer.secho("This will:", bold=True)
@@ -3490,7 +3492,9 @@ def forget_command(
         with transaction(conn):
             conn.execute("DELETE FROM job_application_event")
             conn.execute("DELETE FROM job_application")
+            conn.execute("DELETE FROM search_fit_feedback")
         removed.append(("tracking rows cleared", counts["saved"] + counts["tracked"]))
+        removed.append(("Search Fit answers cleared", counts["fit"]))
         conn.close()
 
     typer.secho("\nDone", bold=True)
