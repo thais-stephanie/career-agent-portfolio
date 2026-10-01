@@ -32,6 +32,8 @@ export function createDrawer({
 }) {
   let invoker = null;
   let currentJob = null;
+  //: Search Fit answers, saved one after another (fitFeedbackSection).
+  let fitSaves = Promise.resolve();
   let requestToken = 0;
   // Set while an enrichment request is in flight. Aborts the request and stops
   // its elapsed-seconds timer, so neither survives a close or a re-open.
@@ -366,6 +368,7 @@ export function createDrawer({
   function whySections(job) {
     return [
       whyOverview(job),
+      fitFeedbackSection(job),
       // WHAT THIS POSTING ASKED OF SOMEBODY STARTING OUT, before the strengths
       // and before the gaps. High up on purpose: for a career changer, a new
       // graduate or anybody looking for a first job, it is the first thing they
@@ -378,6 +381,68 @@ export function createDrawer({
       unknownsSection(job),
       scoreBreakdown(job),
     ].filter(Boolean);
+  }
+
+  // -- what the person thinks of the score (migration 0046) ---------------
+  /**
+   * Observation only. The answer is kept for this profile, beside the score
+   * it judged, and exported on request; nothing that scores, ranks, filters
+   * or retrieves reads it, so no number on this card moves because of it.
+   */
+  function fitFeedbackSection(job) {
+    if (job.match_score === null || job.match_score === undefined) return null;
+    const given = job.fit_feedback || null;
+    const verdict = given ? given.verdict : null;
+    const status = el('p', {
+      className: 'd-note',
+      attrs: { role: 'status' },
+      text: given ? t('fitFeedback.saved') : '',
+    });
+    // What the note box holds now, so a verdict clicked right after typing
+    // carries the new note rather than the one this section was drawn with.
+    let note = given ? given.note : null;
+    const fail = (err) => {
+      status.textContent = t(err && err.status === 409 ? 'fitFeedback.changed' : 'fitFeedback.failed');
+    };
+    // One save at a time, in order: blurring the note and clicking a verdict
+    // fire two saves, and the later answer must land last.
+    const save = (next, reason) => {
+      const seen = note;
+      fitSaves = fitSaves
+        .then(() => api.patchFitFeedback(job.job_id, next, reason, seen, job.match_score))
+        .then(refreshWith, fail);
+    };
+    const body = [el('div', {
+      className: 'segmented',
+      attrs: { role: 'group', 'aria-label': t('fitFeedback.question') },
+    }, FIT_VERDICTS.map((v) => button(t(`fitFeedback.${v}`), () => save(v, null), {
+      className: 'segmented__btn',
+      attrs: { 'aria-pressed': v === verdict ? 'true' : 'false' },
+    })))];
+    if (FIT_REASONS[verdict]) {
+      body.push(select(
+        [{ value: '', label: t('fitFeedback.noReason') },
+          ...FIT_REASONS[verdict].map((r) => ({ value: r, label: t(`fitFeedback.reason.${verdict}.${r}`) }))],
+        given.reason || '',
+        (value) => save(verdict, value || null),
+        { ariaLabel: t('fitFeedback.reason') },
+      ));
+    }
+    if (verdict) {
+      body.push(el('textarea', {
+        className: 'input input--notes',
+        attrs: { rows: '2', placeholder: t('fitFeedback.note'), 'aria-label': t('fitFeedback.note') },
+        props: { value: given.note || '' },
+        on: {
+          input: (event) => { note = event.target.value; },
+          blur: () => { if ((given.note || '') !== (note || '')) save(verdict, given.reason); },
+        },
+      }));
+    }
+    body.push(status, button(t('fitFeedback.export'), () => api.exportFitFeedback().catch(fail), {
+      className: 'btn btn--link',
+    }));
+    return section(t('fitFeedback.question'), body, { className: 'd-sec--fit-feedback' });
   }
 
   // -- what this posting asked of a newcomer (migration 0027) ------------
@@ -1204,6 +1269,15 @@ export function createDrawer({
   return {
     relabel, root, open, close, reloadPreparation, get job() { return currentJob; } };
 }
+
+//: storage/fit_feedback.py VERDICTS and REASONS, in the same order.
+const FIT_VERDICTS = ['ACCURATE', 'TOO_HIGH', 'TOO_LOW', 'NOT_ENOUGH_INFORMATION'];
+const FIT_REASONS = {
+  TOO_HIGH: ['WORK_NOT_WANTED', 'TOOLS_NOT_WORK', 'SECONDARY_DUTY', 'ONLY_ASKS_EXPERIENCE',
+    'SENIORITY', 'CONDITIONS', 'OTHER'],
+  TOO_LOW: ['WORK_MATCHES_MORE', 'WORDING_MISSED', 'CENTRAL_AS_SECONDARY', 'TOOLS_MISSED',
+    'SENIORITY_FITS', 'OTHER'],
+};
 
 /**
  * A gate result in words. PASS / FAIL / UNRESOLVED is the domain vocabulary and

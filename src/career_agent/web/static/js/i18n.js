@@ -3141,6 +3141,31 @@ const EN = {
   'drawer.toolsGuard':
     'Held at half: this posting uses tools you want, and none of the work you want was found as a '
     + 'central duty in it.',
+  'fitFeedback.question': 'Does this Search Fit look right?',
+  'fitFeedback.ACCURATE': 'Yes',
+  'fitFeedback.TOO_HIGH': 'Too high',
+  'fitFeedback.TOO_LOW': 'Too low',
+  'fitFeedback.NOT_ENOUGH_INFORMATION': 'Not enough information',
+  'fitFeedback.reason': 'Why (optional)',
+  'fitFeedback.noReason': 'No reason given',
+  'fitFeedback.reason.TOO_HIGH.WORK_NOT_WANTED': 'The work is not what I want',
+  'fitFeedback.reason.TOO_HIGH.TOOLS_NOT_WORK': 'Tools matched, the work did not',
+  'fitFeedback.reason.TOO_HIGH.SECONDARY_DUTY': 'The work is only a secondary duty',
+  'fitFeedback.reason.TOO_HIGH.ONLY_ASKS_EXPERIENCE': 'It only asks for prior experience with it',
+  'fitFeedback.reason.TOO_HIGH.SENIORITY': 'The seniority does not fit',
+  'fitFeedback.reason.TOO_HIGH.CONDITIONS': 'Work model, location or contract does not fit',
+  'fitFeedback.reason.TOO_HIGH.OTHER': 'Other',
+  'fitFeedback.reason.TOO_LOW.WORK_MATCHES_MORE': 'The work matches more than the score shows',
+  'fitFeedback.reason.TOO_LOW.WORDING_MISSED': 'Equivalent wording was missed',
+  'fitFeedback.reason.TOO_LOW.CENTRAL_AS_SECONDARY': 'A central duty was treated as secondary',
+  'fitFeedback.reason.TOO_LOW.TOOLS_MISSED': 'Tools or methods were missed',
+  'fitFeedback.reason.TOO_LOW.SENIORITY_FITS': 'The seniority does fit',
+  'fitFeedback.reason.TOO_LOW.OTHER': 'Other',
+  'fitFeedback.note': 'Note (optional)',
+  'fitFeedback.saved': 'Saved on this computer. Your answer does not change the score.',
+  'fitFeedback.failed': 'Could not save your answer. Try again.',
+  'fitFeedback.changed': 'Search Fit was recalculated since this opened. Close and reopen the posting.',
+  'fitFeedback.export': 'Export my answers (private CSV)',
 };
 
 /**
@@ -6115,6 +6140,31 @@ const PT_BR = {
   'drawer.toolsGuard':
     'Limitado à metade: esta vaga usa ferramentas que você quer, e nenhum trabalho que você quer foi '
     + 'encontrado nela como atividade central.',
+  'fitFeedback.question': 'Esta aderência parece certa?',
+  'fitFeedback.ACCURATE': 'Sim',
+  'fitFeedback.TOO_HIGH': 'Alta demais',
+  'fitFeedback.TOO_LOW': 'Baixa demais',
+  'fitFeedback.NOT_ENOUGH_INFORMATION': 'A vaga não dá informação suficiente',
+  'fitFeedback.reason': 'Por quê (opcional)',
+  'fitFeedback.noReason': 'Sem motivo',
+  'fitFeedback.reason.TOO_HIGH.WORK_NOT_WANTED': 'O trabalho não é o que eu quero',
+  'fitFeedback.reason.TOO_HIGH.TOOLS_NOT_WORK': 'As ferramentas batem, o trabalho não',
+  'fitFeedback.reason.TOO_HIGH.SECONDARY_DUTY': 'O trabalho é só uma atividade secundária',
+  'fitFeedback.reason.TOO_HIGH.ONLY_ASKS_EXPERIENCE': 'A vaga só pede experiência prévia com isso',
+  'fitFeedback.reason.TOO_HIGH.SENIORITY': 'A senioridade não serve',
+  'fitFeedback.reason.TOO_HIGH.CONDITIONS': 'Modelo de trabalho, local ou contrato não servem',
+  'fitFeedback.reason.TOO_HIGH.OTHER': 'Outro',
+  'fitFeedback.reason.TOO_LOW.WORK_MATCHES_MORE': 'O trabalho bate mais do que a pontuação mostra',
+  'fitFeedback.reason.TOO_LOW.WORDING_MISSED': 'Não reconheceu um jeito equivalente de dizer',
+  'fitFeedback.reason.TOO_LOW.CENTRAL_AS_SECONDARY': 'Uma atividade central foi tratada como secundária',
+  'fitFeedback.reason.TOO_LOW.TOOLS_MISSED': 'Deixou passar ferramentas ou métodos',
+  'fitFeedback.reason.TOO_LOW.SENIORITY_FITS': 'A senioridade serve, sim',
+  'fitFeedback.reason.TOO_LOW.OTHER': 'Outro',
+  'fitFeedback.note': 'Anotação (opcional)',
+  'fitFeedback.saved': 'Salvo neste computador. Sua resposta não muda a pontuação.',
+  'fitFeedback.failed': 'Não foi possível salvar sua resposta. Tente de novo.',
+  'fitFeedback.changed': 'A aderência foi recalculada depois que esta vaga foi aberta. Feche e abra a vaga de novo.',
+  'fitFeedback.export': 'Exportar minhas respostas (CSV privado)',
 };
 
 const CATALOGUES = { en: EN, 'pt-BR': PT_BR };

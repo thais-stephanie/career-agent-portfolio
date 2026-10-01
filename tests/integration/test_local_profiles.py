@@ -440,3 +440,32 @@ def test_a_tailor_tab_left_open_after_a_switch_cannot_touch_the_new_profile(
     assert info["profile"]["id"] == second
     new_page = TestClient(host.tailor, base_url=TAILOR, headers={"X-Local-Profile": second})
     assert new_page.get("/api/career/applications").status_code == 200
+
+
+def test_search_fit_feedback_stays_in_its_profile(install: ProfileHost) -> None:
+    host = install
+    first = load_registry(host.root).current
+    job = app(host).handle_api("GET", "/api/jobs", {"limit": ["1"]}, {})["items"][0]["job_id"]
+    app(host).handle_api(
+        "PATCH", f"/api/jobs/{job}/fit-feedback", {}, {"verdict": "TOO_HIGH", "note": "A only"}
+    )
+
+    def exported() -> bytes:
+        return app(host).handle_api("GET", "/api/fit-feedback/export.csv", {}, {}).body
+
+    assert b"A only" in exported()
+    second = app(host).handle_api("POST", "/api/profiles", {}, {"label": "Synthetic B"})
+    app(host).handle_api(
+        "POST", "/api/profiles/switch", {}, {"profile_id": second["created"]["id"]}
+    )
+    assert exported().decode("utf-8-sig").strip().count("\n") == 0, "B sees A's answers"
+    app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": first.id})
+    assert b"A only" in exported()
+    shared = host.root / "data" / "shared" / "catalogue.db"
+    if shared.exists():
+        conn = connect(shared)
+        try:
+            names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master")}
+        finally:
+            conn.close()
+        assert "search_fit_feedback" not in names, "feedback reached the shared catalogue"

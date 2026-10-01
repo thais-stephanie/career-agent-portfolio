@@ -61,10 +61,41 @@ def _cell(value: Any) -> str:
     return text
 
 
-def good_strong_csv(rows: list[dict[str, Any]]) -> bytes:
+def _csv(header: list[str], rows: Any) -> bytes:
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\r\n")
-    writer.writerow([name for name, _ in COLUMNS])
-    for row in rows:
-        writer.writerow([_cell(get(row)) for _, get in COLUMNS])
+    writer.writerow(header)
+    writer.writerows(rows)
     return ("\ufeff" + out.getvalue()).encode("utf-8")
+
+
+def good_strong_csv(rows: list[dict[str, Any]]) -> bytes:
+    return _csv([n for n, _ in COLUMNS], ([_cell(get(r)) for _, get in COLUMNS] for r in rows))
+
+
+#: The Search Fit feedback export (migration 0046). Private to the profile:
+#: the person's own judgements plus the public facts needed to read them. No
+#: search phrases, CV, evidence, findings or provider output.
+FEEDBACK_COLUMNS = (
+    ("Job id", "job_id"),
+    ("Title", "title"),
+    ("Company", "company"),
+    ("Source", "provider"),
+    ("URL", "url"),
+    ("Search Fit when judged", "match_score"),
+    ("Band when judged", "fit_band"),
+    ("Search Fit schema", "schema_version"),
+    ("Settings version", "config_version"),
+    ("Verdict", "verdict"),
+    ("Reason", "reason"),
+    ("Note", "note"),
+    ("First answered", "created_at"),
+    ("Last changed", "updated_at"),
+)
+
+
+def fit_feedback_csv(rows: list[dict[str, Any]]) -> bytes:
+    return _csv(
+        [n for n, _ in FEEDBACK_COLUMNS],
+        ([_cell(r.get(k)) for _, k in FEEDBACK_COLUMNS] for r in rows),
+    )
