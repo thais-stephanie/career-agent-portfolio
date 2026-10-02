@@ -93,21 +93,21 @@ const EN = {
   'career.editText': 'Edit statement',
   'career.saveText': 'Save revision',
   'career.editImportHelp': 'To correct an unconfirmed import, open its source review below.',
-  'settings.refreshTiming': 'Refresh preference',
+  'settings.refreshTiming': 'When to check this site',
   'settings.refreshMode.AUTO': 'Follow my target markets',
-  'settings.refreshMode.ENABLED': 'Enable refresh for this market',
-  'settings.refreshMode.PAUSED': 'Pause refresh',
-  'settings.sourcePausedByYou': 'Refresh paused by you. Collected jobs remain available.',
-  'settings.refreshAnyway': 'Refresh anyway',
-  'settings.refreshNow': 'Refresh now',
+  'settings.refreshMode.ENABLED': 'Check this site',
+  'settings.refreshMode.PAUSED': 'Pause checks',
+  'settings.sourcePausedByYou': 'Checks paused by you. Jobs already found stay available.',
+  'settings.refreshAnyway': 'Check anyway',
+  'settings.refreshNow': 'Check now',
   'settings.targets': 'Target locations, work arrangements and compensation',
   'settings.searchHelp': 'What would you like to see more or less of?',
   'settings.prefer_keyword': 'Prioritize',
-  'settings.prefer_keywordHelp': 'Move jobs containing these phrases higher in your Discover ordering.',
+  'settings.prefer_keywordHelp': 'Move jobs containing these phrases higher in Find jobs.',
   'settings.avoid_keyword': 'Avoid',
   'settings.avoid_keywordHelp': 'Move jobs containing these phrases lower without hiding them.',
   'settings.exclude_keyword': 'Never show',
-  'settings.exclude_keywordHelp': 'Exclude jobs containing these phrases from your Discover view.',
+  'settings.exclude_keywordHelp': 'Exclude jobs containing these phrases from Find jobs.',
   'settings.addPhrase': 'Type a phrase, then Enter or comma',
   'settings.clearPhrases': 'Clear phrases',
   'settings.localPreference': 'Saved in this browser. Matching ignores letter case. '
@@ -116,7 +116,7 @@ const EN = {
   'settings.modelAdvanced': 'Review concepts and advanced scoring vocabulary',
   'settings.advancedRefresh': 'Advanced refresh diagnostics',
   'settings.sourceHelp': 'Refresh timing follows your target markets. It never filters what a source collects. '
-    + 'Jobs already collected remain available in Discover.',
+    + 'Jobs already collected remain available in Find jobs.',
   'experimental.title': '{name} via JobSpy',
   'experimental.badge': 'Experimental, optional',
   'experimental.off': 'Off for this profile. It never runs unless you turn it on here.',
@@ -141,8 +141,8 @@ const EN = {
   'settings.sourceDetails': 'Technical source details',
   'settings.sourceMarket': 'Market: {market}',
   'settings.sourcePaused': 'Paused because this market is outside your current target markets.',
-  'settings.sourceFailure': 'The last refresh failed. Previously collected jobs remain available in Discover.',
-  'settings.sourceUpdated': 'Last successful refresh: {date}',
+  'settings.sourceFailure': 'The last refresh failed. Previously collected jobs remain available in Find jobs.',
+  'settings.sourceUpdated': 'Last successful check: {date}',
   'career.heading': 'Your experiences',
   'career.guidance': 'Describe what you owned, built or changed; the tools, people and scope involved; ' +
     'decisions you made and outcomes you observed. Include measurements when you know ' +
@@ -151,7 +151,7 @@ const EN = {
     'checklist that helped new colleagues handle requests.” Keep each statement ' +
     'separate and accurate.',
   'career.boundary': 'Experiences organize what you have done. Only evidence you confirm can support ' +
-    'Evidence / Readiness and resume preparation. The match % uses the posting and ' +
+    'Before you apply and resume preparation. The match % uses the posting and ' +
     'your search model.',
   'career.new': 'Add experience',
   'career.inbox': 'Needs organizing',
@@ -298,10 +298,10 @@ const EN = {
   'rail.sources': 'Where these come from',
 
   // -- the legend, which is the thing people most often get wrong --------
-  'legend.summary': 'What Match and Posting completeness mean',
+  'legend.summary': 'What the match % and the ad detail mean',
   'legend.match': 'Match',
   'legend.matchBody': 'posting alignment with your search. It does not measure your capability.',
-  'legend.detail': 'Posting completeness',
+  'legend.detail': 'Ad detail',
   'legend.detailBody':
     'how much the posting actually told us. Not your chances of getting hired.',
   'legend.eligible': 'Can you take it',
@@ -485,14 +485,13 @@ const EN = {
   'prep.retry': 'Try again',
   'prep.noRequirements': 'This posting fired none of the signals you configured, so there is '
     + 'nothing here to prepare against. That is a fact about the posting, not about you.',
-  'prep.leadWithEvidence': 'Evidence / Readiness: checked against {n} confirmed claims. '
-    + 'Phrase overlap links the quotes; review whether they support the requirement. '
-    + 'These claims do not enter the match %.',
-  'prep.leadWithoutEvidence': 'Evidence / Readiness is unknown: no career claims are confirmed. '
+  'prep.leadWithEvidence': 'Before you apply: checked against {n} confirmed claims. Phrase overlap links the '
+    + 'quotes; review whether they support the requirement. These claims do not enter the match %.',
+  'prep.leadWithoutEvidence': 'Before you apply: nothing to compare yet, because no career claims are confirmed. '
     + 'This does not change the separate match %.',
   'prep.noEvidenceYet': 'Import your CV or write down what you have done, and this page '
     + 'starts answering.',
-  'prep.goToEvidence': 'Your career evidence',
+  'prep.goToEvidence': 'Your proof of work',
   'prep.state.MATCHED': 'Related confirmed evidence',
   'prep.state.PARTIAL': 'Tool or skill named',
   'prep.state.GAP': 'No confirmed support recognized',
@@ -559,11 +558,11 @@ const EN = {
   'ledger.source.DOCUMENT': 'From a document',
 
   // -- the evidence overlay: what is true about you, and how it got there -
-  'rail.evidence': 'Your career evidence',
-  'ledger.title': 'Your career evidence',
+  'rail.evidence': 'Your proof of work',
+  'ledger.title': 'Your proof of work',
   'ledger.close': 'Close',
   'ledger.retry': 'Try again',
-  'ledger.heading': 'Your evidence',
+  'ledger.heading': 'Your proof',
   'ledger.lede': 'What Career Agent knows you have actually done. What you are LOOKING FOR is a '
     + 'separate thing and lives on your career profile.',
   'ledger.empty': 'Nothing is confirmed about you yet. Import a CV above, or write down '
@@ -589,7 +588,7 @@ const EN = {
     + 'hire, checked against the countries and scopes in your preferences.',
   'ledger.uses.where': 'What moves the recommendations is what you are looking for, under '
     + 'Preferences on your career profile.',
-  'ledger.search': 'Search your evidence',
+  'ledger.search': 'Search your proof',
   'ledger.searchPlaceholder': 'Search experience, skills, companies, tools...',
   'ledger.showAllInGroup': 'Show all {n}',
   // SELECTION, and the one action it offers. Retiring is reversible and
@@ -679,7 +678,7 @@ const EN = {
   'cv.importMeta': '{confirmed} confirmed, {rejected} refused, {total} read',
   'cv.continueReview': 'Continue reviewing',
   'cv.reopenReview': 'Look at it again',
-  'cv.backToEvidence': 'Back to your evidence',
+  'cv.backToEvidence': 'Back to your proof',
   'cv.reviewSafety': 'Each answer is saved on its own, straight away. You can close this and '
     + 'come back to the rest.',
   'cv.fromCv': 'From your CV',
@@ -704,7 +703,7 @@ const EN = {
   'lifecycle.delete': 'Delete...',
   'lifecycle.deleted': '{name} was deleted.',
   'cvr.heading': 'What {name} says, by experience',
-  'cvr.back': 'Back to your evidence',
+  'cvr.back': 'Back to your proof',
   'cvr.found': '{experiences} experiences found / {suggestions} suggestions / {attention} need attention',
   'cvr.waiting': '{waiting} still to answer, {confirmed} confirmed so far.',
   'cvr.allAnsweredLede': 'Everything is answered: {confirmed} confirmed, {rejected} rejected.',
@@ -784,7 +783,7 @@ const EN = {
   'cvr.deletedN': 'Deleted {n}.',
   'cvr.selectedN': '{n} selected',
   'cvr.selectLabel': 'Select: {text}',
-  'cvr.confirmedNote': 'Confirmed. To withdraw it, retire it in Career Evidence.',
+  'cvr.confirmedNote': 'Confirmed. To withdraw it, retire it in Proof of my work.',
   'cvr.undoReject': 'Undo reject',
   'cvr.deleteOne': 'Delete',
   'cvr.deleteOneSure': 'Delete for good?',
@@ -820,7 +819,7 @@ const EN = {
   'career.confirmOneLabel': 'Confirm: {text}',
 
   // -- the candidate intake package --------------------------------------
-  'intake.heading': 'Sources and imports',
+  'intake.heading': 'Documents and imports',
   'intake.lede': 'Where the evidence above came from. An import is one pass over your '
     + 'documents, and nothing in it is true about you until you say it is.',
   'intake.waiting': '{n} to look at',
@@ -1115,7 +1114,7 @@ const EN = {
   'filters.section.find': 'Find',
   'filters.section.findHelp': 'Searches the whole posting, not just the job title.',
   'filters.section.quick': 'Quick filters',
-  'filters.section.quality': 'Search fit and posting completeness',
+  'filters.section.quality': 'Match and ad detail',
   'filters.section.qualityHelp': 'Two separate numbers. Neither is a prediction about your chances. ',
   'filters.preset.all': 'Everything',
   'filters.preset.allHelp': 'Every job collected so far, with nothing filtered out.',
@@ -1362,43 +1361,43 @@ const EN = {
   'sources.colFresh': 'Last successful run',
   'sources.state.NOT_STARTED': 'Never run',
   'sources.state.QUEUED': 'Waiting to start',
-  'sources.state.RUNNING': 'Updating',
-  'sources.state.PARTIAL': 'Refreshed, in part',
-  'sources.state.COMPLETE': 'Refresh complete',
+  'sources.state.RUNNING': 'Checking now',
+  'sources.state.PARTIAL': 'Partly checked',
+  'sources.state.COMPLETE': 'Checked',
   'sources.state.PAUSED': 'Paused',
-  'sources.state.FAILED': 'Last refresh failed',
+  'sources.state.FAILED': 'Last check failed',
   'sources.state.BLOCKED': 'Currently unavailable',
   // "Not measured" and "none" are different answers, and this is the first.
   'sources.state.STALE': 'Out of date',
-  'sources.state.DUE': 'Due for a refresh',
+  'sources.state.DUE': 'Due for a check',
   'sources.state.RATE_LIMITED': 'Refused by the site',
   'sources.healthTitle': 'How your job sites are doing',
-  'sources.healthSummary': '{due} due for a refresh, {attention} need attention. '
-    + 'Refreshing is up to you: nothing runs by itself.',
+  'sources.healthSummary': '{due} due for a check, {attention} need attention. Checking is up to you: nothing runs '
+    + 'by itself.',
   'sources.healthSource': 'Source',
   'sources.healthLastSuccess': 'Last success',
   'sources.healthStatus': 'Status',
   'sources.refreshDue': 'Check for new jobs',
   'sources.refreshAll': 'Check all again',
-  'sources.refreshDueStarting': 'Checking which sources are due...',
-  'sources.refreshDueStarted': 'Refreshing {n} due sources. Progress is shown at the top.',
-  'sources.refreshAllStarted': 'Refreshing all {n} available sources. Progress is shown at the top.',
+  'sources.refreshDueStarting': 'Checking which job sites are due...',
+  'sources.refreshDueStarted': 'Checking {n} job sites that are due. Progress is shown at the top.',
+  'sources.refreshAllStarted': 'Checking all {n} available job sites. Progress is shown at the top.',
   'sources.refreshHelp': 'Check for new jobs is the usual one, and what Find jobs does: it reads only the sites not '
     + 'checked in the last day. Check all again also reads the ones checked recently. Neither wakes a paused site '
     + 'or asks a site that refused before its wait is over. Nothing runs by itself: you decide when to check.',
-  'sources.popIntegrated': '{n} integrated sources',
+  'sources.popIntegrated': '{n} job sites',
   'sources.popExperimental': '{n} experimental enabled',
-  'sources.popAvailable': '{n} available to refresh now',
+  'sources.popAvailable': '{n} ready to check now',
   'sources.popDue': '{n} due now',
   'sources.boardsRefreshed': '{ok} of {total} employer boards refreshed, {failed} failed; what was read is kept.',
   'sources.coverageHeld': 'Holds {held} of the {total} jobs this source lists.',
   'sources.coverageReachable': 'Its interface serves at most {n}.',
   'sources.coverageThisRun': 'Read {n} in the last refresh.',
-  'sources.nothingDue': 'Nothing is due right now. Every source was refreshed recently.',
+  'sources.nothingDue': 'Nothing is due right now. Every job site was checked recently.',
   'sources.alreadyRunning': 'Career Agent is already looking for jobs. Progress is shown at the top.',
   'sources.coolingDown': 'The site refused or failed; asked again after {date}.',
   'sources.experimentalTag': 'Experimental',
-  'sources.staleHelp': 'The last successful refresh is more than three days old. Refresh it to see current jobs.',
+  'sources.staleHelp': 'The last successful check is more than three days old. Check it to see current jobs.',
   'sources.reason.PAGE_LIMIT': 'Reads only its first pages each refresh, by design; the source holds more than '
     + 'that.',
   'sources.reason.PROGRESSIVE': 'Reads one batch each refresh, by design; the next refresh continues where this one '
@@ -1427,7 +1426,7 @@ const EN = {
     + 'everywhere. Recalculating your matches fixes it.',
   'health.staleFacetsHelp': 'An earlier version of Career Agent calculated these scores. Recalculate '
     + 'search fit to update them, on your own computer and at no cost.',
-  'filters.qualityHint': 'Match is how close the work is to what you want. Posting completeness is how '
+  'filters.qualityHint': 'Match is how close the work is to what you want. Ad detail is how '
     + 'much the employer actually wrote down. A short posting scores low on '
     + 'completeness however good the job is.',
   'filters.salaryHint': 'Pick a currency too. Nothing here converts between currencies, so '
@@ -1608,9 +1607,9 @@ const EN = {
   'sidenav.statJobs': 'jobs found',
   'sidenav.statOpen': 'open',
   'sidenav.statInterview': 'interviews',
-  'sidenav.statusOk': 'All sources working',
-  'sidenav.statusAttentionOne': '1 source needs attention',
-  'sidenav.statusAttention': '{n} sources need attention',
+  'sidenav.statusOk': 'All job sites working',
+  'sidenav.statusAttentionOne': '1 job site needs attention',
+  'sidenav.statusAttention': '{n} job sites need attention',
   'sidenav.statusOpenSources': 'Open Settings to see what went wrong',
   'sidenav.look': 'Look',
   'sidenav.privacy': 'Your data stays on this computer.',
@@ -1630,7 +1629,7 @@ const EN = {
   'modeTag.UNKNOWN': 'Unknown',
   'nav.tailor': 'Resume helper',
   'nav.beta': 'New',
-  'nav.badgeJobs': '{n} new from the latest refresh',
+  'nav.badgeJobs': '{n} new from your latest check',
   'nav.badgeApplications': '{n} jobs you are tracking',
   'locale.name.en': 'English',
   'locale.name.pt-BR': 'Português (Brasil)',
@@ -1699,7 +1698,7 @@ const EN = {
   'home.metric.applied': 'Applied',
   'home.metric.interviews': 'Interviews',
   'home.metric.offers': 'Offers',
-  'home.kind.noRefresh': 'no refresh completed yet',
+  'home.kind.noRefresh': 'no check completed yet',
   'home.metricOpen': 'Show {label} in the job list',
   'home.nothing': 'Nothing here today.',
   'home.complete': 'Finish your Career Profile',
@@ -1716,7 +1715,7 @@ const EN = {
   'home.gap.work': 'No phrases describe the work you want, so there is nothing for a posting '
     + 'to match.',
   'home.openProfile': 'Open your profile',
-  'home.openEvidence': 'Add your evidence',
+  'home.openEvidence': 'Add proof of your work',
   'home.tip.title': 'New here? Here\'s how it works',
   'home.tip.1.title': 'We look for jobs',
   'home.tip.1.body': 'When you ask, we check job websites and order the jobs by how well they fit you.',
@@ -1852,7 +1851,7 @@ const EN = {
   // box.
   'chip.minScore': 'Match at least {n}',
   'chip.maxScore': 'Match at most {n}',
-  'chip.minConfidence': 'Posting completeness at least {n}',
+  'chip.minConfidence': 'Ad detail at least {n}',
   'chip.postedWithinOne': 'Posted in the last 1 day',
   'chip.postedWithin': 'Posted in the last {n} days',
   'chip.contains': 'Contains “{text}”',
@@ -1941,7 +1940,7 @@ const EN = {
   // the company name and every evidence quote -- those are the employer's
   // words and ADR-0002 makes a translated quote not a quote.
   'drawer.scoredOutOf': 'Match {score} out of 100: {howClose} for the work you said you '
-    + 'want. Confirmed career evidence is assessed separately under Evidence / Readiness.',
+    + 'want. Confirmed career evidence is assessed separately under Before you apply.',
   'drawer.closeStrong': 'strong search fit',
   'drawer.closeReasonable': 'reasonable search fit',
   'drawer.closePartial': 'partial search fit',
@@ -1972,7 +1971,7 @@ const EN = {
     + '(its title, a statement or the years it asks for).',
   'confidence.note.seniority_determinable.no': 'The posting does not state a level. The match % treats it as '
     + 'mid-level.',
-  'drawer.secConfidence': 'Posting completeness',
+  'drawer.secConfidence': 'Ad detail',
   'drawer.secUnknowns': 'Never mentioned in the posting',
   'drawer.secSignals': 'Tools and skills it names',
   'drawer.secPay': 'Pay and contract',
@@ -2078,7 +2077,7 @@ const EN = {
   'absent.source': 'Source not recorded',
   'absent.place': 'Location not stated',
   'column.score': 'Match',
-  'column.confidence': 'Posting completeness',
+  'column.confidence': 'Ad detail',
   'column.company': 'Company',
   'column.title': 'Job',
   'column.location': 'Location',
@@ -2123,7 +2122,7 @@ const EN = {
     + 'looking for turned up at all. Nothing is wrong with them; they are a'
     + 'different kind of work. A LOW match is not this and is always shown.',
   'filters.matchAtLeast': 'Match at least',
-  'filters.detailAtLeast': 'Posting completeness at least',
+  'filters.detailAtLeast': 'Ad detail at least',
   'stage.fetched': 'Fetched',
   'stage.active': 'Active',
   'stage.normalised': 'Readable',
@@ -2323,7 +2322,7 @@ const EN = {
   // WHAT THE ANSWER DOES. One sentence, in the second person, naming the
   // consequence rather than the mechanism.
   'fieldHelp.work_models': 'Prefer adds a little to a job\'s fit and rather avoid takes it away. Never show also '
-    + 'hides those jobs from Discover, with one click to see them again. None of this changes '
+    + 'hides those jobs from Find jobs, with one click to see them again. None of this changes '
     + 'where you can be hired: remote does not mean a company can hire you anywhere.',
   'fieldHelp.require_remote': 'Worked out from your answers: on when hybrid and on-site are both never shown.',
   'fieldHelp.contract_preferred':
@@ -2331,7 +2330,7 @@ const EN = {
     + 'not say, and then nothing changes.',
   'fieldHelp.contract_unwanted': 'Arrangements you would rather not have. A job that offers one loses a little fit.',
   'fieldHelp.seniority_preferred': 'Kept for your own reference; it does not change scores yet. To keep a level out of '
-    + 'Discover, use the next question.',
+    + 'Find jobs, use the next question.',
   'fieldHelp.seniority_excluded':
     'Jobs at these levels will not be recommended to you. Anything you are already following stays where it is.',
   'fieldHelp.travel_max_pct': 'Kept for your own reference; it does not change scores or hide jobs yet.',
@@ -2429,7 +2428,7 @@ const EN = {
   'profile.confirmedNote': 'Confirming something does not move a recommendation. Your evidence is '
     + 'read when you prepare an application, and it is where the words in that application come '
     + 'from.',
-  'profile.openEvidence': 'Open your career evidence',
+  'profile.openEvidence': 'Open Proof of my work',
   'profile.nothingConfirmed': 'Nothing confirmed yet',
   'profile.nothingConfirmedLead': 'This is where the work you have done appears, once you have '
     + 'said which parts of it are true. Nothing is confirmed on your behalf.',
@@ -2451,7 +2450,7 @@ const EN = {
     + 'own confirmed sentences, word for word.',
   'profile.experienceNote': 'A CV and a LinkedIn export often name the same employer '
     + 'differently, and nothing here merges them: deciding that two names are one company is '
-    + 'yours to say. You can correct a name under Career Evidence.',
+    + 'yours to say. You can correct a name under Proof of my work.',
   'profile.skillsHeading': 'Skills and tools',
   // Said out loud because the design shows a bar with a number on the end of
   // it, and somebody who has seen that will look for one here.
@@ -2478,7 +2477,7 @@ const EN = {
   'attend.clearLede': 'Everything read out of your documents has been answered. What you '
     + 'confirmed is below.',
   'attend.nothingYet': 'Nothing has been read out of your documents yet. Add a CV under '
-    + 'Sources and imports, or write something down yourself.',
+    + 'Documents and imports, or write something down yourself.',
   'attend.summary': '{confirmed} confirmed, {retired} set aside',
 
   // An import, named by WHAT IT WAS READ FROM and WHEN. Two of them were on
@@ -2642,8 +2641,8 @@ const EN = {
   'setup.region.EMEA': 'Europe, the Middle East and Africa',
   'setup.region.APAC': 'Asia and the Pacific',
   'setup.level.title': 'Any levels you want to keep off your list?',
-  'setup.level.why': 'Jobs at the levels you tick are hidden from Discover. One click shows them again, and nothing '
-    + 'is deleted.',
+  'setup.level.why': 'Jobs at the levels you tick are hidden from Find jobs. One click shows them again, and '
+    + 'nothing is deleted.',
   'setup.level.legend': 'Hide jobs at these levels',
   'setup.level.note': 'Most people leave all of these unticked.',
   'setup.pay.title': 'What pay are you aiming for?',
@@ -2667,8 +2666,8 @@ const EN = {
   'setup.ready.find': 'Find jobs now',
   'setup.ready.starting': 'Starting…',
   'setup.ready.finding': 'Finding jobs…',
-  'setup.ready.progress': 'Checking sources: {done} of {total} finished in this refresh',
-  'setup.ready.progressLabel': 'Sources finished in this refresh',
+  'setup.ready.progress': 'Checking job sites: {done} of {total} finished',
+  'setup.ready.progressLabel': 'Job sites finished in this check',
   'setup.ready.nothingDue': 'Every available source was refreshed in the last day, so none is due yet. Your jobs '
     + 'are as fresh as their sources.',
   'setup.ready.coolingDown': '{n} sources are waiting after a refusal or a failure; they are tried again when the '
@@ -2715,7 +2714,7 @@ const EN = {
   'setup.workmodel.legend':
     'Your answer for each way of working',
   'setup.workmodel.note':
-    'Never show hides those jobs from Discover, with one click to see them again. Remote is about how '
+    'Never show hides those jobs from Find jobs, with one click to see them again. Remote is about how '
     + 'you work, not where companies can hire you: that is the hiring question you already answered.',
   'setup.arrangement.title':
     'Which working arrangements work for you?',
@@ -2731,11 +2730,10 @@ const EN = {
     'It is read here, on this computer, and nothing in it counts until you confirm it.',
   'setup.cv.noNeed':
     'You can search for jobs without adding a CV.',
-  'setup.cv.helps':
-    'Adding your CV helps Career Agent build Career Evidence and makes resume preparation more useful. '
-    + 'Each line becomes a statement for you to confirm or reject later, in Career Evidence.',
+  'setup.cv.helps': 'Adding your CV helps Career Agent build your proof of work and makes resume preparation more '
+    + 'useful. Each line becomes a statement for you to confirm or reject later, in Proof of my work.',
   'setup.cv.added':
-    'Career data added. Review it any time in Career Evidence.',
+    'Career data added. Review it any time in Proof of my work.',
   'setup.cv.choose':
     'Choose a file',
   'setup.cv.read':
@@ -2745,7 +2743,7 @@ const EN = {
   'setup.cv.reading':
     'Reading {name}…',
   'setup.cv.found':
-    '{n} statements found. None of them counts until you confirm it in Career Evidence.',
+    '{n} statements found. None of them counts until you confirm it in Proof of my work.',
   'setup.cv.privacy':
     'Reads {kinds}. The file is not kept, and nothing is sent anywhere.',
   'setup.review.title':
@@ -2781,7 +2779,7 @@ const EN = {
   'setup.review.looksRight':
     'Looks right',
   'setup.ready.noCv':
-    'You can find jobs without a CV. Career Evidence and resume preparation become useful once you add one.',
+    'You can find jobs without a CV. Proof of my work and resume preparation become useful once you add one.',
   'setup.ready.addCv':
     'Add career data',
   'setup.ready.settings':
@@ -2793,8 +2791,8 @@ const EN = {
   'evstart.hint': 'PDF, Word, text or Markdown. It is read on this computer and the file is not kept. You can also '
     + 'add an experience by hand below.',
   'career.aboutEvidence': 'Examples, and what this is used for',
-  'board.empty': 'No applications tracked yet. Save a job or change its status in Discover and it appears here.',
-  'board.toDiscover': 'Go to Discover',
+  'board.empty': 'No applications tracked yet. Save a job or change its status in Find jobs and it appears here.',
+  'board.toDiscover': 'Go to Find jobs',
   'settings.sourceEach': 'Each job source ({n}, {paused} paused): status and refresh timing',
   // choices.js: one answer per row, shared by the setup and Settings.
   'workModel.REMOTE': 'Remote',
@@ -2819,7 +2817,7 @@ const EN = {
   'arrangement.summary.yes': 'Works: {kind}',
   'arrangement.summary.no': 'Rather not: {kind}',
   'profileRow.workModelsAvoided': 'Ways of working you would rather avoid',
-  'profileRow.workModelsExcluded': 'Ways of working never shown in Discover',
+  'profileRow.workModelsExcluded': 'Ways of working never shown in Find jobs',
   // Finding jobs: one drawing for every screen that shows a run.
   'collect.now': 'Now reading {source} ({time})',
   'collect.nowBoards': 'Now reading {source}: {done} of {total} employer boards ({time})',
@@ -2849,7 +2847,7 @@ const EN = {
   'firstrun.ledeLeft': 'What is left of your setup. None of it is required, and each says what it lets Career '
     + 'Agent work out. Change earlier answers any time in Settings.',
   'tailor.needsCv': 'Resume Tailor Beta works from your CV, and Career Agent has nothing about your career yet. '
-    + 'Add your CV, or write down what you have done, in Career Evidence first.',
+    + 'Add your CV, or write down what you have done, in Proof of my work first.',
   'tailor.addCv': 'Add your CV',
   'tailor.openOwn': 'Already gave Resume Tailor your CV? Open Resume Tailor Beta',
   'setup.work.tooMany': 'That is {n} lines. Keep the 20 that matter most: each one is looked for in every job.',
@@ -3384,21 +3382,21 @@ const PT_BR = {
   'career.editText': 'Editar afirmação',
   'career.saveText': 'Salvar revisão',
   'career.editImportHelp': 'Para corrigir uma importação não confirmada, abra a revisão da fonte abaixo.',
-  'settings.refreshTiming': 'Preferência de atualização',
+  'settings.refreshTiming': 'Quando verificar este site',
   'settings.refreshMode.AUTO': 'Seguir meus mercados desejados',
-  'settings.refreshMode.ENABLED': 'Ativar atualização deste mercado',
-  'settings.refreshMode.PAUSED': 'Pausar atualização',
-  'settings.sourcePausedByYou': 'Você pausou a atualização. Vagas coletadas continuam disponíveis.',
-  'settings.refreshAnyway': 'Atualizar mesmo assim',
-  'settings.refreshNow': 'Atualizar agora',
+  'settings.refreshMode.ENABLED': 'Verificar este site',
+  'settings.refreshMode.PAUSED': 'Pausar verificações',
+  'settings.sourcePausedByYou': 'Você pausou as verificações. As vagas já encontradas continuam disponíveis.',
+  'settings.refreshAnyway': 'Verificar mesmo assim',
+  'settings.refreshNow': 'Verificar agora',
   'settings.targets': 'Locais desejados, formas de trabalho e remuneração',
   'settings.searchHelp': 'O que você gostaria de ver com mais ou menos frequência?',
   'settings.prefer_keyword': 'Priorizar',
-  'settings.prefer_keywordHelp': 'Coloca vagas com estas expressões mais acima na ordenação do Descobrir.',
+  'settings.prefer_keywordHelp': 'Coloca vagas com estas expressões mais acima em Encontrar vagas.',
   'settings.avoid_keyword': 'Evitar',
   'settings.avoid_keywordHelp': 'Coloca vagas com estas expressões mais abaixo, sem ocultá-las.',
   'settings.exclude_keyword': 'Nunca mostrar',
-  'settings.exclude_keywordHelp': 'Exclui vagas com estas expressões da sua visualização do Descobrir.',
+  'settings.exclude_keywordHelp': 'Exclui vagas com estas expressões de Encontrar vagas.',
   'settings.addPhrase': 'Digite uma expressão e pressione Enter ou vírgula',
   'settings.clearPhrases': 'Limpar expressões',
   'settings.localPreference': 'Salvo neste navegador. A busca ignora maiúsculas e minúsculas. '
@@ -3407,7 +3405,7 @@ const PT_BR = {
   'settings.modelAdvanced': 'Revisar conceitos e vocabulário avançado de pontuação',
   'settings.advancedRefresh': 'Diagnóstico avançado de atualização',
   'settings.sourceHelp': 'O momento da atualização segue seus mercados desejados. '
-    + 'Isso nunca filtra o que uma fonte coleta. Vagas já coletadas continuam disponíveis no Descobrir.',
+    + 'Isso nunca filtra o que uma fonte coleta. Vagas já coletadas continuam disponíveis em Encontrar vagas.',
   'experimental.title': '{name} via JobSpy',
   'experimental.badge': 'Experimental, opcional',
   'experimental.off': 'Desligado neste perfil. Só roda se você ligar aqui.',
@@ -3433,8 +3431,8 @@ const PT_BR = {
   'settings.sourceDetails': 'Detalhes técnicos das fontes',
   'settings.sourceMarket': 'Mercado: {market}',
   'settings.sourcePaused': 'Pausada porque este mercado está fora dos seus mercados desejados atuais.',
-  'settings.sourceFailure': 'A última atualização falhou. Vagas já coletadas continuam disponíveis no Descobrir.',
-  'settings.sourceUpdated': 'Última atualização bem-sucedida: {date}',
+  'settings.sourceFailure': 'A última atualização falhou. Vagas já coletadas continuam disponíveis em Encontrar vagas.',
+  'settings.sourceUpdated': 'Última verificação bem-sucedida: {date}',
   'career.heading': 'Suas experiências',
   'career.guidance': 'Descreva o que assumiu, construiu ou mudou; as ferramentas, pessoas e o escopo ' +
     'envolvidos; decisões que tomou e resultados que observou. Inclua medidas quando ' +
@@ -3443,7 +3441,7 @@ const PT_BR = {
     'compartilhada que ajudou novos colegas a atender solicitações”. Mantenha cada ' +
     'afirmação separada e fiel ao que aconteceu.',
   'career.boundary': 'As experiências organizam o que você fez. Só evidências confirmadas podem apoiar ' +
-    'Evidências / Preparo e a preparação do currículo. Compatibilidade usa a vaga e ' +
+    'Antes de se candidatar e a preparação do currículo. Compatibilidade usa a vaga e ' +
     'seu modelo de busca.',
   'career.new': 'Adicionar experiência',
   'career.inbox': 'Precisa organizar',
@@ -3587,10 +3585,10 @@ const PT_BR = {
   'rail.preferences': 'Preferências de busca',
   'rail.sources': 'De onde elas vêm',
 
-  'legend.summary': 'O que significam Correspondência e Completude do anúncio',
+  'legend.summary': 'O que significam a compatibilidade e o detalhe do anúncio',
   'legend.match': 'Compatibilidade',
   'legend.matchBody': 'relação do anúncio com sua busca. Não mede sua capacidade profissional.',
-  'legend.detail': 'Completude do anúncio',
+  'legend.detail': 'Detalhe do anúncio',
   'legend.detailBody':
     'o quanto o anúncio realmente contou. Não são suas chances de ser contratada.',
   'legend.eligible': 'Você pode aceitar',
@@ -3734,14 +3732,13 @@ const PT_BR = {
   'prep.retry': 'Tentar de novo',
   'prep.noRequirements': 'Este anúncio não acionou nenhum dos sinais que você configurou, '
     + 'então não há o que preparar aqui. Isso é um fato sobre o anúncio, não sobre você.',
-  'prep.leadWithEvidence': 'Evidências / Preparação: comparado com {n} afirmações confirmadas. '
-    + 'As expressões em comum ligam as citações; confira se sustentam o requisito. '
-    + 'Essas afirmações não entram na pontuação de compatibilidade.',
-  'prep.leadWithoutEvidence': 'Evidências / Preparação desconhecida: nenhuma afirmação confirmada. '
-    + 'Isso não altera a pontuação separada de compatibilidade.',
+  'prep.leadWithEvidence': 'Antes de se candidatar: comparado com {n} afirmações confirmadas. As expressões em '
+    + 'comum ligam as citações; confira se sustentam o requisito. Essas afirmações não entram na compatibilidade.',
+  'prep.leadWithoutEvidence': 'Antes de se candidatar: ainda não há com o que comparar, porque nenhuma afirmação '
+    + 'está confirmada. Isso não altera a compatibilidade, que é separada.',
   'prep.noEvidenceYet': 'Importe seu currículo ou escreva o que você já fez, e esta página '
     + 'começa a responder.',
-  'prep.goToEvidence': 'Suas evidências de carreira',
+  'prep.goToEvidence': 'Suas provas de trabalho',
   'prep.state.MATCHED': 'Evidência confirmada relacionada',
   'prep.state.PARTIAL': 'Ferramenta ou habilidade citada',
   'prep.state.GAP': 'Nenhum apoio confirmado reconhecido',
@@ -3801,11 +3798,11 @@ const PT_BR = {
   'ledger.source.DOCUMENT': 'De um documento',
 
   // -- as evidências -----------------------------------------------------
-  'rail.evidence': 'Suas evidências de carreira',
-  'ledger.title': 'Suas evidências de carreira',
+  'rail.evidence': 'Suas provas de trabalho',
+  'ledger.title': 'Suas provas de trabalho',
   'ledger.close': 'Fechar',
   'ledger.retry': 'Tentar de novo',
-  'ledger.heading': 'Suas evidências',
+  'ledger.heading': 'Suas provas',
   'ledger.lede': 'O que o Career Agent sabe que você de fato fez. O que você PROCURA é outra coisa e '
     + 'fica no seu perfil de carreira.',
   'ledger.empty': 'Nada foi confirmado sobre você ainda. Importe um currículo acima, ou '
@@ -3819,7 +3816,7 @@ const PT_BR = {
     + 'contratar, conferido com os países e escopos das suas preferências.',
   'ledger.uses.where': 'O que move as recomendações é o que você procura, em Preferências no seu '
     + 'perfil de carreira.',
-  'ledger.search': 'Buscar nas suas evidências',
+  'ledger.search': 'Buscar nas suas provas',
   'ledger.searchPlaceholder': 'Buscar experiência, habilidades, empresas, ferramentas...',
   'ledger.showAllInGroup': 'Mostrar todas as {n}',
   'ledger.selectStart': 'Selecionar várias',
@@ -3888,7 +3885,7 @@ const PT_BR = {
   'cv.importMeta': '{confirmed} confirmadas, {rejected} recusadas, {total} lidas',
   'cv.continueReview': 'Continuar a revisão',
   'cv.reopenReview': 'Ver de novo',
-  'cv.backToEvidence': 'Voltar às suas evidências',
+  'cv.backToEvidence': 'Voltar às suas provas',
   'cv.reviewSafety': 'Cada resposta é salva sozinha, na hora. Você pode fechar isto e voltar '
     + 'para o resto depois.',
   'cv.fromCv': 'Do seu currículo',
@@ -3914,7 +3911,7 @@ const PT_BR = {
   'lifecycle.delete': 'Excluir...',
   'lifecycle.deleted': '{name} foi excluído.',
   'cvr.heading': 'O que {name} diz, por experiência',
-  'cvr.back': 'Voltar às suas evidências',
+  'cvr.back': 'Voltar às suas provas',
   'cvr.found': '{experiences} experiências encontradas / {suggestions} sugestões / {attention} precisam de atenção',
   'cvr.waiting': '{waiting} ainda por responder, {confirmed} confirmadas até agora.',
   'cvr.allAnsweredLede': 'Tudo respondido: {confirmed} confirmadas, {rejected} rejeitadas.',
@@ -3993,7 +3990,7 @@ const PT_BR = {
   'cvr.deletedN': '{n} excluídas.',
   'cvr.selectedN': '{n} selecionadas',
   'cvr.selectLabel': 'Selecionar: {text}',
-  'cvr.confirmedNote': 'Confirmada. Para retirar, use Retirar nas Evidências de carreira.',
+  'cvr.confirmedNote': 'Confirmada. Para retirar, use Retirar em Provas do meu trabalho.',
   'cvr.undoReject': 'Desfazer rejeição',
   'cvr.deleteOne': 'Excluir',
   'cvr.deleteOneSure': 'Excluir de vez?',
@@ -4029,7 +4026,7 @@ const PT_BR = {
   'career.confirmOneLabel': 'Confirmar: {text}',
 
   // -- o pacote de evidencias do candidato --------------------------------
-  'intake.heading': 'Fontes e importações',
+  'intake.heading': 'Documentos e importações',
   'intake.lede': 'De onde vieram as evidências acima. Uma importação é uma passagem pelos '
     + 'seus documentos, e nada nela é verdade sobre você até você dizer que é.',
   'intake.waiting': '{n} para olhar',
@@ -4298,7 +4295,7 @@ const PT_BR = {
   'filters.section.find': 'Buscar',
   'filters.section.findHelp': 'Procura no anúncio inteiro, não só no título da vaga.',
   'filters.section.quick': 'Filtros rápidos',
-  'filters.section.quality': 'Compatibilidade e completude do anúncio',
+  'filters.section.quality': 'Compatibilidade e detalhe do anúncio',
   'filters.section.qualityHelp': 'Dois números separados. Nenhum dos dois é uma previsão sobre suas '
     + 'chances.',
   'filters.preset.all': 'Tudo',
@@ -4534,45 +4531,45 @@ const PT_BR = {
   'sources.colProgress': 'Encontradas nesta execução',
   'sources.colFresh': 'Última execução bem-sucedida',
   'sources.state.NOT_STARTED': 'Nunca rodou',
-  'sources.state.QUEUED': 'Esperando para comecar',
-  'sources.state.RUNNING': 'Atualizando agora',
-  'sources.state.PARTIAL': 'Atualizada, em parte',
-  'sources.state.COMPLETE': 'Atualização concluída',
+  'sources.state.QUEUED': 'Esperando para começar',
+  'sources.state.RUNNING': 'Verificando agora',
+  'sources.state.PARTIAL': 'Verificado em parte',
+  'sources.state.COMPLETE': 'Verificado',
   'sources.state.PAUSED': 'Pausada',
-  'sources.state.FAILED': 'Última atualização falhou',
+  'sources.state.FAILED': 'Última verificação falhou',
   'sources.state.BLOCKED': 'Indisponível no momento',
   'sources.state.STALE': 'Desatualizada',
-  'sources.state.DUE': 'Hora de atualizar',
+  'sources.state.DUE': 'Hora de verificar',
   'sources.state.RATE_LIMITED': 'Recusada pelo site',
   'sources.healthTitle': 'Como estão seus sites de vagas',
-  'sources.healthSummary': '{due} precisam de atualização, {attention} precisam de atenção. '
-    + 'Atualizar é com você: nada roda sozinho.',
+  'sources.healthSummary': '{due} precisam de verificação, {attention} precisam de atenção. Verificar é com você: '
+    + 'nada roda sozinho.',
   'sources.healthSource': 'Fonte',
   'sources.healthLastSuccess': 'Último sucesso',
   'sources.healthStatus': 'Status',
   'sources.refreshDue': 'Procurar vagas novas',
   'sources.refreshAll': 'Verificar todos de novo',
-  'sources.refreshDueStarting': 'Verificando quais fontes estão pendentes...',
-  'sources.refreshDueStarted': 'Atualizando {n} fontes pendentes. O progresso aparece no topo.',
-  'sources.refreshAllStarted': 'Atualizando todas as {n} fontes disponíveis. O progresso aparece no topo.',
+  'sources.refreshDueStarting': 'Vendo quais sites de vagas estão pendentes...',
+  'sources.refreshDueStarted': 'Verificando {n} sites de vagas pendentes. O progresso aparece no topo.',
+  'sources.refreshAllStarted': 'Verificando todos os {n} sites de vagas disponíveis. O progresso aparece no topo.',
   'sources.refreshHelp': 'Procurar vagas novas é o normal, e é o que Encontrar vagas faz: só lê os sites não '
     + 'verificados no último dia. Verificar todos de novo lê também os verificados há pouco. Nenhum dos dois acorda '
     + 'um site pausado nem pergunta de novo a um site que recusou antes do fim da espera. Nada roda sozinho: você '
     + 'decide quando verificar.',
-  'sources.popIntegrated': '{n} fontes integradas',
+  'sources.popIntegrated': '{n} sites de vagas',
   'sources.popExperimental': '{n} experimental ligada',
-  'sources.popAvailable': '{n} disponíveis para atualizar agora',
+  'sources.popAvailable': '{n} prontos para verificar agora',
   'sources.popDue': '{n} pendentes agora',
   'sources.boardsRefreshed': '{ok} de {total} páginas de empregadores atualizadas, {failed} falharam; o que foi '
     + 'lido está guardado.',
   'sources.coverageHeld': 'Guarda {held} das {total} vagas que esta fonte lista.',
   'sources.coverageReachable': 'A interface dela serve no máximo {n}.',
   'sources.coverageThisRun': 'Leu {n} na última atualização.',
-  'sources.nothingDue': 'Nada pendente agora. Todas as fontes foram atualizadas recentemente.',
+  'sources.nothingDue': 'Nada pendente agora. Todos os sites de vagas foram verificados recentemente.',
   'sources.alreadyRunning': 'O Career Agent já está buscando vagas. O progresso aparece no topo.',
   'sources.coolingDown': 'O site recusou ou falhou; será consultado de novo depois de {date}.',
   'sources.experimentalTag': 'Experimental',
-  'sources.staleHelp': 'A última atualização bem-sucedida tem mais de três dias. Atualize para ver vagas atuais.',
+  'sources.staleHelp': 'A última verificação bem-sucedida tem mais de três dias. Verifique para ver vagas atuais.',
   'sources.reason.PAGE_LIMIT': 'Lê só as primeiras páginas a cada atualização, de propósito; a fonte tem mais do '
     + 'que isso.',
   'sources.reason.PROGRESSIVE': 'Lê um lote a cada atualização, de propósito; a próxima continua de onde esta '
@@ -4604,7 +4601,7 @@ const PT_BR = {
   'health.staleFacetsHelp': 'Uma versão anterior do Career Agent calculou estas pontuações. '
     + 'Recalcule a aderência para atualizá-las, no seu próprio computador e sem custo.',
   'filters.qualityHint': 'Compatibilidade é o quanto o trabalho se aproxima do que você quer. '
-    + 'Completude do anúncio é o quanto o empregador realmente escreveu. Um '
+    + 'Detalhe do anúncio é o quanto o empregador realmente escreveu. Um '
     + 'anúncio curto pontua baixo em completude por melhor que a vaga seja.',
   'filters.salaryHint': 'Escolha também uma moeda. Nada aqui converte entre moedas, então sem ela '
     + 'não há com o que comparar. Anúncios que citam mês ou hora são '
@@ -4888,7 +4885,7 @@ const PT_BR = {
   'home.gap.work': 'Nenhuma expressão descreve o trabalho que você quer, então não há o que '
     + 'um anúncio corresponder.',
   'home.openProfile': 'Abrir seu perfil',
-  'home.openEvidence': 'Adicionar suas evidências',
+  'home.openEvidence': 'Adicionar provas do seu trabalho',
   'home.tip.title': 'Primeira vez aqui? Veja como funciona',
   'home.tip.1.title': 'Nós procuramos vagas',
   'home.tip.1.body': 'Quando você pede, olhamos os sites de vagas e ordenamos as vagas pelo quanto combinam com '
@@ -5025,7 +5022,7 @@ const PT_BR = {
   // box.
   'chip.minScore': 'Correspondência de pelo menos {n}',
   'chip.maxScore': 'Correspondência de no máximo {n}',
-  'chip.minConfidence': 'Completude do anúncio de pelo menos {n}',
+  'chip.minConfidence': 'Detalhe do anúncio de pelo menos {n}',
   'chip.postedWithinOne': 'Publicada no último 1 dia',
   'chip.postedWithin': 'Publicada nos últimos {n} dias',
   'chip.contains': 'Contém “{text}”',
@@ -5148,7 +5145,7 @@ const PT_BR = {
     + '(pelo título, por uma frase ou pelos anos que pede).',
   'confidence.note.seniority_determinable.no': 'O anúncio não informa o nível. A compatibilidade o trata como '
     + 'pleno.',
-  'drawer.secConfidence': 'Completude do anúncio',
+  'drawer.secConfidence': 'Detalhe do anúncio',
   'drawer.secUnknowns': 'Nunca mencionado no anúncio',
   'drawer.secSignals': 'Ferramentas e habilidades que ele cita',
   'drawer.secPay': 'Remuneração e contrato',
@@ -5259,7 +5256,7 @@ const PT_BR = {
   'absent.source': 'Origem não registrada',
   'absent.place': 'Localidade não informada',
   'column.score': 'Compatibilidade',
-  'column.confidence': 'Completude do anúncio',
+  'column.confidence': 'Detalhe do anúncio',
   'column.company': 'Empresa',
   'column.title': 'Vaga',
   'column.location': 'Localidade',
@@ -5304,7 +5301,7 @@ const PT_BR = {
     + 'apareceu. Não há nada de errado com elas; são outro tipo de trabalho.'
     + 'Uma correspondência BAIXA não é isto e aparece sempre.',
   'filters.matchAtLeast': 'Compatibilidade de pelo menos',
-  'filters.detailAtLeast': 'Completude do anúncio de pelo menos',
+  'filters.detailAtLeast': 'Detalhe do anúncio de pelo menos',
   'stage.fetched': 'Coletadas',
   'stage.active': 'Ativas',
   'stage.normalised': 'Legíveis',
@@ -5339,7 +5336,7 @@ const PT_BR = {
     + 'contratada. Um anúncio curto pontua baixo aqui por melhor que a vaga'
     + 'seja.',
   'badge.matchHelp': 'O quanto esta vaga se aproxima do trabalho que você quer, calculado a '
-    + 'partir das palavras do anúncio e do modelo de busca. Suas evidências de carreira não entram neste número.',
+    + 'partir das palavras do anúncio e do modelo de busca. Suas provas de trabalho não entram neste número.',
   'badge.eligibilityUnresolvedHelp': 'Este anúncio nunca disse onde a empresa pode contratar. Não dizer nada '
     + 'não é o mesmo que dizer sim, então isto continua uma pergunta em aberto.',
   'badge.eligibilityHelp': 'Se você poderia aceitar esta vaga. Uma pergunta separada de quão bem ela '
@@ -5500,7 +5497,7 @@ const PT_BR = {
   'field.eligible_countries': 'Em quais países você pode ser contratado diretamente?',
 
   'fieldHelp.work_models': 'Preferir soma um pouco à aderência da vaga e evitar tira um pouco. Nunca mostrar também '
-    + 'esconde essas vagas em Descobrir, com um clique para vê-las de novo. Nada disso muda '
+    + 'esconde essas vagas em Encontrar vagas, com um clique para vê-las de novo. Nada disso muda '
     + 'onde você pode ser contratado: remoto não significa que a empresa contrata de qualquer lugar.',
   'fieldHelp.require_remote':
     'Calculado a partir das suas respostas: ligado quando híbrido e presencial nunca aparecem.',
@@ -5510,7 +5507,7 @@ const PT_BR = {
   'fieldHelp.contract_unwanted':
     'Formatos que você prefere não ter. Uma vaga com um deles perde um pouco de aderência.',
   'fieldHelp.seniority_preferred':
-    'Guardado para sua referência; ainda não muda notas. Para tirar um nível de Descobrir, '
+    'Guardado para sua referência; ainda não muda notas. Para tirar um nível de Encontrar vagas, '
     + 'use a próxima pergunta.',
   'fieldHelp.seniority_excluded':
     'Vagas nesses níveis não serão recomendadas para você. O que você já acompanha continua onde está.',
@@ -5599,7 +5596,7 @@ const PT_BR = {
   'profile.andMoreSkills': 'E mais {n}, em Habilidades.',
   'profile.confirmedNote': 'Confirmar algo não muda uma recomendação. Suas evidências são lidas '
     + 'quando você prepara uma candidatura, e é de lá que vêm as palavras dessa candidatura.',
-  'profile.openEvidence': 'Abrir suas evidências de carreira',
+  'profile.openEvidence': 'Abrir Provas do meu trabalho',
   'profile.nothingConfirmed': 'Nada confirmado ainda',
   'profile.nothingConfirmedLead': 'É aqui que aparece o trabalho que você já fez, depois que '
     + 'você disser quais partes dele são verdadeiras. Nada é confirmado no seu lugar.',
@@ -5615,7 +5612,7 @@ const PT_BR = {
     + 'antigo. São suas próprias frases confirmadas, palavra por palavra.',
   'profile.experienceNote': 'Um currículo e uma exportação do LinkedIn costumam nomear o mesmo '
     + 'empregador de formas diferentes, e nada aqui junta os dois: decidir que dois nomes são '
-    + 'uma empresa só cabe a você. Dá para corrigir um nome em Evidências de carreira.',
+    + 'uma empresa só cabe a você. Dá para corrigir um nome em Provas do meu trabalho.',
   'profile.skillsHeading': 'Habilidades e ferramentas',
   'profile.skillsLead': 'Cada uma destas é uma palavra que você confirmou. Não há nota de '
     + 'proficiência aqui, porque nada neste produto mede isso.',
@@ -5636,7 +5633,7 @@ const PT_BR = {
   'attend.clearLede': 'Tudo que foi lido dos seus documentos já foi respondido. O que você '
     + 'confirmou está abaixo.',
   'attend.nothingYet': 'Ainda não foi lido nada dos seus documentos. Adicione um currículo '
-    + 'em Fontes e importações, ou escreva algo você mesma.',
+    + 'em Documentos e importações, ou escreva algo você mesma.',
   'attend.summary': '{confirmed} confirmadas, {retired} de lado',
 
   'intake.importTitle': '{documents}, lidos em {when}',
@@ -5791,8 +5788,8 @@ const PT_BR = {
   'setup.region.EMEA': 'Europa, Oriente Médio e África',
   'setup.region.APAC': 'Ásia e Pacífico',
   'setup.level.title': 'Algum nível que você quer tirar da sua lista?',
-  'setup.level.why': 'Vagas nos níveis que você marcar ficam escondidas em Descobrir. Um clique mostra de novo, e '
-    + 'nada é apagado.',
+  'setup.level.why': 'Vagas nos níveis que você marcar ficam escondidas em Encontrar vagas. Um clique mostra de '
+    + 'novo, e nada é apagado.',
   'setup.level.legend': 'Esconder vagas nestes níveis',
   'setup.level.note': 'A maioria das pessoas deixa todos sem marcar.',
   'setup.pay.title': 'Que salário você busca?',
@@ -5816,8 +5813,8 @@ const PT_BR = {
   'setup.ready.find': 'Encontrar vagas agora',
   'setup.ready.starting': 'Começando…',
   'setup.ready.finding': 'Encontrando vagas…',
-  'setup.ready.progress': 'Consultando fontes: {done} de {total} concluídas nesta atualização',
-  'setup.ready.progressLabel': 'Fontes concluídas nesta atualização',
+  'setup.ready.progress': 'Verificando sites de vagas: {done} de {total} concluídos',
+  'setup.ready.progressLabel': 'Sites de vagas concluídos nesta verificação',
   'setup.ready.nothingDue': 'Todas as fontes disponíveis foram atualizadas no último dia, então nenhuma está '
     + 'pendente. Suas vagas estão tão atuais quanto as fontes.',
   'setup.ready.coolingDown': '{n} fontes estão esperando depois de uma recusa ou falha; elas são tentadas de novo '
@@ -5864,7 +5861,7 @@ const PT_BR = {
   'setup.workmodel.legend':
     'Sua resposta para cada formato de trabalho',
   'setup.workmodel.note':
-    'Nunca mostrar esconde essas vagas em Descobrir, com um clique para vê-las de novo. Remoto é sobre '
+    'Nunca mostrar esconde essas vagas em Encontrar vagas, com um clique para vê-las de novo. Remoto é sobre '
     + 'como você trabalha, não sobre onde as empresas podem te contratar: isso é a pergunta de contratação '
     + 'que você já respondeu.',
   'setup.arrangement.title':
@@ -5881,12 +5878,11 @@ const PT_BR = {
     'Ele é lido aqui, neste computador, e nada nele conta até você confirmar.',
   'setup.cv.noNeed':
     'Você pode procurar vagas sem adicionar um currículo.',
-  'setup.cv.helps':
-    'Adicionar seu currículo ajuda o Career Agent a montar suas Evidências de carreira e deixa a '
-    + 'preparação do currículo mais útil. Cada linha vira uma afirmação para você confirmar ou recusar '
-    + 'depois, em Evidências de carreira.',
+  'setup.cv.helps': 'Adicionar seu currículo ajuda o Career Agent a montar suas provas de trabalho e deixa a '
+    + 'preparação do currículo mais útil. Cada linha vira uma afirmação para você confirmar ou recusar depois, em '
+    + 'Provas do meu trabalho.',
   'setup.cv.added':
-    'Dados de carreira adicionados. Revise quando quiser em Evidências de carreira.',
+    'Dados de carreira adicionados. Revise quando quiser em Provas do meu trabalho.',
   'setup.cv.choose':
     'Escolher um arquivo',
   'setup.cv.read':
@@ -5896,7 +5892,7 @@ const PT_BR = {
   'setup.cv.reading':
     'Lendo {name}…',
   'setup.cv.found':
-    '{n} afirmações encontradas. Nenhuma conta até você confirmar em Evidências de carreira.',
+    '{n} afirmações encontradas. Nenhuma conta até você confirmar em Provas do meu trabalho.',
   'setup.cv.privacy':
     'Lê {kinds}. O arquivo não é guardado, e nada é enviado para lugar nenhum.',
   'setup.review.title':
@@ -5932,7 +5928,7 @@ const PT_BR = {
   'setup.review.looksRight':
     'Está certo',
   'setup.ready.noCv':
-    'Você pode encontrar vagas sem currículo. Evidências de carreira e a preparação do currículo ficam '
+    'Você pode encontrar vagas sem currículo. Provas do meu trabalho e a preparação do currículo ficam '
     + 'úteis quando você adiciona um.',
   'setup.ready.addCv':
     'Adicionar dados de carreira',
@@ -5945,9 +5941,9 @@ const PT_BR = {
   'evstart.hint': 'PDF, Word, texto ou Markdown. Ele é lido neste computador e o arquivo não é guardado. Você também '
     + 'pode adicionar uma experiência à mão abaixo.',
   'career.aboutEvidence': 'Exemplos, e para que isto serve',
-  'board.empty': 'Nenhuma candidatura acompanhada ainda. Salve uma vaga ou mude o status dela em Descobrir e ela '
+  'board.empty': 'Nenhuma candidatura acompanhada ainda. Salve uma vaga ou mude o status dela em Encontrar vagas e ela '
     + 'aparece aqui.',
-  'board.toDiscover': 'Ir para Descobrir',
+  'board.toDiscover': 'Ir para Encontrar vagas',
   'settings.sourceEach': 'Cada fonte de vagas ({n}, {paused} pausadas): situação e frequência de atualização',
   'workModel.REMOTE': 'Remoto',
   'workModel.HYBRID': 'Híbrido',
@@ -5971,7 +5967,7 @@ const PT_BR = {
   'arrangement.summary.yes': 'Funciona: {kind}',
   'arrangement.summary.no': 'Prefere não: {kind}',
   'profileRow.workModelsAvoided': 'Formatos de trabalho que você prefere evitar',
-  'profileRow.workModelsExcluded': 'Formatos de trabalho que nunca aparecem em Descobrir',
+  'profileRow.workModelsExcluded': 'Formatos de trabalho que nunca aparecem em Encontrar vagas',
   'collect.now': 'Lendo agora {source} ({time})',
   'collect.nowBoards': 'Lendo agora {source}: {done} de {total} páginas de empregadores ({time})',
   'collect.elapsed': '{time} até agora',
@@ -6000,7 +5996,7 @@ const PT_BR = {
   'firstrun.ledeLeft': 'O que falta da sua configuração. Nada é obrigatório, e cada item diz o que permite ao '
     + 'Career Agent concluir. Mude respostas anteriores quando quiser em Configurações e fontes.',
   'tailor.needsCv': 'O Resume Tailor Beta trabalha a partir do seu currículo, e o Career Agent ainda não tem nada '
-    + 'sobre a sua carreira. Adicione seu currículo, ou escreva o que você já fez, em Evidências de carreira '
+    + 'sobre a sua carreira. Adicione seu currículo, ou escreva o que você já fez, em Provas do meu trabalho '
     + 'primeiro.',
   'tailor.addCv': 'Adicionar seu currículo',
   'tailor.openOwn': 'Já deu seu currículo ao Resume Tailor? Abrir Resume Tailor Beta',

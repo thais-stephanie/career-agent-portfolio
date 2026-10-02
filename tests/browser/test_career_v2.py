@@ -208,7 +208,7 @@ def test_new_candidate_has_no_occupational_defaults_and_market_pause(page, neutr
     # An upstream that stopped serving says so, keeps no Refresh button, and is
     # not reported as a failure to retry.
     gupy = page.evaluate("document.querySelector('[data-source=gupy]').textContent")
-    assert "stopped serving jobs on 2026-10-02" in gupy and "Last refresh failed" not in gupy
+    assert "stopped serving jobs on 2026-10-02" in gupy and "Last check failed" not in gupy
     assert page.evaluate("document.querySelector('[data-source=gupy] button') === null")
     text = page.evaluate("document.getElementById('search-settings-host').textContent").lower()
     assert not any(
@@ -394,7 +394,7 @@ def test_source_refresh_state_does_not_prevent_discover(page, pristine_server, t
     page.navigate(pristine_server + "/#settings")
     page.wait_for("document.querySelector('[data-source=programathor]') !== null")
     text = page.evaluate("document.querySelector('[data-source=programathor]').textContent")
-    assert ("Last refresh failed" if failed else "Updating") in text
+    assert ("Last check failed" if failed else "Checking now") in text
     page.evaluate(
         "document.querySelector('[data-source=programathor]').scrollIntoView({block:'center'})"
     )
