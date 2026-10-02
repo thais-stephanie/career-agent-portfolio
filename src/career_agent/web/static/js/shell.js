@@ -31,22 +31,14 @@ import { t, getLocale } from './i18n.js';
 
 /** Which pages exist, and what their header says. Keys are `data-page`. */
 export const PAGE_HEADERS = {
-  home: { eyebrow: 'pagehead.eyebrow.home', title: 'pagehead.title.home' },
-  jobs: { eyebrow: 'pagehead.eyebrow.jobs', title: 'pagehead.title.jobs' },
-  applications: {
-    eyebrow: 'pagehead.eyebrow.applications',
-    title: 'pagehead.title.applications',
-  },
-  profile: { eyebrow: 'pagehead.eyebrow.profile', title: 'pagehead.title.profile',
-    sub: 'pagehead.sub.profile' },
-  evidence: { eyebrow: 'pagehead.eyebrow.evidence', title: 'pagehead.title.evidence',
-    sub: 'pagehead.sub.evidence' },
-  // Not in the navigation any more: reached from the Career Profile's import.
-  documents: { eyebrow: 'pagehead.eyebrow.documents', title: 'pagehead.title.documents',
-    sub: 'pagehead.sub.documents' },
-  manage: { eyebrow: 'pagehead.eyebrow.manage', title: 'pagehead.title.manage' },
-  settings: { eyebrow: 'pagehead.eyebrow.settings', title: 'pagehead.title.settings' },
-  // Not a page of its own: Home, while the guided setup is showing on it.
+  home: { title: 'pagehead.title.home', sub: 'pagehead.sub.home' },
+  jobs: { title: 'pagehead.title.jobs', sub: 'pagehead.sub.jobs' },
+  applications: { title: 'pagehead.title.applications', sub: 'pagehead.sub.applications' },
+  profile: { title: 'pagehead.title.profile', sub: 'pagehead.sub.profile' },
+  evidence: { title: 'pagehead.title.evidence', sub: 'pagehead.sub.evidence' },
+  documents: { title: 'pagehead.title.documents', sub: 'pagehead.sub.documents' },
+  manage: { title: 'pagehead.title.manage' },
+  settings: { title: 'pagehead.title.settings', sub: 'pagehead.sub.settings' },
   setup: { eyebrow: 'pagehead.eyebrow.setup', title: 'pagehead.title.setup' },
 };
 
@@ -69,6 +61,10 @@ export function createShell() {
     scrim: document.getElementById('sidenav-scrim'),
     stats: document.getElementById('sidenav-stats'),
     tag: document.getElementById('sidenav-tag'),
+    badges: {
+      jobs: document.getElementById('nav-badge-jobs'),
+      applications: document.getElementById('nav-badge-applications'),
+    },
     eyebrow: document.getElementById('pagehead-eyebrow'),
     title: document.getElementById('pagehead-title'),
     sub: document.getElementById('pagehead-sub'),
@@ -89,7 +85,7 @@ export function createShell() {
    */
   function setPage(page, { subtitle = '', action = null } = {}) {
     const spec = PAGE_HEADERS[page] || PAGE_HEADERS.home;
-    nodes.eyebrow.textContent = t(spec.eyebrow);
+    nodes.eyebrow.textContent = spec.eyebrow ? t(spec.eyebrow) : '';
     nodes.title.textContent = t(spec.title);
     nodes.sub.textContent = subtitle || (spec.sub ? t(spec.sub) : '');
     nodes.actions.replaceChildren(...(action ? [action] : []));
@@ -126,12 +122,35 @@ export function createShell() {
       ['interview', interview, 'sidenav.statInterview'],
     ]
       .filter(([, value]) => Number.isFinite(value))
-      .map(([key, value, label]) => el('div', { className: `sidenav__stat sidenav__stat--${key}` }, [
+      .map(([key, value, label]) => el('span', { className: `sidenav__stat sidenav__stat--${key}` }, [
         // With the reader's own thousands separator: 154,631 or 154.631.
         el('span', { className: 'sidenav__statvalue num', text: Number(value).toLocaleString(getLocale()) }),
-        el('span', { className: 'sidenav__statlabel', text: t(label) }),
+        el('span', { className: 'sidenav__statlabel', text: ` ${t(label)}` }),
       ]));
     nodes.stats.replaceChildren(...tiles);
+  }
+
+  /**
+   * The green counts beside two destinations: jobs added by the latest
+   * refresh, and the jobs being tracked on My applications. A count that is
+   * unknown or zero is not drawn, so a badge never says "0" about something.
+   * The number is shown; what it counts is said to a screen reader.
+   */
+  let lastBadges = {};
+  function setBadges(counts = lastBadges) {
+    lastBadges = counts;
+    const words = { jobs: 'nav.badgeJobs', applications: 'nav.badgeApplications' };
+    for (const key of ['jobs', 'applications']) {
+      const node = nodes.badges[key];
+      const value = counts[key];
+      if (!node) continue;
+      const shown = Number.isFinite(value) && value > 0;
+      node.hidden = !shown;
+      node.replaceChildren(...(shown ? [
+        el('span', { attrs: { 'aria-hidden': 'true' }, text: Number(value).toLocaleString(getLocale()) }),
+        el('span', { className: 'sr-only', text: t(words[key], { n: value }) }),
+      ] : []));
+    }
   }
 
   // -------------------------------------------------------------------
@@ -219,12 +238,22 @@ export function createShell() {
       const label = link.querySelector('.topnav__label');
       if (label) label.textContent = t(`nav.${link.dataset.page}`);
     }
-    const sections = { 'nav-section-search': 'nav.sectionSearch',
+    const fixed = {
+      'nav-section-search': 'nav.sectionSearch',
       'nav-section-profile': 'nav.sectionProfile',
-      'nav-section-system': 'nav.sectionSystem' };
-    for (const [id, key] of Object.entries(sections)) {
+      'look-label': 'sidenav.look',
+      'language-label': 'locale.label',
+      'sidenav-privacy': 'sidenav.privacy',
+      'site-alert-fix': 'sidenav.alertFix',
+    };
+    for (const [id, key] of Object.entries(fixed)) {
       const node = document.getElementById(id);
       if (node) node.textContent = t(key);
+    }
+    const dismiss = document.getElementById('site-alert-close');
+    if (dismiss) {
+      dismiss.setAttribute('aria-label', t('sidenav.alertDismiss'));
+      dismiss.title = t('sidenav.alertDismiss');
     }
     const tailor = document.getElementById('nav-tailor-label');
     if (tailor) tailor.textContent = t('nav.tailor');
@@ -233,8 +262,9 @@ export function createShell() {
     const quit = document.getElementById('quit-app');
     if (quit) quit.textContent = t('app.quit');
     if (lastStats) setStats(lastStats);
+    setBadges();
     if (page) setPage(page);
   }
 
-  return { setPage, setStats, retranslate, closeDrawer, isDrawer };
+  return { setPage, setStats, setBadges, retranslate, closeDrawer, isDrawer };
 }

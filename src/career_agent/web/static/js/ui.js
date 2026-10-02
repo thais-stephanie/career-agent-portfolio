@@ -154,13 +154,17 @@ export function inlineConfirm(host, { message, detail = '', confirmLabel, onConf
   return { close: () => close(true) };
 }
 
-const toastRegion = el('div', {
-  className: 'cw-toasts',
-  attrs: { role: 'status', 'aria-live': 'polite' },
-});
 let toastTimer = null;
 
-/** One short line about what just happened. `undo` only when it truly reverses. */
+/** The one live region every toast is drawn in: `#flash` in index.html. */
+function toastHost() {
+  let host = document.getElementById('flash');
+  if (!host) {
+    host = el('p', { className: 'flash', attrs: { id: 'flash', role: 'status', 'aria-live': 'polite' } });
+    document.body.append(host);
+  }
+  return host;
+}
 /**
  * A click handler that runs once at a time: its button is disabled while the
  * request is out, and a failure is said in a toast rather than lost as an
@@ -184,24 +188,46 @@ export function guard(handler) {
   };
 }
 
-export function toast(message, { undo = null, tone = 'ok', timeout = 6000 } = {}) {
-  if (!document.body.contains(toastRegion)) document.body.append(toastRegion);
+/**
+ * One short line about what just happened, at the bottom of the screen.
+ *
+ * `undo` only when it truly reverses what the line describes: the caller knows
+ * which row it wrote and restores exactly that one. `extras` are optional next
+ * steps drawn after the fact. Five seconds, the handoff's own; the clock stops
+ * while a pointer or the keyboard is on the toast, so Undo can be reached.
+ */
+export function toast(message, { undo = null, tone = 'ok', timeout = null, extras = null } = {}) {
+  const host = toastHost();
+  // Five seconds to read a line; nine when there is something to press,
+  // because a keyboard has to travel to the end of the page to reach it.
+  const wait = timeout ?? ((undo || extras) ? 9000 : 5000);
   clearTimeout(toastTimer);
-  const node = el('div', { className: `cw-toast cw-toast--${tone}` }, [
-    el('span', { text: message }),
-    undo ? button(t('ui.undo'), async () => {
-      node.remove();
+  const hide = () => { host.hidden = true; replace(host, []); };
+  const children = [el('span', { className: 'toast__text', text: message })];
+  if (undo) {
+    children.push(button(t('action.undo'), async () => {
+      hide();
       try {
         await undo();
-        toast(t('ui.undone'));
+        toast(t('toast.undone'));
       } catch (error) {
         toast(error.userMessage || error.message, { tone: 'bad' });
       }
-    }, { className: 'cw-toast__undo' }) : null,
-  ]);
-  replace(toastRegion, [node]);
-  toastTimer = setTimeout(() => node.remove(), timeout);
-  return node;
+    }, { className: 'toast__undo' }));
+  }
+  for (const extra of extras || []) children.push(extra);
+  host.className = `flash toast${tone === 'bad' ? ' flash--error' : ''}`;
+  // Shown first, then filled: a live region that gains its words while it is
+  // still `display: none` is skipped by some screen readers.
+  host.hidden = false;
+  replace(host, children);
+  const arm = () => { clearTimeout(toastTimer); toastTimer = setTimeout(hide, wait); };
+  host.onmouseenter = () => clearTimeout(toastTimer);
+  host.onfocusin = () => clearTimeout(toastTimer);
+  host.onmouseleave = arm;
+  host.onfocusout = arm;
+  arm();
+  return host;
 }
 
 // ---------------------------------------------------------------------------

@@ -332,8 +332,8 @@ def test_documents_archive_restore_and_delete(page: Chrome, placed: Workspace) -
         ".querySelector('[aria-label^=\"Archive\"]').click()"
     )
     page.wait_for("document.querySelectorAll('.docs > .docs-list > li').length === 1")
-    page.wait_for("document.querySelector('.cw-toast')", message="the undo toast")
-    _press(page, "Undo", ".cw-toast")
+    page.wait_for("document.querySelector('#flash.toast:not([hidden])')", message="the undo toast")
+    _press(page, "Undo", "#flash")
     page.wait_for(
         "document.querySelectorAll('.docs > .docs-list > li').length === 2",
         message="undo brought it back",

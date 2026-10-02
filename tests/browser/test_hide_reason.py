@@ -82,7 +82,7 @@ def test_the_posting_stays_hidden_whether_or_not_she_answers(
 def test_restoring_offers_no_reason(page: Chrome, hidden) -> None:
     """A reason attached to a posting that is no longer hidden is a note about
     a decision that was reversed, and the route refuses one."""
-    page.evaluate(f"{FLASH}.querySelector('.flash__undo').click()")
+    page.evaluate(f"{FLASH}.querySelector('.toast__undo').click()")
     page.wait_for(
         f"{FLASH}.hidden === false && {REASONS}.length === 0",
         message="the restore flash",

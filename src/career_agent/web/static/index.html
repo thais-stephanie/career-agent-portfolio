@@ -34,100 +34,100 @@
 
 <div class="appshell">
 
-<!-- THE SIDEBAR. Dark in both themes, which is a decision from the design and
-     not an oversight: it is the frame around the product rather than a
-     surface inside it, so it does not follow the paper. Its literals are
-     therefore literals, and `scripts/contrast_report.py` measures them as
-     their own pair list. -->
+<!-- THE SIDEBAR. Dark in both themes: it is the frame around the product,
+     not a surface inside it (redesign handoff, 2026-10). Its colours are the
+     `--nav-*` literals in app.css, each text pair measured at 5:1 or more. -->
 <nav class="sidenav" id="sidenav" aria-label="Career Agent">
 
   <div class="sidenav__logo">
-    <!-- THE MARK: the official Career Agent star (`star.svg`, the same file
-         as the favicon), drawn at 16px beside the name. Never a Unicode
-         star, an emoji or a redrawn icon. -->
-    <img class="sidenav__mark" src="./star.svg" alt="" width="16" height="16">
-    <span class="sidenav__name">Career Agent</span>
-    <span class="sidenav__tag" id="sidenav-tag">Runs on your computer</span>
+    <div class="sidenav__brand">
+      <img class="sidenav__mark" src="./img/logo-star.png" alt="" width="44" height="44">
+      <span class="sidenav__name"><span class="sidenav__name1">Career</span> <span class="sidenav__name2">Agent</span></span>
+    </div>
+    <span class="sidenav__tag" id="sidenav-tag">Your personal job finder</span>
   </div>
-  <!-- WHOSE CAREER AGENT THIS IS. A local profile, not an account: one
-       compact button, shown only when the launcher runs profiles. Everything
-       else (switch, rename, new) lives in the menu it opens, which floats
-       over the navigation and never pushes it down. -->
+  <!-- WHOSE CAREER AGENT THIS IS. A local profile, not an account; shown only
+       when the launcher runs profiles. The menu floats over the navigation. -->
   <div class="sidenav__profile" id="local-profiles-host" hidden></div>
 
   <div class="sidenav__nav">
-    <!-- `topnav__link` is kept as the class on every destination: the same
-         control, doing the same job, since the navigation moved into this
-         rail. The glyphs are the design's geometric set, never emoji. -->
-    <p class="sidenav__section" id="nav-section-search">Search</p>
+    <p class="sidenav__section" id="nav-section-search">Job search</p>
     <div class="sidenav__group" role="group" aria-labelledby="nav-section-search">
       <button type="button" class="topnav__link" data-page="home" aria-current="page">
-        <span class="topnav__icon" aria-hidden="true">&#9713;</span>
+        <span class="topnav__icon" aria-hidden="true">&#8962;</span>
         <span class="topnav__label">Home</span>
       </button>
       <button type="button" class="topnav__link" data-page="jobs">
-        <span class="topnav__icon" aria-hidden="true">&#9670;</span>
-        <span class="topnav__label">Discover Jobs</span>
+        <span class="topnav__icon" aria-hidden="true">&#8981;</span>
+        <span class="topnav__label">Find jobs</span>
+        <span class="topnav__badge num" id="nav-badge-jobs" hidden></span>
       </button>
       <button type="button" class="topnav__link" data-page="applications">
-        <span class="topnav__icon" aria-hidden="true">&#9636;</span>
-        <span class="topnav__label">Applications</span>
+        <span class="topnav__icon" aria-hidden="true">&#10003;</span>
+        <span class="topnav__label">My applications</span>
+        <span class="topnav__badge num" id="nav-badge-applications" hidden></span>
       </button>
     </div>
 
-    <p class="sidenav__section" id="nav-section-profile">Profile</p>
+    <p class="sidenav__section" id="nav-section-profile">About you</p>
     <div class="sidenav__group" role="group" aria-labelledby="nav-section-profile">
       <button type="button" class="topnav__link" data-page="profile">
-        <span class="topnav__icon" aria-hidden="true">&#9671;</span>
-        <span class="topnav__label">Career Profile</span>
+        <span class="topnav__icon" aria-hidden="true">&#9673;</span>
+        <span class="topnav__label">My profile</span>
       </button>
       <button type="button" class="topnav__link" data-page="evidence">
-        <span class="topnav__icon" aria-hidden="true">&#9733;</span>
-        <span class="topnav__label">Evidence</span>
+        <span class="topnav__icon" aria-hidden="true">&#10022;</span>
+        <span class="topnav__label">Proof of my work</span>
       </button>
-      <!-- RESUME TAILOR is a destination like the others, under PROFILE,
-           with a small BETA tag. It opens the companion app in its own tab.
-           (Documents is no longer a destination: imports are reached from
-           the Career Profile and from Evidence, where they are made.) -->
+      <!-- RESUME HELPER: the Resume Tailor companion, opened in its own tab
+           through the same bridge as before. -->
       <a class="topnav__link topnav__link--tailor" href="/resume-tailor" target="_blank" rel="noopener noreferrer">
         <span class="topnav__icon" aria-hidden="true">&#9998;&#65038;</span>
-        <span class="topnav__label" id="nav-tailor-label">Resume Tailor</span>
-        <span class="topnav__beta" id="nav-tailor-beta">Beta</span>
+        <span class="topnav__label" id="nav-tailor-label">Resume helper</span>
+        <span class="topnav__tag" id="nav-tailor-beta">New</span>
       </a>
-    </div>
-
-    <p class="sidenav__section" id="nav-section-system">System</p>
-    <div class="sidenav__group" role="group" aria-labelledby="nav-section-system">
-      <button type="button" class="topnav__link" data-page="settings">
-        <span class="topnav__icon" aria-hidden="true">&#9881;&#65038;</span>
-        <span class="topnav__label">Settings &amp; Sources</span>
-      </button>
     </div>
   </div>
 
-  <!-- THE FOOT: theme and language on one row, then one status card.
-       Both preferences live in the browser, never in `search.local.yaml`: a
-       change there would bump `config_version` and invalidate every score. -->
   <div class="sidenav__foot">
-    <div class="sidenav__chrome">
-      <div class="topbar__theme" id="theme-host"></div>
-      <div class="topbar__locale" id="locale-host"></div>
+    <!-- A JOB SITE NEEDS YOU. Only when a source needs attention (the same
+         `needs_attention` rule Settings uses). Dismissing it is remembered
+         until something new breaks. -->
+    <div class="sitealert" id="site-alert" hidden>
+      <button type="button" class="sitealert__close" id="site-alert-close" aria-label="Dismiss" title="Dismiss">&#10005;</button>
+      <p class="sitealert__title"><span class="sitealert__dot" aria-hidden="true"></span><span id="site-alert-title">A job site needs you</span></p>
+      <p class="sitealert__text" id="site-alert-text">We can't check one of your job sites right now, so you may miss some jobs.</p>
+      <button type="button" class="sitealert__fix" id="site-alert-fix">Fix it</button>
     </div>
-    <!-- Shown only when the server can stop itself (scripts/launch.py). -->
-    <button type="button" class="btn btn--link sidenav__quit" id="quit-app" hidden>Quit Career Agent</button>
-    <!-- WHICH POPULATION AM I LOOKING AT, and how big it is. One status
-         line (a button to Settings & Sources when a source needs
-         attention), the population tag, and three counts with nouns. -->
+    <div class="sidenav__chrome">
+      <button type="button" class="topnav__link topnav__link--settings" data-page="settings">
+        <span class="topnav__icon" aria-hidden="true">&#8801;</span>
+        <span class="topnav__label">Settings</span>
+      </button>
+      <div class="sidenav__pref">
+        <span class="sidenav__preflabel" id="look-label">Look</span>
+        <div class="topbar__theme" id="theme-host"></div>
+      </div>
+      <div class="sidenav__pref">
+        <span class="sidenav__preflabel" id="language-label">Language</span>
+        <div class="topbar__locale" id="locale-host"></div>
+      </div>
+      <p class="sidenav__privacy" id="sidenav-privacy">Your data stays on this computer.</p>
+    </div>
+    <!-- WHICH POPULATION AM I LOOKING AT: the mode, the counts, and any local
+         condition worth knowing. One quiet line; details are its tooltip. -->
     <div class="sidenav__status" id="sidenav-status">
       <div class="sidenav__statusrow">
-        <button type="button" class="sidenav__health" id="health-summary">
-          <span class="sidenav__dot" aria-hidden="true"></span>
-          <span class="sidenav__healthtext" id="health-summary-text">All sources working</span>
-        </button>
         <p class="topbar__mode" id="health-mode"></p>
+        <div class="sidenav__stats" id="sidenav-stats"></div>
       </div>
-      <div class="sidenav__stats" id="sidenav-stats"></div>
+      <button type="button" class="sidenav__health" id="health-summary">
+        <span class="sidenav__dot" aria-hidden="true"></span>
+        <span class="sidenav__healthtext" id="health-summary-text">All sources working</span>
+      </button>
       <p class="topbar__health" id="health" hidden></p>
+      <!-- Shown only when the server can stop itself (scripts/launch.py). -->
+      <button type="button" class="btn btn--link sidenav__quit" id="quit-app" hidden>Quit Career Agent</button>
     </div>
   </div>
 

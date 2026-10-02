@@ -30,10 +30,10 @@ from tests.browser.test_browser_acceptance import open_list
 
 #: Every family the design names, and the token that should carry each.
 FAMILIES = {
-    "Fraunces": "--display",
-    "Outfit": "--sans",
+    "Young Serif": "--display",
+    "Lexend": "--sans",
+    "Newsreader": "--logo",
     "JetBrains Mono": "--mono",
-    "Press Start 2P": "--pixel",
 }
 
 #: Hosts a font must never be fetched from. Not an exhaustive list of the
@@ -89,7 +89,7 @@ def test_the_fallback_stack_survives_behind_every_face(page: Chrome, server: str
     it behind the webfont is the difference between a graceful degradation and
     a mystery.
     """
-    for token in ("--sans", "--mono", "--display", "--pixel"):
+    for token in ("--sans", "--mono", "--display", "--logo"):
         value = str(
             page.evaluate(f"getComputedStyle(document.documentElement).getPropertyValue({token!r})")
         )

@@ -81,7 +81,6 @@ export function createLocalProfiles(host) {
     const active = data.active;
     const open = Boolean(menu);
     replace(host, [
-      el('p', { className: 'lprof__eyebrow', attrs: { id: 'lprof-eyebrow' }, text: t('profiles.kicker') }),
       el('button', {
         className: `lprof__trigger${open ? ' is-open' : ''}`,
         attrs: {
@@ -95,8 +94,11 @@ export function createLocalProfiles(host) {
         on: { click: () => (menu ? closeMenu() : openMenu()) },
       }, [
         tile(active),
-        el('span', { className: 'lprof__name', text: active.label }),
-        el('span', { className: 'lprof__caret', attrs: { 'aria-hidden': 'true' }, text: open ? '▴' : '▾' }),
+        el('span', { className: 'lprof__who' }, [
+          el('span', { className: 'lprof__name', text: active.label }),
+          el('span', { className: 'lprof__sub', text: t('profiles.triggerSub') }),
+        ]),
+        el('span', { className: 'lprof__caret', attrs: { 'aria-hidden': 'true' }, text: open ? '▲' : '▼' }),
       ]),
     ]);
   }
@@ -259,6 +261,7 @@ export function createLocalProfiles(host) {
         el('span', { className: 'lprof__rowname', text: profile.label }),
         el('span', { className: 'lprof__meta', text: current ? t('profiles.openNow') : createdOn(profile) }),
       ]),
+      current ? el('span', { className: 'lprof__check', attrs: { 'aria-hidden': 'true' }, text: '✓' }) : null,
       current
         ? el('button', {
           className: `lprof__edit${panel === 'rename' ? ' is-open' : ''}`,

@@ -151,19 +151,19 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
     # them there would be describing a product that no longer exists.
     assert nav(page) == [
         "Início",
-        "Descobrir vagas",
-        "Candidaturas",
-        "Perfil de carreira",
-        "Evidências",
-        "Resume Tailor",
-        "Configurações e fontes",
+        "Encontrar vagas",
+        "Minhas candidaturas",
+        "Meu perfil",
+        "Provas do meu trabalho",
+        "Ajuda com o currículo",
+        "Configurações",
     ], nav(page)
     assert texts(page, "#view-cards") == ["Cartões"]
     # The tagline moved into the rail with the brand it belongs to.
-    assert texts(page, "#sidenav-tag") == ["Roda no seu computador"]
+    assert texts(page, "#sidenav-tag") == ["Seu buscador de vagas pessoal"]
     # ...and so did the section headings above the destinations, which are
     # product-authored text like any other.
-    assert texts(page, ".sidenav__section") == ["Busca", "Perfil", "Sistema"]
+    assert texts(page, ".sidenav__section") == ["Busca de vagas", "Sobre você"]
     # Theme and language are glyphs and codes; their words are the names.
     assert page.evaluate(
         "[...document.querySelectorAll('.themeswitch__btn')].map((b) => b.title)"
@@ -175,8 +175,10 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
     # The page header is the one place every screen states what it is, so it
     # is the one place a missed string is most visible. `in_locale` lands on
     # the job list, so this is the job list's title.
-    assert texts(page, "#pagehead-title") == ["Vagas para você"]
-    assert texts(page, "#pagehead-eyebrow") == ["Descobrir"]
+    assert texts(page, "#pagehead-title") == ["Encontrar vagas"]
+    assert texts(page, "#pagehead-sub") == [
+        "As vagas que mais combinam com você aparecem primeiro."
+    ]
 
     # SETTINGS, where the two panels that left the rail now live. Reached the
     # way a reader reaches it, so the assertion covers the navigation as well
@@ -190,7 +192,7 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
     heads = texts(page, "#page-settings .settings__head")
     assert "Preferências de busca" in heads, heads
     assert "De onde elas vêm" in heads, heads
-    assert texts(page, "#pagehead-title") == ["Configurações e fontes"]
+    assert texts(page, "#pagehead-title") == ["Configurações"]
 
 
 def test_a_fresh_reader_gets_english(page: Chrome, server: str) -> None:
@@ -248,11 +250,17 @@ def test_choosing_en_again_is_remembered_as_a_choice(page: Chrome, server: str) 
     assert stored(page) == "en"
 
 
-def test_the_toggle_is_two_letters_each(page: Chrome, server: str) -> None:
-    """A compact `EN | PT`. No flags: a flag is a country and a language is
-    not, and Portuguese is not the property of one."""
+def test_the_toggle_names_each_language(page: Chrome, server: str) -> None:
+    """Two flags, drawn in CSS as the redesign handoff specifies. A flag is a
+    picture here and nothing more: each button is NAMED by its language, so a
+    screen reader and a tooltip say "English" and "Português (Brasil)"."""
     fresh(page, server)
-    assert texts(page, ".localeswitch__btn") == ["EN", "PT"]
+    names = page.evaluate(
+        "[...document.querySelectorAll('.localeswitch__btn')]"
+        ".map((b) => b.getAttribute('aria-label'))"
+    )
+    assert names == ["English", "Português (Brasil)"], names
+    assert page.evaluate("[...document.querySelectorAll('.localeswitch__btn .flag')].length === 2")
 
 
 def test_the_page_language_attribute_follows(page: Chrome, server: str) -> None:
