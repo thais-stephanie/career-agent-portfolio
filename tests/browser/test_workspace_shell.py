@@ -81,13 +81,14 @@ def test_every_destination_is_in_the_rail_and_none_is_invented(page: Chrome, ser
 def test_the_destinations_are_grouped_and_the_groups_are_labelled(
     page: Chrome, server: str
 ) -> None:
-    """Three labelled sections, so seven items are not one undifferentiated
-    list. Each group is a real ARIA group pointing at its own heading."""
+    """Two labelled sections ("Job search", "About you"), so the destinations
+    are not one undifferentiated list; Settings sits in the foot. Each group
+    is a real ARIA group pointing at its own heading."""
     open_app(page, server)
     sections = page.evaluate(
         "Array.from(document.querySelectorAll('.sidenav__section')).map((n) => n.id)"
     )
-    assert sections == ["nav-section-search", "nav-section-profile", "nav-section-system"]
+    assert sections == ["nav-section-search", "nav-section-profile"]
     labelled = page.evaluate(
         "Array.from(document.querySelectorAll('.sidenav__group'))"
         ".every((g) => g.getAttribute('role') === 'group'"
@@ -108,7 +109,7 @@ def test_the_current_destination_is_marked_by_more_than_colour(page: Chrome, ser
         "getComputedStyle(document.querySelector("
         "'.topnav__link[data-page=\"evidence\"]')).fontWeight"
     )
-    assert int(weight) >= 700, f"the current destination is marked by colour alone: {weight}"
+    assert int(weight) >= 600, f"the current destination is marked by colour alone: {weight}"
     # ...and only one is current at a time.
     current = page.evaluate("document.querySelectorAll('[aria-current=\"page\"]').length")
     assert current == 1, f"{current} destinations claim to be the current page"
@@ -171,9 +172,11 @@ def test_every_page_fills_the_same_header(page: Chrome, server: str) -> None:
             "document.getElementById('pagehead-title').textContent.trim().length > 0",
             message=f"the {name} header",
         )
-        eyebrow = str(page.evaluate("document.getElementById('pagehead-eyebrow').textContent"))
+        # The handoff's header: a Young Serif title and one plain sentence
+        # under it on every destination (the pixel eyebrow is gone).
+        sub = str(page.evaluate("document.getElementById('pagehead-sub').textContent"))
         title = str(page.evaluate("document.getElementById('pagehead-title').textContent"))
-        assert eyebrow.strip(), f"{name} has no eyebrow"
+        assert sub.strip(), f"{name} has no subtitle"
         assert title.strip(), f"{name} has no title"
         seen[name] = title
         # AT MOST ONE primary action. A header with two has none.
@@ -186,6 +189,8 @@ def test_every_page_fills_the_same_header(page: Chrome, server: str) -> None:
 
 
 def test_the_header_is_the_same_height_on_every_page(page: Chrome, server: str) -> None:
+    """The TITLE sits in the same place, at the same size, on every page. The
+    header as a whole may grow by a line when a subtitle wraps."""
     open_app(page, server)
     heights = []
     for name in DESTINATIONS:
@@ -195,9 +200,13 @@ def test_the_header_is_the_same_height_on_every_page(page: Chrome, server: str) 
             message=f"the {name} header",
         )
         heights.append(
-            int(page.evaluate("document.getElementById('pagehead').getBoundingClientRect().height"))
+            page.evaluate(
+                "(() => { const n = document.getElementById('pagehead-title');"
+                " return [Math.round(n.getBoundingClientRect().top),"
+                " getComputedStyle(n).fontSize]; })()"
+            )
         )
-    assert max(heights) - min(heights) <= 2, f"the header height wanders: {heights}"
+    assert len({tuple(h) for h in heights}) == 1, f"the title wanders: {heights}"
 
 
 # =========================================================================

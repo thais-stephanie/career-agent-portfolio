@@ -17,7 +17,7 @@ Tailor's compiled frontend contains React and React DOM (MIT); source, lockfile 
 uv is downloaded at installation time from its official release, with its published SHA256 checked. Python is then managed by uv. They are not bundled into the source repository or relicensed here.
 
 ## Fonts and assets
-Career Agent ships Fraunces, Outfit, JetBrains Mono and Press Start 2P under SIL OFL 1.1. Their full notices are in src/career_agent/web/static/fonts/licences. Tailor preserves frontend/public/fonts/OFL-LICENSES.txt and the same notice in its built static bundle. Names and copyright contacts in required license texts are retained intentionally.
+Career Agent ships Lexend, Young Serif, Newsreader and JetBrains Mono under SIL OFL 1.1. Their full notices are in src/career_agent/web/static/fonts/licences. Tailor preserves frontend/public/fonts/OFL-LICENSES.txt and the same notice in its built static bundle. Names and copyright contacts in required license texts are retained intentionally.
 
 README screenshots are captured from synthetic demo data. The hero and workflow banners are product illustrations adapted from supplied designs using the built-in image generation tool, with corrected product wording and geometric sparkle marks. Their fictional counts are not measured outcomes; they are not screenshots of the interface. See docs/assets/readme/ILLUSTRATIONS.md for their edit specifications. No personal CV, real application history or owner screenshot is used. Career Agent and Tailor pixel icons were replaced with original geometric bitmap glyphs under the root MIT license; supplied JOI3 art is not redistributed.
 

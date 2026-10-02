@@ -1751,7 +1751,6 @@ async function changeNotes(jobId, notes) {
   }
 }
 
-let flashTimer = null;
 /**
  * A sentence, and optionally the way back out of what it describes.
  *
@@ -1761,25 +1760,9 @@ let flashTimer = null;
  * may have hidden three more.
  */
 function flash(message, isError = false, undo = null, extras = null) {
-  const host = document.getElementById('flash');
-  host.className = `flash${isError ? ' flash--error' : ''}`;
-  const children = [el('span', { className: 'flash__text', text: message })];
-  if (undo) {
-    children.push(button(t('action.undo'), () => {
-      host.hidden = true;
-      undo();
-    }, { className: 'flash__undo' }));
-  }
-  // OPTIONAL, and after the fact. Anything here is something the person may
-  // do next, never something the action waited on: the hide has already
-  // happened by the time this is drawn.
-  for (const extra of extras || []) children.push(extra);
-  replace(host, children);
-  host.hidden = false;
-  if (flashTimer) clearTimeout(flashTimer);
-  // Longer when there is something to press. Four seconds is enough to read a
-  // sentence and not enough to decide to undo it.
-  flashTimer = setTimeout(() => { host.hidden = true; }, undo ? 9000 : 4000);
+  // The one toast (`ui.toast`). Extras are optional next steps, drawn after
+  // the fact: the action has already happened by the time they appear.
+  toast(message, { tone: isError ? 'bad' : 'ok', undo, extras });
 }
 
 // =========================================================================
@@ -2016,10 +1999,64 @@ const railStatus = { failed: null, degraded: 0, detail: '' };
  * local condition worth knowing is yellow with its details as the tooltip.
  * Otherwise mint: every source working.
  */
+//: How many failing sources the person last dismissed the alert at. The
+//: alert comes back when that number grows: something NEW broke.
+const SITE_ALERT_KEY = 'careerAgent.siteAlert.v1';
+
+function dismissedAt() {
+  try {
+    return Number(localStorage.getItem(SITE_ALERT_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function rememberDismissed(count) {
+  try {
+    if (count) localStorage.setItem(SITE_ALERT_KEY, String(count));
+    else localStorage.removeItem(SITE_ALERT_KEY);
+  } catch { /* the alert simply returns next time */ }
+}
+
+/** "A job site needs you": shown while a source needs attention, until dismissed. */
+function drawSiteAlert(failed) {
+  const box = document.getElementById('site-alert');
+  if (!box) return;
+  // Fewer failures than when it was dismissed: remember the lower number, so
+  // the next source that breaks brings the alert back.
+  if (failed < dismissedAt()) rememberDismissed(failed);
+  box.hidden = !(failed > 0 && failed > dismissedAt());
+  if (box.hidden) return;
+  document.getElementById('site-alert-title').textContent = failed === 1
+    ? t('sidenav.alertTitleOne')
+    : t('sidenav.alertTitle', { n: failed });
+  document.getElementById('site-alert-text').textContent = failed === 1
+    ? t('sidenav.alertTextOne')
+    : t('sidenav.alertText');
+}
+
+document.getElementById('site-alert-fix')?.addEventListener('click', () => {
+  shell.closeDrawer({ restore: false });
+  goTo('settings');
+});
+document.getElementById('site-alert-close')?.addEventListener('click', () => {
+  const failed = Number(railStatus.failed) || 0;
+  const before = dismissedAt();
+  rememberDismissed(failed);
+  drawSiteAlert(failed);
+  // The control that had focus is gone; the status line says the same thing.
+  dom.healthSummary?.focus();
+  flash(t('sidenav.alertHidden'), false, () => {
+    rememberDismissed(before);
+    drawSiteAlert(Number(railStatus.failed) || 0);
+  });
+});
+
 function drawRailStatus() {
   const node = dom.healthSummary;
   if (!node || !dom.healthSummaryText) return;
   const failed = Number(railStatus.failed) || 0;
+  drawSiteAlert(failed);
   let text = t('sidenav.statusOk');
   let attention = false;
   let actionable = false;
@@ -2073,6 +2110,9 @@ async function loadRailReadouts() {
       open: metric('tracking'),
       interview: metric('interviews'),
     });
+    // The two green badges. "New" is the latest refresh's own count (Source
+    // Refresh V2), the same number Home shows; never "since last reviewed".
+    shell.setBadges({ jobs: metric('new'), applications: metric('tracking') });
   } catch { /* the frame stays blank rather than shouting */ }
   try {
     const sources = await api.getSources();
@@ -2091,7 +2131,9 @@ async function loadRailReadouts() {
 
 // The status line leads to Settings & Sources when a source needs attention.
 dom.healthSummary?.addEventListener('click', () => {
-  if (dom.healthSummary.classList.contains('is-actionable')) goTo('settings');
+  if (!dom.healthSummary.classList.contains('is-actionable')) return;
+  shell.closeDrawer({ restore: false });
+  goTo('settings');
 });
 
 store.startHistory();
@@ -2408,9 +2450,9 @@ function buildLocaleControl(host) {
   });
 
   const buttons = LOCALES.map((locale) => {
-    // THE CODE, AND NO FLAG. A flag is a country and a language is not, and
-    // the design system uses no emoji or flag at all; the language's own
-    // name is the tooltip and the accessible name.
+    // THE HANDOFF'S FLAGS, drawn in CSS (`.flag--en`, `.flag--pt-BR`). A flag
+    // stands for the language here only as a picture: the language's own
+    // name is the tooltip and the accessible name, so nothing depends on it.
     const button = el('button', {
       className: 'segmented__btn localeswitch__btn',
       attrs: {
@@ -2459,9 +2501,7 @@ function buildLocaleControl(host) {
         },
       },
     });
-    button.appendChild(el('span', {
-      className: 'localeswitch__code', attrs: { 'aria-hidden': 'true' }, text: t(`locale.${locale}`),
-    }));
+    button.appendChild(el('span', { className: `flag flag--${locale}`, attrs: { 'aria-hidden': 'true' } }));
     group.appendChild(button);
     return button;
   });
@@ -2541,6 +2581,9 @@ function relabelStaticText() {
   // nobody would ever see it.
   swap('#resultsheading', 'rail.resultsHeading');
   swap('#daily-open', 'daily.open');
+  // The rail's status line and the site alert are drawn from state, so they
+  // are redrawn rather than swapped.
+  drawRailStatus();
   relabelTheme();
   home.relabel();
   // The drawer builds its own tabs during module setup, before the locale is

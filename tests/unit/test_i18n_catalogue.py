@@ -269,13 +269,13 @@ def test_nothing_is_inferred_from_the_browser_or_the_machine() -> None:
     assert "return DEFAULT_LOCALE" in body, "there is no plain English default"
 
 
-def test_the_toggle_reads_en_and_pt() -> None:
-    """A compact two-letter selector. `pt-BR` stays the INTERNAL value, because
-    that is the tag `<html lang>` needs and a screen reader reads."""
-    assert EN["locale.en"] == "EN"
-    assert EN["locale.pt-BR"] == "PT"
-    assert PT_BR["locale.en"] == "EN"
-    assert PT_BR["locale.pt-BR"] == "PT"
+def test_the_toggle_names_each_language() -> None:
+    """The toggle draws two flags (redesign handoff) and NAMES each language
+    in its own words. `pt-BR` stays the INTERNAL value, because that is the
+    tag `<html lang>` needs and a screen reader reads."""
+    for catalogue in (EN, PT_BR):
+        assert catalogue["locale.name.en"] == "English"
+        assert catalogue["locale.name.pt-BR"] == "Português (Brasil)"
     assert "'pt-BR'" in SOURCE, "the internal tag stopped being a real language tag"
 
 

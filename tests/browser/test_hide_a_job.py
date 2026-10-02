@@ -58,7 +58,7 @@ def test_hiding_a_card_removes_it_and_offers_the_way_back(
     assert before[0] not in after, "the hidden posting is still on screen"
     # THE WAY BACK IS OFFERED IMMEDIATELY, not only in a rail somewhere.
     assert page.evaluate(f"{FLASH}.hidden === false"), "nothing was said"
-    assert page.evaluate(f"Boolean({FLASH}.querySelector('.flash__undo'))"), (
+    assert page.evaluate(f"Boolean({FLASH}.querySelector('.toast__undo'))"), (
         "hiding offered no undo, so a mis-click is only recoverable by hunting"
     )
 
@@ -66,9 +66,9 @@ def test_hiding_a_card_removes_it_and_offers_the_way_back(
 def test_undo_puts_exactly_that_posting_back(page: Chrome, pristine_server: str) -> None:
     before = rendered(page)
     first_card_hide(page)
-    page.wait_for(f"Boolean({FLASH}.querySelector('.flash__undo'))", message="the undo")
+    page.wait_for(f"Boolean({FLASH}.querySelector('.toast__undo'))", message="the undo")
 
-    page.evaluate(f"{FLASH}.querySelector('.flash__undo').click()")
+    page.evaluate(f"{FLASH}.querySelector('.toast__undo').click()")
     page.wait_for(
         f"{RENDERED_IDS}.includes({before[0]!r})",
         message="the posting to come back",
