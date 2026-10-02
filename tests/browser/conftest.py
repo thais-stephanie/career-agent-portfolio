@@ -473,7 +473,7 @@ def capture(
         text = str(page.evaluate("document.body.innerText"))
         companies = page.evaluate(
             f"Array.from(document.querySelectorAll({COMPANY_SELECTORS!r}))"
-            ".map((n) => n.textContent.trim())"
+            ".map((n) => n.textContent.trim()).filter(Boolean)"
         )
         _assert_nothing_to_regret(text, list(companies or []), demo_company_names, env_secrets)
         written = page.screenshot(evidence_dir / f"{name}.png")

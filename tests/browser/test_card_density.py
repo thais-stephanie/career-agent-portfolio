@@ -50,7 +50,9 @@ from tests.browser.test_browser_acceptance import (
 #: The tallest a collapsed card may be, at a 300-370px column. The measured
 #: regression was 462; the compact card measures 268-337 on real data with a
 #: two-line title, a failed-gate line and a group line all present.
-CARD_HEIGHT_CEILING_PX = 350
+#: The redesign handoff's card carries a meter, a fourth fact line and the
+#: Apply row, and equalises each row: 362 measured on the demo, so 380.
+CARD_HEIGHT_CEILING_PX = 380
 
 #: At 1440x900 the toolbar and the notices leave roughly 430px for cards, so
 #: two rows must at least START on the screen and three cards fit whole.

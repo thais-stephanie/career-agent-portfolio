@@ -8907,7 +8907,7 @@ body.has-filters { overflow: hidden; }
   border: var(--bw) solid var(--line);
   border-radius: 14px;
   box-shadow: var(--shadow);
-  overflow: visible;
+  overflow: hidden;
   cursor: pointer;
   transition: transform 120ms ease;
 }

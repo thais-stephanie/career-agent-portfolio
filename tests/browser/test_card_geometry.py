@@ -28,7 +28,13 @@ from tests.browser.chrome import Chrome
 from tests.browser.test_browser_acceptance import A_REAL_CARD, RENDERED_COUNT, open_list
 
 #: The design's Radius section: card / column / panel is 12px.
-CARD_RADIUS_PX = 12.0
+#: The redesign handoff (2026-10): a job card is 14px, a board card 12px,
+#: a board column and the list's frame 16px.
+CARD_RADIUS_PX = 14.0
+BOARD_CARD_RADIUS_PX = 12.0
+PANEL_RADIUS_PX = 16.0
+#: Surfaces the next redesign slice restyles keep the earlier 12px.
+EARLIER_RADIUS_PX = 12.0
 
 #: Small card, bordered row, control. 10px in the same table.
 CONTROL_RADIUS_PX = 10.0
@@ -83,6 +89,9 @@ def test_the_offset_shadow_survives_the_rounding(page: Chrome, server: str) -> N
     The design asks for both, and a card that lost its shadow while gaining a
     radius would have swapped one half of the visual language for the other.
     """
+    # The light theme's; the dark theme draws the card flat, as the handoff does.
+    page.set_color_scheme("light")
+    page.evaluate("document.documentElement.dataset.theme = 'light'")
     shadow = str(page.evaluate("getComputedStyle(document.querySelector('.card')).boxShadow"))
 
     assert shadow and shadow != "none", shadow
@@ -153,8 +162,8 @@ def test_the_application_card_and_its_column_are_round(page: Chrome, pristine_se
     page.navigate(f"{pristine_server}/?view=kanban")
     page.wait_for("Boolean(document.querySelector('.kcard'))", message="a card on the board")
 
-    assert radius_of(page, ".kcard") == [CARD_RADIUS_PX] * 4
-    assert radius_of(page, ".kcol") == [CARD_RADIUS_PX] * 4
+    assert radius_of(page, ".kcard") == [BOARD_CARD_RADIUS_PX] * 4
+    assert radius_of(page, ".kcol") == [PANEL_RADIUS_PX] * 4
 
 
 def test_the_home_metric_card_is_round(page: Chrome, server: str) -> None:
@@ -163,7 +172,7 @@ def test_the_home_metric_card_is_round(page: Chrome, server: str) -> None:
     page.navigate(f"{server}/#home")
     page.wait_for("Boolean(document.querySelector('.metric'))", message="a home metric")
 
-    assert radius_of(page, ".metric") == [CARD_RADIUS_PX] * 4
+    assert radius_of(page, ".metric") == [EARLIER_RADIUS_PX] * 4
 
 
 def test_the_filter_panel_is_round(page: Chrome, server: str) -> None:
@@ -171,13 +180,13 @@ def test_the_filter_panel_is_round(page: Chrome, server: str) -> None:
     open_list(page, server)
     page.wait_for("Boolean(document.querySelector('.fsec'))", message="the filter rail")
 
-    assert radius_of(page, ".fsec") == [CARD_RADIUS_PX] * 4
+    assert radius_of(page, ".fsec") == [EARLIER_RADIUS_PX] * 4
 
 
 def test_the_table_wrapper_is_round_even_though_its_rows_are_not(page: Chrome, server: str) -> None:
     """Both halves of the same rule: the frame is a panel, the grid is a grid."""
     page.navigate(f"{server}/?view=table")
-    page.wait_for("Boolean(document.querySelector('table.jobs tbody tr'))", message="the table")
+    page.wait_for("Boolean(document.querySelector('table.jobs tbody tr[data-job-id]'))", message="the table")
 
-    assert radius_of(page, ".tablescroll") == [CARD_RADIUS_PX] * 4
+    assert radius_of(page, ".tablescrollwrap") == [PANEL_RADIUS_PX] * 4
     assert radius_of(page, "table.jobs tbody tr") == [0.0] * 4

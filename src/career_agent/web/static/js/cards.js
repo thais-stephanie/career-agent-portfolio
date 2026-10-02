@@ -123,13 +123,17 @@ function card(job, handlers) {
   const place = compactPlace(job.location_raw, job.work_model);
   const salary = formatSalary(job.salary);
   const count = Number(job.duplicate_count || 1);
-  const where = count > 1 ? `${place.text} · ${t('card.locations', { n: count })}` : place.text;
   const whereTitle = count > 1
     ? [place.full, ...(job.sibling_locations || [])].filter(Boolean).join(' · ')
     : place.full;
+  // A grouped card stands for one role posted in several places; it says how
+  // many, and its tooltip names every one.
+  const group = count > 1
+    ? el('span', { className: 'card__group', text: ` · ${t('card.locations', { n: count })}` })
+    : null;
   root.appendChild(el('dl', { className: 'card__facts' }, [
     el('dt', { className: 'sr-only', text: t('card.where') }),
-    el('dd', { className: 'fact--place', text: where, attrs: { title: whereTitle } }),
+    el('dd', { className: 'fact--place', attrs: { title: whereTitle } }, [place.text, group].filter(Boolean)),
     el('dt', { className: 'sr-only', text: t('card.contract') }),
     el('dd', { className: 'fact--terms', text: terms(job), attrs: { title: terms(job) } }),
     el('dt', { className: 'sr-only', text: t('card.salary') }),

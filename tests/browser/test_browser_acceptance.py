@@ -2714,7 +2714,7 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
         "a posting whose gate failed is on screen by default"
     )
 
-    notice = str(page.evaluate("document.getElementById('hiddennotice').innerText"))
+    notice = str(page.evaluate("document.getElementById('hiddennotice').textContent"))
     assert str(DEMO_HIDDEN_COUNT) in notice, f"the notice does not say how many: {notice!r}"
     # And every OTHER narrowing gets its own sentence in the same place. A
     # sentence each rather than one number, because "an employer states a
@@ -2775,7 +2775,7 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
     # the list, and "Clear all filters" deliberately never touches this key,
     # so pressing Clear left the chip behind and the counter announced "1
     # filter active" about a button that had just been pressed.
-    shown = str(page.evaluate("document.getElementById('hiddennotice').innerText"))
+    shown = str(page.evaluate("document.getElementById('hiddennotice').textContent"))
     assert page.evaluate("document.getElementById('hiddennotice').hidden === false")
     assert "showing jobs that state a requirement" in shown.lower(), shown
     assert "hide them again" in shown.lower(), shown
@@ -2814,7 +2814,7 @@ def test_silence_about_eligibility_is_a_narrowing_and_never_a_verdict(
     open_list(page, pristine_server)
     wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "before reading the notice")
 
-    notice = str(page.evaluate("document.getElementById('hiddennotice').innerText")).lower()
+    notice = str(page.evaluate("document.getElementById('hiddennotice').textContent")).lower()
     assert "never said where the employer hires" in notice, notice
     assert "nothing rules you out" in notice, notice
 

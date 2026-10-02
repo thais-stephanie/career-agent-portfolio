@@ -1336,10 +1336,11 @@ function renderHiddenNotice(state) {
     replace(dom.hidden, rows);
     return;
   }
-  // ONE SUMMARY, the rows behind "See why" (redesign handoff). A row that is
-  // SHOWING keeps the panel open, because its switch is the way back.
+  // ONE SUMMARY, the rows behind "See why" (redesign handoff).
   const showingAny = full.some((row) => row.querySelector('[aria-checked="true"]'));
-  const open = hiddenNoticeOpen || showingAny;
+  // Closed until asked, even while some are shown: the summary says so, and
+  // "See why" is one press from every switch.
+  const open = hiddenNoticeOpen;
   const details = el('div', {
     className: 'hidden__rows', attrs: { id: 'hidden-rows' }, props: { hidden: !open },
   }, rows);
