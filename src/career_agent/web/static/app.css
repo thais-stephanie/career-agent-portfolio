@@ -31,8 +31,6 @@
 
    ===================================================================== */
 
-
-
 .career { display: grid; gap: 1.5rem; }
 .career__cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
 .career__card { border: 2px solid var(--line); padding: 1rem; margin-block: 0.75rem; }
@@ -723,14 +721,9 @@
   font-display: swap;
 }
 
-
-
-
 /* ---------------------------------------------------------------------
 
    THE THEME SWITCH, IN THREE STATES.
-
-
 
    `theme.js` writes `data-theme` on <html> before the first paint, so the
 
@@ -742,8 +735,6 @@
 
    light, which is the whole point of having a control.
 
-
-
    The assignment list appears twice and the colour literals do not. That is
 
    the trade: a duplicated assignment that drifts produces a missing token,
@@ -753,8 +744,6 @@
    two slightly different products and nobody notices for months.
 
    --------------------------------------------------------------------- */
-
-
 
 @media (prefers-color-scheme: dark) {
   /* Guarded against an explicit `light`, so somebody who CHOSE light on a dark
@@ -870,8 +859,6 @@
   }
 }
 
-
-
 :root[data-theme="dark"] {
   color-scheme: dark;
   --paper: var(--d-paper);
@@ -981,8 +968,6 @@
   --lav: var(--d-lav);
 }
 
-
-
 /* ---------------------------------------------------------------------
    `hidden` MEANS HIDDEN. One line, and it closes a whole class of defect.
 
@@ -1009,11 +994,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-
-
 html { background: var(--paper); }
-
-
 
 body {
 
@@ -1033,11 +1014,7 @@ body {
 
 }
 
-
-
 body.has-drawer { overflow: hidden; }
-
-
 
 .num, input[type="date"], .contrib__points,
 
@@ -1051,8 +1028,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 :focus-visible {
 
   outline: 2px solid var(--focus);
@@ -1061,8 +1036,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .sr-only {
 
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -1070,8 +1043,6 @@ body.has-drawer { overflow: hidden; }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 
 }
-
-
 
 .skip {
 
@@ -1085,11 +1056,7 @@ body.has-drawer { overflow: hidden; }
 
 .skip:focus { left: 8px; top: 8px; }
 
-
-
 /* ---------- header ------------------------------------------------- */
-
-
 
 /* The header is three bands that can wrap independently: who this is, what
 
@@ -1113,8 +1080,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .topbar__brand { display: flex; align-items: baseline; gap: 8px; }
 
 .brand__mark { color: var(--match); font-size: 15px; }
@@ -1128,8 +1093,6 @@ body.has-drawer { overflow: hidden; }
 }
 
 .brand__tag { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
-
-
 
 .topbar__health {
 
@@ -1149,8 +1112,6 @@ body.has-drawer { overflow: hidden; }
 
 .health__ollama.is-unknown { color: var(--ink-soft); }
 
-
-
 .topbar__controls {
 
   margin-left: auto;
@@ -1163,8 +1124,6 @@ body.has-drawer { overflow: hidden; }
 
 .topbar__controls .select { width: auto; min-width: 168px; font-size: 12px; }
 
-
-
 /* The theme control is the least important thing in the header, so it is the
 
    last to hold its ground: it may wrap away from the result controls, and it
@@ -1172,8 +1131,6 @@ body.has-drawer { overflow: hidden; }
    never pushes them off their line. */
 
 .topbar__theme { margin-left: 4px; }
-
-
 
 /* ---------- the two toolbar groups --------------------------------- */
 
@@ -1184,8 +1141,6 @@ body.has-drawer { overflow: hidden; }
    group two is what ORDER they arrive in and whether repeated postings are
 
    collapsed. They look like two objects because they are.
-
-
 
    The shared shape rule, and the whole reason `.segmented` exists as its own
 
@@ -1198,8 +1153,6 @@ body.has-drawer { overflow: hidden; }
    a pill is the failure mode this avoids.
 
 */
-
-
 
 .segmented,
 .resultbar {
@@ -1215,8 +1168,6 @@ body.has-drawer { overflow: hidden; }
   overflow: hidden;
 
 }
-
-
 
 .segmented__btn,
 
@@ -1250,15 +1201,11 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .segmented__btn:last-child,
 
 .resultbar__btn:last-child,
 
 .resultbar__field:last-child { border-right: 0; }
-
-
 
 /* The handoff's segmented control: a `--chip-bg` well with 3px of room,
    segments rounded on their own, the chosen one lifted onto the surface. */
@@ -1270,15 +1217,11 @@ body.has-drawer { overflow: hidden; }
   color: var(--muted); white-space: nowrap;
 }
 
-
-
 .segmented__btn:hover,
 
 .resultbar__btn:hover,
 
 .resultbar__field:hover { background: var(--paper-3); color: var(--ink); }
-
-
 
 /* The selected segment. Ink on paper reversed, so the answer is legible at a
 
@@ -1289,8 +1232,6 @@ body.has-drawer { overflow: hidden; }
   color: var(--ink);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
-
-
 
 /* Grouping is ON by default, so its pressed state is the quieter one: petrol
 
@@ -1312,8 +1253,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .resultbar__field {
 
   padding-right: 26px;
@@ -1321,8 +1260,6 @@ body.has-drawer { overflow: hidden; }
   color: var(--ink);
 
 }
-
-
 
 /* The focus ring has to sit INSIDE, because the group clips its children. */
 
@@ -1340,11 +1277,7 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 /* ---------- legend ------------------------------------------------- */
-
-
 
 .legend {
 
@@ -1378,11 +1311,7 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 /* ---------- layout ------------------------------------------------- */
-
-
 
 /* =====================================================================
    DISCOVER JOBS: ONE COLUMN, AND THE FILTERS ABOVE IT
@@ -1460,22 +1389,9 @@ body.has-drawer { overflow: hidden; }
 }
 /* The presets are a row of whole-panel choices and belong ABOVE the columns,
    not inside them. `column-span: all` is what puts them there. */
-.filters__block--presets {
-  column-span: all;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px 10px;
-  margin: 0 0 14px;
-  padding-bottom: 12px;
-  border-bottom: var(--rule-w) solid var(--rule2);
-  text-align: left;
-}
 /* The label takes its own line at the left. It was sitting centred over the
    buttons, which read as a heading for the whole panel rather than a label
    for the row under it. */
-.filters__block--presets > .filters__label { width: 100%; }
 
 /* A section is a small card on the panel's ground, so the grid reads as
    groups rather than as one field of controls. */
@@ -1528,7 +1444,6 @@ body.has-drawer { overflow: hidden; }
 /* The presets are five buttons and they were a COLUMN, because `.btn--wide`
    is `width: 100%` and that is right in a 288px rail and wrong in a panel
    that is 1,100px across. They read as a row of choices here. */
-.filters__block--presets .btn { width: auto; }
 /* The presets label. Left of its buttons rather than centred over them: it
    labels the row, it is not a heading for the panel. */
 .filters__label {
@@ -1548,13 +1463,7 @@ body.has-drawer { overflow: hidden; }
   margin-top: 4px;
 }
 
-
-
 /* ---------- filters ------------------------------------------------ */
-
-
-
-
 
 /* ---------- what the eligibility default is hiding ------------------ */
 /*
@@ -1770,8 +1679,6 @@ body.has-drawer { overflow: hidden; }
 
 */
 
-
-
 .drawer__tabs {
 
   display: flex; gap: 0;
@@ -1785,8 +1692,6 @@ body.has-drawer { overflow: hidden; }
   margin: 0 0 14px;
 
 }
-
-
 
 .drawer__tab {
 
@@ -1814,11 +1719,7 @@ body.has-drawer { overflow: hidden; }
 
 .drawer__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
-
-
 .drawer__tabpanel { display: flex; flex-direction: column; gap: 20px; }
-
-
 
 /* The lead paragraph of the reasoning tab. Larger than body text, because it
 
@@ -1832,8 +1733,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .reasons, .gaps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 
 .reason__label { margin: 0 0 4px; font-weight: 600; font-size: 13px; }
@@ -1845,7 +1744,6 @@ body.has-drawer { overflow: hidden; }
 }
 
 .gap::before { content: "·"; position: absolute; left: 4px; color: var(--ink-faint); }
-
 
 /* The arithmetic, folded. Not hidden: labelled, and one click away. */
 
@@ -1865,8 +1763,6 @@ body.has-drawer { overflow: hidden; }
 
 .d-advanced[open] .d-advanced__summary { margin-bottom: 10px; }
 
-
-
 /* ---------- the sectioned filter rail ------------------------------- */
 
 /*
@@ -1875,8 +1771,6 @@ body.has-drawer { overflow: hidden; }
 
    that is collapsed still says how many of its own filters are active.
 
-
-
    Without that count, narrowing inside `Pay`, collapsing it and forgetting
 
    produces an empty result list with no visible cause. That is the failure
@@ -1884,8 +1778,6 @@ body.has-drawer { overflow: hidden; }
    hiding controls invites, and a number on the header is the whole fix.
 
 */
-
-
 
 .fsec {
 
@@ -1899,11 +1791,7 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .fsec[open] { background: var(--paper-2); }
-
-
 
 /* An active section is marked by a spine of colour as well as by its count,
 
@@ -1912,8 +1800,6 @@ body.has-drawer { overflow: hidden; }
    either. */
 
 .fsec.is-active { border-color: var(--match); box-shadow: inset 3px 0 0 var(--match); }
-
-
 
 .fsec__summary {
 
@@ -1953,8 +1839,6 @@ body.has-drawer { overflow: hidden; }
 
 .fsec__label { flex: 1; }
 
-
-
 .fsec__count {
 
   min-width: 18px; text-align: center;
@@ -1969,8 +1853,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .fsec__help {
 
   margin: 0 11px 8px; padding: 0;
@@ -1979,8 +1861,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .fsec__body {
 
   display: flex; flex-direction: column; gap: 12px;
@@ -1988,8 +1868,6 @@ body.has-drawer { overflow: hidden; }
   padding: 0 11px 10px;
 
 }
-
-
 
 .fsec__clear {
 
@@ -2009,8 +1887,6 @@ body.has-drawer { overflow: hidden; }
 
 .fsec__clear:hover { background: var(--paper-3); color: var(--ink); }
 
-
-
 /* One sentence under a switch, for the switches whose consequence is not
 
    obvious from their words. "Only ones that state a salary" sounds harmless
@@ -2021,12 +1897,6 @@ body.has-drawer { overflow: hidden; }
   margin: 2px 0 8px 26px;
   font-size: var(--t-micro); color: var(--muted);
 }
-
-
-
-.filters__block--presets { margin-bottom: 12px; }
-
-
 
 .filters__block { display: flex; flex-direction: column; gap: 8px; }
 
@@ -2051,8 +1921,6 @@ body.has-drawer { overflow: hidden; }
 .filters__pair .input { flex: 2; min-width: 0; }
 
 .filters__pair .select { flex: 1; min-width: 0; }
-
-
 
 /* ---------- the source matrix ---------------------------------------- */
 
@@ -2182,8 +2050,6 @@ body.has-drawer { overflow: hidden; }
 }
 .src__state { display: inline-flex; align-items: center; gap: 6px; }
 
-
-
 .phrases { display: flex; flex-direction: column; gap: 5px; }
 
 .phrases__tags { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -2191,8 +2057,6 @@ body.has-drawer { overflow: hidden; }
 .phrases__tags:empty { display: none; }
 
 .chip--tag { font-size: 11.5px; }
-
-
 
 /* =====================================================================
    FORM CONTROLS
@@ -2379,8 +2243,6 @@ body.has-drawer { overflow: hidden; }
   .toolsearch-host { max-width: none; }
 }
 
-
-
 /* A ROW, not a column. These are five mutually exclusive starting points and
    they belong on one line at the top of the panel; stacked, they were 220px
    of vertical space before the first section. */
@@ -2407,8 +2269,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .slider__row { display: flex; flex-direction: column; gap: 4px; }
 
 .slider__control { display: flex; align-items: center; gap: 10px; }
@@ -2423,18 +2283,16 @@ body.has-drawer { overflow: hidden; }
 
 .slider__out--confidence { color: var(--detail-ink); }
 
-
-
 .toggles { display: flex; flex-direction: column; gap: 5px; }
 
 /* A label wrapping a checkbox. `align-items: flex-start` so a two-line label
    sits beside the box rather than centring against it, and the text is given
    its own flex child so it can wrap without pushing the box. */
-.toggle, .facet__row, .colmenu__item {
+.toggle, .facet__row {
   display: flex; align-items: flex-start; gap: 8px;
   font-size: var(--t-small); line-height: 1.4; cursor: pointer;
 }
-.toggle > span, .facet__row > span, .colmenu__item > span { flex: 1; min-width: 0; }
+.toggle > span, .facet__row > span { flex: 1; min-width: 0; }
 /* The sentence under a toggle. Indented to the label's text so it reads as
    belonging to it rather than to the next control down. */
 .toggle__help {
@@ -2444,9 +2302,7 @@ body.has-drawer { overflow: hidden; }
   color: var(--muted);
 }
 
-.toggle input, .facet__row input, .colmenu__item input { accent-color: var(--match); }
-
-
+.toggle input, .facet__row input { accent-color: var(--match); }
 
 .facets { display: flex; flex-direction: column; }
 
@@ -2474,11 +2330,7 @@ body.has-drawer { overflow: hidden; }
 
 .facet__n { color: var(--ink-faint); font-size: 11px; }
 
-
-
 /* ---------- buttons ------------------------------------------------- */
-
-
 
 /* =====================================================================
    BUTTONS, TO THE DESIGN'S SPEC
@@ -2610,11 +2462,7 @@ body.has-drawer { overflow: hidden; }
 
 .link--unavailable { color: var(--ink-faint); font-style: italic; }
 
-
-
 /* ---------- chips ---------------------------------------------------- */
-
-
 
 .chipbar {
 
@@ -2662,8 +2510,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; }
 
 .chips--tech .chip { padding: 1px 7px; background: transparent; }
@@ -2674,17 +2520,9 @@ body.has-drawer { overflow: hidden; }
 
 .chip--incidental { border-color: var(--rule); color: var(--ink-faint); }
 
-
-
 .resultcount { margin: 0 0 12px; font-size: 12px; color: var(--ink-soft); letter-spacing: 0.02em; }
 
-
-
 /* ---------- the paired readout -------------------------------------- */
-
-
-
-
 
 .pill {
 
@@ -2707,8 +2545,6 @@ body.has-drawer { overflow: hidden; }
 .pill--warn { border-color: var(--detail); color: var(--detail-ink); background: var(--detail-wash); }
 
 .pill--bad { border-color: var(--block); color: var(--block-ink); background: var(--block-wash); }
-
-
 
 /* A TAG IS A CHIP. These four were the clearest instance in the product of
    the rule the Claude Design turns on: four states rendered as four TEXT
@@ -2735,13 +2571,7 @@ body.has-drawer { overflow: hidden; }
 .tag--bad { background: var(--pink); }
 .tag--muted { background: var(--stone); }
 
-
-
-
-
 /* ---------- cards ---------------------------------------------------- */
-
-
 
 /* A grid of objects, not a wall of report columns.
 
@@ -2769,8 +2599,6 @@ body.has-drawer { overflow: hidden; }
   align-items: start;
 
 }
-
-
 
 /* =====================================================================
    THE CARD PRIMITIVE
@@ -2876,22 +2704,6 @@ body.has-drawer { overflow: hidden; }
   box-shadow: var(--offset-lg) var(--offset-lg) 0 var(--line);
 }
 
-
-
-.card__blocked {
-
-  margin: 0; display: flex; align-items: center; gap: 6px;
-
-  color: var(--block-ink); font-size: 11.5px; font-weight: 600;
-
-  letter-spacing: 0.04em; text-transform: uppercase;
-
-}
-
-.card__blocked-glyph { font-family: var(--mono); }
-
-
-
 .card__head { display: flex; flex-direction: column; gap: 2px; }
 
 .card__company {
@@ -2925,8 +2737,6 @@ body.has-drawer { overflow: hidden; }
 
 .card__title-btn:hover, .cell__title-btn:hover { color: var(--match-ink); text-decoration: underline; }
 
-
-
 .card__facts {
 
   margin: 0; display: grid; grid-template-columns: 62px minmax(0, 1fr);
@@ -2943,8 +2753,6 @@ body.has-drawer { overflow: hidden; }
 
 .fact--salary { color: var(--ink); }
 
-
-
 .strengths { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 
 .strength {
@@ -2958,8 +2766,6 @@ body.has-drawer { overflow: hidden; }
 .strength__label { flex: 1; color: var(--ink-soft); }
 
 .strength__points { font-family: var(--mono); font-size: 11.5px; color: var(--match-ink); }
-
-
 
 .card__concern {
 
@@ -2977,35 +2783,11 @@ body.has-drawer { overflow: hidden; }
 
 .card__concern-label { font-weight: 600; }
 
-
-
 .card__unknowns { margin: 0; font-size: 11.5px; color: var(--ink-faint); }
-
-
 
 /* What a grouped card stands for. Placed high, under the title, because
 
    "this is eight postings" changes how the rest of the card is read. */
-
-.card__group {
-
-  margin: 0; display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: baseline;
-
-  font-size: 11.5px;
-
-}
-
-.card__group-count {
-
-  font-family: var(--mono); color: var(--match-ink); font-weight: 600;
-
-  letter-spacing: 0.04em; text-transform: uppercase;
-
-}
-
-.card__group-places { color: var(--ink-faint); overflow-wrap: anywhere; }
-
-
 
 .card__foot {
 
@@ -3019,45 +2801,11 @@ body.has-drawer { overflow: hidden; }
 
 .card__posted-date { font-size: 11.5px; color: var(--ink-faint); font-family: var(--mono); }
 
-.card__actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-
-.card__actions .select--status { width: auto; flex: 1 1 130px; font-size: 12px; }
-
-
-
 /* ---------- table ---------------------------------------------------- */
-
-
 
 .tablewrap { display: flex; flex-direction: column; gap: 8px; }
 
-.tablebar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-
-
-
 .colmenu { position: relative; margin-left: auto; }
-
-.colmenu__summary {
-
-  cursor: pointer; font-size: 12px; border: var(--rule-w) solid var(--rule-strong);
-
-  padding: 5px 10px; list-style: none;
-
-}
-
-.colmenu__list {
-
-  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20;
-
-  background: var(--paper); border: var(--rule-w) solid var(--rule-strong);
-
-  padding: 10px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px;
-
-  min-width: 300px;
-
-}
-
-
 
 /* The table is wider than its region, and a column sliced flat against the
 
@@ -3117,8 +2865,6 @@ body.has-drawer { overflow: hidden; }
 
 .tablescroll { scrollbar-color: var(--rule-strong) var(--paper-3); scrollbar-width: auto; }
 
-
-
 /* The row is a control now. */
 
 .jobs tbody tr { cursor: pointer; }
@@ -3126,8 +2872,6 @@ body.has-drawer { overflow: hidden; }
 .jobs tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 .jobs tbody tr:hover { background: var(--paper-2); }
-
-
 
 /* A number, not a bar. */
 
@@ -3174,8 +2918,6 @@ body.has-drawer { overflow: hidden; }
 .tablescrollwrap[data-scroll~="left"]::before { opacity: 1; }
 
 .tablescrollwrap[data-scroll~="right"]::after { opacity: 1; }
-
-
 
 table.jobs { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 
@@ -3277,11 +3019,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .input--date { width: 130px; padding: 2px 4px; font-size: 12px; }
 
-
-
 /* ---------- states ---------------------------------------------------- */
-
-
 
 .state { padding: 40px 10px; max-width: 52ch; }
 
@@ -3290,8 +3028,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .state__msg { margin: 0 0 14px; color: var(--ink-soft); }
 
 .state--error .state__head { color: var(--block-ink); }
-
-
 
 .sk { background: var(--paper-3); }
 
@@ -3315,20 +3051,11 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .pager { display: flex; gap: 12px; align-items: center; padding: 18px 0 0; }
 
 .pager__pos { font-size: 12px; color: var(--ink-soft); }
 
-
-
-
-
-
 /* ---------- drawer ---------------------------------------------------- */
-
-
 
 .drawer { position: fixed; inset: 0; z-index: 40; }
 
@@ -3363,8 +3090,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .drawer__head {
 
   display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
@@ -3376,8 +3101,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .drawer__title { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 600; }
 
 .drawer__body { overflow-y: auto; padding: 0 20px 60px; }
-
-
 
 .d-sec { padding: 16px 0; border-bottom: var(--rule-w) solid var(--rule); }
 
@@ -3423,8 +3146,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .d-row__reason { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
 
-
-
 .component { border-top: var(--rule-w) solid var(--rule); padding: 10px 0; }
 
 .component__head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
@@ -3434,8 +3155,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .component__points { font-size: 13px; color: var(--match-ink); }
 
 .component__note { margin: 3px 0 0; font-size: 12px; color: var(--ink-faint); }
-
-
 
 .contribs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 
@@ -3450,8 +3169,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .contrib__points.is-negative, .contribs--penalty .contrib__points { color: var(--block-ink); }
 
 .contribs--penalty .contrib { border-left-color: var(--block); }
-
-
 
 .quote {
 
@@ -3472,8 +3189,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
   margin: 4px 0 0; padding: 5px 10px; font-size: 11.5px; line-height: 1.55;
   font-style: italic; color: var(--ink-faint); background: transparent;
 }
-
-
 
 .gates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
@@ -3501,8 +3216,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .gate__reason { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
 
-
-
 .conf { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 
 .conf__item { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; }
@@ -3519,13 +3232,9 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .conf__note { flex-basis: 100%; font-size: 11.5px; color: var(--ink-faint); padding-left: 20px; }
 
-
-
 .unknowns { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--ink-soft); }
 
 .unknowns li { margin-bottom: 3px; }
-
-
 
 /* The other locations one role was published in. A list, not a sentence:
 
@@ -3543,19 +3252,13 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .d-places__item--more { border-style: dashed; color: var(--ink-faint); }
 
-
-
 .kv { margin: 0; display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 3px 12px; font-size: 12.5px; }
 
 .kv dt { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
 
 .kv dd { margin: 0; overflow-wrap: anywhere; }
 
-
-
 .desc__p { margin: 0 0 10px; font-size: 13px; line-height: 1.62; max-width: 68ch; overflow-wrap: anywhere; }
-
-
 
 .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 
@@ -3564,8 +3267,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .history__when { color: var(--ink-faint); font-size: 11.5px; }
 
 .history__note { color: var(--ink-faint); }
-
-
 
 .d-sec--enrich { background: var(--paper-2); padding: 16px; border: var(--rule-w) dashed var(--rule-strong); margin: 16px 0; }
 
@@ -3589,11 +3290,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .enrich__elapsed { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-soft); }
 
-
-
 /* ---------- narrow ---------------------------------------------------- */
-
-
 
 @media (max-width: 899px) {
 
@@ -3625,11 +3322,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
   .drawer__panel { width: 100%; }
 
-  .colmenu__list { grid-template-columns: 1fr; min-width: 220px; }
-
 }
-
-
 
 @media (max-width: 460px) {
 
@@ -3637,13 +3330,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
   .viewswitch__btn { flex: 1; }
 
-  .card__actions { flex-direction: column; align-items: stretch; }
-
-  .card__actions .select--status { width: 100%; }
-
 }
-
-
 
 /* =====================================================================
 
@@ -3661,8 +3348,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
    tall for two numbers, which is what made the grid unscannable.
 
-
-
    Match is visually primary -- larger, petrol, tabular. Confidence is
 
    deliberately quieter. Eligibility is a different KIND of answer, so it
@@ -3671,11 +3356,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
    ===================================================================== */
 
-
-
 .badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-
-
 
 /* =====================================================================
    THE CHIP
@@ -3770,15 +3451,11 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .badges--sm .badge { padding: 2px 6px; font-size: 10.5px; }
 .badges--sm .badge--match .badge__value { font-size: 13px; }
 
-
-
 /* =====================================================================
 
    The compact card
 
    ===================================================================== */
-
-
 
 .card__head { display: flex; flex-direction: column; gap: 1px; }
 
@@ -3806,8 +3483,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .card__facts {
 
   margin: 0;
@@ -3828,55 +3503,15 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .card__facts dd { margin: 0; color: var(--ink-soft); overflow-wrap: anywhere; }
 
-
-
 .chip--more {
 
   border-style: dashed; color: var(--ink-faint);
 
 }
 
-
-
 /* Pushed to the bottom so controls align across a row of unequal cards. */
 
-.card__footer {
-
-  margin-top: auto;
-
-  padding-top: 8px;
-
-  border-top: var(--rule-w) solid var(--rule);
-
-  display: flex; align-items: center; justify-content: space-between;
-
-  gap: 8px; flex-wrap: wrap;
-
-}
-
-.card__actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-
-.card__age { margin: 0; font-size: 11px; color: var(--ink-faint); }
-
 .card__age--stale { color: var(--detail-ink); }
-
-
-
-.card__save {
-
-  border: var(--rule-w) solid var(--rule-strong);
-
-  border-radius: var(--radius);
-
-  background: var(--paper);
-
-  padding: 2px 8px; font-size: 11.5px; cursor: pointer; color: var(--ink-soft);
-
-}
-
-.card__save.is-saved { background: var(--butter-wash); border-color: var(--butter); color: var(--butter-ink); }
-
-
 
 /* =====================================================================
 
@@ -3885,28 +3520,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
    its word, and each wash/ink pair was chosen to clear 4.5:1.
 
    ===================================================================== */
-
-
-
-.status-tag {
-
-  border: var(--rule-w) solid var(--rule-strong);
-
-  border-radius: var(--radius);
-
-  padding: 2px 6px;
-
-  font-size: 11.5px;
-
-  background: var(--paper-2);
-
-  color: var(--ink-soft);
-
-  cursor: pointer;
-
-  max-width: 132px;
-
-}
 
 .status-tag--discovered  { background: var(--paper-2);          color: var(--ink-soft);          border-color: var(--rule-strong); }
 
@@ -3932,27 +3545,9 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .status-tag--archived    { background: var(--paper-3);          color: var(--ink-faint);         border-color: var(--rule-strong); }
 
-
-
 .sk--badges { height: 20px; width: 60%; }
 
-
-
 /* Compact, but never absent. A failed gate outranks the match score. */
-
-.card__blocked {
-
-  margin: 0; display: flex; align-items: center; gap: 5px;
-
-  color: var(--block-ink); font-size: 10.5px; font-weight: 700;
-
-  letter-spacing: 0.05em; text-transform: uppercase;
-
-}
-
-.card__blocked-glyph { font-family: var(--mono); }
-
-
 
 /* =====================================================================
 
@@ -3969,8 +3564,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
    becomes useful.
 
    ===================================================================== */
-
-
 
 .kanban {
 
@@ -3996,8 +3589,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .kcol {
 
   background: var(--paper-2);
@@ -4011,8 +3602,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
   min-height: 140px;
 
 }
-
-
 
 .kcol__head {
 
@@ -4042,8 +3631,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .kcol__body {
 
   display: flex; flex-direction: column; gap: 8px;
@@ -4072,8 +3659,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .kcard {
 
   background: var(--paper);
@@ -4095,8 +3680,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .kcard:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .kcard.is-dragging { opacity: 0.5; cursor: grabbing; }
-
-
 
 .kcard__company {
 
@@ -4126,15 +3709,9 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .kcard__applied { color: var(--ink-faint); }
 
-
-
 .kcard .select--status { max-width: 100%; margin-top: 2px; }
 
-
-
 .sk--kcard { height: 62px; border-radius: var(--radius); }
-
-
 
 @media (max-width: 660px) {
 
@@ -4148,21 +3725,15 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 /* Which population is on screen. Stated, not implied. */
 
 .health__degraded { color: var(--detail-ink); font-size: 11px; }
-
-
 
 /* =====================================================================
 
    Search preferences -- the phrases the score is made of
 
    ===================================================================== */
-
-
 
 .prefs { display: flex; flex-direction: column; gap: 10px; padding: 10px 18px; }
 
@@ -4191,8 +3762,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 }
 
 .prefs__intro { margin: 0; font-size: 11.5px; color: var(--ink-faint); line-height: 1.45; }
-
-
 
 .prefs__cat {
 
@@ -4238,8 +3807,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .prefs__signal {
 
   padding: 8px; border-top: var(--rule-w) solid var(--rule);
@@ -4264,8 +3831,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .prefs__area:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-
-
 .prefs__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .prefs__save {
@@ -4286,15 +3851,11 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .prefs__status--bad { color: var(--block-ink); }
 
-
-
 /* =====================================================================
 
    Retrieval -- the funnel, and which sources answered
 
    ===================================================================== */
-
-
 
 .retr { display: flex; flex-direction: column; gap: 8px; padding: 10px 18px; }
 
@@ -4326,8 +3887,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .retr__error { color: var(--block-ink); font-size: 11.5px; margin: 0; }
 
-
-
 .retr__run { margin: 0; font-size: 11.5px; }
 
 .retr__run--running { color: var(--match-ink); }
@@ -4337,8 +3896,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .retr__run--cancelled { color: var(--detail-ink); }
 
 .retr__run--failed { color: var(--block-ink); }
-
-
 
 /* Each stage narrows, and the indent says so without a chart. */
 
@@ -4359,8 +3916,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .retr__stage-label { color: var(--ink-soft); }
 
 .retr__stage-count { color: var(--ink); font-weight: 600; }
-
-
 
 .retr__heading {
 
@@ -4393,7 +3948,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .retr__source-counts { margin-left: auto; color: var(--ink-soft); }
 
 .retr__source-fail { color: var(--block-ink); }
-
 
 /* =====================================================================
    THE IDENTITY LAYER
@@ -4557,15 +4111,7 @@ body {
 
 .card--blocked::before { background: var(--coral); }
 
-.card__head,
-.card__facts,
-.card__group,
-.chips,
-.card__footer,
-.card__actions,
-.card__blocked,
-.card__concern,
-.card__unknowns {
+.card__head, .card__facts, .chips, .card__concern, .card__unknowns {
   padding-left: 14px;
   padding-right: 14px;
 }
@@ -5013,11 +4559,7 @@ body {
   }
 
   /* Touch targets. 24px is the WCAG 2.2 minimum and these were 18px. */
-  .card__save,
-  .chip__x,
-  .themeswitch__btn,
-  .segmented__btn,
-  .resultbar__btn {
+  .chip__x, .themeswitch__btn, .segmented__btn, .resultbar__btn {
     min-height: 32px;
     min-width: 32px;
   }
@@ -5078,7 +4620,6 @@ body {
   column-gap: 8px;
 }
 
-
 /* ---------- 22. ONE MEANING PER COLOUR, ENFORCED ---------------------- */
 /*
    The grouping toggle was mint, which is the MATCH colour. Beside a card
@@ -5119,20 +4660,6 @@ body {
    the way out to the employer, and dressing it as a button would make every
    card shout.
 */
-.card__footer a,
-.card__actions a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  padding: 2px 0;
-}
-
-@media (max-width: 640px) {
-  .card__footer a,
-  .card__actions a {
-    min-height: 32px;
-  }
-}
 
 /* ---------- 24. TWO WAYS A POSTING IS SET ASIDE ---------------------- */
 /*
@@ -5145,18 +4672,6 @@ body {
    Off-target is neutral paper and quiet type, because nobody refused
    anything: this person said what work they want and this is other work.
 */
-.card__offtarget {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  margin: 0;
-  padding: 7px 14px;
-  background: var(--paper-2);
-  border-bottom: var(--rule-w) solid var(--rule);
-  color: var(--ink-faint);
-  font-size: var(--t-micro);
-  line-height: 1.45;
-}
 
 .card--offtarget::before { background: var(--rule-strong); }
 
@@ -5197,19 +4712,6 @@ body {
 .profile__save-status.is-ok { color: var(--ink-soft); }
 
 .profile__save-status.is-error { color: var(--coral-ink); }
-
-.card__context {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  margin: 0;
-  padding: 7px 14px;
-  background: var(--paper-2);
-  border-bottom: var(--rule-w) solid var(--rule);
-  color: var(--ink-faint);
-  font-size: var(--t-micro);
-  line-height: 1.45;
-}
 
 .row--offtarget { color: var(--ink-faint); }
 .row--offtarget .cell__title-btn { font-weight: 500; }
@@ -5258,11 +4760,6 @@ body {
    The `width: 100%` override was added when the column rule was written; the
    basis was not. Measured at 375px by an independent UX review.
 */
-@media (max-width: 460px) {
-  .card__actions .select--status {
-    flex: 0 0 auto;
-  }
-}
 
 /* ---------- 27. THE STATUS LINE STOPS LEADING ------------------------ */
 /*
@@ -5365,11 +4862,6 @@ body {
 
 /* The status control had no visible label and sat beside "Fresh", so a card
    showed two ideas of newness next to each other and named neither. */
-.card__actions-label {
-  font-size: var(--t-micro);
-  color: var(--ink-faint);
-  font-weight: 600;
-}
 
 /* ---------- 28. WHERE A LEVEL CAME FROM ------------------------------ */
 /*
@@ -6193,8 +5685,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 .railtoggle__count[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .railtoggle { transition: none; } }
 
-
-
 /* =====================================================================
    HOME
    ===================================================================== */
@@ -6524,17 +6014,7 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   padding: 0;
 }
 
-.card__head,
-.card__facts,
-.card__group,
-.chips,
-.card__footer,
-.card__actions,
-.card__blocked,
-.card__offtarget,
-.card__context,
-.card__concern,
-.card__unknowns {
+.card__head, .card__facts, .chips, .card__concern, .card__unknowns {
   padding-left: 11px;
   padding-right: 11px;
 }
@@ -6560,44 +6040,13 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    same gesture.
    ===================================================================== */
 
-.card__footer {
-  margin-top: auto;
-  display: grid;
-  gap: 6px;
-  align-items: center;
-  padding-top: 8px;
-  padding-bottom: 11px;
-  border-top: var(--rule-w) solid var(--rule);
-}
-
-.card__foot-top {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-}
-
-.card__actions {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
-  padding-left: 0; padding-right: 0;
-}
-
 .card__apply { justify-self: start; }
-
-@media (max-width: 640px) {
-  /* One column, so the card is wide and the two halves fit side by side
-     again. Three stacked rows there would be three taps of scrolling per
-     posting. */
-  .card__footer { grid-template-columns: minmax(0, 1fr) auto; }
-  .card__foot-top { grid-column: 1 / -1; }
-}
 
 /* The two measurements sit tighter now that five of these are side by side.
    Nothing is removed: `Match`, `Posting detail` and the eligibility answer
    are still three separately named things, which is what ADR-0004 requires
    of them. They just stop reserving a fifth of the card. */
 .badges--md { padding-top: 9px; gap: 5px; }
-.card__footer { gap: 5px; padding-bottom: 10px; }
 .chips--tech { padding-top: 7px; }
 
 /* =====================================================================
@@ -6688,7 +6137,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 
 .icon { display: block; flex: 0 0 auto; }
 
-
 /* =====================================================================
    HIDE THIS ONE
 
@@ -6697,8 +6145,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    score and keeps its history -- so it must not read as heavier than the
    status dropdown beside it, which changes a fact about an application.
    ===================================================================== */
-
-.card__foot-right { display: inline-flex; align-items: center; gap: 6px; }
 
 .card__hide {
   /* WCAG 2.2 asks for 24 by 24 CSS pixels on a pointer target, and this
@@ -6729,7 +6175,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   background: var(--lime-wash);
   font-weight: 600;
 }
-
 
 /* =====================================================================
    CONTEXTUAL HELP
@@ -6838,12 +6283,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    on a card: no candy family, no border, ink alone. Coral would say an
    employer refused somebody and butter would say the posting is incomplete;
    what happened is that a source handed us an excerpt. */
-.card__partial {
-  display: flex; gap: 6px; align-items: baseline;
-  margin: 0; padding: 6px 11px 0;
-  font-size: var(--t-micro);
-  color: var(--ink-faint);
-}
 
 /* The selection, ready to leave. A textarea rather than a download: the
    text is already on the page, and a control that fails silently when the
@@ -6885,7 +6324,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    which has a denominator somebody can point at, and it is absent entirely
    when no package is staged.
    ===================================================================== */
-
 
 /* -------------------------------------------------------------------
    Settings and Sources, as a destination
@@ -7312,7 +6750,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) { .choicechip { transition: none; } }
 
-
 /* A section is a card. It was a heading, a lede and a run of hairline rows on
    the page ground, which is what made nine of them read as one document. */
 .profile__section {
@@ -7387,12 +6824,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 @media (prefers-reduced-motion: no-preference) {
   .card { transition: box-shadow 75ms ease; }
 }
-
-.card__strip {
-  height: 6px;
-  margin: -1px -1px 12px;   /* over the card's own border, corner to corner */
-  background: var(--rule-strong);
-}
 .card__strip--strong { background: var(--mint); }
 .card__strip--good { background: var(--lime); }
 .card__strip--moderate { background: var(--butter); }
@@ -7409,15 +6840,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    onto a second row is how a footer stops being a footer; the full string
    stays in the `title` and in the drawer.
 */
-.card__foot-top {
-  display: flex; align-items: center; gap: 10px;
-  justify-content: space-between;
-}
-.card__age {
-  flex: 1; min-width: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.card__foot-right { flex-shrink: 0; display: flex; gap: 8px; flex-wrap: nowrap; }
 
 /* -- the favourite, as the committed pixel sprite ---------------------- */
 /*
@@ -7435,12 +6857,9 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   background: url("./px/px-heart-16.png") center / contain no-repeat;
   filter: grayscale(1) opacity(0.45);
 }
-.card__save.is-saved .card__heart { filter: none; }
 @media (prefers-reduced-motion: no-preference) {
   .card__heart { transition: filter 100ms ease; }
 }
-.card__save:hover .card__heart { filter: grayscale(0.4) opacity(0.85); }
-.card__save.is-saved:hover .card__heart { filter: none; }
 
 /* -- the table --------------------------------------------------------- */
 /*
@@ -7454,7 +6873,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 @media (prefers-reduced-motion: no-preference) {
   .table tbody tr { transition: background-color 100ms ease; }
 }
-
 
 /* =====================================================================
    THE CARD'S TYPE, RAISED TO THE FLOOR
@@ -7479,10 +6897,8 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   font-size: var(--t-body);
   font-weight: 700;
 }
-.card__age, .card__hide, .card__actions-label { font-size: var(--t-micro); }
-.card__blocked-glyph { font-size: var(--t-micro); }
+.card__hide { font-size: var(--t-micro); }
 .chip { font-size: var(--t-micro); }
-
 
 /* =====================================================================
    THE COMPACT CARD
@@ -7562,34 +6978,9 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 }
 
 /* The four notes above the badges: one line each. */
-.card__blocked, .card__offtarget, .card__context, .card__partial {
-  display: flex;
-  min-width: 0;
-}
-.card__blocked > span:last-child,
-.card__offtarget > span:last-child,
-.card__context > span:last-child,
-.card__partial > span:last-child {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* "5 locations · MX / CO +3 more": one line, the count first so it is the
    part that survives a clip. */
-.card__group {
-  flex-wrap: nowrap;
-  min-width: 0;
-  padding-top: 4px;
-}
-.card__group-count { flex: 0 0 auto; }
-.card__group-places {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* Three facts, three lines. The labels are in the markup for a screen
    reader (`.sr-only`) and off the screen: a label column beside a
@@ -7636,22 +7027,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    you are with it and the way out, side by side. The apply link still has
    its own cell -- it is the one control that leaves the product -- and it
    sits to the right of the status rather than under it. */
-.card__footer {
-  margin-top: 0;   /* desktop: pinned to the bottom by DISCOVER DENSITY */
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 10px;
-  padding-top: 6px;
-  padding-bottom: 8px;
-}
-.card__foot-top { grid-column: 1 / -1; min-width: 0; }
-.card__age {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.card__foot-right { flex: 0 0 auto; display: inline-flex; gap: 6px; }
-.card__actions { grid-column: 1; min-width: 0; }
 .card__apply {
   grid-column: 2;
   justify-self: end;
@@ -7662,7 +7037,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 /* A phone shows one column, so the card is wide and the same two rows
    hold; nothing here needs a third. */
 @media (max-width: 640px) {
-  .card__footer { grid-template-columns: minmax(0, 1fr) auto; }
   .card__apply { grid-column: 2; }
 }
 
@@ -8710,7 +8084,6 @@ body.has-cw-drawer { overflow: hidden; }
 .src__health-table th, .src__health-table td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--line, #ddd); vertical-align: top; }
 .src__health-table tr.is-attention td { background: var(--yellow-soft, #fff6d6); }
 .src__health-table .tag { margin-left: .4rem; }
-
 
 /* =====================================================================
    THE SHELL (redesign handoff, 2026-10)
