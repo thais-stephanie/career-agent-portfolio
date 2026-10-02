@@ -165,6 +165,17 @@ async function request(path, { method = 'GET', body = null, signal = null } = {}
 // The public surface. Views only ever call these.
 // =========================================================================
 
+/** Which program this is, and whether it can stop itself (/api/app). */
+export async function getApp() {
+  if (MOCK) return { app: 'career-agent', can_quit: false };
+  return request('/app');
+}
+
+/** Stop Career Agent and Resume Tailor. */
+export async function quitApp() {
+  return request('/app/quit', { method: 'POST', body: {} });
+}
+
 export async function getHealth() {
   if (MOCK) return (await fixture()).health;
   return request('/health');

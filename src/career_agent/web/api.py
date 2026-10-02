@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import threading
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -459,6 +460,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.semantic_runner: RetrievalRunner | None = None
 
         self.register("GET", r"/api/health", self.health)
+        self.register("GET", r"/api/app", self.app_identity)
+        self.register("POST", r"/api/app/quit", self.quit_app)
         self.register("GET", r"/api/config", self.config_summary)
         self.register("GET", r"/api/sources", self.sources)
         from career_agent.web.source_refresh import register_source_refresh
@@ -597,6 +600,44 @@ class JobsApi(WorkspaceRoutes, LocalApp):
     # =================================================================
     # routes
     # =================================================================
+    def app_identity(self, *, query: dict, body: dict) -> dict:
+        """Which program answers here: for the desktop launcher, which must
+        never open another installation or an unrelated service as its own.
+        Nothing about the person: no path, profile, count or setting."""
+        from career_agent import install_id
+        from career_agent.web import server
+
+        with _closing(self.connect()) as conn:
+            identity = read_identity(conn)
+        return {
+            "app": "career-agent",
+            "install": install_id(),
+            "mode": identity.kind.value if identity is not None else "UNKNOWN",
+            "can_quit": server.on_quit is not None,
+        }
+
+    def quit_app(self, *, query: dict, body: dict) -> dict:
+        """Stop Career Agent and Resume Tailor, as Ctrl+C in the launcher does.
+
+        Reached only through the local checks every POST passes (own Host,
+        own Origin, a JSON body). The stop runs after this answer is sent."""
+        from career_agent.web import server
+
+        stop = server.on_quit
+        if stop is None:
+            raise ApiError(409, "This Career Agent was not started by a launcher that can stop it.")
+        semantic = self.semantic_runner
+        if self.retrieval.running or self.rescore.running or (semantic and semantic.running):
+            # Stopping would cut a collection or recalculation short; the
+            # desktop launcher asks again once it has finished.
+            raise ApiError(
+                409,
+                "Career Agent is still finding jobs or recalculating. Quit when it finishes.",
+                for_reader=True,
+            )
+        threading.Timer(0.3, stop).start()
+        return {"stopping": True}
+
     def health(self, *, query: dict, body: dict) -> dict:
         _reject_unknown(query, frozenset(), "health")
         cfg = self.search_config()

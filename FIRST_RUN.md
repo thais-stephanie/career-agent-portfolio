@@ -12,6 +12,26 @@ Node is not needed.
 Career Agent opens at http://127.0.0.1:8765/ and Resume Tailor Beta at
 http://127.0.0.1:8766/. 127.0.0.1 means this computer.
 
+## The Career Agent shortcut
+
+After the first setup succeeds, a **Career Agent** shortcut appears on the
+Desktop and in the Start menu. It starts Career Agent with no console window
+and opens it in its own window (Microsoft Edge in app mode, or your usual
+browser without Edge). Closing the Career Agent windows, or **Quit Career
+Agent** in the side menu, stops both apps.
+
+If the shortcut shows a message:
+
+- **The address is in use**: another program, or the demo, is using port 8765
+  or 8766. Close it and try again.
+- **Setup is not finished**: double-click **Start-Career-Agent.cmd** once.
+- **Could not start** or **took too long**: double-click
+  **Start-Career-Agent.cmd** to see what happens. The shortcut's own record of
+  its last start is `data\logs\desktop.log`.
+
+If the shortcut is missing, or the folder was moved, double-click
+**Create-Career-Agent-Shortcuts.cmd** to make it again for this folder.
+
 ## Returning and stopping
 
 Double-click the same launcher in the same folder. **Ctrl+C** in its window

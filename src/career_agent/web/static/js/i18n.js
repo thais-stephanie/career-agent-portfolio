@@ -3142,6 +3142,16 @@ const EN = {
     'Held at half: this posting uses tools you want, and none of the work you want was found as a '
     + 'central duty in it.',
   'fitFeedback.question': 'Does this Search Fit look right?',
+  'app.quit': 'Quit Career Agent',
+  'app.quitConfirm':
+    'Quit Career Agent and Resume Tailor? Everything you saved is kept. A recalculation that is '
+    + 'still running stops, and you can start it again later.',
+  'app.quitFailed': 'Career Agent could not be stopped from here. Close its window, or use the launcher window.',
+  'app.stopped': 'Career Agent has stopped.',
+  'app.quitBusy': 'Career Agent is still finding jobs or recalculating. Quit when it finishes.',
+  'app.stoppedHelp':
+    'Everything you saved is kept. You can close this window. To open Career Agent again, use '
+    + 'its shortcut.',
   'fitFeedback.ACCURATE': 'Yes',
   'fitFeedback.TOO_HIGH': 'Too high',
   'fitFeedback.TOO_LOW': 'Too low',
@@ -6141,6 +6151,18 @@ const PT_BR = {
     'Limitado à metade: esta vaga usa ferramentas que você quer, e nenhum trabalho que você quer foi '
     + 'encontrado nela como atividade central.',
   'fitFeedback.question': 'Esta aderência parece certa?',
+  'app.quit': 'Sair do Career Agent',
+  'app.quitConfirm':
+    'Sair do Career Agent e do Resume Tailor? Tudo o que você salvou fica guardado. Um '
+    + 'recálculo em andamento para, e você pode iniciá-lo de novo depois.',
+  'app.quitFailed':
+    'Não foi possível parar o Career Agent por aqui. Feche a janela dele, ou use a janela do '
+    + 'inicializador.',
+  'app.stopped': 'O Career Agent foi encerrado.',
+  'app.quitBusy': 'O Career Agent ainda está buscando vagas ou recalculando. Saia quando terminar.',
+  'app.stoppedHelp':
+    'Tudo o que você salvou fica guardado. Você já pode fechar esta janela. Para abrir o Career '
+    + 'Agent de novo, use o atalho dele.',
   'fitFeedback.ACCURATE': 'Sim',
   'fitFeedback.TOO_HIGH': 'Alta demais',
   'fitFeedback.TOO_LOW': 'Baixa demais',

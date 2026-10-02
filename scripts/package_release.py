@@ -84,6 +84,7 @@ def main() -> None:
             assert not (
                 ".local.yaml" in name
                 or name.endswith((".db", ".sqlite", ".backup"))
+                or name.endswith(".lnk")
                 or Path(name).name in {".env", "profiles.json"}
             ), name
         migrations = [
@@ -101,6 +102,12 @@ def main() -> None:
             "Start-Career-Agent.cmd",
             "Start-Career-Agent.ps1",
             "Start-Demo.cmd",
+            # The desktop shortcut: made on the user's computer after setup,
+            # never shipped as a .lnk with this machine's paths in it.
+            "Create-Career-Agent-Shortcuts.cmd",
+            "scripts/launch.py",
+            "scripts/desktop.py",
+            "src/career_agent/web/static/career-agent.ico",
             "README.md",
             "README.pt-BR.md",
             "README.es.md",

@@ -42,6 +42,11 @@ from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 from career_agent.pipeline.retrieval import ProfileRetired
 
+#: Stops every server this process started (scripts/launch.py sets it). None
+#: when the process cannot stop itself cleanly, as under `career-agent serve`,
+#: and then the interface offers no Quit.
+on_quit: Callable[[], None] | None = None
+
 STATIC_ROOT = Path(__file__).parent / "static"
 
 #: Types the platform's own table does not carry, registered rather than hoped

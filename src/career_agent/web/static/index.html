@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" translate="no">
 <head>
 <meta charset="utf-8">
+<!-- No browser translation offer: the interface has its own EN | PT switch, and a
+     translated evidence quote would no longer be the employer's words (ADR-0002). -->
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Career Agent</title>
 <link rel="icon" href="star.svg" type="image/svg+xml">
@@ -110,6 +113,8 @@
       <div class="topbar__theme" id="theme-host"></div>
       <div class="topbar__locale" id="locale-host"></div>
     </div>
+    <!-- Shown only when the server can stop itself (scripts/launch.py). -->
+    <button type="button" class="btn btn--link sidenav__quit" id="quit-app" hidden>Quit Career Agent</button>
     <!-- WHICH POPULATION AM I LOOKING AT, and how big it is. One status
          line (a button to Settings & Sources when a source needs
          attention), the population tag, and three counts with nouns. -->
