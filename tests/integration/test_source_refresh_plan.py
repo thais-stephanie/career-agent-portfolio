@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import threading
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from tests.support import committed_config_dir
@@ -370,3 +371,70 @@ def test_a_source_no_button_can_refresh_is_never_due_or_available(api):
     for row in payload["refresh"]:
         if row["source_id"] not in refreshable:
             assert row["state"] == "BLOCKED" and not row["due"], row["source_id"]
+
+
+def test_an_unavailable_upstream_keeps_its_jobs_and_leaves_every_plan(api, monkeypatch):
+    """Gupy's feed stopped serving on 2026-10-02. The connector produced real
+    jobs and keeps them; no press may start it, and it is never due."""
+    import httpx
+
+    from career_agent.net.fetcher import HttpFetcher
+    from career_agent.pipeline.gupy_collect import GupyCollector
+    from career_agent.sources.health import health
+    from career_agent.sources.matrix import MatrixState, _state_for
+
+    fixture = Path(__file__).parents[1] / "fixtures/providers/gupy/feed-remote-page1.json"
+    body = json.loads(fixture.read_text(encoding="utf-8"))
+    count = {"data": [], "pagination": {"total": len(body["data"]), "limit": 10, "offset": 0}}
+    pages = [body]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("limit") == "10":
+            return httpx.Response(200, json=count)
+        return httpx.Response(200, json=pages.pop(0) if pages else {"data": []})
+
+    fetcher = HttpFetcher(client=httpx.Client(transport=httpx.MockTransport(handler)))
+    with connect(api.config.db_path) as conn:
+        GupyCollector(conn, fetcher, max_pages=2, workplace_types=("remote",)).collect()
+    stage = _stage_for("gupy")
+    _ledger(api, stage, hours_ago=80, status="FAILED")  # would be due, if it could run
+
+    def open_gupy() -> list[tuple]:
+        with connect(api.config.db_path) as conn:
+            return conn.execute(
+                "SELECT id, first_seen_at, last_seen_at FROM job"
+                " WHERE provider = 'gupy' AND closed_at IS NULL ORDER BY id"
+            ).fetchall()
+
+    before = open_gupy()
+    assert len(before) == len(body["data"])
+
+    payload = api.handle_api("GET", "/api/sources", {}, {})
+    source = next(s for s in payload["sources"] if s["id"] == "gupy")
+    row = next(r for r in payload["refresh"] if r["source_id"] == "gupy")
+    blocker = source["collection_blocker"]
+    assert source["state"] == "BLOCKED_PROVIDER" and source["note"] == blocker
+    assert source["can_refresh"] is False and source["permission"] != "FORBIDDEN"
+    assert source["coverage"] not in ("BLOCKED", "UNSUPPORTED")
+    assert "2026-10-02" in blocker and "still available" in blocker
+    for claim in ("robots", "terms", "forbid", "prohibit", "deprecat", "documented"):
+        assert claim not in blocker.lower(), claim
+    assert row["state"] == "BLOCKED" and row["due"] is False and row["blocker"] == blocker
+    available = [r for r in payload["refresh"] if r["state"] != "BLOCKED"]
+    assert payload["summary"]["available"] <= len(available)
+
+    with connect(api.config.db_path) as conn:
+        entries = health(conn, catalogue_path=api.config.config_dir / "source_catalogue.yaml")
+    gupy = next(e for e in entries if e.source.id == "gupy")
+    assert _state_for(gupy.source, postings=len(before), ever_run=True) is MatrixState.PRODUCTION
+
+    recorder = Recorder(api, monkeypatch)
+    _run(api, "refresh-due")
+    _run(api, "refresh-all")
+    assert stage not in recorder.ran
+
+    with pytest.raises(Exception) as refused:
+        api.handle_api("POST", "/api/sources/refresh", {}, {"source_id": "gupy"})
+    assert getattr(refused.value, "status", None) == 409
+    assert stage not in recorder.ran
+    assert open_gupy() == before, "an unavailable feed closed or touched its jobs"

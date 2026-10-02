@@ -201,10 +201,15 @@ def test_new_candidate_has_no_occupational_defaults_and_market_pause(page, neutr
     # `?debug=1`: the concept review below lives in the scoring-vocabulary
     # panel, which is a developer view now.
     page.navigate(neutral_server + "/?debug=1#settings")
-    page.wait_for("document.querySelector('[data-source=gupy]') !== null")
+    page.wait_for("document.querySelector('[data-source=programathor]') !== null")
     assert page.evaluate(
-        "document.querySelector('[data-source=gupy]').textContent.includes('Paused')"
+        "document.querySelector('[data-source=programathor]').textContent.includes('Paused')"
     )
+    # An upstream that stopped serving says so, keeps no Refresh button, and is
+    # not reported as a failure to retry.
+    gupy = page.evaluate("document.querySelector('[data-source=gupy]').textContent")
+    assert "stopped responding on 2026-10-02" in gupy and "Last refresh failed" not in gupy
+    assert page.evaluate("document.querySelector('[data-source=gupy] button') === null")
     text = page.evaluate("document.getElementById('search-settings-host').textContent").lower()
     assert not any(
         word in text for word in ("hubspot", "crm architecture", "webhooks", "lead routing")
@@ -380,17 +385,19 @@ def test_source_refresh_state_does_not_prevent_discover(page, pristine_server, t
     conn = connect(tmp_path / "pristine.db")
     with transaction(conn):
         runs = PipelineRunRepo(conn)
-        run_id = runs.start("collect-gupy")
+        run_id = runs.start("collect-programathor")
         if failed:
             runs.finish(run_id, PipelineRunStatus.FAILED, error="Synthetic unavailable source")
         else:
             runs.progress(run_id, {"postings_seen": 200, "claimed_total": 500})
     conn.close()
     page.navigate(pristine_server + "/#settings")
-    page.wait_for("document.querySelector('[data-source=gupy]') !== null")
-    text = page.evaluate("document.querySelector('[data-source=gupy]').textContent")
+    page.wait_for("document.querySelector('[data-source=programathor]') !== null")
+    text = page.evaluate("document.querySelector('[data-source=programathor]').textContent")
     assert ("Last refresh failed" if failed else "Updating") in text
-    page.evaluate("document.querySelector('[data-source=gupy]').scrollIntoView({block:'center'})")
+    page.evaluate(
+        "document.querySelector('[data-source=programathor]').scrollIntoView({block:'center'})"
+    )
     page.screenshot(Path(f"out/career-v2-source-{'failed' if failed else 'updating'}.png"))
     page.evaluate("document.querySelector('.topnav__link[data-page=jobs]').click()")
     page.wait_for("document.querySelectorAll('.card').length > 0")

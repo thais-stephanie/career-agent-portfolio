@@ -126,7 +126,7 @@ def api(tmp_path_factory: pytest.TempPathFactory) -> JobsApi:
     )
     _insert_run(
         conn,
-        "collect-gupy",
+        "collect-programathor",
         run_id="broken",
         status="FAILED",
         stats={"failures": 3},
@@ -176,11 +176,11 @@ def test_the_whole_corpus_is_returned_while_two_sources_are_running(api: JobsApi
 def test_a_failed_source_closes_nothing(api: JobsApi, refresh: dict[str, dict]) -> None:
     """A discovery failure is the collector's problem and not the posting's.
 
-    Gupy failed two hours ago in this ledger. If a failure were allowed to
+    Programathor failed two hours ago in this ledger. If a failure were allowed to
     decide that a posting is gone, the worst day a source ever has would empty
     the candidate's list -- and it would look exactly like the market drying up.
     """
-    assert refresh["gupy"]["state"] == "FAILED"
+    assert refresh["programathor"]["state"] == "FAILED"
     open_postings = _jobs(api)["total"]
     assert open_postings == 21, open_postings
 

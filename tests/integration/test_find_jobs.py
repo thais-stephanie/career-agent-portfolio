@@ -149,15 +149,15 @@ def test_a_source_paused_by_the_person_is_left_alone(personal, monkeypatch):
     recorder = Recorder()
     recorder.install(monkeypatch, personal)
     before = _expected_keys(personal)
-    gupy = "collect:gupy" if _stage_for("gupy") == "collect" else _stage_for("gupy")
-    assert gupy in before, "gupy is not refreshable here; pick another fixture source"
+    paused = _stage_for("programathor")
+    assert paused in before, "programathor is not refreshable here; pick another fixture source"
 
     personal.handle_api(
-        "PATCH", "/api/sources/schedule", {}, {"source_id": "gupy", "mode": "PAUSED"}
+        "PATCH", "/api/sources/schedule", {}, {"source_id": "programathor", "mode": "PAUSED"}
     )
     _run(personal)
 
-    assert gupy not in recorder.ran
+    assert paused not in recorder.ran
     assert recorder.ran == _expected_keys(personal)
 
 
