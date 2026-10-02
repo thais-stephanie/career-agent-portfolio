@@ -786,9 +786,13 @@ def test_leaving_the_setup_by_the_navigation_does_not_bring_it_back_on_reload(
     wait_card(page, "home")
     click(page, '.topnav__link[data-page="jobs"]')
     page.reload()
-    page.wait_for("document.querySelector('.home[data-view=dashboard]') || document.querySelector('#list')")
+    page.wait_for(
+        "document.querySelector('.home[data-view=dashboard]') || document.querySelector('#list')"
+    )
     click(page, '.topnav__link[data-page="home"]')
-    page.wait_for("document.querySelector('.home[data-view=dashboard]')", message="Home, not the setup")
+    page.wait_for(
+        "document.querySelector('.home[data-view=dashboard]')", message="Home, not the setup"
+    )
     assert not page.evaluate("Boolean(document.querySelector('.setup__card'))")
 
 
@@ -803,7 +807,8 @@ def test_the_ready_card_is_not_resumed(page: Chrome, install: Install) -> None:
     # Nothing was answered, so this is still a fresh install and the setup
     # offers itself from the start -- but never back on the finished card.
     page.wait_for(
-        "document.querySelector('.home[data-view=dashboard]') || document.querySelector('.setup__card')",
+        "document.querySelector('.home[data-view=dashboard]')"
+        " || document.querySelector('.setup__card')",
         message="Home or the start of the setup",
     )
     assert card(page) in ("", "welcome"), card(page)

@@ -277,7 +277,7 @@ def test_the_progress_says_what_it_is_doing_and_invents_no_estimate(
         message="the source being read, by name",
     )
     first = _text(page, ".setup__find")
-    assert re.search(r"Checking sources: \d+ of \d+ finished in this refresh", first), first
+    assert re.search(r"Checking job sites: \d+ of \d+ finished", first), first
     assert "so far" in first
     assert "No time left is shown" in first
     assert not re.search(r"(remaining|left)\b.*\d", first.split("No time left")[0]), first
@@ -540,7 +540,7 @@ def test_a_review_open_in_portuguese_stays_open_when_the_language_changes(
     open_package(page, package_live)
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
     page.wait_for(
-        "document.querySelector('#page-manage').innerText.includes('Voltar às suas evidências')",
+        "document.querySelector('#page-manage').innerText.includes('Voltar às suas provas')",
         message="the open review, translated in place",
     )
     page.evaluate("document.querySelector('[data-locale=\"en\"]').click()")
