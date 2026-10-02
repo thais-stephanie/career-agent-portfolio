@@ -861,9 +861,12 @@ function paint(state) {
   } else {
     renderCards(dom.list, items, {
       onOpen: openJob,
-      onStatus: changeStatus,
+      onWhy: (jobId) => openJob(jobId, 'why'),
       onSave: changeSaved,
       onHidden: changeHidden,
+      onApplied: markApplied,
+      canUndoApply: (jobId) => recentApply.has(jobId),
+      onUndoApply: (jobId) => undoApplied(jobId),
     });
   }
 
@@ -1205,6 +1208,7 @@ function renderHiddenNotice(state) {
   ];
 
   const rows = [];
+  let hiddenTotal = 0;
   for (const notice of NOTICES) {
     const speaking = Boolean(state[notice.key] || counts[notice.key]);
     if (!speaking) continue;
@@ -1238,16 +1242,24 @@ function renderHiddenNotice(state) {
       }
       continue;
     }
+    if (!showing) hiddenTotal += counts[notice.key];
+    const toggle = button(notice.reveal(), () => store.set({ [notice.key]: !showing }), {
+      className: 'hidden__show hidden__switch',
+      attrs: { role: 'switch', 'aria-checked': String(showing) },
+    });
+    toggle.appendChild(el('span', { className: 'hidden__track', attrs: { 'aria-hidden': 'true' } }, [
+      el('span', { className: 'hidden__knob' }),
+    ]));
     rows.push(el('span', { className: 'hidden__row', dataset: { notice: notice.key } }, [
+      el('span', {
+        className: 'hidden__count num',
+        text: counts[notice.key] ? counts[notice.key].toLocaleString(getLocale()) : '',
+      }),
       el('span', {
         className: 'hidden__text',
         text: showing ? notice.showing() : notice.hidden(counts[notice.key]),
       }),
-      button(
-        showing ? t('hidden.hideAgain') : notice.reveal(),
-        () => store.set({ [notice.key]: !showing }),
-        { className: 'hidden__show' },
-      ),
+      toggle,
       // DISMISSES THE SENTENCE, NEVER THE STATE. The postings stay exactly as
       // hidden or as shown as they were; this only stops saying so. The
       // control that actually changes the population is in the filter rail
@@ -1274,8 +1286,59 @@ function renderHiddenNotice(state) {
     return;
   }
   dom.hidden.hidden = false;
-  replace(dom.hidden, rows);
+  const full = rows.filter((row) => !row.classList.contains('hidden__row--compact'));
+  // Only the compact "Hidden by you" door is left: it stands alone.
+  if (!full.length) {
+    replace(dom.hidden, rows);
+    return;
+  }
+  // ONE SUMMARY, the rows behind "See why" (redesign handoff). A row that is
+  // SHOWING keeps the panel open, because its switch is the way back.
+  const showingAny = full.some((row) => row.querySelector('[aria-checked="true"]'));
+  const open = hiddenNoticeOpen || showingAny;
+  const details = el('div', {
+    className: 'hidden__rows', attrs: { id: 'hidden-rows' }, props: { hidden: !open },
+  }, rows);
+  const toggle = button(open ? t('hidden.lessWhy') : t('hidden.seeWhy'), () => {
+    hiddenNoticeOpen = !open;
+    renderHiddenNotice(store.get());
+  }, {
+    className: 'hidden__why',
+    attrs: { 'aria-expanded': String(open), 'aria-controls': 'hidden-rows' },
+  });
+  const quiet = full
+    .map((row) => row.dataset.notice)
+    .filter((key) => !state[key]);
+  replace(dom.hidden, [
+    el('div', { className: 'hidden__summary' }, [
+      el('span', { className: 'hidden__icon', text: 'i', attrs: { 'aria-hidden': 'true' } }),
+      el('span', { className: 'hidden__lede' }, [
+        el('span', {
+          className: 'hidden__title',
+          text: hiddenTotal
+            ? t(hiddenTotal === 1 ? 'hidden.summaryOne' : 'hidden.summary', {
+              n: hiddenTotal.toLocaleString(getLocale()),
+            })
+            : t('hidden.summaryShowing'),
+        }),
+        el('span', { className: 'hidden__sub', text: t('hidden.summaryHelp') }),
+      ]),
+      toggle,
+      // Waves the whole notice away, kind by kind, exactly as each row's own
+      // x does; a kind that is SHOWING is never waved away.
+      quiet.length && !showingAny
+        ? button('×', () => {
+          quiet.forEach((key) => dismiss(key));
+          renderHiddenNotice(store.get());
+        }, { className: 'hidden__dismiss hidden__dismissall', ariaLabel: t('hidden.dismiss') })
+        : null,
+    ].filter(Boolean)),
+    details,
+  ]);
 }
+
+//: Whether "See why" is open; a moment, not a preference, so not stored.
+let hiddenNoticeOpen = false;
 
 // -------------------------------------------------------------------------
 // Which notices this reader has waved away
@@ -1726,6 +1789,38 @@ function restoreConfirmed() {
   if (!loading) paint(store.get());
 }
 
+// "Did you send your application?" -- Yes. Opening the employer's page is
+// not applying, so this answer is the only thing on a card that records one.
+// The move goes through the ordinary status route, which keeps the history
+// and stamps today's date. Undo puts back the status it replaced and, when
+// there was no applied date before, clears the one the move stamped.
+const recentApply = new Map();
+
+async function markApplied(jobId) {
+  const job = findJob(jobId);
+  const before = {
+    status: job ? job.application_status || 'DISCOVERED' : 'DISCOVERED',
+    appliedAt: job ? job.applied_at || null : null,
+  };
+  recentApply.set(jobId, before);
+  const updated = await changeStatus(jobId, 'APPLIED');
+  if (!updated) {
+    recentApply.delete(jobId);
+    return;
+  }
+  toast(t('flash.markedApplied'), { undo: () => undoApplied(jobId) });
+}
+
+async function undoApplied(jobId) {
+  const before = recentApply.get(jobId);
+  if (!before) return;
+  recentApply.delete(jobId);
+  if (!(await changeStatus(jobId, before.status))) throw new Error(t('flash.undoFailed'));
+  if (!before.appliedAt && !(await changeAppliedDate(jobId, null))) {
+    throw new Error(t('flash.undoFailed'));
+  }
+}
+
 function changeStatus(jobId, status, appliedAt) {
   return queueJobSave(jobId, async () => {
     try {
@@ -1879,7 +1974,16 @@ function flash(message, isError = false, undo = null, extras = null) {
 // Drawer routing
 // =========================================================================
 
-function openJob(jobId) {
+//: The drawer tab a card asked for ("Why"), read once when the drawer opens.
+let pendingTab = null;
+
+function openJob(jobId, tab = null) {
+  pendingTab = tab;
+  if (store.get().openJobId === jobId && tab) {
+    drawer.showTab(tab);
+    pendingTab = null;
+    return;
+  }
   store.set({ openJobId: jobId });
 }
 
@@ -1887,7 +1991,8 @@ let drawerJobId = null;
 function syncDrawer(state) {
   if (state.openJobId && state.openJobId !== drawerJobId) {
     drawerJobId = state.openJobId;
-    drawer.open(state.openJobId, document.activeElement);
+    drawer.open(state.openJobId, document.activeElement, pendingTab);
+    pendingTab = null;
   } else if (!state.openJobId && drawerJobId) {
     drawerJobId = null;
     drawer.close();

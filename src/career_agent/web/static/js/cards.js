@@ -11,11 +11,11 @@
  * roughly two and a half cards visible. A grid you cannot scan is not a grid;
  * it is a list of documents.
  *
- * So the collapsed card shows the decision surface only: the two numbers,
- * eligibility when it says something, who and what, where and on what terms,
- * three technologies, and the controls. The scoring breakdown, the evidence
- * quotes, the gaps and the unknown counts all live in the drawer, one click
- * away, where there is room to lay them out properly.
+ * So the collapsed card shows the decision surface only (redesign handoff,
+ * 2026-10): how well it matches, who and what, where, on what terms, the
+ * pay, when and where it was posted, why it is set aside when it is, Apply,
+ * the heart, and the two ways out. Posting completeness, the tools, the
+ * status control and the content notes live in the drawer, one click away.
  *
  * THE WHOLE CARD OPENS IT. Previously only the title was clickable, which is a
  * small target in a grid of large objects. The card is a button-like surface:
@@ -24,28 +24,13 @@
  * status does not also open the drawer behind it.
  */
 
-import { el, button, extLink, select, replace } from './dom.js';
+import { el, button, extLink, replace } from './dom.js';
 import {
-  statusOptions, compactPlace, formatDate, formatSalary, freshness, parseDate, prominenceWords,
-  relativeAge, vocabLabel,
+  compactPlace, formatDate, formatSalary, parseDate, relativeAge, scoreDisplay, statusLabel,
+  vocabLabel,
 } from './format.js';
-import { badges } from './badges.js';
+import { eligibilityWords, searchFitIsReady } from './badges.js';
 import { t } from './i18n.js';
-
-/** Three, then a count. The drawer lists all of them. */
-//: How many tools a CARD names before it starts counting.
-//
-// Three, until the grid got dense enough to show five cards across. A
-// lexicon signal is a described phrase rather than a word -- "REST APIs,
-// webhooks, integration engineering" -- so three of them wrapped to six
-// lines and were a third of the card's height, above the salary and the
-// footer. Two, and the `+N` chip says exactly how many are not shown; the
-// drawer lists every one of them with its prominence. Nothing is dropped
-// silently, which is the only thing that would make this a lie.
-const MAX_TECHNOLOGIES = 2;
-
-//: How many of a grouped card's sibling locations it names before counting.
-const MAX_PLACES = 2;
 
 export function renderCards(mount, items, handlers) {
   replace(mount, items.map((job) => card(job, handlers)));
@@ -72,9 +57,30 @@ function setAside(job) {
   return { gated, offTarget, any: gated || offTarget };
 }
 
+/**
+ * The match label beside the percentage. A DISPLAY label only: the bands are
+ * read off the same number the list is ordered by, and nothing is decided by
+ * them. Great at 90 and over, Good at 75 and over, Fair below.
+ */
+export function matchTone(score) {
+  const value = Number(score);
+  if (!Number.isFinite(value)) return null;
+  if (value >= 90) return { tone: 'm1', key: 'card.matchGreat' };
+  if (value >= 75) return { tone: 'm2', key: 'card.matchGood' };
+  return { tone: 'm3', key: 'card.matchFair' };
+}
+
+//: Statuses that mean an application was sent; the card shows where it stands
+//: instead of offering to apply again.
+const SENT = new Set(['APPLIED', 'INTERVIEW', 'OFFER', 'HIRED']);
+
+//: Jobs whose "Apply" was opened in this tab and are waiting for the answer
+//: to "Did you send your application?". Opening a page is not applying, so
+//: nothing is recorded until the person says yes.
+const asking = new Set();
+
 function card(job, handlers) {
   const aside = setAside(job);
-
   const root = el('article', {
     className: `card${aside.gated ? ' card--blocked' : ''}${!aside.gated && aside.offTarget ? ' card--offtarget' : ''}`,
     attrs: {
@@ -88,28 +94,10 @@ function card(job, handlers) {
     dataset: { jobId: job.job_id },
   });
 
-  // THE 6px STRIP ACROSS THE TOP, tinted by the match band.
-  //
-  // From the Workspace V2 design, and it earns its place: a wall of cards is
-  // read by shape before it is read by word, and the strip is the only thing
-  // that says "worth a look" at a glance without a number.
-  //
-  // IT IS THE MATCH BAND AND NOTHING ELSE. Not eligibility, not confidence.
-  // ADR-0004 keeps three measurements apart and a strip that blended them
-  // would put the blend at the top of every card. A card an employer has
-  // ruled her out of keeps its own outline and its own sentence, so a high
-  // match cannot soften a failed gate: the strip says the score, the border
-  // says the verdict, and they are allowed to disagree on screen because they
-  // disagree in fact.
-  root.appendChild(el('div', {
-    className: `card__strip card__strip--${String(job.fit_band || 'unknown').toLowerCase()}`,
-    attrs: { 'aria-hidden': 'true' },
-  }));
-
+  // The whole card opens the posting; any control inside it says so with
+  // `data-stops-open` and handles its own click.
   const open = () => handlers.onOpen(job.job_id);
   root.addEventListener('click', (event) => {
-    // A control inside the card handles its own click. Without this, changing
-    // the status dropdown would also open the drawer behind it.
     if (event.target.closest('[data-stops-open]')) return;
     open();
   });
@@ -120,207 +108,181 @@ function card(job, handlers) {
     open();
   });
 
-  // Compact, but never absent. A gate that failed outranks whatever the match
-  // score says, and the card must not let a 90% soften it. The REASON lives
-  // in the drawer.
-  if (aside.gated) {
-    // THE REASON, on the card, since 2026-09-07.
-    //
-    // It used to say only "this posting states a requirement you do not meet"
-    // and leave the reason in the drawer. That was fine while these postings
-    // were hidden by default and a rarity; it is not fine now that revealing
-    // them is a deliberate act. Somebody who asked to see excluded jobs is
-    // asking WHY, and making them open each one to find out is the interface
-    // knowing something and not saying it.
-    //
-    // The employer's own words where the gate quoted any -- `Remote U.S.` is
-    // shorter, clearer and more trustworthy than any sentence this product
-    // could compose about it.
-    // THE EMPLOYER'S OWN WORDS FIRST, and for a reason that is not brevity.
-    //
-    // A gate's `reason` is a sentence the SERVER composed, and the server
-    // composes in English. Putting it on the card left one English line in the
-    // middle of a Portuguese page. `location_raw` is what the employer typed --
-    // `Remote U.S.` -- so it needs no translation, is shorter, and is more
-    // trustworthy than any sentence this product could write about it.
-    //
-    // The reason is still the fallback, because a blocker that is not about
-    // geography has nothing else to say, and an untranslated explanation beats
-    // no explanation.
-    const blocker = (job.blockers || [])[0] || {};
-    const because = (blocker.gate === 'geography' && job.location_raw)
-      ? job.location_raw
-      : (blocker.quote || blocker.reason || '');
-    const gatedText = because ? t('card.gatedBecause', { reason: because }) : t('card.gated');
-    // One line on the card, the whole sentence in `title`: a six-country
-    // list is the reason and it is still the reason when it is clipped.
-    root.appendChild(el('p', { className: 'card__blocked', attrs: { title: gatedText } }, [
-      el('span', { className: 'card__blocked-glyph', text: '✕', attrs: { 'aria-hidden': 'true' } }),
-      el('span', { text: gatedText }),
-    ]));
-  } else if (aside.offTarget) {
-    // A different fact and a different tone. Nobody rejected anybody: this
-    // person said what work they want and this posting is about other work.
-    // It carries the REASON on the card, because unlike a failed gate the
-    // reason is short and is the whole of the news.
-    // `title_reason` is the label of a rule in the person's OWN search
-    // configuration. A word the configuration chose is the product
-    // working, so it is shown as written rather than translated.
-    const offText = job.title_reason
-      ? t('card.offTargetBecause', { reason: job.title_reason })
-      : t('card.offTarget');
-    root.appendChild(el('p', { className: 'card__offtarget', attrs: { title: offText } }, [
-      el('span', { className: 'card__blocked-glyph', text: '~', attrs: { 'aria-hidden': 'true' } }),
-      el('span', { text: offText }),
-    ]));
-  }
-
-  // A THIRD kind of note, and the quietest of the three on purpose.
-  //
-  // The two above are facts: an employer stated a requirement, or this person
-  // said she wants other work. This one is a likelihood read off how the
-  // compensation is described, so it must not borrow their weight. It appears
-  // only where the employer said NOTHING about who may apply -- an explicit
-  // scope, in either direction, outranks an inference from a benefits list,
-  // and printing both would invite the reader to average them.
-  if (job.domestic_context === 'LIKELY_US_DOMESTIC'
-      && job.eligibility_status === 'UNRESOLVED') {
-    root.appendChild(el('p', { className: 'card__context' }, [
-      el('span', { className: 'card__blocked-glyph', text: '?', attrs: { 'aria-hidden': 'true' } }),
-      el('span', { text: t('domestic.LIKELY_US_DOMESTIC') }),
-    ]));
-  }
-
-  // A FOURTH note, and the only one about US rather than about the posting.
-  //
-  // The three above are readings of what an employer wrote. This one says how
-  // much of what they wrote we actually hold: a source returning a `snippet`
-  // with no way to fetch the rest has told us part of a job that may be
-  // excellent. It sits beside them because a reader weighing a thin card
-  // needs to know which kind of thin it is, and it is styled as the quietest
-  // of the four because it is a fact about a pipeline.
-  if (job.content_completeness === 'PARTIAL_CONTENT'
-      || job.content_completeness === 'METADATA_ONLY') {
-    root.appendChild(el('p', { className: 'card__partial' }, [
-      el('span', { className: 'card__blocked-glyph', text: '…', attrs: { 'aria-hidden': 'true' } }),
-      el('span', {
-        text: t(`content.${job.content_completeness}`),
-        attrs: {
-          title: job.content_completeness === 'PARTIAL_CONTENT'
-            ? t('content.partialHelp')
-            : t('content.metadataHelp'),
-        },
-      }),
-    ]));
-  }
-
-  root.appendChild(badges(job, { size: 'md' }));
+  root.appendChild(matchBlock(job, handlers));
 
   root.appendChild(el('div', { className: 'card__head' }, [
     el('p', { className: 'card__company', text: job.company_name || t('absent.companyStated') }),
-    // A heading, not a button: the whole card is the control now, and a
-    // nested button inside a clickable surface is two tab stops for one
-    // action. The heading keeps the document outline for screen readers.
-    // Clamped to two lines by the stylesheet, so the FULL title rides in
-    // `title`; the drawer prints it whole.
     el('h3', {
       className: 'card__title',
-      text: job.title || 'Untitled posting',
+      text: job.title || t('absent.untitled'),
       attrs: { title: job.title || '' },
     }),
   ]));
 
-  const group = groupBadge(job);
-  if (group) root.appendChild(group);
-
-  // THREE FACTS, THREE LINES, EACH ONE LINE.
-  //
-  // The labels (`Where`, `Contract`, `Salary`) are still in the markup for a
-  // screen reader and the drawer, and visually hidden on the card: a 62px
-  // label column beside a 12px fact was a quarter of the card's width spent
-  // saying what the value already says. Each value is clipped to its line
-  // with an ellipsis and carries the whole text in `title`, so a long office
-  // list degrades into a shorter line rather than into a taller card. The
-  // place goes through `compactPlace`, which COUNTS what it leaves out.
   const place = compactPlace(job.location_raw, job.work_model);
   const salary = formatSalary(job.salary);
+  const count = Number(job.duplicate_count || 1);
+  const where = count > 1 ? `${place.text} · ${t('card.locations', { n: count })}` : place.text;
+  const whereTitle = count > 1
+    ? [place.full, ...(job.sibling_locations || [])].filter(Boolean).join(' · ')
+    : place.full;
   root.appendChild(el('dl', { className: 'card__facts' }, [
     el('dt', { className: 'sr-only', text: t('card.where') }),
-    el('dd', {
-      className: 'fact--place',
-      text: place.text,
-      attrs: { title: place.full },
-    }),
+    el('dd', { className: 'fact--place', text: where, attrs: { title: whereTitle } }),
     el('dt', { className: 'sr-only', text: t('card.contract') }),
     el('dd', { className: 'fact--terms', text: terms(job), attrs: { title: terms(job) } }),
     el('dt', { className: 'sr-only', text: t('card.salary') }),
     el('dd', {
       className: salary ? 'fact--salary' : 'fact--absent',
-      // The FIGURE is the employer's and is never translated. The sentence
-      // saying they did not give one is ours.
       text: salary || t('card.salaryUnstated'),
       attrs: { title: salary || t('card.salaryUnstated') },
     }),
+    el('dt', { className: 'sr-only', text: t('card.postedLabel') }),
+    el('dd', { className: 'fact--posted', text: postedLine(job), attrs: { title: postedTitle(job) } }),
   ]));
 
-  const technologies = job.technologies || [];
-  if (technologies.length) {
-    const shown = technologies.slice(0, MAX_TECHNOLOGIES);
-    const rest = technologies.length - shown.length;
-    const chips = shown.map((tech) => el('li', {
-      className: `chip chip--${String(tech.prominence || 'INCIDENTAL').toLowerCase()}`,
-      text: tech.label || tech.signal_id,
-      attrs: { title: `${tech.label || tech.signal_id}: ${prominenceWords(tech.prominence)}` },
-    }));
-    if (rest > 0) {
-      chips.push(el('li', {
-        className: 'chip chip--more',
-        text: `+${rest}`,
-        attrs: { title: t('card.moreTools', { n: rest }) },
-      }));
-    }
-    root.appendChild(el('ul', {
-      className: 'chips chips--tech',
-      attrs: { 'aria-label': t('card.toolsLabel') },
-    }, chips));
-  }
+  // WHY IT IS SET ASIDE, when it is. One short line: the full reason, with
+  // its quote, is in the details.
+  const note = asideNote(job, aside);
+  if (note) root.appendChild(note);
 
-  root.appendChild(footer(job, handlers));
+  root.appendChild(el('div', { className: 'card__grow', attrs: { 'aria-hidden': 'true' } }));
+  const actions = el('div', { className: 'card__act' });
+  const redraw = () => replace(actions, actionRow(job, handlers, redraw));
+  redraw();
+  root.appendChild(actions);
+
+  const details = button(t('card.seeDetails'), open, { className: 'card__details' });
+  details.dataset.stopsOpen = 'true';
+  const hide = button(
+    job.hidden ? t('card.unhide') : t('card.notForMe'),
+    () => handlers.onHidden(
+      job.job_id,
+      !job.hidden,
+      count > 1 ? 'role' : 'posting',
+    ),
+    {
+      className: `card__hide${job.hidden ? ' is-hidden' : ''}`,
+      ariaLabel: job.hidden
+        ? t('card.unhideLabel', { title: job.title })
+        : t('card.hideLabel', { title: job.title }),
+    },
+  );
+  hide.dataset.stopsOpen = 'true';
+  root.appendChild(el('div', { className: 'card__links' }, [details, hide]));
   return root;
 }
 
-/**
- * What a grouped card stands for, said out loud.
- *
- * A representative row that quietly swallowed seven siblings is worse than
- * eight cards: the reader cannot tell anything was dropped, and the one thing
- * that actually differs between those postings -- where the job is -- is the
- * thing that disappeared.
- */
-function groupBadge(job) {
-  const count = Number(job.duplicate_count || 1);
-  if (count <= 1) return null;
-  // Two places named, and the rest counted. Seven of them set end to end
-  // filled three lines with the same two words repeated, and the card is a
-  // scanning surface: the drawer names all of them.
-  const all = job.sibling_locations || [];
-  const places = all.slice(0, MAX_PLACES);
-  const hidden = count - places.length;
-  const named = hidden > 0 ? [...places, t('card.morePlaces', { n: hidden })] : [...places];
-  return el('p', { className: 'card__group' }, [
-    el('span', {
-      className: 'card__group-count',
-      // The PLACES are the employer's own words and are joined untouched.
-      text: t('card.locations', { n: count }),
-      attrs: { title: t('card.locationsHelp', { n: count }) },
-    }),
-    el('span', { className: 'card__group-places', text: named.join(' · ') }),
-  ]);
+/** The percentage, its label and the meter; a click opens the "Why" tab. */
+function matchBlock(job, handlers) {
+  if (!searchFitIsReady()) {
+    return el('div', { className: 'card__match card__match--m3', attrs: { title: t('badge.notReadyHelp') } }, [
+      el('div', { className: 'card__matchrow' }, [
+        el('span', { className: 'card__pct', text: t('badge.notReady') }),
+      ]),
+    ]);
+  }
+  const score = scoreDisplay(job.match_score);
+  const tone = score.scored ? matchTone(job.match_score) : null;
+  const node = button('', () => handlers.onWhy(job.job_id), {
+    className: `card__match card__match--${tone ? tone.tone : 'm3'}`,
+    ariaLabel: t('card.whyLabel', { n: score.text }),
+    attrs: { title: t('card.whyHelp') },
+  });
+  node.dataset.stopsOpen = 'true';
+  // Through the CSSOM: the page's CSP refuses a `style` attribute.
+  const bar = el('span', { className: 'card__meterbar' });
+  bar.style.width = `${score.pct}%`;
+  node.append(
+    el('span', { className: 'card__matchrow' }, [
+      el('span', { className: 'card__pct num', text: score.scored ? `${score.text}%` : score.text }),
+      el('span', { className: 'card__matchtext', text: tone ? t(tone.key) : t('card.matchUnscored') }),
+    ]),
+    el('span', { className: 'card__meter', attrs: { 'aria-hidden': 'true' } }, [bar]),
+  );
+  return node;
 }
 
-/** The status, lowercased, for the tag's colour class. */
-function statusKey(job) {
-  return String(job.application_status || 'DISCOVERED').toLowerCase();
+/** Apply and the heart; then the question; then where the application stands. */
+function actionRow(job, handlers, redraw) {
+  const status = String(job.application_status || 'DISCOVERED');
+  if (SENT.has(status)) {
+    const undo = handlers.canUndoApply && handlers.canUndoApply(job.job_id)
+      ? button(t('action.undo'), () => handlers.onUndoApply(job.job_id), { className: 'card__undo' })
+      : null;
+    if (undo) undo.dataset.stopsOpen = 'true';
+    return [el('div', { className: 'card__sent' }, [
+      el('span', { className: 'card__sentlabel', text: `✓ ${statusLabel(status)}` }),
+      undo,
+    ])];
+  }
+  if (asking.has(job.job_id)) {
+    const yes = button(t('card.askYes'), () => {
+      asking.delete(job.job_id);
+      handlers.onApplied(job.job_id);
+    }, { className: 'card__yes' });
+    const no = button(t('card.askNo'), () => { asking.delete(job.job_id); redraw(); }, { className: 'card__no' });
+    yes.dataset.stopsOpen = 'true';
+    no.dataset.stopsOpen = 'true';
+    return [el('div', { className: 'card__ask', attrs: { role: 'group', 'aria-label': t('card.askQuestion') } }, [
+      el('p', { className: 'card__askq', text: t('card.askQuestion') }),
+      el('div', { className: 'card__askbtns' }, [yes, no]),
+    ])];
+  }
+  const link = extLink(job.url, t('card.applyShort'), {
+    className: 'card__apply', title: t('card.apply'),
+  });
+  link.dataset.stopsOpen = 'true';
+  if (link.tagName === 'A') {
+    // The page opens in a new tab; the question waits here for the answer.
+    link.addEventListener('click', () => {
+      asking.add(job.job_id);
+      setTimeout(redraw, 0);
+    });
+  }
+  const heart = button(job.saved ? '♥' : '♡', () => handlers.onSave(job.job_id, !job.saved), {
+    className: `card__heart${job.saved ? ' is-saved' : ''}`,
+    ariaLabel: job.saved
+      ? t('card.unsaveLabel', { title: job.title })
+      : t('card.saveLabel', { title: job.title }),
+    attrs: { 'aria-pressed': String(Boolean(job.saved)) },
+  });
+  heart.dataset.stopsOpen = 'true';
+  return [el('div', { className: 'card__applyrow' }, [link, heart])];
+}
+
+function asideNote(job, aside) {
+  if (aside.gated) {
+    const blocker = (job.blockers || [])[0] || {};
+    // A geography gate quotes where the job is; every other gate quotes the
+    // sentence that stated the requirement.
+    const because = (blocker.gate === 'geography' && job.location_raw)
+      ? job.location_raw
+      : (blocker.quote || blocker.reason || '');
+    const text = because ? t('card.gatedBecause', { reason: because }) : t('card.gated');
+    return el('p', { className: 'card__note card__note--gated', text, attrs: { title: text } });
+  }
+  if (aside.offTarget) {
+    const text = job.title_reason
+      ? t('card.offTargetBecause', { reason: job.title_reason })
+      : t('card.offTarget');
+    return el('p', { className: 'card__note', text, attrs: { title: text } });
+  }
+  if (job.eligibility_status === 'UNRESOLVED') {
+    const text = eligibilityWords('UNRESOLVED');
+    return el('p', { className: 'card__note', text, attrs: { title: t('card.unresolvedHelp') } });
+  }
+  return null;
+}
+
+function postedLine(job) {
+  const source = job.provider ? vocabLabel(job.provider) : t('absent.source');
+  const date = parseDate(job.posted_at) ? formatDate(job.posted_at) : null;
+  return date ? t('card.postedOn', { date, source }) : `${source} · ${t('card.noPostedDate')}`;
+}
+
+function postedTitle(job) {
+  return parseDate(job.posted_at) ? `${postedLine(job)} (${relativeAge(job.posted_at)})` : postedLine(job);
 }
 
 /** Seniority and contract on one line: both are short and neither is worth a row. */
@@ -339,132 +301,6 @@ function terms(job) {
   }
   parts.push(job.employment_type ? vocabLabel(job.employment_type) : t('absent.contract'));
   return parts.join(' · ');
-}
-
-function footer(job, handlers) {
-  const age = freshness(job.freshness);
-
-  const status = select(
-    statusOptions(),
-    job.application_status,
-    (value) => handlers.onStatus(job.job_id, value),
-    {
-      // `select--status` is shared with the table: one class means "this is
-      // the status control", whichever view drew it.
-      className: `select--status status-tag status-tag--${statusKey(job)}`,
-      ariaLabel: t('card.statusLabel', { title: job.title }),
-    },
-  );
-  status.dataset.stopsOpen = 'true';
-
-  // THE COMMITTED PIXEL HEART, from the design bundle, at 16px.
-  //
-  // A `<span>` carrying the sprite as a background rather than an `<img>`:
-  // the grey-to-colour transition is a CSS filter, an `<img>` that failed to
-  // load would leave a broken-image glyph in the middle of a card, and the
-  // WORD beside it is what a screen reader announces either way.
-  const heart = el('span', {
-    className: 'card__heart',
-    attrs: { 'aria-hidden': 'true' },
-  });
-  const saved = button(
-    // The word is the label; the mark is decoration beside it. Only the word
-    // moves between languages.
-    job.saved ? t('card.saved') : t('card.save'),
-    () => handlers.onSave(job.job_id, !job.saved),
-    {
-      className: `card__save${job.saved ? ' is-saved' : ''}`,
-      // The TITLE inside the label is the employer's and is never translated.
-      ariaLabel: job.saved
-        ? t('card.unsaveLabel', { title: job.title })
-        : t('card.saveLabel', { title: job.title }),
-    },
-  );
-  saved.dataset.stopsOpen = 'true';
-  saved.prepend(heart);
-
-  // The action a person opened the card to take. It had no NAME at first --
-  // the only words on a card were a status dropdown, Save, and "Open
-  // original" -- and then no CLASS, so it rendered in the browser's default
-  // link blue: a colour from outside this palette, weaker than the Save
-  // button beside it and weaker than a coral button offering to show jobs
-  // that rule them out. Coral is the action colour and this is the action.
-  const link = extLink(job.url, t('card.apply'), { className: 'card__apply' });
-  if (link) link.dataset.stopsOpen = 'true';
-
-  // "Fresh" and a dropdown reading "New", side by side and neither labelled.
-  // Two ideas of newness on one line: one is how old the ADVERT is, the other
-  // is where YOU are with it. Both now say which.
-  //
-  // Three declared rows rather than one wrapping line: how old the advert
-  // is and whether it is kept, then where this person is with it, then the
-  // way out to the employer. The last has a row to itself because it is the
-  // only control on a card that LEAVES this product -- nothing here submits
-  // an application, and a link beside a dropdown reads as part of the same
-  // gesture.
-  // Hide, or put back. The word changes with the state because the control
-  // does: in the restore view every card is already hidden and "Hide" would
-  // be a button that does nothing visible.
-  const hide = button(
-    job.hidden ? t('card.unhide') : t('card.hide'),
-    // A grouped card stands for a ROLE. Hiding one of its postings promoted
-    // a sibling into the same place on screen, which reads as a control that
-    // does nothing.
-    () => handlers.onHidden(
-      job.job_id,
-      !job.hidden,
-      Number(job.duplicate_count || 1) > 1 ? 'role' : 'posting',
-    ),
-    {
-      className: `card__hide${job.hidden ? ' is-hidden' : ''}`,
-      ariaLabel: job.hidden
-        ? t('card.unhideLabel', { title: job.title })
-        : t('card.hideLabel', { title: job.title }),
-    },
-  );
-  hide.dataset.stopsOpen = 'true';
-
-  // WHERE IT CAME FROM, beside how old it is.
-  //
-  // The design puts `source . postedAt` on the footer and the card had only
-  // the age. Provenance belongs on the surface: "Greenhouse, 2 days ago" and
-  // "an aggregator republished this, 2 days ago" are different postings to
-  // trust, and making somebody open a drawer to tell them apart is the
-  // interface knowing something and not saying it.
-  //
-  // One line, and it TRUNCATES rather than wrapping: a long source string
-  // pushing the controls onto a second row is how a footer stops being a
-  // footer. The full string stays in the `title`.
-  //
-  // The source is the board alone. How it was read (ATS structured,
-  // aggregator API) is plumbing, not something a reader decides with. The
-  // date part appears ONLY when the employer published one: `first_seen_at`
-  // is when this app collected the posting, and printing it as "Posted" would
-  // pass a collection timestamp off as the employer's date.
-  const provenance = job.provider ? vocabLabel(job.provider) : t('absent.source');
-  const postedDate = parseDate(job.posted_at) ? formatDate(job.posted_at) : null;
-  const posted = postedDate ? t('card.posted', { date: postedDate }) : null;
-  const meta = posted ? `${provenance} \u00b7 ${posted}` : provenance;
-
-  return el('div', { className: 'card__footer' }, [
-    el('div', { className: 'card__foot-top' }, [
-      el('p', {
-        className: `card__age card__age--${age.tone}`,
-        text: meta,
-        attrs: {
-          title: posted
-            ? `${meta} (${relativeAge(job.posted_at)})`
-            :`${provenance} \u00b7 ${t('card.noPostedDate')}`,
-        },
-      }),
-      el('span', { className: 'card__foot-right' }, [saved, hide]),
-    ]),
-    el('div', { className: 'card__actions' }, [
-      el('span', { className: 'card__actions-label', text: t('card.you') }),
-      status,
-    ]),
-    link,
-  ].filter(Boolean));
 }
 
 /** The loading grid. Same footprint as a real card, so nothing jumps. */

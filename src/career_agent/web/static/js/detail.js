@@ -226,9 +226,10 @@ export function createDrawer({
     }
   });
 
-  async function open(jobId, invokedBy) {
+  async function open(jobId, invokedBy, tab = null) {
     if (enrichCleanup) enrichCleanup();
     invoker = invokedBy || document.activeElement;
+    if (tab && TABS.some((entry) => entry.key === tab)) activeTab = tab;
     root.hidden = false;
     document.body.classList.add('has-drawer');
     titleNode.textContent = t('drawer.loading');
@@ -1267,7 +1268,9 @@ export function createDrawer({
   }
 
   return {
-    relabel, root, open, close, reloadPreparation, get job() { return currentJob; } };
+    relabel, root, open, close, reloadPreparation, showTab: selectTab,
+    get job() { return currentJob; },
+  };
 }
 
 //: storage/fit_feedback.py VERDICTS and REASONS, in the same order.
