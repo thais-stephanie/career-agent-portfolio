@@ -989,6 +989,9 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
    */
   function relabel() {
     root.setAttribute('aria-label', t('rail.filters'));
+    // The facet chips draw their words when the facets arrive; forgetting
+    // the signature makes the next arrival redraw them in this language.
+    lastFacetSignature = '';
 
     for (const preset of PRESETS) {
       const node = presetButtons.get(preset.id);

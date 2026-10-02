@@ -107,7 +107,7 @@ function saveVisible(visible) {
  * @param {HTMLElement} mount
  * @param {object[]} items
  * @param {object} ctx -- {sort, direction, onSort, onOpen, onStatus, onSave,
- *                         onAppliedDate, visible, onVisibilityChange}
+ *                         onAppliedDate, visible}
  */
 export function renderTable(mount, items, ctx) {
   mount.className = 'tablewrap';
@@ -279,7 +279,10 @@ export function toCsv(items, visible) {
   const columns = orderedColumns().filter((column) => visible.has(column.id));
   const quote = (value) => {
     const text = String(value ?? '');
-    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    // A cell an employer wrote may start like a formula; a spreadsheet must
+    // read it as text, never run it.
+    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
   };
   const value = (column, job) => {
     switch (column.id) {

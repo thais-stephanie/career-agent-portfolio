@@ -289,7 +289,7 @@ export function createDrawer({
     document.body.classList.remove('has-drawer');
     clear(bodyHost);
     activeTab = 'details';
-    asking = false;
+    askingFor = null;
     prepare.reset();
     loadedPrepareFor = null;
     currentJob = null;
@@ -417,7 +417,8 @@ export function createDrawer({
   }
 
   //: The drawer's own "Did you send your application?", like the card's.
-  let asking = false;
+  //: Which job the question is about; never carried to the next one.
+  let askingFor = null;
 
   /** The match, the heart, the job ad, Apply, and where the application stands. */
   function headActions(job) {
@@ -450,21 +451,21 @@ export function createDrawer({
       apply = extLink(job.url, t('drawer.applyOnSite'), { className: 'drawer__apply' });
       if (apply.tagName === 'A') {
         apply.addEventListener('click', () => {
-          asking = true;
+          askingFor = job.job_id;
           setTimeout(() => refreshWith(Promise.resolve(currentJob)), 0);
         });
       }
     }
-    const ask = asking && !sent
+    const ask = askingFor === job.job_id && !sent
       ? el('div', { className: 'drawer__ask', attrs: { role: 'group', 'aria-label': t('drawer.askQuestion') } }, [
         el('span', { className: 'drawer__askq', text: t('drawer.askQuestion') }),
         el('span', { className: 'drawer__askbtns' }, [
           button(t('drawer.askYes'), () => {
-            asking = false;
+            askingFor = null;
             refreshWith(onApplied(job.job_id));
           }, { className: 'card__yes' }),
           button(t('card.askNo'), () => {
-            asking = false;
+            askingFor = null;
             refreshWith(Promise.resolve(currentJob));
           }, { className: 'card__no' }),
         ]),
@@ -1370,6 +1371,7 @@ export function createDrawer({
 
   return {
     relabel, root, open, close, reloadPreparation, showTab: selectTab,
+    refresh: (job) => refreshWith(Promise.resolve(job)),
     get job() { return currentJob; },
   };
 }

@@ -2624,7 +2624,8 @@ def test_a_sort_the_interface_offers_does_not_break_the_list(page: Chrome, serve
     open_list(page, server)
     wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "before sorting")
 
-    set_value(page, "document.getElementById('sort')", "posted", "change")
+    page.evaluate("document.getElementById('sort-menu').click()")
+    page.evaluate("document.querySelector('#sort-options [data-sort=\"posted\"]').click()")
     page.wait_for(
         f"{RENDERED_COUNT} > 0",
         message="the list to survive sorting by posted date",

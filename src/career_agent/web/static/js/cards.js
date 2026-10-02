@@ -63,6 +63,7 @@ function setAside(job) {
  * them. Great at 90 and over, Good at 75 and over, Fair below.
  */
 export function matchTone(score) {
+  if (score === null || score === undefined || score === '') return null;
   const value = Number(score);
   if (!Number.isFinite(value)) return null;
   if (value >= 90) return { tone: 'm1', key: 'card.matchGreat' };
@@ -267,6 +268,10 @@ function asideNote(job, aside) {
       ? t('card.offTargetBecause', { reason: job.title_reason })
       : t('card.offTarget');
     return el('p', { className: 'card__note', text, attrs: { title: text } });
+  }
+  if (job.eligibility_status === 'VERIFIED_NOT_ELIGIBLE') {
+    const text = t('card.gated');
+    return el('p', { className: 'card__note card__note--gated', text, attrs: { title: text } });
   }
   if (job.eligibility_status === 'UNRESOLVED') {
     const text = eligibilityWords('UNRESOLVED');

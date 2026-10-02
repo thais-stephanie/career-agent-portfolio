@@ -871,7 +871,6 @@ function paint(state) {
       sort: state.sort,
       direction: state.direction,
       visible: columnVisibility,
-      onVisibilityChange: (visible) => { columnVisibility = visible; paint(store.get()); },
       onSort: (column) => {
         const current = store.get();
         store.set(current.sort === column
@@ -910,7 +909,7 @@ function paint(state) {
       onSave: changeSaved,
       onHidden: changeHidden,
       onApplied: markApplied,
-      canUndoApply: (jobId) => recentMoves.has(jobId),
+      canUndoApply: canUndoMove,
       onUndoApply: (jobId) => undoMove(jobId).catch((error) => flash(error.message, true)),
     });
   }
@@ -1360,10 +1359,10 @@ function renderHiddenNotice(state) {
       el('span', { className: 'hidden__lede' }, [
         el('span', {
           className: 'hidden__title',
+          // The counters overlap (a job two narrowings hold is counted by
+          // neither), so the sum is a floor and says so.
           text: hiddenTotal
-            ? t(hiddenTotal === 1 ? 'hidden.summaryOne' : 'hidden.summary', {
-              n: hiddenTotal.toLocaleString(getLocale()),
-            })
+            ? t('hidden.summary', { n: hiddenTotal.toLocaleString(getLocale()) })
             : t('hidden.summaryShowing'),
         }),
         el('span', { className: 'hidden__sub', text: t('hidden.summaryHelp') }),
@@ -1849,16 +1848,23 @@ async function moveWithUndo(jobId, status, message = null) {
   const before = job
     ? { status: job.application_status || 'DISCOVERED', appliedAt: job.applied_at || null }
     : null;
+  // Set BEFORE the save, so the repaint the save causes already shows Undo.
+  if (before) recentMoves.set(jobId, { ...before, to: status });
   const updated = await changeStatus(jobId, status);
-  if (!updated) return null;
-  const words = message || t('flash.movedTo', { status: statusLabel(status) });
-  if (!before) {
-    toast(words);
-    return updated;
+  if (!updated) {
+    recentMoves.delete(jobId);
+    return null;
   }
-  recentMoves.set(jobId, before);
-  toast(words, { undo: () => undoMove(jobId) });
+  const words = message || t('flash.movedTo', { status: statusLabel(status) });
+  toast(words, before ? { undo: () => undoMove(jobId) } : {});
   return updated;
+}
+
+/** Undo is offered only while the job still stands where the move left it. */
+function canUndoMove(jobId) {
+  const entry = recentMoves.get(jobId);
+  const job = findJob(jobId);
+  return Boolean(entry && job && job.application_status === entry.to);
 }
 
 function markApplied(jobId) {
@@ -1869,11 +1875,16 @@ async function undoMove(jobId) {
   const before = recentMoves.get(jobId);
   if (!before) return;
   recentMoves.delete(jobId);
-  const back = await changeStatus(jobId, before.status);
+  const job = findJob(jobId) || (drawer.job && drawer.job.job_id === jobId ? drawer.job : null);
+  // Something else moved it since: undoing now would undo THAT, not this.
+  if (job && job.application_status !== before.to) throw new Error(t('flash.undoStale'));
+  let back = await changeStatus(jobId, before.status);
   if (!back) throw new Error(t('flash.undoFailed'));
-  if (!before.appliedAt && back.applied_at && !(await changeAppliedDate(jobId, null))) {
-    throw new Error(t('flash.undoFailed'));
+  if (!before.appliedAt && back.applied_at) {
+    back = await changeAppliedDate(jobId, null);
+    if (!back) throw new Error(t('flash.undoFailed'));
   }
+  if (drawer.job && drawer.job.job_id === jobId) drawer.refresh(back);
 }
 
 function changeStatus(jobId, status, appliedAt) {
@@ -1920,9 +1931,12 @@ function changeAppliedDate(jobId, date) {
 
 async function changeSaved(jobId, saved) {
   try {
-    mergeJob(await api.patchSaved(jobId, saved));
+    const updated = await api.patchSaved(jobId, saved);
+    mergeJob(updated);
+    return updated;
   } catch (error) {
     flash(error.userMessage || error.message, true);
+    return null;
   }
 }
 
@@ -2911,10 +2925,7 @@ function relabelStaticText() {
   if (viewGroup) viewGroup.setAttribute('aria-label', t('view.group'));
   const resultBar = document.querySelector('.resultbar');
   if (resultBar) resultBar.setAttribute('aria-label', t('order.group'));
-
-  for (const option of document.querySelectorAll('#sort option')) {
-    option.textContent = t(`sort.${option.value}`);
-  }
+  document.getElementById('quick-chips').setAttribute('aria-label', t('quick.group'));
 }
 
 // THE LANGUAGE FIRST, THEN THE PAGE.

@@ -25,6 +25,7 @@ import { el, button, replace } from './dom.js';
 import { t } from './i18n.js';
 import { formatDate, statusLabel } from './format.js';
 import { matchTone } from './cards.js';
+import { searchFitIsReady } from './badges.js';
 import { TRACKED_STATUSES } from './state.js';
 
 /**
@@ -201,7 +202,7 @@ function kanbanCard(job, column, handlers) {
   });
   root.addEventListener('dragend', () => root.classList.remove('is-dragging'));
 
-  const tone = matchTone(job.match_score);
+  const tone = searchFitIsReady() ? matchTone(job.match_score) : null;
   root.appendChild(el('div', { className: 'kcard__top' }, [
     el('span', { className: 'kcard__company', text: job.company_name || t('absent.companyStated') }),
     tone ? el('span', {
