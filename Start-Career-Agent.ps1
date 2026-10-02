@@ -4,7 +4,9 @@ param(
     [switch]$Check,
     [ValidateRange(1024,65534)][int]$Port = 8765,
     # Start with this local profile (its name). Optional.
-    [string]$ProfileName = ''
+    [string]$ProfileName = '',
+    # Only make the Career Agent shortcut again (Desktop and Start menu), then stop.
+    [switch]$Shortcuts
 )
 $ErrorActionPreference = 'Stop'
 # Windows PowerShell 5.1 redraws a progress bar for every downloaded chunk, which
@@ -12,6 +14,25 @@ $ErrorActionPreference = 'Stop'
 # below say what is happening instead.
 $ProgressPreference = 'SilentlyContinue'
 Set-Location -LiteralPath $PSScriptRoot
+
+# The "Career Agent" shortcut on the Desktop and in the Start menu. Windows
+# says where those folders are (they may be redirected, for example to
+# OneDrive). The shortcut opens scripts\desktop.py with this folder's own
+# pythonw.exe, which shows no console window.
+function New-CareerAgentShortcuts {
+    $shell = New-Object -ComObject WScript.Shell
+    foreach ($folder in @($shell.SpecialFolders.Item('Desktop'), $shell.SpecialFolders.Item('Programs'))) {
+        if (-not $folder) { continue }
+        $link = $shell.CreateShortcut((Join-Path $folder 'Career Agent.lnk'))
+        $link.TargetPath = Join-Path $PSScriptRoot '.venv\Scripts\pythonw.exe'
+        $link.Arguments = '"' + (Join-Path $PSScriptRoot 'scripts\desktop.py') + '"'
+        $link.WorkingDirectory = $PSScriptRoot
+        $link.IconLocation = (Join-Path $PSScriptRoot 'src\career_agent\web\static\career-agent.ico') + ',0'
+        $link.Description = 'Open Career Agent'
+        $link.Save()
+    }
+}
+
 $stage = 'setup'
 try {
     $uvCommand = Get-Command uv -ErrorAction SilentlyContinue
@@ -48,6 +69,22 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'Setup could not download what it needs. Check that this computer is online, then double-click the launcher again.'
     }
+    # Made once, after the first setup that succeeds. A failure here never
+    # stops Career Agent: this launcher keeps working without a shortcut.
+    $marker = Join-Path $PSScriptRoot 'data\.shortcuts-created'
+    if ($Shortcuts -or -not (Test-Path -LiteralPath $marker)) {
+        try {
+            New-CareerAgentShortcuts
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $marker) | Out-Null
+            Set-Content -LiteralPath $marker -Encoding ascii -Value 'The Career Agent shortcut was made. Create-Career-Agent-Shortcuts.cmd makes it again.'
+            Write-Host '      A "Career Agent" shortcut is on your Desktop and in the Start menu. Use it from now on.'
+        } catch {
+            Write-Host "      The Career Agent shortcut could not be made: $($_.Exception.Message)"
+            Write-Host '      Career Agent still works from this launcher. To try again, double-click Create-Career-Agent-Shortcuts.cmd.'
+            if ($Shortcuts) { exit 1 }
+        }
+    }
+    if ($Shortcuts) { exit 0 }
     $stage = 'start'
     Write-Host '[3/3] Starting. Your browser will open by itself.'
     $launchArgs = @('run','--no-sync','python','scripts/launch.py','--port',"$Port")

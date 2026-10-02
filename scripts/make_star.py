@@ -194,6 +194,53 @@ def twinkle_svg() -> str:
     return _svg(body + "".join(glints), "Career Agent")
 
 
+#: The Windows icon sizes the shortcut asks for. Whole multiples of the
+#: sixteen-pixel sprite, so every size keeps hard pixel edges.
+ICON_SIZES = (16, 32, 48, 256)
+
+
+def _png(pixels: list[list[str]], scale: int) -> bytes:
+    """One RGBA PNG of the sprite, each sprite pixel drawn scale x scale."""
+    import struct
+    import zlib
+
+    def rgba(char: str) -> bytes:
+        return bytes.fromhex(PALETTE[char][1:] + "ff") if char in PALETTE else bytes(4)
+
+    rows = b"".join(
+        bytes(1) + b"".join(rgba(char) * scale for char in row)
+        for row in pixels
+        for _ in range(scale)
+    )
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
+
+    side = SIZE * scale
+    header = struct.pack(">IIBBBBB", side, side, 8, 6, 0, 0, 0)
+    return (
+        bytes.fromhex("89504e470d0a1a0a")
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(rows, 9))
+        + chunk(b"IEND", b"")
+    )
+
+
+def icon(pixels: list[list[str]]) -> bytes:
+    """`career-agent.ico` for the Windows shortcut: PNG images inside an ICO."""
+    import struct
+
+    images = [_png(pixels, size // SIZE) for size in ICON_SIZES]
+    offset = 6 + 16 * len(images)
+    entries = b""
+    for size, image in zip(ICON_SIZES, images, strict=True):
+        side = 0 if size == 256 else size  # 0 means 256 in an ICO entry
+        entries += struct.pack("<BBBBHHII", side, side, 0, 0, 1, 32, len(image), offset)
+        offset += len(image)
+    return struct.pack("<HHH", 0, 1, len(images)) + entries + b"".join(images)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Draw the Career Agent star.")
     parser.add_argument("--show", action="store_true", help="print the sprite as text")
@@ -210,6 +257,9 @@ def main() -> int:
     for name, svg in (("star.svg", static_svg()), ("star-twinkle.svg", twinkle_svg())):
         (STATIC / name).write_text(svg, encoding="utf-8")
         print(f"static/{name}  {len(svg):,} bytes")
+    ico = icon(pixels)
+    (STATIC / "career-agent.ico").write_bytes(ico)
+    print(f"static/career-agent.ico  {len(ico):,} bytes")
 
     assert len(SHAPE) == SIZE and all(len(row) == SIZE for row in SHAPE), "the grid is not square"
     assert solid(SHAPE), "the shape is empty"

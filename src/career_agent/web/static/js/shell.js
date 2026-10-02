@@ -230,6 +230,8 @@ export function createShell() {
     if (tailor) tailor.textContent = t('nav.tailor');
     const beta = document.getElementById('nav-tailor-beta');
     if (beta) beta.textContent = t('nav.beta');
+    const quit = document.getElementById('quit-app');
+    if (quit) quit.textContent = t('app.quit');
     if (lastStats) setStats(lastStats);
     if (page) setPage(page);
   }

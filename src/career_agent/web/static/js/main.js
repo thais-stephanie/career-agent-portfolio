@@ -1860,6 +1860,33 @@ function separator() {
   return el('span', { className: 'health__sep', text: '·', attrs: { 'aria-hidden': 'true' } });
 }
 
+/**
+ * "Quit Career Agent": stops Career Agent and Resume Tailor, as Ctrl+C does in
+ * the launcher window. Offered only when this server was started by a launcher
+ * that can stop it, so a window opened from the desktop shortcut has a way out.
+ */
+function offerQuit() {
+  const quit = document.getElementById('quit-app');
+  if (!quit) return;
+  api.getApp().then((info) => {
+    if (!info.can_quit) return;
+    quit.hidden = false;
+    quit.addEventListener('click', async () => {
+      if (!window.confirm(t('app.quitConfirm'))) return;
+      try {
+        await api.quitApp();
+      } catch {
+        toast(t('app.quitFailed'));
+        return;
+      }
+      document.body.replaceChildren(el('main', { className: 'state' }, [
+        el('h1', { className: 'state__head', text: t('app.stopped') }),
+        el('p', { text: t('app.stoppedHelp') }),
+      ]));
+    });
+  }).catch(() => {});
+}
+
 async function showHealth() {
   try {
     const health = await api.getHealth();
@@ -2069,6 +2096,7 @@ dom.healthSummary?.addEventListener('click', () => {
 
 store.startHistory();
 showHealth();
+offerQuit();
 loadRailReadouts();
 // One question at boot: is a run already going (started before a reload, or
 // in another tab)? If so every page shows it; if not, nothing polls.

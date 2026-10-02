@@ -206,6 +206,11 @@ def main() -> int:
     server = uvicorn.Server(
         uvicorn.Config(tailor_app_obj, host="127.0.0.1", port=args.port + 1, log_level="warning")
     )
+    from career_agent.web import server as web_server
+
+    # "Quit Career Agent" and the desktop launcher end the same way Ctrl+C
+    # does: uvicorn returns from run() and the finally below stops both.
+    web_server.on_quit = lambda: setattr(server, "should_exit", True)
 
     def open_when_ready():
         import time

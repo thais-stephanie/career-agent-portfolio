@@ -194,6 +194,47 @@ Keep this window open while you use the apps. Press Ctrl+C here to stop both.
 and your browser opens Career Agent. Continue at
 [What you see the first time](#what-you-see-the-first-time).
 
+### 4. From now on: the Career Agent shortcut
+
+After the first setup succeeds, the launcher puts a **Career Agent** shortcut
+on your Desktop and in the Start menu, with the Career Agent star as its icon.
+The launcher window says so:
+
+```text
+      A "Career Agent" shortcut is on your Desktop and in the Start menu. Use it from now on.
+```
+
+The Career Agent shortcut starts the program on your computer and opens its
+window. You do not need PowerShell or a terminal, and no black window stays
+open.
+
+- **Opening.** Double-click **Career Agent** on the Desktop, or find it in the
+  Start menu. The first open after a restart of the computer takes a few
+  seconds. If Career Agent is already open, the shortcut only opens another
+  window on it.
+- **The window.** Career Agent opens in its own window, without browser tabs
+  or an address bar, using Microsoft Edge, which comes with Windows 11. If
+  Edge is not on the computer, it opens in your usual browser instead.
+- **Resume Tailor** opens from **Resume Tailor** in Career Agent's side menu,
+  as before.
+- **Quitting.** Close the Career Agent windows; Career Agent and Resume Tailor
+  then stop by themselves. You can also choose **Quit Career Agent** at the
+  bottom of the side menu. Everything you saved is kept.
+- **If a message says the address is in use,** another program is using the
+  address Career Agent needs, or the demo is still open. Close the other
+  program or the demo window and try again.
+
+If you delete the shortcut, or move the Career Agent folder somewhere else,
+double-click **Create-Career-Agent-Shortcuts.cmd** in the Career Agent folder.
+It makes the shortcut again, pointing at the folder it is in. A shortcut left
+from the old place stops working; delete it. If the shortcut could not be made
+during setup, the launcher says so and Career Agent still works from
+**Start-Career-Agent.cmd**.
+
+**Start-Career-Agent.cmd** and **Start-Demo.cmd** stay in the folder. They show
+the launcher window with everything it does, which helps when something goes
+wrong, and the demo still opens from **Start-Demo.cmd**.
+
 ## Path B on macOS or Linux: use the Terminal
 
 macOS and Linux were not tested for this release. These steps use the same
