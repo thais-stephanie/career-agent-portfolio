@@ -603,6 +603,8 @@ def feed_work(db_path, stage, *, config_dir=None):
         # traceback that said why was discarded. Its tail now travels with the
         # failure. A file rather than a pipe, so a chatty child can never fill
         # a pipe buffer and hang.
+        # Before the child starts, so its own ledger row is always after it.
+        mark = _ledger_mark(db_path)
         with (
             tempfile.TemporaryFile() as errors,
             subprocess.Popen(
@@ -624,16 +626,16 @@ def feed_work(db_path, stage, *, config_dir=None):
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             ) as process,
         ):
-            mark = _ledger_mark(db_path)
-            try:
-                while process.poll() is None:
-                    if cancel.wait(0.25):
-                        process.terminate()
-                        process.wait(timeout=10)
-                        return
-            finally:
-                _close_abandoned(db_path, stage, mark)
+            while process.poll() is None:
+                if cancel.wait(0.25):
+                    process.terminate()
+                    process.wait(timeout=10)
+                    _close_abandoned(db_path, stage, mark)
+                    return
             if process.returncode:
+                # Only a child that did not end cleanly can have left its row
+                # open; a clean exit closed its own.
+                _close_abandoned(db_path, stage, mark)
                 errors.seek(0)
                 tail = errors.read()[-600:].decode("utf-8", errors="replace").strip()
                 last = tail.splitlines()[-1] if tail else "no error output"
