@@ -75,7 +75,6 @@ const dom = {
   localeHost: document.getElementById('locale-host'),
   retrHost: document.getElementById('retr-host'),
   group: document.getElementById('group-duplicates'),
-  sort: document.getElementById('sort'),
   direction: document.getElementById('direction'),
   health: document.getElementById('health'),
 };
@@ -405,68 +404,144 @@ for (const link of document.querySelectorAll('.topnav__link[data-page]')) {
 }
 
 // =========================================================================
-// The rail folds away
+// The filter drawer
 // =========================================================================
 //
-// PRESENTATION STATE, remembered in the browser. It changes what is on screen
-// and nothing about how a posting is read, so it must never reach
-// `search.local.yaml`: a layout preference that bumped `config_version` would
-// invalidate every score in the corpus for the sake of a wider grid.
-const RAIL_KEY = 'careerAgent.rail.v1';
+// A right-hand drawer (redesign handoff, 500px). Opening it changes nothing
+// about the query: every chosen filter stays chosen, the toolbar's chips and
+// the "Also filtering by" row still show them, and the button carries the
+// count. It is not remembered across reloads: a drawer is a moment, not a
+// layout.
 const railToggle = document.getElementById('rail-toggle');
 const filterPanel = document.getElementById('filterpanel');
+const filtersShow = document.getElementById('filters-show');
 
 // The word and the count are separate nodes, because the count has to be
-// hidden when it is zero rather than rendered as "(0)". An empty pair of
-// brackets is a control reporting on itself.
+// hidden when it is zero rather than rendered as "(0)".
 const railToggleWord = el('span', { className: 'railtoggle__word' });
 const railToggleCount = el('span', {
   className: 'railtoggle__count num',
   props: { hidden: true },
 });
-railToggle.replaceChildren(railToggleWord, railToggleCount);
+railToggle.replaceChildren(
+  el('span', { className: 'allfilters__icon', attrs: { 'aria-hidden': 'true' } }, [
+    el('span'), el('span'), el('span'),
+  ]),
+  railToggleWord,
+  railToggleCount,
+);
 
-/**
- * Open or close the filter panel.
- *
- * CLOSED IS THE DEFAULT, which is the change. The panel used to be a rail
- * that was open on arrival and took 288px of every screen; the design puts
- * the filters under a toggle and gives the width to the results.
- *
- * Closing hides the panel with `hidden`, so it occupies no space and holds no
- * tab stop -- and it changes NOTHING about the query. Every chosen filter
- * stays chosen, the chip bar under the toolbar still lists them, and the
- * count on this button still says how many are in force. A panel that could
- * be closed to widen a search would be a filter nobody can see.
- */
-function setRail(open, { persist = true } = {}) {
+let drawerOpener = null;
+function setRail(open) {
   filterPanel.hidden = !open;
   railToggle.setAttribute('aria-expanded', String(open));
-  railToggleWord.textContent = open ? t('rail.hide') : t('rail.show');
-  if (persist) {
-    try {
-      window.localStorage.setItem(RAIL_KEY, open ? 'open' : 'closed');
-    } catch { /* a private window refuses storage; the preference is simply
-                 not remembered, which is better than a broken control. */ }
+  railToggleWord.textContent = t('rail.show');
+  document.body.classList.toggle('has-filters', open);
+  if (open) {
+    drawerOpener = document.activeElement;
+    const first = filterPanel.querySelector('#filters-close');
+    if (first) first.focus();
+  } else if (drawerOpener && document.contains(drawerOpener)) {
+    drawerOpener.focus();
+    drawerOpener = null;
   }
 }
 
-/** How many narrowings are in force, for the badge on the closed button. */
+/** How many narrowings are in force, for the badge on the button. */
 function syncRailCount(active) {
   const n = Number.isFinite(active) ? active : 0;
   railToggleCount.textContent = String(n);
   railToggleCount.hidden = n === 0;
 }
 
-railToggle.addEventListener('click', () => {
-  setRail(filterPanel.hidden);
+railToggle.addEventListener('click', () => setRail(filterPanel.hidden));
+document.getElementById('filters-close').addEventListener('click', () => setRail(false));
+document.getElementById('filters-scrim').addEventListener('click', () => setRail(false));
+filtersShow.addEventListener('click', () => setRail(false));
+document.getElementById('filters-clear').addEventListener('click', () => {
+  store.replaceAll(clearedFilters(store.get()));
+});
+filterPanel.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    event.stopPropagation();
+    setRail(false);
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const nodes = [...filterPanel.querySelectorAll(
+    'button, [href], select, input, summary, [tabindex]:not([tabindex="-1"])',
+  )].filter((node) => !node.disabled && node.offsetParent !== null);
+  if (!nodes.length) return;
+  const first = nodes[0];
+  const last = nodes[nodes.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+});
+setRail(false);
+
+/** "Show N jobs": the total of the list actually loaded, never an estimate. */
+function syncFiltersShow() {
+  const total = lastResponse ? Number(lastResponse.total) || 0 : null;
+  filtersShow.textContent = total === null
+    ? t('filters.showJobsLoading')
+    : total === 0 ? t('filters.showNone')
+      : total === 1 ? t('filters.showOne') : t('filters.showMany', { n: total.toLocaleString(getLocale()) });
+  filtersShow.disabled = false;
+}
+
+// -- the quick filters -----------------------------------------------------------
+//
+// Four of the drawer's own filters, one click each. They edit the same store
+// keys the drawer does; there is no second filter state.
+const QUICK = [
+  { id: 'remote', labelKey: 'quick.remote', on: (s) => Boolean(s.remote_only),
+    flip: (s) => ({ remote_only: !s.remote_only }) },
+  { id: 'pay', labelKey: 'quick.pay', on: (s) => Boolean(s.has_salary),
+    flip: (s) => ({ has_salary: !s.has_salary }) },
+  { id: 'week', labelKey: 'quick.week', on: (s) => Number(s.posted_within_days) === 7,
+    flip: (s) => ({ posted_within_days: Number(s.posted_within_days) === 7 ? null : 7 }) },
+  { id: 'senior', labelKey: 'quick.senior', on: (s) => (s.seniority || []).includes('SENIOR'),
+    flip: (s) => ({
+      seniority: (s.seniority || []).includes('SENIOR')
+        ? s.seniority.filter((v) => v !== 'SENIOR')
+        : [...(s.seniority || []), 'SENIOR'],
+    }) },
+];
+const quickHost = document.getElementById('quick-chips');
+const quickButtons = QUICK.map((chip) => {
+  const node = button('', () => store.set(chip.flip(store.get())), {
+    className: 'quickchip', attrs: { 'aria-pressed': 'false', 'data-quick': chip.id },
+  });
+  quickHost.appendChild(node);
+  return node;
+});
+function syncQuick(state) {
+  QUICK.forEach((chip, index) => {
+    quickButtons[index].textContent = t(chip.labelKey);
+    quickButtons[index].setAttribute('aria-pressed', String(chip.on(state)));
+  });
+  const clearAll = document.getElementById('clear-all');
+  clearAll.textContent = t('quick.clearAll');
+  clearAll.hidden = activeFilterCount(state) === 0 && !state.search;
+}
+document.getElementById('clear-all').addEventListener('click', () => {
+  store.replaceAll(clearedFilters(store.get()));
 });
 
-try {
-  setRail(window.localStorage.getItem(RAIL_KEY) === 'open', { persist: false });
-} catch {
-  setRail(false, { persist: false });
-}
+// "/" goes to the search box, unless somebody is already typing somewhere.
+document.addEventListener('keydown', (event) => {
+  if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+  const here = document.activeElement;
+  if (here && (/^(INPUT|TEXTAREA|SELECT)$/.test(here.tagName) || here.isContentEditable)) return;
+  if (currentPage !== 'jobs') return;
+  event.preventDefault();
+  panel.focusSearch();
+});
 
 // The source matrix, loaded the first time somebody opens the panel. Not on
 // page load: it answers a question nobody has asked yet, and a list of jobs
@@ -566,12 +641,46 @@ dom.group.addEventListener('click', () => {
   store.set({ group_duplicates: !store.get().group_duplicates });
 });
 
-// The words come from the catalogue at draw time; `SORTS` is the six values.
-replace(dom.sort, SORTS.map((value) => el('option', {
-  text: t(`sort.${value}`),
-  attrs: { value },
-})));
-dom.sort.addEventListener('change', (event) => store.set({ sort: event.target.value }));
+// THE SORT MENU (redesign handoff): one button, a popover of the real sort
+// orders with a sentence each, and the direction and grouping below them.
+// `SORTS` is the server's list; nothing here invents an order it cannot run.
+const sortMenu = document.getElementById('sort-menu');
+const sortPop = document.getElementById('sort-pop');
+const sortOptions = document.getElementById('sort-options');
+const sortButtons = SORTS.map((value) => {
+  const node = el('button', {
+    className: 'sortmenu__opt',
+    attrs: { type: 'button', role: 'menuitemradio', 'aria-checked': 'false', 'data-sort': value },
+    on: { click: () => { store.set({ sort: value }); setSortMenu(false); } },
+  }, [
+    el('span', { className: 'sortmenu__check', attrs: { 'aria-hidden': 'true' } }),
+    el('span', { className: 'sortmenu__text' }, [
+      el('span', { className: 'sortmenu__label' }),
+      el('span', { className: 'sortmenu__desc' }),
+    ]),
+  ]);
+  sortOptions.appendChild(node);
+  return node;
+});
+function setSortMenu(open) {
+  sortPop.hidden = !open;
+  sortMenu.setAttribute('aria-expanded', String(open));
+  if (open) {
+    const chosen = sortOptions.querySelector('[aria-checked="true"]') || sortButtons[0];
+    chosen.focus();
+  }
+}
+sortMenu.addEventListener('click', () => setSortMenu(sortPop.hidden));
+sortPop.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    event.stopPropagation();
+    setSortMenu(false);
+    sortMenu.focus();
+  }
+});
+document.addEventListener('pointerdown', (event) => {
+  if (!sortPop.hidden && !event.target.closest('.sortmenu')) setSortMenu(false);
+});
 dom.direction.addEventListener('click', () => {
   store.set({ direction: store.get().direction === 'asc' ? 'desc' : 'asc' });
 });
@@ -763,6 +872,7 @@ function paint(state) {
 }
 
 function announce(state, shown, total) {
+  syncFiltersShow();
   const filters = activeFilterCount(state);
   const from = total ? state.offset + 1 : 0;
   const to = state.offset + shown;
@@ -1789,6 +1899,7 @@ function syncHeader(state) {
   dom.viewTable.setAttribute('aria-pressed', state.view === 'table' ? 'true' : 'false');
   dom.viewKanban.setAttribute('aria-pressed', state.view === 'kanban' ? 'true' : 'false');
   if (dom.exportGoodStrong) dom.exportGoodStrong.hidden = state.view !== 'table';
+  syncQuick(state);
   dom.group.setAttribute('aria-pressed', state.group_duplicates ? 'true' : 'false');
   dom.group.classList.toggle('is-on', Boolean(state.group_duplicates));
   dom.group.textContent = state.group_duplicates
@@ -1797,7 +1908,18 @@ function syncHeader(state) {
   dom.group.title = state.group_duplicates
     ? t('order.oneRowHelp')
     : t('order.everyPostingHelp');
-  dom.sort.value = state.sort;
+  sortButtons.forEach((node, index) => {
+    const value = SORTS[index];
+    const chosen = value === state.sort;
+    node.setAttribute('aria-checked', String(chosen));
+    node.querySelector('.sortmenu__check').textContent = chosen ? '\u2713' : '';
+    node.querySelector('.sortmenu__label').textContent = t(`sort.${value}`);
+    node.querySelector('.sortmenu__desc').textContent = t(`sortHelp.${value}`);
+  });
+  document.getElementById('sort-current').textContent = t(`sort.${state.sort}`);
+  document.getElementById('sort-menu-label').textContent = t('order.sortBy');
+  const tableView = state.view === 'table';
+  document.getElementById('list-tools').hidden = !tableView;
   // The words say what you GET, not which way an arrow points. "Ascending" is
   // only meaningful once you already know what is being sorted.
   const ascending = state.direction === 'asc';
@@ -2615,7 +2737,14 @@ function relabelStaticText() {
   // it when it was removed -- so `contains` was always false, `!false` was
   // always true, and every relabel silently reopened the panel. It is why
   // the filters were open on arrival with nothing stored.
-  setRail(!filterPanel.hidden, { persist: false });
+  railToggleWord.textContent = t('rail.show');
+  for (const [id, key] of [['filters-title', 'filters.title'], ['filters-lede', 'filters.lede'],
+    ['filters-clear', 'quick.clearAll'], ['columns-menu', 'list.columns'], ['export-csv', 'list.exportCsv']]) {
+    const node = document.getElementById(id);
+    if (node) node.textContent = t(key);
+  }
+  document.getElementById('filters-close').setAttribute('aria-label', t('filters.close'));
+  syncFiltersShow();
 
   const viewGroup = document.querySelector('.viewswitch');
   if (viewGroup) viewGroup.setAttribute('aria-label', t('view.group'));

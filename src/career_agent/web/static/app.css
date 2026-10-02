@@ -253,6 +253,9 @@
   --inv-bg: #1b1a17;
   --inv-fg: #fbf8f0;
   --bw: 2px;
+  --green-bar: #2f9a62;
+  --on-lav: #1c1830;
+  --lav: #d8ccf8;
 
   /* -------------------------------------------------------------------
      NAMES THE REST OF THIS FILE STILL USES.
@@ -480,6 +483,9 @@
   --d-inv-bg: #f3f0e8;
   --d-inv-fg: #1b1a17;
   --d-bw: 1px;
+  --d-green-bar: #5fbf86;
+  --d-on-lav: #1c1830;
+  --d-lav: #d8ccf8;
 
   /* -- the aliases, dark half ----------------------------------------- */
   --d-paper-2: var(--d-surface-alt);
@@ -777,6 +783,9 @@
     --inv-bg: var(--d-inv-bg);
     --inv-fg: var(--d-inv-fg);
     --bw: var(--d-bw);
+    --green-bar: var(--d-green-bar);
+    --on-lav: var(--d-on-lav);
+    --lav: var(--d-lav);
   }
 }
 
@@ -859,6 +868,9 @@
   --inv-bg: var(--d-inv-bg);
   --inv-fg: var(--d-inv-fg);
   --bw: var(--d-bw);
+  --green-bar: var(--d-green-bar);
+  --on-lav: var(--d-on-lav);
+  --lav: var(--d-lav);
 }
 
 
@@ -8591,72 +8603,6 @@ body.has-cw-drawer { overflow: hidden; }
 .src__health-table tr.is-attention td { background: var(--yellow-soft, #fff6d6); }
 .src__health-table .tag { margin-left: .4rem; }
 
-/* =====================================================================
-   DISCOVER DENSITY
-
-   Measured on Discover Jobs with the real corpus on 2026-10-02, desktop
-   1600x900 with the sidebar: the first card started at y=488 and four cards
-   were fully on screen. The toolbar was 147px because its controls summed
-   to two pixels more than the bar and the whole sort group wrapped onto a
-   second line; its padding was also declared twice (the bar AND its
-   controls). Cards in one row had different heights, so their footers did
-   not line up, and the in-card controls were four different sizes (Save
-   20px, status 21, Hide and Apply 26).
-
-   One block, desktop only (the 900px layouts above are untouched), every
-   rule a later declaration over the layers above:
-     - at most four columns, and never narrower than 260px;
-     - cards in a row stretch to the row's tallest, footer at the bottom
-       (per ROW: the old page-wide `1fr` rows are still gone);
-     - badges 24px, toolbar controls 34px, in-card controls 30px;
-     - the bar's padding said once, the search field a little narrower, so
-       the toolbar is one row.
-   ===================================================================== */
-@media (min-width: 901px) {
-  .topbar { padding-top: 10px; padding-bottom: 10px; }
-  .topbar__controls { padding: 0 32px; }
-  .toolsearch-host { flex-basis: 200px; }
-  /* The two groups are sized from OUTSIDE, borders included, so they line
-     up with the single controls; their buttons fill them. */
-  #rail-toggle, #f-search, #daily-open, .viewswitch, .resultbar { height: 34px; min-height: 34px; }
-  /* A 34px field leaves no room for the base field's 10px of padding. */
-  #sort.resultbar__field { padding-top: 0; padding-bottom: 0; font-size: 13px; min-height: 0; }
-  .resultbar > * { height: auto; min-height: 0; }
-  .results { padding-top: 14px; }
-  .resultcount { margin-bottom: 8px; }
-  .hiddennotice { margin-top: 6px; }
-  .hidden__row { padding-top: 3px; padding-bottom: 3px; }
-  .hidden__show { padding-top: 2px; padding-bottom: 2px; min-height: 24px; }
-
-  .cards {
-    gap: 14px;
-    padding-top: 10px;
-    align-items: stretch;
-    grid-template-columns: repeat(auto-fill, minmax(max(260px, calc((100% - 3 * 14px) / 4 - 0.5px)), 1fr));
-  }
-  .cards .card__strip { margin-bottom: 0; }
-  .cards .card .badges--md,
-  .cards .card__head, .cards .card__facts, .cards .card__group, .cards .chips,
-  .cards .card__footer, .cards .card__blocked, .cards .card__offtarget,
-  .cards .card__context, .cards .card__partial, .cards .card__concern,
-  .cards .card__unknowns { padding-left: 14px; padding-right: 14px; }
-  .cards .card .badges--md { padding-top: 9px; gap: 4px; }
-  .cards .card .badges--md .badge {
-    height: 24px;
-    align-items: center;
-    padding: 0 7px;
-    line-height: 1;
-  }
-  .cards .card .badges--md .badge--match .badge__value { font-size: 13px; }
-  .cards .card__head { padding-top: 5px; }
-  .cards .card__facts { padding-top: 5px; padding-bottom: 0; }
-  .cards .card__facts dd { line-height: 1.3; }
-  .cards .card__footer { margin-top: auto; padding-top: 6px; padding-bottom: 9px; }
-  .cards .card__save, .cards .card__hide, .cards .card__apply,
-  .cards .card__actions .select--status { height: 30px; min-height: 30px; }
-  .cards .card__save, .cards .card__apply { display: inline-flex; align-items: center; }
-  .cards .card__actions .select--status { padding-top: 0; padding-bottom: 0; }
-}
 
 /* =====================================================================
    THE SHELL (redesign handoff, 2026-10)
@@ -9169,3 +9115,233 @@ body { font-synthesis-weight: none; }
 @media (prefers-reduced-motion: reduce) {
   .sidenav { transition: none; }
 }
+
+/* =====================================================================
+   FIND JOBS: THE TOOLBAR, THE SORT MENU AND THE FILTER DRAWER
+   (redesign handoff, 2026-10)
+   ===================================================================== */
+
+.topbar { position: static; padding: 0; margin: 0 0 12px; border: 0; background: transparent; }
+.topbar__controls { display: flex; flex-direction: column; gap: 12px; padding: 0; }
+
+.jobsbar { display: flex; align-items: center; gap: 10px; row-gap: 10px; flex-wrap: wrap; }
+.jobsbar__right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+/* The search field: its own surface, a soft edge, the link-coloured ring on
+   focus, a drawn magnifier and the "/" hint. */
+.toolsearch-host { flex: 1 1 420px; min-width: min(100%, 420px); max-width: none; display: flex; }
+.toolsearch {
+  position: relative;
+  flex: 1;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 10px 0 16px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+.toolsearch::before {
+  content: "";
+  flex: none;
+  width: 12px; height: 12px;
+  border: 1.8px solid var(--muted);
+  border-radius: 50%;
+  box-shadow: 4px 4px 0 -3px var(--muted);
+}
+.toolsearch:focus-within { border-color: var(--link); box-shadow: 0 0 0 4px rgba(160, 138, 230, 0.18); }
+.toolsearch__input.input {
+  flex: 1; min-width: 0;
+  padding: 13px 0; min-height: 0;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  font-size: 15px;
+}
+.toolsearch__input.input:focus-visible { outline: none; box-shadow: none; }
+.toolsearch::after {
+  content: "/";
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font-size: 11px; font-weight: 600; color: var(--faint);
+}
+.toolsearch:focus-within::after,
+.toolsearch:has(.toolsearch__clear:not([hidden]))::after { display: none; }
+.toolsearch__clear {
+  position: static;
+  flex: none;
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%;
+  background: var(--chip-bg); color: var(--muted);
+  font-size: 13px; cursor: pointer;
+}
+.toolsearch__clear:hover { color: var(--ink); }
+
+/* -- the Sort menu ------------------------------------------------------- */
+.sortmenu { position: relative; flex: none; }
+.sortmenu__btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px;
+  border: 0; border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit; font-size: 13px;
+  white-space: nowrap; cursor: pointer;
+}
+.sortmenu__btn strong { color: var(--ink); font-weight: 600; }
+.sortmenu__btn:hover { background: var(--surface-alt); }
+.sortmenu__caret { font-size: 9px; margin-left: 2px; }
+.popover {
+  position: absolute;
+  z-index: 25;
+  box-sizing: border-box;
+  padding: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+.sortmenu__pop { right: 0; top: calc(100% + 6px); width: 280px; display: flex; flex-direction: column; gap: 2px; }
+.sortmenu__options { display: flex; flex-direction: column; gap: 2px; }
+.sortmenu__opt {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 10px;
+  border: 0; border-radius: 9px;
+  background: transparent; color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.sortmenu__opt[aria-checked="true"], .sortmenu__opt:hover { background: var(--surface-alt); }
+.sortmenu__check { flex: none; width: 16px; padding-top: 1px; font-size: 13px; font-weight: 700; color: var(--match-ink); }
+.sortmenu__text { display: flex; flex-direction: column; gap: 2px; }
+.sortmenu__label { font-size: 14px; font-weight: 600; }
+.sortmenu__desc { font-size: 12px; line-height: 1.35; color: var(--muted); }
+.sortmenu__extra { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--rule); }
+.sortmenu__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px;
+  border: 0; border-radius: 9px;
+  background: transparent; color: var(--body);
+  font: inherit; font-size: 13px; font-weight: 500; text-align: left; cursor: pointer;
+}
+.sortmenu__row:hover { background: var(--surface-alt); color: var(--ink); }
+.sortmenu__row.btn--group::after {
+  content: "";
+  flex: none;
+  width: 30px; height: 18px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  box-shadow: inset -12px 0 0 2px var(--line-strong), inset -12px 0 0 9px #ffffff;
+}
+.sortmenu__row.btn--group[aria-pressed="true"]::after {
+  background: var(--green-bar);
+  box-shadow: inset 12px 0 0 2px var(--green-bar), inset 12px 0 0 9px #ffffff;
+}
+
+/* -- the view switch ------------------------------------------------------- */
+.viewswitch .segmented__btn { text-transform: none; }
+
+/* -- the quick filters ----------------------------------------------------- */
+.quickrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 0 2px; }
+.quickchips { display: flex; gap: 6px; flex-wrap: wrap; }
+.quickchip {
+  padding: 6px 13px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--body);
+  font: inherit; font-size: 13px; font-weight: 500;
+  white-space: nowrap; cursor: pointer;
+}
+.quickchip:hover { filter: brightness(0.96); }
+.quickchip[aria-pressed="true"] { background: var(--lav); border-color: var(--lav); color: var(--on-lav); }
+.allfilters {
+  display: flex; align-items: center; gap: 6px;
+  margin-left: 4px;
+  padding: 6px 10px;
+  border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink);
+  font: inherit; font-size: 13px; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.allfilters:hover { background: var(--surface-alt); }
+.allfilters__icon { display: flex; flex-direction: column; align-items: center; gap: 2.5px; width: 13px; }
+.allfilters__icon span { height: 1.6px; border-radius: 1px; background: var(--muted); }
+.allfilters__icon span:nth-child(1) { width: 13px; }
+.allfilters__icon span:nth-child(2) { width: 8px; }
+.allfilters__icon span:nth-child(3) { width: 3px; }
+.railtoggle__count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--lav); color: var(--on-lav);
+  font-size: 11px; line-height: 18px; text-align: center;
+}
+.quickrow__spacer { flex: 1; }
+.quickrow__clear, .quickrow__today, .quickrow__export {
+  padding: 6px 8px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.quickrow__clear:hover, .quickrow__today:hover, .quickrow__export:hover { color: var(--ink); background: var(--surface-alt); }
+.quickrow__today { color: var(--link); font-weight: 600; }
+
+/* -- List tools: Columns | Export CSV --------------------------------------- */
+.listtools {
+  position: relative;
+  display: flex; align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+}
+.listtools__btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 12px;
+  border: 0; background: transparent; color: var(--body);
+  font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
+}
+.listtools__btn:first-child { border-radius: 9px 0 0 9px; }
+.listtools__btn:last-of-type { border-radius: 0 9px 9px 0; }
+.listtools__btn:hover { background: var(--surface-alt); color: var(--ink); }
+.listtools__sep { width: 1px; height: 18px; background: var(--rule); }
+.columns__pop { right: 0; top: calc(100% + 6px); width: 300px; max-width: calc(100vw - 32px); }
+
+/* -- the filter drawer ---------------------------------------------------- */
+.filterpanel { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: flex-end; margin: 0; padding: 0; border: 0; background: none; max-width: none; }
+.filterpanel__scrim { position: absolute; inset: 0; background: rgba(20, 19, 16, 0.55); }
+.filterpanel__panel {
+  position: relative;
+  width: min(500px, 100vw);
+  height: 100%;
+  display: flex; flex-direction: column;
+  background: var(--paper);
+  color: var(--ink);
+  border-left: var(--bw) solid var(--line);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.3);
+}
+.filterpanel__head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  padding: 26px 28px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.filterpanel__title { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; }
+.filterpanel__lede { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--muted); }
+.filterpanel__close {
+  flex: none;
+  width: 44px; height: 44px;
+  border: var(--bw) solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface); color: var(--ink);
+  font-size: 16px; cursor: pointer;
+}
+.filterpanel__body { flex: 1; overflow-y: auto; padding: 0 28px 12px; }
+.filterpanel__foot {
+  display: flex; gap: 10px;
+  padding: 16px 28px;
+  border-top: var(--bw) solid var(--line);
+  background: var(--paper);
+}
+.filterpanel__show { flex: 1; font-size: 16px; padding: 13px 18px; }
+body.has-filters { overflow: hidden; }

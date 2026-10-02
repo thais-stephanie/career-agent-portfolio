@@ -156,81 +156,59 @@
 </header>
 
 <header class="topbar">
-  <!-- What is left in this header is the JOB LIST toolbar and nothing else.
-       The brand, the navigation, the mode line, the status disclosure and the
-       theme and language controls all moved into the rail, where they belong
-       to the product rather than to one page. -->
+  <!-- THE FIND JOBS TOOLBAR (redesign handoff). Row 1: search, the Sort menu
+       and the view switch. Row 2: quick filters, All filters, and the List
+       tools. Everything here edits the ONE store the filter drawer edits. -->
   <div class="topbar__controls">
-    <!-- COLLAPSIBLE FILTERS. In the toolbar rather than in the grid, for two
-         reasons. It must stay reachable when the rail is collapsed to
-         nothing, and column 1 of `.layout` holds exactly one element -- the
-         rail -- so that adding a panel can never displace the results again.
-         A third grid child would have quietly reopened that.
-
-         Presentation state, remembered in the browser: it changes what is on
-         screen and nothing about how a posting is read, so it must never
-         touch `search.local.yaml` or bump a configuration version. -->
-    <button type="button" class="railtoggle" id="rail-toggle" aria-expanded="true"
-            aria-controls="rail">Hide filters</button>
-
-    <!-- SEARCH THE LIST. Title, company, place and posting text, answered by
-         the local server from the postings already collected; it never
-         reaches the internet. Built by `filters.js` beside the panel it
-         combines with. -->
-    <div class="toolsearch-host" id="toolbar-search"></div>
-
-    <!-- GROUP 1: which shape the results take. A segmented selector, so the
-         three choices read as one control with one answer rather than as
-         three unrelated buttons. Rounded on the outside edges only; the
-         shared internal edges are straight, which is what makes a segment
-         look like part of a whole. -->
-    <!-- TODAY. Not a fourth segment in the view switch beside it: those are
-         three renderings of one query that the filters narrow, and the digest
-         is several queries the server composes. It sits before them because
-         it is where somebody opening the product should start. -->
-    <button type="button" id="daily-open" class="btn btn--today">Today</button>
-
-    <div class="segmented viewswitch" role="group" aria-label="How to show results">
-      <button type="button" id="view-cards" class="segmented__btn viewswitch__btn"
-              aria-pressed="true">Cards</button>
-      <button type="button" id="view-table" class="segmented__btn viewswitch__btn"
-              aria-pressed="false">Table</button>
-      <button type="button" id="view-kanban" class="segmented__btn viewswitch__btn"
-              aria-pressed="false">Board</button>
+    <div class="jobsbar">
+      <!-- SEARCH THE LIST, built by `filters.js`: title, company, place and
+           posting text, answered by the local server. `/` focuses it. -->
+      <div class="toolsearch-host" id="toolbar-search"></div>
+      <div class="jobsbar__right">
+        <div class="sortmenu">
+          <button type="button" class="sortmenu__btn" id="sort-menu"
+                  aria-haspopup="true" aria-expanded="false" aria-controls="sort-pop">
+            <span id="sort-menu-label">Sort by</span> <strong id="sort-current">Best match</strong>
+            <span class="sortmenu__caret" aria-hidden="true">&#9660;</span>
+          </button>
+          <div class="popover sortmenu__pop" id="sort-pop" hidden>
+            <div class="sortmenu__options" id="sort-options" role="group" aria-labelledby="sort-menu-label"></div>
+            <div class="sortmenu__extra">
+              <button type="button" id="direction" class="sortmenu__row btn--dir">Highest first</button>
+              <button type="button" id="group-duplicates" class="sortmenu__row btn--group"
+                      aria-pressed="true">One row per role</button>
+            </div>
+          </div>
+        </div>
+        <div class="segmented viewswitch" role="group" aria-label="How to show results">
+          <button type="button" id="view-cards" class="segmented__btn viewswitch__btn"
+                  aria-pressed="true">Cards</button>
+          <button type="button" id="view-table" class="segmented__btn viewswitch__btn"
+                  aria-pressed="false">List</button>
+          <button type="button" id="view-kanban" class="segmented__btn viewswitch__btn"
+                  aria-pressed="false">Board</button>
+        </div>
+      </div>
     </div>
-    <!-- Table only: the rows a person audits in a spreadsheet. -->
-    <button type="button" id="export-good-strong" class="btn" hidden>Export GOOD + STRONG</button>
-
-    <!-- GROUP 2: what the results DO, which is a different question from what
-         shape they take. Keeping these in one visually connected group, and
-         apart from the view selector, is the point: a single control mixing
-         "show me cards" with "sort by salary" would suggest the two choices
-         constrain each other, and they do not.
-
-         Grouping stays here rather than among the filters because it excludes
-         no posting. It collapses the several postings an employer published
-         for one role, and a card that silently stood for seven others would
-         be worse than seven cards. -->
-    <div class="resultbar" role="group" aria-label="Order and grouping">
-      <button type="button" id="group-duplicates" class="resultbar__btn btn btn--group"
-              aria-pressed="true">One row per role</button>
-
-      <label class="sr-only" for="sort">Order results by</label>
-      <!-- Rendered here rather than only in main.js so the control is never an
-           empty box beside an already-drawn legend on first paint. state.js
-           SORTS remains the source of truth and re-renders these identically,
-           which is why these values must match it exactly. -->
-      <select id="sort" class="resultbar__field select">
-        <option value="score">Best match</option>
-        <option value="confidence">Most complete posting</option>
-        <option value="posted">Newest</option>
-        <option value="company">Company name</option>
-        <option value="title">Job title</option>
-        <option value="status">Where I am with it</option>
-      </select>
-      <button type="button" id="direction" class="resultbar__btn btn btn--dir">Highest first</button>
+    <div class="quickrow">
+      <div class="quickchips" id="quick-chips" role="group" aria-label="Quick filters"></div>
+      <button type="button" class="allfilters" id="rail-toggle" aria-expanded="false"
+              aria-controls="filterpanel">All filters</button>
+      <span class="quickrow__spacer"></span>
+      <button type="button" class="quickrow__clear" id="clear-all" hidden>Clear all</button>
+      <!-- TODAY. The daily digest: several queries the server composes. -->
+      <button type="button" id="daily-open" class="quickrow__today">Today</button>
+      <!-- List only: which columns, and the visible rows as a CSV. -->
+      <div class="listtools" id="list-tools" hidden>
+        <button type="button" class="listtools__btn" id="columns-menu" aria-haspopup="true"
+                aria-expanded="false" aria-controls="columns-pop">Columns</button>
+        <span class="listtools__sep" aria-hidden="true"></span>
+        <button type="button" class="listtools__btn" id="export-csv">Export CSV</button>
+        <div class="popover columns__pop" id="columns-pop" hidden></div>
+      </div>
+      <!-- The GOOD + STRONG audit export, server side, List only. -->
+      <button type="button" id="export-good-strong" class="quickrow__export" hidden>Export GOOD + STRONG</button>
     </div>
-
   </div>
 </header>
 
@@ -302,22 +280,27 @@
 
   <main class="results" id="results">
 
-    <!-- THE FILTERS, ABOVE THE RESULTS AND NOT BESIDE THEM.
-
-         They used to be a 288px rail in column 1 of a two-column grid, which
-         is a second navigation next to the first one: the reader met a
-         sidebar, then another sidebar, before reaching a job. It also spent a
-         fifth of a 1440px screen permanently on controls that are touched
-         once a session, and the design has no such rail.
-
-         So this is a horizontal panel that opens under the toolbar and closes
-         to nothing. Closed is the default and the results have the whole
-         width. What survives being closed is the STATE: every chosen filter
-         stays chosen, `.chipbar` below keeps showing what is active, and the
-         toggle carries the count -- collapsing a panel must never quietly
-         widen a search. -->
-    <section class="filterpanel" id="filterpanel" aria-labelledby="rail-toggle" hidden>
-      <div id="filters-host"></div>
+    <!-- THE FILTER DRAWER (redesign handoff): 500px on the right. The panel
+         inside is `filters.js` and edits the same store as the toolbar, so
+         there is one filter state for every view. "Show N jobs" reads the
+         count of the list actually loaded, never an estimate. -->
+    <section class="filterpanel" id="filterpanel" role="dialog" aria-modal="true"
+             aria-labelledby="filters-title" hidden>
+      <div class="filterpanel__scrim" id="filters-scrim"></div>
+      <div class="filterpanel__panel">
+        <header class="filterpanel__head">
+          <div>
+            <h2 class="filterpanel__title" id="filters-title">Filters</h2>
+            <p class="filterpanel__lede" id="filters-lede">Pick what matters to you. The list updates as you go.</p>
+          </div>
+          <button type="button" class="filterpanel__close" id="filters-close" aria-label="Close filters">&#10005;</button>
+        </header>
+        <div class="filterpanel__body" id="filters-host"></div>
+        <footer class="filterpanel__foot">
+          <button type="button" class="btn" id="filters-clear">Clear all</button>
+          <button type="button" class="btn btn--primary filterpanel__show" id="filters-show">Show jobs</button>
+        </footer>
+      </div>
     </section>
 
     <!-- THE RESULTS HEADING, and it is deliberately not visible.
