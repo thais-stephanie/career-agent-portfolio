@@ -102,9 +102,9 @@ const EN = {
   'settings.refreshNow': 'Check now',
   'settings.targets': 'Target locations, work arrangements and compensation',
   'settings.searchHelp': 'What would you like to see more or less of?',
-  'settings.prefer_keyword': 'Prioritize',
+  'settings.prefer_keyword': 'Show these first',
   'settings.prefer_keywordHelp': 'Move jobs containing these phrases higher in Find jobs.',
-  'settings.avoid_keyword': 'Avoid',
+  'settings.avoid_keyword': 'Show these lower',
   'settings.avoid_keywordHelp': 'Move jobs containing these phrases lower without hiding them.',
   'settings.exclude_keyword': 'Never show',
   'settings.exclude_keywordHelp': 'Exclude jobs containing these phrases from Find jobs.',
@@ -294,7 +294,7 @@ const EN = {
   // -- the rail ----------------------------------------------------------
   'rail.filters': 'Filters',
   'rail.profile': 'Your career profile',
-  'rail.preferences': 'Search preferences',
+  'rail.preferences': 'Fine-tune your results',
   'rail.sources': 'Where these come from',
 
   // -- the legend, which is the thing people most often get wrong --------
@@ -352,7 +352,7 @@ const EN = {
   'hidden.lessWhy': 'Hide details',
 
   // -- the career profile ------------------------------------------------
-  'profile.editUnder': 'Edit these under "Search preferences".',
+  'profile.editUnder': 'Edit these under Settings, "Fine-tune your results".',
   'profile.andMore': ' ... and {count} more',
   'profile.empty': 'Start on Home to describe the work you want, then edit your preferences here.',
   'profile.conflictOne':
@@ -1049,7 +1049,7 @@ const EN = {
   'daily.section.best.lead': 'The same score the cards show, in the same order. Nothing is '
     + 're-ranked here.',
   'daily.section.unresolved.title': 'Waiting on one answer',
-  'daily.section.unresolved.lead': 'Jobs with strong search fit whose eligibility nobody has resolved. One '
+  'daily.section.unresolved.lead': 'Jobs with a strong match whose eligibility nobody has resolved. One '
     + 'recruiter question each would settle them.',
   'daily.section.tracking.title': 'You are tracking',
   'daily.section.tracking.lead': 'Anything you saved or moved. These stay visible whatever a '
@@ -1118,7 +1118,7 @@ const EN = {
   'filters.section.qualityHelp': 'Two separate numbers. Neither is a prediction about your chances. ',
   'filters.preset.all': 'Everything',
   'filters.preset.allHelp': 'Every job collected so far, with nothing filtered out.',
-  'filters.preset.strong': 'Strong search fit',
+  'filters.preset.strong': 'Strong match',
   'filters.preset.strongHelp': 'Jobs scoring 70 or more on how close they are to the work you want. Says '
     + 'nothing about whether you could take them.',
   'filters.preset.eligible': 'Nothing standing in the way',
@@ -1246,7 +1246,7 @@ const EN = {
   'profiles.delete': 'Delete profile',
   'profiles.deleted': 'Profile deleted.',
   'app.thisPosting': 'this posting',
-  'app.rescore': 'Recalculate search fit',
+  'app.rescore': 'Recalculate the match %',
   'app.rescoreFailed': 'Something went wrong. Try again',
   'app.rescoreDone': 'Done. Loading your matches',
   'app.starting': 'Starting...',
@@ -1425,7 +1425,7 @@ const EN = {
     + 'finds your words inside longer words, and looks in one place rather than'
     + 'everywhere. Recalculating your matches fixes it.',
   'health.staleFacetsHelp': 'An earlier version of Career Agent calculated these scores. Recalculate '
-    + 'search fit to update them, on your own computer and at no cost.',
+    + 'the match % to update them, on your own computer and at no cost.',
   'filters.qualityHint': 'Match is how close the work is to what you want. Ad detail is how '
     + 'much the employer actually wrote down. A short posting scores low on '
     + 'completeness however good the job is.',
@@ -1941,10 +1941,10 @@ const EN = {
   // words and ADR-0002 makes a translated quote not a quote.
   'drawer.scoredOutOf': 'Match {score} out of 100: {howClose} for the work you said you '
     + 'want. Confirmed career evidence is assessed separately under Before you apply.',
-  'drawer.closeStrong': 'strong search fit',
-  'drawer.closeReasonable': 'reasonable search fit',
-  'drawer.closePartial': 'partial search fit',
-  'drawer.closeWeak': 'weak search fit',
+  'drawer.closeStrong': 'a strong match',
+  'drawer.closeReasonable': 'a reasonable match',
+  'drawer.closePartial': 'a partial match',
+  'drawer.closeWeak': 'a weak match',
   'drawer.pickedUpOne': 'It picked up 1 thing you are looking for, quoted below.',
   'drawer.pickedUp': 'It picked up {n} things you are looking for, quoted below.',
   'drawer.readableHigh': 'The posting is detailed, so there was a lot to go on.',
@@ -2321,9 +2321,9 @@ const EN = {
 
   // WHAT THE ANSWER DOES. One sentence, in the second person, naming the
   // consequence rather than the mechanism.
-  'fieldHelp.work_models': 'Prefer adds a little to a job\'s fit and rather avoid takes it away. Never show also '
-    + 'hides those jobs from Find jobs, with one click to see them again. None of this changes '
-    + 'where you can be hired: remote does not mean a company can hire you anywhere.',
+  'fieldHelp.work_models': 'Prefer adds a little to a job\\\'s fit and rather avoid takes it away. Never show also '
+    + 'hides those jobs from Find jobs, with one click to see them again. None of this changes where you can be '
+    + 'hired: remote does not mean a company can hire you anywhere.',
   'fieldHelp.require_remote': 'Worked out from your answers: on when hybrid and on-site are both never shown.',
   'fieldHelp.contract_preferred':
     'Works for me adds a little to a job\'s fit and rather not takes it away. Many postings do '
@@ -3391,9 +3391,9 @@ const PT_BR = {
   'settings.refreshNow': 'Verificar agora',
   'settings.targets': 'Locais desejados, formas de trabalho e remuneração',
   'settings.searchHelp': 'O que você gostaria de ver com mais ou menos frequência?',
-  'settings.prefer_keyword': 'Priorizar',
+  'settings.prefer_keyword': 'Mostrar estas primeiro',
   'settings.prefer_keywordHelp': 'Coloca vagas com estas expressões mais acima em Encontrar vagas.',
-  'settings.avoid_keyword': 'Evitar',
+  'settings.avoid_keyword': 'Mostrar estas mais abaixo',
   'settings.avoid_keywordHelp': 'Coloca vagas com estas expressões mais abaixo, sem ocultá-las.',
   'settings.exclude_keyword': 'Nunca mostrar',
   'settings.exclude_keywordHelp': 'Exclui vagas com estas expressões de Encontrar vagas.',
@@ -3582,7 +3582,7 @@ const PT_BR = {
 
   'rail.filters': 'Filtros',
   'rail.profile': 'Seu perfil',
-  'rail.preferences': 'Preferências de busca',
+  'rail.preferences': 'Ajuste seus resultados',
   'rail.sources': 'De onde elas vêm',
 
   'legend.summary': 'O que significam a compatibilidade e o detalhe do anúncio',
@@ -3638,7 +3638,7 @@ const PT_BR = {
   'hidden.seeWhy': 'Ver por quê',
   'hidden.lessWhy': 'Esconder detalhes',
 
-  'profile.editUnder': 'Edite em "Preferências de busca".',
+  'profile.editUnder': 'Edite em Configurações, "Ajuste seus resultados".',
   'profile.andMore': ' ... e mais {count}',
   'profile.empty': 'Comece no Início descrevendo o trabalho que procura; depois edite suas preferências aqui.',
   'profile.conflictOne':
@@ -4599,7 +4599,7 @@ const PT_BR = {
     + 'encontra suas palavras dentro de palavras maiores, e procura em um lugar'
     + 'em vez de em todos. Recalcular suas correspondências resolve.',
   'health.staleFacetsHelp': 'Uma versão anterior do Career Agent calculou estas pontuações. '
-    + 'Recalcule a aderência para atualizá-las, no seu próprio computador e sem custo.',
+    + 'Recalcule a compatibilidade para atualizá-las, no seu próprio computador e sem custo.',
   'filters.qualityHint': 'Compatibilidade é o quanto o trabalho se aproxima do que você quer. '
     + 'Detalhe do anúncio é o quanto o empregador realmente escreveu. Um '
     + 'anúncio curto pontua baixo em completude por melhor que a vaga seja.',
@@ -5116,10 +5116,10 @@ const PT_BR = {
   // words and ADR-0002 makes a translated quote not a quote.
   'drawer.scoredOutOf': 'Compatibilidade: {score}/100, {howClose} para o trabalho que você '
     + 'disse querer. As evidências de carreira são avaliadas separadamente em Evidências / Preparação.',
-  'drawer.closeStrong': 'uma aderência forte',
-  'drawer.closeReasonable': 'uma aderência razoável',
-  'drawer.closePartial': 'uma aderência parcial',
-  'drawer.closeWeak': 'uma aderência fraca',
+  'drawer.closeStrong': 'uma compatibilidade alta',
+  'drawer.closeReasonable': 'uma compatibilidade razoável',
+  'drawer.closePartial': 'uma compatibilidade parcial',
+  'drawer.closeWeak': 'uma compatibilidade baixa',
   'drawer.pickedUpOne': 'Encontrou 1 coisa que você procura, citada abaixo.',
   'drawer.pickedUp': 'Encontrou {n} coisas que você procura, citadas abaixo.',
   'drawer.readableHigh': 'O anúncio é detalhado, então havia bastante material.',
@@ -5496,16 +5496,16 @@ const PT_BR = {
   'field.eligible_scopes': 'Em quais regiões você pode trabalhar?',
   'field.eligible_countries': 'Em quais países você pode ser contratado diretamente?',
 
-  'fieldHelp.work_models': 'Preferir soma um pouco à aderência da vaga e evitar tira um pouco. Nunca mostrar também '
-    + 'esconde essas vagas em Encontrar vagas, com um clique para vê-las de novo. Nada disso muda '
-    + 'onde você pode ser contratado: remoto não significa que a empresa contrata de qualquer lugar.',
+  'fieldHelp.work_models': 'Preferir soma um pouco à compatibilidade da vaga e evitar tira um pouco. Nunca mostrar '
+    + 'também esconde essas vagas em Encontrar vagas, com um clique para vê-las de novo. Nada disso muda onde você '
+    + 'pode ser contratado: remoto não significa que a empresa contrata de qualquer lugar.',
   'fieldHelp.require_remote':
     'Calculado a partir das suas respostas: ligado quando híbrido e presencial nunca aparecem.',
   'fieldHelp.contract_preferred':
-    'Funciona para mim soma um pouco à aderência da vaga e prefiro não tira um pouco. Muitas '
+    'Funciona para mim soma um pouco à compatibilidade da vaga e prefiro não tira um pouco. Muitas '
     + 'vagas não dizem, e então nada muda.',
   'fieldHelp.contract_unwanted':
-    'Formatos que você prefere não ter. Uma vaga com um deles perde um pouco de aderência.',
+    'Formatos que você prefere não ter. Uma vaga com um deles perde um pouco de compatibilidade.',
   'fieldHelp.seniority_preferred':
     'Guardado para sua referência; ainda não muda notas. Para tirar um nível de Encontrar vagas, '
     + 'use a próxima pergunta.',
@@ -6341,13 +6341,14 @@ const PT_BR = {
   'ai.mode.deterministic': 'Somente determinístico',
   'ai.mode.fake': 'Provedor de teste',
   'ai.summary.ready': 'Correspondência semântica com IA: pronta',
-  'ai.summary.off': 'A correspondência semântica com IA está desligada. A aderência usa só as suas frases.',
-  'ai.summary.deterministic': 'Somente determinístico. A aderência usa as suas frases, sem IA.',
-  'ai.summary.unavailable': 'Nenhum provedor de IA está disponível. A aderência usa só as suas frases.',
+  'ai.summary.off': 'A correspondência semântica com IA está desligada. A compatibilidade usa só as suas frases.',
+  'ai.summary.deterministic': 'Somente determinístico. A compatibilidade usa as suas frases, sem IA.',
+  'ai.summary.unavailable': 'Nenhum provedor de IA está disponível. A compatibilidade usa só as suas frases.',
   'ai.summary.demo': 'O modo demonstração nunca usa IA.',
   'ai.using': 'Usando {provider}',
   'ai.fellBack': '{preferred} não está disponível, então {used} é usado no lugar.',
-  'ai.fellBackDeterministic': '{preferred} não está disponível. A aderência usa só as suas frases até que esteja.',
+  'ai.fellBackDeterministic': '{preferred} não está disponível. A compatibilidade usa só as suas frases até que '
+    + 'esteja.',
   'ai.saved': 'Salvo.',
   'ai.providersHead': 'Provedores e privacidade',
   'ai.state.AVAILABLE': 'Disponível',
@@ -6370,7 +6371,7 @@ const PT_BR = {
   'ai.sends.claude_code': 'Envia a sua intenção de busca e cada vaga avaliada pelo seu próprio login do Claude Code.',
   'ai.sends.laya': 'Nada sai deste computador.',
   'ai.laya.why': 'O Laya responde sem citar a vaga, então as respostas dele não podem ser conferidas como '
-    + 'evidência. Ele não é usado na aderência.',
+    + 'evidência. Ele não é usado na compatibilidade.',
   'ai.check': 'Verificar conexão',
   'ai.checking': 'Verificando',
   'ai.key.label': 'Chave de API da DeepSeek',
@@ -6401,7 +6402,7 @@ const PT_BR = {
   'ai.run': 'Avaliar {count} vagas',
   'ai.running': 'Avaliando {done} de {total}',
   'ai.cancel': 'Parar',
-  'ai.recalc': 'A aderência será recalculada para as vagas avaliadas.',
+  'ai.recalc': 'A compatibilidade será recalculada para as vagas avaliadas.',
   'ai.last': 'Última execução: {published} vagas avaliadas, {failed} falharam, {calls} chamadas, {tokens} tokens, '
     + '{spent} gastos.',
   'ai.lastSubscription': 'Última execução: {published} vagas avaliadas, {failed} falharam, {calls} chamadas, '
@@ -6440,7 +6441,7 @@ const PT_BR = {
   'ai.stop.NOTHING_NEW': 'Nada novo para avaliar.',
   'ai.stop.NO_PROVIDER': 'Nenhum provedor de IA está disponível.',
   'ai.stop.NO_INTENT': 'Diga primeiro ao Career Agent que trabalho você quer.',
-  'ai.stop.NO_INDEX': 'Recalcule a aderência primeiro e tente de novo.',
+  'ai.stop.NO_INDEX': 'Recalcule a compatibilidade primeiro e tente de novo.',
   'ai.stop.PRICE_UNKNOWN': 'Este provedor não tem preço conhecido, então não pode ser limitado por um orçamento.',
   'ai.stop.ERROR': 'A execução parou por causa de um erro.',
   'drawer.toolsGuard':
@@ -6481,7 +6482,8 @@ const PT_BR = {
   'fitFeedback.note': 'Anotação (opcional)',
   'fitFeedback.saved': 'Salvo neste computador. Sua resposta não muda a pontuação.',
   'fitFeedback.failed': 'Não foi possível salvar sua resposta. Tente de novo.',
-  'fitFeedback.changed': 'A aderência foi recalculada depois que esta vaga foi aberta. Feche e abra a vaga de novo.',
+  'fitFeedback.changed': 'A compatibilidade foi recalculada depois que esta vaga foi aberta. Feche e abra a vaga de '
+    + 'novo.',
   'fitFeedback.export': 'Exportar minhas respostas (CSV privado)',
 };
 

@@ -331,7 +331,7 @@ function overviewPanel(roles, skills, confirmed) {
   // A confirmed statement is a thing that exists and can be counted.
   const counts = el('ul', { className: 'profile__metrics' }, [
     work.length ? countCard('work', work.length, 'profile.countWork') : null,
-    skills.length ? countCard('skills', skills.length, 'profile.countSkills') : null,
+    skills.length ? countCard('skills', uniqueSkills(skills).length, 'profile.countSkills') : null,
     quals.length ? countCard('quals', quals.length, 'profile.countQuals') : null,
   ].filter(Boolean));
 
@@ -349,14 +349,15 @@ function overviewPanel(roles, skills, confirmed) {
   }
 
   if (skills.length) {
-    const shown = skills.slice(0, SKILL_GLANCE);
+    const unique = uniqueSkills(skills);
+    const shown = unique.slice(0, SKILL_GLANCE);
     out.push(el('section', { className: 'card card--static profile__glance' }, [
       el('h3', { className: 'profile__heading', text: t('profile.yourSkills') }),
       el('div', { className: 'evchips profile__chips' }, shown.map(skillChip)),
-      skills.length > shown.length
+      unique.length > shown.length
         ? el('p', {
           className: 'profile__lead',
-          text: t('profile.andMoreSkills', { n: skills.length - shown.length }),
+          text: t('profile.andMoreSkills', { n: unique.length - shown.length }),
         })
         : null,
     ].filter(Boolean)));
@@ -375,6 +376,17 @@ function linkToEvidence() {
     const nav = document.querySelector('.topnav__link[data-page="evidence"]');
     if (nav) nav.click();
   }, { className: 'btn btn--primary' });
+}
+
+/** One chip per skill: "Python" confirmed twice is still one thing she knows. */
+function uniqueSkills(skills) {
+  const seen = new Set();
+  return skills.filter((claim) => {
+    const name = claim.text.trim().toLowerCase();
+    if (seen.has(name)) return false;
+    seen.add(name);
+    return true;
+  });
 }
 
 /** A confirmed skill, as a word. Its provenance is the title, not a badge. */
@@ -452,14 +464,7 @@ function experiencePanel(roles) {
 function skillsPanel(skills, confirmed) {
   const certificates = confirmed.filter((claim) => claim.claim_type === 'CERTIFICATION');
   const education = confirmed.filter((claim) => claim.claim_type === 'EDUCATION');
-  // One chip per skill: "Python" confirmed twice is still one thing she knows.
-  const seen = new Set();
-  const chips = skills.filter((claim) => {
-    const name = claim.text.trim().toLowerCase();
-    if (seen.has(name)) return false;
-    seen.add(name);
-    return true;
-  });
+  const chips = uniqueSkills(skills);
   const out = [];
   if (chips.length) {
     out.push(el('section', { className: 'card card--static' }, [

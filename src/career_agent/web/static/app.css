@@ -9558,3 +9558,29 @@ body.has-filters { overflow: hidden; }
 .stepper .stepper__step--current .stepper__name { color: var(--ink); font-weight: 600; }
 .home > *, .home .home__sec, .home .home__rows { min-width: 0; max-width: 100%; }
 .home .home__sectitle { flex-wrap: wrap; }
+
+/* =====================================================================
+   POST-REDESIGN POLISH (2026-10): interface numbers and labels in the
+   handoff's sans with tabular figures. The mono family stays for what is
+   verbatim: quotes, file names, technical details.
+   ===================================================================== */
+.num, .evp-section__count, .cw-source__label, .profile__where, .roles__count, .stepper__mark,
+.card__posted-date, .strength__points, .enrich__elapsed {
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.profile__chips .evchip { border-radius: 999px; }
+.kanban .kcol__head { align-items: stretch; }
+/* The week's rows: one flat list, as the handoff draws it. */
+.home .home__row { border: 0; border-bottom: 1px solid var(--divider); border-radius: 0; box-shadow: none; background: transparent; }
+.home .home__row:hover { box-shadow: none; }
+.home .home__company { font-size: 13px; letter-spacing: 0; text-transform: none; }
+.home .home__score { border: 0; font-family: var(--sans); }
+.home .home__jobtitle { font-weight: 400; }
+/* The drawer's small facts (ad detail, eligibility): soft pills, like the rest of it. */
+.drawer__panel .badge { border: 1px solid var(--divider); border-radius: 999px; box-shadow: none; padding: 3px 10px; font-family: var(--sans); }
+.drawer__panel .badge__label { letter-spacing: 0; text-transform: none; font-family: var(--sans); }
+.drawer__panel .badge__value { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) {
+  .jobsbar__right { flex-wrap: wrap; margin-left: 0; }
+}
