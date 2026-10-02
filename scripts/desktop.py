@@ -11,7 +11,8 @@ installation's own `pythonw.exe`. Standard library only.
   this installation, then open the window. This process then waits for the
   last Career Agent window to close (Microsoft Edge in app mode, with its own
   browser data in data/app-window) and stops both local servers through
-  /api/app/quit, as Ctrl+C does in the manual launcher. Without Edge the
+  /api/app/quit, as Ctrl+C does in the manual launcher; while a collection or
+  recalculation is still running it lets it finish first. Without Edge the
   default browser opens a tab, and "Quit Career Agent" in the app stops it.
 
 Everything the servers print goes to data/logs/desktop.log. No AI provider is
@@ -26,6 +27,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import traceback
 import urllib.error
@@ -43,6 +45,11 @@ WINDOW_DATA = ROOT / "data" / "app-window"
 READY_SECONDS = 90
 NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW
 SYNCHRONIZE = 0x00100000
+ERROR_ALREADY_EXISTS = 183
+INFINITE = 0xFFFFFFFF
+KERNEL32 = ctypes.WinDLL("kernel32", use_last_error=True)
+KERNEL32.OpenProcess.restype = ctypes.c_void_p
+KERNEL32.CreateMutexW.restype = ctypes.c_void_p
 #: Never through a proxy: the address is this computer.
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -55,8 +62,9 @@ PORT_BUSY = (
     f"or {PORT + 1}) is in use by another program. Close the other program and try "
     "again. Nothing was changed."
 )
-DEMO_OPEN = (
-    "The Career Agent demo is open. Close the demo window first, then open Career Agent again."
+OTHER_MODE = (
+    "Career Agent is already open in another mode, for example the demo. Close that "
+    "window first, then open Career Agent again."
 )
 FAILED = (
     "Career Agent could not start. Nothing you saved was changed. Try again. If it "
@@ -64,7 +72,8 @@ FAILED = (
     "to see what went wrong."
 )
 SLOW = (
-    "Career Agent took too long to start and was stopped. Nothing you saved was changed. Try again."
+    "Career Agent is taking longer than usual to start, for example after an update. "
+    "Its window opens by itself when it is ready."
 )
 INCOMPLETE = (
     "Career Agent's setup is not finished. Double-click Start-Career-Agent.cmd in "
@@ -72,37 +81,48 @@ INCOMPLETE = (
 )
 
 
-def message(text: str) -> None:
-    ctypes.windll.user32.MessageBoxW(None, f"{text}\n\n{HELP}", "Career Agent", 0x10)
+def message(text: str, icon: int = 0x10) -> None:
+    ctypes.windll.user32.MessageBoxW(None, text + "\n\n" + HELP, "Career Agent", icon)
 
 
 def probe() -> dict[str, Any] | str | None:
-    """This installation's /api/app answer, None if nothing listens, "other" otherwise."""
+    """This installation's /api/app answer; None if nothing listens; "busy" if
+    something listens and does not answer in time; "other" for anything else."""
     from career_agent import install_id
 
     try:
         with OPENER.open(URL + "api/app", timeout=3) as response:
             data = json.loads(response.read())
     except urllib.error.URLError as exc:
-        return None if isinstance(exc.reason, ConnectionRefusedError) else "other"
+        if isinstance(exc.reason, ConnectionRefusedError):
+            return None
+        return "busy" if isinstance(exc.reason, TimeoutError) else "other"
     except ConnectionRefusedError:
         return None
+    except TimeoutError:
+        return "busy"
     except (OSError, ValueError):
         return "other"
     ours = isinstance(data, dict) and data.get("app") == "career-agent"
     return data if ours and data.get("install") == install_id(ROOT) else "other"
 
 
-def quit_server() -> None:
+def quit_server() -> bool:
+    """Ask the servers to stop. False while they are still finding jobs or
+    recalculating (the route answers 409), so that work is never cut short."""
     request = urllib.request.Request(
         URL + "api/app/quit",
         data=b"{}",
         method="POST",
         headers={"Content-Type": "application/json"},
     )
-    # Already stopping, or gone: the caller waits for the process either way.
-    with contextlib.suppress(OSError):
+    try:
         OPENER.open(request, timeout=10).close()
+    except urllib.error.HTTPError as exc:
+        return exc.code != 409
+    except OSError:
+        pass  # already stopping, or gone
+    return True
 
 
 def edge() -> str | None:
@@ -171,44 +191,63 @@ def window_process() -> int | None:
     return int(out) if out.isdigit() else None
 
 
-def watch_window() -> int | None:
+def watch_window(tries: int = 20) -> int | None:
     """A handle on the Edge window process, held so its id cannot be reused under us."""
-    kernel32 = ctypes.windll.kernel32
-    kernel32.OpenProcess.restype = ctypes.c_void_p
-    for _ in range(20):
+    for attempt in range(tries):
         pid = window_process()
         if pid:
-            handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+            handle = KERNEL32.OpenProcess(SYNCHRONIZE, False, pid)
             # Checked again WITH the handle held: the id still names that process.
             if handle and window_process() == pid:
                 return int(handle)
             if handle:
-                kernel32.CloseHandle(ctypes.c_void_p(handle))
-        time.sleep(0.5)
+                KERNEL32.CloseHandle(ctypes.c_void_p(handle))
+        if attempt + 1 < tries:
+            time.sleep(0.5)
     return None
 
 
-def wait_for_any(handles: list[int]) -> None:
+def wait_for_any(handles: list[int], milliseconds: int = INFINITE) -> None:
     array = (ctypes.c_void_p * len(handles))(*handles)
-    ctypes.windll.kernel32.WaitForMultipleObjects(len(handles), array, False, 0xFFFFFFFF)
+    KERNEL32.WaitForMultipleObjects(len(handles), array, False, milliseconds)
+
+
+def show(found: dict[str, Any] | str | None) -> int:
+    """Open a window on a server that is already there, or say why not."""
+    if isinstance(found, dict) and found.get("mode") == "PERSONAL":
+        open_window()
+        return 0
+    if isinstance(found, dict):
+        message(OTHER_MODE)
+    else:
+        message(PORT_BUSY if found else FAILED)
+    return 1
 
 
 def run() -> int:
     try:
-        import career_agent  # noqa: F401  (a finished setup can import the app)
+        from career_agent import install_id
     except ImportError:
         message(INCOMPLETE)
         return 1
+    # One launcher per installation starts the servers. A second click while
+    # the first is starting them (or watching their window) waits for them.
+    name = "Local\\CareerAgentDesktop-" + install_id(ROOT)
+    mutex = KERNEL32.CreateMutexW(None, False, name)
+    if mutex and ctypes.get_last_error() == ERROR_ALREADY_EXISTS:
+        deadline = time.monotonic() + READY_SECONDS * 2
+        found = probe()
+        while not isinstance(found, dict) and found != "other" and time.monotonic() < deadline:
+            time.sleep(1)
+            found = probe()
+        return show(found)
+    deadline = time.monotonic() + 30
     found = probe()
-    if found == "other":
-        message(PORT_BUSY)
-        return 1
-    if isinstance(found, dict):
-        if found.get("mode") != "PERSONAL":
-            message(DEMO_OPEN)
-            return 1
-        open_window()
-        return 0
+    while found == "busy" and time.monotonic() < deadline:
+        time.sleep(1)
+        found = probe()
+    if found is not None:
+        return show(found)
 
     LOG.parent.mkdir(parents=True, exist_ok=True)
     with LOG.open("w", encoding="utf-8") as log:
@@ -220,43 +259,52 @@ def run() -> int:
             stderr=subprocess.STDOUT,
             creationflags=NO_WINDOW,
         )
-    deadline = time.monotonic() + READY_SECONDS
+    started, warned = time.monotonic(), False
     while not isinstance(probe(), dict):
         if child.poll() is not None:
-            if isinstance(probe(), dict):  # a second click started it first
-                open_window()
-                return 0
             text = LOG.read_text(encoding="utf-8", errors="replace")
             message(PORT_BUSY if "already in use" in text else FAILED)
             return 1
-        if time.monotonic() > deadline:
-            child.terminate()
-            message(SLOW)
-            return 1
+        if not warned and time.monotonic() - started > READY_SECONDS:
+            # A first start after an update can migrate a large database.
+            # Never stopped for being slow: said once, and waited for.
+            warned = True
+            threading.Thread(target=message, args=(SLOW, 0x40), daemon=True).start()
         time.sleep(0.5)
 
-    handles = [int(child._handle)]  # type: ignore[attr-defined]
+    server = int(child._handle)  # type: ignore[attr-defined]
+    window = None
     if open_window():
         window = watch_window()
         if window is None and open_window():
             # Measured once in testing: Edge did not come up on the first ask.
             window = watch_window()
-        if window is not None:
-            handles.append(window)
-        else:
+        if window is None:
             # Never leave the person without a window. This one cannot be
             # watched, so the servers stop through "Quit Career Agent".
             webbrowser.open(URL)
-    # Until the last Career Agent window closes, or the servers stop on their
-    # own ("Quit Career Agent").
-    wait_for_any(handles)
-    if child.poll() is None:
-        quit_server()
-        try:
-            child.wait(timeout=20)
-        except subprocess.TimeoutExpired:
-            child.terminate()  # our own child, by its own handle
-            child.wait(timeout=10)
+    closed = False  # every window this process watched has closed
+    while child.poll() is None:
+        if window is not None:
+            wait_for_any([server, window])
+            window, closed = None, True
+        elif not closed:
+            wait_for_any([server])  # no window to watch: until "Quit Career Agent"
+            continue
+        if child.poll() is not None:
+            break
+        window = watch_window(tries=1)  # a window opened again meanwhile
+        if window is not None:
+            continue
+        if quit_server():
+            try:
+                child.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                child.terminate()  # our own child, by its own handle
+                child.wait(timeout=10)
+            break
+        # Still finding jobs or recalculating: let it finish, then ask again.
+        wait_for_any([server], 30_000)
     return 0
 
 
@@ -264,9 +312,10 @@ def main() -> int:
     try:
         return run()
     except Exception:
-        LOG.parent.mkdir(parents=True, exist_ok=True)
-        with LOG.open("a", encoding="utf-8") as log:
-            log.write(traceback.format_exc())
+        with contextlib.suppress(OSError):
+            LOG.parent.mkdir(parents=True, exist_ok=True)
+            with LOG.open("a", encoding="utf-8") as log:
+                log.write(traceback.format_exc())
         message(FAILED)
         return 1
 

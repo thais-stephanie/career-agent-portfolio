@@ -3148,6 +3148,7 @@ const EN = {
     + 'still running stops, and you can start it again later.',
   'app.quitFailed': 'Career Agent could not be stopped from here. Close its window, or use the launcher window.',
   'app.stopped': 'Career Agent has stopped.',
+  'app.quitBusy': 'Career Agent is still finding jobs or recalculating. Quit when it finishes.',
   'app.stoppedHelp':
     'Everything you saved is kept. You can close this window. To open Career Agent again, use '
     + 'its shortcut.',
@@ -6158,6 +6159,7 @@ const PT_BR = {
     'Não foi possível parar o Career Agent por aqui. Feche a janela dele, ou use a janela do '
     + 'inicializador.',
   'app.stopped': 'O Career Agent foi encerrado.',
+  'app.quitBusy': 'O Career Agent ainda está buscando vagas ou recalculando. Saia quando terminar.',
   'app.stoppedHelp':
     'Tudo o que você salvou fica guardado. Você já pode fechar esta janela. Para abrir o Career '
     + 'Agent de novo, use o atalho dele.',

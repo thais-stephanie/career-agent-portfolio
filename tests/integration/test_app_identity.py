@@ -104,3 +104,18 @@ def test_quit_stops_only_for_a_local_request(api: JobsApi, monkeypatch: pytest.M
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+def test_quit_waits_for_a_running_collection_or_recalculation(
+    api: JobsApi, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    stopped = threading.Event()
+    monkeypatch.setattr(web_server, "on_quit", stopped.set)
+    monkeypatch.setattr(api, "rescore", SimpleNamespace(running=True))
+    with pytest.raises(ApiError) as caught:
+        api.handle_api("POST", "/api/app/quit", {}, {})
+    assert caught.value.status == 409
+    time.sleep(0.5)
+    assert not stopped.is_set(), "a quit cut a recalculation short"

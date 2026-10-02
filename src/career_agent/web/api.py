@@ -626,6 +626,15 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         stop = server.on_quit
         if stop is None:
             raise ApiError(409, "This Career Agent was not started by a launcher that can stop it.")
+        semantic = self.semantic_runner
+        if self.retrieval.running or self.rescore.running or (semantic and semantic.running):
+            # Stopping would cut a collection or recalculation short; the
+            # desktop launcher asks again once it has finished.
+            raise ApiError(
+                409,
+                "Career Agent is still finding jobs or recalculating. Quit when it finishes.",
+                for_reader=True,
+            )
         threading.Timer(0.3, stop).start()
         return {"stopping": True}
 

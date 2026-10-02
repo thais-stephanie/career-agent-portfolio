@@ -12,6 +12,7 @@ import json
 import socket
 import sys
 import threading
+import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -41,13 +42,21 @@ def desktop(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
     return module
 
 
-def _serve(desktop, monkeypatch, status: int, payload: object) -> Iterator[None]:  # noqa: ANN001
+def _serve(  # noqa: ANN001
+    desktop, monkeypatch, status: int, payload: object, delay: float = 0.0
+) -> Iterator[None]:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
+            time.sleep(delay)
             body = json.dumps(payload).encode() if not isinstance(payload, bytes) else payload
             self.send_response(status)
             self.end_headers()
             self.wfile.write(body)
+
+        def do_POST(self) -> None:  # noqa: N802
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            self.send_response(status)
+            self.end_headers()
 
         def log_message(self, *args: object) -> None:
             pass
@@ -148,7 +157,7 @@ def test_an_unrelated_service_is_neither_opened_nor_stopped(
 def test_the_demo_on_the_port_is_named_not_opened(desktop, monkeypatch: pytest.MonkeyPatch) -> None:
     for _ in _serve(desktop, monkeypatch, 200, ours("DEMO")):
         assert desktop.run() == 1
-    assert desktop.shown == [desktop.DEMO_OPEN] and not desktop.opened
+    assert desktop.shown == [desktop.OTHER_MODE] and not desktop.opened
 
 
 def test_without_edge_the_default_browser_opens_the_app(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -180,3 +189,18 @@ def test_the_shipped_icon_is_the_star_sprite() -> None:
     assert shipped == star.icon(star.shade(star.SHAPE)), (
         "career-agent.ico is generated: run `uv run python scripts/make_star.py`"
     )
+
+
+def test_a_server_too_busy_to_answer_is_not_called_another_program(
+    desktop, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for _ in _serve(desktop, monkeypatch, 200, ours(), delay=4):
+        assert desktop.probe() == "busy"
+
+
+@pytest.mark.parametrize(("status", "accepted"), [(200, True), (409, False), (403, True)])
+def test_quit_is_refused_only_while_work_is_running(
+    desktop, monkeypatch: pytest.MonkeyPatch, status: int, accepted: bool
+) -> None:
+    for _ in _serve(desktop, monkeypatch, status, {}):
+        assert desktop.quit_server() is accepted

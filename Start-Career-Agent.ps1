@@ -69,14 +69,17 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'Setup could not download what it needs. Check that this computer is online, then double-click the launcher again.'
     }
-    # Made once, after the first setup that succeeds. A failure here never
-    # stops Career Agent: this launcher keeps working without a shortcut.
+    # Made after the first setup that succeeds, and made again when this
+    # folder has moved since (the marker holds the folder it was made for).
+    # Never during -Check, which also verifies copies the person does not use.
+    # A failure here never stops Career Agent: this launcher works without it.
     $marker = Join-Path $PSScriptRoot 'data\.shortcuts-created'
-    if ($Shortcuts -or -not (Test-Path -LiteralPath $marker)) {
+    $madeFor = if (Test-Path -LiteralPath $marker) { (Get-Content -LiteralPath $marker -TotalCount 1) } else { '' }
+    if ($Shortcuts -or (-not $Check -and $madeFor -ne $PSScriptRoot)) {
         try {
             New-CareerAgentShortcuts
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $marker) | Out-Null
-            Set-Content -LiteralPath $marker -Encoding ascii -Value 'The Career Agent shortcut was made. Create-Career-Agent-Shortcuts.cmd makes it again.'
+            Set-Content -LiteralPath $marker -Encoding utf8 -Value $PSScriptRoot
             Write-Host '      A "Career Agent" shortcut is on your Desktop and in the Start menu. Use it from now on.'
         } catch {
             Write-Host "      The Career Agent shortcut could not be made: $($_.Exception.Message)"

@@ -218,16 +218,18 @@ open.
 - **Resume Tailor** opens from **Resume Tailor** in Career Agent's side menu,
   as before.
 - **Quitting.** Close the Career Agent windows; Career Agent and Resume Tailor
-  then stop by themselves. You can also choose **Quit Career Agent** at the
-  bottom of the side menu. Everything you saved is kept.
+  then stop by themselves. If it is still finding jobs or recalculating, it
+  finishes that first and then stops. You can also choose **Quit Career
+  Agent** at the bottom of the side menu. Everything you saved is kept.
 - **If a message says the address is in use,** another program is using the
   address Career Agent needs, or the demo is still open. Close the other
   program or the demo window and try again.
 
-If you delete the shortcut, or move the Career Agent folder somewhere else,
-double-click **Create-Career-Agent-Shortcuts.cmd** in the Career Agent folder.
-It makes the shortcut again, pointing at the folder it is in. A shortcut left
-from the old place stops working; delete it. If the shortcut could not be made
+If you delete the shortcut, double-click **Create-Career-Agent-Shortcuts.cmd**
+in the Career Agent folder to make it again. If you move the Career Agent
+folder somewhere else, double-click **Start-Career-Agent.cmd** once in the new
+place: it makes the shortcut again for the new place (so does
+**Create-Career-Agent-Shortcuts.cmd**). If the shortcut could not be made
 during setup, the launcher says so and Career Agent still works from
 **Start-Career-Agent.cmd**.
 

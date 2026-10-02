@@ -1875,8 +1875,8 @@ function offerQuit() {
       if (!window.confirm(t('app.quitConfirm'))) return;
       try {
         await api.quitApp();
-      } catch {
-        toast(t('app.quitFailed'));
+      } catch (err) {
+        toast(t(err && err.status === 409 ? 'app.quitBusy' : 'app.quitFailed'));
         return;
       }
       document.body.replaceChildren(el('main', { className: 'state' }, [
