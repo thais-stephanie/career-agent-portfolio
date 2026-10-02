@@ -85,7 +85,12 @@ export function createShell() {
    */
   function setPage(page, { subtitle = '', action = null } = {}) {
     const spec = PAGE_HEADERS[page] || PAGE_HEADERS.home;
-    nodes.eyebrow.textContent = spec.eyebrow ? t(spec.eyebrow) : '';
+    // Home wears today's date above its greeting, and the path drawing.
+    const home = page === 'home';
+    document.getElementById('pagehead').classList.toggle('pagehead--home', home);
+    nodes.eyebrow.textContent = home
+      ? new Intl.DateTimeFormat(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
+      : (spec.eyebrow ? t(spec.eyebrow) : '');
     nodes.title.textContent = t(spec.title);
     nodes.sub.textContent = subtitle || (spec.sub ? t(spec.sub) : '');
     nodes.actions.replaceChildren(...(action ? [action] : []));

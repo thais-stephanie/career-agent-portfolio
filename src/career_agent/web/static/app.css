@@ -251,6 +251,16 @@
   --inv-bg: #1b1a17;
   --inv-fg: #fbf8f0;
   --bw: 2px;
+  --green-hover: #185a3a;
+  --on-green: #ffffff;
+  --green: #1f6b45;
+  --star-filter: none;
+  --illo-filter: none;
+  --hero-btn-line: #1b1a17;
+  --hero-line: #1b1a17;
+  --tip-text: #3d3a4a;
+  --tip-btn-line: #1b1a17;
+  --tip-line: #1b1a17;
   --yellow-bar: #d4b84a;
   --blue-bar: #4f7bd6;
   --purple: #8a6fe0;
@@ -508,6 +518,16 @@
   --d-inv-bg: #f3f0e8;
   --d-inv-fg: #1b1a17;
   --d-bw: 1px;
+  --d-green-hover: #a6e2bb;
+  --d-on-green: #12301f;
+  --d-green: #8fd6a8;
+  --d-star-filter: hue-rotate(12deg) saturate(1.5) brightness(1.35) drop-shadow(0 0 6px rgba(255, 226, 90, 0.55));
+  --d-illo-filter: invert(1) hue-rotate(180deg) brightness(1.15) saturate(0.9);
+  --d-hero-btn-line: #3f7357;
+  --d-hero-line: #2f5a43;
+  --d-tip-text: #c9c2d9;
+  --d-tip-btn-line: #4f4770;
+  --d-tip-line: #3f3858;
   --d-yellow-bar: #d4b84a;
   --d-blue-bar: #6f93e0;
   --d-purple: #a08ae6;
@@ -826,6 +846,16 @@
     --inv-bg: var(--d-inv-bg);
     --inv-fg: var(--d-inv-fg);
     --bw: var(--d-bw);
+    --green-hover: var(--d-green-hover);
+    --on-green: var(--d-on-green);
+    --green: var(--d-green);
+    --star-filter: var(--d-star-filter);
+    --illo-filter: var(--d-illo-filter);
+    --hero-btn-line: var(--d-hero-btn-line);
+    --hero-line: var(--d-hero-line);
+    --tip-text: var(--d-tip-text);
+    --tip-btn-line: var(--d-tip-btn-line);
+    --tip-line: var(--d-tip-line);
     --yellow-bar: var(--d-yellow-bar);
     --blue-bar: var(--d-blue-bar);
     --purple: var(--d-purple);
@@ -936,6 +966,16 @@
   --inv-bg: var(--d-inv-bg);
   --inv-fg: var(--d-inv-fg);
   --bw: var(--d-bw);
+  --green-hover: var(--d-green-hover);
+  --on-green: var(--d-on-green);
+  --green: var(--d-green);
+  --star-filter: var(--d-star-filter);
+  --illo-filter: var(--d-illo-filter);
+  --hero-btn-line: var(--d-hero-btn-line);
+  --hero-line: var(--d-hero-line);
+  --tip-text: var(--d-tip-text);
+  --tip-btn-line: var(--d-tip-btn-line);
+  --tip-line: var(--d-tip-line);
   --yellow-bar: var(--d-yellow-bar);
   --blue-bar: var(--d-blue-bar);
   --purple: var(--d-purple);
@@ -9340,3 +9380,131 @@ body.has-filters { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .kanban .kcard, .kanban .kcard:hover { transition: none; transform: none; } }
 /* The result line under the toolbar: words, not a readout. */
 #resultcount { font-family: var(--sans); font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--body); }
+
+/* =====================================================================
+   HOME (redesign handoff, 2026-10): the date, the path drawing, the tip,
+   the new-jobs banner, the four steps and the week's jobs.
+   ===================================================================== */
+.pagehead__art { display: none; }
+.pagehead--home { position: relative; }
+.pagehead--home .pagehead__eyebrow {
+  margin: 0 0 4px;
+  font-family: var(--sans); font-size: 15px; font-weight: 400;
+  letter-spacing: 0; text-transform: none; color: var(--muted);
+}
+.pagehead--home .pagehead__eyebrow::first-letter { text-transform: uppercase; }
+.pagehead--home .pagehead__art {
+  display: block;
+  position: relative;
+  flex: none;
+  width: clamp(240px, 28vw, 380px);
+  aspect-ratio: 2 / 1;
+  margin-left: auto;
+  pointer-events: none;
+}
+.pagehead__art img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pagehead__lines { filter: var(--illo-filter); }
+.pagehead__star { filter: var(--star-filter); }
+@media (max-width: 900px) {
+  .pagehead--home .pagehead__art { display: none; }
+}
+
+.home { display: flex; flex-direction: column; gap: 28px; }
+
+.home__tip {
+  display: flex; flex-direction: column; gap: 18px;
+  padding: 20px 24px;
+  background: var(--tip-bg);
+  border: var(--bw) solid var(--tip-line);
+  border-radius: 18px;
+}
+.home__tiphead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.home__tiptitle { margin: 0; font-family: var(--sans); font-size: 18px; font-weight: 600; }
+.home__tipactions { display: flex; gap: 8px; }
+.home__tipgo, .home__tipok {
+  padding: 7px 14px;
+  border-radius: 10px;
+  font: inherit; font-size: 14px; cursor: pointer;
+}
+.home__tipgo { border: 1px solid var(--tip-btn-line); background: var(--lav); color: var(--on-lav); font-weight: 600; }
+.home__tipok { border: 1px solid var(--tip-btn-line); background: transparent; color: var(--link); }
+.home__tipsteps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin: 0; padding: 0; list-style: none; }
+.home__tipstep { display: flex; gap: 12px; }
+.home__tipnum {
+  flex: none; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--lav); color: var(--on-lav);
+  font-size: 14px; font-weight: 600;
+}
+.home__tiptext { display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.45; color: var(--tip-text); }
+.home__tiptext strong { font-size: 16px; font-weight: 600; color: var(--ink); }
+
+.home__new {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 24px 28px;
+  background: var(--hero-bg);
+  border: var(--bw) solid var(--hero-line);
+  border-radius: 18px;
+}
+.home__newtext { display: flex; flex-direction: column; gap: 6px; }
+.home__newtitle { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(24px, 2.6vw, 32px); line-height: 1.15; color: var(--ink); }
+.home__newsub { margin: 0; font-size: 16px; color: var(--hero-text); }
+.home__newactions { display: flex; gap: 10px; flex-wrap: wrap; }
+.home__newgo, .home__newseen {
+  padding: 12px 20px;
+  border-radius: 12px;
+  font: inherit; font-size: 15px; cursor: pointer;
+}
+.home__newgo { border: 0; background: var(--green); color: var(--on-green); font-weight: 600; }
+.home__newgo:hover { background: var(--green-hover); }
+.home__newseen { border: 1px solid var(--hero-btn-line); background: transparent; color: var(--hero-text); }
+
+.home__sectitle { display: flex; align-items: baseline; gap: 10px; margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; color: var(--ink); }
+.home__seclede { margin: 6px 0 0; font-size: 15px; color: var(--muted); }
+.home .home__steps {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;
+  margin: 16px 0 0; padding: 0; list-style: none;
+}
+.home .step {
+  position: relative;
+  display: flex; flex-direction: column; gap: 4px;
+  min-height: 0;
+  padding: 18px 20px;
+  border: 1.5px solid var(--line-strong);
+  border-top-width: 4px;
+  border-radius: 14px;
+  box-shadow: none;
+  color: var(--ink);
+}
+.home .step--green { background: var(--hero-bg); border-color: var(--green-bar); }
+.home .step--purple { background: var(--saved-bg); border-color: var(--purple); }
+.home .step--blue { background: var(--ask-bg); border-color: var(--blue-bar); }
+.home .step--yellow { background: var(--m2-bg); border-color: var(--yellow-bar); }
+.step__num { font-size: 13px; font-weight: 600; color: var(--muted); }
+.step__value { font-family: var(--display); font-size: 38px; line-height: 1.1; }
+.step__label { font-size: 17px; font-weight: 600; }
+.step__help { font-size: 14px; color: var(--body); }
+.home .step .metric__open { position: absolute; inset: 0; border: 0; border-radius: 14px; background: transparent; cursor: pointer; }
+.home .step .metric__open:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.home .home__rows { display: flex; flex-direction: column; margin: 12px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--divider); }
+.home .home__row {
+  position: relative;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--divider);
+}
+.home .home__row:hover { background: var(--surface-alt); }
+.home .home__score { flex: none; min-width: 52px; text-align: center; }
+.home .home__what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.home .home__jobtitle { font-family: var(--display); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home .home__company { font-size: 13px; color: var(--muted); }
+.home__view { flex: none; font-size: 13px; font-weight: 600; color: var(--link); }
+
+/* The setup list, in the handoff's quieter surfaces. */
+.home .home__sechead { font-family: var(--display); font-weight: 400; font-size: 26px; }
+.home .firstrun__privacy { border: 0; border-radius: 12px; background: var(--surface-alt); padding: 12px 16px; }
+.home .firstrun__step { background: var(--surface); border: 1px solid var(--divider); border-radius: 14px; box-shadow: none; }
+.home .firstrun__step.is-done { background: var(--col-bg); }
+.home .firstrun__num { border: 0; background: var(--lav); color: var(--on-lav); }

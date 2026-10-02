@@ -89,6 +89,22 @@ def latest_refresh_new(conn: sqlite3.Connection) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def latest_refresh_at(conn: sqlite3.Connection) -> str | None:
+    """When the latest completed Find jobs / refresh run finished, or None.
+
+    The run `latest_refresh_new` counts, so a screen can say "seen" about
+    that run rather than about a number two runs could share.
+    """
+    try:
+        row = conn.execute(
+            "SELECT finished_at FROM pipeline_run WHERE stage = 'find-jobs' AND status = 'OK'"
+            " ORDER BY finished_at DESC, rowid DESC LIMIT 1"
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    return str(row[0]) if row and row[0] else None
+
+
 def metrics(
     conn: sqlite3.Connection,
     *,
