@@ -629,17 +629,12 @@ def test_the_grouped_card_says_what_it_stands_for_and_the_table_does_not_hide_it
     assert page.evaluate(f"Boolean({card}.querySelector('.card__group'))"), (
         "the representative card drew no badge, so it swallowed two postings silently"
     )
-    count = str(page.evaluate(f"{card}.querySelector('.card__group-count').textContent"))
-    assert count == f"{GROUPED_POSTINGS} locations", count
+    count = str(page.evaluate(f"{card}.querySelector('.card__group').textContent"))
+    assert f"{GROUPED_POSTINGS} locations" in count, count
 
-    places = str(page.evaluate(f"{card}.querySelector('.card__group-places').textContent"))
-    #: `MAX_PLACES` in `cards.js`. Two named, and the remainder counted.
-    named = 2
-    assert places.count("·") == named, f"expected {named} places named plus a count, got {places!r}"
-    assert f"+{GROUPED_POSTINGS - named} more" in places, (
-        f"{GROUPED_POSTINGS - named} places were capped away and the badge did not say so:"
-        f" {places!r}"
-    )
+    # Every place is named in the line's tooltip, nothing capped away there.
+    places = str(page.evaluate(f"{card}.querySelector('.fact--place').title"))
+    assert places.count("·") >= GROUPED_POSTINGS - 1, places
     assert "(Americas)" in places, places
 
     # And no OTHER card claims to stand for more than itself: a badge on a
