@@ -66,7 +66,9 @@ def test_every_family_the_design_names_is_actually_loaded(page: Chrome, server: 
         ".map((f) => f.family.replace(/[\"']/g, ''))"
     )
 
-    missing = [name for name in FAMILIES if name not in (loaded or [])]
+    # The mono family is for verbatim text (quotes, file names), which the
+    # job list no longer shows, so the browser has no reason to fetch it here.
+    missing = [name for name in FAMILIES if name != "JetBrains Mono" and name not in (loaded or [])]
     assert not missing, f"declared but never loaded: {missing}; loaded: {sorted(set(loaded or []))}"
 
 

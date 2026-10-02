@@ -95,7 +95,7 @@ const EN = {
   'career.editImportHelp': 'To correct an unconfirmed import, open its source review below.',
   'settings.refreshTiming': 'When to check this site',
   'settings.refreshMode.AUTO': 'Follow my target markets',
-  'settings.refreshMode.ENABLED': 'Check this site',
+  'settings.refreshMode.ENABLED': 'Check this site regularly',
   'settings.refreshMode.PAUSED': 'Pause checks',
   'settings.sourcePausedByYou': 'Checks paused by you. Jobs already found stay available.',
   'settings.refreshAnyway': 'Check anyway',
@@ -141,7 +141,7 @@ const EN = {
   'settings.sourceDetails': 'Technical source details',
   'settings.sourceMarket': 'Market: {market}',
   'settings.sourcePaused': 'Paused because this market is outside your current target markets.',
-  'settings.sourceFailure': 'The last refresh failed. Previously collected jobs remain available in Find jobs.',
+  'settings.sourceFailure': 'The last check failed. Jobs found before stay available in Find jobs.',
   'settings.sourceUpdated': 'Last successful check: {date}',
   'career.heading': 'Your experiences',
   'career.guidance': 'Describe what you owned, built or changed; the tools, people and scope involved; ' +
@@ -150,9 +150,8 @@ const EN = {
   'career.example': 'For example: “Organized the weekly handover between shifts” or “Built a shared ' +
     'checklist that helped new colleagues handle requests.” Keep each statement ' +
     'separate and accurate.',
-  'career.boundary': 'Experiences organize what you have done. Only evidence you confirm can support ' +
-    'Before you apply and resume preparation. The match % uses the posting and ' +
-    'your search model.',
+  'career.boundary': 'Experiences organize what you have done. Only evidence you confirm can support your '
+    + 'application preparation and your resume. The match % uses the posting and your search model.',
   'career.new': 'Add experience',
   'career.inbox': 'Needs organizing',
   'career.inboxCount': 'Needs organizing ({count})',
@@ -491,7 +490,7 @@ const EN = {
     + 'This does not change the separate match %.',
   'prep.noEvidenceYet': 'Import your CV or write down what you have done, and this page '
     + 'starts answering.',
-  'prep.goToEvidence': 'Your proof of work',
+  'prep.goToEvidence': 'Proof of my work',
   'prep.state.MATCHED': 'Related confirmed evidence',
   'prep.state.PARTIAL': 'Tool or skill named',
   'prep.state.GAP': 'No confirmed support recognized',
@@ -558,8 +557,8 @@ const EN = {
   'ledger.source.DOCUMENT': 'From a document',
 
   // -- the evidence overlay: what is true about you, and how it got there -
-  'rail.evidence': 'Your proof of work',
-  'ledger.title': 'Your proof of work',
+  'rail.evidence': 'Proof of my work',
+  'ledger.title': 'Proof of my work',
   'ledger.close': 'Close',
   'ledger.retry': 'Try again',
   'ledger.heading': 'Your proof',
@@ -1715,7 +1714,7 @@ const EN = {
   'home.gap.work': 'No phrases describe the work you want, so there is nothing for a posting '
     + 'to match.',
   'home.openProfile': 'Open your profile',
-  'home.openEvidence': 'Add proof of your work',
+  'home.openEvidence': 'Add proof of my work',
   'home.tip.title': 'New here? Here\'s how it works',
   'home.tip.1.title': 'We look for jobs',
   'home.tip.1.body': 'When you ask, we check job websites and order the jobs by how well they fit you.',
@@ -1939,8 +1938,8 @@ const EN = {
   // writes about a posting. What is NOT here: the description, the title,
   // the company name and every evidence quote -- those are the employer's
   // words and ADR-0002 makes a translated quote not a quote.
-  'drawer.scoredOutOf': 'Match {score} out of 100: {howClose} for the work you said you '
-    + 'want. Confirmed career evidence is assessed separately under Before you apply.',
+  'drawer.scoredOutOf': 'Match {score} out of 100: {howClose} for the work you said you want. Your proof of work is '
+    + 'assessed separately, under "Before you apply".',
   'drawer.closeStrong': 'a strong match',
   'drawer.closeReasonable': 'a reasonable match',
   'drawer.closePartial': 'a partial match',
@@ -2321,9 +2320,9 @@ const EN = {
 
   // WHAT THE ANSWER DOES. One sentence, in the second person, naming the
   // consequence rather than the mechanism.
-  'fieldHelp.work_models': 'Prefer adds a little to a job\\\'s fit and rather avoid takes it away. Never show also '
-    + 'hides those jobs from Find jobs, with one click to see them again. None of this changes where you can be '
-    + 'hired: remote does not mean a company can hire you anywhere.',
+  'fieldHelp.work_models': 'Prefer adds a little to a job\'s fit and rather avoid takes it away. Never show also '
+    + 'hides those jobs from Find jobs, with one click to see them again. None of this changes where an employer '
+    + 'can hire you.',
   'fieldHelp.require_remote': 'Worked out from your answers: on when hybrid and on-site are both never shown.',
   'fieldHelp.contract_preferred':
     'Works for me adds a little to a job\'s fit and rather not takes it away. Many postings do '
@@ -2793,7 +2792,7 @@ const EN = {
   'career.aboutEvidence': 'Examples, and what this is used for',
   'board.empty': 'No applications tracked yet. Save a job or change its status in Find jobs and it appears here.',
   'board.toDiscover': 'Go to Find jobs',
-  'settings.sourceEach': 'Each job source ({n}, {paused} paused): status and refresh timing',
+  'settings.sourceEach': 'Each job site ({n}, {paused} paused): status and when to check',
   // choices.js: one answer per row, shared by the setup and Settings.
   'workModel.REMOTE': 'Remote',
   'workModel.HYBRID': 'Hybrid',
@@ -3384,7 +3383,7 @@ const PT_BR = {
   'career.editImportHelp': 'Para corrigir uma importação não confirmada, abra a revisão da fonte abaixo.',
   'settings.refreshTiming': 'Quando verificar este site',
   'settings.refreshMode.AUTO': 'Seguir meus mercados desejados',
-  'settings.refreshMode.ENABLED': 'Verificar este site',
+  'settings.refreshMode.ENABLED': 'Verificar este site regularmente',
   'settings.refreshMode.PAUSED': 'Pausar verificações',
   'settings.sourcePausedByYou': 'Você pausou as verificações. As vagas já encontradas continuam disponíveis.',
   'settings.refreshAnyway': 'Verificar mesmo assim',
@@ -3431,7 +3430,8 @@ const PT_BR = {
   'settings.sourceDetails': 'Detalhes técnicos das fontes',
   'settings.sourceMarket': 'Mercado: {market}',
   'settings.sourcePaused': 'Pausada porque este mercado está fora dos seus mercados desejados atuais.',
-  'settings.sourceFailure': 'A última atualização falhou. Vagas já coletadas continuam disponíveis em Encontrar vagas.',
+  'settings.sourceFailure': 'A última verificação falhou. As vagas encontradas antes continuam disponíveis em '
+    + 'Encontrar vagas.',
   'settings.sourceUpdated': 'Última verificação bem-sucedida: {date}',
   'career.heading': 'Suas experiências',
   'career.guidance': 'Descreva o que assumiu, construiu ou mudou; as ferramentas, pessoas e o escopo ' +
@@ -3440,9 +3440,8 @@ const PT_BR = {
   'career.example': 'Por exemplo: “Organizei a passagem semanal entre turnos” ou “Criei uma lista ' +
     'compartilhada que ajudou novos colegas a atender solicitações”. Mantenha cada ' +
     'afirmação separada e fiel ao que aconteceu.',
-  'career.boundary': 'As experiências organizam o que você fez. Só evidências confirmadas podem apoiar ' +
-    'Antes de se candidatar e a preparação do currículo. Compatibilidade usa a vaga e ' +
-    'seu modelo de busca.',
+  'career.boundary': 'As experiências organizam o que você fez. Só evidências confirmadas podem apoiar a preparação '
+    + 'das suas candidaturas e do seu currículo. Compatibilidade usa a vaga e seu modelo de busca.',
   'career.new': 'Adicionar experiência',
   'career.inbox': 'Precisa organizar',
   'career.inboxCount': 'Precisa organizar ({count})',
@@ -3738,7 +3737,7 @@ const PT_BR = {
     + 'está confirmada. Isso não altera a compatibilidade, que é separada.',
   'prep.noEvidenceYet': 'Importe seu currículo ou escreva o que você já fez, e esta página '
     + 'começa a responder.',
-  'prep.goToEvidence': 'Suas provas de trabalho',
+  'prep.goToEvidence': 'Provas do meu trabalho',
   'prep.state.MATCHED': 'Evidência confirmada relacionada',
   'prep.state.PARTIAL': 'Ferramenta ou habilidade citada',
   'prep.state.GAP': 'Nenhum apoio confirmado reconhecido',
@@ -3798,8 +3797,8 @@ const PT_BR = {
   'ledger.source.DOCUMENT': 'De um documento',
 
   // -- as evidências -----------------------------------------------------
-  'rail.evidence': 'Suas provas de trabalho',
-  'ledger.title': 'Suas provas de trabalho',
+  'rail.evidence': 'Provas do meu trabalho',
+  'ledger.title': 'Provas do meu trabalho',
   'ledger.close': 'Fechar',
   'ledger.retry': 'Tentar de novo',
   'ledger.heading': 'Suas provas',
@@ -4535,12 +4534,12 @@ const PT_BR = {
   'sources.state.RUNNING': 'Verificando agora',
   'sources.state.PARTIAL': 'Verificado em parte',
   'sources.state.COMPLETE': 'Verificado',
-  'sources.state.PAUSED': 'Pausada',
+  'sources.state.PAUSED': 'Pausado',
   'sources.state.FAILED': 'Última verificação falhou',
   'sources.state.BLOCKED': 'Indisponível no momento',
-  'sources.state.STALE': 'Desatualizada',
+  'sources.state.STALE': 'Desatualizado',
   'sources.state.DUE': 'Hora de verificar',
-  'sources.state.RATE_LIMITED': 'Recusada pelo site',
+  'sources.state.RATE_LIMITED': 'Recusado pelo site',
   'sources.healthTitle': 'Como estão seus sites de vagas',
   'sources.healthSummary': '{due} precisam de verificação, {attention} precisam de atenção. Verificar é com você: '
     + 'nada roda sozinho.',
@@ -4885,7 +4884,7 @@ const PT_BR = {
   'home.gap.work': 'Nenhuma expressão descreve o trabalho que você quer, então não há o que '
     + 'um anúncio corresponder.',
   'home.openProfile': 'Abrir seu perfil',
-  'home.openEvidence': 'Adicionar provas do seu trabalho',
+  'home.openEvidence': 'Adicionar provas do meu trabalho',
   'home.tip.title': 'Primeira vez aqui? Veja como funciona',
   'home.tip.1.title': 'Nós procuramos vagas',
   'home.tip.1.body': 'Quando você pede, olhamos os sites de vagas e ordenamos as vagas pelo quanto combinam com '
@@ -5114,8 +5113,8 @@ const PT_BR = {
   // writes about a posting. What is NOT here: the description, the title,
   // the company name and every evidence quote -- those are the employer's
   // words and ADR-0002 makes a translated quote not a quote.
-  'drawer.scoredOutOf': 'Compatibilidade: {score}/100, {howClose} para o trabalho que você '
-    + 'disse querer. As evidências de carreira são avaliadas separadamente em Evidências / Preparação.',
+  'drawer.scoredOutOf': 'Compatibilidade: {score}/100, {howClose} para o trabalho que você disse querer. As suas '
+    + 'provas de trabalho são avaliadas separadamente, em "Antes de se candidatar".',
   'drawer.closeStrong': 'uma compatibilidade alta',
   'drawer.closeReasonable': 'uma compatibilidade razoável',
   'drawer.closePartial': 'uma compatibilidade parcial',
@@ -5944,7 +5943,7 @@ const PT_BR = {
   'board.empty': 'Nenhuma candidatura acompanhada ainda. Salve uma vaga ou mude o status dela em Encontrar vagas e ela '
     + 'aparece aqui.',
   'board.toDiscover': 'Ir para Encontrar vagas',
-  'settings.sourceEach': 'Cada fonte de vagas ({n}, {paused} pausadas): situação e frequência de atualização',
+  'settings.sourceEach': 'Cada site de vagas ({n}, {paused} pausados): situação e quando verificar',
   'workModel.REMOTE': 'Remoto',
   'workModel.HYBRID': 'Híbrido',
   'workModel.ONSITE': 'Presencial',

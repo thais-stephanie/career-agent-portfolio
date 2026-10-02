@@ -475,7 +475,7 @@ def test_the_drawer_explains_the_number_with_quotes_gates_and_gaps(
     # The plain-language answer comes FIRST, before any number is broken down.
     summary = str(page.evaluate("document.querySelector('.why__summary').textContent"))
     assert "out of 100" in summary and "Match" in summary, summary
-    assert "Evidence / Readiness" in summary, summary
+    assert "Before you apply" in summary, summary
     assert int(page.evaluate("document.querySelectorAll('.reason .quote').length")) >= 1, (
         "no reason carried a quote from the posting"
     )
@@ -2540,7 +2540,7 @@ def test_the_table_shows_numbers_not_bars(page: Chrome, server: str) -> None:
     # alone used to say Confidence, which was a third vocabulary for two
     # numbers; and "Detail 77%" beside "Match 80%" reads as a second grade for
     # the job when it is not a grade at all. It is how much the POSTING said.
-    assert "Match" in headers and "Posting completeness" in headers, headers
+    assert "Match" in headers and "Ad detail" in headers, headers
     assert "Confidence" not in headers, "the table still calls the second number Confidence"
     assert "Fit" not in headers.split("|") and "Read" not in headers.split("|"), (
         "the table still uses the old Fit/Read vocabulary"

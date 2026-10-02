@@ -456,7 +456,7 @@ def test_settling_it_confirms_nothing(page: Chrome, package_server: str) -> None
         "document.querySelector('#page-manage .ev__sidechosen') !== null",
         message="the resolution",
     )
-    click_text(page, "Back to your evidence")
+    click_text(page, "Back to your proof")
     page.wait_for(
         "document.querySelector('#page-manage .ev__privacy') !== null",
         message="the evidence page",
@@ -501,7 +501,7 @@ def test_confirming_one_claim_creates_exactly_one(page: Chrome, package_server: 
         "document.querySelector('#page-manage .ev__sides') !== null",
         message="the overview",
     )
-    click_text(page, "Back to your evidence")
+    click_text(page, "Back to your proof")
     page.wait_for(
         "document.querySelector('#page-manage .evgroup') !== null",
         message="the ledger",
@@ -639,7 +639,7 @@ def test_a_requirement_leads_to_what_is_waiting_about_it(
     page.evaluate(
         "[...document.querySelectorAll("
         "  '#drawer-panel-prepare .prep__row .prep__prompt button')]"
-        ".find((b) => b.textContent.includes('Your career evidence')).click()"
+        ".find((b) => b.textContent.includes('Proof of my work')).click()"
     )
 
     # Evidence, with the add drawer open and the requirement named in it. Never
@@ -757,4 +757,4 @@ def test_the_way_back_to_the_groups_and_the_packages_is_on_the_screen(
     # The GROUPS are still there, under it. A guided path that replaced the
     # rest of the review would be a cage rather than a path.
     assert CONTOSO in body, "the employer groups left the overview"
-    assert "Back to your evidence" in " | ".join(texts(page, "button"))
+    assert "Back to your proof" in " | ".join(texts(page, "button"))

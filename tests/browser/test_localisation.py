@@ -190,7 +190,7 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
         message="the Settings page",
     )
     heads = texts(page, "#page-settings .settings__head")
-    assert "Preferências de busca" in heads, heads
+    assert "Ajuste seus resultados" in heads, heads
     assert "De onde elas vêm" in heads, heads
     assert texts(page, "#pagehead-title") == ["Configurações"]
 

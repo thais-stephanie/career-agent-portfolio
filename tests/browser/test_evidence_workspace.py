@@ -191,7 +191,7 @@ def back_to_ledger(page: Chrome) -> None:
     to_summary(page)
     page.evaluate(
         "[...document.querySelectorAll('#page-manage button')]"
-        ".find((b) => b.textContent.includes('Back to your evidence')).click()"
+        ".find((b) => b.textContent.includes('Back to your proof')).click()"
     )
     # Waits on the INTAKE section, which is drawn whenever the review is not.
     # `.ev__ledger` would have been the obvious thing to wait for and is wrong:

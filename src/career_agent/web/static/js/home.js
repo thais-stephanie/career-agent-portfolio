@@ -253,10 +253,7 @@ export function createHome({
   function newBanner(payload) {
     const metric = (payload.metrics || []).find((entry) => entry.key === 'new');
     const count = metric ? metric.value : null;
-    // Each local profile has its own database, so a run id repeats across
-    // profiles: the profile is part of what was hidden.
-    const run = payload.latest_refresh_run
-      ? `${api.getLocalProfile() || 'default'}:${payload.latest_refresh_run}` : null;
+    const run = payload.latest_refresh_run ? String(payload.latest_refresh_run) : null;
     if (!count || !run || stored(SEEN_KEY) === run) return null;
     return el('section', { className: 'home__new', attrs: { 'aria-labelledby': 'home-new-head' } }, [
       el('div', { className: 'home__newtext' }, [

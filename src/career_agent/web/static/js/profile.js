@@ -329,9 +329,10 @@ function overviewPanel(roles, skills, confirmed) {
   // Teem LLC -- and seven groups name no employer at all. Nothing here merges
   // two names into one company, so nothing here may count as though it had.
   // A confirmed statement is a thing that exists and can be counted.
+  const unique = uniqueSkills(skills);
   const counts = el('ul', { className: 'profile__metrics' }, [
     work.length ? countCard('work', work.length, 'profile.countWork') : null,
-    skills.length ? countCard('skills', uniqueSkills(skills).length, 'profile.countSkills') : null,
+    skills.length ? countCard('skills', unique.length, 'profile.countSkills') : null,
     quals.length ? countCard('quals', quals.length, 'profile.countQuals') : null,
   ].filter(Boolean));
 
@@ -349,7 +350,6 @@ function overviewPanel(roles, skills, confirmed) {
   }
 
   if (skills.length) {
-    const unique = uniqueSkills(skills);
     const shown = unique.slice(0, SKILL_GLANCE);
     out.push(el('section', { className: 'card card--static profile__glance' }, [
       el('h3', { className: 'profile__heading', text: t('profile.yourSkills') }),
