@@ -221,7 +221,8 @@ export function renderColumnsMenu(host, onChange) {
       saveVisible(visible);
       onChange(visible);
       renderColumnsMenu(host, onChange);
-      const again = host.querySelector(`[data-column="${column.id}"] .colrow__switch`);
+      const again = [...host.querySelectorAll('.colrow')]
+        .find((node) => node.dataset.column === column.id)?.querySelector('.colrow__switch');
       if (again) again.focus();
     }, {
       className: 'colrow__switch',

@@ -9898,19 +9898,24 @@ body.has-filters { overflow: hidden; }
   outline: 2px solid transparent; outline-offset: -2px;
   transition: background 150ms ease;
 }
-.kanban .kcol.is-over { background: var(--tip-bg); outline: 2px dashed var(--kcol-color, var(--line-strong)); }
-.kcol--shortlisted { --kcol-color: var(--purple); }
-.kcol--applied { --kcol-color: var(--blue-bar); }
-.kcol--interview { --kcol-color: var(--yellow-bar); }
-.kcol--offer { --kcol-color: var(--green-bar); }
-.kcol--closed { --kcol-color: var(--faint); }
+.kanban .kcol.is-over { background: var(--tip-bg); outline: 2px dashed var(--line-strong); }
+.kcol--shortlisted .kcol__bar { background: var(--purple); }
+.kanban .kcol--shortlisted.is-over { outline-color: var(--purple); }
+.kcol--applied .kcol__bar { background: var(--blue-bar); }
+.kanban .kcol--applied.is-over { outline-color: var(--blue-bar); }
+.kcol--interview .kcol__bar { background: var(--yellow-bar); }
+.kanban .kcol--interview.is-over { outline-color: var(--yellow-bar); }
+.kcol--offer .kcol__bar { background: var(--green-bar); }
+.kanban .kcol--offer.is-over { outline-color: var(--green-bar); }
+.kcol--closed .kcol__bar { background: var(--faint); }
+.kanban .kcol--closed.is-over { outline-color: var(--faint); }
 .kanban .kcol__head {
   display: flex; flex-direction: column; gap: 6px;
   margin: 0; padding: 2px 4px 6px;
   border: 0; background: transparent;
 }
 .kanban .kcol__head, .kanban .kcol__help { text-align: left; font-weight: 400; }
-.kcol__bar { align-self: flex-start; width: 28px; height: 3px; border-radius: 2px; background: var(--kcol-color); }
+.kcol__bar { align-self: flex-start; width: 28px; height: 3px; border-radius: 2px; }
 .kcol__titlerow { display: flex; align-items: center; gap: 8px; }
 .kanban .kcol__title { text-align: left; flex: 1; margin: 0; font-family: var(--sans); font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink); }
 .kanban .kcol__count { font-size: 12px; font-weight: 600; color: var(--muted); background: transparent; border: 0; padding: 0; }
