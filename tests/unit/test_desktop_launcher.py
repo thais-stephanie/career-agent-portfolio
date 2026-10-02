@@ -36,7 +36,7 @@ def desktop(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
     module = _load("desktop")
     shown: list[str] = []
     opened: list[str] = []
-    monkeypatch.setattr(module, "message", shown.append)
+    monkeypatch.setattr(module, "message", lambda text, icon=0x10: shown.append(text))
     monkeypatch.setattr(module, "open_window", lambda: opened.append("window") or True)
     module.shown, module.opened = shown, opened
     return module
@@ -204,3 +204,9 @@ def test_quit_is_refused_only_while_work_is_running(
 ) -> None:
     for _ in _serve(desktop, monkeypatch, status, {}):
         assert desktop.quit_server() is accepted
+
+
+@pytest.mark.parametrize("found", ["busy", None])
+def test_still_starting_or_busy_is_never_called_another_program(desktop, found: object) -> None:
+    assert desktop.show(found) == 1
+    assert desktop.shown == [desktop.STARTING] and not desktop.opened

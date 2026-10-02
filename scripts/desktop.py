@@ -75,6 +75,10 @@ SLOW = (
     "Career Agent is taking longer than usual to start, for example after an update. "
     "Its window opens by itself when it is ready."
 )
+STARTING = (
+    "Career Agent is still starting, or is busy. Try the shortcut again in a minute; "
+    "if it is already open, its window is on the taskbar."
+)
 INCOMPLETE = (
     "Career Agent's setup is not finished. Double-click Start-Career-Agent.cmd in "
     "the Career Agent folder to finish it."
@@ -219,8 +223,11 @@ def show(found: dict[str, Any] | str | None) -> int:
         return 0
     if isinstance(found, dict):
         message(OTHER_MODE)
+    elif found == "other":
+        message(PORT_BUSY)
     else:
-        message(PORT_BUSY if found else FAILED)
+        # Still starting (another click is starting it) or too busy to answer.
+        message(STARTING, 0x40)
     return 1
 
 
