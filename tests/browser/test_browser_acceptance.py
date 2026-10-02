@@ -2073,7 +2073,9 @@ def test_a_blocked_source_shows_the_reason_and_gupy_does_not_claim_to_work(
     # must NOT read as working. The catalogue declares `PARTIAL`; `resolve`
     # downgrades it here because the demo database proves nothing.
     lowered = gupy_row.lower()
-    assert "not run yet" in lowered or "nothing from it yet" in lowered, (
+    # Since 2026-10-02 the catalogue also knows Gupy's feed stopped serving,
+    # so "unavailable" is an honest answer too; "working" still is not.
+    assert any(said in lowered for said in ("not run yet", "nothing from it yet", "unavailable")), (
         "Gupy claims to be working over a corpus that holds none of its postings: " + gupy_row
     )
     for working in ("collecting", "operational", "in your list"):
