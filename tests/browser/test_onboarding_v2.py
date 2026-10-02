@@ -71,7 +71,7 @@ class Install:
             return original(method, path, query, body)
 
         self.app.handle_api = logged  # type: ignore[method-assign]
-        self.app._collect_work = lambda limit, provider=None: lambda state, cancel: None  # type: ignore[method-assign]
+        self.app._collect_work = lambda *, provider: lambda state, cancel: None  # type: ignore[method-assign]
         self.app.rescore.start = lambda work, run_id: None  # type: ignore[method-assign]
         self.httpd = build_server(self.app)
         self.httpd.handle_error = lambda request, client_address: None  # type: ignore[attr-defined]

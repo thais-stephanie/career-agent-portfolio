@@ -287,7 +287,6 @@ const EN = {
 
   // -- the rail ----------------------------------------------------------
   'rail.filters': 'Filters',
-  'rail.retrieve': 'Retrieve jobs',
   'rail.profile': 'Your career profile',
   'rail.preferences': 'Search preferences',
   'rail.sources': 'Where these come from',
@@ -1310,7 +1309,6 @@ const EN = {
     + 'still stored from an earlier version of them. Nothing was lost: the question '
     + 'changed. Recalculate to bring them up to date.',
   'retrieval.bySource': 'By source',
-  'retrieval.boardsHelp': 'Company job boards that answered, out of the ones we asked.',
   'sources.loading': 'Reading the catalogue...',
   // The source table's columns. Only fields the server actually sends:
   // there is no Enabled column because there is no per-source switch, and
@@ -1338,7 +1336,7 @@ const EN = {
   'sources.state.NOT_STARTED': 'Never run',
   'sources.state.QUEUED': 'Waiting to start',
   'sources.state.RUNNING': 'Updating',
-  'sources.state.PARTIAL': 'Partially refreshed',
+  'sources.state.PARTIAL': 'Refreshed, in part',
   'sources.state.COMPLETE': 'Refresh complete',
   'sources.state.PAUSED': 'Paused',
   'sources.state.FAILED': 'Last refresh failed',
@@ -1354,16 +1352,34 @@ const EN = {
   'sources.healthLastSuccess': 'Last success',
   'sources.healthStatus': 'Status',
   'sources.refreshDue': 'Refresh due sources',
+  'sources.refreshAll': 'Refresh all available sources',
   'sources.refreshDueStarting': 'Checking which sources are due...',
   'sources.refreshDueStarted': 'Refreshing {n} due sources. Progress is shown at the top.',
+  'sources.refreshAllStarted': 'Refreshing all {n} available sources. Progress is shown at the top.',
+  'sources.refreshHelp': 'Refresh due sources is the normal one, and what Find jobs does: only sources not '
+    + 'refreshed in the last day. Refresh all available sources also reads the ones refreshed recently. Neither '
+    + 'wakes a paused source or asks a site that refused before its wait is over.',
+  'sources.popIntegrated': '{n} integrated sources',
+  'sources.popExperimental': '{n} experimental enabled',
+  'sources.popAvailable': '{n} available to refresh now',
+  'sources.popDue': '{n} due now',
+  'sources.boardsRefreshed': '{ok} of {total} employer boards refreshed, {failed} failed; what was read is kept.',
+  'sources.coverageHeld': 'Holds {held} of the {total} jobs this source lists.',
+  'sources.coverageReachable': 'Its interface serves at most {n}.',
+  'sources.coverageThisRun': 'Read {n} in the last refresh.',
   'sources.nothingDue': 'Nothing is due right now. Every source was refreshed recently.',
   'sources.alreadyRunning': 'Career Agent is already looking for jobs. Progress is shown at the top.',
   'sources.coolingDown': 'The site refused or failed; asked again after {date}.',
   'sources.experimentalTag': 'Experimental',
   'sources.staleHelp': 'The last successful refresh is more than three days old. Refresh it to see current jobs.',
-  'sources.reason.PAGE_LIMIT': 'Stopped at this source\'s page limit, by design: it holds more than one refresh reads.',
-  'sources.reason.SOURCE_CEILING': 'The source serves no more than this through its public access.',
-  'sources.reason.REQUEST_BUDGET': 'Stopped at this refresh\'s request budget; the next refresh continues.',
+  'sources.reason.PAGE_LIMIT': 'Reads only its first pages each refresh, by design; the source holds more than '
+    + 'that.',
+  'sources.reason.PROGRESSIVE': 'Reads one batch each refresh, by design; the next refresh continues where this one '
+    + 'stopped.',
+  'sources.reason.SOURCE_CEILING': 'The source serves no more than this through its public access; another refresh '
+    + 'will not reach the rest.',
+  'sources.reason.REQUEST_BUDGET': 'Stopped at this refresh\'s request budget; the next refresh continues with what '
+    + 'is left.',
   'sources.reason.SOME_FAILED': 'Some requests failed this time; what was read is kept.',
   'sources.reason.BOARDS_DEFERRED': 'Some employer boards were left for the next refresh.',
   'sources.notMeasured': 'not measured',
@@ -1597,9 +1613,9 @@ const EN = {
   'rail.hide': 'Hide filters',
   'rail.show': 'Show filters',
   'home.title': 'Where your search stands',
-  'home.since': 'Since you last marked the list read, on {when}.',
-  'home.neverReviewed': 'You have not marked the list read yet, so the two counts about what '
-    + 'changed are waiting for a first checkpoint.',
+  'home.since': 'Since you last marked the list read, on {when}. Mark it read again from Today.',
+  'home.neverReviewed': 'You have not marked the list read yet. Today has the button; until then, nothing is '
+    + 'counted as since you last looked.',
   'home.metric.new': 'New',
   'home.metric.saved': 'Saved',
   'home.metric.applied': 'Applied',
@@ -1608,7 +1624,9 @@ const EN = {
   'home.metric.progressed': 'Progressed',
   'home.metric.tracking': 'Tracking',
   'home.kind.now': 'right now',
-  'home.kind.event': 'since you last looked',
+  'home.kind.event': 'since you last marked the list read',
+  'home.kind.refresh': 'from your latest refresh',
+  'home.kind.noRefresh': 'no refresh completed yet',
   'home.metricOpen': 'Show {label} in the job list',
   'home.nothing': 'Nothing here today.',
   'home.complete': 'Finish your Career Profile',
@@ -1693,7 +1711,9 @@ const EN = {
   // these -- an error a third party returned, a reason the catalogue wrote
   // -- are quoted as they came and never translated.
   'retrieval.lastLooked': 'Last checked {when}',
-  'retrieval.runningBoards': 'Running; {done} of {total} boards',
+  'retrieval.runningBoards': 'Running; {done} of {total} sources',
+  'retrieval.detailHead': 'Last refresh, in detail',
+  'retrieval.newJobs': '{n} new',
   'retrieval.failedWith': 'Failed: {error}',
   'retrieval.unknownError': 'unknown error',
   'sources.reachOne': 'reaches {boards} employer boards; {producing} of them have returned a '
@@ -2531,8 +2551,12 @@ const EN = {
   'setup.ready.find': 'Find jobs now',
   'setup.ready.starting': 'Starting…',
   'setup.ready.finding': 'Finding jobs…',
-  'setup.ready.progress': 'Checked {done} of {total} job sources',
-  'setup.ready.progressLabel': 'Job sources checked',
+  'setup.ready.progress': 'Checking sources: {done} of {total} finished in this refresh',
+  'setup.ready.progressLabel': 'Sources finished in this refresh',
+  'setup.ready.nothingDue': 'Every available source was refreshed in the last day, so none is due yet. Your jobs '
+    + 'are as fresh as their sources.',
+  'setup.ready.coolingDown': '{n} sources are waiting after a refusal or a failure; they are tried again when the '
+    + 'wait is over.',
   'setup.ready.keepUsing': 'You can keep using Career Agent while this runs.',
   'setup.ready.stop': 'Stop',
   'setup.ready.findAgain': 'Look again',
@@ -2677,17 +2701,21 @@ const EN = {
   'profileRow.workModelsExcluded': 'Ways of working never shown in Discover',
   // Finding jobs: one drawing for every screen that shows a run.
   'collect.now': 'Now reading {source} ({time})',
+  'collect.nowBoards': 'Now reading {source}: {done} of {total} employer boards ({time})',
   'collect.elapsed': '{time} so far',
-  'collect.deferred': '{n} sources skipped: paused, or not for the places you can work',
+  'collect.deferred': '{n} sources are not being refreshed in this run',
   'collect.slow': 'Some sources take a few minutes to read. It is still working.',
   'collect.noEta': 'No time left is shown: each source takes a different amount of time, so an estimate '
     + 'would be a guess.',
-  'collect.scoring': 'Scoring the jobs that came in: {done} of {total}',
-  'collect.scoringStart': 'Scoring the jobs that came in…',
+  'collect.scoring': 'Scoring new and changed jobs: {done} of {total}',
+  'collect.scoringStart': 'Scoring new and changed jobs…',
   'collect.scoringLabel': 'Jobs scored',
-  'collect.took': 'Reading the sources took {time}.',
+  'collect.took': 'Reading sources finished in {time}.',
   'collect.stopping': 'Stopping after this source…',
-  'collect.finished': 'Done: {ok} of {total} sources answered, in {time}.',
+  'collect.finished': 'Done: {ok} of {total} sources refreshed in {time}.',
+  'collect.newJobs': '{n} new jobs.',
+  'collect.notRefreshed': '{n} sources could not be refreshed now ({names}); their jobs come from earlier refreshes '
+    + 'and keep their real dates.',
   'collect.lastRun': 'Finding jobs',
   'collect.show': 'Show progress',
   'collect.dismiss': 'Dismiss',
@@ -3431,7 +3459,6 @@ const PT_BR = {
   'direction.asc': 'Menor primeiro',
 
   'rail.filters': 'Filtros',
-  'rail.retrieve': 'Buscar vagas',
   'rail.profile': 'Seu perfil',
   'rail.preferences': 'Preferências de busca',
   'rail.sources': 'De onde elas vêm',
@@ -4345,7 +4372,6 @@ const PT_BR = {
     + 'pontuações continuam guardadas de uma versão anterior delas. Nada '
     + 'foi perdido: a pergunta mudou. Recalcule para atualizá-las.',
   'retrieval.bySource': 'Por fonte',
-  'retrieval.boardsHelp': 'Quadros de vagas de empresas que responderam, dos que perguntamos.',
   'sources.loading': 'Lendo o catálogo...',
   'sources.colSource': 'Fonte',
   'sources.colStatus': 'Situação',
@@ -4364,7 +4390,7 @@ const PT_BR = {
   'sources.state.NOT_STARTED': 'Nunca rodou',
   'sources.state.QUEUED': 'Esperando para comecar',
   'sources.state.RUNNING': 'Atualizando agora',
-  'sources.state.PARTIAL': 'Atualizada parcialmente',
+  'sources.state.PARTIAL': 'Atualizada, em parte',
   'sources.state.COMPLETE': 'Atualização concluída',
   'sources.state.PAUSED': 'Pausada',
   'sources.state.FAILED': 'Última atualização falhou',
@@ -4379,17 +4405,35 @@ const PT_BR = {
   'sources.healthLastSuccess': 'Último sucesso',
   'sources.healthStatus': 'Status',
   'sources.refreshDue': 'Atualizar fontes pendentes',
+  'sources.refreshAll': 'Atualizar todas as fontes disponíveis',
   'sources.refreshDueStarting': 'Verificando quais fontes estão pendentes...',
   'sources.refreshDueStarted': 'Atualizando {n} fontes pendentes. O progresso aparece no topo.',
+  'sources.refreshAllStarted': 'Atualizando todas as {n} fontes disponíveis. O progresso aparece no topo.',
+  'sources.refreshHelp': 'Atualizar fontes pendentes é o normal, e é o que Encontrar vagas faz: só as fontes não '
+    + 'atualizadas no último dia. Atualizar todas as fontes disponíveis lê também as atualizadas há pouco. Nenhum '
+    + 'dos dois acorda uma fonte pausada nem pergunta de novo a um site que recusou antes do fim da espera.',
+  'sources.popIntegrated': '{n} fontes integradas',
+  'sources.popExperimental': '{n} experimental ligada',
+  'sources.popAvailable': '{n} disponíveis para atualizar agora',
+  'sources.popDue': '{n} pendentes agora',
+  'sources.boardsRefreshed': '{ok} de {total} páginas de empregadores atualizadas, {failed} falharam; o que foi '
+    + 'lido está guardado.',
+  'sources.coverageHeld': 'Guarda {held} das {total} vagas que esta fonte lista.',
+  'sources.coverageReachable': 'A interface dela serve no máximo {n}.',
+  'sources.coverageThisRun': 'Leu {n} na última atualização.',
   'sources.nothingDue': 'Nada pendente agora. Todas as fontes foram atualizadas recentemente.',
   'sources.alreadyRunning': 'O Career Agent já está buscando vagas. O progresso aparece no topo.',
   'sources.coolingDown': 'O site recusou ou falhou; será consultado de novo depois de {date}.',
   'sources.experimentalTag': 'Experimental',
   'sources.staleHelp': 'A última atualização bem-sucedida tem mais de três dias. Atualize para ver vagas atuais.',
-  'sources.reason.PAGE_LIMIT':
-    'Parou no limite de páginas desta fonte, de propósito: ela tem mais do que uma atualização lê.',
-  'sources.reason.SOURCE_CEILING': 'A fonte não serve mais do que isso pelo acesso público.',
-  'sources.reason.REQUEST_BUDGET': 'Parou no limite de requisições desta atualização; a próxima continua.',
+  'sources.reason.PAGE_LIMIT': 'Lê só as primeiras páginas a cada atualização, de propósito; a fonte tem mais do '
+    + 'que isso.',
+  'sources.reason.PROGRESSIVE': 'Lê um lote a cada atualização, de propósito; a próxima continua de onde esta '
+    + 'parou.',
+  'sources.reason.SOURCE_CEILING': 'A fonte não serve mais do que isso pelo acesso público; outra atualização não '
+    + 'alcança o resto.',
+  'sources.reason.REQUEST_BUDGET': 'Parou no limite de requisições desta atualização; a próxima continua com o que '
+    + 'falta.',
   'sources.reason.SOME_FAILED': 'Algumas requisições falharam desta vez; o que foi lido está guardado.',
   'sources.reason.BOARDS_DEFERRED': 'Algumas páginas de empregadores ficaram para a próxima atualização.',
   'sources.notMeasured': 'nao medido',
@@ -4618,9 +4662,9 @@ const PT_BR = {
   'rail.hide': 'Esconder filtros',
   'rail.show': 'Mostrar filtros',
   'home.title': 'Como está sua busca',
-  'home.since': 'Desde que você marcou a lista como lida, em {when}.',
-  'home.neverReviewed': 'Você ainda não marcou a lista como lida, então as duas contagens sobre o '
-    + 'que mudou estão esperando um primeiro marco.',
+  'home.since': 'Desde que você marcou a lista como lida, em {when}. Marque de novo em Hoje.',
+  'home.neverReviewed': 'Você ainda não marcou a lista como lida. O botão fica em Hoje; até lá, nada é contado como '
+    + 'desde a última vez.',
   'home.metric.new': 'Novas',
   'home.metric.saved': 'Salvas',
   'home.metric.applied': 'Candidaturas',
@@ -4629,7 +4673,9 @@ const PT_BR = {
   'home.metric.progressed': 'Avançaram',
   'home.metric.tracking': 'Acompanhando',
   'home.kind.now': 'agora',
-  'home.kind.event': 'desde a última vez',
+  'home.kind.event': 'desde que você marcou a lista como lida',
+  'home.kind.refresh': 'na sua última atualização',
+  'home.kind.noRefresh': 'nenhuma atualização concluída ainda',
   'home.metricOpen': 'Mostrar {label} na lista de vagas',
   'home.nothing': 'Nada aqui hoje.',
   'home.complete': 'Complete seu perfil de carreira',
@@ -4714,7 +4760,9 @@ const PT_BR = {
   // these -- an error a third party returned, a reason the catalogue wrote
   // -- are quoted as they came and never translated.
   'retrieval.lastLooked': 'Última verificação em {when}',
-  'retrieval.runningBoards': 'Em andamento; {done} de {total} quadros',
+  'retrieval.runningBoards': 'Em andamento; {done} de {total} fontes',
+  'retrieval.detailHead': 'A última atualização, em detalhe',
+  'retrieval.newJobs': '{n} novas',
   'retrieval.failedWith': 'Falhou: {error}',
   'retrieval.unknownError': 'erro desconhecido',
   'sources.reachOne': 'alcança {boards} quadros de empregadores; {producing} deles já '
@@ -5528,8 +5576,12 @@ const PT_BR = {
   'setup.ready.find': 'Encontrar vagas agora',
   'setup.ready.starting': 'Começando…',
   'setup.ready.finding': 'Encontrando vagas…',
-  'setup.ready.progress': '{done} de {total} fontes de vagas consultadas',
-  'setup.ready.progressLabel': 'Fontes de vagas consultadas',
+  'setup.ready.progress': 'Consultando fontes: {done} de {total} concluídas nesta atualização',
+  'setup.ready.progressLabel': 'Fontes concluídas nesta atualização',
+  'setup.ready.nothingDue': 'Todas as fontes disponíveis foram atualizadas no último dia, então nenhuma está '
+    + 'pendente. Suas vagas estão tão atuais quanto as fontes.',
+  'setup.ready.coolingDown': '{n} fontes estão esperando depois de uma recusa ou falha; elas são tentadas de novo '
+    + 'quando a espera acabar.',
   'setup.ready.keepUsing': 'Você pode continuar usando o Career Agent enquanto isso roda.',
   'setup.ready.stop': 'Parar',
   'setup.ready.findAgain': 'Procurar de novo',
@@ -5676,17 +5728,21 @@ const PT_BR = {
   'profileRow.workModelsAvoided': 'Formatos de trabalho que você prefere evitar',
   'profileRow.workModelsExcluded': 'Formatos de trabalho que nunca aparecem em Descobrir',
   'collect.now': 'Lendo agora {source} ({time})',
+  'collect.nowBoards': 'Lendo agora {source}: {done} de {total} páginas de empregadores ({time})',
   'collect.elapsed': '{time} até agora',
-  'collect.deferred': '{n} fontes puladas: pausadas, ou fora dos lugares onde você pode trabalhar',
+  'collect.deferred': '{n} fontes não estão sendo atualizadas nesta execução',
   'collect.slow': 'Algumas fontes levam alguns minutos para ler. Continua funcionando.',
   'collect.noEta': 'O tempo restante não aparece: cada fonte leva um tempo diferente, então uma estimativa '
     + 'seria um palpite.',
-  'collect.scoring': 'Avaliando as vagas que chegaram: {done} de {total}',
-  'collect.scoringStart': 'Avaliando as vagas que chegaram…',
+  'collect.scoring': 'Avaliando vagas novas e alteradas: {done} de {total}',
+  'collect.scoringStart': 'Avaliando vagas novas e alteradas…',
   'collect.scoringLabel': 'Vagas avaliadas',
-  'collect.took': 'A leitura das fontes levou {time}.',
+  'collect.took': 'A leitura das fontes terminou em {time}.',
   'collect.stopping': 'Parando depois desta fonte…',
-  'collect.finished': 'Pronto: {ok} de {total} fontes responderam, em {time}.',
+  'collect.finished': 'Pronto: {ok} de {total} fontes atualizadas em {time}.',
+  'collect.newJobs': '{n} vagas novas.',
+  'collect.notRefreshed': '{n} fontes não puderam ser atualizadas agora ({names}); as vagas delas vêm de '
+    + 'atualizações anteriores e mantêm as datas reais.',
   'collect.lastRun': 'Busca de vagas',
   'collect.show': 'Ver progresso',
   'collect.dismiss': 'Dispensar',

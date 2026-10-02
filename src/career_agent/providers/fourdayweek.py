@@ -69,9 +69,14 @@ ATTRIBUTION = "4 Day Week"
 
 #: The documented ceiling per page. Above it the API clamps; this never asks.
 PER_PAGE = 100
-#: Pages per run unless told otherwise: 5,000 rows, a fifth of the feed, at
-#: roughly a request a second under the 60-a-minute limit.
-DEFAULT_MAX_PAGES = 50
+#: Pages per run unless told otherwise: enough for the WHOLE feed, which ends
+#: the walk itself (`has_more` false) well before this bound. Measured
+#: 2026-10-02: 25,508 listings, 50 pages in 69 s including the writes, so the
+#: whole feed is about 256 requests and five to seven minutes at 1.1 s between
+#: requests, under the documented 60 a minute. Full text arrives in the list,
+#: so a page is the only request. The bound stays so a feed that grew tenfold
+#: could not turn one refresh into an hour of requests.
+DEFAULT_MAX_PAGES = 300
 
 COMPENSATION_PERIODS: dict[str, str] = {"year": "YEAR", "month": "MONTH", "hour": "HOUR"}
 EMPLOYMENT_TYPES: dict[str, str] = {

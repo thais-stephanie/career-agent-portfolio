@@ -393,15 +393,21 @@ class ProgramathorProvider(JobProvider):
 
     # -- reading -----------------------------------------------------------
 
-    def read_listing(self, *, use_cache: bool = True) -> ListingRead:
-        """Walk the listing to its end or to the page budget."""
+    def read_listing(
+        self, *, use_cache: bool = True, first_page: int = 1, max_pages: int | None = None
+    ) -> ListingRead:
+        """Walk the listing to its end or to the page budget.
+
+        `first_page` starts further down, for a refresh that continues where
+        the last one stopped; `max_pages` then bounds that stretch."""
 
         def read_page(page: int) -> FeedPage:
             url = self.listing_url(page)
             html = self._fetcher.get_text(url, use_cache=use_cache)
             return FeedPage(url=url, entries=job_paths(html), page=page)
 
-        walk = walk_feed(scope="jobs", read_page=read_page, budget=self._budget, first_page=1)
+        budget = self._budget if max_pages is None else PageBudget.resolve(PER_PAGE, max_pages)
+        walk = walk_feed(scope="jobs", read_page=read_page, budget=budget, first_page=first_page)
         # First sighting wins. The listing repeats a promoted posting across
         # pages, and a walk that kept both would fetch the same advert twice.
         seen: dict[str, None] = {}

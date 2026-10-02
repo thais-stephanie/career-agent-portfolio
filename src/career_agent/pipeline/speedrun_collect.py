@@ -80,6 +80,7 @@ from career_agent.providers.registry import (
     identify_posting_url,
 )
 from career_agent.providers.speedrun import (
+    MAX_PAGE,
     SpeedrunProvider,
     origin_kind,
     origin_url,
@@ -154,6 +155,17 @@ class SpeedrunStats:
     #: separate field from `stopped_early`, because a bound we chose and a
     #: truncation we did not are different outcomes.
     truncated: bool = False
+    #: THE WINDOW FURTHER DOWN THE FEED. The first pages are read every time,
+    #: for what is new; this window continues from where the last refresh
+    #: stopped, one page of overlap included, and starts a new lap at the API's
+    #: own ceiling. `resume_page` is where the next refresh's window begins.
+    window_first_page: int | None = None
+    window_pages_read: int = 0
+    resume_page: int | None = None
+    continues: bool = False
+    window_error: str | None = None
+    #: Postings this feed already holds, met in the window and not fetched.
+    postings_known: int = 0
     elapsed_ms: int = 0
     failures: list[str] = field(default_factory=list)
     http: dict[str, Any] = field(default_factory=dict)
@@ -189,11 +201,26 @@ class SpeedrunStats:
             "beyond_reach": self.beyond_reach,
             "stopped_early": self.stopped_early,
             "truncated": self.truncated,
+            "window_first_page": self.window_first_page,
+            "window_pages_read": self.window_pages_read,
+            # Only when a window was read, so a failed run keeps the place.
+            **({f"resume_page_{self.scope}": self.resume_page} if self.continues else {}),
+            "continues": self.continues,
+            "window_error": self.window_error,
+            "postings_known": self.postings_known,
             "elapsed_ms": self.elapsed_ms,
             "failures": self.failures[:10],
             "failures_total": len(self.failures),
             "http": self.http,
         }
+
+
+#: Pages of 50 read further down the feed each refresh, after the first ones.
+#: Postings this feed holds itself are fetched one by one, so a page costs up
+#: to fifty requests the first time it is read: four pages, one of them the
+#: overlap, so a lap of the reachable feed (201 pages) is about 67 refreshes.
+#: A posting already held is not fetched again in the window.
+WINDOW_PAGES = 4
 
 
 class SpeedrunCollector:
@@ -210,6 +237,7 @@ class SpeedrunCollector:
         self.payloads = ProviderPayloadRepo(conn)
         self.discovery = DiscoverySourceRepo(conn)
         self.runs = PipelineRunRepo(conn)
+        self._window_ids: set[str] = set()
 
     # -- the pass ----------------------------------------------------------
 
@@ -220,6 +248,7 @@ class SpeedrunCollector:
         on_progress: Any = None,
         should_stop: Any = None,
         check_contract: bool = True,
+        window_pages: int = WINDOW_PAGES,
     ) -> SpeedrunStats:
         """Walk the feed, resolve identity, persist what is genuinely new.
 
@@ -279,7 +308,15 @@ class SpeedrunCollector:
                 f"{walk.pages[-1].total_pages}, so this pass is incomplete"
             )
 
-        entries = walk.entries
+        entries = list(walk.entries)
+        if window_pages and max_pages and walk.stopped_early and not walk.truncated:
+            entries += self._read_window(scope, max_pages, window_pages, stats, should_stop)
+        # One page of the window overlaps the last one read, and a busy feed
+        # shifts rows between pages: each posting is handled once per run.
+        unique: dict[str, dict[str, Any]] = {}
+        for entry in entries:
+            unique.setdefault(str(entry.get("id") or id(entry)), entry)
+        entries = list(unique.values())
         stats.postings_seen = len(entries)
 
         # One query, not one per posting. A feed page of 50 against a corpus of
@@ -312,6 +349,44 @@ class SpeedrunCollector:
             )
         return stats
 
+    def _read_window(
+        self, scope: str, head: int, size: int, stats: SpeedrunStats, should_stop: Any
+    ) -> list[dict[str, Any]]:
+        """Pages further down, continuing from the last refresh's window.
+
+        A page number over a changing, newest-first feed is a place, not an
+        identity: postings added at the top push the rest down. So the window
+        starts one page before where the last one ended, and a row pushed past
+        it on a busy day is read on the next lap instead. Never past page 200,
+        the API's own ceiling.
+        """
+        kept = self.runs.checkpoint("collect-speedrun", f"resume_page_{scope}")
+        start = kept if isinstance(kept, int) and head < kept <= MAX_PAGE else head
+        start = max(head, start - 1)
+        try:
+            window = self.provider.walk_feed(
+                scope=scope, max_pages=size, should_stop=should_stop, first_page=start
+            )
+        except FetchError as exc:
+            # The first pages were read; the window is retried next time from
+            # the same place, and this refresh is not a failed one for it.
+            stats.window_error = f"{exc.category.value}: {exc.message[:120]}"
+            return []
+        stats.pages_read += len(window.pages)
+        stats.window_first_page = start
+        stats.window_pages_read = len(window.pages)
+        end = start + len(window.pages)
+        if window.truncated:
+            # The feed stopped serving mid-window. Move on past what it did
+            # serve: retrying the same window could repeat forever.
+            stats.window_error = f"the feed stopped serving at page {end}"
+        stats.resume_page = (
+            end if (window.stopped_early or window.truncated) and end <= MAX_PAGE else head
+        )
+        stats.continues = True
+        self._window_ids = {str(e.get("id")) for e in window.entries if e.get("id")}
+        return list(window.entries)
+
     # -- one posting -------------------------------------------------------
 
     def _handle(
@@ -321,6 +396,16 @@ class SpeedrunCollector:
         if stub is None:
             stats.postings_skipped_malformed += 1
             return
+
+        # In the continuing window, a posting this feed already holds itself is
+        # marked seen and not fetched again: the window's budget is for the
+        # postings not yet held. The first pages are always read in full.
+        if stub.external_id in self._window_ids:
+            with transaction(self.conn):
+                if self.jobs.touch_seen(PROVIDER, stub.external_id):
+                    stats.postings_known += 1
+                    stats.jobs_seen_again += 1
+                    return
 
         # RULE 1, and it is checked before anything is fetched. A posting we
         # already hold under this id costs zero requests.

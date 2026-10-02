@@ -103,7 +103,11 @@ FAILURE_COOLDOWN_HOURS = 1
 REFUSAL_COOLDOWN_HOURS = 24
 
 #: Why a refresh is PARTIAL, as codes a screen translates.
+#: Our own page budget, and the next refresh reads the same first pages.
 REASON_PAGE_LIMIT = "PAGE_LIMIT"
+#: Our own batch, by design, and the next refresh continues past it (a kept
+#: cursor or page, or a frontier of postings not yet held).
+REASON_PROGRESSIVE = "PROGRESSIVE"
 REASON_SOURCE_CEILING = "SOURCE_CEILING"
 REASON_REQUEST_BUDGET = "REQUEST_BUDGET"
 REASON_SOME_FAILED = "SOME_FAILED"
@@ -116,6 +120,8 @@ def partial_reason(stats: Mapping[str, Any]) -> str | None:
         return REASON_SOURCE_CEILING
     if stats.get("budget_exhausted") or stats.get("slices_capped"):
         return REASON_REQUEST_BUDGET
+    if stats.get("continues"):
+        return REASON_PROGRESSIVE
     if stats.get("stopped_early"):
         return REASON_PAGE_LIMIT
     if stats.get("boards_deferred"):

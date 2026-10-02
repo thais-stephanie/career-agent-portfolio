@@ -216,9 +216,13 @@ LATAM and Brazilian markets.
 Some sources provide complete structured inventories. Others expose recent-job
 windows, bounded feeds or metadata-only results, so Career Agent records each
 source's coverage instead of treating every connector as equivalent.
-**Settings & Sources** shows a source health table: when each source last
-succeeded, which ones are due (a day old) or stale (three days old), and
-**Refresh due sources**. Nothing is collected until you press a button.
+**Find jobs** refreshes the sources that are due (not refreshed in the last
+day) first, then scores the new and changed jobs. **Settings & Sources** shows
+a source health table: when each source last succeeded, which ones are due or
+stale (three days old), and two buttons: **Refresh due sources** (the same as
+Find jobs) and **Refresh all available sources** (recently refreshed ones too).
+Neither wakes a paused source or asks a site that refused before its wait is
+over. Nothing is collected until you press a button.
 
 [Source permissions and coverage notes](docs/SOURCES.md)
 

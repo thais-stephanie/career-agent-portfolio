@@ -305,6 +305,7 @@ class SpeedrunProvider(JobProvider):
         max_pages: int | None = None,
         on_page: Any = None,
         should_stop: Any = None,
+        first_page: int = 0,
     ) -> FeedWalk:
         """Read the paginated feed and return what was read, and what was not.
 
@@ -317,8 +318,8 @@ class SpeedrunProvider(JobProvider):
         """
         pages: list[FeedPage] = []
         stopped_early = False
-        for page in range(MAX_PAGE + 1):
-            if max_pages is not None and page >= max_pages:
+        for page in range(first_page, MAX_PAGE + 1):
+            if max_pages is not None and page - first_page >= max_pages:
                 stopped_early = True
                 break
             if should_stop is not None and should_stop():
@@ -330,7 +331,9 @@ class SpeedrunProvider(JobProvider):
                 on_page(envelope)
             if not envelope.has_more(page):
                 break
-        return FeedWalk(scope=scope, pages=tuple(pages), stopped_early=stopped_early)
+        return FeedWalk(
+            scope=scope, pages=tuple(pages), stopped_early=stopped_early, first_page=first_page
+        )
 
     # -- reading one page --------------------------------------------------
 
@@ -473,6 +476,9 @@ class FeedWalk:
     scope: str
     pages: tuple[FeedPage, ...]
     stopped_early: bool
+    #: The page this walk began on: 0, or further down for a window that
+    #: continues where an earlier refresh stopped.
+    first_page: int = 0
 
     @property
     def truncated(self) -> bool:
@@ -493,10 +499,11 @@ class FeedWalk:
         last = self.pages[-1]
         if last.jobs:
             return False
-        if last.page is not None and last.page != len(self.pages) - 1:
+        read_to = self.first_page + len(self.pages)
+        if last.page is not None and last.page != read_to - 1:
             # The silent clamp, which `has_more` detects separately. Not this.
             return False
-        return last.total_pages is not None and len(self.pages) < last.total_pages
+        return last.total_pages is not None and read_to < last.total_pages
 
     @property
     def entries(self) -> tuple[dict[str, Any], ...]:

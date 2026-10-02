@@ -399,6 +399,8 @@ class FeedRead:
     stopped_early: bool
     unaddressable: int = 0
     claimed_total: int | None = None
+    #: Where the next page would start, when the walk stopped before the end.
+    next_cursor: str | None = None
 
 
 class HimalayasProvider(JobProvider):
@@ -494,8 +496,20 @@ class HimalayasProvider(JobProvider):
 
     # -- reading -----------------------------------------------------------
 
-    def read_feed(self, *, use_cache: bool = True) -> FeedRead:
+    def read_feed(
+        self,
+        *,
+        use_cache: bool = True,
+        start_cursor: str | None = None,
+        max_pages: int | None = None,
+    ) -> FeedRead:
         """The feed, walked to its end or to the page budget.
+
+        `start_cursor` begins the walk further down the feed. The cursor is a
+        keyset (measured 2026-10-02: base64 of `<published time>|<id>`, newest
+        first), so a cursor kept from an earlier refresh still means "the
+        postings older than this one": postings added at the top since then
+        shift nothing below it.
 
         A failed request raises. It is never converted into an empty page: an
         empty feed and a broken request are different outcomes, and
@@ -504,11 +518,12 @@ class HimalayasProvider(JobProvider):
         """
         collected: list[Any] = []
         seen: set[str] = set()
-        cursor: str | None = None
+        cursor: str | None = start_cursor
         pages = 0
         claimed: int | None = None
+        budget = self._max_pages if max_pages is None else max(1, int(max_pages))
 
-        while pages < self._max_pages:
+        while pages < budget:
             body = self._fetcher.get_json(self.feed_url(cursor), use_cache=use_cache)
             if not isinstance(body, dict) or not isinstance(body.get("jobs"), list):
                 keys = ", ".join(sorted(body)) if isinstance(body, dict) else "not an object"
@@ -555,6 +570,7 @@ class HimalayasProvider(JobProvider):
             stopped_early=True,
             unaddressable=sum(1 for j in collected if to_stub(j) is None),
             claimed_total=claimed,
+            next_cursor=cursor,
         )
 
     # -- the protocol ------------------------------------------------------

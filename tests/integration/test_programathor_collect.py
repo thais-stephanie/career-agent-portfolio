@@ -59,7 +59,10 @@ def conn() -> Iterator[sqlite3.Connection]:
 
 
 def collector(
-    conn: sqlite3.Connection, serve: set[str] | None = None, max_pages: int = 1
+    conn: sqlite3.Connection,
+    serve: set[str] | None = None,
+    max_pages: int = 1,
+    window_pages: int = 0,
 ) -> ProgramathorCollector:
     """A collector wired to fixtures. `serve` names the paths that answer 200.
 
@@ -81,7 +84,9 @@ def collector(
         request_delay_seconds=0,
         sleep=lambda _: None,
     )
-    return ProgramathorCollector(conn, fetcher, max_pages=max_pages)
+    # The continuing window is off here; tests/integration/test_source_continuation.py
+    # covers it.
+    return ProgramathorCollector(conn, fetcher, max_pages=max_pages, window_pages=window_pages)
 
 
 def _jobs(conn: sqlite3.Connection) -> list[sqlite3.Row]:
@@ -193,7 +198,7 @@ def test_a_refused_posting_is_retried_and_that_is_what_it_really_costs(
         request_delay_seconds=0,
         sleep=lambda _: None,
     )
-    ProgramathorCollector(conn, fetcher, max_pages=1).collect()
+    ProgramathorCollector(conn, fetcher, max_pages=1, window_pages=0).collect()
 
     servable = len(BY_PATH)
     refused = 15 - servable

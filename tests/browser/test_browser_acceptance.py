@@ -2629,17 +2629,15 @@ def test_a_sort_the_interface_offers_does_not_break_the_list(page: Chrome, serve
     )
 
 
-def test_the_retrieval_panel_shows_the_funnel_and_refuses_a_demo_run(
+def test_the_refresh_detail_panel_shows_the_funnel_and_starts_nothing(
     page: Chrome, server: str
 ) -> None:
-    """§6's interface half, tested where starting a run is safe.
+    """The last refresh, in detail: a diagnostic that starts nothing.
 
-    The browser fixture is a DEMO database, and retrieval against one is
-    refused by design -- the demo corpus is invented, and putting real
-    postings in it is the mixing the runtime modes exist to prevent. So this
-    asserts the two things that do not need a network: the funnel renders from
-    real counts, and pressing the button surfaces the refusal rather than
-    failing silently.
+    It used to carry a "Retrieve jobs" button that read only the employer
+    boards already held, a second meaning of finding jobs beside Find jobs.
+    That button is gone: finding jobs is Find jobs and the two buttons in
+    Settings & Sources, which refresh the sources themselves.
     """
     open_list(page, server)
     open_settings(page)
@@ -2661,19 +2659,9 @@ def test_the_retrieval_panel_shows_the_funnel_and_refuses_a_demo_run(
     )
     assert counts[0] >= counts[-1], f"the funnel does not narrow: {counts}"
 
-    click(page, "document.querySelector('.retr__start')")
-    page.wait_for(
-        "Boolean(document.querySelector('.retr__error'))",
-        message="the demo-mode refusal to be shown to the person",
+    assert page.evaluate("document.querySelector('#retr-host button') === null"), (
+        "the diagnostic panel offers a way to start a run"
     )
-    message = str(page.evaluate("document.querySelector('.retr__error').textContent"))
-    assert "personal" in message.lower(), message
-
-    # And the refused run left the corpus alone. Asserted after the message is
-    # read, because reloading rebuilds the panel and takes the refusal with it:
-    # a refusal that had already written something would be worse than none.
-    open_list(page, server)
-    wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "after the refused retrieval")
 
 
 # =========================================================================

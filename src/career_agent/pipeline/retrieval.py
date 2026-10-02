@@ -91,11 +91,23 @@ class RetrievalState:
     #: normal case, not a stall, and naming it is what lets the screen say so.
     current: str | None = None
     current_started_at: str | None = None
-    #: Sources left out of this run on purpose (paused), counted rather than
-    #: silently absent from the total.
-    skipped: int = 0
+    #: Which button started it: "due", "all" or "source".
+    kind: str = ""
+    #: THE PLAN, FROZEN WHEN THE RUN STARTED. `boards_total` is its length and
+    #: never moves, whatever the sources' freshness says while it runs.
+    plan: list[str] = field(default_factory=list)
+    #: Sources holding jobs from an earlier refresh that this run did not
+    #: refresh (paused, refused and cooling down, unavailable, or failed now).
+    not_refreshed: list[str] = field(default_factory=list)
+    #: Jobs this run added to the corpus, once it has finished.
+    jobs_new: int | None = None
+    #: The source being read reports its own progress here, so an employer
+    #: board family can say "121 of 124 boards" beside "5 of 16 sources".
+    inner: Any = None
 
     def as_dict(self) -> dict[str, Any]:
+        # Read once: the run's thread sets it to None when a source ends.
+        inner = self.inner
         return {
             "run_id": self.run_id,
             "status": self.status,
@@ -108,7 +120,15 @@ class RetrievalState:
             "sources": self.sources,
             "current": self.current,
             "current_started_at": self.current_started_at,
-            "skipped": self.skipped,
+            "kind": self.kind,
+            "plan": list(self.plan),
+            "not_refreshed": list(self.not_refreshed),
+            "jobs_new": self.jobs_new,
+            "current_boards": (
+                {"done": int(inner.boards_done), "total": int(inner.boards_total)}
+                if inner is not None and inner.boards_total
+                else None
+            ),
         }
 
 
@@ -282,110 +302,6 @@ class RetrievalRunner:
         """For tests and for a clean shutdown. Never called by a request."""
         if self._thread is not None:
             self._thread.join(timeout)
-
-
-def source_outcomes_from_db(
-    conn: sqlite3.Connection, stats: Any, provider_of: dict[str, str], since: str
-) -> list[dict[str, Any]]:
-    """Per-source rows counted from the database, with failures from the run.
-
-    THE FIRST VERSION NARRATED THESE AND WAS WRONG. `CollectionStats` carries
-    per-board FAILURES but only an aggregate success count, so building the
-    rows from it alone reported "not attempted, 0/0" for the three sources
-    that had just collected 2,585 postings. The funnel was already derived
-    from the database for exactly this reason and the sources were not, which
-    is the inconsistency that produced the wrong table.
-
-    Successes are counted from `source_board` and `job` -- what is actually
-    there -- and only the failures come from the run, because a board that
-    failed leaves nothing behind to count.
-    """
-    outcomes: dict[str, SourceOutcome] = {}
-
-    def bucket(provider: str) -> SourceOutcome:
-        return outcomes.setdefault(provider, SourceOutcome(provider=provider))
-
-    def rows(sql: str, params: tuple[Any, ...] = ()) -> list[Any]:
-        try:
-            return conn.execute(sql, params).fetchall()
-        except sqlite3.Error:
-            return []
-
-    for row in rows("SELECT provider, COUNT(*) AS n FROM source_board GROUP BY provider"):
-        bucket(str(row["provider"])).boards_attempted = int(row["n"])
-
-    # A board that answered is one we have a posting from since the run began.
-    for row in rows(
-        "SELECT provider, COUNT(DISTINCT source_board_id) AS boards, COUNT(*) AS jobs"
-        " FROM job WHERE last_seen_at >= ? GROUP BY provider",
-        (since,),
-    ):
-        entry = bucket(str(row["provider"]))
-        entry.boards_succeeded = int(row["boards"])
-        entry.postings_fetched = int(row["jobs"])
-
-    for row in rows(
-        "SELECT provider, COUNT(*) AS n FROM job WHERE first_seen_at >= ? GROUP BY provider",
-        (since,),
-    ):
-        bucket(str(row["provider"])).jobs_new = int(row["n"])
-
-    for failure in getattr(stats, "failures", []) or []:
-        provider = provider_of.get(getattr(failure, "board_id", ""), "unknown")
-        entry = bucket(provider)
-        entry.boards_failed += 1
-        reason = getattr(failure, "reason", None) or getattr(failure, "error", "")
-        if reason:
-            entry.failures.append(str(reason)[:200])
-
-    for hold in getattr(stats, "holds", []) or []:
-        provider = provider_of.get(getattr(hold, "board_id", ""), "unknown")
-        bucket(provider).held += 1
-
-    for entry in outcomes.values():
-        # Attempted is at least what we can see happened, so a board counted
-        # as succeeded can never sit inside a source reading "not attempted".
-        entry.boards_attempted = max(
-            entry.boards_attempted, entry.boards_succeeded + entry.boards_failed
-        )
-    return [outcome.as_dict() for outcome in outcomes.values()]
-
-
-def source_outcomes(stats: Any, provider_of: dict[str, str]) -> list[dict[str, Any]]:
-    """Per-source rows from a `CollectionStats`.
-
-    Failures are reported per source rather than as one number, because "one
-    source is down" and "everything is down" are different situations and the
-    person has to be able to tell them apart before deciding whether the run
-    is worth trusting.
-    """
-    outcomes: dict[str, SourceOutcome] = {}
-
-    def bucket(provider: str) -> SourceOutcome:
-        return outcomes.setdefault(provider, SourceOutcome(provider=provider))
-
-    for provider in sorted(set(provider_of.values())):
-        bucket(provider)
-
-    for failure in getattr(stats, "failures", []) or []:
-        provider = provider_of.get(getattr(failure, "board_id", ""), "unknown")
-        entry = bucket(provider)
-        # A board that failed was attempted. Without this the source read
-        # "not attempted" while carrying two failures, which is the most
-        # misleading pair of facts this table could show.
-        entry.boards_attempted += 1
-        entry.boards_failed += 1
-        reason = getattr(failure, "reason", None) or getattr(failure, "error", "")
-        if reason:
-            entry.failures.append(str(reason)[:200])
-
-    for hold in getattr(stats, "holds", []) or []:
-        provider = provider_of.get(getattr(hold, "board_id", ""), "unknown")
-        entry = bucket(provider)
-        entry.boards_attempted += 1
-        entry.held += 1
-
-    return [outcome.as_dict() for outcome in outcomes.values()]
 
 
 def provider_by_board(conn: sqlite3.Connection) -> dict[str, str]:

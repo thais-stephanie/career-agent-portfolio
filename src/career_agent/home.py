@@ -44,9 +44,12 @@ class Metric:
     """One number, and what it is a number OF."""
 
     key: str
-    value: int
+    #: None when the question has no answer yet, which a screen must not draw
+    #: as zero.
+    value: int | None
     #: `stock` = how many are in this state now. `event` = how many times this
-    #: happened since the checkpoint. Never both.
+    #: happened since the checkpoint. `refresh` = what the latest completed
+    #: refresh did. Never two of them.
     kind: str
     #: The status filter that reproduces this number in the job list, when one
     #: does. `None` for figures that are not a list of jobs.
@@ -64,6 +67,26 @@ class Metric:
 def _count(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> int:
     row = conn.execute(sql, params).fetchone()
     return int(row[0]) if row is not None else 0
+
+
+def latest_refresh_new(conn: sqlite3.Connection) -> int | None:
+    """Jobs added by the latest completed Find jobs / refresh run, or None."""
+    import json
+
+    try:
+        row = conn.execute(
+            "SELECT stats_json FROM pipeline_run WHERE stage = 'find-jobs' AND status = 'OK'"
+            " ORDER BY finished_at DESC, rowid DESC LIMIT 1"
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    if row is None:
+        return None
+    try:
+        value = json.loads(row[0] or "{}").get("jobs_new")
+    except (ValueError, AttributeError):
+        return None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def metrics(
@@ -86,19 +109,11 @@ def metrics(
         if status not in {ApplicationStatus.DISCOVERED, ApplicationStatus.ARCHIVED}
     )
 
-    # NEW: postings this machine first held after her checkpoint. `first_seen_at`
-    # and never `posted_at` -- the first is when WE noticed, which is the only
-    # thing a board publishing no dates lets anybody know.
-    new_since = 0
-    if last_reviewed_at:
-        new_since = _count(
-            conn,
-            "SELECT COUNT(*) FROM job j"
-            " JOIN job_match m ON m.job_id = j.id"
-            "  AND m.config_id = ? AND m.config_version = ?"
-            " WHERE j.closed_at IS NULL AND j.first_seen_at > ?",
-            (config_id, config_version, last_reviewed_at),
-        )
+    # NEW: the jobs the latest completed refresh ADDED to the corpus, from that
+    # run's own record. Not "since you last reviewed", which is the digest's
+    # question and keeps `last_reviewed_at`; and not a zero before any refresh
+    # has finished, because "no answer yet" is not "none".
+    new_since = latest_refresh_new(conn)
 
     saved = _count(conn, "SELECT COUNT(*) FROM job_application WHERE saved = 1")
 
@@ -117,7 +132,7 @@ def metrics(
     offers = _count(conn, "SELECT COUNT(*) FROM job_application WHERE status = 'OFFER'")
 
     return [
-        Metric("new", new_since, "event"),
+        Metric("new", new_since, "refresh"),
         Metric("saved", saved, "stock"),
         Metric("applied", applied, "stock", ("APPLIED", "INTERVIEW", "OFFER", "HIRED")),
         Metric("interviews", interviews, "stock", ("INTERVIEW",)),

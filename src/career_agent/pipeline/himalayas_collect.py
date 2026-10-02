@@ -71,6 +71,13 @@ MATCH_EXTERNAL_ID = "EXTERNAL_ID"
 MATCH_CANONICAL_URL = "CANONICAL_URL"
 MATCH_CONTENT_HASH = "CONTENT_HASH"
 
+#: Pages of 20 read further down the feed each refresh, after the newest
+#: pages: 1,000 older postings a refresh, so a six-figure feed is covered over
+#: many refreshes and never in one. The vendor states no rate limit, and
+#: absence of a stated limit is not permission for an unbounded walk.
+BACKLOG_PAGES = 50
+STAGE = "collect-himalayas"
+
 
 @dataclass
 class HimalayasStats:
@@ -117,6 +124,16 @@ class HimalayasStats:
     unique_by_scope: dict[str, int] = field(default_factory=dict)
     unique_by_origin: dict[str, int] = field(default_factory=dict)
     search_stopped_reason: str | None = None
+    #: THE OLDER POSTINGS, A STRETCH PER REFRESH. The feed holds six figures
+    #: and the newest pages are read every time; these pages continue down the
+    #: feed from where the last refresh stopped (`resume_cursor`), so repeated
+    #: refreshes cover more of it instead of rereading page one.
+    backlog_pages_read: int = 0
+    resume_cursor: str | None = None
+    #: The kept cursor was refused or unreadable, so this lap starts again
+    #: from the newest postings.
+    cursor_reset: bool = False
+    continues: bool = False
 
     @property
     def duplicates_total(self) -> int:
@@ -126,6 +143,12 @@ class HimalayasStats:
         return {
             "pages_read": self.pages_read,
             "stopped_early": self.stopped_early,
+            "backlog_pages_read": self.backlog_pages_read,
+            # Only when the older pages were read: a run that failed before
+            # them must not move the place the next refresh continues from.
+            **({"resume_cursor": self.resume_cursor} if self.continues else {}),
+            "cursor_reset": self.cursor_reset,
+            "continues": self.continues,
             "claimed_total": self.claimed_total,
             "postings_seen": self.postings_seen,
             "postings_unaddressable": self.postings_unaddressable,
@@ -162,8 +185,15 @@ class HimalayasStats:
 class HimalayasCollector:
     """One pass over the feed, against one database connection."""
 
-    def __init__(self, conn: Any, fetcher: HttpFetcher, max_pages: int | None = None) -> None:
+    def __init__(
+        self,
+        conn: Any,
+        fetcher: HttpFetcher,
+        max_pages: int | None = None,
+        backlog_pages: int = BACKLOG_PAGES,
+    ) -> None:
         self.conn = conn
+        self.backlog_pages = max(0, int(backlog_pages))
         self.fetcher = fetcher
         provider = get_provider(PROVIDER, fetcher)
         # The registry builds it from a fetcher alone and cannot carry a page
@@ -226,20 +256,25 @@ class HimalayasCollector:
         stats.stopped_early = read.stopped_early
         stats.claimed_total = read.claimed_total
         stats.postings_unaddressable = read.unaddressable
+        jobs = list(read.jobs)
+        if self.backlog_pages and read.next_cursor:
+            jobs += self._read_backlog(read.next_cursor, stats)
 
         #: identity -> the job it resolved to this run, so a search result the
         #: feed already returned still records that the search found it.
         seen_this_run: dict[str, str | None] = {}
-        for index, job in enumerate(read.jobs, start=1):
+        for index, job in enumerate(jobs, start=1):
             if should_stop is not None and should_stop():
                 break
-            stats.postings_seen += 1
             identity = _external_id(job) if isinstance(job, dict) else None
+            if identity and identity in seen_this_run:
+                continue
+            stats.postings_seen += 1
             job_id = self._handle(job, held_external_ids, stats)
             if identity:
                 seen_this_run[identity] = job_id
             if on_progress is not None:
-                on_progress(index, len(read.jobs))
+                on_progress(index, len(jobs))
 
         self._search(searches, search_pages, seen_this_run, held_external_ids, stats, should_stop)
 
@@ -248,6 +283,38 @@ class HimalayasCollector:
         with transaction(self.conn):
             self.runs.finish(run_id, PipelineRunStatus.OK, stats=stats.as_dict(), error=None)
         return stats
+
+    def _read_backlog(self, head_cursor: str, stats: HimalayasStats) -> list[Any]:
+        """Older postings, continuing from where the last refresh stopped.
+
+        The kept cursor comes from this collector's own last run. One that is
+        malformed or refused is dropped and the lap restarts just below the
+        newest pages: a bad checkpoint costs a lap, never a failed refresh.
+        """
+        from career_agent.providers.himalayas import CURSOR
+
+        kept = self.runs.checkpoint(STAGE, "resume_cursor")
+        start = kept if isinstance(kept, str) and CURSOR.match(kept) else head_cursor
+        stats.cursor_reset = kept is not None and start != kept
+        try:
+            back = self.provider.read_feed(start_cursor=start, max_pages=self.backlog_pages)
+        except (FetchError, ValueError) as exc:
+            # Never a second walk right after a failure. A cursor the feed
+            # refuses as a request (4xx other than a rate limit) starts the
+            # next lap again; anything else keeps the place for next time.
+            stats.failures.append("older postings could not be read this time")
+            status = getattr(exc, "status_code", None)
+            if isinstance(status, int) and 400 <= status < 500 and status != 429:
+                stats.cursor_reset = True
+                stats.resume_cursor = None
+                stats.continues = True
+            return []
+        stats.pages_read += back.pages
+        stats.backlog_pages_read = back.pages
+        # At the end of the feed the next lap starts again below the newest.
+        stats.resume_cursor = back.next_cursor
+        stats.continues = True
+        return list(back.jobs)
 
     # -- the targeted lane -------------------------------------------------
 

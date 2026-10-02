@@ -217,10 +217,14 @@ global, de Estados Unidos, Europa, LATAM y Brasil.
 Algunas fuentes ofrecen inventarios estructurados completos. Otras solo
 ofrecen ventanas de ofertas recientes, feeds limitados o resultados con
 metadatos, por eso Career Agent registra la cobertura de cada fuente.
-**Settings & Sources** muestra una tabla de salud de las fuentes: cuándo
-funcionó cada una por última vez, cuáles están pendientes (un día) o
-desactualizadas (tres días), y el botón **Refresh due sources**. Nada se
-recopila hasta que pulsas un botón.
+**Find jobs** actualiza primero las fuentes pendientes (no actualizadas en el
+último día) y luego evalúa las ofertas nuevas y modificadas. **Settings &
+Sources** muestra una tabla de salud de las fuentes: cuándo funcionó cada una
+por última vez, cuáles están pendientes o desactualizadas (tres días), y dos
+botones: **Refresh due sources** (lo mismo que Find jobs) y **Refresh all
+available sources** (también las actualizadas hace poco). Ninguno despierta
+una fuente en pausa ni vuelve a preguntar a un sitio que se negó antes de que
+termine la espera. Nada se recopila hasta que pulsas un botón.
 
 [Permisos y notas de cobertura de las fuentes](docs/SOURCES.md)
 

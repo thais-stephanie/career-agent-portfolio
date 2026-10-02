@@ -377,7 +377,9 @@ can hire you, work model, contract, levels, pay, your CV and a final review.
 Each answer is saved as you go, and you can change any of them later in
 **Settings & Sources**. **Finish setup later** skips the questions.
 
-To collect jobs, use **Find jobs** or **Refresh due sources**. This is the
+To collect jobs, use **Find jobs**: it refreshes the sources that are due
+first, then scores the new and changed jobs. **Refresh all available sources**
+in Settings & Sources also reads the ones refreshed recently. This is the
 moment Career Agent contacts public job boards and employer job pages. It
 sends search words and places, never your CV or profile. Nothing is collected
 until you press one of these buttons.

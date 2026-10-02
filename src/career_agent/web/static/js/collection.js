@@ -204,19 +204,19 @@ export function createCollection(api, { disabled = false } = {}) {
   }
 
   /**
-   * Begin finding jobs. `kind` is `all` (every source that may be refreshed)
-   * or `retrieval` (the three documented ATS APIs, from Settings).
+   * Begin finding jobs. `kind` is `due` (Find jobs, and Refresh due sources:
+   * the sources due now) or `all` (Refresh all available sources, recently
+   * refreshed ones included). Both run the same plan, frozen at the press.
    */
-  async function start(kind = 'all') {
+  async function start(kind = 'due') {
     if (active()) return { ...state(), alreadyRunning: true };
     starting = true;
     startError = '';
     syncTicker();
     emit();
     try {
-      const run = kind === 'retrieval' ? await api.startRetrieval()
-        : kind === 'due' ? await api.refreshDueSources()
-          : await api.findJobs();
+      const run = kind === 'all' ? await api.refreshAllSources()
+        : await api.refreshDueSources();
       if (run && run.started === false) {
         // Nothing was due: no run exists, and the caller says so.
         starting = false;
@@ -382,15 +382,27 @@ export function createProgressView(collection, { compact = false, stopId = null 
       setText(noEta, '');
       return;
     }
+    // The denominator is THIS RUN'S PLAN, frozen when it started: sources,
+    // never employer boards. A board family's own boards are the second line.
     const total = Number(run.boards_total) || 0;
     const done = Math.min(Number(run.boards_done) || 0, total);
-    setText(line, t('setup.ready.progress', { done, total }));
+    // The plan is set a moment after the run starts: never "0 of 0".
+    setText(line, total ? t('setup.ready.progress', { done, total }) : t('setup.ready.starting'));
     setBar(done, total, t('setup.ready.progressLabel'));
     const parts = [t('collect.elapsed', { time: duration(snapshot.elapsed) })];
     if (!compact && run.current) {
-      parts.unshift(t('collect.now', { source: run.current, time: duration(snapshot.currentFor) }));
+      const boards = run.current_boards;
+      parts.unshift(boards && boards.total
+        ? t('collect.nowBoards', {
+          source: run.current,
+          done: Number(boards.done).toLocaleString(),
+          total: Number(boards.total).toLocaleString(),
+          time: duration(snapshot.currentFor),
+        })
+        : t('collect.now', { source: run.current, time: duration(snapshot.currentFor) }));
     }
-    if (!compact && Number(run.skipped) > 0) parts.push(t('collect.deferred', { n: run.skipped }));
+    const left = (run.not_refreshed || []).length;
+    if (!compact && left) parts.push(t('collect.deferred', { n: left }));
     setText(meta, parts.join(' · '));
     setText(slow, !compact && run.current && snapshot.currentFor >= SLOW_SOURCE_S ? t('collect.slow') : '');
     setText(noEta, compact ? '' : t('collect.noEta'));
@@ -407,7 +419,13 @@ export function outcomeText(snapshot) {
   if (snapshot.phase === 'cancelled') return t('setup.ready.cancelled', { ok });
   if (snapshot.phase === 'failed') return t('setup.ready.failed');
   if (snapshot.phase === 'finished') {
-    return t('collect.finished', { ok, total: sources.length, time: duration(snapshot.elapsed) });
+    const parts = [t('collect.finished', { ok, total: sources.length, time: duration(snapshot.elapsed) })];
+    if (typeof run.jobs_new === 'number') {
+      parts.push(t('collect.newJobs', { n: run.jobs_new.toLocaleString() }));
+    }
+    const left = run.not_refreshed || [];
+    if (left.length) parts.push(t('collect.notRefreshed', { n: left.length, names: left.join(', ') }));
+    return parts.join(' ');
   }
   return '';
 }
