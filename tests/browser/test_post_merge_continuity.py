@@ -153,7 +153,7 @@ def _offline_sources(
         return work
 
     monkeypatch.setattr(
-        live.app, "_collect_work", lambda limit, provider=None: work_for(f"collect:{provider}")
+        live.app, "_collect_work", lambda *, provider: work_for(f"collect:{provider}")
     )
     monkeypatch.setattr(
         "career_agent.web.source_refresh.feed_work", lambda db, stage, **_: work_for(stage)
@@ -277,7 +277,7 @@ def test_the_progress_says_what_it_is_doing_and_invents_no_estimate(
         message="the source being read, by name",
     )
     first = _text(page, ".setup__find")
-    assert re.search(r"Checked \d+ of \d+ job sources", first), first
+    assert re.search(r"Checking sources: \d+ of \d+ finished in this refresh", first), first
     assert "so far" in first
     assert "No time left is shown" in first
     assert not re.search(r"(remaining|left)\b.*\d", first.split("No time left")[0]), first

@@ -17,7 +17,6 @@ from career_agent.pipeline.retrieval import (
     SourceOutcome,
     build_funnel,
     provider_by_board,
-    source_outcomes,
 )
 
 
@@ -112,29 +111,6 @@ def test_a_database_without_the_tables_reports_zeros_not_a_crash() -> None:
 # =========================================================================
 # Per-source honesty
 # =========================================================================
-
-
-def test_a_failure_is_attributed_to_its_source() -> None:
-    """ "One source is down" and "everything is down" are different situations,
-    and the person has to tell them apart before trusting the run."""
-
-    class Failure:
-        def __init__(self, board_id: str, reason: str) -> None:
-            self.board_id = board_id
-            self.reason = reason
-
-    class Stats:
-        failures = [Failure("b1", "timeout"), Failure("b2", "500")]
-        holds: list[object] = []
-
-    rows = source_outcomes(Stats(), {"b1": "alpha", "b2": "alpha", "b3": "beta"})
-    by_provider = {row["provider"]: row for row in rows}
-
-    assert by_provider["alpha"]["boards_failed"] == 2
-    assert by_provider["alpha"]["status"] == "failed"
-    assert "timeout" in by_provider["alpha"]["failures"][0]
-    # A source that was never attempted says so rather than looking healthy.
-    assert by_provider["beta"]["status"] == "not attempted"
 
 
 def test_a_source_with_some_boards_failing_is_partial_not_failed() -> None:
@@ -243,77 +219,6 @@ def test_a_failing_run_is_reported_not_swallowed() -> None:
 
 def test_nothing_has_run_reads_as_none() -> None:
     assert RetrievalRunner().snapshot() is None
-
-
-def test_source_rows_are_counted_from_the_database_not_narrated() -> None:
-    """The bug a real run exposed, pinned.
-
-    `CollectionStats` carries per-board FAILURES but only an aggregate success
-    count, so rows built from it alone reported "not attempted, 0/0" for the
-    three sources that had just collected 2,585 postings. The funnel was
-    already derived from the database and the sources were not, and that
-    inconsistency is what produced the wrong table.
-    """
-    from career_agent.pipeline.retrieval import source_outcomes_from_db
-
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.executescript(
-        """
-        CREATE TABLE source_board (id TEXT PRIMARY KEY, provider TEXT);
-        CREATE TABLE job (id TEXT PRIMARY KEY, provider TEXT, source_board_id TEXT,
-                          first_seen_at TEXT, last_seen_at TEXT);
-        """
-    )
-    conn.execute("INSERT INTO source_board VALUES ('b1', 'alpha')")
-    conn.execute("INSERT INTO source_board VALUES ('b2', 'alpha')")
-    conn.execute(
-        "INSERT INTO job VALUES ('j1', 'alpha', 'b1', '2026-01-01', '2026-09-04T22:00:00Z')"
-    )
-    conn.execute(
-        "INSERT INTO job VALUES ('j2', 'alpha', 'b1', '2026-09-04T22:00:00Z',"
-        " '2026-09-04T22:00:00Z')"
-    )
-    # Seen before the run began: counts toward neither.
-    conn.execute("INSERT INTO job VALUES ('j3', 'alpha', 'b2', '2025-01-01', '2025-01-01')")
-
-    class Stats:
-        failures: list[object] = []
-        holds: list[object] = []
-
-    row = source_outcomes_from_db(conn, Stats(), {}, "2026-09-04T21:00:00Z")[0]
-    assert row["provider"] == "alpha"
-    assert row["status"] == "ok", "a source that answered must not read 'not attempted'"
-    assert row["boards_attempted"] == 2
-    assert row["boards_succeeded"] == 1, "only b1 answered during the run"
-    assert row["postings_fetched"] == 2
-    assert row["jobs_new"] == 1, "only j2 was first seen during this run"
-
-
-def test_a_source_can_never_succeed_inside_one_that_was_not_attempted() -> None:
-    """The arithmetic that made the wrong table possible, closed."""
-    from career_agent.pipeline.retrieval import source_outcomes_from_db
-
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.executescript(
-        "CREATE TABLE source_board (id TEXT PRIMARY KEY, provider TEXT);"
-        "CREATE TABLE job (id TEXT PRIMARY KEY, provider TEXT, source_board_id TEXT,"
-        " first_seen_at TEXT, last_seen_at TEXT);"
-    )
-    # No board registered, yet a posting arrived from one.
-    conn.execute(
-        "INSERT INTO job VALUES ('j1', 'ghost', 'b9', '2026-09-04T22:00:00Z',"
-        " '2026-09-04T22:00:00Z')"
-    )
-
-    class Stats:
-        failures: list[object] = []
-        holds: list[object] = []
-
-    row = source_outcomes_from_db(conn, Stats(), {}, "2026-09-04T21:00:00Z")[0]
-    assert row["boards_attempted"] >= row["boards_succeeded"]
-    assert row["status"] != "not attempted"
 
 
 def test_the_collector_reports_progress_between_boards() -> None:

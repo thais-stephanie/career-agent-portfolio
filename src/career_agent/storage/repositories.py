@@ -520,6 +520,22 @@ class JobRepo(_Repo):
         ).fetchone()
         return str(row["id"])
 
+    def touch_seen(self, provider: str, external_id: str) -> bool:
+        """Mark an OPEN posting seen on this pass without re-reading it.
+
+        For a collector that recognises a posting it holds from the listing
+        alone and skips the per-posting request. Only `last_seen_at` moves, so
+        nothing is marked for rescoring; a closed row is not touched, and its
+        collector reads it in full instead, which is what reopens it.
+        """
+        now = now_utc()
+        cursor = self.conn.execute(
+            "UPDATE job SET last_seen_at = ?, updated_at = ?"
+            " WHERE provider = ? AND external_id = ? AND closed_at IS NULL",
+            (now, now, provider, external_id),
+        )
+        return cursor.rowcount > 0
+
     def repoint_content_hash(self, old_hash: str, new_hash: str) -> int:
         """Move every job pointing at one raw row onto another. Returns the count.
 
@@ -858,6 +874,27 @@ class PipelineRunRepo(_Repo):
         from career_agent.storage.catalogue import release_for_run
 
         release_for_run(self.conn, run_id)
+
+    def checkpoint(self, stage: str, key: str) -> Any:
+        """Where the newest run of `stage` that recorded `key` left it, or None.
+
+        A collector that continues across refreshes keeps its place in its own
+        run stats (a page number, a feed cursor), so the place is exactly as
+        durable as the run ledger and needs no table of its own. Source state
+        only: nothing about the person is ever written there.
+        """
+        for (raw,) in self.conn.execute(
+            "SELECT stats_json FROM pipeline_run WHERE stage = ?"
+            " ORDER BY started_at DESC, id DESC LIMIT 20",
+            (stage,),
+        ):
+            try:
+                stats = json.loads(raw or "{}")
+            except ValueError:
+                continue
+            if isinstance(stats, dict) and key in stats:
+                return stats[key]
+        return None
 
     def progress(self, run_id: str, stats: dict[str, Any]) -> None:
         """Record what a run has done SO FAR, without ending it.

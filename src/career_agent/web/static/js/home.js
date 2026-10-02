@@ -315,13 +315,18 @@ export function createHome({
       .map((key) => byKey.get(key))
       .filter((metric) => metric && !(HIDE_WHEN_EMPTY.has(metric.key) && !metric.value))
       .map((metric) => {
+        // NO ANSWER YET IS NOT ZERO. "New" before any refresh has finished
+        // arrives as null, and a 0 there would claim a refresh found nothing.
+        const unknown = metric.value === null || metric.value === undefined;
         const inner = [
-          el('span', { className: 'metric__value num', text: String(metric.value) }),
+          el('span', { className: 'metric__value num', text: unknown ? '-' : String(metric.value) }),
           el('span', { className: 'metric__label', text: t(`home.metric.${metric.key}`) }),
-          // STOCK or EVENT, said in words rather than implied by position.
+          // STOCK, EVENT or REFRESH, said in words rather than implied by position.
           el('span', {
             className: 'metric__kind',
-            text: metric.kind === 'event' ? t('home.kind.event') : t('home.kind.now'),
+            text: metric.kind === 'refresh'
+              ? t(unknown ? 'home.kind.noRefresh' : 'home.kind.refresh')
+              : metric.kind === 'event' ? t('home.kind.event') : t('home.kind.now'),
           }),
         ];
         if (!metric.statuses.length || !onGoTo) {

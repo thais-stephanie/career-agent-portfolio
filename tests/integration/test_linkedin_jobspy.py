@@ -178,9 +178,7 @@ def test_find_jobs_runs_linkedin_only_after_the_opt_in(tmp_path: Path, monkeypat
         return lambda state, cancel: ran.append(stage)
 
     monkeypatch.setattr("career_agent.web.source_refresh.feed_work", feed)
-    monkeypatch.setattr(
-        api, "_collect_work", lambda limit, provider=None: lambda s, c: ran.append(provider)
-    )
+    monkeypatch.setattr(api, "_collect_work", lambda *, provider: lambda s, c: ran.append(provider))
     monkeypatch.setattr(
         "career_agent.web.source_refresh.employer_board_work",
         lambda app, families: lambda s, c: None,

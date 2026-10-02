@@ -803,25 +803,22 @@ export async function getRetrieval({ funnel = true } = {}) {
   return request(funnel ? '/retrieval' : '/retrieval?funnel=false');
 }
 
-/** Begin a collection pass. Returns immediately; poll `getRetrieval`. */
-export async function startRetrieval() {
-  return request('/retrieval', { method: 'POST', body: {} });
-}
-
 /**
- * Find jobs: every source that may be refreshed and is not paused, in turn.
- * Returns at once; progress is `getRetrieval()`, cancel is `cancelRetrieval()`.
- */
-export async function findJobs() {
-  return request('/sources/refresh-all', { method: 'POST', body: {} });
-}
-
-/**
- * Refresh due sources: only the sources whose health says they are due.
- * `{started: false}` when nothing is due; otherwise a run like `findJobs`.
+ * Find jobs, and Refresh due sources: the sources due right now, refreshed
+ * first, then the new and changed jobs scored. `{started: false}` when
+ * nothing is due. Returns at once; progress is `getRetrieval()`, cancel is
+ * `cancelRetrieval()`.
  */
 export async function refreshDueSources() {
   return request('/sources/refresh-due', { method: 'POST', body: {} });
+}
+
+/**
+ * Refresh all available sources: every source that may be refreshed and is
+ * not paused or cooling down, recently refreshed ones included.
+ */
+export async function refreshAllSources() {
+  return request('/sources/refresh-all', { method: 'POST', body: {} });
 }
 
 /** Ask the run to stop after the board it is on. */

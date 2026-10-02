@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from functools import lru_cache
@@ -23,6 +24,10 @@ if TYPE_CHECKING:
     from career_agent.web.api import JobsApi
 
 PREFIX = "source_refresh."
+#: The ledger stage of a finished "Find jobs" / refresh run (never `collect%`).
+FIND_JOBS_STAGE = "find-jobs"
+#: The employer-board discovery step: part of a run, never counted as a source.
+DISCOVERY = "employer-boards"
 MODES = {"AUTO", "ENABLED", "PAUSED"}
 
 
@@ -152,7 +157,17 @@ def register_source_refresh(app: JobsApi) -> None:
             )
         return {"source_id": entry.source.id, "mode": body["mode"]}
 
+    def _step(entry, opted):
+        """One source as one step: (source id, name, work, is a board family)."""
+        provider = effective_provider(entry, opted) or ""
+        stage = _stage_for(provider)
+        if stage == "collect":
+            return entry.source.id, entry.source.name, app._collect_work(provider=provider), True
+        work = feed_work(app.config.db_path, stage, config_dir=app.config.config_dir)
+        return entry.source.id, entry.source.name, work, False
+
     def refresh(*, query: dict, body: dict) -> dict:
+        """Refresh now: exactly this one source, as a one-step plan."""
         if query or set(body) != {"source_id"}:
             raise ApiError(400, "Choose one source to refresh.")
         entry = source(body)
@@ -182,23 +197,17 @@ def register_source_refresh(app: JobsApi) -> None:
             raise ApiError(409, "Demo databases do not collect live jobs.", for_reader=True)
         if app.retrieval.running:
             raise ApiError(409, "A refresh is already running.", for_reader=True)
-        provider = effective_provider(entry, opted)
-        stage = _stage_for(provider or "")
-        if stage == "collect":
-            work = app._collect_work(None, provider=provider)
-        else:
-            work = feed_work(app.config.db_path, stage, config_dir=app.config.config_dir)
+        from career_agent.runtime.maintenance_lock import maintenance_running
 
-        # The runner is shared with the existing refresh action, so a second
-        # click cannot start competing collectors in this server.
-        def selected_work(state, cancel):
-            app._active_source_refresh = entry.source.id
-            return work(state, cancel)
-
-        try:
-            return app.retrieval.start(selected_work, new_id())
-        except RuntimeError as exc:
-            raise ApiError(409, "A refresh is already running.", for_reader=True) from exc
+        if maintenance_running(app.config.db_path):
+            raise ApiError(
+                409,
+                "A source refresh started from the command window is still running. "
+                "Try again when it finishes.",
+                for_reader=True,
+            )
+        source_id, name, work, _family = _step(entry, opted)
+        return _run([(source_id, name, work, True)], kind="source")
 
     def _refuse_unless_ready(identity) -> None:
         if not identity or identity.kind is not RuntimeMode.PERSONAL:
@@ -223,69 +232,74 @@ def register_source_refresh(app: JobsApi) -> None:
                 for_reader=True,
             )
 
-    def _plan(entries, opted, *, only: set[str] | None, discover: bool):
-        """The collection steps for `entries`, in the order they must run.
+    def _plan(entries, opted, rows, *, only: set[str] | None):
+        """The steps for `entries`, in the order they must run, and the names of
+        the sources left out that still hold jobs from an earlier refresh.
 
-        One policy for "Find jobs" and "Refresh due sources": the sources
-        `can_refresh` admits, minus every PAUSED one; with `only`, just those
-        source ids. Returns (steps, deferred collector keys, collector keys)."""
-        rows = app._refresh_progress(entries)
+        One policy for "Find jobs", "Refresh due sources" and "Refresh all
+        available sources": the sources `can_refresh` admits, minus every
+        PAUSED one and every one still cooling down after a refusal; with
+        `only`, just those source ids. A board family runs once whichever of
+        its rows asked for it."""
         paused = {p.source_id for p in rows if p.state == "PAUSED"}
-        # A refusal is respected by EVERY button: a source the site refused is
-        # not asked again inside its cooldown, by "Find jobs" either.
-        refused = {p.source_id for p in rows if p.state == "RATE_LIMITED" and p.cooldown_until}
-        steps: list[tuple[str, str, object]] = []
-        board_ids: set[str] = set()
+        # A wait is respected by every plan: a source the site refused, or one
+        # that just failed, is not asked again before its wait is over.
+        refused = {p.source_id for p in rows if p.cooldown_until}
+        steps: list[tuple[str, str, object, bool]] = []
         seen: set[str] = set()
-        deferred: set[str] = set()
         for entry in entries:
             if only is not None and entry.source.id not in only:
                 continue
             provider = effective_provider(entry, opted)
             if not provider or not can_refresh(entry, opted):
                 continue
+            if entry.source.id in paused or entry.source.id in refused:
+                continue
             stage = _stage_for(provider)
             # Board families share one collector per provider; every other
             # source is its own `collect-*` command. Never run one twice.
             key = provider if stage == "collect" else stage
-            if entry.source.id in paused or entry.source.id in refused:
-                deferred.add(key)
-                continue
             if key in seen:
                 continue
             seen.add(key)
-            work = (
-                app._collect_work(None, provider=provider)
-                if stage == "collect"
-                else feed_work(app.config.db_path, stage, config_dir=app.config.config_dir)
-            )
-            if stage == "collect":
-                board_ids.add(entry.source.id)
-            steps.append((entry.source.id, entry.source.name, work))
+            steps.append(_step(entry, opted))
         # Feeds first, then employer board discovery (it reads the employers
         # the feeds just brought in), then the employer boards themselves, so
-        # a board found this run is collected this run.
-        boards = [s for s in steps if s[0] in board_ids]
-        steps = [s for s in steps if s[0] not in board_ids]
+        # a board found this run is collected this run. Discovery is not a
+        # source and is not counted as one.
+        boards = [s for s in steps if s[3]]
+        steps = [s for s in steps if not s[3]]
         from career_agent.pipeline.employer_boards import FAMILIES
 
         probe = tuple(f for f in FAMILIES if f in seen)
-        if discover and probe:
-            steps.append(
-                ("employer-boards", "Employer job boards", employer_board_work(app, probe))
-            )
+        if probe:
+            steps.append((DISCOVERY, "Employer job boards", employer_board_work(app, probe), False))
         steps.extend(boards)
-        return steps, deferred, seen
+        planned = {s[0] for s in steps}
+        names = {e.source.id: e.source.name for e in entries}
+        held_back = sorted(
+            names.get(p.source_id, p.source_id)
+            for p in rows
+            if p.source_id not in planned
+            and p.last_success
+            and p.state not in ("COMPLETE", "PARTIAL", "RUNNING")
+        )
+        return steps, held_back
 
-    def _run(steps, deferred, seen):
+    def _run(steps, *, kind: str, held_back=()):
+        counted = [s for s in steps if s[0] != DISCOVERY]
+
         def all_sources(state, cancel):
             from contextlib import suppress
 
             from career_agent.pipeline.retrieval import RetrievalState, SourceOutcome, now_iso
 
-            state.boards_total = len(steps)
-            state.skipped = len(deferred - seen)
+            state.kind = kind
+            state.plan = [name for _id, name, _work, _family in counted]
+            state.boards_total = len(counted)
+            state.not_refreshed = list(held_back)
             outcomes: list[dict] = []
+            new_total = 0
             # The shipped employer boards, added to a database that lacks them.
             # In the worker rather than the request: it can wait behind another
             # writer, and a registry that no longer parses changes nothing.
@@ -294,17 +308,18 @@ def register_source_refresh(app: JobsApi) -> None:
             with closing(app.connect()) as conn:
                 sync_registry_quietly(conn, app.config.config_dir)
             try:
-                for done, (source_id, name, work) in enumerate(steps):
+                for source_id, name, work, _family in steps:
                     if cancel.is_set():
                         break
-                    state.boards_done = done
                     state.current = name
                     state.current_started_at = now_iso()
                     app._active_source_refresh = source_id
                     # Each source's work reports into its own state, so its
                     # board counters do not overwrite "sources checked".
                     inner = RetrievalState(run_id=state.run_id, started_at=state.started_at)
+                    state.inner = inner
                     outcome = SourceOutcome(provider=name, boards_attempted=1)
+                    mark = _last_run_row()
                     try:
                         work(inner, cancel)  # type: ignore[operator]
                         outcome.boards_succeeded = 1
@@ -312,13 +327,26 @@ def register_source_refresh(app: JobsApi) -> None:
                         # Never the exception text: it can carry a local path.
                         outcome.boards_failed = 1
                         outcome.failures.append("This source could not be read this time.")
+                    # What this source's own runs added, from their own stats:
+                    # a posting another source already held is a sighting
+                    # there, never a new job, so the sum counts each job once.
+                    outcome.jobs_new = _jobs_new_after(mark)
+                    new_total += outcome.jobs_new
+                    if source_id == DISCOVERY:
+                        continue
+                    if outcome.boards_failed:
+                        state.not_refreshed.append(name)
                     outcomes.append(outcome.as_dict())
                     state.sources = list(outcomes)
-                state.boards_done = len(outcomes)
+                    state.boards_done = len(outcomes)
             finally:
                 state.current = None
                 state.current_started_at = None
+                state.inner = None
                 app._active_source_refresh = None
+            if not cancel.is_set():
+                state.jobs_new = new_total
+                _record_run(state)
             # Score what arrived. Targeted: only postings without a current
             # score, so this is proportional to what was collected. Never a
             # semantic (paid) pass: that is only ever started by the person.
@@ -335,75 +363,114 @@ def register_source_refresh(app: JobsApi) -> None:
                 for_reader=True,
             ) from exc
 
-    def refresh_all(*, query: dict, body: dict) -> dict:
-        """Find jobs: every source a per-source button would refresh, in turn.
+    def _last_run_row() -> int:
+        with closing(app.connect()) as conn:
+            row = conn.execute("SELECT COALESCE(MAX(rowid), 0) FROM pipeline_run").fetchone()
+        return int(row[0])
 
-        A fresh install had no single way to collect anything. Each source had
-        its own "Refresh now", one run at a time, so a first search meant about
-        twenty clicks with a wait between each -- and the only all-at-once
-        control collected just the employer boards already in the database,
-        which a fresh database has none of.
+    def _jobs_new_after(mark: int) -> int:
+        total = 0
+        with closing(app.connect()) as conn:
+            for (raw,) in conn.execute(
+                "SELECT stats_json FROM pipeline_run WHERE rowid > ? AND stage LIKE 'collect%'",
+                (mark,),
+            ):
+                try:
+                    value = json.loads(raw or "{}").get("jobs_new")
+                except (ValueError, AttributeError):
+                    continue
+                if isinstance(value, int) and not isinstance(value, bool):
+                    total += value
+        return total
 
-        This adds no collection policy of its own. The sources are exactly the
-        ones `can_refresh` admits, minus every one the person or their target
-        markets have PAUSED (the same verdict `/api/sources` shows beside each
-        row), and each is run through the same work its own button starts. One
-        source failing does not stop the rest; cancelling stops after the source
-        in flight. New postings are then scored by the normal targeted rescore.
-        """
-        if query or body:
-            raise ApiError(400, "Finding jobs takes no parameters.")
+    def _record_run(state) -> None:
+        """The finished run, for Home's "New from your latest refresh".
+
+        Its own ledger row (stage `find-jobs`, never `collect%`, so nothing
+        reads it as a collection): counts and source names only."""
+        from career_agent.pipeline.retrieval import now_iso
+        from career_agent.runtime.mode import record_retrieval
+
+        read_any = any(row.get("status") == "ok" for row in state.sources)
+        stats = {
+            "kind": state.kind,
+            "planned": len(state.plan),
+            "finished": state.boards_done,
+            "jobs_new": state.jobs_new,
+            "not_refreshed": list(state.not_refreshed),
+        }
+        with closing(app.connect()) as conn, transaction(conn):
+            conn.execute(
+                "INSERT INTO pipeline_run (id, stage, started_at, finished_at, status, stats_json)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    new_id(),
+                    FIND_JOBS_STAGE,
+                    state.started_at,
+                    now_iso(),
+                    "OK" if read_any else "FAILED",
+                    json.dumps(stats),
+                ),
+            )
+            if read_any:
+                record_retrieval(conn)
+
+    def _start(kind: str, *, only_due: bool) -> dict:
         with closing(app.connect()) as conn:
             identity = read_identity(conn)
             entries = health(conn, catalogue_path=app.config.config_dir / "source_catalogue.yaml")
             opted = opted_in(conn, entries)
         _refuse_unless_ready(identity)
-        steps, deferred, seen = _plan(entries, opted, only=None, discover=True)
-        if not steps and any(
-            p.state == "RATE_LIMITED" and p.cooldown_until for p in app._refresh_progress(entries)
-        ):
-            raise ApiError(
-                409,
-                "The sources you can use refused the last requests and are cooling down. "
-                "Try again later; Settings & Sources says when.",
-                for_reader=True,
-            )
-        if not steps:
+        # THE PLAN IS DECIDED HERE, ONCE. What is due is read at the press and
+        # frozen into the run; a source turning fresh or due while it runs
+        # changes the next press, never this run's total.
+        rows = app._refresh_progress(entries)
+        due = {p.source_id for p in rows if p.due} if only_due else None
+        waiting = sorted(p.source_id for p in rows if p.cooldown_until)
+        steps, held_back = _plan(entries, opted, rows, only=due)
+        planned = sum(1 for s in steps if s[0] != DISCOVERY)
+        if not planned:
+            fresh = any(p.state in ("COMPLETE", "PARTIAL") and not p.cooldown_until for p in rows)
+            if only_due and fresh:
+                return {"started": False, "due": 0, "cooling_down": waiting}
+            if waiting:
+                raise ApiError(
+                    409,
+                    "The sources you can use refused the last requests and are cooling down. "
+                    "Try again later; Settings & Sources says when.",
+                    for_reader=True,
+                )
             raise ApiError(
                 409,
                 "No job source is switched on for the places you can work. "
                 "Open Settings & Sources to turn one on.",
                 for_reader=True,
             )
-        return _run(steps, deferred, seen)
+        run = _run(steps, kind=kind, held_back=held_back)
+        return {**run, "started": True, "due": planned, "cooling_down": waiting}
+
+    def refresh_all(*, query: dict, body: dict) -> dict:
+        """Refresh all available sources: every source `can_refresh` admits,
+        fresh ones included, minus paused and cooling-down ones. A deliberate
+        full refresh; "Find jobs" is `refresh_due`. One source failing does not
+        stop the rest; cancelling stops after the source in flight. New
+        postings are then scored by the normal targeted rescore."""
+        if query or body:
+            raise ApiError(400, "Finding jobs takes no parameters.")
+        return _start("all", only_due=False)
 
     def refresh_due(*, query: dict, body: dict) -> dict:
-        """Refresh due sources: only the ones whose health says they are due.
+        """Find jobs, and Refresh due sources: only the sources due right now.
 
         Due is one rule (`SourceProgress.due`): never refreshed, older than a
         day, stale, or failed or refused and past its cooldown. Nothing paused,
         blocked, running or still cooling down; nothing switched on by this
         button. An experimental source (LinkedIn) is here only when this
-        profile already opted in, and a recent refusal keeps it out: it is
-        never asked again inside its cooldown. Nothing runs when nothing is due.
+        profile already opted in. Nothing runs when nothing is due.
         """
         if query or body:
             raise ApiError(400, "Refreshing due sources takes no parameters.")
-        with closing(app.connect()) as conn:
-            identity = read_identity(conn)
-            entries = health(conn, catalogue_path=app.config.config_dir / "source_catalogue.yaml")
-            opted = opted_in(conn, entries)
-        _refuse_unless_ready(identity)
-        rows = app._refresh_progress(entries)
-        due = {p.source_id for p in rows if p.due}
-        waiting = sorted(p.source_id for p in rows if p.cooldown_until)
-        if not due:
-            return {"started": False, "due": 0, "cooling_down": waiting}
-        steps, deferred, seen = _plan(entries, opted, only=due, discover=False)
-        if not steps:
-            return {"started": False, "due": 0, "cooling_down": waiting}
-        run = _run(steps, deferred, seen)
-        return {**run, "started": True, "due": len(steps), "cooling_down": waiting}
+        return _start("due", only_due=True)
 
     def experimental(*, query: dict, body: dict) -> dict:
         """Switch a row's local experimental override on or off, for this profile.
@@ -480,6 +547,44 @@ def employer_board_work(app, families):
     return work
 
 
+def _ledger_mark(db_path) -> int:
+    import sqlite3
+    from contextlib import closing as _closing
+
+    from career_agent.storage.db import connect
+
+    # A database the collector has not migrated yet has no ledger: nothing
+    # can be left open in it.
+    try:
+        with _closing(connect(db_path)) as conn:
+            row = conn.execute("SELECT COALESCE(MAX(rowid), 0) FROM pipeline_run").fetchone()
+    except sqlite3.OperationalError:
+        return 0
+    return int(row[0])
+
+
+def _close_abandoned(db_path, stage: str, mark: int) -> None:
+    """A collector stopped or killed mid-run leaves its ledger row open, which
+    reads as RUNNING for good: never due, never listed, and every refresh
+    button disabled. Close it as FAILED, so it waits its hour and is due again."""
+    import sqlite3
+    from contextlib import closing as _closing
+
+    from career_agent.clock import now_utc
+    from career_agent.storage.db import connect
+
+    try:
+        with _closing(connect(db_path)) as conn, transaction(conn):
+            conn.execute(
+                "UPDATE pipeline_run SET finished_at = ?, status = 'FAILED',"
+                " error = COALESCE(error, 'stopped before it finished')"
+                " WHERE stage = ? AND rowid > ? AND finished_at IS NULL",
+                (now_utc(), stage, mark),
+            )
+    except sqlite3.OperationalError:
+        return
+
+
 #: Collectors that read the person's settings, and so are told where they are.
 READS_CONFIG = frozenset({"collect-himalayas", "collect-linkedin"})
 
@@ -519,11 +624,15 @@ def feed_work(db_path, stage, *, config_dir=None):
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             ) as process,
         ):
-            while process.poll() is None:
-                if cancel.wait(0.25):
-                    process.terminate()
-                    process.wait(timeout=10)
-                    return
+            mark = _ledger_mark(db_path)
+            try:
+                while process.poll() is None:
+                    if cancel.wait(0.25):
+                        process.terminate()
+                        process.wait(timeout=10)
+                        return
+            finally:
+                _close_abandoned(db_path, stage, mark)
             if process.returncode:
                 errors.seek(0)
                 tail = errors.read()[-600:].decode("utf-8", errors="replace").strip()

@@ -2824,6 +2824,13 @@ def collect_speedrun_command(
         ),
     ] = 2,
     config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
+    window_pages: Annotated[
+        int,
+        typer.Option(
+            "--window-pages",
+            help="Further pages, continuing from the last run. Default 4; 0 for none.",
+        ),
+    ] = 4,
 ) -> None:
     """Read the a16z Speedrun Talent Network feed. Public, read-only, free.
 
@@ -2868,7 +2875,9 @@ def collect_speedrun_command(
         collector = SpeedrunCollector(conn, fetcher)
         typer.echo(f"reading the Speedrun feed, scope={scope}, max_pages={max_pages or 'all'}")
         try:
-            stats = collector.collect(scope=scope, max_pages=max_pages or None)
+            stats = collector.collect(
+                scope=scope, max_pages=max_pages or None, window_pages=max(0, window_pages)
+            )
         except ContractRefused as exc:
             typer.secho(str(exc), fg=typer.colors.RED, err=True)
             raise typer.Exit(code=3) from exc
@@ -3920,6 +3929,13 @@ def collect_himalayas_command(
     search_pages: Annotated[
         int, typer.Option("--search-pages", help="Pages of 20 per search. Default 1.")
     ] = 1,
+    backlog_pages: Annotated[
+        int,
+        typer.Option(
+            "--backlog-pages",
+            help="Older pages of 20, continuing from the last run. Default 50; 0 for none.",
+        ),
+    ] = 50,
 ) -> None:
     """Read the Himalayas jobs feed and store what is new.
 
@@ -3966,9 +3982,9 @@ def collect_himalayas_command(
     try:
         migrate(conn)
         with HttpFetcher() as fetcher:
-            stats = HimalayasCollector(conn, fetcher, max_pages=max_pages).collect(
-                searches=searches, search_pages=search_pages
-            )
+            stats = HimalayasCollector(
+                conn, fetcher, max_pages=max_pages, backlog_pages=max(0, backlog_pages)
+            ).collect(searches=searches, search_pages=search_pages)
     finally:
         conn.close()
 
@@ -4418,12 +4434,21 @@ def collect_programathor_command(
     max_pages: Annotated[
         int, typer.Option("--max-pages", help="Listing pages of 15. Default 2.")
     ] = 2,
+    window_pages: Annotated[
+        int,
+        typer.Option(
+            "--window-pages",
+            help="Further listing pages, continuing from the last run. Default 3; 0 for none.",
+        ),
+    ] = 3,
 ) -> None:
     """Read the Programathor listing and store what is new. Brazil, developers.
 
     Bounded by default, and the bound matters more here than anywhere else:
     the listing carries no descriptions, so each posting costs its own request.
-    Two pages is 2 listing requests plus up to 30 posting requests.
+    Two pages is 2 listing requests plus up to 30 posting requests; a posting
+    already held costs none. Three further listing pages continue from where
+    the last run stopped, so repeated runs move down the listing.
 
     Roughly half of this vendor's posting pages answer HTTP 500. That is
     measured and deterministic rather than a rate limit, so it is counted and
@@ -4444,7 +4469,9 @@ def collect_programathor_command(
     try:
         migrate(conn)
         with HttpFetcher() as fetcher:
-            stats = ProgramathorCollector(conn, fetcher, max_pages=max_pages).collect()
+            stats = ProgramathorCollector(
+                conn, fetcher, max_pages=max_pages, window_pages=max(0, window_pages)
+            ).collect()
     finally:
         conn.close()
 
@@ -4914,14 +4941,14 @@ def collect_jobgether_command(
 def collect_fourdayweek_command(
     db: Annotated[Path, typer.Option("--db")] = DEFAULT_DB_PATH,
     max_pages: Annotated[
-        int, typer.Option("--max-pages", help="Pages of 100 to read. Default 50.")
-    ] = 50,
+        int, typer.Option("--max-pages", help="Pages of 100 to read. Default 300.")
+    ] = 300,
 ) -> None:
     """Read the 4 Day Week public API v2 and store what is new.
 
-    Bounded by default: fifty pages of a hundred, a fifth of the 23,690 the
-    feed reported on 2026-09-11, at about one request a second under the
-    vendor's sixty a minute. The API's own terms are one sentence -- "All we
+    The whole feed by default (25,508 listings, about 256 pages, on
+    2026-10-02), bounded at 300 pages of a hundred, at about one request a
+    second under the vendor's sixty a minute. The API's own terms are one sentence -- "All we
     ask is that you link back to https://4dayweek.io" -- and Apply opens the
     4dayweek.io page, which is also the only URL the response carries.
 

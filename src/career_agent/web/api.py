@@ -15,7 +15,6 @@ an employer, and there is no code path that could.
 
 from __future__ import annotations
 
-import contextlib
 import os
 import threading
 from dataclasses import replace
@@ -432,6 +431,46 @@ def _progress_dict(p, name: str = "") -> dict:
         "needs_attention": p.needs_attention,
         "due": p.due,
         "cooldown_until": p.cooldown_until,
+        # AN EMPLOYER-BOARD FAMILY'S OWN FRACTION, when its last pass recorded
+        # one: "121 of 124 employer boards refreshed, 3 failed" says what
+        # "partially refreshed" means there. Boards, never sources.
+        "boards": (
+            {
+                "attempted": p.detail.get("boards_attempted"),
+                "succeeded": p.detail.get("boards_succeeded"),
+                "failed": p.detail.get("boards_failed") or 0,
+            }
+            if isinstance(p.detail.get("boards_attempted"), int)
+            and p.detail.get("boards_attempted")
+            else None
+        ),
+        # What the source's own interface will serve at most, when that is
+        # less than what it says it holds (a provider ceiling, not ours).
+        "reachable_total": p.detail.get("servable_total"),
+    }
+
+
+def _source_summary(observed: list, refresh: list[dict], opted: frozenset[str]) -> dict:
+    """Four populations that are easy to confuse, counted from the catalogue.
+
+    INTEGRATED: catalogue rows with a collector of their own. EXPERIMENTAL:
+    rows that run only through a local override, counted apart. AVAILABLE:
+    what "Refresh all available sources" would run now (not paused, blocked or
+    cooling down). DUE: what "Find jobs" and "Refresh due sources" would run
+    now. None of these is a count of employer boards or `source_board` rows.
+    """
+    available = sum(
+        1
+        for row in refresh
+        if row["state"] not in ("PAUSED", "BLOCKED") and not row["cooldown_until"]
+    )
+    experimental = [e for e in observed if not e.source.provider and e.source.experimental_provider]
+    return {
+        "integrated": sum(1 for e in observed if e.source.provider),
+        "experimental": len(experimental),
+        "experimental_enabled": sum(1 for e in experimental if e.source.id in opted),
+        "available": available,
+        "due": sum(1 for row in refresh if row["due"]),
     }
 
 
@@ -497,7 +536,6 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("GET", r"/api/profile/history", self.profile_history)
         self.register("POST", r"/api/profile/restore", self.restore_profile)
         self.register("GET", r"/api/retrieval", self.retrieval_status)
-        self.register("POST", r"/api/retrieval", self.start_retrieval)
         self.register("POST", r"/api/retrieval/cancel", self.cancel_retrieval)
         self.register("GET", r"/api/rescore", self.rescore_status)
         self.register("POST", r"/api/rescore", self.start_rescore)
@@ -817,6 +855,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             }
 
         names = {entry.source.id: entry.source.name for entry in observed}
+        refresh = [
+            _progress_dict(p, names.get(p.source_id, "")) for p in self._refresh_progress(observed)
+        ]
         counts: dict[str, int] = {}
         states: dict[str, int] = {}
         for entry in observed:
@@ -873,10 +914,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # do with a board at all, and this says what happened to it last
             # night and what is happening this minute. A board can be perfectly
             # capable and eight hours stale.
-            "refresh": [
-                _progress_dict(p, names.get(p.source_id, ""))
-                for p in self._refresh_progress(observed)
-            ],
+            "refresh": refresh,
+            "summary": _source_summary(observed, refresh, opted),
         }
 
     def _refresh_progress(self, observed: list) -> list:
@@ -889,6 +928,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.sources.progress import RefreshState, read_progress
         from career_agent.sources.scheduling import plan_refresh
         from career_agent.web.source_refresh import (
+            can_refresh,
             effective_provider,
             experimental_available,
             modes,
@@ -958,6 +998,11 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # runs (and can be paused) like any other source. Its permission
             # still reads FORBIDDEN on the row itself.
             or (entry.source.permission.value == "FORBIDDEN" and entry.source.id not in opted)
+            # A source no button may refresh (a spent or regional quota, a
+            # collector that does not exist here) is never "due" or
+            # "available": counting it would promise a refresh that no press
+            # can start.
+            or not can_refresh(entry, opted)
         }
         from career_agent.sources import public_health
 
@@ -1774,39 +1819,6 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             "now": now_iso(),
         }
 
-    def start_retrieval(self, *, query: dict, body: dict) -> dict:
-        """Begin a collection pass. Returns immediately; poll for progress.
-
-        THIS IS THE ONLY ROUTE THAT TOUCHES THE NETWORK, and it only reaches
-        the three documented, unauthenticated ATS APIs through the existing
-        collector -- the same code path `career-agent collect` uses, with the
-        same politeness delay. It sends nothing about the person, applies to
-        nothing, and logs in nowhere.
-        """
-        _reject_unknown(query, frozenset(), "retrieval")
-        from career_agent.clock import new_id
-
-        if self.retrieval.running:
-            raise ApiError(409, "a retrieval is already running", for_reader=True)
-        # Demo mode collects nothing: the demo corpus is invented, and putting
-        # real postings in it is the mixing the runtime modes exist to stop.
-        from career_agent.runtime import RuntimeMode, read_identity
-
-        with _closing(self.connect()) as conn:
-            identity = read_identity(conn)
-        if identity is None or identity.kind is not RuntimeMode.PERSONAL:
-            raise ApiError(
-                409,
-                "retrieval only runs against a personal database; this one is "
-                f"{identity.kind.value.lower() if identity else 'unidentified'}",
-                # It names the database she is looking at and why the button
-                # did nothing, which is more than a generic refusal could say.
-                for_reader=True,
-            )
-
-        limit = _int(body, "board_limit") if isinstance(body.get("board_limit"), int) else None
-        return self.retrieval.start(self._collect_work(limit), new_id())
-
     def rescore_status(self, *, query: dict, body: dict) -> dict:
         """What the current or last rescore did. Safe to poll.
 
@@ -1906,60 +1918,29 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         _reject_unknown(query, frozenset(), "retrieval")
         return {"cancelled": self.retrieval.cancel()}
 
-    def _collect_work(self, board_limit: int | None, *, provider: str | None = None):
-        """The unit the runner executes on its thread.
+    def _collect_work(self, *, provider: str):
+        """One employer-board family, through the shared collector.
 
-        Built here so the runner stays free of collection concerns and the
-        tests can drive the lifecycle without a network.
+        A STEP of a source refresh run (`web/source_refresh.py`), which owns the
+        plan, the scoring that follows and the run's record. This reports only
+        its own boards, into the step's own state, so a family can say "121 of
+        124 employer boards" without its board count ever becoming the number
+        of sources.
         """
 
         def work(state, cancel) -> None:
-            if provider is None:
-                self._active_source_refresh = None
             from career_agent.net.fetcher import HttpFetcher
             from career_agent.pipeline.collect import Collector
-            from career_agent.pipeline.retrieval import (
-                build_funnel,
-                provider_by_board,
-                source_outcomes_from_db,
-            )
-            from career_agent.runtime.mode import record_retrieval
-            from career_agent.storage.db import transaction
+            from career_agent.pipeline.retrieval import provider_by_board
 
-            config_id, config_version = self._identity()
-            shortlist = int(
-                _as_dict(self.search_config(), "thresholds").get("shortlist_min_score", 55)
-            )
             conn = self.connect()
             try:
-                providers = provider_by_board(conn)
-                from career_agent.sources.health import health
-                from career_agent.web.source_refresh import modes
-
-                selected = None
-                if provider:
-                    selected = {key for key, name in providers.items() if name == provider}
-                else:
-                    preferences = modes(conn)
-                    paused_providers = {
-                        e.source.provider
-                        for e in health(
-                            conn, catalogue_path=self.config.config_dir / "source_catalogue.yaml"
-                        )
-                        if preferences.get(e.source.id) == "PAUSED"
-                    }
-                    if paused_providers:
-                        selected = {
-                            key for key, name in providers.items() if name not in paused_providers
-                        }
-                if selected is not None:
-                    providers = {key: name for key, name in providers.items() if key in selected}
-                state.boards_total = len(providers)
+                selected = {
+                    key for key, name in provider_by_board(conn).items() if name == provider
+                }
+                state.boards_total = len(selected)
 
                 def progress(done: int, total: int, board: object) -> None:
-                    # Written straight onto the shared state the status route
-                    # reads. Ints on a dataclass under CPython, so no lock is
-                    # needed for the reader to see a coherent number.
                     state.boards_done = done
                     state.boards_total = total
 
@@ -1971,26 +1952,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                         board_ids=selected,
                     )
                 state.boards_done = int(getattr(stats, "boards_attempted", 0))
-                state.sources = source_outcomes_from_db(conn, stats, providers, state.started_at)
-                with transaction(conn):
-                    record_retrieval(conn)
-                state.funnel = build_funnel(conn, config_id, config_version, shortlist)
             finally:
                 conn.close()
-            # COLLECT, MARK, SCORE WHAT WAS MARKED. The postings this pass
-            # inserted or changed sit in the dirty ledger; scoring them is
-            # proportional to their number, so a collection no longer leaves
-            # new postings unscored until somebody remembers a command. One
-            # rescore at a time, through its own runner: if one is already
-            # running it planned before these marks existed, and the marks
-            # wait for the next pass, which the revision notice offers.
-            if not self.rescore.running:
-                from career_agent.clock import new_id
-
-                # Somebody may press Recalculate between the check and the
-                # start; that pass, or the next, reads the marks.
-                with contextlib.suppress(RuntimeError):
-                    self.rescore.start(self._rescore_work(), new_id())
 
         return work
 

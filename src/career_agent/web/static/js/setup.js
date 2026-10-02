@@ -1216,7 +1216,7 @@ export function createSetup({
       className: 'setup__find',
       attrs: { role: 'status', 'aria-live': 'polite' },
     });
-    const find = button(t('setup.ready.find'), () => startFinding(), {
+    const find = button(t('setup.ready.find'), () => startFinding(status), {
       className: 'btn btn--primary',
       attrs: { id: 'setup-find' },
     });
@@ -1261,12 +1261,32 @@ export function createSetup({
         button(t('setup.ready.toHome'), () => leave(), { className: 'btn btn--quiet', attrs: { id: 'setup-home' } }),
         find,
       ].filter(Boolean),
-      submit: () => startFinding(),
+      submit: () => startFinding(status),
     };
   }
 
-  function startFinding() {
-    if (collection) collection.start('all');
+  /**
+   * Find jobs: the sources due right now are refreshed FIRST, then the new and
+   * changed jobs are scored. A source refreshed recently is left alone, so
+   * when nothing is due there is no run, and the card says so rather than
+   * pretending to have looked again.
+   */
+  async function startFinding(status) {
+    if (!collection) return;
+    const outcome = await collection.start('due');
+    if (outcome && outcome.nothingDue && status) {
+      replace(status, [
+        el('p', { className: 'setup__findtext', text: t('setup.ready.nothingDue') }),
+        (outcome.coolingDown || []).length
+          ? el('p', { className: 'setup__hint', text: t('setup.ready.coolingDown', { n: outcome.coolingDown.length }) })
+          : null,
+        button(t('setup.ready.see'), () => {
+          rememberPostponed(true);
+          rememberPosition(null);
+          if (onGoTo) onGoTo('jobs');
+        }, { className: 'btn btn--primary', attrs: { id: 'setup-see' } }),
+      ].filter(Boolean));
+    }
   }
 
   /** Draw the run from the app's watcher, for as long as this card is shown. */

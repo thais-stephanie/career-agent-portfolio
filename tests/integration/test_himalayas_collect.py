@@ -41,7 +41,10 @@ def conn() -> Iterator[sqlite3.Connection]:
 
 
 def collector(
-    conn: sqlite3.Connection, pages: list[dict[str, Any]] | None = None, max_pages: int = 5
+    conn: sqlite3.Connection,
+    pages: list[dict[str, Any]] | None = None,
+    max_pages: int = 5,
+    backlog_pages: int = 0,
 ) -> HimalayasCollector:
     bodies = pages if pages is not None else [PAGE1, PAGE2]
     order = iter(bodies)
@@ -53,7 +56,9 @@ def collector(
             return httpx.Response(200, json={"jobs": [], "nextCursor": None})
 
     fetcher = HttpFetcher(client=httpx.Client(transport=httpx.MockTransport(handler)))
-    return HimalayasCollector(conn, fetcher, max_pages=max_pages)
+    # The older-pages window is off here; tests/integration/test_source_continuation.py
+    # covers it.
+    return HimalayasCollector(conn, fetcher, max_pages=max_pages, backlog_pages=backlog_pages)
 
 
 def _jobs(conn: sqlite3.Connection) -> list[sqlite3.Row]:

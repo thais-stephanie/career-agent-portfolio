@@ -45,7 +45,7 @@ class Recorder:
         self.started = threading.Event()
 
     def install(self, monkeypatch, api: JobsApi) -> None:
-        def collect_work(board_limit, *, provider=None):
+        def collect_work(*, provider):
             return self._work(f"collect:{provider}")
 
         def feed(db_path, stage, **_):
@@ -136,8 +136,10 @@ def test_every_refreshable_unpaused_source_runs_once_in_turn(personal, monkeypat
     assert recorder.ran == expected
     assert len(set(recorder.ran)) == len(recorder.ran), "a source ran twice"
     assert snapshot["status"] == "done"
-    assert snapshot["boards_total"] == len(expected)
-    assert snapshot["boards_done"] == len(expected)
+    # The total is SOURCES: employer board discovery runs, and is not one.
+    sources = [key for key in expected if key != "employer-boards"]
+    assert snapshot["boards_total"] == len(sources) == len(snapshot["plan"])
+    assert snapshot["boards_done"] == len(sources)
     assert all(row["status"] == "ok" for row in snapshot["sources"])
     # New postings are scored by the normal targeted pass, once.
     assert len(recorder.rescores) == 1
@@ -170,7 +172,7 @@ def test_one_failing_source_does_not_stop_the_rest_or_leak_its_error(personal, m
     assert recorder.ran == expected, "the run stopped at the first failure"
     statuses = [row["status"] for row in snapshot["sources"]]
     assert statuses[0] == "failed"
-    assert statuses[1:] == ["ok"] * (len(expected) - 1)
+    assert statuses[1:] == ["ok"] * (len([k for k in expected if k != "employer-boards"]) - 1)
     rendered = repr(snapshot)
     assert "private" not in rendered and "secret" not in rendered
 
@@ -195,38 +197,23 @@ def test_cancelling_stops_after_the_source_in_flight(personal, monkeypatch):
     assert personal.retrieval.snapshot()["status"] == "cancelled"
 
 
-def test_the_run_says_which_source_it_is_reading_and_how_many_it_skipped(personal, monkeypatch):
+def test_the_run_says_which_source_it_is_reading_and_freezes_its_plan(personal, monkeypatch):
     """A long source is the normal case. The run names it and says since when,
     so the screen can tell a person it is still working rather than frozen."""
     gate = threading.Event()
     recorder = Recorder(block=gate)
     recorder.install(monkeypatch, personal)
-    data = personal.handle_api("GET", "/api/sources", {}, {})
-    paused = {row["source_id"] for row in data["refresh"] if row["state"] == "PAUSED"}
-    refreshable = {row["id"] for row in data["sources"] if row["can_refresh"]}
-    from career_agent.sources.health import health
-
-    with connect(personal.config.db_path) as conn:
-        entries = health(conn, catalogue_path=personal.config.config_dir / "source_catalogue.yaml")
-
-    def key_of(provider: str) -> str:
-        stage = _stage_for(provider)
-        return f"collect:{provider}" if stage == "collect" else stage
-
-    # One per collector, the unit "N of M" counts in, and none that also runs.
-    skipped = {
-        key_of(entry.source.provider)
-        for entry in entries
-        if entry.source.id in refreshable and entry.source.id in paused
-    } - set(_expected_keys(personal))
-
     personal.handle_api("POST", "/api/sources/refresh-all", {}, {})
     assert recorder.started.wait(5)
     during = personal.retrieval.snapshot()
     assert during is not None
     assert during["current"], "the source being read is not named"
     assert during["current_started_at"]
-    assert during["skipped"] == len(skipped)
+    # The plan was decided at the press and its total is its length.
+    assert during["boards_total"] == len(during["plan"]) > 0
+    # Nothing here held jobs from an earlier refresh, so nothing is reported
+    # as left out of this one.
+    assert during["not_refreshed"] == []
     gate.set()
     personal.retrieval.join(10)
 

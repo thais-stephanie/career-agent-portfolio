@@ -1,5 +1,11 @@
 /**
- * retrieval.js -- going and getting more jobs, and seeing what happened.
+ * retrieval.js -- what the last refresh did, in detail. A diagnostic panel.
+ *
+ * IT STARTS NOTHING. Finding jobs is "Find jobs" and the two buttons in
+ * Settings & Sources, which refresh the sources themselves through one plan.
+ * There used to be a "Retrieve jobs" button here that read only the employer
+ * boards already in the database, so a person could "retrieve" and still
+ * find most sources out of date; that second meaning of finding jobs is gone.
  *
  * The funnel is the honest part. Every stage is COUNTED from the database, so
  * the panel can say "18,549 scored, 15,244 roles, 163 recommended" and each of
@@ -18,7 +24,7 @@
  * it changes fast enough to be worth asking every two seconds.
  */
 
-import { el, button, replace } from './dom.js';
+import { el, replace } from './dom.js';
 import { t } from './i18n.js';
 
 /** The stages, in the order they narrow, with what each one means. */
@@ -78,21 +84,12 @@ export function createRetrievalPanel(mount, api, collection) {
     const running = Boolean(data.running);
     const children = [];
 
-    const startButton = button(running ? t('retrieval.retrieving') : t('rail.retrieve'), () => {
-      startButton.disabled = true;
-      collection.start('retrieval');
-    }, { className: 'retr__start' });
-    startButton.disabled = running;
-
     const status = el('div', { className: 'retr__status' });
     if (data.error) {
       status.appendChild(el('span', { className: 'retr__error', text: data.error }));
     }
-    const actions = [startButton];
-    if (running) {
-      actions.push(button(t('action.cancel'), () => collection.cancel(), { className: 'retr__cancel' }));
-    }
-    children.push(el('div', { className: 'retr__row' }, [...actions, status]));
+    if (running) status.appendChild(el('span', { text: t('retrieval.retrieving') }));
+    children.push(el('div', { className: 'retr__row' }, [status]));
 
     children.push(el('p', {
       className: 'retr__when',
@@ -161,8 +158,7 @@ export function createRetrievalPanel(mount, api, collection) {
         el('span', { className: 'retr__source-state', text: source.status }),
         el('span', {
           className: 'retr__source-counts num',
-          text: `${source.boards_succeeded}/${source.boards_attempted}`,
-          attrs: { title: t('retrieval.boardsHelp') },
+          text: t('retrieval.newJobs', { n: Number(source.jobs_new || 0).toLocaleString() }),
         }),
         ...(source.failures_total
           ? [el('span', {

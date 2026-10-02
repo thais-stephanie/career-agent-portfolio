@@ -2560,7 +2560,7 @@ function relabelStaticText() {
     'settings-sources-head': 'rail.sources',
     'settings-ai-head': 'ai.head',
     'settings-profiles-head': 'profiles.settingsHead',
-    'settings-retr-head': 'rail.retrieve',
+    'settings-retr-head': 'retrieval.detailHead',
   };
   for (const [id, key] of Object.entries(settingsHeads)) {
     const node = document.getElementById(id);

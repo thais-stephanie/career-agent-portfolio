@@ -146,33 +146,42 @@ export function createSourcesPanel(host, { collection = null } = {}) {
   //: node, because the panel redraws after the press and must say it again.
   let healthNotice = '';
 
-  function healthTable(rows, sources) {
+  function healthTable(rows, sources, summary) {
     const due = rows.filter((row) => row.due).length;
     const attention = rows.filter((row) => row.needs_attention).length;
     const notice = el('p', {
       className: 'src__note', text: healthNotice, attrs: { 'aria-live': 'polite', id: 'health-notice' },
     });
     const running = rows.some((row) => row.state === 'RUNNING');
-    const refreshDue = button(t('sources.refreshDue'), async () => {
-      if (!collection) return;
-      refreshDue.disabled = true;
-      notice.textContent = t('sources.refreshDueStarting');
-      const outcome = await collection.start('due');
-      if (outcome && outcome.nothingDue) {
-        healthNotice = t('sources.nothingDue');
-      } else if (outcome && outcome.error) {
-        healthNotice = outcome.error;
-      } else if (outcome && outcome.alreadyRunning) {
-        healthNotice = t('sources.alreadyRunning');
-      } else {
-        const started = outcome && typeof outcome.due === 'number' ? outcome.due : due;
-        healthNotice = t('sources.refreshDueStarted', { n: started });
-      }
-      notice.textContent = healthNotice;
-      refreshDue.disabled = false;
-      void load(true);
-    }, { className: 'btn', attrs: { id: 'refresh-due' } });
-    refreshDue.disabled = running || !collection || Boolean(collection.state().active);
+    // TWO BUTTONS, TWO MEANINGS. Due: the normal one, what "Find jobs" runs.
+    // All: everything available, recently refreshed sources too. Neither
+    // wakes a paused source or asks a site that refused inside its cooldown.
+    function starter(kind, label, id) {
+      const control = button(label, async () => {
+        if (!collection) return;
+        control.disabled = true;
+        notice.textContent = t('sources.refreshDueStarting');
+        const outcome = await collection.start(kind);
+        if (outcome && outcome.nothingDue) {
+          healthNotice = t('sources.nothingDue');
+        } else if (outcome && outcome.error) {
+          healthNotice = outcome.error;
+        } else if (outcome && outcome.alreadyRunning) {
+          healthNotice = t('sources.alreadyRunning');
+        } else {
+          const started = outcome && typeof outcome.due === 'number' ? outcome.due : due;
+          healthNotice = t(kind === 'all' ? 'sources.refreshAllStarted' : 'sources.refreshDueStarted',
+            { n: started });
+        }
+        notice.textContent = healthNotice;
+        control.disabled = false;
+        void load(true);
+      }, { className: kind === 'due' ? 'btn btn--primary' : 'btn', attrs: { id } });
+      control.disabled = running || !collection || Boolean(collection.state().active);
+      return control;
+    }
+    const refreshDue = starter('due', t('sources.refreshDue'), 'refresh-due');
+    const refreshAll = starter('all', t('sources.refreshAll'), 'refresh-all');
     const table = el('table', { className: 'src__health-table' }, [
       el('thead', {}, [el('tr', {}, [
         el('th', { text: t('sources.healthSource') }),
@@ -183,7 +192,7 @@ export function createSourcesPanel(host, { collection = null } = {}) {
         const source = sources.find((entry) => entry.id === row.source_id) || {};
         const detail = row.cooldown_until
           ? t('sources.coolingDown', { date: shortDate(row.cooldown_until) })
-          : row.reason ? t(`sources.reason.${row.reason}`) : '';
+          : reasonText(row);
         return el('tr', {
           dataset: { healthSource: row.source_id, state: row.state, due: String(Boolean(row.due)) },
           className: row.needs_attention ? 'is-attention' : '',
@@ -202,8 +211,10 @@ export function createSourcesPanel(host, { collection = null } = {}) {
     ]);
     return el('section', { className: 'src__health', attrs: { 'aria-labelledby': 'health-head' } }, [
       el('h3', { text: t('sources.healthTitle'), attrs: { id: 'health-head' } }),
+      summary ? el('p', { className: 'src__population', text: populationText(summary) }) : null,
       el('p', { text: t('sources.healthSummary', { due, attention }) }),
-      el('div', { className: 'src__health-actions' }, [refreshDue, notice]),
+      el('p', { className: 'src__note', text: t('sources.refreshHelp') }),
+      el('div', { className: 'src__health-actions' }, [refreshDue, refreshAll, notice]),
       table,
     ]);
   }
@@ -224,7 +235,7 @@ export function createSourcesPanel(host, { collection = null } = {}) {
     const body = el('details', { className: 'src' }, [
       el('summary', { text: t('settings.sourceDetails') }),
     ]);
-    host.appendChild(healthTable(payload.refresh || [], sources));
+    host.appendChild(healthTable(payload.refresh || [], sources, payload.summary));
     host.appendChild(maintenanceSummary(payload.maintenance));
     host.appendChild(el('p', { text: t('settings.sourceHelp') }));
     // EXPERIMENTAL SOURCES, IN THE OPEN. A source the site itself restricts
@@ -261,7 +272,8 @@ export function createSourcesPanel(host, { collection = null } = {}) {
         row.state === 'PAUSED' ? el('p', { text: t(source.refresh_mode === 'PAUSED'
           ? 'settings.sourcePausedByYou' : 'settings.sourcePaused') }) : null,
         row.state === 'FAILED' ? el('p', { text: t('settings.sourceFailure') }) : null,
-        row.reason ? el('p', { className: 'src__reason', text: t(`sources.reason.${row.reason}`) }) : null,
+        reasonText(row) ? el('p', { className: 'src__reason', text: reasonText(row) }) : null,
+        coverageText(row, source) ? el('p', { text: coverageText(row, source) }) : null,
         row.state === 'STALE' ? el('p', { className: 'src__reason', text: t('sources.staleHelp') }) : null,
         row.state === 'BLOCKED' ? el('p', { text: row.blocker || source.reason_plain }) : null,
         el('p', { text: progressText(row) }),
@@ -403,7 +415,12 @@ export function createSourcesPanel(host, { collection = null } = {}) {
     const refresh = button(t(progress.state === 'PAUSED' ? 'settings.refreshAnyway' : 'settings.refreshNow'),
       async () => {
         refresh.disabled = true;
-        try { await api.refreshSource(source.id); await load(true); }
+        try {
+          await api.refreshSource(source.id);
+          // The run is the app's one run: the bar at the top follows it.
+          if (collection) void collection.refresh();
+          await load(true);
+        }
         catch (error) { status.textContent = error.userMessage || error.message; refresh.disabled = false; }
       });
     refresh.disabled = progress.state === 'RUNNING';
@@ -482,6 +499,55 @@ export function createSourcesPanel(host, { collection = null } = {}) {
     let out = count + ' / ' + total + '  ' + r.percent + '%';
     if (r.eta_seconds) out += '  ' + t('sources.etaAbout') + ' ' + minutes(r.eta_seconds);
     return out;
+  }
+
+  /**
+   * WHY A SOURCE IS PARTIAL, in the words that fit its case. A board family
+   * says how many of its boards answered rather than only "some failed".
+   */
+  function reasonText(row) {
+    if (!row.reason) return '';
+    const boards = row.boards;
+    if (row.reason === 'SOME_FAILED' && boards && boards.attempted) {
+      return t('sources.boardsRefreshed', {
+        ok: Number(boards.succeeded ?? boards.attempted - boards.failed).toLocaleString(),
+        total: Number(boards.attempted).toLocaleString(),
+        failed: Number(boards.failed || 0).toLocaleString(),
+      });
+    }
+    return t(`sources.reason.${row.reason}`);
+  }
+
+  /**
+   * How much of a big source the corpus holds, beside what the source says it
+   * has and, when lower, what its interface will serve at all. Never a
+   * percentage of a total nobody can reach.
+   */
+  function coverageText(row, source) {
+    const total = Number(row.expected_total);
+    if (!total || !source || typeof source.postings !== 'number') return '';
+    const reachable = Number(row.reachable_total);
+    const parts = [t('sources.coverageHeld', {
+      held: source.postings.toLocaleString(), total: total.toLocaleString(),
+    })];
+    if (reachable && reachable < total) {
+      parts.push(t('sources.coverageReachable', { n: reachable.toLocaleString() }));
+    }
+    if (typeof row.retrieved === 'number') {
+      parts.push(t('sources.coverageThisRun', { n: row.retrieved.toLocaleString() }));
+    }
+    return parts.join(' ');
+  }
+
+  /** The populations, so "16 in this refresh" and "12 due" never look alike. */
+  function populationText(summary) {
+    const parts = [t('sources.popIntegrated', { n: summary.integrated })];
+    if (summary.experimental) {
+      parts.push(t('sources.popExperimental', { n: summary.experimental_enabled }));
+    }
+    parts.push(t('sources.popAvailable', { n: summary.available }));
+    parts.push(t('sources.popDue', { n: summary.due }));
+    return parts.join(' · ');
   }
 
   function minutes(seconds) {

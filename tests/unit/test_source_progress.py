@@ -441,3 +441,49 @@ def test_targeted_refresh_keeps_other_familys_previous_progress(ledger):
         "+00:00", "Z"
     )
     assert by_id["unrun"].state is RefreshState.NOT_STARTED
+
+
+# -- why a refresh is partial, and whether a partial is stale ----------------
+
+
+@pytest.mark.parametrize(
+    ("stats", "reason"),
+    [
+        # Our own batch, and the next refresh continues past it.
+        ({"stopped_early": True, "continues": True}, "PROGRESSIVE"),
+        # Our own page budget, and the next refresh reads the same pages.
+        ({"stopped_early": True}, "PAGE_LIMIT"),
+        # The run used its request budget; slices left continue next time.
+        ({"budget_exhausted": True, "stopped_early": True, "continues": True}, "REQUEST_BUDGET"),
+        # The source serves no more: another click will not reach it.
+        ({"ceiling_hit": ["remote"], "continues": True}, "SOURCE_CEILING"),
+        # A board family ran; some of its boards failed.
+        ({"boards_attempted": 124, "boards_succeeded": 121, "boards_failed": 3}, "SOME_FAILED"),
+    ],
+)
+def test_each_kind_of_partial_has_its_own_reason(stats: dict, reason: str) -> None:
+    from career_agent.sources.progress import partial_reason
+
+    assert partial_reason(stats) == reason
+
+
+def test_a_refusal_is_its_own_state_not_a_partial(ledger: sqlite3.Connection) -> None:
+    _run(ledger, "collect-x", finished=NOW, status="OK", stats={"rate_limited": True})
+    (row,) = read_progress(ledger, stage_for={"x": "collect-x"}, now=NOW)
+    assert row.state is RefreshState.RATE_LIMITED
+    assert row.cooldown_until and not row.due
+
+
+def test_a_recent_partial_is_fresh_and_only_age_makes_it_due_or_stale(
+    ledger: sqlite3.Connection,
+) -> None:
+    """Freshness and completeness are two questions: a bounded pass twelve
+    minutes ago is recent AND partial, never "out of date"."""
+    stats = {"stopped_early": True, "continues": True, "claimed_total": 25508}
+    _run(ledger, "collect-x", started=NOW, finished=NOW, status="OK", stats=stats)
+    (row,) = read_progress(ledger, stage_for={"x": "collect-x"}, now=NOW + timedelta(minutes=12))
+    assert row.state is RefreshState.PARTIAL and row.reason == "PROGRESSIVE" and not row.due
+    (row,) = read_progress(ledger, stage_for={"x": "collect-x"}, now=NOW + timedelta(hours=30))
+    assert row.state is RefreshState.DUE and row.due
+    (row,) = read_progress(ledger, stage_for={"x": "collect-x"}, now=NOW + timedelta(hours=80))
+    assert row.state is RefreshState.STALE

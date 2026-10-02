@@ -45,6 +45,7 @@ from career_agent.providers.programathor import (
     ProgramathorProvider,
     company_domain,
     company_of,
+    posting_id,
 )
 from career_agent.providers.registry import get_provider
 from career_agent.storage.db import transaction
@@ -103,6 +104,20 @@ class ProgramathorStats:
     failures: list[str] = field(default_factory=list)
     elapsed_ms: int = 0
     http: dict[str, Any] = field(default_factory=dict)
+    #: Postings this board already holds, recognised from the listing link on
+    #: the continuing window and not requested again: the request budget goes
+    #: to postings not yet held. The newest pages are always read in full.
+    postings_known: int = 0
+    #: Posting ids the vendor refused last time, skipped this time and tried
+    #: again the time after: its errors are deterministic, and asking for the
+    #: same broken page every refresh only repeats the error.
+    postings_skipped_unavailable: int = 0
+    unavailable_ids: list[str] = field(default_factory=list)
+    #: The listing further down, continuing from the last refresh.
+    window_first_page: int | None = None
+    window_pages_read: int = 0
+    resume_page: int | None = None
+    continues: bool = False
 
     @property
     def duplicates_total(self) -> int:
@@ -125,6 +140,14 @@ class ProgramathorStats:
             "with_location": self.with_location,
             "without_location": self.without_location,
             "with_salary": self.with_salary,
+            "postings_known": self.postings_known,
+            "postings_skipped_unavailable": self.postings_skipped_unavailable,
+            "unavailable_ids": self.unavailable_ids[:200],
+            "window_first_page": self.window_first_page,
+            "window_pages_read": self.window_pages_read,
+            # Only when a window was read, so a failed run keeps the place.
+            **({"resume_page": self.resume_page} if self.continues else {}),
+            "continues": self.continues,
             "companies_new": self.companies_new,
             "boards_new": self.boards_new,
             "duplicates": dict(self.duplicates),
@@ -139,10 +162,24 @@ class ProgramathorStats:
         }
 
 
+#: Listing pages of 15 read further down each refresh, after the first two.
+#: A posting this board already holds costs no request, so a page costs one
+#: listing request plus one per posting not yet held.
+WINDOW_PAGES = 3
+
+
 class ProgramathorCollector:
     """One pass over the listing, against one database connection."""
 
-    def __init__(self, conn: Any, fetcher: HttpFetcher, max_pages: int | None = None) -> None:
+    def __init__(
+        self,
+        conn: Any,
+        fetcher: HttpFetcher,
+        max_pages: int | None = None,
+        window_pages: int = WINDOW_PAGES,
+    ) -> None:
+        self.head_pages = 2 if max_pages is None else max(1, int(max_pages))
+        self.window_pages = max(0, int(window_pages))
         self.conn = conn
         self.fetcher = fetcher
         get_provider(PROVIDER, fetcher)
@@ -180,25 +217,73 @@ class ProgramathorCollector:
 
         stats.pages_read = listing.pages
         stats.stopped_early = listing.stopped_early
-        stats.postings_listed = len(listing.paths)
+        paths = list(listing.paths)
+        # The newest pages are read in full, held postings included, so an
+        # advert edited while it is new still arrives. Further down, a posting
+        # this board already holds costs no request.
+        newest = set(paths)
+        if self.window_pages and listing.stopped_early:
+            paths += self._read_window(stats)
+        paths = list(dict.fromkeys(paths))
+        stats.postings_listed = len(paths)
 
-        for index, path in enumerate(listing.paths, start=1):
+        refused_last_time = self.runs.checkpoint("collect-programathor", "unavailable_ids")
+        refused_last_time = set(refused_last_time) if isinstance(refused_last_time, list) else set()
+        for index, path in enumerate(paths, start=1):
             if should_stop is not None and should_stop():
                 break
-            stub = self.provider.read_posting(path)
-            if stub is None:
-                stats.postings_unavailable += 1
-            else:
+            known = posting_id(path)
+            if known and known in refused_last_time:
+                stats.postings_skipped_unavailable += 1
+            elif known and path not in newest and self._touch(known):
+                stats.postings_known += 1
                 stats.postings_seen += 1
-                self._handle(stub, held_external_ids, stats)
+                stats.jobs_seen_again += 1
+            else:
+                stub = self.provider.read_posting(path)
+                if stub is None:
+                    stats.postings_unavailable += 1
+                    if known:
+                        stats.unavailable_ids.append(known)
+                else:
+                    stats.postings_seen += 1
+                    self._handle(stub, held_external_ids, stats)
             if on_progress is not None:
-                on_progress(index, len(listing.paths))
+                on_progress(index, len(paths))
 
         stats.elapsed_ms = int((time.monotonic() - started) * 1000)
         stats.http = self.fetcher.stats.as_dict()
         with transaction(self.conn):
             self.runs.finish(run_id, PipelineRunStatus.OK, stats=stats.as_dict(), error=None)
         return stats
+
+    def _touch(self, posting: str) -> bool:
+        # The stored id is the adapter's own form (`to_stub`), never the bare
+        # number in the link.
+        with transaction(self.conn):
+            return self.jobs.touch_seen(PROVIDER, f"{PROVIDER}-{posting}")
+
+    def _read_window(self, stats: ProgramathorStats) -> list[str]:
+        """Listing pages further down, continuing from the last refresh.
+
+        One page of overlap, because new postings at the top push the rest
+        down; a posting pushed past the window is read on the next lap. When
+        the listing ends, the next lap starts again below the first pages.
+        """
+        head = self.head_pages
+        kept = self.runs.checkpoint("collect-programathor", "resume_page")
+        start = max(head + 1, (kept if isinstance(kept, int) and kept > head else head + 1) - 1)
+        try:
+            window = self.provider.read_listing(first_page=start, max_pages=self.window_pages)
+        except (FetchError, ProgramathorError, ValueError) as exc:
+            stats.failures.append(f"older listing pages: {str(exc)[:160]}")
+            return []
+        stats.pages_read += window.pages
+        stats.window_first_page = start
+        stats.window_pages_read = window.pages
+        stats.resume_page = start + window.pages if window.stopped_early else head + 1
+        stats.continues = True
+        return list(window.paths)
 
     # -- one posting -------------------------------------------------------
 

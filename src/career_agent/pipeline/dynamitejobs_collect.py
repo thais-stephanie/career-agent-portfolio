@@ -68,6 +68,7 @@ class DynamiteJobsStats:
 
     pages_read: int = 0
     stopped_early: bool = False
+    continues: bool = False
     postings_listed: int = 0
     #: Listed and already held by this provider, so not requested again.
     postings_already_held: int = 0
@@ -105,6 +106,7 @@ class DynamiteJobsStats:
         return {
             "pages_read": self.pages_read,
             "stopped_early": self.stopped_early,
+            "continues": self.continues,
             "postings_listed": self.postings_listed,
             "postings_already_held": self.postings_already_held,
             "postings_unavailable": self.postings_unavailable,
@@ -205,6 +207,10 @@ class DynamiteJobsCollector:
             if on_progress is not None:
                 on_progress(index, min(len(frontier), self.max_postings))
 
+        # What this batch stored is held next time, so the frontier shrinks and
+        # the next refresh starts on what this one left. A batch that stored
+        # nothing would meet the same postings again: not "continues".
+        stats.continues = stats.stopped_early and stats.jobs_new > 0
         stats.elapsed_ms = int((time.monotonic() - started) * 1000)
         stats.http = self.fetcher.stats.as_dict()
         with transaction(self.conn):
