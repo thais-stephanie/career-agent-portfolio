@@ -9569,3 +9569,5 @@ body.has-filters { overflow: hidden; }
 .stepper .stepper__step--done .stepper__bar,
 .stepper .stepper__step--current .stepper__bar { background: var(--green-bar); }
 .stepper .stepper__step--current .stepper__name { color: var(--ink); font-weight: 600; }
+.home > *, .home .home__sec, .home .home__rows { min-width: 0; max-width: 100%; }
+.home .home__sectitle { flex-wrap: wrap; }
