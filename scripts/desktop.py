@@ -30,6 +30,7 @@ import time
 import traceback
 import urllib.error
 import urllib.request
+import webbrowser
 import winreg
 from pathlib import Path
 from typing import Any
@@ -144,8 +145,6 @@ def open_window() -> bool:
             return True
         except OSError:
             pass
-    import webbrowser
-
     webbrowser.open(URL)
     return False
 
@@ -239,8 +238,15 @@ def run() -> int:
     handles = [int(child._handle)]  # type: ignore[attr-defined]
     if open_window():
         window = watch_window()
+        if window is None and open_window():
+            # Measured once in testing: Edge did not come up on the first ask.
+            window = watch_window()
         if window is not None:
             handles.append(window)
+        else:
+            # Never leave the person without a window. This one cannot be
+            # watched, so the servers stop through "Quit Career Agent".
+            webbrowser.open(URL)
     # Until the last Career Agent window closes, or the servers stop on their
     # own ("Quit Career Agent").
     wait_for_any(handles)
