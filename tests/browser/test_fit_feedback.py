@@ -36,7 +36,7 @@ def test_an_answer_is_saved_survives_a_reload_and_moves_no_number(
 ) -> None:
     job, score = open_first_why(page, pristine_server)
     heading = page.evaluate(f"{FEEDBACK}.querySelector('.d-sec__head').textContent")
-    assert heading == "Does this % look right?"
+    assert heading == "Does this match % look right?"
     assert page.evaluate(PRESSED) == -1, "nothing is answered until the person answers"
 
     click(page, f"{BUTTONS}[1]")  # Too high
@@ -70,5 +70,5 @@ def test_the_question_is_asked_in_portuguese(page: Chrome, pristine_server: str)
         heading = page.evaluate(f"{FEEDBACK}.querySelector('.d-sec__head').textContent")
     finally:
         page.evaluate(f"localStorage.removeItem({json.dumps(LOCALE_KEY)})")
-    assert heading == "Esta aderência parece certa?"
+    assert heading == "Este % de compatibilidade parece certo?"
     assert labels == ["Sim", "Alta demais", "Baixa demais", "A vaga não dá informação suficiente"]
