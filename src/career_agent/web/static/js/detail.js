@@ -184,7 +184,7 @@ export function createDrawer({
   const bodyHost = el('div', { className: 'drawer__body' }, PANELS);
   const companyNode = el('span', { className: 'd-company drawer__company' });
   const whereNode = el('span', { className: 'drawer__where' });
-  const actionsHost = el('div', { className: 'd-sec d-sec--identity drawer__actions' });
+  const actionsHost = el('div', { className: 'd-sec--identity drawer__actions' });
   const titleNode = el('h2', { className: 'drawer__title', attrs: { id: 'drawer-title' }, text: '' });
 
   /** Paint both panels. Both are always built; only one is visible. */

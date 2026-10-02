@@ -449,8 +449,8 @@ def test_the_drawer_explains_the_number_with_quotes_gates_and_gaps(
     click(page, f"{node_for(EXPLAINED_TITLE)}")
     page.wait_for(
         "document.querySelector('.drawer') && !document.querySelector('.drawer').hidden"
-        " && document.querySelectorAll('.drawer__tab').length === 3",
-        message=f"the drawer for {EXPLAINED_TITLE!r} to render its three tabs",
+        " && document.querySelectorAll('.drawer__tab').length === 4",
+        message=f"the drawer for {EXPLAINED_TITLE!r} to render its four tabs",
     )
 
     # The reasoning now lives in its own tab, and the drawer opens on the job.
@@ -513,8 +513,8 @@ def test_a_blocked_posting_is_marked_blocked_despite_a_high_score(
 
     card = node_for(BLOCKED_TITLE)
     assert page.evaluate(f"{card}.classList.contains('card--blocked')")
-    assert page.evaluate(f"Boolean({card}.querySelector('.card__blocked'))")
-    marker = str(page.evaluate(f"{card}.querySelector('.card__blocked').textContent"))
+    assert page.evaluate(f"Boolean({card}.querySelector('.card__elig--bad'))")
+    marker = str(page.evaluate(f"{card}.querySelector('.card__elig--bad').textContent"))
     # It names the POSTING as the source of the requirement, not the person as
     # the thing that fell short. "Blocked" was the old word and it read as a
     # verdict on somebody rather than as a line in a job advert.
@@ -535,17 +535,16 @@ def test_a_blocked_posting_is_marked_blocked_despite_a_high_score(
     assert "united states" in marker.lower(), (
         f"the marker no longer says WHAT rules her out: {marker}"
     )
-    assert "✕" in marker, "the marker relies on colour alone"
+    # In words, not colour alone: "Not eligible" is the first thing it says.
+    assert marker.lower().startswith("not eligible"), marker
 
-    raw = str(page.evaluate(f"{card}.querySelector('.badge--match .badge__value').textContent"))
+    raw = str(page.evaluate(f"{card}.querySelector('.card__pct').textContent"))
     score = int(raw.replace("%", "").strip())
     assert score > 40, f"{BLOCKED_TITLE} scored {score}; this test no longer proves its point"
 
-    eligibility = str(page.evaluate(f"{card}.querySelector('.badge--eligibility').textContent"))
-    # "Rules you out" is the plain-language rendering of VERIFIED_NOT_ELIGIBLE.
-    # The badge used to read "Not eligible", which is closer to the enum than
-    # to a sentence a person would say.
-    assert "rules you out" in eligibility.lower()
+    # The line's tooltip carries the same sentence whole, for when it clips.
+    tooltip = str(page.evaluate(f"{card}.querySelector('.card__elig--bad').title"))
+    assert tooltip == marker.strip(), (tooltip, marker)
 
 
 def test_the_grouping_toggle_is_visible_survives_a_reload_and_follows_the_view(
@@ -741,7 +740,7 @@ def test_a_status_set_in_the_table_survives_a_reload_and_shows_in_cards(
         f"{A_REAL_CARD} && {RENDERED_COUNT} === {DEMO_GROUPED_COUNT}",
         message="the cards view after the reload",
     )
-    assert page.evaluate(f"{row}.querySelector('select.select--status').value") == "INTERVIEW"
+    assert "Interview" in str(page.evaluate(f"{row}.querySelector('.card__sentlabel').textContent"))
 
 
 def test_applying_records_a_date_that_stepping_back_does_not_erase(
@@ -840,7 +839,7 @@ def test_the_date_survives_a_backward_move_on_every_surface(page: Chrome, server
         "Array.from(document.querySelectorAll('.kcard'))"
         f".find((n) => n.dataset.jobId === {json.dumps(job_id)})"
     )
-    set_value(page, f"{node}.querySelector('.select--status')", "SHORTLISTED", "change")
+    click(page, f"{node}.querySelector('.kcard__back')")
     page.wait_for(
         "Array.from(document.querySelectorAll('[data-column=\"SHORTLISTED\"] .kcard'))"
         f".some((n) => n.dataset.jobId === {json.dumps(job_id)})",
@@ -856,7 +855,8 @@ def test_the_date_survives_a_backward_move_on_every_surface(page: Chrome, server
         "Array.from(document.querySelectorAll('[data-job-id]'))"
         f".find((n) => n.dataset.jobId === {json.dumps(job_id)})"
     )
-    assert page.evaluate(f"{card}.querySelector('select.select--status').value") == "SHORTLISTED"
+    # Interested is not an application: the card offers Apply again.
+    assert page.evaluate(f"Boolean({card}.querySelector('.card__apply'))")
 
     # -- the drawer, which is the only place the date can be removed ---------
     open_list(page, server, f"?job={job_id}")
@@ -1211,7 +1211,7 @@ def test_the_published_screenshots_show_only_invented_data(
     page.wait_for(
         "document.querySelector('.kanban')"
         " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
-        " && document.querySelectorAll('.kcol').length === 6",
+        " && document.querySelectorAll('.kcol').length === 5",
         message="the tracker board to photograph",
     )
     written.append(capture("kanban-desktop"))
@@ -1338,7 +1338,7 @@ def test_the_published_screenshots_show_only_invented_data(
         page.wait_for(
             "document.querySelector('.kanban')"
             " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
-            " && document.querySelectorAll('.kcol').length === 6",
+            " && document.querySelectorAll('.kcol').length === 5",
             message="the board on a narrow screen",
         )
         written.append(capture("kanban-mobile"))
@@ -1397,8 +1397,8 @@ def test_the_board_shows_tracked_jobs_and_says_so(page: Chrome, server: str) -> 
     page.wait_for(
         "document.querySelector('.kanban')"
         " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
-        " && document.querySelectorAll('.kcol').length === 6",
-        message="the six tracker columns, painted with real data",
+        " && document.querySelectorAll('.kcol').length === 5",
+        message="the five tracker columns, painted with real data",
     )
 
     # Every card the board draws is in a column, and the header agrees.
@@ -1418,6 +1418,13 @@ def test_the_board_shows_tracked_jobs_and_says_so(page: Chrome, server: str) -> 
         )
     )
     assert "Only ones I am tracking" in chips, "the board's narrowing must be visible and removable"
+
+
+def _board_card(job_id: str) -> str:
+    return (
+        "Array.from(document.querySelectorAll('.kcard'))"
+        f".find((n) => n.dataset.jobId === {json.dumps(job_id)})"
+    )
 
 
 def track_one_then_open_the_board(page: Chrome, server: str) -> None:
@@ -1472,7 +1479,14 @@ def test_moving_a_card_on_the_board_persists_and_reaches_the_other_views(
 
     card = "document.querySelector('.kcard')"
     job_id = str(page.evaluate(f"{card}.dataset.jobId"))
-    set_value(page, "document.querySelector('.kcard .select--status')", "INTERVIEW", "change")
+    # Interested -> Applied -> Interview, by the card's own forward button.
+    for column in ("APPLIED", "INTERVIEW"):
+        click(page, f"{_board_card(job_id)}.querySelector('.kcard__next')")
+        page.wait_for(
+            f"Array.from(document.querySelectorAll('[data-column=\"{column}\"] .kcard'))"
+            f".some((n) => n.dataset.jobId === {json.dumps(job_id)})",
+            message=f"the card to arrive in {column}",
+        )
     page.wait_for(
         "Array.from(document.querySelectorAll('[data-column=\"INTERVIEW\"] .kcard'))"
         f".some((n) => n.dataset.jobId === {json.dumps(job_id)})",
@@ -1513,20 +1527,22 @@ def test_applying_records_a_date_that_later_stages_do_not_erase(page: Chrome, se
         f".find((n) => n.dataset.jobId === {json.dumps(job_id)})"
     )
 
-    set_value(page, "document.querySelector('.kcard .select--status')", "APPLIED", "change")
+    click(page, f"{node}.querySelector('.kcard__next')")
     page.wait_for(
         f"{node} && {node}.querySelector('.kcard__applied')",
         message="the applied date to appear",
     )
     applied = str(page.evaluate(f"{node}.querySelector('.kcard__applied').textContent"))
 
-    set_value(page, f"{node}.querySelector('.select--status')", "OFFER", "change")
-    page.wait_for(
-        "Array.from(document.querySelectorAll('[data-column=\"OFFER\"] .kcard'))"
-        f".some((n) => n.dataset.jobId === {json.dumps(job_id)})",
-        message="the card to reach Offer",
-    )
-    assert str(page.evaluate(f"{node}.querySelector('.kcard__applied').textContent")) == applied
+    for column in ("INTERVIEW", "OFFER"):
+        click(page, f"{node}.querySelector('.kcard__next')")
+        page.wait_for(
+            f"Array.from(document.querySelectorAll('[data-column=\"{column}\"] .kcard'))"
+            f".some((n) => n.dataset.jobId === {json.dumps(job_id)})",
+            message=f"the card to reach {column}",
+        )
+    # Offer holds Offer and Hired, so its line names which, then the date.
+    assert applied in str(page.evaluate(f"{node}.querySelector('.kcard__applied').textContent"))
 
 
 def test_a_board_card_opens_the_drawer_from_its_body_but_not_from_its_control(
@@ -1535,11 +1551,11 @@ def test_a_board_card_opens_the_drawer_from_its_body_but_not_from_its_control(
     """Same rule as the cards grid: the surface opens, the controls do not."""
     track_one_then_open_the_board(page, server)
 
-    # The status select must not open the drawer behind itself.
-    click(page, "document.querySelector('.kcard .select--status')")
+    # The card's move button must not open the drawer behind itself.
+    click(page, "document.querySelector('.kcard .kcard__next')")
     assert page.evaluate(
         "!document.querySelector('.drawer') || document.querySelector('.drawer').hidden === true"
-    ), "the status control opened the drawer behind itself"
+    ), "the move button opened the drawer behind itself"
 
     click(page, "document.querySelector('.kcard__title')")
     page.wait_for(
@@ -1813,7 +1829,7 @@ def test_nothing_marked_hidden_is_painted(page: Chrome, server: str) -> None:
     wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "before sweeping for painted hidden nodes")
     click(page, f"{node_for(EXPLAINED_TITLE)}")
     page.wait_for(
-        "document.querySelectorAll('.drawer__tab').length === 3",
+        "document.querySelectorAll('.drawer__tab').length === 4",
         message="the drawer, so its hidden panels are in the sweep too",
     )
 
@@ -2232,9 +2248,16 @@ def test_a_signal_facet_uses_the_name_the_cards_use(page: Chrome, server: str) -
     # The ids would render as "Ipaas" / "Api integration"; the labels do not.
     for label in labels:
         assert "_" not in str(label), f"a raw signal id reached the panel: {label}"
-    on_cards = str(page.evaluate("document.querySelector('.card').innerText"))
+    # The tools moved off the card into its details; the words must match there.
+    click(page, "document.querySelector('.cards .card[data-job-id]')")
+    page.wait_for(
+        "document.querySelectorAll('.drawer__tab').length === 4"
+        " && document.querySelector('#drawer-panel-why').textContent.length > 0",
+        message="the details of the first card",
+    )
+    on_cards = str(page.evaluate("document.querySelector('.drawer__body').textContent"))
     shared = [label for label in labels if str(label) in on_cards]
-    assert shared, f"no facet label matches any card tag: {labels}"
+    assert shared, f"no facet label matches any tool the details name: {labels}"
 
 
 def test_a_facet_chip_narrows_the_list_to_the_count_it_printed(page: Chrome, server: str) -> None:
@@ -2522,7 +2545,7 @@ def test_the_table_shows_numbers_not_bars(page: Chrome, server: str) -> None:
     # alone used to say Confidence, which was a third vocabulary for two
     # numbers; and "Detail 77%" beside "Match 80%" reads as a second grade for
     # the job when it is not a grade at all. It is how much the POSTING said.
-    assert "Search Fit" in headers and "Posting completeness" in headers, headers
+    assert "Match" in headers and "Posting completeness" in headers, headers
     assert "Confidence" not in headers, "the table still calls the second number Confidence"
     assert "Fit" not in headers.split("|") and "Read" not in headers.split("|"), (
         "the table still uses the old Fit/Read vocabulary"
@@ -2562,7 +2585,7 @@ def test_a_posting_the_search_screened_out_is_not_called_a_rejection(
         """(() => {
           const out = { gated: 0, offTarget: 0, both: 0, wrong: [] };
           for (const card of document.querySelectorAll('.card')) {
-            const gate = card.querySelector('.card__blocked');
+            const gate = card.querySelector('.card__elig--bad');
             const off = card.querySelector('.card__offtarget');
             if (gate) out.gated += 1;
             if (off) out.offTarget += 1;
@@ -2778,7 +2801,11 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
     shown = str(page.evaluate("document.getElementById('hiddennotice').textContent"))
     assert page.evaluate("document.getElementById('hiddennotice').hidden === false")
     assert "showing jobs that state a requirement" in shown.lower(), shown
-    assert "hide them again" in shown.lower(), shown
+    # The way back is the row's own switch, on and labelled.
+    assert page.evaluate(
+        "document.querySelector('[data-notice=\"include_ineligible\"] .hidden__switch')"
+        ".getAttribute('aria-checked') === 'true'"
+    ), "the notice no longer carries the way back"
 
     # And the row of filter chips does not claim this as one of them.
     chips = str(page.evaluate("document.getElementById('chipbar').innerText")).lower()
@@ -2821,7 +2848,7 @@ def test_silence_about_eligibility_is_a_narrowing_and_never_a_verdict(
     # And they are still THERE, one click away, saying what they actually say.
     open_list(page, pristine_server, "?include_unresolved=1")
     labels = page.evaluate(
-        "Array.from(document.querySelectorAll('[data-job-id] .badge--eligibility'))"
+        "Array.from(document.querySelectorAll('[data-job-id] .card__elig'))"
         ".map((n) => n.innerText.trim())"
     )
     assert labels, "no eligibility badge was rendered at all"
@@ -2911,8 +2938,8 @@ def test_saving_a_ruled_out_job_moves_it_to_saved_and_not_to_the_list(
     # ...and still carrying what rules her out, ON THE ROW. A restriction she
     # has to open something to see is a restriction she can miss.
     badge = page.evaluate(
-        f"{node_for(BLOCKED_TITLE)}.querySelector('.badge--eligibility')"
-        f" ? {node_for(BLOCKED_TITLE)}.querySelector('.badge--eligibility').textContent.trim()"
+        f"{node_for(BLOCKED_TITLE)}.querySelector('.card__elig')"
+        f" ? {node_for(BLOCKED_TITLE)}.querySelector('.card__elig').textContent.trim()"
         " : ''"
     )
     assert str(badge).strip(), "the saved posting carries no eligibility badge at all"

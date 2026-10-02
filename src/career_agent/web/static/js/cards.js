@@ -146,9 +146,10 @@ function card(job, handlers) {
     el('dd', { className: 'fact--posted', text: postedLine(job), attrs: { title: postedTitle(job) } }),
   ]));
 
-  // WHY IT IS SET ASIDE, when it is. One short line: the full reason, with
-  // its quote, is in the details.
-  const note = asideNote(job, aside);
+  // WHETHER THE EMPLOYER HIRES HERE, always, and the employer's reason when
+  // a gate failed; the full answer, quoted, is in the details.
+  root.appendChild(eligibilityLine(job, aside));
+  const note = offTargetNote(job, aside);
   if (note) root.appendChild(note);
 
   root.appendChild(el('div', { className: 'card__grow', attrs: { 'aria-hidden': 'true' } }));
@@ -256,7 +257,16 @@ function actionRow(job, handlers, redraw) {
   return [el('div', { className: 'card__applyrow' }, [link, heart])];
 }
 
-function asideNote(job, aside) {
+/**
+ * The eligibility answer, always: the handoff's card has no badge, and this
+ * product may not drop the one fact it exists to state. One short line in
+ * the shared vocabulary, with the employer's reason when a gate failed.
+ */
+function eligibilityLine(job, aside) {
+  const status = aside.gated ? 'VERIFIED_NOT_ELIGIBLE' : (job.eligibility_status || 'UNRESOLVED');
+  const tone = status === 'VERIFIED_ELIGIBLE' ? 'good' : status === 'VERIFIED_NOT_ELIGIBLE' ? 'bad' : 'warn';
+  let text = eligibilityWords(status);
+  let title = status === 'UNRESOLVED' ? t('card.unresolvedHelp') : text;
   if (aside.gated) {
     const blocker = (job.blockers || [])[0] || {};
     // A geography gate quotes where the job is; every other gate quotes the
@@ -264,24 +274,19 @@ function asideNote(job, aside) {
     const because = (blocker.gate === 'geography' && job.location_raw)
       ? job.location_raw
       : (blocker.quote || blocker.reason || '');
-    const text = because ? t('card.gatedBecause', { reason: because }) : t('card.gated');
-    return el('p', { className: 'card__note card__note--gated', text, attrs: { title: text } });
+    text = because ? t('card.gatedBecause', { reason: because }) : t('card.gated');
+    title = text;
   }
-  if (aside.offTarget) {
-    const text = job.title_reason
-      ? t('card.offTargetBecause', { reason: job.title_reason })
-      : t('card.offTarget');
-    return el('p', { className: 'card__note', text, attrs: { title: text } });
-  }
-  if (job.eligibility_status === 'VERIFIED_NOT_ELIGIBLE') {
-    const text = t('card.gated');
-    return el('p', { className: 'card__note card__note--gated', text, attrs: { title: text } });
-  }
-  if (job.eligibility_status === 'UNRESOLVED') {
-    const text = eligibilityWords('UNRESOLVED');
-    return el('p', { className: 'card__note', text, attrs: { title: t('card.unresolvedHelp') } });
-  }
-  return null;
+  return el('p', { className: `card__elig card__elig--${tone}`, text, attrs: { title } });
+}
+
+/** The search set the WORK aside: a different fact from the employer's gate. */
+function offTargetNote(job, aside) {
+  if (!aside.offTarget || aside.gated) return null;
+  const text = job.title_reason
+    ? t('card.offTargetBecause', { reason: job.title_reason })
+    : t('card.offTarget');
+  return el('p', { className: 'card__note card__offtarget', text, attrs: { title: text } });
 }
 
 function postedLine(job) {

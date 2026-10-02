@@ -8630,14 +8630,14 @@ body { font-synthesis-weight: none; }
   border-radius: 50%;
   box-shadow: 4px 4px 0 -3px var(--muted);
 }
-.toolsearch:focus-within { border-color: var(--link); box-shadow: 0 0 0 4px rgba(160, 138, 230, 0.18); }
+.toolsearch:focus-within { border-color: var(--link); }
 .toolsearch__input.input {
   flex: 1; min-width: 0;
   padding: 13px 0; min-height: 0;
   border: 0; border-radius: 0; background: transparent; box-shadow: none;
   font-size: 15px;
 }
-.toolsearch__input.input:focus-visible { outline: none; box-shadow: none; }
+.toolsearch__input.input:focus-visible { box-shadow: none; }
 .toolsearch::after {
   content: "/";
   flex: none;
@@ -8977,7 +8977,14 @@ body.has-filters { overflow: hidden; }
   font-size: 12px; line-height: 1.35; color: var(--muted);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.card__note--gated { color: var(--body); }
+.card__elig {
+  margin: 0;
+  font-size: 12px; font-weight: 600; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card__elig--good { color: var(--green-text); }
+.card__elig--warn { color: var(--muted); }
+.card__elig--bad { color: var(--ink); }
 .card__grow { flex: 1; }
 
 .card__applyrow { display: flex; gap: 6px; align-items: center; }
@@ -8993,7 +9000,9 @@ body.has-filters { overflow: hidden; }
 .cards .card__apply.link--unavailable { background: var(--chip-bg); color: var(--faint); }
 .card__heart {
   flex: none;
-  padding: 4px 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+  padding: 0;
   border: 0; background: transparent;
   font-family: system-ui, sans-serif; font-size: 24px; line-height: 1;
   color: var(--muted); cursor: pointer;
@@ -9020,6 +9029,7 @@ body.has-filters { overflow: hidden; }
 .card__undo { padding: 0; border: 0; background: transparent; color: var(--hero-text); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
 .card__links { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: -2px; }
 .card__details, .cards .card__hide {
+  min-height: 28px;
   padding: 2px 0;
   border: 0; background: transparent;
   font: inherit; font-size: 12.5px; cursor: pointer;
