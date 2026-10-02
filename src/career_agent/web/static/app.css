@@ -8933,13 +8933,14 @@ body.has-filters { overflow: hidden; }
 .card__matchtext { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card__meter { display: block; height: 4px; border-radius: 2px; background: var(--divider); overflow: hidden; }
 .card__meterbar { display: block; height: 100%; border-radius: 2px; }
-.card__match--m1 .card__pct { background: var(--m1-bg); color: var(--m1-fg); }
+
+.card__match--m1 .card__pct, .matchpill--m1 { background: var(--m1-bg); color: var(--m1-fg); }
 .card__match--m1 .card__matchtext { color: var(--m1-fg); }
 .card__match--m1 .card__meterbar { background: var(--m1-bar); }
-.card__match--m2 .card__pct { background: var(--m2-bg); color: var(--m2-fg); }
+.card__match--m2 .card__pct, .matchpill--m2 { background: var(--m2-bg); color: var(--m2-fg); }
 .card__match--m2 .card__matchtext { color: var(--m2-fg); }
 .card__match--m2 .card__meterbar { background: var(--m2-bar); }
-.card__match--m3 .card__pct { background: var(--m3-bg); color: var(--m3-fg); }
+.card__match--m3 .card__pct, .matchpill--m3 { background: var(--m3-bg); color: var(--m3-fg); }
 .card__match--m3 .card__matchtext { color: var(--m3-fg); }
 .card__match--m3 .card__meterbar { background: var(--m3-bar); }
 
@@ -9171,9 +9172,6 @@ body.has-filters { overflow: hidden; }
 .tablewrap .jobs tbody tr:hover > * { background: var(--surface-alt); }
 .tablewrap .jobs .cell__title-btn { font-family: var(--display); font-size: 15px; font-weight: 400; color: var(--ink); }
 .matchpill { display: inline-block; padding: 3px 9px; border-radius: 8px; font-size: 15px; font-weight: 700; }
-.matchpill--m1 { background: var(--m1-bg); color: var(--m1-fg); }
-.matchpill--m2 { background: var(--m2-bg); color: var(--m2-fg); }
-.matchpill--m3 { background: var(--m3-bg); color: var(--m3-fg); }
 
 /* =====================================================================
    THE JOB DRAWER (redesign handoff, 2026-10): 700px, the job and its
@@ -9210,12 +9208,6 @@ body.has-filters { overflow: hidden; }
 .drawer__match { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; }
 .drawer__match .card__pct { padding: 4px 10px; border-radius: 9px; font-size: 18px; }
 .drawer__match .card__matchtext { font-size: 15px; }
-.drawer__match.card__match--m1 .card__pct { background: var(--m1-bg); color: var(--m1-fg); }
-.drawer__match.card__match--m1 .card__matchtext { color: var(--m1-fg); }
-.drawer__match.card__match--m2 .card__pct { background: var(--m2-bg); color: var(--m2-fg); }
-.drawer__match.card__match--m2 .card__matchtext { color: var(--m2-fg); }
-.drawer__match.card__match--m3 .card__pct { background: var(--m3-bg); color: var(--m3-fg); }
-.drawer__match.card__match--m3 .card__matchtext { color: var(--m3-fg); }
 .drawer__grow { flex: 1; }
 .drawer__ad, .drawer__apply, .drawer__sent {
   padding: 10px 16px;

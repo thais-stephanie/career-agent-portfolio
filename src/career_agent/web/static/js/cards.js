@@ -54,7 +54,7 @@ export function renderCards(mount, items, handlers) {
 function setAside(job) {
   const gated = (job.blockers || []).length > 0;
   const offTarget = String(job.screening_state).toUpperCase() === 'BLOCKED';
-  return { gated, offTarget, any: gated || offTarget };
+  return { gated, offTarget };
 }
 
 /**
@@ -73,7 +73,7 @@ export function matchTone(score) {
 
 //: Statuses that mean an application was sent; the card shows where it stands
 //: instead of offering to apply again.
-const SENT = new Set(['APPLIED', 'INTERVIEW', 'OFFER', 'HIRED']);
+export const SENT = new Set(['APPLIED', 'INTERVIEW', 'OFFER', 'HIRED']);
 
 //: Jobs whose "Apply" was opened in this tab and are waiting for the answer
 //: to "Did you send your application?". Opening a page is not applying, so

@@ -17,7 +17,7 @@ import {
   prominenceWords, relativeAge, scoreDisplay, statusLabel, statusOptions, vocabLabel,
 } from './format.js';
 import { badges, searchFitIsReady } from './badges.js';
-import { matchTone } from './cards.js';
+import { SENT, matchTone } from './cards.js';
 import { helpNote } from './help.js';
 import { createPrepare } from './prepare.js';
 import { getLocale, t, tState } from './i18n.js';
@@ -442,7 +442,7 @@ export function createDrawer({
       attrs: { 'aria-pressed': job.saved ? 'true' : 'false' },
     });
     const status = String(job.application_status || 'DISCOVERED');
-    const sent = ['APPLIED', 'INTERVIEW', 'OFFER', 'HIRED'].includes(status);
+    const sent = SENT.has(status);
     const ad = extLink(job.url, t('drawer.openAd'), { className: 'drawer__ad' });
     let apply = null;
     if (sent) {

@@ -1337,7 +1337,6 @@ function renderHiddenNotice(state) {
     return;
   }
   // ONE SUMMARY, the rows behind "See why" (redesign handoff).
-  const showingAny = full.some((row) => row.querySelector('[aria-checked="true"]'));
   // Closed until asked, even while some are shown: the summary says so, and
   // "See why" is one press from every switch.
   const open = hiddenNoticeOpen;
@@ -1371,7 +1370,7 @@ function renderHiddenNotice(state) {
       toggle,
       // Waves the whole notice away, kind by kind, exactly as each row's own
       // x does; a kind that is SHOWING is never waved away.
-      quiet.length && !showingAny
+      quiet.length
         ? button('×', () => {
           quiet.forEach((key) => dismiss(key));
           renderHiddenNotice(store.get());
