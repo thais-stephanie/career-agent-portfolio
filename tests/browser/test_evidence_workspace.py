@@ -422,8 +422,8 @@ def open_prepare(page: Chrome, server: str) -> None:
     page.wait_for("document.querySelectorAll('[data-job-id]').length > 0", message="the cards")
     page.evaluate("document.querySelectorAll('[data-job-id]')[0].click()")
     page.wait_for(
-        "document.querySelectorAll('#drawer-host [role=\"tab\"]').length === 4",
-        message="the three drawer tabs",
+        "document.querySelectorAll('#drawer-host [role=\"tab\"]').length === 5",
+        message="the five drawer tabs",
     )
     page.evaluate("document.querySelectorAll('#drawer-host [role=\"tab\"]')[2].click()")
     page.wait_for(

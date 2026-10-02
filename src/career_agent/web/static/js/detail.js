@@ -1,36 +1,57 @@
 /**
- * detail.js -- the drawer. Why this number, and what we did not learn.
+ * detail.js -- the job drawer (V3 handoff).
  *
- * The drawer is where the product has to keep its promise: every point is
- * traceable to a quote, every gate carries its reason, and every confidence
- * item that was NOT awarded is shown alongside the ones that were, because
- * "we could not read this posting" is information, not an empty space.
+ * FIVE TABS, AND THE ORDER INSIDE THEM IS THE ARGUMENT.
  *
- * The full description is rendered as escaped text with paragraph breaks. The
- * server text never touches innerHTML; a job description is a string a stranger
+ *   About              the job itself: four facts, a short version when one
+ *                      exists, the tools it names, and the WHOLE ad. The
+ *                      posting is the primary evidence, so nothing the local
+ *                      model wrote may stand in front of it.
+ *   Why it fits        the match as a sentence ("4 of the 5 things you asked
+ *                      for"), what fits with the ad's own words, what does
+ *                      not yet, whether you can take it, and your opinion.
+ *   Before you apply   three steps: read the ad, proof for what it asks,
+ *                      a resume for this job.
+ *   Practice           interview questions, one at a time (practice.js).
+ *   Notes              your words, where the application stands, its history.
+ *
+ * NOTHING TECHNICAL IN NORMAL USE. The score's arithmetic, the posting
+ * completeness items, the raw local reading and its schema live behind
+ * `?debug=1`. Nothing was deleted; the reasons a person reads are still
+ * quotes from the posting, and every quote is verbatim (ADR-0002).
+ *
+ * The description is rendered as escaped text with paragraph breaks. Server
+ * text never touches innerHTML: a job description is a string a stranger
  * wrote.
  */
 
 import { el, button, extLink, select, replace, clear, focusables } from './dom.js';
 import {
-  compactPlace, formatDate, formatPoints, formatSalary, gateTone, humanLabel, paragraphs, parseDate,
+  compactPlace, formatDate, formatPoints, formatSalary, humanLabel, paragraphs, parseDate,
   prominenceWords, relativeAge, scoreDisplay, statusLabel, statusOptions, vocabLabel,
 } from './format.js';
-import { badges, searchFitIsReady } from './badges.js';
+import { searchFitIsReady } from './badges.js';
 import { SENT, matchTone } from './cards.js';
-import { helpNote } from './help.js';
 import { createPrepare } from './prepare.js';
+import { createPractice } from './practice.js';
 import { getLocale, t, tState } from './i18n.js';
 import * as api from './api.js';
 
 /** The phrase components the product names itself (Search Fit v5). */
 const PHRASE_COMPONENTS = new Set(['responsibilities', 'technologies', 'automation_integration']);
+//: Components with a plain name of their own in the catalogue.
+const NAMED_COMPONENTS = new Set([...PHRASE_COMPONENTS, 'seniority', 'compensation_contract', 'work_model']);
+//: The gates, in the order "Can you take this job?" shows them.
+const GATE_ORDER = ['geography', 'work_authorization', 'worksite', 'travel', 'clearance', 'credential', 'requirement'];
+const PREP_STORE = 'careerAgent.prep.read.v1';
 
 export function createDrawer({
   onStatus, onSave, onNotes, onClearAppliedAt, onClosed, onChanged,
   onApplied = null,
   getOllama = () => ({}), onEvidence = null,
   careerContext = null, onAddCareer = null,
+  onTailor = null,
+  debug = false,
 }) {
   let invoker = null;
   let currentJob = null;
@@ -41,73 +62,46 @@ export function createDrawer({
   // its elapsed-seconds timer, so neither survives a close or a re-open.
   let enrichCleanup = null;
 
-  const detailPanel = el('div', {
+  const panelNode = (key, hidden = true) => el('div', {
     className: 'drawer__tabpanel',
-    attrs: { role: 'tabpanel', id: 'drawer-panel-details', 'aria-labelledby': 'drawer-tab-details' },
+    attrs: { role: 'tabpanel', id: `drawer-panel-${key}`, 'aria-labelledby': `drawer-tab-${key}` },
+    props: { hidden },
   });
-  const whyPanel = el('div', {
-    className: 'drawer__tabpanel',
-    attrs: { role: 'tabpanel', id: 'drawer-panel-why', 'aria-labelledby': 'drawer-tab-why' },
-    props: { hidden: true },
-  });
-  const preparePanel = el('div', {
-    className: 'drawer__tabpanel',
-    attrs: {
-      role: 'tabpanel',
-      id: 'drawer-panel-prepare',
-      'aria-labelledby': 'drawer-tab-prepare',
-    },
-    props: { hidden: true },
-  });
+  const detailPanel = panelNode('details', false);
+  const whyPanel = panelNode('why');
+  const preparePanel = panelNode('prepare');
+  const practicePanel = panelNode('practice');
+  const notesPanel = panelNode('notes');
 
-  // Its own module, and its own request. The first two tabs are rendered from
-  // the job payload that is already loaded; preparation is a separate question
-  // with a separate answer, and asking it on every drawer open would make
-  // reading a posting cost a second query nobody asked for.
-  const prepare = createPrepare({ onEvidence });
-  // Resume Tailor first: it is the step this tab exists to lead to.
-  const tailorHost = el('div', { className: 'd-tailorhost' });
-  preparePanel.append(tailorHost, prepare.host);
-  // MY NOTES: the person's own words and the history of where this
-  // application stood, apart from what the posting says.
-  const notesPanel = el('div', {
-    className: 'drawer__tabpanel',
-    attrs: { role: 'tabpanel', id: 'drawer-panel-notes', 'aria-labelledby': 'drawer-tab-notes' },
-    props: { hidden: true },
+  // The preparation question is its own request, asked when the tab opens.
+  // Step 2 reads its answer; the full requirement-by-requirement view stays
+  // available under step 2, folded.
+  let preparation = null;
+  const prepare = createPrepare({
+    onEvidence,
+    onLoaded: (payload) => {
+      preparation = payload;
+      if (currentJob) paintPrepare(currentJob);
+    },
   });
+  const practice = createPractice();
+  practicePanel.append(practice.host);
 
   const TABS = [
-    // `Job details` and `Why this matches`, which are the names the product
-    // specification gives these two. Both were shorter before ("The job",
-    // "Why it matched") and both meant the same thing; the specification
-    // names them, so they are named that.
-    //
-    // THREE, AND THE THIRD IS NOT A FOURTH VIEW OF THE SCORE. It answers the
-    // question the other two cannot: which of these requirements could I
-    // speak to, and which could I not. Eight tabs, one per section of the
-    // V1.3 brief, would have put each answer behind a guess about which tab
-    // holds it; three keeps the drawer readable and the sections are headings
-    // inside them.
-    //
-    // The label is a KEY rather than a string. `createDrawer` runs during
-    // module setup, before `setLocale` has read the stored choice, so a
-    // resolved string here would freeze the drawer in English -- which is
-    // exactly what happened to these two tabs until the third one made it
-    // visible. `relabel()` below resolves them, once at start and again on
-    // every language switch.
+    // Keys, not strings: the drawer is built before `setLocale` has read the
+    // stored choice. `relabel()` resolves them, now and on every switch.
     { key: 'details', labelKey: 'drawer.tab.details', panel: detailPanel },
     { key: 'why', labelKey: 'drawer.tab.why', panel: whyPanel },
     { key: 'prepare', labelKey: 'drawer.tab.prepare', panel: preparePanel },
+    { key: 'practice', labelKey: 'drawer.tab.practice', panel: practicePanel },
     { key: 'notes', labelKey: 'drawer.tab.notes', panel: notesPanel },
   ];
 
   // The chosen tab survives while the drawer is open, including across the
-  // re-render a status change triggers. It resets on close, because the next
-  // job is a new question and "the job" is the right answer to open on.
+  // re-render a status change triggers. It resets on close.
   let activeTab = 'details';
-  // Which job the Prepare tab currently holds, so re-rendering the drawer
-  // after a status change does not re-ask the server for the same answer.
   let loadedPrepareFor = null;
+  let loadedPracticeFor = null;
 
   const tabButtons = TABS.map((tab) => button(t(tab.labelKey), () => selectTab(tab.key), {
     className: 'drawer__tab',
@@ -125,31 +119,17 @@ export function createDrawer({
     attrs: { role: 'tablist', 'aria-label': t('drawer.tabs.label') },
   }, tabButtons);
 
-  /**
-   * Put the current language on the tabs.
-   *
-   * Called once after the locale is resolved and again whenever it changes.
-   * Only OUR words move: the panels below hold a job title, a description and
-   * evidence quotes, and none of those is touched in either direction.
-   */
+  /** Our words on the tabs and the close button; never the job's. */
   function relabel() {
     TABS.forEach((tab, index) => {
       tabButtons[index].textContent = t(tab.labelKey);
     });
     tabList.setAttribute('aria-label', t('drawer.tabs.label'));
-    // The drawer's shell is built ONCE, at module setup, which happens before
-    // `setLocale` has read the stored choice. Its tabs were relabelled here
-    // and its close button was not, so the one word on the drawer that is not
-    // a tab stayed English on a Portuguese page.
     closeButton.textContent = '✕';
     closeButton.setAttribute('aria-label', t('drawer.close'));
   }
 
-  /**
-   * Roving tabindex, which is what the tab pattern requires and what a plain
-   * row of buttons does not give: one stop in the tab order for the whole set,
-   * and the arrow keys to move inside it.
-   */
+  /** Roving tabindex: one stop for the tab set, arrows and Home/End inside. */
   tabList.addEventListener('keydown', (event) => {
     const moves = { ArrowLeft: -1, ArrowRight: 1, Home: 'first', End: 'last' };
     const move = moves[event.key];
@@ -166,11 +146,16 @@ export function createDrawer({
 
   function selectTab(key) {
     activeTab = key;
-    // Loaded on demand. Opening a posting to read it must not cost a second
-    // request, and most opens never reach this tab.
+    // Loaded on demand: most opens never reach these tabs.
     if (key === 'prepare' && currentJob && loadedPrepareFor !== currentJob.job_id) {
       loadedPrepareFor = currentJob.job_id;
+      preparation = null;
       prepare.load(currentJob.job_id);
+      paintPrepare(currentJob);
+    }
+    if (key === 'practice' && currentJob && loadedPracticeFor !== currentJob.job_id) {
+      loadedPracticeFor = currentJob.job_id;
+      practice.load(currentJob);
     }
     TABS.forEach((tab, index) => {
       const chosen = tab.key === key;
@@ -178,42 +163,35 @@ export function createDrawer({
       tabButtons[index].setAttribute('tabindex', chosen ? '0' : '-1');
       tab.panel.hidden = !chosen;
     });
+    bodyHost.scrollTop = 0;
   }
 
-  const PANELS = [detailPanel, whyPanel, preparePanel, notesPanel];
+  const PANELS = [detailPanel, whyPanel, preparePanel, practicePanel, notesPanel];
   const bodyHost = el('div', { className: 'drawer__body' }, PANELS);
   const companyNode = el('span', { className: 'd-company drawer__company' });
   const whereNode = el('span', { className: 'drawer__where' });
   const actionsHost = el('div', { className: 'd-sec--identity drawer__actions' });
   const titleNode = el('h2', { className: 'drawer__title', attrs: { id: 'drawer-title' }, text: '' });
 
-  /** Paint both panels. Both are always built; only one is visible. */
+  /** Paint every panel. All are built; one is visible. */
   function paint(job) {
     companyNode.textContent = job.company_name || t('absent.companyStated');
     whereNode.textContent = whereLine(job);
     replace(actionsHost, headActions(job));
-    replace(detailPanel, detailSections(job));
+    replace(detailPanel, aboutSections(job));
     replace(whyPanel, whySections(job));
-    replace(tailorHost, [tailorSection(job)]);
-    replace(notesPanel, [notesSection(job), historySection(job)].filter(Boolean));
+    paintPrepare(job);
+    replace(notesPanel, notesSections(job));
     if (!bodyHost.contains(detailPanel)) replace(bodyHost, PANELS);
     selectTab(activeTab);
   }
 
   const closeButton = button('', () => close(), { className: 'btn btn--close drawer__close' });
-  // Its words, straight away. `relabel` is declared above and closes over a
-  // `const` that does not exist until this line, so the call belongs here
-  // rather than beside the function.
   relabel();
 
   const panel = el('div', {
     className: 'drawer__panel',
-    attrs: {
-      role: 'dialog',
-      'aria-modal': 'true',
-      'aria-labelledby': 'drawer-title',
-      tabindex: '-1',
-    },
+    attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'drawer-title', tabindex: '-1' },
   }, [
     el('header', { className: 'drawer__head' }, [
       el('div', { className: 'drawer__headtop' }, [
@@ -291,136 +269,43 @@ export function createDrawer({
     activeTab = 'details';
     askingFor = null;
     prepare.reset();
+    practice.reset();
+    preparation = null;
     loadedPrepareFor = null;
+    loadedPracticeFor = null;
     currentJob = null;
     if (invoker && document.contains(invoker)) invoker.focus();
     invoker = null;
     if (onClosed) onClosed();
   }
 
-  /**
-   * TWO TABS, AND THE ORDER INSIDE THEM IS THE ARGUMENT.
-   *
-   * The drawer used to be one column of thirteen sections that opened on the
-   * score breakdown: a list of component names, point totals and raw signal
-   * ids. That is the most precise thing this product knows and the worst
-   * possible first screen, because it answers "how was this computed" to
-   * somebody who has not yet been told "what is this job".
-   *
-   * So: the facts of the job in one tab, the reasoning in the other. The
-   * reasoning tab leads with a sentence in English, then the reasons, then the
-   * gaps, and only then the arithmetic, which is folded away behind a
-   * disclosure that says it is the advanced view. Nothing was deleted.
-   */
-  /**
-   * The handoff to Resume Tailor, offered only as far as it can be used.
-   *
-   * Tailor builds a resume from the person's own CV. Before Career Agent holds
-   * anything about their career, "Open Resume Tailor" looked like the next
-   * step and led to a tool with nothing to work from, so the next step shown
-   * is the one that gives it something.
-   *
-   * The link names this posting by its id and nothing else: Resume Tailor
-   * follows the active local profile and reads the posting, its status and
-   * the confirmed Career Profile from Career Agent itself, so nothing private
-   * travels in the address and there is nothing to copy and paste.
-   */
-  function tailorSection(job) {
-    // ONE ACTION GROUP. The copy button, the link out and the note used to be
-    // three loose siblings of different sizes; they are one labelled group
-    // now, with the controls on a single row that wraps on a narrow drawer.
-    // The heading names the group for a screen reader as well as on screen.
-    const host = el('section', {
-      className: 'd-sec d-tailor',
-      attrs: { role: 'group', 'aria-labelledby': 'd-tailor-head' },
+  /** Redraw from whatever a mutation resolved to (the full job, or nothing). */
+  function refreshWith(result) {
+    return Promise.resolve(result).then((job) => {
+      if (!job || !job.job_id) return;
+      if (!currentJob || currentJob.job_id !== job.job_id) return;
+      currentJob = job;
+      paint(job);
     });
-    const heading = () => el('h3', {
-      className: 'd-sec__head', text: t('tailor.groupLabel'), attrs: { id: 'd-tailor-head' },
-    });
-    host.appendChild(heading());
-    const link = (text, className) => el('a', { className, text, attrs: {
-      href: `/resume-tailor?job=${encodeURIComponent(job.job_id)}&lang=${encodeURIComponent(getLocale())}`,
-      target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
-    } });
-    const actions = (children) => el('div', { className: 'd-tailor__actions' }, children.filter(Boolean));
-    const ready = () => {
-      const note = el('p', { className: 'd-tailor__note', text: t('tailor.note') });
-      replace(host, [
-        heading(),
-        actions([link(t('tailor.open'), 'btn btn--primary d-tailor__btn')]),
-        note,
-      ]);
-      host.dataset.tailor = 'ready';
-    };
-    const needsCareer = () => {
-      replace(host, [
-        heading(),
-        el('p', { className: 'd-tailor__note', text: t('tailor.needsCv') }),
-        actions([
-          onAddCareer
-            ? button(t('tailor.addCv'), () => onAddCareer(), {
-              className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-add-career' },
-            })
-            : null,
-          link(t('tailor.openOwn'), 'btn d-tailor__btn'),
-        ]),
-      ]);
-      host.dataset.tailor = 'needs-career';
-    };
-    if (!careerContext) {
-      ready();
-      return host;
-    }
-    Promise.resolve(careerContext()).then((known) => {
-      if (currentJob && currentJob.job_id !== job.job_id) return;
-      if (known) ready();
-      else needsCareer();
-    });
-    return host;
   }
 
-  function detailSections(job) {
-    return [
-      contentNotes(job),
-      compensationSection(job),
-      enrichmentSection(job),
-      descriptionSection(job),
-      duplicatesSection(job),
-      provenanceSection(job),
-    ].filter(Boolean);
-  }
+  // ======================================================================
+  // THE HEADER
+  // ======================================================================
 
   /** Where, and when and where it was posted: the line under the title. */
   function whereLine(job) {
     const place = compactPlace(job.location_raw, job.work_model).text;
     const source = job.provider ? vocabLabel(job.provider) : t('absent.source');
-    const date = parseDate(job.posted_at) ? formatDate(job.posted_at) : null;
-    const posted = date ? t('card.postedOn', { date, source }) : source;
-    return `${place} \u00b7 ${posted}`;
-  }
-
-  /**
-   * The notes a card used to carry about the CONTENT: a thin posting and a
-   * US-domestic reading. They change how the rest of the tab is read, so they
-   * lead it.
-   */
-  function contentNotes(job) {
-    const notes = [];
-    if (job.content_completeness === 'PARTIAL_CONTENT' || job.content_completeness === 'METADATA_ONLY') {
-      notes.push(el('p', { className: 'd-note', text: `${t(`content.${job.content_completeness}`)}. ${
-        job.content_completeness === 'PARTIAL_CONTENT' ? t('content.partialHelp') : t('content.metadataHelp')}` }));
-    }
-    if (job.domestic_context === 'LIKELY_US_DOMESTIC' && job.eligibility_status === 'UNRESOLVED') {
-      notes.push(el('p', { className: 'd-note', text: t('domestic.LIKELY_US_DOMESTIC') }));
-    }
-    return notes.length ? el('section', { className: 'd-sec d-contentnotes' }, notes) : null;
+    const date = parseDate(job.posted_at) ? relativeAge(job.posted_at) : null;
+    const posted = date ? t('drawer.postedAgo', { age: date, source }) : source;
+    return `${place} · ${posted}`;
   }
 
   //: The drawer's own "Did you send your application?", like the card's.
-  //: Which job the question is about; never carried to the next one.
   let askingFor = null;
 
-  /** The match, the heart, the job ad, Apply, and where the application stands. */
+  /** The match, the heart, the job ad, Apply, and the question after it. */
   function headActions(job) {
     const score = scoreDisplay(job.match_score);
     const tone = searchFitIsReady() && score.scored ? matchTone(job.match_score) : null;
@@ -436,7 +321,7 @@ export function createDrawer({
         el('span', { className: 'card__matchtext', text: t(tone.key) }),
       );
     }
-    const heart = button(job.saved ? '\u2665' : '\u2661', () => refreshWith(onSave(job.job_id, !job.saved)), {
+    const heart = button(job.saved ? '♥' : '♡', () => refreshWith(onSave(job.job_id, !job.saved)), {
       className: `card__heart btn--save${job.saved ? ' is-saved is-on' : ''}`,
       ariaLabel: job.saved ? t('card.unsaveLabel', { title: job.title }) : t('card.saveLabel', { title: job.title }),
       attrs: { 'aria-pressed': job.saved ? 'true' : 'false' },
@@ -446,7 +331,7 @@ export function createDrawer({
     const ad = extLink(job.url, t('drawer.openAd'), { className: 'drawer__ad' });
     let apply = null;
     if (sent) {
-      apply = el('span', { className: 'drawer__sent', text: `\u2713 ${statusLabel(status)}` });
+      apply = el('span', { className: 'drawer__sent', text: `✓ ${statusLabel(status)}` });
     } else if (job.url && onApplied) {
       apply = extLink(job.url, t('drawer.applyOnSite'), { className: 'drawer__apply' });
       if (apply.tagName === 'A') {
@@ -471,704 +356,142 @@ export function createDrawer({
         ]),
       ])
       : null;
-    const statusSelect = select(statusOptions(), job.application_status, (value) => {
-      refreshWith(onStatus(job.job_id, value));
-    }, { className: 'select select--status', ariaLabel: t('drawer.applicationStatus') });
     return [
-      el('div', { className: 'drawer__actrow' }, [
-        match,
-        el('span', { className: 'drawer__grow' }),
-        heart,
-        ad,
-        apply,
-      ].filter(Boolean)),
+      el('div', { className: 'drawer__actrow' }, [match, el('span', { className: 'drawer__grow' }), heart, ad, apply]
+        .filter(Boolean)),
       ask,
-      el('div', { className: 'drawer__meta' }, [
-        badges(job, { size: 'md', showMatch: false }),
-        el('label', { className: 'drawer__statuslabel' }, [
-          el('span', { text: t('drawer.whereYouAre') }),
-          statusSelect,
-        ]),
-      ]),
-      appliedLine(job),
     ].filter(Boolean);
   }
 
-  function whySections(job) {
+  // ======================================================================
+  // ABOUT: four facts, In short, the tools, the whole ad
+  // ======================================================================
+
+  function aboutSections(job) {
     return [
-      whyOverview(job),
-      fitFeedbackSection(job),
-      // WHAT THIS POSTING ASKED OF SOMEBODY STARTING OUT, before the strengths
-      // and before the gaps. High up on purpose: for a career changer, a new
-      // graduate or anybody looking for a first job, it is the first thing they
-      // need and the one sentence the product used not to say at all.
-      experienceSection(job),
-      strengthsSection(job),
-      signalsSection(job),
-      gapsSection(job),
-      gatesSection(job),
-      unknownsSection(job),
-      scoreBreakdown(job),
+      tiles(job),
+      contentNotes(job),
+      inShortSection(job),
+      toolsSection(job),
+      descriptionSection(job),
+      duplicatesSection(job),
+      debug ? rawReading(job) : null,
     ].filter(Boolean);
   }
 
-  // -- what the person thinks of the score (migration 0046) ---------------
-  /**
-   * Observation only. The answer is kept for this profile, beside the score
-   * it judged, and exported on request; nothing that scores, ranks, filters
-   * or retrieves reads it, so no number on this card moves because of it.
-   */
-  function fitFeedbackSection(job) {
-    if (job.match_score === null || job.match_score === undefined) return null;
-    const given = job.fit_feedback || null;
-    const verdict = given ? given.verdict : null;
-    const status = el('p', {
-      className: 'd-note',
-      attrs: { role: 'status' },
-      text: given ? t('fitFeedback.saved') : '',
-    });
-    // What the note box holds now, so a verdict clicked right after typing
-    // carries the new note rather than the one this section was drawn with.
-    let note = given ? given.note : null;
-    const fail = (err) => {
-      status.textContent = t(err && err.status === 409 ? 'fitFeedback.changed' : 'fitFeedback.failed');
-    };
-    // One save at a time, in order: blurring the note and clicking a verdict
-    // fire two saves, and the later answer must land last.
-    const save = (next, reason) => {
-      const seen = note;
-      fitSaves = fitSaves
-        .then(() => api.patchFitFeedback(job.job_id, next, reason, seen, job.match_score))
-        .then(refreshWith, fail);
-    };
-    const body = [el('div', {
-      className: 'segmented',
-      attrs: { role: 'group', 'aria-label': t('fitFeedback.question') },
-    }, FIT_VERDICTS.map((v) => button(t(`fitFeedback.${v}`), () => save(v, null), {
-      className: 'segmented__btn',
-      attrs: { 'aria-pressed': v === verdict ? 'true' : 'false' },
-    })))];
-    if (FIT_REASONS[verdict]) {
-      body.push(select(
-        [{ value: '', label: t('fitFeedback.noReason') },
-          ...FIT_REASONS[verdict].map((r) => ({ value: r, label: t(`fitFeedback.reason.${verdict}.${r}`) }))],
-        given.reason || '',
-        (value) => save(verdict, value || null),
-        { ariaLabel: t('fitFeedback.reason') },
-      ));
-    }
-    if (verdict) {
-      body.push(el('textarea', {
-        className: 'input input--notes',
-        attrs: { rows: '2', placeholder: t('fitFeedback.note'), 'aria-label': t('fitFeedback.note') },
-        props: { value: given.note || '' },
-        on: {
-          input: (event) => { note = event.target.value; },
-          blur: () => { if ((given.note || '') !== (note || '')) save(verdict, given.reason); },
-        },
-      }));
-    }
-    body.push(status, button(t('fitFeedback.export'), () => api.exportFitFeedback().catch(fail), {
-      className: 'btn btn--link',
-    }));
-    return section(t('fitFeedback.question'), body, { className: 'd-sec--fit-feedback' });
-  }
-
-  // -- what this posting asked of a newcomer (migration 0027) ------------
-  /**
-   * The employer's ask for previous experience, in a sentence, with the line it
-   * was read from.
-   *
-   * WHY IT IS A SECTION AND NOT A BADGE
-   * -----------------------------------
-   * Because the honest answer is usually several clauses. "This role asks for
-   * at least three years" and "these are the things it says to people starting
-   * out" and "here is the line it said that in" do not fit on a chip, and a
-   * chip reading `REQUIRED_MINIMUM` would be this product's vocabulary on
-   * screen -- the thing `test_plain_language.py` exists to fail.
-   *
-   * SILENCE GETS ITS OWN SENTENCE, and that is the load-bearing part. A
-   * posting that never mentions experience is not a posting that said none is
-   * needed, and rendering the two the same way would manufacture an invitation
-   * nobody extended. The wording says which one this is.
-   *
-   * NOTHING HERE IS A SCORE. No number on this card moves because of what this
-   * section says; no gate reads it. It is evidence about the POSTING, in the
-   * same family as the employment and domestic readings beside it.
-   */
-  function experienceSection(job) {
-    const requirement = job.experience_requirement;
-    const signals = job.entry_signals || [];
-    if (!requirement && !signals.length) return null;
-
-    const years = job.experience_min_years;
-    const sentence = {
-      NONE_REQUIRED: () => t('drawer.experienceNone'),
-      REQUIRED_MINIMUM: () => (years === null || years === undefined
-        ? t('drawer.experienceUnquantified')
-        : t('drawer.experienceYears', { n: years })),
-      REQUIRED_UNQUANTIFIED: () => t('drawer.experienceUnquantified'),
-      PREFERRED: () => t('drawer.experiencePreferred'),
-      NICE_TO_HAVE: () => t('drawer.experienceBonus'),
-      NOT_STATED: () => t('drawer.experienceSilent'),
-    }[requirement];
-
-    return section(t('drawer.experienceHeading'), [
-      el('p', { className: 'd-note', text: sentence ? sentence() : t('drawer.experienceSilent') }),
-      // The invitations, each as the employer's own kind of statement rather
-      // than as one merged claim. "Entry level" and "training provided" are
-      // two different promises and a reader weighs them differently.
-      signals.length
-        ? el('ul', { className: 'd-list' }, signals.map((value) => el('li', {
-          text: tState('entrySignal', value),
-        })))
-        : null,
-      // ADR-0002: a quote is evidence only while it is a contiguous substring
-      // of what the employer wrote, which is why this is the posting's own
-      // line and never a sentence this product composed about it.
-      job.experience_evidence
-        ? el('blockquote', { className: 'quote', text: job.experience_evidence })
-        : null,
-    ].filter(Boolean));
-  }
-
-  // -- tab 2, lead paragraph ---------------------------------------------
-
-  /**
-   * The number, and then the same number as a sentence.
-   *
-   * A percentage with no sentence beside it invites the reading this product
-   * spends most of its design refusing: that it is a probability of being
-   * hired. It is not. It is how much of what you said you wanted appears in
-   * the text of this posting, and the sentence says so.
-   */
-  function whyOverview(job) {
-    const scored = job.match_score !== null && job.match_score !== undefined;
-    if (!scored) {
-      return section(t('drawer.whySection'), [
-        el('p', {
-          className: 'd-note',
-          text: t('drawer.unscored'),
-        }),
-      ]);
-    }
-
-    const score = Math.round(job.match_score);
-    const detail = job.data_confidence === null || job.data_confidence === undefined
-      ? null : Math.round(job.data_confidence);
-    const strengths = (job.top_strengths || []).length;
-    const blockers = (job.blockers || []).length;
-
-    // The BAND the score was given, never a second set of cut-offs. This
-    // sentence used 70/50/30 while every band used 75/55/35, so a 72 was
-    // called a strong fit beside a badge that said GOOD.
-    const howClose = {
-      STRONG: t('drawer.closeStrong'),
-      GOOD: t('drawer.closeReasonable'),
-      MODERATE: t('drawer.closePartial'),
-    }[job.fit_band] || t('drawer.closeWeak');
-
-    const parts = [t('drawer.scoredOutOf', { score, howClose })];
-    // Counted from the list that is actually drawn, not from `top_strengths`,
-    // which the API caps at three. The sentence said "It picked up 3 things
-    // you are looking for, quoted below" above a list of eight.
-    const shown = strengthRows(job).length;
-    if (shown) {
-      parts.push(shown === 1
-        ? t('drawer.pickedUpOne')
-        : t('drawer.pickedUp', { n: shown }));
-    }
-    if (detail !== null) {
-      const readable = detail >= 70 ? t('drawer.readableHigh')
-        : detail >= 40 ? t('drawer.readableMid')
-          : t('drawer.readableLow');
-      parts.push(readable);
-    }
-    if (blockers) {
-      parts.push(t('drawer.wouldRuleOut'));
-    }
-    if (job.semantic) {
-      parts.push(t('drawer.semanticUsed', { provider: t(`ai.mode.${job.semantic.provider}`) }));
-    }
-
-    return section(t('drawer.secWhyMatches'), [
-      el('div', { className: 'why__head' }, [
-        badges(job, { size: 'large' }),
-        // The explanation, beside the numbers rather than in a block at the
-        // top of a different screen. All three at once, because ADR-0004's
-        // whole point is that they are three separate measurements and
-        // explaining one alone is how a reader decides it qualifies another.
-        helpNote(t('help.theseNumbers'), [
-          'badge.matchHelp',
-          'badge.confidenceHelp',
-          'help.eligibility',
-        ]),
-      ]),
-      el('p', { className: 'why__summary', text: parts.join(' ') }),
-    ]);
-  }
-
-  /**
-   * The rows the reasoning tab draws, capped, so the sentence above them can
-   * count the same thing the reader counts.
-   */
-  function strengthRows(job) {
-    const rows = [];
-    for (const component of job.components || []) {
-      for (const contrib of component.contributions || []) {
-        if (Number(contrib.points) > 0 && contrib.counted !== false) rows.push(contrib);
-      }
-    }
-    rows.sort((a, b) => Number(b.points) - Number(a.points));
-    return rows.slice(0, 8);
-  }
-
-  /** The reasons, as words and quotes, before any arithmetic. */
-  function strengthsSection(job) {
-    const rows = strengthRows(job);
-    if (!rows.length) return null;
-
-    // "Each line is quoted from the posting itself. Nothing here is inferred"
-    // sat above three lines reading "The posting matched, without a quotable
-    // line." Three of three contradicted it. The claim is now made about the
-    // lines that ARE quotes, and only when there are any, because this
-    // product's whole promise is that evidence is a quote that exists.
-    const quoted = rows.filter((row) => row.quote).length;
-    const lede = quoted === rows.length
-      ? t('drawer.allQuoted')
-      : quoted > 0
-        ? t('drawer.someQuoted', { n: quoted })
-        : t('drawer.noneQuoted');
-
-    return section(t('drawer.secStrengths'), [
-      el('ul', { className: 'reasons' }, rows.map((row) => el('li', {
-        className: 'reason',
-      }, [
-        el('p', { className: 'reason__label', text: row.label || humanLabel(row.signal_id) }),
-        row.quote
-          ? el('blockquote', { className: 'quote', text: row.quote })
-          : el('p', {
-            className: 'quote-absent',
-            text: t('drawer.matchedNoQuote'),
-          }),
-      ]))),
-    ], { lede });
-  }
-
-  /** What is missing or unclear, which is a different thing from a blocker. */
-  function gapsSection(job) {
-    const missing = (job.confidence_items || []).filter((item) => !item.awarded);
-    if (!missing.length) return null;
-    return section(t('drawer.secGaps'), [
-      el('ul', { className: 'gaps' }, missing.map((item) => el('li', {
-        className: 'gap',
-        text: item.note || item.label || humanLabel(item.item_id),
-      }))),
-    ], {
-      lede: t('drawer.gapsLede'),
-    });
-  }
-
-  // -- header -----------------------------------------------------------
-  /**
-   * Redraw the drawer from whatever the mutation resolved to.
-   *
-   * The handlers in `main.js` return the server's updated job -- the same full
-   * detail shape `open()` fetches -- so the drawer can repaint from the
-   * response instead of issuing a second GET for a row it was just handed.
-   *
-   * Tolerant of a handler that resolves to nothing, because that is what every
-   * one of them did before the applied line needed this, and a drawer that
-   * throws on an undefined is worse than a drawer that leaves itself alone.
-   */
-  function refreshWith(result) {
-    return Promise.resolve(result).then((job) => {
-      if (!job || !job.job_id) return;
-      if (!currentJob || currentJob.job_id !== job.job_id) return;
-      currentJob = job;
-      paint(job);
-    });
-  }
-
-  /**
-   * The applied date, and the only control that can destroy it.
-   *
-   * The drawer is where this belongs rather than the card or the row. Clearing
-   * the date is rare, irreversible and destroys a fact about the past, so it
-   * should cost a deliberate visit, while a status move, which is frequent and
-   * reversible, costs one drag and no longer touches the date at all
-   * (ADR-0012).
-   *
-   * `POST_APPLICATION` statuses get no button. The server refuses to clear a
-   * date it would immediately restore, and offering a control that always
-   * fails is worse than not offering one; the line says why instead.
-   */
-  function appliedLine(job) {
-    if (!job.applied_at) return null;
-    const post = ['APPLIED', 'INTERVIEW', 'OFFER', 'HIRED', 'WITHDRAWN'];
-    const locked = post.includes(job.application_status);
-    return el('p', { className: 'd-note d-applied' }, [
-      el('span', { text: t('drawer.appliedOn', { date: formatDate(job.applied_at) }) }),
-      locked
-        ? el('span', {
-          className: 'd-applied__why',
-          text: t('drawer.appliedKept', { status: statusLabel(job.application_status) }),
-        })
-        : button(t('drawer.clearAppliedDate'), () => {
-          // The confirmation is the point of the control, not decoration
-          // around it. This is the one action in the interface that deletes
-          // something a person cannot recover from anywhere else.
-          const ok = window.confirm(t('drawer.confirmClearApplied', {
-            date: formatDate(job.applied_at),
-            title: job.title,
-          }));
-          if (ok) refreshWith(onClearAppliedAt(job.job_id));
-        }, { className: 'btn btn--danger btn--small' }),
-    ]);
-  }
-
-  // -- the score, component by component ---------------------------------
-  function scoreBreakdown(job) {
-    const components = job.components || [];
-    const penalties = job.penalties || [];
-    const body = [];
-
-    if (job.match_score === null || job.match_score === undefined) {
-      body.push(el('p', {
-        className: 'd-note',
-        text: t('drawer.unscoredNumber'),
-      }));
-    }
-
-    if (job.title_class || job.title_reason) {
-      body.push(el('div', { className: 'd-row d-row--title' }, [
-        el('span', { className: 'd-row__label', text: `The job title reads as ${humanLabel(job.title_class)}` }),
-        el('p', { className: 'd-row__reason', text: job.title_reason || '' }),
-      ]));
-    }
-
-    for (const component of components) {
-      if (component.configured === false) {
-        // Not part of this search at all: no phrases were configured here.
-        // Different from a configured component the posting did not match,
-        // which keeps its 0 of max below.
-        body.push(el('article', { className: 'component component--unconfigured' }, [
-          el('header', { className: 'component__head' }, [
-            el('h4', { className: 'component__label', text: componentLabel(component) }),
-          ]),
-          el('p', { className: 'component__note', text: t('drawer.notConfigured') }),
-        ]));
-        continue;
-      }
-      body.push(el('article', { className: 'component' }, [
-        el('header', { className: 'component__head' }, [
-          el('h4', { className: 'component__label', text: componentLabel(component) }),
-          el('span', {
-            className: 'component__points num',
-            text: `${Number(component.points || 0).toFixed(1)} / ${Number(component.max_points || 0).toFixed(1)}`,
-          }),
-        ]),
-        component.capped
-          ? el('p', {
-            className: 'component__note',
-            text: t('drawer.cappedAt', {
-              points: Number(component.max_points).toFixed(1),
-            }),
-          })
-          : null,
-        component.guarded
-          ? el('p', { className: 'component__note', text: t('drawer.toolsGuard') })
-          : component.component_id === 'seniority' && component.note
-            ? el('p', { className: 'component__note', text: t('absent.levelSentence') })
-            : component.note ? el('p', { className: 'component__note', text: component.note }) : null,
-        (component.contributions || []).length
-          ? el('ul', { className: 'contribs' }, component.contributions.map(contribution))
-          : el('p', { className: 'component__note', text: t('drawer.nothingMatchedHere') }),
-      ]));
-    }
-
-    if (penalties.length) {
-      body.push(el('h4', { className: 'd-subhead', text: t('drawer.countedAgainst') }));
-      body.push(el('ul', { className: 'contribs contribs--penalty' }, penalties.map(contribution)));
-    }
-
-    if (!components.length && !penalties.length) {
-      body.push(el('p', { className: 'd-note', text: t('drawer.noBreakdown') }));
-    }
-
-    // Folded away, and labelled as the advanced view. Every number this
-    // product computes is still here and still traceable to a quote; it is
-    // simply no longer the first thing a person meets.
-    return el('details', { className: 'd-sec d-advanced' }, [
-      el('summary', { className: 'd-advanced__summary', text: t('drawer.advanced') }),
-      el('p', {
-        className: 'd-sec__lede',
-        text: t('drawer.advancedHelp'),
-      }),
-      ...body,
-      // The confidence items, item by item, with the unawarded ones shown
-      // beside the awarded ones. This lives here rather than in the reasoning
-      // tab's own flow because it is the numeric half: `gapsSection` above
-      // already says in words what the posting left out.
-      confidenceSection(job),
-    ]);
-  }
-
-  function componentLabel(component) {
-    // The three phrase components are named by the product, in the reader's
-    // language, whatever an older configuration file called them.
-    const named = PHRASE_COMPONENTS.has(component.component_id)
-      ? t(`component.${component.component_id}`) : '';
-    return named || component.label || humanLabel(component.component_id);
-  }
-
-  function contribution(row) {
-    const uncounted = row.counted === false;
-    return el('li', { className: `contrib${uncounted ? ' contrib--uncounted' : ''}` }, [
-      el('div', { className: 'contrib__head' }, [
-        el('span', { className: 'contrib__label', text: row.label || humanLabel(row.signal_id) }),
-        row.source === 'semantic'
-          ? el('span', { className: 'contrib__source', text: t('drawer.semanticFinding') })
-          : null,
-        el('span', {
-          className: 'contrib__prominence',
-          text: uncounted ? t('drawer.alreadyCounted') : prominenceWords(row.prominence),
-        }),
-        el('span', {
-          className: `contrib__points num ${Number(row.points) < 0 ? 'is-negative' : ''}`,
-          text: formatPoints(row.points),
-        }),
-      ]),
-      row.quote
-        ? el('blockquote', { className: 'quote', text: row.quote })
-        : el('p', { className: 'quote-absent', text: t('drawer.matchedNoLine') }),
-    ]);
-  }
-
-  // -- gates -------------------------------------------------------------
-  function gatesSection(job) {
-    const gates = job.gates || [];
-    if (!gates.length) {
-      return section(t('drawer.secGates'), [
-        el('p', { className: 'd-note', text: t('drawer.nothingChecked') }),
-      ]);
-    }
-    return section(t('drawer.secGates'), [
-      el('ul', { className: 'gates' }, gates.map((gate) => el('li', {
-        className: `gate gate--${gateTone(gate.result)}`,
-      }, [
-        el('div', { className: 'gate__head' }, [
-          el('span', {
-            className: 'gate__glyph',
-            text: gate.result === 'PASS' ? '✓' : gate.result === 'FAIL' ? '✕' : '?',
-            attrs: { 'aria-hidden': 'true' },
-          }),
-          el('span', { className: 'gate__name', text: humanLabel(gate.gate) }),
-          el('span', { className: 'gate__result', text: gateWords(gate.result) }),
-        ]),
-        el('p', { className: 'gate__reason', text: gate.reason || '' }),
-        gate.quote ? el('blockquote', { className: 'quote', text: gate.quote }) : null,
-      ])))],
-    {
-      lede: t('drawer.gatesLede'),
-    });
-  }
-
-  // -- confidence --------------------------------------------------------
-  /** The labels the shipped search files give the completeness items. A
-   *  label that is still one of these is replaced by the catalogue's words in
-   *  the reader's language; a label somebody wrote themselves is kept. */
-  const SHIPPED_CONFIDENCE_LABELS = new Set([
-    'Full description text available', 'Description is substantial', 'Location stated',
-    'Hiring scope explicitly stated', 'Employment type known', 'Compensation stated',
-    'Seniority determinable from the body', 'Posting date known',
-  ]);
-
-  function confidenceLabel(item) {
-    if (item.label && !SHIPPED_CONFIDENCE_LABELS.has(item.label)) return item.label;
-    const key = `confidence.item.${item.item_id}`;
-    const translated = t(key);
-    return translated !== key ? translated : (item.label || humanLabel(item.item_id));
-  }
-
-  function confidenceNote(item) {
-    const key = `confidence.note.${item.item_id}.${item.awarded ? 'yes' : 'no'}`;
-    const translated = t(key);
-    return translated !== key ? translated : (item.note || '');
-  }
-
-  function confidenceSection(job) {
-    const items = job.confidence_items || [];
-    if (!items.length) return null;
-    const awarded = items.filter((item) => item.awarded);
-    const missing = items.filter((item) => !item.awarded);
-    return section(t('drawer.secConfidence'), [
-      // Completeness is about the POSTING, never about the person: say so
-      // before the first "0 / 10", so an omission is not read as a bad fit.
-      el('p', { className: 'd-note', text: t('drawer.completenessNotFit') }),
-      el('p', {
-        className: 'd-note',
-        text: t('drawer.covered', { awarded: awarded.length, total: items.length }),
-      }),
-      el('ul', { className: 'conf' }, items.map((item) => el('li', {
-        className: `conf__item${item.awarded ? '' : ' conf__item--missing'}`,
-      }, [
-        el('span', { className: 'conf__glyph', text: item.awarded ? '✓' : '·', attrs: { 'aria-hidden': 'true' } }),
-        el('span', { className: 'conf__label', text: confidenceLabel(item) }),
-        el('span', { className: 'conf__points num', text: item.awarded ? `+${item.points}` : `0 / ${item.points}` }),
-        confidenceNote(item) ? el('span', { className: 'conf__note', text: confidenceNote(item) }) : null,
-      ]))),
-      missing.length
-        ? el('p', {
-          className: 'd-note',
-          text: t('drawer.whyNotHigher'),
-        })
-        : null,
-    ]);
-  }
-
-  function unknownsSection(job) {
-    const unknowns = job.unknowns || [];
-    if (!unknowns.length) return null;
-    return section(t('drawer.secUnknowns'), [
-      el('ul', { className: 'unknowns' }, unknowns.map((line) => el('li', { text: String(line) }))),
-    ]);
-  }
-
-  // -- signals -----------------------------------------------------------
-  function signalsSection(job) {
-    const signals = job.signals || job.technologies || [];
-    if (!signals.length) return null;
-    return section(t('drawer.secSignals'), [
-      el('ul', { className: 'chips chips--tech' }, signals.map((signal) => el('li', {
-        className: `chip chip--${String(signal.prominence || 'INCIDENTAL').toLowerCase()}`,
-        text: signal.label || humanLabel(signal.signal_id),
-        attrs: { title: prominenceWords(signal.prominence) },
-      }))),
-    ]);
-  }
-
-  function compensationSection(job) {
+  /** Pay, Job type, Where, Level: only what the posting says, never a guess. */
+  function tiles(job) {
     const salary = formatSalary(job.salary);
-    return section(t('drawer.secPay'), [
-      el('dl', { className: 'kv' }, [
-        el('dt', { text: t('drawer.salary') }),
-        el('dd', {
-          className: salary ? '' : 'fact--absent',
-          text: salary || t('drawer.salaryUnstated'),
-        }),
-        el('dt', { text: t('drawer.employmentType') }),
-        el('dd', {
-          className: job.employment_type ? '' : 'fact--absent',
-          text: job.employment_type ? vocabLabel(job.employment_type) : t('drawer.notStated'),
-        }),
-        el('dt', { text: t('drawer.worksite') }),
-        el('dd', { text: job.work_model ? vocabLabel(job.work_model) : t('drawer.notStated') }),
-        el('dt', { text: t('drawer.seniority') }),
-        // Two different sentences, and the difference is the point. A stated
-        // level is reported with the words that stated it; an unstated one
-        // says so, and says what is being assumed instead of it.
-        el('dd', {
-          className: job.seniority_stated ? '' : 'fact--absent',
-        }, job.seniority_stated
-          ? [
-            el('span', { text: vocabLabel(job.seniority) }),
-            job.seniority_evidence
-              ? el('blockquote', { className: 'quote quote--tight', text: job.seniority_evidence })
-              : null,
-          ].filter(Boolean)
-          // No Search Fit yet (`seniority_stated` null): nothing is assumed.
-          : [el('span', {
-            text: job.seniority_stated === false ? t('absent.levelSentence') : t('drawer.notStated'),
-          })]),
+    const place = compactPlace(job.location_raw, job.work_model);
+    const facts = [
+      { key: 'pay', icon: '$', value: salary || t('drawer.tile.notShown'), absent: !salary },
+      {
+        key: 'type', icon: '◷',
+        value: job.employment_type ? vocabLabel(job.employment_type) : t('drawer.tile.notStated'),
+        absent: !job.employment_type,
+      },
+      {
+        key: 'where', icon: '⌂',
+        value: job.work_model ? vocabLabel(job.work_model) : (place.text || t('drawer.tile.notStated')),
+        absent: !job.work_model && !place.text,
+      },
+      {
+        key: 'level', icon: '▲',
+        value: job.seniority_stated ? vocabLabel(job.seniority) : t('drawer.tile.notStated'),
+        absent: !job.seniority_stated,
+      },
+    ];
+    return el('div', { className: 'd-tiles' }, facts.map((fact) => el('div', {
+      className: `d-tile d-tile--${fact.key}`,
+    }, [
+      el('div', { className: 'd-tile__head' }, [
+        el('span', { className: 'd-tile__icon', text: fact.icon, attrs: { 'aria-hidden': 'true' } }),
+        el('span', { className: 'd-tile__label', text: t(`drawer.tile.${fact.key}`) }),
       ]),
-    ]);
+      el('span', { className: `d-tile__value${fact.absent ? ' is-absent' : ''}`, text: fact.value }),
+    ])));
   }
 
-  // -- description -------------------------------------------------------
+  /** A thin posting, or a US-domestic reading: they change how the rest reads. */
+  function contentNotes(job) {
+    const notes = [];
+    if (job.content_completeness === 'PARTIAL_CONTENT' || job.content_completeness === 'METADATA_ONLY') {
+      notes.push(el('p', { className: 'd-note', text: `${t(`content.${job.content_completeness}`)}. ${
+        job.content_completeness === 'PARTIAL_CONTENT' ? t('content.partialHelp') : t('content.metadataHelp')}` }));
+    }
+    if (job.domestic_context === 'LIKELY_US_DOMESTIC' && job.eligibility_status === 'UNRESOLVED') {
+      notes.push(el('p', { className: 'd-note', text: t('domestic.LIKELY_US_DOMESTIC') }));
+    }
+    return notes.length ? el('section', { className: 'd-sec d-contentnotes' }, notes) : null;
+  }
+
+  /** The tools the ad names: the local reading's when there is one. */
+  function toolsSection(job) {
+    const enriched = ((job.enrichment && job.enrichment.technologies) || [])
+      .map((item) => String((item && (item.text || item.name)) || '').trim()).filter(Boolean);
+    const labels = enriched.length
+      ? enriched
+      : [...new Set((job.technologies || []).map((tech) => String(tech.label || '')).filter(Boolean))];
+    if (!labels.length) return null;
+    return section(t('drawer.toolsHead'), [
+      el('ul', { className: 'd-chips' }, labels.map((label) => el('li', { className: 'd-chip', text: label }))),
+    ], { className: 'd-sec--tools' });
+  }
+
   function descriptionSection(job) {
     const blocks = paragraphs(job.description || job.description_excerpt || '');
-    return section(t('drawer.secDescription'), blocks.length
+    return section(t('drawer.fullAd'), blocks.length
       ? blocks.map((block) => el('p', { className: 'desc__p', text: block }))
       : [el('p', { className: 'd-note', text: t('drawer.noDescription') })],
-    { className: 'd-sec--desc' });
+    { className: 'd-sec--desc d-desc' });
   }
 
-  // -- notes -------------------------------------------------------------
-  function notesSection(job) {
-    const area = el('textarea', {
-      className: 'input input--notes',
-      attrs: { id: 'd-notes', rows: '4', placeholder: t('drawer.notesPlaceholder') },
-      props: { value: job.notes || '' },
-      on: {
-        blur: (event) => {
-          if ((job.notes || '') !== event.target.value) onNotes(job.job_id, event.target.value);
-        },
-      },
-    });
-    return section(t('drawer.notes'), [
-      el('label', { className: 'sr-only', text: t('drawer.notes'), attrs: { for: 'd-notes' } }),
-      area,
+  /** The other postings of this same role, if there are any. */
+  function duplicatesSection(job) {
+    const count = Number(job.duplicate_count || 1);
+    if (count <= 1) return null;
+    const places = job.sibling_locations || [];
+    const hidden = count - places.length;
+    return section(t('drawer.secPlaces'), [
+      el('p', { className: 'd-sec__lede', text: t('drawer.placesLede', { company: job.company_name, n: count }) }),
+      el('ul', { className: 'd-places' }, [
+        ...places.map((place) => el('li', { className: 'd-places__item', text: place })),
+        hidden > 0
+          ? el('li', { className: 'd-places__item d-places__item--more', text: t('drawer.morePlaces', { n: hidden }) })
+          : null,
+      ].filter(Boolean)),
     ]);
   }
 
-  function historySection(job) {
-    const history = job.history || [];
-    if (!history.length) return null;
-    return section(t('drawer.secHistory'), [
-      el('ol', { className: 'history' }, history.map((event) => el('li', { className: 'history__row' }, [
-        el('span', { className: 'history__when num', text: formatDate(event.occurred_at) }),
-        el('span', {
-          className: 'history__what',
-          text: event.from_status
-            ? t('drawer.statusChange', {
-              from: statusLabel(event.from_status),
-              to: statusLabel(event.to_status),
-            })
-            : statusLabel(event.to_status),
-        }),
-        event.note ? el('span', { className: 'history__note', text: event.note }) : null,
-      ]))),
-    ]);
-  }
-
-  // -- local model -------------------------------------------------------
+  // -- In short: the local model's summary, or the way to ask for one -------
 
   /**
-   * `health.ollama.reachable` is three-valued and the three states mean
-   * different things. `null` is "we have not asked": a page load never opens a
-   * socket, not even to localhost, and it must not be rendered as "not
-   * running". Only `false` is a checked, failed contact.
+   * `health.ollama.reachable` is three-valued: `null` is "we have not asked"
+   * (a page load never opens a socket), and only `false` is a failed contact.
    */
   function enrichHint(ollama) {
     const endpoint = ollama.endpoint || t('drawer.configuredEndpoint');
-    if (ollama.configured === false) {
-      return t('drawer.noLocalModel');
-    }
-    if (ollama.reachable === false) {
-      return t('drawer.localModelSilent', { endpoint });
-    }
+    if (ollama.configured === false) return t('drawer.noLocalModel');
+    if (ollama.reachable === false) return t('drawer.localModelSilent', { endpoint });
     if (ollama.reachable === true) {
-      return t('drawer.localModelReady', {
-        model: ollama.model || t('drawer.theLocalModel'),
-        endpoint,
-      });
+      return t('drawer.localModelReady', { model: ollama.model || t('drawer.theLocalModel'), endpoint });
     }
     return t('drawer.localModelUntried');
   }
 
   /**
-   * THE LOCAL READING, as a state the server keeps. A reading takes minutes on
-   * a laptop, so it runs in the background: this section starts it, asks for
-   * its state every second and a half, and cancels it. Closing the drawer only
-   * stops asking; opening it again picks the same reading back up. Every
-   * state has its own sentence, so nobody needs the developer console to
-   * learn what happened. Only the model on this computer is ever asked.
+   * IN SHORT. The local reading's summary, in plain words, when it exists;
+   * otherwise the one control that asks the model on this computer for it.
+   * A reading takes minutes, so the server runs it in the background: this
+   * starts it, asks for its state every second and a half, and cancels it.
+   * Closing the drawer only stops asking. Only the model on this computer is
+   * ever asked.
    */
-  function enrichmentSection(job) {
+  function inShortSection(job) {
     const ollama = getOllama() || {};
     const model = ollama.model || t('drawer.theLocalModel');
     const enrichment = job.enrichment && Object.keys(job.enrichment).length ? job.enrichment : null;
+    const summary = enrichment && String(enrichment.summary || '').trim();
     const messageHost = el('p', { className: 'enrich__msg', attrs: { 'aria-live': 'polite', id: 'enrich-msg' } });
     const elapsedHost = el('span', { className: 'enrich__elapsed num', attrs: { 'aria-hidden': 'true' } });
     const hint = el('p', {
@@ -1179,14 +502,11 @@ export function createDrawer({
 
     let poller = null;
     let stopped = false;
-    // Only a reading this drawer SAW running may redraw it on success. The
-    // server keeps a finished reading's state, so the status asked for on
-    // open answers SUCCESS again; redrawing on that reopened the drawer,
-    // which asked again, for as long as it stayed open.
+    // Only a reading this drawer SAW running may redraw it on success; a
+    // finished reading answers SUCCESS again on every open.
     let sawRunning = false;
 
-    //: Error codes (`local_ai/runner.py` states, `web/api.py`) with a
-    //: sentence of their own in the reader's language.
+    //: Error codes (`local_ai/runner.py` states, `web/api.py`) with a sentence.
     const ERROR_KEYS = {
       below_threshold: 'local.state.belowThreshold',
       unverifiable: 'local.state.unverifiable',
@@ -1226,12 +546,9 @@ export function createDrawer({
       messageHost.className = state.state === 'SUCCESS' ? 'enrich__msg' : 'enrich__msg enrich__msg--calm';
       const seconds = Math.round(state.elapsed_s || 0);
       const key = (state.state === 'ERROR' && ERROR_KEYS[state.code]) || `local.state.${state.state}`;
-      messageHost.textContent = t(key, {
-        seconds, model: state.model || model, error: state.message || '',
-      });
+      messageHost.textContent = t(key, { seconds, model: state.model || model, error: state.message || '' });
       if (state.state === 'SUCCESS' && sawRunning) {
         sawRunning = false;
-        // The reading is stored with the posting: draw it from the job.
         api.getJob(job.job_id).then((updated) => {
           if (stopped) return;
           if (onChanged) onChanged(updated);
@@ -1244,8 +561,6 @@ export function createDrawer({
       if (stopped || !state) return;
       if (state.state === 'RUNNING') {
         running(state);
-        // One polling chain only: the status asked for on open and a Run
-        // pressed before it answered must not start two.
         stopPolling();
         poller = setTimeout(poll, 1500);
       } else if (state.state === 'NOT_RUN') {
@@ -1271,99 +586,696 @@ export function createDrawer({
     }, { className: 'btn', ariaLabel: t('drawer.cancelLocalModel'), attrs: { id: 'enrich-cancel' } });
     cancelButton.hidden = true;
 
-    const runButton = button(enrichment ? t('local.askAgain') : t('drawer.askLocalModel'), async () => {
+    const runButton = button(summary ? t('drawer.inShortAgain') : t('drawer.inShortMake'), async () => {
       runButton.disabled = true;
       try {
         show(await api.startEnrich(job.job_id));
       } catch (error) {
-        finished({
-          state: 'ERROR',
-          // The server's own sentence says which 409 this is (another
-          // reading running, or a profile that is no longer active).
-          code: 'refused',
-          message: error.userMessage || error.message,
-        });
+        finished({ state: 'ERROR', code: 'refused', message: error.userMessage || error.message });
       }
-    }, { className: 'btn', attrs: { 'aria-describedby': 'enrich-hint', id: 'enrich-run' } });
+    }, { className: 'btn btn--quiet', attrs: { 'aria-describedby': 'enrich-hint', id: 'enrich-run' } });
     if (ollama.configured === false) runButton.disabled = true;
 
-    // Leaving the drawer stops asking, never the reading.
     enrichCleanup = () => {
       stopped = true;
       stopPolling();
     };
-    // A reading may already be running from before this drawer was opened.
     api.enrichStatus(job.job_id).then(show).catch(() => {});
 
-    const body = [
-      el('p', { className: 'enrich__banner', text: t('drawer.localModelNote') }),
-      enrichment
-        ? el('dl', { className: 'kv kv--enrich' }, Object.entries(enrichment).flatMap(([key, value]) => [
-          el('dt', { text: humanLabel(key) }),
-          el('dd', { text: renderValue(value) }),
-        ]))
-        : el('p', { className: 'd-note', text: t('drawer.localModelIdle') }),
+    return section(t('drawer.inShort'), [
+      summary
+        ? el('p', { className: 'd-short' }, [summary])
+        : el('p', { className: 'd-note', text: t('drawer.inShortNone') }),
       el('div', { className: 'enrich__actions' }, [runButton, cancelButton, elapsedHost, messageHost]),
       hint,
-    ];
-
-    return section(t('drawer.secEnrich'), body, { className: 'd-sec--enrich' });
+    ], { lede: t('drawer.inShortLede'), className: 'd-sec--enrich d-sec--short' });
   }
 
-  /**
-   * The other postings of this same role, if there are any.
-   *
-   * Shown whether or not the list that led here was grouped, because the fact
-   * is about the posting and not about the list. It is also the honest answer
-   * to the question a grouped card provokes -- "eight locations, but which?"
-   * -- and to the one an ungrouped table provokes, which is why the same
-   * employer and title is on screen eight times.
-   */
-  function duplicatesSection(job) {
-    const count = Number(job.duplicate_count || 1);
-    if (count <= 1) return null;
-    const places = job.sibling_locations || [];
-    const hidden = count - places.length;
-    return section(t('drawer.secPlaces'), [
-      el('p', {
-        className: 'd-sec__lede',
-        text: t('drawer.placesLede', { company: job.company_name, n: count }),
-      }),
-      el('ul', { className: 'd-places' }, [
-        ...places.map((place) => el('li', { className: 'd-places__item', text: place })),
-        hidden > 0
-          ? el('li', {
-            className: 'd-places__item d-places__item--more',
-            text: t('drawer.morePlaces', { n: hidden }),
-          })
-          : null,
-      ].filter(Boolean)),
+  /** The local reading exactly as stored. Debug only: it is the machinery. */
+  function rawReading(job) {
+    const enrichment = job.enrichment && Object.keys(job.enrichment).length ? job.enrichment : null;
+    if (!enrichment) return null;
+    return el('details', { className: 'd-sec d-advanced' }, [
+      el('summary', { className: 'd-advanced__summary', text: t('drawer.secEnrich') }),
+      el('dl', { className: 'kv kv--enrich' }, Object.entries(enrichment).flatMap(([key, value]) => [
+        el('dt', { text: humanLabel(key) }),
+        el('dd', { text: renderValue(value) }),
+      ])),
     ]);
   }
 
-  function provenanceSection(job) {
-    return section(t('drawer.secProvenance'), [
-      el('dl', { className: 'kv' }, [
-        el('dt', { text: t('drawer.jobBoard') }),
-        el('dd', { text: vocabLabel(job.provider) }),
-        el('dt', { text: t('drawer.postedOn') }),
-        el('dd', { text: `${formatDate(job.posted_at)} (${relativeAge(job.posted_at)})` }),
-        el('dt', { text: t('drawer.firstSeen') }),
-        el('dd', { text: formatDate(job.first_seen_at) }),
-        el('dt', { text: t('drawer.lastSeen') }),
-        el('dd', { text: formatDate(job.last_seen_at) }),
-        el('dt', { text: t('drawer.original') }),
-        el('dd', {}, [extLink(job.url, job.url || t('drawer.noUrl'), { className: 'link' })]),
+  // ======================================================================
+  // WHY IT FITS
+  // ======================================================================
+
+  function whySections(job) {
+    return [
+      fitSummary(job),
+      whatFits(job),
+      whatDoesNotFit(job),
+      canYouTake(job),
+      fitFeedbackSection(job),
+      debug ? scoreBreakdown(job) : null,
+    ].filter(Boolean);
+  }
+
+  /** The configured parts of the match, in a plain name. */
+  function componentName(component) {
+    if (NAMED_COMPONENTS.has(component.component_id)) {
+      const key = `component.${component.component_id}`;
+      const named = t(key);
+      if (named !== key) return named;
+    }
+    return component.label || humanLabel(component.component_id);
+  }
+
+  /**
+   * The things the person asked for, as the score already counts them: every
+   * configured component with points to give. A component the posting earned
+   * nothing on is a real difference, except pay when the ad states none.
+   * Silence about pay is not a mismatch (V3), and it is not counted at all.
+   */
+  function askedFor(job) {
+    const asked = (job.components || []).filter((c) => c.configured !== false && Number(c.max_points) > 0);
+    const silentPay = (c) => c.component_id === 'compensation_contract' && !job.salary && !(Number(c.points) > 0);
+    const counted = asked.filter((c) => !silentPay(c));
+    return {
+      fits: counted.filter((c) => Number(c.points) > 0),
+      gaps: counted.filter((c) => !(Number(c.points) > 0)),
+    };
+  }
+
+  function fitSummary(job) {
+    const scored = job.match_score !== null && job.match_score !== undefined;
+    if (!scored || !searchFitIsReady()) {
+      return el('section', { className: 'd-card d-fit' }, [
+        el('p', { className: 'd-note', text: t('drawer.unscored') }),
+      ]);
+    }
+    const score = Math.round(job.match_score);
+    const tone = matchTone(job.match_score);
+    const { fits, gaps } = askedFor(job);
+    const total = fits.length + gaps.length;
+    const sentence = !total
+      ? ''
+      : gaps.length ? t('drawer.fitSome', { n: fits.length, total }) : t('drawer.fitAll');
+    const bars = el('div', { className: 'd-fit__bars', attrs: { 'aria-hidden': 'true' } },
+      Array.from({ length: total }, (_, index) => el('span', {
+        className: `d-fit__bar${index < fits.length ? ' is-on' : ''}`,
+      })));
+    return el('section', { className: 'd-card d-fit' }, [
+      el('div', { className: 'd-fit__head' }, [
+        el('span', { className: `d-fit__pct card__match--${tone.tone}` }, [
+          el('span', { className: 'card__pct num', text: `${score}%` }),
+        ]),
+        el('div', { className: 'd-fit__words' }, [
+          el('strong', { className: `d-fit__label d-fit__label--${tone.tone}`, text: t(tone.key) }),
+          sentence ? el('span', { className: 'd-fit__sentence why__summary', text: sentence }) : null,
+        ]),
+      ]),
+      total ? bars : null,
+      el('span', { className: 'd-fit__note', text: t('drawer.fitNote') }),
+    ]);
+  }
+
+  /** The rows the score earned, strongest first, each with the ad's line. */
+  function strengthRows(job) {
+    const rows = [];
+    for (const component of job.components || []) {
+      for (const contrib of component.contributions || []) {
+        if (Number(contrib.points) > 0 && contrib.counted !== false) {
+          // The level row's server label names the enum ("a MID role"); the
+          // reader gets the level in words, from the same reading.
+          rows.push(component.component_id === 'seniority' && job.seniority_stated
+            ? { ...contrib, label: t('drawer.levelRow', { level: vocabLabel(job.seniority) }) }
+            : contrib);
+        }
+      }
+    }
+    rows.sort((a, b) => Number(b.points) - Number(a.points));
+    return rows.slice(0, 8);
+  }
+
+  function whatFits(job) {
+    const rows = strengthRows(job);
+    if (!rows.length) return null;
+    return section(t('drawer.fitsHead'), [
+      el('ul', { className: 'reasons d-list-card' }, rows.map((row) => el('li', { className: 'reason d-row' }, [
+        el('span', { className: 'd-row__mark d-row__mark--yes', text: '✓', attrs: { 'aria-hidden': 'true' } }),
+        el('div', { className: 'd-row__body' }, [
+          el('p', { className: 'reason__label d-row__title', text: row.label || humanLabel(row.signal_id) }),
+          row.quote
+            ? el('p', { className: 'd-row__text' }, [
+              `${t('drawer.adSays')} `, el('q', { className: 'quote quote--inline', text: row.quote }),
+            ])
+            : el('p', { className: 'quote-absent d-row__text', text: t('drawer.matchedNoQuote') }),
+        ]),
+      ]))),
+    ], { lede: t('drawer.fitsLede') });
+  }
+
+  function whatDoesNotFit(job) {
+    const { gaps } = askedFor(job);
+    const blockers = job.blockers || [];
+    if (!gaps.length && !blockers.length) return null;
+    return section(t('drawer.gapsHead'), [
+      el('ul', { className: 'gaps d-list-card' }, [
+        ...gaps.map((component) => el('li', { className: 'gap d-row' }, [
+          el('span', { className: 'd-row__mark d-row__mark--part', text: '-', attrs: { 'aria-hidden': 'true' } }),
+          el('div', { className: 'd-row__body' }, [
+            el('p', { className: 'd-row__title', text: componentName(component) }),
+            el('p', { className: 'd-row__text', text: t('drawer.gapText') }),
+          ]),
+        ])),
+      ]),
+    ], { lede: t('drawer.gapsLede2') });
+  }
+
+  /**
+   * CAN YOU TAKE THIS JOB? One card per gate, plus the experience the ad asks
+   * of somebody. "Not in the ad" is the normal state, never an error: silence
+   * is UNRESOLVED (invariant 2), shown as exactly that.
+   */
+  function canYouTake(job) {
+    const gates = [...(job.gates || [])].sort((a, b) => GATE_ORDER.indexOf(a.gate) - GATE_ORDER.indexOf(b.gate));
+    const cards = gates.map((gate) => {
+      const result = String(gate.result || 'UNRESOLVED').toUpperCase();
+      const tone = result === 'PASS' ? 'm1' : result === 'FAIL' ? 'red' : 'chip';
+      return el('li', { className: `gate gate--${result.toLowerCase()} d-take` }, [
+        el('div', { className: 'gate__head d-take__head' }, [
+          el('strong', { className: 'gate__name', text: gateName(gate.gate) }),
+          el('span', { className: `gate__result tpill tpill--${tone}`, text: t(`drawer.take.${result}`) }),
+        ]),
+        gate.reason ? el('p', { className: 'gate__reason d-take__text', text: gate.reason }) : null,
+        gate.quote ? el('blockquote', { className: 'quote', text: gate.quote }) : null,
+      ]);
+    });
+    const experience = experienceCard(job);
+    if (experience) cards.push(experience);
+    if (!cards.length) {
+      return section(t('drawer.takeHead'), [el('p', { className: 'd-note', text: t('drawer.nothingChecked') })]);
+    }
+    return section(t('drawer.takeHead'), [el('ul', { className: 'gates d-takes' }, cards)], {
+      lede: t('drawer.takeLede'),
+    });
+  }
+
+  function gateName(gate) {
+    const key = `gateName.${gate}`;
+    const named = t(key);
+    return named === key ? humanLabel(gate) : named;
+  }
+
+  /**
+   * The employer's ask for previous experience, with the line it was read
+   * from. Silence gets its own sentence: a posting that never mentions
+   * experience is not a posting that said none is needed.
+   */
+  function experienceCard(job) {
+    const requirement = job.experience_requirement;
+    const signals = job.entry_signals || [];
+    if (!requirement && !signals.length) return null;
+    const years = job.experience_min_years;
+    const sentence = {
+      NONE_REQUIRED: () => t('drawer.experienceNone'),
+      REQUIRED_MINIMUM: () => (years === null || years === undefined
+        ? t('drawer.experienceUnquantified') : t('drawer.experienceYears', { n: years })),
+      REQUIRED_UNQUANTIFIED: () => t('drawer.experienceUnquantified'),
+      PREFERRED: () => t('drawer.experiencePreferred'),
+      NICE_TO_HAVE: () => t('drawer.experienceBonus'),
+      NOT_STATED: () => t('drawer.experienceSilent'),
+    }[requirement];
+    const tone = requirement === 'NONE_REQUIRED' ? ['m1', 'PASS']
+      : (!requirement || requirement === 'NOT_STATED') ? ['chip', 'UNRESOLVED'] : ['m2', 'CHECK'];
+    return el('li', { className: 'd-take d-take--experience' }, [
+      el('div', { className: 'd-take__head' }, [
+        el('strong', { text: t('drawer.experienceHeading') }),
+        el('span', { className: `tpill tpill--${tone[0]}`, text: t(`drawer.take.${tone[1]}`) }),
+      ]),
+      el('p', { className: 'd-take__text', text: sentence ? sentence() : t('drawer.experienceSilent') }),
+      signals.length
+        ? el('ul', { className: 'd-list' }, signals.map((value) => el('li', { text: tState('entrySignal', value) })))
+        : null,
+      job.experience_evidence ? el('blockquote', { className: 'quote', text: job.experience_evidence }) : null,
+    ].filter(Boolean));
+  }
+
+  // -- what the person thinks of the score (migration 0046) ---------------
+  /**
+   * Observation only. The answer is kept for this profile, beside the score it
+   * judged, and exported on request; nothing that scores, ranks, filters or
+   * retrieves reads it, so no number moves because of it. The screen says so.
+   */
+  function fitFeedbackSection(job) {
+    if (job.match_score === null || job.match_score === undefined) return null;
+    const given = job.fit_feedback || null;
+    const verdict = given ? given.verdict : null;
+    const status = el('p', {
+      className: 'd-note', attrs: { role: 'status' }, text: given ? t('fitFeedback.saved') : '',
+    });
+    let note = given ? given.note : null;
+    const fail = (err) => {
+      status.textContent = t(err && err.status === 409 ? 'fitFeedback.changed' : 'fitFeedback.failed');
+    };
+    // One save at a time, in order: blurring the note and clicking a verdict
+    // fire two saves, and the later answer must land last.
+    const save = (next, reason) => {
+      const seen = note;
+      fitSaves = fitSaves
+        .then(() => api.patchFitFeedback(job.job_id, next, reason, seen, job.match_score))
+        .then(refreshWith, fail);
+    };
+    const extra = [];
+    if (FIT_REASONS[verdict]) {
+      extra.push(select(
+        [{ value: '', label: t('fitFeedback.noReason') },
+          ...FIT_REASONS[verdict].map((r) => ({ value: r, label: t(`fitFeedback.reason.${verdict}.${r}`) }))],
+        given.reason || '',
+        (value) => save(verdict, value || null),
+        { ariaLabel: t('fitFeedback.reason') },
+      ));
+    }
+    if (verdict) {
+      extra.push(el('textarea', {
+        className: 'input input--notes',
+        attrs: { rows: '2', placeholder: t('fitFeedback.note'), 'aria-label': t('fitFeedback.note') },
+        props: { value: given.note || '' },
+        on: {
+          input: (event) => { note = event.target.value; },
+          blur: () => { if ((given.note || '') !== (note || '')) save(verdict, given.reason); },
+        },
+      }));
+    }
+    return el('section', { className: 'd-sec d-card d-sec--fit-feedback d-feedback' }, [
+      el('div', { className: 'd-feedback__row' }, [
+        el('div', { className: 'd-feedback__words' }, [
+          el('strong', {
+            className: 'd-feedback__title',
+            text: verdict ? t('fitFeedback.thanks') : t('fitFeedback.feelRight', { n: Math.round(job.match_score) }),
+          }),
+          el('span', { className: 'd-feedback__stays', text: t('fitFeedback.stays') }),
+        ]),
+        el('div', {
+          className: 'segmented',
+          attrs: { role: 'group', 'aria-label': t('fitFeedback.question') },
+        }, FIT_VERDICTS.map((v) => button(t(`fitFeedback.short.${v}`), () => save(v, null), {
+          className: 'segmented__btn',
+          attrs: { 'aria-pressed': v === verdict ? 'true' : 'false' },
+        }))),
+      ]),
+      ...extra,
+      status,
+      verdict
+        ? button(t('fitFeedback.export'), () => api.exportFitFeedback().catch(fail), { className: 'btn btn--link' })
+        : null,
+    ].filter(Boolean));
+  }
+
+  // -- debug: the arithmetic, item by item (?debug=1) ----------------------
+  function scoreBreakdown(job) {
+    const components = job.components || [];
+    const penalties = job.penalties || [];
+    const body = [];
+    if (job.title_class || job.title_reason) {
+      body.push(el('div', { className: 'd-row d-row--title' }, [
+        el('span', { className: 'd-row__label', text: `${humanLabel(job.title_class)}` }),
+        el('p', { className: 'd-row__reason', text: job.title_reason || '' }),
+      ]));
+    }
+    for (const component of components) {
+      const unconfigured = component.configured === false ? ' component--unconfigured' : '';
+      body.push(el('article', { className: `component${unconfigured}` }, [
+        el('header', { className: 'component__head' }, [
+          el('h4', { className: 'component__label', text: componentName(component) }),
+          component.configured === false ? null : el('span', {
+            className: 'component__points num',
+            text: `${Number(component.points || 0).toFixed(1)} / ${Number(component.max_points || 0).toFixed(1)}`,
+          }),
+        ]),
+        component.note ? el('p', { className: 'component__note', text: component.note }) : null,
+        (component.contributions || []).length
+          ? el('ul', { className: 'contribs' }, component.contributions.map(contribution))
+          : null,
+      ]));
+    }
+    if (penalties.length) {
+      body.push(el('h4', { className: 'd-subhead', text: t('drawer.countedAgainst') }));
+      body.push(el('ul', { className: 'contribs contribs--penalty' }, penalties.map(contribution)));
+    }
+    const signals = job.signals || job.technologies || [];
+    return el('details', { className: 'd-sec d-advanced' }, [
+      el('summary', { className: 'd-advanced__summary', text: t('drawer.advanced') }),
+      el('p', { className: 'd-sec__lede', text: t('drawer.advancedHelp') }),
+      ...body,
+      confidenceSection(job),
+      signals.length
+        ? el('ul', { className: 'chips chips--tech' }, signals.map((signal) => el('li', {
+          className: `chip chip--${String(signal.prominence || 'INCIDENTAL').toLowerCase()}`,
+          text: signal.label || humanLabel(signal.signal_id),
+          attrs: { title: prominenceWords(signal.prominence) },
+        })))
+        : null,
+      (job.unknowns || []).length
+        ? el('ul', { className: 'unknowns' }, job.unknowns.map((line) => el('li', { text: String(line) })))
+        : null,
+    ].filter(Boolean));
+  }
+
+  function contribution(row) {
+    const uncounted = row.counted === false;
+    return el('li', { className: `contrib${uncounted ? ' contrib--uncounted' : ''}` }, [
+      el('div', { className: 'contrib__head' }, [
+        el('span', { className: 'contrib__label', text: row.label || humanLabel(row.signal_id) }),
+        row.source === 'semantic'
+          ? el('span', { className: 'contrib__source', text: t('drawer.semanticFinding') })
+          : null,
+        el('span', {
+          className: 'contrib__prominence',
+          text: uncounted ? t('drawer.alreadyCounted') : prominenceWords(row.prominence),
+        }),
+        el('span', {
+          className: `contrib__points num ${Number(row.points) < 0 ? 'is-negative' : ''}`,
+          text: formatPoints(row.points),
+        }),
+      ]),
+      row.quote
+        ? el('blockquote', { className: 'quote', text: row.quote })
+        : el('p', { className: 'quote-absent', text: t('drawer.matchedNoLine') }),
+    ]);
+  }
+
+  /** The labels the shipped search files give the completeness items. */
+  const SHIPPED_CONFIDENCE_LABELS = new Set([
+    'Full description text available', 'Description is substantial', 'Location stated',
+    'Hiring scope explicitly stated', 'Employment type known', 'Compensation stated',
+    'Seniority determinable from the body', 'Posting date known',
+  ]);
+
+  function confidenceLabel(item) {
+    if (item.label && !SHIPPED_CONFIDENCE_LABELS.has(item.label)) return item.label;
+    const key = `confidence.item.${item.item_id}`;
+    const translated = t(key);
+    return translated !== key ? translated : (item.label || humanLabel(item.item_id));
+  }
+
+  function confidenceSection(job) {
+    const items = job.confidence_items || [];
+    if (!items.length) return null;
+    const awarded = items.filter((item) => item.awarded);
+    return section(t('drawer.secConfidence'), [
+      el('p', { className: 'd-note', text: t('drawer.completenessNotFit') }),
+      el('p', { className: 'd-note', text: t('drawer.covered', { awarded: awarded.length, total: items.length }) }),
+      el('ul', { className: 'conf' }, items.map((item) => el('li', {
+        className: `conf__item${item.awarded ? '' : ' conf__item--missing'}`,
+      }, [
+        el('span', { className: 'conf__glyph', text: item.awarded ? '✓' : '·', attrs: { 'aria-hidden': 'true' } }),
+        el('span', { className: 'conf__label', text: confidenceLabel(item) }),
+        el('span', { className: 'conf__points num', text: item.awarded ? `+${item.points}` : `0 / ${item.points}` }),
+      ]))),
+    ]);
+  }
+
+  // ======================================================================
+  // BEFORE YOU APPLY: three steps, then "Good to know"
+  // ======================================================================
+
+  const prepKey = (job) => `${api.getLocalProfile() || 'default'}:${job.job_id}`;
+  function readDone(job) {
+    try {
+      return Boolean((JSON.parse(window.localStorage.getItem(PREP_STORE) || '{}') || {})[prepKey(job)]);
+    } catch {
+      return false;
+    }
+  }
+  function writeDone(job, value) {
+    try {
+      const all = JSON.parse(window.localStorage.getItem(PREP_STORE) || '{}') || {};
+      if (value) all[prepKey(job)] = 1;
+      else delete all[prepKey(job)];
+      window.localStorage.setItem(PREP_STORE, JSON.stringify(all));
+    } catch {
+      /* A reading mark is a nicety. */
+    }
+  }
+
+  // The tailoring step's host, filled by `tailorStep`, kept across repaints.
+  const tailorHost = el('div', { className: 'd-tailorhost' });
+
+  function paintPrepare(job) {
+    const read = readDone(job);
+    const rows = preparation ? preparation.requirements || [] : null;
+    const proven = (row) => row.readiness === 'MATCHED';
+    // Step 2 marks itself: every requirement the ad names has proof (and an ad
+    // naming none has nothing to prove). Step 3 marks itself in the Resume
+    // helper, where the resume is made.
+    const step2 = rows !== null && rows.every(proven);
+    const step3 = Boolean(job.tailored_resume);
+    const done = [read, step2, step3];
+    const count = done.filter(Boolean).length;
+    const firstOpen = done.findIndex((value) => !value);
+    const ring = (index) => `d-step__ring${done[index] ? ' is-done' : firstOpen === index ? ' is-current' : ''}`;
+
+    const step1 = el('section', { className: 'd-card d-step' }, [
+      button(done[0] ? '✓' : '', () => {
+        writeDone(job, !read);
+        paintPrepare(job);
+      }, {
+        className: ring(0),
+        ariaLabel: t('prep3.markDone'),
+        attrs: { role: 'checkbox', 'aria-checked': String(read) },
+      }),
+      el('div', { className: 'd-step__body' }, [
+        el('strong', { className: 'd-step__title', text: t('prep3.s1') }),
+        el('span', { className: 'd-step__text', text: t('prep3.s1Text') }),
+        el('div', { className: 'd-step__links' }, [
+          button(t('prep3.s1Short'), () => {
+            writeDone(job, true);
+            paintPrepare(job);
+            selectTab('details');
+          }, { className: 'd-link' }),
+          extLink(job.url, `${t('prep3.s1Full')} ↗`, { className: 'd-link d-link--quiet' }),
+        ]),
       ]),
     ]);
+
+    const skillRows = rows === null
+      ? [el('div', { className: 'sk sk--line' })]
+      : rows.length
+        ? [el('ul', { className: 'd-skills' }, rows.map((row) => el('li', { className: 'd-skills__row' }, [
+          el('span', { className: 'd-skills__name', text: row.label }),
+          row.readiness === 'MATCHED'
+            ? el('span', { className: 'tpill tpill--m1', text: `✓ ${t('prep3.hasProof')}` })
+            : row.readiness === 'PARTIAL'
+              ? el('span', { className: 'tpill tpill--blue', text: t('prep3.someProof') })
+              : button(`+ ${t('prep3.addProof')}`, () => { if (onEvidence) onEvidence(row); }, {
+                className: 'tpill tpill--m2 d-skills__add',
+              }),
+        ])))]
+        : [el('p', { className: 'd-note', text: t('prep3.noSkills') })];
+
+    const detail = el('details', { className: 'd-prepdetail' }, [
+      el('summary', { className: 'd-link', text: t('prep3.details') }),
+      prepare.host,
+    ]);
+    const step2Card = el('section', { className: 'd-card d-step' }, [
+      el('span', { className: ring(1), text: done[1] ? '✓' : '', attrs: { 'aria-hidden': 'true' } }),
+      el('div', { className: 'd-step__body' }, [
+        el('strong', { className: 'd-step__title', text: t('prep3.s2') }),
+        el('span', { className: 'd-step__text', text: t('prep3.s2Text') }),
+        ...skillRows,
+        detail,
+      ]),
+    ]);
+
+    const step3Card = el('section', { className: 'd-card d-step' }, [
+      el('span', { className: ring(2), text: done[2] ? '✓' : '', attrs: { 'aria-hidden': 'true' } }),
+      el('div', { className: 'd-step__body' }, [
+        el('strong', { className: 'd-step__title', text: t('prep3.s3') }),
+        el('span', { className: 'd-step__text', text: t('prep3.s3Text') }),
+        tailorHost,
+      ]),
+    ]);
+    replace(tailorHost, [tailorStep(job, step3)]);
+
+    replace(preparePanel, [
+      el('section', { className: 'd-prephead' }, [
+        el('div', { className: 'd-prephead__row' }, [
+          el('h3', { className: 'd-prephead__title', text: t('prep3.head') }),
+          el('span', {
+            className: 'd-prephead__count',
+            text: count === 3 ? t('prep3.allDone') : t('prep3.count', { n: count }),
+          }),
+        ]),
+        el('div', { className: 'd-fit__bars', attrs: { 'aria-hidden': 'true' } },
+          done.map((value) => el('span', { className: `d-fit__bar${value ? ' is-on' : ''}` }))),
+      ]),
+      step1,
+      step2Card,
+      step3Card,
+      goodToKnow(job),
+    ]);
   }
 
   /**
-   * Ask the preparation question again for the job on screen.
-   *
-   * Called when the confirmed evidence changes underneath an open drawer. A
-   * no-op when the tab was never opened: there is nothing stale to correct.
+   * Step 3's action. The Resume helper builds from the person's own career,
+   * so before Career Agent holds anything about it the next step shown is the
+   * one that gives it something. The posting travels by id only.
    */
+  function tailorStep(job, made) {
+    const host = el('div', { className: 'd-tailor', attrs: { role: 'group', 'aria-label': t('tailor.groupLabel') } });
+    const make = () => {
+      const label = made ? t('prep3.s3Open') : t('prep3.s3Make');
+      if (onTailor) {
+        return button(label, () => onTailor(job), {
+          className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-open-tailor' },
+        });
+      }
+      return el('a', { className: 'btn btn--primary d-tailor__btn', text: label, attrs: {
+        href: `/resume-tailor?job=${encodeURIComponent(job.job_id)}&lang=${encodeURIComponent(getLocale())}`,
+        target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
+      } });
+    };
+    const ready = () => {
+      replace(host, [make()]);
+      host.dataset.tailor = 'ready';
+    };
+    const needsCareer = () => {
+      replace(host, [
+        el('p', { className: 'd-step__text', text: t('tailor.needsCv') }),
+        el('div', { className: 'd-tailor__actions' }, [
+          onAddCareer
+            ? button(t('tailor.addCv'), () => onAddCareer(), {
+              className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-add-career' },
+            })
+            : null,
+          make(),
+        ].filter(Boolean)),
+      ]);
+      host.dataset.tailor = 'needs-career';
+      const link = host.querySelector('#drawer-open-tailor');
+      if (link) link.className = 'btn d-tailor__btn';
+    };
+    if (!careerContext) {
+      ready();
+      return host;
+    }
+    Promise.resolve(careerContext()).then((known) => {
+      if (currentJob && currentJob.job_id !== job.job_id) return;
+      if (known) ready();
+      else needsCareer();
+    });
+    return host;
+  }
+
+  /** Contract, when it was posted, pay, where it came from. */
+  function goodToKnow(job) {
+    const salary = formatSalary(job.salary);
+    const posted = parseDate(job.posted_at);
+    const old = posted && (Date.now() - posted.getTime()) / 86400000 > 30;
+    const contract = job.employment_relationship && job.employment_relationship !== 'UNKNOWN'
+      ? vocabLabel(job.employment_relationship)
+      : job.employment_type ? vocabLabel(job.employment_type) : null;
+    const rows = [
+      [t('gtk.contract'), contract || t('value.notStated'), !contract],
+      [t('gtk.posted'), posted
+        ? t(old ? 'gtk.postedOld' : 'gtk.postedOn', {
+          date: formatDate(job.posted_at), age: relativeAge(job.posted_at),
+        })
+        : t('card.noPostedDate'), !posted, old],
+      [t('gtk.pay'), salary || t('drawer.tile.notShown'), !salary],
+      [t('gtk.site'), job.provider ? vocabLabel(job.provider) : t('absent.source'), false],
+      [t('gtk.firstSeen'), formatDate(job.first_seen_at), false],
+    ];
+    return section(t('prep3.good'), [
+      el('dl', { className: 'd-gtk' }, rows.flatMap(([key, value, absent, warn]) => [
+        el('dt', { text: key }),
+        el('dd', { className: `${absent ? 'is-absent' : ''}${warn ? ' is-warn' : ''}`.trim(), text: value }),
+      ]).concat([
+        el('dt', { text: t('gtk.link') }),
+        el('dd', {}, [extLink(job.url, job.url || t('drawer.noUrl'), { className: 'link d-gtk__url' })]),
+      ])),
+    ], { className: 'd-sec--provenance' });
+  }
+
+  // ======================================================================
+  // NOTES: your words, where it stands, what happened
+  // ======================================================================
+
+  function notesSections(job) {
+    return [notesSection(job), whereItStands(job), historySection(job)].filter(Boolean);
+  }
+
+  function notesSection(job) {
+    const area = el('textarea', {
+      className: 'input input--notes d-notes',
+      attrs: { id: 'd-notes', rows: '6', placeholder: t('drawer.notesPlaceholder') },
+      props: { value: job.notes || '' },
+      on: {
+        blur: (event) => {
+          if ((job.notes || '') !== event.target.value) onNotes(job.job_id, event.target.value);
+        },
+      },
+    });
+    return section(t('drawer.notesHead'), [
+      el('label', { className: 'sr-only', text: t('drawer.notes'), attrs: { for: 'd-notes' } }),
+      area,
+      el('span', { className: 'd-note d-note--quiet', text: t('drawer.notesSaved') }),
+    ], { lede: t('drawer.notesLede') });
+  }
+
+  /** The status, and the applied date with the only control that clears it. */
+  function whereItStands(job) {
+    const statusSelect = select(statusOptions(), job.application_status, (value) => {
+      refreshWith(onStatus(job.job_id, value));
+    }, { className: 'select select--status', ariaLabel: t('drawer.applicationStatus') });
+    return section(t('drawer.whereYouAre'), [
+      el('div', { className: 'drawer__statusrow' }, [statusSelect]),
+      appliedLine(job),
+    ].filter(Boolean), { className: 'd-sec--status' });
+  }
+
+  /**
+   * The applied date, and the only control that can destroy it (ADR-0012).
+   * Statuses after an application get no button: the server refuses to clear
+   * a date it would immediately restore.
+   */
+  function appliedLine(job) {
+    if (!job.applied_at) return null;
+    const post = ['APPLIED', 'INTERVIEW', 'OFFER', 'HIRED', 'WITHDRAWN'];
+    const locked = post.includes(job.application_status);
+    return el('p', { className: 'd-note d-applied' }, [
+      el('span', { text: t('drawer.appliedOn', { date: formatDate(job.applied_at) }) }),
+      locked
+        ? el('span', {
+          className: 'd-applied__why',
+          text: t('drawer.appliedKept', { status: statusLabel(job.application_status) }),
+        })
+        : button(t('drawer.clearAppliedDate'), () => {
+          const ok = window.confirm(t('drawer.confirmClearApplied', {
+            date: formatDate(job.applied_at), title: job.title,
+          }));
+          if (ok) refreshWith(onClearAppliedAt(job.job_id));
+        }, { className: 'btn btn--danger btn--small' }),
+    ]);
+  }
+
+  function historySection(job) {
+    const history = job.history || [];
+    return section(t('drawer.historyHead'), history.length
+      ? [el('ol', { className: 'history' }, history.map((event) => el('li', { className: 'history__row' }, [
+        el('span', { className: 'history__when num', text: formatDate(event.occurred_at) }),
+        el('span', {
+          className: 'history__what',
+          text: event.from_status
+            ? t('drawer.statusChange', { from: statusLabel(event.from_status), to: statusLabel(event.to_status) })
+            : statusLabel(event.to_status),
+        }),
+        event.note ? el('span', { className: 'history__note', text: event.note }) : null,
+      ])))]
+      : [el('p', { className: 'd-note', text: t('drawer.noHistory') })]);
+  }
+
+  /** Ask the preparation question again when evidence changes under it. */
   function reloadPreparation() {
     if (!currentJob || loadedPrepareFor !== currentJob.job_id) return;
     prepare.load(currentJob.job_id);
@@ -1385,24 +1297,12 @@ const FIT_REASONS = {
     'SENIORITY_FITS', 'OTHER'],
 };
 
-/**
- * A gate result in words. PASS / FAIL / UNRESOLVED is the domain vocabulary and
- * it is exactly right in the domain; on screen, "Unresolved" reads as an error
- * rather than as "the posting did not say".
- */
-function gateWords(result) {
-  // Resolved at render, never at module load. A table of finished words here
-  // would be built before `setLocale` had read the stored choice, which is
-  // the trap `STATUS_OPTIONS` fell into on every card in the product.
-  const key = String(result || '').toUpperCase();
-  const translated = t(`gate.${key}`);
-  return translated === `gate.${key}` ? humanLabel(result) : translated;
-}
-
 function section(heading, children, { lede = '', className = '' } = {}) {
   return el('section', { className: `d-sec ${className}`.trim() }, [
-    el('h3', { className: 'd-sec__head', text: heading }),
-    lede ? el('p', { className: 'd-sec__lede', text: lede }) : null,
+    el('div', { className: 'd-sec__heads' }, [
+      el('h3', { className: 'd-sec__head', text: heading }),
+      lede ? el('p', { className: 'd-sec__lede', text: lede }) : null,
+    ]),
     ...(Array.isArray(children) ? children : [children]),
   ]);
 }

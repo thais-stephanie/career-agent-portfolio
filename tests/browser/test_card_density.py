@@ -52,8 +52,9 @@ from tests.browser.test_browser_acceptance import (
 #: two-line title, a failed-gate line and a group line all present.
 #: The redesign handoff's card carries a meter, a fourth fact line and the
 #: Apply row and the eligibility line, and equalises each row: 390 measured
-#: on the demo, so 400.
-CARD_HEIGHT_CEILING_PX = 400
+#: on the demo, so 400. V3 gives the card 16px of padding and 12px gaps: 403
+#: measured on the demo, so 410.
+CARD_HEIGHT_CEILING_PX = 410
 
 #: At 1440x900 the toolbar and the notices leave roughly 430px for cards, so
 #: two rows must at least START on the screen and three cards fit whole.

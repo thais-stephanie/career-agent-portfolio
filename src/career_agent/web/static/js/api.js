@@ -102,6 +102,8 @@ function networkError(cause) {
 //: reading or writing the other person's data.
 let localProfile = null;
 export function setLocalProfile(id) { localProfile = id || null; }
+/** The active local profile's id, or null when profiles are off. */
+export function getLocalProfile() { return localProfile; }
 
 async function request(path, { method = 'GET', body = null, signal = null } = {}) {
   let response;

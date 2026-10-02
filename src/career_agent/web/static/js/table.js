@@ -1,61 +1,76 @@
 /**
- * table.js -- the working view.
+ * table.js -- the List view (V3 handoff).
  *
- * Same store, same request, same job ids as Cards. What changes is density and
- * what you can edit without opening anything.
+ * Same store, same request, same job ids as Cards. What changes is density:
+ * a comparison table you can scan, not a spreadsheet at presentation size.
  *
- * One rule worth stating out loud: the "Applied?" checkbox does NOT own a
- * boolean. `has_applied` is computed by the server from status and date, so the
- * checkbox PATCHes the canonical status (to APPLIED, or back to SHORTLISTED)
- * and then renders whatever the server said. There is no second source of
- * truth for "did I apply".
+ * V3 CONTRACT. Match and Job are fixed and first; fifteen columns are
+ * optional, and five of them are on by default (Location, Salary, Can you
+ * take it, Progress, Saved). Each column has a MINIMUM width and a share of
+ * what is left, so the default set fits a normal window and horizontal
+ * scrolling is the last resort, never the layout. The page scrolls; the
+ * table never scrolls vertically inside itself.
+ *
+ * Rows are a CSS grid over table elements with explicit ARIA roles, because
+ * a grid is what gives every column a minimum AND a share, and changing the
+ * display of a table would otherwise drop its semantics.
+ *
+ * One rule worth stating out loud: the "Applied" checkbox does NOT own a
+ * boolean. `has_applied` is computed by the server from status and date, so
+ * the checkbox PATCHes the canonical status (to APPLIED, or back to
+ * SHORTLISTED) and then renders whatever the server said.
  */
 
-import { el, button, extLink, select, replace, clear } from './dom.js';
+import { el, button, extLink, replace, clear } from './dom.js';
 import { t } from './i18n.js';
 import {
-  dateInputValue, formatDate, formatSalary, freshness, humanLabel,
-  statusLabel, statusOptions, truncate, vocabLabel,
+  compactPlace, dateInputValue, formatDate, formatSalary, freshness, parseDate,
+  relativeAge, statusLabel, statusOptions, vocabLabel,
 } from './format.js';
 import { eligibilityWords, scoreCell, searchFitIsReady } from './badges.js';
 import { matchTone } from './cards.js';
 
-const STORAGE_KEY = 'careerAgent.table.columns.v1';
+//: v2: the V3 defaults apply once to everybody, whatever v1 remembered.
+const STORAGE_KEY = 'careerAgent.table.columns.v2';
+const ORDER_KEY = 'careerAgent.table.order.v2';
 
-/** Column order is the reading order of the working view. */
+/**
+ * Column order is the reading order. `min` is the narrowest a column may
+ * get and `fr` its share of the rest (the V3 source's own numbers).
+ */
 export const COLUMNS = [
-  { id: 'score', labelKey: 'column.score', sort: 'score', className: 'col--num', fixed: true },
-  // Detail, not Confidence. The card, the legend, the filter and the sort
-  // control all say Detail; this column said Confidence for the same number,
-  // and one measurement with two names is two measurements to a reader.
-  { id: 'confidence', labelKey: 'column.confidence', sort: 'confidence', className: 'col--num' },
-  { id: 'company', labelKey: 'column.company', sort: 'company' },
-  { id: 'title', labelKey: 'column.title', sort: 'title', fixed: true },
-  { id: 'location', labelKey: 'column.location' },
-  { id: 'source', labelKey: 'column.source' },
-  { id: 'technologies', labelKey: 'column.technologies' },
-  { id: 'salary', labelKey: 'column.salary' },
-  { id: 'contract', labelKey: 'column.contract' },
-  { id: 'posted', labelKey: 'column.posted', sort: 'posted', className: 'col--num' },
-  { id: 'freshness', labelKey: 'column.freshness' },
-  { id: 'eligibility', labelKey: 'column.eligibility' },
-  { id: 'status', labelKey: 'column.status', sort: 'status' },
-  { id: 'applied', labelKey: 'column.applied' },
-  { id: 'applied_at', labelKey: 'column.applied_at', className: 'col--num' },
-  { id: 'saved', labelKey: 'column.saved' },
-  { id: 'link', labelKey: 'column.link' },
+  {
+    id: 'score', labelKey: 'column.scoreShort', fullKey: 'column.score', sort: 'score', fixed: true,
+    track: '52px', min: 52,
+  },
+  { id: 'title', labelKey: 'column.title', sort: 'title', fixed: true, track: 'minmax(180px,2.4fr)', min: 180 },
+  { id: 'confidence', labelKey: 'column.confidence', sort: 'confidence', track: 'minmax(76px,.7fr)', min: 76 },
+  { id: 'company', labelKey: 'column.company', sort: 'company', track: 'minmax(110px,1fr)', min: 110 },
+  { id: 'location', labelKey: 'column.location', track: 'minmax(120px,1.1fr)', min: 120 },
+  { id: 'source', labelKey: 'column.source', track: 'minmax(92px,.8fr)', min: 92 },
+  { id: 'technologies', labelKey: 'column.technologies', track: 'minmax(120px,1.1fr)', min: 120 },
+  { id: 'salary', labelKey: 'column.salary', track: 'minmax(120px,1.1fr)', min: 120 },
+  { id: 'contract', labelKey: 'column.contract', track: 'minmax(84px,.7fr)', min: 84 },
+  { id: 'posted', labelKey: 'column.posted', sort: 'posted', track: 'minmax(84px,.6fr)', min: 84 },
+  { id: 'freshness', labelKey: 'column.freshness', track: 'minmax(72px,.6fr)', min: 72 },
+  { id: 'eligibility', labelKey: 'column.eligibility', track: 'minmax(96px,.8fr)', min: 96 },
+  { id: 'status', labelKey: 'column.status', sort: 'status', track: 'minmax(112px,.85fr)', min: 112 },
+  { id: 'applied', labelKey: 'column.applied', track: 'minmax(60px,.5fr)', min: 60 },
+  { id: 'applied_at', labelKey: 'column.applied_at', track: 'minmax(124px,.75fr)', min: 124 },
+  { id: 'saved', labelKey: 'column.saved', track: '48px', min: 48 },
+  { id: 'link', labelKey: 'column.link', track: '60px', min: 60 },
 ];
 
-const DEFAULT_HIDDEN = new Set(['source', 'contract']);
+const DEFAULT_VISIBLE = new Set(['score', 'title', 'location', 'salary', 'eligibility', 'status', 'saved']);
 
 /** localStorage can throw (private mode, disabled site data). It is a nicety. */
 export function loadVisible() {
-  const fallback = new Set(COLUMNS.filter((c) => !DEFAULT_HIDDEN.has(c.id)).map((c) => c.id));
+  const fallback = new Set(DEFAULT_VISIBLE);
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || !parsed.length) return fallback;
+    if (!Array.isArray(parsed)) return fallback;
     const known = new Set(COLUMNS.map((c) => c.id));
     const restored = new Set(parsed.filter((id) => known.has(id)));
     for (const column of COLUMNS) if (column.fixed) restored.add(column.id);
@@ -64,8 +79,6 @@ export function loadVisible() {
     return fallback;
   }
 }
-
-const ORDER_KEY = 'careerAgent.table.order.v1';
 
 /**
  * The columns in the reader's order. Unknown ids are dropped and columns
@@ -103,6 +116,15 @@ function saveVisible(visible) {
   }
 }
 
+/** The grid tracks and the narrowest the table may get, for these columns. */
+function geometry(columns) {
+  return {
+    tracks: columns.map((column) => column.track).join(' '),
+    // Every minimum, every 12px gap and the 16px padding on each side.
+    min: columns.reduce((sum, column) => sum + column.min, 0) + 12 * (columns.length - 1) + 32,
+  };
+}
+
 /**
  * @param {HTMLElement} mount
  * @param {object[]} items
@@ -112,15 +134,19 @@ function saveVisible(visible) {
 export function renderTable(mount, items, ctx) {
   mount.className = 'tablewrap';
   const visible = ctx.visible || loadVisible();
-
+  const columns = orderedColumns().filter((column) => visible.has(column.id));
   // How common each signal is across the rows actually on screen. A signal 12
   // of 14 rows share distinguishes nothing; the two rarest do.
-  const context = { ...ctx, frequency: signalFrequency(items) };
+  const context = { ...ctx, frequency: signalFrequency(items), companyShown: visible.has('company') };
 
-  const table = el('table', { className: 'jobs', attrs: { 'aria-label': t('table.caption') } }, [
-    head(visible, context),
-    body(items, visible, context),
+  const table = el('table', {
+    className: 'jobs',
+    attrs: { role: 'table', 'aria-label': t('table.caption') },
+  }, [
+    el('thead', { attrs: { role: 'rowgroup' } }, [head(columns, context)]),
+    el('tbody', { attrs: { role: 'rowgroup' } }, items.map((job) => row(job, columns, context))),
   ]);
+  sizeTable(table, columns);
 
   const scroller = el('div', {
     className: 'tablescroll',
@@ -133,10 +159,17 @@ export function renderTable(mount, items, ctx) {
   return mount;
 }
 
+/** Through the CSSOM: the page's CSP refuses a `style` attribute. */
+function sizeTable(table, columns) {
+  const { tracks, min } = geometry(columns);
+  table.style.setProperty('--cols', tracks);
+  table.style.minWidth = `${min}px`;
+}
+
 /**
  * Mark which sides still hold content the reader cannot see. The CSS turns that
- * into an inset veil, so a value sliced by the edge of the region ("USD 95")
- * fades under it instead of reading as a whole number.
+ * into an inset veil, so a value sliced by the edge of the region fades under
+ * it instead of reading as a whole number.
  */
 function watchScrollEdges(wrap, scroller) {
   const update = () => {
@@ -149,8 +182,6 @@ function watchScrollEdges(wrap, scroller) {
   };
   scroller.addEventListener('scroll', update, { passive: true });
   if (typeof ResizeObserver === 'function') {
-    // Disconnects with the element: the observer holds no reference the
-    // detached subtree does not already hold.
     new ResizeObserver(update).observe(scroller);
   } else {
     window.addEventListener('resize', update);
@@ -169,17 +200,15 @@ function signalFrequency(items) {
   return counts;
 }
 
-/**
- * A column heading, in the reader's language.
- *
- * `COLUMNS` is a module-level table and was a table of finished English, so
- * every heading in the table view -- and the "Sort by X" name on each sort
- * button -- was frozen in whichever language this module happened to load in.
- */
+/** A column heading, in the reader's language, resolved at render. */
 function columnLabel(column) {
-  return column.labelKey ? t(column.labelKey) : (column.label || '');
+  return t(column.labelKey);
 }
 
+/** The heading's whole name: the short Match heading has a long one. */
+function columnName(column) {
+  return t(column.fullKey || column.labelKey);
+}
 
 function signalLabels(job) {
   const seen = new Set();
@@ -190,13 +219,10 @@ function signalLabels(job) {
   return Array.from(seen);
 }
 
-// No bulk "move the ticked jobs" control and no row checkboxes. Each row
-// already carries its own status select, and ticking rows existed only to feed
-// that one bulk control, so both went together.
 /**
  * The Columns popover: every column with a switch, and up and down to move
- * it. Match and Job are always shown and always first in the reader's mind,
- * so they have no switch. Reset puts back the default order and set.
+ * it. Match and Job are always shown and always first, so they have no
+ * switch. Reset puts back the default order and set.
  */
 export function renderColumnsMenu(host, onChange) {
   const visible = loadVisible();
@@ -215,7 +241,7 @@ export function renderColumnsMenu(host, onChange) {
   };
   const rows = columns.map((column, index) => {
     const on = visible.has(column.id);
-    const toggle = button(columnLabel(column), () => {
+    const toggle = button(columnName(column), () => {
       if (on) visible.delete(column.id);
       else visible.add(column.id);
       saveVisible(visible);
@@ -228,25 +254,25 @@ export function renderColumnsMenu(host, onChange) {
       className: 'colrow__switch',
       attrs: { role: 'switch', 'aria-checked': String(on) },
     });
-    toggle.appendChild(el('span', { className: 'colrow__track', attrs: { 'aria-hidden': 'true' } }, [
+    toggle.prepend(el('span', { className: 'colrow__track', attrs: { 'aria-hidden': 'true' } }, [
       el('span', { className: 'colrow__knob' }),
     ]));
     return el('li', { className: 'colrow', dataset: { column: column.id } }, [
       toggle,
-      button('\u25B2', () => move(index, -1), {
+      button('▲', () => move(index, -1), {
         className: 'colrow__move',
-        ariaLabel: t('list.moveUp', { column: columnLabel(column) }),
+        ariaLabel: t('list.moveUp', { column: columnName(column) }),
         attrs: { 'data-move': 'up', disabled: index === 0 ? 'disabled' : null },
       }),
-      button('\u25BC', () => move(index, 1), {
+      button('▼', () => move(index, 1), {
         className: 'colrow__move',
-        ariaLabel: t('list.moveDown', { column: columnLabel(column) }),
+        ariaLabel: t('list.moveDown', { column: columnName(column) }),
         attrs: { 'data-move': 'down', disabled: index === columns.length - 1 ? 'disabled' : null },
       }),
     ]);
   });
   const pinned = fixed.map((column) => el('li', { className: 'colrow colrow--fixed' }, [
-    el('span', { className: 'colrow__name', text: columnLabel(column) }),
+    el('span', { className: 'colrow__name', text: columnName(column) }),
     el('span', { className: 'colrow__fixed', text: t('list.fixed') }),
   ]));
   replace(host, [
@@ -254,9 +280,8 @@ export function renderColumnsMenu(host, onChange) {
       el('strong', { className: 'colmenu__title', text: t('list.columnsTitle') }),
       el('span', { className: 'colmenu__help', text: t('list.columnsHelp') }),
     ]),
-    el('ul', { className: 'colmenu__rows', attrs: { 'aria-label': t('table.visibleColumns') } }, [
-      ...pinned, ...rows,
-    ]),
+    el('ul', { className: 'colmenu__fixed', attrs: { 'aria-label': t('list.fixed') } }, pinned),
+    el('ul', { className: 'colmenu__rows', attrs: { 'aria-label': t('table.visibleColumns') } }, rows),
     el('div', { className: 'colmenu__foot' }, [button(t('list.resetColumns'), () => {
       try {
         window.localStorage.removeItem(ORDER_KEY);
@@ -306,90 +331,62 @@ export function toCsv(items, visible) {
       default: return '';
     }
   };
-  const lines = [columns.map((column) => quote(columnLabel(column))).join(',')];
+  const lines = [columns.map((column) => quote(columnName(column))).join(',')];
   for (const job of items) lines.push(columns.map((column) => quote(value(column, job))).join(','));
   return `${lines.join('\r\n')}\r\n`;
 }
 
-function head(visible, ctx) {
-  const row = el('tr');
-  for (const column of orderedColumns()) {
-    if (!visible.has(column.id)) continue;
-
+function head(columns, ctx) {
+  const tr = el('tr', { className: 'jobs__head', attrs: { role: 'row' } });
+  for (const column of columns) {
     const isSorted = column.sort && column.sort === ctx.sort;
     const th = el('th', {
-      className: column.className || '',
+      className: `col--${column.id}`,
       attrs: {
+        role: 'columnheader',
         scope: 'col',
+        title: columnName(column),
         'aria-sort': column.sort ? (isSorted ? (ctx.direction === 'asc' ? 'ascending' : 'descending') : 'none') : null,
       },
     });
-
     if (column.sort) {
-      th.appendChild(button(
-        `${columnLabel(column)}${isSorted ? (ctx.direction === 'asc' ? ' ▲' : ' ▼') : ''}`,
-        () => ctx.onSort(column.sort),
-        {
-          className: `th__sort${isSorted ? ' is-sorted' : ''}`,
-          ariaLabel: t('table.sortBy', { column: columnLabel(column) }),
-        },
-      ));
+      const sortButton = button(columnLabel(column), () => ctx.onSort(column.sort), {
+        className: `th__sort${isSorted ? ' is-sorted' : ''}`,
+        ariaLabel: t('table.sortBy', { column: columnName(column) }),
+      });
+      th.appendChild(sortButton);
     } else {
-      th.appendChild(el('span', { text: columnLabel(column) }));
+      th.appendChild(el('span', { className: 'th__label', text: columnLabel(column) }));
     }
-    row.appendChild(th);
+    tr.appendChild(th);
   }
-  return el('thead', {}, [row]);
+  return tr;
 }
 
-function body(items, visible, ctx) {
-  return el('tbody', {}, items.map((job) => row(job, visible, ctx)));
-}
-
-function row(job, visible, ctx) {
+function row(job, columns, ctx) {
   // `blockers` is the EMPLOYER stating a requirement. `screening_state` is
-  // this search deciding the posting is not the work asked for. They used to
-  // share one class and therefore one meaning; see `setAside` in `cards.js`.
+  // this search deciding the posting is not the work asked for.
   const gated = (job.blockers || []).length > 0;
   const offTarget = String(job.screening_state).toUpperCase() === 'BLOCKED';
   const tone = gated ? 'row--blocked' : (offTarget ? 'row--offtarget' : '');
   const tr = el('tr', {
     className: tone,
+    attrs: { role: 'row' },
     dataset: { jobId: job.job_id },
   });
-
   // The whole row opens the job, exactly as the whole card does. The title
-  // button stays -- in a table it is the sensible tab stop and the thing a
-  // screen reader announces -- but hitting a 24-pixel target in a row you
-  // have already read is not a reasonable ask.
-  const open = () => ctx.onOpen(job.job_id);
+  // button stays: in a table it is the tab stop that opens the job.
   tr.addEventListener('click', (event) => {
     if (event.target.closest('[data-stops-open], button, a, input, select, label')) return;
-    open();
+    ctx.onOpen(job.job_id);
   });
-  // No `tabindex` and no Space handler on the row.
-  //
-  // A card is ONE object and earns a tab stop. A row already contains a
-  // checkbox, a title button, a status select, a date input and a link, so
-  // making the row focusable too added a sixth stop per row -- roughly four
-  // times the tabbing to cross the same table -- and its Space handler
-  // suppressed page scrolling whenever a row held focus.
-  //
-  // The keyboard path through a table is its controls, and the title button
-  // is the one that opens the job. Clicking the row is a mouse affordance on
-  // top of that, not a replacement for it.
-
-  for (const column of orderedColumns()) {
-    if (!visible.has(column.id)) continue;
-    tr.appendChild(cell(column, job, ctx, { gated, offTarget }));
-  }
+  for (const column of columns) tr.appendChild(cell(column, job, ctx, { gated, offTarget }));
   return tr;
 }
 
 /**
- * "×4" beside a title that stands for four postings, with the places in the
- * tooltip. Compact because the table is dense, present because a grouped row
- * that says nothing is a row that lies by omission. Null for a singleton.
+ * "x4" beside a title that stands for four postings, with the places in the
+ * tooltip. A grouped row that says nothing is a row that lies by omission.
  */
 function groupMarker(job) {
   const count = Number(job.duplicate_count || 1);
@@ -407,137 +404,138 @@ function groupMarker(job) {
   });
 }
 
+/** One plain cell: a line of text that ellipsizes, its whole value on hover. */
+function textCell(column, text, { absent = false, sub = '' } = {}) {
+  return el('td', { className: `col--${column.id}`, attrs: { role: 'cell' } }, [
+    el('span', {
+      className: `cell__text${absent ? ' fact--absent' : ''}`,
+      text,
+      attrs: { title: sub ? `${text} · ${sub}` : text },
+    }),
+  ]);
+}
+
+function pill(column, text, tone, title = text) {
+  return el('td', { className: `col--${column.id}`, attrs: { role: 'cell' } }, [
+    el('span', { className: `tpill tpill--${tone}`, text, attrs: { title } }),
+  ]);
+}
+
 function cell(column, job, ctx, aside) {
   switch (column.id) {
     case 'score':
-      return el('td', { className: 'col--num' }, [matchPill(job.match_score)]);
+      return el('td', { className: 'col--score', attrs: { role: 'cell' } }, [matchPill(job.match_score)]);
 
-    case 'confidence':
-      return el('td', { className: 'col--num' }, [scoreCell(job.data_confidence, 'confidence')]);
+    case 'confidence': {
+      const value = job.data_confidence;
+      if (value === null || value === undefined) return textCell(column, t('value.notStated'), { absent: true });
+      return el('td', { className: 'col--confidence', attrs: { role: 'cell' } }, [scoreCell(value, 'confidence')]);
+    }
 
     case 'company':
-      return el('td', {}, [el('span', {
-        className: 'cell--company',
-        text: job.company_name || '; ',
-        attrs: job.company_name ? { title: job.company_name } : {},
-      })]);
+      return textCell(column, job.company_name || t('absent.company'), { absent: !job.company_name });
 
     case 'title':
-      return el('th', { className: 'col--title', attrs: { scope: 'row' } }, [
+      return el('th', { className: 'col--title', attrs: { role: 'rowheader', scope: 'row' } }, [
         el('div', { className: 'cell__titlewrap' }, [
-          aside.gated
-            ? el('span', {
-              className: 'row__blocked',
-              text: '✕',
-              attrs: {
-                title: t('card.gated'),
-                'aria-label': t('table.gatedShort'),
-              },
-            })
-            : aside.offTarget
-            ? el('span', {
-              className: 'row__offtarget',
-              text: '~',
-              attrs: {
-                title: job.title_reason || t('table.offTargetShort'),
-                'aria-label': t('table.offTargetShort'),
-              },
-            })
-            : null,
-          button(job.title || t('absent.untitled'), () => ctx.onOpen(job.job_id), {
-            className: 'cell__title-btn',
-            ariaLabel: t('table.openDetails', { title: job.title, company: job.company_name }),
-          }),
-          // The Table defaults to ungrouped, so this is normally absent. When
-          // the toggle is on it must still be here: a row standing for four
-          // postings without saying so is exactly the thing grouping is not
-          // allowed to do, in whichever view it happens.
-          groupMarker(job),
+          el('div', { className: 'cell__titleline' }, [
+            aside.gated
+              ? el('span', {
+                className: 'row__blocked', text: '✕',
+                attrs: { title: t('card.gated'), 'aria-label': t('table.gatedShort') },
+              })
+              : aside.offTarget
+                ? el('span', {
+                  className: 'row__offtarget', text: '~',
+                  attrs: {
+                    title: job.title_reason || t('table.offTargetShort'),
+                    'aria-label': t('table.offTargetShort'),
+                  },
+                })
+                : null,
+            button(job.title || t('absent.untitled'), () => ctx.onOpen(job.job_id), {
+              className: 'cell__title-btn',
+              ariaLabel: t('table.openDetails', { title: job.title, company: job.company_name }),
+              attrs: { title: job.title || '' },
+            }),
+            groupMarker(job),
+          ]),
+          ctx.companyShown
+            ? null
+            : el('span', {
+              className: 'cell__company', text: job.company_name || '', attrs: { title: job.company_name || '' },
+            }),
         ]),
       ]);
 
-    case 'location':
-      return el('td', {}, [
-        el('span', { text: truncate(job.location_raw || t('drawer.notStated'), 34) }),
-        job.work_model ? el('span', { className: 'cell__sub', text: vocabLabel(job.work_model) }) : null,
-      ]);
+    case 'location': {
+      const place = compactPlace(job.location_raw, job.work_model);
+      return textCell(column, place.text || t('drawer.notStated'), { absent: !place.text, sub: place.full });
+    }
 
     case 'source':
-      return el('td', {}, [
-        el('span', { text: vocabLabel(job.provider) }),
-      ]);
+      return textCell(column, vocabLabel(job.provider));
 
     case 'technologies': {
-      const all = job.technologies || [];
-      if (!all.length) {
-        return el('td', {}, [el('span', { className: 'cell__tech cell__tech--none', text: t('table.noneRecorded') })]);
-      }
-      const full = all.map((t) => `${t.label || t.signal_id} (${humanLabel(t.prominence)})`).join('\n');
-      // Rarest first, original order as the tie-break, so the two shown are the
-      // ones that tell this row apart from its neighbours.
       const frequency = ctx.frequency || new Map();
+      // Rarest first, original order as the tie-break, so the ones shown are
+      // the ones that tell this row apart from its neighbours.
       const ranked = signalLabels(job)
         .map((label, index) => ({ label, index, n: frequency.get(label) || 0 }))
-        .sort((a, b) => a.n - b.n || a.index - b.index);
-      const shown = ranked.slice(0, 2);
-      const rest = ranked.length - shown.length;
-      return el('td', {}, [
-        el('span', { className: 'cell__tech', attrs: { title: full } },
-          shown.map((row, index) => el('span', { className: 'cell__techline' }, [
-            el('span', { className: 'cell__techname', text: row.label }),
-            rest > 0 && index === shown.length - 1
-              ? el('span', {
-                className: 'cell__techmore',
-                text: `+${rest}`,
-                attrs: {
-                  title: t('table.andMoreTools', {
-                    n: rest,
-                    names: ranked.slice(2).map((r) => r.label).join(', '),
-                  }),
-                },
-              })
-              : null,
-          ]))),
-      ]);
+        .sort((a, b) => a.n - b.n || a.index - b.index)
+        .map((entry) => entry.label);
+      if (!ranked.length) return textCell(column, t('table.noneRecorded'), { absent: true });
+      const td = textCell(column, ranked.slice(0, 3).join(', '));
+      td.firstChild.title = ranked.join('\n');
+      return td;
     }
 
     case 'salary': {
       const salary = formatSalary(job.salary);
-      return el('td', {}, [el('span', {
-        className: salary ? '' : 'fact--absent',
-        text: salary || t('value.notStated'),
-      })]);
+      return textCell(column, salary || t('card.salaryUnstated'), { absent: !salary });
     }
 
     case 'contract':
-      return el('td', {}, [el('span', {
-        className: job.employment_type ? '' : 'fact--absent',
-        text: job.employment_type ? vocabLabel(job.employment_type) : t('value.notStated'),
-      })]);
+      return textCell(column, job.employment_type ? vocabLabel(job.employment_type) : t('value.notStated'), {
+        absent: !job.employment_type,
+      });
 
-    case 'posted':
-      return el('td', { className: 'col--num' }, [el('span', { className: 'num', text: formatDate(job.posted_at) })]);
+    case 'posted': {
+      if (!parseDate(job.posted_at)) return textCell(column, t('card.noPostedDate'), { absent: true });
+      const td = textCell(column, relativeAge(job.posted_at));
+      td.firstChild.title = formatDate(job.posted_at);
+      return td;
+    }
 
     case 'freshness': {
       const age = freshness(job.freshness);
-      return el('td', {}, [el('span', { className: `tag tag--${age.tone}`, text: age.label })]);
+      return textCell(column, age.label, { absent: age.tone === 'old' });
     }
 
-    case 'eligibility':
-      return el('td', {}, [el('span', {
-        className: `pill pill--${job.eligibility_status === 'VERIFIED_NOT_ELIGIBLE'
-          ? 'bad'
-          : job.eligibility_status === 'UNRESOLVED' ? 'warn' : 'good'}`,
-        text: eligibilityWords(job.eligibility_status),
-      })]);
+    case 'eligibility': {
+      const status = aside.gated ? 'VERIFIED_NOT_ELIGIBLE' : (job.eligibility_status || 'UNRESOLVED');
+      const words = eligibilityWords(status);
+      if (status === 'VERIFIED_ELIGIBLE') return pill(column, t('table.take.yes'), 'm1', words);
+      if (status === 'VERIFIED_NOT_ELIGIBLE') return pill(column, t('table.take.no'), 'red', words);
+      return pill(column, t('table.take.check'), 'm3', words);
+    }
 
-    case 'status':
-      return el('td', {}, [select(statusOptions(), job.application_status, (value) => {
-        ctx.onStatus(job.job_id, value);
-      }, {
-        className: 'select select--status',
-        ariaLabel: t('card.statusLabel', { title: job.title }),
-      })]);
+    case 'status': {
+      // The pill IS the control: the status can be changed here, as before,
+      // and at rest it reads like the V3 Progress pill.
+      const status = String(job.application_status || 'DISCOVERED');
+      const control = el('select', {
+        className: `tpill select--status select--pill tpill--${statusTone(status)}`,
+        attrs: { 'aria-label': t('card.statusLabel', { title: job.title }) },
+        on: { change: (event) => ctx.onStatus(job.job_id, event.target.value) },
+      }, statusOptions().map((option) => el('option', {
+        // V3 reads a job nobody has touched as "Not started".
+        text: option.value === 'DISCOVERED' ? t('table.notStarted') : option.label,
+        attrs: { value: option.value },
+      })));
+      control.value = status;
+      return el('td', { className: 'col--status', attrs: { role: 'cell' } }, [control]);
+    }
 
     case 'applied': {
       // Never a boolean of its own: it writes the canonical status.
@@ -549,38 +547,46 @@ function cell(column, job, ctx, aside) {
           change: (event) => ctx.onStatus(job.job_id, event.target.checked ? 'APPLIED' : 'SHORTLISTED'),
         },
       });
-      return el('td', { className: 'col--pick' }, [box]);
+      return el('td', { className: 'col--applied', attrs: { role: 'cell' } }, [box]);
     }
 
     case 'applied_at':
-      return el('td', { className: 'col--num' }, [el('input', {
+      return el('td', { className: 'col--applied_at', attrs: { role: 'cell' } }, [el('input', {
         className: 'input input--date',
         attrs: { type: 'date', 'aria-label': t('table.appliedDateFor', { title: job.title }) },
         props: { value: dateInputValue(job.applied_at) },
-        on: {
-          change: (event) => ctx.onAppliedDate(job.job_id, event.target.value || null),
-        },
+        on: { change: (event) => ctx.onAppliedDate(job.job_id, event.target.value || null) },
       })]);
 
     case 'saved':
-      return el('td', { className: 'col--pick' }, [el('button', {
-        className: `btn btn--icon${job.saved ? ' is-on' : ''}`,
-        attrs: {
-          type: 'button',
-          'aria-pressed': job.saved ? 'true' : 'false',
-          'aria-label': `${job.saved ? 'Unsave' : 'Save'} ${job.title}`,
+      return el('td', { className: 'col--saved', attrs: { role: 'cell' } }, [button(
+        job.saved ? '♥' : '♡',
+        () => ctx.onSave(job.job_id, !job.saved),
+        {
+          className: `theart${job.saved ? ' is-saved' : ''}`,
+          ariaLabel: t(job.saved ? 'card.unsaveLabel' : 'card.saveLabel', { title: job.title }),
+          attrs: { 'aria-pressed': job.saved ? 'true' : 'false' },
         },
-        on: { click: () => ctx.onSave(job.job_id, !job.saved) },
-      }, [el('span', { text: job.saved ? '★' : '☆' })])]);
+      )]);
 
     case 'link':
-      return el('td', {}, [
-        extLink(job.url, `${t('action.apply')} ↗︎`, { className: 'btn btn--link' }),
+      return el('td', { className: 'col--link', attrs: { role: 'cell' } }, [
+        extLink(job.url, `${t('table.openAd')} ↗`, { className: 'tlink', title: t('table.openAdTitle') }),
       ]);
 
     default:
-      return el('td', { text: '' });
+      return el('td', { attrs: { role: 'cell' } });
   }
+}
+
+/** Where an application stands, as one of the V3 pill colours. */
+function statusTone(status) {
+  if (['OFFER', 'HIRED'].includes(status)) return 'm1';
+  if (status === 'INTERVIEW') return 'blue';
+  if (status === 'APPLIED') return 'm2';
+  if (status === 'SHORTLISTED') return 'chip';
+  if (['REJECTED', 'WITHDRAWN', 'ARCHIVED'].includes(status)) return 'm3';
+  return 'none';
 }
 
 /** The match as the card shows it: a toned pill, or the not-ready words. */
@@ -595,14 +601,12 @@ function matchPill(score) {
 }
 
 /** Skeleton rows, same column geometry, so nothing jumps when data lands. */
-
 export function tableSkeleton(mount, count = 8) {
   mount.className = 'tablewrap';
   clear(mount);
-  const visible = loadVisible();
-  const columns = orderedColumns().filter((column) => visible.has(column.id));
+  const columns = orderedColumns().filter((column) => loadVisible().has(column.id));
   const table = el('table', { className: 'jobs', attrs: { 'aria-hidden': 'true' } }, [
-    el('thead', {}, [el('tr', {}, columns.map((column) => el('th', {
+    el('thead', {}, [el('tr', { className: 'jobs__head' }, columns.map((column) => el('th', {
       text: columnLabel(column),
       attrs: { scope: 'col' },
     })))]),
@@ -610,6 +614,6 @@ export function tableSkeleton(mount, count = 8) {
       () => el('td', {}, [el('div', { className: 'sk sk--line' })]),
     )))),
   ]);
+  sizeTable(table, columns);
   mount.appendChild(el('div', { className: 'tablescroll' }, [table]));
 }
-

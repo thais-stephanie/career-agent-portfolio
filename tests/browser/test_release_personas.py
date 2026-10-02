@@ -208,10 +208,10 @@ def test_complete_persona_journey(page, workspace, persona):
     page.wait_for("document.querySelector('.card__heart.is-saved')")
     # Interested is set where every status is: the job's own details.
     page.evaluate("document.querySelector('.card:not(.card--skeleton)').click()")
-    page.wait_for("document.querySelector('.drawer__actions select.select--status')")
+    page.wait_for("document.querySelector('#drawer-panel-notes select.select--status')")
     set_value(
         page,
-        "document.querySelector('.drawer__actions select.select--status')",
+        "document.querySelector('#drawer-panel-notes select.select--status')",
         "SHORTLISTED",
         "change",
     )

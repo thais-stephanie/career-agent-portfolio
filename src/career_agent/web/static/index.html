@@ -190,8 +190,10 @@
                   aria-pressed="true">Cards</button>
           <button type="button" id="view-table" class="segmented__btn viewswitch__btn"
                   aria-pressed="false">List</button>
+          <!-- V3: Find jobs offers Cards and List. The board is My
+               applications; this button stays for that page's routing. -->
           <button type="button" id="view-kanban" class="segmented__btn viewswitch__btn"
-                  aria-pressed="false">Board</button>
+                  aria-pressed="false" hidden>Board</button>
         </div>
       </div>
     </div>
@@ -199,21 +201,23 @@
       <div class="quickchips" id="quick-chips" role="group" aria-label="Quick filters"></div>
       <button type="button" class="allfilters" id="rail-toggle" aria-expanded="false"
               aria-controls="filterpanel">All filters</button>
+      <!-- TODAY. The daily digest: several queries the server composes. In
+           the chip rhythm, beside All filters, never alone at the far edge. -->
+      <button type="button" id="daily-open" class="allfilters quickrow__today">Today</button>
       <span class="quickrow__spacer"></span>
       <button type="button" class="quickrow__clear" id="clear-all" hidden>Clear all</button>
-      <!-- TODAY. The daily digest: several queries the server composes. -->
-      <button type="button" id="daily-open" class="quickrow__today">Today</button>
-      <!-- List only: which columns, and the visible rows as a CSV. -->
+      <!-- List only: which columns, and the rows as a CSV. One group. -->
       <div class="listtools" id="list-tools" hidden>
         <button type="button" class="listtools__btn" id="columns-menu" aria-haspopup="true"
                 aria-expanded="false" aria-controls="columns-pop"><span id="columns-menu-label">Columns</span>
           <span class="listtools__count num" id="columns-count"></span></button>
         <span class="listtools__sep" aria-hidden="true"></span>
         <button type="button" class="listtools__btn" id="export-csv">Export CSV</button>
+        <!-- Every good and strong fit, server side, not only this page. -->
+        <span class="listtools__sep" aria-hidden="true"></span>
+        <button type="button" id="export-good-strong" class="listtools__btn" hidden>Export best fits</button>
         <div class="popover columns__pop" id="columns-pop" hidden></div>
       </div>
-      <!-- The GOOD + STRONG audit export, server side, List only. -->
-      <button type="button" id="export-good-strong" class="quickrow__export" hidden>Export GOOD + STRONG</button>
     </div>
   </div>
 </header>
@@ -345,6 +349,13 @@
          than assertively: it is context for the list, not an alert. -->
     <p class="revnotice" id="revnotice" role="status" aria-live="polite" hidden></p>
     <div class="hiddennotice" id="hiddennotice" role="status" aria-live="polite" hidden></div>
+    <!-- What the percentage means, once, until "Got it" (V3). -->
+    <div class="jobstip" id="jobs-tip" hidden>
+      <span class="jobstip__icon" aria-hidden="true">?</span>
+      <p class="jobstip__text"><strong id="jobs-tip-title">What does the percentage mean?</strong>
+        <span id="jobs-tip-text"></span></p>
+      <button type="button" class="jobstip__ok" id="jobs-tip-ok">Got it</button>
+    </div>
     <!-- The board says what it is for while nothing is on it. Outside the
          list, which is a list of columns. -->
     <div class="boardempty" id="boardempty" hidden></div>

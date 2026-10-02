@@ -188,28 +188,22 @@ def test_every_page_fills_the_same_header(page: Chrome, server: str) -> None:
     assert len(set(seen.values())) == len(seen), seen
 
 
-def test_the_header_is_the_same_height_on_every_page(page: Chrome, server: str) -> None:
-    """The TITLE sits in the same place, at the same size, on every page. The
-    header as a whole may grow by a line when a subtitle wraps.
-
-    Home is the one exception, by design: the redesign handoff puts today's
-    date above its greeting and the path drawing beside it."""
+def test_no_page_but_home_paints_a_title_and_every_page_names_itself(
+    page: Chrome, server: str
+) -> None:
+    """V3 rule 7: no page titles; the screen starts with its content. The
+    h1 stays, named, for a screen reader. Home keeps its greeting."""
     open_app(page, server)
-    heights = []
     for name in [d for d in DESTINATIONS if d != "home"]:
         page.evaluate(f"document.querySelector('.topnav__link[data-page=\"{name}\"]').click()")
         page.wait_for(
             "document.getElementById('pagehead-title').textContent.trim().length > 0",
-            message=f"the {name} header",
+            message=f"the {name} heading",
         )
-        heights.append(
-            page.evaluate(
-                "(() => { const n = document.getElementById('pagehead-title');"
-                " return [Math.round(n.getBoundingClientRect().top),"
-                " getComputedStyle(n).fontSize]; })()"
-            )
+        width = page.evaluate(
+            "document.getElementById('pagehead-title').getBoundingClientRect().width"
         )
-    assert len({tuple(h) for h in heights}) == 1, f"the title wanders: {heights}"
+        assert width <= 1, f"{name} paints its title ({width}px wide)"
 
 
 # =========================================================================

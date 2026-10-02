@@ -291,6 +291,13 @@ export const NUMBER_KEYS = [
  */
 export const VIEW_GROUPING = Object.freeze({ cards: true, table: false, kanban: false });
 
+/**
+ * Rows per page, by view (V3): twenty cards, twenty-five list rows. The board
+ * keeps sixty, because it is every tracked job and not a page of a search.
+ * `limit` is DERIVED from the view and never written to the address.
+ */
+export const PAGE_SIZE = Object.freeze({ cards: 20, table: 25, kanban: 60 });
+
 /** The three views. Named once so the URL parser and the header agree. */
 export const VIEWS = Object.freeze(['cards', 'table', 'kanban']);
 
@@ -373,7 +380,7 @@ export const DEFAULTS = Object.freeze({
   group_duplicates: VIEW_GROUPING.cards,
   sort: 'score',
   direction: 'desc',
-  limit: 60,
+  limit: 20,
   offset: 0,
   // -- client-side only; never sent to /api/jobs -------------------------
   view: 'cards',
@@ -505,7 +512,6 @@ export function fromSearch(search) {
   if (!params.has('avoid_keyword')) state.avoid_keyword = storedAvoidedKeywords();
   if (params.has('sort')) state.sort = params.get('sort');
   if (params.has('direction')) state.direction = params.get('direction') === 'asc' ? 'asc' : 'desc';
-  if (params.has('limit')) state.limit = Number(params.get('limit')) || DEFAULTS.limit;
   if (params.has('offset')) state.offset = Number(params.get('offset')) || 0;
   if (params.has('view')) {
     const asked = params.get('view');
@@ -525,6 +531,7 @@ export function fromSearch(search) {
   state.group_duplicates = params.has('group_duplicates')
     ? params.get('group_duplicates') === '1' || params.get('group_duplicates') === 'true'
     : VIEW_GROUPING[state.view];
+  state.limit = PAGE_SIZE[state.view] || DEFAULTS.limit;
   if (params.has('job')) state.openJobId = params.get('job') || null;
   return state;
 }
@@ -551,7 +558,6 @@ export function toSearch(state) {
   }
   if (state.sort !== DEFAULTS.sort) params.set('sort', state.sort);
   if (state.direction !== DEFAULTS.direction) params.set('direction', state.direction);
-  if (state.limit !== DEFAULTS.limit) params.set('limit', String(state.limit));
   if (state.offset) params.set('offset', String(state.offset));
   if (state.view !== DEFAULTS.view) params.set('view', state.view);
   // Written whenever it differs from what this view would have chosen, so
@@ -701,7 +707,8 @@ export function createStore() {
     set(patch, options = {}) {
       const clean = normalise(patch);
       const touchesFilters = Object.keys(clean).some(
-        (key) => key !== 'view' && key !== 'openJobId' && key !== 'offset',
+        // A new view is a new page size, so it starts at page one too.
+        (key) => key !== 'openJobId' && key !== 'offset',
       );
 
       // Closing the drawer pops the entry that opening it pushed, so the URL
@@ -715,6 +722,7 @@ export function createStore() {
       }
 
       const next = { ...cloneState(state), ...clean };
+      next.limit = PAGE_SIZE[next.view] || DEFAULTS.limit;
       if (touchesFilters && options.resetOffset !== false && !('offset' in clean)) {
         next.offset = 0;
       }

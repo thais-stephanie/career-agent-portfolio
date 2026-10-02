@@ -71,7 +71,7 @@ const SOURCE_KEYS = {
  * writes NOTHING: turning that click into a claim would be this program
  * inventing experience, which is the one thing it exists not to do.
  */
-export function createPrepare({ onEvidence = null } = {}) {
+export function createPrepare({ onEvidence = null, onLoaded = null } = {}) {
   const host = el('div', { className: 'prep' });
   let jobId = null;
   let token = 0;
@@ -84,6 +84,7 @@ export function createPrepare({ onEvidence = null } = {}) {
       const payload = await api.getPreparation(id);
       if (mine !== token) return;
       replace(host, sections(payload));
+      if (onLoaded) onLoaded(payload);
     } catch (error) {
       if (mine !== token) return;
       replace(host, [
@@ -447,6 +448,7 @@ export function createPrepare({ onEvidence = null } = {}) {
     if (!jobId) return;
     const payload = await api.reviewRequirement(jobId, row.signal_id, verdict, note || null);
     replace(host, sections(payload));
+    if (onLoaded) onLoaded(payload);
   }
 
   // -- what is left to do, stated as facts ---------------------------------

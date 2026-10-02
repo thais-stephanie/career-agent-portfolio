@@ -16,7 +16,7 @@ def test_the_export_is_offered_in_table_mode_only(page: Chrome, pristine_server:
     page.evaluate("document.getElementById('view-table').click()")
     page.wait_for("!document.getElementById('export-good-strong').hidden", message="the export")
     assert page.evaluate("document.getElementById('export-good-strong').textContent") == (
-        "Export GOOD + STRONG"
+        "Export best fits"
     )
     page.evaluate("document.getElementById('view-kanban').click()")
     page.wait_for("document.getElementById('export-good-strong').hidden", message="hidden again")

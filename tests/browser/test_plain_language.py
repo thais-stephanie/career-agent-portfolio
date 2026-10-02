@@ -262,7 +262,7 @@ def test_the_drawer_explains_itself_without_internal_words(page: Chrome, server:
             ".map((n) => n.textContent.trim()).join('|')"
         )
     )
-    assert tabs == "About the job|Why it fits you|Before you apply|My notes", tabs
+    assert tabs == "About|Why it fits|Before you apply|Practice|Notes", tabs
 
     click(page, "document.getElementById('drawer-tab-why')")
     page.wait_for(

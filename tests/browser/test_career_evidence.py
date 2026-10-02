@@ -604,7 +604,7 @@ def test_a_requirement_leads_to_what_is_waiting_about_it(
     page.wait_for("document.querySelectorAll('[data-job-id]').length > 0", message="the cards")
     page.evaluate("document.querySelectorAll('[data-job-id]')[0].click()")
     page.wait_for(
-        "document.querySelectorAll('#drawer-host [role=\"tab\"]').length === 4",
+        "document.querySelectorAll('#drawer-host [role=\"tab\"]').length === 5",
         message="the drawer tabs",
     )
     page.evaluate("document.querySelectorAll('#drawer-host [role=\"tab\"]')[2].click()")

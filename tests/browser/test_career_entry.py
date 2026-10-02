@@ -306,8 +306,8 @@ def _open_why(page: Chrome) -> str:
     page.evaluate("document.querySelector('#list .card').click()")
     page.wait_for(
         "document.querySelector('.drawer') && !document.querySelector('.drawer').hidden"
-        " && document.querySelectorAll('.drawer__tab').length === 4",
-        message="the drawer opens with its three tabs",
+        " && document.querySelectorAll('.drawer__tab').length === 5",
+        message="the drawer opens with its five tabs",
     )
     page.evaluate("document.getElementById('drawer-tab-why').click()")
     page.wait_for(
