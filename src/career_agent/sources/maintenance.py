@@ -195,8 +195,10 @@ def inventory(conn: sqlite3.Connection, catalogue: Path | None = None) -> list[I
         blocked = None
         if provider in OWNER_RUN:
             blocked = "OWNER_RUN_ONLY"
-        elif source is None or source.permission.value == "FORBIDDEN" or source.collection_blocker:
+        elif source is None or source.permission.value == "FORBIDDEN":
             blocked = "SOURCE_POLICY_REQUIRES_ACTION"
+        elif source.collection_blocker:
+            blocked = "PROVIDER_UNAVAILABLE"
         elif board_id is None and provider not in FEED_EXECUTORS:
             blocked = "FEED_EXECUTOR_NOT_BUDGETED_YET"
         return Item(

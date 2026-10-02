@@ -127,7 +127,9 @@ def fill_profile_a(host: ProfileHost) -> dict:
     job = api.handle_api("GET", "/api/jobs", {"limit": ["1"]}, {})["items"][0]["job_id"]
     api.handle_api("PATCH", f"/api/jobs/{job}/saved", {}, {"saved": True})
     api.handle_api("PATCH", f"/api/jobs/{job}/notes", {}, {"notes": "Profile A note"})
-    api.handle_api("PATCH", "/api/sources/schedule", {}, {"source_id": "gupy", "mode": "PAUSED"})
+    api.handle_api(
+        "PATCH", "/api/sources/schedule", {}, {"source_id": "programathor", "mode": "PAUSED"}
+    )
     api.handle_api(
         "PATCH",
         "/api/sources/experimental",
@@ -167,7 +169,9 @@ def test_profile_b_sees_nothing_of_a_and_a_nothing_of_b(install: ProfileHost) ->
     fill_profile_a(host)
     a_before = snapshot(host)
     assert a_before["confirmed"] == 1 and a_before["anchors"] == ["Revenue Analyst"]
-    assert a_before["saved"] and a_before["noted"] and a_before["modes"] == {"gupy": "PAUSED"}
+    assert (
+        a_before["saved"] and a_before["noted"] and a_before["modes"] == {"programathor": "PAUSED"}
+    )
     assert a_before["tailor"] == ["Synthetic A"] and a_before["search_file"]
     assert a_before["linkedin"] is True
 

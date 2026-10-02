@@ -421,11 +421,15 @@ sources:
       fits whole, `hybrid` (5,970) does not, and `on-site` (72,682) is
       reachable only a slice at a time and is never collected by default.
     coverage: PARTIAL
+    collection_blocker: >-
+      The candidate feed used for refresh stopped serving jobs on 2026-10-02.
+      Previously collected jobs are still available.
     #: The same answer, for the person reading the panel.
     reason_plain: >-
-      Brazilian jobs, with the whole advert and a real city and state on each one. We read the
-      remote and hybrid listings; the on-site list is far too large to read whole, so this is a
-      window on Gupy rather than all of it.
+      Brazilian jobs, with the whole advert and a real city and state on each one. Until late
+      September we read the remote and hybrid listings, a window on Gupy rather than all of it.
+      On 2026-10-02 the feed stopped serving jobs, so the ones already collected stay and no new
+      ones arrive.
     reason: >-
       Measured 2026-09-05 and collected 2026-09-09. `GET /api/v1/jobs` returns
       200 with `data` and `pagination`, and the FULL description arrives in the
@@ -444,9 +448,19 @@ sources:
       comes from a separate `limit=10` probe. Stated here as well as in the
       note because a DOWNGRADED row shows this sentence and not that one, and
       what a feed does not reach is not a detail to lose on the way.
+      UPSTREAM ENDPOINT UNAVAILABLE SINCE 2026-10-02. The last successful runs
+      were 2026-09-23 and 2026-09-25. On 2026-10-02 `GET /api/v1/jobs` on
+      `employability-portal.gupy.io` answered 404 with a generic nginx page,
+      where in September a 404 on that host came from the application itself:
+      the host appears to no longer serve the feed. A bounded investigation the same day
+      found no documented replacement; `portal.gupy.io` renders its job list on
+      its own server and its public scripts call no job API. This is an
+      availability fact, not a prohibition: no terms, robots file or vendor
+      statement withdrawing the feed was found. Postings already collected keep
+      their provenance, dates and scores and are not closed on this evidence.
     unblocked_by: >-
-      Nothing. Collected, and the remaining limits are the two ceilings in the
-      note above rather than a permission question.
+      The known endpoint answering again on a single bounded recheck, or a
+      documented public replacement. Not the portal's server-rendered HTML.
 
   - id: programathor
     name: Programathor

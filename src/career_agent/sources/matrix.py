@@ -602,6 +602,9 @@ def build(
                 if provider in _board_families()
                 else source.unblocked_by or "Resolve the recorded refresh failure."
             )
+        if state is MatrixState.PRODUCTION and source.collection_blocker:
+            # Its jobs are in the list; its upstream is not answering.
+            action = source.unblocked_by or "Wait for the provider to serve again."
         rows.append(
             MatrixRow(
                 source_id=source.id,
@@ -620,6 +623,7 @@ def build(
                 # nothing is switched off.
                 production_enabled=bool(source.provider)
                 and source.id not in QUOTA_DISABLED
+                and not source.collection_blocker
                 and state not in (MatrixState.FORBIDDEN, MatrixState.BLOCKED_PROVIDER),
                 ever_run=ever,
                 last_success=last,
@@ -629,7 +633,7 @@ def build(
                 query_scoped=(
                     retrieval_mode(provider) is RetrievalMode.QUERY_DRIVEN if provider else False
                 ),
-                blocker=_blocker(state, source) or failure,
+                blocker=_blocker(state, source) or source.collection_blocker or failure,
                 refresh_state=refresh,
                 coverage_limitation=limitation,
                 next_action=action,

@@ -26,25 +26,30 @@ def api(tmp_path):
 
 def test_scheduling_changes_no_jobs_scores_or_search_configuration(api):
     initial = api.handle_api("GET", "/api/sources", {}, {})
-    source = next(s for s in initial["sources"] if s["id"] == "gupy")
+    source = next(s for s in initial["sources"] if s["id"] == "programathor")
     assert source["can_refresh"]
     version = api._identity()
     for mode in ("PAUSED", "ENABLED", "AUTO"):
-        api.handle_api("PATCH", "/api/sources/schedule", {}, {"source_id": "gupy", "mode": mode})
+        api.handle_api(
+            "PATCH", "/api/sources/schedule", {}, {"source_id": "programathor", "mode": mode}
+        )
         with connect(api.config.db_path) as conn:
-            assert modes(conn)["gupy"] == mode
+            assert modes(conn)["programathor"] == mode
             assert conn.execute("SELECT count(*) FROM job").fetchone()[0] == 0
             assert conn.execute("SELECT count(*) FROM job_match").fetchone()[0] == 0
         assert api._identity() == version
         data = api.handle_api("GET", "/api/sources", {}, {})
-        assert next(s for s in data["sources"] if s["id"] == "gupy")["refresh_mode"] == mode
+        assert next(s for s in data["sources"] if s["id"] == "programathor")["refresh_mode"] == mode
         if mode == "PAUSED":
-            assert next(s for s in data["refresh"] if s["source_id"] == "gupy")["state"] == "PAUSED"
+            assert (
+                next(s for s in data["refresh"] if s["source_id"] == "programathor")["state"]
+                == "PAUSED"
+            )
 
 
 def test_demo_and_unknown_sources_cannot_start_network_work(api):
     with pytest.raises(ApiError, match="Demo databases"):
-        api.handle_api("POST", "/api/sources/refresh", {}, {"source_id": "gupy"})
+        api.handle_api("POST", "/api/sources/refresh", {}, {"source_id": "programathor"})
     with pytest.raises(ApiError, match="existing source"):
         api.handle_api("POST", "/api/sources/refresh", {}, {"source_id": "made-up-source"})
     assert not api.retrieval.running
