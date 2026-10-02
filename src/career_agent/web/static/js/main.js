@@ -381,6 +381,7 @@ function goTo(page, { push = true } = {}) {
   // Loaded on arrival rather than on page load: the catalogue answers a
   // question nobody has asked yet, and a list of jobs should not wait on it.
   if (page === 'settings') {
+    setSettingsTab(settingsTab);
     renderSetupEntry(document.getElementById('settings-setup-host'));
     renderSearchSettings(document.getElementById('search-settings-host'), store);
     sourcesPanel.load();
@@ -2334,6 +2335,7 @@ function drawSiteAlert(failed) {
 
 document.getElementById('site-alert-fix')?.addEventListener('click', () => {
   shell.closeDrawer({ restore: false });
+  settingsTab = 'sites';
   goTo('settings');
 });
 document.getElementById('site-alert-close')?.addEventListener('click', () => {
@@ -2430,7 +2432,42 @@ async function loadRailReadouts() {
 dom.healthSummary?.addEventListener('click', () => {
   if (!dom.healthSummary.classList.contains('is-actionable')) return;
   shell.closeDrawer({ restore: false });
+  settingsTab = 'sites';
   goTo('settings');
+});
+
+// =========================================================================
+// Settings tabs
+// =========================================================================
+//
+// Which blocks of Settings are drawn. A moment, not a preference: Settings
+// opens on "Your search" unless something sent the reader to a tab.
+let settingsTab = 'search';
+function setSettingsTab(tab) {
+  const page = document.getElementById('page-settings');
+  const profiles = document.getElementById('settings-profiles-block');
+  document.getElementById('settab-profiles').hidden = profiles.hidden;
+  if (tab === 'profiles' && profiles.hidden) tab = 'search';
+  settingsTab = tab;
+  page.dataset.tab = tab;
+  for (const node of document.querySelectorAll('[data-settab-btn]')) {
+    const chosen = node.dataset.settabBtn === tab;
+    node.setAttribute('aria-selected', String(chosen));
+    node.setAttribute('aria-pressed', String(chosen));
+    node.tabIndex = chosen ? 0 : -1;
+  }
+}
+document.getElementById('settings-tabs').addEventListener('click', (event) => {
+  const node = event.target.closest('[data-settab-btn]');
+  if (node) setSettingsTab(node.dataset.settabBtn);
+});
+document.getElementById('settings-tabs').addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+  const tabs = [...document.querySelectorAll('[data-settab-btn]')].filter((node) => !node.hidden);
+  const here = tabs.findIndex((node) => node.dataset.settabBtn === settingsTab);
+  const next = tabs[(here + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+  setSettingsTab(next.dataset.settabBtn);
+  next.focus();
 });
 
 store.startHistory();
@@ -2901,7 +2938,12 @@ function relabelStaticText() {
     'settings-ai-head': 'ai.head',
     'settings-profiles-head': 'profiles.settingsHead',
     'settings-retr-head': 'retrieval.detailHead',
+    'settab-search': 'settab.search',
+    'settab-sites': 'settab.sites',
+    'settab-ai': 'settab.ai',
+    'settab-profiles': 'settab.profiles',
   };
+  document.getElementById('settings-tabs').setAttribute('aria-label', t('settab.group'));
   for (const [id, key] of Object.entries(settingsHeads)) {
     const node = document.getElementById(id);
     if (node) node.textContent = t(key);

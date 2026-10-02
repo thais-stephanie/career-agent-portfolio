@@ -1372,20 +1372,20 @@ const EN = {
   'sources.state.STALE': 'Out of date',
   'sources.state.DUE': 'Due for a refresh',
   'sources.state.RATE_LIMITED': 'Refused by the site',
-  'sources.healthTitle': 'Source health',
+  'sources.healthTitle': 'How your job sites are doing',
   'sources.healthSummary': '{due} due for a refresh, {attention} need attention. '
     + 'Refreshing is up to you: nothing runs by itself.',
   'sources.healthSource': 'Source',
   'sources.healthLastSuccess': 'Last success',
   'sources.healthStatus': 'Status',
-  'sources.refreshDue': 'Refresh due sources',
-  'sources.refreshAll': 'Refresh all available sources',
+  'sources.refreshDue': 'Check for new jobs',
+  'sources.refreshAll': 'Check all again',
   'sources.refreshDueStarting': 'Checking which sources are due...',
   'sources.refreshDueStarted': 'Refreshing {n} due sources. Progress is shown at the top.',
   'sources.refreshAllStarted': 'Refreshing all {n} available sources. Progress is shown at the top.',
-  'sources.refreshHelp': 'Refresh due sources is the normal one, and what Find jobs does: only sources not '
-    + 'refreshed in the last day. Refresh all available sources also reads the ones refreshed recently. Neither '
-    + 'wakes a paused source or asks a site that refused before its wait is over.',
+  'sources.refreshHelp': 'Check for new jobs is the usual one, and what Find jobs does: it reads only the sites not '
+    + 'checked in the last day. Check all again also reads the ones checked recently. Neither wakes a paused site '
+    + 'or asks a site that refused before its wait is over. Nothing runs by itself: you decide when to check.',
   'sources.popIntegrated': '{n} integrated sources',
   'sources.popExperimental': '{n} experimental enabled',
   'sources.popAvailable': '{n} available to refresh now',
@@ -2685,6 +2685,11 @@ const EN = {
   'setup.ready.toHome': 'Go to Home',
   'empty.findJobs': 'Find jobs now',
   'settings.setupHead': 'Your answers',
+  'settab.group': 'Settings sections',
+  'settab.search': 'Your search',
+  'settab.sites': 'Job sites',
+  'settab.ai': 'Smart matching',
+  'settab.profiles': 'Profiles',
   'settings.setupLede': 'Where you live, where you can be hired, the work you want and your pay target. Go through '
     + 'them again one at a time, starting from what is saved.',
   'settings.setupOpen': 'Change my answers',
@@ -3171,7 +3176,7 @@ const EN = {
     + 'application preparation can draw on; Search Fit is not affected.',
   'imp.reviewWaiting': 'Review what is left',
   'imp.finish': 'Back to documents',
-  'ai.head': 'AI & Semantic Matching',
+  'ai.head': 'Smart matching',
   'ai.intro': 'Career Agent can ask an AI to recognise the work you want in postings that describe it in other '
     + 'words. The AI only interprets: Career Agent checks every quote against the posting and does all of the '
     + 'scoring itself.',
@@ -4541,20 +4546,21 @@ const PT_BR = {
   'sources.state.STALE': 'Desatualizada',
   'sources.state.DUE': 'Hora de atualizar',
   'sources.state.RATE_LIMITED': 'Recusada pelo site',
-  'sources.healthTitle': 'Saúde das fontes',
+  'sources.healthTitle': 'Como estão seus sites de vagas',
   'sources.healthSummary': '{due} precisam de atualização, {attention} precisam de atenção. '
     + 'Atualizar é com você: nada roda sozinho.',
   'sources.healthSource': 'Fonte',
   'sources.healthLastSuccess': 'Último sucesso',
   'sources.healthStatus': 'Status',
-  'sources.refreshDue': 'Atualizar fontes pendentes',
-  'sources.refreshAll': 'Atualizar todas as fontes disponíveis',
+  'sources.refreshDue': 'Procurar vagas novas',
+  'sources.refreshAll': 'Verificar todos de novo',
   'sources.refreshDueStarting': 'Verificando quais fontes estão pendentes...',
   'sources.refreshDueStarted': 'Atualizando {n} fontes pendentes. O progresso aparece no topo.',
   'sources.refreshAllStarted': 'Atualizando todas as {n} fontes disponíveis. O progresso aparece no topo.',
-  'sources.refreshHelp': 'Atualizar fontes pendentes é o normal, e é o que Encontrar vagas faz: só as fontes não '
-    + 'atualizadas no último dia. Atualizar todas as fontes disponíveis lê também as atualizadas há pouco. Nenhum '
-    + 'dos dois acorda uma fonte pausada nem pergunta de novo a um site que recusou antes do fim da espera.',
+  'sources.refreshHelp': 'Procurar vagas novas é o normal, e é o que Encontrar vagas faz: só lê os sites não '
+    + 'verificados no último dia. Verificar todos de novo lê também os verificados há pouco. Nenhum dos dois acorda '
+    + 'um site pausado nem pergunta de novo a um site que recusou antes do fim da espera. Nada roda sozinho: você '
+    + 'decide quando verificar.',
   'sources.popIntegrated': '{n} fontes integradas',
   'sources.popExperimental': '{n} experimental ligada',
   'sources.popAvailable': '{n} disponíveis para atualizar agora',
@@ -5829,6 +5835,11 @@ const PT_BR = {
   'setup.ready.toHome': 'Ir para o Início',
   'empty.findJobs': 'Encontrar vagas agora',
   'settings.setupHead': 'Suas respostas',
+  'settab.group': 'Seções das configurações',
+  'settab.search': 'Sua busca',
+  'settab.sites': 'Sites de vagas',
+  'settab.ai': 'Correspondência inteligente',
+  'settab.profiles': 'Perfis',
   'settings.setupLede': 'Onde você mora, onde pode ser contratado, o trabalho que quer e o salário alvo. Revise uma '
     + 'de cada vez, a partir do que já está salvo.',
   'settings.setupOpen': 'Mudar minhas respostas',
@@ -6322,7 +6333,7 @@ const PT_BR = {
     + 'preparação de candidaturas pode usar; o Search Fit não muda.',
   'imp.reviewWaiting': 'Revisar o que falta',
   'imp.finish': 'Voltar aos documentos',
-  'ai.head': 'IA e correspondência semântica',
+  'ai.head': 'Correspondência inteligente',
   'ai.intro': 'O Career Agent pode pedir a uma IA que reconheça o trabalho que você quer em vagas que o descrevem '
     + 'com outras palavras. A IA só interpreta: o Career Agent confere cada citação com a vaga e faz todo o '
     + 'cálculo da pontuação.',

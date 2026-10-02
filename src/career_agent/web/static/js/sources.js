@@ -78,6 +78,21 @@ const TONE = {
   BLOCKED_PROVIDER: 'warn',
 };
 
+//: How each refresh state reads at a glance: a pill, its words always beside.
+const REFRESH_TONE = {
+  COMPLETE: 'good',
+  RUNNING: 'info',
+  QUEUED: 'info',
+  DUE: 'quiet',
+  STALE: 'quiet',
+  NOT_STARTED: 'quiet',
+  PARTIAL: 'warn',
+  FAILED: 'warn',
+  RATE_LIMITED: 'warn',
+  BLOCKED: 'warn',
+  PAUSED: 'quiet',
+};
+
 export function createSourcesPanel(host, { collection = null } = {}) {
   //: Whether "Each job source" is open. The panel redraws after every refresh
   //: or timing change, and a section that snapped shut under the button just
@@ -203,20 +218,31 @@ export function createSourcesPanel(host, { collection = null } = {}) {
           ].filter(Boolean)),
           el('td', { text: row.last_success ? shortDate(row.last_success) : t('sources.neverFresh') }),
           el('td', {}, [
-            el('strong', { text: t(`sources.state.${row.state}`) }),
+            el('strong', {
+              className: `src__pill src__pill--${REFRESH_TONE[row.state] || 'quiet'}`,
+              text: t(`sources.state.${row.state}`),
+            }),
             detail ? el('span', { className: 'src__reason', text: ` ${detail}` }) : null,
           ].filter(Boolean)),
         ]);
       })),
     ]);
     return el('section', { className: 'src__health', attrs: { 'aria-labelledby': 'health-head' } }, [
-      el('h3', { text: t('sources.healthTitle'), attrs: { id: 'health-head' } }),
+      // The handoff's health banner: yellow while a site needs attention,
+      // green otherwise, with the two ways to check beside it.
+      el('div', { className: `src__banner src__banner--${attention ? 'warn' : 'good'}` }, [
+        el('span', { className: 'src__bannericon', text: attention ? '!' : '✓', attrs: { 'aria-hidden': 'true' } }),
+        el('div', { className: 'src__bannertext' }, [
+          el('h3', { text: t('sources.healthTitle'), attrs: { id: 'health-head' } }),
+          el('p', { text: t('sources.healthSummary', { due, attention }) }),
+        ]),
+        el('div', { className: 'src__health-actions' }, [refreshAll, refreshDue]),
+      ]),
+      notice,
       summary ? el('p', { className: 'src__population', text: populationText(summary) }) : null,
-      el('p', { text: t('sources.healthSummary', { due, attention }) }),
       el('p', { className: 'src__note', text: t('sources.refreshHelp') }),
-      el('div', { className: 'src__health-actions' }, [refreshDue, refreshAll, notice]),
       table,
-    ]);
+    ].filter(Boolean));
   }
 
   function render(payload) {

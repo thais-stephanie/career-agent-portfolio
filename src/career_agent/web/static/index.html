@@ -237,45 +237,53 @@
      Where the postings come from is not a filter, and reaching it meant
      opening a disclosure inside a panel that only exists on one page. The
      panels move; the code behind them does not. -->
-<main class="page page--settings" id="page-settings" hidden>
+<main class="page page--settings" id="page-settings" data-tab="search" hidden>
+  <!-- FOUR TABS over the same blocks (redesign handoff). A tab only decides
+       which blocks are drawn; every block and its code are unchanged. -->
+  <div class="settabs segmented" role="tablist" id="settings-tabs" aria-label="Settings">
+    <button type="button" class="segmented__btn" role="tab" data-settab-btn="search" id="settab-search">Your search</button>
+    <button type="button" class="segmented__btn" role="tab" data-settab-btn="sites" id="settab-sites">Job sites</button>
+    <button type="button" class="segmented__btn" role="tab" data-settab-btn="ai" id="settab-ai">Smart matching</button>
+    <button type="button" class="segmented__btn" role="tab" data-settab-btn="profiles" id="settab-profiles">Profiles</button>
+  </div>
   <!-- YOUR ANSWERS, FIRST. Changing where you live or what work you want used
        to mean finding the right field on a page of sixteen; the guided setup
        asks each one again, one at a time, starting from what is saved. -->
-  <section class="settings__block settings__block--setup">
+  <section class="settings__block settings__block--setup" data-settab="search">
     <h2 class="settings__head" id="settings-setup-head">Your answers</h2>
     <div id="settings-setup-host"></div>
   </section>
-  <section class="settings__block">
+  <section class="settings__block" data-settab="search">
     <h2 class="settings__head" id="settings-prefs-head">Search preferences</h2>
     <div id="search-settings-host"></div>
   </section>
   <!-- THE SCORING VOCABULARY, a developer view. Hidden unless the address
        carries `?debug=1` (see DEV_SCORING in main.js). The configuration
        files and the /api/preferences endpoints behind it are unchanged. -->
-  <section class="settings__block" id="settings-model-block" hidden>
+  <section class="settings__block" id="settings-model-block" data-settab="search" hidden>
     <h2 class="settings__head" id="settings-model-head">Your search model</h2>
     <details id="settings-model">
       <summary id="settings-model-summary">Review concepts and advanced scoring vocabulary</summary>
       <div id="prefs-host"></div>
     </details>
   </section>
-  <section class="settings__block">
+  <section class="settings__block" data-settab="sites">
     <h2 class="settings__head" id="settings-sources-head">Where these come from</h2>
     <div id="sources-host"></div>
   </section>
   <!-- LOCAL PROFILES: deleting one. Kept out of the profile menu, which is
        for switching, renaming and adding; shown only when profiles run. -->
-  <section class="settings__block" id="settings-profiles-block" hidden>
+  <section class="settings__block" id="settings-profiles-block" data-settab="profiles" hidden>
     <h2 class="settings__head" id="settings-profiles-head">Profiles on this computer</h2>
     <div id="settings-profiles-host"></div>
   </section>
   <!-- HOW postings are interpreted. What the person wants stays in Search
        preferences above; this block never edits it. -->
-  <section class="settings__block settings__block--ai">
+  <section class="settings__block settings__block--ai" data-settab="ai">
     <h2 class="settings__head" id="settings-ai-head">AI &amp; Semantic Matching</h2>
     <div id="ai-settings-host"></div>
   </section>
-  <details class="settings__block">
+  <details class="settings__block" data-settab="sites">
     <summary id="settings-advanced-summary">Advanced refresh diagnostics</summary>
     <h2 class="settings__head" id="settings-retr-head">Last refresh, in detail</h2>
     <div id="retr-host"></div>
