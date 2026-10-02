@@ -900,7 +900,7 @@ function paint(state) {
   } else if (state.view === 'kanban') {
     renderKanban(dom.list, items, {
       onOpen: openJob,
-      onStatus: changeStatus,
+      onMove: moveWithUndo,
     });
     paintBoardEmpty(items.length === 0 && activeFilterCount(state) <= 1);
   } else {
@@ -910,8 +910,8 @@ function paint(state) {
       onSave: changeSaved,
       onHidden: changeHidden,
       onApplied: markApplied,
-      canUndoApply: (jobId) => recentApply.has(jobId),
-      onUndoApply: (jobId) => undoApplied(jobId),
+      canUndoApply: (jobId) => recentMoves.has(jobId),
+      onUndoApply: (jobId) => undoMove(jobId).catch((error) => flash(error.message, true)),
     });
   }
 
@@ -1834,35 +1834,44 @@ function restoreConfirmed() {
   if (!loading) paint(store.get());
 }
 
-// "Did you send your application?" -- Yes. Opening the employer's page is
-// not applying, so this answer is the only thing on a card that records one.
-// The move goes through the ordinary status route, which keeps the history
-// and stamps today's date. Undo puts back the status it replaced and, when
-// there was no applied date before, clears the one the move stamped.
-const recentApply = new Map();
+// A MOVE WITH A REAL UNDO: the board's buttons and drops, and the answer
+// "Yes" to "Did you send your application?" (opening the employer's page is
+// not applying, so that answer is the only thing on a card that records one).
+// Every move goes through the ordinary status route, which keeps the history
+// and stamps today's date on a first post-application status. Undo puts back
+// the status it replaced and, when there was no applied date before, clears
+// the one the move stamped. A job whose previous state is not in hand gets
+// no Undo rather than a guessed one.
+const recentMoves = new Map();
 
-async function markApplied(jobId) {
-  const job = findJob(jobId);
-  const before = {
-    status: job ? job.application_status || 'DISCOVERED' : 'DISCOVERED',
-    appliedAt: job ? job.applied_at || null : null,
-  };
-  recentApply.set(jobId, before);
-  const updated = await changeStatus(jobId, 'APPLIED');
-  if (!updated) {
-    recentApply.delete(jobId);
-    return;
+async function moveWithUndo(jobId, status, message = null) {
+  const job = findJob(jobId) || (drawer.job && drawer.job.job_id === jobId ? drawer.job : null);
+  const before = job
+    ? { status: job.application_status || 'DISCOVERED', appliedAt: job.applied_at || null }
+    : null;
+  const updated = await changeStatus(jobId, status);
+  if (!updated) return null;
+  const words = message || t('flash.movedTo', { status: statusLabel(status) });
+  if (!before) {
+    toast(words);
+    return updated;
   }
-  toast(t('flash.markedApplied'), { undo: () => undoApplied(jobId) });
+  recentMoves.set(jobId, before);
+  toast(words, { undo: () => undoMove(jobId) });
   return updated;
 }
 
-async function undoApplied(jobId) {
-  const before = recentApply.get(jobId);
+function markApplied(jobId) {
+  return moveWithUndo(jobId, 'APPLIED', t('flash.markedApplied'));
+}
+
+async function undoMove(jobId) {
+  const before = recentMoves.get(jobId);
   if (!before) return;
-  recentApply.delete(jobId);
-  if (!(await changeStatus(jobId, before.status))) throw new Error(t('flash.undoFailed'));
-  if (!before.appliedAt && !(await changeAppliedDate(jobId, null))) {
+  recentMoves.delete(jobId);
+  const back = await changeStatus(jobId, before.status);
+  if (!back) throw new Error(t('flash.undoFailed'));
+  if (!before.appliedAt && back.applied_at && !(await changeAppliedDate(jobId, null))) {
     throw new Error(t('flash.undoFailed'));
   }
 }

@@ -253,6 +253,10 @@
   --inv-bg: #1b1a17;
   --inv-fg: #fbf8f0;
   --bw: 2px;
+  --yellow-bar: #d4b84a;
+  --blue-bar: #4f7bd6;
+  --purple: #8a6fe0;
+  --col-bg: #f3eee3;
   --tip-bg: #efe9fd;
   --shadow: 4px 4px 0 #1b1a17;
   --heart: #e5484d;
@@ -506,6 +510,10 @@
   --d-inv-bg: #f3f0e8;
   --d-inv-fg: #1b1a17;
   --d-bw: 1px;
+  --d-yellow-bar: #d4b84a;
+  --d-blue-bar: #6f93e0;
+  --d-purple: #a08ae6;
+  --d-col-bg: #201f1c;
   --d-tip-bg: #221f2b;
   --d-shadow: none;
   --d-heart: #e5484d;
@@ -829,6 +837,10 @@
     --inv-bg: var(--d-inv-bg);
     --inv-fg: var(--d-inv-fg);
     --bw: var(--d-bw);
+    --yellow-bar: var(--d-yellow-bar);
+    --blue-bar: var(--d-blue-bar);
+    --purple: var(--d-purple);
+    --col-bg: var(--d-col-bg);
     --tip-bg: var(--d-tip-bg);
     --shadow: var(--d-shadow);
     --heart: var(--d-heart);
@@ -937,6 +949,10 @@
   --inv-bg: var(--d-inv-bg);
   --inv-fg: var(--d-inv-fg);
   --bw: var(--d-bw);
+  --yellow-bar: var(--d-yellow-bar);
+  --blue-bar: var(--d-blue-bar);
+  --purple: var(--d-purple);
+  --col-bg: var(--d-col-bg);
   --tip-bg: var(--d-tip-bg);
   --shadow: var(--d-shadow);
   --heart: var(--d-heart);
@@ -9859,3 +9875,88 @@ body.has-filters { overflow: hidden; }
   .drawer__panel .drawer__body { padding: 18px 16px 40px; }
   .drawer__panel .drawer__title { font-size: 22px; }
 }
+
+/* =====================================================================
+   MY APPLICATIONS: THE BOARD (redesign handoff, 2026-10)
+   ===================================================================== */
+.kanban {
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-columns: repeat(5, minmax(232px, 1fr));
+  grid-auto-columns: auto;
+  gap: 12px;
+  padding: 2px 2px 12px;
+  overflow-x: auto;
+  align-items: stretch;
+}
+.kanban .kcol {
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: max(540px, calc(100vh - 300px));
+  padding: 12px 10px 10px;
+  background: var(--col-bg);
+  border: 0; border-radius: 16px; box-shadow: none;
+  outline: 2px solid transparent; outline-offset: -2px;
+  transition: background 150ms ease;
+}
+.kanban .kcol.is-over { background: var(--tip-bg); outline: 2px dashed var(--kcol-color, var(--line-strong)); }
+.kcol--shortlisted { --kcol-color: var(--purple); }
+.kcol--applied { --kcol-color: var(--blue-bar); }
+.kcol--interview { --kcol-color: var(--yellow-bar); }
+.kcol--offer { --kcol-color: var(--green-bar); }
+.kcol--closed { --kcol-color: var(--faint); }
+.kanban .kcol__head {
+  display: flex; flex-direction: column; gap: 6px;
+  margin: 0; padding: 2px 4px 6px;
+  border: 0; background: transparent;
+}
+.kanban .kcol__head, .kanban .kcol__help { text-align: left; font-weight: 400; }
+.kcol__bar { align-self: flex-start; width: 28px; height: 3px; border-radius: 2px; background: var(--kcol-color); }
+.kcol__titlerow { display: flex; align-items: center; gap: 8px; }
+.kanban .kcol__title { text-align: left; flex: 1; margin: 0; font-family: var(--sans); font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.kanban .kcol__count { font-size: 12px; font-weight: 600; color: var(--muted); background: transparent; border: 0; padding: 0; }
+.kcol__help {
+  margin: 0; min-height: 2.8em;
+  font-size: 12.5px; line-height: 1.4; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.kanban .kcol__body { display: flex; flex-direction: column; gap: 8px; padding: 0; min-height: 0; background: transparent; border: 0; }
+.kanban .kcol__empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 96px; margin: 0; padding: 14px;
+  border: 1.5px dashed var(--divider); border-radius: 12px;
+  font-size: 13px; line-height: 1.45; text-align: center; color: var(--faint);
+}
+.kanban .kcard {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--divider); border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  cursor: grab;
+  transition: box-shadow 150ms ease, transform 150ms ease;
+}
+.kanban .kcard:hover { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.09); transform: translateY(-1px); }
+.kanban .kcard.is-dragging { opacity: 0.5; }
+.kanban .kcard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.kcard__top { display: flex; align-items: center; gap: 8px; }
+.kanban .kcard__company { flex: 1; min-width: 0; margin: 0; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban .kcard__match { flex: none; padding: 1px 7px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+.kanban .kcard__title {
+  margin: 0;
+  font-family: var(--display); font-weight: 400; font-size: 15px; line-height: 1.28;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.kanban .kcard__meta { margin: 0; font-size: 12px; color: var(--faint); }
+.kcard__foot { display: flex; align-items: center; gap: 4px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--divider); }
+.kcard__grow { flex: 1; }
+.kcard__back, .kcard__next {
+  height: 28px; border: 0; border-radius: 8px;
+  background: transparent; font: inherit; cursor: pointer;
+}
+.kcard__back { flex: none; width: 28px; color: var(--muted); font-size: 15px; }
+.kcard__next { padding: 0 8px; color: var(--link); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.kcard__back:hover, .kcard__next:hover { background: var(--chip-bg); color: var(--ink); }
+.kcard__done { padding: 0 6px; font-size: 12px; color: var(--faint); }
+@media (prefers-reduced-motion: reduce) { .kanban .kcard, .kanban .kcard:hover { transition: none; transform: none; } }
+/* The result line under the toolbar: words, not a readout. */
+#resultcount { font-family: var(--sans); font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--body); }
