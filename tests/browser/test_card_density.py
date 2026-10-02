@@ -246,21 +246,28 @@ def demo_companies(demo_company_names: frozenset[str]) -> list[str]:
 # -- the demo corpus, as it is ------------------------------------------------
 
 
-def test_no_card_is_stretched_to_match_another(page: Chrome, server: str) -> None:
-    """Content-based height: the grid does not equalise rows and the footer
-    is not pushed down to fill a band the content never asked for."""
+def test_cards_align_within_a_row_and_never_across_the_page(page: Chrome, server: str) -> None:
+    """A row is as tall as its tallest card and its footers share a bottom;
+    implicit rows are never equalised across the PAGE (the old `1fr`)."""
     page.set_viewport(*DESKTOP)
     open_list(page, server, SHOW_EVERYTHING)
     page.wait_for(f"Boolean({A_REAL_CARD})", message="a drawn card")
 
     grid = page.evaluate("getComputedStyle(document.querySelector('.cards')).gridAutoRows")
     assert str(grid) == "auto", f"implicit rows are still equalised: {grid}"
-    align = page.evaluate("getComputedStyle(document.querySelector('.cards')).alignItems")
-    assert str(align) == "start", align
-    footer_gap = page.evaluate(
-        f"getComputedStyle({A_REAL_CARD}.querySelector('.card__footer')).marginTop"
+    rows = page.evaluate(
+        """(() => {
+          const cards = [...document.querySelectorAll('.cards .card[data-job-id]')];
+          const top = cards[0].getBoundingClientRect().top;
+          const row = cards.filter(c => Math.abs(c.getBoundingClientRect().top - top) < 2);
+          const r = e => Math.round(e.getBoundingClientRect().bottom);
+          return {n: row.length, cards: [...new Set(row.map(r))],
+                  footers: [...new Set(row.map(c => r(c.querySelector('.card__footer'))))]};
+        })()"""
     )
-    assert str(footer_gap) == "0px", f"the footer is still pushed down: {footer_gap}"
+    assert rows["n"] >= 2, rows
+    assert len(rows["cards"]) == 1, f"cards in one row end at different heights: {rows}"
+    assert len(rows["footers"]) == 1, f"footers in one row do not line up: {rows}"
 
 
 def test_several_demo_cards_fit_on_a_desktop_screen(page: Chrome, server: str) -> None:

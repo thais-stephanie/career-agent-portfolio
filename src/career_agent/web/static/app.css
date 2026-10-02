@@ -2656,7 +2656,8 @@ body.has-drawer { overflow: hidden; }
    six-country list, and every other card inherited its 460px with the
    difference left as blank space above the footer. Content-based height
    now; the rules that make each card short live under THE COMPACT CARD at
-   the end of this file. */
+   the end of this file. On desktop, DISCOVER DENSITY (last block) stretches
+   cards to their ROW's tallest, which is not this defect: rows stay `auto`. */
 
 .cards {
 
@@ -7879,7 +7880,7 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    Every rule here is a LATER declaration over the layers above; it is one
    block so the next person can read the card's height in one place.
    ===================================================================== */
-.cards { align-items: start; }
+.cards { align-items: start; }   /* desktop: per-row stretch, DISCOVER DENSITY */
 .card { gap: 0; }
 
 /* One row of three small badges, never two.
@@ -8010,7 +8011,7 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    its own cell -- it is the one control that leaves the product -- and it
    sits to the right of the status rather than under it. */
 .card__footer {
-  margin-top: 0;
+  margin-top: 0;   /* desktop: pinned to the bottom by DISCOVER DENSITY */
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 4px 10px;
   padding-top: 6px;
@@ -9269,3 +9270,68 @@ body.has-cw-drawer { overflow: hidden; }
 .src__health-table th, .src__health-table td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--line, #ddd); vertical-align: top; }
 .src__health-table tr.is-attention td { background: var(--yellow-soft, #fff6d6); }
 .src__health-table .tag { margin-left: .4rem; }
+
+/* =====================================================================
+   DISCOVER DENSITY
+
+   Measured on Discover Jobs with the real corpus on 2026-10-02, desktop
+   1600x900 with the sidebar: the first card started at y=488 and four cards
+   were fully on screen. The toolbar was 147px because its controls summed
+   to two pixels more than the bar and the whole sort group wrapped onto a
+   second line; its padding was also declared twice (the bar AND its
+   controls). Cards in one row had different heights, so their footers did
+   not line up, and the in-card controls were four different sizes (Save
+   20px, status 21, Hide and Apply 26).
+
+   One block, desktop only (the 900px layouts above are untouched), every
+   rule a later declaration over the layers above:
+     - at most four columns, and never narrower than 260px;
+     - cards in a row stretch to the row's tallest, footer at the bottom
+       (per ROW: the old page-wide `1fr` rows are still gone);
+     - badges 24px, toolbar controls 34px, in-card controls 30px;
+     - the bar's padding said once, the search field a little narrower, so
+       the toolbar is one row.
+   ===================================================================== */
+@media (min-width: 901px) {
+  .topbar { padding-top: 10px; padding-bottom: 10px; }
+  .topbar__controls { padding: 0 32px; }
+  .toolsearch-host { flex-basis: 200px; }
+  /* The two groups are sized from OUTSIDE, borders included, so they line
+     up with the single controls; their buttons fill them. */
+  #rail-toggle, #f-search, #daily-open, .viewswitch, .resultbar { height: 34px; min-height: 34px; }
+  .resultbar > * { height: auto; min-height: 0; }
+  .results { padding-top: 14px; }
+  .resultcount { margin-bottom: 8px; }
+  .hiddennotice { margin-top: 6px; }
+  .hidden__row { padding-top: 3px; padding-bottom: 3px; }
+  .hidden__show { padding-top: 2px; padding-bottom: 2px; min-height: 24px; }
+
+  .cards {
+    gap: 14px;
+    padding-top: 10px;
+    align-items: stretch;
+    grid-template-columns: repeat(auto-fill, minmax(max(260px, calc((100% - 3 * 14px) / 4 - 0.5px)), 1fr));
+  }
+  .cards .card__strip { margin-bottom: 0; }
+  .cards .card .badges--md,
+  .cards .card__head, .cards .card__facts, .cards .card__group, .cards .chips,
+  .cards .card__footer, .cards .card__blocked, .cards .card__offtarget,
+  .cards .card__context, .cards .card__partial, .cards .card__concern,
+  .cards .card__unknowns { padding-left: 14px; padding-right: 14px; }
+  .cards .card .badges--md { padding-top: 9px; gap: 4px; }
+  .cards .card .badges--md .badge {
+    height: 24px;
+    align-items: center;
+    padding: 0 7px;
+    line-height: 1;
+  }
+  .cards .card .badges--md .badge--match .badge__value { font-size: 13px; }
+  .cards .card__head { padding-top: 5px; }
+  .cards .card__facts { padding-top: 5px; padding-bottom: 0; }
+  .cards .card__facts dd { line-height: 1.3; }
+  .cards .card__footer { margin-top: auto; padding-top: 6px; padding-bottom: 9px; }
+  .cards .card__save, .cards .card__hide, .cards .card__apply,
+  .cards .card__actions .select--status { height: 30px; min-height: 30px; }
+  .cards .card__save, .cards .card__apply { display: inline-flex; align-items: center; }
+  .cards .card__actions .select--status { padding-top: 0; padding-bottom: 0; }
+}
