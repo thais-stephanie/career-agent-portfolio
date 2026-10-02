@@ -13,10 +13,11 @@
 
 import { el, button, extLink, select, replace, clear, focusables } from './dom.js';
 import {
-  formatDate, formatPoints, formatSalary, gateTone, humanLabel, paragraphs,
-  prominenceWords, relativeAge, statusLabel, statusOptions, vocabLabel,
+  compactPlace, formatDate, formatPoints, formatSalary, gateTone, humanLabel, paragraphs, parseDate,
+  prominenceWords, relativeAge, scoreDisplay, statusLabel, statusOptions, vocabLabel,
 } from './format.js';
-import { badges } from './badges.js';
+import { badges, searchFitIsReady } from './badges.js';
+import { matchTone } from './cards.js';
 import { helpNote } from './help.js';
 import { createPrepare } from './prepare.js';
 import { getLocale, t, tState } from './i18n.js';
@@ -27,6 +28,7 @@ const PHRASE_COMPONENTS = new Set(['responsibilities', 'technologies', 'automati
 
 export function createDrawer({
   onStatus, onSave, onNotes, onClearAppliedAt, onClosed, onChanged,
+  onApplied = null,
   getOllama = () => ({}), onEvidence = null,
   careerContext = null, onAddCareer = null,
 }) {
@@ -63,7 +65,16 @@ export function createDrawer({
   // with a separate answer, and asking it on every drawer open would make
   // reading a posting cost a second query nobody asked for.
   const prepare = createPrepare({ onEvidence });
-  preparePanel.append(prepare.host);
+  // Resume Tailor first: it is the step this tab exists to lead to.
+  const tailorHost = el('div', { className: 'd-tailorhost' });
+  preparePanel.append(tailorHost, prepare.host);
+  // MY NOTES: the person's own words and the history of where this
+  // application stood, apart from what the posting says.
+  const notesPanel = el('div', {
+    className: 'drawer__tabpanel',
+    attrs: { role: 'tabpanel', id: 'drawer-panel-notes', 'aria-labelledby': 'drawer-tab-notes' },
+    props: { hidden: true },
+  });
 
   const TABS = [
     // `Job details` and `Why this matches`, which are the names the product
@@ -87,6 +98,7 @@ export function createDrawer({
     { key: 'details', labelKey: 'drawer.tab.details', panel: detailPanel },
     { key: 'why', labelKey: 'drawer.tab.why', panel: whyPanel },
     { key: 'prepare', labelKey: 'drawer.tab.prepare', panel: preparePanel },
+    { key: 'notes', labelKey: 'drawer.tab.notes', panel: notesPanel },
   ];
 
   // The chosen tab survives while the drawer is open, including across the
@@ -129,7 +141,7 @@ export function createDrawer({
     // `setLocale` has read the stored choice. Its tabs were relabelled here
     // and its close button was not, so the one word on the drawer that is not
     // a tab stayed English on a Portuguese page.
-    closeButton.textContent = `${t('action.close')} ✕`;
+    closeButton.textContent = '✕';
     closeButton.setAttribute('aria-label', t('drawer.close'));
   }
 
@@ -168,20 +180,27 @@ export function createDrawer({
     });
   }
 
-  const bodyHost = el('div', { className: 'drawer__body' }, [tabList, detailPanel, whyPanel, preparePanel]);
+  const PANELS = [detailPanel, whyPanel, preparePanel, notesPanel];
+  const bodyHost = el('div', { className: 'drawer__body' }, PANELS);
+  const companyNode = el('span', { className: 'd-company drawer__company' });
+  const whereNode = el('span', { className: 'drawer__where' });
+  const actionsHost = el('div', { className: 'd-sec d-sec--identity drawer__actions' });
   const titleNode = el('h2', { className: 'drawer__title', attrs: { id: 'drawer-title' }, text: '' });
 
   /** Paint both panels. Both are always built; only one is visible. */
   function paint(job) {
+    companyNode.textContent = job.company_name || t('absent.companyStated');
+    whereNode.textContent = whereLine(job);
+    replace(actionsHost, headActions(job));
     replace(detailPanel, detailSections(job));
     replace(whyPanel, whySections(job));
-    if (!bodyHost.contains(tabList)) {
-      replace(bodyHost, [tabList, detailPanel, whyPanel, preparePanel]);
-    }
+    replace(tailorHost, [tailorSection(job)]);
+    replace(notesPanel, [notesSection(job), historySection(job)].filter(Boolean));
+    if (!bodyHost.contains(detailPanel)) replace(bodyHost, PANELS);
     selectTab(activeTab);
   }
 
-  const closeButton = button('', () => close(), { className: 'btn btn--close' });
+  const closeButton = button('', () => close(), { className: 'btn btn--close drawer__close' });
   // Its words, straight away. `relabel` is declared above and closes over a
   // `const` that does not exist until this line, so the call belongs here
   // rather than beside the function.
@@ -196,9 +215,13 @@ export function createDrawer({
       tabindex: '-1',
     },
   }, [
-    el('div', { className: 'drawer__head' }, [
-      titleNode,
-      closeButton,
+    el('header', { className: 'drawer__head' }, [
+      el('div', { className: 'drawer__headtop' }, [
+        el('div', { className: 'drawer__who' }, [companyNode, titleNode, whereNode]),
+        closeButton,
+      ]),
+      actionsHost,
+      tabList,
     ]),
     bodyHost,
   ]);
@@ -233,6 +256,9 @@ export function createDrawer({
     root.hidden = false;
     document.body.classList.add('has-drawer');
     titleNode.textContent = t('drawer.loading');
+    companyNode.textContent = '';
+    whereNode.textContent = '';
+    clear(actionsHost);
     replace(bodyHost, [el('div', { className: 'sk sk--block' }), el('div', { className: 'sk sk--block' })]);
     panel.focus();
 
@@ -263,6 +289,7 @@ export function createDrawer({
     document.body.classList.remove('has-drawer');
     clear(bodyHost);
     activeTab = 'details';
+    asking = false;
     prepare.reset();
     loadedPrepareFor = null;
     currentJob = null;
@@ -354,15 +381,115 @@ export function createDrawer({
 
   function detailSections(job) {
     return [
-      identity(job),
+      contentNotes(job),
       compensationSection(job),
-      tailorSection(job),
+      enrichmentSection(job),
       descriptionSection(job),
       duplicatesSection(job),
-      notesSection(job),
-      historySection(job),
-      enrichmentSection(job),
       provenanceSection(job),
+    ].filter(Boolean);
+  }
+
+  /** Where, and when and where it was posted: the line under the title. */
+  function whereLine(job) {
+    const place = compactPlace(job.location_raw, job.work_model).text;
+    const source = job.provider ? vocabLabel(job.provider) : t('absent.source');
+    const date = parseDate(job.posted_at) ? formatDate(job.posted_at) : null;
+    const posted = date ? t('card.postedOn', { date, source }) : source;
+    return `${place} \u00b7 ${posted}`;
+  }
+
+  /**
+   * The notes a card used to carry about the CONTENT: a thin posting and a
+   * US-domestic reading. They change how the rest of the tab is read, so they
+   * lead it.
+   */
+  function contentNotes(job) {
+    const notes = [];
+    if (job.content_completeness === 'PARTIAL_CONTENT' || job.content_completeness === 'METADATA_ONLY') {
+      notes.push(el('p', { className: 'd-note', text: `${t(`content.${job.content_completeness}`)}. ${
+        job.content_completeness === 'PARTIAL_CONTENT' ? t('content.partialHelp') : t('content.metadataHelp')}` }));
+    }
+    if (job.domestic_context === 'LIKELY_US_DOMESTIC' && job.eligibility_status === 'UNRESOLVED') {
+      notes.push(el('p', { className: 'd-note', text: t('domestic.LIKELY_US_DOMESTIC') }));
+    }
+    return notes.length ? el('section', { className: 'd-sec d-contentnotes' }, notes) : null;
+  }
+
+  //: The drawer's own "Did you send your application?", like the card's.
+  let asking = false;
+
+  /** The match, the heart, the job ad, Apply, and where the application stands. */
+  function headActions(job) {
+    const score = scoreDisplay(job.match_score);
+    const tone = searchFitIsReady() && score.scored ? matchTone(job.match_score) : null;
+    const match = tone
+      ? button('', () => selectTab('why'), {
+        className: `drawer__match card__match--${tone.tone}`,
+        attrs: { title: t('card.whyHelp') },
+      })
+      : null;
+    if (match) {
+      match.append(
+        el('span', { className: 'card__pct num', text: `${score.text}%` }),
+        el('span', { className: 'card__matchtext', text: t(tone.key) }),
+      );
+    }
+    const heart = button(job.saved ? '\u2665' : '\u2661', () => refreshWith(onSave(job.job_id, !job.saved)), {
+      className: `card__heart btn--save${job.saved ? ' is-saved is-on' : ''}`,
+      ariaLabel: job.saved ? t('card.unsaveLabel', { title: job.title }) : t('card.saveLabel', { title: job.title }),
+      attrs: { 'aria-pressed': job.saved ? 'true' : 'false' },
+    });
+    const status = String(job.application_status || 'DISCOVERED');
+    const sent = ['APPLIED', 'INTERVIEW', 'OFFER', 'HIRED'].includes(status);
+    const ad = extLink(job.url, t('drawer.openAd'), { className: 'drawer__ad' });
+    let apply = null;
+    if (sent) {
+      apply = el('span', { className: 'drawer__sent', text: `\u2713 ${statusLabel(status)}` });
+    } else if (job.url && onApplied) {
+      apply = extLink(job.url, t('drawer.applyOnSite'), { className: 'drawer__apply' });
+      if (apply.tagName === 'A') {
+        apply.addEventListener('click', () => {
+          asking = true;
+          setTimeout(() => refreshWith(Promise.resolve(currentJob)), 0);
+        });
+      }
+    }
+    const ask = asking && !sent
+      ? el('div', { className: 'drawer__ask', attrs: { role: 'group', 'aria-label': t('drawer.askQuestion') } }, [
+        el('span', { className: 'drawer__askq', text: t('drawer.askQuestion') }),
+        el('span', { className: 'drawer__askbtns' }, [
+          button(t('drawer.askYes'), () => {
+            asking = false;
+            refreshWith(onApplied(job.job_id));
+          }, { className: 'card__yes' }),
+          button(t('card.askNo'), () => {
+            asking = false;
+            refreshWith(Promise.resolve(currentJob));
+          }, { className: 'card__no' }),
+        ]),
+      ])
+      : null;
+    const statusSelect = select(statusOptions(), job.application_status, (value) => {
+      refreshWith(onStatus(job.job_id, value));
+    }, { className: 'select select--status', ariaLabel: t('drawer.applicationStatus') });
+    return [
+      el('div', { className: 'drawer__actrow' }, [
+        match,
+        el('span', { className: 'drawer__grow' }),
+        heart,
+        ad,
+        apply,
+      ].filter(Boolean)),
+      ask,
+      el('div', { className: 'drawer__meta' }, [
+        badges(job, { size: 'md', showMatch: false }),
+        el('label', { className: 'drawer__statuslabel' }, [
+          el('span', { text: t('drawer.whereYouAre') }),
+          statusSelect,
+        ]),
+      ]),
+      appliedLine(job),
     ].filter(Boolean);
   }
 
@@ -642,32 +769,6 @@ export function createDrawer({
   }
 
   // -- header -----------------------------------------------------------
-  function identity(job) {
-    const statusSelect = select(statusOptions(), job.application_status, (value) => {
-      // Re-rendered from the SERVER's answer, not from the value just chosen.
-      // The applied line below reads both the date and the status -- whether
-      // the date exists, and whether it may be cleared at this stage -- so a
-      // status change that repainted nothing left a control on screen that
-      // described the previous state.
-      refreshWith(onStatus(job.job_id, value));
-    }, { className: 'select select--status', ariaLabel: t('drawer.applicationStatus') });
-
-    return el('section', { className: 'd-sec d-sec--identity' }, [
-      el('p', { className: 'd-company', text: job.company_name || t('absent.companyStated') }),
-      badges(job, { size: 'md' }),
-      el('div', { className: 'd-actions' }, [
-        statusSelect,
-        button(job.saved ? t('drawer.saved') : t('drawer.save'),
-          () => onSave(job.job_id, !job.saved), {
-          className: `btn btn--save${job.saved ? ' is-on' : ''}`,
-          attrs: { 'aria-pressed': job.saved ? 'true' : 'false' },
-        }),
-        extLink(job.url, `${t('card.apply')} ↗︎`, { className: 'btn btn--link' }),
-      ]),
-      appliedLine(job),
-    ]);
-  }
-
   /**
    * Redraw the drawer from whatever the mutation resolved to.
    *

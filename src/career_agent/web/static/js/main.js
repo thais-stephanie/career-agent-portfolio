@@ -168,6 +168,7 @@ function evidenceHasUnsavedText() {
 const drawer = createDrawer({
   onStatus: (jobId, status) => changeStatus(jobId, status),  // returns the updated job
   onSave: (jobId, saved) => changeSaved(jobId, saved),
+  onApplied: (jobId) => markApplied(jobId),
   onNotes: (jobId, notes) => changeNotes(jobId, notes),
   // The drawer confirms before calling this. It is the only path in the
   // interface that can delete the record of having applied: ADR-0012.
@@ -1853,6 +1854,7 @@ async function markApplied(jobId) {
     return;
   }
   toast(t('flash.markedApplied'), { undo: () => undoApplied(jobId) });
+  return updated;
 }
 
 async function undoApplied(jobId) {

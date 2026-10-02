@@ -9775,3 +9775,87 @@ body.has-filters { overflow: hidden; }
 .matchpill--m1 { background: var(--m1-bg); color: var(--m1-fg); }
 .matchpill--m2 { background: var(--m2-bg); color: var(--m2-fg); }
 .matchpill--m3 { background: var(--m3-bg); color: var(--m3-fg); }
+
+/* =====================================================================
+   THE JOB DRAWER (redesign handoff, 2026-10): 700px, the job and its
+   actions in a header that stays put, four tabs under it.
+   ===================================================================== */
+.drawer__scrim { background: rgba(20, 19, 16, 0.55); }
+.drawer__panel {
+  width: min(700px, 100vw);
+  background: var(--paper);
+  color: var(--ink);
+  border-left: var(--bw) solid var(--line);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.3);
+}
+.drawer__panel--wide { width: min(880px, 100vw); }
+.drawer__panel .drawer__head {
+  display: flex; flex-direction: column; align-items: stretch; gap: 16px;
+  padding: 24px 28px 0;
+  border-bottom: 1px solid var(--divider);
+  background: var(--paper);
+}
+.drawer__headtop { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.drawer__who { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.drawer__company { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0; text-transform: none; }
+.drawer__panel .drawer__title { margin: 0; font-family: var(--display); font-weight: 400; font-size: 27px; line-height: 1.2; text-wrap: pretty; }
+.drawer__where { font-size: 14px; color: var(--body); }
+.drawer__panel .drawer__close {
+  flex: none; width: 44px; height: 44px; padding: 0;
+  border: var(--bw) solid var(--line-strong); border-radius: 50%;
+  background: var(--surface); color: var(--ink);
+  font-size: 16px; box-shadow: none;
+}
+.drawer__actions { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; border: 0; }
+.drawer__actrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.drawer__match { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; }
+.drawer__match .card__pct { padding: 4px 10px; border-radius: 9px; font-size: 18px; }
+.drawer__match .card__matchtext { font-size: 15px; }
+.drawer__match.card__match--m1 .card__pct { background: var(--m1-bg); color: var(--m1-fg); }
+.drawer__match.card__match--m1 .card__matchtext { color: var(--m1-fg); }
+.drawer__match.card__match--m2 .card__pct { background: var(--m2-bg); color: var(--m2-fg); }
+.drawer__match.card__match--m2 .card__matchtext { color: var(--m2-fg); }
+.drawer__match.card__match--m3 .card__pct { background: var(--m3-bg); color: var(--m3-fg); }
+.drawer__match.card__match--m3 .card__matchtext { color: var(--m3-fg); }
+.drawer__grow { flex: 1; }
+.drawer__ad, .drawer__apply, .drawer__sent {
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 14px; font-weight: 600; line-height: 1.2; text-decoration: none; white-space: nowrap;
+}
+.drawer__ad { background: var(--surface); color: var(--ink); border: var(--bw) solid var(--line-strong); }
+.drawer__apply { padding: 12px 18px; background: var(--lav); color: var(--on-lav); border: 0; }
+.drawer__ad:hover, .drawer__apply:hover { filter: brightness(0.96); }
+.drawer__sent { padding: 12px 18px; background: var(--hero-bg); color: var(--green-text); }
+.drawer__ask {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--ask-bg); border: 1px solid var(--ask-line); border-radius: 12px;
+}
+.drawer__askq { font-size: 14px; font-weight: 600; color: var(--ink); }
+.drawer__askbtns { display: flex; gap: 8px; }
+.drawer__askbtns .card__yes, .drawer__askbtns .card__no { flex: none; padding: 9px 14px; border-radius: 10px; font-size: 14px; }
+.drawer__meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.drawer__statuslabel { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.drawer__statuslabel .select { width: auto; min-width: 150px; }
+.drawer__panel .drawer__tabs {
+  display: flex; gap: 4px; overflow-x: auto;
+  margin: 0 0 -1px; padding: 0;
+  border: 0; background: transparent;
+}
+.drawer__panel .drawer__tab {
+  padding: 12px 12px 11px;
+  border: 0; border-bottom: 3px solid transparent; border-radius: 0;
+  background: transparent; color: var(--muted);
+  font-family: var(--sans); font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  white-space: nowrap; box-shadow: none;
+}
+.drawer__panel .drawer__tab:hover { color: var(--ink); }
+.drawer__panel .drawer__tab[aria-selected="true"] { color: var(--link); border-bottom-color: var(--link); background: transparent; }
+.drawer__panel .drawer__body { padding: 24px 28px 48px; }
+.drawer__panel .d-sec__head { font-family: var(--sans); font-size: 18px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink); }
+@media (max-width: 600px) {
+  .drawer__panel .drawer__head { padding: 18px 16px 0; }
+  .drawer__panel .drawer__body { padding: 18px 16px 40px; }
+  .drawer__panel .drawer__title { font-size: 22px; }
+}

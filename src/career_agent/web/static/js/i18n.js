@@ -473,9 +473,15 @@ const EN = {
   // (`MATCHED`, `GAP`) never move: they are what the API sends and what the
   // tests assert on, and only the word a person reads changes.
   'drawer.tabs.label': 'Job details, the reasoning behind the score, and preparing to apply',
-  'drawer.tab.details': 'Job details',
-  'drawer.tab.why': 'Why this fits your search',
-  'drawer.tab.prepare': 'Prepare to apply',
+  'drawer.tab.details': 'About the job',
+  'drawer.tab.why': 'Why it fits you',
+  'drawer.tab.prepare': 'Before you apply',
+  'drawer.tab.notes': 'My notes',
+  'drawer.openAd': 'Open job ad ↗',
+  'drawer.applyOnSite': 'Apply on company site ↗',
+  'drawer.askQuestion': 'We opened the company\'s website. Did you send your application?',
+  'drawer.askYes': 'Yes, I applied',
+  'drawer.whereYouAre': 'Where you are',
   'prep.requirements': 'What they ask for',
   'prep.retry': 'Try again',
   'prep.noRequirements': 'This posting fired none of the signals you configured, so there is '
@@ -3679,9 +3685,15 @@ const PT_BR = {
 
   // -- a terceira aba da gaveta ------------------------------------------
   'drawer.tabs.label': 'Detalhes da vaga, o raciocínio por trás da nota e a preparação',
-  'drawer.tab.details': 'Detalhes da vaga',
-  'drawer.tab.why': 'Por que se alinha à busca',
-  'drawer.tab.prepare': 'Preparar candidatura',
+  'drawer.tab.details': 'Sobre a vaga',
+  'drawer.tab.why': 'Por que combina com você',
+  'drawer.tab.prepare': 'Antes de se candidatar',
+  'drawer.tab.notes': 'Minhas notas',
+  'drawer.openAd': 'Abrir anúncio ↗',
+  'drawer.applyOnSite': 'Candidatar no site da empresa ↗',
+  'drawer.askQuestion': 'Abrimos o site da empresa. Você enviou sua candidatura?',
+  'drawer.askYes': 'Sim, me candidatei',
+  'drawer.whereYouAre': 'Onde você está',
   'prep.requirements': 'O que eles pedem',
   'prep.retry': 'Tentar de novo',
   'prep.noRequirements': 'Este anúncio não acionou nenhum dos sinais que você configurou, '
