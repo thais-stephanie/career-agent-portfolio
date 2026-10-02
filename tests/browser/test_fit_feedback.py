@@ -23,7 +23,7 @@ def open_first_why(page: Chrome, server: str) -> tuple[str, str]:
     click(page, f"document.querySelector('[data-job-id={json.dumps(job)}]')")
     page.wait_for(
         "document.querySelector('.drawer') && !document.querySelector('.drawer').hidden"
-        " && document.querySelectorAll('.drawer__tab').length === 3",
+        " && document.querySelectorAll('.drawer__tab').length === 4",
         message="the drawer and its tabs",
     )
     click(page, "document.getElementById('drawer-tab-why')")

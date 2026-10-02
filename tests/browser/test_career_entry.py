@@ -102,11 +102,11 @@ def test_the_getting_in_section_is_its_own_section(page: Chrome, server: str) ->
     _open_jobs(page, server)
     page.evaluate(
         "[...document.querySelectorAll('button')]"
-        ".find(b => b.textContent.trim().startsWith('Show filters'))?.click()"
+        ".find(b => b.textContent.trim().startsWith('All filters'))?.click()"
     )
     page.wait_for("document.querySelector('.filters details')", message="the rail opens")
     headings = page.evaluate(
-        "[...document.querySelectorAll('.filters > details > summary')]"
+        "[...document.querySelectorAll('.filters__more > details > summary')]"
         ".map(s => s.textContent.replace(/\\d+$/, '').trim())"
     )
     assert "Getting in" in headings, headings
@@ -122,7 +122,7 @@ def test_the_experience_control_says_what_it_excludes(page: Chrome, server: str)
     _open_jobs(page, server)
     page.evaluate(
         "[...document.querySelectorAll('button')]"
-        ".find(b => b.textContent.trim().startsWith('Show filters'))?.click()"
+        ".find(b => b.textContent.trim().startsWith('All filters'))?.click()"
     )
     page.wait_for("document.querySelector('#f-experience-years')")
     help_text = str(
@@ -190,7 +190,7 @@ def test_the_transition_control_is_off_by_default_and_says_why(page: Chrome, ser
     _open_jobs(page, server)
     page.evaluate(
         "[...document.querySelectorAll('button')]"
-        ".find(b => b.textContent.trim().startsWith('Show filters'))?.click()"
+        ".find(b => b.textContent.trim().startsWith('All filters'))?.click()"
     )
     page.wait_for("document.querySelector('#f-include_transferable')")
     assert page.evaluate("document.querySelector('#f-include_transferable').checked") is False
@@ -306,7 +306,7 @@ def _open_why(page: Chrome) -> str:
     page.evaluate("document.querySelector('#list .card').click()")
     page.wait_for(
         "document.querySelector('.drawer') && !document.querySelector('.drawer').hidden"
-        " && document.querySelectorAll('.drawer__tab').length === 3",
+        " && document.querySelectorAll('.drawer__tab').length === 4",
         message="the drawer opens with its three tabs",
     )
     page.evaluate("document.getElementById('drawer-tab-why').click()")
@@ -365,7 +365,7 @@ def test_the_getting_in_controls_move_language(page: Chrome, server: str) -> Non
     _open_jobs(page, server)
     page.evaluate(
         "[...document.querySelectorAll('button')]"
-        ".find(b => b.textContent.trim().startsWith('Show filters'))?.click()"
+        ".find(b => b.textContent.trim().startsWith('All filters'))?.click()"
     )
     page.wait_for("document.querySelector('#f-experience-years')")
     english = str(

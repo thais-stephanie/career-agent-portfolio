@@ -435,6 +435,12 @@ const NUMBER_CHIPS = {
  */
 const RELABELLED = new Map();
 
+/** The keys the essentials answer; a filter on one of them does not open More options. */
+const ESSENTIAL_KEYS = new Set([
+  'min_score', 'status', 'saved_only', 'worksite', 'region', 'seniority', 'has_salary',
+  'min_salary', 'salary_currency', 'posted_within_days', 'keyword', 'exclude_keyword',
+]);
+
 function fixed(node, key) {
   RELABELLED.set(node, key);
   return node;
@@ -470,10 +476,98 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
     presetButtons.set(preset.id, node);
     presetList.appendChild(node);
   }
-  root.appendChild(el('div', { className: 'filters__block filters__block--presets' }, [
-    fixed(el('h2', { className: 'filters__label' }), 'filters.startFrom'),
-    presetList,
-  ]));
+
+  // -- THE ESSENTIALS (redesign handoff) ----------------------------------
+  //
+  // Seven questions a person asks, each a row of chips over the SAME store
+  // keys the detailed sections below use. There is no second filter state:
+  // a chip pressed here lights the matching control under More options, and
+  // the reverse. Everything that is not one of these seven questions still
+  // exists, folded under More options rather than removed.
+  const essentials = el('div', { className: 'fess' });
+  root.appendChild(essentials);
+  const chipSyncs = [];
+  function essential(titleKey, helpKey, children) {
+    const node = el('section', { className: 'fess__sec' }, [
+      el('div', { className: 'fess__head' }, [
+        fixed(el('h3', { className: 'fess__title' }), titleKey),
+        helpKey ? fixed(el('p', { className: 'fess__help' }), helpKey) : null,
+      ]),
+      ...children,
+    ]);
+    essentials.appendChild(node);
+    return node;
+  }
+  /** A row of single-choice chips over one key; `options` are {value, labelKey}. */
+  function choiceChips(key, options, toValue = (v) => v) {
+    const row = el('div', { className: 'fchips', attrs: { role: 'group' } });
+    const nodes = options.map((option) => {
+      const node = button(t(option.labelKey), () => store.set({ [key]: toValue(option.value) }), {
+        className: 'fchip', attrs: { 'aria-pressed': 'false' },
+      });
+      RELABELLED.set(node, option.labelKey);
+      row.appendChild(node);
+      return node;
+    });
+    chipSyncs.push((state) => {
+      const current = state[key] ?? null;
+      options.forEach((option, index) => {
+        nodes[index].setAttribute('aria-pressed', String(toValue(option.value) === current));
+      });
+    });
+    return row;
+  }
+  /** A row of multi-choice chips over a facet, redrawn when the facets change. */
+  const facetChipRows = new Map();
+  function facetChips(key) {
+    const row = el('div', { className: 'fchips', attrs: { role: 'group' }, dataset: { facet: key } });
+    facetChipRows.set(key, row);
+    return row;
+  }
+
+  const MATCH_CHIPS = [
+    { value: null, labelKey: 'filters.match.any' },
+    { value: 60, labelKey: 'filters.match.60' },
+    { value: 75, labelKey: 'filters.match.75' },
+    { value: 90, labelKey: 'filters.match.90' },
+  ];
+  essential('filters.match.title', 'filters.match.help', [choiceChips('min_score', MATCH_CHIPS)]);
+
+  presetList.classList.add('fchips');
+  for (const node of presetButtons.values()) node.classList.add('fchip');
+  essential('filters.show.title', 'filters.show.help', [presetList]);
+
+  const placesLabel = fixed(el('span', { className: 'fess__sub' }), 'filters.where.places');
+  essential('filters.where.title', 'filters.where.help', [
+    facetChips('worksite'), placesLabel, facetChips('region'),
+  ]);
+  essential('filters.level.title', 'filters.level.help', [facetChips('seniority')]);
+
+  const paySwitch = button('', () => store.set({ has_salary: !store.get().has_salary }), {
+    className: 'fswitch', attrs: { role: 'switch', 'aria-checked': 'false' },
+  });
+  paySwitch.append(
+    fixed(el('span', { className: 'fswitch__text' }), 'filters.pay.switch'),
+    el('span', { className: 'fswitch__track', attrs: { 'aria-hidden': 'true' } }, [
+      el('span', { className: 'fswitch__knob' }),
+    ]),
+  );
+  chipSyncs.push((state) => paySwitch.setAttribute('aria-checked', String(Boolean(state.has_salary))));
+  const payHost = el('div', { className: 'fess__pay' });
+  essential('filters.pay.title', 'filters.pay.help', [paySwitch, payHost]);
+
+  essential('filters.postedTitle', 'filters.postedHelp', [choiceChips(
+    'posted_within_days', POSTED_WITHIN,
+    (value) => (value === '' ? null : Number(value)),
+  )]);
+  const wordsHost = el('div', { className: 'fess__words' });
+  essential('filters.words.title', 'filters.words.help', [wordsHost]);
+
+  // -- MORE OPTIONS: every other filter this product has -------------------
+  const more = el('details', { className: 'filters__more' }, [
+    el('summary', { className: 'filters__moresum' }, [fixed(el('span'), 'filters.more')]),
+  ]);
+  root.appendChild(more);
 
   // -- one host per section ----------------------------------------------
   const sections = new Map();
@@ -517,7 +611,7 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
       body,
       clearButton,
     ]);
-    root.appendChild(node);
+    more.appendChild(node);
     sections.set(section.key, { section, node, body, count, clearButton, facetHost: null });
   }
 
@@ -607,7 +701,7 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
   const unwanted = phraseList('f-exclude', 'filters.mustNotMention', 'exclude_keyword', store);
   const preferred = phraseList('f-prefer', 'filters.prefer', 'prefer_keyword', store);
   const avoided = phraseList('f-avoid', 'filters.avoid', 'avoid_keyword', store);
-  into('find').appendChild(el('div', { className: 'filters__block' }, [wanted.root, unwanted.root]));
+  wordsHost.append(wanted.root, unwanted.root);
   into('find').appendChild(el('div', { className: 'filters__block' }, [
     fixed(el('p', { className: 'filters__hint' }), 'filters.softHint'),
     preferred.root,
@@ -661,26 +755,6 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
       );
     }
   }
-
-  // -- posted within -----------------------------------------------------
-  const postedSelect = el('select', {
-    className: 'select',
-    attrs: { id: 'f-posted' },
-    on: {
-      change: (event) => store.set({
-        posted_within_days: event.target.value === '' ? null : Number(event.target.value),
-      }),
-    },
-  }, POSTED_WITHIN.map((option) => el('option', {
-    text: labelOf(option), attrs: { value: option.value },
-  })));
-  into('quick').appendChild(el('div', { className: 'filters__block' }, [
-    fixed(
-      el('label', { className: 'filters__sublabel', attrs: { for: 'f-posted' } }),
-      'filters.posted',
-    ),
-    postedSelect,
-  ]));
 
   // -- how much previous experience a posting may demand ------------------
   const experienceSelect = el('select', {
@@ -736,7 +810,7 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
       },
     },
   });
-  into('pay').appendChild(el('div', { className: 'filters__block' }, [
+  payHost.appendChild(el('div', { className: 'filters__block' }, [
     fixed(
       el('label', { className: 'filters__sublabel', attrs: { for: 'f-min-salary' } }),
       'filters.minSalary',
@@ -762,9 +836,6 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
     entry.body.appendChild(entry.facetHost);
   }
 
-  root.appendChild(button(t('action.clearAllFilters'), () => {
-    store.replaceAll(clearedFilters(store.get()));
-  }, { className: 'btn btn--wide' }));
 
   let lastFacetSignature = '';
 
@@ -790,6 +861,26 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
       if (!rows.length && !chosen.length) continue;
       const host = sections.get(group.section).facetHost;
       if (host) host.appendChild(facetGroup(group, rows, chosen, store));
+    }
+    for (const [key, row] of facetChipRows) {
+      clear(row);
+      const rows = ((facets && facets[key]) || []).filter((entry) => entry.key !== 'NOT_STATED');
+      const chosen = state[key] || [];
+      const keys = rows.map((entry) => entry.key);
+      for (const value of chosen) if (!keys.includes(value)) keys.push(value);
+      for (const value of keys) {
+        const label = facetValueLabel(key, rows.find((entry) => entry.key === value) || { key: value });
+        row.appendChild(button(label, () => {
+          const current = store.get()[key] || [];
+          store.set({
+            [key]: current.includes(value)
+              ? current.filter((item) => item !== value) : [...current, value],
+          });
+        }, {
+          className: 'fchip',
+          attrs: { 'aria-pressed': String(chosen.includes(value)), 'data-value': value },
+        }));
+      }
     }
     // The currency select is fed by the same facets, so it can only offer a
     // currency the corpus actually contains.
@@ -844,8 +935,7 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
     preferred.set(state.prefer_keyword || []);
     avoided.set(state.avoid_keyword || []);
     for (const [key, input] of toggleInputs) input.checked = Boolean(state[key]);
-    postedSelect.value = state.posted_within_days === null || state.posted_within_days === undefined
-      ? '' : String(state.posted_within_days);
+    for (const sync of chipSyncs) sync(state);
     experienceSelect.value = state.experience_max_years === null
       || state.experience_max_years === undefined
       ? '' : String(state.experience_max_years);
@@ -864,6 +954,10 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
    * visible cause, which is the exact failure progressive disclosure invites.
    */
   function syncSectionCounts(state) {
+    const hidden = [...sections.values()].some((entry) => countActive(
+      state, entry.section.keys.filter((key) => !ESSENTIAL_KEYS.has(key)),
+    ) > 0);
+    if (hidden && !more.open) more.open = true;
     for (const entry of sections.values()) {
       const active = countActive(state, entry.section.keys);
       entry.count.textContent = String(active);
@@ -895,6 +989,9 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
    */
   function relabel() {
     root.setAttribute('aria-label', t('rail.filters'));
+    // The facet chips draw their words when the facets arrive; forgetting
+    // the signature makes the next arrival redraw them in this language.
+    lastFacetSignature = '';
 
     for (const preset of PRESETS) {
       const node = presetButtons.get(preset.id);
@@ -939,14 +1036,6 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
 
     // And every label that recorded its own key when it was built.
     for (const [node, key] of RELABELLED) node.textContent = t(key);
-
-    // The one control whose OPTIONS are words rather than stored values.
-    // `posted_within_days` sends a number; what a person reads is "the last
-    // 7 days", and that phrase is ours.
-    for (const option of postedSelect.options) {
-      const row = POSTED_WITHIN.find((entry) => entry.value === option.value);
-      if (row) option.textContent = t(row.labelKey);
-    }
   }
 
   return {
@@ -971,6 +1060,12 @@ function updateFacetChecks(host, state) {
   for (const input of host.querySelectorAll('input[type="checkbox"][data-facet]')) {
     const values = state[input.dataset.facet] || [];
     input.checked = values.includes(input.dataset.value);
+  }
+  for (const row of host.querySelectorAll('.fchips[data-facet]')) {
+    const values = state[row.dataset.facet] || [];
+    for (const node of row.querySelectorAll('[data-value]')) {
+      node.setAttribute('aria-pressed', String(values.includes(node.dataset.value)));
+    }
   }
 }
 
@@ -1083,17 +1178,21 @@ function phraseList(id, labelKey, key, store) {
         // Enter inside a form submits it. The panel already blocks its own
         // submit, but stopping here keeps the reason local to the control.
         event.preventDefault();
-        const value = event.target.value.trim();
-        if (!value) return;
-        const current = store.get()[key] || [];
-        if (!current.includes(value)) store.set({ [key]: [...current, value] });
-        event.target.value = '';
+        add();
       },
     },
   });
+  function add() {
+    const value = input.value.trim();
+    if (!value) return;
+    const current = store.get()[key] || [];
+    if (!current.includes(value)) store.set({ [key]: [...current, value] });
+    input.value = '';
+  }
+  const addButton = fixed(button('', add, { className: 'phrases__add' }), 'filters.add');
   const root = el('div', { className: 'phrases' }, [
     fixed(el('label', { className: 'filters__sublabel', attrs: { for: id } }), labelKey),
-    input,
+    el('div', { className: 'phrases__entry' }, [input, addButton]),
     tags,
   ]);
   return {

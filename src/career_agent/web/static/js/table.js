@@ -15,15 +15,16 @@ import { el, button, extLink, select, replace, clear } from './dom.js';
 import { t } from './i18n.js';
 import {
   dateInputValue, formatDate, formatSalary, freshness, humanLabel,
-  statusOptions, truncate, vocabLabel,
+  statusLabel, statusOptions, truncate, vocabLabel,
 } from './format.js';
-import { eligibilityWords, scoreCell } from './badges.js';
+import { eligibilityWords, scoreCell, searchFitIsReady } from './badges.js';
+import { matchTone } from './cards.js';
 
 const STORAGE_KEY = 'careerAgent.table.columns.v1';
 
 /** Column order is the reading order of the working view. */
 export const COLUMNS = [
-  { id: 'score', labelKey: 'column.score', sort: 'score', className: 'col--num' },
+  { id: 'score', labelKey: 'column.score', sort: 'score', className: 'col--num', fixed: true },
   // Detail, not Confidence. The card, the legend, the filter and the sort
   // control all say Detail; this column said Confidence for the same number,
   // and one measurement with two names is two measurements to a reader.
@@ -64,6 +65,36 @@ export function loadVisible() {
   }
 }
 
+const ORDER_KEY = 'careerAgent.table.order.v1';
+
+/**
+ * The columns in the reader's order. Unknown ids are dropped and columns
+ * this build added since are appended in their default place, so a stored
+ * order can never hide a column nor name one that no longer exists.
+ */
+export function orderedColumns() {
+  let stored = [];
+  try {
+    stored = JSON.parse(window.localStorage.getItem(ORDER_KEY) || '[]');
+  } catch {
+    stored = [];
+  }
+  const byId = new Map(COLUMNS.map((column) => [column.id, column]));
+  const order = (Array.isArray(stored) ? stored : []).filter((id) => byId.has(id));
+  for (const column of COLUMNS) if (!order.includes(column.id)) order.push(column.id);
+  // Match and Job always lead, whatever was stored.
+  const fixed = COLUMNS.filter((column) => column.fixed).map((column) => column.id);
+  return [...fixed, ...order.filter((id) => !fixed.includes(id))].map((id) => byId.get(id));
+}
+
+function saveOrder(ids) {
+  try {
+    window.localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
+  } catch {
+    /* A column order is not worth an error message. */
+  }
+}
+
 function saveVisible(visible) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(visible)));
@@ -76,7 +107,7 @@ function saveVisible(visible) {
  * @param {HTMLElement} mount
  * @param {object[]} items
  * @param {object} ctx -- {sort, direction, onSort, onOpen, onStatus, onSave,
- *                         onAppliedDate, visible, onVisibilityChange}
+ *                         onAppliedDate, visible}
  */
 export function renderTable(mount, items, ctx) {
   mount.className = 'tablewrap';
@@ -97,7 +128,7 @@ export function renderTable(mount, items, ctx) {
   }, [table]);
   const wrap = el('div', { className: 'tablescrollwrap' }, [scroller]);
 
-  replace(mount, [toolbar(visible, context), wrap]);
+  replace(mount, [wrap]);
   watchScrollEdges(wrap, scroller);
   return mount;
 }
@@ -162,45 +193,127 @@ function signalLabels(job) {
 // No bulk "move the ticked jobs" control and no row checkboxes. Each row
 // already carries its own status select, and ticking rows existed only to feed
 // that one bulk control, so both went together.
-function toolbar(visible, ctx) {
-  return el('div', { className: 'tablebar' }, [columnMenu(visible, ctx)]);
+/**
+ * The Columns popover: every column with a switch, and up and down to move
+ * it. Match and Job are always shown and always first in the reader's mind,
+ * so they have no switch. Reset puts back the default order and set.
+ */
+export function renderColumnsMenu(host, onChange) {
+  const visible = loadVisible();
+  const all = orderedColumns();
+  const fixed = all.filter((column) => column.fixed);
+  const columns = all.filter((column) => !column.fixed);
+  const move = (index, by) => {
+    const ids = columns.map((column) => column.id);
+    const [id] = ids.splice(index, 1);
+    ids.splice(index + by, 0, id);
+    saveOrder(ids);
+    onChange(loadVisible());
+    renderColumnsMenu(host, onChange);
+    const again = host.querySelectorAll(`[data-move="${by < 0 ? 'up' : 'down'}"]`)[index + by];
+    if (again && !again.disabled) again.focus();
+  };
+  const rows = columns.map((column, index) => {
+    const on = visible.has(column.id);
+    const toggle = button(columnLabel(column), () => {
+      if (on) visible.delete(column.id);
+      else visible.add(column.id);
+      saveVisible(visible);
+      onChange(visible);
+      renderColumnsMenu(host, onChange);
+      const again = [...host.querySelectorAll('.colrow')]
+        .find((node) => node.dataset.column === column.id)?.querySelector('.colrow__switch');
+      if (again) again.focus();
+    }, {
+      className: 'colrow__switch',
+      attrs: { role: 'switch', 'aria-checked': String(on) },
+    });
+    toggle.appendChild(el('span', { className: 'colrow__track', attrs: { 'aria-hidden': 'true' } }, [
+      el('span', { className: 'colrow__knob' }),
+    ]));
+    return el('li', { className: 'colrow', dataset: { column: column.id } }, [
+      toggle,
+      button('\u25B2', () => move(index, -1), {
+        className: 'colrow__move',
+        ariaLabel: t('list.moveUp', { column: columnLabel(column) }),
+        attrs: { 'data-move': 'up', disabled: index === 0 ? 'disabled' : null },
+      }),
+      button('\u25BC', () => move(index, 1), {
+        className: 'colrow__move',
+        ariaLabel: t('list.moveDown', { column: columnLabel(column) }),
+        attrs: { 'data-move': 'down', disabled: index === columns.length - 1 ? 'disabled' : null },
+      }),
+    ]);
+  });
+  const pinned = fixed.map((column) => el('li', { className: 'colrow colrow--fixed' }, [
+    el('span', { className: 'colrow__name', text: columnLabel(column) }),
+    el('span', { className: 'colrow__fixed', text: t('list.fixed') }),
+  ]));
+  replace(host, [
+    el('div', { className: 'colmenu__head' }, [
+      el('strong', { className: 'colmenu__title', text: t('list.columnsTitle') }),
+      el('span', { className: 'colmenu__help', text: t('list.columnsHelp') }),
+    ]),
+    el('ul', { className: 'colmenu__rows', attrs: { 'aria-label': t('table.visibleColumns') } }, [
+      ...pinned, ...rows,
+    ]),
+    el('div', { className: 'colmenu__foot' }, [button(t('list.resetColumns'), () => {
+      try {
+        window.localStorage.removeItem(ORDER_KEY);
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* Nothing stored, nothing to reset. */
+      }
+      onChange(loadVisible());
+      renderColumnsMenu(host, onChange);
+    }, { className: 'colmenu__reset' }),
+    button(t('list.done'), () => onChange(null), { className: 'colmenu__done' })]),
+  ]);
 }
 
-function columnMenu(visible, ctx) {
-  const list = el('div', {
-    className: 'colmenu__list',
-    attrs: { role: 'group', 'aria-label': t('table.visibleColumns') },
-  },
-    COLUMNS.filter((column) => column.labelKey).map((column) => {
-      const id = `col-${column.id}`;
-      const input = el('input', {
-        className: 'checkbox',
-        attrs: { type: 'checkbox', id },
-        props: { checked: visible.has(column.id), disabled: Boolean(column.fixed) },
-        on: {
-          change: (event) => {
-            if (event.target.checked) visible.add(column.id);
-            else visible.delete(column.id);
-            saveVisible(visible);
-            ctx.onVisibilityChange(visible);
-          },
-        },
-      });
-      return el('label', { className: 'colmenu__item', attrs: { for: id } }, [
-        input,
-        el('span', { text: columnLabel(column) }),
-      ]);
-    }));
-
-  return el('details', { className: 'colmenu' }, [
-    el('summary', { className: 'colmenu__summary', text: t('table.columns') }),
-    list,
-  ]);
+/**
+ * The visible rows and columns as CSV, the way the list reads them: words,
+ * not codes, and the posting's own link. Nothing beyond what is on screen.
+ */
+export function toCsv(items, visible) {
+  const columns = orderedColumns().filter((column) => visible.has(column.id));
+  const quote = (value) => {
+    const text = String(value ?? '');
+    // A cell an employer wrote may start like a formula; a spreadsheet must
+    // read it as text, never run it.
+    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  };
+  const value = (column, job) => {
+    switch (column.id) {
+      case 'score': return job.match_score ?? '';
+      case 'confidence': return job.data_confidence ?? '';
+      case 'company': return job.company_name || '';
+      case 'title': return job.title || '';
+      case 'location': return job.location_raw || '';
+      case 'source': return vocabLabel(job.provider);
+      case 'technologies': return signalLabels(job).join('; ');
+      case 'salary': return formatSalary(job.salary) || '';
+      case 'contract': return job.employment_type ? vocabLabel(job.employment_type) : '';
+      case 'posted': return job.posted_at ? formatDate(job.posted_at) : '';
+      case 'freshness': return freshness(job.freshness).label;
+      case 'eligibility': return eligibilityWords(job.eligibility_status);
+      case 'status': return statusLabel(job.application_status || 'DISCOVERED');
+      case 'applied': return job.has_applied ? t('value.yes') : '';
+      case 'applied_at': return dateInputValue(job.applied_at);
+      case 'saved': return job.saved ? t('value.yes') : '';
+      case 'link': return job.url || '';
+      default: return '';
+    }
+  };
+  const lines = [columns.map((column) => quote(columnLabel(column))).join(',')];
+  for (const job of items) lines.push(columns.map((column) => quote(value(column, job))).join(','));
+  return `${lines.join('\r\n')}\r\n`;
 }
 
 function head(visible, ctx) {
   const row = el('tr');
-  for (const column of COLUMNS) {
+  for (const column of orderedColumns()) {
     if (!visible.has(column.id)) continue;
 
     const isSorted = column.sort && column.sort === ctx.sort;
@@ -266,7 +379,7 @@ function row(job, visible, ctx) {
   // is the one that opens the job. Clicking the row is a mouse affordance on
   // top of that, not a replacement for it.
 
-  for (const column of COLUMNS) {
+  for (const column of orderedColumns()) {
     if (!visible.has(column.id)) continue;
     tr.appendChild(cell(column, job, ctx, { gated, offTarget }));
   }
@@ -297,7 +410,7 @@ function groupMarker(job) {
 function cell(column, job, ctx, aside) {
   switch (column.id) {
     case 'score':
-      return el('td', { className: 'col--num' }, [scoreCell(job.match_score, 'match')]);
+      return el('td', { className: 'col--num' }, [matchPill(job.match_score)]);
 
     case 'confidence':
       return el('td', { className: 'col--num' }, [scoreCell(job.data_confidence, 'confidence')]);
@@ -470,12 +583,24 @@ function cell(column, job, ctx, aside) {
   }
 }
 
+/** The match as the card shows it: a toned pill, or the not-ready words. */
+function matchPill(score) {
+  const tone = searchFitIsReady() ? matchTone(score) : null;
+  if (!tone) return scoreCell(score, 'match');
+  return el('span', {
+    className: `matchpill matchpill--${tone.tone} num`,
+    text: `${Math.round(Number(score))}%`,
+    attrs: { title: t(tone.key) },
+  });
+}
+
 /** Skeleton rows, same column geometry, so nothing jumps when data lands. */
+
 export function tableSkeleton(mount, count = 8) {
   mount.className = 'tablewrap';
   clear(mount);
   const visible = loadVisible();
-  const columns = COLUMNS.filter((column) => visible.has(column.id));
+  const columns = orderedColumns().filter((column) => visible.has(column.id));
   const table = el('table', { className: 'jobs', attrs: { 'aria-hidden': 'true' } }, [
     el('thead', {}, [el('tr', {}, columns.map((column) => el('th', {
       text: columnLabel(column),

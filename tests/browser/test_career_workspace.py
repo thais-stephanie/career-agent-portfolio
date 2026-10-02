@@ -549,7 +549,7 @@ def test_job_controls_belong_to_discover_alone(page: Chrome, pristine_server: st
         for control in (".topbar", "#filterpanel", "#chipbar", "#rail-toggle"):
             assert not _shown(page, control), f"{control} leaked onto {name}"
     _nav(page, "jobs")
-    page.wait_for(f"({SHOWN})('.topbar') && ({SHOWN})('#filterpanel')", message="filters back")
+    page.wait_for(f"({SHOWN})('.topbar') && ({SHOWN})('#rail-toggle')", message="filters back")
     assert _own_errors(page, pristine_server) == []
 
 

@@ -31,8 +31,6 @@
 
    ===================================================================== */
 
-
-
 .career { display: grid; gap: 1.5rem; }
 .career__cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
 .career__card { border: 2px solid var(--line); padding: 1rem; margin-block: 0.75rem; }
@@ -253,6 +251,36 @@
   --inv-bg: #1b1a17;
   --inv-fg: #fbf8f0;
   --bw: 2px;
+  --yellow-bar: #d4b84a;
+  --blue-bar: #4f7bd6;
+  --purple: #8a6fe0;
+  --col-bg: #f3eee3;
+  --tip-bg: #efe9fd;
+  --shadow: 4px 4px 0 #1b1a17;
+  --heart: #e5484d;
+  --green-text: #1f6b45;
+  --hero-text: #1d3a2b;
+  --hero-bg: #c8f2dc;
+  --ask-btn-line: #1b1a17;
+  --ask-text2: #1b1a17;
+  --on-ask: #ffffff;
+  --ask-btn: #1b1a17;
+  --ask-line: #1b1a17;
+  --ask-bg: #dce7fc;
+  --m3-bar: #8a857a;
+  --m3-bg: #ece8de;
+  --m3-fg: #4a463e;
+  --m2-bar: #d4b84a;
+  --m2-bg: #fdf0a6;
+  --m2-fg: #6b5a10;
+  --m1-bar: #2f9a62;
+  --m1-bg: #c8f2dc;
+  --m1-fg: #1f6b45;
+  --saved-bg: #ece5fd;
+  --divider: #e4dfd3;
+  --green-bar: #2f9a62;
+  --on-lav: #1c1830;
+  --lav: #d8ccf8;
 
   /* -------------------------------------------------------------------
      NAMES THE REST OF THIS FILE STILL USES.
@@ -480,6 +508,36 @@
   --d-inv-bg: #f3f0e8;
   --d-inv-fg: #1b1a17;
   --d-bw: 1px;
+  --d-yellow-bar: #d4b84a;
+  --d-blue-bar: #6f93e0;
+  --d-purple: #a08ae6;
+  --d-col-bg: #201f1c;
+  --d-tip-bg: #221f2b;
+  --d-shadow: none;
+  --d-heart: #e5484d;
+  --d-green-text: #9be0b3;
+  --d-hero-text: #cfe6d7;
+  --d-hero-bg: #1d3a2b;
+  --d-ask-btn-line: #4a6290;
+  --d-ask-text2: #d6deef;
+  --d-on-ask: #14203a;
+  --d-ask-btn: #a9c0f0;
+  --d-ask-line: #3a5280;
+  --d-ask-bg: #1f2b3f;
+  --d-m3-bar: #8a857a;
+  --d-m3-bg: rgba(255, 255, 255, 0.08);
+  --d-m3-fg: #d6cfbf;
+  --d-m2-bar: #d4b84a;
+  --d-m2-bg: rgba(212, 184, 74, 0.16);
+  --d-m2-fg: #ecd683;
+  --d-m1-bar: #5fbf86;
+  --d-m1-bg: rgba(95, 191, 134, 0.16);
+  --d-m1-fg: #9be0b3;
+  --d-saved-bg: #2f2747;
+  --d-divider: #34322d;
+  --d-green-bar: #5fbf86;
+  --d-on-lav: #1c1830;
+  --d-lav: #d8ccf8;
 
   /* -- the aliases, dark half ----------------------------------------- */
   --d-paper-2: var(--d-surface-alt);
@@ -663,14 +721,9 @@
   font-display: swap;
 }
 
-
-
-
 /* ---------------------------------------------------------------------
 
    THE THEME SWITCH, IN THREE STATES.
-
-
 
    `theme.js` writes `data-theme` on <html> before the first paint, so the
 
@@ -682,8 +735,6 @@
 
    light, which is the whole point of having a control.
 
-
-
    The assignment list appears twice and the colour literals do not. That is
 
    the trade: a duplicated assignment that drifts produces a missing token,
@@ -693,8 +744,6 @@
    two slightly different products and nobody notices for months.
 
    --------------------------------------------------------------------- */
-
-
 
 @media (prefers-color-scheme: dark) {
   /* Guarded against an explicit `light`, so somebody who CHOSE light on a dark
@@ -777,10 +826,38 @@
     --inv-bg: var(--d-inv-bg);
     --inv-fg: var(--d-inv-fg);
     --bw: var(--d-bw);
+    --yellow-bar: var(--d-yellow-bar);
+    --blue-bar: var(--d-blue-bar);
+    --purple: var(--d-purple);
+    --col-bg: var(--d-col-bg);
+    --tip-bg: var(--d-tip-bg);
+    --shadow: var(--d-shadow);
+    --heart: var(--d-heart);
+    --green-text: var(--d-green-text);
+    --hero-text: var(--d-hero-text);
+    --hero-bg: var(--d-hero-bg);
+    --ask-btn-line: var(--d-ask-btn-line);
+    --ask-text2: var(--d-ask-text2);
+    --on-ask: var(--d-on-ask);
+    --ask-btn: var(--d-ask-btn);
+    --ask-line: var(--d-ask-line);
+    --ask-bg: var(--d-ask-bg);
+    --m3-bar: var(--d-m3-bar);
+    --m3-bg: var(--d-m3-bg);
+    --m3-fg: var(--d-m3-fg);
+    --m2-bar: var(--d-m2-bar);
+    --m2-bg: var(--d-m2-bg);
+    --m2-fg: var(--d-m2-fg);
+    --m1-bar: var(--d-m1-bar);
+    --m1-bg: var(--d-m1-bg);
+    --m1-fg: var(--d-m1-fg);
+    --saved-bg: var(--d-saved-bg);
+    --divider: var(--d-divider);
+    --green-bar: var(--d-green-bar);
+    --on-lav: var(--d-on-lav);
+    --lav: var(--d-lav);
   }
 }
-
-
 
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -859,9 +936,37 @@
   --inv-bg: var(--d-inv-bg);
   --inv-fg: var(--d-inv-fg);
   --bw: var(--d-bw);
+  --yellow-bar: var(--d-yellow-bar);
+  --blue-bar: var(--d-blue-bar);
+  --purple: var(--d-purple);
+  --col-bg: var(--d-col-bg);
+  --tip-bg: var(--d-tip-bg);
+  --shadow: var(--d-shadow);
+  --heart: var(--d-heart);
+  --green-text: var(--d-green-text);
+  --hero-text: var(--d-hero-text);
+  --hero-bg: var(--d-hero-bg);
+  --ask-btn-line: var(--d-ask-btn-line);
+  --ask-text2: var(--d-ask-text2);
+  --on-ask: var(--d-on-ask);
+  --ask-btn: var(--d-ask-btn);
+  --ask-line: var(--d-ask-line);
+  --ask-bg: var(--d-ask-bg);
+  --m3-bar: var(--d-m3-bar);
+  --m3-bg: var(--d-m3-bg);
+  --m3-fg: var(--d-m3-fg);
+  --m2-bar: var(--d-m2-bar);
+  --m2-bg: var(--d-m2-bg);
+  --m2-fg: var(--d-m2-fg);
+  --m1-bar: var(--d-m1-bar);
+  --m1-bg: var(--d-m1-bg);
+  --m1-fg: var(--d-m1-fg);
+  --saved-bg: var(--d-saved-bg);
+  --divider: var(--d-divider);
+  --green-bar: var(--d-green-bar);
+  --on-lav: var(--d-on-lav);
+  --lav: var(--d-lav);
 }
-
-
 
 /* ---------------------------------------------------------------------
    `hidden` MEANS HIDDEN. One line, and it closes a whole class of defect.
@@ -889,11 +994,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-
-
 html { background: var(--paper); }
-
-
 
 body {
 
@@ -913,11 +1014,7 @@ body {
 
 }
 
-
-
 body.has-drawer { overflow: hidden; }
-
-
 
 .num, input[type="date"], .contrib__points,
 
@@ -931,8 +1028,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 :focus-visible {
 
   outline: 2px solid var(--focus);
@@ -941,8 +1036,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .sr-only {
 
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -950,8 +1043,6 @@ body.has-drawer { overflow: hidden; }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 
 }
-
-
 
 .skip {
 
@@ -965,11 +1056,7 @@ body.has-drawer { overflow: hidden; }
 
 .skip:focus { left: 8px; top: 8px; }
 
-
-
 /* ---------- header ------------------------------------------------- */
-
-
 
 /* The header is three bands that can wrap independently: who this is, what
 
@@ -993,8 +1080,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .topbar__brand { display: flex; align-items: baseline; gap: 8px; }
 
 .brand__mark { color: var(--match); font-size: 15px; }
@@ -1008,8 +1093,6 @@ body.has-drawer { overflow: hidden; }
 }
 
 .brand__tag { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
-
-
 
 .topbar__health {
 
@@ -1029,8 +1112,6 @@ body.has-drawer { overflow: hidden; }
 
 .health__ollama.is-unknown { color: var(--ink-soft); }
 
-
-
 .topbar__controls {
 
   margin-left: auto;
@@ -1043,8 +1124,6 @@ body.has-drawer { overflow: hidden; }
 
 .topbar__controls .select { width: auto; min-width: 168px; font-size: 12px; }
 
-
-
 /* The theme control is the least important thing in the header, so it is the
 
    last to hold its ground: it may wrap away from the result controls, and it
@@ -1052,8 +1131,6 @@ body.has-drawer { overflow: hidden; }
    never pushes them off their line. */
 
 .topbar__theme { margin-left: 4px; }
-
-
 
 /* ---------- the two toolbar groups --------------------------------- */
 
@@ -1064,8 +1141,6 @@ body.has-drawer { overflow: hidden; }
    group two is what ORDER they arrive in and whether repeated postings are
 
    collapsed. They look like two objects because they are.
-
-
 
    The shared shape rule, and the whole reason `.segmented` exists as its own
 
@@ -1078,8 +1153,6 @@ body.has-drawer { overflow: hidden; }
    a pill is the failure mode this avoids.
 
 */
-
-
 
 .segmented,
 .resultbar {
@@ -1095,8 +1168,6 @@ body.has-drawer { overflow: hidden; }
   overflow: hidden;
 
 }
-
-
 
 .segmented__btn,
 
@@ -1130,15 +1201,11 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .segmented__btn:last-child,
 
 .resultbar__btn:last-child,
 
 .resultbar__field:last-child { border-right: 0; }
-
-
 
 /* The handoff's segmented control: a `--chip-bg` well with 3px of room,
    segments rounded on their own, the chosen one lifted onto the surface. */
@@ -1150,15 +1217,11 @@ body.has-drawer { overflow: hidden; }
   color: var(--muted); white-space: nowrap;
 }
 
-
-
 .segmented__btn:hover,
 
 .resultbar__btn:hover,
 
 .resultbar__field:hover { background: var(--paper-3); color: var(--ink); }
-
-
 
 /* The selected segment. Ink on paper reversed, so the answer is legible at a
 
@@ -1169,8 +1232,6 @@ body.has-drawer { overflow: hidden; }
   color: var(--ink);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
-
-
 
 /* Grouping is ON by default, so its pressed state is the quieter one: petrol
 
@@ -1192,8 +1253,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .resultbar__field {
 
   padding-right: 26px;
@@ -1201,8 +1260,6 @@ body.has-drawer { overflow: hidden; }
   color: var(--ink);
 
 }
-
-
 
 /* The focus ring has to sit INSIDE, because the group clips its children. */
 
@@ -1220,11 +1277,7 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 /* ---------- legend ------------------------------------------------- */
-
-
 
 .legend {
 
@@ -1258,11 +1311,7 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 /* ---------- layout ------------------------------------------------- */
-
-
 
 /* =====================================================================
    DISCOVER JOBS: ONE COLUMN, AND THE FILTERS ABOVE IT
@@ -1340,22 +1389,9 @@ body.has-drawer { overflow: hidden; }
 }
 /* The presets are a row of whole-panel choices and belong ABOVE the columns,
    not inside them. `column-span: all` is what puts them there. */
-.filters__block--presets {
-  column-span: all;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px 10px;
-  margin: 0 0 14px;
-  padding-bottom: 12px;
-  border-bottom: var(--rule-w) solid var(--rule2);
-  text-align: left;
-}
 /* The label takes its own line at the left. It was sitting centred over the
    buttons, which read as a heading for the whole panel rather than a label
    for the row under it. */
-.filters__block--presets > .filters__label { width: 100%; }
 
 /* A section is a small card on the panel's ground, so the grid reads as
    groups rather than as one field of controls. */
@@ -1408,7 +1444,6 @@ body.has-drawer { overflow: hidden; }
 /* The presets are five buttons and they were a COLUMN, because `.btn--wide`
    is `width: 100%` and that is right in a 288px rail and wrong in a panel
    that is 1,100px across. They read as a row of choices here. */
-.filters__block--presets .btn { width: auto; }
 /* The presets label. Left of its buttons rather than centred over them: it
    labels the row, it is not a heading for the panel. */
 .filters__label {
@@ -1428,13 +1463,7 @@ body.has-drawer { overflow: hidden; }
   margin-top: 4px;
 }
 
-
-
 /* ---------- filters ------------------------------------------------ */
-
-
-
-
 
 /* ---------- what the eligibility default is hiding ------------------ */
 /*
@@ -1650,8 +1679,6 @@ body.has-drawer { overflow: hidden; }
 
 */
 
-
-
 .drawer__tabs {
 
   display: flex; gap: 0;
@@ -1665,8 +1692,6 @@ body.has-drawer { overflow: hidden; }
   margin: 0 0 14px;
 
 }
-
-
 
 .drawer__tab {
 
@@ -1694,11 +1719,7 @@ body.has-drawer { overflow: hidden; }
 
 .drawer__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
-
-
 .drawer__tabpanel { display: flex; flex-direction: column; gap: 20px; }
-
-
 
 /* The lead paragraph of the reasoning tab. Larger than body text, because it
 
@@ -1712,8 +1733,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .reasons, .gaps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 
 .reason__label { margin: 0 0 4px; font-weight: 600; font-size: 13px; }
@@ -1725,7 +1744,6 @@ body.has-drawer { overflow: hidden; }
 }
 
 .gap::before { content: "·"; position: absolute; left: 4px; color: var(--ink-faint); }
-
 
 /* The arithmetic, folded. Not hidden: labelled, and one click away. */
 
@@ -1745,8 +1763,6 @@ body.has-drawer { overflow: hidden; }
 
 .d-advanced[open] .d-advanced__summary { margin-bottom: 10px; }
 
-
-
 /* ---------- the sectioned filter rail ------------------------------- */
 
 /*
@@ -1755,8 +1771,6 @@ body.has-drawer { overflow: hidden; }
 
    that is collapsed still says how many of its own filters are active.
 
-
-
    Without that count, narrowing inside `Pay`, collapsing it and forgetting
 
    produces an empty result list with no visible cause. That is the failure
@@ -1764,8 +1778,6 @@ body.has-drawer { overflow: hidden; }
    hiding controls invites, and a number on the header is the whole fix.
 
 */
-
-
 
 .fsec {
 
@@ -1779,11 +1791,7 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .fsec[open] { background: var(--paper-2); }
-
-
 
 /* An active section is marked by a spine of colour as well as by its count,
 
@@ -1792,8 +1800,6 @@ body.has-drawer { overflow: hidden; }
    either. */
 
 .fsec.is-active { border-color: var(--match); box-shadow: inset 3px 0 0 var(--match); }
-
-
 
 .fsec__summary {
 
@@ -1833,8 +1839,6 @@ body.has-drawer { overflow: hidden; }
 
 .fsec__label { flex: 1; }
 
-
-
 .fsec__count {
 
   min-width: 18px; text-align: center;
@@ -1849,8 +1853,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .fsec__help {
 
   margin: 0 11px 8px; padding: 0;
@@ -1859,8 +1861,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .fsec__body {
 
   display: flex; flex-direction: column; gap: 12px;
@@ -1868,8 +1868,6 @@ body.has-drawer { overflow: hidden; }
   padding: 0 11px 10px;
 
 }
-
-
 
 .fsec__clear {
 
@@ -1889,8 +1887,6 @@ body.has-drawer { overflow: hidden; }
 
 .fsec__clear:hover { background: var(--paper-3); color: var(--ink); }
 
-
-
 /* One sentence under a switch, for the switches whose consequence is not
 
    obvious from their words. "Only ones that state a salary" sounds harmless
@@ -1901,12 +1897,6 @@ body.has-drawer { overflow: hidden; }
   margin: 2px 0 8px 26px;
   font-size: var(--t-micro); color: var(--muted);
 }
-
-
-
-.filters__block--presets { margin-bottom: 12px; }
-
-
 
 .filters__block { display: flex; flex-direction: column; gap: 8px; }
 
@@ -1931,8 +1921,6 @@ body.has-drawer { overflow: hidden; }
 .filters__pair .input { flex: 2; min-width: 0; }
 
 .filters__pair .select { flex: 1; min-width: 0; }
-
-
 
 /* ---------- the source matrix ---------------------------------------- */
 
@@ -2062,8 +2050,6 @@ body.has-drawer { overflow: hidden; }
 }
 .src__state { display: inline-flex; align-items: center; gap: 6px; }
 
-
-
 .phrases { display: flex; flex-direction: column; gap: 5px; }
 
 .phrases__tags { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -2071,8 +2057,6 @@ body.has-drawer { overflow: hidden; }
 .phrases__tags:empty { display: none; }
 
 .chip--tag { font-size: 11.5px; }
-
-
 
 /* =====================================================================
    FORM CONTROLS
@@ -2259,8 +2243,6 @@ body.has-drawer { overflow: hidden; }
   .toolsearch-host { max-width: none; }
 }
 
-
-
 /* A ROW, not a column. These are five mutually exclusive starting points and
    they belong on one line at the top of the panel; stacked, they were 220px
    of vertical space before the first section. */
@@ -2287,8 +2269,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .slider__row { display: flex; flex-direction: column; gap: 4px; }
 
 .slider__control { display: flex; align-items: center; gap: 10px; }
@@ -2303,18 +2283,16 @@ body.has-drawer { overflow: hidden; }
 
 .slider__out--confidence { color: var(--detail-ink); }
 
-
-
 .toggles { display: flex; flex-direction: column; gap: 5px; }
 
 /* A label wrapping a checkbox. `align-items: flex-start` so a two-line label
    sits beside the box rather than centring against it, and the text is given
    its own flex child so it can wrap without pushing the box. */
-.toggle, .facet__row, .colmenu__item {
+.toggle, .facet__row {
   display: flex; align-items: flex-start; gap: 8px;
   font-size: var(--t-small); line-height: 1.4; cursor: pointer;
 }
-.toggle > span, .facet__row > span, .colmenu__item > span { flex: 1; min-width: 0; }
+.toggle > span, .facet__row > span { flex: 1; min-width: 0; }
 /* The sentence under a toggle. Indented to the label's text so it reads as
    belonging to it rather than to the next control down. */
 .toggle__help {
@@ -2324,9 +2302,7 @@ body.has-drawer { overflow: hidden; }
   color: var(--muted);
 }
 
-.toggle input, .facet__row input, .colmenu__item input { accent-color: var(--match); }
-
-
+.toggle input, .facet__row input { accent-color: var(--match); }
 
 .facets { display: flex; flex-direction: column; }
 
@@ -2354,11 +2330,7 @@ body.has-drawer { overflow: hidden; }
 
 .facet__n { color: var(--ink-faint); font-size: 11px; }
 
-
-
 /* ---------- buttons ------------------------------------------------- */
-
-
 
 /* =====================================================================
    BUTTONS, TO THE DESIGN'S SPEC
@@ -2490,11 +2462,7 @@ body.has-drawer { overflow: hidden; }
 
 .link--unavailable { color: var(--ink-faint); font-style: italic; }
 
-
-
 /* ---------- chips ---------------------------------------------------- */
-
-
 
 .chipbar {
 
@@ -2542,8 +2510,6 @@ body.has-drawer { overflow: hidden; }
 
 }
 
-
-
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; }
 
 .chips--tech .chip { padding: 1px 7px; background: transparent; }
@@ -2554,17 +2520,9 @@ body.has-drawer { overflow: hidden; }
 
 .chip--incidental { border-color: var(--rule); color: var(--ink-faint); }
 
-
-
 .resultcount { margin: 0 0 12px; font-size: 12px; color: var(--ink-soft); letter-spacing: 0.02em; }
 
-
-
 /* ---------- the paired readout -------------------------------------- */
-
-
-
-
 
 .pill {
 
@@ -2587,8 +2545,6 @@ body.has-drawer { overflow: hidden; }
 .pill--warn { border-color: var(--detail); color: var(--detail-ink); background: var(--detail-wash); }
 
 .pill--bad { border-color: var(--block); color: var(--block-ink); background: var(--block-wash); }
-
-
 
 /* A TAG IS A CHIP. These four were the clearest instance in the product of
    the rule the Claude Design turns on: four states rendered as four TEXT
@@ -2615,13 +2571,7 @@ body.has-drawer { overflow: hidden; }
 .tag--bad { background: var(--pink); }
 .tag--muted { background: var(--stone); }
 
-
-
-
-
 /* ---------- cards ---------------------------------------------------- */
-
-
 
 /* A grid of objects, not a wall of report columns.
 
@@ -2649,8 +2599,6 @@ body.has-drawer { overflow: hidden; }
   align-items: start;
 
 }
-
-
 
 /* =====================================================================
    THE CARD PRIMITIVE
@@ -2756,22 +2704,6 @@ body.has-drawer { overflow: hidden; }
   box-shadow: var(--offset-lg) var(--offset-lg) 0 var(--line);
 }
 
-
-
-.card__blocked {
-
-  margin: 0; display: flex; align-items: center; gap: 6px;
-
-  color: var(--block-ink); font-size: 11.5px; font-weight: 600;
-
-  letter-spacing: 0.04em; text-transform: uppercase;
-
-}
-
-.card__blocked-glyph { font-family: var(--mono); }
-
-
-
 .card__head { display: flex; flex-direction: column; gap: 2px; }
 
 .card__company {
@@ -2805,8 +2737,6 @@ body.has-drawer { overflow: hidden; }
 
 .card__title-btn:hover, .cell__title-btn:hover { color: var(--match-ink); text-decoration: underline; }
 
-
-
 .card__facts {
 
   margin: 0; display: grid; grid-template-columns: 62px minmax(0, 1fr);
@@ -2823,8 +2753,6 @@ body.has-drawer { overflow: hidden; }
 
 .fact--salary { color: var(--ink); }
 
-
-
 .strengths { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 
 .strength {
@@ -2838,8 +2766,6 @@ body.has-drawer { overflow: hidden; }
 .strength__label { flex: 1; color: var(--ink-soft); }
 
 .strength__points { font-family: var(--mono); font-size: 11.5px; color: var(--match-ink); }
-
-
 
 .card__concern {
 
@@ -2857,35 +2783,11 @@ body.has-drawer { overflow: hidden; }
 
 .card__concern-label { font-weight: 600; }
 
-
-
 .card__unknowns { margin: 0; font-size: 11.5px; color: var(--ink-faint); }
-
-
 
 /* What a grouped card stands for. Placed high, under the title, because
 
    "this is eight postings" changes how the rest of the card is read. */
-
-.card__group {
-
-  margin: 0; display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: baseline;
-
-  font-size: 11.5px;
-
-}
-
-.card__group-count {
-
-  font-family: var(--mono); color: var(--match-ink); font-weight: 600;
-
-  letter-spacing: 0.04em; text-transform: uppercase;
-
-}
-
-.card__group-places { color: var(--ink-faint); overflow-wrap: anywhere; }
-
-
 
 .card__foot {
 
@@ -2899,45 +2801,11 @@ body.has-drawer { overflow: hidden; }
 
 .card__posted-date { font-size: 11.5px; color: var(--ink-faint); font-family: var(--mono); }
 
-.card__actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-
-.card__actions .select--status { width: auto; flex: 1 1 130px; font-size: 12px; }
-
-
-
 /* ---------- table ---------------------------------------------------- */
-
-
 
 .tablewrap { display: flex; flex-direction: column; gap: 8px; }
 
-.tablebar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-
-
-
 .colmenu { position: relative; margin-left: auto; }
-
-.colmenu__summary {
-
-  cursor: pointer; font-size: 12px; border: var(--rule-w) solid var(--rule-strong);
-
-  padding: 5px 10px; list-style: none;
-
-}
-
-.colmenu__list {
-
-  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20;
-
-  background: var(--paper); border: var(--rule-w) solid var(--rule-strong);
-
-  padding: 10px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px;
-
-  min-width: 300px;
-
-}
-
-
 
 /* The table is wider than its region, and a column sliced flat against the
 
@@ -2997,8 +2865,6 @@ body.has-drawer { overflow: hidden; }
 
 .tablescroll { scrollbar-color: var(--rule-strong) var(--paper-3); scrollbar-width: auto; }
 
-
-
 /* The row is a control now. */
 
 .jobs tbody tr { cursor: pointer; }
@@ -3006,8 +2872,6 @@ body.has-drawer { overflow: hidden; }
 .jobs tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 .jobs tbody tr:hover { background: var(--paper-2); }
-
-
 
 /* A number, not a bar. */
 
@@ -3054,8 +2918,6 @@ body.has-drawer { overflow: hidden; }
 .tablescrollwrap[data-scroll~="left"]::before { opacity: 1; }
 
 .tablescrollwrap[data-scroll~="right"]::after { opacity: 1; }
-
-
 
 table.jobs { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 
@@ -3157,11 +3019,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .input--date { width: 130px; padding: 2px 4px; font-size: 12px; }
 
-
-
 /* ---------- states ---------------------------------------------------- */
-
-
 
 .state { padding: 40px 10px; max-width: 52ch; }
 
@@ -3170,8 +3028,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .state__msg { margin: 0 0 14px; color: var(--ink-soft); }
 
 .state--error .state__head { color: var(--block-ink); }
-
-
 
 .sk { background: var(--paper-3); }
 
@@ -3195,20 +3051,11 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .pager { display: flex; gap: 12px; align-items: center; padding: 18px 0 0; }
 
 .pager__pos { font-size: 12px; color: var(--ink-soft); }
 
-
-
-
-
-
 /* ---------- drawer ---------------------------------------------------- */
-
-
 
 .drawer { position: fixed; inset: 0; z-index: 40; }
 
@@ -3243,8 +3090,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .drawer__head {
 
   display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
@@ -3256,8 +3101,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .drawer__title { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 600; }
 
 .drawer__body { overflow-y: auto; padding: 0 20px 60px; }
-
-
 
 .d-sec { padding: 16px 0; border-bottom: var(--rule-w) solid var(--rule); }
 
@@ -3303,8 +3146,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .d-row__reason { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
 
-
-
 .component { border-top: var(--rule-w) solid var(--rule); padding: 10px 0; }
 
 .component__head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
@@ -3314,8 +3155,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .component__points { font-size: 13px; color: var(--match-ink); }
 
 .component__note { margin: 3px 0 0; font-size: 12px; color: var(--ink-faint); }
-
-
 
 .contribs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 
@@ -3330,8 +3169,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .contrib__points.is-negative, .contribs--penalty .contrib__points { color: var(--block-ink); }
 
 .contribs--penalty .contrib { border-left-color: var(--block); }
-
-
 
 .quote {
 
@@ -3352,8 +3189,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
   margin: 4px 0 0; padding: 5px 10px; font-size: 11.5px; line-height: 1.55;
   font-style: italic; color: var(--ink-faint); background: transparent;
 }
-
-
 
 .gates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
@@ -3381,8 +3216,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .gate__reason { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
 
-
-
 .conf { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 
 .conf__item { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; }
@@ -3399,13 +3232,9 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .conf__note { flex-basis: 100%; font-size: 11.5px; color: var(--ink-faint); padding-left: 20px; }
 
-
-
 .unknowns { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--ink-soft); }
 
 .unknowns li { margin-bottom: 3px; }
-
-
 
 /* The other locations one role was published in. A list, not a sentence:
 
@@ -3423,19 +3252,13 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .d-places__item--more { border-style: dashed; color: var(--ink-faint); }
 
-
-
 .kv { margin: 0; display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 3px 12px; font-size: 12.5px; }
 
 .kv dt { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
 
 .kv dd { margin: 0; overflow-wrap: anywhere; }
 
-
-
 .desc__p { margin: 0 0 10px; font-size: 13px; line-height: 1.62; max-width: 68ch; overflow-wrap: anywhere; }
-
-
 
 .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 
@@ -3444,8 +3267,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .history__when { color: var(--ink-faint); font-size: 11.5px; }
 
 .history__note { color: var(--ink-faint); }
-
-
 
 .d-sec--enrich { background: var(--paper-2); padding: 16px; border: var(--rule-w) dashed var(--rule-strong); margin: 16px 0; }
 
@@ -3469,11 +3290,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .enrich__elapsed { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-soft); }
 
-
-
 /* ---------- narrow ---------------------------------------------------- */
-
-
 
 @media (max-width: 899px) {
 
@@ -3505,11 +3322,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
   .drawer__panel { width: 100%; }
 
-  .colmenu__list { grid-template-columns: 1fr; min-width: 220px; }
-
 }
-
-
 
 @media (max-width: 460px) {
 
@@ -3517,13 +3330,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
   .viewswitch__btn { flex: 1; }
 
-  .card__actions { flex-direction: column; align-items: stretch; }
-
-  .card__actions .select--status { width: 100%; }
-
 }
-
-
 
 /* =====================================================================
 
@@ -3541,8 +3348,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
    tall for two numbers, which is what made the grid unscannable.
 
-
-
    Match is visually primary -- larger, petrol, tabular. Confidence is
 
    deliberately quieter. Eligibility is a different KIND of answer, so it
@@ -3551,11 +3356,7 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
    ===================================================================== */
 
-
-
 .badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-
-
 
 /* =====================================================================
    THE CHIP
@@ -3650,15 +3451,11 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .badges--sm .badge { padding: 2px 6px; font-size: 10.5px; }
 .badges--sm .badge--match .badge__value { font-size: 13px; }
 
-
-
 /* =====================================================================
 
    The compact card
 
    ===================================================================== */
-
-
 
 .card__head { display: flex; flex-direction: column; gap: 1px; }
 
@@ -3686,8 +3483,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .card__facts {
 
   margin: 0;
@@ -3708,55 +3503,15 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .card__facts dd { margin: 0; color: var(--ink-soft); overflow-wrap: anywhere; }
 
-
-
 .chip--more {
 
   border-style: dashed; color: var(--ink-faint);
 
 }
 
-
-
 /* Pushed to the bottom so controls align across a row of unequal cards. */
 
-.card__footer {
-
-  margin-top: auto;
-
-  padding-top: 8px;
-
-  border-top: var(--rule-w) solid var(--rule);
-
-  display: flex; align-items: center; justify-content: space-between;
-
-  gap: 8px; flex-wrap: wrap;
-
-}
-
-.card__actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-
-.card__age { margin: 0; font-size: 11px; color: var(--ink-faint); }
-
 .card__age--stale { color: var(--detail-ink); }
-
-
-
-.card__save {
-
-  border: var(--rule-w) solid var(--rule-strong);
-
-  border-radius: var(--radius);
-
-  background: var(--paper);
-
-  padding: 2px 8px; font-size: 11.5px; cursor: pointer; color: var(--ink-soft);
-
-}
-
-.card__save.is-saved { background: var(--butter-wash); border-color: var(--butter); color: var(--butter-ink); }
-
-
 
 /* =====================================================================
 
@@ -3765,28 +3520,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
    its word, and each wash/ink pair was chosen to clear 4.5:1.
 
    ===================================================================== */
-
-
-
-.status-tag {
-
-  border: var(--rule-w) solid var(--rule-strong);
-
-  border-radius: var(--radius);
-
-  padding: 2px 6px;
-
-  font-size: 11.5px;
-
-  background: var(--paper-2);
-
-  color: var(--ink-soft);
-
-  cursor: pointer;
-
-  max-width: 132px;
-
-}
 
 .status-tag--discovered  { background: var(--paper-2);          color: var(--ink-soft);          border-color: var(--rule-strong); }
 
@@ -3812,27 +3545,9 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .status-tag--archived    { background: var(--paper-3);          color: var(--ink-faint);         border-color: var(--rule-strong); }
 
-
-
 .sk--badges { height: 20px; width: 60%; }
 
-
-
 /* Compact, but never absent. A failed gate outranks the match score. */
-
-.card__blocked {
-
-  margin: 0; display: flex; align-items: center; gap: 5px;
-
-  color: var(--block-ink); font-size: 10.5px; font-weight: 700;
-
-  letter-spacing: 0.05em; text-transform: uppercase;
-
-}
-
-.card__blocked-glyph { font-family: var(--mono); }
-
-
 
 /* =====================================================================
 
@@ -3849,8 +3564,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
    becomes useful.
 
    ===================================================================== */
-
-
 
 .kanban {
 
@@ -3876,8 +3589,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .kcol {
 
   background: var(--paper-2);
@@ -3891,8 +3602,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
   min-height: 140px;
 
 }
-
-
 
 .kcol__head {
 
@@ -3922,8 +3631,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .kcol__body {
 
   display: flex; flex-direction: column; gap: 8px;
@@ -3952,8 +3659,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .kcard {
 
   background: var(--paper);
@@ -3975,8 +3680,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .kcard:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .kcard.is-dragging { opacity: 0.5; cursor: grabbing; }
-
-
 
 .kcard__company {
 
@@ -4006,15 +3709,9 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .kcard__applied { color: var(--ink-faint); }
 
-
-
 .kcard .select--status { max-width: 100%; margin-top: 2px; }
 
-
-
 .sk--kcard { height: 62px; border-radius: var(--radius); }
-
-
 
 @media (max-width: 660px) {
 
@@ -4028,21 +3725,15 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 /* Which population is on screen. Stated, not implied. */
 
 .health__degraded { color: var(--detail-ink); font-size: 11px; }
-
-
 
 /* =====================================================================
 
    Search preferences -- the phrases the score is made of
 
    ===================================================================== */
-
-
 
 .prefs { display: flex; flex-direction: column; gap: 10px; padding: 10px 18px; }
 
@@ -4071,8 +3762,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 }
 
 .prefs__intro { margin: 0; font-size: 11.5px; color: var(--ink-faint); line-height: 1.45; }
-
-
 
 .prefs__cat {
 
@@ -4118,8 +3807,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 }
 
-
-
 .prefs__signal {
 
   padding: 8px; border-top: var(--rule-w) solid var(--rule);
@@ -4144,8 +3831,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .prefs__area:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-
-
 .prefs__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .prefs__save {
@@ -4166,15 +3851,11 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .prefs__status--bad { color: var(--block-ink); }
 
-
-
 /* =====================================================================
 
    Retrieval -- the funnel, and which sources answered
 
    ===================================================================== */
-
-
 
 .retr { display: flex; flex-direction: column; gap: 8px; padding: 10px 18px; }
 
@@ -4206,8 +3887,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 
 .retr__error { color: var(--block-ink); font-size: 11.5px; margin: 0; }
 
-
-
 .retr__run { margin: 0; font-size: 11.5px; }
 
 .retr__run--running { color: var(--match-ink); }
@@ -4217,8 +3896,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .retr__run--cancelled { color: var(--detail-ink); }
 
 .retr__run--failed { color: var(--block-ink); }
-
-
 
 /* Each stage narrows, and the indent says so without a chart. */
 
@@ -4239,8 +3916,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .retr__stage-label { color: var(--ink-soft); }
 
 .retr__stage-count { color: var(--ink); font-weight: 600; }
-
-
 
 .retr__heading {
 
@@ -4273,7 +3948,6 @@ table.jobs .select--status { width: auto; font-size: 12px; padding: 2px 4px; }
 .retr__source-counts { margin-left: auto; color: var(--ink-soft); }
 
 .retr__source-fail { color: var(--block-ink); }
-
 
 /* =====================================================================
    THE IDENTITY LAYER
@@ -4437,15 +4111,7 @@ body {
 
 .card--blocked::before { background: var(--coral); }
 
-.card__head,
-.card__facts,
-.card__group,
-.chips,
-.card__footer,
-.card__actions,
-.card__blocked,
-.card__concern,
-.card__unknowns {
+.card__head, .card__facts, .chips, .card__concern, .card__unknowns {
   padding-left: 14px;
   padding-right: 14px;
 }
@@ -4893,11 +4559,7 @@ body {
   }
 
   /* Touch targets. 24px is the WCAG 2.2 minimum and these were 18px. */
-  .card__save,
-  .chip__x,
-  .themeswitch__btn,
-  .segmented__btn,
-  .resultbar__btn {
+  .chip__x, .themeswitch__btn, .segmented__btn, .resultbar__btn {
     min-height: 32px;
     min-width: 32px;
   }
@@ -4958,7 +4620,6 @@ body {
   column-gap: 8px;
 }
 
-
 /* ---------- 22. ONE MEANING PER COLOUR, ENFORCED ---------------------- */
 /*
    The grouping toggle was mint, which is the MATCH colour. Beside a card
@@ -4999,20 +4660,6 @@ body {
    the way out to the employer, and dressing it as a button would make every
    card shout.
 */
-.card__footer a,
-.card__actions a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  padding: 2px 0;
-}
-
-@media (max-width: 640px) {
-  .card__footer a,
-  .card__actions a {
-    min-height: 32px;
-  }
-}
 
 /* ---------- 24. TWO WAYS A POSTING IS SET ASIDE ---------------------- */
 /*
@@ -5025,18 +4672,6 @@ body {
    Off-target is neutral paper and quiet type, because nobody refused
    anything: this person said what work they want and this is other work.
 */
-.card__offtarget {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  margin: 0;
-  padding: 7px 14px;
-  background: var(--paper-2);
-  border-bottom: var(--rule-w) solid var(--rule);
-  color: var(--ink-faint);
-  font-size: var(--t-micro);
-  line-height: 1.45;
-}
 
 .card--offtarget::before { background: var(--rule-strong); }
 
@@ -5077,19 +4712,6 @@ body {
 .profile__save-status.is-ok { color: var(--ink-soft); }
 
 .profile__save-status.is-error { color: var(--coral-ink); }
-
-.card__context {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  margin: 0;
-  padding: 7px 14px;
-  background: var(--paper-2);
-  border-bottom: var(--rule-w) solid var(--rule);
-  color: var(--ink-faint);
-  font-size: var(--t-micro);
-  line-height: 1.45;
-}
 
 .row--offtarget { color: var(--ink-faint); }
 .row--offtarget .cell__title-btn { font-weight: 500; }
@@ -5138,11 +4760,6 @@ body {
    The `width: 100%` override was added when the column rule was written; the
    basis was not. Measured at 375px by an independent UX review.
 */
-@media (max-width: 460px) {
-  .card__actions .select--status {
-    flex: 0 0 auto;
-  }
-}
 
 /* ---------- 27. THE STATUS LINE STOPS LEADING ------------------------ */
 /*
@@ -5245,11 +4862,6 @@ body {
 
 /* The status control had no visible label and sat beside "Fresh", so a card
    showed two ideas of newness next to each other and named neither. */
-.card__actions-label {
-  font-size: var(--t-micro);
-  color: var(--ink-faint);
-  font-weight: 600;
-}
 
 /* ---------- 28. WHERE A LEVEL CAME FROM ------------------------------ */
 /*
@@ -6073,8 +5685,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 .railtoggle__count[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .railtoggle { transition: none; } }
 
-
-
 /* =====================================================================
    HOME
    ===================================================================== */
@@ -6404,17 +6014,7 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   padding: 0;
 }
 
-.card__head,
-.card__facts,
-.card__group,
-.chips,
-.card__footer,
-.card__actions,
-.card__blocked,
-.card__offtarget,
-.card__context,
-.card__concern,
-.card__unknowns {
+.card__head, .card__facts, .chips, .card__concern, .card__unknowns {
   padding-left: 11px;
   padding-right: 11px;
 }
@@ -6440,44 +6040,13 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    same gesture.
    ===================================================================== */
 
-.card__footer {
-  margin-top: auto;
-  display: grid;
-  gap: 6px;
-  align-items: center;
-  padding-top: 8px;
-  padding-bottom: 11px;
-  border-top: var(--rule-w) solid var(--rule);
-}
-
-.card__foot-top {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-}
-
-.card__actions {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
-  padding-left: 0; padding-right: 0;
-}
-
 .card__apply { justify-self: start; }
-
-@media (max-width: 640px) {
-  /* One column, so the card is wide and the two halves fit side by side
-     again. Three stacked rows there would be three taps of scrolling per
-     posting. */
-  .card__footer { grid-template-columns: minmax(0, 1fr) auto; }
-  .card__foot-top { grid-column: 1 / -1; }
-}
 
 /* The two measurements sit tighter now that five of these are side by side.
    Nothing is removed: `Match`, `Posting detail` and the eligibility answer
    are still three separately named things, which is what ADR-0004 requires
    of them. They just stop reserving a fifth of the card. */
 .badges--md { padding-top: 9px; gap: 5px; }
-.card__footer { gap: 5px; padding-bottom: 10px; }
 .chips--tech { padding-top: 7px; }
 
 /* =====================================================================
@@ -6568,7 +6137,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 
 .icon { display: block; flex: 0 0 auto; }
 
-
 /* =====================================================================
    HIDE THIS ONE
 
@@ -6577,8 +6145,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    score and keeps its history -- so it must not read as heavier than the
    status dropdown beside it, which changes a fact about an application.
    ===================================================================== */
-
-.card__foot-right { display: inline-flex; align-items: center; gap: 6px; }
 
 .card__hide {
   /* WCAG 2.2 asks for 24 by 24 CSS pixels on a pointer target, and this
@@ -6609,7 +6175,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   background: var(--lime-wash);
   font-weight: 600;
 }
-
 
 /* =====================================================================
    CONTEXTUAL HELP
@@ -6718,12 +6283,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    on a card: no candy family, no border, ink alone. Coral would say an
    employer refused somebody and butter would say the posting is incomplete;
    what happened is that a source handed us an excerpt. */
-.card__partial {
-  display: flex; gap: 6px; align-items: baseline;
-  margin: 0; padding: 6px 11px 0;
-  font-size: var(--t-micro);
-  color: var(--ink-faint);
-}
 
 /* The selection, ready to leave. A textarea rather than a download: the
    text is already on the page, and a control that fails silently when the
@@ -6765,7 +6324,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    which has a denominator somebody can point at, and it is absent entirely
    when no package is staged.
    ===================================================================== */
-
 
 /* -------------------------------------------------------------------
    Settings and Sources, as a destination
@@ -7192,7 +6750,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) { .choicechip { transition: none; } }
 
-
 /* A section is a card. It was a heading, a lede and a run of hairline rows on
    the page ground, which is what made nine of them read as one document. */
 .profile__section {
@@ -7267,12 +6824,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 @media (prefers-reduced-motion: no-preference) {
   .card { transition: box-shadow 75ms ease; }
 }
-
-.card__strip {
-  height: 6px;
-  margin: -1px -1px 12px;   /* over the card's own border, corner to corner */
-  background: var(--rule-strong);
-}
 .card__strip--strong { background: var(--mint); }
 .card__strip--good { background: var(--lime); }
 .card__strip--moderate { background: var(--butter); }
@@ -7289,15 +6840,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    onto a second row is how a footer stops being a footer; the full string
    stays in the `title` and in the drawer.
 */
-.card__foot-top {
-  display: flex; align-items: center; gap: 10px;
-  justify-content: space-between;
-}
-.card__age {
-  flex: 1; min-width: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.card__foot-right { flex-shrink: 0; display: flex; gap: 8px; flex-wrap: nowrap; }
 
 /* -- the favourite, as the committed pixel sprite ---------------------- */
 /*
@@ -7315,12 +6857,9 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   background: url("./px/px-heart-16.png") center / contain no-repeat;
   filter: grayscale(1) opacity(0.45);
 }
-.card__save.is-saved .card__heart { filter: none; }
 @media (prefers-reduced-motion: no-preference) {
   .card__heart { transition: filter 100ms ease; }
 }
-.card__save:hover .card__heart { filter: grayscale(0.4) opacity(0.85); }
-.card__save.is-saved:hover .card__heart { filter: none; }
 
 /* -- the table --------------------------------------------------------- */
 /*
@@ -7334,7 +6873,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 @media (prefers-reduced-motion: no-preference) {
   .table tbody tr { transition: background-color 100ms ease; }
 }
-
 
 /* =====================================================================
    THE CARD'S TYPE, RAISED TO THE FLOOR
@@ -7359,10 +6897,8 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   font-size: var(--t-body);
   font-weight: 700;
 }
-.card__age, .card__hide, .card__actions-label { font-size: var(--t-micro); }
-.card__blocked-glyph { font-size: var(--t-micro); }
+.card__hide { font-size: var(--t-micro); }
 .chip { font-size: var(--t-micro); }
-
 
 /* =====================================================================
    THE COMPACT CARD
@@ -7442,34 +6978,9 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 }
 
 /* The four notes above the badges: one line each. */
-.card__blocked, .card__offtarget, .card__context, .card__partial {
-  display: flex;
-  min-width: 0;
-}
-.card__blocked > span:last-child,
-.card__offtarget > span:last-child,
-.card__context > span:last-child,
-.card__partial > span:last-child {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* "5 locations · MX / CO +3 more": one line, the count first so it is the
    part that survives a clip. */
-.card__group {
-  flex-wrap: nowrap;
-  min-width: 0;
-  padding-top: 4px;
-}
-.card__group-count { flex: 0 0 auto; }
-.card__group-places {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* Three facts, three lines. The labels are in the markup for a screen
    reader (`.sr-only`) and off the screen: a label column beside a
@@ -7516,22 +7027,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    you are with it and the way out, side by side. The apply link still has
    its own cell -- it is the one control that leaves the product -- and it
    sits to the right of the status rather than under it. */
-.card__footer {
-  margin-top: 0;   /* desktop: pinned to the bottom by DISCOVER DENSITY */
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 10px;
-  padding-top: 6px;
-  padding-bottom: 8px;
-}
-.card__foot-top { grid-column: 1 / -1; min-width: 0; }
-.card__age {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.card__foot-right { flex: 0 0 auto; display: inline-flex; gap: 6px; }
-.card__actions { grid-column: 1; min-width: 0; }
 .card__apply {
   grid-column: 2;
   justify-self: end;
@@ -7542,7 +7037,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 /* A phone shows one column, so the card is wide and the same two rows
    hold; nothing here needs a third. */
 @media (max-width: 640px) {
-  .card__footer { grid-template-columns: minmax(0, 1fr) auto; }
   .card__apply { grid-column: 2; }
 }
 
@@ -8592,73 +8086,6 @@ body.has-cw-drawer { overflow: hidden; }
 .src__health-table .tag { margin-left: .4rem; }
 
 /* =====================================================================
-   DISCOVER DENSITY
-
-   Measured on Discover Jobs with the real corpus on 2026-10-02, desktop
-   1600x900 with the sidebar: the first card started at y=488 and four cards
-   were fully on screen. The toolbar was 147px because its controls summed
-   to two pixels more than the bar and the whole sort group wrapped onto a
-   second line; its padding was also declared twice (the bar AND its
-   controls). Cards in one row had different heights, so their footers did
-   not line up, and the in-card controls were four different sizes (Save
-   20px, status 21, Hide and Apply 26).
-
-   One block, desktop only (the 900px layouts above are untouched), every
-   rule a later declaration over the layers above:
-     - at most four columns, and never narrower than 260px;
-     - cards in a row stretch to the row's tallest, footer at the bottom
-       (per ROW: the old page-wide `1fr` rows are still gone);
-     - badges 24px, toolbar controls 34px, in-card controls 30px;
-     - the bar's padding said once, the search field a little narrower, so
-       the toolbar is one row.
-   ===================================================================== */
-@media (min-width: 901px) {
-  .topbar { padding-top: 10px; padding-bottom: 10px; }
-  .topbar__controls { padding: 0 32px; }
-  .toolsearch-host { flex-basis: 200px; }
-  /* The two groups are sized from OUTSIDE, borders included, so they line
-     up with the single controls; their buttons fill them. */
-  #rail-toggle, #f-search, #daily-open, .viewswitch, .resultbar { height: 34px; min-height: 34px; }
-  /* A 34px field leaves no room for the base field's 10px of padding. */
-  #sort.resultbar__field { padding-top: 0; padding-bottom: 0; font-size: 13px; min-height: 0; }
-  .resultbar > * { height: auto; min-height: 0; }
-  .results { padding-top: 14px; }
-  .resultcount { margin-bottom: 8px; }
-  .hiddennotice { margin-top: 6px; }
-  .hidden__row { padding-top: 3px; padding-bottom: 3px; }
-  .hidden__show { padding-top: 2px; padding-bottom: 2px; min-height: 24px; }
-
-  .cards {
-    gap: 14px;
-    padding-top: 10px;
-    align-items: stretch;
-    grid-template-columns: repeat(auto-fill, minmax(max(260px, calc((100% - 3 * 14px) / 4 - 0.5px)), 1fr));
-  }
-  .cards .card__strip { margin-bottom: 0; }
-  .cards .card .badges--md,
-  .cards .card__head, .cards .card__facts, .cards .card__group, .cards .chips,
-  .cards .card__footer, .cards .card__blocked, .cards .card__offtarget,
-  .cards .card__context, .cards .card__partial, .cards .card__concern,
-  .cards .card__unknowns { padding-left: 14px; padding-right: 14px; }
-  .cards .card .badges--md { padding-top: 9px; gap: 4px; }
-  .cards .card .badges--md .badge {
-    height: 24px;
-    align-items: center;
-    padding: 0 7px;
-    line-height: 1;
-  }
-  .cards .card .badges--md .badge--match .badge__value { font-size: 13px; }
-  .cards .card__head { padding-top: 5px; }
-  .cards .card__facts { padding-top: 5px; padding-bottom: 0; }
-  .cards .card__facts dd { line-height: 1.3; }
-  .cards .card__footer { margin-top: auto; padding-top: 6px; padding-bottom: 9px; }
-  .cards .card__save, .cards .card__hide, .cards .card__apply,
-  .cards .card__actions .select--status { height: 30px; min-height: 30px; }
-  .cards .card__save, .cards .card__apply { display: inline-flex; align-items: center; }
-  .cards .card__actions .select--status { padding-top: 0; padding-bottom: 0; }
-}
-
-/* =====================================================================
    THE SHELL (redesign handoff, 2026-10)
 
    `design_handoff_career_agent/source/Career Agent Redesign.dc.html` is the
@@ -9169,3 +8596,747 @@ body { font-synthesis-weight: none; }
 @media (prefers-reduced-motion: reduce) {
   .sidenav { transition: none; }
 }
+
+/* =====================================================================
+   FIND JOBS: THE TOOLBAR, THE SORT MENU AND THE FILTER DRAWER
+   (redesign handoff, 2026-10)
+   ===================================================================== */
+
+.topbar { position: static; width: 100%; padding: 0; margin: 0 0 12px; border: 0; background: transparent; }
+.topbar__controls { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; flex: 1; min-width: 0; gap: 12px; padding: 0; }
+
+.jobsbar { display: flex; align-items: center; gap: 10px; row-gap: 10px; flex-wrap: wrap; }
+.jobsbar__right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+/* The search field: its own surface, a soft edge, the link-coloured ring on
+   focus, a drawn magnifier and the "/" hint. */
+.toolsearch-host { flex: 1 1 420px; min-width: min(100%, 420px); max-width: none; display: flex; }
+.toolsearch {
+  position: relative;
+  flex: 1;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 10px 0 16px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+.toolsearch::before {
+  content: "";
+  flex: none;
+  width: 12px; height: 12px;
+  border: 1.8px solid var(--muted);
+  border-radius: 50%;
+  box-shadow: 4px 4px 0 -3px var(--muted);
+}
+.toolsearch:focus-within { border-color: var(--link); }
+.toolsearch__input.input {
+  flex: 1; min-width: 0;
+  padding: 13px 0; min-height: 0;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  font-size: 15px;
+}
+.toolsearch__input.input:focus-visible { box-shadow: none; }
+.toolsearch::after {
+  content: "/";
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font-size: 11px; font-weight: 600; color: var(--faint);
+}
+.toolsearch:focus-within::after,
+.toolsearch:has(.toolsearch__clear:not([hidden]))::after { display: none; }
+.toolsearch__clear {
+  position: static;
+  flex: none;
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%;
+  background: var(--chip-bg); color: var(--muted);
+  font-size: 13px; cursor: pointer;
+}
+.toolsearch__clear:hover { color: var(--ink); }
+
+/* -- the Sort menu ------------------------------------------------------- */
+.sortmenu { position: relative; flex: none; }
+.sortmenu__btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px;
+  border: 0; border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit; font-size: 13px;
+  white-space: nowrap; cursor: pointer;
+}
+.sortmenu__btn strong { color: var(--ink); font-weight: 600; }
+.sortmenu__btn:hover { background: var(--surface-alt); }
+.sortmenu__caret { font-size: 9px; margin-left: 2px; }
+.popover {
+  position: absolute;
+  z-index: 25;
+  box-sizing: border-box;
+  padding: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+.sortmenu__pop { right: 0; top: calc(100% + 6px); width: 280px; display: flex; flex-direction: column; gap: 2px; }
+.sortmenu__options { display: flex; flex-direction: column; gap: 2px; }
+.sortmenu__opt {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 10px;
+  border: 0; border-radius: 9px;
+  background: transparent; color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.sortmenu__opt[aria-checked="true"], .sortmenu__opt:hover { background: var(--surface-alt); }
+.sortmenu__check { flex: none; width: 16px; padding-top: 1px; font-size: 13px; font-weight: 700; color: var(--match-ink); }
+.sortmenu__text { display: flex; flex-direction: column; gap: 2px; }
+.sortmenu__label { font-size: 14px; font-weight: 600; }
+.sortmenu__desc { font-size: 12px; line-height: 1.35; color: var(--muted); }
+.sortmenu__extra { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--rule); }
+.sortmenu__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px;
+  border: 0; border-radius: 9px;
+  background: transparent; color: var(--body);
+  font: inherit; font-size: 13px; font-weight: 500; text-align: left; cursor: pointer;
+}
+.sortmenu__row:hover { background: var(--surface-alt); color: var(--ink); }
+.sortmenu__row.btn--group::after {
+  content: "";
+  flex: none;
+  width: 30px; height: 18px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  box-shadow: inset -12px 0 0 2px var(--line-strong), inset -12px 0 0 9px #ffffff;
+}
+.sortmenu__row.btn--group[aria-pressed="true"]::after {
+  background: var(--green-bar);
+  box-shadow: inset 12px 0 0 2px var(--green-bar), inset 12px 0 0 9px #ffffff;
+}
+
+/* -- the view switch ------------------------------------------------------- */
+.viewswitch .segmented__btn { text-transform: none; }
+
+/* -- the quick filters ----------------------------------------------------- */
+.quickrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 0 2px; }
+.quickchips { display: flex; gap: 6px; flex-wrap: wrap; }
+.quickchip {
+  padding: 6px 13px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--body);
+  font: inherit; font-size: 13px; font-weight: 500;
+  white-space: nowrap; cursor: pointer;
+}
+.quickchip:hover { filter: brightness(0.96); }
+.quickchip[aria-pressed="true"] { background: var(--lav); border-color: var(--lav); color: var(--on-lav); }
+.allfilters {
+  display: flex; align-items: center; gap: 6px;
+  margin-left: 4px;
+  padding: 6px 10px;
+  border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink);
+  font: inherit; font-size: 13px; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.allfilters:hover { background: var(--surface-alt); }
+.allfilters__icon { display: flex; flex-direction: column; align-items: center; gap: 2.5px; width: 13px; }
+.allfilters__icon span { height: 1.6px; border-radius: 1px; background: var(--muted); }
+.allfilters__icon span:nth-child(1) { width: 13px; }
+.allfilters__icon span:nth-child(2) { width: 8px; }
+.allfilters__icon span:nth-child(3) { width: 3px; }
+.railtoggle__count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--lav); color: var(--on-lav);
+  font-size: 11px; line-height: 18px; text-align: center;
+}
+.quickrow__spacer { flex: 1; }
+.quickrow__clear, .quickrow__today, .quickrow__export {
+  padding: 6px 8px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.quickrow__clear:hover, .quickrow__today:hover, .quickrow__export:hover { color: var(--ink); background: var(--surface-alt); }
+.quickrow__today { color: var(--link); font-weight: 600; }
+
+/* -- List tools: Columns | Export CSV --------------------------------------- */
+.listtools {
+  position: relative;
+  display: flex; align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+}
+.listtools__btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 12px;
+  border: 0; background: transparent; color: var(--body);
+  font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
+}
+.listtools__btn:first-child { border-radius: 9px 0 0 9px; }
+.listtools__btn:last-of-type { border-radius: 0 9px 9px 0; }
+.listtools__btn:hover { background: var(--surface-alt); color: var(--ink); }
+.listtools__sep { width: 1px; height: 18px; background: var(--rule); }
+.columns__pop { right: 0; top: calc(100% + 6px); width: 300px; max-width: calc(100vw - 32px); }
+
+/* -- the filter drawer ---------------------------------------------------- */
+.filterpanel { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: flex-end; margin: 0; padding: 0; border: 0; background: none; max-width: none; }
+.filterpanel__scrim { position: absolute; inset: 0; background: rgba(20, 19, 16, 0.55); }
+.filterpanel__panel {
+  position: relative;
+  width: min(500px, 100vw);
+  height: 100%;
+  display: flex; flex-direction: column;
+  background: var(--paper);
+  color: var(--ink);
+  border-left: var(--bw) solid var(--line);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.3);
+}
+.filterpanel__head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  padding: 26px 28px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.filterpanel__title { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; }
+.filterpanel__lede { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--muted); }
+.filterpanel__close {
+  flex: none;
+  width: 44px; height: 44px;
+  border: var(--bw) solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface); color: var(--ink);
+  font-size: 16px; cursor: pointer;
+}
+.filterpanel__body { flex: 1; overflow-y: auto; padding: 0 28px 12px; }
+.filterpanel__foot {
+  display: flex; gap: 10px;
+  padding: 16px 28px;
+  border-top: var(--bw) solid var(--line);
+  background: var(--paper);
+}
+.filterpanel__show { flex: 1; font-size: 16px; padding: 13px 18px; }
+body.has-filters { overflow: hidden; }
+/* -- the drawer's content: the essentials, then More options --------------- */
+.filterpanel .filters { columns: auto; display: flex; flex-direction: column; padding: 0; }
+.filterpanel .filters > * { margin: 0; }
+.fess { display: flex; flex-direction: column; }
+.fess__sec { display: flex; flex-direction: column; gap: 14px; padding: 22px 0; border-bottom: 1px solid var(--divider); }
+.fess__head { display: flex; flex-direction: column; gap: 4px; }
+.fess__title { margin: 0; font-family: var(--sans); font-size: 17px; font-weight: 600; color: var(--ink); }
+.fess__help { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
+.fess__sub { margin-top: 4px; font-size: 14px; font-weight: 500; }
+.fchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fchips:empty { display: none; }
+.filterpanel .fchip {
+  padding: 9px 16px;
+  border: var(--bw) solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 15px; font-weight: 500;
+  text-transform: none; letter-spacing: 0; box-shadow: none;
+  cursor: pointer;
+}
+.filterpanel .fchip:hover { background: var(--surface-alt); }
+.filterpanel .fchip[aria-pressed="true"] { background: var(--lav); border-color: var(--lav); color: var(--on-lav); }
+.fswitch {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 16px;
+  border: var(--bw) solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 15px; text-align: left; cursor: pointer;
+}
+.fswitch__track { flex: none; display: flex; width: 46px; height: 26px; padding: 3px; box-sizing: border-box; border-radius: 999px; background: var(--line-strong); }
+.fswitch__knob { width: 20px; height: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+.fswitch[aria-checked="true"] .fswitch__track { justify-content: flex-end; background: var(--green-bar); }
+.fess__words { display: flex; flex-direction: column; gap: 16px; }
+.filterpanel .phrases { gap: 8px; }
+.filterpanel .phrases .filters__sublabel, .fess__pay .filters__sublabel { font-size: 14px; font-weight: 500; color: var(--ink); }
+.phrases__entry { display: flex; gap: 8px; }
+.phrases__entry .input { flex: 1; min-width: 0; }
+.phrases__add {
+  flex: none; padding: 0 16px;
+  border: var(--bw) solid var(--line-strong); border-radius: 12px;
+  background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.filterpanel .phrases__tags .chip--tag { background: var(--saved-bg); border: 1px solid var(--line-strong); border-radius: 999px; }
+.filters__more { padding: 22px 0; }
+.filters__moresum {
+  display: inline-flex; gap: 8px; list-style: none; cursor: pointer;
+  color: var(--link); font-size: 15px; font-weight: 600;
+}
+.filters__moresum::-webkit-details-marker { display: none; }
+.filters__moresum::after { content: "\25BE"; }
+.filters__more[open] > .filters__moresum::after { content: "\25B4"; }
+.filters__more[open] > .filters__moresum { margin-bottom: 14px; }
+.filters__more .fsec { margin-bottom: 10px; }
+
+/* =====================================================================
+   FIND JOBS: THE JOB CARD (redesign handoff, 2026-10)
+
+   One block, last in the file, so the card's whole shape reads in one
+   place. The grid gives every row the tallest card's height, as the
+   handoff does, and a card never sits narrower than 220px.
+   ===================================================================== */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+.cards .card {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px;
+  background: var(--surface);
+  border: var(--bw) solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.cards .card::before { content: none; }
+.cards .card:hover { transform: translate(-2px, -2px); box-shadow: var(--shadow); }
+.cards .card:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .cards .card, .cards .card:hover { transition: none; transform: none; } }
+
+.card__match {
+  display: flex; flex-direction: column; gap: 6px;
+  width: 100%;
+  padding: 0; margin: 0;
+  border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.card__matchrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.card__pct {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.card__matchtext { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card__meter { display: block; height: 4px; border-radius: 2px; background: var(--divider); overflow: hidden; }
+.card__meterbar { display: block; height: 100%; border-radius: 2px; }
+
+.card__match--m1 .card__pct, .matchpill--m1 { background: var(--m1-bg); color: var(--m1-fg); }
+.card__match--m1 .card__matchtext { color: var(--m1-fg); }
+.card__match--m1 .card__meterbar { background: var(--m1-bar); }
+.card__match--m2 .card__pct, .matchpill--m2 { background: var(--m2-bg); color: var(--m2-fg); }
+.card__match--m2 .card__matchtext { color: var(--m2-fg); }
+.card__match--m2 .card__meterbar { background: var(--m2-bar); }
+.card__match--m3 .card__pct, .matchpill--m3 { background: var(--m3-bg); color: var(--m3-fg); }
+.card__match--m3 .card__matchtext { color: var(--m3-fg); }
+.card__match--m3 .card__meterbar { background: var(--m3-bar); }
+
+.cards .card__head { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 0; }
+.cards .card__company {
+  margin: 0;
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  letter-spacing: 0; text-transform: none;
+  color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cards .card__title {
+  margin: 0;
+  font-family: var(--display); font-weight: 400; font-size: 16px; line-height: 1.25;
+  min-height: 2.5em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cards .card:hover .card__title { text-decoration: underline; }
+.cards .card__facts {
+  display: flex; flex-direction: column; gap: 3px;
+  margin: 0; padding: 0;
+  font-family: var(--sans); font-size: 13px; line-height: 1.35;
+  color: var(--body);
+  min-width: 0;
+}
+.cards .card__facts dd {
+  margin: 0; padding: 0;
+  font: inherit; color: inherit;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cards .card__facts .fact--absent, .cards .card__facts .fact--posted { color: var(--faint); }
+.cards .card__facts .fact--salary { color: var(--green-text); font-weight: 500; }
+.card__note {
+  margin: 0;
+  font-size: 12px; line-height: 1.35; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card__elig {
+  margin: 0;
+  font-size: 12px; font-weight: 600; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card__elig--good { color: var(--green-text); }
+.card__elig--warn { color: var(--muted); }
+.card__elig--bad { color: var(--ink); }
+.card__grow { flex: 1; }
+
+.card__applyrow { display: flex; gap: 6px; align-items: center; }
+.cards .card__apply {
+  flex: 1; min-width: 0;
+  padding: 9px 8px;
+  border: 0; border-radius: 10px;
+  background: var(--lav); color: var(--on-lav);
+  font-size: 13px; font-weight: 600; text-align: center; text-decoration: none;
+  white-space: nowrap;
+}
+.cards .card__apply:hover { filter: brightness(0.95); }
+.cards .card__apply.link--unavailable { background: var(--chip-bg); color: var(--faint); }
+.card__heart {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+  padding: 0;
+  border: 0; background: transparent;
+  font-family: system-ui, sans-serif; font-size: 24px; line-height: 1;
+  color: var(--muted); cursor: pointer;
+}
+.card__heart:hover, .card__heart.is-saved { color: var(--heart); }
+.card__ask {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px;
+  background: var(--ask-bg); border: 1px solid var(--ask-line); border-radius: 10px;
+}
+.card__askq { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--ink); }
+.card__askbtns { display: flex; gap: 6px; }
+.card__yes, .card__no { flex: 1; padding: 8px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer; }
+.card__yes { border: 0; background: var(--ask-btn); color: var(--on-ask); font-weight: 600; }
+.card__no { border: 1px solid var(--ask-btn-line); background: transparent; color: var(--ask-text2); }
+.card__sent {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  min-height: 38px; box-sizing: border-box;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--hero-bg);
+}
+.card__sentlabel { font-size: 13px; font-weight: 600; color: var(--green-text); }
+.card__undo { padding: 0; border: 0; background: transparent; color: var(--hero-text); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.card__links { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: -2px; }
+.card__details, .cards .card__hide {
+  min-height: 28px;
+  padding: 2px 0;
+  border: 0; background: transparent;
+  font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.card__details { color: var(--link); font-weight: 600; }
+.cards .card__hide { color: var(--faint); }
+.cards .card__hide:hover { color: var(--ink); }
+
+/* -- the hidden-jobs notice: one summary, the reasons behind "See why" ------ */
+.hiddennotice {
+  display: block;
+  margin: 0 0 14px; padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  overflow: hidden;
+  font-family: var(--sans);
+}
+.hiddennotice[hidden] { display: none; }
+.hidden__summary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 12px 12px 16px; }
+.hidden__icon {
+  flex: none; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--tip-bg); color: var(--link);
+  font-size: 14px;
+}
+.hidden__lede { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 1px; }
+.hidden__title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.hidden__sub { font-size: 13px; color: var(--muted); }
+.hidden__why {
+  padding: 7px 10px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: var(--link);
+  font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+.hidden__why:hover { background: var(--surface-alt); }
+.hiddennotice .hidden__dismiss {
+  flex: none; width: 28px; height: 28px;
+  border: 0; border-radius: 50%;
+  background: transparent; color: var(--faint);
+  font-size: 13px; cursor: pointer;
+}
+.hiddennotice .hidden__dismiss:hover { background: var(--surface-alt); color: var(--ink); }
+.hidden__rows { border-top: 1px solid var(--divider); }
+.hidden__rows[hidden] { display: none; }
+.hiddennotice .hidden__row {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 0; padding: 12px 16px;
+  background: transparent; border: 0;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 0;
+}
+.hiddennotice .hidden__row:last-child { border-bottom: 0; }
+.hidden__count { flex: none; min-width: 52px; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.hiddennotice .hidden__text { flex: 1 1 220px; min-width: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.hiddennotice .hidden__show {
+  flex: none;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 4px;
+  border: 0; border-radius: 8px; box-shadow: none;
+  background: transparent; color: var(--body);
+  font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
+}
+.hiddennotice .hidden__show:hover { background: transparent; color: var(--ink); }
+.hidden__track { display: flex; width: 34px; height: 20px; padding: 2px; box-sizing: border-box; border-radius: 999px; background: var(--line-strong); }
+.hidden__knob { width: 16px; height: 16px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.hidden__switch[aria-checked="true"] .hidden__track { justify-content: flex-end; background: var(--green-bar); }
+.hiddennotice .hidden__compact { padding: 10px 16px; color: var(--link); font-weight: 600; }
+
+/* -- the List: one surface, quiet header, a pill for the match ------------- */
+.listtools__count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-alt); color: var(--muted);
+  font-size: 11px; font-weight: 600;
+}
+.columns__pop { display: flex; flex-direction: column; width: 292px; }
+.colmenu__head { display: flex; flex-direction: column; gap: 2px; padding: 10px 10px 8px; }
+.colmenu__title { font-size: 14px; font-weight: 600; }
+.colmenu__help { font-size: 12px; color: var(--muted); }
+.colmenu__rows { margin: 0; padding: 0; list-style: none; max-height: min(60vh, 460px); overflow-y: auto; }
+.colrow { display: flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 9px; }
+.colrow:hover { background: var(--surface-alt); }
+.colrow--fixed { padding: 7px 10px; color: var(--faint); font-size: 14px; }
+.colrow--fixed:hover { background: transparent; }
+.colrow--fixed + .colrow:not(.colrow--fixed) { margin-top: 4px; border-top: 1px solid var(--divider); border-radius: 0; padding-top: 4px; }
+.colrow__name { flex: 1; }
+.colrow__fixed { font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+.colrow__switch {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: row-reverse; justify-content: flex-end; align-items: center; gap: 10px;
+  padding: 7px 0;
+  border: 0; background: transparent; color: var(--ink);
+  font: inherit; font-size: 14px; text-align: left; cursor: pointer;
+}
+.colrow__switch[aria-checked="false"] { color: var(--muted); }
+.colrow__track { flex: none; display: flex; width: 30px; height: 18px; padding: 2px; box-sizing: border-box; border-radius: 999px; background: var(--line-strong); }
+.colrow__knob { width: 14px; height: 14px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.colrow__switch[aria-checked="true"] .colrow__track { justify-content: flex-end; background: var(--green-bar); }
+.colrow__move {
+  flex: none; width: 26px; height: 26px;
+  border: 0; border-radius: 7px;
+  background: transparent; color: var(--muted);
+  font-size: 12px; cursor: pointer;
+}
+.colrow__move:hover:not(:disabled) { background: var(--divider); color: var(--ink); }
+.colrow__move:disabled { opacity: 0.3; cursor: default; }
+.colmenu__foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; padding: 8px 6px 4px 10px; border-top: 1px solid var(--divider); }
+.colmenu__reset, .colmenu__done { padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
+.colmenu__reset { padding-left: 0; color: var(--muted); }
+.colmenu__reset:hover { color: var(--ink); }
+.colmenu__done { color: var(--link); font-weight: 600; }
+.colmenu__done:hover { background: var(--surface-alt); }
+
+.tablewrap .tablescrollwrap {
+  background: var(--surface);
+  border: var(--bw) solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.tablewrap .tablescroll { border: 0; border-radius: 0; background: transparent; }
+.tablewrap .jobs { border-collapse: collapse; background: transparent; font-family: var(--sans); }
+.tablewrap .jobs thead th {
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 0; border-bottom: var(--bw) solid var(--line);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--muted);
+}
+.tablewrap .jobs thead .th__sort { color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; }
+.tablewrap .jobs tbody td, .tablewrap .jobs tbody th {
+  padding: 14px;
+  border: 0; border-bottom: 1px solid var(--divider);
+  font-size: 14px; color: var(--body);
+  background: transparent;
+}
+.tablewrap .jobs tbody tr:hover > * { background: var(--surface-alt); }
+.tablewrap .jobs .cell__title-btn { font-family: var(--display); font-size: 15px; font-weight: 400; color: var(--ink); }
+.matchpill { display: inline-block; padding: 3px 9px; border-radius: 8px; font-size: 15px; font-weight: 700; }
+
+/* =====================================================================
+   THE JOB DRAWER (redesign handoff, 2026-10): 700px, the job and its
+   actions in a header that stays put, four tabs under it.
+   ===================================================================== */
+.drawer__scrim { background: rgba(20, 19, 16, 0.55); }
+.drawer__panel {
+  width: min(700px, 100vw);
+  background: var(--paper);
+  color: var(--ink);
+  border-left: var(--bw) solid var(--line);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.3);
+}
+.drawer__panel--wide { width: min(880px, 100vw); }
+.drawer__panel .drawer__head {
+  display: flex; flex-direction: column; align-items: stretch; gap: 16px;
+  padding: 24px 28px 0;
+  border-bottom: 1px solid var(--divider);
+  background: var(--paper);
+}
+.drawer__headtop { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.drawer__who { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.drawer__company { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0; text-transform: none; }
+.drawer__panel .drawer__title { margin: 0; font-family: var(--display); font-weight: 400; font-size: 27px; line-height: 1.2; text-wrap: pretty; }
+.drawer__where { font-size: 14px; color: var(--body); }
+.drawer__panel .drawer__close {
+  flex: none; width: 44px; height: 44px; padding: 0;
+  border: var(--bw) solid var(--line-strong); border-radius: 50%;
+  background: var(--surface); color: var(--ink);
+  font-size: 16px; box-shadow: none;
+}
+.drawer__actions { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; border: 0; }
+.drawer__actrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.drawer__match { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; }
+.drawer__match .card__pct { padding: 4px 10px; border-radius: 9px; font-size: 18px; }
+.drawer__match .card__matchtext { font-size: 15px; }
+.drawer__grow { flex: 1; }
+.drawer__ad, .drawer__apply, .drawer__sent {
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 14px; font-weight: 600; line-height: 1.2; text-decoration: none; white-space: nowrap;
+}
+.drawer__ad { background: var(--surface); color: var(--ink); border: var(--bw) solid var(--line-strong); }
+.drawer__apply { padding: 12px 18px; background: var(--lav); color: var(--on-lav); border: 0; }
+.drawer__ad:hover, .drawer__apply:hover { filter: brightness(0.96); }
+.drawer__sent { padding: 12px 18px; background: var(--hero-bg); color: var(--green-text); }
+.drawer__ask {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--ask-bg); border: 1px solid var(--ask-line); border-radius: 12px;
+}
+.drawer__askq { font-size: 14px; font-weight: 600; color: var(--ink); }
+.drawer__askbtns { display: flex; gap: 8px; }
+.drawer__askbtns .card__yes, .drawer__askbtns .card__no { flex: none; padding: 9px 14px; border-radius: 10px; font-size: 14px; }
+.drawer__meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.drawer__statuslabel { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.drawer__statuslabel .select { width: auto; min-width: 150px; }
+.drawer__panel .drawer__tabs {
+  display: flex; gap: 4px; overflow-x: auto;
+  margin: 0 0 -1px; padding: 0;
+  border: 0; background: transparent;
+}
+.drawer__panel .drawer__tab {
+  padding: 12px 12px 11px;
+  border: 0; border-bottom: 3px solid transparent; border-radius: 0;
+  background: transparent; color: var(--muted);
+  font-family: var(--sans); font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  white-space: nowrap; box-shadow: none;
+}
+.drawer__panel .drawer__tab:hover { color: var(--ink); }
+.drawer__panel .drawer__tab[aria-selected="true"] { color: var(--link); border-bottom-color: var(--link); background: transparent; }
+.drawer__panel .drawer__body { padding: 24px 28px 48px; }
+.drawer__panel .d-sec__head { font-family: var(--sans); font-size: 18px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink); }
+@media (max-width: 600px) {
+  .drawer__panel .drawer__head { padding: 18px 16px 0; }
+  .drawer__panel .drawer__body { padding: 18px 16px 40px; }
+  .drawer__panel .drawer__title { font-size: 22px; }
+}
+
+/* =====================================================================
+   MY APPLICATIONS: THE BOARD (redesign handoff, 2026-10)
+   ===================================================================== */
+.kanban {
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-columns: repeat(5, minmax(232px, 1fr));
+  grid-auto-columns: auto;
+  gap: 12px;
+  padding: 2px 2px 12px;
+  overflow-x: auto;
+  align-items: stretch;
+}
+.kanban .kcol {
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: max(540px, calc(100vh - 300px));
+  padding: 12px 10px 10px;
+  background: var(--col-bg);
+  border: 0; border-radius: 16px; box-shadow: none;
+  outline: 2px solid transparent; outline-offset: -2px;
+  transition: background 150ms ease;
+}
+.kanban .kcol.is-over { background: var(--tip-bg); outline: 2px dashed var(--line-strong); }
+.kcol--shortlisted .kcol__bar { background: var(--purple); }
+.kanban .kcol--shortlisted.is-over { outline-color: var(--purple); }
+.kcol--applied .kcol__bar { background: var(--blue-bar); }
+.kanban .kcol--applied.is-over { outline-color: var(--blue-bar); }
+.kcol--interview .kcol__bar { background: var(--yellow-bar); }
+.kanban .kcol--interview.is-over { outline-color: var(--yellow-bar); }
+.kcol--offer .kcol__bar { background: var(--green-bar); }
+.kanban .kcol--offer.is-over { outline-color: var(--green-bar); }
+.kcol--closed .kcol__bar { background: var(--faint); }
+.kanban .kcol--closed.is-over { outline-color: var(--faint); }
+.kanban .kcol__head {
+  display: flex; flex-direction: column; gap: 6px;
+  margin: 0; padding: 2px 4px 6px;
+  border: 0; background: transparent;
+}
+.kanban .kcol__head, .kanban .kcol__help { text-align: left; font-weight: 400; }
+.kcol__bar { align-self: flex-start; width: 28px; height: 3px; border-radius: 2px; }
+.kcol__titlerow { display: flex; align-items: center; gap: 8px; }
+.kanban .kcol__title { text-align: left; flex: 1; margin: 0; font-family: var(--sans); font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.kanban .kcol__count { font-size: 12px; font-weight: 600; color: var(--muted); background: transparent; border: 0; padding: 0; }
+.kcol__help {
+  margin: 0; min-height: 2.8em;
+  font-size: 12.5px; line-height: 1.4; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.kanban .kcol__body { display: flex; flex-direction: column; gap: 8px; padding: 0; min-height: 0; background: transparent; border: 0; }
+.kanban .kcol__empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 96px; margin: 0; padding: 14px;
+  border: 1.5px dashed var(--divider); border-radius: 12px;
+  font-size: 13px; line-height: 1.45; text-align: center; color: var(--faint);
+}
+.kanban .kcard {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--divider); border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  cursor: grab;
+  transition: box-shadow 150ms ease, transform 150ms ease;
+}
+.kanban .kcard:hover { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.09); transform: translateY(-1px); }
+.kanban .kcard.is-dragging { opacity: 0.5; }
+.kanban .kcard:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.kcard__top { display: flex; align-items: center; gap: 8px; }
+.kanban .kcard__company { flex: 1; min-width: 0; margin: 0; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban .kcard__match { flex: none; padding: 1px 7px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+.kanban .kcard__title {
+  margin: 0;
+  font-family: var(--display); font-weight: 400; font-size: 15px; line-height: 1.28;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.kanban .kcard__meta { margin: 0; font-size: 12px; color: var(--faint); }
+.kcard__foot { display: flex; align-items: center; gap: 4px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--divider); }
+.kcard__grow { flex: 1; }
+.kcard__back, .kcard__next {
+  height: 28px; border: 0; border-radius: 8px;
+  background: transparent; font: inherit; cursor: pointer;
+}
+.kcard__back { flex: none; width: 28px; color: var(--muted); font-size: 15px; }
+.kcard__next { padding: 0 8px; color: var(--link); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.kcard__back:hover, .kcard__next:hover { background: var(--chip-bg); color: var(--ink); }
+.kcard__done { padding: 0 6px; font-size: 12px; color: var(--faint); }
+@media (prefers-reduced-motion: reduce) { .kanban .kcard, .kanban .kcard:hover { transition: none; transform: none; } }
+/* The result line under the toolbar: words, not a readout. */
+#resultcount { font-family: var(--sans); font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--body); }

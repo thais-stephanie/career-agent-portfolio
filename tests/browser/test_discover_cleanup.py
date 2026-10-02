@@ -112,14 +112,14 @@ def test_a_card_says_posted_only_beside_a_published_date(
             _row("syn-local", companies[3], posted_at="2026-09-10T00:30:00"),
         ],
     )
-    footer = '(id) => document.querySelector(`[data-job-id="${id}"] .card__age`).textContent'
+    footer = '(id) => document.querySelector(`[data-job-id="${id}"] .fact--posted`).textContent'
     dated = str(page.evaluate(f"({footer})('syn-dated')"))
     undated = str(page.evaluate(f"({footer})('syn-undated')"))
 
-    assert "Posted: 10 Sep 2026" in dated, dated
+    assert "Posted 10 Sep 2026" in dated, dated
     for job_id in ("syn-offset", "syn-local"):
         text = str(page.evaluate(f"({footer})({json.dumps(job_id)})"))
-        assert "Posted: 10 Sep 2026" in text, (job_id, text)
+        assert "Posted 10 Sep 2026" in text, (job_id, text)
     assert "Posted" not in undated, undated
     assert "Sep 2026" not in undated, "a collection date was printed as the posting date"
     for text in (dated, undated):
@@ -137,8 +137,7 @@ def test_the_table_has_no_bulk_move_and_no_dead_checkboxes(page: Chrome, server:
         "document.querySelectorAll('table.jobs tbody tr[data-job-id]').length > 0",
         message="the table",
     )
-    assert page.evaluate("document.querySelectorAll('.tablebar select').length") == 0
-    toolbar = str(page.evaluate("document.querySelector('.tablebar').innerText"))
+    toolbar = str(page.evaluate("document.getElementById('list-tools').innerText"))
     assert "Move the ticked" not in toolbar, toolbar
     assert page.evaluate("document.querySelectorAll('table.jobs thead input').length") == 0
     # The one checkbox left on a row is "Applied?", which writes the status.

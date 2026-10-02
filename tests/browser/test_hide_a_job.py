@@ -95,7 +95,7 @@ def test_the_notice_counts_what_she_hid_apart_from_what_was_hidden_for_her(
         message="a third notice row",
     )
 
-    text = str(page.evaluate(f"{NOTICE}.innerText"))
+    text = str(page.evaluate(f"{NOTICE}.textContent"))
     assert "1" in text
     # And the row carries BOTH ways back: reveal them here, or look at them
     # on their own.
@@ -132,9 +132,9 @@ def test_the_notice_can_be_dismissed_without_revealing_anything(
         ".querySelector('.hidden__dismiss').click()"
     )
     page.wait_for(
-        f"!{NOTICE}.innerText.includes('deixou de lado')"
-        f" && !{NOTICE}.innerText.includes('set them aside')"
-        f" && !{NOTICE}.innerText.includes('set it aside')",
+        f"!{NOTICE}.textContent.includes('deixou de lado')"
+        f" && !{NOTICE}.textContent.includes('set them aside')"
+        f" && !{NOTICE}.textContent.includes('set it aside')",
         message="the notice to go quiet",
     )
 

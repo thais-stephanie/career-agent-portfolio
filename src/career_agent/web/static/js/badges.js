@@ -58,12 +58,12 @@ export function searchFitIsReady() {
  *   size 'sm' | 'md'          -- 'sm' is the table row
  *   showEligibility {boolean} -- the third measurement, when it says something
  */
-export function badges(job, { size = 'md', showEligibility = true } = {}) {
+export function badges(job, { size = 'md', showEligibility = true, showMatch = true } = {}) {
   const match = scoreDisplay(job.match_score);
   const confidence = scoreDisplay(job.data_confidence);
 
   const children = [
-    searchFitReady
+    !showMatch ? null : searchFitReady
       ? chip({
         kind: 'match',
         label: t('legend.match'),
@@ -96,10 +96,12 @@ export function badges(job, { size = 'md', showEligibility = true } = {}) {
     if (badge) children.push(badge);
   }
 
+  const shown = children.filter(Boolean);
+
   return el('div', {
     className: `badges badges--${size}`,
     attrs: { role: 'group', 'aria-label': summary(job) },
-  }, children);
+  }, shown);
 }
 
 function chip({ kind, label, display, band, title }) {

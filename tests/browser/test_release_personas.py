@@ -187,7 +187,7 @@ def test_complete_persona_journey(page, workspace, persona):
     assert title in str(page.evaluate("document.querySelector('#list').innerText"))
     page.evaluate(
         "[...document.querySelectorAll('button')]"
-        ".find(b => b.textContent.startsWith('Show filters'))?.click()"
+        ".find(b => b.textContent.startsWith('All filters'))?.click()"
     )
     page.wait_for("document.querySelector('#f-search')")
     input_value(page, "#f-search", "no-such-invented-vacancy")
@@ -199,26 +199,33 @@ def test_complete_persona_journey(page, workspace, persona):
     page.evaluate("document.querySelector('#drawer-tab-why').click()")
     page.wait_for("document.querySelector('#drawer-panel-why').innerText.length > 30")
     page.evaluate("document.querySelector('#drawer-tab-prepare').click()")
-    page.wait_for("document.querySelector('#drawer-panel-prepare').innerText.length > 50")
+    # The Resume Tailor link leads the tab, so wait for the requirements themselves.
+    page.wait_for("document.querySelectorAll('#drawer-panel-prepare .prep__row').length > 0")
     assert page.evaluate("document.querySelectorAll('#drawer-panel-prepare .prep__row').length") > 0
     page.screenshot(Path(f"out/rc-persona-{code}-prepare.png"))
     page.press("Escape")
-    page.evaluate("document.querySelector('.card__save').click()")
-    page.wait_for("document.querySelector('.card__save.is-saved')")
-    page.evaluate(
-        "document.querySelector('.card .select--status').value='SHORTLISTED';"
-        "document.querySelector('.card .select--status')"
-        ".dispatchEvent(new Event('change',{bubbles:true}))"
+    page.evaluate("document.querySelector('.card__heart').click()")
+    page.wait_for("document.querySelector('.card__heart.is-saved')")
+    # Interested is set where every status is: the job's own details.
+    page.evaluate("document.querySelector('.card:not(.card--skeleton)').click()")
+    page.wait_for("document.querySelector('.drawer__actions select.select--status')")
+    set_value(
+        page,
+        "document.querySelector('.drawer__actions select.select--status')",
+        "SHORTLISTED",
+        "change",
     )
     # The page's own signal that the save reached the server -- not the
     # control's value, which this test set itself and is true at once.
     page.wait_for("!document.documentElement.hasAttribute('data-saving')")
-    page.wait_for("document.querySelector('.card .select--status').value === 'SHORTLISTED'")
+    page.press("Escape")
     page.evaluate("document.querySelector('.topnav__link[data-page=\"applications\"]').click()")
-    page.wait_for("document.querySelector('.kcard .select--status')")
-    set_value(page, "document.querySelector('.kcard .select--status')", "APPLIED", "change")
+    page.wait_for("document.querySelector('[data-column=\"SHORTLISTED\"] .kcard .kcard__next')")
+    page.evaluate(
+        "document.querySelector('[data-column=\"SHORTLISTED\"] .kcard .kcard__next').click()"
+    )
     page.wait_for("!document.documentElement.hasAttribute('data-saving')")
-    page.wait_for("document.querySelector('.kcard .select--status').value === 'APPLIED'")
+    page.wait_for("document.querySelector('[data-column=\"APPLIED\"] .kcard')")
     choose_theme(page, "dark")
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
     page.set_viewport(390, 844)

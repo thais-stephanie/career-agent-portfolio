@@ -63,14 +63,14 @@ def test_a_never_shown_way_of_working_is_counted_and_revealable(
 ) -> None:
     page.navigate(never_remote + "/#jobs")
     page.wait_for(
-        "document.querySelector('#hiddennotice')?.innerText.includes('way of working')",
+        "document.querySelector('#hiddennotice')?.textContent.includes('way of working')",
         message="the notice naming what was set aside",
     )
     assert page.evaluate("document.querySelectorAll('#list [data-job-id]').length") <= 1
     page.evaluate(
         "[...document.querySelectorAll('#hiddennotice button')]"
         ".find((b) => b.closest('[data-key=\"include_excluded_work_model\"]')"
-        " || /Show those too/.test(b.textContent) && b.parentElement.innerText"
+        " || /Show those too/.test(b.textContent) && b.parentElement.textContent"
         ".includes('way of working')).click()"
     )
     page.wait_for(

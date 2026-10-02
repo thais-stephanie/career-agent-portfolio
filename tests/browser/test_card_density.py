@@ -50,7 +50,10 @@ from tests.browser.test_browser_acceptance import (
 #: The tallest a collapsed card may be, at a 300-370px column. The measured
 #: regression was 462; the compact card measures 268-337 on real data with a
 #: two-line title, a failed-gate line and a group line all present.
-CARD_HEIGHT_CEILING_PX = 350
+#: The redesign handoff's card carries a meter, a fourth fact line and the
+#: Apply row and the eligibility line, and equalises each row: 390 measured
+#: on the demo, so 400.
+CARD_HEIGHT_CEILING_PX = 400
 
 #: At 1440x900 the toolbar and the notices leave roughly 430px for cards, so
 #: two rows must at least START on the screen and three cards fit whole.
@@ -246,15 +249,14 @@ def demo_companies(demo_company_names: frozenset[str]) -> list[str]:
 # -- the demo corpus, as it is ------------------------------------------------
 
 
-def test_cards_align_within_a_row_and_never_across_the_page(page: Chrome, server: str) -> None:
-    """A row is as tall as its tallest card and its footers share a bottom;
-    implicit rows are never equalised across the PAGE (the old `1fr`)."""
+def test_cards_align_within_a_row(page: Chrome, server: str) -> None:
+    """A row is as tall as its tallest card and the "See details" lines share
+    a bottom. The redesign handoff equalises rows (`grid-auto-rows: 1fr`);
+    the content is compact enough now that this costs no blank band."""
     page.set_viewport(*DESKTOP)
     open_list(page, server, SHOW_EVERYTHING)
     page.wait_for(f"Boolean({A_REAL_CARD})", message="a drawn card")
 
-    grid = page.evaluate("getComputedStyle(document.querySelector('.cards')).gridAutoRows")
-    assert str(grid) == "auto", f"implicit rows are still equalised: {grid}"
     rows = page.evaluate(
         """(() => {
           const cards = [...document.querySelectorAll('.cards .card[data-job-id]')];
@@ -262,7 +264,7 @@ def test_cards_align_within_a_row_and_never_across_the_page(page: Chrome, server
           const row = cards.filter(c => Math.abs(c.getBoundingClientRect().top - top) < 2);
           const r = e => Math.round(e.getBoundingClientRect().bottom);
           return {n: row.length, cards: [...new Set(row.map(r))],
-                  footers: [...new Set(row.map(c => r(c.querySelector('.card__footer'))))]};
+                  footers: [...new Set(row.map(c => r(c.querySelector('.card__links'))))]};
         })()"""
     )
     assert rows["n"] >= 2, rows
@@ -282,29 +284,27 @@ def test_several_demo_cards_fit_on_a_desktop_screen(page: Chrome, server: str) -
     )
 
 
-def test_the_badges_are_one_row_and_the_facts_are_three_lines(page: Chrome, server: str) -> None:
-    """The two sections that had doubled. Each one line per fact, the
-    labels present for a screen reader and off the screen."""
+def test_the_match_is_one_row_and_the_facts_are_four_lines(page: Chrome, server: str) -> None:
+    """The match pill and its label share one line; each fact is one line,
+    its label present for a screen reader and off the screen."""
     page.set_viewport(*DESKTOP)
     open_list(page, server, SHOW_EVERYTHING)
     page.wait_for(f"Boolean({A_REAL_CARD})", message="a drawn card")
 
-    badge_tops = page.evaluate(
-        f"Array.from({A_REAL_CARD}.querySelectorAll('.badges .badge'))"
+    tops = page.evaluate(
+        f"Array.from({A_REAL_CARD}.querySelectorAll('.card__pct, .card__matchtext'))"
         ".map((n) => Math.round(n.getBoundingClientRect().top))"
     )
-    # Centred on one row: three badges of three sizes sit within a pixel or
-    # two of each other, and a second row would be a full line away.
-    assert max(badge_tops) - min(badge_tops) < 8, f"the badges wrapped: tops {badge_tops}"
+    assert len(tops) == 2 and max(tops) - min(tops) < 8, f"the match wrapped: tops {tops}"
 
     labels = page.evaluate(
         f"Array.from({A_REAL_CARD}.querySelectorAll('.card__facts dt'))"
         ".map((n) => [n.textContent, n.getBoundingClientRect().width])"
     )
-    assert [label for label, _ in labels] == ["Where", "Contract", "Salary"], labels
+    assert [label for label, _ in labels] == ["Where", "Contract", "Salary", "Posted"], labels
     assert all(float(w) <= 1 for _, w in labels), f"a fact label is painted: {labels}"
     facts = page.evaluate(f"getComputedStyle({A_REAL_CARD}.querySelector('.card__facts')).height")
-    assert float(str(facts).replace("px", "")) < 80, f"the fact block is {facts} tall"
+    assert float(str(facts).replace("px", "")) < 90, f"the fact block is {facts} tall"
 
 
 # -- the corpus's worst rows, invented ----------------------------------------
@@ -328,8 +328,8 @@ def test_the_hard_shapes_stay_under_the_ceiling(
 def test_a_six_country_list_is_counted_not_hidden(
     page: Chrome, server: str, demo_companies: list[str]
 ) -> None:
-    """`AR / BR / CO / MX +2 more`, the whole list in `title`, and the
-    eligibility answer still on the card: nothing about Brazil is hidden."""
+    """`AR / BR / CO / MX +2 more`, the whole list in `title`, and the group
+    counted on the same line: nothing about Brazil is hidden."""
     page.set_viewport(*DESKTOP)
     open_list(page, server, SHOW_EVERYTHING)
     page.wait_for(f"Boolean({A_REAL_CARD})", message="a drawn card")
@@ -341,10 +341,7 @@ def test_a_six_country_list_is_counted_not_hidden(
     assert "+2 more" in shown, shown
     assert "AR / BR / CO / MX" in shown, shown
     assert SIX_COUNTRIES in full, full
-    eligibility = str(page.evaluate(f"{card}.querySelector('.badge--eligibility').textContent"))
-    assert eligibility.strip(), "the eligibility answer left the card"
-    group = str(page.evaluate(f"{card}.querySelector('.card__group').textContent"))
-    assert "6 locations" in group, group
+    assert "6 locations" in shown, shown
 
 
 def test_a_long_title_is_clamped_and_kept_whole_in_the_tooltip(
@@ -371,42 +368,33 @@ def test_a_long_title_is_clamped_and_kept_whole_in_the_tooltip(
 def test_the_notes_and_chips_each_take_one_line(
     page: Chrome, server: str, demo_companies: list[str]
 ) -> None:
-    """A metadata-only lead, a US-domestic hint and a failed gate each add
-    ONE line, and the tool chips never start a second row."""
+    """An unresolved scope and a failed gate each add a short note, and the
+    content notes (a metadata-only lead, a US-domestic hint) moved to the
+    drawer, where they lead the "About the job" tab."""
     page.set_viewport(*DESKTOP)
     open_list(page, server, SHOW_EVERYTHING)
     page.wait_for(f"Boolean({A_REAL_CARD})", message="a drawn card")
     inject(page, synthetic_rows(demo_companies))
 
     for job_id, note in (
-        ("syn-jobgether-lead", ".card__partial"),
-        ("syn-unresolved", ".card__context"),
-        ("syn-blocked", ".card__blocked"),
+        ("syn-unresolved", ".card__elig--warn"),
+        ("syn-blocked", ".card__elig--bad"),
     ):
         card = f"document.querySelector('[data-job-id=\"{job_id}\"]')"
         assert page.evaluate(f"Boolean({card}.querySelector('{note}'))"), f"{job_id} lost {note}"
         h = page.evaluate(f"{card}.querySelector('{note}').getBoundingClientRect().height")
-        # One line of 12px type plus the band's padding is under 34px; a
-        # second line is a full 16px away from that.
-        assert float(h) < 40, f"{note} on {job_id} is {h}px: it wrapped"
+        # Two lines of 12px type at most: the note is clamped.
+        assert float(h) < 36, f"{note} on {job_id} is {h}px: it ran past two lines"
         tooltip = str(page.evaluate(f"{card}.querySelector('{note}').title || ''"))
         text = str(page.evaluate(f"{card}.querySelector('{note}').textContent"))
-        if note == ".card__blocked":
+        if note == ".card__elig--bad":
             assert "Austin, TX, US" in tooltip, "the clipped reason must survive in `title`"
             assert "Austin, TX, US" in text
 
-    chip_tops = page.evaluate(
-        "Array.from(document.querySelectorAll("
-        "'[data-job-id=\"syn-long-salary\"] .chips--tech .chip'))"
-        ".map((n) => Math.round(n.getBoundingClientRect().top))"
+    lead = "document.querySelector('[data-job-id=\"syn-jobgether-lead\"]')"
+    assert not page.evaluate(f"Boolean({lead}.querySelector('.card__note'))"), (
+        "a content note is a drawer fact, not a card line"
     )
-    assert max(chip_tops) - min(chip_tops) < 8, f"the chips wrapped: {chip_tops}"
-    more = str(
-        page.evaluate(
-            "document.querySelector('[data-job-id=\"syn-long-salary\"] .chip--more').textContent"
-        )
-    )
-    assert more == "+1", more
 
 
 def test_the_card_holds_on_a_phone(page: Chrome, server: str, demo_companies: list[str]) -> None:

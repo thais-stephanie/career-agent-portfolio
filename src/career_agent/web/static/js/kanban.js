@@ -11,19 +11,21 @@
  * state and is deliberately not a column: a job enters the board by being
  * given a status, and the way to do that is from Cards or Table.
  *
- * MOVING A CARD IS A WRITE, NOT A RENDER. Every drop calls the same
- * `onStatus` handler the other two views call, so the board cannot drift from
- * them. The card is put back where it came from if the write fails -- an
- * optimistic move that silently reverts on reload would be the worst of both.
+ * MOVING A CARD IS A WRITE, NOT A RENDER. A drop and the card's own back
+ * and forward buttons call one `onMove` handler, which goes through the same
+ * status route the other views use and offers an Undo that really undoes:
+ * the previous status, and no applied date the move itself stamped.
  *
- * DRAGGING IS NOT THE ONLY WAY. Every card carries a status select, so the
- * board is fully operable by keyboard and by anyone who cannot drag. The
- * drag handlers are an accelerant on top of a control that already works.
+ * DRAGGING IS NOT THE ONLY WAY. The buttons move a card by keyboard, and the
+ * job drawer's status control reaches every status, including Hired,
+ * Withdrew and Archived, which no column button names.
  */
 
-import { el, select, replace } from './dom.js';
+import { el, button, replace } from './dom.js';
 import { t } from './i18n.js';
-import { statusOptions, statusLabel, vocabLabel } from './format.js';
+import { formatDate, statusLabel } from './format.js';
+import { matchTone } from './cards.js';
+import { searchFitIsReady } from './badges.js';
 import { TRACKED_STATUSES } from './state.js';
 
 /**
@@ -45,8 +47,7 @@ export const COLUMNS = Object.freeze([
   { key: 'SHORTLISTED', statuses: ['SHORTLISTED'] },
   { key: 'APPLIED', statuses: ['APPLIED'] },
   { key: 'INTERVIEW', statuses: ['INTERVIEW'] },
-  { key: 'OFFER', statuses: ['OFFER'] },
-  { key: 'HIRED', statuses: ['HIRED'] },
+  { key: 'OFFER', statuses: ['OFFER', 'HIRED'] },
   { key: 'CLOSED', statuses: ['REJECTED', 'WITHDRAWN', 'ARCHIVED'] },
 ]);
 
@@ -58,7 +59,7 @@ export const COLUMNS = Object.freeze([
  * three statuses and is not one.
  */
 export function columnLabel(column) {
-  return column.key === 'CLOSED' ? t('kanban.closed') : statusLabel(column.key);
+  return column.key === 'CLOSED' ? t('kanban.closed') : t(`kanban.col.${column.key}`);
 }
 
 /** Which column a status belongs in. Built once from COLUMNS, not restated. */
@@ -80,10 +81,13 @@ if ([...COVERED].sort().join('|') !== [...TRACKED_STATUSES].sort().join('|')) {
 export { TRACKED_STATUSES };
 
 /**
- * @param {HTMLElement} mount
- * @param {object[]} items
- * @param {object} handlers -- {onOpen, onStatus}
+ * Where a card's buttons take it. Forward is the next thing that happens;
+ * back from "Didn't work out" is Interested, never Applied, because moving a
+ * job back must not claim an application nobody sent.
  */
+const NEXT = { SHORTLISTED: 'APPLIED', APPLIED: 'INTERVIEW', INTERVIEW: 'OFFER' };
+const PREV = { APPLIED: 'SHORTLISTED', INTERVIEW: 'APPLIED', OFFER: 'INTERVIEW', CLOSED: 'SHORTLISTED' };
+
 export function renderKanban(mount, items, handlers) {
   const byColumn = new Map(COLUMNS.map((column) => [column.key, []]));
   for (const job of items) {
@@ -100,7 +104,7 @@ export function renderKanban(mount, items, handlers) {
 
 function renderColumn(column, jobs, handlers) {
   const root = el('section', {
-    className: 'kcol',
+    className: `kcol kcol--${column.key.toLowerCase()}`,
     attrs: {
       role: 'listitem',
       'aria-label': t('kanban.columnLabel', { column: columnLabel(column), n: jobs.length }),
@@ -109,8 +113,12 @@ function renderColumn(column, jobs, handlers) {
   });
 
   root.appendChild(el('header', { className: 'kcol__head' }, [
-    el('h3', { className: 'kcol__title', text: columnLabel(column) }),
-    el('span', { className: 'kcol__count', text: String(jobs.length) }),
+    el('span', { className: 'kcol__bar', attrs: { 'aria-hidden': 'true' } }),
+    el('div', { className: 'kcol__titlerow' }, [
+      el('h3', { className: 'kcol__title', text: columnLabel(column) }),
+      el('span', { className: 'kcol__count num', text: String(jobs.length) }),
+    ]),
+    el('p', { className: 'kcol__help', text: t(`kanban.help.${column.key}`) }),
   ]));
 
   const body = el('div', { className: 'kcol__body', dataset: { dropzone: column.key } });
@@ -121,24 +129,26 @@ function renderColumn(column, jobs, handlers) {
       text: emptyText(column.key),
     }));
   } else {
-    for (const job of jobs) body.appendChild(kanbanCard(job, handlers));
+    for (const job of jobs) body.appendChild(kanbanCard(job, column, handlers));
   }
 
-  // The drop target is the column body, so dropping into the gap below the
-  // last card still lands in the column rather than falling through.
-  body.addEventListener('dragover', (event) => {
+  // A drop is a status move through the same route as everything else; the
+  // column's first status is the one it means ("Didn't work out" is Rejected,
+  // and the drawer offers Withdrew and Archived).
+  root.addEventListener('dragover', (event) => {
     event.preventDefault();
-    body.classList.add('is-over');
+    root.classList.add('is-over');
   });
-  body.addEventListener('dragleave', () => body.classList.remove('is-over'));
-  body.addEventListener('drop', (event) => {
+  root.addEventListener('dragleave', (event) => {
+    if (!root.contains(event.relatedTarget)) root.classList.remove('is-over');
+  });
+  root.addEventListener('drop', (event) => {
     event.preventDefault();
-    body.classList.remove('is-over');
+    root.classList.remove('is-over');
     const jobId = event.dataTransfer.getData('text/plain');
-    if (!jobId) return;
-    // The first status of the target column is the one a drop means. Dropping
-    // into Closed means REJECTED, and the select is there to say which kind.
-    handlers.onStatus(jobId, column.statuses[0]);
+    const from = event.dataTransfer.getData('application/x-career-column');
+    if (!jobId || from === column.key) return;
+    handlers.onMove(jobId, column.statuses[0]);
   });
 
   root.appendChild(body);
@@ -152,19 +162,23 @@ function emptyText(key) {
     case 'APPLIED': return t('kanban.emptyApplied');
     case 'INTERVIEW': return t('kanban.emptyInterview');
     case 'OFFER': return t('kanban.emptyOffer');
-    case 'HIRED': return t('kanban.emptyHired');
     default: return t('kanban.emptyClosed');
   }
 }
 
-function kanbanCard(job, handlers) {
+function kanbanCard(job, column, handlers) {
+  const status = String(job.application_status || '').toUpperCase();
   const root = el('article', {
     className: 'kcard',
     attrs: {
       tabindex: '0',
       draggable: 'true',
-      'aria-label': `${job.title} at ${job.company_name}. `
-        + `${vocabLabel(job.application_status)}. Press Enter to open details.`,
+      title: t('kanban.cardHint'),
+      'aria-label': t('kanban.cardLabel', {
+        title: job.title || t('absent.untitled'),
+        company: job.company_name || t('absent.company'),
+        status: statusLabel(status),
+      }),
     },
     dataset: { jobId: job.job_id },
   });
@@ -182,42 +196,57 @@ function kanbanCard(job, handlers) {
   });
   root.addEventListener('dragstart', (event) => {
     event.dataTransfer.setData('text/plain', job.job_id);
+    event.dataTransfer.setData('application/x-career-column', column.key);
     event.dataTransfer.effectAllowed = 'move';
     root.classList.add('is-dragging');
   });
   root.addEventListener('dragend', () => root.classList.remove('is-dragging'));
 
-  root.appendChild(el('p', { className: 'kcard__company', text: job.company_name || 'Company not stated' }));
-  root.appendChild(el('h4', { className: 'kcard__title', text: job.title || 'Untitled posting' }));
+  const tone = searchFitIsReady() ? matchTone(job.match_score) : null;
+  root.appendChild(el('div', { className: 'kcard__top' }, [
+    el('span', { className: 'kcard__company', text: job.company_name || t('absent.companyStated') }),
+    tone ? el('span', {
+      className: `kcard__match matchpill--${tone.tone} num`,
+      text: `${Math.round(Number(job.match_score))}%`,
+      attrs: { title: t(tone.key) },
+    }) : null,
+  ].filter(Boolean)));
+  root.appendChild(el('h4', { className: 'kcard__title', text: job.title || t('absent.untitled') }));
 
+  // What the column does not say: which of its statuses this is, and when
+  // the application went out.
   const meta = [];
-  if (job.match_score !== null && job.match_score !== undefined) {
-    meta.push(el('span', { className: 'kcard__match', text: `${Math.round(job.match_score)}%` }));
-  }
-  if (job.applied_at) {
-    meta.push(el('span', {
-      className: 'kcard__applied',
-      text: t('kanban.appliedOn', { date: job.applied_at }),
-      attrs: { title: t('kanban.appliedHelp') },
+  if (column.statuses.length > 1) meta.push(statusLabel(status));
+  if (job.applied_at) meta.push(t('kanban.appliedOn', { date: formatDate(job.applied_at) }));
+  if (meta.length) {
+    root.appendChild(el('p', {
+      className: 'kcard__meta kcard__applied', text: meta.join(' · '), attrs: { title: t('kanban.appliedHelp') },
     }));
   }
-  if (meta.length) root.appendChild(el('p', { className: 'kcard__meta' }, meta));
 
-  // Every status, not only the tracked ones. Filtering the list to
-  // TRACKED_STATUSES meant nothing could ever be moved back to Discovered:
-  // a job could enter the board and never leave it, which turns "I picked
-  // this up by mistake" into a permanent row.
-  const status = select(
-    statusOptions(),
-    job.application_status,
-    (value) => handlers.onStatus(job.job_id, value),
-    {
-      className: `select--status status-tag status-tag--${String(job.application_status || '').toLowerCase()}`,
-      ariaLabel: t('kanban.moveLabel', { title: job.title }),
-    },
-  );
-  status.dataset.stopsOpen = 'true';
-  root.appendChild(status);
+  const prev = PREV[column.key];
+  const next = NEXT[column.key];
+  const back = prev
+    ? button('←', () => handlers.onMove(job.job_id, prev), {
+      className: 'kcard__back',
+      ariaLabel: t('kanban.moveBack', { column: statusLabel(prev) }),
+      attrs: { title: t('kanban.moveBack', { column: statusLabel(prev) }) },
+    })
+    : null;
+  const forward = next
+    ? button(t(`kanban.next.${column.key}`), () => handlers.onMove(job.job_id, next), {
+      className: 'kcard__next',
+      attrs: { title: t('kanban.moveTo', { column: statusLabel(next) }) },
+    })
+    : el('span', {
+      className: 'kcard__done',
+      text: column.key === 'OFFER' ? t('kanban.congrats') : t('kanban.archived'),
+    });
+  if (back) back.dataset.stopsOpen = 'true';
+  if (forward.tagName === 'BUTTON') forward.dataset.stopsOpen = 'true';
+  root.appendChild(el('div', { className: 'kcard__foot' }, [
+    back, el('span', { className: 'kcard__grow' }), forward,
+  ].filter(Boolean)));
 
   return root;
 }
@@ -228,7 +257,7 @@ export function kanbanSkeleton(mount) {
   mount.setAttribute('role', 'list');
   mount.setAttribute('aria-busy', 'true');
   replace(mount, COLUMNS.map((column) => el('section', {
-    className: 'kcol',
+    className: `kcol kcol--${column.key.toLowerCase()}`,
     attrs: { 'aria-hidden': 'true' },
   }, [
     el('header', { className: 'kcol__head' }, [

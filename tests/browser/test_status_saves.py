@@ -87,14 +87,14 @@ def slowed(tmp_path: Path, demo_db: Path, committed_config: Path) -> Iterator[Sl
 
 
 def _open_discover(page: Chrome, base: str) -> str:
-    page.navigate(base + "/#jobs")
-    page.wait_for("document.querySelector('.card:not(.card--skeleton) .select--status')")
-    return str(page.evaluate("document.querySelector('.card:not(.card--skeleton)').dataset.jobId"))
+    page.navigate(base + "/?view=table#jobs")
+    page.wait_for("document.querySelector('table.jobs tr[data-job-id] .select--status')")
+    return str(page.evaluate("document.querySelector('table.jobs tr[data-job-id]').dataset.jobId"))
 
 
 def _set_status(page: Chrome, job_id: str, status: str) -> None:
     page.evaluate(
-        f"(() => {{ const s = document.querySelector('.card[data-job-id={json.dumps(job_id)}]"
+        f"(() => {{ const s = document.querySelector('tr[data-job-id={json.dumps(job_id)}]"
         f" .select--status'); s.value = {json.dumps(status)};"
         " s.dispatchEvent(new Event('change', {bubbles: true})); })()"
     )
@@ -138,7 +138,7 @@ def test_rapid_changes_settle_on_the_last_one(page: Chrome, slowed: Slowed) -> N
     )
     assert _server_status(slowed.db, job_id) == "APPLIED"
     shown = page.evaluate(
-        f"document.querySelector('.card[data-job-id={json.dumps(job_id)}] .select--status').value"
+        f"document.querySelector('tr[data-job-id={json.dumps(job_id)}] .select--status').value"
     )
     assert shown == "APPLIED"
 
@@ -146,13 +146,13 @@ def test_rapid_changes_settle_on_the_last_one(page: Chrome, slowed: Slowed) -> N
 def test_a_failed_save_puts_the_confirmed_status_back(page: Chrome, slowed: Slowed) -> None:
     job_id = _open_discover(page, slowed.base)
     before = page.evaluate(
-        f"document.querySelector('.card[data-job-id={json.dumps(job_id)}] .select--status').value"
+        f"document.querySelector('tr[data-job-id={json.dumps(job_id)}] .select--status').value"
     )
     slowed.fail = True
     _set_status(page, job_id, "SHORTLISTED")
     page.wait_for(SETTLED)
     shown = page.evaluate(
-        f"document.querySelector('.card[data-job-id={json.dumps(job_id)}] .select--status').value"
+        f"document.querySelector('tr[data-job-id={json.dumps(job_id)}] .select--status').value"
     )
     assert shown == before, "the control kept a status the server refused"
     assert _server_status(slowed.db, job_id) in (None, before)
