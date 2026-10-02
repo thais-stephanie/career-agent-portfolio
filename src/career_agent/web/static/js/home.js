@@ -24,9 +24,11 @@
  */
 
 import { el, button, replace } from './dom.js';
+import { toast } from './ui.js';
+import { matchTone } from './cards.js';
 import { createFirstRun } from './firstrun.js';
 import { createSetup, setupPostponed, setupResumeStep } from './setup.js';
-import { t } from './i18n.js';
+import { getLocale, t } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
 
@@ -37,10 +39,38 @@ import { createProgressView, outcomeText } from './collection.js';
  * report about the person rather than about the data, and an offer count of
  * nothing is the normal state of a job search for most of its length.
  */
-const CARDS = ['new', 'saved', 'applied', 'interviews', 'offers', 'progressed'];
+//: The four steps a job moves through, in order (redesign handoff). Offers
+//: joins them only when there is one: a fifth empty step is a promise.
+const STEPS = [
+  { key: 'new', tone: 'green' },
+  // Each patch says BOTH narrowings, so one card's filter never rides into
+  // the next card's list.
+  { key: 'saved', tone: 'purple', patch: { saved_only: true, status: [] } },
+  { key: 'applied', tone: 'blue' },
+  { key: 'interviews', tone: 'yellow' },
+];
 
-/** Cards that are meaningless at zero and are simply not drawn. */
-const HIDE_WHEN_EMPTY = new Set(['offers', 'progressed']);
+const TIP_KEY = 'careerAgent.homeTip.v1';
+const SEEN_KEY = 'careerAgent.homeNewSeen.v1';
+
+/** localStorage can throw; a remembered tip is a nicety, never a fault. */
+function stored(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function store(key, value) {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch {
+    /* nothing to do */
+  }
+}
+
 
 /** Which card of the guided setup answers each gap `home.profile_gaps` names. */
 const SETUP_FOR_GAP = {
@@ -129,6 +159,7 @@ export function createHome({
     }
     const mine = ++token;
     setup.stop();
+    root.dataset.view = 'loading';
     replace(root, [el('div', { className: 'sk sk--block' })]);
     try {
       payload = await api.getHome();
@@ -151,12 +182,15 @@ export function createHome({
         setupAt = null;
         showingSetup = true;
         if (onSetupShown) onSetupShown(true);
+        root.dataset.view = 'setup';
         replace(root, [setup.root]);
         await setup.open(at);
         return;
       }
       showingSetup = false;
       if (onSetupShown) onSetupShown(false);
+      // Which of its two faces Home is showing, for anything that waits on it.
+      root.dataset.view = 'dashboard';
       replace(root, render(payload));
     } catch (error) {
       if (mine !== token) return;
@@ -174,22 +208,77 @@ export function createHome({
   }
 
   function render(payload) {
-    // NOTHING SCORED YET. Four zero counters and two lists reading "Nothing
-    // here today" answer no question a new person has; one card that says
-    // what is missing and offers the way to fix it does.
     const noJobs = firstRun.scoredCount() === 0;
     return [
-      heading(payload, noJobs),
+      howItWorks(),
       collectionCard(),
+      noJobs ? null : newBanner(payload),
+      noJobs ? null : progress(payload),
       startHere(),
-      // With nothing scored the start list is always open, and its last step
-      // is "Find jobs now"; a row of zero counters would say nothing more.
-      noJobs ? null : metrics(payload),
-      // The same gaps the start list names, said again, only once that list
-      // has nothing left in it.
       firstRun.outstanding() ? null : completeProfile(payload),
       ...(noJobs ? [] : payload.sections.map(section)),
     ].filter(Boolean);
+  }
+
+  /** "New here? Here's how it works": three sentences, put away for good. */
+  function howItWorks() {
+    if (stored(TIP_KEY) === 'done') return null;
+    const steps = [1, 2, 3].map((n) => el('li', { className: 'home__tipstep' }, [
+      el('span', { className: 'home__tipnum num', text: String(n), attrs: { 'aria-hidden': 'true' } }),
+      el('span', { className: 'home__tiptext' }, [
+        el('strong', { text: t(`home.tip.${n}.title`) }),
+        el('span', { text: t(`home.tip.${n}.body`) }),
+      ]),
+    ]));
+    return el('section', { className: 'home__tip', attrs: { 'aria-labelledby': 'home-tip-head' } }, [
+      el('div', { className: 'home__tiphead' }, [
+        el('h2', { className: 'home__tiptitle', attrs: { id: 'home-tip-head' }, text: t('home.tip.title') }),
+        el('span', { className: 'home__tipactions' }, [
+          button(t('home.tip.setup'), () => openSetup('welcome'), { className: 'home__tipgo' }),
+          button(t('home.tip.gotIt'), () => {
+            store(TIP_KEY, 'done');
+            load();
+          }, { className: 'home__tipok' }),
+        ]),
+      ]),
+      el('ol', { className: 'home__tipsteps' }, steps),
+    ]);
+  }
+
+  /**
+   * "N new jobs found for you": the latest refresh's own count. Hiding it
+   * remembers THAT run, in this browser only, so the next run shows again.
+   * Nothing is marked read anywhere.
+   */
+  function newBanner(payload) {
+    const metric = (payload.metrics || []).find((entry) => entry.key === 'new');
+    const count = metric ? metric.value : null;
+    const run = payload.latest_refresh_run ? String(payload.latest_refresh_run) : null;
+    if (!count || !run || stored(SEEN_KEY) === run) return null;
+    return el('section', { className: 'home__new', attrs: { 'aria-labelledby': 'home-new-head' } }, [
+      el('div', { className: 'home__newtext' }, [
+        el('h2', {
+          className: 'home__newtitle',
+          attrs: { id: 'home-new-head' },
+          text: count === 1 ? t('home.newOne') : t('home.newMany', { n: count.toLocaleString(getLocale()) }),
+        }),
+        el('p', { className: 'home__newsub', text: t('home.newSub') }),
+      ]),
+      el('div', { className: 'home__newactions' }, [
+        onGoTo ? button(t('home.newSee'), () => onGoTo('jobs'), { className: 'home__newgo' }) : null,
+        button(t('home.newSeen'), () => {
+          const before = stored(SEEN_KEY);
+          store(SEEN_KEY, run);
+          load();
+          toast(t('home.newSeenDone'), {
+            undo: () => {
+              store(SEEN_KEY, before);
+              load();
+            },
+          });
+        }, { className: 'home__newseen' }),
+      ].filter(Boolean)),
+    ]);
   }
 
   /**
@@ -284,63 +373,52 @@ export function createHome({
     return collectionHost;
   }
 
-  function heading(payload, noJobs) {
-    return el('header', { className: 'home__head' }, [
-      el('h2', { className: 'home__title', text: t('home.title') }),
-      // "Since you last marked the list read" means nothing before there is a
-      // list, so it waits for the first scored job.
-      noJobs
-        ? null
-        : el('p', {
-          className: 'home__sub',
-          text: payload.last_reviewed_at
-            ? t('home.since', { when: payload.last_reviewed_at.slice(0, 10) })
-            : t('home.neverReviewed'),
-        }),
-    ].filter(Boolean));
-  }
-
   /**
-   * The summary cards.
-   *
-   * Each is a button that narrows the Jobs list to exactly the population it
-   * counted, so a number can be checked rather than believed. A metric with
-   * no status filter behind it -- "new", "progressed" -- is not a button,
-   * because there is no list that would reproduce it and a control that
-   * navigated somewhere approximate would be worse than none.
+   * "Your progress": the four steps. Each one with a list behind it is a
+   * button that opens exactly the population it counted, so a number can be
+   * checked rather than believed.
    */
-  function metrics(payload) {
+  function progress(payload) {
     const byKey = new Map(payload.metrics.map((metric) => [metric.key, metric]));
-    const cards = CARDS
-      .map((key) => byKey.get(key))
-      .filter((metric) => metric && !(HIDE_WHEN_EMPTY.has(metric.key) && !metric.value))
-      .map((metric) => {
-        // NO ANSWER YET IS NOT ZERO. "New" before any refresh has finished
-        // arrives as null, and a 0 there would claim a refresh found nothing.
-        const unknown = metric.value === null || metric.value === undefined;
-        const inner = [
-          el('span', { className: 'metric__value num', text: unknown ? '-' : String(metric.value) }),
-          el('span', { className: 'metric__label', text: t(`home.metric.${metric.key}`) }),
-          // STOCK, EVENT or REFRESH, said in words rather than implied by position.
-          el('span', {
-            className: 'metric__kind',
-            text: metric.kind === 'refresh'
-              ? t(unknown ? 'home.kind.noRefresh' : 'home.kind.refresh')
-              : metric.kind === 'event' ? t('home.kind.event') : t('home.kind.now'),
-          }),
-        ];
-        if (!metric.statuses.length || !onGoTo) {
-          return el('li', { className: `metric metric--${metric.key}` }, inner);
-        }
-        return el('li', { className: `metric metric--${metric.key}` }, [
-          button('', () => onGoTo('jobs', { status: metric.statuses }), {
+    const moved = byKey.get('progressed') ? byKey.get('progressed').value : 0;
+    const steps = [...STEPS];
+    const offers = byKey.get('offers');
+    if (offers && offers.value) steps.push({ key: 'offers', tone: 'green' });
+    const cards = steps.map((step, index) => {
+      const metric = byKey.get(step.key);
+      if (!metric) return null;
+      const unknown = metric.value === null || metric.value === undefined;
+      const label = t(`home.metric.${step.key}`);
+      const inner = [
+        el('span', { className: 'step__num', text: t('home.step', { n: index + 1 }) }),
+        el('span', { className: 'step__value num', text: unknown ? '-' : String(metric.value) }),
+        el('span', { className: 'step__label', text: label }),
+        el('span', {
+          className: 'step__help',
+          text: unknown ? t('home.kind.noRefresh') : t(`home.stepHelp.${step.key}`),
+        }),
+      ];
+      // New has no list that reproduces it, so it is not a link.
+      const patch = step.patch
+        || (metric.statuses.length ? { status: metric.statuses, saved_only: false } : null);
+      return el('li', { className: `step step--${step.tone} metric metric--${step.key}` }, [
+        onGoTo && patch
+          ? button('', () => onGoTo('jobs', patch), {
             className: 'metric__open',
-            ariaLabel: t('home.metricOpen', { label: t(`home.metric.${metric.key}`) }),
-          }, ),
-          ...inner,
-        ]);
-      });
-    return el('ul', { className: 'home__metrics' }, cards);
+            ariaLabel: t('home.metricOpen', { label }),
+          })
+          : null,
+        ...inner,
+      ].filter(Boolean));
+    }).filter(Boolean);
+    return el('section', { className: 'home__progress', attrs: { 'aria-labelledby': 'home-progress-head' } }, [
+      el('h2', { className: 'home__sectitle', attrs: { id: 'home-progress-head' }, text: t('home.progress') }),
+      el('p', { className: 'home__seclede', text: t('home.progressLede') }),
+      // Moves since she last marked the list read: an EVENT count, said as a
+      // sentence beside the stock counts rather than as a fifth step.
+      moved ? el('p', { className: 'home__seclede home__moved', text: t('home.moved', { n: moved }) }) : null,
+      el('ul', { className: 'home__metrics home__steps' }, cards),
+    ].filter(Boolean));
   }
 
   /**
@@ -355,7 +433,7 @@ export function createHome({
     const gaps = payload.profile_gaps || [];
     if (!gaps.length) return null;
     return el('section', { className: 'home__sec home__sec--complete' }, [
-      el('h3', { className: 'home__sechead', text: t('home.complete') }),
+      el('h2', { className: 'home__sectitle', text: t('home.complete') }),
       el('p', { className: 'home__lede', text: t('home.completeLede') }),
       el('ul', { className: 'home__gaps' }, gaps.map((gap) => el('li', {
         className: 'home__gap',
@@ -377,7 +455,7 @@ export function createHome({
 
   function section(data) {
     return el('section', { className: `home__sec home__sec--${data.key}` }, [
-      el('h3', { className: 'home__sechead' }, [
+      el('h2', { className: 'home__sectitle' }, [
         el('span', { text: words(data, 'title') }),
         el('span', { className: 'home__count num', text: String(data.count) }),
       ]),
@@ -395,13 +473,14 @@ export function createHome({
   }
 
   function row(job) {
+    const tone = matchTone(job.match_score);
     return el('li', { className: 'home__row' }, [
       button('', () => onOpenJob && onOpenJob(job.job_id), {
         className: 'home__open',
         ariaLabel: job.title,
       }),
       el('span', {
-        className: 'home__score num',
+        className: `home__score num${tone ? ` matchpill matchpill--${tone.tone}` : ''}`,
         text: job.match_score === null || job.match_score === undefined
           ? t('daily.unscored')
           : `${job.match_score}%`,
@@ -410,6 +489,7 @@ export function createHome({
         el('span', { className: 'home__jobtitle', text: job.title }),
         el('span', { className: 'home__company', text: job.company_name }),
       ]),
+      el('span', { className: 'home__view', text: t('home.viewJob'), attrs: { 'aria-hidden': 'true' } }),
     ]);
   }
 

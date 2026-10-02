@@ -1881,7 +1881,7 @@ class WorkspaceRoutes(_MixinBase):
         ranks anything.
         """
         from career_agent.digest import default_filter, sections
-        from career_agent.home import metrics, profile_gaps
+        from career_agent.home import latest_refresh_run, metrics, profile_gaps
         from career_agent.storage.mvp_repo import ScoredJobQuery
         from career_agent.storage.workspace_repo import (
             LAST_REVIEWED_AT,
@@ -1909,6 +1909,7 @@ class WorkspaceRoutes(_MixinBase):
                 config_version=config_version,
             )
             gaps = profile_gaps(conn, config)
+            refresh_run = latest_refresh_run(conn)
             total = repo.count(config_id, config_version, default_filter(show))
             open_jobs = conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NULL").fetchone()[
                 0
@@ -1946,6 +1947,7 @@ class WorkspaceRoutes(_MixinBase):
             "metrics": [metric.as_dict() for metric in cards],
             "sections": built,
             "profile_gaps": gaps,
+            "latest_refresh_run": refresh_run,
         }
 
     def daily(self, *, query: dict, body: dict) -> dict:

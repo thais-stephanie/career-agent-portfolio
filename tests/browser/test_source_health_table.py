@@ -1,4 +1,4 @@
-"""Settings & Sources shows source health and a "Refresh due sources" button,
+"""Settings, Job sites shows source health and a "Check for new jobs" button,
 from the same rows the sidebar counts. Opening the panel starts nothing."""
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ def test_the_health_table_and_its_button(page: Chrome, pristine_server: str) -> 
     page.navigate(pristine_server)
     open_settings(page)
     page.wait_for("document.querySelector('#sources-host .src__health')", message="source health")
-    assert page.evaluate("document.getElementById('health-head').textContent") == "Source health"
+    assert page.evaluate("document.getElementById('health-head').textContent") == "How your job sites are doing"
     rows = int(page.evaluate("document.querySelectorAll('.src__health-table tbody tr').length"))
     cards = int(
         page.evaluate("document.querySelectorAll('#sources-host .src__each .career__card').length")

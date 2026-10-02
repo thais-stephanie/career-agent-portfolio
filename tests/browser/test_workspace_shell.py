@@ -190,10 +190,13 @@ def test_every_page_fills_the_same_header(page: Chrome, server: str) -> None:
 
 def test_the_header_is_the_same_height_on_every_page(page: Chrome, server: str) -> None:
     """The TITLE sits in the same place, at the same size, on every page. The
-    header as a whole may grow by a line when a subtitle wraps."""
+    header as a whole may grow by a line when a subtitle wraps.
+
+    Home is the one exception, by design: the redesign handoff puts today's
+    date above its greeting and the path drawing beside it."""
     open_app(page, server)
     heights = []
-    for name in DESTINATIONS:
+    for name in [d for d in DESTINATIONS if d != "home"]:
         page.evaluate(f"document.querySelector('.topnav__link[data-page=\"{name}\"]').click()")
         page.wait_for(
             "document.getElementById('pagehead-title').textContent.trim().length > 0",

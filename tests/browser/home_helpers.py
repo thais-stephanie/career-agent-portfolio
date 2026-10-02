@@ -18,9 +18,9 @@ from tests.browser.chrome import Chrome
 def open_home_past_setup(page: Chrome, base: str) -> None:
     page.navigate(base)
     page.wait_for(
-        "document.querySelector('#setup-later') || document.querySelector('.home__head')",
+        "document.querySelector('#setup-later') || document.querySelector('.home[data-view=dashboard]')",
         message="the guided setup or Home",
     )
     if page.evaluate("Boolean(document.querySelector('#setup-later'))"):
         page.evaluate("document.querySelector('#setup-later').click()")
-    page.wait_for("document.querySelector('.home__head')", message="Home")
+    page.wait_for("document.querySelector('.home[data-view=dashboard]')", message="Home")

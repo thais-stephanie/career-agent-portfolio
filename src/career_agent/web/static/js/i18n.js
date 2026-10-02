@@ -111,7 +111,7 @@ const EN = {
   'settings.addPhrase': 'Type a phrase, then Enter or comma',
   'settings.clearPhrases': 'Clear phrases',
   'settings.localPreference': 'Saved in this browser. Matching ignores letter case. '
-    + 'These lists do not change Search Fit.',
+    + 'These lists do not change your match %.',
   'settings.model': 'Your search model',
   'settings.modelAdvanced': 'Review concepts and advanced scoring vocabulary',
   'settings.advancedRefresh': 'Advanced refresh diagnostics',
@@ -151,7 +151,7 @@ const EN = {
     'checklist that helped new colleagues handle requests.” Keep each statement ' +
     'separate and accurate.',
   'career.boundary': 'Experiences organize what you have done. Only evidence you confirm can support ' +
-    'Evidence / Readiness and resume preparation. Search Fit uses the posting and ' +
+    'Evidence / Readiness and resume preparation. The match % uses the posting and ' +
     'your search model.',
   'career.new': 'Add experience',
   'career.inbox': 'Needs organizing',
@@ -299,7 +299,7 @@ const EN = {
 
   // -- the legend, which is the thing people most often get wrong --------
   'legend.summary': 'What Match and Posting completeness mean',
-  'legend.match': 'Search Fit',
+  'legend.match': 'Match',
   'legend.matchBody': 'posting alignment with your search. It does not measure your capability.',
   'legend.detail': 'Posting completeness',
   'legend.detailBody':
@@ -422,7 +422,7 @@ const EN = {
   'absent.contract': 'Contract type not stated',
   'absent.salary': 'Salary not stated',
   'absent.generic': 'Not stated',
-  'absent.levelSentence': 'The posting does not state a level. Search Fit treats it as mid-level.',
+  'absent.levelSentence': 'The posting does not state a level. The match % treats it as mid-level.',
 
   // -- how the work is engaged, and where the employment sits -----------
   //
@@ -487,9 +487,9 @@ const EN = {
     + 'nothing here to prepare against. That is a fact about the posting, not about you.',
   'prep.leadWithEvidence': 'Evidence / Readiness: checked against {n} confirmed claims. '
     + 'Phrase overlap links the quotes; review whether they support the requirement. '
-    + 'These claims do not enter the Search Fit number.',
+    + 'These claims do not enter the match %.',
   'prep.leadWithoutEvidence': 'Evidence / Readiness is unknown: no career claims are confirmed. '
-    + 'This does not change the separate Search Fit number.',
+    + 'This does not change the separate match %.',
   'prep.noEvidenceYet': 'Import your CV or write down what you have done, and this page '
     + 'starts answering.',
   'prep.goToEvidence': 'Your career evidence',
@@ -1235,7 +1235,7 @@ const EN = {
   'profiles.activeAria': 'Local profile: {name}. Open to switch, rename or add a profile.',
   'profiles.settingsHead': 'Profiles on this computer',
   'profiles.explain':
-    'Local profiles keep each person\'s CV, evidence, preferences, Search Fit and applications apart in '
+    'Local profiles keep each person\'s CV, evidence, preferences, match % and applications apart in '
     + 'this app. They are not accounts and not a security lock: anyone using this computer account can read '
     + 'the files.',
   'profiles.nothingToDelete': 'There is no other profile that can be deleted.',
@@ -1372,20 +1372,20 @@ const EN = {
   'sources.state.STALE': 'Out of date',
   'sources.state.DUE': 'Due for a refresh',
   'sources.state.RATE_LIMITED': 'Refused by the site',
-  'sources.healthTitle': 'Source health',
+  'sources.healthTitle': 'How your job sites are doing',
   'sources.healthSummary': '{due} due for a refresh, {attention} need attention. '
     + 'Refreshing is up to you: nothing runs by itself.',
   'sources.healthSource': 'Source',
   'sources.healthLastSuccess': 'Last success',
   'sources.healthStatus': 'Status',
-  'sources.refreshDue': 'Refresh due sources',
-  'sources.refreshAll': 'Refresh all available sources',
+  'sources.refreshDue': 'Check for new jobs',
+  'sources.refreshAll': 'Check all again',
   'sources.refreshDueStarting': 'Checking which sources are due...',
   'sources.refreshDueStarted': 'Refreshing {n} due sources. Progress is shown at the top.',
   'sources.refreshAllStarted': 'Refreshing all {n} available sources. Progress is shown at the top.',
-  'sources.refreshHelp': 'Refresh due sources is the normal one, and what Find jobs does: only sources not '
-    + 'refreshed in the last day. Refresh all available sources also reads the ones refreshed recently. Neither '
-    + 'wakes a paused source or asks a site that refused before its wait is over.',
+  'sources.refreshHelp': 'Check for new jobs is the usual one, and what Find jobs does: it reads only the sites not '
+    + 'checked in the last day. Check all again also reads the ones checked recently. Neither wakes a paused site '
+    + 'or asks a site that refused before its wait is over. Nothing runs by itself: you decide when to check.',
   'sources.popIntegrated': '{n} integrated sources',
   'sources.popExperimental': '{n} experimental enabled',
   'sources.popAvailable': '{n} available to refresh now',
@@ -1694,20 +1694,11 @@ const EN = {
   'list.moveDown': 'Move {column} down',
   'list.resetColumns': 'Reset to default',
   'list.done': 'Done',
-  'home.title': 'Where your search stands',
-  'home.since': 'Since you last marked the list read, on {when}. Mark it read again from Today.',
-  'home.neverReviewed': 'You have not marked the list read yet. Today has the button; until then, nothing is '
-    + 'counted as since you last looked.',
   'home.metric.new': 'New',
   'home.metric.saved': 'Saved',
   'home.metric.applied': 'Applied',
   'home.metric.interviews': 'Interviews',
   'home.metric.offers': 'Offers',
-  'home.metric.progressed': 'Progressed',
-  'home.metric.tracking': 'Tracking',
-  'home.kind.now': 'right now',
-  'home.kind.event': 'since you last marked the list read',
-  'home.kind.refresh': 'from your latest refresh',
   'home.kind.noRefresh': 'no refresh completed yet',
   'home.metricOpen': 'Show {label} in the job list',
   'home.nothing': 'Nothing here today.',
@@ -1726,6 +1717,31 @@ const EN = {
     + 'to match.',
   'home.openProfile': 'Open your profile',
   'home.openEvidence': 'Add your evidence',
+  'home.tip.title': 'New here? Here\'s how it works',
+  'home.tip.1.title': 'We look for jobs',
+  'home.tip.1.body': 'When you ask, we check job websites and order the jobs by how well they fit you.',
+  'home.tip.2.title': 'You save the good ones',
+  'home.tip.2.body': 'Tap the heart on jobs you like. Tap "Not for me" on the rest.',
+  'home.tip.3.title': 'We keep track for you',
+  'home.tip.3.body': 'When you mark a job as applied, we keep track of it so nothing gets lost.',
+  'home.tip.setup': 'Set up my search',
+  'home.tip.gotIt': 'Got it',
+  'home.newOne': '1 new job found for you',
+  'home.newMany': '{n} new jobs found for you',
+  'home.newSub': 'Your latest check added them. Take a look and save the ones you like.',
+  'home.newSee': 'See jobs →',
+  'home.newSeen': 'Hide this',
+  'home.newSeenDone': 'Hidden until your next check.',
+  'home.progress': 'Your progress',
+  'home.progressLede': 'Each job moves through these steps. Tap a step to see its jobs.',
+  'home.moved': '{n} moved forward since you last marked the list read.',
+  'home.step': 'Step {n}',
+  'home.stepHelp.new': 'Added by your latest check',
+  'home.stepHelp.saved': 'Jobs you liked',
+  'home.stepHelp.applied': 'Jobs you\'ve sent your CV to',
+  'home.stepHelp.interviews': 'Companies that want to talk to you',
+  'home.stepHelp.offers': 'Offers to decide on',
+  'home.viewJob': 'View job',
   'kanban.closed': 'Didn\'t work out',
   'kanban.col.SHORTLISTED': 'Interested',
   'kanban.col.APPLIED': 'Applied',
@@ -1774,7 +1790,7 @@ const EN = {
   'health.worthKnowingOne': '1 thing worth knowing',
   // Sentences built around a number or a job title. The title itself is
   // the employer's and is substituted, never translated.
-  'a11y.matchPercent': 'Search Fit {n} out of 100',
+  'a11y.matchPercent': 'Match {n} out of 100',
   'a11y.readablePercent': 'posting readable to {n} percent',
   'age.daysAgo': '{n} days ago',
   'age.monthsAgo': '{n} months ago',
@@ -1834,8 +1850,8 @@ const EN = {
   // The filter chips. A CURRENCY CODE is not translated -- BRL is BRL in
   // every language -- and neither is the text somebody typed into the search
   // box.
-  'chip.minScore': 'Search Fit at least {n}',
-  'chip.maxScore': 'Search Fit at most {n}',
+  'chip.minScore': 'Match at least {n}',
+  'chip.maxScore': 'Match at most {n}',
   'chip.minConfidence': 'Posting completeness at least {n}',
   'chip.postedWithinOne': 'Posted in the last 1 day',
   'chip.postedWithin': 'Posted in the last {n} days',
@@ -1924,7 +1940,7 @@ const EN = {
   // writes about a posting. What is NOT here: the description, the title,
   // the company name and every evidence quote -- those are the employer's
   // words and ADR-0002 makes a translated quote not a quote.
-  'drawer.scoredOutOf': 'Search Fit {score} out of 100: {howClose} for the work you said you '
+  'drawer.scoredOutOf': 'Match {score} out of 100: {howClose} for the work you said you '
     + 'want. Confirmed career evidence is assessed separately under Evidence / Readiness.',
   'drawer.closeStrong': 'strong search fit',
   'drawer.closeReasonable': 'reasonable search fit',
@@ -1941,7 +1957,7 @@ const EN = {
   'drawer.secStrengths': 'What this job has that you asked for',
   'drawer.secGaps': 'What the posting did not spell out',
   'drawer.secGates': 'Could you take this job',
-  'drawer.completenessNotFit': 'How much the employer wrote down. It never lowers Search Fit: a '
+  'drawer.completenessNotFit': 'How much the employer wrote down. It never lowers the match %: a '
     + 'missing salary or level is something the posting left out, not a sign you are a worse fit.',
   'confidence.item.description_present': 'Description present',
   'confidence.item.description_substantial': 'Detailed description',
@@ -1954,7 +1970,7 @@ const EN = {
   'confidence.note.salary_known.no': 'The posting states no compensation.',
   'confidence.note.seniority_determinable.yes': 'The posting indicates the level '
     + '(its title, a statement or the years it asks for).',
-  'confidence.note.seniority_determinable.no': 'The posting does not state a level. Search Fit treats it as '
+  'confidence.note.seniority_determinable.no': 'The posting does not state a level. The match % treats it as '
     + 'mid-level.',
   'drawer.secConfidence': 'Posting completeness',
   'drawer.secUnknowns': 'Never mentioned in the posting',
@@ -1977,7 +1993,7 @@ const EN = {
   'local.state.TIMEOUT': 'The local model didn\'t finish in time ({seconds}s). Nothing changed; you can try again.',
   'local.state.ERROR': 'The local model could not finish: {error}',
   'local.state.refused': '{error}',
-  'local.state.belowThreshold': 'This job\'s Search Fit is below the local model\'s threshold, so it was not read.',
+  'local.state.belowThreshold': 'This job\'s match % is below the local model\'s threshold, so it was not read.',
   'local.state.unverifiable': 'The local model answered, but its quotes could not be found in the posting, '
     + 'so nothing was saved. You can try again.',
   'local.state.ollamaError': 'Ollama could not finish the reading: {error}',
@@ -2098,7 +2114,7 @@ const EN = {
   'facet.status': 'Your progress',
   'facet.eligibility': 'Could you take it',
   'facet.role_class': 'How the job title reads',
-  'facet.fit_band': 'Search Fit band',
+  'facet.fit_band': 'Match band',
   'facet.signal': 'Everything the posting matched',
   'filters.includeIneligibleHelp': 'Off by default. These are jobs whose posting states something you do not '
     + 'meet, such as a country, a work permit or required travel. Jobs that'
@@ -2106,7 +2122,7 @@ const EN = {
   'filters.includeOffTargetHelp': 'Off by default. These are jobs where none of the things you said you are '
     + 'looking for turned up at all. Nothing is wrong with them; they are a'
     + 'different kind of work. A LOW match is not this and is always shown.',
-  'filters.matchAtLeast': 'Search Fit at least',
+  'filters.matchAtLeast': 'Match at least',
   'filters.detailAtLeast': 'Posting completeness at least',
   'stage.fetched': 'Fetched',
   'stage.active': 'Active',
@@ -2565,7 +2581,7 @@ const EN = {
   'roles.added': '\u2713 Added',
   'roles.calloutLead': 'Search anchors, not limits.',
   'roles.calloutBody':
-    'Jobs with other titles still show up, and these roles never change a job\'s Search Fit.',
+    'Jobs with other titles still show up, and these roles never change a job\'s match %.',
   'setup.optional': 'Optional',
   'setup.stepsLabel': 'Setup steps',
   'setup.stepState.done': 'done',
@@ -2667,6 +2683,11 @@ const EN = {
   'setup.ready.toHome': 'Go to Home',
   'empty.findJobs': 'Find jobs now',
   'settings.setupHead': 'Your answers',
+  'settab.group': 'Settings sections',
+  'settab.search': 'Your search',
+  'settab.sites': 'Job sites',
+  'settab.ai': 'AI matching',
+  'settab.profiles': 'Profiles',
   'settings.setupLede': 'Where you live, where you can be hired, the work you want and your pay target. Go through '
     + 'them again one at a time, starting from what is saved.',
   'settings.setupOpen': 'Change my answers',
@@ -2867,7 +2888,7 @@ const EN = {
   'xp.addHint': 'A role, freelance work or a side project.',
   'xp.empty': 'No experiences in your profile yet. Import your resume, or add one yourself.',
   'xp.editingEyebrow': 'Editing profile',
-  'xp.editingText': 'Changes here update what application preparation can draw on. Search Fit is not affected.',
+  'xp.editingText': 'Changes here update what application preparation can draw on. Your match % is not affected.',
   'xp.doneEditing': 'Done editing',
   'xp.waitingNote': '{n} details from your documents are waiting for your review.',
   'xp.waitingNoteOne': '1 detail from your documents is waiting for your review.',
@@ -2917,8 +2938,8 @@ const EN = {
   'xp.newLabel': 'New experience',
   'xp.editingLabel': 'Editing {role}',
   'evp.heading': 'Professional evidence',
-  'evp.lede': 'Proof you have confirmed. Application preparation quotes it; it does not change Search Fit.',
-  'evp.add': '+ Add evidence',
+  'evp.lede': 'Proof you have confirmed. Application preparation quotes it; it does not change your match %.',
+  'evp.add': '+ Add proof',
   'evp.emptyTitle': 'No evidence yet',
   'evp.emptyBody': 'Add a project, an achievement or a certification, or import your resume from Documents.',
   'evp.emptyImport': 'Import your resume',
@@ -2965,7 +2986,7 @@ const EN = {
   'evp.edit': 'Edit',
   'evp.newEyebrow': 'New evidence',
   'evp.editEyebrow': 'Edit evidence',
-  'evp.addTitle': 'Add evidence',
+  'evp.addTitle': 'Add proof',
   'evp.editTitle': 'Edit evidence',
   'evp.addLede': 'Proof behind your experience. Application preparation quotes it when it explains a match.',
   'evp.addForRequirement': 'For the requirement "{requirement}". '
@@ -3150,10 +3171,10 @@ const EN = {
   'imp.tileRejected': 'left out',
   'imp.tileExperiences': 'experiences in your profile',
   'imp.summaryNote': 'Everything you answered is already saved. Confirmed details are what '
-    + 'application preparation can draw on; Search Fit is not affected.',
+    + 'application preparation can draw on; your match % is not affected.',
   'imp.reviewWaiting': 'Review what is left',
   'imp.finish': 'Back to documents',
-  'ai.head': 'AI & Semantic Matching',
+  'ai.head': 'AI matching',
   'ai.intro': 'Career Agent can ask an AI to recognise the work you want in postings that describe it in other '
     + 'words. The AI only interprets: Career Agent checks every quote against the posting and does all of the '
     + 'scoring itself.',
@@ -3167,13 +3188,13 @@ const EN = {
   'ai.mode.deterministic': 'Deterministic only',
   'ai.mode.fake': 'Test provider',
   'ai.summary.ready': 'AI semantic matching: ready',
-  'ai.summary.off': 'AI semantic matching is off. Search Fit uses your phrases only.',
-  'ai.summary.deterministic': 'Deterministic only. Search Fit uses your phrases, without AI.',
-  'ai.summary.unavailable': 'No AI provider is available. Search Fit uses your phrases only.',
+  'ai.summary.off': 'AI semantic matching is off. The match % uses your phrases only.',
+  'ai.summary.deterministic': 'Deterministic only. The match % uses your phrases, without AI.',
+  'ai.summary.unavailable': 'No AI provider is available. The match % uses your phrases only.',
   'ai.summary.demo': 'Demo mode never uses AI.',
   'ai.using': 'Using {provider}',
   'ai.fellBack': '{preferred} is not available, so {used} is used instead.',
-  'ai.fellBackDeterministic': '{preferred} is not available. Search Fit uses your phrases only until it is.',
+  'ai.fellBackDeterministic': '{preferred} is not available. The match % uses your phrases only until it is.',
   'ai.saved': 'Saved.',
   'ai.providersHead': 'Providers and privacy',
   'ai.state.AVAILABLE': 'Available',
@@ -3195,7 +3216,7 @@ const EN = {
   'ai.sends.claude_code': 'Sends your search intent and each evaluated posting through your own Claude Code sign-in.',
   'ai.sends.laya': 'Nothing leaves this computer.',
   'ai.laya.why': 'Laya answers without quoting the posting, so its answers cannot be checked as evidence. It is '
-    + 'not used for Search Fit.',
+    + 'not used for the match %.',
   'ai.check': 'Check connection',
   'ai.checking': 'Checking',
   'ai.key.label': 'DeepSeek API key',
@@ -3226,19 +3247,19 @@ const EN = {
   'ai.run': 'Evaluate {count} postings',
   'ai.running': 'Evaluating {done} of {total}',
   'ai.cancel': 'Stop',
-  'ai.recalc': 'Search Fit will be recalculated for the evaluated postings.',
+  'ai.recalc': 'The match % will be recalculated for the evaluated postings.',
   'ai.last': 'Last run: {published} postings evaluated, {failed} failed, {calls} calls, {tokens} tokens, {spent} '
     + 'spent.',
   'ai.lastSubscription': 'Last run: {published} postings evaluated, {failed} failed, {calls} calls, {tokens} tokens.',
-  'readiness.NOT_READY': 'Search Fit is not ready: tell Career Agent what work you want next.',
-  'readiness.PARTIAL': 'Search Fit is usable. It becomes more precise when you also say {missing}.',
-  'readiness.READY': 'Search Fit is ready: it knows the work, the level and the way of working you want.',
+  'readiness.NOT_READY': 'The match % is not ready: tell Career Agent what work you want next.',
+  'readiness.PARTIAL': 'The match % is usable. It becomes more precise when you also say {missing}.',
+  'readiness.READY': 'The match % is ready: it knows the work, the level and the way of working you want.',
   'readiness.missing.level': 'the level you want',
   'readiness.missing.work_model': 'how you want to work',
   'readiness.missing.work': 'the work you want',
   'readiness.join': ' and ',
   'badge.notReady': 'Not ready',
-  'badge.notReadyHelp': 'Search Fit needs to know what work you want next. Add it in the guided setup or in Settings.',
+  'badge.notReadyHelp': 'The match % needs to know what work you want next. Add it in the guided setup or in Settings.',
   'component.responsibilities': 'Work you want',
   'component.technologies': 'Tools and methods',
   'component.automation_integration': 'Other desired signals',
@@ -3260,13 +3281,13 @@ const EN = {
   'ai.stop.NOTHING_NEW': 'Nothing new to evaluate.',
   'ai.stop.NO_PROVIDER': 'No AI provider is available.',
   'ai.stop.NO_INTENT': 'Tell Career Agent what work you want first.',
-  'ai.stop.NO_INDEX': 'Recalculate Search Fit first, then try again.',
+  'ai.stop.NO_INDEX': 'Recalculate the match % first, then try again.',
   'ai.stop.PRICE_UNKNOWN': 'This provider has no known price, so it cannot be held to a budget.',
   'ai.stop.ERROR': 'The run stopped because of an error.',
   'drawer.toolsGuard':
     'Held at half: this posting uses tools you want, and none of the work you want was found as a '
     + 'central duty in it.',
-  'fitFeedback.question': 'Does this Search Fit look right?',
+  'fitFeedback.question': 'Does this match % look right?',
   'app.quit': 'Quit Career Agent',
   'app.quitConfirm':
     'Quit Career Agent and Resume Tailor? Everything you saved is kept. A recalculation that is '
@@ -3299,7 +3320,7 @@ const EN = {
   'fitFeedback.note': 'Note (optional)',
   'fitFeedback.saved': 'Saved on this computer. Your answer does not change the score.',
   'fitFeedback.failed': 'Could not save your answer. Try again.',
-  'fitFeedback.changed': 'Search Fit was recalculated since this opened. Close and reopen the posting.',
+  'fitFeedback.changed': 'The match % was recalculated since this opened. Close and reopen the posting.',
   'fitFeedback.export': 'Export my answers (private CSV)',
 };
 
@@ -3381,7 +3402,7 @@ const PT_BR = {
   'settings.addPhrase': 'Digite uma expressão e pressione Enter ou vírgula',
   'settings.clearPhrases': 'Limpar expressões',
   'settings.localPreference': 'Salvo neste navegador. A busca ignora maiúsculas e minúsculas. '
-    + 'Estas listas não alteram a Aderência à busca.',
+    + 'Estas listas não alteram a Compatibilidade.',
   'settings.model': 'Seu modelo de busca',
   'settings.modelAdvanced': 'Revisar conceitos e vocabulário avançado de pontuação',
   'settings.advancedRefresh': 'Diagnóstico avançado de atualização',
@@ -3422,7 +3443,7 @@ const PT_BR = {
     'compartilhada que ajudou novos colegas a atender solicitações”. Mantenha cada ' +
     'afirmação separada e fiel ao que aconteceu.',
   'career.boundary': 'As experiências organizam o que você fez. Só evidências confirmadas podem apoiar ' +
-    'Evidências / Preparo e a preparação do currículo. Aderência à busca usa a vaga e ' +
+    'Evidências / Preparo e a preparação do currículo. Compatibilidade usa a vaga e ' +
     'seu modelo de busca.',
   'career.new': 'Adicionar experiência',
   'career.inbox': 'Precisa organizar',
@@ -3567,7 +3588,7 @@ const PT_BR = {
   'rail.sources': 'De onde elas vêm',
 
   'legend.summary': 'O que significam Correspondência e Completude do anúncio',
-  'legend.match': 'Aderência à busca',
+  'legend.match': 'Compatibilidade',
   'legend.matchBody': 'relação do anúncio com sua busca. Não mede sua capacidade profissional.',
   'legend.detail': 'Completude do anúncio',
   'legend.detailBody':
@@ -3669,7 +3690,7 @@ const PT_BR = {
   'absent.contract': 'Tipo de contrato não informado',
   'absent.salary': 'Salário não informado',
   'absent.generic': 'Não informado',
-  'absent.levelSentence': 'O anúncio não informa o nível. O Search Fit o trata como pleno.',
+  'absent.levelSentence': 'O anúncio não informa o nível. A compatibilidade o trata como pleno.',
 
   'employment.stated': 'O anúncio diz isso',
   'employment.likely': 'Provável, pelos benefícios oferecidos',
@@ -3715,9 +3736,9 @@ const PT_BR = {
     + 'então não há o que preparar aqui. Isso é um fato sobre o anúncio, não sobre você.',
   'prep.leadWithEvidence': 'Evidências / Preparação: comparado com {n} afirmações confirmadas. '
     + 'As expressões em comum ligam as citações; confira se sustentam o requisito. '
-    + 'Essas afirmações não entram na pontuação de aderência à busca.',
+    + 'Essas afirmações não entram na pontuação de compatibilidade.',
   'prep.leadWithoutEvidence': 'Evidências / Preparação desconhecida: nenhuma afirmação confirmada. '
-    + 'Isso não altera a pontuação separada de aderência à busca.',
+    + 'Isso não altera a pontuação separada de compatibilidade.',
   'prep.noEvidenceYet': 'Importe seu currículo ou escreva o que você já fez, e esta página '
     + 'começa a responder.',
   'prep.goToEvidence': 'Suas evidências de carreira',
@@ -4257,11 +4278,11 @@ const PT_BR = {
   'card.moreTools': 'Mais {n}. Abra a vaga para ver.',
   'card.posted': 'Publicada: {date}',
   'card.noPostedDate': 'Nenhuma data de publicação registrada',
-  'card.matchGreat': 'Ótimo encaixe',
-  'card.matchGood': 'Bom encaixe',
-  'card.matchFair': 'Encaixe razoável',
+  'card.matchGreat': 'Ótima compatibilidade',
+  'card.matchGood': 'Boa compatibilidade',
+  'card.matchFair': 'Compatibilidade razoável',
   'card.matchUnscored': 'Ainda sem nota',
-  'card.whyLabel': '{n}% de encaixe: ver por quê',
+  'card.whyLabel': '{n}% de compatibilidade: ver por quê',
   'card.whyHelp': 'Veja por que esta vaga combina com você',
   'card.applyShort': 'Candidatar ↗',
   'card.askQuestion': 'Você enviou sua candidatura?',
@@ -4277,12 +4298,12 @@ const PT_BR = {
   'filters.section.find': 'Buscar',
   'filters.section.findHelp': 'Procura no anúncio inteiro, não só no título da vaga.',
   'filters.section.quick': 'Filtros rápidos',
-  'filters.section.quality': 'Aderência à busca e completude do anúncio',
+  'filters.section.quality': 'Compatibilidade e completude do anúncio',
   'filters.section.qualityHelp': 'Dois números separados. Nenhum dos dois é uma previsão sobre suas '
     + 'chances.',
   'filters.preset.all': 'Tudo',
   'filters.preset.allHelp': 'Todas as vagas coletadas até agora, sem nenhum filtro.',
-  'filters.preset.strong': 'Forte aderência à busca',
+  'filters.preset.strong': 'Alta compatibilidade',
   'filters.preset.strongHelp': 'Vagas com 70 ou mais de proximidade com o trabalho que você quer. Não '
     + 'diz nada sobre você poder aceitá-las.',
   'filters.preset.eligible': 'Nada no caminho',
@@ -4393,7 +4414,7 @@ const PT_BR = {
   'profiles.activeAria': 'Perfil local: {name}. Abra para trocar, renomear ou criar um perfil.',
   'profiles.settingsHead': 'Perfis neste computador',
   'profiles.explain':
-    'Perfis locais mantêm separados neste app o currículo, as evidências, as preferências, o Search Fit e '
+    'Perfis locais mantêm separados neste app o currículo, as evidências, as preferências, a compatibilidade e '
     + 'as candidaturas de cada pessoa. Não são contas nem uma trava de segurança: quem usa esta conta do '
     + 'computador consegue ler os arquivos.',
   'profiles.nothingToDelete': 'Não há outro perfil que possa ser excluído.',
@@ -4405,7 +4426,7 @@ const PT_BR = {
   'profiles.delete': 'Excluir perfil',
   'profiles.deleted': 'Perfil excluído.',
   'app.thisPosting': 'este anúncio',
-  'app.rescore': 'Recalcular aderência à busca',
+  'app.rescore': 'Recalcular compatibilidade',
   'app.rescoreFailed': 'Algo deu errado. Tente de novo',
   'app.rescoreDone': 'Pronto. Carregando suas correspondências',
   'app.starting': 'Começando...',
@@ -4490,7 +4511,7 @@ const PT_BR = {
   'prefs.diffAdded': 'Adicionando: {list}.',
   'prefs.diffRemoved': 'Removendo: {list}.',
   'prefs.diffCost':
-    'Salvar muda a configuração da busca. É necessário recalcular a aderência à busca; '
+    'Salvar muda a configuração da busca. É necessário recalcular a compatibilidade; '
     + 'os resultados existentes continuam disponíveis até lá.',
   'retrieval.scoredElsewhere':
     'Nenhuma destas está pontuada segundo suas preferências atuais, mas {n} '
@@ -4523,20 +4544,21 @@ const PT_BR = {
   'sources.state.STALE': 'Desatualizada',
   'sources.state.DUE': 'Hora de atualizar',
   'sources.state.RATE_LIMITED': 'Recusada pelo site',
-  'sources.healthTitle': 'Saúde das fontes',
+  'sources.healthTitle': 'Como estão seus sites de vagas',
   'sources.healthSummary': '{due} precisam de atualização, {attention} precisam de atenção. '
     + 'Atualizar é com você: nada roda sozinho.',
   'sources.healthSource': 'Fonte',
   'sources.healthLastSuccess': 'Último sucesso',
   'sources.healthStatus': 'Status',
-  'sources.refreshDue': 'Atualizar fontes pendentes',
-  'sources.refreshAll': 'Atualizar todas as fontes disponíveis',
+  'sources.refreshDue': 'Procurar vagas novas',
+  'sources.refreshAll': 'Verificar todos de novo',
   'sources.refreshDueStarting': 'Verificando quais fontes estão pendentes...',
   'sources.refreshDueStarted': 'Atualizando {n} fontes pendentes. O progresso aparece no topo.',
   'sources.refreshAllStarted': 'Atualizando todas as {n} fontes disponíveis. O progresso aparece no topo.',
-  'sources.refreshHelp': 'Atualizar fontes pendentes é o normal, e é o que Encontrar vagas faz: só as fontes não '
-    + 'atualizadas no último dia. Atualizar todas as fontes disponíveis lê também as atualizadas há pouco. Nenhum '
-    + 'dos dois acorda uma fonte pausada nem pergunta de novo a um site que recusou antes do fim da espera.',
+  'sources.refreshHelp': 'Procurar vagas novas é o normal, e é o que Encontrar vagas faz: só lê os sites não '
+    + 'verificados no último dia. Verificar todos de novo lê também os verificados há pouco. Nenhum dos dois acorda '
+    + 'um site pausado nem pergunta de novo a um site que recusou antes do fim da espera. Nada roda sozinho: você '
+    + 'decide quando verificar.',
   'sources.popIntegrated': '{n} fontes integradas',
   'sources.popExperimental': '{n} experimental ligada',
   'sources.popAvailable': '{n} disponíveis para atualizar agora',
@@ -4838,26 +4860,17 @@ const PT_BR = {
   'list.columns': 'Colunas',
   'list.exportCsv': 'Exportar CSV',
   'list.columnsTitle': 'Mostrar colunas',
-  'list.columnsHelp': 'Encaixe e Vaga ficam sempre primeiro.',
+  'list.columnsHelp': 'Compatibilidade e Vaga ficam sempre primeiro.',
   'list.fixed': 'Fixa',
   'list.moveUp': 'Mover {column} para cima',
   'list.moveDown': 'Mover {column} para baixo',
   'list.resetColumns': 'Restaurar o padrão',
   'list.done': 'Pronto',
-  'home.title': 'Como está sua busca',
-  'home.since': 'Desde que você marcou a lista como lida, em {when}. Marque de novo em Hoje.',
-  'home.neverReviewed': 'Você ainda não marcou a lista como lida. O botão fica em Hoje; até lá, nada é contado como '
-    + 'desde a última vez.',
   'home.metric.new': 'Novas',
   'home.metric.saved': 'Salvas',
   'home.metric.applied': 'Candidaturas',
   'home.metric.interviews': 'Entrevistas',
   'home.metric.offers': 'Propostas',
-  'home.metric.progressed': 'Avançaram',
-  'home.metric.tracking': 'Acompanhando',
-  'home.kind.now': 'agora',
-  'home.kind.event': 'desde que você marcou a lista como lida',
-  'home.kind.refresh': 'na sua última atualização',
   'home.kind.noRefresh': 'nenhuma atualização concluída ainda',
   'home.metricOpen': 'Mostrar {label} na lista de vagas',
   'home.nothing': 'Nada aqui hoje.',
@@ -4876,6 +4889,32 @@ const PT_BR = {
     + 'um anúncio corresponder.',
   'home.openProfile': 'Abrir seu perfil',
   'home.openEvidence': 'Adicionar suas evidências',
+  'home.tip.title': 'Primeira vez aqui? Veja como funciona',
+  'home.tip.1.title': 'Nós procuramos vagas',
+  'home.tip.1.body': 'Quando você pede, olhamos os sites de vagas e ordenamos as vagas pelo quanto combinam com '
+    + 'você.',
+  'home.tip.2.title': 'Você salva as boas',
+  'home.tip.2.body': 'Toque no coração das vagas de que gostar. Toque em "Não é para mim" no resto.',
+  'home.tip.3.title': 'Nós acompanhamos para você',
+  'home.tip.3.body': 'Quando você marca uma vaga como candidatura enviada, guardamos isso para nada se perder.',
+  'home.tip.setup': 'Configurar minha busca',
+  'home.tip.gotIt': 'Entendi',
+  'home.newOne': '1 vaga nova encontrada para você',
+  'home.newMany': '{n} vagas novas encontradas para você',
+  'home.newSub': 'A sua última busca trouxe estas. Dê uma olhada e salve as que gostar.',
+  'home.newSee': 'Ver vagas →',
+  'home.newSeen': 'Ocultar aviso',
+  'home.newSeenDone': 'Oculto até a sua próxima busca.',
+  'home.progress': 'Seu progresso',
+  'home.progressLede': 'Cada vaga passa por estas etapas. Toque numa etapa para ver as vagas dela.',
+  'home.moved': '{n} avançaram desde que você marcou a lista como lida.',
+  'home.step': 'Etapa {n}',
+  'home.stepHelp.new': 'Trazidas pela sua última busca',
+  'home.stepHelp.saved': 'Vagas de que você gostou',
+  'home.stepHelp.applied': 'Vagas para as quais você mandou seu currículo',
+  'home.stepHelp.interviews': 'Empresas que querem conversar com você',
+  'home.stepHelp.offers': 'Propostas para decidir',
+  'home.viewJob': 'Ver vaga',
   'kanban.closed': 'Não deu certo',
   'kanban.col.SHORTLISTED': 'Tenho interesse',
   'kanban.col.APPLIED': 'Candidatei',
@@ -4924,7 +4963,7 @@ const PT_BR = {
   'health.worthKnowingOne': '1 coisa que vale saber',
   // Sentences built around a number or a job title. The title itself is
   // the employer's and is substituted, never translated.
-  'a11y.matchPercent': 'Aderência à busca: {n} de 100',
+  'a11y.matchPercent': 'Compatibilidade: {n} de 100',
   'a11y.readablePercent': 'anúncio legível em {n} por cento',
   'age.daysAgo': 'há {n} dias',
   'age.monthsAgo': 'há {n} meses',
@@ -5078,7 +5117,7 @@ const PT_BR = {
   // writes about a posting. What is NOT here: the description, the title,
   // the company name and every evidence quote -- those are the employer's
   // words and ADR-0002 makes a translated quote not a quote.
-  'drawer.scoredOutOf': 'Aderência à busca: {score}/100, {howClose} para o trabalho que você '
+  'drawer.scoredOutOf': 'Compatibilidade: {score}/100, {howClose} para o trabalho que você '
     + 'disse querer. As evidências de carreira são avaliadas separadamente em Evidências / Preparação.',
   'drawer.closeStrong': 'uma aderência forte',
   'drawer.closeReasonable': 'uma aderência razoável',
@@ -5094,7 +5133,7 @@ const PT_BR = {
   'drawer.secStrengths': 'O que esta vaga tem do que você pediu',
   'drawer.secGaps': 'O que o anúncio não deixou claro',
   'drawer.secGates': 'Você poderia aceitar esta vaga',
-  'drawer.completenessNotFit': 'Quanto o empregador escreveu. Nunca reduz o Search Fit: um salário ou '
+  'drawer.completenessNotFit': 'Quanto o empregador escreveu. Nunca reduz a compatibilidade: um salário ou '
     + 'nível ausente é algo que o anúncio omitiu, não um sinal de que você combina menos.',
   'confidence.item.description_present': 'Descrição presente',
   'confidence.item.description_substantial': 'Descrição detalhada',
@@ -5107,7 +5146,7 @@ const PT_BR = {
   'confidence.note.salary_known.no': 'O anúncio não informa remuneração.',
   'confidence.note.seniority_determinable.yes': 'O anúncio indica o nível '
     + '(pelo título, por uma frase ou pelos anos que pede).',
-  'confidence.note.seniority_determinable.no': 'O anúncio não informa o nível. O Search Fit o trata como '
+  'confidence.note.seniority_determinable.no': 'O anúncio não informa o nível. A compatibilidade o trata como '
     + 'pleno.',
   'drawer.secConfidence': 'Completude do anúncio',
   'drawer.secUnknowns': 'Nunca mencionado no anúncio',
@@ -5132,7 +5171,7 @@ const PT_BR = {
   'local.state.TIMEOUT': 'O modelo local não terminou a tempo ({seconds}s). Nada mudou; você pode tentar de novo.',
   'local.state.ERROR': 'O modelo local não conseguiu terminar: {error}',
   'local.state.refused': '{error}',
-  'local.state.belowThreshold': 'O Search Fit desta vaga está abaixo do limite do modelo local, '
+  'local.state.belowThreshold': 'A compatibilidade desta vaga está abaixo do limite do modelo local, '
     + 'então ela não foi lida.',
   'local.state.unverifiable': 'O modelo local respondeu, mas as citações não foram encontradas na vaga, '
     + 'então nada foi salvo. Você pode tentar de novo.',
@@ -5219,7 +5258,7 @@ const PT_BR = {
   'absent.companyStated': 'Empresa não informada',
   'absent.source': 'Origem não registrada',
   'absent.place': 'Localidade não informada',
-  'column.score': 'Encaixe',
+  'column.score': 'Compatibilidade',
   'column.confidence': 'Completude do anúncio',
   'column.company': 'Empresa',
   'column.title': 'Vaga',
@@ -5256,7 +5295,7 @@ const PT_BR = {
   'facet.status': 'Seu andamento',
   'facet.eligibility': 'Você poderia aceitar',
   'facet.role_class': 'Como o título da vaga soa',
-  'facet.fit_band': 'Faixa de aderência à busca',
+  'facet.fit_band': 'Faixa de compatibilidade',
   'facet.signal': 'Tudo o que o anúncio correspondeu',
   'filters.includeIneligibleHelp': 'Desligado por padrão. São vagas cujo anúncio declara algo que você não '
     + 'atende, como um país, uma autorização de trabalho ou viagens exigidas.'
@@ -5264,7 +5303,7 @@ const PT_BR = {
   'filters.includeOffTargetHelp': 'Desligado por padrão. São vagas em que nada do que você disse procurar '
     + 'apareceu. Não há nada de errado com elas; são outro tipo de trabalho.'
     + 'Uma correspondência BAIXA não é isto e aparece sempre.',
-  'filters.matchAtLeast': 'Aderência à busca de pelo menos',
+  'filters.matchAtLeast': 'Compatibilidade de pelo menos',
   'filters.detailAtLeast': 'Completude do anúncio de pelo menos',
   'stage.fetched': 'Coletadas',
   'stage.active': 'Ativas',
@@ -5690,7 +5729,7 @@ const PT_BR = {
   'roles.added': '\u2713 Adicionado',
   'roles.calloutLead': 'Âncoras de busca, não limites.',
   'roles.calloutBody':
-    'Vagas com outros cargos continuam aparecendo, e esses cargos nunca mudam o Search Fit '
+    'Vagas com outros cargos continuam aparecendo, e esses cargos nunca mudam a compatibilidade '
     + 'de uma vaga.',
   'setup.optional': 'Opcional',
   'setup.stepsLabel': 'Etapas da configuração',
@@ -5793,6 +5832,11 @@ const PT_BR = {
   'setup.ready.toHome': 'Ir para o Início',
   'empty.findJobs': 'Encontrar vagas agora',
   'settings.setupHead': 'Suas respostas',
+  'settab.group': 'Seções das configurações',
+  'settab.search': 'Sua busca',
+  'settab.sites': 'Sites de vagas',
+  'settab.ai': 'Compatibilidade com IA',
+  'settab.profiles': 'Perfis',
   'settings.setupLede': 'Onde você mora, onde pode ser contratado, o trabalho que quer e o salário alvo. Revise uma '
     + 'de cada vez, a partir do que já está salvo.',
   'settings.setupOpen': 'Mudar minhas respostas',
@@ -5997,7 +6041,8 @@ const PT_BR = {
   'xp.addHint': 'Um cargo, um trabalho freelance ou um projeto paralelo.',
   'xp.empty': 'Nenhuma experiência no seu perfil ainda. Importe seu currículo ou adicione uma você mesma.',
   'xp.editingEyebrow': 'Editando perfil',
-  'xp.editingText': 'As mudanças aqui atualizam o que a preparação de candidaturas pode usar. O Search Fit não muda.',
+  'xp.editingText': 'As mudanças aqui atualizam o que a preparação de candidaturas pode usar. A compatibilidade não '
+    + 'muda.',
   'xp.doneEditing': 'Concluir edição',
   'xp.waitingNote': '{n} detalhes dos seus documentos estão esperando a sua revisão.',
   'xp.waitingNoteOne': '1 detalhe dos seus documentos está esperando a sua revisão.',
@@ -6047,8 +6092,8 @@ const PT_BR = {
   'xp.newLabel': 'Nova experiência',
   'xp.editingLabel': 'Editando {role}',
   'evp.heading': 'Evidências profissionais',
-  'evp.lede': 'Provas que você confirmou. A preparação de candidaturas as cita; elas não mudam o Search Fit.',
-  'evp.add': '+ Adicionar evidência',
+  'evp.lede': 'Provas que você confirmou. A preparação de candidaturas as cita; elas não mudam a compatibilidade.',
+  'evp.add': '+ Adicionar prova',
   'evp.emptyTitle': 'Nenhuma evidência ainda',
   'evp.emptyBody': 'Adicione um projeto, uma conquista ou uma certificação, ou importe seu currículo em Documentos.',
   'evp.emptyImport': 'Importar seu currículo',
@@ -6096,7 +6141,7 @@ const PT_BR = {
   'evp.edit': 'Editar',
   'evp.newEyebrow': 'Nova evidência',
   'evp.editEyebrow': 'Editar evidência',
-  'evp.addTitle': 'Adicionar evidência',
+  'evp.addTitle': 'Adicionar prova',
   'evp.editTitle': 'Editar evidência',
   'evp.addLede': 'A prova por trás da sua experiência. A preparação de candidaturas a cita ao explicar uma vaga.',
   'evp.addForRequirement': 'Para o requisito "{requirement}". '
@@ -6283,10 +6328,10 @@ const PT_BR = {
   'imp.tileRejected': 'deixados de fora',
   'imp.tileExperiences': 'experiências no seu perfil',
   'imp.summaryNote': 'Tudo o que você respondeu já está salvo. Os detalhes confirmados são o que a '
-    + 'preparação de candidaturas pode usar; o Search Fit não muda.',
+    + 'preparação de candidaturas pode usar; a compatibilidade não muda.',
   'imp.reviewWaiting': 'Revisar o que falta',
   'imp.finish': 'Voltar aos documentos',
-  'ai.head': 'IA e correspondência semântica',
+  'ai.head': 'Compatibilidade com IA',
   'ai.intro': 'O Career Agent pode pedir a uma IA que reconheça o trabalho que você quer em vagas que o descrevem '
     + 'com outras palavras. A IA só interpreta: o Career Agent confere cada citação com a vaga e faz todo o '
     + 'cálculo da pontuação.',
@@ -6365,18 +6410,18 @@ const PT_BR = {
     + '{spent} gastos.',
   'ai.lastSubscription': 'Última execução: {published} vagas avaliadas, {failed} falharam, {calls} chamadas, '
     + '{tokens} tokens.',
-  'readiness.NOT_READY': 'A aderência à busca ainda não está pronta: diga ao Career Agent que trabalho você quer a '
+  'readiness.NOT_READY': 'A compatibilidade ainda não está pronta: diga ao Career Agent que trabalho você quer a '
     + 'seguir.',
-  'readiness.PARTIAL': 'A aderência à busca já pode ser usada. Ela fica mais precisa quando você também informa '
+  'readiness.PARTIAL': 'A compatibilidade já pode ser usada. Ela fica mais precisa quando você também informa '
     + '{missing}.',
-  'readiness.READY': 'A aderência à busca está pronta: ela conhece o trabalho, o nível e o jeito de trabalhar que '
+  'readiness.READY': 'A compatibilidade está pronta: ela conhece o trabalho, o nível e o jeito de trabalhar que '
     + 'você quer.',
   'readiness.missing.level': 'o nível que você quer',
   'readiness.missing.work_model': 'como você quer trabalhar',
   'readiness.missing.work': 'o trabalho que você quer',
   'readiness.join': ' e ',
   'badge.notReady': 'Não pronta',
-  'badge.notReadyHelp': 'A aderência à busca precisa saber que trabalho você quer a seguir. Informe isso na '
+  'badge.notReadyHelp': 'A compatibilidade precisa saber que trabalho você quer a seguir. Informe isso na '
     + 'configuração guiada ou em Configurações.',
   'component.responsibilities': 'Trabalho que você quer',
   'component.technologies': 'Ferramentas e métodos',
@@ -6405,7 +6450,7 @@ const PT_BR = {
   'drawer.toolsGuard':
     'Limitado à metade: esta vaga usa ferramentas que você quer, e nenhum trabalho que você quer foi '
     + 'encontrado nela como atividade central.',
-  'fitFeedback.question': 'Esta aderência parece certa?',
+  'fitFeedback.question': 'Este % de compatibilidade parece certo?',
   'app.quit': 'Sair do Career Agent',
   'app.quitConfirm':
     'Sair do Career Agent e do Resume Tailor? Tudo o que você salvou fica guardado. Um '

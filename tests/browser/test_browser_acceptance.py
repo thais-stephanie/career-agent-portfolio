@@ -474,7 +474,7 @@ def test_the_drawer_explains_the_number_with_quotes_gates_and_gaps(
 
     # The plain-language answer comes FIRST, before any number is broken down.
     summary = str(page.evaluate("document.querySelector('.why__summary').textContent"))
-    assert "out of 100" in summary and "Search Fit" in summary, summary
+    assert "out of 100" in summary and "Match" in summary, summary
     assert "Evidence / Readiness" in summary, summary
     assert int(page.evaluate("document.querySelectorAll('.reason .quote').length")) >= 1, (
         "no reason carried a quote from the posting"

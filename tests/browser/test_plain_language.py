@@ -293,6 +293,8 @@ def test_the_sources_panel_says_why_without_saying_robots_txt(page: Chrome, serv
         message="the source rows",
     )
 
+    # Job sites is its own Settings tab: read what that tab paints.
+    page.evaluate("document.getElementById('settab-sites').click()")
     surface = str(page.evaluate("document.getElementById('sources-host').innerText"))
     for banned in ("robots.txt", "endpoint", "404", "403", "pagination", "first-party"):
         assert banned not in surface.lower(), f"the sources panel surfaces {banned!r}"
