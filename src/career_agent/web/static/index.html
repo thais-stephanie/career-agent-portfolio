@@ -201,7 +201,8 @@
       <!-- List only: which columns, and the visible rows as a CSV. -->
       <div class="listtools" id="list-tools" hidden>
         <button type="button" class="listtools__btn" id="columns-menu" aria-haspopup="true"
-                aria-expanded="false" aria-controls="columns-pop">Columns</button>
+                aria-expanded="false" aria-controls="columns-pop"><span id="columns-menu-label">Columns</span>
+          <span class="listtools__count num" id="columns-count"></span></button>
         <span class="listtools__sep" aria-hidden="true"></span>
         <button type="button" class="listtools__btn" id="export-csv">Export CSV</button>
         <div class="popover columns__pop" id="columns-pop" hidden></div>

@@ -24,7 +24,9 @@ import {
 } from './state.js';
 import { createFilterPanel, renderChips } from './filters.js';
 import { renderCards, cardsSkeleton } from './cards.js';
-import { renderTable, tableSkeleton, loadVisible } from './table.js';
+import {
+  renderColumnsMenu, renderTable, tableSkeleton, loadVisible, toCsv,
+} from './table.js';
 import { renderKanban, kanbanSkeleton } from './kanban.js';
 import { renderPreferences } from './preferences.js';
 import { renderSearchSettings } from './search-settings.js';
@@ -680,6 +682,48 @@ sortPop.addEventListener('keydown', (event) => {
 });
 document.addEventListener('pointerdown', (event) => {
   if (!sortPop.hidden && !event.target.closest('.sortmenu')) setSortMenu(false);
+  if (!columnsPop.hidden && !event.target.closest('.listtools')) setColumnsMenu(false);
+});
+
+// THE LIST'S TOOLS: which columns, in which order, and the visible rows as a
+// CSV file built here from the list already loaded. Nothing leaves the
+// machine; the file is handed to the browser's own download.
+const columnsMenu = document.getElementById('columns-menu');
+const columnsPop = document.getElementById('columns-pop');
+function setColumnsMenu(open) {
+  columnsPop.hidden = !open;
+  columnsMenu.setAttribute('aria-expanded', String(open));
+  if (!open) return;
+  renderColumnsMenu(columnsPop, (visible) => {
+    if (!visible) {
+      setColumnsMenu(false);
+      columnsMenu.focus();
+      return;
+    }
+    columnVisibility = visible;
+    document.getElementById('columns-count').textContent = String(visible.size);
+    paint(store.get());
+  });
+  const first = columnsPop.querySelector('button:not([disabled])');
+  if (first) first.focus();
+}
+columnsMenu.addEventListener('click', () => setColumnsMenu(columnsPop.hidden));
+columnsPop.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  event.stopPropagation();
+  setColumnsMenu(false);
+  columnsMenu.focus();
+});
+document.getElementById('export-csv').addEventListener('click', () => {
+  const items = (lastResponse && lastResponse.items) || [];
+  const blob = new Blob([toCsv(items, columnVisibility)], { type: 'text/csv;charset=utf-8' });
+  const link = el('a', {
+    attrs: { href: URL.createObjectURL(blob), download: 'career-agent-jobs.csv' },
+  });
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 });
 dom.direction.addEventListener('click', () => {
   store.set({ direction: store.get().direction === 'asc' ? 'desc' : 'asc' });
@@ -2025,6 +2069,7 @@ function syncHeader(state) {
   document.getElementById('sort-menu-label').textContent = t('order.sortBy');
   const tableView = state.view === 'table';
   document.getElementById('list-tools').hidden = !tableView;
+  document.getElementById('columns-count').textContent = String(columnVisibility.size);
   // The words say what you GET, not which way an arrow points. "Ascending" is
   // only meaningful once you already know what is being sorted.
   const ascending = state.direction === 'asc';
@@ -2844,7 +2889,7 @@ function relabelStaticText() {
   // the filters were open on arrival with nothing stored.
   railToggleWord.textContent = t('rail.show');
   for (const [id, key] of [['filters-title', 'filters.title'], ['filters-lede', 'filters.lede'],
-    ['filters-clear', 'quick.clearAll'], ['columns-menu', 'list.columns'], ['export-csv', 'list.exportCsv']]) {
+    ['filters-clear', 'quick.clearAll'], ['columns-menu-label', 'list.columns'], ['export-csv', 'list.exportCsv']]) {
     const node = document.getElementById(id);
     if (node) node.textContent = t(key);
   }
