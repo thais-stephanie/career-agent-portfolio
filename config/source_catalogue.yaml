@@ -421,15 +421,15 @@ sources:
       fits whole, `hybrid` (5,970) does not, and `on-site` (72,682) is
       reachable only a slice at a time and is never collected by default.
     coverage: PARTIAL
-    #: The same answer, for the person reading the panel.
     collection_blocker: >-
-      The candidate feed used for refresh stopped responding on 2026-10-02.
+      The candidate feed used for refresh stopped serving jobs on 2026-10-02.
       Previously collected jobs are still available.
+    #: The same answer, for the person reading the panel.
     reason_plain: >-
-      Brazilian jobs, with the whole advert and a real city and state on each one. Until
-      2026-10-02 we read the remote and hybrid listings, a window on Gupy rather than all of it.
-      The feed stopped responding that day, so the jobs already collected stay and no new ones
-      arrive.
+      Brazilian jobs, with the whole advert and a real city and state on each one. Until late
+      September we read the remote and hybrid listings, a window on Gupy rather than all of it.
+      On 2026-10-02 the feed stopped serving jobs, so the ones already collected stay and no new
+      ones arrive.
     reason: >-
       Measured 2026-09-05 and collected 2026-09-09. `GET /api/v1/jobs` returns
       200 with `data` and `pagination`, and the FULL description arrives in the
@@ -452,7 +452,7 @@ sources:
       were 2026-09-23 and 2026-09-25. On 2026-10-02 `GET /api/v1/jobs` on
       `employability-portal.gupy.io` answered 404 with a generic nginx page,
       where in September a 404 on that host came from the application itself:
-      the host no longer serves the feed. A bounded investigation the same day
+      the host appears to no longer serve the feed. A bounded investigation the same day
       found no documented replacement; `portal.gupy.io` renders its job list on
       its own server and its public scripts call no job API. This is an
       availability fact, not a prohibition: no terms, robots file or vendor

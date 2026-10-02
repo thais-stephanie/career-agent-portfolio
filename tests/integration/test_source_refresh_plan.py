@@ -380,8 +380,7 @@ def test_an_unavailable_upstream_keeps_its_jobs_and_leaves_every_plan(api, monke
 
     from career_agent.net.fetcher import HttpFetcher
     from career_agent.pipeline.gupy_collect import GupyCollector
-    from career_agent.sources.health import health
-    from career_agent.sources.matrix import MatrixState, _state_for
+    from career_agent.sources import maintenance, matrix
 
     fixture = Path(__file__).parents[1] / "fixtures/providers/gupy/feed-remote-page1.json"
     body = json.loads(fixture.read_text(encoding="utf-8"))
@@ -423,10 +422,16 @@ def test_an_unavailable_upstream_keeps_its_jobs_and_leaves_every_plan(api, monke
     available = [r for r in payload["refresh"] if r["state"] != "BLOCKED"]
     assert payload["summary"]["available"] <= len(available)
 
+    # The matrix and the maintenance plan give the same answer as Settings:
+    # its jobs are in production, its upstream is unavailable, not forbidden.
+    catalogue = api.config.config_dir / "source_catalogue.yaml"
     with connect(api.config.db_path) as conn:
-        entries = health(conn, catalogue_path=api.config.config_dir / "source_catalogue.yaml")
-    gupy = next(e for e in entries if e.source.id == "gupy")
-    assert _state_for(gupy.source, postings=len(before), ever_run=True) is MatrixState.PRODUCTION
+        row = next(r for r in matrix.build(conn, catalogue_path=catalogue) if r.source_id == "gupy")
+        items = [i for i in maintenance.inventory(conn, catalogue) if i.provider == "gupy"]
+    assert row.state is matrix.MatrixState.PRODUCTION and row.postings == len(before)
+    assert row.production_enabled is False and row.blocker == blocker
+    assert "recheck" in row.next_action
+    assert items and all(i.blocked == "PROVIDER_UNAVAILABLE" for i in items)
 
     recorder = Recorder(api, monkeypatch)
     _run(api, "refresh-due")
