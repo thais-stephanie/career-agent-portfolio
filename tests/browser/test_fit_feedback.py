@@ -36,7 +36,7 @@ def test_an_answer_is_saved_survives_a_reload_and_moves_no_number(
 ) -> None:
     job, score = open_first_why(page, pristine_server)
     heading = page.evaluate(f"{FEEDBACK}.querySelector('.d-sec__head').textContent")
-    assert heading == "Does this Search Fit look right?"
+    assert heading == "Does this % look right?"
     assert page.evaluate(PRESSED) == -1, "nothing is answered until the person answers"
 
     click(page, f"{BUTTONS}[1]")  # Too high

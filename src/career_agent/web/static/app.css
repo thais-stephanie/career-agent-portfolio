@@ -9563,3 +9563,9 @@ body.has-filters { overflow: hidden; }
 .src__pill--info { background: var(--ask-bg); color: var(--blue-text); }
 .src__pill--quiet { background: var(--chip-bg); color: var(--body); }
 .src__health-table th { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+
+/* -- Setup: the handoff's filled progress segments ------------------------ */
+.stepper .stepper__bar { height: 6px; border: 0; border-radius: 3px; background: var(--divider); box-shadow: none; }
+.stepper .stepper__step--done .stepper__bar,
+.stepper .stepper__step--current .stepper__bar { background: var(--green-bar); }
+.stepper .stepper__step--current .stepper__name { color: var(--ink); font-weight: 600; }
