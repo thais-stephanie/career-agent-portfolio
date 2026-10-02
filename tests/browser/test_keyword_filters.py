@@ -88,7 +88,7 @@ def _show_rail(page: Chrome) -> None:
     page.evaluate(
         "(() => {"
         " const show = [...document.querySelectorAll('button')]"
-        "   .find(b => b.textContent.trim().startsWith('Show filters'));"
+        "   .find(b => b.textContent.trim().startsWith('All filters'));"
         " if (show) show.click();"
         "})()"
     )
@@ -229,10 +229,7 @@ def test_clearing_the_filters_forgets_the_words_too(page: Chrome, server: str) -
     _type_phrase(page, "f-exclude", "administrative")
     assert _count(page) < everything
 
-    page.evaluate(
-        "[...document.querySelectorAll('button')]"
-        ".find(b => b.textContent.trim() === 'Clear all filters').click()"
-    )
+    page.evaluate("document.getElementById('filters-clear').click()")
     _settled(page)
     remembered = page.evaluate(f"localStorage.getItem({json.dumps(EXCLUDE_KEY)})")
     assert not remembered, remembered

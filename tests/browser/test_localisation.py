@@ -144,7 +144,7 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
     # preference editor and the source matrix are asserted below, on the
     # Settings destination they moved to: a test that kept asserting them here
     # would be describing a product that no longer exists.
-    assert rail(page) == ["Mostrar filtros"], rail(page)
+    assert rail(page) == ["Todos os filtros"], rail(page)
     # The profile and the evidence ledger are DESTINATIONS now, not panels
     # beside the results, so their words are asserted where they live. They
     # were in the rail until the shell existed; a test that kept asserting
@@ -198,8 +198,8 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
 def test_a_fresh_reader_gets_english(page: Chrome, server: str) -> None:
     """Nobody has chosen, so English. Not a guess, not a negotiation."""
     fresh(page, server)
-    assert "Show filters" in rail(page)
-    assert "Mostrar filtros" not in rail(page)
+    assert "All filters" in rail(page)
+    assert "Todos os filtros" not in rail(page)
     assert nav(page)[0] == "Home", nav(page)
     assert page.evaluate("document.documentElement.lang") == "en"
 
@@ -216,7 +216,7 @@ def test_a_portuguese_browser_does_not_change_the_default(page: Chrome, server: 
     assert str(page.evaluate("navigator.language")).lower().startswith("pt"), (
         "this machine no longer reports a Portuguese browser, so this test proves nothing"
     )
-    assert "Show filters" in rail(page), "the browser's language chose the interface language"
+    assert "All filters" in rail(page), "the browser's language chose the interface language"
 
 
 def test_nothing_is_stored_until_somebody_chooses(page: Chrome, server: str) -> None:
@@ -230,7 +230,7 @@ def test_choosing_pt_switches_and_is_remembered(page: Chrome, server: str) -> No
     fresh(page, server)
     click_locale(page, "pt-BR")
     page.wait_for(
-        "document.querySelector('.railtoggle__word').textContent === 'Mostrar filtros'",
+        "document.querySelector('.railtoggle__word').textContent === 'Todos os filtros'",
         message="the interface to switch to Portuguese",
     )
     assert stored(page) == "pt-BR"
@@ -244,7 +244,7 @@ def test_choosing_en_again_is_remembered_as_a_choice(page: Chrome, server: str) 
     in_locale(page, server, "pt-BR")
     click_locale(page, "en")
     page.wait_for(
-        "document.querySelector('.railtoggle__word').textContent === 'Show filters'",
+        "document.querySelector('.railtoggle__word').textContent === 'All filters'",
         message="the interface to switch back to English",
     )
     assert stored(page) == "en"
@@ -281,7 +281,7 @@ def test_switching_repaints_without_reloading(page: Chrome, server: str) -> None
 
     page.evaluate("document.querySelector('.localeswitch__btn[data-locale=\"pt-BR\"]').click()")
     page.wait_for(
-        "document.querySelector('.railtoggle__word').textContent === 'Mostrar filtros'",
+        "document.querySelector('.railtoggle__word').textContent === 'Todos os filtros'",
         message="the interface to repaint in Portuguese",
     )
 
@@ -292,7 +292,7 @@ def test_an_explicit_choice_survives_a_reload(page: Chrome, server: str) -> None
     fresh(page, server)
     click_locale(page, "pt-BR")
     page.wait_for(
-        "document.querySelector('.railtoggle__word').textContent === 'Mostrar filtros'",
+        "document.querySelector('.railtoggle__word').textContent === 'Todos os filtros'",
         message="the switch to Portuguese",
     )
 
@@ -306,7 +306,7 @@ def test_an_explicit_choice_survives_a_reload(page: Chrome, server: str) -> None
         "Boolean(document.querySelector('.railtoggle__word'))",
         message="the filter toggle after reloading",
     )
-    assert "Mostrar filtros" in rail(page)
+    assert "Todos os filtros" in rail(page)
     assert stored(page) == "pt-BR"
 
 

@@ -1084,7 +1084,6 @@ const EN = {
   'source.state.DISABLED_QUOTA': 'Off, quota exhausted',
   'source.state.NOTHING_PUBLISHED': 'No job board published',
   // -- the job card ------------------------------------------------------
-  'card.gatedBecause': 'Not eligible: {reason}',
   'card.gated': 'This posting states a requirement you do not meet',
   'card.offTarget': 'Not the kind of work you asked for.',
   'card.offTargetBecause': 'Not the work you asked for. {reason}',
@@ -4247,7 +4246,6 @@ const PT_BR = {
   'source.state.DISABLED_QUOTA': 'Desligada, cota esgotada',
   'source.state.NOTHING_PUBLISHED': 'Sem mural de vagas publicado',
   // -- the job card ------------------------------------------------------
-  'card.gatedBecause': 'Não elegível: {reason}',
   'card.gated': 'Este anúncio declara uma exigência que você não atende',
   'card.offTarget': 'Não é o tipo de trabalho que você pediu.',
   'card.offTargetBecause': 'Não é o trabalho que você pediu. {reason}',

@@ -520,11 +520,11 @@ def test_a_blocked_posting_is_marked_blocked_despite_a_high_score(
     # verdict on somebody rather than as a line in a job advert.
     #
     # It says WHY now, in the employer's own words where the gate quoted any:
-    # `Not eligible: Remote (United States)`. It used to say only "this posting
+    # `Rules you out: Remote (United States)`. It used to say only "this posting
     # states a requirement you do not meet" and leave the reason in the drawer,
     # which was fine while these were hidden by default and is not fine now
     # that revealing them is a deliberate act.
-    assert "not eligible" in marker.lower(), marker
+    assert "rules you out" in marker.lower(), marker
     where = str(
         page.evaluate(
             f"{card}.querySelector('.card__meta, .card__location') ? "
@@ -535,8 +535,8 @@ def test_a_blocked_posting_is_marked_blocked_despite_a_high_score(
     assert "united states" in marker.lower(), (
         f"the marker no longer says WHAT rules her out: {marker}"
     )
-    # In words, not colour alone: "Not eligible" is the first thing it says.
-    assert marker.lower().startswith("not eligible"), marker
+    # In words, not colour alone: "Rules you out" is the first thing it says.
+    assert marker.lower().startswith("rules you out"), marker
 
     raw = str(page.evaluate(f"{card}.querySelector('.card__pct').textContent"))
     score = int(raw.replace("%", "").strip())

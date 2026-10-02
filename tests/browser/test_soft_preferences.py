@@ -91,7 +91,7 @@ def _show_rail(page: Chrome) -> None:
     page.evaluate(
         "(() => {"
         " const show = [...document.querySelectorAll('button')]"
-        "   .find(b => b.textContent.trim().startsWith('Show filters'));"
+        "   .find(b => b.textContent.trim().startsWith('All filters'));"
         " if (show) show.click();"
         "})()"
     )

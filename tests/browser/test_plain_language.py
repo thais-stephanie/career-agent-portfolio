@@ -193,7 +193,7 @@ def test_no_view_prints_a_name_this_system_chose(page: Chrome, server: str, view
         page.wait_for(
             "document.querySelector('.kanban')"
             " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
-            " && document.querySelectorAll('.kcol').length === 6",
+            " && document.querySelectorAll('.kcol').length === 5",
             message="the board",
         )
     else:
@@ -262,7 +262,7 @@ def test_the_drawer_explains_itself_without_internal_words(page: Chrome, server:
             ".map((n) => n.textContent.trim()).join('|')"
         )
     )
-    assert tabs == "Job details|Why this fits your search|Prepare to apply", tabs
+    assert tabs == "About the job|Why it fits you|Before you apply|My notes", tabs
 
     click(page, "document.getElementById('drawer-tab-why')")
     page.wait_for(
@@ -378,7 +378,7 @@ def test_eligibility_reads_the_same_in_the_card_and_in_the_filter(
              .map((row) => row.querySelector('.facet__name').textContent.trim())"""
     )
     cards = page.evaluate(
-        """Array.from(document.querySelectorAll('.badge--eligibility'))
+        """Array.from(document.querySelectorAll('.card__elig'))
              .map((n) => n.textContent.replace(/^Can you take it/i, '').trim())"""
     )
 
@@ -467,37 +467,39 @@ def test_the_board_and_the_dropdown_use_the_same_words(page: Chrome, server: str
     carries three -- rejected, withdrawn and archived -- deliberately, because
     a board with a column for each of those is a board about endings.
     """
-    # The dropdown is read from CARDS, where every job has one. The board
+    # The dropdown is read from the LIST, where every job has one. The board
     # narrows to what is being tracked, and on a pristine demo that is
     # nothing, so a board card is not guaranteed to exist.
-    open_list(page, server)
-    page.wait_for(f"{RENDERED_COUNT} > 0", message="the cards")
+    open_list(page, server, "?view=table")
+    page.wait_for("document.querySelector('table.jobs tr[data-job-id] select')", message="the list")
     options = [
         str(name).strip().lower()
         for name in page.evaluate(
-            "Array.from(document.querySelectorAll('.card select.status-tag option'))"
+            "Array.from(document.querySelectorAll("
+            "'table.jobs tr[data-job-id] select.select--status option'))"
             ".map((n) => n.textContent)"
         )
     ]
 
     page.navigate(f"{server}/?view=kanban")
-    page.wait_for("document.querySelectorAll('.kcol').length === 6", message="the board")
+    page.wait_for("document.querySelectorAll('.kcol').length === 5", message="the board")
     columns = [
         str(name).strip().lower()
         for name in page.evaluate(
-            "Array.from(document.querySelectorAll('.kcol__head'))"
+            "Array.from(document.querySelectorAll('.kcol__title'))"
             ".map((n) => n.textContent.replace(/[0-9]+$/, '').trim())"
         )
     ]
     assert columns, "the board rendered no column headings"
-    assert options, "no card on the board offers a status dropdown"
+    assert options, "no row in the list offers a status dropdown"
 
     # Every column except the one that collapses three endings has to be a
     # word the dropdown also offers.
     unmatched = [
         name
         for name in columns
-        if name != "closed" and not any(name in option for option in options)
+        if name not in ("closed", "didn't work out")
+        and not any(name in option for option in options)
     ]
     assert unmatched == [], (
         f"the board names {unmatched} and the dropdown offers {sorted(set(options))}"

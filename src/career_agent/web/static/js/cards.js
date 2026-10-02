@@ -274,7 +274,7 @@ function eligibilityLine(job, aside) {
     const because = (blocker.gate === 'geography' && job.location_raw)
       ? job.location_raw
       : (blocker.quote || blocker.reason || '');
-    text = because ? t('card.gatedBecause', { reason: because }) : t('card.gated');
+    text = because ? `${text}: ${because}` : t('card.gated');
     title = text;
   }
   return el('p', { className: `card__elig card__elig--${tone}`, text, attrs: { title } });

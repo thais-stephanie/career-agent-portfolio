@@ -51,8 +51,9 @@ from tests.browser.test_browser_acceptance import (
 #: regression was 462; the compact card measures 268-337 on real data with a
 #: two-line title, a failed-gate line and a group line all present.
 #: The redesign handoff's card carries a meter, a fourth fact line and the
-#: Apply row, and equalises each row: 362 measured on the demo, so 380.
-CARD_HEIGHT_CEILING_PX = 380
+#: Apply row and the eligibility line, and equalises each row: 390 measured
+#: on the demo, so 400.
+CARD_HEIGHT_CEILING_PX = 400
 
 #: At 1440x900 the toolbar and the notices leave roughly 430px for cards, so
 #: two rows must at least START on the screen and three cards fit whole.
@@ -376,8 +377,8 @@ def test_the_notes_and_chips_each_take_one_line(
     inject(page, synthetic_rows(demo_companies))
 
     for job_id, note in (
-        ("syn-unresolved", ".card__note"),
-        ("syn-blocked", ".card__note--gated"),
+        ("syn-unresolved", ".card__elig--warn"),
+        ("syn-blocked", ".card__elig--bad"),
     ):
         card = f"document.querySelector('[data-job-id=\"{job_id}\"]')"
         assert page.evaluate(f"Boolean({card}.querySelector('{note}'))"), f"{job_id} lost {note}"
@@ -386,7 +387,7 @@ def test_the_notes_and_chips_each_take_one_line(
         assert float(h) < 36, f"{note} on {job_id} is {h}px: it ran past two lines"
         tooltip = str(page.evaluate(f"{card}.querySelector('{note}').title || ''"))
         text = str(page.evaluate(f"{card}.querySelector('{note}').textContent"))
-        if note == ".card__note--gated":
+        if note == ".card__elig--bad":
             assert "Austin, TX, US" in tooltip, "the clipped reason must survive in `title`"
             assert "Austin, TX, US" in text
 

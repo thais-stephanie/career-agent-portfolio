@@ -2921,6 +2921,7 @@ function relabelStaticText() {
   }
   document.getElementById('filters-close').setAttribute('aria-label', t('filters.close'));
   syncFiltersShow();
+  railToggleWord.textContent = t('rail.show');
 
   const viewGroup = document.querySelector('.viewswitch');
   if (viewGroup) viewGroup.setAttribute('aria-label', t('view.group'));

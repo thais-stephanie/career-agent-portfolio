@@ -186,7 +186,9 @@ def test_the_filter_panel_is_round(page: Chrome, server: str) -> None:
 def test_the_table_wrapper_is_round_even_though_its_rows_are_not(page: Chrome, server: str) -> None:
     """Both halves of the same rule: the frame is a panel, the grid is a grid."""
     page.navigate(f"{server}/?view=table")
-    page.wait_for("Boolean(document.querySelector('table.jobs tbody tr[data-job-id]'))", message="the table")
+    page.wait_for(
+        "Boolean(document.querySelector('table.jobs tbody tr[data-job-id]'))", message="the table"
+    )
 
     assert radius_of(page, ".tablescrollwrap") == [PANEL_RADIUS_PX] * 4
     assert radius_of(page, "table.jobs tbody tr") == [0.0] * 4
