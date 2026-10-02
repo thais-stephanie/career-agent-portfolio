@@ -1275,7 +1275,7 @@ body.has-drawer { overflow: hidden; }
 
    glance and does not depend on a hue: colour is never the only signal. */
 
-.segmented__btn[aria-pressed="true"] {
+.segmented__btn[aria-pressed="true"], .segmented__btn[role="tab"][aria-selected="true"] {
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
@@ -5738,14 +5738,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
    ===================================================================== */
 
 .home { display: grid; gap: 20px; }
-.home__head { display: grid; gap: 4px; }
-.home__title {
-  margin: 0;
-  font-family: var(--display);
-  font-size: 24px;
-  font-weight: 700;
-}
-.home__sub { margin: 0; font-size: var(--t-body); color: var(--body); max-width: 66ch; }
 
 /* =====================================================================
    HOME: THE STANDING, IN COLOUR
@@ -5808,11 +5800,6 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
 .metric__label { font-size: var(--t-body); font-weight: 600; color: var(--ink); }
 /* STOCK or EVENT, in words. Two kinds of number under one heading is how a
    count of conversations gets confused with a count of moves. */
-.metric__kind {
-  font-size: var(--t-micro);
-  letter-spacing: 0.02em;
-  color: var(--body);
-}
 
 .home__sec { display: grid; gap: 8px; }
 /* A section heading in the display face, with its count in the same line

@@ -89,20 +89,20 @@ def latest_refresh_new(conn: sqlite3.Connection) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
-def latest_refresh_at(conn: sqlite3.Connection) -> str | None:
-    """When the latest completed Find jobs / refresh run finished, or None.
+def latest_refresh_run(conn: sqlite3.Connection) -> int | None:
+    """The row id of the run `latest_refresh_new` counts, or None.
 
-    The run `latest_refresh_new` counts, so a screen can say "seen" about
-    that run rather than about a number two runs could share.
+    An identity rather than a time, so a screen can hide its notice about
+    THAT run: two runs can share a timestamp and a count, never an id.
     """
     try:
         row = conn.execute(
-            "SELECT finished_at FROM pipeline_run WHERE stage = 'find-jobs' AND status = 'OK'"
+            "SELECT rowid FROM pipeline_run WHERE stage = 'find-jobs' AND status = 'OK'"
             " ORDER BY finished_at DESC, rowid DESC LIMIT 1"
         ).fetchone()
     except sqlite3.Error:
         return None
-    return str(row[0]) if row and row[0] else None
+    return int(row[0]) if row else None
 
 
 def metrics(

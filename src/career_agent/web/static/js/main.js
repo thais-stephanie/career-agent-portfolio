@@ -2453,19 +2453,29 @@ function setSettingsTab(tab) {
   for (const node of document.querySelectorAll('[data-settab-btn]')) {
     const chosen = node.dataset.settabBtn === tab;
     node.setAttribute('aria-selected', String(chosen));
-    node.setAttribute('aria-pressed', String(chosen));
     node.tabIndex = chosen ? 0 : -1;
   }
 }
+// The Profiles tab follows its block, which local-profiles shows once it
+// knows profiles are on: that answer can arrive after Settings opened.
+new MutationObserver(() => setSettingsTab(settingsTab)).observe(
+  document.getElementById('settings-profiles-block'), { attributes: true, attributeFilter: ['hidden'] },
+);
+setSettingsTab(settingsTab);
 document.getElementById('settings-tabs').addEventListener('click', (event) => {
   const node = event.target.closest('[data-settab-btn]');
   if (node) setSettingsTab(node.dataset.settabBtn);
 });
 document.getElementById('settings-tabs').addEventListener('keydown', (event) => {
-  if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+  const moves = { ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last' };
+  if (!(event.key in moves)) return;
+  event.preventDefault();
   const tabs = [...document.querySelectorAll('[data-settab-btn]')].filter((node) => !node.hidden);
   const here = tabs.findIndex((node) => node.dataset.settabBtn === settingsTab);
-  const next = tabs[(here + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+  const move = moves[event.key];
+  const next = move === 'first' ? tabs[0]
+    : move === 'last' ? tabs[tabs.length - 1]
+      : tabs[(here + move + tabs.length) % tabs.length];
   setSettingsTab(next.dataset.settabBtn);
   next.focus();
 });

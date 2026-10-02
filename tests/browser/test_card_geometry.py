@@ -172,7 +172,7 @@ def test_the_home_metric_card_is_round(page: Chrome, server: str) -> None:
     page.navigate(f"{server}/#home")
     page.wait_for("Boolean(document.querySelector('.metric'))", message="a home metric")
 
-    assert radius_of(page, ".metric") == [EARLIER_RADIUS_PX] * 4
+    assert radius_of(page, ".metric") == [CARD_RADIUS_PX] * 4
 
 
 def test_the_filter_panel_is_round(page: Chrome, server: str) -> None:

@@ -295,15 +295,16 @@ def test_home_new_has_no_number_before_any_refresh_and_opening_it_marks_nothing(
 
 
 def test_home_names_the_run_its_new_count_belongs_to(api, seven, monkeypatch):
-    """The banner is dismissed for ONE run; two runs adding 3 are not one."""
-    assert api.handle_api("GET", "/api/home", {}, {})["latest_refresh_at"] is None
+    """The banner is hidden for ONE run; two runs adding 3 are not one."""
+    assert api.handle_api("GET", "/api/home", {}, {})["latest_refresh_run"] is None
     recorder = Recorder(api, monkeypatch)
     recorder.new = {seven["stage"][seven["B"]]: 3}
     _run(api, "refresh-due")
-    first = api.handle_api("GET", "/api/home", {}, {})["latest_refresh_at"]
+    first = api.handle_api("GET", "/api/home", {}, {})["latest_refresh_run"]
     assert first
     _run(api, "refresh-all")
-    assert api.handle_api("GET", "/api/home", {}, {})["latest_refresh_at"] >= first
+    second = api.handle_api("GET", "/api/home", {}, {})["latest_refresh_run"]
+    assert second and second != first
 
 
 def test_home_new_is_what_the_latest_whole_run_added(api, seven, monkeypatch):

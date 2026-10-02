@@ -43,7 +43,9 @@ import { createProgressView, outcomeText } from './collection.js';
 //: joins them only when there is one: a fifth empty step is a promise.
 const STEPS = [
   { key: 'new', tone: 'green' },
-  { key: 'saved', tone: 'purple', patch: { saved_only: true } },
+  // Each patch says BOTH narrowings, so one card's filter never rides into
+  // the next card's list.
+  { key: 'saved', tone: 'purple', patch: { saved_only: true, status: [] } },
   { key: 'applied', tone: 'blue' },
   { key: 'interviews', tone: 'yellow' },
 ];
@@ -157,6 +159,7 @@ export function createHome({
     }
     const mine = ++token;
     setup.stop();
+    root.dataset.view = 'loading';
     replace(root, [el('div', { className: 'sk sk--block' })]);
     try {
       payload = await api.getHome();
@@ -179,12 +182,15 @@ export function createHome({
         setupAt = null;
         showingSetup = true;
         if (onSetupShown) onSetupShown(true);
+        root.dataset.view = 'setup';
         replace(root, [setup.root]);
         await setup.open(at);
         return;
       }
       showingSetup = false;
       if (onSetupShown) onSetupShown(false);
+      // Which of its two faces Home is showing, for anything that waits on it.
+      root.dataset.view = 'dashboard';
       replace(root, render(payload));
     } catch (error) {
       if (mine !== token) return;
@@ -240,13 +246,14 @@ export function createHome({
   }
 
   /**
-   * "N new jobs found for you": the latest refresh's own count. Marking it
-   * seen remembers THAT refresh, so the next one with new jobs shows again.
+   * "N new jobs found for you": the latest refresh's own count. Hiding it
+   * remembers THAT run, in this browser only, so the next run shows again.
+   * Nothing is marked read anywhere.
    */
   function newBanner(payload) {
     const metric = (payload.metrics || []).find((entry) => entry.key === 'new');
     const count = metric ? metric.value : null;
-    const run = payload.latest_refresh_at || null;
+    const run = payload.latest_refresh_run ? String(payload.latest_refresh_run) : null;
     if (!count || !run || stored(SEEN_KEY) === run) return null;
     return el('section', { className: 'home__new', attrs: { 'aria-labelledby': 'home-new-head' } }, [
       el('div', { className: 'home__newtext' }, [
@@ -367,9 +374,9 @@ export function createHome({
   }
 
   /**
-   * "Your progress": the four steps, each a button that narrows the job list
-   * to exactly the population it counted, so a number can be checked rather
-   * than believed. New has no list that reproduces it, so it opens Find jobs.
+   * "Your progress": the four steps. Each one with a list behind it is a
+   * button that opens exactly the population it counted, so a number can be
+   * checked rather than believed.
    */
   function progress(payload) {
     const byKey = new Map(payload.metrics.map((metric) => [metric.key, metric]));
@@ -391,10 +398,12 @@ export function createHome({
           text: unknown ? t('home.kind.noRefresh') : t(`home.stepHelp.${step.key}`),
         }),
       ];
-      const patch = step.patch || (metric.statuses.length ? { status: metric.statuses } : null);
+      // New has no list that reproduces it, so it is not a link.
+      const patch = step.patch
+        || (metric.statuses.length ? { status: metric.statuses, saved_only: false } : null);
       return el('li', { className: `step step--${step.tone} metric metric--${step.key}` }, [
-        onGoTo
-          ? button('', () => onGoTo('jobs', patch || undefined), {
+        onGoTo && patch
+          ? button('', () => onGoTo('jobs', patch), {
             className: 'metric__open',
             ariaLabel: t('home.metricOpen', { label }),
           })
@@ -424,7 +433,7 @@ export function createHome({
     const gaps = payload.profile_gaps || [];
     if (!gaps.length) return null;
     return el('section', { className: 'home__sec home__sec--complete' }, [
-      el('h3', { className: 'home__sechead', text: t('home.complete') }),
+      el('h2', { className: 'home__sectitle', text: t('home.complete') }),
       el('p', { className: 'home__lede', text: t('home.completeLede') }),
       el('ul', { className: 'home__gaps' }, gaps.map((gap) => el('li', {
         className: 'home__gap',
