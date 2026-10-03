@@ -358,6 +358,8 @@ let currentPage = 'home';
 
 function goTo(page, { push = true, resume = null } = {}) {
   if (!PAGES[page]) return;
+  // Leaving the resume workspace finishes its saving first (and marks the visit).
+  if (currentPage === 'resume-v2' && page !== 'resume-v2' && resumeWorkspace) void resumeWorkspace.leave();
   currentPage = page;
   if (page === 'resume') resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
   if (page === 'resume-v2') void resumeWorkspace.show().catch(() => {});

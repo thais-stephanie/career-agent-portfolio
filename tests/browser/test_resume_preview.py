@@ -68,29 +68,37 @@ LAYOUT = f"""(() => {{
 }})()"""
 
 
-def open_workspace(page: Chrome, server: str, *, width: int = 1600, height: int = 900) -> None:
-    page.set_viewport(width, height)
+def open_workspace(
+    page: Chrome, server: str, title: str = "Master resume", *, width: int = 1600, height: int = 900
+) -> None:
+    """My resumes, then Open on the resume called `title`; the preview is shown."""
+    page.set_viewport(width, height, mobile=width < 500)
     page.navigate(f"{server}/?debug=resume-v2#resume-v2")
+    page.wait_for("document.querySelector('.rvw__tab') !== null", message="page")
+    page.evaluate("[...document.querySelectorAll('.rvw__tab')][1].click()")
+    page.wait_for("document.querySelector('.rvw__row') !== null", message="my resumes")
+    page.evaluate(
+        "[...document.querySelectorAll('.rvw__row')]"
+        f".find((r) => r.querySelector('.rvw__rowtitle').textContent === {title!r})"
+        ".querySelector('button').click()"
+    )
+    if width < 1100:
+        page.wait_for("document.querySelector('.rve__mode') !== null", message="editor")
+        page.evaluate("[...document.querySelectorAll('.rve__mode')][1].click()")
     page.wait_for(
         "document.querySelector('.rvp[data-state=\"ready\"]') !== null", message="preview"
     )
 
 
-def choose(page: Chrome, title: str) -> None:
-    serial = page.evaluate("Number(document.querySelector('.rvp').dataset.serial)")
+def design(page: Chrome, label: str, value: str) -> None:
     page.evaluate(
-        "(() => { const s = document.getElementById('rvw-doc');"
-        f" s.value = [...s.options].find((o) => o.text === {title!r}).value;"
-        " s.dispatchEvent(new Event('change')); })()"
-    )
-    page.wait_for(
-        f"Number(document.querySelector('.rvp').dataset.serial) > {serial}", message="re-render"
+        f"(() => {{ const s = document.querySelector('select[aria-label={label!r}]');"
+        f" s.value = {value!r}; s.dispatchEvent(new Event('change', {{ bubbles: true }})); }})()"
     )
 
 
 def test_a_long_resume_is_three_pages_and_breaks_like_print(page: Chrome, resumes: str) -> None:
-    open_workspace(page, resumes)
-    choose(page, "Long")
+    open_workspace(page, resumes, "Long")
     assert int(page.evaluate("document.querySelector('.rvp').dataset.pages")) >= 3
     assert page.evaluate("document.querySelector('.rvp').dataset.overflow") == "0"
     blocks = page.evaluate(LAYOUT)
@@ -104,10 +112,7 @@ def test_a_long_resume_is_three_pages_and_breaks_like_print(page: Chrome, resume
 def test_letter_and_a4_are_their_real_sizes(page: Chrome, resumes: str) -> None:
     open_workspace(page, resumes)
     width_a4 = page.evaluate(f"({FRAME}).style.width")
-    page.evaluate(
-        "(() => { const s = document.getElementById('rvw-page'); s.value = 'LETTER';"
-        " s.dispatchEvent(new Event('change')); })()"
-    )
+    design(page, "Page", "LETTER")
     page.wait_for(f"({FRAME}).style.width !== {width_a4!r}", message="letter")
     assert abs(float(width_a4[:-2]) - 210 * 96 / 25.4) < 1
     assert abs(float(page.evaluate(f"({FRAME}).style.width")[:-2]) - 215.9 * 96 / 25.4) < 1
@@ -129,11 +134,10 @@ def test_the_latest_render_wins_and_a_template_keeps_the_words(page: Chrome, res
         " return slow ? new Promise((r) => setTimeout(() => r(real(url, opts)), 800))"
         " : real(url, opts); }; })()"
     )
-    for value in ("modern", "compact"):
-        page.evaluate(
-            "(() => { const s = document.getElementById('rvw-template');"
-            f" s.value = '{value}'; s.dispatchEvent(new Event('change')); }})()"
-        )
+    # Apart by more than the editor's 120 ms render debounce: two requests.
+    design(page, "Template", "modern")
+    page.evaluate("new Promise((r) => setTimeout(r, 300))")
+    design(page, "Template", "compact")
     compact = (
         f"getComputedStyle({DOC}.documentElement).getPropertyValue('--h2-size').trim() === '0.88em'"
     )
@@ -143,14 +147,8 @@ def test_the_latest_render_wins_and_a_template_keeps_the_words(page: Chrome, res
     assert page.evaluate(f"{DOC}.body.innerText") == before
 
 
-def test_a_click_names_the_object_and_nothing_is_fetched(page: Chrome, resumes: str) -> None:
+def test_nothing_in_the_preview_is_fetched_or_runs(page: Chrome, resumes: str) -> None:
     open_workspace(page, resumes)
-    ref = page.evaluate(f"{DOC}.querySelector('li[data-ref]').dataset.ref")
-    assert "/bullet/" in ref
-    page.evaluate(f"{DOC}.querySelector('li[data-ref]').click()")
-    page.wait_for(
-        f"document.querySelector('.rvw__clicked').textContent.includes({ref!r})", message="ref"
-    )
     assert page.evaluate(f"{DOC}.defaultView.performance.getEntriesByType('resource').length") == 0
     assert page.evaluate(f"{DOC}.querySelectorAll('script, a[href]').length") == 0
     assert not page.console_errors()

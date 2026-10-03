@@ -225,7 +225,8 @@ class _Renderer:
         return f'<span class="rv-link" data-ref="{escape(ref)}">{shown}</span>'
 
     def bullets(self, items: list[Bullet], prefix: str) -> str:
-        shown = [b for b in items if not b.hidden]
+        # A line not written yet (a new, empty bullet) is not drawn.
+        shown = [b for b in items if not b.hidden and b.text.strip()]
         if not shown:
             return ""
         rows = "".join(
