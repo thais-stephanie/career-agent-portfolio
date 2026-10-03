@@ -19,6 +19,7 @@ import { patchProfile } from './api.js';
 import { button, clear, el, field, replace } from './dom.js';
 import { getLocale, t, tVocab } from './i18n.js';
 import { tagInput } from './tags.js';
+import { initials } from './local-profiles.js';
 import {
   ARRANGEMENT_FIELDS, WORK_MODEL_FIELDS, arrangementMatrix, workModelMatrix,
 } from './choices.js';
@@ -427,9 +428,10 @@ function headerCard(data, confirmed, who, onGo) {
   ].filter(Boolean).join(' \u00B7 ');
   const desired = (data.sections || []).find((section) => section.id === 'signals-desired');
   const looking = desired ? desired.rows.slice(0, 3).map(labelOf) : [];
-  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('');
+  // A person's initials only when there is a person's name; otherwise a plain mark.
+  const mark = who ? initials(who) : '◉';
   return el('section', { className: 'profilehead' }, [
-    el('span', { className: 'profilehead__avatar', text: initials, attrs: { 'aria-hidden': 'true' } }),
+    el('span', { className: 'profilehead__avatar', text: mark, attrs: { 'aria-hidden': 'true' } }),
     el('div', { className: 'profilehead__who' }, [
       el('h2', { className: 'profilehead__name', text: name }),
       latest ? el('span', { className: 'profilehead__line', text: latest.text }) : null,

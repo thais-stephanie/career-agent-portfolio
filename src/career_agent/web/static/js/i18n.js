@@ -604,7 +604,7 @@ const EN = {
   'prep.noEvidenceYet': 'Import your CV or write down what you have done, and this page '
     + 'starts answering.',
   'prep.goToEvidence': 'Proof of my work',
-  'prep.state.MATCHED': 'Related confirmed evidence',
+  'prep.state.MATCHED': 'Matches something you confirmed',
   'prep.state.PARTIAL': 'Tool or skill named',
   'prep.state.GAP': 'No confirmed support recognized',
   'prep.state.UNRESOLVED': 'This cannot be told',
@@ -613,13 +613,12 @@ const EN = {
   // same sentences for a reader who chose another language; the client prefers
   // its own and falls back to the server's, so a key added there and not here
   // still shows something true.
-  'prep.meaning.MATCHED': 'A recognized phrase links this requirement to confirmed evidence. '
-    + 'Review the quotes to decide whether the evidence supports the work.',
-  'prep.meaning.PARTIAL': 'You have named this -- a tool or a skill -- without confirmed '
-    + 'evidence of having done the work. Having used something and having done the job are '
-    + 'different answers.',
-  'prep.meaning.GAP': 'No confirmed supporting evidence was recognized for this requirement. '
-    + 'This does not establish that you lack the experience.',
+  'prep.meaning.MATCHED': 'A phrase links this requirement to something you confirmed. Read the quotes to decide '
+    + 'whether it really shows the work.',
+  'prep.meaning.PARTIAL': 'You named this (a tool or a skill) but nothing you confirmed shows you did the work. '
+    + 'Having used something and having done the job are different answers.',
+  'prep.meaning.GAP': 'Nothing you confirmed was linked to this requirement. That does not mean you lack the '
+    + 'experience.',
   'prep.meaning.UNRESOLVED': 'This system cannot tell. The requirement fired on a signal with '
     + 'no phrases to compare a claim against, so no verdict here would be honest.',
   'prep.theySay': 'They say',
@@ -662,7 +661,7 @@ const EN = {
     + 'finish.',
   'prep.check.eligibility': 'Eligibility reviewed ({n} still to settle)',
   'prep.check.requirements': 'Requirements read ({n} of them)',
-  'prep.check.evidence': 'Evidence available ({n} confirmed)',
+  'prep.check.evidence': 'Things you confirmed ({n})',
   'prep.check.gaps': 'Gaps understood ({n} unanswered)',
   'ledger.source.RESUME': 'From your CV',
   'ledger.source.LINKEDIN': 'From LinkedIn',
@@ -2863,9 +2862,8 @@ const EN = {
   // the reasonable thing to expect afterwards is that the job list changes.
   // It will not: no scoring module can read a claim, and a test fails if one
   // ever learns to.
-  'profile.confirmedNote': 'Confirming something does not move a recommendation. Your evidence is '
-    + 'read when you prepare an application, and it is where the words in that application come '
-    + 'from.',
+  'profile.confirmedNote': 'Confirming something does not move a recommendation. What you confirm is read when you '
+    + 'prepare an application, and it is where the words in that application come from.',
   'profile.openEvidence': 'Open Proof of my work',
   'profile.nothingConfirmed': 'Nothing confirmed yet',
   'profile.nothingConfirmedLead': 'This is where the work you have done appears, once you have '
@@ -3392,7 +3390,7 @@ const EN = {
   'xp.remove': 'Remove',
   'xp.removeLabel': 'Remove {role} at {company} from your profile',
   'xp.removeQuestion': 'Remove this experience from your profile?',
-  'xp.removeDetail': 'Its details stay in your evidence, outside any experience. You can undo this.',
+  'xp.removeDetail': 'Its details stay in your profile, outside any experience. You can undo this.',
   'xp.removeConfirm': 'Remove from profile',
   'xp.removed': '{role} removed from your profile.',
   'xp.cardLabel': '{role} at {company}',
@@ -3429,11 +3427,11 @@ const EN = {
   'xp.editorNote': 'Used when preparing applications',
   'xp.newLabel': 'New experience',
   'xp.editingLabel': 'Editing {role}',
-  'evp.heading': 'Professional evidence',
+  'evp.heading': 'Proof of my work',
   'evp.lede': 'Projects, certificates and education that show what you can do. We use them when you apply and in '
     + 'your resumes. They don’t change your match %.',
   'evp.add': '+ Add proof',
-  'evp.emptyTitle': 'No evidence yet',
+  'evp.emptyTitle': 'No proof yet',
   'evp.emptyBody': 'Add a project, an achievement or a certification, or import your resume from Documents.',
   'evp.emptyImport': 'Import your resume',
   'evp.emptyAdd': 'Add one yourself',
@@ -3468,21 +3466,21 @@ const EN = {
   'evp.openLabel': 'Open {title}',
   'evp.stopUsing': 'Stop using',
   'evp.stopLabel': 'Stop using {title}',
-  'evp.stopQuestion': 'Stop using this evidence?',
+  'evp.stopQuestion': 'Stop using this proof?',
   'evp.stopDetail': 'It stays, with its history, and application preparation stops citing it. You can undo this.',
   'evp.stopConfirm': 'Stop using',
   'evp.stopped': 'No longer in use.',
   'evp.skills': 'Skills',
   'evp.linkedTo': 'Linked to {role} · {company}',
   'evp.roleNotStated': 'Role not stated',
-  'evp.untitled': 'Evidence',
+  'evp.untitled': 'Proof',
   'evp.history': 'History ({n} versions)',
   'evp.historyOne': 'History (1 version)',
   'evp.revision': 'Version {n}',
   'evp.sourceHeading': 'Where it came from',
   'evp.close': 'Close',
   'evp.edit': 'Edit',
-  'evp.newEyebrow': 'New evidence',
+  'evp.newEyebrow': 'New proof',
   'evp.editEyebrow': 'Edit evidence',
   'evp.addTitle': 'Add proof',
   'evp.editTitle': 'Edit evidence',
@@ -4361,17 +4359,16 @@ const PT_BR = {
   'prep.noEvidenceYet': 'Importe seu currículo ou escreva o que você já fez, e esta página '
     + 'começa a responder.',
   'prep.goToEvidence': 'Provas do meu trabalho',
-  'prep.state.MATCHED': 'Evidência confirmada relacionada',
+  'prep.state.MATCHED': 'Combina com algo que você confirmou',
   'prep.state.PARTIAL': 'Ferramenta ou habilidade citada',
   'prep.state.GAP': 'Nenhum apoio confirmado reconhecido',
   'prep.state.UNRESOLVED': 'Não dá para dizer',
-  'prep.meaning.MATCHED': 'Uma expressão reconhecida liga este requisito a uma evidência confirmada. '
-    + 'Confira as citações para avaliar se a evidência sustenta o trabalho.',
-  'prep.meaning.PARTIAL': 'Você citou isso -- uma ferramenta ou uma habilidade -- sem '
-    + 'evidência confirmada de ter feito o trabalho. Ter usado algo e ter feito o trabalho '
-    + 'são respostas diferentes.',
-  'prep.meaning.GAP': 'Nenhuma evidência de apoio confirmada foi reconhecida para este requisito. '
-    + 'Isso não demonstra falta de experiência.',
+  'prep.meaning.MATCHED': 'Uma expressão liga este requisito a algo que você confirmou. Leia as citações para '
+    + 'decidir se isso mostra mesmo o trabalho.',
+  'prep.meaning.PARTIAL': 'Você citou isso (uma ferramenta ou uma habilidade), mas nada do que você confirmou '
+    + 'mostra que você fez o trabalho. Ter usado algo e ter feito o trabalho são respostas diferentes.',
+  'prep.meaning.GAP': 'Nada do que você confirmou foi ligado a este requisito. Isso não quer dizer que falta '
+    + 'experiência.',
   'prep.meaning.UNRESOLVED': 'Este sistema não consegue dizer. O requisito veio de um sinal '
     + 'sem expressões para comparar com uma afirmação, então nenhum veredito aqui seria '
     + 'honesto.',
@@ -4412,7 +4409,7 @@ const PT_BR = {
     + 'precise terminar.',
   'prep.check.eligibility': 'Elegibilidade revisada ({n} ainda a resolver)',
   'prep.check.requirements': 'Requisitos lidos ({n} deles)',
-  'prep.check.evidence': 'Evidências disponíveis ({n} confirmadas)',
+  'prep.check.evidence': 'Coisas que você confirmou ({n})',
   'prep.check.gaps': 'Lacunas entendidas ({n} sem resposta)',
   'ledger.source.RESUME': 'Do seu currículo',
   'ledger.source.LINKEDIN': 'Do LinkedIn',
@@ -6547,8 +6544,8 @@ const PT_BR = {
   'profile.done.proof': 'seus projetos',
   'profile.done.quals': 'seus certificados',
   'profile.andMoreSkills': 'E mais {n}, em Habilidades.',
-  'profile.confirmedNote': 'Confirmar algo não muda uma recomendação. Suas evidências são lidas '
-    + 'quando você prepara uma candidatura, e é de lá que vêm as palavras dessa candidatura.',
+  'profile.confirmedNote': 'Confirmar algo não muda uma recomendação. O que você confirma é lido quando você '
+    + 'prepara uma candidatura, e é de lá que vêm as palavras dessa candidatura.',
   'profile.openEvidence': 'Abrir Provas do meu trabalho',
   'profile.nothingConfirmed': 'Nada confirmado ainda',
   'profile.nothingConfirmedLead': 'É aqui que aparece o trabalho que você já fez, depois que '
@@ -7059,7 +7056,7 @@ const PT_BR = {
   'xp.remove': 'Remover',
   'xp.removeLabel': 'Remover {role} em {company} do seu perfil',
   'xp.removeQuestion': 'Remover esta experiência do seu perfil?',
-  'xp.removeDetail': 'Os detalhes dela continuam nas suas evidências, fora de uma experiência. Dá para desfazer.',
+  'xp.removeDetail': 'Os detalhes continuam no seu perfil, fora de uma experiência. Dá para desfazer.',
   'xp.removeConfirm': 'Remover do perfil',
   'xp.removed': '{role} removida do seu perfil.',
   'xp.cardLabel': '{role} em {company}',
@@ -7096,11 +7093,11 @@ const PT_BR = {
   'xp.editorNote': 'Usada ao preparar candidaturas',
   'xp.newLabel': 'Nova experiência',
   'xp.editingLabel': 'Editando {role}',
-  'evp.heading': 'Evidências profissionais',
+  'evp.heading': 'Provas do meu trabalho',
   'evp.lede': 'Projetos, certificados e formação que mostram o que você sabe fazer. Usamos isso quando você se '
     + 'candidata e nos seus currículos. Não muda sua compatibilidade.',
   'evp.add': '+ Adicionar prova',
-  'evp.emptyTitle': 'Nenhuma evidência ainda',
+  'evp.emptyTitle': 'Nenhuma prova ainda',
   'evp.emptyBody': 'Adicione um projeto, uma conquista ou uma certificação, ou importe seu currículo em Documentos.',
   'evp.emptyImport': 'Importar seu currículo',
   'evp.emptyAdd': 'Adicionar você mesmo',
@@ -7135,7 +7132,7 @@ const PT_BR = {
   'evp.openLabel': 'Abrir {title}',
   'evp.stopUsing': 'Deixar de usar',
   'evp.stopLabel': 'Deixar de usar {title}',
-  'evp.stopQuestion': 'Deixar de usar esta evidência?',
+  'evp.stopQuestion': 'Deixar de usar esta prova?',
   'evp.stopDetail': 'Ela continua, com o histórico, e a preparação de candidaturas deixa de citá-la. '
     + 'Dá para desfazer.',
   'evp.stopConfirm': 'Deixar de usar',
@@ -7143,14 +7140,14 @@ const PT_BR = {
   'evp.skills': 'Habilidades',
   'evp.linkedTo': 'Vinculada a {role} · {company}',
   'evp.roleNotStated': 'Cargo não informado',
-  'evp.untitled': 'Evidência',
+  'evp.untitled': 'Prova',
   'evp.history': 'Histórico ({n} versões)',
   'evp.historyOne': 'Histórico (1 versão)',
   'evp.revision': 'Versão {n}',
   'evp.sourceHeading': 'De onde veio',
   'evp.close': 'Fechar',
   'evp.edit': 'Editar',
-  'evp.newEyebrow': 'Nova evidência',
+  'evp.newEyebrow': 'Nova prova',
   'evp.editEyebrow': 'Editar evidência',
   'evp.addTitle': 'Adicionar prova',
   'evp.editTitle': 'Editar evidência',

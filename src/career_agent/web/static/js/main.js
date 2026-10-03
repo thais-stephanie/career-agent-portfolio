@@ -401,10 +401,7 @@ function goTo(page, { push = true, resume = null } = {}) {
   // question nobody has asked yet, and a list of jobs should not wait on it.
   if (page === 'settings') {
     setSettingsTab(settingsTab);
-    api.getSemantic().then((data) => {
-      smartMatchingOn = Boolean(data && data.settings && data.settings.enabled && !data.demo);
-      paintSettingsNav();
-    }).catch(() => {});
+    refreshSmartStatus();
     renderSetupEntry(document.getElementById('settings-setup-host'));
     renderSearchSettings(document.getElementById('search-settings-host'), store);
     sourcesPanel.load();
@@ -2656,6 +2653,18 @@ function paintBackup() {
       ['privacy.local', 'privacy.noAccount', 'privacy.sites', 'privacy.ai'].map(tick))]),
   ]);
 }
+
+/** Smart matching's On / Off in the nav, read again whenever it may have moved. */
+function refreshSmartStatus() {
+  api.getSemantic().then((data) => {
+    smartMatchingOn = Boolean(data && data.settings && data.settings.enabled && !data.demo);
+    paintSettingsNav();
+  }).catch(() => {});
+}
+// Its switch lives in the AI block; a change there must reach the nav.
+document.getElementById('ai-settings-host').addEventListener('change', () => setTimeout(refreshSmartStatus, 800));
+// The theme switch in the sidebar changes what Look and language says.
+document.getElementById('theme-host').addEventListener('click', () => setTimeout(() => setSettingsTab(settingsTab), 0));
 
 function setSettingsTab(tab) {
   const page = document.getElementById('page-settings');
