@@ -597,6 +597,9 @@ class ResumeStore:
             )
         return self._export(self._row("resume_export", export_id))
 
+    def get_export(self, export_id: str) -> ResumeExport:
+        return self._export(self._row("resume_export", export_id))
+
     def list_exports(self, document_id: str) -> list[ResumeExport]:
         rows = self.conn.execute(
             "SELECT * FROM resume_export WHERE document_id = ? ORDER BY created_at, id",
@@ -717,7 +720,9 @@ def forget_resume_data(conn: sqlite3.Connection) -> None:
     """Delete every resume row in THIS profile's database, on the person's
     explicit request (`career-agent forget everything`). The guards against
     deleting history are lifted inside the transaction and put back before
-    it commits. Joins the caller's transaction when one is open."""
+    it commits. Joins the caller's transaction when one is open. The files
+    exported from these documents are deleted too, once the rows are gone."""
+    files = [r[0] for r in conn.execute("SELECT file_path FROM resume_export")]
     with nullcontext() if conn.in_transaction else transaction(conn):
         guards = [
             conn.execute(
@@ -731,3 +736,11 @@ def forget_resume_data(conn: sqlite3.Connection) -> None:
             conn.execute(f"DELETE FROM {table}")
         for sql in guards:
             conn.execute(sql)
+    if files:
+        from career_agent.resume_doc.export import export_dir
+
+        root = export_dir(conn).resolve()
+        for name in files:
+            path = (root / name).resolve()
+            if path.is_relative_to(root):
+                path.unlink(missing_ok=True)

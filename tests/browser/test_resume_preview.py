@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from tests.browser.chrome import Chrome
 from tests.browser.conftest import DESKTOP, _free_port
-from tests.support_resume import long, rich, sparse
+from tests.support_resume import confirm_cited, long, rich, sparse
 
 from career_agent.resume_doc.store import ResumeStore
 from career_agent.runtime import RuntimeMode, stamp_identity
@@ -44,6 +44,7 @@ def resumes(tmp_path: Path, committed_config: Path) -> Iterator[str]:
     migrate(conn)
     with transaction(conn):
         stamp_identity(conn, RuntimeMode.PERSONAL, "Synthetic")
+        confirm_cited(conn, rich(), long(), sparse())
     store = ResumeStore(conn)
     for doc in (rich(), long(), sparse()):
         store.create_document(doc)

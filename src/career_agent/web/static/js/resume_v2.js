@@ -15,11 +15,18 @@
  * Nothing here writes Career Evidence, search settings or scores. Adding a
  * line "from evidence" copies an already-confirmed statement into THIS
  * resume; typing a line makes it the person's own words, labelled as such.
+ *
+ * DOWNLOAD (PDF, DOCX, JSON) first finishes saving, through the same flush
+ * the version points use, and sends the hash of what was saved: the file is
+ * made from that exact revision, never from an older copy while newer edits
+ * are on screen. Edits that cannot be saved, or a change in another window,
+ * refuse the download and say why. What the re-read file showed is listed
+ * as named checks, never a score.
  */
 
 import {
-  createResumeDocument, createResumeMaster, getCareer, getResumeDocument, getResumeMaster,
-  listResumeDocuments, saveResumeCheckpoint, saveResumeWorkingCopy,
+  createResumeDocument, createResumeMaster, downloadResumeExport, exportResume, getCareer,
+  getResumeDocument, getResumeMaster, listResumeDocuments, saveResumeCheckpoint, saveResumeWorkingCopy,
 } from './api.js';
 import { button, el } from './dom.js';
 import { t } from './i18n.js';
@@ -35,6 +42,17 @@ const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const WEB = /^https?:\/\/\S+$/;
 const COUNTRY = /^[A-Z]{2}$/;
 const PREVIEW_MS = 120;
+const FORMATS = ['PDF', 'DOCX', 'JSON'];
+/** A check's state as a mark beside its words: never colour alone. */
+const MARKS = { PASS: '\u2713', WARNING: '!', FAIL: '\u2717', NOT_MEASURED: '\u25cb' };
+
+/** Every line object of a document: text blocks, then skill items. */
+function linesOf(d) {
+  const blocks = [d.headline, d.summary].filter(Boolean);
+  for (const entry of [...d.experience, ...d.projects, ...d.education]) blocks.push(...entry.bullets);
+  for (const custom of d.custom_sections) blocks.push(...custom.items);
+  return { blocks, items: d.skills.flatMap((g) => g.items) };
+}
 
 function sectionLabel(doc, ref) {
   if (ref.startsWith('custom:')) {
@@ -155,9 +173,16 @@ export function createResumeWorkspace({ host }) {
 
   function docRow(d) {
     const label = d.version_number ? `${d.title} · V${d.version_number}` : d.title;
+    const last = d.last_export;
+    const exported = last ? t('rv.export.last', {
+      format: last.format,
+      date: new Date(last.created_at).toLocaleDateString(),
+      result: t(last.verified ? 'rv.export.checked' : 'rv.export.problemShort'),
+    }) : '';
     return el('div', { className: 'rvw__row' }, [
       el('span', { className: 'rvw__rowtitle', text: label }),
       el('span', { className: 'rvw__kind', text: t(`rv.kind.${d.kind}`) }),
+      last ? el('span', { className: 'rvw__kind rvw__exported', text: exported }) : null,
       smallButton(t('rv.open'), () => void open(d.id).catch(failed), { ariaLabel: `${t('rv.open')}: ${label}` }),
     ]);
   }
@@ -214,7 +239,14 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
   };
   const autosave = createAutosave({
     sha: answer.sha256,
-    save: async (copy, sha) => (await saveResumeWorkingCopy(answer.id, copy, sha)).sha256,
+    save: async (copy, sha) => {
+      try {
+        return (await saveResumeWorkingCopy(answer.id, copy, sha)).sha256;
+      } catch (error) {
+        if (error.detail && error.detail.code === 'evidence_not_confirmed') drawEvidence(error.detail.lines);
+        throw error;
+      }
+    },
     onState: (state) => {
       say(state);
       if (state === 'conflict') drawConflict();
@@ -233,6 +265,16 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
   const backButton = smallButton(t('rv.back'), () => void leave().then((left) => { if (left) onClose(); }));
   const pointButton = smallButton(t('rv.checkpoint'), () => void checkpoint('MANUAL_CHECKPOINT', true));
   const kindTag = el('span', { className: 'rvw__kind' });
+  const downloadLabel = el('span', { className: 'rve__formatlabel', attrs: { id: `rve-dlname-${answer.id}` } });
+  const downloadHint = el('span', { className: 'rve__note', attrs: { id: `rve-dl-${answer.id}` } });
+  const formatButtons = FORMATS.map((format) => smallButton(format, () => void exportAs(format), {
+    attrs: { 'aria-describedby': downloadHint.id },
+  }));
+  const downloadGroup = el('div', {
+    className: 'rve__formats', attrs: { role: 'group', 'aria-labelledby': downloadLabel.id },
+  }, [downloadLabel, ...formatButtons, downloadHint]);
+  const exportBox = el('div', { className: 'rve__export' });
+  let exporting = false;
   const designSummary = el('summary');
   const checkSummary = el('summary');
   const switcher = el('div', { className: 'rve__switch', attrs: { role: 'group' } });
@@ -254,7 +296,7 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
     },
   });
   const bar = el('header', { className: 'rve__bar' }, [
-    backButton, title, kindTag, undoButton, redoButton, pointButton, saveState,
+    backButton, title, kindTag, undoButton, redoButton, pointButton, downloadGroup, saveState,
   ]);
   const side = el('div', { className: 'rve__side' }, [
     el('details', { className: 'rve__panel' }, [designSummary, design]),
@@ -263,7 +305,7 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
   ]);
   switcher.append(modeEdit, modePreview);
   const root = el('div', { className: 'rve', dataset: { mode: 'edit' } }, [
-    bar, notices, switcher, el('div', { className: 'rve__grid' }, [form, side]),
+    bar, notices, exportBox, switcher, el('div', { className: 'rve__grid' }, [form, side]),
   ]);
 
   /** Every word of the editor's own, in the current language. */
@@ -273,8 +315,9 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
     for (const [node, key] of [
       [backButton, 'rv.back'], [undoButton, 'rv.undo'], [redoButton, 'rv.redo'],
       [pointButton, 'rv.checkpoint'], [modeEdit, 'rv.mode.edit'], [modePreview, 'rv.mode.preview'],
-      [designSummary, 'rv.panel.design'], [checkSummary, 'rv.panel.check'],
+      [designSummary, 'rv.panel.design'], [checkSummary, 'rv.panel.check'], [downloadLabel, 'rv.export.download'],
     ]) node.textContent = t(key);
+    syncDownload();
     title.setAttribute('aria-label', t('rv.docTitle'));
     switcher.setAttribute('aria-label', t('rv.mode.label'));
     saveState.textContent = t(`rv.save.${saveState.dataset.state || 'saved'}`);
@@ -312,6 +355,14 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
   function syncButtons() {
     undoButton.disabled = !history.canUndo;
     redoButton.disabled = !history.canRedo;
+    syncDownload();
+  }
+
+  /** A file needs a real name on it; a disabled control says why. */
+  function syncDownload() {
+    const noName = !doc.identity.full_name.trim();
+    for (const b of formatButtons) b.disabled = exporting || noName;
+    downloadHint.textContent = noName ? t('rv.export.needName') : '';
   }
 
   function changed({ redraw }) {
@@ -366,6 +417,101 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
     if (!(await checkpoint('MANUAL_CHECKPOINT'))) return false;
     editedSinceOpen = false;
     return true;
+  }
+
+  // -- download -------------------------------------------------------------
+  async function exportAs(format) {
+    if (exporting) return;
+    exporting = true;
+    syncDownload();
+    drawExport('working');
+    let sent = null;
+    try {
+      if (!valid() || !(await autosave.flush())) {
+        if (autosave.state === 'conflict') drawConflict();
+        else drawUnsaved();
+        drawExport('failed', { message: t('rv.export.unsaved') });
+        return;
+      }
+      sent = autosave.sha;
+      // The page count the preview shows for exactly this document.
+      clearTimeout(previewTimer);
+      const shown = format === 'PDF' ? await preview.update(doc) : null;
+      if (shown) {
+        layout = shown;
+        drawCheck();
+      }
+      const made = await exportResume(answer.id, {
+        format,
+        expected_sha256: sent,
+        ...(shown ? { preview_pages: shown.pages, preview_overflow: shown.overflow, page_breaks: shown.breaks } : {}),
+      });
+      await downloadResumeExport(made.download, `resume.${format.toLowerCase()}`);
+      drawExport('ready', made);
+    } catch (error) {
+      const detail = error.detail || {};
+      if (detail.code === 'evidence_not_confirmed') drawEvidence(detail.lines || []);
+      const changed = error.status === 409 && sent !== null && autosave.sha !== sent;
+      drawExport('failed', { message: changed ? t('rv.export.changed') : (error.userMessage || t('rv.failed')) });
+    } finally {
+      exporting = false;
+      syncDownload();
+    }
+  }
+
+  function drawExport(state, made = {}) {
+    exportBox.dataset.state = state;
+    if (state === 'working') {
+      const note = el('p', { className: 'rve__note', attrs: { role: 'status' }, text: t('rv.export.working') });
+      exportBox.replaceChildren(note);
+      return;
+    }
+    if (state === 'failed') {
+      exportBox.replaceChildren(el('div', { className: 'rve__notice rve__notice--bad', attrs: { role: 'alert' } }, [
+        el('p', { text: made.message }),
+      ]));
+      return;
+    }
+    const pages = made.page_count ? t('rv.export.pages', { n: made.page_count }) : '';
+    const items = made.checks.map((c) => {
+      const params = { n: '', preview: '', ...(c.params || {}) };
+      const own = `rv.ats.${c.check}.${c.status}`;
+      const words = t(t(own) === own ? `rv.ats.${c.check}` : own, params);
+      const issues = (c.issues || []).map((i) => t(`rv.ats.issue.${i}`)).join(' ');
+      return el('li', { className: 'rve__atscheck', dataset: { status: c.status } }, [
+        el('span', { className: 'rve__mark', attrs: { 'aria-hidden': 'true' }, text: MARKS[c.status] }),
+        el('span', { text: `${t(`rv.ats.status.${c.status}`)}: ${words}${issues ? ` (${issues})` : ''}` }),
+      ]);
+    });
+    exportBox.replaceChildren(el('div', { className: 'rve__notice', attrs: { role: 'status' } }, [
+      el('p', {
+        className: 'rve__exporthead',
+        text: [t(made.verified ? 'rv.export.ready' : 'rv.export.problem', { format: made.format }), pages]
+          .filter(Boolean).join(' · '),
+      }),
+      el('ul', { className: 'rve__atslist' }, items),
+      smallButton(t('rv.export.dismiss'), () => exportBox.replaceChildren()),
+    ]));
+  }
+
+  /** Lines whose evidence is not confirmed now: kept only as the person's own words, if she says so. */
+  function drawEvidence(lines) {
+    const ids = new Set(lines);
+    notices.replaceChildren(el('div', { className: 'rve__notice rve__notice--bad', attrs: { role: 'alert' } }, [
+      el('p', { text: t('rv.evidence.unconfirmed', { n: ids.size }) }),
+      smallButton(t('rv.evidence.own'), () => {
+        notices.replaceChildren();
+        reshape((d) => {
+          const { blocks, items } = linesOf(d);
+          for (const b of blocks.filter((x) => ids.has(x.id))) {
+            Object.assign(b, { origin: 'USER_AUTHORED', evidence_ids: [], override: 'NONE', original_text: null });
+          }
+          for (const i of items.filter((x) => ids.has(x.id))) {
+            Object.assign(i, { origin: 'USER_AUTHORED', evidence_ids: [] });
+          }
+        })();
+      }),
+    ]));
   }
 
   function drawUnsaved() {

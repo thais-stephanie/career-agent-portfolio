@@ -11,6 +11,15 @@ Editing writes the WORKING COPY (`PATCH .../working`, with the hash the page
 last read; a stale page gets 409 and overwrites nothing). A milestone is an
 explicit `POST .../checkpoint`. Nothing here writes Career Evidence, search
 settings or scores: a resume is resume material.
+
+Every write and every export asks again whether each cited evidence id is a
+confirmed, current claim of THIS profile (`resume_doc.evidence`); the
+browser's word is never taken for it.
+
+An export (`POST .../exports`) is made from the revision of exactly what the
+page has saved; the file stays in the profile's private folder and is
+downloaded through `GET /api/resume/exports/<id>/file`, which only ever
+serves an export of this profile. The browser never names a path.
 """
 
 from __future__ import annotations
@@ -24,6 +33,15 @@ from pydantic import ValidationError
 
 from career_agent.clock import new_id
 from career_agent.resume_doc.check import findings
+from career_agent.resume_doc.evidence import unconfirmed_lines
+from career_agent.resume_doc.export import (
+    CONTENT_TYPES,
+    ExportFailed,
+    ExportRefused,
+    export_revision,
+    filename,
+    stored_file,
+)
 from career_agent.resume_doc.models import (
     SCHEMA_VERSION,
     ResumeDocument,
@@ -33,12 +51,13 @@ from career_agent.resume_doc.models import (
 from career_agent.resume_doc.render import render_html
 from career_agent.resume_doc.store import (
     NotFound,
+    ResumeExport,
     ResumeStore,
     ResumeStoreError,
     StaleDocument,
     StoredDocument,
 )
-from career_agent.web.server import ApiError, InlinePage, LocalApp, closing
+from career_agent.web.server import ApiError, Download, InlinePage, LocalApp, closing
 
 #: Renders kept for the preview frame: the last few, in memory only.
 KEEP_RENDERS = 8
@@ -63,7 +82,7 @@ class _Renders:
         return held[1] if held is not None and held[0] == profile else None
 
 
-def _summary(doc: StoredDocument) -> dict[str, Any]:
+def _summary(doc: StoredDocument, last: ResumeExport | None = None) -> dict[str, Any]:
     return {
         "id": doc.id,
         "kind": doc.kind.value,
@@ -71,7 +90,39 @@ def _summary(doc: StoredDocument) -> dict[str, Any]:
         "version_number": doc.version_number,
         "preferred": doc.preferred,
         "updated_at": doc.updated_at,
+        "last_export": _export(last) if last else None,
     }
+
+
+def _export(e: ResumeExport) -> dict[str, Any]:
+    """What the page may know of an export: never its path on disk."""
+    return {
+        "id": e.id,
+        "format": e.format,
+        "template": e.template,
+        "page_count": e.page_count,
+        "engine": e.engine,
+        "created_at": e.created_at,
+        "checks": e.ats_check.get("checks", []),
+        "verified": bool(e.ats_check.get("verified")),
+        "download": f"/api/resume/exports/{e.id}/file",
+    }
+
+
+def _unconfirmed(lines: list[str]) -> ApiError:
+    return ApiError(
+        400,
+        "Some lines cite Career Evidence that is not confirmed now.",
+        for_reader=True,
+        code="evidence_not_confirmed",
+        data={"lines": lines},
+    )
+
+
+def _guard_evidence(conn: Any, doc: ResumeDocument) -> None:
+    lines = unconfirmed_lines(conn, doc)
+    if lines:
+        raise _unconfirmed(lines)
 
 
 def _validated(value: Any) -> ResumeDocument:
@@ -126,7 +177,11 @@ def register_resume_routes(app: LocalApp) -> None:
 
     def documents(*, query: dict, body: dict) -> list[dict[str, Any]]:
         with closing(app.connect()) as conn:
-            return [_summary(d) for d in ResumeStore(conn).list_documents()]
+            store = ResumeStore(conn)
+            return [
+                _summary(d, next(reversed(store.list_exports(d.id)), None))
+                for d in store.list_documents()
+            ]
 
     def document(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
         with closing(app.connect()) as conn:
@@ -162,6 +217,7 @@ def register_resume_routes(app: LocalApp) -> None:
             }
         doc = _validated(data)
         with closing(app.connect()) as conn:
+            _guard_evidence(conn, doc)
             return _detail(ResumeStore(conn).create_document(doc))
 
     def save(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
@@ -170,6 +226,7 @@ def register_resume_routes(app: LocalApp) -> None:
             raise ApiError(400, "Send the resume and the version it edits.")
         doc = _validated(body["document"])
         with closing(app.connect()) as conn:
+            _guard_evidence(conn, doc)
             try:
                 sha = ResumeStore(conn).save_working_copy(
                     document_id, doc, expected_sha256=str(body["expected_sha256"])
@@ -196,6 +253,79 @@ def register_resume_routes(app: LocalApp) -> None:
                 raise ApiError(404, "No such resume.") from exc
         return {"revision": revision.seq, "reason": revision.reason}
 
+    def export(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """Make a file of exactly what the page has saved, and check it."""
+        allowed = {"format", "expected_sha256", "preview_pages", "preview_overflow", "page_breaks"}
+        fmt, pages = body.get("format"), body.get("preview_pages")
+        overflow = body.get("preview_overflow") or []
+        breaks = body.get("page_breaks") or []
+        if (
+            set(body) - allowed
+            or fmt not in ("PDF", "DOCX", "JSON")
+            or not isinstance(body.get("expected_sha256"), str)
+            or not (pages is None or (type(pages) is int and pages > 0))
+            or not all(
+                isinstance(refs, list)
+                and len(refs) <= 500
+                and all(isinstance(r, str) for r in refs)
+                for refs in (overflow, breaks)
+            )
+        ):
+            raise ApiError(400, "Send the format and the version the page has saved.")
+        with closing(app.connect()) as conn:
+            try:
+                made = export_revision(
+                    conn,
+                    document_id,
+                    fmt,
+                    expected_sha256=body["expected_sha256"],
+                    preview_pages=pages,
+                    preview_overflow=overflow[:50],
+                    page_breaks=breaks,
+                )
+            except NotFound as exc:
+                raise ApiError(404, "No such resume.") from exc
+            except StaleDocument as exc:
+                raise ApiError(
+                    409, "This resume changed in another window.", for_reader=True
+                ) from exc
+            except ExportRefused as exc:
+                if exc.code == "EVIDENCE_NOT_CONFIRMED":
+                    raise _unconfirmed(exc.lines) from exc
+                raise ApiError(
+                    400, "Add your name before downloading.", for_reader=True, code="name_missing"
+                ) from exc
+            except ExportFailed as exc:
+                if str(exc) == "NO_BROWSER":
+                    message = "A PDF needs Microsoft Edge or Chrome, and neither was found."
+                else:
+                    message = "The PDF could not be made. Nothing was saved; try again."
+                raise ApiError(503, message, for_reader=True, code="export_failed") from exc
+        return _export(made)
+
+    def exports(*, query: dict, body: dict, document_id: str) -> list[dict[str, Any]]:
+        with closing(app.connect()) as conn:
+            store = ResumeStore(conn)
+            try:
+                store.get_document(document_id)
+            except NotFound as exc:
+                raise ApiError(404, "No such resume.") from exc
+            return [_export(e) for e in reversed(store.list_exports(document_id))]
+
+    def export_file(*, query: dict, body: dict, export_id: str) -> Download:
+        """An export of THIS profile, by its id; the server finds the file."""
+        with closing(app.connect()) as conn:
+            store = ResumeStore(conn)
+            try:
+                made = store.get_export(export_id)
+                path = stored_file(conn, made)
+            except (NotFound, FileNotFoundError) as exc:
+                raise ApiError(404, "This file is no longer here.", for_reader=True) from exc
+            doc = store.get_revision(made.revision_id).content
+            return Download(
+                path.read_bytes(), CONTENT_TYPES[made.format], filename(doc, made.format)
+            )
+
     app.register("POST", r"/api/resume/render", render)
     app.register("GET", r"/api/resume/preview/(?P<token>[A-Za-z0-9_-]{16,64})", preview)
     one = r"/api/resume/documents/(?P<document_id>[0-9A-HJKMNP-TV-Z]{26})"
@@ -204,3 +334,7 @@ def register_resume_routes(app: LocalApp) -> None:
     app.register("GET", one, document)
     app.register("PATCH", one + "/working", save)
     app.register("POST", one + "/checkpoint", checkpoint)
+    app.register("POST", one + "/exports", export)
+    app.register("GET", one + "/exports", exports)
+    export_one = r"/api/resume/exports/(?P<export_id>[0-9A-HJKMNP-TV-Z]{26})/file"
+    app.register("GET", export_one, export_file)

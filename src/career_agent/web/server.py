@@ -34,6 +34,8 @@ import socket
 import sqlite3
 import threading
 import time
+import unicodedata
+import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -122,11 +124,22 @@ class ApiError(Exception):
     reader loses some precision and never sees a stack-trace fragment.
     """
 
-    def __init__(self, status: int, message: str, *, for_reader: bool = False) -> None:
+    def __init__(
+        self,
+        status: int,
+        message: str,
+        *,
+        for_reader: bool = False,
+        code: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.message = message
         self.for_reader = for_reader
+        #: A stable name the page can act on, and what it needs to act.
+        self.code = code
+        self.data = data
 
 
 @dataclass(frozen=True)
@@ -442,10 +455,12 @@ class _Handler(BaseHTTPRequestHandler):
             # every error payload would make the flag look like a property of
             # errors rather than the exception it is, and it would rewrite
             # every recorded response in the test suite for no gain.
-            body = {"error": exc.message}
+            said: dict[str, Any] = {"error": exc.message}
             if exc.for_reader:
-                body["for_reader"] = True
-            self._send_json(exc.status, body)
+                said["for_reader"] = True
+            if exc.code:
+                said = {**said, "code": exc.code, **(exc.data or {})}
+            self._send_json(exc.status, said)
         except sqlite3.OperationalError as exc:
             if "locked" not in str(exc) and "busy" not in str(exc):
                 self.app.log(f"unhandled: {type(exc).__name__}: {exc}")
@@ -491,9 +506,15 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _send_download(self, download: Download) -> None:
         safe = "".join(c for c in download.filename if c.isalnum() or c in "-_.") or "export"
+        # A header is Latin-1: the ASCII name for old clients, the whole one
+        # (accents and all) as RFC 5987 UTF-8 for every current browser.
+        plain = unicodedata.normalize("NFKD", safe).encode("ascii", "ignore").decode() or "export"
         self.send_response(200)
         self.send_header("Content-Type", download.content_type)
-        self.send_header("Content-Disposition", f'attachment; filename="{safe}"')
+        self.send_header(
+            "Content-Disposition",
+            f"attachment; filename=\"{plain}\"; filename*=UTF-8''{urllib.parse.quote(safe)}",
+        )
         self.send_header("Content-Length", str(len(download.body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")

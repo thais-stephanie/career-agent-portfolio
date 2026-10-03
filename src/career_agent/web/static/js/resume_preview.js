@@ -20,6 +20,9 @@
  * `[data-keep]` block stays on the page of the block after it. A block that
  * does not fit where it is starts the next page. A block taller than a whole
  * page cannot be kept whole; it is reported as overflow, never clipped.
+ *
+ * THE PDF FOLLOWS THE PREVIEW. `breaks` names the block each new page starts
+ * with; the export prints those breaks, so the file has the pages shown here.
  */
 
 import { renderResume } from './api.js';
@@ -30,6 +33,12 @@ import { t } from './i18n.js';
 const PX_PER_MM = 96 / 25.4;
 /** The grey band drawn between two pages, in CSS pixels. */
 const GAP = 24;
+/** Room a block must leave at the bottom of its page, in CSS pixels. Screen
+ * and print lay text out a fraction of a pixel apart (print snaps lines to
+ * whole pixels), so a block that only just fits on screen may not fit on
+ * paper. The PDF breaks where the preview did (`breaks`), and this room is
+ * what makes every page the preview fills fit on paper too. */
+const ROOM = 1;
 
 /** A node's top and bottom, measured from the top of the document. */
 function span(node, root) {
@@ -55,7 +64,7 @@ function groups(blocks) {
 
 /**
  * Lay a rendered resume out on pages, inside its own document.
- * @returns {{pages: number, overflow: string[], width: number, height: number,
+ * @returns {{pages: number, overflow: string[], breaks: string[], width: number, height: number,
  *   pageHeight: number, gap: number}}
  */
 export function paginate(doc, page) {
@@ -65,17 +74,19 @@ export function paginate(doc, page) {
   const top = (n) => n * (H + GAP);
   const bottomLimit = (n) => top(n) + H - M;
   const overflow = [];
+  const breaks = [];
   let current = 0;
   for (const group of groups([...root.querySelectorAll('[data-block]')])) {
     const first = group[0];
     const last = group[group.length - 1];
-    if (span(last, root).bottom > bottomLimit(current) + 0.5
+    if (span(last, root).bottom > bottomLimit(current) - ROOM
         && span(first, root).top > top(current) + M + 0.5) {
       // Push the group to the top of the next page.
       const spacer = doc.createElement(first.tagName === 'LI' ? 'li' : 'div');
       spacer.className = 'rv-spacer';
       spacer.setAttribute('aria-hidden', 'true');
       first.before(spacer);
+      breaks.push(first.dataset.ref || '');
       current += 1;
       // Margins stop collapsing once the spacer has height: correct twice.
       for (let pass = 0; pass < 2; pass += 1) {
@@ -83,7 +94,7 @@ export function paginate(doc, page) {
         spacer.style.height = `${Math.max(0, (parseFloat(spacer.style.height) || 0) + missing)}px`;
       }
     }
-    while (span(last, root).bottom > bottomLimit(current) + 0.5) {
+    while (span(last, root).bottom > bottomLimit(current)) {
       // Taller than what is left of an empty page: it cannot stay whole.
       overflow.push(first.dataset.ref || '');
       current += 1;
@@ -102,7 +113,7 @@ export function paginate(doc, page) {
     band.style.height = `${GAP}px`;
     root.append(band);
   }
-  return { pages, overflow, width: page.width_mm * PX_PER_MM, height, pageHeight: H, gap: GAP };
+  return { pages, overflow, breaks, width: page.width_mm * PX_PER_MM, height, pageHeight: H, gap: GAP };
 }
 
 /**

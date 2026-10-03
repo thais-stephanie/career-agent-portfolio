@@ -10980,6 +10980,16 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rve__notice p { margin: 0; flex: 1 1 260px; }
 .rve__notice--bad { border-color: var(--block); background: var(--block-wash); color: var(--block-ink); }
 .rve__switch { display: none; gap: 6px; }
+/* Download: three formats in a labelled group, then what the re-read file showed. */
+.rve__formats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rve__formatlabel { font-size: 13px; font-weight: 600; color: var(--body2); }
+.rve__formats .rve__note:empty { display: none; }
+.rve__export:empty { display: none; }
+.rve__exporthead { font-weight: 600; flex-basis: 100%; }
+.rve__atslist { margin: 0; padding: 0; list-style: none; flex: 1 1 100%; display: flex; flex-direction: column; gap: 2px; }
+.rve__atscheck { display: flex; gap: 6px; font-size: 13px; }
+.rve__mark { width: 1.1em; flex: none; text-align: center; font-weight: 700; }
+.rve__atscheck[data-status="FAIL"], .rve__atscheck[data-status="WARNING"] { color: var(--block-ink); font-weight: 600; }
 .rve__mode {
   flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--divider);
   background: var(--surface); color: var(--ink); font-weight: 600;
