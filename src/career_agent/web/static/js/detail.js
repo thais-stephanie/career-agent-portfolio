@@ -34,7 +34,7 @@ import { searchFitIsReady } from './badges.js';
 import { SENT, matchTone } from './cards.js';
 import { createPrepare } from './prepare.js';
 import { adTools, createPractice, jobMark, setJobMark } from './practice.js';
-import { getLocale, t, tState } from './i18n.js';
+import { t, tState } from './i18n.js';
 import * as api from './api.js';
 
 //: The gates, in the order "Can you take this job?" shows them.
@@ -47,6 +47,7 @@ export function createDrawer({
   getOllama = () => ({}), onEvidence = null,
   careerContext = null, onAddCareer = null,
   onTailor = null,
+  resumeFor = null,
   debug = false,
 }) {
   let invoker = null;
@@ -273,6 +274,7 @@ export function createDrawer({
     preparation = null;
     loadedPrepareFor = null;
     loadedPracticeFor = null;
+    madeFor.clear();
     currentJob = null;
     if (invoker && document.contains(invoker)) invoker.focus();
     invoker = null;
@@ -1006,6 +1008,8 @@ export function createDrawer({
   const readDone = (job) => Boolean(jobMark(PREP_STORE, job.job_id));
   const writeDone = (job, value) => setJobMark(PREP_STORE, job.job_id, value ? 1 : null);
 
+  //: Whether a resume exists for a job, asked once per drawer open.
+  const madeFor = new Map();
   // The tailoring step's host, filled by `tailorStep`, kept across repaints.
   const tailorHost = el('div', { className: 'd-tailorhost' });
 
@@ -1017,7 +1021,15 @@ export function createDrawer({
     // naming none has nothing to prove). Step 3 marks itself in the Resume
     // helper, where the resume is made.
     const step2 = rows !== null && rows.every(proven);
-    const step3 = Boolean(job.tailored_resume);
+    // Step 3 is the Resume helper's answer: a resume made for this job.
+    const step3 = madeFor.get(job.job_id) === true;
+    if (resumeFor && !madeFor.has(job.job_id)) {
+      madeFor.set(job.job_id, null);
+      Promise.resolve(resumeFor(job.job_id)).then((made) => {
+        madeFor.set(job.job_id, Boolean(made));
+        if (made && currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
+      });
+    }
     const done = [read, step2, step3];
     const count = done.filter(Boolean).length;
     const firstOpen = done.findIndex((value) => !value);
@@ -1108,16 +1120,11 @@ export function createDrawer({
    */
   function tailorStep(job, made) {
     const host = el('div', { className: 'd-tailor', attrs: { role: 'group', 'aria-label': t('tailor.groupLabel') } });
-    const make = (className = 'btn btn--primary d-tailor__btn') => {
-      const label = made ? t('prep3.s3Open') : t('prep3.s3Make');
-      if (onTailor) {
-        return button(label, () => onTailor(job), { className, attrs: { id: 'drawer-open-tailor' } });
-      }
-      return el('a', { className, text: label, attrs: {
-        href: `/resume-tailor?job=${encodeURIComponent(job.job_id)}&lang=${encodeURIComponent(getLocale())}`,
-        target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
-      } });
-    };
+    const make = (className = 'btn btn--primary d-tailor__btn') => button(
+      made ? t('prep3.s3Open') : t('prep3.s3Make'),
+      () => onTailor && onTailor(job),
+      { className, attrs: { id: 'drawer-open-tailor' } },
+    );
     const ready = () => {
       replace(host, [make()]);
       host.dataset.tailor = 'ready';

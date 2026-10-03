@@ -454,14 +454,12 @@ def test_tailor_waits_for_career_context_and_says_what_to_add(
     _open_first_job(page, pristine_server)
     assert page.evaluate("document.querySelector('.d-tailor').dataset.tailor") == "needs-career"
     text = _text(page, ".d-tailor")
-    assert "works from your CV" in text, text
+    assert "builds from your own experience" in text, text
     assert "Open Resume Tailor Beta" not in text.split("?")[0], (
         "Tailor still reads as the next step"
     )
-    # Access is kept for a CV already given to Tailor itself.
-    assert page.evaluate(
-        "document.querySelector('#drawer-open-tailor').getAttribute('href')"
-    ).startswith("/resume-tailor?job=")
+    # Access is kept for a resume already given to the helper itself.
+    assert page.evaluate("Boolean(document.querySelector('#drawer-open-tailor'))")
     _click(page, "#drawer-add-career")
     page.wait_for("!document.querySelector('#page-documents').hidden", message="Documents")
     assert page.console_errors() == []

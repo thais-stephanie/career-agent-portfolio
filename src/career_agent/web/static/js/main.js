@@ -37,6 +37,7 @@ import { LOCALES, getLocale, initialLocale, setLocale, t, tState } from './i18n.
 import { createRetrievalPanel } from './retrieval.js';
 import { createCollection, createProgressView, outcomeText } from './collection.js';
 import { createDrawer } from './detail.js';
+import { createResumeHelper } from './resume.js';
 import { createEvidence } from './evidence.js';
 import { documentsPage } from './documents.js';
 import { evidencePage } from './evidence_page.js';
@@ -197,10 +198,11 @@ const drawer = createDrawer({
   // store, which this never reads; this only decides whether Tailor is
   // offered as the next step or after the step that gives it something.
   careerContext: () => careerContext(),
-  onAddCareer: () => {
-    store.set({ openJobId: null });
-    goTo('documents');
-  },
+  onAddCareer: () => afterDrawerCloses(() => goTo('documents')),
+  // Step 3 of Before you apply: the Resume helper, in this window, with the
+  // job already chosen. Whether a resume exists for it is the helper's answer.
+  onTailor: (job) => afterDrawerCloses(() => goTo('resume', { resume: { tab: 'make', jobId: job.job_id } })),
+  resumeFor: (jobId) => resumeHelper.hasResumeFor(jobId),
   // The arithmetic and the raw local reading, for `?debug=1` only.
   debug: DEV_SCORING,
 });
@@ -243,11 +245,28 @@ const PAGES = {
   // filter, and reaching it meant opening a disclosure inside a panel that
   // only exists on one page.
   settings: document.getElementById('page-settings'),
+  // The Resume helper: a page of this app, never a second one.
+  resume: document.getElementById('page-resume'),
 };
 
 // The rail, the page header and the mobile drawer. See `shell.js` for why the
 // header is a contract rather than five headers that happen to look alike.
 const shell = createShell();
+
+const resumeHelper = createResumeHelper({
+  host: PAGES.resume,
+  onOpenJob: (jobId) => {
+    store.set({ openJobId: jobId });
+    drawer.open(jobId, document.querySelector('.topnav__link[data-page="resume"]'));
+  },
+  onGoJobs: () => goTo('jobs'),
+  onGoEvidence: (requirement) => {
+    goTo('evidence');
+    if (requirement) evidenceView.add({ requirement });
+  },
+  onGoProfile: () => goTo('profile'),
+  toast: (message, bad = false, undo = null) => flash(message, bad, undo ? undo.run : null),
+});
 
 // -- the career pages -------------------------------------------------------
 const evidenceView = evidencePage({
@@ -322,9 +341,10 @@ let homeHeader = 'home';
 
 let currentPage = 'home';
 
-function goTo(page, { push = true } = {}) {
+function goTo(page, { push = true, resume = null } = {}) {
   if (!PAGES[page]) return;
   currentPage = page;
+  if (page === 'resume') resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
 
   for (const [name, node] of Object.entries(PAGES)) {
     if (name === 'applications') continue;   // shares the Jobs container
@@ -2065,6 +2085,29 @@ async function changeNotes(jobId, notes) {
 }
 
 /**
+ * Close the drawer, THEN go somewhere. Closing pops the history entry that
+ * opening pushed, and that pop lands on the address from before the drawer;
+ * a page chosen before it lands would keep the old address (a reload would
+ * then open the wrong page). The pop is awaited, with a short fallback for a
+ * drawer whose entry was not ours to pop.
+ */
+function afterDrawerCloses(next) {
+  if (!store.get().openJobId) {
+    next();
+    return;
+  }
+  let done = false;
+  const once = () => {
+    if (done) return;
+    done = true;
+    next();
+  };
+  window.addEventListener('popstate', () => setTimeout(once, 0), { once: true });
+  store.set({ openJobId: null });
+  setTimeout(once, 200);
+}
+
+/**
  * A sentence, and optionally the way back out of what it describes.
  *
  * `undo` is a function and a label, not a boolean: the caller knows which row
@@ -2944,9 +2987,7 @@ function relabelStaticText() {
   swap('#view-table', 'view.table');
   swap('#view-kanban', 'view.board');
   swap('#export-good-strong', 'export.goodStrong');
-  // Resume Tailor opens in the reader's language (its messages follow it).
-  const tailorLink = document.querySelector('.topnav__link--tailor');
-  if (tailorLink) tailorLink.setAttribute('href', `/resume-tailor?lang=${encodeURIComponent(getLocale())}`);
+  resumeHelper.relabel();
   // The two toolbar controls whose words depend on STATE rather than only
   // on the catalogue: which way the sort runs, and whether duplicates are
   // folded. `syncHeader` already knows how to label both from the state,
@@ -3035,7 +3076,18 @@ localProfiles.mountSettings(document.getElementById('settings-profiles-host'));
 // The landing page is HOME. A hash chooses another, so a bookmark and a
 // reload land where the person left off.
 const wanted = DEV_STATEMENTS ? 'manage' : window.location.hash.replace('#', '');
-goTo(PAGES[wanted] ? wanted : 'home', { push: false });
+// An old Resume Tailor link arrives as `?resume_job=<id>#resume`: the job is
+// read once and dropped from the address.
+const resumeJob = new URLSearchParams(window.location.search).get('resume_job');
+if (resumeJob) {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('resume_job');
+  window.history.replaceState(window.history.state, '', url);
+}
+goTo(PAGES[wanted] ? wanted : 'home', {
+  push: false,
+  resume: resumeJob ? { tab: 'make', jobId: resumeJob } : null,
+});
 
 relabelStaticText();
 

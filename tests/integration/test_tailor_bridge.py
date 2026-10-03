@@ -422,7 +422,9 @@ def test_standalone_tailor_has_no_career_routes(tmp_path: Path) -> None:
     assert client.get("/api/career/applications").status_code == 404
 
 
-def test_the_redirect_forwards_only_a_valid_posting_id_and_the_profile(tmp_path: Path) -> None:
+def test_an_old_link_lands_on_the_resume_helper_page_with_only_a_valid_posting_id(
+    tmp_path: Path,
+) -> None:
     import http.client
     import threading
     import types
@@ -448,19 +450,14 @@ def test_the_redirect_forwards_only_a_valid_posting_id_and_the_profile(tmp_path:
             conn.close()
             return str(response.getheader("Location"))
 
+        # V3: the Resume helper is a page of this app; an old link opens it
+        # here, in this window, never on a second address.
         job_id = _jobs(api)[0]
-        assert location(f"/resume-tailor?job={job_id}") == (
-            f"http://127.0.0.1:{port + 1}/?job={job_id}&profile={profile.id}"
-        )
+        assert location(f"/resume-tailor?job={job_id}") == f"/?resume_job={job_id}#resume"
         # Anything that is not a posting id is dropped, never forwarded.
-        assert location("/resume-tailor?job=<script>") == f"http://127.0.0.1:{port + 1}/"
-        assert location("/resume-tailor") == f"http://127.0.0.1:{port + 1}/"
-        # The reader's language, from a closed list only.
-        assert location("/resume-tailor?lang=pt-BR") == f"http://127.0.0.1:{port + 1}/?lang=pt-BR"
-        assert location("/resume-tailor?lang=<x>") == f"http://127.0.0.1:{port + 1}/"
-        assert location(f"/resume-tailor?job={job_id}&lang=en") == (
-            f"http://127.0.0.1:{port + 1}/?job={job_id}&profile={profile.id}&lang=en"
-        )
+        assert location("/resume-tailor?job=<script>") == "/#resume"
+        assert location("/resume-tailor") == "/#resume"
+        assert location("/resume-tailor?lang=pt-BR") == "/#resume"
     finally:
         httpd.shutdown()
         httpd.server_close()

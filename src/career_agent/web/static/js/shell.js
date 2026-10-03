@@ -39,6 +39,7 @@ export const PAGE_HEADERS = {
   documents: { title: 'pagehead.title.documents', sub: 'pagehead.sub.documents' },
   manage: { title: 'pagehead.title.manage' },
   settings: { title: 'pagehead.title.settings', sub: 'pagehead.sub.settings' },
+  resume: { title: 'nav.tailor', sub: 'pagehead.sub.resume' },
   setup: { eyebrow: 'pagehead.eyebrow.setup', title: 'pagehead.title.setup' },
 };
 
