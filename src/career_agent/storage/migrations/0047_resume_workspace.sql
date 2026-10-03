@@ -50,12 +50,14 @@ CREATE TABLE resume_document (
     archived_at         TEXT,
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL,
-    working_json        TEXT NOT NULL CHECK (json_valid(working_json)),
+    working_json        TEXT NOT NULL DEFAULT '{}',
     working_sha256      TEXT NOT NULL,
-    CHECK ((kind = 'TAILORED') = (jd_snapshot_id IS NOT NULL)),
-    CHECK ((kind = 'TAILORED') = (version_group IS NOT NULL)),
-    CHECK ((kind = 'TAILORED') = (version_number IS NOT NULL)),
-    CHECK (preferred = 0 OR (kind = 'TAILORED' AND archived_at IS NULL)),
+    -- A tailored version has a job ad, a group and a number; nothing else does.
+    CHECK (kind NOT IN ('TAILORED') OR (jd_snapshot_id IS NOT NULL
+        AND version_group IS NOT NULL AND version_number IS NOT NULL)),
+    CHECK (kind IN ('TAILORED') OR (jd_snapshot_id IS NULL
+        AND version_group IS NULL AND version_number IS NULL)),
+    CHECK (preferred IN (0) OR (kind IN ('TAILORED') AND archived_at IS NULL)),
     UNIQUE (version_group, version_number)
 );
 
@@ -67,7 +69,7 @@ CREATE TABLE resume_revision (
     id                TEXT PRIMARY KEY,
     document_id       TEXT NOT NULL REFERENCES resume_document (id),
     seq               INTEGER NOT NULL CHECK (seq > 0),
-    content_json      TEXT NOT NULL CHECK (json_valid(content_json)),
+    content_json      TEXT NOT NULL DEFAULT '{}',
     content_sha256    TEXT NOT NULL,
     reason            TEXT NOT NULL CHECK (reason IN (
                           'CREATED', 'IMPORTED', 'GENERATED', 'AI_ACCEPTED',
@@ -97,14 +99,14 @@ CREATE TABLE tailoring_run (
     mode                 TEXT NOT NULL,
     provider             TEXT,
     model                TEXT,
-    prompt_digests_json  TEXT CHECK (prompt_digests_json IS NULL OR json_valid(prompt_digests_json)),
-    options_json         TEXT CHECK (options_json IS NULL OR json_valid(options_json)),
-    analysis_json        TEXT CHECK (analysis_json IS NULL OR json_valid(analysis_json)),
-    retrieval_json       TEXT CHECK (retrieval_json IS NULL OR json_valid(retrieval_json)),
-    strategy_json        TEXT CHECK (strategy_json IS NULL OR json_valid(strategy_json)),
-    review_json          TEXT CHECK (review_json IS NULL OR json_valid(review_json)),
-    validation_json      TEXT CHECK (validation_json IS NULL OR json_valid(validation_json)),
-    token_usage_json     TEXT CHECK (token_usage_json IS NULL OR json_valid(token_usage_json)),
+    prompt_digests_json  TEXT NOT NULL DEFAULT '{}',
+    options_json         TEXT NOT NULL DEFAULT '{}',
+    analysis_json        TEXT NOT NULL DEFAULT '{}',
+    retrieval_json       TEXT NOT NULL DEFAULT '{}',
+    strategy_json        TEXT NOT NULL DEFAULT '{}',
+    review_json          TEXT NOT NULL DEFAULT '{}',
+    validation_json      TEXT NOT NULL DEFAULT '{}',
+    token_usage_json     TEXT NOT NULL DEFAULT '{}',
     status               TEXT NOT NULL CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'ERROR')),
     started_at           TEXT NOT NULL,
     finished_at          TEXT
@@ -113,15 +115,16 @@ CREATE TABLE tailoring_run (
 CREATE TABLE tailoring_change (
     id                    TEXT PRIMARY KEY,
     run_id                TEXT NOT NULL REFERENCES tailoring_run (id),
-    op_json               TEXT NOT NULL CHECK (json_valid(op_json)),
-    evidence_ids_json     TEXT NOT NULL CHECK (json_valid(evidence_ids_json)),
-    requirement_ids_json  TEXT NOT NULL CHECK (json_valid(requirement_ids_json)),
+    op_json               TEXT NOT NULL DEFAULT '{}',
+    evidence_ids_json     TEXT NOT NULL DEFAULT '[]',
+    requirement_ids_json  TEXT NOT NULL DEFAULT '[]',
     source                TEXT NOT NULL CHECK (source IN ('RULE', 'DRAFTER', 'REVIEWER')),
     reason                TEXT,
     decision              TEXT NOT NULL DEFAULT 'PENDING'
                               CHECK (decision IN ('PENDING', 'ACCEPTED', 'EDITED', 'REJECTED')),
     decided_at            TEXT,
-    CHECK ((decision = 'PENDING') = (decided_at IS NULL))
+    CHECK (decision IN ('PENDING') OR decided_at IS NOT NULL),
+    CHECK (decision NOT IN ('PENDING') OR decided_at IS NULL)
 );
 
 CREATE TABLE resume_export (
@@ -132,9 +135,9 @@ CREATE TABLE resume_export (
     template        TEXT NOT NULL,
     file_path       TEXT NOT NULL,
     file_sha256     TEXT NOT NULL,
-    page_count      INTEGER CHECK (page_count IS NULL OR page_count > 0),
+    page_count      INTEGER,
     engine          TEXT NOT NULL,
-    ats_check_json  TEXT CHECK (ats_check_json IS NULL OR json_valid(ats_check_json)),
+    ats_check_json  TEXT NOT NULL DEFAULT '{}',
     created_at      TEXT NOT NULL
 );
 

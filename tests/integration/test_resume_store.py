@@ -400,7 +400,7 @@ def test_a_tailoring_run_and_its_changes_round_trip(store: ResumeStore) -> None:
     )
     assert run.stages["analysis"] == {"requirements": [{"id": "r1", "text": "SQL"}]}
     assert run.stages["options"] == {"two_pages": True}
-    assert run.finished_at is not None and run.stages["review"] is None
+    assert run.finished_at is not None and run.stages["review"] == {}
     with pytest.raises(ResumeStoreError):
         store.update_tailoring_run_stage(run.id, prompt={"x": 1})
     change = store.record_tailoring_change(

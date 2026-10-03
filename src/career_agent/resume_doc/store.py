@@ -52,7 +52,7 @@ ChangeSource = Literal["RULE", "DRAFTER", "REVIEWER"]
 Decision = Literal["ACCEPTED", "EDITED", "REJECTED"]
 ExportFormat = Literal["PDF", "DOCX", "JSON"]
 
-#: The tailoring-run columns a stage may fill, each a JSON object.
+#: The tailoring-run columns a stage may fill, each a JSON object; `{}` is unfilled.
 RUN_STAGES = (
     "prompt_digests",
     "options",
@@ -135,7 +135,7 @@ class TailoringRun:
     mode: str
     provider: str | None
     model: str | None
-    stages: dict[str, dict[str, Any] | None]
+    stages: dict[str, dict[str, Any]]
     status: RunStatus
     started_at: str
     finished_at: str | None
@@ -165,7 +165,7 @@ class ResumeExport:
     file_sha256: str
     page_count: int | None
     engine: str
-    ats_check: dict[str, Any] | None
+    ats_check: dict[str, Any]
     created_at: str
 
 
@@ -178,12 +178,8 @@ def _from_row(cls: type[T], r: sqlite3.Row, **parsed: Any) -> T:
     return cls(**plain, **parsed)
 
 
-def _object(value: dict[str, Any] | None) -> str | None:
-    return None if value is None else json.dumps(value, sort_keys=True, ensure_ascii=False)
-
-
-def _loads(text: str | None) -> Any:
-    return json.loads(text) if text else None
+def _object(value: dict[str, Any] | None) -> str:
+    return json.dumps(value or {}, sort_keys=True, ensure_ascii=False)
 
 
 def _body(doc: ResumeDocument) -> tuple[ResumeDocument, str, str]:
@@ -486,7 +482,7 @@ class ResumeStore:
 
     def get_tailoring_run(self, run_id: str) -> TailoringRun:
         r = self._row("tailoring_run", run_id)
-        stages = {name: _loads(r[f"{name}_json"]) for name in RUN_STAGES}
+        stages = {name: json.loads(r[f"{name}_json"]) for name in RUN_STAGES}
         return _from_row(TailoringRun, r, stages=stages)
 
     def record_tailoring_change(
@@ -674,4 +670,4 @@ class ResumeStore:
 
     @staticmethod
     def _export(r: sqlite3.Row) -> ResumeExport:
-        return _from_row(ResumeExport, r, ats_check=_loads(r["ats_check_json"]))
+        return _from_row(ResumeExport, r, ats_check=json.loads(r["ats_check_json"]))
