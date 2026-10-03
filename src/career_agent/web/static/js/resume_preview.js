@@ -206,5 +206,5 @@ export function createResumePreview({ onRef = () => {} } = {}) {
   }
 
   window.addEventListener('resize', fit);
-  return { root, update };
+  return { root, update, destroy: () => window.removeEventListener('resize', fit) };
 }

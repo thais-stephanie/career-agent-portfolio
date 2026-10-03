@@ -58,16 +58,19 @@ def findings(doc: ResumeDocument) -> list[dict[str, Any]]:
         "skills": doc.skills,
     }
     for section, items in entries.items():
+        if section in hidden:
+            continue  # a hidden section is not on the page: nothing in it is advice
         visible = [i for i in items if not i.hidden]
-        if section in doc.layout.section_order and section not in hidden and items and not visible:
+        if section in doc.layout.section_order and items and not visible:
             out.append(_finding("EMPTY_SECTION", f"section/{section}"))
         for item in visible:
             for bullet in getattr(item, "bullets", []):
                 out += _bullet_findings(bullet, f"{section}/{item.id}/bullet/{bullet.id}")
     for custom in doc.custom_sections:
         ref = f"custom:{custom.id}"
-        shown = [b for b in custom.items if not b.hidden and b.text.strip()]
-        if not custom.hidden and ref not in hidden and not shown:
+        if custom.hidden or ref in hidden:
+            continue
+        if not [b for b in custom.items if not b.hidden and b.text.strip()]:
             out.append(_finding("EMPTY_SECTION", f"section/{ref}"))
         for bullet in custom.items:
             out += _bullet_findings(bullet, f"{ref}/bullet/{bullet.id}")

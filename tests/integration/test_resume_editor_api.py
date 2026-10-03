@@ -63,12 +63,13 @@ def test_autosave_writes_the_working_copy_and_refuses_a_stale_one(api: JobsApi) 
     )
     assert saved["sha256"] != made["sha256"]
     assert call(api, "GET", f"/documents/{made['id']}")["title"] == "Renamed"
+    older = {**doc, "title": "From an older window"}
     with pytest.raises(ApiError) as stale:
         call(
             api,
             "PATCH",
             f"/documents/{made['id']}/working",
-            {"document": doc, "expected_sha256": made["sha256"]},
+            {"document": older, "expected_sha256": made["sha256"]},
         )
     assert stale.value.status == 409
     bad = {**doc, "identity": {**doc["identity"], "email": "not an email"}}
@@ -89,6 +90,15 @@ def test_autosave_writes_the_working_copy_and_refuses_a_stale_one(api: JobsApi) 
             {"document": other_kind, "expected_sha256": saved["sha256"]},
         )
     assert changed.value.status == 400
+
+
+def test_a_retried_save_of_the_same_copy_is_not_a_conflict(api: JobsApi) -> None:
+    """The first answer was lost: the same copy again, with the old hash, is
+    already saved, never "changed in another window"."""
+    made = call(api, "POST", "/documents", {"title": "Mine"})
+    body = {"document": {**made["document"], "title": "Once"}, "expected_sha256": made["sha256"]}
+    first = call(api, "PATCH", f"/documents/{made['id']}/working", body)
+    assert call(api, "PATCH", f"/documents/{made['id']}/working", body) == first
 
 
 def test_version_points_are_asked_for_and_typing_writes_none(api: JobsApi) -> None:

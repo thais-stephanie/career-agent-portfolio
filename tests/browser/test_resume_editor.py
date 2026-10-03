@@ -8,6 +8,7 @@ through the module the page itself imports.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
 from collections.abc import Iterator
@@ -31,6 +32,17 @@ from career_agent.web.server import ServerConfig, build_server
 
 CONFIRMED = ["Ran the synthetic data guild.", "Wrote the synthetic runbook."]
 WAITING = "A statement still waiting for review."
+
+
+@pytest.fixture(autouse=True)
+def leave_cleanly(page: Chrome) -> Iterator[None]:
+    """The editor rightly asks before leaving unsaved edits. A test that stops
+    with edits pending must not leave that question blocking the next test."""
+    yield
+    with contextlib.suppress(Exception):
+        page._cdp.call("Page.navigate", {"url": "about:blank"}, timeout=3)
+    with contextlib.suppress(Exception):
+        page._cdp.call("Page.handleJavaScriptDialog", {"accept": True}, timeout=3)
 
 
 @pytest.fixture
@@ -178,6 +190,10 @@ def test_autosave_is_single_flight_newest_wins_and_never_overwrites(
       } });
       c.schedule('keep'); await sleep(80);
       out.retry = [c.state, tries, c.sha];
+      // Edits the page holds back stay unsaved, never reported as saved.
+      const d = createAutosave({ sha: 'z', delay: 5, save: () => Promise.resolve('z2') });
+      d.schedule('valid'); d.hold(); await sleep(40);
+      out.held = [d.state, d.dirty, await d.flush()];
       return out;
     })()""")
     assert result["debounced"] == 1
@@ -186,6 +202,7 @@ def test_autosave_is_single_flight_newest_wins_and_never_overwrites(
     assert result["state"] == "saved"
     assert result["stale"] == ["conflict", 1]
     assert result["retry"] == ["saved", 2, "y2"]
+    assert result["held"] == ["invalid", True, False]
 
 
 def test_typing_previews_saves_and_undoes(page: Chrome, editor_server: dict) -> None:
@@ -277,7 +294,9 @@ def test_a_template_change_keeps_every_word_and_is_a_version_point(
     assert page.evaluate(f"{DOC}.body.textContent") == words
     page.wait_for(f"{STATE} === 'saved'", message="saved")
     page.evaluate("new Promise((r) => setTimeout(r, 500))")
-    assert [r.reason for r in _revisions(editor_server["db"])][-1] == "TEMPLATE_CHANGED"
+    # The version BEFORE the change is in the history; the working copy has the new one.
+    assert {r.content.design.template for r in _revisions(editor_server["db"])} == {"clean"}
+    assert stored(editor_server["db"]).working.design.template == "modern"
 
 
 def test_a_second_window_is_never_overwritten(page: Chrome, editor_server: dict) -> None:
@@ -311,6 +330,33 @@ def test_leaving_after_edits_writes_one_version_point(page: Chrome, editor_serve
     reasons = [r.reason for r in _revisions(editor_server["db"])]
     assert reasons == ["CREATED", "MANUAL_CHECKPOINT"]
     assert stored(editor_server["db"]).working.identity.phone == "+1 555 0177"
+
+
+def test_edits_that_cannot_be_saved_yet_are_never_left_behind(
+    page: Chrome, editor_server: dict
+) -> None:
+    open_editor(page, editor_server["url"])
+    # "Add a project" leaves its required name empty: the copy cannot be saved yet.
+    page.evaluate("document.querySelector('.rve__set[data-section=\"projects\"] > .btn').click()")
+    page.wait_for(f"{STATE} === 'invalid'", message="held")
+    page.evaluate("new Promise((r) => setTimeout(r, 900))")
+    assert page.evaluate(f"{STATE}") == "invalid", "said Saved over unsaved edits"
+    press(page, "Back")
+    page.wait_for("document.querySelector('.rve__notice--bad') !== null", message="refused")
+    assert page.evaluate("document.querySelector('.rvw').dataset.view") == "editor"
+    assert len(stored(editor_server["db"]).working.projects) == 1, "nothing half-saved"
+    # Naming the project makes it savable, and leaving works again.
+    projects = rich().projects
+    page.evaluate(
+        "[...document.querySelectorAll('input[data-ref^=\"projects/\"]')]"
+        ".find((x) => new RegExp('^projects/[0-9A-Z]{26}$').test(x.dataset.ref)"
+        f" && !x.dataset.ref.endsWith({projects[0].id!r})).focus()"
+    )
+    page.type_text("Second synthetic project")
+    page.wait_for(f"{STATE} === 'saved'", message="saved")
+    assert len(stored(editor_server["db"]).working.projects) == 2
+    press(page, "Back")
+    page.wait_for("document.querySelector('.rvw').dataset.view === 'list'", message="left")
 
 
 def test_a_blank_resume_asks_for_a_name_never_you(page: Chrome, editor_server: dict) -> None:

@@ -1966,6 +1966,9 @@ const EN = {
   'rv.find.NOT_FROM_EVIDENCE': 'Written by you: not backed by your saved evidence.',
   'rv.find.TALLER_THAN_PAGE': 'Something is taller than a page.',
   'rv.find.PAGES': '{n} pages: most resumes fit in two.',
+  'rv.unsaved': 'Not saved: some fields need fixing, or the last save failed. Your edits are still here.',
+  'rv.unsaved.leave': 'Leave without saving',
+  'rv.failed': 'That did not work. Nothing was changed; try again.',
   'rv.evidence.title': 'Add from your confirmed experience',
   'rv.evidence.lede': 'Only confirmed statements, word for word. Adding one copies it into this resume; your '
     + 'Career Profile does not change. To: {to}',
@@ -5807,6 +5810,10 @@ const PT_BR = {
   'rv.find.NOT_FROM_EVIDENCE': 'Escrita por você: sem respaldo na sua evidência salva.',
   'rv.find.TALLER_THAN_PAGE': 'Algo é mais alto que uma página.',
   'rv.find.PAGES': '{n} páginas: a maioria dos currículos cabe em duas.',
+  'rv.unsaved': 'Não salvo: alguns campos precisam de ajuste, ou o último salvamento falhou. '
+    + 'Suas edições continuam aqui.',
+  'rv.unsaved.leave': 'Sair sem salvar',
+  'rv.failed': 'Não funcionou. Nada foi alterado; tente de novo.',
   'rv.evidence.title': 'Adicionar da sua experiência confirmada',
   'rv.evidence.lede': 'Só declarações confirmadas, palavra por palavra. Adicionar copia para este currículo; seu '
     + 'Perfil de carreira não muda. Para: {to}',

@@ -7,6 +7,7 @@ measured inside the preview frame, the way the paginator measures it.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
 from collections.abc import Iterator
@@ -23,6 +24,17 @@ from career_agent.runtime import RuntimeMode, stamp_identity
 from career_agent.storage.db import connect, migrate, transaction
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ServerConfig, build_server
+
+
+@pytest.fixture(autouse=True)
+def leave_cleanly(page: Chrome) -> Iterator[None]:
+    """The editor rightly asks before leaving unsaved edits. A test that stops
+    with edits pending must not leave that question blocking the next test."""
+    yield
+    with contextlib.suppress(Exception):
+        page._cdp.call("Page.navigate", {"url": "about:blank"}, timeout=3)
+    with contextlib.suppress(Exception):
+        page._cdp.call("Page.handleJavaScriptDialog", {"accept": True}, timeout=3)
 
 
 @pytest.fixture

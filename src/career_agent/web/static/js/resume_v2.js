@@ -100,25 +100,39 @@ export function createResumeWorkspace({ host }) {
     if (name === 'list') void drawList();
   }
 
+  function close() {
+    if (editor) editor.destroy();
+    editor = null;
+    views.editor.replaceChildren();
+    show('list');
+  }
+
   async function open(id) {
-    if (editor) await editor.leave();
+    // An editor whose edits could not be saved stays open and says why.
+    if (editor && !(await editor.leave())) {
+      show('editor');
+      return;
+    }
     const answer = await getResumeDocument(id);
-    editor = createEditor(answer, { onClose: () => show('list'), onOpen: (next) => open(next) });
+    if (editor) editor.destroy();
+    editor = createEditor(answer, { onClose: () => show('list'), onDiscard: close, onOpen: (next) => open(next) });
     views.editor.replaceChildren(editor.root);
     show('editor');
-    return editor;
   }
+
+  const failed = () => {
+    if (editor) editor.failed();
+  };
 
   async function drawHome() {
     const [listed, master] = await Promise.all([listResumeDocuments(), getResumeMaster()]);
     const there = Boolean(master.master);
-    const makeMaster = button(t(there ? 'rv.home.openMaster' : 'rv.home.makeMaster'), async () => {
-      const made = master.master || (await createResumeMaster()).master;
-      await open(made.id);
+    const makeMaster = button(t(there ? 'rv.home.openMaster' : 'rv.home.makeMaster'), () => {
+      void Promise.resolve(master.master || createResumeMaster().then((made) => made.master))
+        .then((made) => open(made.id)).catch(failed);
     }, { className: 'btn btn--primary' });
-    const scratch = button(t('rv.home.scratch'), async () => {
-      const made = await createResumeDocument({ title: t('rv.home.scratchTitle') });
-      await open(made.id);
+    const scratch = button(t('rv.home.scratch'), () => {
+      void createResumeDocument({ title: t('rv.home.scratchTitle') }).then((made) => open(made.id)).catch(failed);
     }, { className: 'btn' });
     const recent = [...listed].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3);
     views.home.replaceChildren(
@@ -144,7 +158,7 @@ export function createResumeWorkspace({ host }) {
     return el('div', { className: 'rvw__row' }, [
       el('span', { className: 'rvw__rowtitle', text: label }),
       el('span', { className: 'rvw__kind', text: t(`rv.kind.${d.kind}`) }),
-      smallButton(t('rv.open'), () => void open(d.id), { ariaLabel: `${t('rv.open')}: ${label}` }),
+      smallButton(t('rv.open'), () => void open(d.id).catch(failed), { ariaLabel: `${t('rv.open')}: ${label}` }),
     ]);
   }
 
@@ -171,8 +185,7 @@ export function createResumeWorkspace({ host }) {
   return {
     show: () => { show(editor ? 'editor' : 'home'); },
     /** Leaving the page: finish saving, and mark the visit if it changed anything. */
-    leave: () => (editor ? editor.leave() : Promise.resolve()),
-    open,
+    leave: () => (editor ? editor.leave() : Promise.resolve(true)),
     /** The language changed: every word again, nothing else. */
     relabel() {
       label();
@@ -180,7 +193,6 @@ export function createResumeWorkspace({ host }) {
       if (root.dataset.view === 'home') void drawHome();
       if (root.dataset.view === 'list') void drawList();
     },
-    get editor() { return editor; },
   };
 }
 
@@ -188,11 +200,10 @@ export function createResumeWorkspace({ host }) {
 // the editor
 // ===========================================================================
 
-function createEditor(answer, { onClose, onOpen }) {
+function createEditor(answer, { onClose, onDiscard, onOpen }) {
   let doc = structuredClone(answer.document);
   let editedSinceOpen = false;
   let previewTimer = null;
-  let findings = [];
   let layout = null;
   const history = createHistory();
   const saveState = el('p', { className: 'rve__state', attrs: { role: 'status', 'aria-live': 'polite' } });
@@ -219,7 +230,7 @@ function createEditor(answer, { onClose, onOpen }) {
   const design = el('div', { className: 'rve__design' });
   const undoButton = smallButton(t('rv.undo'), () => undo());
   const redoButton = smallButton(t('rv.redo'), () => redo());
-  const backButton = smallButton(t('rv.back'), () => void leave().then(onClose));
+  const backButton = smallButton(t('rv.back'), () => void leave().then((left) => { if (left) onClose(); }));
   const pointButton = smallButton(t('rv.checkpoint'), () => void checkpoint('MANUAL_CHECKPOINT', true));
   const kindTag = el('span', { className: 'rvw__kind' });
   const designSummary = el('summary');
@@ -235,7 +246,12 @@ function createEditor(answer, { onClose, onOpen }) {
     className: 'input rve__titleinput',
     attrs: { 'aria-label': t('rv.docTitle'), maxlength: '300', 'data-key': 'title' },
     props: { value: doc.title },
-    on: { input: (e) => edit((d) => { d.title = e.target.value; }, 'title') },
+    on: {
+      input: (e) => {
+        edit((d) => { d.title = e.target.value; }, 'title');
+        title.setAttribute('aria-invalid', problems().has('title') ? 'true' : 'false');
+      },
+    },
   });
   const bar = el('header', { className: 'rve__bar' }, [
     backButton, title, kindTag, undoButton, redoButton, pointButton, saveState,
@@ -293,28 +309,28 @@ function createEditor(answer, { onClose, onOpen }) {
   /** An edit that changes the form's shape (add, remove, move, hide). */
   const reshape = (fn) => () => edit(fn, null, { redraw: true });
 
-  function changed({ redraw }) {
-    if (redraw) drawForm();
+  function syncButtons() {
     undoButton.disabled = !history.canUndo;
     redoButton.disabled = !history.canRedo;
+  }
+
+  function changed({ redraw }) {
+    if (redraw) drawForm();
+    syncButtons();
     schedulePreview();
+    // Edits the server would refuse are held here, unsaved and said to be.
     if (valid()) autosave.schedule(doc);
-    else say('invalid');
+    else autosave.hold();
   }
 
-  function undo() {
-    const previous = history.undo(doc);
-    if (!previous) return;
-    doc = previous;
+  /** Undo or redo: a whole earlier (or later) document, if there is one. */
+  function step(state) {
+    if (!state) return;
+    doc = state;
     changed({ redraw: true });
   }
-
-  function redo() {
-    const next = history.redo(doc);
-    if (!next) return;
-    doc = next;
-    changed({ redraw: true });
-  }
+  const undo = () => step(history.undo(doc));
+  const redo = () => step(history.redo(doc));
 
   function schedulePreview(ms = PREVIEW_MS) {
     clearTimeout(previewTimer);
@@ -322,28 +338,48 @@ function createEditor(answer, { onClose, onOpen }) {
     previewTimer = setTimeout(async () => {
       const result = await preview.update(doc);
       if (!result) return;
-      findings = result.findings || [];
       layout = result;
       drawCheck();
     }, ms);
   }
 
   // -- saving ---------------------------------------------------------------
+  /** A version point of what is SAVED; refused while edits are not saved. */
   async function checkpoint(reason, announce = false) {
-    if (!(await autosave.flush())) return false;
+    if (!valid() || !(await autosave.flush())) {
+      drawUnsaved();
+      return false;
+    }
     await saveResumeCheckpoint(answer.id, reason);
     if (announce) say('saved', 'rv.save.point');
     return true;
   }
 
+  /** True when everything is saved (and the visit marked); false keeps the page here. */
   async function leave() {
     clearTimeout(previewTimer);
-    if (editedSinceOpen && valid()) {
-      await checkpoint('MANUAL_CHECKPOINT');
-      editedSinceOpen = false;
-    } else {
-      await autosave.flush();
+    if (!editedSinceOpen) {
+      if (await autosave.flush()) return true;
+      drawUnsaved();
+      return false;
     }
+    if (!(await checkpoint('MANUAL_CHECKPOINT'))) return false;
+    editedSinceOpen = false;
+    return true;
+  }
+
+  function drawUnsaved() {
+    if (autosave.state === 'conflict') return;
+    notices.replaceChildren(el('div', { className: 'rve__notice rve__notice--bad', attrs: { role: 'alert' } }, [
+      el('p', { text: t('rv.unsaved') }),
+      smallButton(t('rv.unsaved.leave'), () => onDiscard()),
+    ]));
+  }
+
+  function failed() {
+    notices.replaceChildren(el('div', { className: 'rve__notice rve__notice--bad', attrs: { role: 'alert' } }, [
+      el('p', { text: t('rv.failed') }),
+    ]));
   }
 
   async function reload() {
@@ -354,18 +390,21 @@ function createEditor(answer, { onClose, onOpen }) {
     notices.replaceChildren();
     editedSinceOpen = false;
     drawForm();
-    undoButton.disabled = true;
-    redoButton.disabled = true;
+    syncButtons();
     schedulePreview(0);
   }
 
   function drawConflict() {
     notices.replaceChildren(el('div', { className: 'rve__notice rve__notice--bad', attrs: { role: 'alert' } }, [
       el('p', { text: t('rv.conflict') }),
-      smallButton(t('rv.conflict.reload'), () => void reload()),
-      smallButton(t('rv.conflict.copy'), async () => {
-        const copy = await createResumeDocument({ from: doc });
-        onOpen(copy.id);
+      smallButton(t('rv.conflict.reload'), () => void reload().catch(failed)),
+      smallButton(t('rv.conflict.copy'), () => {
+        void createResumeDocument({ from: doc }).then((copy) => {
+          // This copy now lives in the duplicate: nothing here is left to save.
+          autosave.reset(autosave.sha);
+          editedSinceOpen = false;
+          onOpen(copy.id);
+        }).catch(failed);
       }),
     ]));
   }
@@ -374,6 +413,7 @@ function createEditor(answer, { onClose, onOpen }) {
   function problems() {
     const out = new Map();
     const need = (value, ref) => { if (!String(value || '').trim()) out.set(ref, 'rv.need.text'); };
+    need(doc.title, 'title');
     const id = doc.identity;
     if (id.email && !EMAIL.test(id.email)) out.set('identity/email', 'rv.need.email');
     if (id.country && !COUNTRY.test(id.country)) out.set('identity/country', 'rv.need.country');
@@ -761,9 +801,9 @@ function createEditor(answer, { onClose, onOpen }) {
     const named = (prefix, values) => values.map((v) => [v, t(`${prefix}.${v}`)]);
     design.replaceChildren(
       choice('rv.design.template', d.template, named('rv.template', ['clean', 'modern', 'compact']), (v) => {
-        set((x) => { x.design.template = v; });
-        // A new template is a milestone: the version before it can be gone back to.
-        void checkpoint('TEMPLATE_CHANGED');
+        // A new template is a milestone: the version BEFORE it is kept, then the change is made.
+        void (valid() ? checkpoint('TEMPLATE_CHANGED') : Promise.resolve())
+          .then(() => set((x) => { x.design.template = v; })).catch(failed);
       }),
       choice('rv.design.page', d.page.size, [['A4', 'A4'], ['LETTER', t('rv.page.letter')]], (v) => {
         set((x) => { x.design.page.size = v; });
@@ -788,7 +828,9 @@ function createEditor(answer, { onClose, onOpen }) {
 
   // -- check ----------------------------------------------------------------
   function drawCheck() {
-    const items = findings.map((f) => ({ ref: f.ref, text: t(`rv.find.${f.kind}`), severity: f.severity }));
+    const items = ((layout && layout.findings) || []).map((f) => ({
+      ref: f.ref, text: t(`rv.find.${f.kind}`), severity: f.severity,
+    }));
     for (const ref of (layout && layout.overflow) || []) {
       items.push({ ref, text: t('rv.find.TALLER_THAN_PAGE'), severity: 'problem' });
     }
@@ -827,8 +869,11 @@ function createEditor(answer, { onClose, onOpen }) {
   // -- add from confirmed evidence ------------------------------------------
   async function pickEvidence(locate, ownerLabel, experienceId) {
     const career = await getCareer();
+    // Every line of the document, wherever it sits, already cites what it cites.
     const held = new Set();
-    for (const e of doc.experience) for (const b of e.bullets) for (const k of b.evidence_ids) held.add(k);
+    const lists = [...doc.experience, ...doc.projects, ...doc.education].map((e) => e.bullets)
+      .concat(doc.custom_sections.map((c) => c.items));
+    for (const list of lists) for (const b of list) for (const k of b.evidence_ids) held.add(k);
     const drawer = openDrawer({
       title: t('rv.evidence.title'),
       lede: t('rv.evidence.lede', { to: ownerLabel || t('rv.untitled') }),
@@ -863,8 +908,7 @@ function createEditor(answer, { onClose, onOpen }) {
     ]));
   }
 
-  undoButton.disabled = true;
-  redoButton.disabled = true;
+  syncButtons();
   drawForm();
   schedulePreview(0);
   void masterNotice();
@@ -877,8 +921,11 @@ function createEditor(answer, { onClose, onOpen }) {
       drawForm();
       drawCheck();
     },
+    failed,
+    destroy: () => {
+      clearTimeout(previewTimer);
+      preview.destroy();
+    },
     dirty: () => autosave.dirty,
-    /** The document being edited, as the page holds it now. */
-    get document() { return doc; },
   };
 }

@@ -15,6 +15,10 @@
  * server refuses as invalid waits for the next edit. `flush()` finishes every
  * pending save before anything that must see the saved document.
  *
+ * UNSAVED BY THE PAGE. While the page holds edits it cannot send yet (a
+ * required field left empty), `hold()` says so: the document stays dirty,
+ * "Saved" is never shown over them, and `flush()` answers false.
+ *
  * EDITS. A line that came from evidence keeps its origin and evidence when
  * the person rewords it: it becomes an override with the wording it replaced
  * kept, and putting the old words back makes it untouched again. Nothing
@@ -87,6 +91,7 @@ export function createAutosave({ save, sha, delay = 600, retryMs = 3000, onState
   let timer = null;
   let inflight = null;
   let state = 'saved';
+  let held = false;
   const set = (next) => { state = next; onState(next); };
 
   function wait(ms) {
@@ -102,23 +107,25 @@ export function createAutosave({ save, sha, delay = 600, retryMs = 3000, onState
     inflight = save(doc, hash).then((next) => {
       hash = next;
     }, (error) => {
+      const newer = pending;
       // A newer copy, if one arrived meanwhile, is what goes next.
       pending = pending || doc;
       if (error && error.status === 409) set('conflict');
-      else if (error && error.status === 400) set('invalid');
-      else set('retrying');
+      else if (error && error.status === 400 && !newer) set('invalid');
+      else if (!(error && error.status === 400)) set('retrying');
     }).finally(() => {
       inflight = null;
       if (state === 'conflict' || state === 'invalid') return;
       if (state === 'retrying') wait(retryMs);
       else if (pending) void run();
-      else set('saved');
+      else set(held ? 'invalid' : 'saved');
     });
     return inflight;
   }
 
   return {
     schedule(doc) {
+      held = false;
       if (state === 'conflict') { pending = doc; return; }
       pending = doc;
       if (state !== 'saving') set('pending');
@@ -131,19 +138,28 @@ export function createAutosave({ save, sha, delay = 600, retryMs = 3000, onState
       if (inflight) await inflight;
       if (pending && state !== 'conflict') await run();
       while (inflight) await inflight;
-      return state === 'saved' && !pending;
+      return state === 'saved' && !pending && !held;
+    },
+    /** The page has edits it cannot send yet: nothing may call them saved. */
+    hold() {
+      held = true;
+      clearTimeout(timer);
+      timer = null;
+      pending = null;
+      if (!inflight && state !== 'conflict') set('invalid');
     },
     /** A document replaced from outside: its hash, nothing pending. */
     reset(nextSha) {
       clearTimeout(timer);
       timer = null;
       pending = null;
+      held = false;
       hash = nextSha;
       set('saved');
     },
     get state() { return state; },
     get sha() { return hash; },
-    get dirty() { return Boolean(pending || inflight) || state !== 'saved'; },
+    get dirty() { return held || Boolean(pending || inflight) || state !== 'saved'; },
   };
 }
 

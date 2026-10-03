@@ -180,9 +180,13 @@ Analyze are not built and not shown.
   revision. One save at a time; edits made meanwhile go next as one copy;
   every save names the hash it edits, so a second window gets "changed in
   another window" with Reload and Keep my copy as a duplicate, and nothing is
-  overwritten. A failed save keeps the work and retries. A version point is
-  written on purpose: Save version point, a template change, leaving after
-  edits.
+  overwritten. A failed save keeps the work and retries, and a retried save
+  whose first answer was lost is recognised as already saved. Edits the
+  server would refuse (a required field left empty) are held in the page and
+  shown as not saved: leaving, switching document and version points wait
+  until they can be saved, or the person chooses to leave without saving.
+  A version point is written on purpose: Save version point, a template change
+  (the version before it is what is kept), leaving after edits.
 * **Live preview** 120 ms after the last change, newest render wins. A click
   on the paper focuses the field it came from.
 * **Provenance.** Rewording a line from evidence keeps its origin and
