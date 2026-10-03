@@ -76,6 +76,24 @@ def register_career_routes(app: LocalApp) -> None:
         except (ValueError, ValidationError) as exc:
             raise ApiError(409, str(exc), for_reader=True) from exc
 
+    def set_name(*, query: dict, body: dict) -> dict:
+        """The person's name as a resume prints it, in the existing candidate
+        row. Not a search answer: nothing that scores a posting reads it."""
+        from career_agent.storage.workspace_repo import (
+            PLACEHOLDER_NAME,
+            ensure_candidate,
+            person_name,
+        )
+
+        name = " ".join(str(body.get("name") or "").split())
+        if not name or len(name) > 200 or name.casefold() == PLACEHOLDER_NAME.casefold():
+            raise ApiError(400, "Write your name as it should appear on a resume.", for_reader=True)
+        with closing(app.connect()) as conn, transaction(conn):
+            candidate_id = ensure_candidate(conn)
+            conn.execute("UPDATE candidate SET display_name = ? WHERE id = ?", (name, candidate_id))
+            return {"name": person_name(conn)}
+
+    app.register("PATCH", r"/api/candidate/name", set_name)
     app.register("GET", r"/api/career", overview)
     app.register("GET", r"/api/career/evidence", evidence)
     app.register("GET", r"/api/career/history", history)

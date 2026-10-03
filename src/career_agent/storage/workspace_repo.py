@@ -93,6 +93,18 @@ class StagedImport:
         return self.accepted + self.edited
 
 
+#: The display name a new candidate row starts with. A placeholder, never a
+#: person's name: nothing may print it on a resume (see `person_name`).
+PLACEHOLDER_NAME = "You"
+
+
+def person_name(conn: sqlite3.Connection) -> str:
+    """The person's own name, or "" while it is still the placeholder."""
+    row = conn.execute("SELECT display_name FROM candidate LIMIT 1").fetchone()
+    name = " ".join(str(row["display_name"] or "").split()) if row is not None else ""
+    return "" if name.casefold() == PLACEHOLDER_NAME.casefold() else name
+
+
 def candidate_id_of(conn: sqlite3.Connection) -> str | None:
     """The sole candidate, or None if this database has never had one.
 

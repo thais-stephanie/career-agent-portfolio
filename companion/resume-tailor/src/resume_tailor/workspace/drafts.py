@@ -227,21 +227,56 @@ def effective_resume(run: TailorRun, state: dict[str, Any], index: EvidenceIndex
     }
 
 
+class ExportBlocked(WorkspaceError):
+    """Edits on screen that cannot be exported as they are, and why.
+
+    The file must be the resume the person sees. An edit that goes beyond the
+    evidence (with "Only use things I have really done" on) is neither shipped
+    nor silently swapped for the automatic wording: the export stops and says
+    which line and why."""
+
+    def __init__(self, blocked: list[dict[str, Any]]) -> None:
+        super().__init__("Some edited lines go beyond your saved experience.")
+        self.blocked = blocked
+
+
 def export_resume(
     run: TailorRun, state: dict[str, Any], index: EvidenceIndex, evidence_only: bool = True
 ):
-    """A GeneratedResume clone with the draft applied, for the existing exporters.
-    With evidence-only mode on, an unsupported edited bullet exports its last
-    validated (automatic) wording instead — an unvalidated claim never ships silently."""
+    """A GeneratedResume clone with the draft applied, for the existing exporters:
+    exactly what `effective_resume` shows. With evidence-only mode on, an edited
+    line its evidence does not support raises `ExportBlocked` instead."""
     res = run.generated_resume.model_copy(deep=True)
     bullets_state: dict[str, Any] = state.get("bullets", {})
+    if evidence_only:
+        blocked = []
+        for e in res.experience:
+            for b in e.bullets:
+                bs = bullets_state.get(b.id, {})
+                if bs.get("text") is None or bs.get("hidden"):
+                    continue
+                verdict = validate_edit(run, index, b.id, bs["text"])
+                if not verdict["ok"]:
+                    blocked.append(
+                        {
+                            "id": b.id,
+                            "company": e.company,
+                            "text": bs["text"],
+                            "why": verdict["not_evidenced"],
+                        }
+                    )
+        if blocked:
+            raise ExportBlocked(blocked)
     if state.get("headline"):
         res.headline = state["headline"]
     if state.get("summary") is not None:
-        for i, text in enumerate(state["summary"]):
-            if i < len(res.summary):
-                res.summary[i].text = text
-        res.summary = res.summary[: len(state["summary"])]
+        lines = list(state["summary"])
+        for i, text in enumerate(lines[: len(res.summary)]):
+            res.summary[i].text = text
+        res.summary = res.summary[: len(lines)] + [
+            Bullet(id=f"s-edit-{n}", text=text, origin="manual")
+            for n, text in enumerate(lines[len(res.summary) :], start=1)
+        ]
     for e in res.experience:
         kept = []
         for b in e.bullets:
@@ -249,10 +284,7 @@ def export_resume(
             if bs.get("hidden"):
                 continue
             if bs.get("text") is not None:
-                verdict = validate_edit(run, index, b.id, bs["text"])
-                if verdict["ok"] or not evidence_only:
-                    b.text = bs["text"]
-                # else: keep the automatic, validated wording
+                b.text = bs["text"]  # checked above when evidence-only is on
             kept.append(b)
         order = state.get("order", {}).get(e.position_id)
         if order:

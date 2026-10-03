@@ -158,23 +158,26 @@ class CareerBridge:
             raise ValueError(str(exc)) from exc
         return self.job(job_id)
 
+    def person_name(self) -> str:
+        """The person's own name for a resume, or "" (see `evidence`)."""
+        from career_agent.storage.workspace_repo import person_name
+
+        self._live()
+        with closing(self._api.connect()) as conn:
+            return person_name(conn)
+
     # -- evidence ------------------------------------------------------------
     def evidence(self) -> dict[str, Any]:
         """The Career Profile as Resume Tailor may use it: experiences with
         their CONFIRMED statements and skills, verbatim. Nothing waiting for
         review, nothing retired, nothing rephrased."""
         from career_agent.storage.career_repo import CareerRepo
-        from career_agent.storage.workspace_repo import candidate_id_of
+        from career_agent.storage.workspace_repo import candidate_id_of, person_name
 
         self._live()
         with closing(self._api.connect()) as conn:
             candidate_id = candidate_id_of(conn)
-            name = None
-            if candidate_id is not None:
-                row = conn.execute(
-                    "SELECT display_name FROM candidate WHERE id = ?", (candidate_id,)
-                ).fetchone()
-                name = str(row[0]) if row is not None else None
+            name = person_name(conn)
             overview = CareerRepo(conn, candidate_id).overview() if candidate_id else {}
         experiences = []
         for entry in overview.get("experiences", []):
@@ -198,7 +201,9 @@ class CareerBridge:
             )
         return {
             "profile": {"id": self._profile.id, "label": self._profile.label},
-            "name": name or self._profile.label,
+            # The person's own name, or "" until they give one: never the
+            # placeholder "You" and never the local profile's label.
+            "name": name,
             "experiences": experiences,
         }
 

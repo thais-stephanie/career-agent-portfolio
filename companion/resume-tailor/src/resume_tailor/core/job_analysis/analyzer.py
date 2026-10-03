@@ -64,6 +64,20 @@ _SECTION_CUES = {
         "remote expectations",
         "hybrid expectations",
         "schedule",
+        # Portuguese: conditions and company prose
+        "benefícios",
+        "beneficios",
+        "o que oferecemos",
+        "sobre nós",
+        "sobre nos",
+        "sobre a empresa",
+        "quem somos",
+        "remuneração",
+        "salário",
+        "local de trabalho",
+        "jornada de trabalho",
+        "etapas do processo",
+        "processo seletivo",
     ],
     "skills": ["skills"],
     "responsibility": [
@@ -77,6 +91,15 @@ _SECTION_CUES = {
         "day to day",
         "day-to-day",
         "what you'll be doing",
+        "responsabilidade",
+        "principais responsabilidades",
+        "atribuições",
+        "atribuicoes",
+        "atividades",
+        "o que você vai fazer",
+        "o que voce vai fazer",
+        "o que você fará",
+        "no dia a dia",
     ],
     "must_have": [
         "requirements",
@@ -99,6 +122,19 @@ _SECTION_CUES = {
         "minimum requirements",
         "minimum qualifications",
         "required qualifications",
+        "requisitos",
+        "requisitos obrigatórios",
+        "pré-requisitos",
+        "obrigatório",
+        "obrigatórios",
+        "qualificações",
+        "qualificacoes",
+        "o que você precisa",
+        "o que esperamos",
+        "o que buscamos",
+        "experiência necessária",
+        "conhecimentos",
+        "competências",
     ],
     # ideal-candidate sections: bulleted lines and strong requirement cues are qualifications,
     # descriptive prose contributes cues and terms but never becomes a hard requirement
@@ -106,6 +142,9 @@ _SECTION_CUES = {
         "who you are",
         "about you",
         "your profile",
+        "seu perfil",
+        "quem você é",
+        "sobre você",
         "what we're looking for",
         "what we are looking for",
     ],
@@ -125,6 +164,12 @@ _SECTION_CUES = {
         "preferred requirements",
         "preferred experience",
         "bonus qualifications",
+        "diferenciais",
+        "diferencial",
+        "desejável",
+        "desejáveis",
+        "requisitos desejáveis",
+        "será um diferencial",
     ],
 }
 # key:value job-posting metadata: high-confidence labels only, never candidate requirements
@@ -138,24 +183,24 @@ _META_SCOPE = re.compile(
 # a standalone line that reads as a qualification statement: inside an explicit qualification
 # section it is an item even without a bullet marker
 _QUAL_START = re.compile(
-    r"^(experience|familiarity|proficien\w+|knowledge of|working knowledge|strong|excellent|solid|deep|expert|ability to|comfortable|exposure to|understanding of|track record|background in|degree|bachelor|master|fluen\w+|hands-on|demonstrated|proven|willingness|passion for|genuine)\b",
+    r"^(experiência|experiencia|conhecimento|domínio|dominio|vivência|vivencia|familiaridade|formação|formacao|graduação|graduacao|inglês|ingles|capacidade|experience|familiarity|proficien\w+|knowledge of|working knowledge|strong|excellent|solid|deep|expert|ability to|comfortable|exposure to|understanding of|track record|background in|degree|bachelor|master|fluen\w+|hands-on|demonstrated|proven|willingness|passion for|genuine)\b",
     re.IGNORECASE,
 )
 # only true optionality moves a rescued plain line to nice-to-have; a soft lead verb does not
 _OPTIONAL_INLINE = re.compile(
-    r"\b(a plus|is a plus|bonus|not required|nice to have|ideally|would be a plus|desirable|optional|preferred)\b",
+    r"\b(desejável|desejavel|diferencial|um plus|a plus|is a plus|bonus|not required|nice to have|ideally|would be a plus|desirable|optional|preferred)\b",
     re.IGNORECASE,
 )
 _NICE_INLINE = re.compile(
-    r"\b(nice to have|preferred|a plus|is a plus|bonus|ideally|would be a plus|desirable|not required|familiarity with)\b",
+    r"\b(desejável|desejavel|diferencial|um plus|nice to have|preferred|a plus|is a plus|bonus|ideally|would be a plus|desirable|not required|familiarity with)\b",
     re.IGNORECASE,
 )
 _MUST_INLINE = re.compile(
-    r"\b(must|required|require|minimum|at least|proven|strong|demonstrated|hands-on|hands on|expert|extensive)\b",
+    r"\b(obrigatório|obrigatorio|necessário|necessario|sólida|solida|must|required|require|minimum|at least|proven|strong|demonstrated|hands-on|hands on|expert|extensive)\b",
     re.IGNORECASE,
 )
 _RESP_START = re.compile(
-    r"^(become|handle|conduct|design|build|develop|own|manage|lead|partner|collaborate|drive|maintain|support|implement|create|define|deliver|analy[sz]e|monitor|document|automate|integrate|configure|administer|translate|work|ensure|identify|optimi[sz]e|troubleshoot|serve|act|coordinate|run|operate|execute|evaluate|improve|establish|champion|mentor|coach|report|present|scope|architect|migrate|enable|gather|elicit)\b",
+    r"^(desenvolver|desenvolve|integrar|integra|definir|define|conduzir|conduz|atuar|atua|sustentar|sustenta|construir|constrói|implementar|implementa|criar|cria|garantir|garante|liderar|lidera|projetar|projeta|manter|mantém|apoiar|apoia|colaborar|colabora|analisar|analisa|documentar|documenta|automatizar|automatiza|participar|participa|realizar|realiza|elaborar|elabora|gerenciar|gerencia|monitorar|monitora|otimizar|otimiza|entregar|entrega|trabalhar|trabalha|orientar|orienta|become|handle|conduct|design|build|develop|own|manage|lead|partner|collaborate|drive|maintain|support|implement|create|define|deliver|analy[sz]e|monitor|document|automate|integrate|configure|administer|translate|work|ensure|identify|optimi[sz]e|troubleshoot|serve|act|coordinate|run|operate|execute|evaluate|improve|establish|champion|mentor|coach|report|present|scope|architect|migrate|enable|gather|elicit)\b",
     re.IGNORECASE,
 )
 _SENIORITY = [
@@ -215,6 +260,53 @@ Rules:
 - potential_hard_filters = degree, years, location, authorization, certifications, language.
 - years_required = integer minimum years if stated, else null.
 Do not invent anything that is not in the text."""
+
+
+#: A list marker glued to the text around it ("atribuições• Define ...").
+_GLUED_BULLET = re.compile(r"\s*[•●▪◦‣]\s*")
+#: A sentence end, glued to the next sentence or not ("negócios.Trabalhamos",
+#: "produção. Requisitos"): after a lowercase letter, digit or bracket, before
+#: a capitalised word. "Triggo.ai", "U.S." and "Node.js" stay whole.
+_SENTENCE_END = re.compile(r"(?<=[a-zà-ÿ0-9)\]])([.!?])\s*(?=[A-ZÀ-Ý][a-zà-ÿ])")
+#: "Requisitos: Python; SQL" -- a heading with its first item on the same line.
+_INLINE_HEADING = re.compile(r"^\s*([^:\n]{3,40}):\s+(\S.*)$")
+#: A longer line is a flattened paragraph or a whole posting on one line.
+_FLATTENED = 320
+
+
+def segment(jd_text: str) -> str:
+    """The ad as units a requirement can be read from, one per line.
+
+    Some boards serve an advert with its line breaks lost: headings and "•"
+    items run together on one or two very long lines, which used to be
+    skipped whole (a real Portuguese posting read as 0 requirements). Before
+    any line is classified: every list marker starts a line, a heading with
+    text after its colon is split from it, a flattened line is cut at its
+    sentence ends, and a semicolon list into its items. Only line breaks are added; every unit is
+    still the ad's own words, and the ad kept with the run is the original.
+    """
+    out: list[str] = []
+    for line in jd_text.splitlines():
+        pieces = _GLUED_BULLET.split(line)
+        for index, piece in enumerate(pieces):
+            if not piece.strip():
+                continue
+            heading = _INLINE_HEADING.match(piece)
+            if heading and _section_for(heading.group(1)) and len(heading.group(1).split()) <= 6:
+                out.append(f"{heading.group(1)}:")
+                piece = heading.group(2)
+            if len(piece) > _FLATTENED:
+                piece = _SENTENCE_END.sub(lambda m: m.group(1) + "\n", piece)
+            # "A; B; C" is a list: two or more semicolons, one item each.
+            piece = "\n".join(
+                part
+                for chunk in piece.split("\n")
+                for part in (re.split(r";\s+", chunk) if chunk.count(";") >= 2 else [chunk])
+            )
+            for unit in piece.split("\n"):
+                # A unit that followed a list marker is an item of that list.
+                out.append(f"• {unit}" if index and unit.strip() else unit)
+    return "\n".join(out)
 
 
 def _clean_line(s: str) -> str:
@@ -559,6 +651,7 @@ def _title_from(jd: str) -> str:
 
 
 def deterministic_analysis(jd_text: str) -> JobAnalysis:
+    jd_text = segment(jd_text)
     raw_lines = [line for line in jd_text.splitlines() if _clean_line(line)]
     bulleted = {_clean_line(line) for line in raw_lines if re.match(r"^\s*[\-\*•●▪–—>·]", line)}
     lines = [_clean_line(line) for line in raw_lines]
@@ -668,8 +761,9 @@ def deterministic_analysis(jd_text: str) -> JobAnalysis:
         if (
             target == "responsibility"
             and _RESP_START.match(line) is None
-            and _MUST_INLINE.search(line)
+            and (_MUST_INLINE.search(line) or _QUAL_START.match(line))
         ):
+            # "Experience with X" listed among the duties is still a qualification
             target = "must_have"
         if target == "must_have":
             must.append(line)

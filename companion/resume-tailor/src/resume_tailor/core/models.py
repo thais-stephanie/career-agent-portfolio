@@ -605,10 +605,17 @@ class TailorOptions(BaseModel):
 
 class TailorRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    jd_text: str = Field(min_length=20)
+    jd_text: str = Field(min_length=20)  # the EXACT job ad this run read, kept as sent
     resume_id: str
     target_profile: str | None = None  # None / "auto" -> inferred
     options: TailorOptions = Field(default_factory=TailorOptions)
+    # The posting as Career Agent knows it, when the run came from one: its own
+    # title and company, never re-guessed from the ad's first lines.
+    target_title: str = ""
+    target_company: str = ""
+    # Which posting and which text: kind ("career_agent" | "pasted"),
+    # career_job_id and url when known, and the sha256 of `jd_text`.
+    source: dict[str, str] = Field(default_factory=dict)
 
 
 class PageMeasurement(BaseModel):

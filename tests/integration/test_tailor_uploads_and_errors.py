@@ -161,7 +161,7 @@ def test_every_error_carries_a_code(client, cid) -> None:
     assert missing.status_code == 404 and missing.json()["detail"]["code"] == "not_found"
     unknown_resume = client.get(f"/api/candidates/{cid}/resumes/nope")
     assert unknown_resume.json()["detail"]["code"] == "resume_not_found"
-    invalid = client.post(f"/api/candidates/{cid}/tailor", json={}, headers=HEAD)
+    invalid = client.post(f"/api/candidates/{cid}/tailor", json={"options": "x"}, headers=HEAD)
     assert invalid.status_code == 422
     assert invalid.json()["detail"]["code"] == "invalid_request"
     assert "loc" not in str(invalid.json()), "validation internals stay in the log"

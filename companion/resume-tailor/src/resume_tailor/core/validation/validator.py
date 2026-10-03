@@ -62,7 +62,7 @@ from resume_tailor.core.models import (
     ValidationIssue,
     ValidationReport,
 )
-from resume_tailor.core.text import number_variants, numbers_in, years_claims
+from resume_tailor.core.text import chronology_key, number_variants, numbers_in, years_claims
 from resume_tailor.providers.llm.base import LLMError, LLMProvider
 
 # numbers that are ordinary prose, not metrics
@@ -338,7 +338,7 @@ def _validate_skills(
 def _structural_checks(res: GeneratedResume, index: EvidenceIndex) -> list[ClaimCheck]:
     checks = []
     seen = set()
-    prev_start = "9999-99"
+    prev: tuple[bool, str, str] | None = None
     for e in res.experience:
         p = index.positions.get(e.position_id)
         if p is None:
@@ -361,14 +361,16 @@ def _structural_checks(res: GeneratedResume, index: EvidenceIndex) -> list[Claim
         if e.position_id in seen:
             checks.append(ClaimCheck(check="position_unique", passed=False, detail=e.position_id))
         seen.add(e.position_id)
+        key = chronology_key(e.start, e.end)
+        in_order = prev is None or key <= prev
         checks.append(
             ClaimCheck(
                 check="chronology",
-                passed=e.start <= prev_start,
-                detail="" if e.start <= prev_start else f"{e.position_id} out of order",
+                passed=in_order,
+                detail="" if in_order else f"{e.position_id} out of order",
             )
         )
-        prev_start = e.start
+        prev = key
     return checks
 
 
@@ -597,9 +599,6 @@ class ClaimValidator:
                     text=res.headline,
                 )
             )
-            res.headline = re.sub(
-                "|".join(re.escape(t) for t in bad_head), "", res.headline, flags=re.IGNORECASE
-            ).strip(" |,-")
         status = (
             "pass"
             if rejected == 0 and replaced == 0 and all(c.passed for c in structural)

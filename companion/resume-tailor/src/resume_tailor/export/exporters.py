@@ -48,7 +48,9 @@ def export_filename(candidate_name: str, role_title: str, headline: str, extensi
     The role is the run's inferred JD title; an untitled or low-confidence role falls back to
     the recruiter-facing headline, and with neither the file is "<Applicant Name> - Resume".
     Run ids never appear in the visible name (internal run folders keep them for uniqueness)."""
-    name = _sanitize(candidate_name) or "Resume"
+    from resume_tailor.core.text import real_name
+
+    name = _sanitize(real_name(candidate_name)) or "Resume"
     role = _sanitize(role_title) or _sanitize(headline) or "Resume"
     stem = f"{name} - {role}"[:120].rstrip(". ")
     return f"{stem}.{extension}"
