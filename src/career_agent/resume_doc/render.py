@@ -369,10 +369,21 @@ def stylesheet(doc: ResumeDocument) -> str:
     return root + STYLESHEET % {"page_w": width, "page_h": height, "margin": margin}
 
 
-def render_html(doc: ResumeDocument, *, mode: Mode = "preview") -> RenderedResume:
-    """The whole resume as one HTML document, ready to show or to print."""
+def render_html(
+    doc: ResumeDocument, *, mode: Mode = "preview", breaks: frozenset[str] = frozenset()
+) -> RenderedResume:
+    """The whole resume as one HTML document, ready to show or to print.
+
+    `breaks` are the `data-ref`s of the blocks the preview started a page
+    with. Printed, each of those starts a page: the preview's paginator
+    decides where pages end and print follows it, so the PDF has the
+    preview's pages even where screen and print layout differ by a fraction
+    of a pixel. A ref that names no block changes nothing."""
     r = _Renderer(doc, mode)
     content = r.identity() + "".join(r.body(ref) for ref in r.order())
+    for ref in breaks:
+        block = f'data-ref="{escape(ref)}" data-block'
+        content = content.replace(block, f'{block} style="break-before: page"', 1)
     title = doc.identity.full_name.strip() or doc.title
     width, height = PAGE_MM[doc.design.page.size]
     html = (

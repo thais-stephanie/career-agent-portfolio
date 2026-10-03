@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 from tests.support import committed_config_dir
-from tests.support_resume import rich, sparse
+from tests.support_resume import confirm_cited, long, rich, sparse
 
 from career_agent.clock import new_id
 from career_agent.resume_doc.check import findings
@@ -32,6 +32,7 @@ def make_api(tmp_path: Path, name: str = "p") -> JobsApi:
         stamp_identity(conn, RuntimeMode.PERSONAL, "Synthetic")
         candidate = ensure_candidate(conn)
         conn.execute("UPDATE candidate SET display_name = 'You' WHERE id = ?", (candidate,))
+        confirm_cited(conn, rich(), sparse(), long())
     conn.close()
     return JobsApi(ServerConfig(db_path=db, config_dir=committed_config_dir(), port=0), quiet=True)
 

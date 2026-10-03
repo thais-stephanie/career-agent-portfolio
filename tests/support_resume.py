@@ -250,3 +250,59 @@ def long(**design: Any) -> ResumeDocument:
             "provenance": {"created_from": "SCRATCH"},
         }
     )
+
+
+def confirm_cited(conn: Any, *docs: ResumeDocument) -> None:
+    """Confirm, as synthetic Career Evidence of this database's candidate,
+    every claim the documents cite: their lines then pass the evidence check
+    every write and export makes."""
+    from career_agent.domain.claims import VerifiedClaim
+    from career_agent.domain.enums import ClaimSource, ClaimType
+    from career_agent.resume_doc.evidence import _cited
+    from career_agent.storage.repositories import ClaimRepo
+    from career_agent.storage.workspace_repo import ensure_candidate
+
+    candidate = ensure_candidate(conn)
+    repo = ClaimRepo(conn)
+    keys = sorted({key for doc in docs for _, ids in _cited(doc) for key in ids})
+    for key in keys:
+        if repo.current_row(candidate, key) is None:
+            repo.add(
+                candidate,
+                VerifiedClaim(
+                    claim_key=key,
+                    claim_type=ClaimType.EMPLOYMENT,
+                    text=f"Synthetic evidence {key}",
+                    source=ClaimSource.SELF_ATTESTED,
+                    verified=True,
+                ),
+            )
+
+
+#: Words only a HIDDEN line or section holds: never in a PDF or DOCX.
+HIDDEN_LINE = "Quietly archived the legacy fax gateway nobody remembers."
+HIDDEN_PROJECT = "Shelved prototype exporter"
+
+
+def exportable(**design: Any) -> ResumeDocument:
+    """The rich career with what an export must get right: accents, a
+    portfolio link, a line typed by the person, a hidden line and a hidden
+    section (kept in the document, absent from every rendered file)."""
+    data = rich(**design).model_dump(mode="json")
+    data["identity"]["full_name"] = "Morgan Conceição Exemplo"
+    data["identity"]["links"].append(
+        {"id": rid("link-pf"), "kind": "PORTFOLIO", "url": "https://portfolio.example/morgan"}
+    )
+    role = data["experience"][0]
+    role["bullets"][1]["hidden"] = True
+    role["bullets"][1]["text"] = HIDDEN_LINE
+    role["bullets"].append(
+        {
+            "id": rid("typed"),
+            "text": "Mentorei a equipe de integração em São Paulo, reduzindo 35% do retrabalho.",
+            "origin": "USER_AUTHORED",
+        }
+    )
+    data["projects"].append({"id": rid("shelved"), "name": HIDDEN_PROJECT, "bullets": []})
+    data["layout"] = {"hidden_sections": ["projects"]}
+    return upgrade_resume_document(data)

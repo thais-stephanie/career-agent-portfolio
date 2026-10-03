@@ -3457,7 +3457,11 @@ def forget_command(
             f"delete {local} (it exists)" if local.exists() else f"nothing at {local} to delete"
         )
 
-    from career_agent.resume_doc.store import forget_resume_data, resume_row_counts
+    from career_agent.resume_doc.store import (
+        delete_export_files,
+        forget_resume_data,
+        resume_row_counts,
+    )
 
     conn = None
     counts = {"saved": 0, "tracked": 0, "notes": 0, "events": 0, "fit": 0}
@@ -3488,7 +3492,8 @@ def forget_command(
                 f"clear resumes in {path}: {resumes['resume_document']} resumes,"
                 f" {resumes['resume_revision']} saved versions,"
                 f" {resumes['jd_snapshot']} job ads, {resumes['resume_export']} export records"
-                " (files already saved on disk, and the Resume helper's own folder, stay)"
+                " and their files in this profile's folder (copies you downloaded,"
+                " and the Resume helper's own folder, stay)"
             )
 
     typer.secho("This will:", bold=True)
@@ -3510,12 +3515,14 @@ def forget_command(
         local.unlink()
         removed.append(("settings file", local))
     if conn is not None:
+        exported: list[Path] = []
         with transaction(conn):
             conn.execute("DELETE FROM job_application_event")
             conn.execute("DELETE FROM job_application")
             conn.execute("DELETE FROM search_fit_feedback")
             if what == "everything":
-                forget_resume_data(conn)  # in the same transaction: all or nothing
+                exported = forget_resume_data(conn)  # in the same transaction: all or nothing
+        delete_export_files(exported)  # their files, once the rows are gone for good
         removed.append(("tracking rows cleared", counts["saved"] + counts["tracked"]))
         removed.append(("Search Fit answers cleared", counts["fit"]))
         if what == "everything":

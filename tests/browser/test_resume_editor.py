@@ -20,7 +20,7 @@ import pytest
 from tests.browser.chrome import Chrome
 from tests.browser.conftest import DESKTOP, _free_port
 from tests.integration.test_resume_master import claim, experience
-from tests.support_resume import rich
+from tests.support_resume import confirm_cited, rich
 
 from career_agent.domain.enums import ClaimType
 from career_agent.resume_doc.store import ResumeStore
@@ -65,6 +65,7 @@ def editor_server(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, 
         claim(conn, "k-guild", ClaimType.EMPLOYMENT, CONFIRMED[0], experience=job)
         claim(conn, "k-runbook", ClaimType.EMPLOYMENT, CONFIRMED[1], experience=job)
         claim(conn, "k-wait", ClaimType.EMPLOYMENT, WAITING, experience=job, verified=False)
+        confirm_cited(conn, rich())
     ResumeStore(conn).create_document(rich())
     conn.close()
     port = _free_port()
