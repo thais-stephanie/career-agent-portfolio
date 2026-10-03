@@ -495,7 +495,11 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
       const issues = (c.issues || []).map((i) => t(`rv.ats.issue.${i}`)).join(' ');
       return el('li', { className: 'rve__atscheck', dataset: { status: c.status } }, [
         el('span', { className: 'rve__mark', attrs: { 'aria-hidden': 'true' }, text: MARKS[c.status] }),
-        el('span', { text: `${t(`rv.ats.status.${c.status}`)}: ${words}${issues ? ` (${issues})` : ''}` }),
+        el('span', {
+          text: t(issues ? 'rv.ats.lineIssues' : 'rv.ats.line', {
+            status: t(`rv.ats.status.${c.status}`), words, issues,
+          }),
+        }),
       ]);
     });
     exportBox.replaceChildren(el('div', { className: 'rve__notice' }, [
