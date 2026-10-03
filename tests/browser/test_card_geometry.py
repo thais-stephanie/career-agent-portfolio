@@ -30,7 +30,7 @@ from tests.browser.test_browser_acceptance import A_REAL_CARD, RENDERED_COUNT, o
 #: The design's Radius section: card / column / panel is 12px.
 #: The redesign handoff (2026-10): a job card is 14px, a board card 12px,
 #: a board column and the list's frame 16px.
-CARD_RADIUS_PX = 14.0
+CARD_RADIUS_PX = 16.0
 BOARD_CARD_RADIUS_PX = 12.0
 PANEL_RADIUS_PX = 16.0
 #: Surfaces the next redesign slice restyles keep the earlier 12px.

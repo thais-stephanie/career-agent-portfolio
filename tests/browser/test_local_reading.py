@@ -127,9 +127,9 @@ def test_a_reading_runs_shows_progress_and_is_shown_again(page: Chrome, local_se
         assert _message(page).strip(), "a running reading says what it is doing"
         # The drawer redraws itself with the stored reading once it succeeds.
         page.wait_for(
-            "document.querySelector('.kv--enrich')",
+            "document.querySelector('.d-short')",
             timeout=30,
-            message="the stored reading drawn in the drawer",
+            message="the stored reading's summary drawn in the drawer",
         )
         # Redrawn once, then stable: a finished reading must not reopen the
         # drawer again and again (it did, every 1.5s, while it stayed open).
@@ -137,7 +137,7 @@ def test_a_reading_runs_shows_progress_and_is_shown_again(page: Chrome, local_se
             "performance.getEntriesByType('resource').filter((e) =>"
             " /\\/api\\/jobs\\/[^/?]+$/.test(new URL(e.name).pathname)).length"
         )
-        page.wait_for("document.querySelector('.kv--enrich')", message="the redrawn drawer")
+        page.wait_for("document.querySelector('.d-short')", message="the redrawn drawer")
         import time
 
         time.sleep(1.0)
@@ -146,7 +146,7 @@ def test_a_reading_runs_shows_progress_and_is_shown_again(page: Chrome, local_se
         assert page.evaluate(job_calls) == settled, "the drawer kept reopening itself"
     # Reopening shows the stored reading without asking the model again.
     _open_drawer(page, world)
-    page.wait_for("document.querySelector('.kv--enrich')", message="the stored reading")
+    page.wait_for("document.querySelector('.d-short')", message="the stored reading")
     assert "again" in str(page.evaluate("document.getElementById('enrich-run').textContent"))
     import time
 

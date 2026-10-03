@@ -128,12 +128,14 @@ def _active_filters(page: Chrome) -> int:
     line. Asserting "no filters" would be asserting something about
     `include_off_target` and calling it a preference.
     """
-    text = _counter(page)
-    for part in text.split(chr(0xB7)):
-        words = part.split()
-        if "filter" in part and words and words[0].isdigit():
-            return int(words[0])
-    return 0
+    # V3 carries the count on the All filters button, not in the result line.
+    text = str(
+        page.evaluate(
+            "(() => { const n = document.querySelector('#rail-toggle .railtoggle__count');"
+            " return n && !n.hidden ? n.textContent : '0'; })()"
+        )
+    )
+    return int(text) if text.strip().isdigit() else 0
 
 
 # =========================================================================

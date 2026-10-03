@@ -31,7 +31,7 @@ import { renderKanban, kanbanSkeleton } from './kanban.js';
 import { renderPreferences } from './preferences.js';
 import { renderSearchSettings } from './search-settings.js';
 import { renderAiSettings } from './ai-settings.js';
-import { setSearchFitReadiness } from './badges.js';
+import { searchFitIsReady, setSearchFitReadiness } from './badges.js';
 import { renderProfile } from './profile.js';
 import { LOCALES, getLocale, initialLocale, setLocale, t, tState } from './i18n.js';
 import { createRetrievalPanel } from './retrieval.js';
@@ -201,6 +201,8 @@ const drawer = createDrawer({
     store.set({ openJobId: null });
     goTo('documents');
   },
+  // The arithmetic and the raw local reading, for `?debug=1` only.
+  debug: DEV_SCORING,
 });
 document.getElementById('drawer-host').appendChild(drawer.root);
 
@@ -743,7 +745,9 @@ dom.direction.addEventListener('click', () => {
 
 store.subscribe((state, meta) => {
   panel.syncState(state, meta);
-  syncRailCount(renderChips(dom.chips, state, store));
+  // The badge counts what the result line calls "your search" (V3).
+  renderChips(dom.chips, state, store);
+  syncRailCount(activeFilterCount(state));
   syncHeader(state);
 
   // A popstate that moved only `openJobId` -- Back with the drawer open -- is
@@ -917,17 +921,30 @@ function paint(state) {
 
   announce(state, items.length, lastResponse.total);
   renderPager(state);
+  renderJobsTip(state);
 }
+
+//: "What does the percentage mean?", until the person says "Got it".
+const JOBS_TIP_KEY = 'careerAgent.tip.jobs';
+function renderJobsTip(state) {
+  const tip = document.getElementById('jobs-tip');
+  let dismissed = false;
+  try { dismissed = window.localStorage.getItem(JOBS_TIP_KEY) === '1'; } catch { /* a nicety */ }
+  tip.hidden = dismissed || state.view === 'kanban' || !searchFitIsReady();
+  document.getElementById('jobs-tip-title').textContent = t('jobsTip.title');
+  document.getElementById('jobs-tip-text').textContent = t('jobsTip.text');
+  document.getElementById('jobs-tip-ok').textContent = t('jobsTip.ok');
+}
+document.getElementById('jobs-tip-ok').addEventListener('click', () => {
+  try { window.localStorage.setItem(JOBS_TIP_KEY, '1'); } catch { /* a nicety */ }
+  document.getElementById('jobs-tip').hidden = true;
+});
 
 function announce(state, shown, total) {
   syncFiltersShow();
   const filters = activeFilterCount(state);
   const from = total ? state.offset + 1 : 0;
   const to = state.offset + shown;
-  // "roles" and "postings" are different nouns because they are different
-  // counts. Saying "132 postings" over a grouped list would be false: there
-  // are 163, and 132 of them are the ones standing for the rest.
-  const unit = state.group_duplicates ? 'Role' : 'Job';
 
   // Why the numbers on this screen do not subtract.
   //
@@ -942,17 +959,24 @@ function announce(state, shown, total) {
   // `s`, which is the whole of English pluralisation and none of anybody
   // else's, so the count chooses the sentence rather than inflecting a noun
   // inside one.
-  const parts = [
-    total === 1 ? t(`count.one${unit}`) : t(`count.${unit.toLowerCase()}s`, { n: total }),
+  // V3: "66 jobs picked for you · showing 1-20". The filter count is on the
+  // All filters button; the folded reposts stay, so the numbers reconcile.
+  const quiet = [
     state.group_duplicates && grouped
       ? (grouped === 1 ? t('count.oneRepostFolded') : t('count.repostsFolded', { n: grouped }))
       : null,
     total > shown ? t('count.showingRange', { from, to }) : null,
-    filters
-      ? (filters === 1 ? t('count.oneFilterActive') : t('count.filtersActive', { n: filters }))
-      : t('count.noFilters'),
   ].filter(Boolean);
-  dom.count.textContent = parts.join(' · ');
+  replace(dom.count, [
+    el('strong', {
+      className: 'resultcount__n',
+      // "jobs" in both groupings: a grouped card is one job, and the reposts
+      // it stands for are counted beside it ("2 reposts folded in").
+      text: total === 1 ? t('count.oneJob') : t('count.jobs', { n: total }),
+    }),
+    ` ${t(`count.${filters ? 'matchSearch' : 'pickedForYou'}${total === 1 ? 'One' : ''}`)}`,
+    quiet.length ? el('span', { className: 'resultcount__quiet', text: ` · ${quiet.join(' · ')}` }) : null,
+  ].filter(Boolean));
   renderRevisionNotice();
   renderHiddenNotice(state);
 }
@@ -1438,21 +1462,35 @@ function renderPager(state) {
   dom.pager.hidden = false;
   const page = Math.floor(state.offset / state.limit) + 1;
   const pages = Math.ceil(total / state.limit);
-  const step = (delta) => store.set(
-    { offset: Math.max(0, state.offset + delta) },
-    { resetOffset: false },
-  );
+  const go = (n) => {
+    store.set({ offset: (n - 1) * state.limit }, { resetOffset: false });
+    dom.count.scrollIntoView({ block: 'start', behavior: 'instant' });
+  };
+  // First, last and the neighbours of the current page; a gap is an ellipsis.
+  const wanted = [...new Set([1, page - 1, page, page + 1, pages])]
+    .filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+  const numbers = [];
+  wanted.forEach((n, index) => {
+    if (index && n - wanted[index - 1] > 1) numbers.push(el('span', { className: 'pager__gap', text: '…' }));
+    numbers.push(button(String(n), () => go(n), {
+      className: `pager__num num${n === page ? ' is-current' : ''}`,
+      ariaLabel: t('pager.page', { n }),
+      attrs: n === page ? { 'aria-current': 'page' } : {},
+    }));
+  });
+  const from = state.offset + 1;
+  const to = Math.min(state.offset + state.limit, total);
   replace(dom.pager, [
-    button(`← ${t('action.previous')}`, () => step(-state.limit), {
-      className: 'btn', attrs: state.offset === 0 ? { disabled: true } : {},
-    }),
-    el('span', {
-      className: 'pager__pos num',
-      text: t('pager.position', { page, pages }),
-    }),
-    button(`${t('action.next')} →`, () => step(state.limit), {
-      className: 'btn', attrs: page >= pages ? { disabled: true } : {},
-    }),
+    el('span', { className: 'pager__pos', text: t('pager.showing', { from, to, total }) }),
+    el('div', { className: 'pager__btns' }, [
+      button(`‹ ${t('action.previous')}`, () => go(page - 1), {
+        className: 'pager__step', attrs: page <= 1 ? { disabled: true } : {},
+      }),
+      ...numbers,
+      button(`${t('action.next')} ›`, () => go(page + 1), {
+        className: 'pager__step', attrs: page >= pages ? { disabled: true } : {},
+      }),
+    ]),
   ]);
 }
 
@@ -2491,7 +2529,8 @@ collection.refresh();
 // First paint. `history: 'none'` so the initial URL is not pushed onto itself.
 const initial = store.get();
 panel.syncState(initial);
-syncRailCount(renderChips(dom.chips, initial, store));
+renderChips(dom.chips, initial, store);
+syncRailCount(activeFilterCount(initial));
 syncHeader(initial);
 load(store.apiQueryString(), initial).then(() => syncDrawer(store.get()));
 

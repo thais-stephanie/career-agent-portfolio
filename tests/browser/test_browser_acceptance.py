@@ -248,6 +248,16 @@ def open_list(page: Chrome, server: str, query: str = "") -> None:
     form kept passing its DOM assertions while every measurement of width,
     overflow or position read zero.
     """
+    if "view=table" in query:
+        # These tests read every column; V3 shows seven by default, so the
+        # list is opened the way somebody who switched them all on sees it.
+        page.navigate(f"{server}/")
+        page.evaluate(
+            "window.localStorage.setItem('careerAgent.table.columns.v2', JSON.stringify(["
+            "'score','title','confidence','company','location','source','technologies','salary',"
+            "'contract','posted','freshness','eligibility','status','applied','applied_at','saved',"
+            "'link']))"
+        )
     page.navigate(f"{server}/{query}")
     page.wait_for(
         f"{RENDERED_COUNT} > 0 || document.querySelector('.state__head')",
@@ -449,8 +459,8 @@ def test_the_drawer_explains_the_number_with_quotes_gates_and_gaps(
     click(page, f"{node_for(EXPLAINED_TITLE)}")
     page.wait_for(
         "document.querySelector('.drawer') && !document.querySelector('.drawer').hidden"
-        " && document.querySelectorAll('.drawer__tab').length === 4",
-        message=f"the drawer for {EXPLAINED_TITLE!r} to render its four tabs",
+        " && document.querySelectorAll('.drawer__tab').length === 5",
+        message=f"the drawer for {EXPLAINED_TITLE!r} to render its five tabs",
     )
 
     # The reasoning now lives in its own tab, and the drawer opens on the job.
@@ -468,23 +478,35 @@ def test_the_drawer_explains_the_number_with_quotes_gates_and_gaps(
     page.wait_for(
         "getComputedStyle(document.getElementById('drawer-panel-why')).display !== 'none'"
         " && getComputedStyle(document.getElementById('drawer-panel-details')).display === 'none'"
-        " && document.querySelectorAll('.component').length > 0",
+        " && document.querySelectorAll('.reason').length > 0",
         message="the reasoning tab to be the one on screen",
     )
 
-    # The plain-language answer comes FIRST, before any number is broken down.
+    # The plain-language answer comes FIRST, as a sentence about what was asked.
     summary = str(page.evaluate("document.querySelector('.why__summary').textContent"))
-    assert "out of 100" in summary and "Match" in summary, summary
-    assert "Before you apply" in summary, summary
+    assert "you asked for" in summary, summary
     assert int(page.evaluate("document.querySelectorAll('.reason .quote').length")) >= 1, (
         "no reason carried a quote from the posting"
     )
+    assert int(page.evaluate("document.querySelectorAll('.gates .gate').length")) >= 1
+    # V3: no arithmetic in normal use. It is behind ?debug=1, not deleted.
+    assert int(page.evaluate("document.querySelectorAll('.component, .contrib').length")) == 0
 
+    click(page, "document.querySelector('.drawer .btn--close')")
+    page.wait_for(
+        "document.querySelector('.drawer').hidden === true", message="the drawer to close"
+    )
+    open_list(page, server, "?debug=1")
+    click(page, f"{node_for(EXPLAINED_TITLE)}")
+    page.wait_for(
+        "document.querySelector('.drawer') && !document.querySelector('.drawer').hidden"
+        " && document.querySelectorAll('.drawer__tab').length === 5",
+        message="the drawer again, in the debug view",
+    )
+    click(page, "document.getElementById('drawer-tab-why')")
+    page.wait_for("document.querySelectorAll('.component').length > 0", message="the arithmetic")
     quoted = page.evaluate("document.querySelectorAll('.contrib blockquote.quote').length")
     assert int(quoted) >= 1, "no scoring contribution carried a quote"
-    assert int(page.evaluate("document.querySelectorAll('.gates .gate').length")) >= 1
-    # Inside `Advanced scoring details`, which is where the item-by-item
-    # numbers belong. Still in the DOM, still assertable: folded is not deleted.
     assert int(page.evaluate("document.querySelectorAll('.conf__item--missing').length")) >= 1
 
     click(page, "document.querySelector('.drawer .btn--close')")
@@ -1031,11 +1053,11 @@ def test_a_full_pass_raises_nothing_from_page_script(page: Chrome, server: str) 
 
 
 def test_the_mobile_layout_scrolls_the_table_and_not_the_page(page: Chrome, server: str) -> None:
-    """13. At 390x844 the page fits; only the table moves sideways.
+    """13. At 390x844 the page fits, and the List is a compact list.
 
     A horizontally scrolling BODY is the failure this guards: it drags the
-    header off screen and makes every tap a guess. The table is allowed to
-    overflow, inside its own labelled scroll region.
+    header off screen and makes every tap a guess. V3: a phone does not get an
+    unusable desktop table; it gets Match and Job, and the drawer has the rest.
     """
     page.set_viewport(*MOBILE, mobile=True)
     try:
@@ -1048,7 +1070,7 @@ def test_the_mobile_layout_scrolls_the_table_and_not_the_page(page: Chrome, serv
 
         click(page, "document.getElementById('view-table')")
         page.wait_for(
-            "Boolean(document.querySelector('.tablescroll table.jobs'))",
+            "Boolean(document.querySelector('.tablescroll table.jobs tr[data-job-id]'))",
             message="the table on mobile",
         )
         assert page.evaluate("document.body.scrollWidth <= document.documentElement.clientWidth"), (
@@ -1056,11 +1078,14 @@ def test_the_mobile_layout_scrolls_the_table_and_not_the_page(page: Chrome, serv
         )
 
         scroller = "document.querySelector('.tablescroll')"
-        assert page.evaluate(f"{scroller}.scrollWidth > {scroller}.clientWidth"), (
-            "the table did not overflow, so this assertion proves nothing"
+        assert page.evaluate(f"{scroller}.scrollWidth <= {scroller}.clientWidth"), (
+            "the phone list still scrolls sideways"
         )
-        overflow = str(page.evaluate(f"getComputedStyle({scroller}).overflowX"))
-        assert overflow in {"auto", "scroll"}, overflow
+        shown = page.evaluate(
+            "[...document.querySelector('.jobs tr[data-job-id]').children]"
+            ".filter((n) => getComputedStyle(n).display !== 'none').length"
+        )
+        assert shown == 2, f"a phone row shows {shown} cells, not Match and Job"
     finally:
         page.set_viewport(1440, 960)
 
@@ -1824,7 +1849,7 @@ def test_nothing_marked_hidden_is_painted(page: Chrome, server: str) -> None:
     wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "before sweeping for painted hidden nodes")
     click(page, f"{node_for(EXPLAINED_TITLE)}")
     page.wait_for(
-        "document.querySelectorAll('.drawer__tab').length === 4",
+        "document.querySelectorAll('.drawer__tab').length === 5",
         message="the drawer, so its hidden panels are in the sweep too",
     )
 
@@ -2246,7 +2271,7 @@ def test_a_signal_facet_uses_the_name_the_cards_use(page: Chrome, server: str) -
     # The tools moved off the card into its details; the words must match there.
     click(page, "document.querySelector('.cards .card[data-job-id]')")
     page.wait_for(
-        "document.querySelectorAll('.drawer__tab').length === 4"
+        "document.querySelectorAll('.drawer__tab').length === 5"
         " && document.querySelector('#drawer-panel-why').textContent.length > 0",
         message="the details of the first card",
     )
@@ -2444,16 +2469,14 @@ def test_the_rail_holds_every_sidebar_panel_so_a_new_one_cannot_move_the_results
 # =========================================================================
 
 
-def test_the_table_scrolls_sideways_in_a_viewport_you_can_see_the_bar_in(
+def test_with_every_column_on_the_table_scrolls_sideways_and_never_inside(
     page: Chrome, server: str
 ) -> None:
-    """A scrollbar below the fold is the same as no scrollbar.
+    """Sideways scrolling is the last resort, and never a second vertical one.
 
-    The table is wider than any sensible window -- eighteen columns -- so the
-    columns past Technologies are reachable ONLY by horizontal scrolling. That
-    made the height cap load-bearing: without it the table is as tall as the
-    page, its horizontal bar sits under the fold, and half the columns are
-    effectively invisible.
+    The seven default columns fit a normal window (V3). With all seventeen on
+    the table is wider than the window and scrolls sideways; it still never
+    scrolls vertically inside itself, because the page does that.
     """
     open_list(page, server, "?view=table")
     page.wait_for(f"{RENDERED_COUNT} > 0", message="the table body")
@@ -2464,9 +2487,12 @@ def test_the_table_scrolls_sideways_in_a_viewport_you_can_see_the_bar_in(
         " clientHeight: s.clientHeight, viewport: window.innerHeight }; })()"
     )
     assert box["scrollWidth"] > box["clientWidth"], "nothing to scroll to"
-    assert box["clientHeight"] < box["viewport"], (
-        "the scroll viewport is taller than the window, so its horizontal bar is below the fold"
+    # V3: the PAGE scrolls; the list never scrolls vertically inside itself.
+    inner = page.evaluate(
+        "(() => { const s = document.querySelector('.tablescroll');"
+        " return s.scrollHeight - s.clientHeight; })()"
     )
+    assert inner <= 1, f"the table scrolls inside itself by {inner}px"
 
     # And the LAST COLUMN actually becomes visible, which is the claim.
     #
@@ -2510,7 +2536,7 @@ def test_clicking_a_table_row_opens_the_job_but_a_control_does_not(
     ), "a row control opened the drawer behind itself"
 
     # Then a plain cell.
-    click(page, "document.querySelector('.jobs tbody tr td.col--num')")
+    click(page, "document.querySelector('.jobs tbody tr td.col--salary')")
     page.wait_for(
         "document.querySelector('.drawer') && !document.querySelector('.drawer').hidden",
         message="the drawer opened from the row body",

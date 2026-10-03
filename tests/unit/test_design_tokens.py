@@ -262,10 +262,10 @@ def _resolve(value: str, tokens_raw: dict[str, str]) -> str:
     return value
 
 
-#: The soft shadows the redesign handoff (2026-10) names, and only those: the
-#: resting card, the lifted card, a popover, the toast, a drawer's edge and
-#: the chosen segment of a segmented control. Anything else blurred is a new
-#: shadow nobody designed.
+#: The soft shadows the redesign handoff (2026-10, V3) names, and only those:
+#: the resting card, the lifted card, a popover, the toast, a drawer's edge
+#: and the chosen segment of a segmented control. Anything else blurred is a
+#: new shadow nobody designed.
 HANDOFF_SOFT_SHADOWS = frozenset(
     {
         "0 1px 2px rgba(0, 0, 0, 0.04)",
@@ -278,6 +278,10 @@ HANDOFF_SOFT_SHADOWS = frozenset(
         "0 16px 40px rgba(0, 0, 0, 0.45)",
         "0 10px 30px rgba(0, 0, 0, 0.4)",
         "-12px 0 40px rgba(0, 0, 0, 0.3)",
+        # V3: the warm resting card, its lift, and the chosen segment.
+        "0 1px 2px rgba(27, 26, 23, 0.04)",
+        "0 8px 20px rgba(27, 26, 23, 0.08)",
+        "0 1px 3px rgba(0, 0, 0, 0.12)",
     }
 )
 
@@ -285,9 +289,9 @@ HANDOFF_SOFT_SHADOWS = frozenset(
 def test_no_shadow_is_soft() -> None:
     """Every shadow is a HARD offset with no blur, or one the handoff names.
 
-    The redesign keeps the hard offset on the light theme's job cards and
-    brings in a short list of soft shadows for the refined areas. A blurred
-    shadow outside that list is the floating-card look nobody designed.
+    V3 retired the hard offset: every surface rests on the same soft lift.
+    A blurred shadow outside the short list is the floating-card look
+    nobody designed.
 
     The declarations are resolved through their tokens first, because
     `box-shadow: var(--shadow)` says nothing on its own and checking the

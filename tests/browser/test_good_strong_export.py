@@ -16,7 +16,7 @@ def test_the_export_is_offered_in_table_mode_only(page: Chrome, pristine_server:
     page.evaluate("document.getElementById('view-table').click()")
     page.wait_for("!document.getElementById('export-good-strong').hidden", message="the export")
     assert page.evaluate("document.getElementById('export-good-strong').textContent") == (
-        "Export GOOD + STRONG"
+        "Export best fits"
     )
     page.evaluate("document.getElementById('view-kanban').click()")
     page.wait_for("document.getElementById('export-good-strong').hidden", message="hidden again")
@@ -54,6 +54,6 @@ def test_the_saved_file_holds_every_good_and_strong_posting(
     assert {r["Search Fit band"] for r in rows} <= {"GOOD", "STRONG"}
     assert str(page.evaluate("window.__name")).startswith("career-agent-good-strong-")
     page.wait_for(
-        f"document.body.innerText.includes('Saved {len(rows)} GOOD and STRONG postings')",
+        f"document.body.innerText.includes('Saved {len(rows)} of your best-fitting jobs')",
         message="the confirmation",
     )

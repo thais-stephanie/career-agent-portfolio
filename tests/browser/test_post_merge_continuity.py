@@ -478,7 +478,7 @@ def test_tailor_is_the_next_step_once_career_context_exists(
     )
     _open_first_job(page, pristine_server)
     page.wait_for("document.querySelector('.d-tailor').dataset.tailor === 'ready'")
-    assert "Open Resume Tailor Beta" in _text(page, ".d-tailor")
+    assert "Make my resume for this job" in _text(page, ".d-tailor")
 
 
 # =========================================================================

@@ -23,20 +23,22 @@ def open_first_why(page: Chrome, server: str) -> tuple[str, str]:
     click(page, f"document.querySelector('[data-job-id={json.dumps(job)}]')")
     page.wait_for(
         "document.querySelector('.drawer') && !document.querySelector('.drawer').hidden"
-        " && document.querySelectorAll('.drawer__tab').length === 4",
+        " && document.querySelectorAll('.drawer__tab').length === 5",
         message="the drawer and its tabs",
     )
     click(page, "document.getElementById('drawer-tab-why')")
     page.wait_for(f"Boolean({FEEDBACK})", message="the Search Fit question")
-    return job, str(page.evaluate("document.querySelector('.drawer .why__head').textContent"))
+    return job, str(
+        page.evaluate("document.querySelector('.drawer .d-fit .card__pct').textContent")
+    )
 
 
 def test_an_answer_is_saved_survives_a_reload_and_moves_no_number(
     page: Chrome, pristine_server: str
 ) -> None:
     job, score = open_first_why(page, pristine_server)
-    heading = page.evaluate(f"{FEEDBACK}.querySelector('.d-sec__head').textContent")
-    assert heading == "Does this match % look right?"
+    heading = page.evaluate(f"{FEEDBACK}.querySelector('.d-feedback__title').textContent")
+    assert heading == f"Does {score} feel right?"
     assert page.evaluate(PRESSED) == -1, "nothing is answered until the person answers"
 
     click(page, f"{BUTTONS}[1]")  # Too high
@@ -67,8 +69,8 @@ def test_the_question_is_asked_in_portuguese(page: Chrome, pristine_server: str)
     try:
         open_first_why(page, pristine_server)
         labels = page.evaluate(f"Array.from({BUTTONS}).map((b) => b.textContent)")
-        heading = page.evaluate(f"{FEEDBACK}.querySelector('.d-sec__head').textContent")
+        heading = page.evaluate(f"{FEEDBACK}.querySelector('.d-feedback__title').textContent")
     finally:
         page.evaluate(f"localStorage.removeItem({json.dumps(LOCALE_KEY)})")
-    assert heading == "Este % de compatibilidade parece certo?"
-    assert labels == ["Sim", "Alta demais", "Baixa demais", "A vaga não dá informação suficiente"]
+    assert heading.endswith("% parece certo?"), heading
+    assert labels == ["Sim", "Alta demais", "Baixa demais", "Não sei"]

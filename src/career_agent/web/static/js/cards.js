@@ -146,9 +146,13 @@ function card(job, handlers) {
     el('dd', { className: 'fact--posted', text: postedLine(job), attrs: { title: postedTitle(job) } }),
   ]));
 
-  // WHETHER THE EMPLOYER HIRES HERE, always, and the employer's reason when
-  // a gate failed; the full answer, quoted, is in the details.
-  root.appendChild(eligibilityLine(job, aside));
+  // WHETHER THE EMPLOYER HIRES HERE, always. V3 draws no line on a card the
+  // employer is open to (the default list is exactly those), so that answer
+  // is read to a screen reader and not painted; a job that did not say, or
+  // rules you out, keeps its visible line.
+  const elig = eligibilityLine(job, aside);
+  if (elig.classList.contains('card__elig--good')) elig.classList.add('sr-only');
+  root.appendChild(elig);
   const note = offTargetNote(job, aside);
   if (note) root.appendChild(note);
 
@@ -203,6 +207,7 @@ function matchBlock(job, handlers) {
     el('span', { className: 'card__matchrow' }, [
       el('span', { className: 'card__pct num', text: score.scored ? `${score.text}%` : score.text }),
       el('span', { className: 'card__matchtext', text: tone ? t(tone.key) : t('card.matchUnscored') }),
+      job.freshness === 'FRESH' ? el('span', { className: 'card__new', text: t('card.new') }) : null,
     ]),
     el('span', { className: 'card__meter', attrs: { 'aria-hidden': 'true' } }, [bar]),
   );
