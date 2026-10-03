@@ -136,6 +136,15 @@ PRIVATE_TABLES: frozenset[str] = frozenset(
         "job_application",
         "job_application_event",
         "search_fit_feedback",
+        # 0047: the Resume Workspace: documents, their history, job ad
+        # snapshots, tailoring runs, exports and dismissed findings.
+        "resume_document",
+        "resume_revision",
+        "jd_snapshot",
+        "tailoring_run",
+        "tailoring_change",
+        "resume_export",
+        "resume_finding_dismissal",
         "requirement_review",
         "job_retrieval_lane",
         "job_enrichment",
