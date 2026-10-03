@@ -24,7 +24,7 @@ def open_profile(page: Chrome, server: str) -> None:
     # AND THE FORM IS NOT THE FIRST THING ON IT ANY MORE. The page opens on
     # who she is -- what she has confirmed, her work, her skills -- and the
     # settings are the fourth tab. Waiting for the tab row first and then
-    # pressing Preferences is the path a person takes; waiting only for the
+    # pressing "What I am looking for" is the path a person takes; waiting only for the
     # form would time out on a page that is working.
     page.wait_for(
         "document.querySelectorAll('.profiletab').length > 0"
@@ -33,7 +33,7 @@ def open_profile(page: Chrome, server: str) -> None:
     )
     page.evaluate(
         "(() => { const tab = [...document.querySelectorAll('.profiletab')]"
-        ".find((b) => b.textContent.trim() === 'Preferences'); if (tab) tab.click(); })()"
+        ".find((b) => b.textContent.trim().startsWith('What I')); if (tab) tab.click(); })()"
     )
     page.wait_for(
         "document.querySelectorAll('.profile__form input').length > 0",

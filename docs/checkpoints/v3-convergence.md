@@ -49,22 +49,26 @@ here changes a score, a gate, Search Fit, eligibility, collection or refresh.
 
 `web/caution.py` reads the WHOLE ad (a card's page carries only 400
 characters, so the list asks for the page's full descriptions in one query)
-and reports four signs, each a phrase the ad contains, English and
-Portuguese:
+and reports four signs. Each is an ASK the ad makes of the candidate (an
+imperative opening a sentence or a list item, "you / applicants must",
+"é necessário", "é obrigatório"), in English and Portuguese:
 
 | Sign | What fires it |
 |---|---|
-| fee | asking to pay a training, registration or application fee |
-| bank | asking to send bank or card details |
-| whatsapp | asking to make contact on WhatsApp or Telegram |
-| equipment | asking to buy equipment or a kit from the employer |
+| fee | being told to pay or deposit a fee, a taxa or a security deposit |
+| bank | being told to send YOUR bank or card details (not for payroll or salary) |
+| whatsapp | applying or making contact ONLY by WhatsApp or Telegram |
+| equipment | being told to buy equipment or a kit from the employer |
 
-A sentence that denies the ask ("we never charge a fee") never fires. The
-screen says "This ad may be a scam", never that it is one, and lists the
-signs. Cards show "! Be careful" instead of "New". The drawer shows the box
-above its tabs with Hide this job (the ordinary hide, with Undo) and "I
-checked. It looks fine", remembered per local profile and per posting on
-this computer; the posting itself is not changed.
+A topic or a duty is not an ask: "no application fee", "we reimburse your
+course fee", "pay vendors on time", "provide bank details for payroll" and
+"customer support via WhatsApp" fire nothing; `tests/unit/test_caution.py`
+pins those sentences and the scam ones beside them. The screen says "This ad
+may be a scam", never that it is one, and lists the signs. Cards show "! Be
+careful" instead of "New". The drawer shows the box above its tabs with Hide
+this job (the ordinary hide, with Undo) and "I checked. It looks fine",
+remembered per local profile and per posting on this computer; the posting
+itself is not changed.
 
 **Not built: "pay much higher than similar jobs".** It needs a comparable-
 salary basis this product does not hold, and a comparison made up here would

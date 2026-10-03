@@ -267,7 +267,6 @@
   --green: #1f6b45;
   --star-filter: none;
   --illo-filter: none;
-  --hero-btn-line: rgba(27, 26, 23, 0.18);
   --tip-text: #3d3a4a;
   --tip-btn-line: #d9cfb3;
   --tip-line: #e6dcc2;
@@ -543,7 +542,6 @@
   --d-green: #8fd6a8;
   --d-star-filter: hue-rotate(12deg) saturate(1.5) brightness(1.35) drop-shadow(0 0 6px rgba(255, 226, 90, 0.55));
   --d-illo-filter: invert(1) hue-rotate(180deg) brightness(1.15) saturate(0.9);
-  --d-hero-btn-line: #3f7357;
   --d-tip-text: #c9c2d9;
   --d-tip-btn-line: #4f4770;
   --d-tip-line: #3f3858;
@@ -880,7 +878,6 @@
     --green: var(--d-green);
     --star-filter: var(--d-star-filter);
     --illo-filter: var(--d-illo-filter);
-    --hero-btn-line: var(--d-hero-btn-line);
     --tip-text: var(--d-tip-text);
     --tip-btn-line: var(--d-tip-btn-line);
     --tip-line: var(--d-tip-line);
@@ -1009,7 +1006,6 @@
   --green: var(--d-green);
   --star-filter: var(--d-star-filter);
   --illo-filter: var(--d-illo-filter);
-  --hero-btn-line: var(--d-hero-btn-line);
   --tip-text: var(--d-tip-text);
   --tip-btn-line: var(--d-tip-btn-line);
   --tip-line: var(--d-tip-line);
@@ -9399,9 +9395,6 @@ body.has-filters { overflow: hidden; }
 .home__tiptext { display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.45; color: var(--tip-text); }
 .home__tiptext strong { font-size: 16px; font-weight: 600; color: var(--ink); }
 
-.home__newgo { border: 0; background: var(--green); color: var(--on-green); font-weight: 600; }
-.home__newgo:hover { background: var(--green-hover); }
-.home__newseen { border: 1px solid var(--hero-btn-line); background: transparent; color: var(--hero-text); }
 
 .home__sectitle { display: flex; align-items: baseline; gap: 10px; margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; color: var(--ink); }
 .home__seclede { margin: 6px 0 0; font-size: 15px; color: var(--muted); }
@@ -10599,7 +10592,7 @@ table.jobs .cell__title-btn { max-width: 100%; }
   padding: 9px 11px; text-align: left; cursor: pointer; color: var(--ink); font: inherit;
 }
 .setnav__item:hover { background: var(--surface-hover); }
-.setnav__item[aria-current="page"] { background: var(--surface); border-color: var(--line); box-shadow: var(--shadow); }
+.setnav__item[aria-current="true"] { background: var(--surface); border-color: var(--line); box-shadow: var(--shadow); }
 .setnav__icon {
   flex: none; width: 32px; height: 32px; border-radius: 10px; display: flex;
   align-items: center; justify-content: center; font-size: 15px;
@@ -10911,6 +10904,7 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .home__next--green .home__kicker { color: var(--green-text); }
 .home__next--green .home__nextbody, .home__next--green .home__nextalt { color: var(--hero-text); }
 .home__next--green .home__nextgo { background: var(--green); color: var(--on-green); }
+.home__next--green .home__nextgo:hover { background: var(--green-hover); }
 .home__next--lav .home__kicker { color: var(--purple-text); }
 .home__next--lav .home__nextbody, .home__next--lav .home__nextalt { color: var(--body2); }
 .home__next--lav .home__nextgo { background: var(--lav); color: var(--on-lav); }

@@ -129,11 +129,24 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Install
 # -------------------------------------------------------------------------
 
 
+#: The question cards from the last back to the first.
+BACKWARDS = ("pay", "level", "arrangement", "stage", "workmodel", "hire", "home", "roles", "work")
+
+
 def card(page: Chrome) -> str:
     return str(page.evaluate("document.querySelector('.setup__card')?.dataset.step || ''"))
 
 
 def wait_card(page: Chrome, key: str) -> None:
+    # The career-stage card is optional context; a journey that is not about
+    # it passes it the way a person would, with Skip.
+    page.wait_for(
+        f"['stage', {json.dumps(key)}]"
+        ".includes(document.querySelector('.setup__card')?.dataset.step)",
+        message=f"the {key} card",
+    )
+    if key != "stage" and card(page) == "stage":
+        skip(page)
     page.wait_for(
         f"document.querySelector('.setup__card')?.dataset.step === {json.dumps(key)}",
         message=f"the {key} card",
@@ -181,7 +194,7 @@ def open_preferences(page: Chrome) -> None:
     )
     page.evaluate(
         "(() => { const tab = [...document.querySelectorAll('.profiletab')]"
-        ".find((b) => b.textContent.trim() === 'Preferences'); if (tab) tab.click(); })()"
+        ".find((b) => b.textContent.trim().startsWith('What I')); if (tab) tab.click(); })()"
     )
     page.wait_for(
         "document.querySelector('#profile-field-work_models-REMOTE-prefer')",
@@ -379,7 +392,8 @@ def test_every_question_can_be_skipped_and_nothing_is_invented(
 ) -> None:
     begin(page, install)
     next_card(page)
-    for key in ("work", "roles", "home", "hire", "workmodel", "arrangement", "level", "pay"):
+    walk = ("work", "roles", "home", "hire", "workmodel", "stage", "arrangement", "level", "pay")
+    for key in walk:
         wait_card(page, key)
         skip(page)
     wait_card(page, "cv")
@@ -449,6 +463,8 @@ def test_a_restart_halfway_comes_back_to_the_same_card(page: Chrome, install: In
     page.navigate(install.base)
     wait_card(page, "arrangement")
     click(page, "#setup-back")
+    wait_card(page, "stage")
+    click(page, "#setup-back")
     wait_card(page, "workmodel")
     assert page.evaluate("document.querySelector('#setup-workmodel-REMOTE-prefer').checked")
 
@@ -464,7 +480,7 @@ def test_back_all_the_way_shows_every_answer(page: Chrome, install: Install) -> 
         "hire": "document.querySelector('#setup-hire-yes').checked",
         "home": "document.querySelector('#setup-country').dataset.code === 'BR'",
     }
-    for key in ("pay", "level", "arrangement", "workmodel", "hire", "home", "roles", "work"):
+    for key in BACKWARDS:
         click(page, "#setup-back")
         wait_card(page, key)
         if key in expected:
@@ -653,7 +669,7 @@ def test_every_card_fits_a_phone(page: Chrome, install: Install) -> None:
         next_card(page)
         wait_card(page, key)
         assert no_overflow(page), key
-    for key in ("pay", "level", "arrangement", "workmodel", "hire", "home", "roles", "work"):
+    for key in BACKWARDS:
         page.evaluate("localStorage.setItem('careerAgent.setup.at.v1', " + json.dumps(key) + ")")
         page.reload()
         wait_card(page, key)
@@ -909,7 +925,10 @@ def test_the_stepper_names_every_step_and_shows_done_current_and_upcoming(
             f"document.querySelector('.setup__card')?.dataset.step !== {json.dumps(step)}"
         )
     numbers = [number for _, number, _ in seen]
-    assert numbers == list(range(1, len(numbers) + 1)), seen
+    # Five named stages over the cards: a stage holds several cards, so the
+    # number stays or moves on by one, never jumps and never goes back.
+    steps = zip(numbers, numbers[1:], strict=False)
+    assert numbers[0] == 1 and all(b - a in (0, 1) for a, b in steps), seen
     assert [done for _, _, done in seen] == sorted(done for _, _, done in seen), seen
     assert "regions" in [key for key, _, _ in seen], "the conditional card was not in this walk"
 

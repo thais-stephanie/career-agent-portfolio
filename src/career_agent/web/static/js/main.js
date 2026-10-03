@@ -985,12 +985,14 @@ function announce(state, shown, total) {
     total > shown ? t('count.showingRange', { from, to }) : null,
   ].filter(Boolean);
   if (state.view === 'kanban') {
-    // V3: My applications says how to use the board, and what is in play,
-    // counted over every tracked job (the status facet), not this page.
+    // V3: My applications says how to use the board, and what is in play on
+    // it: the board's whole query (its filters included), not the cards drawn.
+    // Hired is done, not in progress.
     const byStatus = Object.fromEntries(((lastResponse && lastResponse.facets && lastResponse.facets.status) || [])
       .map((row) => [row.key, row.count]));
     const going = COLUMNS.filter((column) => column.key !== 'CLOSED')
-      .flatMap((column) => column.statuses).reduce((sum, status) => sum + (byStatus[status] || 0), 0);
+      .flatMap((column) => column.statuses).filter((status) => status !== 'HIRED')
+      .reduce((sum, status) => sum + (byStatus[status] || 0), 0);
     const talks = byStatus.INTERVIEW || 0;
     replace(dom.count, [
       el('span', { className: 'boardhead__lede', text: t('board.lede') }),
@@ -2582,7 +2584,7 @@ function paintSettingsNav() {
       return el('button', {
         className: `setnav__item setnav__item--${key}`,
         attrs: { type: 'button', id: `settab-${key}`,
-          'aria-current': key === settingsTab ? 'page' : null },
+          'aria-current': key === settingsTab ? 'true' : null },
         on: { click: () => setSettingsTab(key) },
       }, [
         el('span', { className: 'setnav__icon', text: icon, attrs: { 'aria-hidden': 'true' } }),
@@ -2617,7 +2619,7 @@ function paintLook() {
   };
   const choice = (on, label, sub, onClick, extra = []) => el('button', {
     className: 'look__choice',
-    attrs: { type: 'button', 'aria-pressed': String(on), 'aria-label': label },
+    attrs: { type: 'button', 'aria-pressed': String(on), 'aria-label': [label, sub].filter(Boolean).join(', ') },
     on: { click: onClick },
   }, [
     ...extra,

@@ -223,11 +223,15 @@ function kanbanCard(job, column, handlers) {
 
   // What the column does not say: which of its statuses this is, and when
   // the application went out.
+  // V3: where and how old, on a line of its own.
+  const place = compactPlace(job.location_raw, job.work_model);
+  const about = [
+    place && place.text ? place.text : null,
+    job.posted_at ? t('kanban.posted', { ago: relativeAge(job.posted_at) }) : null,
+  ].filter(Boolean);
+  if (about.length) root.appendChild(el('p', { className: 'kcard__meta', text: about.join(' · ') }));
   const meta = [];
   if (column.statuses.length > 1) meta.push(statusLabel(status));
-  const place = compactPlace(job.location_raw, job.work_model);
-  if (place && place.text) meta.push(place.text);
-  if (job.posted_at) meta.push(t('kanban.posted', { ago: relativeAge(job.posted_at) }));
   if (job.applied_at) meta.push(t('kanban.appliedOn', { date: formatDate(job.applied_at) }));
   if (meta.length) {
     root.appendChild(el('p', {
