@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
 from collections.abc import Callable
 from enum import StrEnum
 from typing import Annotated, Any, Literal
@@ -38,6 +39,9 @@ SCHEMA_VERSION: Literal["1.0"] = "1.0"
 Id = Annotated[str, Field(pattern=r"^[0-9A-HJKMNP-TV-Z]{26}$")]
 Text = Annotated[str, Field(max_length=5_000)]
 Name = Annotated[str, Field(min_length=1, max_length=300)]
+
+#: An email's shape, and nothing stricter: deliverability is not ours to judge.
+EMAIL_SHAPE = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 #: Labels that stand in for a person and are not their name.
 PLACEHOLDER_NAMES = frozenset({"you", "candidate", "my profile", "meu perfil"})
@@ -101,8 +105,10 @@ class CreatedFrom(StrEnum):
 class Link(_Model):
     id: Id
     kind: LinkKind
-    url: Annotated[str, Field(min_length=1, max_length=500)]
-    label: str | None = None
+    #: Kept as typed. Any http(s) address: no username pattern is imposed,
+    #: so a site that changes its URL shape is never refused.
+    url: Annotated[str, Field(max_length=500, pattern=r"^https?://\S+$")]
+    label: Annotated[str, Field(max_length=80)] | None = None
 
 
 class IdentityVisibility(_Model):
@@ -117,10 +123,12 @@ class IdentityVisibility(_Model):
 class Identity(_Model):
     # Deliberately absent: photo, age, gender, marital status, nationality.
     full_name: Annotated[str, Field(max_length=300)] = ""
-    email: str | None = None
-    phone: str | None = None
-    city: str | None = None
-    region: str | None = None
+    email: Annotated[str, Field(max_length=254, pattern=EMAIL_SHAPE)] | None = None
+    #: Free form as typed; normalising it is a display concern.
+    phone: Annotated[str, Field(max_length=40)] | None = None
+    #: How this resume prints where the person is. Never an eligibility answer.
+    city: Annotated[str, Field(max_length=120)] | None = None
+    region: Annotated[str, Field(max_length=120)] | None = None
     country: Annotated[str, Field(pattern=r"^[A-Z]{2}$")] | None = None
     links: list[Link] = []
     show: IdentityVisibility = IdentityVisibility()
@@ -423,15 +431,20 @@ def upgrade_resume_document(payload: dict[str, Any] | str) -> ResumeDocument:
 
 
 def canonical_json(doc: ResumeDocument) -> str:
-    """The one serialisation that is stored and hashed: sorted keys, no spaces."""
+    """The one serialisation that is stored: sorted keys, no spaces, text as typed."""
     return json.dumps(
         doc.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False
     )
 
 
 def sha256_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    """The hash of text, read as Unicode NFC: the same letters typed as one
+    code point or as a letter plus a combining accent hash alike. Only the
+    hash is normalised; the stored text stays as typed."""
+    return hashlib.sha256(unicodedata.normalize("NFC", text).encode("utf-8")).hexdigest()
 
 
 def content_sha256(doc: ResumeDocument) -> str:
+    # The JSON punctuation around each value is ASCII, which NFC never
+    # composes with, so normalising the whole text equals normalising each value.
     return sha256_text(canonical_json(doc))

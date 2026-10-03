@@ -244,6 +244,12 @@ def test_a_snapshot_is_immutable_and_deduplicated_by_content(store: ResumeStore)
         with pytest.raises(ResumeStoreError):
             store.create_jd_snapshot(text=text, title=title)
     assert store.create_jd_snapshot(text=AD, title="Pasted", job_id="").job_id is None
+    nfd = AD.replace("Requisitos", "Requisic\N{COMBINING CEDILLA}os")
+    nfc = AD.replace("Requisitos", "Requisi\N{LATIN SMALL LETTER C WITH CEDILLA}os")
+    assert (
+        store.create_jd_snapshot(text=nfd, title="Data Analyst").id
+        == store.create_jd_snapshot(text=nfc, title="Data Analyst").id
+    ), "the same ad typed two ways is one snapshot"
 
 
 # -------------------------------------------------------------- versions
@@ -421,7 +427,7 @@ def test_a_tailoring_run_and_its_changes_round_trip(store: ResumeStore) -> None:
 
 def test_export_metadata_and_dismissals_round_trip(store: ResumeStore) -> None:
     master = store.create_document(document())
-    other = store.create_document(document())
+    other = store.create_document(document("SCRATCH"))
     revision = store.checkpoint_revision(master.id, "EXPORTED")
     export = store.record_export(
         master.id,
@@ -441,6 +447,12 @@ def test_export_metadata_and_dismissals_round_trip(store: ResumeStore) -> None:
             other.id, revision.id, format="PDF", template="clean", file_path="x",
             file_sha256="x", engine="x",
         )  # fmt: skip
+    for wrong in (0, -1, True, 1.5):
+        with pytest.raises(ResumeStoreError, match="page_count"):
+            store.record_export(
+                master.id, revision.id, format="PDF", template="clean", file_path="x",
+                file_sha256="x", engine="x", page_count=wrong,  # type: ignore[arg-type]
+            )  # fmt: skip
     store.dismiss_finding(master.id, "NAME_PLACEHOLDER", reason="Pen name on purpose.")
     store.dismiss_finding(master.id, "NAME_PLACEHOLDER")
     assert store.dismissed_findings(master.id) == {"NAME_PLACEHOLDER"}
@@ -483,7 +495,10 @@ def test_a_pre_0047_database_migrates_additively_and_once(tmp_path: Path) -> Non
     before = set(table_names(conn))
     assert "resume_document" not in before
     applied = migrate(conn)
-    assert [(m.version, m.name) for m in applied] == [(47, "resume_workspace")]
+    assert [(m.version, m.name) for m in applied] == [
+        (47, "resume_workspace"),
+        (48, "resume_one_master"),
+    ]
     assert set(table_names(conn)) - before == {
         "resume_document",
         "resume_revision",

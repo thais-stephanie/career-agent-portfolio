@@ -265,3 +265,18 @@ def test_the_committed_schema_is_what_the_generator_writes() -> None:
     )
     identity = schema["$defs"]["Identity"]["properties"]
     assert not {"photo", "age", "gender", "marital_status", "nationality"} & set(identity)
+
+
+def test_unicode_equivalent_text_hashes_alike_and_is_stored_as_typed() -> None:
+    composed, decomposed = (
+        "Jos\N{LATIN SMALL LETTER E WITH ACUTE}",
+        "Jose\N{COMBINING ACUTE ACCENT}",
+    )
+    assert composed != decomposed
+    a = upgrade_resume_document(sparse(identity={"full_name": composed}))
+    b = a.model_copy(update={"identity": Identity(full_name=decomposed)})
+    assert content_sha256(a) == content_sha256(b)
+    assert canonical_json(a) != canonical_json(b), "only the hash is normalised"
+    assert b.identity.full_name == decomposed
+    c = a.model_copy(update={"identity": Identity(full_name="Jose")})
+    assert content_sha256(c) != content_sha256(a), "an accent is not whitespace"

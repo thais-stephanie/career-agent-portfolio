@@ -1,5 +1,7 @@
 """Candidate career organization routes. Preview, then one atomic application."""
 
+from typing import Any
+
 from pydantic import ValidationError
 
 from career_agent.storage.career_repo import CareerError, CareerRepo
@@ -93,7 +95,74 @@ def register_career_routes(app: LocalApp) -> None:
             conn.execute("UPDATE candidate SET display_name = ? WHERE id = ?", (name, candidate_id))
             return {"name": person_name(conn)}
 
+    def _labels() -> list[str]:
+        host = getattr(app, "profile_host", None)
+        label = getattr(getattr(host, "active", None), "label", None)
+        return [str(label)] if label else []
+
+    def _master_view(conn: Any, master: Any, notes: list[str] | None = None) -> dict:
+        from career_agent.resume_doc.master import evidence_changes
+
+        if master is None:
+            return {"master": None}
+        return {
+            "master": {
+                "id": master.id,
+                "title": master.title,
+                "updated_at": master.updated_at,
+                "sha256": master.working_sha256,
+                "identity": master.working.identity.model_dump(mode="json"),
+                "name_finding": master.working.identity.name_finding(),
+            },
+            "evidence_changes": evidence_changes(conn, master.working),
+            **({"notes": notes} if notes is not None else {}),
+        }
+
+    def get_master(*, query: dict, body: dict) -> dict:
+        """The profile's Master resume and its identity. Reading never creates one."""
+        from career_agent.resume_doc.store import ResumeStore
+
+        with closing(app.connect()) as conn:
+            return _master_view(conn, ResumeStore(conn).current_master())
+
+    def make_master(*, query: dict, body: dict) -> dict:
+        """The Master, made from confirmed Career Profile data the first time."""
+        from career_agent.resume_doc.master import get_or_create_master
+
+        with closing(app.connect()) as conn:
+            master, notes = get_or_create_master(conn, labels=_labels())
+            return _master_view(conn, master, notes)
+
+    def set_identity(*, query: dict, body: dict) -> dict:
+        """The resume identity, as a new revision of the Master. It changes the
+        resume only: no evidence, search setting or score reads it."""
+        from career_agent.resume_doc.master import update_resume_identity
+        from career_agent.resume_doc.models import Identity
+        from career_agent.resume_doc.store import NotFound, StaleDocument
+
+        if set(body) != {"identity", "expected_sha256"}:
+            raise ApiError(400, "Send the identity and the version it edits.")
+        try:
+            identity = Identity.model_validate(body["identity"])
+        except ValidationError as exc:
+            raise ApiError(400, "Check the contact details.", for_reader=True) from exc
+        with closing(app.connect()) as conn:
+            try:
+                master = update_resume_identity(
+                    conn, identity, expected_sha256=str(body["expected_sha256"])
+                )
+            except NotFound as exc:
+                raise ApiError(404, "There is no Master resume yet.") from exc
+            except StaleDocument as exc:
+                raise ApiError(
+                    409, "Your resume changed in another window. Reload it.", for_reader=True
+                ) from exc
+            return _master_view(conn, master)
+
     app.register("PATCH", r"/api/candidate/name", set_name)
+    app.register("GET", r"/api/resume/master", get_master)
+    app.register("POST", r"/api/resume/master", make_master)
+    app.register("PATCH", r"/api/resume/master/identity", set_identity)
     app.register("GET", r"/api/career", overview)
     app.register("GET", r"/api/career/evidence", evidence)
     app.register("GET", r"/api/career/history", history)
