@@ -415,7 +415,7 @@ def test_edit_an_experience_in_place(page: Chrome, placed: Workspace) -> None:
         ".find((b) => b.textContent.trim().startsWith('Experience')).click()"
     )
     page.wait_for("document.querySelector('.xp-card')")
-    page.evaluate("document.querySelector('#pagehead-actions .btn--primary').click()")
+    page.evaluate("document.querySelector('.xp-editall').click()")
     page.wait_for("document.querySelector('.xp-banner')", message="the edit-mode banner")
     role = page.evaluate("document.querySelector('.xp-card .xp-card__role').textContent")
     page.evaluate("document.querySelector('.xp-card .cw-action').click()")

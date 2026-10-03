@@ -1056,6 +1056,11 @@ export async function getFirstRun() {
   return request('/firstrun');
 }
 
+/** Where the person says they are in their career (context only; null clears it). */
+export async function setCareerStage(stage) {
+  return request('/firstrun/stage', { method: 'POST', body: { stage } });
+}
+
 /**
  * Read one or more career documents on this computer. Confirms nothing.
  *

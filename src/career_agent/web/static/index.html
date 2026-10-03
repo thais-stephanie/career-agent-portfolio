@@ -244,15 +244,16 @@
 <main class="page page--resume" id="page-resume" hidden></main>
 
 <main class="page page--settings" id="page-settings" data-tab="search" hidden>
-  <!-- FOUR TABS over the same blocks (redesign handoff). A tab only decides
-       which blocks are drawn; every block and its code are unchanged. -->
-  <div class="settabs segmented" role="tablist" id="settings-tabs" aria-label="Settings"
-       aria-controls="page-settings">
-    <button type="button" class="segmented__btn" role="tab" data-settab-btn="search" id="settab-search">Your search</button>
-    <button type="button" class="segmented__btn" role="tab" data-settab-btn="sites" id="settab-sites">Job sites</button>
-    <button type="button" class="segmented__btn" role="tab" data-settab-btn="ai" id="settab-ai">Smart matching</button>
-    <button type="button" class="segmented__btn" role="tab" data-settab-btn="profiles" id="settab-profiles">Profiles</button>
-  </div>
+  <!-- SIX SECTIONS over the same blocks (V3). The nav (drawn by main.js,
+       with each section's status) only decides which blocks are drawn;
+       every block and its code are unchanged. -->
+  <div class="setlayout">
+  <nav class="setnav" id="settings-tabs" aria-label="Settings sections"></nav>
+  <div class="setmain">
+  <header class="setmain__head">
+    <h2 class="setmain__title" id="settings-title">What you are looking for</h2>
+    <p class="setmain__desc" id="settings-desc"></p>
+  </header>
   <!-- YOUR ANSWERS, FIRST. Changing where you live or what work you want used
        to mean finding the right field on a page of sixteen; the guided setup
        asks each one again, one at a time, starting from what is saved. -->
@@ -295,6 +296,10 @@
     <h2 class="settings__head" id="settings-retr-head">Last refresh, in detail</h2>
     <div id="retr-host"></div>
   </details>
+  <section class="settings__block settings__block--plain" data-settab="look" id="settings-look-host"></section>
+  <section class="settings__block settings__block--plain" data-settab="backup" id="settings-backup-host"></section>
+  </div>
+  </div>
 </main>
 
 <div class="layout" id="page-jobs" hidden>
