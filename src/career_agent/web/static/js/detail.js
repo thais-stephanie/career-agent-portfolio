@@ -178,7 +178,6 @@ export function createDrawer({
   const cautionHost = el('div', { className: 'drawer__caution' });
   const titleNode = el('h2', { className: 'drawer__title', attrs: { id: 'drawer-title' }, text: '' });
 
-  /** Paint every panel. All are built; one is visible. */
   /**
    * The signs this ad itself shows, named one by one. "May be", never "is":
    * a sign is something real companies rarely do, not proof.
@@ -201,12 +200,16 @@ export function createDrawer({
         button(t('caution.ok'), () => {
           markChecked(job.job_id);
           replace(cautionHost, []);
+          // The button is gone; the reader lands on the open tab.
+          const open = tabList.querySelector('[aria-selected="true"]');
+          if (open) open.focus();
           if (onChanged) onChanged(job);
         }, { className: 'btn btn--link d-caution__ok' }),
       ].filter(Boolean)),
     ])];
   }
 
+  /** Paint every panel. All are built; one is visible. */
   function paint(job) {
     companyNode.textContent = job.company_name || t('absent.companyStated');
     whereNode.textContent = whereLine(job);

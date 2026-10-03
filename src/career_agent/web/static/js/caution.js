@@ -28,13 +28,12 @@ export function cautionOf(job) {
   return (read()[who()] || []).includes(job.job_id) ? [] : signals;
 }
 
-/** "I checked. It looks fine" (or its undo), for this profile only. */
-export function markChecked(jobId, checked = true) {
+/** "I checked. It looks fine", for this profile only. The newest 500 are kept. */
+export function markChecked(jobId) {
   const all = read();
   const mine = new Set(all[who()] || []);
-  if (checked) mine.add(jobId);
-  else mine.delete(jobId);
-  all[who()] = [...mine];
+  mine.add(jobId);
+  all[who()] = [...mine].slice(-500);
   try {
     window.localStorage.setItem(KEY, JSON.stringify(all));
   } catch {

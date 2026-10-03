@@ -17,7 +17,7 @@
 
 import * as api from './api.js';
 import { el, button, replace, clear } from './dom.js';
-import { toast } from './ui.js';
+import { keepFocus, toast } from './ui.js';
 import {
   createStore, SORTS, VIEW_GROUPING, activeFilterCount, clearedFilters, TRACKED_STATUSES,
   LIST_KEYS, FLAG_KEYS,
@@ -27,7 +27,7 @@ import { renderCards, cardsSkeleton } from './cards.js';
 import {
   renderColumnsMenu, renderTable, tableSkeleton, loadVisible, toCsv,
 } from './table.js';
-import { renderKanban, kanbanSkeleton } from './kanban.js';
+import { COLUMNS, renderKanban, kanbanSkeleton } from './kanban.js';
 import { renderPreferences } from './preferences.js';
 import { renderSearchSettings } from './search-settings.js';
 import { renderAiSettings } from './ai-settings.js';
@@ -401,7 +401,6 @@ function goTo(page, { push = true, resume = null } = {}) {
   // question nobody has asked yet, and a list of jobs should not wait on it.
   if (page === 'settings') {
     setSettingsTab(settingsTab);
-    refreshSmartStatus();
     renderSetupEntry(document.getElementById('settings-setup-host'));
     renderSearchSettings(document.getElementById('search-settings-host'), store);
     sourcesPanel.load();
@@ -922,7 +921,6 @@ function paint(state) {
   } else if (state.view === 'kanban') {
     renderKanban(dom.list, items, {
       onOpen: openJob,
-      onOpenTab: openJob,
       onMove: moveWithUndo,
     });
     paintBoardEmpty(items.length === 0 && activeFilterCount(state) <= 1);
@@ -987,11 +985,13 @@ function announce(state, shown, total) {
     total > shown ? t('count.showingRange', { from, to }) : null,
   ].filter(Boolean);
   if (state.view === 'kanban') {
-    // V3: My applications says how to use the board, and what is in play.
-    const rows = (lastResponse && lastResponse.items) || [];
-    const going = rows.filter((row) => ['SHORTLISTED', 'APPLIED', 'INTERVIEW', 'OFFER']
-      .includes(String(row.application_status || '').toUpperCase())).length;
-    const talks = rows.filter((row) => String(row.application_status || '').toUpperCase() === 'INTERVIEW').length;
+    // V3: My applications says how to use the board, and what is in play,
+    // counted over every tracked job (the status facet), not this page.
+    const byStatus = Object.fromEntries(((lastResponse && lastResponse.facets && lastResponse.facets.status) || [])
+      .map((row) => [row.key, row.count]));
+    const going = COLUMNS.filter((column) => column.key !== 'CLOSED')
+      .flatMap((column) => column.statuses).reduce((sum, status) => sum + (byStatus[status] || 0), 0);
+    const talks = byStatus.INTERVIEW || 0;
     replace(dom.count, [
       el('span', { className: 'boardhead__lede', text: t('board.lede') }),
       el('span', { className: 'boardhead__chips' }, [
@@ -999,7 +999,8 @@ function announce(state, shown, total) {
         talks ? el('span', { className: 'boardhead__chip boardhead__chip--talk',
           text: tCount('board.interviews', { n: talks }) }) : null,
       ].filter(Boolean)),
-    ]);
+      quiet.length ? el('span', { className: 'resultcount__quiet', text: quiet.join(' \u00B7 ') }) : null,
+    ].filter(Boolean));
     dom.count.classList.add('resultcount--board');
     renderRevisionNotice();
     renderHiddenNotice(state);
@@ -2452,6 +2453,8 @@ document.getElementById('site-alert-close')?.addEventListener('click', () => {
 });
 
 function drawRailStatus() {
+  // Settings' Job sites status reads the same count.
+  if (currentPage === 'settings') paintSettingsNav();
   const node = dom.healthSummary;
   if (!node || !dom.healthSummaryText) return;
   const failed = Number(railStatus.failed) || 0;
@@ -2578,7 +2581,7 @@ function paintSettingsNav() {
       const status = settingsStatus(key);
       return el('button', {
         className: `setnav__item setnav__item--${key}`,
-        attrs: { type: 'button', id: `settab-${key}`, 'data-settab-btn': key,
+        attrs: { type: 'button', id: `settab-${key}`,
           'aria-current': key === settingsTab ? 'page' : null },
         on: { click: () => setSettingsTab(key) },
       }, [
@@ -2611,10 +2614,11 @@ function paintLook() {
     const found = [...document.querySelectorAll(`#${host} [${attr}]`)]
       .find((node) => node.getAttribute(attr) === value);
     if (found) found.click();
-    setSettingsTab('look');
   };
   const choice = (on, label, sub, onClick, extra = []) => el('button', {
-    className: 'look__choice', attrs: { type: 'button', 'aria-pressed': String(on) }, on: { click: onClick },
+    className: 'look__choice',
+    attrs: { type: 'button', 'aria-pressed': String(on), 'aria-label': label },
+    on: { click: onClick },
   }, [
     ...extra,
     el('span', { className: 'look__row' }, [
@@ -2654,15 +2658,15 @@ function paintBackup() {
   ]);
 }
 
-/** Smart matching's On / Off in the nav, read again whenever it may have moved. */
-function refreshSmartStatus() {
-  api.getSemantic().then((data) => {
-    smartMatchingOn = Boolean(data && data.settings && data.settings.enabled && !data.demo);
-    paintSettingsNav();
-  }).catch(() => {});
-}
-// Its switch lives in the AI block; a change there must reach the nav.
-document.getElementById('ai-settings-host').addEventListener('change', () => setTimeout(refreshSmartStatus, 800));
+// Smart matching's On / Off follows the AI block, which says so whenever it
+// (re)loads: "On" only when findings are actually produced by a provider.
+document.getElementById('ai-settings-host').addEventListener('ai-settings-loaded', (event) => {
+  const data = event.detail || {};
+  const settings = data.settings || {};
+  smartMatchingOn = Boolean(settings.enabled && settings.mode !== 'deterministic'
+    && data.active_provider && !data.demo);
+  paintSettingsNav();
+});
 // The theme switch in the sidebar changes what Look and language says.
 document.getElementById('theme-host').addEventListener('click', () => setTimeout(() => setSettingsTab(settingsTab), 0));
 
@@ -2674,7 +2678,7 @@ function setSettingsTab(tab) {
   page.dataset.tab = tab;
   document.getElementById('settings-title').textContent = t(`settab.${tab}`);
   document.getElementById('settings-desc').textContent = t(`setnav.desc.${tab}`);
-  if (tab === 'look') paintLook();
+  if (tab === 'look') keepFocus(document.getElementById('settings-look-host'), paintLook);
   if (tab === 'backup') paintBackup();
   paintSettingsNav();
 }

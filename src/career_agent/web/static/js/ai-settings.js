@@ -85,6 +85,8 @@ export function renderAiSettings(host) {
     try {
       data = await getSemantic(refresh);
       draw();
+      // Settings' nav shows On / Off from the same answer.
+      host.dispatchEvent(new CustomEvent('ai-settings-loaded', { bubbles: true, detail: data }));
       if (data.run && data.run.status === 'running') poll();
     } catch (error) {
       replace(host, [el('p', { className: 'ai__error', text: failureText(error) })]);

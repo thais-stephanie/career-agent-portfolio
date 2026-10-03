@@ -1,4 +1,4 @@
-"""Scam signs are read from the ad's own words, and only shown, never scored."""
+"""Scam signs are asks the ad itself makes, and they are only shown, never scored."""
 
 from __future__ import annotations
 
@@ -15,21 +15,45 @@ MATCH = Path(__file__).resolve().parents[2] / "src" / "career_agent" / "match"
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("You must pay a training fee of USD 49 before you start.", ["fee"]),
+        ("Before you start you must pay a training fee of USD 49.", ["fee"]),
+        ("Pay the $50 registration fee and don't miss this opportunity.", ["fee"]),
         ("Antes de começar, é preciso pagar uma taxa de inscrição.", ["fee"]),
+        ("Pague a taxa de inscrição de R$50, não perca!", ["fee"]),
         ("Please send your bank account details first.", ["bank"]),
+        ("Send your bank account details to start; no experience needed.", ["bank"]),
         ("Envie seus dados bancários para iniciar.", ["bank"]),
         ("Contact us only on WhatsApp: +1 555 0100.", ["whatsapp"]),
+        ("Atendimento somente pelo WhatsApp.", ["whatsapp"]),
         ("Buy the starter laptop from us before day one.", ["equipment"]),
-        # Denials and ordinary ads say nothing.
-        ("We will never ask you to pay a fee.", []),
-        ("We send you a laptop; you buy nothing.", []),
-        ("Senior engineer, Python, remote. Salary USD 300,000.", []),
-        ("", []),
     ],
 )
-def test_a_sign_is_a_phrase_the_ad_contains(text: str, expected: list[str]) -> None:
+def test_an_ask_the_ad_makes_is_named(text: str, expected: list[str]) -> None:
     assert caution_signals(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "There is no application fee.",
+        "Sem taxa de inscrição.",
+        "Isento de taxa de inscrição.",
+        "Reembolso de taxa de matrícula em cursos de idiomas.",
+        "Auxílio para pagar a taxa de matrícula da faculdade.",
+        "We cover the onboarding fee for your visa.",
+        "Benefits: we pay your gym membership and a home office deposit.",
+        "We pay a sign-on bonus and relocation deposit.",
+        "Contact HR via WhatsApp or email if you have questions.",
+        "Our team will contact you on WhatsApp to schedule the interview.",
+        "Envie seu currículo pelo WhatsApp.",
+        "You must provide bank account details for payroll after the offer.",
+        "Informe seus dados bancários para depósito do salário.",
+        "We will never ask you to pay a fee.",
+        "Senior engineer, Python, remote. Salary USD 300,000.",
+        "",
+    ],
+)
+def test_an_ordinary_ad_fires_nothing(text: str) -> None:
+    assert caution_signals(text) == []
 
 
 def test_no_salary_comparison_is_claimed() -> None:

@@ -89,16 +89,10 @@ const NEXT = { SHORTLISTED: 'APPLIED', APPLIED: 'INTERVIEW', INTERVIEW: 'OFFER' 
 //: V3: the card's next-step link, into the drawer tab that helps with it.
 const CTA = { SHORTLISTED: 'prepare', INTERVIEW: 'practice' };
 
-/** One sentence about what to do next, from the card's own dates. */
+/** One sentence about what to do next. None once it is over, or the ad has closed. */
 function hintFor(job, key) {
-  if (key === 'SHORTLISTED') return t('kanban.hint.SHORTLISTED');
-  if (key === 'APPLIED') {
-    return job.applied_at
-      ? t('kanban.hint.APPLIEDOn', { ago: relativeAge(job.applied_at) })
-      : t('kanban.hint.APPLIED');
-  }
-  if (key === 'INTERVIEW' || key === 'OFFER') return t(`kanban.hint.${key}`);
-  return null;
+  if (key === 'CLOSED' || (key === 'SHORTLISTED' && job.freshness === 'CLOSED')) return null;
+  return t(`kanban.hint.${key}`);
 }
 const PREV = { APPLIED: 'SHORTLISTED', INTERVIEW: 'APPLIED', OFFER: 'INTERVIEW', CLOSED: 'SHORTLISTED' };
 
@@ -245,8 +239,8 @@ function kanbanCard(job, column, handlers) {
   if (hint) {
     root.appendChild(el('p', { className: `kcard__hint kcard__hint--${column.key.toLowerCase()}`, text: hint }));
   }
-  if (CTA[column.key] && handlers.onOpenTab) {
-    const link = button(t(`kanban.cta.${column.key}`), () => handlers.onOpenTab(job.job_id, CTA[column.key]), {
+  if (CTA[column.key]) {
+    const link = button(t(`kanban.cta.${column.key}`), () => handlers.onOpen(job.job_id, CTA[column.key]), {
       className: 'kcard__cta',
     });
     link.dataset.stopsOpen = 'true';

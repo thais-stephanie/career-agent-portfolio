@@ -93,7 +93,7 @@ function rememberPosition(key) {
 }
 
 //: V3: the five named stages the stepper shows, and which cards each holds.
-const STAGES = [{ key: 'work' }, { key: 'where' }, { key: 'kind' }, { key: 'pay' }, { key: 'cv' }];
+const STAGES = ['work', 'where', 'kind', 'pay', 'cv'];
 const STAGE_OF = {
   work: 'work', roles: 'work',
   home: 'where', hire: 'where', regions: 'where', workmodel: 'where',
@@ -306,7 +306,8 @@ export function createSetup({
    * appearing rather than as a total that changed.
    */
   function stepper(steps, current) {
-    const named = STAGES.filter((stage) => steps.some((item) => STAGE_OF[item.key] === stage.key));
+    const named = STAGES.filter((stage) => steps.some((item) => STAGE_OF[item.key] === stage))
+      .map((stage) => ({ key: stage }));
     const at = ['review', 'ready'].includes(current)
       ? named.length
       : named.findIndex((stage) => stage.key === STAGE_OF[current]);
@@ -619,6 +620,8 @@ export function createSetup({
                   .find((node) => node.dataset.locale === locale);
                 if (sidebar) sidebar.click();
                 draw({ focus: false });
+                const again = root.querySelector(`[data-lang="${locale}"]`);
+                if (again) again.focus();
               },
             },
           }, [

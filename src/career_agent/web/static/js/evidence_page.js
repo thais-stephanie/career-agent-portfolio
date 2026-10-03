@@ -76,14 +76,14 @@ export function evidencePage({ onChanged = null, onImport = null } = {}) {
     if (kindTab !== 'all' && !filled.some((g) => g.type === kindTab)) kindTab = 'all';
     const tab = (key, label, n) => el('button', {
       className: 'segmented__btn evp-tab',
-      attrs: { type: 'button', role: 'tab', 'aria-selected': String(kindTab === key), 'data-kind': key },
+      attrs: { type: 'button', 'aria-pressed': String(kindTab === key), 'data-kind': key },
       on: { click: () => { kindTab = key; paint(); } },
     }, [label, el('span', { className: 'evp-tab__n', text: ` (${n})` })]);
     const tabs = filled.length > 1 ? el('div', {
-      className: 'segmented evp-tabs', attrs: { role: 'tablist', 'aria-label': L('tabsLabel') },
+      className: 'segmented evp-tabs', attrs: { role: 'group', 'aria-label': L('tabsLabel') },
     }, [
       tab('all', L('tab.all'), filled.reduce((sum, g) => sum + g.items.length, 0)),
-      ...filled.map((g) => tab(g.type, L(`tab.${g.type}`), g.items.length)),
+      ...filled.map((g) => tab(g.type, L(`group.${g.type}`), g.items.length)),
     ]) : null;
     replace(root, [
       el('div', { className: 'evp-toolbar' }, [

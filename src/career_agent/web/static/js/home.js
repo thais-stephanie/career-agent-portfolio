@@ -265,13 +265,17 @@ export function createHome({
    * It names no job it was not given.
    */
   function nextStep(payload) {
-    const byKey = new Map(payload.metrics.map((metric) => [metric.key, metric]));
+    const byKey = new Map((payload.metrics || []).map((metric) => [metric.key, metric]));
     const count = (key) => Number((byKey.get(key) || {}).value) || 0;
     const run = payload.latest_refresh_run ? String(payload.latest_refresh_run) : null;
     const unseen = run && stored(SEEN_KEY) !== run ? count('new') : 0;
     const interviews = byKey.get('interviews');
+    const offers = byKey.get('offers');
     let step = { key: 'browse', tone: 'green', n: 0, go: () => onGoTo('jobs') };
-    if (count('interviews') && interviews.statuses.length) {
+    if (count('offers') && offers.statuses.length) {
+      step = { key: 'offer', tone: 'lav', n: count('offers'),
+        go: () => onGoTo('jobs', { status: offers.statuses, saved_only: false }) };
+    } else if (count('interviews') && interviews.statuses.length) {
       step = { key: 'interview', tone: 'lav', n: count('interviews'),
         go: () => onGoTo('jobs', { status: interviews.statuses, saved_only: false }) };
     } else if (unseen) {
@@ -452,7 +456,6 @@ export function createHome({
       const unknown = metric.value === null || metric.value === undefined;
       const label = t(`home.metric.${step.key}`);
       const inner = [
-        el('span', { className: 'step__num', text: t('home.step', { n: index + 1 }) }),
         el('span', { className: 'step__value num', text: unknown ? '-' : String(metric.value) }),
         el('span', { className: 'step__label', text: label }),
         el('span', {
