@@ -3,12 +3,6 @@
 from pydantic import ValidationError
 
 from career_agent.storage.career_repo import CareerError, CareerRepo
-from career_agent.storage.contact import (
-    ContactError,
-    missing_required,
-    read_contact,
-    write_contact,
-)
 from career_agent.storage.db import transaction
 from career_agent.storage.workspace_repo import candidate_id_of, ensure_candidate
 from career_agent.web.server import ApiError, LocalApp, closing
@@ -82,26 +76,6 @@ def register_career_routes(app: LocalApp) -> None:
         except (ValueError, ValidationError) as exc:
             raise ApiError(409, str(exc), for_reader=True) from exc
 
-    def contact(*, query: dict, body: dict) -> dict:
-        with closing(app.connect()) as conn:
-            saved = read_contact(conn)
-        return {"contact": saved, "missing": missing_required(saved)}
-
-    def save_contact(*, query: dict, body: dict) -> dict:
-        if not isinstance(body.get("contact"), dict):
-            raise ApiError(400, "Send your details as `contact`.")
-        try:
-            with closing(app.connect()) as conn, transaction(conn):
-                # A field not sent keeps its value; an empty one clears it.
-                saved = write_contact(conn, {**read_contact(conn), **body["contact"]})
-        except ContactError as exc:
-            raise ApiError(400, str(exc), for_reader=True) from exc
-        return {"contact": saved, "missing": missing_required(saved)}
-
-    # The person's own name and contact details, for resumes. Not a search
-    # answer: nothing that scores or filters a posting reads them.
-    app.register("GET", r"/api/profile/contact", contact)
-    app.register("PATCH", r"/api/profile/contact", save_contact)
     app.register("GET", r"/api/career", overview)
     app.register("GET", r"/api/career/evidence", evidence)
     app.register("GET", r"/api/career/history", history)

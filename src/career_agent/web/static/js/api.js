@@ -884,16 +884,6 @@ export async function patchProfile(changes) {
   return request('/profile', { method: 'PATCH', body: { changes } });
 }
 
-/** The person's name and contact details, for resumes. Not a search answer. */
-export async function getContact() {
-  return MOCK ? { contact: {}, missing: ['full_name', 'email'] } : request('/profile/contact');
-}
-
-/** Save some of them; a field not sent keeps its value, an empty one clears it. */
-export async function patchContact(contact) {
-  return request('/profile/contact', { method: 'PATCH', body: { contact } });
-}
-
 
 /**
  * The funnel and the last retrieval. Safe to poll.

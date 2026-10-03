@@ -1,5 +1,5 @@
-"""Functional recovery A: Find jobs totals, the saved heart on the board, and
-the person's contact details. Driven through `handle_api`, as the page does."""
+"""Functional recovery A: Find jobs totals and the saved heart on the board.
+Driven through `handle_api`, as the page does."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from career_agent.pipeline.demo_seed import seed_demo
 from career_agent.storage import mvp_repo
 from career_agent.storage.db import connect, migrate
 from career_agent.web.api import JobsApi
-from career_agent.web.server import ApiError, ServerConfig
+from career_agent.web.server import ServerConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = committed_config_dir()
@@ -158,74 +158,4 @@ def test_save_then_apply_is_one_card_in_applied(api: JobsApi) -> None:
     api.handle_api("PATCH", f"/api/jobs/{job_id}/saved", {}, {"saved": False})
     assert [job["application_status"] for job in _board(api) if job["job_id"] == job_id] == [
         "APPLIED"
-    ]
-
-
-# =========================================================================
-# Personal and contact details
-# =========================================================================
-
-
-def test_contact_details_persist_merge_and_validate(api: JobsApi) -> None:
-    empty = _get(api, "/api/profile/contact")
-    assert empty["missing"] == ["full_name", "email"]
-    assert set(empty["contact"].values()) == {""}
-
-    saved = api.handle_api(
-        "PATCH",
-        "/api/profile/contact",
-        {},
-        {
-            "contact": {
-                "full_name": " Ana  Exemplo ",
-                "email": "ana@example.com",
-                "github_url": "github.com/ana",
-            }
-        },
-    )
-    assert saved["contact"]["full_name"] == "Ana Exemplo"
-    assert saved["contact"]["github_url"] == "https://github.com/ana"
-    assert saved["missing"] == []
-    # A field not sent keeps its value.
-    merged = api.handle_api(
-        "PATCH", "/api/profile/contact", {}, {"contact": {"phone": "+55 81 9999"}}
-    )
-    assert merged["contact"]["email"] == "ana@example.com"
-    assert merged["contact"]["phone"] == "+55 81 9999"
-    assert _get(api, "/api/profile/contact")["contact"] == merged["contact"]
-
-    for bad in ({"email": "nope"}, {"linkedin_url": "not a url"}, {"nickname": "x"}):
-        with pytest.raises(ApiError) as caught:
-            api.handle_api("PATCH", "/api/profile/contact", {}, {"contact": bad})
-        assert caught.value.status == 400
-
-
-def test_contact_details_belong_to_one_profile_database(tmp_path: Path) -> None:
-    (tmp_path / "one").mkdir()
-    (tmp_path / "two").mkdir()
-    first, second = _api(tmp_path / "one"), _api(tmp_path / "two")
-    first.handle_api(
-        "PATCH", "/api/profile/contact", {}, {"contact": {"full_name": "Ana", "email": "a@b.co"}}
-    )
-    assert _get(second, "/api/profile/contact")["contact"]["full_name"] == ""
-
-
-def test_contact_details_move_no_score(api: JobsApi) -> None:
-    before = _get(api, "/api/jobs", limit=60)
-    api.handle_api(
-        "PATCH",
-        "/api/profile/contact",
-        {},
-        {
-            "contact": {
-                "full_name": "Ana",
-                "email": "a@b.co",
-                "country": "Portugal",
-                "city": "Porto",
-            }
-        },
-    )
-    after = _get(api, "/api/jobs", limit=60)
-    assert [(j["job_id"], j["match_score"], j["eligibility_status"]) for j in before["items"]] == [
-        (j["job_id"], j["match_score"], j["eligibility_status"]) for j in after["items"]
     ]

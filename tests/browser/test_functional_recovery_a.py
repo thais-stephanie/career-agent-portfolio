@@ -1,6 +1,6 @@
 """Functional recovery A, as the owner met it: a list that comes back without
 loading again, the heart on My applications, the rail's one count, and the
-profile's own name and layout."""
+profile's layout."""
 
 from __future__ import annotations
 
@@ -225,35 +225,3 @@ def test_a_complete_profile_leaves_no_hole_and_the_tabs_are_centred(
         " - (box.left + box.width / 2)); })()"
     )
     assert offset <= 2, f"the tabs are {offset}px off centre"
-
-
-def test_personal_details_are_edited_from_the_profile_and_kept(
-    page: Chrome, pristine_server: str
-) -> None:
-    page.set_viewport(*DESKTOP)
-    page.navigate(f"{pristine_server}/#profile")
-    page.wait_for("document.querySelector('.profilehead') !== null", message="profile header")
-    assert "Your name" in page.evaluate("document.querySelector('.profilehead__name').textContent")
-    page.evaluate(
-        "[...document.querySelectorAll('.profilehead button')]"
-        ".find((b) => b.textContent.includes('Edit personal details')).click()"
-    )
-    page.wait_for("document.getElementById('contact-full_name') !== null", message="the form")
-    page.evaluate(
-        "(() => { const set = (id, v) => { const n = document.getElementById(id); n.value = v; };"
-        " set('contact-full_name', 'Ana Exemplo'); set('contact-email', 'ana@example.com');"
-        " set('contact-github_url', 'github.com/ana');"
-        " [...document.querySelectorAll('.cw-drawer button')]"
-        ".find((b) => b.textContent.includes('Save my details')).click(); })()"
-    )
-    page.wait_for(
-        "document.querySelector('.profilehead__name').textContent === 'Ana Exemplo'",
-        message="the name in the header",
-    )
-    page.reload()
-    page.wait_for(
-        "document.querySelector('.profilehead__name')?.textContent === 'Ana Exemplo'",
-        message="the name after a reload",
-    )
-    links = page.evaluate("[...document.querySelectorAll('.profilehead__link')].map((a) => a.href)")
-    assert links == ["https://github.com/ana"]

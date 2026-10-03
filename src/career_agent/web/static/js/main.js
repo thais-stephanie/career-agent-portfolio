@@ -33,7 +33,6 @@ import { renderSearchSettings } from './search-settings.js';
 import { renderAiSettings } from './ai-settings.js';
 import { searchFitIsReady, setSearchFitReadiness } from './badges.js';
 import { renderProfile } from './profile.js';
-import { editContact } from './contact.js';
 import { LOCALES, getLocale, initialLocale, setLocale, t, tCount, tState } from './i18n.js';
 import { createRetrievalPanel } from './retrieval.js';
 import { createCollection, createProgressView, outcomeText } from './collection.js';
@@ -2800,8 +2799,6 @@ document.addEventListener('keydown', (event) => {
 let profileLoaded = false;
 let lastProfile = null;
 let lastLedger = null;
-//: The person's name and contact details (`/api/profile/contact`), or null.
-let lastContact = null;
 
 /**
  * Draw the profile again in the reader's language.
@@ -2830,15 +2827,7 @@ function drawProfile(host, tab = null) {
   profileTabs = renderProfile(host, lastProfile, lastLedger, {
     experience: experienceNode,
     tab,
-    contact: lastContact,
-    onEditContact: (country) => editContact({
-      contact: lastContact || {},
-      country,
-      onSaved: (contact) => {
-        lastContact = contact;
-        drawProfile(host, 'overview');
-      },
-    }),
+    who: localProfiles.activeLabel(),
     onGo: (target) => {
       if (target === 'experience') {
         if (profileTabs) profileTabs.show('experience');
@@ -2880,15 +2869,13 @@ async function loadProfile() {
     // machine with no candidate answers 404 on the ledger and must still be
     // able to show somebody the search they configured. So the ledger is
     // caught on its own and its absence simply removes three tabs.
-    const [profile, ledger, contact] = await Promise.all([
+    const [profile, ledger] = await Promise.all([
       api.getProfile(),
       api.getEvidence().catch(() => null),
-      api.getContact().catch(() => null),
     ]);
     // Kept so a language switch can redraw without asking again.
     lastProfile = profile;
     lastLedger = ledger;
-    lastContact = contact && contact.contact;
     drawProfile(host);
   } catch (error) {
     profileLoaded = false;  // let them try again
