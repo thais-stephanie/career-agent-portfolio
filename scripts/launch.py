@@ -229,7 +229,7 @@ def main() -> int:
         print(f"Local profile: {profile.label}")
     print(
         f"Career Agent is running: http://127.0.0.1:{args.port}/\n"
-        f"Resume Tailor Beta: http://127.0.0.1:{args.port + 1}/\n"
+        "Resume helper: inside Career Agent (sidebar)\n"
         "If your browser did not open, copy the first address into it.\n"
         "Keep this window open while you use the apps. Press Ctrl+C here to stop both."
     )

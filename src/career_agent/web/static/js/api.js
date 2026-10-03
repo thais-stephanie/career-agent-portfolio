@@ -217,13 +217,40 @@ async function rtFetch(path, init = {}) {
   if (response.ok) return response;
   let payload = null;
   try { payload = await response.json(); } catch { payload = null; }
-  const detail = payload && (payload.detail || payload);
-  // A page left open across a profile switch: reload onto the new profile.
-  if (response.status === 409 && detail && detail.code === 'stale_profile') window.location.reload();
-  const said = detail && (detail.message || payload.error);
-  throw new ApiError({
-    kind: 'http', status: response.status, message: said || faultMessage(response.status), detail,
-  });
+  const detail = (payload && payload.detail) || payload || {};
+  // A page left open across a profile switch: reload onto the new profile,
+  // once. A second refusal within a minute is shown, never looped on.
+  if (response.status === 409 && detail.code === 'stale_profile') {
+    let last = 0;
+    try { last = Number(window.sessionStorage.getItem(STALE_RELOAD) || 0); } catch { last = 0; }
+    if (Date.now() - last > 60000) {
+      try { window.sessionStorage.setItem(STALE_RELOAD, String(Date.now())); } catch { /* best effort */ }
+      window.location.reload();
+    }
+  }
+  // The engine's words are English and written for a log: a known code is
+  // said in the reader's language, anything else as a plain fault.
+  const known = detail.code ? t(`rh.err.${detail.code}`) : '';
+  let message = known && known !== `rh.err.${detail.code}` ? known : faultMessage(response.status);
+  if (response.status === 503 && payload && payload.for_reader) message = t('rh.err.not_running');
+  throw new ApiError({ kind: 'http', status: response.status, message, detail });
+}
+
+const STALE_RELOAD = 'careerAgent.rh.staleReload';
+
+/** Save a fetched file under the name the server gave. Returns that name. */
+function saveBlob(blob, response, fallbackName) {
+  const named = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '');
+  const name = named ? named[1] : fallbackName;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
 }
 
 /** JSON in, JSON out. A body-less write still sends `{}` as JSON. */
@@ -249,18 +276,7 @@ export async function rtUpload(path, file) {
 /** A file the engine made, saved under the name it gave. Returns that name. */
 export async function rtDownload(path, fallbackName) {
   const response = await rtFetch(path);
-  const blob = await response.blob();
-  const named = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '');
-  const name = named ? named[1] : fallbackName;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  return name;
+  return saveBlob(await response.blob(), response, fallbackName);
 }
 
 async function downloadCsv(path, fallbackName) {

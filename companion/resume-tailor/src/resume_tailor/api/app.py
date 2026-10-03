@@ -201,7 +201,13 @@ def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
         ), RunStore(paths.runs_dir())
 
     @app.get("/")
-    def root() -> FileResponse:
+    def root() -> Any:
+        if bridge is not None:
+            # Followed by Career Agent: its Resume helper is a page of that
+            # app, so this address has nothing of its own to show.
+            return JSONResponse(
+                errors.body("inside_career_agent", "Open the Resume helper in Career Agent."), 404
+            )
         index_v2 = UI_V2_DIR / "index.html"
         if index_v2.exists():
             return FileResponse(index_v2)
@@ -315,6 +321,8 @@ def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
             headers={"Content-Disposition": f'attachment; filename="{name}"'},
         )
 
+    if bridge is not None:
+        return app
     if UI_DIR.exists():  # the legacy UI; absent in the public distribution
         app.mount("/static", StaticFiles(directory=str(UI_DIR)), name="static")
     if UI_V2_DIR.exists():

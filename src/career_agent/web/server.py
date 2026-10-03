@@ -175,6 +175,12 @@ MAX_RESUME_HELPER_BYTES = 25_000_000
 #: The Resume helper's engine, reached by this server and never by the page:
 #: the page asks `/rt/api/...` on its own origin and this forwards it.
 RESUME_HELPER_PREFIX = "/rt/api/"
+#: What the page may ask the engine: its profile workspace, the candidate
+#: routes and the Career Agent bridge. Nothing else (the engine's legacy
+#: routes, its old interface) is reachable through this server.
+RESUME_HELPER_PATHS = re.compile(
+    r"^/rt/api/(workspace|candidates(/[A-Za-z0-9._~/=-]*)?|career/[A-Za-z0-9._~/=-]+)$"
+)
 
 #: What an UPLOAD may weigh. `cv.extract.MAX_BYTES` is 25 MB and base64 costs a
 #: third more, so a CV at the extractor's limit needs this much to arrive at
@@ -522,24 +528,29 @@ class _Handler(BaseHTTPRequestHandler):
         engine as itself. No page ever talks to a second address, and nothing
         but the request it was given crosses.
         """
-        host = (self.headers.get("Host") or "").strip()
-        if not host or not self.app.is_own_host(host):
-            raise ApiError(403, "missing or unexpected Host header")
-        origin = (self.headers.get("Origin") or "").strip()
-        if origin and origin.lower() not in self.app.allowed_origins():
-            raise ApiError(403, "cross-origin requests are refused")
         if method not in ("GET", "POST", "PATCH", "DELETE"):
             raise ApiError(405, "method not allowed")
+        if not RESUME_HELPER_PATHS.match(parsed.path) or ".." in parsed.path:
+            raise ApiError(404, "not found")
+        # A GET carries no Origin; the browser's own word for "another site"
+        # is refused before anything reaches the engine.
+        if (self.headers.get("Sec-Fetch-Site") or "").strip().lower() == "cross-site":
+            raise ApiError(403, "cross-site requests are refused")
         content_type = (self.headers.get("Content-Type") or "").strip()
         kind = content_type.split(";")[0].strip().lower()
-        body = b""
-        if method != "GET":
-            if kind not in ("application/json", "multipart/form-data"):
-                raise ApiError(415, "request body must be application/json")
+        origin = (self.headers.get("Origin") or "").strip()
+        if kind == "multipart/form-data" and method != "GET":
             # A form can send multipart across origins without a preflight;
             # only a page of this app, which names its origin, may upload.
-            if kind == "multipart/form-data" and not origin:
+            host = (self.headers.get("Host") or "").strip()
+            if not host or not self.app.is_own_host(host):
+                raise ApiError(403, "missing or unexpected Host header")
+            if not origin or origin.lower() not in self.app.allowed_origins():
                 raise ApiError(403, "uploads need a page of this app")
+        else:
+            self._check_origin(method)
+        body = b""
+        if method != "GET":
             length = int(self.headers.get("Content-Length") or 0)
             if length > MAX_RESUME_HELPER_BYTES:
                 raise ApiError(413, "request body too large")
@@ -555,14 +566,14 @@ class _Handler(BaseHTTPRequestHandler):
         profile = (self.headers.get("X-Local-Profile") or "").strip()
         if profile:
             headers["X-Local-Profile"] = profile
-        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=300)
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=90)
         try:
             connection.request(
                 method, target, body=body if method != "GET" else None, headers=headers
             )
             response = connection.getresponse()
             data = response.read()
-        except OSError as exc:
+        except (OSError, http.client.HTTPException) as exc:
             raise ApiError(
                 503,
                 "The Resume helper is not running. Close Career Agent and open it again.",
@@ -570,8 +581,18 @@ class _Handler(BaseHTTPRequestHandler):
             ) from exc
         finally:
             connection.close()
+        # Whatever answers on the next port must be the engine, which marks
+        # every response; another program (another Career Agent started on
+        # the port below) is never spoken to on this page's behalf.
+        # (its routes add X-Frame-Options; its own refusals are `{"detail": ...}`).
+        if response.getheader("X-Frame-Options") != "DENY" and not data.startswith(b'{"detail"'):
+            raise ApiError(
+                503,
+                "The Resume helper is not running. Close Career Agent and open it again.",
+                for_reader=True,
+            )
         self.send_response(response.status)
-        for name in ("Content-Type", "Content-Disposition", "X-Resume-Pages"):
+        for name in ("Content-Type", "Content-Disposition"):
             value = response.getheader(name)
             if value:
                 self.send_header(name, value)

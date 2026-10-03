@@ -24,7 +24,7 @@ import { el, button, replace } from './dom.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
 import { matchTone } from './cards.js';
-import { formatDate } from './format.js';
+import { formatDate, statusLabel, statusOptions } from './format.js';
 
 const TABS = ['start', 'make', 'resumes', 'experience', 'tips'];
 const TIP_STORE = 'careerAgent.rh.tips.v1';
@@ -52,7 +52,8 @@ const RESULT_TONE = {
 export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, onGoProfile, toast }) {
   let tab = 'start';
   let ws = null; // { mode, candidate_id, candidate_name, profile }
-  let loadError = null;
+  //: Starting a second run stops the first one's polling loop.
+  let pollToken = 0;
   // The Make a resume screen's own state.
   const make = {
     stage: 'setup', jobId: null, jd: '', baseId: null, onlyTrue: true, twoPages: true,
@@ -60,7 +61,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     selected: null, editing: null, whyOpen: new Set(), showWhere: new Set(), skipped: new Set(),
     goodOpen: false, dlOpen: false, loadStep: 0, error: null,
   };
-  let cache = { jobs: null, runs: null, bases: null, career: null };
+  let cache = { jobs: null, runs: null, bases: null, career: null, status: new Map() };
 
   // -- talking to the engine through Career Agent ------------------------------
 
@@ -71,6 +72,9 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     if (ws) return ws;
     const workspace = await api.rt('/workspace');
     if (workspace.mode === 'profile') {
+      // The engine follows the active profile; a page that has not learnt
+      // its own yet takes it from there, so its next calls are not refused.
+      if (!api.getLocalProfile() && workspace.profile) api.setLocalProfile(workspace.profile.id);
       ws = workspace;
     } else {
       // The demo and an installation without local profiles: the engine's
@@ -114,17 +118,30 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     return cache.career;
   }
 
-  function invalidate() {
-    cache = { jobs: null, runs: null, bases: null, career: null };
-  }
 
   // -- the page --------------------------------------------------------------
 
   const tabRow = el('div', {
     className: 'rh__tabs segmented', attrs: { role: 'tablist', 'aria-label': t('nav.tailor') },
   });
-  const body = el('div', { className: 'rh__body' });
+  const body = el('div', { className: 'rh__body', attrs: { role: 'tabpanel', tabindex: '-1' } });
   replace(host, [tabRow, body]);
+
+  /**
+   * Redraw the panel and keep the reader's place: a control that was focused
+   * and exists again (same `data-k`) gets the focus back, so a keyboard or a
+   * screen reader is not thrown to the top on every choice.
+   */
+  function repaint(children) {
+    const key = document.activeElement && body.contains(document.activeElement)
+      ? document.activeElement.dataset.k : null;
+    replace(body, children);
+    body.setAttribute('aria-labelledby', `rh-tab-${tab}`);
+    if (key) {
+      const again = body.querySelector(`[data-k="${CSS.escape(key)}"]`);
+      if (again) again.focus();
+    }
+  }
 
   function paintTabs(lookCount = 0) {
     replace(tabRow, TABS.map((key) => {
@@ -147,22 +164,23 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     show(next).then(() => document.getElementById(`rh-tab-${next}`)?.focus());
   });
 
-  /** Open a tab; `jobId` preselects a job in Make a resume. */
-  async function show(next = tab, { jobId = null, runId = null } = {}) {
+  /**
+   * Open a tab; `jobId` preselects a job in Make a resume. `fresh` (arriving
+   * from another page) drops what was read before: a job saved or a line
+   * confirmed elsewhere in the meantime must show here.
+   */
+  async function show(next = tab, { jobId = null, runId = null, fresh = false } = {}) {
     tab = TABS.includes(next) ? next : 'start';
+    if (fresh) cache = { jobs: null, runs: null, bases: null, career: null, status: new Map() };
     if (jobId) {
       Object.assign(make, { stage: 'setup', jobId: String(jobId), jd: '', runId: null, error: null });
     }
     paintTabs(lookCount());
-    replace(body, [el('div', { className: 'sk sk--block' })]);
+    repaint([el('div', { className: 'sk sk--block' })]);
     try {
       await boot();
-      loadError = null;
     } catch (error) {
-      loadError = error;
-    }
-    if (loadError) {
-      replace(body, [unavailable(loadError)]);
+      repaint([unavailable(error)]);
       return;
     }
     if (runId) await openRun(runId);
@@ -172,7 +190,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       }[tab];
       await painter();
     } catch (error) {
-      replace(body, [el('p', { className: 'state__msg', text: error.userMessage || error.message })]);
+      repaint([el('p', { className: 'state__msg', text: error.userMessage || error.message })]);
     }
     paintTabs(lookCount());
   }
@@ -186,11 +204,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     ]);
   }
 
-  function lookCount() {
-    const data = cache.career;
-    if (!data) return 0;
-    return (data.proposals || []).length;
-  }
+  const lookCount = () => ((cache.career && cache.career.proposals) || []).length;
 
   // -- Start -----------------------------------------------------------------
 
@@ -200,7 +214,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     const waiting = jobs.filter((job) => !withResume.has(job.job_id));
     const confirmed = countConfirmed(data);
     const look = lookCount();
-    replace(body, [el('div', { className: 'rh-grid' }, [
+    repaint([el('div', { className: 'rh-grid' }, [
       el('section', { className: 'rh-card rh-hero' }, [
         el('div', { className: 'rh-hero__text' }, [
           el('h2', { className: 'rh-h2 rh-h2--big', text: t('rh.start.title') }),
@@ -289,7 +303,8 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     if (!make.baseId || !bs.some((b) => b.id === make.baseId)) {
       make.baseId = (bs.find((b) => b.default) || bs[0] || {}).id || null;
     }
-    const canGo = Boolean(make.baseId) && (Boolean(make.jobId) || make.jd.trim().length >= 40);
+    const ready = () => Boolean(make.baseId) && (Boolean(make.jobId) || make.jd.trim().length >= 40);
+    const canGo = ready();
     const why = !make.baseId ? t('rh.make.needBase') : t('rh.make.needJob');
     const go = button(t('rh.make.go'), () => startRun(), {
       className: 'rh-btn rh-btn--primary rh-btn--big', attrs: canGo ? { id: 'rh-make-go' } : {
@@ -304,15 +319,14 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
         input: (event) => {
           make.jd = event.target.value;
           if (make.jd) make.jobId = null;
-          const ready = Boolean(make.baseId) && (Boolean(make.jobId) || make.jd.trim().length >= 40);
-          go.disabled = !ready;
-          reason.hidden = ready;
+          go.disabled = !ready();
+          reason.hidden = ready();
           for (const node of body.querySelectorAll('.rh-radio--job')) node.setAttribute('aria-checked', 'false');
         },
       },
     });
     const reason = el('span', { className: 'rh-muted', text: why, props: { hidden: canGo } });
-    replace(body, [el('div', { className: 'rh-grid rh-grid--setup' }, [
+    repaint([el('div', { className: 'rh-grid rh-grid--setup' }, [
       el('section', { className: 'rh-card rh-setup' }, [
         el('div', { className: 'rh-field' }, [
           el('span', { className: 'rh-field__label', text: t('rh.make.q1') }),
@@ -325,7 +339,9 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
               paintSetup();
             }, {
               className: 'rh-radio rh-radio--job',
-              attrs: { role: 'radio', 'aria-checked': String(on), 'data-job-id': job.job_id },
+              attrs: {
+                role: 'radio', 'aria-checked': String(on), 'data-job-id': job.job_id, 'data-k': `job-${job.job_id}`,
+              },
             });
           }).map((node, index) => {
             const job = pickable[index];
@@ -352,7 +368,8 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
               className: 'rh-radios rh-radios--grid', attrs: { role: 'radiogroup', 'aria-label': t('rh.make.q2') },
             }, bs.map((base) => {
               const node = button('', () => { make.baseId = base.id; paintSetup(); }, {
-                className: 'rh-radio', attrs: { role: 'radio', 'aria-checked': String(make.baseId === base.id) },
+                className: 'rh-radio',
+                attrs: { role: 'radio', 'aria-checked': String(make.baseId === base.id), 'data-k': `base-${base.id}` },
               });
               node.append(
                 el('span', { className: 'rh-radio__ring', attrs: { 'aria-hidden': 'true' } }),
@@ -458,8 +475,12 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     let careerJobId = null;
     if (make.jobId) {
       const job = await api.getJob(make.jobId).catch(() => null);
-      const text = job ? job.description || job.description_excerpt || '' : '';
-      jdText = job ? [job.title, job.company_name, text].filter(Boolean).join('\n\n') : '';
+      if (!job) {
+        make.error = t('rh.make.jobGone');
+        return paintSetup();
+      }
+      const text = job.description || job.description_excerpt || '';
+      jdText = [job.title, job.company_name, text].filter(Boolean).join('\n\n');
       careerJobId = make.jobId;
     }
     if (jdText.length < 20) {
@@ -472,10 +493,10 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     paintLoading();
     try {
       // The confirmed Career Profile, copied into the engine's list first, so
-      // the resume is built from today's experience (profile mode only).
-      if (ws.mode === 'profile') await api.rt('/career/evidence/import', {
-        method: 'POST', body: {},
-      }).catch(() => null);
+      // the resume is built from today's experience (profile mode only). A
+      // failure stops here: a resume from yesterday's list could still carry
+      // a line she has since removed.
+      if (ws.mode === 'profile') await post('/career/evidence/import');
       const started = await api.rt(cpath('/tailor'), {
         method: 'POST',
         body: {
@@ -495,7 +516,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
           /* The resume is made; only its link to the job is not remembered. */
         }
       }
-      await poll(make.runId);
+      await poll(make.runId, ++pollToken);
     } catch (error) {
       make.stage = 'setup';
       make.error = error.userMessage || error.message;
@@ -503,8 +524,9 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     }
   }
 
-  async function poll(runId) {
+  async function poll(runId, mine) {
     for (let i = 0; i < 400; i += 1) {
+      if (mine !== pollToken) return;
       const answer = await api.rt(cpath(`/applications/${encodeURIComponent(runId)}`));
       const status = answer && answer.status ? answer.status : {};
       if (status.status === 'done') {
@@ -538,7 +560,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
   }
 
   function paintLoading() {
-    replace(body, [el('section', {
+    repaint([el('section', {
       className: 'rh-card rh-loading', attrs: { role: 'status', 'aria-live': 'polite' },
     }, [
       el('h2', { className: 'rh-h2', text: t('rh.load.title') }),
@@ -565,7 +587,6 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     for (const row of rows) counts[(RESULT_TONE[row.result] || ['notYet'])[0]] += 1;
     const total = rows.length || 1;
     const fit = make.match === null || make.match === undefined ? null : Math.round(Number(make.match) * 100);
-    const tone = fit === null ? null : matchTone(fit);
     const rules = [make.onlyTrue ? t('rh.res.onlyTrue') : null, make.twoPages ? t('rh.res.twoPages') : null]
       .filter(Boolean).join(' · ');
 
@@ -577,9 +598,12 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
         },
       }),
       make.dlOpen
-        ? el('div', { className: 'popover rh-dl__menu', attrs: { role: 'menu' } }, ['docx', 'pdf'].map((fmt) => {
+        ? el('div', {
+          className: 'popover rh-dl__menu',
+          on: { keydown: (event) => { if (event.key === 'Escape') { make.dlOpen = false; paintResult(); } } },
+        }, ['docx', 'pdf'].map((fmt) => {
           const item = button('', () => download(fmt), {
-            className: 'rh-dl__item', attrs: { role: 'menuitem', 'data-format': fmt },
+            className: 'rh-dl__item', attrs: { 'data-format': fmt, 'data-k': `dl-${fmt}` },
           });
           item.append(
             el('span', { className: 'rh-dl__name', text: t(`rh.res.${fmt}`) }),
@@ -592,10 +616,8 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
 
     const fitCard = el('section', { className: 'rh-card rh-fit' }, [
       el('div', { className: 'rh-fit__head' }, [
-        fit === null ? null : el('span', {
-          className: `rh-fit__pct tpill--${tone.tone === 'm3' ? 'm3' : tone.tone}`, text: `${fit}%`,
-        }),
-        el('strong', { className: 'rh-fit__label', text: fit === null ? t('rh.res.fitUnknown') : t(tone.key) }),
+        fit === null ? null : el('span', { className: 'rh-fit__pct tpill--chip', text: `${fit}%` }),
+        el('strong', { className: 'rh-fit__label', text: t('rh.res.coverLabel') }),
       ]),
       el('p', {
         className: 'rh-muted',
@@ -617,12 +639,15 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       className: 'segmented rh-restabs', attrs: { role: 'tablist' },
     }, ['asks', 'fix', 'ad'].map((key) => button(
       t(`rh.res.tab.${key}`), () => { make.resTab = key; paintResult(); },
-      { className: 'segmented__btn', attrs: { role: 'tab', 'aria-selected': String(make.resTab === key) } },
+      {
+        className: 'segmented__btn',
+        attrs: { role: 'tab', 'aria-selected': String(make.resTab === key), 'data-k': `restab-${key}` },
+      },
     )));
 
     const panel = make.resTab === 'fix' ? fixPanel(view) : make.resTab === 'ad' ? adPanel(view) : asksPanel(rows);
 
-    replace(body, [el('div', { className: 'rh-result' }, [
+    repaint([el('div', { className: 'rh-result' }, [
       el('div', { className: 'rh-result__head' }, [
         el('div', { className: 'rh-result__who' }, [
           el('span', { className: 'rh-muted', text: t('rh.res.for') }),
@@ -665,7 +690,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       el('div', {
         className: 'rh-chips',
       }, filters.map((key) => button(t(`rh.ask.f.${key}`), () => { make.askFilter = key; paintResult(); }, {
-        className: 'quickchip', attrs: { 'aria-pressed': String(make.askFilter === key) },
+        className: 'quickchip', attrs: { 'aria-pressed': String(make.askFilter === key), 'data-k': `ask-${key}` },
       }))),
       ...rows.filter(keep).map((row, index) => {
         const [kind, tone] = RESULT_TONE[row.result] || ['notYet', 'red'];
@@ -679,16 +704,15 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
               row.requirement,
               /prefer/i.test(row.kind || '') ? el('span', { className: 'rh-ask__nice', text: t('rh.ask.nice') }) : null,
             ]),
-            row.why ? el('span', { className: 'rh-muted', text: row.why }) : null,
             button(open ? t('rh.ask.hideWhere') : t('rh.ask.showWhere'), () => {
               if (open) make.showWhere.delete(row.requirement); else make.showWhere.add(row.requirement);
               paintResult();
             }, { className: 'rh-link' }),
             open
               ? el('div', { className: 'rh-where' }, [
-                ...(row.backed_by || []).map((b) => el('span', {
-                  text: `${b.company ? `${b.company}: ` : ''}${b.text}`,
-                })),
+                ...(row.backed_by || []).map((b) => el('span', {}, [
+                  b.company ? el('strong', { text: b.company }) : null, b.company ? ' · ' : null, b.text,
+                ])),
                 (row.backed_by || []).length ? null : el('span', { text: t('rh.ask.nothingBacks') }),
                 kind === 'notYet' ? button(t('rh.ask.addIt'), () => onGoEvidence(row.requirement), {
                   className: 'rh-link',
@@ -723,20 +747,19 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
         ]),
       ])),
       good.length
-        ? button('', () => { make.goodOpen = !make.goodOpen; paintResult(); }, {
-          className: 'rh-fix__good', attrs: { 'aria-expanded': String(make.goodOpen) },
-        })
+        ? el('button', {
+          className: 'rh-fix__good',
+          attrs: { type: 'button', 'aria-expanded': String(make.goodOpen), 'data-k': 'good' },
+          on: { click: () => { make.goodOpen = !make.goodOpen; paintResult(); } },
+        }, [
+          el('span', {}, [el('span', {
+            className: 'rh-check', text: '✓',
+          }), ` ${t('rh.fix.good', { n: good.length })}`]),
+          el('span', { className: 'rh-faint', text: make.goodOpen ? '▴' : '▾' }),
+        ])
         : null,
       make.goodOpen ? el('ul', { className: 'rh-fix__goodlist' }, good.map((c) => el('li', { text: c.name }))) : null,
-    ].map((node) => {
-      if (node && node.classList && node.classList.contains('rh-fix__good')) {
-        node.append(el('span', {}, [el('span', {
-          className: 'rh-check', text: '✓',
-        }), ` ${t('rh.fix.good', { n: good.length })}`]),
-          el('span', { className: 'rh-faint', text: make.goodOpen ? '▴' : '▾' }));
-      }
-      return node;
-    }));
+    ]);
   }
 
   function adPanel(view) {
@@ -818,7 +841,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     const answer = await api.rt(draftPath('/edit'), { method: 'POST', body: payload });
     make.draft = answer.resume;
     if (answer.edit_check && answer.edit_check.ok === false) {
-      toast(answer.edit_check.message || t('rh.paper.unsupported'), true);
+      toast(t('rh.paper.unsupported'), true);
     }
     paintResult();
   }
@@ -895,7 +918,11 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
 
   async function paintResumes() {
     const [made, bs] = await Promise.all([runs(), bases()]);
-    replace(body, [el('div', { className: 'rh-col' }, [
+    await Promise.all(made.filter((run) => run.career_job_id && !cache.status.has(run.career_job_id))
+      .map((run) => api.getJob(run.career_job_id)
+        .then((job) => cache.status.set(run.career_job_id, job.application_status || 'DISCOVERED'))
+        .catch(() => null)));
+    repaint([el('div', { className: 'rh-col' }, [
       el('section', { className: 'rh-card rh-list' }, [
         el('div', { className: 'rh-list__head rh-list__head--row' }, [
           el('div', { className: 'rh-list__titles' }, [
@@ -912,7 +939,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
               el('span', { className: 'rh-row__sub', text: run.company || '' }),
             ]),
             el('span', { className: 'rh-muted', text: run.date ? formatDate(run.date) : '' }),
-            fit === null ? el('span') : pct(fit),
+            fit === null ? el('span') : el('span', { className: 'tpill tpill--chip', text: `${fit}%` }),
             statusButton(run),
             el('div', { className: 'rh-actions rh-actions--end' }, [
               button(t('rh.open'), () => show('make', { runId: run.id }), { className: 'rh-link' }),
@@ -977,6 +1004,29 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
   }
 
   function statusButton(run) {
+    // One tracker: a resume made for a job shows that job's own status in
+    // Career Agent, and changing it here changes it there.
+    if (run.career_job_id && cache.status.has(run.career_job_id)) {
+      const jobId = run.career_job_id;
+      const control = el('select', {
+        className: 'tpill tpill--chip rh-status select--pill',
+        attrs: { 'aria-label': t('rh.resumes.statusOf', { title: run.role || '' }), 'data-k': `st-${run.id}` },
+        on: {
+          change: async (event) => {
+            try {
+              await api.patchStatus(jobId, event.target.value);
+              cache.status.set(jobId, event.target.value);
+              toast(t('rh.resumes.statusSaved', { status: statusLabel(event.target.value) }));
+            } catch (error) {
+              toast(error.userMessage || error.message, true);
+              event.target.value = cache.status.get(jobId);
+            }
+          },
+        },
+      }, statusOptions().map((option) => el('option', { text: option.label, attrs: { value: option.value } })));
+      control.value = cache.status.get(jobId);
+      return control;
+    }
     const current = RUN_STATUS.includes(run.status) ? run.status : RUN_STATUS[0];
     const node = button(`${t(`rh.status.${current}`)} ▾`, async () => {
       const next = RUN_STATUS[(RUN_STATUS.indexOf(current) + 1) % RUN_STATUS.length];
@@ -1016,7 +1066,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
         },
       },
     });
-    replace(body, [el('div', { className: 'rh-col' }, [
+    repaint([el('div', { className: 'rh-col' }, [
       el('div', { className: 'rh-exp__bar' }, [
         search,
         button(t('rh.exp.edit'), () => onGoProfile(), { className: 'rh-btn rh-btn--chip' }),
@@ -1073,7 +1123,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       ]);
     }
     return el('div', { className: 'rh-row' }, [
-      el('span', { className: 'rh-exp__text', text: h.text }),
+      el('span', { className: 'rh-exptext', text: h.text }),
       el('div', { className: 'rh-actions' }, [
         el('span', { className: 'tpill tpill--m1', text: `✓ ${t('rh.exp.confirmed')}` }),
         button(t('rh.exp.editOne'), () => { editingKey = h.claim_key; paintExperience(); }, { className: 'rh-link' }),
@@ -1123,9 +1173,9 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       const isDone = Boolean(done[key]);
       return el('div', { className: `rh-tip${isDone ? ' is-done' : ''}` }, [
         button(isDone ? '✓' : '', () => { setTip(key, !isDone); paintTips(); }, {
-          className: 'rh-tip__ring', ariaLabel: t('prep3.markDone'), attrs: {
-            role: 'checkbox', 'aria-checked': String(isDone),
-          },
+          className: 'rh-tip__ring',
+          ariaLabel: t('rh.tip.markDone', { tip: t(`rh.tip.${key}.title`) }),
+          attrs: { role: 'checkbox', 'aria-checked': String(isDone), 'data-k': `tip-${key}` },
         }),
         el('div', { className: 'rh-tip__body' }, [
           el('span', { className: 'rh-tip__title', text: t(`rh.tip.${key}.title`) }),
@@ -1163,7 +1213,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
         ...keys.map(([k, opts]) => tip(k, opts)),
       ]);
     };
-    replace(body, [el('div', { className: 'rh-col rh-col--narrow' }, [
+    repaint([el('div', { className: 'rh-col rh-col--narrow' }, [
       el('p', { className: 'rh-muted rh-center', text: t('rh.tips.lede') }),
       section('in', 'linkedin', [
         ['li1', {}], ['li2', {}], ['li3', { how: true }], ['li4', {}], ['li5', {}], ['li6', {}],
@@ -1197,7 +1247,6 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
   return {
     show,
     hasResumeFor,
-    refresh: () => { invalidate(); ws = null; if (!host.hidden) show(tab); },
     relabel: () => { if (!host.hidden) show(tab); },
   };
 }

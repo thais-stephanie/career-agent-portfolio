@@ -34,7 +34,7 @@ import { searchFitIsReady } from './badges.js';
 import { SENT, matchTone } from './cards.js';
 import { createPrepare } from './prepare.js';
 import { adTools, createPractice, jobMark, setJobMark } from './practice.js';
-import { getLocale, t, tState } from './i18n.js';
+import { t, tState } from './i18n.js';
 import * as api from './api.js';
 
 //: The gates, in the order "Can you take this job?" shows them.
@@ -1120,16 +1120,11 @@ export function createDrawer({
    */
   function tailorStep(job, made) {
     const host = el('div', { className: 'd-tailor', attrs: { role: 'group', 'aria-label': t('tailor.groupLabel') } });
-    const make = (className = 'btn btn--primary d-tailor__btn') => {
-      const label = made ? t('prep3.s3Open') : t('prep3.s3Make');
-      if (onTailor) {
-        return button(label, () => onTailor(job), { className, attrs: { id: 'drawer-open-tailor' } });
-      }
-      return el('a', { className, text: label, attrs: {
-        href: `/resume-tailor?job=${encodeURIComponent(job.job_id)}&lang=${encodeURIComponent(getLocale())}`,
-        target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
-      } });
-    };
+    const make = (className = 'btn btn--primary d-tailor__btn') => button(
+      made ? t('prep3.s3Open') : t('prep3.s3Make'),
+      () => onTailor && onTailor(job),
+      { className, attrs: { id: 'drawer-open-tailor' } },
+    );
     const ready = () => {
       replace(host, [make()]);
       host.dataset.tailor = 'ready';

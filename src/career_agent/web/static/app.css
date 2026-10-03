@@ -10428,9 +10428,6 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rh-fit { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .rh-fit__head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .rh-fit__pct { padding: 4px 10px; border-radius: 8px; font-size: 17px; font-weight: 700; }
-.rh-fit__pct.tpill--m1 { background: var(--m1-bg); color: var(--m1-fg); }
-.rh-fit__pct.tpill--m2 { background: var(--m2-bg); color: var(--m2-fg); }
-.rh-fit__pct.tpill--m3 { background: var(--m3-bg); color: var(--m3-fg); }
 .rh-fit__label { font-size: 17px; font-weight: 600; }
 .rh-fit__bar { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: var(--chip-bg); }
 .rh-fit__seg--have { background: var(--green-bar); }
@@ -10559,7 +10556,7 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rh-search { flex: 1 1 300px; padding: 10px 12px; background: var(--surface); }
 .rh-look { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: 12px; background: var(--m2-bg); color: var(--m2-fg); font-size: 14px; line-height: 1.5; }
 .rh-exp__role { font-size: 15px; font-weight: 600; }
-.rh-exp__text { flex: 1; min-width: 0; font-size: 14px; line-height: 1.5; color: var(--body2); }
+.rh-exptext { flex: 1; min-width: 0; font-size: 14px; line-height: 1.5; color: var(--body2); }
 
 /* -- Tips ------------------------------------------------------------------ */
 .rh-tips { overflow: hidden; }
@@ -10596,3 +10593,13 @@ table.jobs .cell__title-btn { max-width: 100%; }
   .rh-result__paper { position: static; }
   .rh-paper { padding: 22px 18px; max-height: none; }
 }
+.rh-made .select--pill {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 18px;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 9px center, right 5px center;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.rh-made .select--pill option { color: var(--ink); background: var(--surface); }

@@ -233,3 +233,36 @@ def test_a_missing_engine_is_a_sentence_for_the_reader(tmp_path: Path) -> None:
     said = json.loads(data)
     assert said.get("for_reader") is True
     assert "Resume helper" in said["error"]
+
+
+def test_only_the_helpers_own_routes_cross_and_never_from_another_site(app) -> None:
+    profile = {"X-Local-Profile": app.profile.id}
+    # The engine's legacy routes and its old interface are not reachable here.
+    for path in ("/rt/api/runs", "/rt/api/config", "/rt/api/../app/", "/rt/api/career/../../x"):
+        status, _, _ = _ask(app.port, "GET", path, headers=profile)
+        assert status == 404, path
+    # A GET carries no Origin: the browser's own "another site" is refused.
+    status, _, _ = _ask(
+        app.port, "GET", "/rt/api/workspace", headers={**profile, "Sec-Fetch-Site": "cross-site"}
+    )
+    assert status == 403
+
+
+def test_a_program_that_is_not_the_engine_is_never_spoken_to(tmp_path: Path) -> None:
+    """Another Career Agent listening on the next port is not the engine."""
+    _, other_api, _ = _profile(tmp_path, "prof-01SYNTHETICOTHERAAAAAAAA", "Synthetic O")
+    profile, api, _ = _profile(tmp_path, "prof-01SYNTHETICMAINAAAAAAAAA", "Synthetic M")
+    port = _free_pair()
+    other_api.config = dataclasses.replace(other_api.config, port=port + 1)
+    other = build_server(other_api)
+    api.config = dataclasses.replace(api.config, port=port)
+    httpd = build_server(api)
+    for server in (other, httpd):
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        status, _, data = _ask(port, "GET", "/rt/api/career/applications")
+    finally:
+        for server in (other, httpd):
+            server.shutdown()
+            server.server_close()
+    assert status == 503, data

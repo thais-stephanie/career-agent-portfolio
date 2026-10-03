@@ -344,7 +344,7 @@ let currentPage = 'home';
 function goTo(page, { push = true, resume = null } = {}) {
   if (!PAGES[page]) return;
   currentPage = page;
-  if (page === 'resume') resumeHelper.show(resume ? resume.tab : undefined, resume || {});
+  if (page === 'resume') resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
 
   for (const [name, node] of Object.entries(PAGES)) {
     if (name === 'applications') continue;   // shares the Jobs container

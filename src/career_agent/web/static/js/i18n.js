@@ -48,7 +48,7 @@ export const DEFAULT_LOCALE = 'en';
  * somebody.
  */
 const EN = {
-  "tailor.groupLabel": "Resume Tailor",
+  "tailor.groupLabel": "Resume helper",
   "tailor.note": "Opens Resume Tailor Beta with this posting and your confirmed Career Profile. Its status stays here.",
   "tailor.open": "Open Resume Tailor Beta",
 
@@ -1795,6 +1795,14 @@ const EN = {
   'rh.fromProfile': 'Make one from my profile',
   'rh.downloaded': 'Downloaded {name}.',
   'rh.pdfUnavailable': 'This computer has no PDF maker for resumes. Download the Word file and save it as PDF.',
+  'rh.err.no_base_resume': 'Add a starting resume first.',
+  'rh.err.no_experience_data': 'Your experience list is empty. Import your resume in My profile first.',
+  'rh.err.profile_empty': 'Your profile has nothing confirmed yet. Confirm your experience in My profile first.',
+  'rh.err.profile_needs_dates': 'Some of your roles have no dates. Add the years in My profile first.',
+  'rh.err.career_unavailable': 'Career Agent could not read your profile just now. Try again.',
+  'rh.err.posting_not_found': 'That job is no longer in Career Agent.',
+  'rh.err.not_running': 'The Resume helper is not running. Close Career Agent and open it again.',
+  'rh.err.invalid_resume_edit': 'That change could not be saved.',
   'rh.start.title': 'Make a resume that fits the job',
   'rh.start.step1': 'Pick a job you saved, or paste a job ad.',
   'rh.start.step2': 'We pick the parts of your experience that match it.',
@@ -1818,13 +1826,14 @@ const EN = {
   'rh.make.noBase': 'You have no starting resume yet.',
   'rh.make.q3': '3. Rules for your resume',
   'rh.make.onlyTrue': 'Only use things I have really done',
-  'rh.make.onlyTrueHelp': 'Every line has to come from your experience list.',
+  'rh.make.onlyTrueHelp': 'Every line has to come from experience you confirmed.',
   'rh.make.twoPages': 'Keep it to 2 pages',
   'rh.make.twoPagesHelp': 'Recruiters skim. Two pages is enough for most jobs.',
   'rh.make.go': 'Make my resume',
   'rh.make.needJob': 'Pick a job or paste a job ad to continue.',
   'rh.make.needBase': 'Add a starting resume to continue.',
   'rh.make.adTooShort': 'That job ad is too short to read. Paste the whole ad.',
+  'rh.make.jobGone': 'That job is no longer in Career Agent. Pick another one or paste the ad.',
   'rh.make.failed': 'The resume could not be made. Nothing was saved. Try again.',
   'rh.make.slow': 'This is taking too long. Open My resumes in a minute to see if it finished.',
   'rh.make.willShow': 'Your resume will show up here',
@@ -1847,7 +1856,7 @@ const EN = {
   'rh.res.docxHelp': 'Best if you want to edit it later',
   'rh.res.pdf': 'PDF',
   'rh.res.pdfHelp': 'Best for sending as it is',
-  'rh.res.fitUnknown': 'How well it fits',
+  'rh.res.coverLabel': 'of what the job asks is in your experience',
   'rh.res.fitText': 'Your experience has {have} of the {total} things this job asks for, and something close to '
     + '{close} more.',
   'rh.res.nHave': '{n} you have',
@@ -1890,7 +1899,7 @@ const EN = {
   'rh.paper.hide': 'Hide',
   'rh.paper.why': 'Why is this here?',
   'rh.paper.hideWhy': 'Hide why',
-  'rh.paper.whyConfirmed': 'This line comes from your confirmed experience, picked because it matches what the job '
+  'rh.paper.whyConfirmed': 'This line comes from experience you confirmed, picked because it matches what the job '
     + 'asks.',
   'rh.paper.whyEdited': 'You changed this line. Your experience list was not changed.',
   'rh.paper.whyUnsupported': 'Nothing in your experience list backs this wording yet. With "Only use things I have '
@@ -1906,6 +1915,8 @@ const EN = {
   'rh.resumes.made': 'Made for a job',
   'rh.resumes.madeLede': 'Each one is saved with your edits. Click the status to change it.',
   'rh.resumes.clickStatus': 'Click to change',
+  'rh.resumes.statusOf': 'Where the application for {title} is',
+  'rh.resumes.statusSaved': 'Saved. The job now reads "{status}" in My applications too.',
   'rh.resumes.bases': 'Starting resumes',
   'rh.resumes.basesLede': 'The base we start from each time. Adding a file never changes your experience list.',
   'rh.resumes.default': 'Default',
@@ -1940,6 +1951,7 @@ const EN = {
   'rh.tips.count': '{n} of {total} done',
   'rh.tip.copy': 'Copy',
   'rh.tip.copied': 'Copied. Paste it where you need it.',
+  'rh.tip.markDone': 'Mark "{tip}" as done',
   'rh.tip.li1.title': 'Write a headline that says what you do',
   'rh.tip.li1.why': 'It is the first thing recruiters read in search results. Say the job you want, not only where '
     + 'you work.',
@@ -3203,7 +3215,6 @@ const EN = {
   'tailor.needsCv': 'The Resume helper builds from your own experience, and Career Agent has nothing about your '
     + 'career yet. Add your resume first; it takes a minute.',
   'tailor.addCv': 'Add your CV',
-  'tailor.openOwn': 'Already gave Resume Tailor your CV? Open Resume Tailor Beta',
   'setup.work.tooMany': 'That is {n} lines. Keep the 20 that matter most: each one is looked for in every job.',
   'setup.work.tooLong': 'Line {line} is long for a search phrase. Keep each line to a few words, like a job '
     + 'title or a tool.',
@@ -3644,9 +3655,8 @@ const EN = {
     + 'central duty in it.',
   'fitFeedback.question': 'Does this match % look right?',
   'app.quit': 'Quit Career Agent',
-  'app.quitConfirm':
-    'Quit Career Agent and Resume Tailor? Everything you saved is kept. A recalculation that is '
-    + 'still running stops, and you can start it again later.',
+  'app.quitConfirm': 'Quit Career Agent? Everything you saved is kept. A recalculation that is still running stops, '
+    + 'and you can start it again later.',
   'app.quitFailed': 'Career Agent could not be stopped from here. Close its window, or use the launcher window.',
   'app.stopped': 'Career Agent has stopped.',
   'app.quitBusy': 'Career Agent is still finding jobs or recalculating. Quit when it finishes.',
@@ -3698,7 +3708,7 @@ const EN = {
  * subject.
  */
 const PT_BR = {
-  "tailor.groupLabel": "Resume Tailor",
+  "tailor.groupLabel": "Ajuda com o currículo",
   "tailor.note": "Abre o Resume Tailor Beta com esta vaga e o seu Perfil de Carreira confirmado. "
     + "O status continua aqui.",
   "tailor.open": "Abrir Resume Tailor Beta",
@@ -5331,6 +5341,15 @@ const PT_BR = {
   'rh.downloaded': '{name} baixado.',
   'rh.pdfUnavailable': 'Este computador não tem um gerador de PDF para currículos. Baixe o arquivo Word e salve '
     + 'como PDF.',
+  'rh.err.no_base_resume': 'Adicione um currículo de partida primeiro.',
+  'rh.err.no_experience_data': 'Sua lista de experiência está vazia. Importe seu currículo em Meu perfil primeiro.',
+  'rh.err.profile_empty': 'Seu perfil ainda não tem nada confirmado. Confirme sua experiência em Meu perfil '
+    + 'primeiro.',
+  'rh.err.profile_needs_dates': 'Alguns cargos não têm datas. Adicione os anos em Meu perfil primeiro.',
+  'rh.err.career_unavailable': 'O Career Agent não conseguiu ler seu perfil agora. Tente de novo.',
+  'rh.err.posting_not_found': 'Essa vaga não está mais no Career Agent.',
+  'rh.err.not_running': 'A Ajuda com o currículo não está funcionando. Feche o Career Agent e abra de novo.',
+  'rh.err.invalid_resume_edit': 'Essa mudança não pôde ser salva.',
   'rh.start.title': 'Faça um currículo que combine com a vaga',
   'rh.start.step1': 'Escolha uma vaga salva ou cole um anúncio.',
   'rh.start.step2': 'Escolhemos as partes da sua experiência que combinam com ela.',
@@ -5354,13 +5373,14 @@ const PT_BR = {
   'rh.make.noBase': 'Você ainda não tem um currículo de partida.',
   'rh.make.q3': '3. Regras para o seu currículo',
   'rh.make.onlyTrue': 'Usar só o que eu realmente fiz',
-  'rh.make.onlyTrueHelp': 'Cada linha tem que vir da sua lista de experiência.',
+  'rh.make.onlyTrueHelp': 'Cada linha tem que vir de experiência que você confirmou.',
   'rh.make.twoPages': 'Manter em 2 páginas',
   'rh.make.twoPagesHelp': 'Recrutadores leem rápido. Duas páginas bastam para a maioria das vagas.',
   'rh.make.go': 'Fazer meu currículo',
   'rh.make.needJob': 'Escolha uma vaga ou cole um anúncio para continuar.',
   'rh.make.needBase': 'Adicione um currículo de partida para continuar.',
   'rh.make.adTooShort': 'Esse anúncio é curto demais para ler. Cole o anúncio inteiro.',
+  'rh.make.jobGone': 'Essa vaga não está mais no Career Agent. Escolha outra ou cole o anúncio.',
   'rh.make.failed': 'Não foi possível fazer o currículo. Nada foi salvo. Tente de novo.',
   'rh.make.slow': 'Está demorando demais. Abra Meus currículos daqui a pouco para ver se terminou.',
   'rh.make.willShow': 'Seu currículo vai aparecer aqui',
@@ -5383,7 +5403,7 @@ const PT_BR = {
   'rh.res.docxHelp': 'Melhor se você quiser editar depois',
   'rh.res.pdf': 'PDF',
   'rh.res.pdfHelp': 'Melhor para enviar do jeito que está',
-  'rh.res.fitUnknown': 'O quanto combina',
+  'rh.res.coverLabel': 'do que a vaga pede está na sua experiência',
   'rh.res.fitText': 'Sua experiência tem {have} das {total} coisas que a vaga pede, e algo parecido com mais '
     + '{close}.',
   'rh.res.nHave': '{n} você tem',
@@ -5426,8 +5446,8 @@ const PT_BR = {
   'rh.paper.hide': 'Esconder',
   'rh.paper.why': 'Por que isto está aqui?',
   'rh.paper.hideWhy': 'Esconder o porquê',
-  'rh.paper.whyConfirmed': 'Esta linha vem da sua experiência confirmada, escolhida porque combina com o que a vaga '
-    + 'pede.',
+  'rh.paper.whyConfirmed': 'Esta linha vem de experiência que você confirmou, escolhida porque combina com o que a '
+    + 'vaga pede.',
   'rh.paper.whyEdited': 'Você mudou esta linha. Sua lista de experiência não mudou.',
   'rh.paper.whyUnsupported': 'Nada na sua lista de experiência apoia este texto ainda. Com "Usar só o que eu '
     + 'realmente fiz" ligado, o arquivo baixado mantém a linha original.',
@@ -5442,6 +5462,8 @@ const PT_BR = {
   'rh.resumes.made': 'Feitos para uma vaga',
   'rh.resumes.madeLede': 'Cada um fica salvo com suas edições. Clique no status para mudar.',
   'rh.resumes.clickStatus': 'Clique para mudar',
+  'rh.resumes.statusOf': 'Em que pé está a candidatura para {title}',
+  'rh.resumes.statusSaved': 'Salvo. A vaga agora aparece como "{status}" em Minhas candidaturas também.',
   'rh.resumes.bases': 'Currículos de partida',
   'rh.resumes.basesLede': 'A base de onde partimos a cada vez. Adicionar um arquivo nunca muda sua lista de '
     + 'experiência.',
@@ -5479,6 +5501,7 @@ const PT_BR = {
   'rh.tips.count': '{n} de {total} feitas',
   'rh.tip.copy': 'Copiar',
   'rh.tip.copied': 'Copiado. Cole onde precisar.',
+  'rh.tip.markDone': 'Marcar "{tip}" como feita',
   'rh.tip.li1.title': 'Escreva um título que diga o que você faz',
   'rh.tip.li1.why': 'É a primeira coisa que recrutadores leem na busca. Diga a vaga que você quer, não só onde '
     + 'trabalha.',
@@ -6723,7 +6746,6 @@ const PT_BR = {
   'tailor.needsCv': 'A Ajuda com o currículo usa a sua própria experiência, e o Career Agent ainda não tem nada '
     + 'sobre a sua carreira. Adicione seu currículo primeiro; leva um minuto.',
   'tailor.addCv': 'Adicionar seu currículo',
-  'tailor.openOwn': 'Já deu seu currículo ao Resume Tailor? Abrir Resume Tailor Beta',
   'setup.work.tooMany': 'São {n} linhas. Fique com as 20 que mais importam: cada uma é procurada em todas as vagas.',
   'setup.work.tooLong': 'A linha {line} está longa para uma frase de busca. Use poucas palavras em cada linha, '
     + 'como um cargo ou uma ferramenta.',
@@ -7176,9 +7198,8 @@ const PT_BR = {
     + 'encontrado nela como atividade central.',
   'fitFeedback.question': 'Este % de compatibilidade parece certo?',
   'app.quit': 'Sair do Career Agent',
-  'app.quitConfirm':
-    'Sair do Career Agent e do Resume Tailor? Tudo o que você salvou fica guardado. Um '
-    + 'recálculo em andamento para, e você pode iniciá-lo de novo depois.',
+  'app.quitConfirm': 'Sair do Career Agent? Tudo o que você salvou fica guardado. Um recálculo em andamento para, e '
+    + 'você pode iniciá-lo de novo depois.',
   'app.quitFailed':
     'Não foi possível parar o Career Agent por aqui. Feche a janela dele, ou use a janela do '
     + 'inicializador.',
