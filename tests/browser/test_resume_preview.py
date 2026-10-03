@@ -7,6 +7,8 @@ measured inside the preview frame, the way the paginator measures it.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import threading
 from collections.abc import Iterator
 from http.server import ThreadingHTTPServer
@@ -22,6 +24,17 @@ from career_agent.runtime import RuntimeMode, stamp_identity
 from career_agent.storage.db import connect, migrate, transaction
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ServerConfig, build_server
+
+
+@pytest.fixture(autouse=True)
+def leave_cleanly(page: Chrome) -> Iterator[None]:
+    """The editor rightly asks before leaving unsaved edits. A test that stops
+    with edits pending must not leave that question blocking the next test."""
+    yield
+    with contextlib.suppress(Exception):
+        page._cdp.call("Page.navigate", {"url": "about:blank"}, timeout=3)
+    with contextlib.suppress(Exception):
+        page._cdp.call("Page.handleJavaScriptDialog", {"accept": True}, timeout=3)
 
 
 @pytest.fixture
@@ -68,29 +81,45 @@ LAYOUT = f"""(() => {{
 }})()"""
 
 
-def open_workspace(page: Chrome, server: str, *, width: int = 1600, height: int = 900) -> None:
-    page.set_viewport(width, height)
+def open_workspace(
+    page: Chrome, server: str, title: str = "Master resume", *, width: int = 1600, height: int = 900
+) -> None:
+    """My resumes, then Open on the resume called `title`; the preview is shown."""
+    page.set_viewport(width, height, mobile=width < 500)
     page.navigate(f"{server}/?debug=resume-v2#resume-v2")
+    page.wait_for("document.querySelector('.rvw__tab') !== null", message="page")
+    page.evaluate("[...document.querySelectorAll('.rvw__tab')][1].click()")
+    page.wait_for("document.querySelector('.rvw__row') !== null", message="my resumes")
+    page.evaluate(
+        "[...document.querySelectorAll('.rvw__row')]"
+        f".find((r) => r.querySelector('.rvw__rowtitle').textContent === {title!r})"
+        ".querySelector('button').click()"
+    )
+    if width < 1100:
+        page.wait_for("document.querySelector('.rve__mode') !== null", message="editor")
+        page.evaluate("[...document.querySelectorAll('.rve__mode')][1].click()")
     page.wait_for(
         "document.querySelector('.rvp[data-state=\"ready\"]') !== null", message="preview"
     )
 
 
-def choose(page: Chrome, title: str) -> None:
-    serial = page.evaluate("Number(document.querySelector('.rvp').dataset.serial)")
+def settled(page: Chrome) -> None:
+    """Every edit saved: the editor warns before leaving unsaved work, and a
+    pending save would hold the next navigation at that question."""
+    state = "document.querySelector('.rve__state').dataset.state"
+    page.wait_for(f"{state} === 'saved'", message="saved")
+
+
+def design(page: Chrome, label: str, value: str) -> None:
+    selector = json.dumps(f"select[aria-label={label!r}]")
     page.evaluate(
-        "(() => { const s = document.getElementById('rvw-doc');"
-        f" s.value = [...s.options].find((o) => o.text === {title!r}).value;"
-        " s.dispatchEvent(new Event('change')); })()"
-    )
-    page.wait_for(
-        f"Number(document.querySelector('.rvp').dataset.serial) > {serial}", message="re-render"
+        f"(() => {{ const s = document.querySelector({selector});"
+        f" s.value = {value!r}; s.dispatchEvent(new Event('change', {{ bubbles: true }})); }})()"
     )
 
 
 def test_a_long_resume_is_three_pages_and_breaks_like_print(page: Chrome, resumes: str) -> None:
-    open_workspace(page, resumes)
-    choose(page, "Long")
+    open_workspace(page, resumes, "Long")
     assert int(page.evaluate("document.querySelector('.rvp').dataset.pages")) >= 3
     assert page.evaluate("document.querySelector('.rvp').dataset.overflow") == "0"
     blocks = page.evaluate(LAYOUT)
@@ -104,11 +133,9 @@ def test_a_long_resume_is_three_pages_and_breaks_like_print(page: Chrome, resume
 def test_letter_and_a4_are_their_real_sizes(page: Chrome, resumes: str) -> None:
     open_workspace(page, resumes)
     width_a4 = page.evaluate(f"({FRAME}).style.width")
-    page.evaluate(
-        "(() => { const s = document.getElementById('rvw-page'); s.value = 'LETTER';"
-        " s.dispatchEvent(new Event('change')); })()"
-    )
+    design(page, "Page", "LETTER")
     page.wait_for(f"({FRAME}).style.width !== {width_a4!r}", message="letter")
+    settled(page)
     assert abs(float(width_a4[:-2]) - 210 * 96 / 25.4) < 1
     assert abs(float(page.evaluate(f"({FRAME}).style.width")[:-2]) - 215.9 * 96 / 25.4) < 1
     # The paper never scrolls inside itself, and nothing is cut off: the
@@ -121,7 +148,7 @@ def test_letter_and_a4_are_their_real_sizes(page: Chrome, resumes: str) -> None:
 
 def test_the_latest_render_wins_and_a_template_keeps_the_words(page: Chrome, resumes: str) -> None:
     open_workspace(page, resumes)
-    before = page.evaluate(f"{DOC}.body.innerText")
+    before = page.evaluate(f"{DOC}.body.textContent")
     # The first request (modern) is held back; the second (compact) answers first.
     page.evaluate(
         "(() => { const real = window.fetch; window.fetch = (url, opts) => {"
@@ -129,28 +156,22 @@ def test_the_latest_render_wins_and_a_template_keeps_the_words(page: Chrome, res
         " return slow ? new Promise((r) => setTimeout(() => r(real(url, opts)), 800))"
         " : real(url, opts); }; })()"
     )
-    for value in ("modern", "compact"):
-        page.evaluate(
-            "(() => { const s = document.getElementById('rvw-template');"
-            f" s.value = '{value}'; s.dispatchEvent(new Event('change')); }})()"
-        )
+    # Apart by more than the editor's 120 ms render debounce: two requests.
+    design(page, "Template", "modern")
+    page.evaluate("new Promise((r) => setTimeout(r, 300))")
+    design(page, "Template", "compact")
     compact = (
         f"getComputedStyle({DOC}.documentElement).getPropertyValue('--h2-size').trim() === '0.88em'"
     )
     page.wait_for(compact, message="compact")
     page.evaluate("new Promise((r) => setTimeout(r, 1200))")
     assert page.evaluate(compact), "an old render won"
-    assert page.evaluate(f"{DOC}.body.innerText") == before
+    settled(page)
+    assert page.evaluate(f"{DOC}.body.textContent") == before
 
 
-def test_a_click_names_the_object_and_nothing_is_fetched(page: Chrome, resumes: str) -> None:
+def test_nothing_in_the_preview_is_fetched_or_runs(page: Chrome, resumes: str) -> None:
     open_workspace(page, resumes)
-    ref = page.evaluate(f"{DOC}.querySelector('li[data-ref]').dataset.ref")
-    assert "/bullet/" in ref
-    page.evaluate(f"{DOC}.querySelector('li[data-ref]').click()")
-    page.wait_for(
-        f"document.querySelector('.rvw__clicked').textContent.includes({ref!r})", message="ref"
-    )
     assert page.evaluate(f"{DOC}.defaultView.performance.getEntriesByType('resource').length") == 0
     assert page.evaluate(f"{DOC}.querySelectorAll('script, a[href]').length") == 0
     assert not page.console_errors()

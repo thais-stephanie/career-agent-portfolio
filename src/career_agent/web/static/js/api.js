@@ -29,6 +29,17 @@ export const renderResume = (document, { signal = null } = {}) =>
   request('/resume/render', { method: 'POST', body: { document }, signal });
 export const listResumeDocuments = () => request('/resume/documents');
 export const getResumeDocument = (id) => request(`/resume/documents/${encodeURIComponent(id)}`);
+/** A new SCRATCH resume: `{title}` for a blank one, `{from: document}` for a copy. */
+export const createResumeDocument = (body) => request('/resume/documents', { method: 'POST', body });
+/** Autosave: the working copy, against the hash this page last read (409 if stale). */
+export const saveResumeWorkingCopy = (id, document, expected_sha256) =>
+  request(`/resume/documents/${encodeURIComponent(id)}/working`, {
+    method: 'PATCH', body: { document, expected_sha256 },
+  });
+export const saveResumeCheckpoint = (id, reason) =>
+  request(`/resume/documents/${encodeURIComponent(id)}/checkpoint`, { method: 'POST', body: { reason } });
+export const getResumeMaster = () => request('/resume/master');
+export const createResumeMaster = () => request('/resume/master', { method: 'POST', body: {} });
 export const getCareerHistory = (offset) => request(`/career/history?offset=${offset}`);
 export const setSourceSchedule = (source_id, mode) => request('/sources/schedule', {
   method: 'PATCH', body: { source_id, mode },

@@ -202,9 +202,9 @@ export function createResumePreview({ onRef = () => {} } = {}) {
     say(layout);
     root.dataset.state = 'ready';
     root.dataset.serial = String(mine);
-    return layout;
+    return { ...layout, findings: rendered.findings || [] };
   }
 
   window.addEventListener('resize', fit);
-  return { root, update };
+  return { root, update, destroy: () => window.removeEventListener('resize', fit) };
 }

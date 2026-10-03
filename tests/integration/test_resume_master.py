@@ -302,8 +302,9 @@ def test_the_identity_api(tmp_path: Path) -> None:
     body = {"identity": {"full_name": "Riley Synthetic"}, "expected_sha256": made["sha256"]}
     after = call("PATCH", body, "/identity")["master"]
     assert after["identity"]["full_name"] == "Riley Synthetic" and after["name_finding"] is None
+    older = {"identity": {"full_name": "Riley Older Window"}, "expected_sha256": made["sha256"]}
     with pytest.raises(ApiError) as stale:
-        call("PATCH", body, "/identity")
+        call("PATCH", older, "/identity")
     assert stale.value.status == 409
     with pytest.raises(ApiError) as bad:
         call(

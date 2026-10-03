@@ -293,6 +293,9 @@ class ResumeStore:
         doc, body, sha = _body(doc)
         with self._tx():
             current = self._row("resume_document", document_id)
+            if current["working_sha256"] == sha:
+                # Already exactly this: a retried save whose answer was lost.
+                return sha
             if current["working_sha256"] != expected_sha256:
                 raise StaleDocument(document_id, current["working_sha256"])
             stored = upgrade_resume_document(current["working_json"])

@@ -163,3 +163,42 @@ same document later. There is no second copy of any template.
   overflow, never clipped.
 * **Internal for now.** The preview lives on an internal page
   (`?debug=resume-v2`); the Resume helper is still the user's resume surface.
+
+## The editor
+
+The internal page now has Home, My resumes and the Editor. Tailor and
+Analyze are not built and not shown.
+
+* **One document object.** Every edit is a function over a copy of the
+  document; the form, the preview and autosave all read that one object. The
+  renderer is not repeated in the page.
+* **Undo and redo.** Whole-document snapshots: typing in one field within
+  500 ms is one step, at most 100 steps, a new edit clears redo, and redo
+  after undo gives the edit back. Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y) work
+  outside text fields; inside one, the field's own undo applies.
+* **Autosave** writes the working copy 600 ms after the last edit, never a
+  revision. One save at a time; edits made meanwhile go next as one copy;
+  every save names the hash it edits, so a second window gets "changed in
+  another window" with Reload and Keep my copy as a duplicate, and nothing is
+  overwritten. A failed save keeps the work and retries, and a retried save
+  whose first answer was lost is recognised as already saved. Edits the
+  server would refuse (a required field left empty) are held in the page and
+  shown as not saved: leaving, switching document and version points wait
+  until they can be saved, or the person chooses to leave without saving.
+  A version point is written on purpose: Save version point, a template change
+  (the version before it is what is kept), leaving after edits.
+* **Live preview** 120 ms after the last change, newest render wins. A click
+  on the paper focuses the field it came from.
+* **Provenance.** Rewording a line from evidence keeps its origin and
+  evidence and records the wording it replaced; putting the old words back
+  makes it untouched again. Hidden lines and sections stay in the document.
+  A line typed here is the person's own and says so. "Add from my confirmed
+  experience" copies a confirmed statement into this resume, citing it; it
+  confirms nothing and writes no Career Evidence. Identity edits change this
+  resume only.
+* **Check** lists named facts about the document (no name, no email, a long
+  line, an empty section, an edited evidence line, a number the evidence does
+  not have, a line not from evidence, a block taller than a page). There is
+  no score.
+* **Design** chooses the template, page, font family, spacing, margins, text
+  size, line height, accent and date format, all within the model's bounds.
