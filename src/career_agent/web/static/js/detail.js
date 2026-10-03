@@ -47,6 +47,7 @@ export function createDrawer({
   getOllama = () => ({}), onEvidence = null,
   careerContext = null, onAddCareer = null,
   onTailor = null,
+  resumeFor = null,
   debug = false,
 }) {
   let invoker = null;
@@ -273,6 +274,7 @@ export function createDrawer({
     preparation = null;
     loadedPrepareFor = null;
     loadedPracticeFor = null;
+    madeFor.clear();
     currentJob = null;
     if (invoker && document.contains(invoker)) invoker.focus();
     invoker = null;
@@ -1006,6 +1008,8 @@ export function createDrawer({
   const readDone = (job) => Boolean(jobMark(PREP_STORE, job.job_id));
   const writeDone = (job, value) => setJobMark(PREP_STORE, job.job_id, value ? 1 : null);
 
+  //: Whether a resume exists for a job, asked once per drawer open.
+  const madeFor = new Map();
   // The tailoring step's host, filled by `tailorStep`, kept across repaints.
   const tailorHost = el('div', { className: 'd-tailorhost' });
 
@@ -1017,7 +1021,15 @@ export function createDrawer({
     // naming none has nothing to prove). Step 3 marks itself in the Resume
     // helper, where the resume is made.
     const step2 = rows !== null && rows.every(proven);
-    const step3 = Boolean(job.tailored_resume);
+    // Step 3 is the Resume helper's answer: a resume made for this job.
+    const step3 = madeFor.get(job.job_id) === true;
+    if (resumeFor && !madeFor.has(job.job_id)) {
+      madeFor.set(job.job_id, null);
+      Promise.resolve(resumeFor(job.job_id)).then((made) => {
+        madeFor.set(job.job_id, Boolean(made));
+        if (made && currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
+      });
+    }
     const done = [read, step2, step3];
     const count = done.filter(Boolean).length;
     const firstOpen = done.findIndex((value) => !value);

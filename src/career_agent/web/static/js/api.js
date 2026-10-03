@@ -200,6 +200,69 @@ export async function exportFitFeedback() {
   return downloadCsv('/fit-feedback/export.csv', 'career-agent-search-fit-feedback.csv');
 }
 
+// =========================================================================
+// The Resume helper's engine, through this app's own server (`/rt/api`).
+// =========================================================================
+
+/** The engine's errors are `{detail: {code, message}}`; its words are for her. */
+async function rtFetch(path, init = {}) {
+  const headers = { ...(init.headers || {}) };
+  if (localProfile) headers['X-Local-Profile'] = localProfile;
+  let response;
+  try {
+    response = await fetch(`/rt/api${path}`, { ...init, headers });
+  } catch (cause) {
+    throw networkError(cause);
+  }
+  if (response.ok) return response;
+  let payload = null;
+  try { payload = await response.json(); } catch { payload = null; }
+  const detail = payload && (payload.detail || payload);
+  // A page left open across a profile switch: reload onto the new profile.
+  if (response.status === 409 && detail && detail.code === 'stale_profile') window.location.reload();
+  const said = detail && (detail.message || payload.error);
+  throw new ApiError({
+    kind: 'http', status: response.status, message: said || faultMessage(response.status), detail,
+  });
+}
+
+/** JSON in, JSON out. A body-less write still sends `{}` as JSON. */
+export async function rt(path, { method = 'GET', body = null } = {}) {
+  const init = { method };
+  if (method !== 'GET') {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify(body || {});
+  }
+  const response = await rtFetch(path, init);
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+/** One file, as the engine's upload routes expect it. */
+export async function rtUpload(path, file) {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  const response = await rtFetch(path, { method: 'POST', body: form });
+  return response.json();
+}
+
+/** A file the engine made, saved under the name it gave. Returns that name. */
+export async function rtDownload(path, fallbackName) {
+  const response = await rtFetch(path);
+  const blob = await response.blob();
+  const named = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '');
+  const name = named ? named[1] : fallbackName;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
+}
+
 async function downloadCsv(path, fallbackName) {
   const headers = localProfile ? { 'X-Local-Profile': localProfile } : {};
   let response;

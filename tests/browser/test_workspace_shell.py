@@ -36,7 +36,7 @@ from tests.browser.conftest import DESKTOP, MOBILE
 #: brief forbids.
 #: Documents is not a destination any more: the imports are reached from
 #: the Career Profile and from Evidence (approved sidebar spec, 1a).
-DESTINATIONS = ["home", "jobs", "applications", "profile", "evidence", "settings"]
+DESTINATIONS = ["home", "jobs", "applications", "profile", "evidence", "resume", "settings"]
 
 #: What a fabricated progress figure looks like on a screen. Read from the
 #: RENDERED text, because that is where one would be composed.

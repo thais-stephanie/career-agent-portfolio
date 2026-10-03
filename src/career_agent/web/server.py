@@ -25,6 +25,7 @@ localhost. A page load can never cause inference.
 from __future__ import annotations
 
 import errno
+import http.client
 import ipaddress
 import json
 import mimetypes
@@ -168,6 +169,12 @@ def safe_static_path(url_path: str) -> Path | None:
 #: imported posting are all small, and a megabyte of JSON on a personal tool is
 #: already a mistake somewhere.
 MAX_BODY_BYTES = 2_000_000
+#: A resume file sent to the Resume helper: the engine's own upload limit
+#: answers anything below this; this only stops a body nobody should send.
+MAX_RESUME_HELPER_BYTES = 25_000_000
+#: The Resume helper's engine, reached by this server and never by the page:
+#: the page asks `/rt/api/...` on its own origin and this forwards it.
+RESUME_HELPER_PREFIX = "/rt/api/"
 
 #: What an UPLOAD may weigh. `cv.extract.MAX_BYTES` is 25 MB and base64 costs a
 #: third more, so a CV at the extractor's limit needs this much to arrive at
@@ -339,32 +346,27 @@ class _Handler(BaseHTTPRequestHandler):
     def do_PATCH(self) -> None:  # noqa: N802
         self._dispatch("PATCH")
 
+    def do_DELETE(self) -> None:  # noqa: N802  (the Resume helper only)
+        self._dispatch("DELETE")
+
     # -- plumbing ---------------------------------------------------------
     def _dispatch(self, method: str) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if path.startswith(RESUME_HELPER_PREFIX):
+                self._forward_to_resume_helper(method, parsed)
+                return
             if path == "/resume-tailor" and method == "GET":
                 self._check_origin(method)
-                # The posting travels as its id only, never its text: Resume
-                # Tailor reads the rest through the profile bridge. The
-                # profile id lets a page notice it outlived a switch.
-                target = f"http://127.0.0.1:{self.app.config.port + 1}/"
+                # An old link or bookmark: the Resume helper is a page of this
+                # app now. The posting travels as its id only, never its text.
+                target = "/"
                 asked = parse_qs(parsed.query)
                 wanted = (asked.get("job") or [""])[0]
-                params: dict[str, str] = {}
                 if wanted and JOB_ID_PATTERN.match(wanted):
-                    params["job"] = wanted
-                    host = getattr(self.app, "profile_host", None)
-                    active = getattr(host, "active", None) if host is not None else None
-                    if active is not None:
-                        params["profile"] = active.id
-                # The reader's language, from a closed list only.
-                lang = (asked.get("lang") or [""])[0]
-                if lang in ("en", "pt-BR"):
-                    params["lang"] = lang
-                if params:
-                    target += "?" + urlencode(params)
+                    target += "?" + urlencode({"resume_job": wanted})
+                target += "#resume"
                 self.send_response(302)
                 self.send_header("Location", target)
                 self.send_header("Referrer-Policy", "no-referrer")
@@ -509,6 +511,75 @@ class _Handler(BaseHTTPRequestHandler):
             content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
             if content_type != "application/json":
                 raise ApiError(415, "request body must be application/json")
+
+    def _forward_to_resume_helper(self, method: str, parsed: Any) -> None:
+        """The Resume helper's API, on this origin.
+
+        The engine runs in this process's launcher on the next port and keeps
+        its own guards: a local Host, a same-origin page, JSON or a same-origin
+        upload, and the active local profile in `X-Local-Profile`. This server
+        checks the browser first, exactly as for its own API, then asks the
+        engine as itself. No page ever talks to a second address, and nothing
+        but the request it was given crosses.
+        """
+        host = (self.headers.get("Host") or "").strip()
+        if not host or not self.app.is_own_host(host):
+            raise ApiError(403, "missing or unexpected Host header")
+        origin = (self.headers.get("Origin") or "").strip()
+        if origin and origin.lower() not in self.app.allowed_origins():
+            raise ApiError(403, "cross-origin requests are refused")
+        if method not in ("GET", "POST", "PATCH", "DELETE"):
+            raise ApiError(405, "method not allowed")
+        content_type = (self.headers.get("Content-Type") or "").strip()
+        kind = content_type.split(";")[0].strip().lower()
+        body = b""
+        if method != "GET":
+            if kind not in ("application/json", "multipart/form-data"):
+                raise ApiError(415, "request body must be application/json")
+            # A form can send multipart across origins without a preflight;
+            # only a page of this app, which names its origin, may upload.
+            if kind == "multipart/form-data" and not origin:
+                raise ApiError(403, "uploads need a page of this app")
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > MAX_RESUME_HELPER_BYTES:
+                raise ApiError(413, "request body too large")
+            body = self.rfile.read(length) if length > 0 else b""
+            self._body_consumed = True
+        port = self.app.config.port + 1
+        target = "/api/" + parsed.path[len(RESUME_HELPER_PREFIX) :]
+        if parsed.query:
+            target += "?" + parsed.query
+        headers = {"Host": f"127.0.0.1:{port}", "Origin": f"http://127.0.0.1:{port}"}
+        if content_type:
+            headers["Content-Type"] = content_type
+        profile = (self.headers.get("X-Local-Profile") or "").strip()
+        if profile:
+            headers["X-Local-Profile"] = profile
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=300)
+        try:
+            connection.request(
+                method, target, body=body if method != "GET" else None, headers=headers
+            )
+            response = connection.getresponse()
+            data = response.read()
+        except OSError as exc:
+            raise ApiError(
+                503,
+                "The Resume helper is not running. Close Career Agent and open it again.",
+                for_reader=True,
+            ) from exc
+        finally:
+            connection.close()
+        self.send_response(response.status)
+        for name in ("Content-Type", "Content-Disposition", "X-Resume-Pages"):
+            value = response.getheader(name)
+            if value:
+                self.send_header(name, value)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self._send_security_headers()
+        self.end_headers()
+        self.wfile.write(data)
 
     def _read_body(self, limit: int = MAX_BODY_BYTES) -> dict:
         length = int(self.headers.get("Content-Length") or 0)

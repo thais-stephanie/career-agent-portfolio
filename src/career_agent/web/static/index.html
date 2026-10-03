@@ -79,13 +79,12 @@
         <span class="topnav__icon" aria-hidden="true">&#10022;</span>
         <span class="topnav__label">Proof of my work</span>
       </button>
-      <!-- RESUME HELPER: the Resume Tailor companion, opened in its own tab
-           through the same bridge as before. -->
-      <a class="topnav__link topnav__link--tailor" href="/resume-tailor" target="_blank" rel="noopener noreferrer">
+      <!-- RESUME HELPER: a page of this app, in this window (js/resume.js). -->
+      <button type="button" class="topnav__link topnav__link--tailor" data-page="resume">
         <span class="topnav__icon" aria-hidden="true">&#9998;&#65038;</span>
         <span class="topnav__label" id="nav-tailor-label">Resume helper</span>
         <span class="topnav__tag" id="nav-tailor-beta">New</span>
-      </a>
+      </button>
     </div>
   </div>
 
@@ -241,6 +240,9 @@
      Where the postings come from is not a filter, and reaching it meant
      opening a disclosure inside a panel that only exists on one page. The
      panels move; the code behind them does not. -->
+<!-- THE RESUME HELPER, a page of this app (js/resume.js). -->
+<main class="page page--resume" id="page-resume" hidden></main>
+
 <main class="page page--settings" id="page-settings" data-tab="search" hidden>
   <!-- FOUR TABS over the same blocks (redesign handoff). A tab only decides
        which blocks are drawn; every block and its code are unchanged. -->
