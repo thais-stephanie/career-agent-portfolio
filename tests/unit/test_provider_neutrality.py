@@ -258,6 +258,11 @@ ORDINARY_WORD_USES: dict[str, frozenset[str]] = {
     # Paulo"), read by `cv/structure.py` off a date line and stored in
     # `cv_entry.location`. Her document, never a provider payload.
     "web/cv_api.py": frozenset({"location"}),
+    # The person's own place on her resume: the old Resume helper's contact
+    # record (`location`) and a resume experience's `location`, read from her
+    # own files and written into her own document. Never a provider payload.
+    "resume_doc/master.py": frozenset({"location"}),
+    "resume_doc/legacy.py": frozenset({"location"}),
     "storage/mvp_repo.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/api.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/presenter.py": frozenset({"employment_type", "salary"}),

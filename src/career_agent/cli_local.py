@@ -3428,7 +3428,8 @@ def forget_command(
                  over, so the product keeps working.
     `tracking`   clears saved jobs, application statuses, dates and notes, and
                  your Search Fit answers. The postings themselves stay.
-    `everything` both of the above.
+    `everything` both of the above, and every resume, resume version, saved
+                 job ad, tailoring record and export record in this profile.
 
     It always says exactly what it is about to remove, and how many rows, before
     it removes anything. Nothing here touches the postings you collected: those
@@ -3456,8 +3457,11 @@ def forget_command(
             f"delete {local} (it exists)" if local.exists() else f"nothing at {local} to delete"
         )
 
+    from career_agent.resume_doc.store import forget_resume_data, resume_row_counts
+
     conn = None
     counts = {"saved": 0, "tracked": 0, "notes": 0, "events": 0, "fit": 0}
+    resumes: dict[str, int] = {}
     if doing_tracking:
         path = resolve_database(RuntimeMode.PERSONAL, db)
         conn = _open_personal(path)
@@ -3478,6 +3482,14 @@ def forget_command(
             f"{counts['notes']} with notes, {counts['events']} history entries, "
             f"{counts['fit']} Search Fit answers"
         )
+        if what == "everything":
+            resumes = resume_row_counts(conn)
+            plan.append(
+                f"clear resumes in {path}: {resumes['resume_document']} resumes,"
+                f" {resumes['resume_revision']} saved versions,"
+                f" {resumes['jd_snapshot']} job ads, {resumes['resume_export']} export records"
+                " (files already saved on disk, and the Resume helper's own folder, stay)"
+            )
 
     typer.secho("This will:", bold=True)
     for line in plan:
@@ -3502,8 +3514,12 @@ def forget_command(
             conn.execute("DELETE FROM job_application_event")
             conn.execute("DELETE FROM job_application")
             conn.execute("DELETE FROM search_fit_feedback")
+            if what == "everything":
+                forget_resume_data(conn)  # in the same transaction: all or nothing
         removed.append(("tracking rows cleared", counts["saved"] + counts["tracked"]))
         removed.append(("Search Fit answers cleared", counts["fit"]))
+        if what == "everything":
+            removed.append(("resumes cleared", resumes["resume_document"]))
         conn.close()
 
     typer.secho("\nDone", bold=True)

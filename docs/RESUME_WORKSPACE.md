@@ -1,7 +1,9 @@
 # Resume Workspace: document and storage
 
-Status: foundation only. Nothing on screen uses this yet; the Resume helper
-keeps its own files until a later change moves it here.
+Status: foundation, Master and migration bridge. Nothing on screen uses this
+yet: the Resume helper keeps working from its own files, and stays the one
+place a person edits a resume, until a later change moves it here. No AI is
+involved anywhere below.
 
 ## One document model
 
@@ -30,8 +32,10 @@ stale.
   a family name, never a file path.
 * Every stored document is read through `upgrade_resume_document`, which
   refuses a schema version it does not know.
-* `canonical_json` (sorted keys, no whitespace) is the one form that is stored
-  and hashed.
+* `canonical_json` (sorted keys, no whitespace) is the one form that is
+  stored, with text exactly as typed. Hashes read text as Unicode NFC, so the
+  same letters typed as one code point or as a letter plus an accent hash
+  alike.
 
 ## Profile-private storage
 
@@ -58,3 +62,74 @@ only code that touches them.
   findings** have storage now and no producer yet. A dismissal belongs to one
   document.
 * Archiving is soft; there is no delete.
+
+## The Master resume and identity
+
+`career_agent.resume_doc.master`.
+
+* **One Master per profile.** `get_or_create_master` returns the current
+  Master, or makes one the first time; migration 0048 refuses a second
+  current Master at the database level.
+* **Made from confirmed evidence only.** Every confirmed experience becomes an
+  entry (`source_title` and `display_title` both start as the confirmed
+  title), every confirmed statement a bullet, verbatim, citing its claim key;
+  confirmed skills and tools become one skills group, one item per name;
+  confirmed certifications are listed by name. Nothing waiting for review,
+  retired or archived is used, and nothing is summarised or rewritten. A
+  confirmed fact with no clean typed place (an education sentence, a
+  statement outside any experience) is left out and named in the notes.
+* **Comprehensive, not tailored.** No search setting decides what it holds.
+* **Changes are reported, never applied.** `evidence_changes` lists the
+  statements and experiences that were added, changed or removed since the
+  Master was made; the Master itself only changes when the person changes it.
+* **Identity** is the Master's: name, email, phone, city, region, country and
+  links. Its name is the person's own: a resume contact name, else Career
+  Agent's display name, else blank. A placeholder such as "You" or the local
+  profile's label is never taken as a name. Contact details come only from an
+  explicit contact record, never from evidence text. `update_resume_identity`
+  saves a change as a new revision, with the same stale-write check as every
+  save; it writes no Career Evidence, search setting, score or eligibility.
+* **API.** `GET /api/resume/master` (never creates), `POST /api/resume/master`
+  (get or create) and `PATCH /api/resume/master/identity` (identity plus the
+  hash it edits; 409 when stale).
+
+## Migrating the old Resume helper
+
+`career_agent.resume_doc.legacy` reads one Resume helper workspace into one
+profile's database. It is not run automatically.
+
+* **Backup first.** `backup_legacy_workspace` zips the whole workspace and
+  checks every file in the archive. `migrate_legacy_workspace` refuses to
+  start unless that backup still matches the workspace file for file.
+* **Read-only.** No legacy file is written, moved or deleted.
+* **Idempotent.** Every migrated row's id is derived from what it came from,
+  so a second run writes nothing.
+* **One profile's workspace.** A workspace that names another profile is
+  refused before anything is written.
+* **Evidence is re-checked.** A migrated line cites a claim only while this
+  profile still has that claim confirmed; otherwise it is imported text.
+* **Mapping.** The contact record's email, phone, place and links become the
+  Master's identity. Its `name` field is the workspace's name (a profile
+  label), so the person's name comes from the evidence bank or from Career
+  Agent instead, never from it. The default
+  base resume becomes the Master when the profile has none, and every other
+  base resume an imported document. Each finished run becomes a job ad
+  snapshot, a tailored version numbered per job in run order, and a
+  tailoring run whose old analysis is kept for history and marked as legacy
+  and untrusted. An edited draft becomes a second revision and the working
+  copy, with its edits marked as the person's and the lines it hid kept,
+  hidden. A draft edited in the old helper after it was migrated is
+  reported, never applied. An exported
+  file is recorded where it is, attached only to the one version whose file
+  name it carries, and never marked as checked.
+* **Failures are named.** Each unit (identity, one base resume, one run, one
+  export) is one transaction, and nothing runs after a failed identity unit. A unit that cannot be read leaves nothing
+  behind and is listed in the report with the reason; the rest migrate, and
+  a later run completes it.
+
+## Forgetting
+
+`career-agent forget everything` also deletes every resume row in that
+profile's database, in the same transaction as the tracking data. The shared
+job catalogue, other profiles, files already exported and the Resume
+helper's own folder are not touched, and the confirmation says so.

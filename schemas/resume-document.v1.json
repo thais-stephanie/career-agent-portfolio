@@ -456,18 +456,6 @@
           "title": "Bullets",
           "type": "array"
         },
-        "claim_key": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Claim Key"
-        },
         "current": {
           "default": false,
           "title": "Current",
@@ -495,6 +483,18 @@
             }
           ],
           "default": null
+        },
+        "experience_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experience Id"
         },
         "hidden": {
           "default": false,
@@ -556,6 +556,7 @@
         "city": {
           "anyOf": [
             {
+              "maxLength": 120,
               "type": "string"
             },
             {
@@ -581,6 +582,8 @@
         "email": {
           "anyOf": [
             {
+              "maxLength": 254,
+              "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
               "type": "string"
             },
             {
@@ -607,6 +610,7 @@
         "phone": {
           "anyOf": [
             {
+              "maxLength": 40,
               "type": "string"
             },
             {
@@ -619,6 +623,7 @@
         "region": {
           "anyOf": [
             {
+              "maxLength": 120,
               "type": "string"
             },
             {
@@ -728,6 +733,7 @@
         "label": {
           "anyOf": [
             {
+              "maxLength": 80,
               "type": "string"
             },
             {
@@ -739,7 +745,7 @@
         },
         "url": {
           "maxLength": 500,
-          "minLength": 1,
+          "pattern": "^https?://\\S+$",
           "title": "Url",
           "type": "string"
         }

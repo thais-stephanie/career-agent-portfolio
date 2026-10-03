@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, fields
 from typing import Any, Literal, TypeVar
 
@@ -193,6 +194,11 @@ class ResumeStore:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
 
+    def _tx(self) -> AbstractContextManager[Any]:
+        """A write transaction, or the caller's when one is already open: a
+        migration groups several store calls into one all-or-nothing unit."""
+        return nullcontext() if self.conn.in_transaction else transaction(self.conn)
+
     # ------------------------------------------------------------ documents
 
     def create_document(
@@ -208,7 +214,7 @@ class ResumeStore:
         takes the next version number of its job, inside the write lock."""
         now = now or now_utc()
         doc, body, sha = _body(doc)
-        with transaction(self.conn):
+        with self._tx():
             master = doc.provenance.master_document_id
             rev = doc.provenance.master_revision_id
             if rev is not None and master is None:
@@ -257,6 +263,13 @@ class ResumeStore:
             self._append_revision(doc.id, body, sha, reason, None, now)
         return self.get_document(doc.id)
 
+    def current_master(self) -> StoredDocument | None:
+        """The profile's one current MASTER document, if it has one."""
+        row = self.conn.execute(
+            "SELECT * FROM resume_document WHERE kind = 'MASTER' AND archived_at IS NULL"
+        ).fetchone()
+        return self._document(row) if row else None
+
     def get_document(self, document_id: str) -> StoredDocument:
         return self._document(self._row("resume_document", document_id))
 
@@ -278,7 +291,7 @@ class ResumeStore:
     ) -> str:
         """Autosave. Returns the new hash; `StaleDocument` if another write came first."""
         doc, body, sha = _body(doc)
-        with transaction(self.conn):
+        with self._tx():
             current = self._row("resume_document", document_id)
             if current["working_sha256"] != expected_sha256:
                 raise StaleDocument(document_id, current["working_sha256"])
@@ -295,7 +308,7 @@ class ResumeStore:
     ) -> Revision:
         """Append the working copy to the history. A working copy identical to
         the latest revision is that revision: no duplicate row is written."""
-        with transaction(self.conn):
+        with self._tx():
             current = self._row("resume_document", document_id)
             latest = self.conn.execute(
                 "SELECT id, content_sha256 FROM resume_revision WHERE document_id = ?"
@@ -320,7 +333,7 @@ class ResumeStore:
     ) -> Revision:
         """Make an old revision the working copy again, as a NEW revision."""
         now = now or now_utc()
-        with transaction(self.conn):
+        with self._tx():
             old = self._row("resume_revision", revision_id)
             if old["document_id"] != document_id:
                 raise ResumeStoreError("that revision belongs to another document")
@@ -343,7 +356,7 @@ class ResumeStore:
 
     def archive_document(self, document_id: str, *, now: str | None = None) -> None:
         """Soft delete: the row, its history and its exports all stay."""
-        with transaction(self.conn):
+        with self._tx():
             self._row("resume_document", document_id)
             self.conn.execute(
                 "UPDATE resume_document SET archived_at = COALESCE(archived_at, ?),"
@@ -353,7 +366,7 @@ class ResumeStore:
 
     def set_preferred(self, document_id: str) -> None:
         """This version becomes the one preferred for its job; any other stops being."""
-        with transaction(self.conn):
+        with self._tx():
             row = self._row("resume_document", document_id)
             if row["kind"] != DocumentKind.TAILORED or row["archived_at"] is not None:
                 raise ResumeStoreError("only a current tailored version can be preferred")
@@ -387,7 +400,7 @@ class ResumeStore:
             [job_id, title, company, url, text, language], ensure_ascii=False, separators=(",", ":")
         )
         snapshot_sha = sha256_text(identity)
-        with transaction(self.conn):
+        with self._tx():
             found = self.conn.execute(
                 "SELECT id FROM jd_snapshot WHERE snapshot_sha256 = ?", (snapshot_sha,)
             ).fetchone()
@@ -426,14 +439,15 @@ class ResumeStore:
         model: str | None = None,
         options: dict[str, Any] | None = None,
         now: str | None = None,
+        run_id: str | None = None,
     ) -> TailoringRun:
         """A run belongs to one tailored document and records the job ad and
         the master revision that document was made from."""
         doc = self.get_document(document_id)
         if doc.kind is not DocumentKind.TAILORED or doc.jd_snapshot_id is None:
             raise ResumeStoreError("a tailoring run belongs to a tailored document")
-        run_id = new_id()
-        with transaction(self.conn):
+        run_id = run_id or new_id()
+        with self._tx():
             self.conn.execute(
                 "INSERT INTO tailoring_run (id, document_id, jd_snapshot_id, master_document_id,"
                 " master_revision_id, mode, provider, model, options_json, status, started_at)"
@@ -473,7 +487,7 @@ class ResumeStore:
                 sets.append("finished_at = ?")
                 args.append(now or now_utc())
         if sets:
-            with transaction(self.conn):
+            with self._tx():
                 self._row("tailoring_run", run_id)
                 self.conn.execute(
                     f"UPDATE tailoring_run SET {', '.join(sets)} WHERE id = ?", [*args, run_id]
@@ -498,7 +512,7 @@ class ResumeStore:
         """A proposed change, PENDING until the person decides. Proposing
         changes nothing in any document."""
         change_id = new_id()
-        with transaction(self.conn):
+        with self._tx():
             self._row("tailoring_run", run_id)
             self.conn.execute(
                 "INSERT INTO tailoring_change (id, run_id, op_json, evidence_ids_json,"
@@ -520,7 +534,7 @@ class ResumeStore:
     ) -> TailoringChange:
         """Decided once. The accepted text itself lands in the document as a
         revision (AI_ACCEPTED), not here."""
-        with transaction(self.conn):
+        with self._tx():
             if self._row("tailoring_change", change_id)["decision"] != "PENDING":
                 raise ResumeStoreError("this change was already decided")
             self.conn.execute(
@@ -550,9 +564,14 @@ class ResumeStore:
         page_count: int | None = None,
         ats_check: dict[str, Any] | None = None,
         now: str | None = None,
+        export_id: str | None = None,
     ) -> ResumeExport:
-        export_id = new_id()
-        with transaction(self.conn):
+        if page_count is not None and (
+            isinstance(page_count, bool) or not isinstance(page_count, int) or page_count < 1
+        ):
+            raise ResumeStoreError("page_count is a whole number of pages, at least 1")
+        export_id = export_id or new_id()
+        with self._tx():
             if self._row("resume_revision", revision_id)["document_id"] != document_id:
                 raise ResumeStoreError("an export names a revision of its own document")
             self.conn.execute(
@@ -591,7 +610,7 @@ class ResumeStore:
         now: str | None = None,
     ) -> None:
         """Set a finding aside in THIS document only."""
-        with transaction(self.conn):
+        with self._tx():
             self._row("resume_document", document_id)
             self.conn.execute(
                 "INSERT OR IGNORE INTO resume_finding_dismissal"
@@ -671,3 +690,41 @@ class ResumeStore:
     @staticmethod
     def _export(r: sqlite3.Row) -> ResumeExport:
         return _from_row(ResumeExport, r, ats_check=json.loads(r["ats_check_json"]))
+
+
+#: Every Resume Workspace table, children first, so a delete never orphans a row.
+RESUME_TABLES = (
+    "resume_finding_dismissal",
+    "resume_export",
+    "tailoring_change",
+    "tailoring_run",
+    "resume_revision",
+    "resume_document",
+    "jd_snapshot",
+)
+#: The triggers that keep history and job ads from ever being deleted.
+_KEEP_TRIGGERS = ("resume_revision_kept", "jd_snapshot_kept")
+
+
+def resume_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
+    return {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in RESUME_TABLES}
+
+
+def forget_resume_data(conn: sqlite3.Connection) -> None:
+    """Delete every resume row in THIS profile's database, on the person's
+    explicit request (`career-agent forget everything`). The guards against
+    deleting history are lifted inside the transaction and put back before
+    it commits. Joins the caller's transaction when one is open."""
+    with nullcontext() if conn.in_transaction else transaction(conn):
+        guards = [
+            conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?", (name,)
+            ).fetchone()[0]
+            for name in _KEEP_TRIGGERS
+        ]
+        for name in _KEEP_TRIGGERS:
+            conn.execute(f"DROP TRIGGER {name}")
+        for table in RESUME_TABLES:
+            conn.execute(f"DELETE FROM {table}")
+        for sql in guards:
+            conn.execute(sql)
