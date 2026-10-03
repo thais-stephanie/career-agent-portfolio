@@ -332,6 +332,17 @@ export async function listJobs(query) {
   return payload;
 }
 
+/** A token that moves whenever any list could read differently. */
+export async function jobsFreshness() {
+  return MOCK ? { freshness: 'mock' } : request('/jobs/freshness');
+}
+
+/** "N more if you tick this box", for one list query; see `list_jobs`. */
+export async function jobNarrowings(query) {
+  const queryString = query.toString();
+  return MOCK ? {} : request(`/jobs/narrowings${queryString ? `?${queryString}` : ''}`);
+}
+
 /**
  * One shape for the filter panel, whatever the server sends.
  *

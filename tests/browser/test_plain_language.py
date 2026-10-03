@@ -439,12 +439,16 @@ def test_the_status_line_says_how_much_is_worth_opening_it_for(page: Chrome, ser
     says how many of those are something to act on.
     """
     open_list(page, server)
+    # Nothing to act on is said by saying nothing (the owner's request): the
+    # line is hidden, and drawn only when something is worth opening it for.
     page.wait_for(
-        "document.getElementById('health-summary').textContent.trim().length > 0",
-        message="the status summary",
+        "document.getElementById('health').textContent.trim().length > 0",
+        message="the status detail",
     )
     summary = str(page.evaluate("document.getElementById('health-summary').textContent")).strip()
-    assert summary, "the summary is empty"
+    hidden = page.evaluate("document.getElementById('health-summary').hidden")
+    assert hidden or summary, "a shown status line is empty"
+    assert not summary or not hidden, "a hidden status line carries text"
     assert "#" not in summary, f"a database reference reached the summary: {summary}"
 
     # And the detail is still there, in full: the status line's tooltip.
@@ -497,11 +501,13 @@ def test_the_board_and_the_dropdown_use_the_same_words(page: Chrome, server: str
 
     # Every column except the one that collapses three endings has to be a
     # word the dropdown also offers.
+    # "Saved / Interested" is the saved jobs and the Interested status in one
+    # column: one of its words must be a status the dropdown offers.
     unmatched = [
         name
         for name in columns
         if name not in ("closed", "didn't work out")
-        and not any(name in option for option in options)
+        and not any(part.strip() in option for part in name.split("/") for option in options)
     ]
     assert unmatched == [], (
         f"the board names {unmatched} and the dropdown offers {sorted(set(options))}"

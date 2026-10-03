@@ -8220,15 +8220,15 @@ body { font-synthesis-weight: none; }
 .sidenav__group { display: flex; flex-direction: column; gap: 3px; }
 
 .topnav__link {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 8px;
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 14px;
+  padding: 10px;
   border: 0;
   border-radius: 12px;
   background: transparent;
   color: var(--nav-idle);
-  font: inherit; font-family: var(--sans); font-size: 16px; font-weight: 500;
+  font: inherit; font-family: var(--sans); font-size: 14px; font-weight: 500;
   text-align: left; text-decoration: none;
   cursor: pointer;
 }
@@ -8238,23 +8238,17 @@ body { font-synthesis-weight: none; }
 /* Weight as well as ground, so the mark is never colour alone (WCAG 1.4.1). */
 .topnav__link[aria-current="page"] { background: var(--nav-active); color: var(--nav-ink); font-weight: 600; }
 .topnav__icon { flex: 0 0 20px; width: 20px; text-align: center; font-size: 16px; opacity: 0.85; }
-.topnav__label { flex: 1; min-width: 0; }
+/* One line at the rail's width, in both languages; never wrapped under its icon. */
+.topnav__label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topnav__badge {
-  min-width: 24px;
+  min-width: 20px;
   box-sizing: border-box;
-  padding: 2px 8px;
+  padding: 1px 6px;
   border-radius: 999px;
   background: var(--nav-green);
   color: var(--nav-on-green);
   font-size: 12px; font-weight: 600;
   text-align: center;
-}
-.topnav__tag {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--nav-yellow);
-  color: var(--nav-on-yellow);
-  font-size: 11px; font-weight: 600;
 }
 
 /* -- the foot ------------------------------------------------------------- */
@@ -8273,7 +8267,6 @@ body { font-synthesis-weight: none; }
 
 .sidenav__pref { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sidenav__preflabel { font-size: 12px; color: var(--nav-faint); }
-.sidenav__privacy { margin: 0; font-size: 12px; line-height: 1.4; color: var(--nav-faint); }
 
 /* Look and Language: a 1px frame, 3px of room, the chosen one lit. */
 .sidenav .themeswitch,
@@ -10787,10 +10780,17 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .profilehead__chip { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--saved-bg); color: var(--purple-text); }
 .profilehead__actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .profilehead__btn { border-radius: 999px; }
-#page-profile .profiletabs.segmented { display: inline-flex; width: max-content; max-width: 100%; overflow-x: auto; margin-bottom: 24px; }
-.profile__overview { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.profile__stronger { flex: 1.4 1 420px; min-width: 0; padding: 0; overflow: hidden; }
-.profile__overside { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+/* One segmented control, centred over the profile content. */
+#page-profile .profiletabs.segmented { display: flex; width: max-content; max-width: 100%; overflow-x: auto; margin: 0 auto 24px; }
+.profile__overview { display: grid; gap: 20px; align-items: start; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+/* Nothing missing: no card for it, and the counts and the latest role share the row. */
+.profile__overview--complete { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.profile__overview--complete .profile__metrics { margin: 0; }
+.profile__stronger { min-width: 0; padding: 0; overflow: hidden; }
+.profile__overside { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 760px) { .profile__overview { grid-template-columns: minmax(0, 1fr); } }
+.profile__complete { margin: 0; display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--body2); }
+
 .profile__cardhead { padding: 20px 20px 12px; }
 .profile__cardhead .profile__lead { margin: 2px 0 0; }
 .profile__todos { list-style: none; margin: 0; padding: 0; }
@@ -10808,7 +10808,6 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .profile__todohelp { font-size: 13px; color: var(--muted); line-height: 1.45; }
 .profile__todocta { flex: none; font-size: 13px; font-weight: 600; color: var(--link); }
 .profile__todocta::after { content: " \203A"; }
-.profile__todonone { margin: 0; padding: 14px 20px; border-top: 1px solid var(--divider); color: var(--muted); font-size: 14px; }
 .profile__done {
   margin: 0; display: flex; gap: 8px; align-items: center; padding: 12px 20px;
   border-top: 1px solid var(--divider); background: var(--surface-alt); font-size: 13px; color: var(--body2);

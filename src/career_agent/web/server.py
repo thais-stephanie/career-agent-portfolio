@@ -703,6 +703,8 @@ class LocalApp:
         self.quiet = quiet
         self._lock = threading.Lock()
         self._routes: list[Route] = []
+        #: Write requests handled so far (see `handle_api`).
+        self.writes = 0
         self._ollama_state: dict[str, Any] = {
             "configured": False,
             "reachable": False,
@@ -735,7 +737,12 @@ class LocalApp:
             path_matched = True
             if route_method != method:
                 continue
-            return handler(query=query, body=body, **match.groupdict())
+            try:
+                return handler(query=query, body=body, **match.groupdict())
+            finally:
+                # Any write may move what a list shows; read caches key on this.
+                if method != "GET":
+                    self.writes += 1
         if path_matched:
             raise ApiError(405, f"{method} not allowed on {path}")
         raise ApiError(404, f"no such endpoint: {path}")

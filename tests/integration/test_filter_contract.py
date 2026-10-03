@@ -137,7 +137,8 @@ def test_every_accepted_parameter_is_covered_by_a_test_here() -> None:
     """A parameter the API accepts and nothing exercises is a parameter that
     can stop working in silence. The presentation and paging keys are named
     explicitly rather than skipped by pattern, so adding one is a decision."""
-    presentation = {"sort", "direction", "limit", "offset", "group_duplicates"}
+    # `narrowings=later` only decides when the "N more" counts are sent.
+    presentation = {"sort", "direction", "limit", "offset", "group_duplicates", "narrowings"}
     # THE SOFT PAIR IS NOT A FILTER, and belongs here rather than in
     # `NARROWING` for the reason that table exists: every entry in it is
     # asserted to satisfy `0 < count < whole`, and these two are built so that
@@ -178,6 +179,10 @@ def test_every_accepted_parameter_is_covered_by_a_test_here() -> None:
         # population from what an employer ruled out and from what her search
         # set aside, and no query for one may answer another.
         "user_hidden_only",
+        # The board's own ask (tracked statuses OR saved). Exercised by
+        # `test_functional_recovery_a.py`: a saved job is on the board and
+        # leaves it when unsaved, and saving changes no status.
+        "with_saved",
     }
     covered = set(NARROWING) | {"min_salary"} | presentation | ordering | older | set(WIDENING)
     assert covered >= JOB_QUERY_PARAMS, sorted(JOB_QUERY_PARAMS - covered)

@@ -928,6 +928,11 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
         "max_score": "100",
         "min_confidence": "10",
         "saved_only": "true",
+        # My applications: tracked statuses OR saved with the heart.
+        "with_saved": "true",
+        # Not a filter: WHEN the "N more" counts are sent. Asserted in
+        # tests/integration/test_functional_recovery_a.py.
+        "narrowings": "later",
         "enriched_only": "true",
         "has_salary": "true",
         "remote_only": "true",
@@ -1018,7 +1023,7 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
             for field in dataclasses.fields(JobFilter)
             if getattr(built, field.name) != getattr(default, field.name)
         ]
-        if name in ("sort", "direction"):
+        if name in ("sort", "direction", "narrowings"):
             # These two have no "unset" value: the default IS a real choice,
             # so parsing them correctly cannot show up as a difference. Their
             # coverage is `test_every_sort_the_interface_offers_...`, which

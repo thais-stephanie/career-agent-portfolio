@@ -350,13 +350,29 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
   ];
   const missing = facts.filter((fact) => !fact.has);
   const done = facts.filter((fact) => fact.has).map((fact) => t(`profile.done.${fact.key}`));
-  const stronger = el('section', { className: 'card card--static profile__stronger' }, [
+  const latest = roles.length
+    ? el('section', { className: 'card card--static profile__latest' }, [
+      el('span', { className: 'profile__eyebrow', text: t('profile.recentWork') }),
+      roleBody(roles[0], { lines: 2, more: false }),
+    ])
+    : null;
+  // NOTHING TO DO IS ONE LINE, NOT A CARD. A card holding only "nothing
+  // missing" left a small box beside a tall column and a hole under it; the
+  // counts and the latest role take the whole row instead.
+  if (!missing.length) {
+    out.push(el('p', { className: 'profile__complete' }, [
+      el('span', { className: 'profile__donetick', text: '\u2713', attrs: { 'aria-hidden': 'true' } }),
+      t('profile.complete'),
+    ]));
+    out.push(el('div', { className: 'profile__overview profile__overview--complete' },
+      [counts, latest].filter(Boolean)));
+  }
+  const stronger = missing.length ? el('section', { className: 'card card--static profile__stronger' }, [
     el('div', { className: 'profile__cardhead' }, [
       el('h3', { className: 'profile__heading', text: t('profile.stronger') }),
       el('p', { className: 'profile__lead', text: t('profile.strongerLead') }),
     ]),
-    missing.length
-      ? el('ul', { className: 'profile__todos' }, missing.map((fact) => el('li', {}, [
+    el('ul', { className: 'profile__todos' }, missing.map((fact) => el('li', {}, [
         el('button', {
           className: 'profile__todo',
           attrs: { type: 'button' },
@@ -369,25 +385,20 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
           ]),
           el('span', { className: 'profile__todocta', text: t('profile.todoAdd') }),
         ]),
-      ])))
-      : el('p', { className: 'profile__todonone', text: t('profile.todoNone') }),
+      ]))),
     done.length
       ? el('p', { className: 'profile__done' }, [
         el('span', { className: 'profile__donetick', text: '\u2713', attrs: { 'aria-hidden': 'true' } }),
         t('profile.alreadyDone', { list: done.join(', ') }),
       ])
       : null,
-  ].filter(Boolean));
-  const latest = roles.length
-    ? el('section', { className: 'card card--static profile__latest' }, [
-      el('span', { className: 'profile__eyebrow', text: t('profile.recentWork') }),
-      roleBody(roles[0], { lines: 2, more: false }),
-    ])
-    : null;
-  out.push(el('div', { className: 'profile__overview' }, [
-    stronger,
-    el('div', { className: 'profile__overside' }, [counts, latest].filter(Boolean)),
-  ]));
+  ].filter(Boolean)) : null;
+  if (stronger) {
+    out.push(el('div', { className: 'profile__overview' }, [
+      stronger,
+      el('div', { className: 'profile__overside' }, [counts, latest].filter(Boolean)),
+    ]));
+  }
 
   if (skills.length) {
     const shown = unique.slice(0, SKILL_GLANCE);

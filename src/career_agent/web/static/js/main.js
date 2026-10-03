@@ -84,6 +84,16 @@ const dom = {
 
 let lastResponse = null;      // the response currently on screen
 let lastQueryString = null;   // the query that produced it
+//: Lists already read, by query string, oldest first. Cards and List are two
+//: queries (grouping and page size differ), so each is kept; going back to a
+//: list held here shows it at once and asks the server one small question
+//: (`jobsFreshness`) before deciding to read it again. See `showHeld`.
+const heldLists = new Map();
+const HELD_LISTS = 12;
+//: Changes made on this page (a save, a status, a hide). A list held from
+//: before one is never shown again without reading it afresh: its rows may
+//: no longer belong to it.
+let localWrites = 0;
 let inFlight = 0;
 //: Whether a list request is being fetched; see `mergeJob`.
 let loading = false;
@@ -781,7 +791,8 @@ store.subscribe((state, meta) => {
 
   const queryString = store.apiQueryString();
   if (queryString !== lastQueryString || !lastResponse) {
-    load(queryString, state);
+    if (heldLists.has(queryString)) showHeld(queryString, state);
+    else load(queryString, state);
   } else {
     paint(state);
   }
@@ -829,20 +840,73 @@ async function load(queryString, state, { quiet = false } = {}) {
     // list the server returns include them.
     await settledJobSaves();
     if (token !== inFlight) return;
-    const [response] = await Promise.all([
-      api.listJobs(new URLSearchParams(queryString)),
-      refreshReadiness(),
-    ]);
+    // The "N more" counts come after the list (see `afterList`).
+    const params = new URLSearchParams(queryString);
+    params.set('narrowings', 'later');
+    const writes = localWrites;
+    const [response] = await Promise.all([api.listJobs(params), refreshReadiness()]);
+    response.writes = writes;
     if (token !== inFlight) return;
     loading = false;
     lastResponse = response;
+    hold(queryString, response);
     panel.syncFacets(response.facets, store.get());
     paint(store.get());
+    afterList(queryString, response);
   } catch (error) {
     if (token !== inFlight) return;
     loading = false;
     lastResponse = null;
     showError(error, queryString);
+  }
+}
+
+function hold(queryString, response) {
+  heldLists.delete(queryString);
+  heldLists.set(queryString, response);
+  while (heldLists.size > HELD_LISTS) heldLists.delete(heldLists.keys().next().value);
+}
+
+/** A list already read: on screen now, read again only if it could have moved. */
+function showHeld(queryString, state) {
+  const held = heldLists.get(queryString);
+  if (held.writes !== localWrites) {
+    load(queryString, state);
+    return;
+  }
+  lastQueryString = queryString;
+  const token = ++inFlight;
+  loading = false;
+  lastResponse = held;
+  panel.syncFacets(held.facets, state);
+  paint(state);
+  api.jobsFreshness().then(({ freshness }) => {
+    if (token !== inFlight) return;
+    if (freshness !== held.freshness) load(queryString, store.get(), { quiet: true });
+    else afterList(queryString, held);
+  }).catch(() => {
+    // Not known to be current: read it again rather than keep it on trust.
+    if (token === inFlight) load(queryString, store.get(), { quiet: true });
+  });
+}
+
+/**
+ * Once a list is on screen: its "N more if you tick this box" counts, which
+ * the server sends later because they cost more than the list itself. Asked
+ * twice before giving up: one of them is the only way back to jobs she hid.
+ */
+async function afterList(queryString, response) {
+  if (!response.narrowings_pending) return;
+  for (const wait of [0, 3000]) {
+    if (wait) await new Promise((resolve) => { setTimeout(resolve, wait); });
+    try {
+      const counts = await api.jobNarrowings(new URLSearchParams(queryString));
+      Object.assign(response, counts, { narrowings_pending: false });
+      if (lastResponse === response) renderHiddenNotice(store.get());
+      return;
+    } catch {
+      // Tried again below; the list on screen is complete without them.
+    }
   }
 }
 
@@ -990,9 +1054,11 @@ function announce(state, shown, total) {
     // Hired is done, not in progress.
     const byStatus = Object.fromEntries(((lastResponse && lastResponse.facets && lastResponse.facets.status) || [])
       .map((row) => [row.key, row.count]));
+    // DISCOVERED here is a job saved with the heart and not moved yet: the
+    // board asks for those too (`with_saved`), and they stand under Saved.
     const going = COLUMNS.filter((column) => column.key !== 'CLOSED')
       .flatMap((column) => column.statuses).filter((status) => status !== 'HIRED')
-      .reduce((sum, status) => sum + (byStatus[status] || 0), 0);
+      .reduce((sum, status) => sum + (byStatus[status] || 0), byStatus.DISCOVERED || 0);
     const talks = byStatus.INTERVIEW || 0;
     replace(dom.count, [
       el('span', { className: 'boardhead__lede', text: t('board.lede') }),
@@ -1210,7 +1276,7 @@ function renderRevisionNotice() {
       // nothing would be watching the work that had just begun.
       api.startRescore().then(() => {
         watchRecalculation();
-        return refresh();
+        return load(store.apiQueryString(), store.get(), { quiet: true });
       }).catch(() => {});
     }, { className: 'revnotice__go' }));
   }
@@ -1868,6 +1934,9 @@ function findJob(jobId) {
 
 function mergeJob(updated) {
   if (!updated || !lastResponse) return;
+  // Every other list held is now older than this change (see `showHeld`).
+  localWrites += 1;
+  lastResponse.writes = localWrites;
   const index = lastResponse.items.findIndex((job) => job.job_id === updated.job_id);
   if (index >= 0) lastResponse.items[index] = { ...lastResponse.items[index], ...updated };
   // While a new list is on its way, the one in hand belongs to the previous
@@ -2052,6 +2121,7 @@ const HIDE_REASONS = [
 async function changeHidden(jobId, hidden, scope = 'posting', reason = null) {
   try {
     await api.patchHidden(jobId, hidden, scope, reason);
+    localWrites += 1;
     // Reload rather than merge: this row no longer belongs to this query.
     await load(store.apiQueryString(), store.get());
     if (!hidden) {
@@ -2289,7 +2359,9 @@ async function showHealth() {
     const runtime = health.runtime || {};
     // The mode banner is rendered OUTSIDE the disclosure, because it is the
     // one piece of status a person must not have to open anything to see.
-    if (dom.healthMode) {
+    // Personal is the ordinary case and says nothing; demo data is named.
+    if (dom.healthMode && runtime.is_personal) clear(dom.healthMode);
+    else if (dom.healthMode) {
       replace(dom.healthMode, [
         el('span', {
           className: `health__mode health__mode--${String(runtime.mode || 'unknown').toLowerCase()}`,
@@ -2461,7 +2533,7 @@ function drawRailStatus() {
   if (!node || !dom.healthSummaryText) return;
   const failed = Number(railStatus.failed) || 0;
   drawSiteAlert(failed);
-  let text = t('sidenav.statusOk');
+  let text = '';
   let attention = false;
   let actionable = false;
   if (failed > 0) {
@@ -2477,6 +2549,8 @@ function drawRailStatus() {
     attention = true;
   }
   dom.healthSummaryText.textContent = text;
+  // Nothing to say when every site works: the footer is the job count alone.
+  node.hidden = !attention;
   node.classList.toggle('is-attention', attention);
   node.classList.toggle('is-actionable', actionable);
   // Focusable in every state, so its detail can be reached: not `disabled`.
@@ -2509,11 +2583,7 @@ async function loadRailReadouts() {
       const found = (home.metrics || []).find((entry) => entry.key === key);
       return found && Number.isFinite(found.value) ? found.value : null;
     };
-    shell.setStats({
-      jobs: Number.isFinite(home.job_count) ? home.job_count : null,
-      open: metric('tracking'),
-      interview: metric('interviews'),
-    });
+    shell.setStats({ jobs: Number.isFinite(home.job_count) ? home.job_count : null });
     // The two green badges. "New" is the latest refresh's own count (Source
     // Refresh V2), the same number Home shows; never "since last reviewed".
     shell.setBadges({ jobs: metric('new'), applications: metric('tracking') });

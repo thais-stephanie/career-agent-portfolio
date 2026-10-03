@@ -1631,6 +1631,11 @@ class JobFilter:
     max_score: int | None = None
     min_confidence: int | None = None
     saved_only: bool = False
+    #: With `statuses`: ALSO the postings she saved (the heart), whatever their
+    #: status. My applications asks for this, because a saved posting is one
+    #: she is tracking. It widens only the status list; saving still changes
+    #: no status.
+    with_saved: bool = False
     #: Only postings a LOCAL model has actually observed. One of the five
     #: pipeline stages the interface distinguishes, and the only one that is a
     #: fact about our own processing rather than about the posting.
@@ -2236,7 +2241,11 @@ class ScoredJobQuery(_Repo):
         # not the gates-index skip-scan a general provider hint once caused.
         # Without it SQLite prefers scanning the entire covering gates index
         # even to find six saved postings. No hint applies to other filters.
-        index = " INDEXED BY idx_job_match_population" if f and f.saved_only else ""
+        index = (
+            " INDEXED BY idx_job_match_population"
+            if f and (f.saved_only or (f.statuses and "DISCOVERED" not in f.statuses))
+            else ""
+        )
         base = f" FROM job_match jm{a}{index} JOIN job j{a} ON j{a}.id = jm{a}.job_id"
         return base + "".join(
             sql.format(s=a) for alias, sql in self._OPTIONAL_JOINS if alias in needed
@@ -2286,12 +2295,27 @@ class ScoredJobQuery(_Repo):
             (f"jm{a}.title_class", f.role_classes),
             (f"jm{a}.eligibility_status", f.eligibility),
             (f"jm{a}.fit_band", f.fit_bands),
-            (f"COALESCE(ja{a}.status, 'DISCOVERED')", f.statuses),
         ):
             if values:
                 placeholders = ", ".join("?" for _ in values)
                 clauses.append(f"{column} IN ({placeholders})")
                 params.extend(values)
+        if f.statuses:
+            placeholders = ", ".join("?" for _ in f.statuses)
+            saved = f" OR COALESCE(ja{a}.saved, 0) = 1" if f.with_saved else ""
+            clauses.append(f"(COALESCE(ja{a}.status, 'DISCOVERED') IN ({placeholders}){saved})")
+            params.extend(f.statuses)
+            if "DISCOVERED" not in f.statuses:
+                # Every posting this can match has an application row, so the
+                # read starts from that small table instead of testing every
+                # score in the revision (1.3 s for an empty board on the real
+                # corpus). Same shape as `saved_only` below.
+                also = " OR saved = 1" if f.with_saved else ""
+                clauses.append(
+                    f"jm{a}.job_id IN (SELECT job_id FROM job_application"
+                    f" WHERE status IN ({placeholders}){also})"
+                )
+                params.extend(f.statuses)
 
         if f.min_score is not None:
             clauses.append(f"jm{a}.match_score >= ?")
