@@ -202,6 +202,7 @@ def test_a_tab_chosen_while_another_loads_is_the_one_that_stays(page: Chrome, se
     page.wait_for("document.querySelector('.rh-made') !== null", message="My resumes")
     page.evaluate("new Promise((r) => setTimeout(r, 1200))")
     assert page.evaluate("document.querySelector('.rh-made') !== null"), "Start painted over it"
-    assert page.evaluate(
-        "document.getElementById('rh-tab-resumes').getAttribute('aria-selected')"
-    ) == "true"
+    assert (
+        page.evaluate("document.getElementById('rh-tab-resumes').getAttribute('aria-selected')")
+        == "true"
+    )
