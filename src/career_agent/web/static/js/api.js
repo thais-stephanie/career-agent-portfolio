@@ -173,7 +173,7 @@ export async function getApp() {
   return request('/app');
 }
 
-/** Stop Career Agent and Resume Tailor. */
+/** Stop Career Agent and its Resume helper. */
 export async function quitApp() {
   return request('/app/quit', { method: 'POST', body: {} });
 }

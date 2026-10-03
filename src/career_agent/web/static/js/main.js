@@ -203,6 +203,8 @@ const drawer = createDrawer({
   // job already chosen. Whether a resume exists for it is the helper's answer.
   onTailor: (job) => afterDrawerCloses(() => goTo('resume', { resume: { tab: 'make', jobId: job.job_id } })),
   resumeFor: (jobId) => resumeHelper.hasResumeFor(jobId),
+  // "Hide this job" from the scam warning: the ordinary hide, with its Undo.
+  onHide: (jobId) => afterDrawerCloses(() => changeHidden(jobId, true)),
   // The arithmetic and the raw local reading, for `?debug=1` only.
   debug: DEV_SCORING,
 });

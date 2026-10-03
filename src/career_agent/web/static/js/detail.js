@@ -35,6 +35,7 @@ import { SENT, matchTone } from './cards.js';
 import { createPrepare } from './prepare.js';
 import { adTools, createPractice, jobMark, setJobMark } from './practice.js';
 import { t, tState } from './i18n.js';
+import { cautionOf, markChecked } from './caution.js';
 import * as api from './api.js';
 
 //: The gates, in the order "Can you take this job?" shows them.
@@ -48,6 +49,7 @@ export function createDrawer({
   careerContext = null, onAddCareer = null,
   onTailor = null,
   resumeFor = null,
+  onHide = null,
   debug = false,
 }) {
   let invoker = null;
@@ -172,13 +174,44 @@ export function createDrawer({
   const companyNode = el('span', { className: 'd-company drawer__company' });
   const whereNode = el('span', { className: 'drawer__where' });
   const actionsHost = el('div', { className: 'd-sec--identity drawer__actions' });
+  //: "This ad may be a scam", above the tabs so every tab shows it.
+  const cautionHost = el('div', { className: 'drawer__caution' });
   const titleNode = el('h2', { className: 'drawer__title', attrs: { id: 'drawer-title' }, text: '' });
 
   /** Paint every panel. All are built; one is visible. */
+  /**
+   * The signs this ad itself shows, named one by one. "May be", never "is":
+   * a sign is something real companies rarely do, not proof.
+   */
+  function cautionSection(job) {
+    const signals = cautionOf(job);
+    if (!signals.length) return [];
+    return [el('section', { className: 'd-caution', attrs: { 'aria-labelledby': 'd-caution-head' } }, [
+      el('div', { className: 'd-caution__head' }, [
+        el('span', { className: 'd-caution__icon', text: '!', attrs: { 'aria-hidden': 'true' } }),
+        el('div', { className: 'd-caution__text' }, [
+          el('strong', { className: 'd-caution__title', attrs: { id: 'd-caution-head' }, text: t('caution.title') }),
+          el('span', { className: 'd-caution__lede', text: t('caution.lede') }),
+        ]),
+      ]),
+      el('ul', { className: 'd-caution__list' }, signals.map((key) => el('li', { text: t(`caution.signal.${key}`) }))),
+      el('p', { className: 'd-caution__safe', text: t('caution.safe') }),
+      el('div', { className: 'd-caution__actions' }, [
+        onHide ? button(t('caution.hide'), () => onHide(job.job_id), { className: 'btn d-caution__hide' }) : null,
+        button(t('caution.ok'), () => {
+          markChecked(job.job_id);
+          replace(cautionHost, []);
+          if (onChanged) onChanged(job);
+        }, { className: 'btn btn--link d-caution__ok' }),
+      ].filter(Boolean)),
+    ])];
+  }
+
   function paint(job) {
     companyNode.textContent = job.company_name || t('absent.companyStated');
     whereNode.textContent = whereLine(job);
     replace(actionsHost, headActions(job));
+    replace(cautionHost, cautionSection(job));
     replace(detailPanel, aboutSections(job));
     replace(whyPanel, whySections(job));
     paintPrepare(job);
@@ -200,6 +233,7 @@ export function createDrawer({
         closeButton,
       ]),
       actionsHost,
+      cautionHost,
       tabList,
     ]),
     bodyHost,
@@ -238,6 +272,7 @@ export function createDrawer({
     companyNode.textContent = '';
     whereNode.textContent = '';
     clear(actionsHost);
+    clear(cautionHost);
     replace(bodyHost, [el('div', { className: 'sk sk--block' }), el('div', { className: 'sk sk--block' })]);
     panel.focus();
 

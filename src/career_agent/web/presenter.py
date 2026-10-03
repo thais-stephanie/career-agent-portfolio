@@ -28,6 +28,7 @@ from career_agent.domain.application import ApplicationStatus, has_applied
 from career_agent.domain.enums import EligibilityStatus, GateResult, Prominence
 from career_agent.domain.matching import MatchResult, ScoredJob
 from career_agent.match.lexicon import TECHNOLOGY_SIGNALS as _TECHNOLOGY_SIGNALS
+from career_agent.web.caution import caution_signals
 
 #: Signals whose presence the interface presents as "technologies", as opposed
 #: to responsibilities. Naming them here rather than deriving them keeps the
@@ -293,6 +294,8 @@ def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: li
     card = job_card(job, bands=bands, today=today, recency=recency)
     result = job.result
     card["description"] = job.description_text
+    # Scam signs, read from the whole ad (presentation only; see web/caution.py).
+    card["caution"] = caution_signals(job.description_text)
     card["history"] = history
     card["enrichment"] = job.enrichment or {}
 

@@ -31,6 +31,7 @@ import {
 } from './format.js';
 import { eligibilityWords, searchFitIsReady } from './badges.js';
 import { t } from './i18n.js';
+import { cautionOf } from './caution.js';
 
 export function renderCards(mount, items, handlers) {
   replace(mount, items.map((job) => card(job, handlers)));
@@ -207,7 +208,10 @@ function matchBlock(job, handlers) {
     el('span', { className: 'card__matchrow' }, [
       el('span', { className: 'card__pct num', text: score.scored ? `${score.text}%` : score.text }),
       el('span', { className: 'card__matchtext', text: tone ? t(tone.key) : t('card.matchUnscored') }),
-      job.freshness === 'FRESH' ? el('span', { className: 'card__new', text: t('card.new') }) : null,
+      // A sign the ad may be a scam outranks "New": it is the thing to see first.
+      cautionOf(job).length
+        ? el('span', { className: 'card__caution', text: t('caution.pill'), attrs: { title: t('caution.title') } })
+        : (job.freshness === 'FRESH' ? el('span', { className: 'card__new', text: t('card.new') }) : null),
     ]),
     el('span', { className: 'card__meter', attrs: { 'aria-hidden': 'true' } }, [bar]),
   );

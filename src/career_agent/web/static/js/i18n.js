@@ -49,8 +49,6 @@ export const DEFAULT_LOCALE = 'en';
  */
 const EN = {
   "tailor.groupLabel": "Resume helper",
-  "tailor.note": "Opens Resume Tailor Beta with this posting and your confirmed Career Profile. Its status stays here.",
-  "tailor.open": "Open Resume Tailor Beta",
 
   "firstrun.searchSave": "Save my search phrases",
   "firstrun.workLabel": "Work you want to do, one short phrase per line",
@@ -1212,6 +1210,17 @@ const EN = {
   'card.matchGood': 'Good match',
   'card.matchFair': 'Fair match',
   'card.new': 'New',
+  'caution.pill': '! Be careful',
+  'caution.title': 'This ad may be a scam',
+  'caution.lede': 'We found signs that real companies don’t usually show:',
+  'caution.signal.fee': 'It asks you to pay money or a fee',
+  'caution.signal.bank': 'It asks for your bank details',
+  'caution.signal.whatsapp': 'It asks you to get in touch by WhatsApp or Telegram',
+  'caution.signal.equipment': 'It asks you to buy equipment from them',
+  'caution.safe': 'Stay safe: never pay to get a job, and never share bank details before you have an offer in '
+    + 'writing.',
+  'caution.hide': 'Hide this job',
+  'caution.ok': 'I checked. It looks fine',
   'card.matchUnscored': 'Not scored yet',
   'card.whyLabel': '{n}% match: see why',
   'card.whyHelp': 'See why this job fits you',
@@ -3835,9 +3844,6 @@ const EN = {
  */
 const PT_BR = {
   "tailor.groupLabel": "Ajuda com o currículo",
-  "tailor.note": "Abre o Resume Tailor Beta com esta vaga e o seu Perfil de Carreira confirmado. "
-    + "O status continua aqui.",
-  "tailor.open": "Abrir Resume Tailor Beta",
 
   "firstrun.searchSave": "Salvar as frases da minha busca",
   "firstrun.workLabel": "Trabalho que você quer fazer, uma frase curta por linha",
@@ -4895,6 +4901,17 @@ const PT_BR = {
   'card.matchGood': 'Boa compatibilidade',
   'card.matchFair': 'Compatibilidade razoável',
   'card.new': 'Nova',
+  'caution.pill': '! Cuidado',
+  'caution.title': 'Este anúncio pode ser um golpe',
+  'caution.lede': 'Encontramos sinais que empresas de verdade não costumam mostrar:',
+  'caution.signal.fee': 'Pede que você pague dinheiro ou uma taxa',
+  'caution.signal.bank': 'Pede seus dados bancários',
+  'caution.signal.whatsapp': 'Pede contato por WhatsApp ou Telegram',
+  'caution.signal.equipment': 'Pede que você compre equipamento deles',
+  'caution.safe': 'Proteja-se: nunca pague para conseguir uma vaga e nunca passe dados bancários antes de ter uma '
+    + 'proposta por escrito.',
+  'caution.hide': 'Ocultar esta vaga',
+  'caution.ok': 'Eu verifiquei. Parece tudo certo',
   'card.matchUnscored': 'Ainda sem nota',
   'card.whyLabel': '{n}% de compatibilidade: ver por quê',
   'card.whyHelp': 'Veja por que esta vaga combina com você',

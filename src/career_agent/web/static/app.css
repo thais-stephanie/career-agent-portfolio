@@ -10903,3 +10903,30 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .stepper .stepper__step--done .stepper__mark { background: var(--m1-bg); color: var(--m1-fg); border-color: transparent; }
 .stepper .stepper__step--current .stepper__mark { background: var(--lav); color: var(--on-lav); border-color: transparent; }
 .stepper .stepper__name { font-size: 13px; }
+
+/* =========================================================================
+   V3 "THIS AD MAY BE A SCAM": a pill on the card, a box above the drawer's
+   tabs. Red family tokens, the same in both themes.
+   ========================================================================= */
+.card__caution {
+  flex: none; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  background: var(--rt-red-bg); color: var(--rt-red-fg);
+}
+.drawer__caution:empty { display: none; }
+.d-caution {
+  margin: 4px 0 8px; padding: 14px 16px; border-radius: 14px; display: grid; gap: 10px;
+  background: var(--rt-red-bg); border: 1px solid var(--rt-red-fg);
+}
+.d-caution__head { display: flex; gap: 12px; align-items: flex-start; }
+.d-caution__icon {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--rt-red-fg); color: var(--surface); font-weight: 800;
+}
+.d-caution__text { display: grid; gap: 2px; }
+.d-caution__title { font-size: 16px; color: var(--rt-red-fg); }
+.d-caution__lede { font-size: 14px; color: var(--fg); }
+.d-caution__list { margin: 0; padding: 0 0 0 58px; display: grid; gap: 4px; font-size: 14px; color: var(--fg); }
+.d-caution__safe { margin: 0 0 0 40px; font-size: 13px; color: var(--body2); }
+.d-caution__actions { display: flex; gap: 10px; flex-wrap: wrap; margin-left: 40px; align-items: center; }
+.d-caution__hide { background: var(--rt-red-fg); color: var(--surface); border-color: transparent; border-radius: 999px; }
+.d-caution__ok { color: var(--body2); }
