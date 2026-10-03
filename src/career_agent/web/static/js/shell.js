@@ -114,19 +114,15 @@ export function createShell() {
   let lastStats = null;
 
   /**
-   * Three counts, and only the ones that are real.
+   * How many jobs have been retrieved (open postings in the corpus). Not
+   * "found": that reads as jobs the person qualifies for.
    *
-   * A tile whose value is unknown is OMITTED rather than drawn with a dash:
-   * "we could not work this out" and "there are none" are opposite facts and
-   * they must not render the same.
+   * An unknown value is OMITTED rather than drawn with a dash: "we could not
+   * work this out" and "there are none" are opposite facts.
    */
-  function setStats({ jobs = null, open = null, interview = null } = {}) {
-    lastStats = { jobs, open, interview };
-    const tiles = [
-      ['jobs', jobs, 'sidenav.statJobs'],
-      ['open', open, 'sidenav.statOpen'],
-      ['interview', interview, 'sidenav.statInterview'],
-    ]
+  function setStats({ jobs = null } = {}) {
+    lastStats = { jobs };
+    const tiles = [['jobs', jobs, 'sidenav.statJobs']]
       .filter(([, value]) => Number.isFinite(value))
       .map(([key, value, label]) => el('span', { className: `sidenav__stat sidenav__stat--${key}` }, [
         // With the reader's own thousands separator: 154,631 or 154.631.
@@ -249,7 +245,6 @@ export function createShell() {
       'nav-section-profile': 'nav.sectionProfile',
       'look-label': 'sidenav.look',
       'language-label': 'locale.label',
-      'sidenav-privacy': 'sidenav.privacy',
       'site-alert-fix': 'sidenav.alertFix',
     };
     for (const [id, key] of Object.entries(fixed)) {
@@ -263,8 +258,6 @@ export function createShell() {
     }
     const tailor = document.getElementById('nav-tailor-label');
     if (tailor) tailor.textContent = t('nav.tailor');
-    const beta = document.getElementById('nav-tailor-beta');
-    if (beta) beta.textContent = t('nav.beta');
     const quit = document.getElementById('quit-app');
     if (quit) quit.textContent = t('app.quit');
     if (lastStats) setStats(lastStats);

@@ -332,6 +332,17 @@ export async function listJobs(query) {
   return payload;
 }
 
+/** A token that moves whenever any list could read differently. */
+export async function jobsFreshness() {
+  return MOCK ? { freshness: 'mock' } : request('/jobs/freshness');
+}
+
+/** "N more if you tick this box", for one list query; see `list_jobs`. */
+export async function jobNarrowings(query) {
+  const queryString = query.toString();
+  return MOCK ? {} : request(`/jobs/narrowings${queryString ? `?${queryString}` : ''}`);
+}
+
 /**
  * One shape for the filter panel, whatever the server sends.
  *
@@ -871,6 +882,16 @@ export async function patchSearchReview(patch) {
  */
 export async function patchProfile(changes) {
   return request('/profile', { method: 'PATCH', body: { changes } });
+}
+
+/** The person's name and contact details, for resumes. Not a search answer. */
+export async function getContact() {
+  return MOCK ? { contact: {}, missing: ['full_name', 'email'] } : request('/profile/contact');
+}
+
+/** Save some of them; a field not sent keeps its value, an empty one clears it. */
+export async function patchContact(contact) {
+  return request('/profile/contact', { method: 'PATCH', body: { contact } });
 }
 
 

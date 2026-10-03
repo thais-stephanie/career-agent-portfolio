@@ -20,6 +20,7 @@ import { button, clear, el, field, replace } from './dom.js';
 import { getLocale, t, tVocab } from './i18n.js';
 import { tagInput } from './tags.js';
 import { initials } from './local-profiles.js';
+import { placeOf } from './contact.js';
 import {
   ARRANGEMENT_FIELDS, WORK_MODEL_FIELDS, arrangementMatrix, workModelMatrix,
 } from './choices.js';
@@ -118,7 +119,7 @@ function foldOf(section) {
  * candidate tabs simply do not appear.
  */
 export function renderProfile(mount, data, ledger = null, {
-  experience = null, tab = null, who = null, onGo = null,
+  experience = null, tab = null, onGo = null, contact = null, onEditContact = null,
 } = {}) {
   clear(mount);
 
@@ -184,7 +185,7 @@ export function renderProfile(mount, data, ledger = null, {
 
   // One tab is not a tab. With a single filled panel the row is pointless
   // chrome above the only thing there is, so it is not drawn.
-  const head = headerCard(data, confirmed, who, onGo);
+  const head = headerCard(data, confirmed, { onGo, contact, onEditContact });
   if (filled.length < 2) {
     replace(mount, [head, ...preamble, ...filled.flatMap((tab) => panels[tab.key])]);
     return;
@@ -350,7 +351,24 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
   ];
   const missing = facts.filter((fact) => !fact.has);
   const done = facts.filter((fact) => fact.has).map((fact) => t(`profile.done.${fact.key}`));
-  const stronger = el('section', { className: 'card card--static profile__stronger' }, [
+  const latest = roles.length
+    ? el('section', { className: 'card card--static profile__latest' }, [
+      el('span', { className: 'profile__eyebrow', text: t('profile.recentWork') }),
+      roleBody(roles[0], { lines: 2, more: false }),
+    ])
+    : null;
+  // NOTHING TO DO IS ONE LINE, NOT A CARD. A card holding only "nothing
+  // missing" left a small box beside a tall column and a hole under it; the
+  // counts and the latest role take the whole row instead.
+  if (!missing.length) {
+    out.push(el('p', { className: 'profile__complete' }, [
+      el('span', { className: 'profile__donetick', text: '✓', attrs: { 'aria-hidden': 'true' } }),
+      t('profile.complete'),
+    ]));
+    out.push(el('div', { className: 'profile__overview profile__overview--complete' },
+      [counts, latest].filter(Boolean)));
+  }
+  const stronger = missing.length ? el('section', { className: 'card card--static profile__stronger' }, [
     el('div', { className: 'profile__cardhead' }, [
       el('h3', { className: 'profile__heading', text: t('profile.stronger') }),
       el('p', { className: 'profile__lead', text: t('profile.strongerLead') }),
@@ -370,24 +388,20 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
           el('span', { className: 'profile__todocta', text: t('profile.todoAdd') }),
         ]),
       ])))
-      : el('p', { className: 'profile__todonone', text: t('profile.todoNone') }),
+      : null,
     done.length
       ? el('p', { className: 'profile__done' }, [
         el('span', { className: 'profile__donetick', text: '\u2713', attrs: { 'aria-hidden': 'true' } }),
         t('profile.alreadyDone', { list: done.join(', ') }),
       ])
       : null,
-  ].filter(Boolean));
-  const latest = roles.length
-    ? el('section', { className: 'card card--static profile__latest' }, [
-      el('span', { className: 'profile__eyebrow', text: t('profile.recentWork') }),
-      roleBody(roles[0], { lines: 2, more: false }),
-    ])
-    : null;
-  out.push(el('div', { className: 'profile__overview' }, [
-    stronger,
-    el('div', { className: 'profile__overside' }, [counts, latest].filter(Boolean)),
-  ]));
+  ].filter(Boolean)) : null;
+  if (stronger) {
+    out.push(el('div', { className: 'profile__overview' }, [
+      stronger,
+      el('div', { className: 'profile__overside' }, [counts, latest].filter(Boolean)),
+    ]));
+  }
 
   if (skills.length) {
     const shown = unique.slice(0, SKILL_GLANCE);
@@ -411,40 +425,63 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
 }
 
 /**
- * V3: who this profile is for, the latest role, where, and what they look
- * for, with the two ways to change it. Everything is read from what is
- * saved; nothing is filled in.
+ * V3: who this person is, the latest role, how to reach them, and what they
+ * look for, with the ways to change each.
+ *
+ * TWO IDENTITIES, NEVER ONE. The local profile's label ("My profile") names a
+ * container on this computer and stays in the profile switcher;
+ * `contact.full_name` is the person's own name, which a resume prints. The
+ * heading is the person's name, and asks for it when there is none.
  */
-function headerCard(data, confirmed, who, onGo) {
+function headerCard(data, confirmed, { onGo = null, contact = null, onEditContact = null } = {}) {
   const value = (field) => ((data.editable || []).find((row) => row.field === field) || {}).value;
-  const name = who || t('profile.head.you');
+  const person = contact || {};
+  const name = person.full_name || '';
   const latest = confirmed.filter((claim) => claim.claim_type === 'EMPLOYMENT')
     .sort((a, b) => String(b.period_start || '').localeCompare(String(a.period_start || '')))[0];
   const country = value('candidate_country');
   const remote = (value('work_models') || []).includes('REMOTE');
   const where = [
-    country ? namedChoice(country, data.place_names) : null,
+    placeOf(person) || (country ? namedChoice(country, data.place_names) : null),
     remote ? t('profile.head.remote') : null,
-  ].filter(Boolean).join(' \u00B7 ');
+  ].filter(Boolean).join(' · ');
+  const reach = [person.email, person.phone].filter(Boolean).join(' · ');
+  const links = [
+    ['linkedin_url', 'profile.head.linkedin'],
+    ['portfolio_url', 'profile.head.portfolio'],
+    ['github_url', 'profile.head.github'],
+  ].filter(([key]) => person[key]).map(([key, label]) => el('a', {
+    className: 'profilehead__link',
+    text: t(label),
+    attrs: { href: person[key], target: '_blank', rel: 'noopener noreferrer' },
+  }));
   const desired = (data.sections || []).find((section) => section.id === 'signals-desired');
   const looking = desired ? desired.rows.slice(0, 3).map(labelOf) : [];
   // A person's initials only when there is a person's name; otherwise a plain mark.
-  const mark = who ? initials(who) : '◉';
+  const mark = name ? initials(name) : '◉';
   return el('section', { className: 'profilehead' }, [
     el('span', { className: 'profilehead__avatar', text: mark, attrs: { 'aria-hidden': 'true' } }),
     el('div', { className: 'profilehead__who' }, [
-      el('h2', { className: 'profilehead__name', text: name }),
+      el('h2', { className: 'profilehead__name', text: name || t('profile.head.noName') }),
+      name ? null : el('span', { className: 'profilehead__line', text: t('profile.head.noNameHelp') }),
       latest ? el('span', { className: 'profilehead__line', text: latest.text }) : null,
       where ? el('span', { className: 'profilehead__where', text: where }) : null,
+      reach ? el('span', { className: 'profilehead__where', text: reach }) : null,
+      links.length ? el('span', { className: 'profilehead__links' }, links) : null,
       looking.length ? el('div', { className: 'profilehead__looking' }, [
         el('span', { className: 'profilehead__eyebrow', text: t('profile.head.looking') }),
         ...looking.map((text) => el('span', { className: 'profilehead__chip', text })),
       ]) : null,
     ].filter(Boolean)),
-    onGo ? el('div', { className: 'profilehead__actions' }, [
-      button(t('profile.head.import'), () => onGo('import'), { className: 'btn profilehead__btn' }),
-      button(t('profile.head.answers'), () => onGo('answers'), { className: 'btn btn--primary profilehead__btn' }),
-    ]) : null,
+    onGo || onEditContact ? el('div', { className: 'profilehead__actions' }, [
+      onEditContact ? button(t('profile.head.editContact'), () => onEditContact(
+        country ? namedChoice(country, data.place_names) : '',
+      ), { className: `btn profilehead__btn${name ? '' : ' btn--primary'}` }) : null,
+      onGo ? button(t('profile.head.import'), () => onGo('import'), { className: 'btn profilehead__btn' }) : null,
+      onGo ? button(t('profile.head.answers'), () => onGo('answers'), {
+        className: `btn profilehead__btn${name ? ' btn--primary' : ''}`,
+      }) : null,
+    ].filter(Boolean)) : null,
   ].filter(Boolean));
 }
 

@@ -8,6 +8,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Career Agent</title>
 <link rel="icon" href="star.svg" type="image/svg+xml">
+<!-- Raster sizes for the window, the taskbar and Alt+Tab: the app window is an
+     Edge `--app` window, and Windows draws those from the page's icon. -->
+<link rel="icon" href="career-agent.ico" sizes="16x16 32x32 48x48 256x256" type="image/x-icon">
 <link rel="alternate icon" href="px/px-star-32.png" type="image/png">
 <link rel="stylesheet" href="./app.css">
 <!-- Classic, not a module, and deliberately in the head: a module is
@@ -83,7 +86,6 @@
       <button type="button" class="topnav__link topnav__link--tailor" data-page="resume">
         <span class="topnav__icon" aria-hidden="true">&#9998;&#65038;</span>
         <span class="topnav__label" id="nav-tailor-label">Resume helper</span>
-        <span class="topnav__tag" id="nav-tailor-beta">New</span>
       </button>
     </div>
   </div>
@@ -111,18 +113,17 @@
         <span class="sidenav__preflabel" id="language-label">Language</span>
         <div class="topbar__locale" id="locale-host"></div>
       </div>
-      <p class="sidenav__privacy" id="sidenav-privacy">Your data stays on this computer.</p>
     </div>
-    <!-- WHICH POPULATION AM I LOOKING AT: the mode, the counts, and any local
-         condition worth knowing. One quiet line; details are its tooltip. -->
+    <!-- How many jobs have been retrieved, and a line only when something needs
+         a look (the mode tag shows only for demo data). -->
     <div class="sidenav__status" id="sidenav-status">
       <div class="sidenav__statusrow">
         <p class="topbar__mode" id="health-mode"></p>
         <div class="sidenav__stats" id="sidenav-stats"></div>
       </div>
-      <button type="button" class="sidenav__health" id="health-summary">
+      <button type="button" class="sidenav__health" id="health-summary" hidden>
         <span class="sidenav__dot" aria-hidden="true"></span>
-        <span class="sidenav__healthtext" id="health-summary-text">All sources working</span>
+        <span class="sidenav__healthtext" id="health-summary-text"></span>
       </button>
       <p class="topbar__health" id="health" hidden></p>
       <!-- Shown only when the server can stop itself (scripts/launch.py). -->

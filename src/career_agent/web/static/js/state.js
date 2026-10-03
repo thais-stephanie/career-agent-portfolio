@@ -590,7 +590,8 @@ export function toSearch(state) {
 
 /**
  * The parameters the API request is built from. `view` and `openJobId` are
- * structurally absent: both views produce a byte-identical query string.
+ * structurally absent; a view differs only through what it writes into the
+ * store (`group_duplicates`, and `limit` from `PAGE_SIZE`).
  */
 export function apiQuery(state) {
   const params = new URLSearchParams();
@@ -605,6 +606,9 @@ export function apiQuery(state) {
       params.set(key, String(value));
     }
   }
+  // "Jobs you're tracking" (the board's own narrowing) includes the ones she
+  // saved with the heart, whatever their status. Saving changes no status.
+  if (isTrackedSet(state.status)) params.set('with_saved', '1');
   params.sort();
   return params;
 }

@@ -96,10 +96,22 @@ function hintFor(job, key) {
 }
 const PREV = { APPLIED: 'SHORTLISTED', INTERVIEW: 'APPLIED', OFFER: 'INTERVIEW', CLOSED: 'SHORTLISTED' };
 
+/**
+ * The column a card stands in. Its status decides; a job she saved with the
+ * heart and has not moved yet stands in the first column, Saved. Saving is
+ * not a status, so nothing is written for it, and unsaving such a job takes
+ * it off the board.
+ */
+export function columnKeyOf(job) {
+  const status = String(job.application_status || '').toUpperCase();
+  if (COLUMN_OF.has(status)) return COLUMN_OF.get(status);
+  return job.saved && (!status || status === 'DISCOVERED') ? 'SHORTLISTED' : null;
+}
+
 export function renderKanban(mount, items, handlers) {
   const byColumn = new Map(COLUMNS.map((column) => [column.key, []]));
   for (const job of items) {
-    const key = COLUMN_OF.get(String(job.application_status || '').toUpperCase());
+    const key = columnKeyOf(job);
     if (key) byColumn.get(key).push(job);
   }
 
@@ -185,7 +197,7 @@ function kanbanCard(job, column, handlers) {
       'aria-label': t('kanban.cardLabel', {
         title: job.title || t('absent.untitled'),
         company: job.company_name || t('absent.company'),
-        status: statusLabel(status),
+        status: column.statuses.includes(status) ? statusLabel(status) : columnLabel(column),
       }),
     },
     dataset: { jobId: job.job_id },

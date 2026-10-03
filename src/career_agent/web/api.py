@@ -15,8 +15,12 @@ an employer, and there is no code path that could.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import threading
+import time
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -74,6 +78,7 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
         "max_score",
         "min_confidence",
         "saved_only",
+        "with_saved",
         "enriched_only",
         "has_salary",
         "remote_only",
@@ -482,6 +487,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         super().__init__(config, quiet=quiet)
         self._search_config = None
         self._search_config_path: Path | None = None
+        #: `list_jobs` totals, facets and hidden counts, by filter and freshness.
+        self._aggregates: OrderedDict[tuple, tuple[float, dict]] = OrderedDict()
+        self._aggregates_lock = threading.Lock()
         self._bands: dict[str, dict[str, int]] = {}
         self._recency: dict[str, int] = {}
         # One runner per server, so two browser tabs cannot start two
@@ -543,6 +551,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("GET", r"/api/jobs", self.list_jobs)
         # Before any `/api/jobs/<id>` route: "export.csv" is not a job id.
         self.register("GET", r"/api/jobs/export\.csv", self.export_good_strong)
+        self.register("GET", r"/api/jobs/freshness", self.jobs_freshness)
+        self.register("GET", r"/api/jobs/narrowings", self.job_narrowings)
         self.register("GET", r"/api/jobs/(?P<job_id>[^/]+)", self.get_job)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/status", self.patch_status)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/applied-at", self.patch_applied_at)
@@ -2022,73 +2032,43 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             if decision.serving is not None:
                 config_id = decision.serving.config_id
                 config_version = decision.serving.config_version
-            repo = ScoredJobQuery(conn)
-            total = repo.count(config_id, config_version, job_filter)
-            rows = repo.page(config_id, config_version, job_filter)
-            # Read from the WHOLE ad: the page holds only its first characters.
-            whole = repo.descriptions([row.job_id for row in rows])
-            facets = repo.facets(config_id, config_version, job_filter)
-            # Counted against the same filter with one field flipped, so it is
-            # exactly "how many more you would see if you asked to". `total`,
-            # the page and the facets all already reflect the narrowing,
-            # because it is applied in `_where` and every one of the three
-            # reads goes through it.
-            # `total` is passed in rather than recounted. It is the count of
-            # exactly this filter, three lines up.
-            hidden = repo.hidden_by_eligibility(
-                config_id, config_version, job_filter, narrow_total=total
-            )
-            # And, separately, how many the person's own SEARCH set aside. Two
-            # numbers because they are two sentences: an employer ruled you
-            # out, and your search ruled the work out. One number covering both
-            # is the conflation that once put a rejection notice on three
-            # postings that had none.
-            off_target = repo.hidden_by_screening(
-                config_id, config_version, job_filter, narrow_total=total
-            )
-            # And the third: postings where NOTHING IN THE POSTING answered
-            # whether she could take it. Three sentences, three counts, and
-            # only the first of them is a rejection.
-            unresolved = repo.hidden_unresolved(
-                config_id, config_version, job_filter, narrow_total=total
-            )
-            # And the fourth: levels she said not to show her. The only one of
-            # the four that is a preference rather than a fact about a posting.
-            wrong_level = repo.hidden_by_seniority(
-                config_id, config_version, job_filter, narrow_total=total
-            )
-            # And ways of working she said never to show. A preference too.
-            wrong_work_model = repo.hidden_by_work_model(
-                config_id, config_version, job_filter, narrow_total=total
-            )
-            # And, separately again, how many SHE hid. Three counts because
-            # they are three sentences and three different ways back: a
-            # control in the rail, a second control in the rail, and a restore
-            # view listing exactly the postings she set aside herself.
-            user_hidden = repo.hidden_by_the_candidate(
-                config_id, config_version, job_filter, narrow_total=total
-            )
-            # How many rows grouping folded away, so the three numbers on the
-            # screen reconcile. The header says "19 jobs", the notice says "3
-            # hidden" and the list said "14 roles"; 19 minus 3 is 16, and
-            # nothing accounted for the other two. They are the same role
-            # posted in three cities.
-            #
-            # Computed HERE, inside the connection, and not in the returned
-            # dictionary. That is where it was first written, and the
-            # dictionary is built after `_closing` has shut the connection:
-            # "Cannot operate on a closed database", from three tests at once.
-            grouped_away = (
-                repo.count(config_id, config_version, replace(job_filter, group_duplicates=False))
-                - total
-                if job_filter.group_duplicates
-                else 0
-            )
+            # The page is read here; the total and the facets, counted over
+            # the WHOLE filtered population, are read beside it, and both are
+            # remembered while nothing they depend on moves.
+            freshness = self._jobs_freshness(conn)
+            key = self._aggregate_key(freshness, config_id, config_version, job_filter)
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pending = pool.submit(self._job_totals, key, config_id, config_version, job_filter)
+                repo = ScoredJobQuery(conn)
+                rows = repo.page(config_id, config_version, job_filter)
+                # Read from the WHOLE ad: the page holds only its first characters.
+                whole = repo.descriptions([row.job_id for row in rows])
+                totals = pending.result()
+            total = totals["total"]
+            facets = totals["facets"]
+            grouped_away = totals["grouped_away"]
+            # The "N more if you tick this box" counts are the slowest part of
+            # this answer (each widened population is counted in full) and the
+            # list does not need them to be read. Sent when already counted;
+            # otherwise `null`, and the page asks `/api/jobs/narrowings` after
+            # the list is on screen.
+            narrowings = self._remembered(("narrowings", *key))
+            hidden = narrowings and narrowings["hidden_by_eligibility"]
+            off_target = narrowings and narrowings["hidden_off_target"]
+            unresolved = narrowings and narrowings["hidden_unresolved"]
+            wrong_level = narrowings and narrowings["hidden_by_seniority"]
+            wrong_work_model = narrowings and narrowings["hidden_by_work_model"]
+            user_hidden = narrowings and narrowings["hidden_by_you"]
         today = utc_today()
         return {
             "total": total,
             "offset": job_filter.offset,
             "limit": job_filter.limit,
+            # Moves whenever this list could read differently (see
+            # `jobs_freshness`); the page keeps a list it already holds until it does.
+            "freshness": freshness,
+            # The hidden counts below are `null` until counted; see above.
+            "narrowings_pending": narrowings is None,
             "items": [
                 {
                     **job_card(row, bands=self._bands, today=today, recency=self._recency),
@@ -2165,6 +2145,144 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 "region": self._region_labels(),
             },
         }
+
+    def jobs_freshness(self, *, query: dict, body: dict) -> dict:
+        """A token that moves whenever any `/api/jobs` answer could move.
+
+        Cheap on purpose: the page asks it before reusing a list it already
+        holds, instead of reading the corpus again.
+        """
+        with _closing(self.connect()) as conn:
+            return {"freshness": self._jobs_freshness(conn)}
+
+    def _jobs_freshness(self, conn: Any) -> str:
+        from career_agent.storage.catalogue import population_token
+
+        config_id, config_version = self._identity()
+        applications = conn.execute(
+            "SELECT COUNT(*), MAX(updated_at) FROM job_application"
+        ).fetchone()
+        parts = (
+            config_id,
+            config_version,
+            population_token(conn),
+            tuple(applications),
+            self.writes,
+            utc_today().isoformat(),
+        )
+        return hashlib.sha1(repr(parts).encode()).hexdigest()[:16]
+
+    #: How long a remembered set of totals may be served, at most. The
+    #: freshness token covers every write this product makes; this bounds
+    #: anything it cannot see (a full-text index refreshed after the last score).
+    AGGREGATES_TTL_SECONDS = 600
+
+    def _aggregate_key(self, freshness: str, config_id: str, config_version: int, f: Any) -> tuple:
+        """What the totals of one filter depend on: never the page, the order,
+        or the soft Prefer/Avoid words, which only move rows within the list."""
+        return (
+            freshness,
+            config_id,
+            config_version,
+            replace(
+                f,
+                sort="score",
+                direction="desc",
+                limit=0,
+                offset=0,
+                preferred_keywords=(),
+                avoided_keywords=(),
+            ),
+        )
+
+    def _remembered(self, key: tuple) -> dict | None:
+        with self._aggregates_lock:
+            hit = self._aggregates.get(key)
+            if hit is None or time.monotonic() - hit[0] >= self.AGGREGATES_TTL_SECONDS:
+                return None
+            self._aggregates.move_to_end(key)
+            return hit[1]
+
+    def _remember(self, key: tuple, value: dict) -> dict:
+        with self._aggregates_lock:
+            self._aggregates[key] = (time.monotonic(), value)
+            while len(self._aggregates) > 64:
+                self._aggregates.popitem(last=False)
+        return value
+
+    def _job_totals(self, key: tuple, config_id: str, config_version: int, f: Any) -> dict:
+        """The total, the facets and how many reposts grouping folded away.
+
+        The facets are read on a second connection, beside the counts.
+        """
+        from career_agent.storage.mvp_repo import ScoredJobQuery
+
+        remembered = self._remembered(("totals", *key))
+        if remembered is not None:
+            return remembered
+
+        def facets() -> dict:
+            with _closing(self.connect()) as conn:
+                return ScoredJobQuery(conn).facets(config_id, config_version, f)
+
+        with ThreadPoolExecutor(max_workers=1) as pool, _closing(self.connect()) as conn:
+            pending = pool.submit(facets)
+            repo = ScoredJobQuery(conn)
+            total = repo.count(config_id, config_version, f)
+            # How many rows grouping folded away, so the three numbers on the
+            # screen reconcile. The header says "19 jobs", the notice says "3
+            # hidden" and the list said "14 roles"; 19 minus 3 is 16, and
+            # nothing accounted for the other two. They are the same role
+            # posted in three cities.
+            grouped_away = (
+                repo.count(config_id, config_version, replace(f, group_duplicates=False)) - total
+                if f.group_duplicates
+                else 0
+            )
+            return self._remember(
+                ("totals", *key),
+                {"total": total, "facets": pending.result(), "grouped_away": grouped_away},
+            )
+
+    def job_narrowings(self, *, query: dict, body: dict) -> dict:
+        """How many MORE postings each narrowing in force would let through.
+
+        Asked by the page after the list is on screen (`list_jobs` sends these
+        as `null` until they are counted). Same query string as `/api/jobs`.
+        """
+        from career_agent.storage.mvp_repo import ScoredJobQuery
+
+        f = self._filter_from(query)
+        with _closing(self.connect()) as conn:
+            decision = self._serving(conn)
+            config_id, config_version = self._identity()
+            if decision.serving is not None:
+                config_id = decision.serving.config_id
+                config_version = decision.serving.config_version
+            key = self._aggregate_key(self._jobs_freshness(conn), config_id, config_version, f)
+            remembered = self._remembered(("narrowings", *key))
+            if remembered is not None:
+                return remembered
+            repo = ScoredJobQuery(conn)
+            total = self._job_totals(key, config_id, config_version, f)["total"]
+            # Each is counted against the SAME filter with one field flipped,
+            # so it is exactly "how many more you would see if you ticked the
+            # box". They are separate numbers because they are separate
+            # sentences: an employer ruled you out; your search ruled the work
+            # out; the posting did not say; a level or a way of working you
+            # said not to show; and the ones you hid yourself.
+            counts = {
+                name: getattr(repo, method)(config_id, config_version, f, narrow_total=total)
+                for name, method in (
+                    ("hidden_by_eligibility", "hidden_by_eligibility"),
+                    ("hidden_off_target", "hidden_by_screening"),
+                    ("hidden_unresolved", "hidden_unresolved"),
+                    ("hidden_by_seniority", "hidden_by_seniority"),
+                    ("hidden_by_work_model", "hidden_by_work_model"),
+                    ("hidden_by_you", "hidden_by_the_candidate"),
+                )
+            }
+            return self._remember(("narrowings", *key), counts)
 
     def _signal_labels(self) -> dict[str, str]:
         """`signal_id -> label`, from the loaded configuration's lexicon."""
@@ -2674,6 +2792,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             max_score=_int(query, "max_score"),
             min_confidence=_int(query, "min_confidence"),
             saved_only=saved_only,
+            with_saved=_bool(query, "with_saved"),
             enriched_only=_bool(query, "enriched_only"),
             has_salary=_tribool(query, "has_salary"),
             remote_only=_bool(query, "remote_only"),
