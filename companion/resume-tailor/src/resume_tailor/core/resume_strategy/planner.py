@@ -34,7 +34,7 @@ from resume_tailor.core.models import (
     ResumeStrategy,
 )
 from resume_tailor.core.resume_strategy.value import pick_heroes, redundant, score_records
-from resume_tailor.core.text import months_between, similarity
+from resume_tailor.core.text import chronology_key, months_between, similarity
 from resume_tailor.providers.llm.base import LLMError, LLMProvider
 
 SYSTEM_PROMPT = """You write the positioning rationale for a truthful, evidence-grounded resume.
@@ -223,10 +223,8 @@ def plan(
 
     # chronological order for the resume body; relevance drives bullet count
     plans.sort(
-        key=lambda pp: (
-            index.positions[pp.position_id].end is None,
-            index.positions[pp.position_id].end or "9999-99",
-            index.positions[pp.position_id].start,
+        key=lambda pp: chronology_key(
+            index.positions[pp.position_id].start, index.positions[pp.position_id].end
         ),
         reverse=True,
     )

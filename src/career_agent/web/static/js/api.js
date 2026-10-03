@@ -253,6 +253,11 @@ function saveBlob(blob, response, fallbackName) {
   return name;
 }
 
+/** The person's name as a resume prints it (Career Agent's candidate row). */
+export async function setCandidateName(name) {
+  return request('/candidate/name', { method: 'PATCH', body: { name } });
+}
+
 /** JSON in, JSON out. A body-less write still sends `{}` as JSON. */
 export async function rt(path, { method = 'GET', body = null } = {}) {
   const init = { method };

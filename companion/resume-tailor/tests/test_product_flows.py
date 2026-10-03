@@ -85,10 +85,22 @@ def test_evidence_safe_editing(rig):
     check = out["edit_check"]
     assert check["ok"] is False and check["message"].startswith("This wording goes beyond")
     assert_simple_payload(check)
+    # The file is the resume on screen or nothing: an edit the evidence does not
+    # support stops the export and is named, never swapped for other wording.
+    blocked = client.get(f"/api/candidates/{cid}/applications/{run_id}/export/md")
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert detail["code"] == "edits_not_supported"
+    assert [line["text"] for line in detail["params"]["lines"]] == [
+        "Administered Salesforce company-wide for a decade."
+    ]
+    assert client.post(
+        f"/api/candidates/{cid}/applications/{run_id}/draft/restore", json={}
+    ).is_success
     md = client.get(f"/api/candidates/{cid}/applications/{run_id}/export/md").content.decode(
         "utf-8"
     )
-    assert "Administered Salesforce" not in md  # evidence-only export ships validated wording
+    assert "Administered Salesforce" not in md
 
 
 def test_multi_format_export_shares_one_final_draft(rig, monkeypatch):
@@ -130,7 +142,9 @@ def test_multi_format_export_shares_one_final_draft(rig, monkeypatch):
             assert pos["bullets"][0]["auto_text"][:40] in text, fmt
         assert texts["docx"] == texts["pdf"]  # the PDF renders the very DOCX the Word export ships
     finally:
-        client.post(f"/api/candidates/{cid}/applications/{run_id}/draft/restore")
+        assert client.post(
+            f"/api/candidates/{cid}/applications/{run_id}/draft/restore", json={}
+        ).is_success
 
 
 def test_pdf_without_a_local_renderer_explains_itself(rig, monkeypatch):

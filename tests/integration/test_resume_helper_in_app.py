@@ -207,6 +207,9 @@ def test_a_resume_made_for_a_job_remembers_it_and_downloads_here(app) -> None:
     assert state["status"] == "done", state
     _, listed = _json(app, "GET", f"/candidates/{cid}/applications")
     assert [r["career_job_id"] for r in listed] == [job_id]
+    # A resume needs the person's name: the placeholder never goes out.
+    app.api.handle_api("PATCH", "/api/candidate/name", {}, {"name": "Riley Synthetic"})
+    assert _json(app, "POST", "/career/evidence/import")[0] == 200
     status, headers, data = _ask(
         app.port,
         "GET",

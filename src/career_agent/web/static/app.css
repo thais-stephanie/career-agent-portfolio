@@ -10436,6 +10436,22 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rh-fix__goodlist { margin: 0; padding: 4px 18px 14px 44px; background: var(--paper); display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--body2); }
 .rh-ad { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
 .rh-adlist { display: flex; flex-direction: column; gap: 8px; }
+.rh-adtext { display: flex; flex-direction: column; gap: 8px; }
+/* The exact ad a version read, as written: line breaks kept, scrolls in place. */
+.rh-adtext__body {
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow-y: auto;
+  padding: 12px 14px; border: 1px solid var(--divider); border-radius: 12px;
+  font-size: 14px; line-height: 1.55; color: var(--body2); background: var(--surface-alt);
+}
+.rh-version { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.rh-mode { display: block; margin-top: 4px; font-size: 13px; }
+.rh-made--version { padding-left: 28px; background: var(--surface-alt); }
+.rh-nameform { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rh-nameform .rh-field__label { flex-basis: 100%; }
+.rh-nameform .rh-input { flex: 1 1 200px; }
+.rh-blocked { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.rh-blocked ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.rh-unreadable { display: flex; flex-direction: column; gap: 8px; }
 .rh-adlist ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; font-size: 14px; line-height: 1.5; color: var(--body2); }
 
 /* -- the sheet of paper: light in both themes, like paper ----------------- */

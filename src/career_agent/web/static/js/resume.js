@@ -102,9 +102,43 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     if (cache.runs) return cache.runs;
     const made = cid() ? ((await api.rt(cpath('/applications'))) || []) : [];
     const known = jobsOfRuns();
-    cache.runs = made.map((run) => (run.career_job_id ? run : { ...run, career_job_id: known[run.id] || null }));
+    // A version that failed (an ad nothing could be read from) is not a resume.
+    cache.runs = made.filter((run) => !run.state || run.state === 'done')
+      .map((run) => (run.career_job_id ? run : { ...run, career_job_id: known[run.id] || null }));
     return cache.runs;
   }
+
+  /**
+   * MANY VERSIONS PER JOB. Each resume made for a job is a version of it (V1,
+   * V2, ...) in the order it was made, and a new one never replaces an older
+   * one. A pasted ad is a job of its own. Newest job first.
+   */
+  function jobsWithVersions(made) {
+    const byJob = new Map();
+    for (const run of [...made].sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
+      const key = run.career_job_id || `ad:${run.id}`;
+      if (!byJob.has(key)) byJob.set(key, []);
+      byJob.get(key).push(run);
+    }
+    return [...byJob.values()].map((versions) => ({
+      jobId: versions[0].career_job_id || null,
+      versions,
+      latest: versions[versions.length - 1],
+    })).sort((a, b) => String(b.latest.id).localeCompare(String(a.latest.id)));
+  }
+
+  /** "Make another version": the same job, or the same pasted ad, set up again. */
+  async function anotherVersion(run) {
+    if (run.career_job_id) return show('make', { jobId: run.career_job_id });
+    const answer = await api.rt(cpath(`/applications/${encodeURIComponent(run.id)}`));
+    const ad = (answer && answer.view && answer.view.job && answer.view.job.ad) || '';
+    Object.assign(make, { stage: 'setup', jobId: null, jd: ad, runId: null, error: null, unreadable: false });
+    return show('make');
+  }
+
+  const versionsLabel = (group) => t(group.versions.length === 1 ? 'rh.ver.countOne' : 'rh.ver.count', {
+    n: group.versions.length,
+  });
 
   async function bases() {
     if (cache.bases) return cache.bases;
@@ -171,7 +205,10 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
    */
   async function show(next = tab, { jobId = null, runId = null, fresh = false } = {}) {
     tab = TABS.includes(next) ? next : 'start';
-    if (fresh) cache = { jobs: null, runs: null, bases: null, career: null, status: new Map() };
+    if (fresh) {
+      cache = { jobs: null, runs: null, bases: null, career: null, status: new Map() };
+      ws = null;  // the person's name may have changed on My profile
+    }
     if (jobId) {
       Object.assign(make, { stage: 'setup', jobId: String(jobId), jd: '', runId: null, error: null });
     }
@@ -210,7 +247,10 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
 
   async function paintStart() {
     const [jobs, made, data] = await Promise.all([savedJobs(), runs(), career()]);
-    const withResume = new Set(made.map((r) => r.career_job_id).filter(Boolean));
+    const groups = jobsWithVersions(made);
+    // Saved jobs with no version yet. A job with one has its own row below,
+    // with "Make another version".
+    const withResume = new Set(groups.map((group) => group.jobId).filter(Boolean));
     const waiting = jobs.filter((job) => !withResume.has(job.job_id));
     const confirmed = countConfirmed(data);
     const look = lookCount();
@@ -256,15 +296,20 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
           el('h2', { className: 'rh-h2', text: t('rh.start.made') }),
           made.length ? button(t('rh.seeAll'), () => show('resumes'), { className: 'rh-link' }) : null,
         ]),
-        ...made.slice(0, 4).map((run) => el('div', { className: 'rh-row' }, [
+        ...groups.slice(0, 4).map((group) => el('div', { className: 'rh-row' }, [
           el('div', { className: 'rh-row__main' }, [
-            el('span', { className: 'rh-row__title', text: run.role || t('absent.untitled') }),
+            el('span', { className: 'rh-row__title', text: group.latest.role || t('absent.untitled') }),
             el('span', {
               className: 'rh-row__sub',
-              text: [run.company, run.date ? formatDate(run.date) : ''].filter(Boolean).join(' · '),
+              text: [group.latest.company, versionsLabel(group)].filter(Boolean).join(' · '),
             }),
           ]),
-          statusPill(run.status),
+          el('div', { className: 'rh-actions rh-actions--end' }, [
+            button(t('rh.ver.openLatest'), () => show('make', { runId: group.latest.id }), { className: 'rh-link' }),
+            button(t('rh.ver.another'), () => anotherVersion(group.latest), {
+              className: 'rh-btn rh-btn--chip rh-btn--small',
+            }),
+          ]),
         ])),
         made.length ? null : el('div', {
           className: 'rh-row rh-row--note',
@@ -390,7 +435,13 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
           toggle('twoPages', t('rh.make.twoPages'), t('rh.make.twoPagesHelp')),
         ]),
         el('div', { className: 'rh-setup__foot' }, [reason, go]),
-        make.error ? el('p', { className: 'rh-error', attrs: { role: 'alert' }, text: make.error }) : null,
+        make.error ? el('div', { className: 'rh-error', attrs: { role: 'alert' } }, [
+          el('p', { text: make.error }),
+          make.unreadable ? el('div', { className: 'rh-actions' }, [
+            button(t('rh.make.retry'), () => startRun(), { className: 'rh-btn rh-btn--chip' }),
+            button(t('rh.make.changeAd'), changeAd, { className: 'rh-link' }),
+          ]) : null,
+        ]) : null,
       ]),
       el('aside', { className: 'rh-preview-note' }, [
         el('h2', { className: 'rh-h2', text: t('rh.make.willShow') }),
@@ -470,20 +521,37 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
   }
 
   async function startRun() {
+    // One click is one version: a second click while starting does nothing.
+    if (make.starting) return;
+    make.starting = true;
+    try {
+      await makeVersion();
+    } finally {
+      make.starting = false;
+    }
+  }
+
+  async function makeVersion() {
     make.error = null;
+    make.unreadable = false;
     let jdText = make.jd.trim();
     let careerJobId = null;
+    let target = {};
     if (make.jobId) {
       const job = await api.getJob(make.jobId).catch(() => null);
       if (!job) {
         make.error = t('rh.make.jobGone');
         return paintSetup();
       }
-      const text = job.description || job.description_excerpt || '';
-      jdText = [job.title, job.company_name, text].filter(Boolean).join('\n\n');
       careerJobId = make.jobId;
+      // THE POSTING'S OWN TEXT, AS STORED, and its own title and company. In
+      // profile mode the engine reads both from Career Agent and keeps the
+      // exact text with the version; without a profile they are sent here.
+      jdText = ws.mode === 'profile' ? '' : (job.description || job.description_excerpt || '');
+      // Without a profile bridge the engine cannot read the posting itself.
+      if (ws.mode !== 'profile') target = { target_title: job.title || '', target_company: job.company_name || '' };
     }
-    if (jdText.length < 20) {
+    if ((!careerJobId || ws.mode !== 'profile') && jdText.length < 20) {
       make.error = t('rh.make.adTooShort');
       return paintSetup();
     }
@@ -502,6 +570,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
         body: {
           jd_text: jdText,
           resume_id: make.baseId,
+          ...target,
           career_job_id: ws.mode === 'profile' && careerJobId ? careerJobId : '',
           options: { evidence_only_claims: make.onlyTrue, max_two_pages: make.twoPages, use_llm: false },
         },
@@ -520,6 +589,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     } catch (error) {
       make.stage = 'setup';
       make.error = error.userMessage || error.message;
+      make.unreadable = Boolean(error.unreadable);
       if (tab === 'make') paintSetup();
     }
   }
@@ -536,7 +606,11 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
         if (tab === 'make') paintResult();
         return;
       }
-      if (status.status === 'error') throw new Error(t('rh.make.failed'));
+      if (status.status === 'error') {
+        // Nothing in the ad could be compared: said plainly, never drawn as "0 of 0".
+        const unreadable = status.stage === 'no_requirements';
+        throw Object.assign(new Error(t(unreadable ? 'rh.make.noRequirements' : 'rh.make.failed')), { unreadable });
+      }
       const stage = String(status.stage || '').toLowerCase();
       make.loadStep = /generat|writ|valid|render|page/.test(stage) ? 2 : /match|evidence|select/.test(stage) ? 1 : 0;
       if (tab === 'make' && make.stage === 'loading') paintLoading();
@@ -552,9 +626,17 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       runs(),
     ]);
     const row = made.find((r) => r.id === runId) || {};
+    const options = (done.view && done.view.options) || {};
+    const job = (done.view && done.view.job) || {};
     Object.assign(make, {
       stage: 'result', runId, view: done.view, draft: draft.resume, match: row.match ?? null,
-      jobId: row.career_job_id || make.jobId, selected: null, editing: null, resTab: 'asks',
+      jobId: row.career_job_id || (job.source && job.source.career_job_id) || null,
+      // The version's own settings and, for a pasted ad, its own text: what
+      // "Change" and "Make another version" start from.
+      onlyTrue: options.evidence_only ?? make.onlyTrue,
+      twoPages: options.two_pages ?? make.twoPages,
+      jd: row.career_job_id ? '' : (job.ad || ''),
+      selected: null, editing: null, resTab: 'asks', error: null, unreadable: false,
     });
     tab = 'make';
   }
@@ -646,6 +728,9 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     )));
 
     const panel = make.resTab === 'fix' ? fixPanel(view) : make.resTab === 'ad' ? adPanel(view) : asksPanel(rows);
+    const group = jobsWithVersions(cache.runs || []).find((g) => g.versions.some((v) => v.id === make.runId));
+    const thisRun = group ? group.versions.find((v) => v.id === make.runId) : null;
+    const version = thisRun ? group.versions.indexOf(thisRun) + 1 : null;
 
     repaint([el('div', { className: 'rh-result' }, [
       el('div', { className: 'rh-result__head' }, [
@@ -656,14 +741,65 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
             [(view.job && view.job.company) || '', rules].filter(Boolean).join(' · '), ' · ',
             button(t('rh.res.change'), () => { make.stage = 'setup'; paintSetup(); }, { className: 'rh-link' }),
           ]),
+          view.assembled_without_ai ? el('span', { className: 'rh-muted rh-mode', text: t('rh.res.noAi') }) : null,
+          version ? el('span', { className: 'rh-version' }, [
+            el('span', {
+              className: 'tpill tpill--m1',
+              text: t('rh.ver.of', { n: version, total: group.versions.length }),
+            }),
+            button(t('rh.ver.another'), () => anotherVersion(thisRun), {
+              className: 'rh-link', attrs: { 'data-k': 'another-version' },
+            }),
+          ]) : null,
         ]),
         dl,
       ]),
       el('div', { className: 'rh-result__cols' }, [
-        el('div', { className: 'rh-result__left' }, [fitCard, resTabs, panel]),
+        el('div', { className: 'rh-result__left' }, [
+          make.blocked ? blockedCard() : null,
+          make.needName && !personName() ? el('p', {
+            className: 'rh-error', attrs: { role: 'alert' }, text: t('rh.err.no_name'),
+          }) : null,
+          rows.length ? fitCard : unreadableCard(), resTabs, panel,
+        ].filter(Boolean)),
         paper(view),
       ]),
     ])]);
+  }
+
+  /**
+   * NEVER "0 OF 0". A version made before the ad could be read has no
+   * requirements; it says so, with the two ways on, instead of a 0% fit.
+   */
+  function unreadableCard() {
+    return el('section', { className: 'rh-card rh-fit rh-unreadable', attrs: { role: 'status' } }, [
+      el('strong', { className: 'rh-fit__label', text: t('rh.make.noRequirements') }),
+      el('p', { className: 'rh-muted', text: t('rh.make.noRequirementsHelp') }),
+      el('div', { className: 'rh-actions' }, [
+        button(t('rh.make.retry'), () => anotherVersion({ id: make.runId, career_job_id: make.jobId }), {
+          className: 'rh-btn rh-btn--chip',
+        }),
+        button(t('rh.make.changeAd'), changeAd, { className: 'rh-link' }),
+      ]),
+    ]);
+  }
+
+  /** Back to setup with the pasted-ad box in focus. */
+  function changeAd() {
+    Object.assign(make, { stage: 'setup', jobId: null, error: null, unreadable: false });
+    paintSetup().then(() => body.querySelector('.rh-jd')?.focus());
+  }
+
+  /** Edited lines a download would have to change, and why: nothing is swapped. */
+  function blockedCard() {
+    return el('section', { className: 'rh-card rh-error rh-blocked', attrs: { role: 'alert' } }, [
+      el('strong', { text: t('rh.err.edits_not_supported') }),
+      el('ul', {}, make.blocked.map((line) => el('li', {}, [
+        el('span', { text: `“${line.text}”` }),
+        line.company ? el('span', { className: 'rh-muted', text: ` · ${line.company}` }) : null,
+        (line.why || []).length ? el('span', { className: 'rh-muted', text: ` · ${line.why.join(', ')}` }) : null,
+      ]))),
+    ]);
   }
 
   function bar(share, kind) {
@@ -774,6 +910,10 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       list(job.required, 'rh.ad.need'),
       list(job.preferred, 'rh.ad.nice'),
       list(job.conditions, 'rh.ad.conditions'),
+      job.ad ? el('div', { className: 'rh-adtext' }, [
+        el('span', { className: 'rh-kicker', text: t('rh.ad.full') }),
+        el('div', { className: 'rh-adtext__body', attrs: { tabindex: '0' }, text: job.ad }),
+      ]) : null,
       make.jobId ? button(t('rh.ad.openJob'), () => onOpenJob(make.jobId), { className: 'rh-link' }) : null,
     ]);
   }
@@ -782,9 +922,9 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
   function paper(view) {
     const resume = make.draft || {};
     const pages = view.pages || {};
-    const name = (ws && ws.candidate_name) || '';
+    const name = personName();
     const sheet = el('div', { className: 'rh-paper', attrs: { 'aria-label': t('rh.paper.label') } }, [
-      name ? el('span', { className: 'rh-paper__name', text: name }) : null,
+      name ? el('span', { className: 'rh-paper__name', text: name }) : nameForm(),
       resume.headline ? el('span', { className: 'rh-paper__headline', text: resume.headline }) : null,
       (resume.summary || []).length ? el('span', {
         className: 'rh-paper__section', text: t('rh.paper.summary'),
@@ -902,14 +1042,54 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     ]);
   }
 
+  /** The person's own name ("" while none is given; never "You" or a profile label). */
+  const personName = () => (ws && ws.candidate_name) || '';
+
+  /** Give the name a resume prints, in Career Agent's own candidate row. */
+  async function saveName(value) {
+    await api.setCandidateName(value);
+    ws = null;
+    await boot();
+    // The engine reads the name with the experience: copy both again.
+    if (ws.mode === 'profile') await post('/career/evidence/import');
+    make.needName = false;
+    paintResult();
+  }
+
+  function nameForm() {
+    const input = el('input', {
+      className: 'rh-input', attrs: { type: 'text', maxlength: '200', autocomplete: 'name',
+        'aria-label': t('rh.name.label'), placeholder: t('rh.name.placeholder') },
+    });
+    const form = el('form', { className: 'rh-nameform' }, [
+      el('label', { className: 'rh-field__label', text: t('rh.name.label') }),
+      input,
+      button(t('rh.name.save'), null, { className: 'rh-btn rh-btn--chip', attrs: { type: 'submit' } }),
+    ]);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await saveName(input.value);
+      } catch (error) {
+        toast(error.userMessage || error.message, true);
+      }
+    });
+    return form;
+  }
+
   async function download(fmt, runId = make.runId) {
     make.dlOpen = false;
+    make.blocked = null;
     try {
       const where = cpath(`/applications/${encodeURIComponent(runId)}/export/${fmt}`);
       const name = await api.rtDownload(where, `resume.${fmt}`);
       toast(t('rh.downloaded', { name }));
     } catch (error) {
-      toast(error.status === 501 ? t('rh.pdfUnavailable') : (error.userMessage || error.message), true);
+      const code = error.detail && error.detail.code;
+      // The file is the resume on screen, or nothing: say why, never swap it.
+      if (code === 'no_name') make.needName = true;
+      else if (code === 'edits_not_supported') make.blocked = (error.detail.params || {}).lines || [];
+      else toast(error.status === 501 ? t('rh.pdfUnavailable') : (error.userMessage || error.message), true);
     }
     if (tab === 'make' && make.view) paintResult();
   }
@@ -931,21 +1111,47 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
           ]),
           button(t('rh.makeResume'), () => show('make'), { className: 'rh-btn rh-btn--primary' }),
         ]),
-        ...made.map((run) => {
-          const fit = run.match === null || run.match === undefined ? null : Math.round(Number(run.match) * 100);
-          return el('div', { className: 'rh-made' }, [
-            el('div', { className: 'rh-row__main' }, [
-              el('span', { className: 'rh-row__title', text: run.role || t('absent.untitled') }),
-              el('span', { className: 'rh-row__sub', text: run.company || '' }),
+        ...jobsWithVersions(made).flatMap((group) => {
+          const run = group.latest;
+          const open = openGroups.has(run.id);
+          return [
+            el('div', { className: 'rh-made' }, [
+              el('div', { className: 'rh-row__main' }, [
+                el('span', { className: 'rh-row__title', text: run.role || t('absent.untitled') }),
+                el('span', {
+                  className: 'rh-row__sub', text: [run.company, versionsLabel(group)].filter(Boolean).join(' · '),
+                }),
+              ]),
+              el('span', { className: 'rh-muted', text: run.date ? formatDate(run.date) : '' }),
+              fitPill(run),
+              statusButton(run),
+              el('div', { className: 'rh-actions rh-actions--end' }, [
+                button(t('rh.ver.openLatest'), () => show('make', { runId: run.id }), { className: 'rh-link' }),
+                button(t('rh.ver.another'), () => anotherVersion(run), { className: 'rh-link' }),
+                group.versions.length > 1 ? button(open ? t('rh.ver.hide') : t('rh.ver.see'), () => {
+                  if (open) openGroups.delete(run.id); else openGroups.add(run.id);
+                  paintResumes();
+                }, { className: 'rh-link rh-link--quiet', attrs: { 'aria-expanded': String(open) } }) : null,
+              ]),
             ]),
-            el('span', { className: 'rh-muted', text: run.date ? formatDate(run.date) : '' }),
-            fit === null ? el('span') : el('span', { className: 'tpill tpill--chip', text: `${fit}%` }),
-            statusButton(run),
-            el('div', { className: 'rh-actions rh-actions--end' }, [
-              button(t('rh.open'), () => show('make', { runId: run.id }), { className: 'rh-link' }),
-              button(t('rh.res.download'), () => download('docx', run.id), { className: 'rh-link rh-link--quiet' }),
-            ]),
-          ]);
+            ...(open ? [...group.versions].reverse().map((version) => el('div', {
+              className: 'rh-made rh-made--version',
+            }, [
+              el('span', {
+                className: 'rh-row__title',
+                text: t('rh.ver.n', { n: group.versions.indexOf(version) + 1 }),
+              }),
+              el('span', { className: 'rh-muted', text: version.date ? formatDate(version.date) : '' }),
+              fitPill(version),
+              el('span'),
+              el('div', { className: 'rh-actions rh-actions--end' }, [
+                button(t('rh.open'), () => show('make', { runId: version.id }), { className: 'rh-link' }),
+                button(t('rh.res.download'), () => download('docx', version.id), {
+                  className: 'rh-link rh-link--quiet',
+                }),
+              ]),
+            ])) : []),
+          ];
         }),
         made.length ? null : el('div', {
           className: 'rh-row rh-row--note',
@@ -987,6 +1193,14 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
           : null,
       ]),
     ])]);
+  }
+
+  //: Jobs in My resumes whose versions are listed (by latest version id).
+  const openGroups = new Set();
+
+  function fitPill(run) {
+    const fit = run.match === null || run.match === undefined ? null : Math.round(Number(run.match) * 100);
+    return fit === null ? el('span') : el('span', { className: 'tpill tpill--chip', text: `${fit}%` });
   }
 
   const baseUrl = (base, rest) => cpath(`/resumes/${encodeURIComponent(base.id)}${rest}`);
@@ -1035,11 +1249,6 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       }));
     }, { className: `tpill tpill--${statusTone(current)} rh-status`, attrs: { title: t('rh.resumes.clickStatus') } });
     return node;
-  }
-
-  function statusPill(status) {
-    const current = RUN_STATUS.includes(status) ? status : RUN_STATUS[0];
-    return el('span', { className: `tpill tpill--${statusTone(current)}`, text: t(`rh.status.${current}`) });
   }
 
   // -- My experience: the Career Profile itself --------------------------------

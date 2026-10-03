@@ -23,7 +23,7 @@ from resume_tailor.core.models import (
     ResumeStrategy,
     ValidationReport,
 )
-from resume_tailor.core.text import first_verb, word_count, years_claims
+from resume_tailor.core.text import chronology_key, first_verb, word_count, years_claims
 
 CONVENTIONAL_HEADINGS = {"summary", "experience", "skills", "education", "certifications"}
 _ACRONYM = re.compile(r"\b[A-Z]{3,6}\b")
@@ -100,7 +100,7 @@ def lint(
         f.append(
             LintFinding(code="no_experience", severity="error", message="No experience entries")
         )
-    prev = "9999-99"
+    prev: tuple[bool, str, str] | None = None
     for e in res.experience:
         if not e.company or not e.title or not e.start:
             f.append(
@@ -111,7 +111,7 @@ def lint(
                     location=e.position_id,
                 )
             )
-        if e.start > prev:
+        if prev is not None and chronology_key(e.start, e.end) > prev:
             f.append(
                 LintFinding(
                     code="chronology",
@@ -120,7 +120,7 @@ def lint(
                     location=e.position_id,
                 )
             )
-        prev = e.start
+        prev = chronology_key(e.start, e.end)
         if not e.bullets:
             f.append(
                 LintFinding(

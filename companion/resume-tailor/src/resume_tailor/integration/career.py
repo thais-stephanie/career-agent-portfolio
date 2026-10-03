@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from resume_tailor.core.models import BaseResume
+from resume_tailor.core.text import real_name
 from resume_tailor.workspace.store import _ID, CandidateWorkspace, WorkspaceError, WorkspaceStore
 
 PROFILE_KEY = "career_agent_profile_id"
@@ -252,8 +253,10 @@ def evidence_bank(evidence: dict[str, Any], existing: dict[str, Any] | None) -> 
     sources = dict(bank.get("sources", {}))
     sources[SOURCE] = "Career Agent (confirmed Career Profile)"
     candidate = dict(bank.get("candidate") or {})
-    if not candidate.get("name"):
-        candidate["name"] = evidence.get("name") or "Candidate"
+    # Career Agent's name for the person, refreshed on every import; never a
+    # placeholder ("You", a profile label), which would print on a resume.
+    if "name" in evidence or real_name(candidate.get("name")) != candidate.get("name"):
+        candidate["name"] = real_name(evidence.get("name"))
     bank.update(candidate=candidate, positions=positions, records=records, sources=sources)
     bank.setdefault("education", [])
     bank.setdefault("certifications", [])

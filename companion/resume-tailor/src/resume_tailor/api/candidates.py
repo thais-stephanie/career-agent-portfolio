@@ -14,6 +14,7 @@ leak context into each other. Responses come in two shapes:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import threading
 import traceback
@@ -26,7 +27,8 @@ from pydantic import BaseModel
 
 from resume_tailor.api.errors import user_error
 from resume_tailor.core.models import TailorOptions, TailorRequest, TailorRun
-from resume_tailor.core.pipeline import TailorService
+from resume_tailor.core.pipeline import NoRequirementsFound, TailorService
+from resume_tailor.core.text import real_name
 from resume_tailor.export.exporters import EXPORTERS, export_filename
 from resume_tailor.presentation import labels
 from resume_tailor.storage.runs import new_run_id
@@ -45,8 +47,13 @@ class CandidateIn(BaseModel):
 
 
 class TailorIn(BaseModel):
-    jd_text: str
+    #: The ad as pasted. Empty with a `career_job_id`: that posting's own stored
+    #: text is read, and kept with the run exactly as read.
+    jd_text: str = ""
     resume_id: str = ""
+    #: Without a profile bridge, the page names the posting it read the ad from.
+    target_title: str = ""
+    target_company: str = ""
     #: The Career Agent posting this resume is for, when Tailor follows a
     #: profile. The resume attaches to that posting; the posting's own
     #: status stays Career Agent's.
@@ -271,11 +278,25 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
                 from resume_tailor.api.career import _http
 
                 raise _http(e) from e
+        jd_text = body.jd_text.strip() or str((career_job or {}).get("description") or "")
+        if len(jd_text) < 20:
+            raise user_error(
+                400, "no_job_ad", "This job ad is empty or too short to make a resume for."
+            )
+        source = {
+            "kind": "career_agent" if career_job else "pasted",
+            "sha256": hashlib.sha256(jd_text.encode("utf-8")).hexdigest(),
+        }
+        if career_job:
+            source.update(career_job_id=career_job["job_id"], url=career_job.get("url") or "")
         req = TailorRequest(
-            jd_text=body.jd_text,
+            jd_text=jd_text,
             resume_id=resume_id,
             target_profile=body.target_profile,
             options=TailorOptions(**body.options) if body.options else TailorOptions(use_llm=False),
+            target_title=str((career_job or {}).get("title") or body.target_title),
+            target_company=str((career_job or {}).get("company") or body.target_company),
+            source=source,
         )
         run_id = new_run_id()
         run_store = ws.run_store()
@@ -288,6 +309,8 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
                 )
                 run_store.save(run)
                 _write_application_meta(ws, run_id, run, career_job)
+            except NoRequirementsFound as e:
+                run_store.set_status(run_id, "error", "no_requirements", str(e))
             except Exception as e:
                 run_store.set_status(
                     run_id, "error", "failed", f"{e}\n{traceback.format_exc()[-1500:]}"
@@ -301,10 +324,8 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
     ) -> None:
         meta = {
             "status": "Considering",
-            "role": (career_job or {}).get("title")
-            or run.job_analysis.role_title
-            or run.generated_resume.headline,
-            "company": (career_job or {}).get("company") or run.job_analysis.company or "",
+            "role": run.job_analysis.role_title or run.generated_resume.headline,
+            "company": run.job_analysis.company or "",
             "created_at": datetime.now(UTC).isoformat(),
             "base_resume": run.request.resume_id,
             "note": "",
@@ -334,7 +355,8 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
                     "status": meta.get("status", "Considering"),
                     "date": meta.get("created_at", ""),
                     "base_resume": base.name if base else meta.get("base_resume", ""),
-                    "match": row.get("overall_coverage"),
+                    # No figure for a run that compared nothing: never "0%".
+                    "match": row.get("overall_coverage") if row.get("requirements") else None,
                     "state": row.get("status", ""),
                     "career_job_id": meta.get("career_job_id"),
                 }
@@ -402,9 +424,30 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
 
         doc = dr.load_doc(ws, run_id)
         state = dr.current_state(doc)
-        resume = dr.export_resume(
-            run, state, ws.load_index(), evidence_only=run.request.options.evidence_only_claims
-        )
+        index = ws.load_index()
+        try:
+            resume = dr.export_resume(
+                run, state, index, evidence_only=run.request.options.evidence_only_claims
+            )
+        except dr.ExportBlocked as e:
+            raise user_error(
+                409,
+                "edits_not_supported",
+                "Some edited lines say more than your saved experience shows. Change them, or "
+                "undo the edit, before downloading.",
+                lines=e.blocked,
+            ) from e
+        # The name as it is now (it may have been added after this version
+        # was made). Never the one the version was made with: that may be a
+        # profile label or a placeholder.
+        resume.candidate.name = real_name(index.bank.candidate.name)
+        if not resume.candidate.name:
+            # Never a resume under "You" or a profile label.
+            raise user_error(
+                400,
+                "no_name",
+                "Add your name before downloading: a resume needs it at the top.",
+            )
         try:
             body = exp.render(resume)
         except NotImplementedError as e:
@@ -469,8 +512,12 @@ def simple_run_view(run: TailorRun, index: Any = None) -> dict[str, Any]:
     ]
     return {
         "job": {
-            "role": run.job_analysis.role_title or "This role",
-            "company": run.job_analysis.company or "",
+            # The posting's own title and company when known; never "This role".
+            "role": run.job_analysis.role_title,
+            "company": run.job_analysis.company,
+            # The exact ad this run read, so the Job ad tab is never empty.
+            "ad": run.request.jd_text,
+            "source": run.request.source,
             "required": [m["requirement"] for m in matches if m["kind"] == "Required"],
             "preferred": [m["requirement"] for m in matches if m["kind"] == "Preferred"],
             "conditions": run.job_analysis.role_scope_observations,
@@ -499,7 +546,18 @@ def simple_run_view(run: TailorRun, index: Any = None) -> dict[str, Any]:
             ),
         },
         "checks": checks,
+        "options": {
+            "evidence_only": run.request.options.evidence_only_claims,
+            "two_pages": run.request.options.max_two_pages,
+        },
+        # How it was made, said plainly: without a model, it is assembled.
+        "assembled_without_ai": run.provider.get("provider", "none") == "none"
+        or not run.request.options.use_llm,
+        # The name the export will print: the person's as it is now.
         "filename": export_filename(
-            res.candidate.name, run.job_analysis.role_title, res.headline, "docx"
+            index.bank.candidate.name if index is not None else "",
+            run.job_analysis.role_title,
+            res.headline,
+            "docx",
         ),
     }

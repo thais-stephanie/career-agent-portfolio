@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from resume_tailor.api import errors
 from resume_tailor.api.errors import user_error
+from resume_tailor.core.text import real_name
 from resume_tailor.integration import career as ca
 from resume_tailor.workspace import WorkspaceError, WorkspaceStore
 
@@ -97,7 +98,11 @@ def build_career_router(store: WorkspaceStore, bridge: Any | None) -> APIRouter:
             "mode": "profile",
             "profile": profile,
             "candidate_id": ws.id,
-            "candidate_name": ws.meta().get("name", ""),
+            # The person's own name from Career Agent ("" until given), never
+            # the local profile's label this candidate was created with.
+            "candidate_name": real_name(bridge.person_name())
+            if hasattr(bridge, "person_name")
+            else "",
             "statuses": bridge.statuses(),
         }
 

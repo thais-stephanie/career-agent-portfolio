@@ -147,3 +147,23 @@ def first_verb(text: str) -> str:
 
 def word_count(text: str) -> int:
     return len(re.findall(r"\S+", text))
+
+
+def chronology_key(start: str, end: str | None) -> tuple[bool, str, str]:
+    """THE order of a resume's roles, newest first when sorted in reverse:
+    current roles, then by end date, then by start date. The planner sorts by
+    it and the checks compare by it, so they can never disagree (they did: a
+    role that ended later but started earlier was reported "out of order" on
+    every run)."""
+    return (end is None, end or "9999-99", start)
+
+
+#: Stand-ins that are not a person's name: Career Agent's placeholder candidate
+#: name, the engine's own fallback and a local profile's default label.
+PLACEHOLDER_NAMES = frozenset({"you", "candidate", "my profile", "meu perfil"})
+
+
+def real_name(name: str | None) -> str:
+    """`name` when it is a person's name, else "" (never a placeholder)."""
+    text = " ".join(str(name or "").split())
+    return "" if text.casefold() in PLACEHOLDER_NAMES else text

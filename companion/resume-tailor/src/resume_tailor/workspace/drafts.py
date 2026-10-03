@@ -227,21 +227,65 @@ def effective_resume(run: TailorRun, state: dict[str, Any], index: EvidenceIndex
     }
 
 
+class ExportBlocked(WorkspaceError):
+    """Edits on screen that cannot be exported as they are, and why.
+
+    The file must be the resume the person sees. An edit that goes beyond the
+    evidence (with "Only use things I have really done" on) is neither shipped
+    nor silently swapped for the automatic wording: the export stops and says
+    which line and why."""
+
+    def __init__(self, blocked: list[dict[str, Any]]) -> None:
+        super().__init__("Some edited lines go beyond your saved experience.")
+        self.blocked = blocked
+
+
 def export_resume(
     run: TailorRun, state: dict[str, Any], index: EvidenceIndex, evidence_only: bool = True
 ):
-    """A GeneratedResume clone with the draft applied, for the existing exporters.
-    With evidence-only mode on, an unsupported edited bullet exports its last
-    validated (automatic) wording instead — an unvalidated claim never ships silently."""
+    """A GeneratedResume clone with the draft applied, for the existing exporters:
+    exactly what `effective_resume` shows, or `ExportBlocked` naming why not.
+
+    With evidence-only mode on, an edited line its own evidence does not
+    support blocks the export. Headline and summary edits are not checked yet
+    and ship as written; a certification line that is not one of the
+    person's own blocks the export in any mode."""
     res = run.generated_resume.model_copy(deep=True)
     bullets_state: dict[str, Any] = state.get("bullets", {})
+    known = {f"{c.issuer}: {c.name}" for c in res.certifications}
+    blocked = [
+        {"id": line, "company": "", "text": line, "why": ["Not one of your certifications"]}
+        for line in state.get("certifications") or []
+        if line not in known
+    ]
+    if evidence_only:
+        for e in res.experience:
+            for b in e.bullets:
+                bs = bullets_state.get(b.id, {})
+                if bs.get("text") is None or bs.get("hidden"):
+                    continue
+                verdict = validate_edit(run, index, b.id, bs["text"])
+                if not verdict["ok"]:
+                    blocked.append(
+                        {
+                            "id": b.id,
+                            "company": e.company,
+                            "text": bs["text"],
+                            "why": verdict["not_evidenced"],
+                        }
+                    )
+    if blocked:
+        raise ExportBlocked(blocked)
     if state.get("headline"):
         res.headline = state["headline"]
     if state.get("summary") is not None:
-        for i, text in enumerate(state["summary"]):
-            if i < len(res.summary):
-                res.summary[i].text = text
-        res.summary = res.summary[: len(state["summary"])]
+        lines = list(state["summary"])
+        for i, text in enumerate(lines[: len(res.summary)]):
+            res.summary[i].text = text
+        res.summary = res.summary[: len(lines)] + [
+            Bullet(id=f"s-edit-{n}", text=text, origin="manual")
+            for n, text in enumerate(lines[len(res.summary) :], start=1)
+        ]
     for e in res.experience:
         kept = []
         for b in e.bullets:
@@ -249,10 +293,7 @@ def export_resume(
             if bs.get("hidden"):
                 continue
             if bs.get("text") is not None:
-                verdict = validate_edit(run, index, b.id, bs["text"])
-                if verdict["ok"] or not evidence_only:
-                    b.text = bs["text"]
-                # else: keep the automatic, validated wording
+                b.text = bs["text"]  # checked above when evidence-only is on
             kept.append(b)
         order = state.get("order", {}).get(e.position_id)
         if order:
@@ -273,6 +314,8 @@ def export_resume(
             g.items = [i for i in g.items if i not in hidden]
         res.skills = [g for g in res.skills if g.items]
     if state.get("certifications") is not None:
-        selected = set(state["certifications"])
-        res.certifications = [c for c in res.certifications if f"{c.issuer}: {c.name}" in selected]
+        # In the order shown; a line that is not one of the person's
+        # certifications was refused above rather than dropped here.
+        by_line = {f"{c.issuer}: {c.name}": c for c in res.certifications}
+        res.certifications = [by_line[line] for line in state["certifications"] if line in by_line]
     return res
