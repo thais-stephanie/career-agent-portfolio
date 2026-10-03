@@ -133,3 +133,33 @@ profile's database. It is not run automatically.
 profile's database, in the same transaction as the tracking data. The shared
 job catalogue, other profiles, files already exported and the Resume
 helper's own folder are not touched, and the confirmation says so.
+
+## Rendering and the live preview
+
+`career_agent.resume_doc.render.render_html(document, mode=...)` is the one
+renderer. The preview shows its output now; the PDF export will print the
+same document later. There is no second copy of any template.
+
+* **Semantic HTML with real text.** Header, sections, headings, paragraphs and
+  lists, in one column. No tables, images or canvas for content.
+* **Stable references.** Every rendered piece carries `data-ref`, the path to
+  the object it shows (`experience/<id>/bullet/<id>`), never a position.
+* **Safe by construction.** Every value is escaped; inline `**bold**` is the
+  only markup a field can produce. The document carries a policy that forbids
+  every network load, and in `preview` mode links are text, not followable.
+* **Design is not content.** Templates (`clean`, `modern`, `compact`) are sets
+  of values for one shared stylesheet. A4 and Letter are their physical sizes;
+  margins, font family (Calibri/Arial or Cambria/Georgia), size, line height,
+  spacing and accent come from the document's design, within its bounds.
+* **Breaks.** Each keep-together unit is a `data-block`; a heading or entry
+  header that must stay with what follows is also `data-keep`. Print CSS and
+  the preview paginator read the same two attributes.
+* **Preview.** `POST /api/resume/render` validates a whole document and
+  renders it, saving nothing; the HTML is held briefly in memory and served by
+  `GET /api/resume/preview/<token>` as its own page, under a policy with no
+  script, no network and no forms, framed only by this app. The page draws it
+  in a sandboxed frame, double-buffered so the visible resume is never blank,
+  and paginates it into real pages; a block taller than a page is reported as
+  overflow, never clipped.
+* **Internal for now.** The preview lives on an internal page
+  (`?debug=resume-v2`); the Resume helper is still the user's resume surface.

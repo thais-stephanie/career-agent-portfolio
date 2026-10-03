@@ -10932,3 +10932,28 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .home__card .home__jobtitle { font-family: var(--sans); font-size: 15px; font-weight: 500; }
 .evp-card__title { font-family: var(--sans); font-weight: 600; font-size: 16px; line-height: 1.3; }
 .evp-grid { gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+
+/* =========================================================================
+   RESUME WORKSPACE V2 (internal): the live preview. The resume itself is
+   drawn inside its own frame by the server's renderer; nothing here styles
+   it. Only the stage around the paper lives in this stylesheet.
+   ========================================================================= */
+.rvw { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rvw__head { display: flex; flex-direction: column; gap: 4px; }
+.rvw__title { margin: 0; font-family: var(--display); font-size: 28px; line-height: 1.15; }
+.rvw__sub { margin: 0; font-size: 14px; color: var(--body2); }
+.rvw__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.rvw__label { font-size: 13px; font-weight: 600; color: var(--body2); }
+.rvw__clicked, .rvw__empty, .rvp__status { margin: 0; font-size: 13px; color: var(--body2); }
+.rvp { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rvp__stage {
+  overflow-x: hidden; padding: 12px; border-radius: 12px;
+  background: var(--surface-alt); border: 1px solid var(--divider);
+}
+.rvp__paper { position: relative; margin: 0 auto; }
+/* The paper is the page's own colour in both themes, like paper. */
+.rvp__frame {
+  position: absolute; left: 0; top: 0; border: 0; background: #ffffff;
+  transform-origin: 0 0; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+.rvp__frame[data-off] { visibility: hidden; }

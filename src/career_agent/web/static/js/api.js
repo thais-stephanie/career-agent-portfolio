@@ -24,6 +24,11 @@ export const MOCK = window.__CAREER_AGENT_MOCK__ === true;
 const BASE = '/api';
 
 export const getCareer = () => request('/career');
+/** Resume Workspace: render a whole document for the preview (nothing is saved). */
+export const renderResume = (document, { signal = null } = {}) =>
+  request('/resume/render', { method: 'POST', body: { document }, signal });
+export const listResumeDocuments = () => request('/resume/documents');
+export const getResumeDocument = (id) => request(`/resume/documents/${encodeURIComponent(id)}`);
 export const getCareerHistory = (offset) => request(`/career/history?offset=${offset}`);
 export const setSourceSchedule = (source_id, mode) => request('/sources/schedule', {
   method: 'PATCH', body: { source_id, mode },
