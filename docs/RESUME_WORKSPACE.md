@@ -130,15 +130,17 @@ profile's database. It is not run automatically.
 ## Forgetting
 
 `career-agent forget everything` also deletes every resume row in that
-profile's database, in the same transaction as the tracking data. The shared
-job catalogue, other profiles, files already exported and the Resume
-helper's own folder are not touched, and the confirmation says so.
+profile's database, in the same transaction as the tracking data, and then
+the files exported from those documents (`resume_exports/`, beside that
+database). The shared job catalogue, other profiles, copies already
+downloaded elsewhere and the Resume helper's own folder are not touched, and
+the confirmation says so.
 
 ## Rendering and the live preview
 
 `career_agent.resume_doc.render.render_html(document, mode=...)` is the one
-renderer. The preview shows its output now; the PDF export will print the
-same document later. There is no second copy of any template.
+renderer. The preview shows its output and the PDF export prints the same
+document. There is no second copy of any template.
 
 * **Semantic HTML with real text.** Header, sections, headings, paragraphs and
   lists, in one column. No tables, images or canvas for content.
@@ -153,7 +155,11 @@ same document later. There is no second copy of any template.
   spacing and accent come from the document's design, within its bounds.
 * **Breaks.** Each keep-together unit is a `data-block`; a heading or entry
   header that must stay with what follows is also `data-keep`. Print CSS and
-  the preview paginator read the same two attributes.
+  the preview paginator read the same two attributes. The paginator decides
+  where pages end, leaving 1 px of room at each page's foot, and an export
+  prints its decisions (`break-before: page` on each page's first block):
+  screen and print lay text out a fraction of a pixel apart, and without this
+  a line that only just fits could land on different pages.
 * **Preview.** `POST /api/resume/render` validates a whole document and
   renders it, saving nothing; the HTML is held briefly in memory and served by
   `GET /api/resume/preview/<token>` as its own page, under a policy with no
@@ -202,3 +208,81 @@ Analyze are not built and not shown.
   no score.
 * **Design** chooses the template, page, font family, spacing, margins, text
   size, line height, accent and date format, all within the model's bounds.
+
+## Evidence ids at the boundary
+
+A line's `evidence_ids` are Career Evidence claim keys. Every write
+(`POST /api/resume/documents`, autosave) and every export asks again whether
+each one is a confirmed, current (not superseded) claim of THIS profile's
+candidate (`resume_doc.evidence`). A nonexistent, unconfirmed, retired or
+another profile's id refuses the write with `evidence_not_confirmed` and the
+ids of the lines concerned; nothing is saved. Typed and imported lines may
+cite nothing. An edited evidence line keeps its ids only while they hold.
+
+A claim can be retired after a resume cited it. The editor then says which
+lines are affected and offers to keep them as the person's own words (origin
+`USER_AUTHORED`, no evidence); nothing changes until the person chooses that,
+and Career Evidence is never written.
+
+## Export: PDF, DOCX and JSON
+
+`resume_doc.export.export_revision` makes one file of exactly what the page
+has saved, and `POST /api/resume/documents/<id>/exports` is its route.
+
+* **One revision.** The request names the hash of the saved copy; a different
+  copy is a 409 and nothing is made. The working copy is checkpointed with
+  reason `EXPORTED` (a copy equal to the latest revision IS that revision), and
+  the file is made from that immutable revision only. The `resume_export` row
+  names the revision, format, template, engine, file hash, page count and the
+  check result. Exporting changes no content.
+* **Refused, not attempted,** without a real name (blank, "You" and the like),
+  or while a line cites evidence that is not confirmed now.
+* **PDF** prints the renderer's print HTML in headless Microsoft Edge (Chrome
+  when Edge is absent): a throwaway profile in a temp directory that is removed
+  afterwards, no window, no header or footer, a time limit, and every network
+  address routed to a closed local port (the document's own policy forbids any
+  load as well). Links stay links in the PDF; printing visits none of them.
+  With no browser the export fails as "could not be made", never as checked.
+* **DOCX** writes the same rendered blocks with real Word styles (Title,
+  Heading 1, Heading 2, List Bullet, Normal), A4 or Letter, the document's
+  margins, font and spacing; no tables, text boxes, shapes or icons. Links are
+  their visible text. Word lays out its own pages, so its page count is not
+  measured.
+* **JSON** is the revision's ResumeDocument (schema version included,
+  deterministic UTF-8) and reads back through `upgrade_resume_document`.
+* **What each format holds.** JSON is the document: hidden lines and hidden
+  sections are in it. PDF and DOCX are the visible resume: anything hidden is
+  absent, and a visible line the person typed is present.
+* **Files** go to the profile's private folder, `resume_exports/<document>/
+  <export>.<ext>` beside its database; the row stores that relative path and a
+  download (`GET /api/resume/exports/<id>/file`) resolves it there or not at
+  all. The browser never names a path. The downloaded file is named after the
+  person, `Full_Name_Resume.pdf`, plus the job title for a tailored version;
+  characters no filesystem accepts become `_` and the length is bounded.
+
+### Named checks, never a score
+
+Every file is read back (pypdf for a PDF, python-docx for a DOCX) and the
+result is a list of named checks (`resume_doc.ats`), each PASS, WARNING, FAIL
+or NOT_MEASURED. Real applicant tracking systems differ, so there is no
+percentage and no prediction. NOT_MEASURED is shown as such and never counted
+as a pass; an export is "checked" only when no check failed. A file that was
+made but failed a check is kept and says exactly what failed.
+
+| Check | What it verifies |
+|---|---|
+| CONTACT | the name at the top; email and phone when the resume shows them |
+| READING_ORDER | every visible paragraph, in the layout's order |
+| HEADINGS | every visible section heading |
+| DATES | every visible period, written with plain separators |
+| GLYPHS | no replacement characters, `(cid:)` artifacts or private-use icons |
+| ONLY_VISIBLE_TEXT | no word the visible resume does not say |
+| HIDDEN_ABSENT | no hidden line |
+| SUPPORTED_TERMS | lines linked to a job requirement keep their words (not measured until lines carry requirements) |
+| PAGES | PDF pages equal the preview's (not measured for DOCX, or without the preview's count) |
+| LAYOUT | no block taller than a page, no nearly empty last page, no heading at a page foot (PDF) |
+| ROUND_TRIP | JSON reads back as the same revision |
+
+In the editor, Download (PDF, DOCX, JSON) first finishes saving, refuses
+edits that cannot be saved or a copy changed in another window, then shows
+the checks. My resumes shows each document's last export.
