@@ -26,7 +26,8 @@ def test_the_handoff_opens_the_helper_here_with_the_job_chosen(page, pristine_se
     windows = page.evaluate("window.history.length")
     click(page, "document.getElementById('drawer-open-tailor')")
     page.wait_for(
-        "!document.getElementById('page-resume').hidden && document.querySelector('.drawer').hidden",
+        "!document.getElementById('page-resume').hidden"
+        " && document.querySelector('.drawer').hidden",
         message="the Resume helper, in this window",
     )
     page.wait_for("window.location.hash === '#resume'", message="the address names the page")
