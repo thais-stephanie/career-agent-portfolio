@@ -1,0 +1,1315 @@
+{
+  "$defs": {
+    "Bullet": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "flags": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClaimFlag"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        },
+        "original_text": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Text"
+        },
+        "override": {
+          "$ref": "#/$defs/Override",
+          "default": "NONE"
+        },
+        "requirement_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Requirement Ids",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 5000,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "origin",
+        "id",
+        "text"
+      ],
+      "title": "Bullet",
+      "type": "object"
+    },
+    "CertificationEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Key"
+        },
+        "expires": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "issued": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "issuer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Issuer"
+        },
+        "name": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "CertificationEntry",
+      "type": "object"
+    },
+    "ClaimFlag": {
+      "enum": [
+        "UNSUPPORTED_NUMBER",
+        "UNSUPPORTED_TERM",
+        "OVERSTATEMENT",
+        "UNEVIDENCED"
+      ],
+      "title": "ClaimFlag",
+      "type": "string"
+    },
+    "CreatedFrom": {
+      "enum": [
+        "SCRATCH",
+        "IMPORT",
+        "MASTER_COPY",
+        "TAILOR",
+        "DUPLICATE"
+      ],
+      "title": "CreatedFrom",
+      "type": "string"
+    },
+    "CustomSection": {
+      "additionalProperties": false,
+      "description": "The escape hatch for anything the typed sections do not cover.",
+      "properties": {
+        "heading": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Heading",
+          "type": "string"
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "items": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Bullet"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "heading"
+      ],
+      "title": "CustomSection",
+      "type": "object"
+    },
+    "Design": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "default": "black",
+          "enum": [
+            "black",
+            "navy",
+            "teal",
+            "burgundy",
+            "forest"
+          ],
+          "title": "Accent",
+          "type": "string"
+        },
+        "date_format": {
+          "default": "mon_yyyy",
+          "enum": [
+            "mon_yyyy",
+            "mm_yyyy",
+            "yyyy"
+          ],
+          "title": "Date Format",
+          "type": "string"
+        },
+        "page": {
+          "$ref": "#/$defs/Page",
+          "default": {
+            "margins_mm": 16.0,
+            "size": "A4"
+          }
+        },
+        "spacing": {
+          "default": "normal",
+          "enum": [
+            "tight",
+            "normal",
+            "airy"
+          ],
+          "title": "Spacing",
+          "type": "string"
+        },
+        "template": {
+          "default": "clean",
+          "enum": [
+            "clean",
+            "modern",
+            "compact"
+          ],
+          "title": "Template",
+          "type": "string"
+        },
+        "typography": {
+          "$ref": "#/$defs/Typography",
+          "default": {
+            "base_pt": 10.5,
+            "font": "sans",
+            "line_height": 1.25
+          }
+        }
+      },
+      "title": "Design",
+      "type": "object"
+    },
+    "DocumentKind": {
+      "enum": [
+        "MASTER",
+        "TAILORED",
+        "IMPORTED",
+        "SCRATCH"
+      ],
+      "title": "DocumentKind",
+      "type": "string"
+    },
+    "DocumentProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "created_from": {
+          "$ref": "#/$defs/CreatedFrom"
+        },
+        "import_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Import Id"
+        },
+        "master_document_id": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Master Document Id"
+        },
+        "master_revision_id": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Master Revision Id"
+        },
+        "tailoring_run_id": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tailoring Run Id"
+        }
+      },
+      "required": [
+        "created_from"
+      ],
+      "title": "DocumentProvenance",
+      "type": "object"
+    },
+    "EducationEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "bullets": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Bullet"
+          },
+          "title": "Bullets",
+          "type": "array"
+        },
+        "claim_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Key"
+        },
+        "degree": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Degree"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "field_of_study": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field Of Study"
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "institution": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Institution",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "institution"
+      ],
+      "title": "EducationEntry",
+      "type": "object"
+    },
+    "ExperienceEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "bullets": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Bullet"
+          },
+          "title": "Bullets",
+          "type": "array"
+        },
+        "claim_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Key"
+        },
+        "current": {
+          "default": false,
+          "title": "Current",
+          "type": "boolean"
+        },
+        "display_title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Display Title",
+          "type": "string"
+        },
+        "employer": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Employer",
+          "type": "string"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "source_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Title"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "employer",
+        "display_title"
+      ],
+      "title": "ExperienceEntry",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "properties": {
+        "city": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "City"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Country"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "full_name": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Full Name",
+          "type": "string"
+        },
+        "links": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
+          "type": "array"
+        },
+        "phone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phone"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        },
+        "show": {
+          "$ref": "#/$defs/IdentityVisibility",
+          "default": {
+            "email": true,
+            "links": true,
+            "location": true,
+            "phone": true
+          }
+        }
+      },
+      "title": "Identity",
+      "type": "object"
+    },
+    "IdentityVisibility": {
+      "additionalProperties": false,
+      "description": "What this document prints of the identity; the values stay stored.",
+      "properties": {
+        "email": {
+          "default": true,
+          "title": "Email",
+          "type": "boolean"
+        },
+        "links": {
+          "default": true,
+          "title": "Links",
+          "type": "boolean"
+        },
+        "location": {
+          "default": true,
+          "title": "Location",
+          "type": "boolean"
+        },
+        "phone": {
+          "default": true,
+          "title": "Phone",
+          "type": "boolean"
+        }
+      },
+      "title": "IdentityVisibility",
+      "type": "object"
+    },
+    "Layout": {
+      "additionalProperties": false,
+      "description": "Which sections show, in what order, under what heading. Not content.",
+      "properties": {
+        "headings": {
+          "default": {},
+          "patternProperties": {
+            "^(headline|summary|experience|projects|education|certifications|skills|custom:[0-9A-HJKMNP-TV-Z]{26})$": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          },
+          "title": "Headings",
+          "type": "object"
+        },
+        "hidden_sections": {
+          "default": [],
+          "items": {
+            "pattern": "^(headline|summary|experience|projects|education|certifications|skills|custom:[0-9A-HJKMNP-TV-Z]{26})$",
+            "type": "string"
+          },
+          "title": "Hidden Sections",
+          "type": "array"
+        },
+        "section_order": {
+          "default": [
+            "headline",
+            "summary",
+            "experience",
+            "projects",
+            "education",
+            "certifications",
+            "skills"
+          ],
+          "items": {
+            "pattern": "^(headline|summary|experience|projects|education|certifications|skills|custom:[0-9A-HJKMNP-TV-Z]{26})$",
+            "type": "string"
+          },
+          "title": "Section Order",
+          "type": "array"
+        }
+      },
+      "title": "Layout",
+      "type": "object"
+    },
+    "Link": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/LinkKind"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "url": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "url"
+      ],
+      "title": "Link",
+      "type": "object"
+    },
+    "LinkKind": {
+      "enum": [
+        "LINKEDIN",
+        "GITHUB",
+        "PORTFOLIO",
+        "WEBSITE",
+        "OTHER"
+      ],
+      "title": "LinkKind",
+      "type": "string"
+    },
+    "Origin": {
+      "enum": [
+        "EVIDENCE_VERBATIM",
+        "RULE_REWRITE",
+        "AI_REWRITE",
+        "USER_AUTHORED",
+        "IMPORTED"
+      ],
+      "title": "Origin",
+      "type": "string"
+    },
+    "Override": {
+      "enum": [
+        "NONE",
+        "EDITED",
+        "LOCKED"
+      ],
+      "title": "Override",
+      "type": "string"
+    },
+    "Page": {
+      "additionalProperties": false,
+      "properties": {
+        "margins_mm": {
+          "default": 16,
+          "maximum": 30,
+          "minimum": 8,
+          "title": "Margins Mm",
+          "type": "number"
+        },
+        "size": {
+          "default": "A4",
+          "enum": [
+            "A4",
+            "LETTER"
+          ],
+          "title": "Size",
+          "type": "string"
+        }
+      },
+      "title": "Page",
+      "type": "object"
+    },
+    "PartialDate": {
+      "additionalProperties": false,
+      "description": "A year and, only when the source states it, a month.",
+      "properties": {
+        "month": {
+          "anyOf": [
+            {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Month"
+        },
+        "year": {
+          "maximum": 2100,
+          "minimum": 1900,
+          "title": "Year",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "year"
+      ],
+      "title": "PartialDate",
+      "type": "object"
+    },
+    "ProjectEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "bullets": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Bullet"
+          },
+          "title": "Bullets",
+          "type": "array"
+        },
+        "claim_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Key"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "ProjectEntry",
+      "type": "object"
+    },
+    "SkillGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "items": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SkillItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "name": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "SkillGroup",
+      "type": "object"
+    },
+    "SkillItem": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "origin",
+        "id",
+        "label"
+      ],
+      "title": "SkillItem",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "description": "The job a TAILORED version is for, copied from its JD snapshot.",
+      "properties": {
+        "company": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Company"
+        },
+        "jd_snapshot_id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Jd Snapshot Id",
+          "type": "string"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jd_snapshot_id",
+        "title"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "TextBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        },
+        "original_text": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Text"
+        },
+        "override": {
+          "$ref": "#/$defs/Override",
+          "default": "NONE"
+        },
+        "requirement_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Requirement Ids",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 5000,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "origin",
+        "id",
+        "text"
+      ],
+      "title": "TextBlock",
+      "type": "object"
+    },
+    "Typography": {
+      "additionalProperties": false,
+      "properties": {
+        "base_pt": {
+          "default": 10.5,
+          "maximum": 12,
+          "minimum": 9.5,
+          "title": "Base Pt",
+          "type": "number"
+        },
+        "font": {
+          "default": "sans",
+          "enum": [
+            "sans",
+            "serif"
+          ],
+          "title": "Font",
+          "type": "string"
+        },
+        "line_height": {
+          "default": 1.25,
+          "maximum": 1.6,
+          "minimum": 1.0,
+          "title": "Line Height",
+          "type": "number"
+        }
+      },
+      "title": "Typography",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/career-agent/schemas/resume-document.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "certifications": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CertificationEntry"
+      },
+      "title": "Certifications",
+      "type": "array"
+    },
+    "custom_sections": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CustomSection"
+      },
+      "title": "Custom Sections",
+      "type": "array"
+    },
+    "design": {
+      "$ref": "#/$defs/Design",
+      "default": {
+        "accent": "black",
+        "date_format": "mon_yyyy",
+        "page": {
+          "margins_mm": 16.0,
+          "size": "A4"
+        },
+        "spacing": "normal",
+        "template": "clean",
+        "typography": {
+          "base_pt": 10.5,
+          "font": "sans",
+          "line_height": 1.25
+        }
+      }
+    },
+    "education": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EducationEntry"
+      },
+      "title": "Education",
+      "type": "array"
+    },
+    "experience": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ExperienceEntry"
+      },
+      "title": "Experience",
+      "type": "array"
+    },
+    "headline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TextBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "id": {
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "identity": {
+      "$ref": "#/$defs/Identity",
+      "default": {
+        "city": null,
+        "country": null,
+        "email": null,
+        "full_name": "",
+        "links": [],
+        "phone": null,
+        "region": null,
+        "show": {
+          "email": true,
+          "links": true,
+          "location": true,
+          "phone": true
+        }
+      }
+    },
+    "kind": {
+      "$ref": "#/$defs/DocumentKind"
+    },
+    "language": {
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "title": "Language",
+      "type": "string"
+    },
+    "layout": {
+      "$ref": "#/$defs/Layout",
+      "default": {
+        "headings": {},
+        "hidden_sections": [],
+        "section_order": [
+          "headline",
+          "summary",
+          "experience",
+          "projects",
+          "education",
+          "certifications",
+          "skills"
+        ]
+      }
+    },
+    "projects": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ProjectEntry"
+      },
+      "title": "Projects",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/DocumentProvenance"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skills": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SkillGroup"
+      },
+      "title": "Skills",
+      "type": "array"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TextBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "target": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Target"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "title": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "title",
+    "language",
+    "provenance"
+  ],
+  "title": "Career Agent ResumeDocument 1.0",
+  "type": "object"
+}
