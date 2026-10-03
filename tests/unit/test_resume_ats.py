@@ -7,7 +7,7 @@ import io
 import json
 
 import pytest
-from tests.support_resume import HIDDEN_LINE, exportable
+from tests.support_resume import HIDDEN_LINE, HIDDEN_PROJECT, exportable
 
 from career_agent.resume_doc.ats import blocks, check_export
 from career_agent.resume_doc.export import docx_bytes, filename, json_bytes
@@ -57,6 +57,8 @@ def test_the_real_docx_passes_and_says_what_it_did_not_measure() -> None:
         (lambda p: [*p, "(cid:42)"], "GLYPHS"),
         (lambda p: [*p, "Rockstar ninja guru"], "ONLY_VISIBLE_TEXT"),
         (lambda p: [*p, HIDDEN_LINE], "HIDDEN_ABSENT"),
+        (lambda p: [*p, HIDDEN_PROJECT], "HIDDEN_ABSENT"),
+        (lambda p: [*p, "Open data connector"], "HIDDEN_ABSENT"),
     ],
 )
 def test_each_check_fails_on_the_damage_it_names(damage, check: str) -> None:  # type: ignore[no-untyped-def]

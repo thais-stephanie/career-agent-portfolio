@@ -26,7 +26,12 @@ from career_agent.domain.enums import ClaimSource, ClaimType
 from career_agent.resume_doc import export as exporter
 from career_agent.resume_doc.ats import read_docx, read_pdf
 from career_agent.resume_doc.models import ResumeDocument, upgrade_resume_document
-from career_agent.resume_doc.store import ResumeStore, forget_resume_data
+from career_agent.resume_doc.store import (
+    ResumeStore,
+    StaleDocument,
+    delete_export_files,
+    forget_resume_data,
+)
 from career_agent.storage.db import connect, transaction
 from career_agent.storage.repositories import ClaimRepo
 from career_agent.storage.workspace_repo import ensure_candidate
@@ -320,6 +325,34 @@ def test_no_browser_is_a_failed_file_never_a_checked_one(
         _export(api, made, "PDF")
     assert failed.value.status == 503 and failed.value.code == "export_failed"
     assert call(api, "GET", f"/documents/{made['id']}/exports") == []
+    with connect(api.config.db_path) as conn:
+        assert [r.reason for r in ResumeStore(conn).list_revisions(made["id"])] == ["CREATED"]
+    assert not (api.config.db_path.parent / "resume_exports" / made["id"]).exists()
+
+
+def test_a_copy_saved_while_the_file_was_made_is_not_recorded(api: JobsApi) -> None:
+    made = _stored(api, exportable())
+
+    def pdf_while_another_window_saves(html: str) -> tuple[bytes, str]:
+        with connect(api.config.db_path) as other:
+            doc = upgrade_resume_document({**made["document"], "title": "Saved meanwhile"})
+            ResumeStore(other).save_working_copy(made["id"], doc, expected_sha256=made["sha256"])
+        return exporter.print_pdf(html) if HAS_BROWSER else (b"%PDF-1.4", "fake")
+
+    with connect(api.config.db_path) as conn, pytest.raises(StaleDocument):
+        exporter.export_revision(
+            conn,
+            made["id"],
+            "PDF",
+            expected_sha256=made["sha256"],
+            pdf=pdf_while_another_window_saves,
+        )
+    with connect(api.config.db_path) as conn:
+        store = ResumeStore(conn)
+        assert store.list_exports(made["id"]) == []
+        assert [r.reason for r in store.list_revisions(made["id"])] == ["CREATED"]
+    folder = api.config.db_path.parent / "resume_exports" / made["id"]
+    assert not folder.exists() or not any(folder.iterdir()), "no orphan file"
 
 
 # --------------------------------------------------- refusals, revisions
@@ -336,6 +369,7 @@ def test_an_export_names_the_saved_copy_or_nothing_is_made(api: JobsApi) -> None
         {"format": "TXT", "expected_sha256": made["sha256"]},
         {"format": "JSON", "expected_sha256": made["sha256"], "path": "C:/x.json"},
         {"format": "PDF", "expected_sha256": made["sha256"], "preview_pages": 0},
+        {"format": "PDF", "expected_sha256": made["sha256"], "page_breaks": ["x" * 201]},
     ):
         with pytest.raises(ApiError) as bad:
             call(api, "POST", f"/documents/{made['id']}/exports", body)
@@ -417,8 +451,11 @@ def test_forgetting_removes_the_exported_files(api: JobsApi) -> None:
     out = _export(api, made, "JSON")
     with connect(api.config.db_path) as conn:
         path = exporter.stored_file(conn, ResumeStore(conn).get_export(out["id"]))
-        forget_resume_data(conn)
-    assert not path.exists()
+        with transaction(conn):
+            forgotten = forget_resume_data(conn)
+            assert path.exists(), "a file goes only once the rows are gone for good"
+        delete_export_files(forgotten)
+    assert not path.exists() and not path.parent.exists()
 
 
 # ------------------------------------------------------- profile isolation

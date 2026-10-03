@@ -54,9 +54,7 @@ export async function downloadResumeExport(path, fallbackName) {
   if (!response.ok) {
     throw new ApiError({ kind: 'http', status: response.status, message: faultMessage(response.status) });
   }
-  // The whole name (accents included) travels as RFC 5987 UTF-8.
-  const full = /filename\*=UTF-8''([^;]+)/.exec(response.headers.get('Content-Disposition') || '');
-  return saveBlob(await response.blob(), response, full ? decodeURIComponent(full[1]) : fallbackName, Boolean(full));
+  return saveBlob(await response.blob(), response, fallbackName);
 }
 export const getResumeMaster = () => request('/resume/master');
 export const createResumeMaster = () => request('/resume/master', { method: 'POST', body: {} });
@@ -275,9 +273,12 @@ async function rtFetch(path, init = {}) {
 const STALE_RELOAD = 'careerAgent.rh.staleReload';
 
 /** Save a fetched file under the name the server gave. Returns that name. */
-function saveBlob(blob, response, fallbackName, preferFallback = false) {
-  const named = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '');
-  const name = named && !preferFallback ? named[1] : fallbackName;
+function saveBlob(blob, response, fallbackName) {
+  const said = response.headers.get('Content-Disposition') || '';
+  // The whole name (accents included) travels as RFC 5987 UTF-8, when sent.
+  const full = /filename\*=UTF-8''([^;]+)/.exec(said);
+  const named = /filename="([^"]+)"/.exec(said);
+  const name = full ? decodeURIComponent(full[1]) : (named ? named[1] : fallbackName);
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

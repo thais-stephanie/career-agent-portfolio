@@ -24,6 +24,7 @@ relative to that folder, and a download resolves it there or not at all.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import json
@@ -48,7 +49,9 @@ from career_agent.resume_doc.store import (
     ResumeExport,
     ResumeStore,
     StaleDocument,
+    export_root,
 )
+from career_agent.storage.db import transaction
 
 EXTENSIONS: dict[str, str] = {"PDF": "pdf", "DOCX": "docx", "JSON": "json"}
 CONTENT_TYPES = {
@@ -78,10 +81,7 @@ class ExportFailed(RuntimeError):
 
 def export_dir(conn: sqlite3.Connection) -> Path:
     """This profile's private export folder: beside its database file."""
-    for row in conn.execute("PRAGMA database_list"):
-        if row[1] == "main" and row[2]:
-            return Path(row[2]).parent / "resume_exports"
-    raise ExportFailed("this database has no folder of its own")
+    return export_root(conn)
 
 
 def stored_file(conn: sqlite3.Connection, export: ResumeExport) -> Path:
@@ -150,7 +150,8 @@ def print_pdf(html: str, *, timeout: float = PDF_TIMEOUT) -> tuple[bytes, str]:
     if browser is None:
         raise ExportFailed("NO_BROWSER")
     exe, engine = browser
-    tmp = Path(tempfile.mkdtemp(prefix="career-agent-pdf-"))
+    _sweep_old_profiles()
+    tmp = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
     try:
         source, out = tmp / "resume.html", tmp / "resume.pdf"
         source.write_text(html, encoding="utf-8")
@@ -191,9 +192,15 @@ def print_pdf(html: str, *, timeout: float = PDF_TIMEOUT) -> tuple[bytes, str]:
                     pass
             last = size
             time.sleep(0.15)
+        _stop_browser(tmp)
         raise ExportFailed("PDF_TIMEOUT")
     finally:
-        for _ in range(100):  # the browser may hold its profile a moment longer
+        # The resume's own text goes at once; the browser may hold its
+        # profile a moment longer, and what it still holds is swept later.
+        for name in ("resume.html", "resume.pdf"):
+            with contextlib.suppress(OSError):
+                (tmp / name).unlink(missing_ok=True)
+        for _ in range(100):
             try:
                 shutil.rmtree(tmp)
                 break
@@ -201,6 +208,36 @@ def print_pdf(html: str, *, timeout: float = PDF_TIMEOUT) -> tuple[bytes, str]:
                 break
             except OSError:
                 time.sleep(0.1)
+
+
+TEMP_PREFIX = "career-agent-pdf-"
+
+
+def _sweep_old_profiles(age: float = 3600) -> None:
+    """Remove print profiles an earlier export could not (Edge still held them)."""
+    for old in Path(tempfile.gettempdir()).glob(f"{TEMP_PREFIX}*"):
+        with contextlib.suppress(OSError):
+            if time.time() - old.stat().st_mtime > age:
+                shutil.rmtree(old)
+
+
+def _stop_browser(profile: Path) -> None:
+    """Stop the headless browser printing with `profile`, and only it: Edge
+    runs detached from its launcher, so it is found by its own command line."""
+    if os.name != "nt":
+        return
+    command = (
+        "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "
+        f"'*{str(profile).replace(chr(39), chr(39) * 2)}*' }} | "
+        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+    )
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
+            capture_output=True,
+            timeout=20,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
 
 
 def docx_bytes(doc: ResumeDocument, html: str) -> bytes:
@@ -281,53 +318,69 @@ def export_revision(
 
     Refused (nothing written) when the page holds a different copy, when a
     line cites evidence that is not confirmed now, or when there is no real
-    name. `ExportFailed` when the file could not be made. A file that was
-    made is kept and recorded even when a check finds a problem: the check
-    result says exactly what. `page_breaks` are the blocks the preview
-    started its pages with; the PDF starts its pages there too."""
+    name. The file is made and checked from that copy first; only then, in
+    ONE transaction that asks again that the working copy is still that
+    copy, is it checkpointed (reason EXPORTED) and the export recorded. A
+    file that could not be made, or a copy changed meanwhile, leaves no
+    revision, no row and no file. A file that was made is kept and recorded
+    even when a check finds a problem: the check result says exactly what.
+    `page_breaks` are the blocks the preview started its pages with; the PDF
+    starts its pages there too."""
     store = ResumeStore(conn)
     stored = store.get_document(document_id)
     if stored.working_sha256 != expected_sha256:
         raise StaleDocument(document_id, stored.working_sha256)
-    lines = unconfirmed_lines(conn, stored.working)
+    doc = stored.working
+    lines = unconfirmed_lines(conn, doc)
     if lines:
         raise ExportRefused("EVIDENCE_NOT_CONFIRMED", lines)
-    if stored.working.identity.name_finding():
+    if doc.identity.name_finding():
         raise ExportRefused("NAME_MISSING")
-    revision = store.checkpoint_revision(document_id, "EXPORTED")
-    doc = revision.content
     # The PDF breaks pages where the preview did (`page_breaks`, its refs).
     html = render_html(doc, mode="print", breaks=frozenset(page_breaks or [])).html
-    if fmt == "PDF":
-        data, engine = pdf(html)
-    elif fmt == "DOCX":
-        data, engine = docx_bytes(doc, html), "python-docx"
-    else:
-        data, engine = json_bytes(doc), "json"
-    report = check_export(
-        fmt,
-        doc,
-        html,
-        data,
-        revision_sha256=revision.content_sha256,
-        preview_pages=preview_pages,
-        preview_overflow=preview_overflow or [],
-    )
+    try:
+        if fmt == "PDF":
+            data, engine = pdf(html)
+        elif fmt == "DOCX":
+            data, engine = docx_bytes(doc, html), "python-docx"
+        else:
+            data, engine = json_bytes(doc), "json"
+        report = check_export(
+            fmt,
+            doc,
+            html,
+            data,
+            revision_sha256=expected_sha256,
+            preview_pages=preview_pages,
+            preview_overflow=preview_overflow or [],
+        )
+    except ExportFailed:
+        raise
+    except Exception as exc:  # noqa: BLE001  -- a file that cannot be made or read back
+        raise ExportFailed("FILE_UNREADABLE") from exc
     export_id = new_id()
     relative = f"{document_id}/{export_id}.{EXTENSIONS[fmt]}"
     path = export_dir(conn) / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
-
-    return store.record_export(
-        document_id,
-        revision.id,
-        format=fmt,
-        template=doc.design.template,
-        file_path=relative,
-        file_sha256=hashlib.sha256(data).hexdigest(),
-        engine=engine,
-        page_count=report.get("pages"),
-        ats_check=report,
-        export_id=export_id,
-    )
+    try:
+        with transaction(conn):
+            now = store.get_document(document_id).working_sha256
+            if now != expected_sha256:
+                raise StaleDocument(document_id, now)
+            revision = store.checkpoint_revision(document_id, "EXPORTED")
+            return store.record_export(
+                document_id,
+                revision.id,
+                format=fmt,
+                template=doc.design.template,
+                file_path=relative,
+                file_sha256=hashlib.sha256(data).hexdigest(),
+                engine=engine,
+                page_count=report.get("pages"),
+                ats_check=report,
+                export_id=export_id,
+            )
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise

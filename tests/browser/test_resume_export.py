@@ -252,11 +252,7 @@ def test_a_change_in_another_window_refuses_the_download(
 
 def test_no_name_disables_download_and_says_why(page: Chrome, server: dict[str, Any]) -> None:
     open_editor(page, server["url"])
-    type_into(page, "identity/name", " ")
-    page.evaluate(
-        "(() => { const n = document.querySelector('[data-ref=\"identity/name\"]');"
-        " n.value = ''; n.dispatchEvent(new Event('input', { bubbles: true })); })()"
-    )
+    type_into(page, "identity/name", "You")
     page.wait_for(
         "[...document.querySelectorAll('.rve__formats button')].every((b) => b.disabled)",
         message="disabled",

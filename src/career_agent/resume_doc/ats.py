@@ -149,6 +149,40 @@ def _lines(node: Any) -> list[dict[str, Any]]:
     return found
 
 
+#: The words a hidden node would print.
+_SHOWN_KEYS = (
+    "text", "label", "name", "heading", "employer", "display_title", "institution", "degree",
+)  # fmt: skip
+
+
+def _hidden(doc: ResumeDocument) -> list[tuple[str, str]]:
+    """(id, words) of everything the document holds hidden: hidden nodes and
+    everything inside a hidden section."""
+    data = doc.model_dump(mode="json")
+    off = set(data["layout"]["hidden_sections"])
+    found: list[tuple[str, str]] = []
+
+    def walk(node: Any, hidden: bool, owner: str) -> None:
+        if isinstance(node, dict):
+            hidden = hidden or node.get("hidden") is True
+            owner = node.get("id") or owner
+            if hidden:
+                found.extend((owner, node[k]) for k in _SHOWN_KEYS if isinstance(node.get(k), str))
+            for value in node.values():
+                walk(value, hidden, owner)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value, hidden, owner)
+
+    for section in ("headline", "summary", "experience", "projects", "education"):
+        walk(data[section], section in off, section)
+    walk(data["certifications"], "certifications" in off, "certifications")
+    walk(data["skills"], "skills" in off, "skills")
+    for custom in data["custom_sections"]:
+        walk(custom, f"custom:{custom['id']}" in off, custom["id"])
+    return found
+
+
 _BAD_GLYPHS = re.compile(r"[�-\x00-\x08\x0b\x0c\x0e-\x1f]|\(cid:\d+\)")
 _YEAR = re.compile(r"\b(19|20)\d\d\b")
 
@@ -225,16 +259,17 @@ def check_export(
     # Nothing in the file that the visible resume does not say...
     extra = words(text) - words(visible)
     checks.append(_check("ONLY_VISIBLE_TEXT", FAIL if extra else PASS, params={"n": len(extra)}))
-    # ...and in particular nothing it holds hidden.
+    # ...and in particular nothing it holds hidden: a hidden line, entry,
+    # item or section, except words the visible resume also says.
     lines = _lines(doc.model_dump(mode="json"))
     shown_flat = squash(visible)
-    hidden = [
-        line["id"]
-        for line in lines
-        if len(squash(line["text"])) >= 8
-        and squash(line["text"]) not in shown_flat
-        and found(line["text"])
-    ]
+    hidden = sorted(
+        {
+            ref
+            for ref, value in _hidden(doc)
+            if len(squash(value)) >= 3 and squash(value) not in shown_flat and found(value)
+        }
+    )
     checks.append(_check("HIDDEN_ABSENT", FAIL if hidden else PASS, refs=hidden))
 
     # A visible line linked to a job requirement keeps its words in the file.

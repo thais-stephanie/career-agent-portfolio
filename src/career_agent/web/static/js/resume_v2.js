@@ -43,6 +43,12 @@ const WEB = /^https?:\/\/\S+$/;
 const COUNTRY = /^[A-Z]{2}$/;
 const PREVIEW_MS = 120;
 const FORMATS = ['PDF', 'DOCX', 'JSON'];
+/** Labels that stand in for a person (the model's PLACEHOLDER_NAMES): never a name on a file. */
+const PLACEHOLDER_NAMES = new Set(['you', 'candidate', 'my profile', 'meu perfil']);
+const realName = (name) => {
+  const plain = String(name || '').split(/\s+/).filter(Boolean).join(' ');
+  return Boolean(plain) && !PLACEHOLDER_NAMES.has(plain.toLowerCase());
+};
 /** A check's state as a mark beside its words: never colour alone. */
 const MARKS = { PASS: '\u2713', WARNING: '!', FAIL: '\u2717', NOT_MEASURED: '\u25cb' };
 
@@ -174,10 +180,13 @@ export function createResumeWorkspace({ host }) {
   function docRow(d) {
     const label = d.version_number ? `${d.title} · V${d.version_number}` : d.title;
     const last = d.last_export;
+    const unmeasured = last ? last.checks.filter((c) => c.status === 'NOT_MEASURED').length : 0;
+    let result = 'rv.export.problemShort';
+    if (last && last.verified) result = unmeasured ? 'rv.export.checkedSome' : 'rv.export.checked';
     const exported = last ? t('rv.export.last', {
       format: last.format,
       date: new Date(last.created_at).toLocaleDateString(),
-      result: t(last.verified ? 'rv.export.checked' : 'rv.export.problemShort'),
+      result: t(result, { n: unmeasured }),
     }) : '';
     return el('div', { className: 'rvw__row' }, [
       el('span', { className: 'rvw__rowtitle', text: label }),
@@ -273,7 +282,8 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
   const downloadGroup = el('div', {
     className: 'rve__formats', attrs: { role: 'group', 'aria-labelledby': downloadLabel.id },
   }, [downloadLabel, ...formatButtons, downloadHint]);
-  const exportBox = el('div', { className: 'rve__export' });
+  // One live region for the whole download: its words change, it is not recreated.
+  const exportBox = el('div', { className: 'rve__export', attrs: { 'aria-live': 'polite' } });
   let exporting = false;
   const designSummary = el('summary');
   const checkSummary = el('summary');
@@ -360,7 +370,7 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
 
   /** A file needs a real name on it; a disabled control says why. */
   function syncDownload() {
-    const noName = !doc.identity.full_name.trim();
+    const noName = !realName(doc.identity.full_name);
     for (const b of formatButtons) b.disabled = exporting || noName;
     downloadHint.textContent = noName ? t('rv.export.needName') : '';
   }
@@ -441,13 +451,19 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
         layout = shown;
         drawCheck();
       }
+      // Typed meanwhile: the saved copy is no longer what is on screen.
+      if (autosave.dirty || autosave.sha !== sent) {
+        drawExport('failed', { message: t('rv.export.changed') });
+        return;
+      }
       const made = await exportResume(answer.id, {
         format,
         expected_sha256: sent,
         ...(shown ? { preview_pages: shown.pages, preview_overflow: shown.overflow, page_breaks: shown.breaks } : {}),
       });
       await downloadResumeExport(made.download, `resume.${format.toLowerCase()}`);
-      drawExport('ready', made);
+      // Edits made while the file was being made are saved, and not in this file.
+      drawExport('ready', { ...made, later: autosave.dirty || autosave.sha !== sent });
     } catch (error) {
       const detail = error.detail || {};
       if (detail.code === 'evidence_not_confirmed') drawEvidence(detail.lines || []);
@@ -462,8 +478,7 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
   function drawExport(state, made = {}) {
     exportBox.dataset.state = state;
     if (state === 'working') {
-      const note = el('p', { className: 'rve__note', attrs: { role: 'status' }, text: t('rv.export.working') });
-      exportBox.replaceChildren(note);
+      exportBox.replaceChildren(el('p', { className: 'rve__note', text: t('rv.export.working') }));
       return;
     }
     if (state === 'failed') {
@@ -483,12 +498,13 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
         el('span', { text: `${t(`rv.ats.status.${c.status}`)}: ${words}${issues ? ` (${issues})` : ''}` }),
       ]);
     });
-    exportBox.replaceChildren(el('div', { className: 'rve__notice', attrs: { role: 'status' } }, [
+    exportBox.replaceChildren(el('div', { className: 'rve__notice' }, [
       el('p', {
         className: 'rve__exporthead',
         text: [t(made.verified ? 'rv.export.ready' : 'rv.export.problem', { format: made.format }), pages]
           .filter(Boolean).join(' · '),
       }),
+      made.later ? el('p', { className: 'rve__note', text: t('rv.export.later') }) : null,
       el('ul', { className: 'rve__atslist' }, items),
       smallButton(t('rv.export.dismiss'), () => exportBox.replaceChildren()),
     ]));

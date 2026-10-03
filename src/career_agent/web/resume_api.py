@@ -267,7 +267,7 @@ def register_resume_routes(app: LocalApp) -> None:
             or not all(
                 isinstance(refs, list)
                 and len(refs) <= 500
-                and all(isinstance(r, str) for r in refs)
+                and all(isinstance(r, str) and len(r) <= 200 for r in refs)
                 for refs in (overflow, breaks)
             )
         ):

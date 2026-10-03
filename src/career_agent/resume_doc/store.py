@@ -23,8 +23,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import AbstractContextManager, nullcontext, suppress
 from dataclasses import dataclass, fields
+from pathlib import Path
 from typing import Any, Literal, TypeVar
 
 from career_agent.clock import new_id, now_utc
@@ -595,7 +596,7 @@ class ResumeStore:
                     now or now_utc(),
                 ),
             )
-        return self._export(self._row("resume_export", export_id))
+        return self.get_export(export_id)
 
     def get_export(self, export_id: str) -> ResumeExport:
         return self._export(self._row("resume_export", export_id))
@@ -716,13 +717,16 @@ def resume_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
     return {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in RESUME_TABLES}
 
 
-def forget_resume_data(conn: sqlite3.Connection) -> None:
+def forget_resume_data(conn: sqlite3.Connection) -> list[Path]:
     """Delete every resume row in THIS profile's database, on the person's
     explicit request (`career-agent forget everything`). The guards against
     deleting history are lifted inside the transaction and put back before
-    it commits. Joins the caller's transaction when one is open. The files
-    exported from these documents are deleted too, once the rows are gone."""
+    it commits. Joins the caller's transaction when one is open. Returns the
+    files exported from these documents: `delete_export_files` removes them
+    once the caller has committed, so a rollback never leaves rows pointing
+    at files that are gone."""
     files = [r[0] for r in conn.execute("SELECT file_path FROM resume_export")]
+    root = export_root(conn) if files else None
     with nullcontext() if conn.in_transaction else transaction(conn):
         guards = [
             conn.execute(
@@ -736,11 +740,23 @@ def forget_resume_data(conn: sqlite3.Connection) -> None:
             conn.execute(f"DELETE FROM {table}")
         for sql in guards:
             conn.execute(sql)
-    if files:
-        from career_agent.resume_doc.export import export_dir
+    if root is None:
+        return []
+    paths = [(root / name).resolve() for name in files]
+    return [p for p in paths if p.is_relative_to(root)]
 
-        root = export_dir(conn).resolve()
-        for name in files:
-            path = (root / name).resolve()
-            if path.is_relative_to(root):
-                path.unlink(missing_ok=True)
+
+def export_root(conn: sqlite3.Connection) -> Path:
+    """This profile's private export folder, beside its database file."""
+    for row in conn.execute("PRAGMA database_list"):
+        if row[1] == "main" and row[2]:
+            return (Path(row[2]).parent / "resume_exports").resolve()
+    raise ResumeStoreError("this database has no folder of its own")
+
+
+def delete_export_files(paths: list[Path]) -> None:
+    """Remove forgotten export files, and the folders they leave empty."""
+    for path in paths:
+        path.unlink(missing_ok=True)
+        with suppress(OSError):
+            path.parent.rmdir()
