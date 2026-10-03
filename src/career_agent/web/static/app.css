@@ -10993,9 +10993,11 @@ table.jobs .cell__title-btn { max-width: 100%; }
   border: 1px solid var(--divider); border-radius: 12px; background: var(--surface);
 }
 .rve__legend { padding: 0 6px; font-weight: 700; }
+.rve__set > .btn, .rve__actions > .btn { align-self: flex-start; }
 .rve__field { display: flex; flex-direction: column; gap: 4px; }
 .rve__label { font-size: 13px; font-weight: 600; color: var(--body2); }
-.rve__control { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 160px; }
+.rve__control { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rve__linkrow > .rve__control { flex: 1 1 160px; }
 .rve__control .input, .rve__textarea { width: 100%; min-width: 0; }
 .rve__textarea { min-height: 3.2em; resize: vertical; font: inherit; line-height: 1.45; }
 .rve__hint { font-size: 12px; color: var(--block-ink); }

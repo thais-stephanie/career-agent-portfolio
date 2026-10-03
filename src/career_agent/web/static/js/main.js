@@ -3216,6 +3216,7 @@ function relabelStaticText() {
   swap('#view-kanban', 'view.board');
   swap('#export-good-strong', 'export.goodStrong');
   resumeHelper.relabel();
+  if (resumeWorkspace) resumeWorkspace.relabel();
   // The two toolbar controls whose words depend on STATE rather than only
   // on the catalogue: which way the sort runs, and whether duplicates are
   // folded. `syncHeader` already knows how to label both from the state,

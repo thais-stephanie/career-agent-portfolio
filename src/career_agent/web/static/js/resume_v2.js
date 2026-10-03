@@ -73,11 +73,17 @@ export function createResumeWorkspace({ host }) {
       className: 'rvw__tab', attrs: { 'aria-controls': `rvw-view-${name}` },
     });
   }
-  const head = el('header', { className: 'rvw__head' }, [
-    el('h1', { className: 'rvw__title', text: t('rv.title') }),
-    el('p', { className: 'rvw__sub', text: t('rv.sub') }),
-    el('nav', { className: 'rvw__tabs', attrs: { 'aria-label': t('rv.title') } }, Object.values(tabs)),
-  ]);
+  const heading = el('h1', { className: 'rvw__title' });
+  const sub = el('p', { className: 'rvw__sub' });
+  const nav = el('nav', { className: 'rvw__tabs' }, Object.values(tabs));
+  const head = el('header', { className: 'rvw__head' }, [heading, sub, nav]);
+  function label() {
+    heading.textContent = t('rv.title');
+    sub.textContent = t('rv.sub');
+    nav.setAttribute('aria-label', t('rv.title'));
+    for (const [name, tab] of Object.entries(tabs)) tab.textContent = t(`rv.tab.${name}`);
+  }
+  label();
   const root = el('div', { className: 'rvw' }, [head, ...Object.values(views)]);
   host.replaceChildren(root);
 
@@ -167,6 +173,13 @@ export function createResumeWorkspace({ host }) {
     /** Leaving the page: finish saving, and mark the visit if it changed anything. */
     leave: () => (editor ? editor.leave() : Promise.resolve()),
     open,
+    /** The language changed: every word again, nothing else. */
+    relabel() {
+      label();
+      if (editor) editor.relabel();
+      if (root.dataset.view === 'home') void drawHome();
+      if (root.dataset.view === 'list') void drawList();
+    },
     get editor() { return editor; },
   };
 }
@@ -206,14 +219,18 @@ function createEditor(answer, { onClose, onOpen }) {
   const design = el('div', { className: 'rve__design' });
   const undoButton = smallButton(t('rv.undo'), () => undo());
   const redoButton = smallButton(t('rv.redo'), () => redo());
+  const backButton = smallButton(t('rv.back'), () => void leave().then(onClose));
+  const pointButton = smallButton(t('rv.checkpoint'), () => void checkpoint('MANUAL_CHECKPOINT', true));
+  const kindTag = el('span', { className: 'rvw__kind' });
+  const designSummary = el('summary');
+  const checkSummary = el('summary');
+  const switcher = el('div', { className: 'rve__switch', attrs: { role: 'group' } });
   const modeEdit = button(t('rv.mode.edit'), () => setMode('edit'), {
     className: 'rve__mode', attrs: { 'aria-pressed': 'true' },
   });
   const modePreview = button(t('rv.mode.preview'), () => setMode('preview'), {
     className: 'rve__mode', attrs: { 'aria-pressed': 'false' },
   });
-  const kindLabel = t(`rv.kind.${answer.kind}`);
-  const kind = answer.version_number ? `${kindLabel} · V${answer.version_number}` : kindLabel;
   const title = el('input', {
     className: 'input rve__titleinput',
     attrs: { 'aria-label': t('rv.docTitle'), maxlength: '300', 'data-key': 'title' },
@@ -221,29 +238,32 @@ function createEditor(answer, { onClose, onOpen }) {
     on: { input: (e) => edit((d) => { d.title = e.target.value; }, 'title') },
   });
   const bar = el('header', { className: 'rve__bar' }, [
-    smallButton(t('rv.back'), () => void leave().then(onClose)),
-    title,
-    el('span', { className: 'rvw__kind', text: kind }),
-    undoButton,
-    redoButton,
-    smallButton(t('rv.checkpoint'), () => void checkpoint('MANUAL_CHECKPOINT', true)),
-    saveState,
+    backButton, title, kindTag, undoButton, redoButton, pointButton, saveState,
   ]);
   const side = el('div', { className: 'rve__side' }, [
-    el('details', { className: 'rve__panel' }, [el('summary', { text: t('rv.panel.design') }), design]),
-    el('details', { className: 'rve__panel', props: { open: true } }, [
-      el('summary', { text: t('rv.panel.check') }), check,
-    ]),
+    el('details', { className: 'rve__panel' }, [designSummary, design]),
+    el('details', { className: 'rve__panel', props: { open: true } }, [checkSummary, check]),
     preview.root,
   ]);
+  switcher.append(modeEdit, modePreview);
   const root = el('div', { className: 'rve', dataset: { mode: 'edit' } }, [
-    bar,
-    notices,
-    el('div', { className: 'rve__switch', attrs: { role: 'group', 'aria-label': t('rv.mode.label') } }, [
-      modeEdit, modePreview,
-    ]),
-    el('div', { className: 'rve__grid' }, [form, side]),
+    bar, notices, switcher, el('div', { className: 'rve__grid' }, [form, side]),
   ]);
+
+  /** Every word of the editor's own, in the current language. */
+  function label() {
+    const kindLabel = t(`rv.kind.${answer.kind}`);
+    kindTag.textContent = answer.version_number ? `${kindLabel} · V${answer.version_number}` : kindLabel;
+    for (const [node, key] of [
+      [backButton, 'rv.back'], [undoButton, 'rv.undo'], [redoButton, 'rv.redo'],
+      [pointButton, 'rv.checkpoint'], [modeEdit, 'rv.mode.edit'], [modePreview, 'rv.mode.preview'],
+      [designSummary, 'rv.panel.design'], [checkSummary, 'rv.panel.check'],
+    ]) node.textContent = t(key);
+    title.setAttribute('aria-label', t('rv.docTitle'));
+    switcher.setAttribute('aria-label', t('rv.mode.label'));
+    saveState.textContent = t(`rv.save.${saveState.dataset.state || 'saved'}`);
+  }
+  label();
   root.addEventListener('keydown', (event) => {
     const typing = event.target.closest('input, textarea, select, [contenteditable]');
     if (typing || !(event.ctrlKey || event.metaKey)) return;
@@ -852,6 +872,11 @@ function createEditor(answer, { onClose, onOpen }) {
   return {
     root,
     leave,
+    relabel() {
+      label();
+      drawForm();
+      drawCheck();
+    },
     dirty: () => autosave.dirty,
     /** The document being edited, as the page holds it now. */
     get document() { return doc; },
