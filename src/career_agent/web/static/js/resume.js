@@ -137,7 +137,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
   }
 
   const versionsLabel = (group) => t(group.versions.length === 1 ? 'rh.ver.countOne' : 'rh.ver.count', {
-    n: group.versions.length, latest: group.versions.length,
+    n: group.versions.length,
   });
 
   async function bases() {
@@ -439,10 +439,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
           el('p', { text: make.error }),
           make.unreadable ? el('div', { className: 'rh-actions' }, [
             button(t('rh.make.retry'), () => startRun(), { className: 'rh-btn rh-btn--chip' }),
-            button(t('rh.make.changeAd'), () => {
-              Object.assign(make, { jobId: null, error: null, unreadable: false });
-              paintSetup().then(() => body.querySelector('.rh-jd')?.focus());
-            }, { className: 'rh-link' }),
+            button(t('rh.make.changeAd'), changeAd, { className: 'rh-link' }),
           ]) : null,
         ]) : null,
       ]),
@@ -524,6 +521,17 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
   }
 
   async function startRun() {
+    // One click is one version: a second click while starting does nothing.
+    if (make.starting) return;
+    make.starting = true;
+    try {
+      await makeVersion();
+    } finally {
+      make.starting = false;
+    }
+  }
+
+  async function makeVersion() {
     make.error = null;
     make.unreadable = false;
     let jdText = make.jd.trim();
@@ -540,7 +548,8 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       // profile mode the engine reads both from Career Agent and keeps the
       // exact text with the version; without a profile they are sent here.
       jdText = ws.mode === 'profile' ? '' : (job.description || job.description_excerpt || '');
-      target = { target_title: job.title || '', target_company: job.company_name || '' };
+      // Without a profile bridge the engine cannot read the posting itself.
+      if (ws.mode !== 'profile') target = { target_title: job.title || '', target_company: job.company_name || '' };
     }
     if ((!careerJobId || ws.mode !== 'profile') && jdText.length < 20) {
       make.error = t('rh.make.adTooShort');
@@ -720,8 +729,8 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
 
     const panel = make.resTab === 'fix' ? fixPanel(view) : make.resTab === 'ad' ? adPanel(view) : asksPanel(rows);
     const group = jobsWithVersions(cache.runs || []).find((g) => g.versions.some((v) => v.id === make.runId));
-    const version = group ? group.versions.findIndex((v) => v.id === make.runId) + 1 : null;
     const thisRun = group ? group.versions.find((v) => v.id === make.runId) : null;
+    const version = thisRun ? group.versions.indexOf(thisRun) + 1 : null;
 
     repaint([el('div', { className: 'rh-result' }, [
       el('div', { className: 'rh-result__head' }, [
@@ -770,12 +779,15 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
         button(t('rh.make.retry'), () => anotherVersion({ id: make.runId, career_job_id: make.jobId }), {
           className: 'rh-btn rh-btn--chip',
         }),
-        button(t('rh.make.changeAd'), () => {
-          Object.assign(make, { stage: 'setup', jobId: null });
-          paintSetup().then(() => body.querySelector('.rh-jd')?.focus());
-        }, { className: 'rh-link' }),
+        button(t('rh.make.changeAd'), changeAd, { className: 'rh-link' }),
       ]),
     ]);
+  }
+
+  /** Back to setup with the pasted-ad box in focus. */
+  function changeAd() {
+    Object.assign(make, { stage: 'setup', jobId: null, error: null, unreadable: false });
+    paintSetup().then(() => body.querySelector('.rh-jd')?.focus());
   }
 
   /** Edited lines a download would have to change, and why: nothing is swapped. */
@@ -1030,7 +1042,6 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     ]);
   }
 
-  /** The person's own name from My profile; empty when not given yet. */
   /** The person's own name ("" while none is given; never "You" or a profile label). */
   const personName = () => (ws && ws.candidate_name) || '';
 

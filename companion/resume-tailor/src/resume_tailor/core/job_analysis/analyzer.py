@@ -267,11 +267,22 @@ _GLUED_BULLET = re.compile(r"\s*[•●▪◦‣]\s*")
 #: A sentence end, glued to the next sentence or not ("negócios.Trabalhamos",
 #: "produção. Requisitos"): after a lowercase letter, digit or bracket, before
 #: a capitalised word. "Triggo.ai", "U.S." and "Node.js" stay whole.
-_SENTENCE_END = re.compile(r"(?<=[a-zà-ÿ0-9)\]])([.!?])\s*(?=[A-ZÀ-Ý][a-zà-ÿ])")
+_SENTENCE_END = re.compile(
+    r"(?<!\bSr)(?<!\bDr)(?<!\bEx)(?<!\betc)(?<=[a-zà-ÿ0-9)\]])([.!?])\s*(?=[A-ZÀ-Ý][a-zà-ÿ])"
+)
 #: "Requisitos: Python; SQL" -- a heading with its first item on the same line.
 _INLINE_HEADING = re.compile(r"^\s*([^:\n]{3,40}):\s+(\S.*)$")
-#: A longer line is a flattened paragraph or a whole posting on one line.
-_FLATTENED = 320
+
+
+def _opens_list(heading: str) -> bool:
+    """A requirement heading ("Requisitos", "Nice to have"), never a label
+    ("Skills", "Location", "Os requisitos" in prose) whose value is data."""
+    low = heading.lower().strip()
+    return any(
+        low == cue or (len(cue) >= 5 and low.startswith(cue))
+        for section in ("must_have", "nice_to_have", "responsibility")
+        for cue in _SECTION_CUES[section]
+    )
 
 
 def segment(jd_text: str) -> str:
@@ -280,32 +291,34 @@ def segment(jd_text: str) -> str:
     Some boards serve an advert with its line breaks lost: headings and "•"
     items run together on one or two very long lines, which used to be
     skipped whole (a real Portuguese posting read as 0 requirements). Before
-    any line is classified: every list marker starts a line, a heading with
-    text after its colon is split from it, a flattened line is cut at its
-    sentence ends, and a semicolon list into its items. Only line breaks are added; every unit is
-    still the ad's own words, and the ad kept with the run is the original.
+    any line is classified: every list marker starts a line, a requirement
+    heading is split from the text after its colon, a flattened line (over
+    320 characters) is cut at its sentence ends, and inside a list or a
+    flattened line "A; B; C" is cut into its items. Only line breaks are
+    added; every unit is still the ad's own words, and the ad kept with the
+    run is the original.
     """
     out: list[str] = []
     for line in jd_text.splitlines():
-        pieces = _GLUED_BULLET.split(line)
-        for index, piece in enumerate(pieces):
+        for index, piece in enumerate(_GLUED_BULLET.split(line)):
             if not piece.strip():
                 continue
+            listed = bool(index)  # it followed a list marker
             heading = _INLINE_HEADING.match(piece)
-            if heading and _section_for(heading.group(1)) and len(heading.group(1).split()) <= 6:
+            if heading and _opens_list(heading.group(1)):
                 out.append(f"{heading.group(1)}:")
-                piece = heading.group(2)
-            if len(piece) > _FLATTENED:
+                piece, listed = heading.group(2), True
+            flattened = len(piece) > 320
+            if flattened:
                 piece = _SENTENCE_END.sub(lambda m: m.group(1) + "\n", piece)
-            # "A; B; C" is a list: two or more semicolons, one item each.
-            piece = "\n".join(
-                part
-                for chunk in piece.split("\n")
-                for part in (re.split(r";\s+", chunk) if chunk.count(";") >= 2 else [chunk])
-            )
-            for unit in piece.split("\n"):
-                # A unit that followed a list marker is an item of that list.
-                out.append(f"• {unit}" if index and unit.strip() else unit)
+            units = piece.split("\n")
+            if listed or flattened:
+                units = [
+                    u
+                    for chunk in units
+                    for u in (re.split(r";\s+", chunk) if chunk.count(";") >= 2 else [chunk])
+                ]
+            out.extend(f"• {unit}" if listed and unit.strip() else unit for unit in units)
     return "\n".join(out)
 
 

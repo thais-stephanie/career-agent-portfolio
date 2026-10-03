@@ -324,10 +324,8 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
     ) -> None:
         meta = {
             "status": "Considering",
-            "role": run.request.target_title
-            or run.job_analysis.role_title
-            or run.generated_resume.headline,
-            "company": run.request.target_company or run.job_analysis.company or "",
+            "role": run.job_analysis.role_title or run.generated_resume.headline,
+            "company": run.job_analysis.company or "",
             "created_at": datetime.now(UTC).isoformat(),
             "base_resume": run.request.resume_id,
             "note": "",
@@ -357,7 +355,8 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
                     "status": meta.get("status", "Considering"),
                     "date": meta.get("created_at", ""),
                     "base_resume": base.name if base else meta.get("base_resume", ""),
-                    "match": row.get("overall_coverage"),
+                    # No figure for a run that compared nothing: never "0%".
+                    "match": row.get("overall_coverage") if row.get("requirements") else None,
                     "state": row.get("status", ""),
                     "career_job_id": meta.get("career_job_id"),
                 }
@@ -439,10 +438,9 @@ def build_router(store: WorkspaceStore, get_llm, bridge: Any | None = None) -> A
                 lines=e.blocked,
             ) from e
         # The name as it is now (it may have been added after this version
-        # was made), else as it was then; a placeholder is never either.
-        resume.candidate.name = real_name(index.bank.candidate.name) or real_name(
-            resume.candidate.name
-        )
+        # was made). Never the one the version was made with: that may be a
+        # profile label or a placeholder.
+        resume.candidate.name = real_name(index.bank.candidate.name)
         if not resume.candidate.name:
             # Never a resume under "You" or a profile label.
             raise user_error(
@@ -515,8 +513,8 @@ def simple_run_view(run: TailorRun, index: Any = None) -> dict[str, Any]:
     return {
         "job": {
             # The posting's own title and company when known; never "This role".
-            "role": run.request.target_title or run.job_analysis.role_title or "",
-            "company": run.request.target_company or run.job_analysis.company or "",
+            "role": run.job_analysis.role_title,
+            "company": run.job_analysis.company,
             # The exact ad this run read, so the Job ad tab is never empty.
             "ad": run.request.jd_text,
             "source": run.request.source,
@@ -555,7 +553,11 @@ def simple_run_view(run: TailorRun, index: Any = None) -> dict[str, Any]:
         # How it was made, said plainly: without a model, it is assembled.
         "assembled_without_ai": run.provider.get("provider", "none") == "none"
         or not run.request.options.use_llm,
+        # The name the export will print: the person's as it is now.
         "filename": export_filename(
-            res.candidate.name, run.job_analysis.role_title, res.headline, "docx"
+            index.bank.candidate.name if index is not None else "",
+            run.job_analysis.role_title,
+            res.headline,
+            "docx",
         ),
     }

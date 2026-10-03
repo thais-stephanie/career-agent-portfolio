@@ -137,9 +137,9 @@ class RunStore:
             jp = d / "parsed_job.json"
             if jp.exists():
                 try:
-                    row["role_title"] = json.loads(jp.read_text(encoding="utf-8")).get(
-                        "role_title", ""
-                    )
+                    parsed = json.loads(jp.read_text(encoding="utf-8"))
+                    row["role_title"] = parsed.get("role_title", "")
+                    row["requirements"] = len(parsed.get("requirements") or [])
                 except json.JSONDecodeError:
                     pass
             mp = d / "evidence_matches.json"

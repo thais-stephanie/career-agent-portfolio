@@ -153,6 +153,24 @@ def test_a_flattened_portuguese_ad_yields_requirements_in_its_own_words() -> Non
     assert not any("Exemplo Digital" in r.text for r in job.requirements)
 
 
+def test_labels_and_conditions_read_as_before() -> None:
+    """Segmentation only cuts requirement headings: a "Label: a; b; c" item
+    keeps every value, and "Location:" stays a condition of the role."""
+    job = deterministic_analysis(
+        "Requirements\n- Skills: Python, SQL\n- Tools: dbt; Airflow; Spark"
+    )
+    assert job.must_have == ["Skills: Python, SQL", "Tools: dbt; Airflow; Spark"]
+    meta = deterministic_analysis(
+        "Senior Data Engineer\nLocation: Remote, Brazil\nEmployment type: Full-time\n"
+        "Requirements\n- Python"
+    )
+    assert "Location: Remote, Brazil" in meta.role_scope_observations
+    # Prose that mentions requirements is not a heading.
+    assert deterministic_analysis("Os requisitos: experiência com Python e SQL.").must_have != [
+        "Os requisitos:"
+    ]
+
+
 def test_an_ad_with_no_asks_is_unreadable_not_a_zero_score(tmp_path) -> None:
     ws, base = _thin_workspace(tmp_path)
     service = TailorService(ws.load_index(), ws.load_resumes(), ws.load_profiles(), NoneProvider())
@@ -202,7 +220,7 @@ def test_a_thin_profile_runs_for_the_target_without_rewriting_history(tmp_path) 
     # Historical titles are the person's own, never the target's.
     assert {e.title for e in run.generated_resume.experience} <= held
     # The headline is whole: the stable one when nothing safer can be said.
-    assert run.generated_resume.headline in held | {PT_TITLE}
+    assert run.generated_resume.headline in held, "the headline became something never held"
     assert run.generated_resume.candidate.name == ""
     # One chronology rule: the order the planner chose is the order the checks expect.
     assert not [i for i in run.validation_report.issues if i.code == "chronology"]
@@ -331,3 +349,13 @@ def test_you_never_reaches_a_file_and_a_real_name_does(helper) -> None:
 
     with pytest.raises(ApiError):
         api.handle_api("PATCH", "/api/candidate/name", {}, {"name": "You"})
+
+
+def test_a_certification_line_that_is_not_hers_stops_the_export(tmp_path) -> None:
+    ws, base = _thin_workspace(tmp_path)
+    service = TailorService(ws.load_index(), ws.load_resumes(), ws.load_profiles(), NoneProvider())
+    run = service.run(_request(PT_JD, base, target_title=PT_TITLE), "20260101T000000-dddddd")
+    state = {**dr.EMPTY_STATE, "certifications": ["Invented Board: Imaginary Certificate"]}
+    with pytest.raises(dr.ExportBlocked) as caught:
+        dr.export_resume(run, state, ws.load_index(), evidence_only=False)
+    assert caught.value.blocked[0]["text"] == "Invented Board: Imaginary Certificate"

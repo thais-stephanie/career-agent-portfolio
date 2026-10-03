@@ -244,12 +244,21 @@ def export_resume(
     run: TailorRun, state: dict[str, Any], index: EvidenceIndex, evidence_only: bool = True
 ):
     """A GeneratedResume clone with the draft applied, for the existing exporters:
-    exactly what `effective_resume` shows. With evidence-only mode on, an edited
-    line its evidence does not support raises `ExportBlocked` instead."""
+    exactly what `effective_resume` shows, or `ExportBlocked` naming why not.
+
+    With evidence-only mode on, an edited line its own evidence does not
+    support blocks the export. Headline and summary edits are not checked yet
+    and ship as written; a certification line that is not one of the
+    person's own blocks the export in any mode."""
     res = run.generated_resume.model_copy(deep=True)
     bullets_state: dict[str, Any] = state.get("bullets", {})
+    known = {f"{c.issuer}: {c.name}" for c in res.certifications}
+    blocked = [
+        {"id": line, "company": "", "text": line, "why": ["Not one of your certifications"]}
+        for line in state.get("certifications") or []
+        if line not in known
+    ]
     if evidence_only:
-        blocked = []
         for e in res.experience:
             for b in e.bullets:
                 bs = bullets_state.get(b.id, {})
@@ -265,8 +274,8 @@ def export_resume(
                             "why": verdict["not_evidenced"],
                         }
                     )
-        if blocked:
-            raise ExportBlocked(blocked)
+    if blocked:
+        raise ExportBlocked(blocked)
     if state.get("headline"):
         res.headline = state["headline"]
     if state.get("summary") is not None:
@@ -305,6 +314,8 @@ def export_resume(
             g.items = [i for i in g.items if i not in hidden]
         res.skills = [g for g in res.skills if g.items]
     if state.get("certifications") is not None:
-        selected = set(state["certifications"])
-        res.certifications = [c for c in res.certifications if f"{c.issuer}: {c.name}" in selected]
+        # In the order shown; a line that is not one of the person's
+        # certifications was refused above rather than dropped here.
+        by_line = {f"{c.issuer}: {c.name}": c for c in res.certifications}
+        res.certifications = [by_line[line] for line in state["certifications"] if line in by_line]
     return res

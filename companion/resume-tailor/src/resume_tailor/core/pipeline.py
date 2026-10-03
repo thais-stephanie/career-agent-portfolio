@@ -269,12 +269,20 @@ class TailorService:
         warnings += w
         say("validating claims")
         resume, claim_map, validation = self.validator.validate(resume, self.index, req.options)
-        stable = titles[0] if titles else base.headline
         if any(i.code == "headline_unsupported_terms" for i in validation.issues):
-            # A headline naming what the evidence does not vouch for goes back
-            # to the stable one, whole, rather than with words cut out of it.
-            resume.headline = stable
-        safe_headline, head_issues = check_headline(resume.headline, job, stable)
+            # A headline naming what the evidence does not vouch for goes back,
+            # whole, to a stable one rather than with words cut out of it: the
+            # profile title when the evidence vouches for it, else the base
+            # headline (the person's own most recent title, a fact).
+            from resume_tailor.core.lexicon import find_terms
+
+            vouched = [t for t in titles[:1] if set(find_terms(t)) <= self.index.all_terms]
+            resume.headline = (vouched or [base.headline])[0]
+            validation.issues = [
+                i for i in validation.issues if i.code != "headline_unsupported_terms"
+            ]
+            warnings.append("headline replaced with the stable one: unsupported terms")
+        safe_headline, head_issues = check_headline(resume.headline, job, base.headline)
         if head_issues:
             resume.headline = safe_headline
             validation.issues.extend(head_issues)
