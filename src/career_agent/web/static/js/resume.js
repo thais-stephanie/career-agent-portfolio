@@ -51,6 +51,8 @@ const RESULT_TONE = {
 
 export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, onGoProfile, toast }) {
   let tab = 'start';
+  // Which call of show() is the latest: an older one still loading never paints over it.
+  let shown = 0;
   let ws = null; // { mode, candidate_id, candidate_name, profile }
   //: Starting a second run stops the first one's polling loop.
   let pollToken = 0;
@@ -205,6 +207,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
    */
   async function show(next = tab, { jobId = null, runId = null, fresh = false } = {}) {
     tab = TABS.includes(next) ? next : 'start';
+    const turn = ++shown;
     if (fresh) {
       cache = { jobs: null, runs: null, bases: null, career: null, status: new Map() };
       ws = null;  // the person's name may have changed on My profile
@@ -217,10 +220,11 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
     try {
       await boot();
     } catch (error) {
-      repaint([unavailable(error)]);
+      if (turn === shown) repaint([unavailable(error)]);
       return;
     }
     if (runId) await openRun(runId);
+    if (turn !== shown) return;
     try {
       const painter = {
         start: paintStart, make: paintMake, resumes: paintResumes, experience: paintExperience, tips: paintTips,
@@ -247,6 +251,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
 
   async function paintStart() {
     const [jobs, made, data] = await Promise.all([savedJobs(), runs(), career()]);
+    if (tab !== 'start') return;  // another tab was chosen while this one loaded
     const groups = jobsWithVersions(made);
     // Saved jobs with no version yet. A job with one has its own row below,
     // with "Make another version".
@@ -1102,6 +1107,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
       .map((run) => api.getJob(run.career_job_id)
         .then((job) => cache.status.set(run.career_job_id, job.application_status || 'DISCOVERED'))
         .catch(() => null)));
+    if (tab !== 'resumes') return;
     repaint([el('div', { className: 'rh-col' }, [
       el('section', { className: 'rh-card rh-list' }, [
         el('div', { className: 'rh-list__head rh-list__head--row' }, [
@@ -1256,6 +1262,7 @@ export function createResumeHelper({ host, onOpenJob, onGoJobs, onGoEvidence, on
   let expQuery = '';
   async function paintExperience() {
     const data = await career();
+    if (tab !== 'experience') return;
     const experiences = (data && data.experiences) || [];
     const look = lookCount();
     const q = expQuery.trim().toLowerCase();
