@@ -12,9 +12,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from career_agent.clock import new_id
-from career_agent.resume_doc.models import ResumeDocument, upgrade_resume_document
+from career_agent.resume_doc.models import (
+    Origin,
+    ResumeDocument,
+    TextBlock,
+    upgrade_resume_document,
+)
 from career_agent.resume_doc.store import (
     NotFound,
     ResumeStore,
@@ -74,11 +80,19 @@ def document(kind: str = "MASTER", **extra: Any) -> ResumeDocument:
     )
 
 
-def tailored(store: ResumeStore, snapshot_id: str, master: Any = None, job_id: Any = None) -> Any:
+def tailored(store: ResumeStore, snapshot_id: str, master: Any = None, **target: Any) -> Any:
+    """A tailored version whose target is copied from its snapshot (overridable)."""
     rev = store.list_revisions(master.id)[-1] if master else None
+    snap = store.get_jd_snapshot(snapshot_id)
     doc = document(
         "TAILORED",
-        target={"jd_snapshot_id": snapshot_id, "job_id": job_id, "title": "Data Analyst"},
+        target={
+            "jd_snapshot_id": snapshot_id,
+            "job_id": snap.job_id,
+            "title": snap.title,
+            "company": snap.company,
+            **target,
+        },
         provenance={
             "created_from": "TAILOR",
             "master_document_id": master.id if master else None,
@@ -125,11 +139,37 @@ def test_autosave_needs_the_hash_last_read_and_never_writes_history(store: Resum
     assert store.get_document(master.id).title == "Renamed"
 
 
-def test_a_document_keeps_its_id_and_kind(store: ResumeStore) -> None:
+def test_a_document_keeps_its_id_kind_target_and_provenance(store: ResumeStore) -> None:
     master = store.create_document(document())
     other = document().model_copy(update={"title": "x"})
     with pytest.raises(ResumeStoreError, match="do not change"):
         store.save_working_copy(master.id, other, expected_sha256=master.working_sha256)
+    ad = store.create_jd_snapshot(text=AD, title="Data Analyst", job_id="job-1")
+    version = tailored(store, ad.id, master)
+    assert version.working.target is not None
+    for change in (
+        {"target": version.working.target.model_copy(update={"job_id": "job-999"})},
+        {"provenance": version.working.provenance.model_copy(update={"master_revision_id": None})},
+    ):
+        with pytest.raises(ResumeStoreError, match="do not change"):
+            store.save_working_copy(
+                version.id,
+                version.working.model_copy(update=change),
+                expected_sha256=version.working_sha256,
+            )
+
+
+def test_an_unvalidated_model_is_validated_before_it_is_stored(store: ResumeStore) -> None:
+    master = store.create_document(document())
+    bad = TextBlock.model_construct(
+        id=new_id(), text="Led everything.", origin=Origin.AI_REWRITE, evidence_ids=[]
+    )
+    sneaky = master.working.model_copy(update={"summary": bad})
+    with pytest.raises(ValidationError, match="evidence"):
+        store.save_working_copy(master.id, sneaky, expected_sha256=master.working_sha256)
+    with pytest.raises(ValidationError):
+        store.create_document(sneaky.model_copy(update={"id": new_id()}))
+    assert store.list_documents()[0].working == master.working
 
 
 def test_checkpoints_append_and_history_cannot_be_rewritten(store: ResumeStore, db: Path) -> None:
@@ -144,6 +184,8 @@ def test_checkpoints_append_and_history_cannot_be_rewritten(store: ResumeStore, 
     assert store.checkpoint_revision(master.id, "EXPORTED").id == second.id
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
         store.conn.execute("UPDATE resume_revision SET reason = 'IMPORTED'")
+    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+        store.conn.execute("DELETE FROM resume_revision")
     with pytest.raises(sqlite3.IntegrityError):
         store.conn.execute(
             "INSERT INTO resume_revision (id, document_id, seq, content_json, content_sha256,"
@@ -196,8 +238,12 @@ def test_a_snapshot_is_immutable_and_deduplicated_by_content(store: ResumeStore)
     assert changed.id != first.id and store.get_jd_snapshot(first.id).text == AD
     with pytest.raises(sqlite3.IntegrityError, match="immutable"):
         store.conn.execute("UPDATE jd_snapshot SET text = 'edited' WHERE id = ?", (first.id,))
-    with pytest.raises(ResumeStoreError):
-        store.create_jd_snapshot(text="   ", title="Empty")
+    with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+        store.conn.execute("DELETE FROM jd_snapshot")
+    for text, title in (("   ", "Empty"), (AD, "  "), (AD, "")):
+        with pytest.raises(ResumeStoreError):
+            store.create_jd_snapshot(text=text, title=title)
+    assert store.create_jd_snapshot(text=AD, title="Pasted", job_id="").job_id is None
 
 
 # -------------------------------------------------------------- versions
@@ -210,10 +256,10 @@ def test_versions_of_one_job_are_numbered_and_jobs_are_independent(store: Resume
     ad2 = store.create_jd_snapshot(text=AD + " Hybrid.", title="Data Analyst", job_id="job-1")
     other = store.create_jd_snapshot(text="Another ad entirely.", title="Writer", job_id="job-2")
     numbers = [
-        tailored(store, ad.id, master, "job-1").version_number,
-        tailored(store, ad2.id, master, "job-1").version_number,
-        tailored(store, other.id, master, "job-2").version_number,
-        tailored(store, ad.id, master, "job-1").version_number,
+        tailored(store, ad.id, master).version_number,
+        tailored(store, ad2.id, master).version_number,
+        tailored(store, other.id, master).version_number,
+        tailored(store, ad.id, master).version_number,
     ]
     assert numbers == [1, 2, 1, 3]
 
@@ -245,7 +291,7 @@ def test_two_writers_never_take_the_same_version_number(db: Path) -> None:
         conn = connect(db)
         try:
             for _ in range(5):
-                tailored(ResumeStore(conn), snapshot.id, job_id="race")
+                tailored(ResumeStore(conn), snapshot.id)
         except BaseException as exc:  # noqa: BLE001
             errors.append(exc)
         finally:
@@ -268,9 +314,9 @@ def test_two_writers_never_take_the_same_version_number(db: Path) -> None:
 
 def test_one_preferred_version_per_job(store: ResumeStore) -> None:
     ad = store.create_jd_snapshot(text=AD, title="Data Analyst", job_id="job-1")
-    v1, v2 = tailored(store, ad.id, job_id="job-1"), tailored(store, ad.id, job_id="job-1")
+    v1, v2 = tailored(store, ad.id), tailored(store, ad.id)
     ad2 = store.create_jd_snapshot(text="B", title="B", job_id="job-2")
-    other = tailored(store, ad2.id, job_id="job-2")
+    other = tailored(store, ad2.id)
     store.set_preferred(v1.id)
     store.set_preferred(other.id)
     store.set_preferred(v2.id)
@@ -328,8 +374,14 @@ def test_a_master_reference_must_be_a_master_and_its_revision(store: ResumeStore
     )
     with pytest.raises(ResumeStoreError, match="revision"):
         store.create_document(doc)
-    with pytest.raises(ResumeStoreError, match="job"):
-        tailored(store, ad.id, job_id="not-the-snapshots-job")
+    for wrong in ({"job_id": "not-the-snapshots-job"}, {"title": "Invented Senior Title"}):
+        with pytest.raises(ResumeStoreError, match="snapshot"):
+            tailored(store, ad.id, **wrong)
+    orphan = document(
+        provenance={"created_from": "MASTER_COPY", "master_revision_id": foreign},
+    )
+    with pytest.raises(ResumeStoreError, match="needs its master"):
+        store.create_document(orphan)
 
 
 # ------------------------------------------------- runs, exports, findings

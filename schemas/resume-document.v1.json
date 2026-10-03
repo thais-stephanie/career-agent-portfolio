@@ -6,6 +6,7 @@
         "evidence_ids": {
           "default": [],
           "items": {
+            "minLength": 1,
             "type": "string"
           },
           "title": "Evidence Ids",
@@ -64,9 +65,9 @@
         }
       },
       "required": [
+        "origin",
         "id",
-        "text",
-        "origin"
+        "text"
       ],
       "title": "Bullet",
       "type": "object"
@@ -970,6 +971,7 @@
         "evidence_ids": {
           "default": [],
           "items": {
+            "minLength": 1,
             "type": "string"
           },
           "title": "Evidence Ids",
@@ -991,9 +993,9 @@
         }
       },
       "required": [
+        "origin",
         "id",
-        "label",
-        "origin"
+        "label"
       ],
       "title": "SkillItem",
       "type": "object"
@@ -1051,6 +1053,7 @@
         "evidence_ids": {
           "default": [],
           "items": {
+            "minLength": 1,
             "type": "string"
           },
           "title": "Evidence Ids",
@@ -1096,9 +1099,9 @@
         }
       },
       "required": [
+        "origin",
         "id",
-        "text",
-        "origin"
+        "text"
       ],
       "title": "TextBlock",
       "type": "object"

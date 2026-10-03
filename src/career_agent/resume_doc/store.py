@@ -8,19 +8,23 @@ Working copy and revisions are two acts. `save_working_copy` is the cheap
 autosave and needs the hash the caller last read (`expected_sha256`): a
 second window holding an older copy gets `StaleDocument`, never a silent
 overwrite. `checkpoint_revision` appends a milestone; history rows are never
-updated (a trigger refuses it), and restoring an old revision appends a new
-one rather than rewinding.
+updated or deleted (triggers refuse both), and restoring an old revision
+appends a new one rather than rewinding.
 
 A tailored document is a separate row that copies from a named master
-revision. Nothing here writes a master as a side effect of tailoring.
+revision. Its target and provenance are fixed when it is created, and nothing
+here writes a master as a side effect of tailoring.
+
+Every document is validated again on the way in, so a model built without
+validation (`model_copy`, `model_construct`) cannot store what the model forbids.
 """
 
 from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass
-from typing import Any, Literal
+from dataclasses import dataclass, fields
+from typing import Any, Literal, TypeVar
 
 from career_agent.clock import new_id, now_utc
 from career_agent.resume_doc.models import (
@@ -165,12 +169,28 @@ class ResumeExport:
     created_at: str
 
 
+T = TypeVar("T")
+
+
+def _from_row(cls: type[T], r: sqlite3.Row, **parsed: Any) -> T:
+    """A record from its row: columns by name, parsed fields given explicitly."""
+    plain = {f.name: r[f.name] for f in fields(cls) if f.name not in parsed}  # type: ignore[arg-type]
+    return cls(**plain, **parsed)
+
+
 def _object(value: dict[str, Any] | None) -> str | None:
-    if value is None:
-        return None
-    if not isinstance(value, dict):
-        raise ResumeStoreError("a stage is stored as a JSON object")
-    return json.dumps(value, sort_keys=True, ensure_ascii=False)
+    return None if value is None else json.dumps(value, sort_keys=True, ensure_ascii=False)
+
+
+def _loads(text: str | None) -> Any:
+    return json.loads(text) if text else None
+
+
+def _body(doc: ResumeDocument) -> tuple[ResumeDocument, str, str]:
+    """Validate again, then serialise: what is stored always loads."""
+    checked = upgrade_resume_document(doc.model_dump(mode="json"))
+    body = canonical_json(checked)
+    return checked, body, sha256_text(body)
 
 
 class ResumeStore:
@@ -191,25 +211,24 @@ class ResumeStore:
         """Store a new document and its first revision. A TAILORED document
         takes the next version number of its job, inside the write lock."""
         now = now or now_utc()
-        body = canonical_json(doc)
-        sha = sha256_text(body)
+        doc, body, sha = _body(doc)
         with transaction(self.conn):
             master = doc.provenance.master_document_id
+            rev = doc.provenance.master_revision_id
+            if rev is not None and master is None:
+                raise ResumeStoreError("master_revision_id needs its master_document_id")
             if master is not None:
-                row = self._row("resume_document", master)
-                if row["kind"] != DocumentKind.MASTER:
+                if self._row("resume_document", master)["kind"] != DocumentKind.MASTER:
                     raise ResumeStoreError("master_document_id must name a MASTER document")
-                rev = doc.provenance.master_revision_id
                 if rev is not None and self._row("resume_revision", rev)["document_id"] != master:
                     raise ResumeStoreError("master_revision_id is not a revision of that master")
             group = number = None
             if doc.target is not None:
-                snapshot = self.get_jd_snapshot(doc.target.jd_snapshot_id)
-                if doc.target.job_id != snapshot.job_id:
-                    raise ResumeStoreError("the target's job is not the snapshot's job")
-                group = (
-                    f"job:{snapshot.job_id}" if snapshot.job_id else f"jd:{snapshot.text_sha256}"
-                )
+                snap = self.get_jd_snapshot(doc.target.jd_snapshot_id)
+                target = (doc.target.job_id, doc.target.title, doc.target.company)
+                if target != (snap.job_id, snap.title, snap.company):
+                    raise ResumeStoreError("the target's job, title and company are the snapshot's")
+                group = f"job:{snap.job_id}" if snap.job_id else f"jd:{snap.text_sha256}"
                 # Inside BEGIN IMMEDIATE no other writer can interleave, and
                 # UNIQUE (version_group, version_number) is the backstop.
                 number = self.conn.execute(
@@ -262,25 +281,17 @@ class ResumeStore:
         self, document_id: str, doc: ResumeDocument, *, expected_sha256: str, now: str | None = None
     ) -> str:
         """Autosave. Returns the new hash; `StaleDocument` if another write came first."""
-        body = canonical_json(doc)
-        sha = sha256_text(body)
+        doc, body, sha = _body(doc)
         with transaction(self.conn):
             current = self._row("resume_document", document_id)
             if current["working_sha256"] != expected_sha256:
                 raise StaleDocument(document_id, current["working_sha256"])
             stored = upgrade_resume_document(current["working_json"])
-            if (doc.id, doc.kind, doc.target and doc.target.jd_snapshot_id) != (
-                stored.id,
-                stored.kind,
-                stored.target and stored.target.jd_snapshot_id,
-            ):
-                raise ResumeStoreError("a document's id, kind and job ad do not change")
+            fixed = ("id", "kind", "target", "provenance")
+            if any(getattr(doc, name) != getattr(stored, name) for name in fixed):
+                raise ResumeStoreError("a document's id, kind, target and provenance do not change")
             if sha != expected_sha256:
-                self.conn.execute(
-                    "UPDATE resume_document SET working_json = ?, working_sha256 = ?,"
-                    " title = ?, language = ?, updated_at = ? WHERE id = ?",
-                    (body, sha, doc.title, doc.language, now or now_utc(), document_id),
-                )
+                self._write_working(document_id, doc, body, sha, now or now_utc())
         return sha
 
     def checkpoint_revision(
@@ -290,7 +301,11 @@ class ResumeStore:
         the latest revision is that revision: no duplicate row is written."""
         with transaction(self.conn):
             current = self._row("resume_document", document_id)
-            latest = self._latest(document_id)
+            latest = self.conn.execute(
+                "SELECT id, content_sha256 FROM resume_revision WHERE document_id = ?"
+                " ORDER BY seq DESC LIMIT 1",
+                (document_id,),
+            ).fetchone()
             if latest is not None and latest["content_sha256"] == current["working_sha256"]:
                 revision_id = latest["id"]
             else:
@@ -316,42 +331,19 @@ class ResumeStore:
             current = self._row("resume_document", document_id)
             if current["working_sha256"] != expected_sha256:
                 raise StaleDocument(document_id, current["working_sha256"])
-            restored = upgrade_resume_document(old["content_json"])
-            self.conn.execute(
-                "UPDATE resume_document SET working_json = ?, working_sha256 = ?,"
-                " title = ?, language = ?, updated_at = ? WHERE id = ?",
-                (
-                    old["content_json"],
-                    old["content_sha256"],
-                    restored.title,
-                    restored.language,
-                    now,
-                    document_id,
-                ),
-            )
-            new = self._append_revision(
-                document_id, old["content_json"], old["content_sha256"], "RESTORED", old["id"], now
-            )
+            body, sha = old["content_json"], old["content_sha256"]
+            self._write_working(document_id, upgrade_resume_document(body), body, sha, now)
+            new = self._append_revision(document_id, body, sha, "RESTORED", old["id"], now)
         return self.get_revision(new)
 
     def get_revision(self, revision_id: str) -> Revision:
-        r = self._row("resume_revision", revision_id)
-        return Revision(
-            id=r["id"],
-            document_id=r["document_id"],
-            seq=r["seq"],
-            content=upgrade_resume_document(r["content_json"]),
-            content_sha256=r["content_sha256"],
-            reason=r["reason"],
-            base_revision_id=r["base_revision_id"],
-            created_at=r["created_at"],
-        )
+        return self._revision(self._row("resume_revision", revision_id))
 
     def list_revisions(self, document_id: str) -> list[Revision]:
         rows = self.conn.execute(
-            "SELECT id FROM resume_revision WHERE document_id = ? ORDER BY seq", (document_id,)
-        ).fetchall()
-        return [self.get_revision(r["id"]) for r in rows]
+            "SELECT * FROM resume_revision WHERE document_id = ? ORDER BY seq", (document_id,)
+        )
+        return [self._revision(r) for r in rows]
 
     def archive_document(self, document_id: str, *, now: str | None = None) -> None:
         """Soft delete: the row, its history and its exports all stay."""
@@ -392,8 +384,9 @@ class ResumeStore:
     ) -> JdSnapshot:
         """Capture a job ad. Identical content returns the snapshot already held;
         any difference (text, title, company, job, URL, language) is a new one."""
-        if not text.strip():
-            raise ResumeStoreError("a job ad snapshot needs the ad's text")
+        if not text.strip() or not title.strip():
+            raise ResumeStoreError("a job ad snapshot needs the ad's text and title")
+        job_id = job_id or None
         identity = json.dumps(
             [job_id, title, company, url, text, language], ensure_ascii=False, separators=(",", ":")
         )
@@ -424,18 +417,7 @@ class ResumeStore:
         return self.get_jd_snapshot(snapshot_id)
 
     def get_jd_snapshot(self, snapshot_id: str) -> JdSnapshot:
-        r = self._row("jd_snapshot", snapshot_id)
-        return JdSnapshot(
-            id=r["id"],
-            job_id=r["job_id"],
-            title=r["title"],
-            company=r["company"],
-            url=r["url"],
-            text=r["text"],
-            text_sha256=r["text_sha256"],
-            language=r["language"],
-            captured_at=r["captured_at"],
-        )
+        return _from_row(JdSnapshot, self._row("jd_snapshot", snapshot_id))
 
     # ------------------------------------------------------- tailoring
 
@@ -464,7 +446,7 @@ class ResumeStore:
                     run_id,
                     document_id,
                     doc.jd_snapshot_id,
-                    doc.working.provenance.master_document_id,
+                    doc.master_document_id,
                     doc.working.provenance.master_revision_id,
                     mode,
                     provider,
@@ -504,23 +486,8 @@ class ResumeStore:
 
     def get_tailoring_run(self, run_id: str) -> TailoringRun:
         r = self._row("tailoring_run", run_id)
-        return TailoringRun(
-            id=r["id"],
-            document_id=r["document_id"],
-            jd_snapshot_id=r["jd_snapshot_id"],
-            master_document_id=r["master_document_id"],
-            master_revision_id=r["master_revision_id"],
-            mode=r["mode"],
-            provider=r["provider"],
-            model=r["model"],
-            stages={
-                name: json.loads(r[f"{name}_json"]) if r[f"{name}_json"] else None
-                for name in RUN_STAGES
-            },
-            status=r["status"],
-            started_at=r["started_at"],
-            finished_at=r["finished_at"],
-        )
+        stages = {name: _loads(r[f"{name}_json"]) for name in RUN_STAGES}
+        return _from_row(TailoringRun, r, stages=stages)
 
     def record_tailoring_change(
         self,
@@ -558,8 +525,7 @@ class ResumeStore:
         """Decided once. The accepted text itself lands in the document as a
         revision (AI_ACCEPTED), not here."""
         with transaction(self.conn):
-            row = self._row("tailoring_change", change_id)
-            if row["decision"] != "PENDING":
+            if self._row("tailoring_change", change_id)["decision"] != "PENDING":
                 raise ResumeStoreError("this change was already decided")
             self.conn.execute(
                 "UPDATE tailoring_change SET decision = ?, decided_at = ? WHERE id = ?",
@@ -611,29 +577,14 @@ class ResumeStore:
                     now or now_utc(),
                 ),
             )
-        return self.list_exports(document_id)[-1]
+        return self._export(self._row("resume_export", export_id))
 
     def list_exports(self, document_id: str) -> list[ResumeExport]:
         rows = self.conn.execute(
             "SELECT * FROM resume_export WHERE document_id = ? ORDER BY created_at, id",
             (document_id,),
         )
-        return [
-            ResumeExport(
-                id=r["id"],
-                document_id=r["document_id"],
-                revision_id=r["revision_id"],
-                format=r["format"],
-                template=r["template"],
-                file_path=r["file_path"],
-                file_sha256=r["file_sha256"],
-                page_count=r["page_count"],
-                engine=r["engine"],
-                ats_check=json.loads(r["ats_check_json"]) if r["ats_check_json"] else None,
-                created_at=r["created_at"],
-            )
-            for r in rows
-        ]
+        return [self._export(r) for r in rows]
 
     def dismiss_finding(
         self,
@@ -669,12 +620,14 @@ class ResumeStore:
             raise NotFound(f"no {table} {row_id}")
         return row
 
-    def _latest(self, document_id: str) -> sqlite3.Row | None:
-        row: sqlite3.Row | None = self.conn.execute(
-            "SELECT * FROM resume_revision WHERE document_id = ? ORDER BY seq DESC LIMIT 1",
-            (document_id,),
-        ).fetchone()
-        return row
+    def _write_working(
+        self, document_id: str, doc: ResumeDocument, body: str, sha: str, now: str
+    ) -> None:
+        self.conn.execute(
+            "UPDATE resume_document SET working_json = ?, working_sha256 = ?,"
+            " title = ?, language = ?, updated_at = ? WHERE id = ?",
+            (body, sha, doc.title, doc.language, now, document_id),
+        )
 
     def _append_revision(
         self,
@@ -695,35 +648,30 @@ class ResumeStore:
         )
         return revision_id
 
-    def _document(self, r: sqlite3.Row) -> StoredDocument:
-        return StoredDocument(
-            id=r["id"],
+    @staticmethod
+    def _document(r: sqlite3.Row) -> StoredDocument:
+        return _from_row(
+            StoredDocument,
+            r,
             kind=DocumentKind(r["kind"]),
-            title=r["title"],
-            parent_document_id=r["parent_document_id"],
-            master_document_id=r["master_document_id"],
-            jd_snapshot_id=r["jd_snapshot_id"],
-            version_group=r["version_group"],
-            version_number=r["version_number"],
-            label=r["label"],
             preferred=bool(r["preferred"]),
-            archived_at=r["archived_at"],
-            created_at=r["created_at"],
-            updated_at=r["updated_at"],
             working=upgrade_resume_document(r["working_json"]),
-            working_sha256=r["working_sha256"],
         )
 
     @staticmethod
+    def _revision(r: sqlite3.Row) -> Revision:
+        return _from_row(Revision, r, content=upgrade_resume_document(r["content_json"]))
+
+    @staticmethod
     def _change(r: sqlite3.Row) -> TailoringChange:
-        return TailoringChange(
-            id=r["id"],
-            run_id=r["run_id"],
+        return _from_row(
+            TailoringChange,
+            r,
             op=json.loads(r["op_json"]),
             evidence_ids=json.loads(r["evidence_ids_json"]),
             requirement_ids=json.loads(r["requirement_ids_json"]),
-            source=r["source"],
-            reason=r["reason"],
-            decision=r["decision"],
-            decided_at=r["decided_at"],
         )
+
+    @staticmethod
+    def _export(r: sqlite3.Row) -> ResumeExport:
+        return _from_row(ResumeExport, r, ats_check=_loads(r["ats_check_json"]))

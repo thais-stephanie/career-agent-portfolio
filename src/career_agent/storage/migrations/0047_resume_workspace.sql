@@ -29,6 +29,11 @@ BEGIN
     SELECT RAISE(ABORT, 'jd_snapshot is immutable: capture a new snapshot');
 END;
 
+CREATE TRIGGER jd_snapshot_kept BEFORE DELETE ON jd_snapshot
+BEGIN
+    SELECT RAISE(ABORT, 'jd_snapshot is immutable: it is never deleted');
+END;
+
 CREATE TABLE resume_document (
     id                  TEXT PRIMARY KEY,
     kind                TEXT NOT NULL CHECK (kind IN ('MASTER', 'TAILORED', 'IMPORTED', 'SCRATCH')),
@@ -76,6 +81,11 @@ CREATE TABLE resume_revision (
 CREATE TRIGGER resume_revision_append_only BEFORE UPDATE ON resume_revision
 BEGIN
     SELECT RAISE(ABORT, 'resume_revision is append-only');
+END;
+
+CREATE TRIGGER resume_revision_kept BEFORE DELETE ON resume_revision
+BEGIN
+    SELECT RAISE(ABORT, 'resume_revision is append-only: it is never deleted');
 END;
 
 CREATE TABLE tailoring_run (
@@ -137,7 +147,6 @@ CREATE TABLE resume_finding_dismissal (
     PRIMARY KEY (document_id, finding_key)
 );
 
-CREATE INDEX resume_revision_document ON resume_revision (document_id, seq);
 CREATE INDEX tailoring_run_document ON tailoring_run (document_id);
 CREATE INDEX tailoring_change_run ON tailoring_change (run_id);
 CREATE INDEX resume_export_document ON resume_export (document_id);

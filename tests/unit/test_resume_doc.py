@@ -148,6 +148,10 @@ def test_two_items_cannot_share_an_id() -> None:
     data["education"][0]["id"] = data["experience"][0]["id"]
     with pytest.raises(ValidationError, match="share an id"):
         upgrade_resume_document(data)
+    data = rich()
+    data["headline"]["id"] = data["id"]
+    with pytest.raises(ValidationError, match="share an id"):
+        upgrade_resume_document(data)
 
 
 def test_a_placeholder_name_loads_and_is_a_finding_never_a_default() -> None:
@@ -181,6 +185,9 @@ def test_dates_are_structured_and_ordered() -> None:
 def test_text_that_claims_evidence_must_name_it(origin: str) -> None:
     with pytest.raises(ValidationError, match="evidence"):
         Bullet(id=new_id(), text="Led everything.", origin=Origin(origin))
+    for blank in ([""], ["   "]):
+        with pytest.raises(ValidationError):
+            Bullet(id=new_id(), text="Led everything.", origin=Origin(origin), evidence_ids=blank)
     data = rich()
     data["skills"][0]["items"][1].update(origin=origin, evidence_ids=[])
     with pytest.raises(ValidationError, match="evidence"):

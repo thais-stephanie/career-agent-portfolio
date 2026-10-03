@@ -26,10 +26,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 SCHEMA_VERSION: Literal["1.0"] = "1.0"
 
@@ -145,20 +146,31 @@ class Target(_Model):
 # --------------------------------------------------------------------- text
 
 
-class TextBlock(_Model):
+#: A verified_claim reference; blank is not a reference.
+EvidenceId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+class _Evidenced(_Model):
+    origin: Origin
+    evidence_ids: list[EvidenceId] = []
+
+    @model_validator(mode="after")
+    def _evidence(self) -> _Evidenced:
+        if self.origin in EVIDENCED_ORIGINS and not self.evidence_ids:
+            raise ValueError(f"{self.origin.value} content must name the evidence it rests on")
+        return self
+
+
+class TextBlock(_Evidenced):
     id: Id
     text: Text
-    origin: Origin
-    evidence_ids: list[str] = []
     requirement_ids: list[str] = []
     override: Override = Override.NONE
     #: The wording before a person's edit; only an overridden block has one.
     original_text: Text | None = None
 
     @model_validator(mode="after")
-    def _provenance(self) -> TextBlock:
-        if self.origin in EVIDENCED_ORIGINS and not self.evidence_ids:
-            raise ValueError(f"{self.origin.value} text must name the evidence it rests on")
+    def _override(self) -> TextBlock:
         if self.override is Override.NONE and self.original_text is not None:
             raise ValueError("original_text belongs to an edited or locked block")
         return self
@@ -244,17 +256,9 @@ class CertificationEntry(_Model):
     claim_key: str | None = None
 
 
-class SkillItem(_Model):
+class SkillItem(_Evidenced):
     id: Id
     label: Name
-    origin: Origin
-    evidence_ids: list[str] = []
-
-    @model_validator(mode="after")
-    def _provenance(self) -> SkillItem:
-        if self.origin in EVIDENCED_ORIGINS and not self.evidence_ids:
-            raise ValueError(f"{self.origin.value} skill must name the evidence it rests on")
-        return self
 
 
 class SkillGroup(_Model):
@@ -365,7 +369,7 @@ class ResumeDocument(_Model):
     def _whole(self) -> ResumeDocument:
         if (self.kind is DocumentKind.TAILORED) != (self.target is not None):
             raise ValueError("a TAILORED document has a target, and only a TAILORED one")
-        ids = _item_ids(self.model_dump())
+        ids = [self.id, *_item_ids(self.model_dump())]
         if len(ids) != len(set(ids)):
             raise ValueError("two items in this document share an id")
         customs = {f"custom:{c.id}" for c in self.custom_sections}
@@ -400,7 +404,7 @@ class UnsupportedSchemaVersion(ValueError):
 #: Old version -> function returning the payload one version newer. Empty
 #: while 1.0 is the only version; `upgrade_resume_document` is still the only
 #: way a stored document is read, so the first upgrade has one place to go.
-UPGRADES: dict[str, Any] = {}
+UPGRADES: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 
 
 def upgrade_resume_document(payload: dict[str, Any] | str) -> ResumeDocument:
