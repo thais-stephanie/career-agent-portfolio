@@ -133,7 +133,7 @@ def test_the_master_holds_confirmed_evidence_verbatim_and_nothing_else(tmp_path:
     doc = master.working
     assert [e.employer for e in doc.experience] == ["Northwind Synthetic", "Exemplo Digital"]
     current, older = doc.experience
-    assert current.claim_key == ids["now"] and current.current and current.end is None
+    assert current.experience_id == ids["now"] and current.current and current.end is None
     assert (current.source_title, current.display_title) == ("Data Analyst", "Data Analyst")
     assert (older.start.year, older.start.month) == (2019, None)  # type: ignore[union-attr]
     texts = {b.text: b for e in doc.experience for b in e.bullets}

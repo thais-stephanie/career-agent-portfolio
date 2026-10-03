@@ -710,13 +710,12 @@ def resume_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
     return {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in RESUME_TABLES}
 
 
-def forget_resume_data(conn: sqlite3.Connection) -> dict[str, int]:
+def forget_resume_data(conn: sqlite3.Connection) -> None:
     """Delete every resume row in THIS profile's database, on the person's
-    explicit request (`career-agent forget everything`). Returns what was
-    removed. The guards against deleting history are lifted for this one
-    transaction and put back before it commits."""
-    counts = resume_row_counts(conn)
-    with transaction(conn):
+    explicit request (`career-agent forget everything`). The guards against
+    deleting history are lifted inside the transaction and put back before
+    it commits. Joins the caller's transaction when one is open."""
+    with nullcontext() if conn.in_transaction else transaction(conn):
         guards = [
             conn.execute(
                 "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?", (name,)
@@ -729,4 +728,3 @@ def forget_resume_data(conn: sqlite3.Connection) -> dict[str, int]:
             conn.execute(f"DELETE FROM {table}")
         for sql in guards:
             conn.execute(sql)
-    return counts

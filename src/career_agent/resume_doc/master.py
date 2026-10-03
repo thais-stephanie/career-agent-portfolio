@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import unicodedata
 from collections.abc import Iterable
 from typing import Any
 
@@ -94,12 +95,13 @@ def resolve_identity(
         ("portfolio", LinkKind.PORTFOLIO),
     ):
         url = str(contact.get(key) or "").strip()
-        if url and not re.match(r"^https?://", url, re.IGNORECASE):
+        if not url:
+            continue
+        if not re.match(r"^https?://", url, re.IGNORECASE):
             notes.append(f"{key}: no http(s) scheme, https:// was added")
             url = f"https://{url}"
         try:
-            if url:
-                links.append(Link(id=new_id(), kind=kind, url=url))
+            links.append(Link(id=new_id(), kind=kind, url=url))
         except ValidationError:
             notes.append(f"{key}: not a web address, left out")
     fields["links"] = links
@@ -114,7 +116,17 @@ def resolve_identity(
     return Identity.model_validate(fields), notes
 
 
-def _date(value: Any) -> PartialDate | None:
+def _career(conn: sqlite3.Connection) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """The Career Profile overview and its evidence items (empty with no candidate)."""
+    candidate_id = candidate_id_of(conn)
+    if not candidate_id:
+        return {"experiences": []}, []
+    repo = CareerRepo(conn, candidate_id)
+    return repo.overview(), repo.items()
+
+
+def partial_date(value: Any) -> PartialDate | None:
+    """A "YYYY" or "YYYY-MM" period as a date; anything else is no date."""
     match = _PERIOD.match(str(value or ""))
     if not match:
         return None
@@ -128,16 +140,16 @@ def master_from_career_profile(
     """A MASTER document from CONFIRMED Career Profile data only, verbatim.
 
     Returns the document and a diagnostic line for every confirmed fact it
-    could not place in a typed section. Nothing is guessed to make it fit."""
-    candidate_id = candidate_id_of(conn)
-    repo = CareerRepo(conn, candidate_id)
-    overview = repo.overview() if candidate_id else {"experiences": []}
-    confirmed = [r for r in repo.items() if r["state"] == "CONFIRMED"] if candidate_id else []
+    could not place in a typed section. Nothing is guessed to make it fit.
+    Experiences the person archived, and what they hold, are left out."""
+    overview, items = _career(conn)
+    confirmed = [r for r in items if r["state"] == "CONFIRMED"]
     notes: list[str] = []
     experience = []
     placed = {str(e["id"]) for e in overview["experiences"]}
     for entry in overview["experiences"]:
-        start, end = _date(entry.get("period_start")), _date(entry.get("period_end"))
+        start = partial_date(entry.get("period_start"))
+        end = partial_date(entry.get("period_end"))
         current = bool(entry.get("current_role"))
         try:
             experience.append(
@@ -149,7 +161,7 @@ def master_from_career_profile(
                     start=start,
                     end=None if current else end,
                     current=current,
-                    claim_key=str(entry["id"]),
+                    experience_id=str(entry["id"]),
                     bullets=[
                         Bullet(
                             id=new_id(),
@@ -166,24 +178,32 @@ def master_from_career_profile(
     skills: dict[str, dict[str, Any]] = {}
     certifications = []
     for item in confirmed:
+        key, where = item["claim_key"], item.get("experience_id")
+        if where is not None and where not in placed:
+            continue  # an experience the person archived: theirs to leave out
         names = [item["text"]] if item["category"] in SKILL_CATEGORIES else []
         for name in [*names, *(item.get("tools") or [])]:
             label = " ".join(str(name).split())
-            if label and len(label) <= 60:
-                held = skills.setdefault(label.casefold(), {"label": label, "evidence": []})
-                if item["claim_key"] not in held["evidence"]:
-                    held["evidence"].append(item["claim_key"])
+            if not label:
+                continue
+            if len(label) > 60:
+                notes.append(f"skill {key}: longer than a skill name, left out")
+                continue
+            fold = unicodedata.normalize("NFC", label).casefold()
+            held = skills.setdefault(fold, {"label": label, "evidence": []})
+            if key not in held["evidence"]:
+                held["evidence"].append(key)
         if item["category"] == "CERTIFICATION":
-            if len(item["text"]) <= 300:
+            try:
                 certifications.append(
-                    CertificationEntry(id=new_id(), name=item["text"], claim_key=item["claim_key"])
+                    CertificationEntry(id=new_id(), name=item["text"].strip(), claim_key=key)
                 )
-            else:
-                notes.append(f"certification {item['claim_key']}: too long for a name, left out")
+            except ValidationError:
+                notes.append(f"certification {key}: not usable as a name, left out")
         elif item["category"] == "EDUCATION":
-            notes.append(f"education {item['claim_key']}: no typed fields to place it, left out")
-        elif item["category"] in HIGHLIGHT_CATEGORIES and item.get("experience_id") not in placed:
-            notes.append(f"statement {item['claim_key']}: not in an experience, left out")
+            notes.append(f"education {key}: no typed fields to place it, left out")
+        elif item["category"] in HIGHLIGHT_CATEGORIES and where is None:
+            notes.append(f"statement {key}: not in an experience, left out")
     groups = []
     if skills:
         groups.append(
@@ -249,8 +269,7 @@ def update_resume_identity(
 def evidence_changes(conn: sqlite3.Connection, master: ResumeDocument) -> dict[str, list[str]]:
     """Which confirmed statements and experiences differ from what the Master
     was made from. A report only: applying it is the person's decision."""
-    candidate_id = candidate_id_of(conn)
-    overview = CareerRepo(conn, candidate_id).overview() if candidate_id else {"experiences": []}
+    overview, _ = _career(conn)
     now = {
         h["claim_key"]: h["text"] for e in overview["experiences"] for h in e.get("highlights", [])
     }
@@ -262,7 +281,7 @@ def evidence_changes(conn: sqlite3.Connection, master: ResumeDocument) -> dict[s
                 for key in bullet.evidence_ids:
                     held[key] = source or bullet.text
     now_experiences = {str(e["id"]) for e in overview["experiences"]}
-    held_experiences = {e.claim_key for e in master.experience if e.claim_key}
+    held_experiences = {e.experience_id for e in master.experience if e.experience_id}
     return {
         "added": sorted(now.keys() - held.keys()),
         "removed": sorted(held.keys() - now.keys()),

@@ -223,7 +223,8 @@ class ExperienceEntry(_Dated):
     source_title: str | None = None
     location: str | None = None
     current: bool = False
-    claim_key: str | None = None
+    #: The Career Profile experience (`career_experience.id`) this entry mirrors.
+    experience_id: str | None = None
     bullets: list[Bullet] = []
 
     @model_validator(mode="after")

@@ -456,18 +456,6 @@
           "title": "Bullets",
           "type": "array"
         },
-        "claim_key": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Claim Key"
-        },
         "current": {
           "default": false,
           "title": "Current",
@@ -495,6 +483,18 @@
             }
           ],
           "default": null
+        },
+        "experience_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experience Id"
         },
         "hidden": {
           "default": false,

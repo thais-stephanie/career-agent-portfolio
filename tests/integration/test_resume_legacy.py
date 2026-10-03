@@ -23,6 +23,8 @@ from resume_tailor.workspace import WorkspaceStore
 from resume_tailor.workspace import drafts as dr
 from tests.integration.test_resume_pr0 import PT_JD, PT_TITLE, THIN_PROFILE
 
+from career_agent.domain.claims import VerifiedClaim
+from career_agent.domain.enums import ClaimSource, ClaimType
 from career_agent.resume_doc.legacy import (
     NOT_CHECKED,
     LegacyMigrationError,
@@ -35,12 +37,17 @@ from career_agent.resume_doc.master import get_or_create_master
 from career_agent.resume_doc.store import ResumeStore, resume_row_counts
 from career_agent.runtime import RuntimeMode, stamp_identity
 from career_agent.storage.db import connect, migrate, transaction
+from career_agent.storage.repositories import ClaimRepo
 from career_agent.storage.workspace_repo import ensure_candidate
 
 LABEL = "Synthetic Work"
 
 
-def profile(tmp_path: Path, name: str = "p", display_name: str = "Riley Synthetic") -> Any:
+def profile(
+    tmp_path: Path, name: str = "p", display_name: str = "Riley Synthetic", *, claims: bool = True
+) -> Any:
+    """A profile whose Career Evidence still holds the confirmed statements the
+    old workspace cites (`claims=False`: none of them)."""
     conn = connect(tmp_path / name / "personal.db")
     migrate(conn)
     with transaction(conn):
@@ -49,6 +56,18 @@ def profile(tmp_path: Path, name: str = "p", display_name: str = "Riley Syntheti
         conn.execute(
             "UPDATE candidate SET display_name = ? WHERE id = ?", (display_name, candidate)
         )
+        for experience in THIN_PROFILE["experiences"] if claims else []:
+            for highlight in experience["highlights"]:  # type: ignore[index]
+                ClaimRepo(conn).add(
+                    candidate,
+                    VerifiedClaim(
+                        claim_key=highlight["key"],
+                        claim_type=ClaimType.EMPLOYMENT,
+                        text=highlight["text"],
+                        source=ClaimSource.SELF_ATTESTED,
+                        verified=True,
+                    ),
+                )
     return conn
 
 
@@ -186,8 +205,10 @@ def test_a_draft_becomes_the_working_copy_and_nothing_is_lost(tmp_path: Path, le
     assert (first.origin, first.override) == ("USER_AUTHORED", "EDITED")
     old = generated.content.experience[0].bullets
     assert first.original_text == old[0].text and first.id == old[0].id
-    hidden = generated.content.experience[1].bullets
-    assert len(working.working.experience[1].bullets) == len(hidden) - 1, "the hidden line"
+    hidden = generated.content.experience[1].bullets[0]
+    kept = working.working.experience[1].bullets
+    assert [b.id for b in kept] == [b.id for b in generated.content.experience[1].bullets]
+    assert kept[0].hidden and kept[0].text == hidden.text, "a hidden line stays, hidden"
     # ...which the generated revision still holds.
     no_draft = stable_id("legacy-run", "20260102T000000-bbbbbb")
     assert [r.reason for r in store.list_revisions(no_draft)] == ["GENERATED"]
@@ -272,3 +293,67 @@ def test_a_corrupt_run_is_rolled_back_whole(tmp_path: Path, legacy: Path) -> Non
 def _job_export(legacy: Path) -> str:
     names = sorted(p.name for p in (legacy / "exports").iterdir())
     return next(n for n in names if "Synthetic Analyst" not in n)
+
+
+def test_evidence_is_cited_only_while_this_profile_still_confirms_it(
+    tmp_path: Path, legacy: Path
+) -> None:
+    conn = profile(tmp_path, claims=False)
+    migrated(tmp_path, legacy, conn)
+    master = ResumeStore(conn).current_master()
+    assert master is not None
+    bullets = [b for e in master.working.experience for b in e.bullets]
+    assert bullets and all(b.evidence_ids == [] and b.origin == "IMPORTED" for b in bullets)
+
+
+def test_a_renamed_workspace_or_old_label_is_never_the_name(tmp_path: Path, legacy: Path) -> None:
+    conn = profile(tmp_path, display_name="You")
+    meta_file = legacy / "candidate.json"
+    original = meta_file.read_text("utf-8")
+    try:
+        meta_file.write_text(
+            json.dumps({**json.loads(original), "name": "Old Label"}), encoding="utf-8"
+        )
+        migrated(tmp_path, legacy, conn)
+    finally:
+        meta_file.write_text(original, encoding="utf-8")
+    master = ResumeStore(conn).current_master()
+    assert master is not None and master.working.identity.full_name == ""
+
+
+def test_a_workspace_of_another_profile_is_refused(tmp_path: Path, legacy: Path) -> None:
+    conn = profile(tmp_path)
+    with transaction(conn):
+        conn.execute("UPDATE database_identity SET profile_id = 'prof-01SYNTHETICTHIS'")
+    meta_file = legacy / "candidate.json"
+    original = meta_file.read_text("utf-8")
+    try:
+        meta = {**json.loads(original), "career_agent_profile_id": "prof-01SYNTHETICOTHER"}
+        meta_file.write_text(json.dumps(meta), encoding="utf-8")
+        _, report = migrated(tmp_path, legacy, conn)
+    finally:
+        meta_file.write_text(original, encoding="utf-8")
+    assert [f["unit"] for f in report.failures] == ["identity"]
+    assert "another profile" in report.failures[0]["reason"]
+    assert set(resume_row_counts(conn).values()) == {0}, "nothing migrates after a refusal"
+
+
+def test_a_draft_edited_after_migration_is_reported_not_applied(
+    tmp_path: Path, legacy: Path
+) -> None:
+    conn, _ = migrated(tmp_path, legacy)
+    draft = legacy / "drafts" / "20260101T000000-aaaaaa.json"
+    original = draft.read_text("utf-8")
+    doc_id = stable_id("legacy-run", "20260101T000000-aaaaaa")
+    before = ResumeStore(conn).get_document(doc_id).working_sha256
+    try:
+        doc = json.loads(original)
+        doc["history"][doc["cursor"]]["note"] = "Added later in the old helper."
+        draft.write_text(json.dumps(doc), encoding="utf-8")
+        _, report = migrated(tmp_path / "again", legacy, conn)
+    finally:
+        draft.write_text(original, encoding="utf-8")
+    assert {"unit": "run 20260101T000000-aaaaaa", "reason": (
+        "its draft changed after it was migrated; the change is not applied"
+    )} in report.failures  # fmt: skip
+    assert ResumeStore(conn).get_document(doc_id).working_sha256 == before

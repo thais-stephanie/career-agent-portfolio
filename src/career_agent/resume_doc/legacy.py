@@ -36,7 +36,7 @@ import re
 import sqlite3
 import zipfile
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -47,20 +47,23 @@ from resume_tailor.core.models import BaseResume, GeneratedResume, TailorRun
 from resume_tailor.core.models import Bullet as LegacyBullet
 from resume_tailor.core.models import ExperienceEntry as LegacyEntry
 from resume_tailor.export.exporters import export_filename
-from resume_tailor.integration.career import BASE_RESUME_ID, SOURCE
+from resume_tailor.integration.career import BASE_RESUME_ID, PROFILE_KEY, SOURCE
 from resume_tailor.workspace import drafts
-from resume_tailor.workspace.store import CandidateWorkspace, WorkspaceError
+from resume_tailor.workspace.store import CandidateWorkspace
 
 from career_agent.clock import new_id
-from career_agent.resume_doc.master import resolve_identity
+from career_agent.resume_doc.master import partial_date, real_name, resolve_identity
 from career_agent.resume_doc.models import (
     DocumentKind,
     Identity,
     ResumeDocument,
+    sha256_text,
     upgrade_resume_document,
 )
-from career_agent.resume_doc.store import NotFound, ResumeStore
+from career_agent.resume_doc.store import NotFound, ResumeStore, StoredDocument
 from career_agent.storage.db import transaction
+from career_agent.storage.repositories import ClaimRepo
+from career_agent.storage.workspace_repo import candidate_id_of
 
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 ENGINE = "resume_tailor_legacy"
@@ -138,13 +141,6 @@ def migrate_legacy_workspace(
 # ---------------------------------------------------------------- mapping
 
 
-def _period(value: str | None) -> dict[str, int] | None:
-    if not value:
-        return None
-    year, _, month = value.partition("-")
-    return {"year": int(year), "month": int(month)} if month else {"year": int(year)}
-
-
 class _Migration:
     def __init__(self, conn: sqlite3.Connection, root: Path, labels: Iterable[str]) -> None:
         self.conn, self.root, self.labels = conn, root, list(labels)
@@ -155,10 +151,15 @@ class _Migration:
         self.claims: dict[str, str] = {}
         self.verbatim: dict[str, str] = {}
         self.versions: list[tuple[str, TailorRun]] = []
+        self.index: Any = None
+        self.bases = sorted((root / "base_resumes").glob("*.json"))
 
     def run(self) -> MigrationReport:
-        self._unit("identity", self._identity)
-        for path in sorted((self.root / "base_resumes").glob("*.json")):
+        # Without the identity and the evidence it can cite, every later unit
+        # would be written wrong and, being idempotent, never repaired.
+        if not self._unit("identity", self._identity):
+            return self.report
+        for path in self.bases:
             self._unit(f"base resume {path.stem}", lambda p=path: self._base(p))
         runs = []
         for folder in sorted(p for p in (self.root / "applications").glob("*") if p.is_dir()):
@@ -176,21 +177,28 @@ class _Migration:
                 self._unit(f"export {path.name}", lambda p=path: self._export(p))
         return self.report
 
-    def _unit(self, name: str, step: Any) -> None:
+    def _unit(self, name: str, step: Any) -> bool:
+        """One all-or-nothing unit. Any failure rolls it back and is named."""
         try:
             with transaction(self.conn):
                 step()
-        except (ValueError, KeyError, OSError, WorkspaceError, sqlite3.IntegrityError) as exc:
+        except Exception as exc:  # noqa: BLE001 -- a rollback boundary, reported
             self._fail(name, exc)
+            return False
+        return True
 
     def _fail(self, name: str, exc: BaseException) -> None:
         reason = exc.errors()[0]["msg"] if isinstance(exc, ValidationError) else str(exc)
         self.report.failures.append({"unit": name, "reason": reason[:300]})
 
-    def _exists(self, doc_id: str) -> bool:
+    def _get(self, doc_id: str) -> StoredDocument | None:
         try:
-            self.store.get_document(doc_id)
+            return self.store.get_document(doc_id)
         except NotFound:
+            return None
+
+    def _exists(self, doc_id: str) -> bool:
+        if self._get(doc_id) is None:
             return False
         self.report.already.append(doc_id)
         return True
@@ -198,15 +206,30 @@ class _Migration:
     # -- identity and the evidence it can cite ------------------------------
     def _identity(self) -> None:
         meta = self.ws.meta() if self.ws.candidate_file.exists() else {}
-        self.identity, notes = resolve_identity(self.conn, contact=meta, labels=self.labels)
+        owner = meta.get(PROFILE_KEY)
+        row = self.conn.execute("SELECT profile_id FROM database_identity").fetchone()
+        if owner and row and row[0] and str(owner).casefold() != str(row[0]).casefold():
+            raise LegacyMigrationError("this Resume helper workspace belongs to another profile")
+        self.index = self.ws.load_index() if self.ws.evidence_file.exists() else None
+        bank = self.index.bank if self.index else None
+        # `candidate.json`'s name is the WORKSPACE's name (a profile label,
+        # or whatever it was renamed to): never a person's name. The name
+        # comes from the evidence bank, else from Career Agent, else nobody.
+        contact = {**meta, "name": real_name(bank.candidate.name if bank else "", self.labels)}
+        self.identity, notes = resolve_identity(self.conn, contact=contact, labels=self.labels)
         self.report.notes.extend(f"identity {n}" for n in notes)
-        if self.ws.evidence_file.exists():
-            for record in self.ws.load_index().bank.records:
-                # Only statements Career Agent confirmed cite Career Evidence;
-                # a line from an uploaded file is not a confirmed claim.
-                if record.source_file == SOURCE and record.source_reference:
-                    self.claims[record.id] = record.source_reference
-                    self.verbatim[record.id] = record.resume_text
+        candidate = candidate_id_of(self.conn)
+        confirmed = (
+            {c.claim_key for c in ClaimRepo(self.conn).current(candidate) if c.verified}
+            if candidate
+            else set()
+        )
+        for record in bank.records if bank else []:
+            # Only a statement this profile still has CONFIRMED cites Career
+            # Evidence; an uploaded file's line or a since-retired claim does not.
+            if record.source_file == SOURCE and record.source_reference in confirmed:
+                self.claims[record.id] = record.source_reference
+                self.verbatim[record.id] = record.resume_text
 
     # -- base resumes ---------------------------------------------------------
     def _base(self, path: Path) -> None:
@@ -215,10 +238,12 @@ class _Migration:
         if self._exists(doc_id):
             return
         default = self.ws.settings().get("default_resume_id") or BASE_RESUME_ID
-        if base.id != default and len(list((self.root / "base_resumes").glob("*.json"))) == 1:
+        if len(self.bases) == 1:
             default = base.id
         master = base.id == default and self.store.current_master() is None
-        bank = self.ws.load_index().bank
+        if self.index is None:
+            raise ValueError("no evidence bank: its roles cannot be read")
+        bank = self.index.bank
         positions = {p.id: p for p in bank.positions}
 
         def bullet(n: str, text: str, ids: list[str]) -> LegacyBullet:
@@ -267,8 +292,17 @@ class _Migration:
     # -- runs -----------------------------------------------------------------
     def _run(self, run: TailorRun) -> None:
         doc_id = stable_id("legacy-run", run.run_id)
+        run_id = stable_id("legacy-tailoring", run.run_id)
+        state = drafts.current_state(drafts.load_doc(self.ws, run.run_id))
+        draft_sha = sha256_text(json.dumps(state, sort_keys=True, ensure_ascii=False))
         if self._exists(doc_id):
             self.versions.append((doc_id, run))
+            held = self.store.get_tailoring_run(run_id).stages["review"].get("draft_sha256")
+            if held != draft_sha:
+                # Edited in the old helper after it was migrated: said, never applied.
+                raise ValueError(
+                    "its draft changed after it was migrated; the change is not applied"
+                )
             return
         req = run.request
         title = req.target_title or run.job_analysis.role_title or "Job ad"
@@ -282,14 +316,10 @@ class _Migration:
         )
         master_id = master_rev = None
         base_id = stable_id("legacy-base", req.resume_id)
-        try:
-            base_doc = self.store.get_document(base_id)
-        except NotFound:
-            base_doc = None
+        base_doc = self._get(base_id)
         if base_doc is not None and base_doc.kind is DocumentKind.MASTER:
             master_id, master_rev = base_id, self.store.list_revisions(base_id)[0].id
         used_model = run.provider.get("provider", "none") != "none" and req.options.use_llm
-        run_id = stable_id("legacy-tailoring", run.run_id)
         locale = req.options.resume_locale
         common: dict[str, Any] = {
             "doc_id": doc_id,
@@ -340,15 +370,22 @@ class _Migration:
                 "lint_report": run.lint_report.model_dump(mode="json"),
                 "claim_evidence_map": run.claim_evidence_map.model_dump(mode="json"),
             },
-            review={**legacy, "diff_report": run.diff_report.model_dump(mode="json")},
+            review={
+                **legacy,
+                "diff_report": run.diff_report.model_dump(mode="json"),
+                "draft_sha256": draft_sha,
+            },
         )
-        state = drafts.current_state(drafts.load_doc(self.ws, run.run_id))
         if state != drafts.EMPTY_STATE:
-            index = self.ws.load_index() if self.ws.evidence_file.exists() else None
             # The exact resume the old helper exported for this draft, with
             # its own rules; with evidence-only off it refuses nothing it shows.
-            effective = drafts.export_resume(run, state, index, evidence_only=False)  # type: ignore[arg-type]
+            effective = drafts.export_resume(run, state, self.index, evidence_only=False)
             edited = _mark_edits(generated, self._document(effective, **common))
+            if state.get("hidden_skills"):
+                self.report.notes.append(
+                    f"run {run.run_id}: skills hidden in the draft are left out of the"
+                    " working copy and kept in the generated revision"
+                )
             self.store.save_working_copy(doc_id, edited, expected_sha256=stored.working_sha256)
             self.store.checkpoint_revision(doc_id, "MANUAL_CHECKPOINT", now=run.created_at)
             if state.get("note"):
@@ -370,7 +407,7 @@ class _Migration:
         # The old helper named a file after the person and the role and kept
         # no link to its run; a file is attached only to the ONE version
         # whose name it carries.
-        name = self.ws.load_index().bank.candidate.name if self.ws.evidence_file.exists() else ""
+        name = self.index.bank.candidate.name if self.index else ""
         owners = {
             doc_id
             for doc_id, run in self.versions
@@ -470,8 +507,8 @@ class _Migration:
                         "display_title": e.title,
                         "source_title": e.title,
                         "location": e.location or None,
-                        "start": _period(e.start),
-                        "end": _period(e.end),
+                        "start": partial_date(e.start),
+                        "end": partial_date(e.end),
                         "current": bool(e.start) and e.end is None,
                         "bullets": [bullet(b) for b in e.bullets],
                     }
@@ -482,8 +519,8 @@ class _Migration:
                         "id": ids[f"education:{e.id}"],
                         "institution": e.institution,
                         "degree": e.degree or None,
-                        "start": _period(e.start),
-                        "end": _period(e.end),
+                        "start": partial_date(e.start),
+                        "end": partial_date(e.end),
                     }
                     for e in gen.education
                 ],
@@ -508,33 +545,37 @@ class _Migration:
         )
 
 
+def _dicts(node: Any) -> Iterator[dict[str, Any]]:
+    """Every dict in a dumped document, depth first."""
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _dicts(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _dicts(value)
+
+
 def _mark_edits(generated: ResumeDocument, effective: ResumeDocument) -> ResumeDocument:
-    """`effective` with each line the person changed marked as theirs: the
-    generated wording kept as `original_text`, the item ids unchanged."""
-    before: dict[str, str] = {}
-
-    def collect(node: Any) -> None:
-        if isinstance(node, dict):
-            if isinstance(node.get("text"), str) and "origin" in node:
-                before[node["id"]] = node["text"]
-            for value in node.values():
-                collect(value)
-        elif isinstance(node, list):
-            for value in node:
-                collect(value)
-
-    def mark(node: Any) -> None:
-        if isinstance(node, dict):
-            old = before.get(node.get("id", ""))
-            if old is not None and "origin" in node and node["text"] != old:
-                node.update(origin="USER_AUTHORED", override="EDITED", original_text=old)
-            for value in node.values():
-                mark(value)
-        elif isinstance(node, list):
-            for value in node:
-                mark(value)
-
-    collect(generated.model_dump(mode="json"))
+    """`effective` with each line the person changed marked as theirs (the
+    generated wording kept as `original_text`) and each line they hid put
+    back, hidden, where it was. Item ids are the generated ones."""
+    before = generated.model_dump(mode="json")
+    wording = {n["id"]: n["text"] for n in _dicts(before) if "origin" in n and "text" in n}
     data = effective.model_dump(mode="json")
-    mark(data)
-    return upgrade_resume_document(json.loads(json.dumps(data)))
+    for node in _dicts(data):
+        old = wording.get(node.get("id", ""))
+        if old is not None and "origin" in node and node["text"] != old:
+            node.update(origin="USER_AUTHORED", override="EDITED", original_text=old)
+    shown = {e["id"]: e for e in data["experience"]}
+    for entry in before["experience"]:
+        kept = shown.get(entry["id"])
+        if kept is None:
+            continue
+        ids = {b["id"] for b in kept["bullets"]}
+        for position, bullet in enumerate(entry["bullets"]):
+            if bullet["id"] not in ids:
+                kept["bullets"].insert(
+                    min(position, len(kept["bullets"])), {**bullet, "hidden": True}
+                )
+    return upgrade_resume_document(data)

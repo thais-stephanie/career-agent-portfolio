@@ -3488,6 +3488,7 @@ def forget_command(
                 f"clear resumes in {path}: {resumes['resume_document']} resumes,"
                 f" {resumes['resume_revision']} saved versions,"
                 f" {resumes['jd_snapshot']} job ads, {resumes['resume_export']} export records"
+                " (files already saved on disk, and the Resume helper's own folder, stay)"
             )
 
     typer.secho("This will:", bold=True)
@@ -3513,10 +3514,11 @@ def forget_command(
             conn.execute("DELETE FROM job_application_event")
             conn.execute("DELETE FROM job_application")
             conn.execute("DELETE FROM search_fit_feedback")
+            if what == "everything":
+                forget_resume_data(conn)  # in the same transaction: all or nothing
         removed.append(("tracking rows cleared", counts["saved"] + counts["tracked"]))
         removed.append(("Search Fit answers cleared", counts["fit"]))
         if what == "everything":
-            forget_resume_data(conn)
             removed.append(("resumes cleared", resumes["resume_document"]))
         conn.close()
 

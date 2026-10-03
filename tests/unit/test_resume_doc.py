@@ -65,7 +65,7 @@ def rich() -> dict[str, Any]:
                 "source_title": "Reporting Assistant",
                 "start": {"year": 2020, "month": 3},
                 "current": True,
-                "claim_key": "exp-1",
+                "experience_id": "exp-1",
                 "bullets": [
                     {
                         "id": new_id(),

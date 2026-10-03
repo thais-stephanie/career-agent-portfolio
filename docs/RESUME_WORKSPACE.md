@@ -104,22 +104,32 @@ profile's database. It is not run automatically.
 * **Read-only.** No legacy file is written, moved or deleted.
 * **Idempotent.** Every migrated row's id is derived from what it came from,
   so a second run writes nothing.
-* **Mapping.** The contact record becomes the Master's identity; the default
+* **One profile's workspace.** A workspace that names another profile is
+  refused before anything is written.
+* **Evidence is re-checked.** A migrated line cites a claim only while this
+  profile still has that claim confirmed; otherwise it is imported text.
+* **Mapping.** The contact record's email, phone, place and links become the
+  Master's identity. Its `name` field is the workspace's name (a profile
+  label), so the person's name comes from the evidence bank or from Career
+  Agent instead, never from it. The default
   base resume becomes the Master when the profile has none, and every other
   base resume an imported document. Each finished run becomes a job ad
   snapshot, a tailored version numbered per job in run order, and a
   tailoring run whose old analysis is kept for history and marked as legacy
   and untrusted. An edited draft becomes a second revision and the working
-  copy; the generated revision keeps the lines the draft hid. An exported
+  copy, with its edits marked as the person's and the lines it hid kept,
+  hidden. A draft edited in the old helper after it was migrated is
+  reported, never applied. An exported
   file is recorded where it is, attached only to the one version whose file
   name it carries, and never marked as checked.
-* **Failures are named.** Each unit (identity and base resumes, one run, one
-  export) is one transaction. A unit that cannot be read leaves nothing
+* **Failures are named.** Each unit (identity, one base resume, one run, one
+  export) is one transaction, and nothing runs after a failed identity unit. A unit that cannot be read leaves nothing
   behind and is listed in the report with the reason; the rest migrate, and
   a later run completes it.
 
 ## Forgetting
 
 `career-agent forget everything` also deletes every resume row in that
-profile's database. The shared job catalogue and other profiles are not
-touched.
+profile's database, in the same transaction as the tracking data. The shared
+job catalogue, other profiles, files already exported and the Resume
+helper's own folder are not touched, and the confirmation says so.
