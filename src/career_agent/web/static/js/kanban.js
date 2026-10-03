@@ -23,7 +23,7 @@
 
 import { el, button, replace } from './dom.js';
 import { t } from './i18n.js';
-import { formatDate, statusLabel } from './format.js';
+import { compactPlace, formatDate, relativeAge, statusLabel } from './format.js';
 import { matchTone } from './cards.js';
 import { searchFitIsReady } from './badges.js';
 import { TRACKED_STATUSES } from './state.js';
@@ -86,6 +86,14 @@ export { TRACKED_STATUSES };
  * job back must not claim an application nobody sent.
  */
 const NEXT = { SHORTLISTED: 'APPLIED', APPLIED: 'INTERVIEW', INTERVIEW: 'OFFER' };
+//: V3: the card's next-step link, into the drawer tab that helps with it.
+const CTA = { SHORTLISTED: 'prepare', INTERVIEW: 'practice' };
+
+/** One sentence about what to do next. None once it is over, or the ad has closed. */
+function hintFor(job, key) {
+  if (key === 'CLOSED' || (key === 'SHORTLISTED' && job.freshness === 'CLOSED')) return null;
+  return t(`kanban.hint.${key}`);
+}
 const PREV = { APPLIED: 'SHORTLISTED', INTERVIEW: 'APPLIED', OFFER: 'INTERVIEW', CLOSED: 'SHORTLISTED' };
 
 export function renderKanban(mount, items, handlers) {
@@ -215,6 +223,13 @@ function kanbanCard(job, column, handlers) {
 
   // What the column does not say: which of its statuses this is, and when
   // the application went out.
+  // V3: where and how old, on a line of its own.
+  const place = compactPlace(job.location_raw, job.work_model);
+  const about = [
+    place && place.text ? place.text : null,
+    job.posted_at ? t('kanban.posted', { ago: relativeAge(job.posted_at) }) : null,
+  ].filter(Boolean);
+  if (about.length) root.appendChild(el('p', { className: 'kcard__meta', text: about.join(' · ') }));
   const meta = [];
   if (column.statuses.length > 1) meta.push(statusLabel(status));
   if (job.applied_at) meta.push(t('kanban.appliedOn', { date: formatDate(job.applied_at) }));
@@ -222,6 +237,18 @@ function kanbanCard(job, column, handlers) {
     root.appendChild(el('p', {
       className: 'kcard__meta kcard__applied', text: meta.join(' · '), attrs: { title: t('kanban.appliedHelp') },
     }));
+  }
+
+  const hint = hintFor(job, column.key);
+  if (hint) {
+    root.appendChild(el('p', { className: `kcard__hint kcard__hint--${column.key.toLowerCase()}`, text: hint }));
+  }
+  if (CTA[column.key]) {
+    const link = button(t(`kanban.cta.${column.key}`), () => handlers.onOpen(job.job_id, CTA[column.key]), {
+      className: 'kcard__cta',
+    });
+    link.dataset.stopsOpen = 'true';
+    root.appendChild(link);
   }
 
   const prev = PREV[column.key];

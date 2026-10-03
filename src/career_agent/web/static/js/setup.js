@@ -38,7 +38,7 @@
 
 import { roleAnchorsEditor } from './roles.js';
 import { el, button, replace } from './dom.js';
-import { t, tVocab, getLocale } from './i18n.js';
+import { LOCALES, t, tVocab, getLocale } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
 import { phraseProblem } from './format.js';
@@ -92,6 +92,15 @@ function rememberPosition(key) {
   }
 }
 
+//: V3: the five named stages the stepper shows, and which cards each holds.
+const STAGES = ['work', 'where', 'kind', 'pay', 'cv'];
+const STAGE_OF = {
+  work: 'work', roles: 'work',
+  home: 'where', hire: 'where', regions: 'where', workmodel: 'where',
+  stage: 'kind', arrangement: 'kind', level: 'kind',
+  pay: 'pay', cv: 'cv',
+};
+
 /**
  * The cards, in order. `optional` cards offer Skip. `when` hides a card whose
  * question has nothing to ask yet: hiring regions are asked only about regions
@@ -105,6 +114,7 @@ const STEPS = [
   { key: 'hire', optional: true },
   { key: 'regions', optional: true, when: (setup) => setup.homeRegions().length > 0 },
   { key: 'workmodel', optional: true },
+  { key: 'stage', optional: true },
   { key: 'arrangement', optional: true },
   { key: 'level', optional: true },
   { key: 'pay', optional: true },
@@ -296,11 +306,13 @@ export function createSetup({
    * appearing rather than as a total that changed.
    */
   function stepper(steps, current) {
-    const named = steps.filter((item) => !['welcome', 'ready'].includes(item.key));
-    const at = named.findIndex((item) => item.key === current);
-    const finished = current === 'ready';
+    const named = STAGES.filter((stage) => steps.some((item) => STAGE_OF[item.key] === stage))
+      .map((stage) => ({ key: stage }));
+    const at = ['review', 'ready'].includes(current)
+      ? named.length
+      : named.findIndex((stage) => stage.key === STAGE_OF[current]);
     const state = (index) => {
-      if (finished || (at >= 0 && index < at)) return 'done';
+      if (at >= 0 && index < at) return 'done';
       return index === at ? 'current' : 'upcoming';
     };
     const now = named[at] || null;
@@ -321,7 +333,7 @@ export function createSetup({
               attrs: { 'aria-hidden': 'true' },
               text: kind === 'done' ? '\u2713' : String(index + 1),
             }),
-            el('span', { className: 'stepper__name', text: t(`setup.step.${item.key}`) }),
+            el('span', { className: 'stepper__name', text: t(`setup.stage.${item.key}`) }),
             el('span', { className: 'sr-only', text: ` (${t(`setup.stepState.${kind}`)})` }),
           ]),
         ]);
@@ -329,7 +341,7 @@ export function createSetup({
       // On a narrow screen the names do not fit under the bars: the current
       // one is said once, under all of them.
       now
-        ? el('p', { className: 'stepper__now', attrs: { 'aria-hidden': 'true' }, text: t(`setup.step.${now.key}`) })
+        ? el('p', { className: 'stepper__now', attrs: { 'aria-hidden': 'true' }, text: t(`setup.stage.${now.key}`) })
         : null,
     ].filter(Boolean));
   }
@@ -595,6 +607,28 @@ export function createSetup({
   const BODIES = {
     welcome: () => ({
       nodes: [
+        el('div', { className: 'setup__lang', attrs: { role: 'group', 'aria-labelledby': 'setup-lang-q' } }, [
+          el('p', { className: 'setup__langq', attrs: { id: 'setup-lang-q' }, text: t('setup.langQuestion') }),
+          el('div', { className: 'setup__langs' }, LOCALES.map((locale) => el('button', {
+            className: 'setup__langbtn',
+            attrs: {
+              type: 'button', 'aria-pressed': String(getLocale() === locale), 'data-lang': locale, lang: locale,
+            },
+            on: {
+              click: () => {
+                const sidebar = [...document.querySelectorAll('#locale-host [data-locale]')]
+                  .find((node) => node.dataset.locale === locale);
+                if (sidebar) sidebar.click();
+                draw({ focus: false });
+                const again = root.querySelector(`[data-lang="${locale}"]`);
+                if (again) again.focus();
+              },
+            },
+          }, [
+            el('span', { className: 'setup__langname', text: t(`locale.name.${locale}`) }),
+            el('span', { className: 'setup__langsub', text: t(`setup.langSub.${locale}`) }),
+          ]))),
+        ]),
         el('ul', { className: 'setup__list' }, [
           el('li', { text: t('setup.welcome.point1') }),
           el('li', { text: t('setup.welcome.point2') }),
@@ -927,6 +961,46 @@ export function createSetup({
       };
     },
 
+    // WHERE YOU ARE IN YOUR CAREER: context for what the product explains.
+    // It changes no score, no gate and no collection (candidate_state).
+    stage: () => {
+      const saved = (firstRun && firstRun.career_stage) || null;
+      let picked = drafts.stage !== undefined ? drafts.stage : saved;
+      const choices = (firstRun && firstRun.career_stages) || [];
+      return {
+        nodes: [
+          el('fieldset', { className: 'setup__options', attrs: { 'aria-describedby': 'setup-why' } }, [
+            el('legend', { className: 'setup__legend', text: t('setup.stage.legend') }),
+            ...choices.map((choice) => el('label', {
+              className: 'setup__option', attrs: { for: `setup-stage-${choice}` },
+            }, [
+              el('input', {
+                attrs: { type: 'radio', name: 'setup-stage', id: `setup-stage-${choice}`, value: choice },
+                props: { checked: picked === choice },
+                on: { change: () => { picked = choice; drafts.stage = choice; } },
+              }),
+              el('span', { text: t(`setup.stage.choice.${choice}`) }),
+            ])),
+          ]),
+          hint(t('setup.stage.note')),
+        ],
+        submit: async (error) => {
+          delete drafts.stage;
+          if (!picked || picked === saved) {
+            advance();
+            return;
+          }
+          try {
+            await api.setCareerStage(picked);
+            firstRun = await api.getFirstRun();
+            advance();
+          } catch (problem) {
+            error.textContent = problem.userMessage || problem.message;
+          }
+        },
+      };
+    },
+
     // LEVELS TO KEEP OFF THE LIST, not "levels you prefer". The preferred list
     // is stored but nothing ranks or filters by it; the excluded list hides
     // those postings from Discover, with a notice that shows them again.
@@ -1172,6 +1246,8 @@ export function createSetup({
       // Unknown stays unknown, and says so: an empty answer here is not "no".
       ['hire', hiringCoverage() || (value('candidate_country') ? t('setup.review.hireUnknown') : null)],
       ['workmodel', workModelSummary(values(WORK_MODEL_FIELDS)) || t('setup.review.noPreference')],
+      ['stage', firstRun && firstRun.career_stage
+        ? t(`setup.stage.choice.${firstRun.career_stage}`) : t('setup.review.noPreference')],
       ['arrangement', arrangementSummary(values(ARRANGEMENT_FIELDS)) || t('setup.review.noPreference')],
       // Skipping this card hides nothing, which is an answer: "None".
       ['level', (value('seniority_excluded') || []).map(vocab).join(', ') || t('setup.ready.none')],

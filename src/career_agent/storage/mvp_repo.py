@@ -2951,6 +2951,24 @@ class ScoredJobQuery(_Repo):
         )
         return self.count(config_id, config_version, widened) - narrow
 
+    def descriptions(self, job_ids: list[str]) -> dict[str, str]:
+        """The WHOLE description of each posting on a page, by job id.
+
+        A page carries only the first characters of each ad; a reading that
+        must see the whole ad (the scam-sign check on a card) asks here, once
+        per page, never per row.
+        """
+        if not job_ids:
+            return {}
+        marks = ",".join("?" * len(job_ids))
+        rows = self.conn.execute(
+            "SELECT j.id, jr.description_text FROM job j"
+            " JOIN job_raw jr ON jr.content_hash = j.content_hash"
+            f" WHERE j.id IN ({marks})",
+            list(job_ids),
+        ).fetchall()
+        return {str(row[0]): str(row[1] or "") for row in rows}
+
     def page(
         self,
         config_id: str,

@@ -17,7 +17,7 @@
 
 import * as api from './api.js';
 import { el, button, replace, clear } from './dom.js';
-import { toast } from './ui.js';
+import { keepFocus, toast } from './ui.js';
 import {
   createStore, SORTS, VIEW_GROUPING, activeFilterCount, clearedFilters, TRACKED_STATUSES,
   LIST_KEYS, FLAG_KEYS,
@@ -27,13 +27,13 @@ import { renderCards, cardsSkeleton } from './cards.js';
 import {
   renderColumnsMenu, renderTable, tableSkeleton, loadVisible, toCsv,
 } from './table.js';
-import { renderKanban, kanbanSkeleton } from './kanban.js';
+import { COLUMNS, renderKanban, kanbanSkeleton } from './kanban.js';
 import { renderPreferences } from './preferences.js';
 import { renderSearchSettings } from './search-settings.js';
 import { renderAiSettings } from './ai-settings.js';
 import { searchFitIsReady, setSearchFitReadiness } from './badges.js';
 import { renderProfile } from './profile.js';
-import { LOCALES, getLocale, initialLocale, setLocale, t, tState } from './i18n.js';
+import { LOCALES, getLocale, initialLocale, setLocale, t, tCount, tState } from './i18n.js';
 import { createRetrievalPanel } from './retrieval.js';
 import { createCollection, createProgressView, outcomeText } from './collection.js';
 import { createDrawer } from './detail.js';
@@ -203,6 +203,8 @@ const drawer = createDrawer({
   // job already chosen. Whether a resume exists for it is the helper's answer.
   onTailor: (job) => afterDrawerCloses(() => goTo('resume', { resume: { tab: 'make', jobId: job.job_id } })),
   resumeFor: (jobId) => resumeHelper.hasResumeFor(jobId),
+  // "Hide this job" from the scam warning: the ordinary hide, with its Undo.
+  onHide: (jobId) => afterDrawerCloses(() => changeHidden(jobId, true)),
   // The arithmetic and the raw local reading, for `?debug=1` only.
   debug: DEV_SCORING,
 });
@@ -294,16 +296,6 @@ function reviewFromProfile() {
  * profile; Import resume sits beside it as the secondary way in.
  */
 function headerAction(page) {
-  if (page === 'profile') {
-    return el('div', { className: 'pagehead__buttons' }, [
-      button(t('profileHead.import'), () => { goTo('documents'); documentsView.choose(); },
-        { className: 'btn' }),
-      button(t('profileHead.edit'), () => {
-        if (profileTabs) profileTabs.show('experience');
-        if (experienceNode) experienceNode.startEditing();
-      }, { className: 'btn btn--primary' }),
-    ]);
-  }
   if (page === 'evidence') {
     return button(t('evp.add'), () => evidenceView.add(), { className: 'btn btn--primary' });
   }
@@ -320,6 +312,11 @@ function headerAction(page) {
 
 const home = createHome({
   collection,
+  sitesNeedingAttention: () => Number(railStatus.failed) || 0,
+  onFixSites: () => {
+    settingsTab = 'sites';
+    goTo('settings');
+  },
   onOpenJob: (jobId) => {
     store.set({ openJobId: jobId });
     drawer.open(jobId, document.querySelector('.topnav__link[data-page="home"]'));
@@ -987,6 +984,31 @@ function announce(state, shown, total) {
       : null,
     total > shown ? t('count.showingRange', { from, to }) : null,
   ].filter(Boolean);
+  if (state.view === 'kanban') {
+    // V3: My applications says how to use the board, and what is in play on
+    // it: the board's whole query (its filters included), not the cards drawn.
+    // Hired is done, not in progress.
+    const byStatus = Object.fromEntries(((lastResponse && lastResponse.facets && lastResponse.facets.status) || [])
+      .map((row) => [row.key, row.count]));
+    const going = COLUMNS.filter((column) => column.key !== 'CLOSED')
+      .flatMap((column) => column.statuses).filter((status) => status !== 'HIRED')
+      .reduce((sum, status) => sum + (byStatus[status] || 0), 0);
+    const talks = byStatus.INTERVIEW || 0;
+    replace(dom.count, [
+      el('span', { className: 'boardhead__lede', text: t('board.lede') }),
+      el('span', { className: 'boardhead__chips' }, [
+        el('span', { className: 'boardhead__chip', text: t('board.inProgress', { n: going }) }),
+        talks ? el('span', { className: 'boardhead__chip boardhead__chip--talk',
+          text: tCount('board.interviews', { n: talks }) }) : null,
+      ].filter(Boolean)),
+      quiet.length ? el('span', { className: 'resultcount__quiet', text: quiet.join(' \u00B7 ') }) : null,
+    ].filter(Boolean));
+    dom.count.classList.add('resultcount--board');
+    renderRevisionNotice();
+    renderHiddenNotice(state);
+    return;
+  }
+  dom.count.classList.remove('resultcount--board');
   replace(dom.count, [
     el('strong', {
       className: 'resultcount__n',
@@ -2433,6 +2455,8 @@ document.getElementById('site-alert-close')?.addEventListener('click', () => {
 });
 
 function drawRailStatus() {
+  // Settings' Job sites status reads the same count.
+  if (currentPage === 'settings') paintSettingsNav();
   const node = dom.healthSummary;
   if (!node || !dom.healthSummaryText) return;
   const failed = Number(railStatus.failed) || 0;
@@ -2524,18 +2548,141 @@ dom.healthSummary?.addEventListener('click', () => {
 // Which blocks of Settings are drawn. A moment, not a preference: Settings
 // opens on "Your search" unless something sent the reader to a tab.
 let settingsTab = 'search';
+//: Smart matching on or off, read when Settings opens; null until known.
+let smartMatchingOn = null;
+const SETTINGS_NAV = [
+  ['search', '\u2315'], ['sites', '\u25CE'], ['ai', '\u2726'],
+  ['look', '\u25D0'], ['profiles', '\u25C9'], ['backup', '\u2913'],
+];
+const shownTheme = () => (document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
+/** Each section's one-line status, or null while it is not known. */
+function settingsStatus(tab) {
+  if (tab === 'search') return [t('setnav.searchStatus'), ''];
+  if (tab === 'sites') {
+    if (railStatus.failed === null) return null;
+    const n = Number(railStatus.failed) || 0;
+    return n ? [tCount('setnav.sitesNeed', { n }), 'warn'] : [t('setnav.sitesOk'), 'good'];
+  }
+  if (tab === 'ai') {
+    if (smartMatchingOn === null) return null;
+    return [t(smartMatchingOn ? 'setnav.on' : 'setnav.off'), smartMatchingOn ? 'good' : ''];
+  }
+  if (tab === 'look') return [[t(`setnav.${shownTheme()}`), t(`locale.name.${getLocale()}`)].join(' \u00B7 '), ''];
+  if (tab === 'profiles') return [tCount('setnav.profiles', { n: localProfiles.count() }), ''];
+  return [t('setnav.backupStatus'), ''];
+}
+
+function paintSettingsNav() {
+  const nav = document.getElementById('settings-tabs');
+  const focused = nav.contains(document.activeElement) ? document.activeElement.id : null;
+  const profilesOff = document.getElementById('settings-profiles-block').hidden;
+  replace(nav, [
+    el('span', { className: 'setnav__eyebrow', text: t('setnav.eyebrow') }),
+    ...SETTINGS_NAV.filter(([key]) => key !== 'profiles' || !profilesOff).map(([key, icon]) => {
+      const status = settingsStatus(key);
+      return el('button', {
+        className: `setnav__item setnav__item--${key}`,
+        attrs: { type: 'button', id: `settab-${key}`,
+          'aria-current': key === settingsTab ? 'true' : null },
+        on: { click: () => setSettingsTab(key) },
+      }, [
+        el('span', { className: 'setnav__icon', text: icon, attrs: { 'aria-hidden': 'true' } }),
+        el('span', { className: 'setnav__text' }, [
+          el('span', { className: 'setnav__label', text: t(`settab.${key}`) }),
+          status ? el('span', {
+            className: status[1] ? `setnav__status setnav__status--${status[1]}` : 'setnav__status',
+            text: status[0],
+          }) : null,
+        ]),
+      ]);
+    }),
+  ]);
+  if (focused) document.getElementById(focused)?.focus();
+}
+
+function settingsCard(head, sub, children) {
+  return el('section', { className: 'setcard' }, [
+    el('h3', { className: 'setcard__head', text: head }),
+    sub ? el('p', { className: 'setcard__sub', text: sub }) : null,
+    ...children,
+  ]);
+}
+
+/** Look and language: the same theme and language controls as the top bar. */
+function paintLook() {
+  const theme = shownTheme();
+  const choose = (host, attr, value) => {
+    const found = [...document.querySelectorAll(`#${host} [${attr}]`)]
+      .find((node) => node.getAttribute(attr) === value);
+    if (found) found.click();
+  };
+  const choice = (on, label, sub, onClick, extra = []) => el('button', {
+    className: 'look__choice',
+    attrs: { type: 'button', 'aria-pressed': String(on), 'aria-label': [label, sub].filter(Boolean).join(', ') },
+    on: { click: onClick },
+  }, [
+    ...extra,
+    el('span', { className: 'look__row' }, [
+      el('span', { className: 'look__text' }, [
+        el('span', { className: 'look__name', text: label }),
+        sub ? el('span', { className: 'look__sub', text: sub }) : null,
+      ]),
+      on ? el('span', { className: 'look__check', text: t('look.inUse') }) : null,
+    ]),
+  ]);
+  const preview = (name) => el('span', {
+    className: `look__preview look__preview--${name}`, attrs: { 'aria-hidden': 'true' },
+  }, [
+    el('span'), el('span', {}, [el('span'), el('span')]),
+  ]);
+  replace(document.getElementById('settings-look-host'), [
+    settingsCard(t('look.colors'), t('look.colorsSub'), [el('div', { className: 'look__grid' },
+      ['light', 'dark'].map((name) => choice(theme === name, t(`setnav.${name}`), '',
+        () => choose('theme-host', 'data-theme', name), [preview(name)])))]),
+    settingsCard(t('look.language'), t('look.languageSub'), [el('div', { className: 'look__grid' },
+      LOCALES.map((locale) => choice(getLocale() === locale, t(`locale.name.${locale}`), t(`look.region.${locale}`),
+        () => choose('locale-host', 'data-locale', locale))))]),
+  ]);
+}
+
+/** Backup and privacy: what exists today, said plainly. */
+function paintBackup() {
+  const tick = (key) => el('li', { className: 'privacy__item' }, [
+    el('span', { className: 'privacy__tick', text: '\u2713', attrs: { 'aria-hidden': 'true' } }), t(key),
+  ]);
+  replace(document.getElementById('settings-backup-host'), [
+    settingsCard(t('backup.head'), t('backup.sub'), [el('p', {
+      className: 'setcard__warn', text: t('backup.private'),
+    })]),
+    settingsCard(t('privacy.head'), '', [el('ul', { className: 'privacy' },
+      ['privacy.local', 'privacy.noAccount', 'privacy.sites', 'privacy.ai'].map(tick))]),
+  ]);
+}
+
+// Smart matching's On / Off follows the AI block, which says so whenever it
+// (re)loads: "On" only when findings are actually produced by a provider.
+document.getElementById('ai-settings-host').addEventListener('ai-settings-loaded', (event) => {
+  const data = event.detail || {};
+  const settings = data.settings || {};
+  smartMatchingOn = Boolean(settings.enabled && settings.mode !== 'deterministic'
+    && data.active_provider && !data.demo);
+  paintSettingsNav();
+});
+// The theme switch in the sidebar changes what Look and language says.
+document.getElementById('theme-host').addEventListener('click', () => setTimeout(() => setSettingsTab(settingsTab), 0));
+
 function setSettingsTab(tab) {
   const page = document.getElementById('page-settings');
   const profiles = document.getElementById('settings-profiles-block');
-  document.getElementById('settab-profiles').hidden = profiles.hidden;
   if (tab === 'profiles' && profiles.hidden) tab = 'search';
   settingsTab = tab;
   page.dataset.tab = tab;
-  for (const node of document.querySelectorAll('[data-settab-btn]')) {
-    const chosen = node.dataset.settabBtn === tab;
-    node.setAttribute('aria-selected', String(chosen));
-    node.tabIndex = chosen ? 0 : -1;
-  }
+  document.getElementById('settings-title').textContent = t(`settab.${tab}`);
+  document.getElementById('settings-desc').textContent = t(`setnav.desc.${tab}`);
+  if (tab === 'look') keepFocus(document.getElementById('settings-look-host'), paintLook);
+  if (tab === 'backup') paintBackup();
+  paintSettingsNav();
 }
 // The Profiles tab follows its block, which local-profiles shows once it
 // knows profiles are on: that answer can arrive after Settings opened.
@@ -2543,23 +2690,6 @@ new MutationObserver(() => setSettingsTab(settingsTab)).observe(
   document.getElementById('settings-profiles-block'), { attributes: true, attributeFilter: ['hidden'] },
 );
 setSettingsTab(settingsTab);
-document.getElementById('settings-tabs').addEventListener('click', (event) => {
-  const node = event.target.closest('[data-settab-btn]');
-  if (node) setSettingsTab(node.dataset.settabBtn);
-});
-document.getElementById('settings-tabs').addEventListener('keydown', (event) => {
-  const moves = { ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last' };
-  if (!(event.key in moves)) return;
-  event.preventDefault();
-  const tabs = [...document.querySelectorAll('[data-settab-btn]')].filter((node) => !node.hidden);
-  const here = tabs.findIndex((node) => node.dataset.settabBtn === settingsTab);
-  const move = moves[event.key];
-  const next = move === 'first' ? tabs[0]
-    : move === 'last' ? tabs[tabs.length - 1]
-      : tabs[(here + move + tabs.length) % tabs.length];
-  setSettingsTab(next.dataset.settabBtn);
-  next.focus();
-});
 
 store.startHistory();
 showHealth();
@@ -2621,7 +2751,24 @@ function drawProfile(host, tab = null) {
   } else {
     void experienceNode.load().catch(() => {});
   }
-  profileTabs = renderProfile(host, lastProfile, lastLedger, { experience: experienceNode, tab }) || null;
+  profileTabs = renderProfile(host, lastProfile, lastLedger, {
+    experience: experienceNode,
+    tab,
+    who: localProfiles.activeLabel(),
+    onGo: (target) => {
+      if (target === 'experience') {
+        if (profileTabs) profileTabs.show('experience');
+      } else if (target === 'answers') {
+        home.openSetup('welcome');
+        goTo('home');
+      } else if (target === 'import') {
+        goTo('documents');
+        documentsView.choose();
+      } else {
+        goTo(target);
+      }
+    },
+  }) || null;
 }
 
 function retranslateProfile() {
@@ -3028,11 +3175,8 @@ function relabelStaticText() {
     'settings-ai-head': 'ai.head',
     'settings-profiles-head': 'profiles.settingsHead',
     'settings-retr-head': 'retrieval.detailHead',
-    'settab-search': 'settab.search',
-    'settab-sites': 'settab.sites',
-    'settab-ai': 'settab.ai',
-    'settab-profiles': 'settab.profiles',
   };
+  setSettingsTab(settingsTab);
   document.getElementById('settings-tabs').setAttribute('aria-label', t('settab.group'));
   for (const [id, key] of Object.entries(settingsHeads)) {
     const node = document.getElementById(id);

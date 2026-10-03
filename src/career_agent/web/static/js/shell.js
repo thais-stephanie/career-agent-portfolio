@@ -269,7 +269,8 @@ export function createShell() {
     if (quit) quit.textContent = t('app.quit');
     if (lastStats) setStats(lastStats);
     setBadges();
-    if (page) setPage(page);
+    // The page's own action stays: a relabel is not a reason to lose it.
+    if (page) setPage(page, { action: nodes.actions.firstElementChild });
   }
 
   return { setPage, setStats, setBadges, retranslate, closeDrawer, isDrawer };

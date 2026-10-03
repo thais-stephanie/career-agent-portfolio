@@ -442,7 +442,7 @@ def test_with_nothing_confirmed_every_requirement_is_a_gap(
         ".map((n) => n.textContent)"
     )
     joined = " ".join(str(item) for item in counts)
-    assert "0Related confirmed evidence" in joined.replace("✓", "").replace("≈", "")
+    assert "0Matches something you confirmed" in joined.replace("✓", "").replace("≈", "")
     gaps = page.evaluate(
         "document.querySelectorAll('#drawer-panel-prepare .prep__group--gap .prep__row').length"
     )

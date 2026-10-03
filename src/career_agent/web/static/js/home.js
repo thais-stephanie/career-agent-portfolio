@@ -28,7 +28,7 @@ import { toast } from './ui.js';
 import { matchTone } from './cards.js';
 import { createFirstRun } from './firstrun.js';
 import { createSetup, setupPostponed, setupResumeStep } from './setup.js';
-import { getLocale, t } from './i18n.js';
+import { getLocale, t, tCount } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
 
@@ -88,6 +88,7 @@ function firstSetupCard(gaps) {
 
 export function createHome({
   onOpenJob = null, onGoTo = null, onSetupShown = null, collection = null,
+  sitesNeedingAttention = () => 0, onFixSites = null,
 } = {}) {
   const root = el('div', { className: 'home' });
   // THE GUIDED SETUP, one question per card. It REPLACES this page on a fresh
@@ -208,15 +209,23 @@ export function createHome({
   }
 
   function render(payload) {
-    const noJobs = firstRun.scoredCount() === 0;
+    if (firstRun.scoredCount() === 0) {
+      return [
+        howItWorks(), collectionCard(), startHere(),
+        firstRun.outstanding() ? null : completeProfile(payload),
+      ].filter(Boolean);
+    }
+    // The lists with something in them; an empty one only when all are.
+    const filled = payload.sections.filter((data) => data.items.length);
+    const lists = filled.length ? filled : payload.sections.slice(0, 1);
+    // V3: the next step and the lists on the left; the progress path and
+    // the small things to do on the right.
     return [
-      howItWorks(),
-      collectionCard(),
-      noJobs ? null : newBanner(payload),
-      noJobs ? null : progress(payload),
-      startHere(),
-      firstRun.outstanding() ? null : completeProfile(payload),
-      ...(noJobs ? [] : payload.sections.map(section)),
+      howItWorks(), collectionCard(), startHere(),
+      el('div', { className: 'home__cols' }, [
+        el('div', { className: 'home__main' }, [nextStep(payload), ...lists.map(section)]),
+        el('div', { className: 'home__side' }, [progress(payload), todos(payload)]),
+      ]),
     ].filter(Boolean);
   }
 
@@ -250,34 +259,91 @@ export function createHome({
    * remembers THAT run, in this browser only, so the next run shows again.
    * Nothing is marked read anywhere.
    */
-  function newBanner(payload) {
-    const metric = (payload.metrics || []).find((entry) => entry.key === 'new');
-    const count = metric ? metric.value : null;
+  /**
+   * "Your next step": one thing to do, chosen from the counts alone (an
+   * interview, then new jobs not yet seen, then saved jobs, then browsing).
+   * It names no job it was not given.
+   */
+  function nextStep(payload) {
+    const byKey = new Map((payload.metrics || []).map((metric) => [metric.key, metric]));
+    const count = (key) => Number((byKey.get(key) || {}).value) || 0;
     const run = payload.latest_refresh_run ? String(payload.latest_refresh_run) : null;
-    if (!count || !run || stored(SEEN_KEY) === run) return null;
-    return el('section', { className: 'home__new', attrs: { 'aria-labelledby': 'home-new-head' } }, [
-      el('div', { className: 'home__newtext' }, [
-        el('h2', {
-          className: 'home__newtitle',
-          attrs: { id: 'home-new-head' },
-          text: count === 1 ? t('home.newOne') : t('home.newMany', { n: count.toLocaleString(getLocale()) }),
-        }),
-        el('p', { className: 'home__newsub', text: t('home.newSub') }),
+    const unseen = run && stored(SEEN_KEY) !== run ? count('new') : 0;
+    const interviews = byKey.get('interviews');
+    const offers = byKey.get('offers');
+    let step = { key: 'browse', tone: 'green', n: 0, go: () => onGoTo('jobs') };
+    if (count('offers') && offers.statuses.length) {
+      step = { key: 'offer', tone: 'lav', n: count('offers'),
+        go: () => onGoTo('jobs', { status: offers.statuses, saved_only: false }) };
+    } else if (count('interviews') && interviews.statuses.length) {
+      step = { key: 'interview', tone: 'lav', n: count('interviews'),
+        go: () => onGoTo('jobs', { status: interviews.statuses, saved_only: false }) };
+    } else if (unseen) {
+      step = { key: 'new', tone: 'green', n: unseen, go: () => onGoTo('jobs'), seen: run };
+    } else if (count('saved')) {
+      step = { key: 'saved', tone: 'lav', n: count('saved'), go: () => onGoTo('jobs', STEPS[1].patch) };
+    }
+    const n = step.n.toLocaleString(getLocale());
+    return el('section', {
+      className: `home__next home__next--${step.tone}`, attrs: { 'aria-labelledby': 'home-next-head' },
+    }, [
+      el('span', { className: 'home__kicker', text: t('home.ns.kicker') }),
+      el('div', { className: 'home__nextrow' }, [
+        el('div', { className: 'home__nexttext' }, [
+          el('h2', { className: 'home__nexttitle', attrs: { id: 'home-next-head' },
+            text: tCount(`home.ns.${step.key}.title`, { n }) }),
+          el('p', { className: 'home__nextbody', text: t(`home.ns.${step.key}.body`) }),
+        ]),
+        el('div', { className: 'home__nextactions' }, [
+          onGoTo ? button(t(`home.ns.${step.key}.go`), step.go, { className: 'home__nextgo' }) : null,
+          step.seen ? button(t('home.newSeen'), () => markSeen(step.seen), { className: 'home__nextalt' }) : null,
+        ].filter(Boolean)),
       ]),
-      el('div', { className: 'home__newactions' }, [
-        onGoTo ? button(t('home.newSee'), () => onGoTo('jobs'), { className: 'home__newgo' }) : null,
-        button(t('home.newSeen'), () => {
-          const before = stored(SEEN_KEY);
-          store(SEEN_KEY, run);
-          load();
-          toast(t('home.newSeenDone'), {
-            undo: () => {
-              store(SEEN_KEY, before);
-              load();
-            },
-          });
-        }, { className: 'home__newseen' }),
-      ].filter(Boolean)),
+    ]);
+  }
+
+  function markSeen(run) {
+    const before = stored(SEEN_KEY);
+    store(SEEN_KEY, run);
+    load();
+    toast(t('home.newSeenDone'), {
+      undo: () => {
+        store(SEEN_KEY, before);
+        load();
+      },
+    });
+  }
+
+  /** "Small things to do": a job site to fix and the answers still missing. */
+  function todos(payload) {
+    const failed = sitesNeedingAttention();
+    const item = (tone, title, help, cta, onClick) => el('li', {}, [
+      el('button', { className: 'home__todo', attrs: { type: 'button' }, on: { click: onClick } }, [
+        el('span', { className: `home__tododot home__tododot--${tone}`, attrs: { 'aria-hidden': 'true' } }),
+        el('span', { className: 'home__todotext' }, [
+          el('span', { className: 'home__todotitle', text: title }),
+          el('span', { className: 'home__todohelp', text: help }),
+        ]),
+        el('span', { className: 'home__todocta', text: cta }),
+      ]),
+    ]);
+    const rows = [
+      failed && onFixSites
+        ? item('yellow', tCount('home.todo.sites', { n: failed }), t('home.todo.sitesHelp'),
+          t('home.todo.fix'), onFixSites)
+        : null,
+      ...(payload.profile_gaps || []).map((gap) => item('purple', t(`home.todo.gap.${gap}`),
+        t(`home.todo.gapHelp.${gap}`), t('home.todo.add'),
+        () => (SETUP_FOR_GAP[gap] ? openSetup(SETUP_FOR_GAP[gap]) : onGoTo && onGoTo('profile')))),
+    ].filter(Boolean);
+    return el('section', { className: 'home__card home__todos', attrs: { 'aria-labelledby': 'home-todo-head' } }, [
+      el('div', { className: 'home__cardhead' }, [
+        el('h2', { className: 'home__cardtitle', attrs: { id: 'home-todo-head' }, text: t('home.todo.title') }),
+        el('span', { className: 'home__cardsub', text: rows.length ? t('home.todo.sub') : t('home.todo.subNone') }),
+      ]),
+      rows.length
+        ? el('ul', { className: 'home__todolist' }, rows)
+        : el('p', { className: 'home__todonone', text: t('home.todo.none') }),
     ]);
   }
 
@@ -390,7 +456,6 @@ export function createHome({
       const unknown = metric.value === null || metric.value === undefined;
       const label = t(`home.metric.${step.key}`);
       const inner = [
-        el('span', { className: 'step__num', text: t('home.step', { n: index + 1 }) }),
         el('span', { className: 'step__value num', text: unknown ? '-' : String(metric.value) }),
         el('span', { className: 'step__label', text: label }),
         el('span', {
@@ -411,7 +476,9 @@ export function createHome({
         ...inner,
       ].filter(Boolean));
     }).filter(Boolean);
-    return el('section', { className: 'home__progress', attrs: { 'aria-labelledby': 'home-progress-head' } }, [
+    return el('section', {
+      className: 'home__card home__progress', attrs: { 'aria-labelledby': 'home-progress-head' },
+    }, [
       el('h2', { className: 'home__sectitle', attrs: { id: 'home-progress-head' }, text: t('home.progress') }),
       el('p', { className: 'home__seclede', text: t('home.progressLede') }),
       // Moves since she last marked the list read: an EVENT count, said as a
@@ -454,7 +521,7 @@ export function createHome({
   }
 
   function section(data) {
-    return el('section', { className: `home__sec home__sec--${data.key}` }, [
+    return el('section', { className: `home__card home__sec home__sec--${data.key}` }, [
       el('h2', { className: 'home__sectitle' }, [
         el('span', { text: words(data, 'title') }),
         el('span', { className: 'home__count num', text: String(data.count) }),

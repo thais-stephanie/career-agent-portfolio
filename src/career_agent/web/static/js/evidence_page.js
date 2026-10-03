@@ -47,6 +47,8 @@ export function evidencePage({ onChanged = null, onImport = null } = {}) {
   const root = el('section', { className: 'evp', attrs: { 'aria-label': L('heading') } });
   let ledger = null;
   let career = { experiences: [] };
+  //: V3: which kind of proof is shown, 'all' or a claim type.
+  let kindTab = 'all';
 
   async function load() {
     [ledger, career] = await Promise.all([
@@ -69,8 +71,20 @@ export function evidencePage({ onChanged = null, onImport = null } = {}) {
     const groups = [...KINDS, ...SECONDARY].map((kind) => ({
       ...kind, items: live.filter((c) => c.claim_type === kind.type),
     }));
-    const primary = groups.filter((g) => KINDS.some((k) => k.type === g.type));
-    const anything = groups.some((g) => g.items.length);
+    const filled = groups.filter((g) => g.items.length);
+    const anything = filled.length > 0;
+    if (kindTab !== 'all' && !filled.some((g) => g.type === kindTab)) kindTab = 'all';
+    const tab = (key, label, n) => el('button', {
+      className: 'segmented__btn evp-tab',
+      attrs: { type: 'button', 'aria-pressed': String(kindTab === key), 'data-kind': key },
+      on: { click: () => { kindTab = key; paint(); } },
+    }, [label, el('span', { className: 'evp-tab__n', text: ` (${n})` })]);
+    const tabs = filled.length > 1 ? el('div', {
+      className: 'segmented evp-tabs', attrs: { role: 'group', 'aria-label': L('tabsLabel') },
+    }, [
+      tab('all', L('tab.all'), filled.reduce((sum, g) => sum + g.items.length, 0)),
+      ...filled.map((g) => tab(g.type, L(`group.${g.type}`), g.items.length)),
+    ]) : null;
     replace(root, [
       el('div', { className: 'evp-toolbar' }, [
         el('p', { className: 'evp-lede', text: L('lede') }),
@@ -85,11 +99,8 @@ export function evidencePage({ onChanged = null, onImport = null } = {}) {
           button(L('emptyAdd'), () => editorDrawer(null), { className: 'btn' }),
         ]),
       ]),
-      ...primary.map((group) => section(group)),
-      ...groups.filter((g) => !primary.includes(g) && g.items.length).map((group) => el('details', {
-        className: 'evp-fold',
-      }, [el('summary', { text: L('foldTitle', { name: L(`type.${group.type}`), n: group.items.length }) }),
-        grid(group)])),
+      tabs,
+      ...filled.filter((g) => kindTab === 'all' || g.type === kindTab).map((group) => section(group)),
       aside.length ? el('details', { className: 'evp-fold evp-fold--aside' }, [
         el('summary', { text: L('asideTitle', { n: aside.length }) }),
         el('p', { className: 'evp-lede', text: L('asideLede') }),

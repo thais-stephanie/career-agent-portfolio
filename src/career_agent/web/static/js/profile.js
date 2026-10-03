@@ -19,6 +19,7 @@ import { patchProfile } from './api.js';
 import { button, clear, el, field, replace } from './dom.js';
 import { getLocale, t, tVocab } from './i18n.js';
 import { tagInput } from './tags.js';
+import { initials } from './local-profiles.js';
 import {
   ARRANGEMENT_FIELDS, WORK_MODEL_FIELDS, arrangementMatrix, workModelMatrix,
 } from './choices.js';
@@ -116,7 +117,9 @@ function foldOf(section) {
  * readable on a machine whose evidence has not loaded, and the three
  * candidate tabs simply do not appear.
  */
-export function renderProfile(mount, data, ledger = null, { experience = null, tab = null } = {}) {
+export function renderProfile(mount, data, ledger = null, {
+  experience = null, tab = null, who = null, onGo = null,
+} = {}) {
   clear(mount);
 
   // NO PROVENANCE ABOVE THE ANSWERS. Two sentences used to open this page:
@@ -153,7 +156,7 @@ export function renderProfile(mount, data, ledger = null, { experience = null, t
   // one: "you have not confirmed anything yet, here is where to start" is the
   // most useful thing this page can say on a fresh machine, and an absent tab
   // says nothing at all.
-  if (ledger) panels.overview.push(...overviewPanel(roles, skills, confirmed));
+  if (ledger) panels.overview.push(...overviewPanel(roles, skills, confirmed, onGo));
   // THE CANONICAL EXPERIENCES, when the page was handed them: the career as
   // `career_experience` holds it, editable in place (experience.js). The
   // claim-grouped panel below is the fallback for a caller that has none.
@@ -181,8 +184,9 @@ export function renderProfile(mount, data, ledger = null, { experience = null, t
 
   // One tab is not a tab. With a single filled panel the row is pointless
   // chrome above the only thing there is, so it is not drawn.
+  const head = headerCard(data, confirmed, who, onGo);
   if (filled.length < 2) {
-    replace(mount, [...preamble, ...filled.flatMap((tab) => panels[tab.key])]);
+    replace(mount, [head, ...preamble, ...filled.flatMap((tab) => panels[tab.key])]);
     return;
   }
 
@@ -200,18 +204,18 @@ export function renderProfile(mount, data, ledger = null, { experience = null, t
   for (const tab of filled) {
     bodies.set(tab.key, panels[tab.key]);
     const node = button(t(tab.labelKey), () => show(tab.key), {
-      className: 'profiletab',
+      className: 'profiletab segmented__btn',
     });
     node.setAttribute('aria-pressed', 'false');
     buttons.push({ key: tab.key, node });
   }
 
   const row = el('div', {
-    className: 'profiletabs',
+    className: 'profiletabs segmented',
     attrs: { role: 'group', 'aria-label': t('profile.tabsLabel') },
   }, buttons.map((entry) => entry.node));
 
-  replace(mount, [...preamble, row, body]);
+  replace(mount, [head, ...preamble, row, body]);
   show(tab && bodies.has(tab) ? tab : filled[0].key);
   return { show };
 }
@@ -306,7 +310,7 @@ function countCard(key, value, labelKey) {
  * complete profile would be, so the figure would be a fraction with an
  * invented denominator. Counts of real things say more and claim less.
  */
-function overviewPanel(roles, skills, confirmed) {
+function overviewPanel(roles, skills, confirmed, onGo = null) {
   const quals = qualifications(confirmed);
   const work = confirmed.filter((claim) => HISTORY_TYPES.has(claim.claim_type));
   const out = [];
@@ -336,18 +340,54 @@ function overviewPanel(roles, skills, confirmed) {
     quals.length ? countCard('quals', quals.length, 'profile.countQuals') : null,
   ].filter(Boolean));
 
-  out.push(el('section', { className: 'card card--static profile__glance' }, [
-    el('h3', { className: 'profile__heading', text: t('profile.glanceHeading') }),
-    el('p', { className: 'profile__lead', text: t('profile.glanceLead') }),
-    counts,
-  ]));
-
-  if (roles.length) {
-    out.push(el('section', { className: 'card card--static profile__glance' }, [
-      el('h3', { className: 'profile__heading', text: t('profile.recentWork') }),
+  // WHAT WOULD HELP, named: each missing kind of fact and where to add it.
+  const proof = confirmed.some((claim) => claim.claim_type === 'PROJECT' || claim.claim_type === 'ACHIEVEMENT');
+  const facts = [
+    { key: 'work', has: work.length > 0, go: 'experience' },
+    { key: 'skills', has: skills.length > 0, go: 'experience' },
+    { key: 'proof', has: proof, go: 'evidence' },
+    { key: 'quals', has: quals.length > 0, go: 'evidence' },
+  ];
+  const missing = facts.filter((fact) => !fact.has);
+  const done = facts.filter((fact) => fact.has).map((fact) => t(`profile.done.${fact.key}`));
+  const stronger = el('section', { className: 'card card--static profile__stronger' }, [
+    el('div', { className: 'profile__cardhead' }, [
+      el('h3', { className: 'profile__heading', text: t('profile.stronger') }),
+      el('p', { className: 'profile__lead', text: t('profile.strongerLead') }),
+    ]),
+    missing.length
+      ? el('ul', { className: 'profile__todos' }, missing.map((fact) => el('li', {}, [
+        el('button', {
+          className: 'profile__todo',
+          attrs: { type: 'button' },
+          on: { click: () => onGo && onGo(fact.go) },
+        }, [
+          el('span', { className: 'profile__todoicon', text: '\u2726', attrs: { 'aria-hidden': 'true' } }),
+          el('span', { className: 'profile__todotext' }, [
+            el('span', { className: 'profile__todotitle', text: t(`profile.todo.${fact.key}`) }),
+            el('span', { className: 'profile__todohelp', text: t(`profile.todoHelp.${fact.key}`) }),
+          ]),
+          el('span', { className: 'profile__todocta', text: t('profile.todoAdd') }),
+        ]),
+      ])))
+      : el('p', { className: 'profile__todonone', text: t('profile.todoNone') }),
+    done.length
+      ? el('p', { className: 'profile__done' }, [
+        el('span', { className: 'profile__donetick', text: '\u2713', attrs: { 'aria-hidden': 'true' } }),
+        t('profile.alreadyDone', { list: done.join(', ') }),
+      ])
+      : null,
+  ].filter(Boolean));
+  const latest = roles.length
+    ? el('section', { className: 'card card--static profile__latest' }, [
+      el('span', { className: 'profile__eyebrow', text: t('profile.recentWork') }),
       roleBody(roles[0], { lines: 2, more: false }),
-    ]));
-  }
+    ])
+    : null;
+  out.push(el('div', { className: 'profile__overview' }, [
+    stronger,
+    el('div', { className: 'profile__overside' }, [counts, latest].filter(Boolean)),
+  ]));
 
   if (skills.length) {
     const shown = unique.slice(0, SKILL_GLANCE);
@@ -368,6 +408,44 @@ function overviewPanel(roles, skills, confirmed) {
     linkToEvidence(),
   ]));
   return out;
+}
+
+/**
+ * V3: who this profile is for, the latest role, where, and what they look
+ * for, with the two ways to change it. Everything is read from what is
+ * saved; nothing is filled in.
+ */
+function headerCard(data, confirmed, who, onGo) {
+  const value = (field) => ((data.editable || []).find((row) => row.field === field) || {}).value;
+  const name = who || t('profile.head.you');
+  const latest = confirmed.filter((claim) => claim.claim_type === 'EMPLOYMENT')
+    .sort((a, b) => String(b.period_start || '').localeCompare(String(a.period_start || '')))[0];
+  const country = value('candidate_country');
+  const remote = (value('work_models') || []).includes('REMOTE');
+  const where = [
+    country ? namedChoice(country, data.place_names) : null,
+    remote ? t('profile.head.remote') : null,
+  ].filter(Boolean).join(' \u00B7 ');
+  const desired = (data.sections || []).find((section) => section.id === 'signals-desired');
+  const looking = desired ? desired.rows.slice(0, 3).map(labelOf) : [];
+  // A person's initials only when there is a person's name; otherwise a plain mark.
+  const mark = who ? initials(who) : '◉';
+  return el('section', { className: 'profilehead' }, [
+    el('span', { className: 'profilehead__avatar', text: mark, attrs: { 'aria-hidden': 'true' } }),
+    el('div', { className: 'profilehead__who' }, [
+      el('h2', { className: 'profilehead__name', text: name }),
+      latest ? el('span', { className: 'profilehead__line', text: latest.text }) : null,
+      where ? el('span', { className: 'profilehead__where', text: where }) : null,
+      looking.length ? el('div', { className: 'profilehead__looking' }, [
+        el('span', { className: 'profilehead__eyebrow', text: t('profile.head.looking') }),
+        ...looking.map((text) => el('span', { className: 'profilehead__chip', text })),
+      ]) : null,
+    ].filter(Boolean)),
+    onGo ? el('div', { className: 'profilehead__actions' }, [
+      button(t('profile.head.import'), () => onGo('import'), { className: 'btn profilehead__btn' }),
+      button(t('profile.head.answers'), () => onGo('answers'), { className: 'btn btn--primary profilehead__btn' }),
+    ]) : null,
+  ].filter(Boolean));
 }
 
 /** The one route off these three tabs, and it goes where editing lives. */

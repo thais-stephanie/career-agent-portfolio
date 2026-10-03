@@ -29,6 +29,7 @@ from career_agent.runtime import database_ref, read_identity
 from career_agent.runtime.fingerprint import runtime_fingerprint
 from career_agent.runtime.mode import indicator
 from career_agent.storage.mvp_repo import NOT_STATED
+from career_agent.web.caution import caution_signals
 from career_agent.web.presenter import job_card, job_detail, utc_today
 from career_agent.web.server import ApiError, LocalApp, validate_job_id
 from career_agent.web.server import closing as _closing
@@ -2024,6 +2025,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             repo = ScoredJobQuery(conn)
             total = repo.count(config_id, config_version, job_filter)
             rows = repo.page(config_id, config_version, job_filter)
+            # Read from the WHOLE ad: the page holds only its first characters.
+            whole = repo.descriptions([row.job_id for row in rows])
             facets = repo.facets(config_id, config_version, job_filter)
             # Counted against the same filter with one field flipped, so it is
             # exactly "how many more you would see if you asked to". `total`,
@@ -2087,7 +2090,11 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             "offset": job_filter.offset,
             "limit": job_filter.limit,
             "items": [
-                job_card(row, bands=self._bands, today=today, recency=self._recency) for row in rows
+                {
+                    **job_card(row, bands=self._bands, today=today, recency=self._recency),
+                    "caution": caution_signals(whole.get(row.job_id)),
+                }
+                for row in rows
             ],
             "facets": facets,
             # How many postings this query left out because the posting itself

@@ -168,11 +168,12 @@ def test_the_application_card_and_its_column_are_round(page: Chrome, pristine_se
 
 def test_the_home_metric_card_is_round(page: Chrome, server: str) -> None:
     """It had no `border-radius` at all. Perfectly square, on the first screen
-    the product shows."""
+    the product shows. V3 draws the steps as a path inside one card: the card
+    is what must be round."""
     page.navigate(f"{server}/#home")
     page.wait_for("Boolean(document.querySelector('.metric'))", message="a home metric")
 
-    assert radius_of(page, ".metric") == [CARD_RADIUS_PX] * 4
+    assert radius_of(page, ".home__progress") == [CARD_RADIUS_PX] * 4
 
 
 def test_the_filter_panel_is_round(page: Chrome, server: str) -> None:

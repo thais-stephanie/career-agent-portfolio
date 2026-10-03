@@ -173,7 +173,7 @@ export async function getApp() {
   return request('/app');
 }
 
-/** Stop Career Agent and Resume Tailor. */
+/** Stop Career Agent and its Resume helper. */
 export async function quitApp() {
   return request('/app/quit', { method: 'POST', body: {} });
 }
@@ -1054,6 +1054,11 @@ export async function getClaimHistory(claimKey) {
 export async function getFirstRun() {
   if (MOCK) throw noCandidateHere();
   return request('/firstrun');
+}
+
+/** Where the person says they are in their career (context only; null clears it). */
+export async function setCareerStage(stage) {
+  return request('/firstrun/stage', { method: 'POST', body: { stage } });
 }
 
 /**

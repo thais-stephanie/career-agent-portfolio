@@ -522,5 +522,7 @@ export function createLocalProfiles(host) {
   }
 
   load();
-  return { retranslate, reload: load, mountSettings };
+  const count = () => (data && data.enabled && data.profiles ? data.profiles.length : 1);
+  const activeLabel = () => (data && data.enabled && data.active ? data.active.label : null);
+  return { retranslate, reload: load, mountSettings, count, activeLabel };
 }

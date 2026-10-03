@@ -125,7 +125,7 @@ def test_enter_advances_and_focus_moves_to_each_question(page: Chrome, fresh: Fr
                 "document.querySelector('.stepper__step--current .stepper__name').innerText"
             )
         )
-        == "Work"
+        == "The work you want"
     )
 
 
@@ -260,7 +260,8 @@ def test_the_setup_speaks_portuguese_and_fits_a_phone(page: Chrome, fresh: Fresh
     page.set_viewport(390, 844, mobile=True)
     _click(page, "#setup-next")
     _wait_card(page, "work")
-    assert str(page.evaluate("document.querySelector('.stepper__now').innerText")) == "Trabalho"
+    now = str(page.evaluate("document.querySelector('.stepper__now').innerText"))
+    assert now == "O trabalho que você quer"
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
     page.evaluate("document.querySelector('[data-locale=\"en\"]').click()")
 

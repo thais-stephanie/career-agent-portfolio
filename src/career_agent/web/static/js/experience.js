@@ -109,6 +109,10 @@ export function experienceView({ onReview = null, onChanged = null } = {}) {
         el('span', { className: 'xp-banner__text', text: L('editingText') }),
         button(L('doneEditing'), () => setEditing(false), { className: 'btn btn--primary btn--small' }),
       ]) : null,
+      editing ? null : el('div', { className: 'xp-toolbar' }, [
+        el('p', { className: 'xp-lede', text: L('lede') }),
+        button(L('editAll'), () => root.startEditing(), { className: 'btn btn--small xp-editall' }),
+      ]),
       open === 'new' ? editor(null) : addCard(),
       waiting && onReview ? el('p', { className: 'xp-waiting' }, [
         el('span', { text: L('waitingNote', { n: waiting }) }),
