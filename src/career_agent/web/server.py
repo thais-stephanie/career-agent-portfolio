@@ -85,6 +85,23 @@ class Download:
     filename: str
 
 
+@dataclass(frozen=True)
+class InlinePage:
+    """A route's answer that is a self-contained HTML document shown INSIDE
+    this app (the resume preview frame): no script may run in it, it may load
+    nothing from anywhere, and only this app may frame it."""
+
+    body: bytes
+
+
+#: The policy an `InlinePage` is served under. `sandbox` without
+#: `allow-scripts` means no script runs even if the page is opened alone.
+INLINE_PAGE_POLICY = (
+    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; "
+    "form-action 'none'; frame-ancestors 'self'; sandbox allow-same-origin"
+)
+
+
 class ApiError(Exception):
     """An error with an HTTP status and a message for the interface.
 
@@ -403,6 +420,9 @@ class _Handler(BaseHTTPRequestHandler):
                 if isinstance(payload, Download):
                     self._send_download(payload)
                     return
+                if isinstance(payload, InlinePage):
+                    self._send_inline_page(payload)
+                    return
                 self._send_json(200, payload)
                 return
             if method != "GET":
@@ -459,6 +479,17 @@ class _Handler(BaseHTTPRequestHandler):
             # pressed a button in a browser to go and find a window she may
             # never have opened -- `career-agent start` is how this runs.
             self._send_json(500, {"error": "unhandled server fault; see the server log"})
+
+    def _send_inline_page(self, page: InlinePage) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(page.body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", INLINE_PAGE_POLICY)
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.end_headers()
+        self.wfile.write(page.body)
 
     def _send_download(self, download: Download) -> None:
         safe = "".join(c for c in download.filename if c.isalnum() or c in "-_.") or "export"

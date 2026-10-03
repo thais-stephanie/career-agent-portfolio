@@ -38,6 +38,7 @@ import { createRetrievalPanel } from './retrieval.js';
 import { createCollection, createProgressView, outcomeText } from './collection.js';
 import { createDrawer } from './detail.js';
 import { createResumeHelper } from './resume.js';
+import { createResumeWorkspace } from './resume_v2.js';
 import { createEvidence } from './evidence.js';
 import { documentsPage } from './documents.js';
 import { evidencePage } from './evidence_page.js';
@@ -149,6 +150,9 @@ const DEV_STATEMENTS = new URLSearchParams(window.location.search).get('debug') 
 // behind it changed: the configuration files, the /api/preferences and
 // /api/search-review endpoints and the CLI still read and write the same data.
 const DEV_SCORING = ['1', 'scoring'].includes(new URLSearchParams(window.location.search).get('debug'));
+// RESUME WORKSPACE V2 IS NOT A USER SURFACE YET. The Resume helper is where a
+// resume is made and edited; the new workspace is reachable only on purpose.
+const DEV_RESUME_V2 = new URLSearchParams(window.location.search).get('debug') === 'resume-v2';
 const scoringBlock = document.getElementById('settings-model-block');
 if (scoringBlock) scoringBlock.hidden = !DEV_SCORING;
 const evidence = DEV_STATEMENTS ? createEvidence({ onChanged: () => careerChanged() }) : null;
@@ -259,6 +263,7 @@ const PAGES = {
   settings: document.getElementById('page-settings'),
   // The Resume helper: a page of this app, never a second one.
   resume: document.getElementById('page-resume'),
+  ...(DEV_RESUME_V2 ? { 'resume-v2': document.getElementById('page-resume-v2') } : {}),
 };
 
 // The rail, the page header and the mobile drawer. See `shell.js` for why the
@@ -279,6 +284,8 @@ const resumeHelper = createResumeHelper({
   onGoProfile: () => goTo('profile'),
   toast: (message, bad = false, undo = null) => flash(message, bad, undo ? undo.run : null),
 });
+
+const resumeWorkspace = DEV_RESUME_V2 ? createResumeWorkspace({ host: PAGES['resume-v2'] }) : null;
 
 // -- the career pages -------------------------------------------------------
 const evidenceView = evidencePage({
@@ -352,6 +359,7 @@ function goTo(page, { push = true, resume = null } = {}) {
   if (!PAGES[page]) return;
   currentPage = page;
   if (page === 'resume') resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
+  if (page === 'resume-v2') void resumeWorkspace.show().catch(() => {});
 
   for (const [name, node] of Object.entries(PAGES)) {
     if (name === 'applications') continue;   // shares the Jobs container
