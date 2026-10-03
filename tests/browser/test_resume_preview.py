@@ -7,6 +7,7 @@ measured inside the preview frame, the way the paginator measures it.
 
 from __future__ import annotations
 
+import json
 import threading
 from collections.abc import Iterator
 from http.server import ThreadingHTTPServer
@@ -90,9 +91,17 @@ def open_workspace(
     )
 
 
+def settled(page: Chrome) -> None:
+    """Every edit saved: the editor warns before leaving unsaved work, and a
+    pending save would hold the next navigation at that question."""
+    state = "document.querySelector('.rve__state').dataset.state"
+    page.wait_for(f"{state} === 'saved'", message="saved")
+
+
 def design(page: Chrome, label: str, value: str) -> None:
+    selector = json.dumps(f"select[aria-label={label!r}]")
     page.evaluate(
-        f"(() => {{ const s = document.querySelector('select[aria-label={label!r}]');"
+        f"(() => {{ const s = document.querySelector({selector});"
         f" s.value = {value!r}; s.dispatchEvent(new Event('change', {{ bubbles: true }})); }})()"
     )
 
@@ -114,6 +123,7 @@ def test_letter_and_a4_are_their_real_sizes(page: Chrome, resumes: str) -> None:
     width_a4 = page.evaluate(f"({FRAME}).style.width")
     design(page, "Page", "LETTER")
     page.wait_for(f"({FRAME}).style.width !== {width_a4!r}", message="letter")
+    settled(page)
     assert abs(float(width_a4[:-2]) - 210 * 96 / 25.4) < 1
     assert abs(float(page.evaluate(f"({FRAME}).style.width")[:-2]) - 215.9 * 96 / 25.4) < 1
     # The paper never scrolls inside itself, and nothing is cut off: the
@@ -126,7 +136,7 @@ def test_letter_and_a4_are_their_real_sizes(page: Chrome, resumes: str) -> None:
 
 def test_the_latest_render_wins_and_a_template_keeps_the_words(page: Chrome, resumes: str) -> None:
     open_workspace(page, resumes)
-    before = page.evaluate(f"{DOC}.body.innerText")
+    before = page.evaluate(f"{DOC}.body.textContent")
     # The first request (modern) is held back; the second (compact) answers first.
     page.evaluate(
         "(() => { const real = window.fetch; window.fetch = (url, opts) => {"
@@ -144,7 +154,8 @@ def test_the_latest_render_wins_and_a_template_keeps_the_words(page: Chrome, res
     page.wait_for(compact, message="compact")
     page.evaluate("new Promise((r) => setTimeout(r, 1200))")
     assert page.evaluate(compact), "an old render won"
-    assert page.evaluate(f"{DOC}.body.innerText") == before
+    settled(page)
+    assert page.evaluate(f"{DOC}.body.textContent") == before
 
 
 def test_nothing_in_the_preview_is_fetched_or_runs(page: Chrome, resumes: str) -> None:

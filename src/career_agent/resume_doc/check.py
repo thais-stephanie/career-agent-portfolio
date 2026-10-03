@@ -29,7 +29,7 @@ def _finding(kind: str, ref: str, severity: str = "advice") -> dict[str, str]:
 
 
 def _bullet_findings(bullet: Bullet, ref: str) -> list[dict[str, str]]:
-    out = []
+    out: list[dict[str, str]] = []
     if bullet.hidden:
         return out
     if len(bullet.text) > LONG_BULLET_CHARS:

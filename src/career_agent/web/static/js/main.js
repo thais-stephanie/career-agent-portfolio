@@ -362,7 +362,7 @@ function goTo(page, { push = true, resume = null } = {}) {
   if (currentPage === 'resume-v2' && page !== 'resume-v2' && resumeWorkspace) void resumeWorkspace.leave();
   currentPage = page;
   if (page === 'resume') resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
-  if (page === 'resume-v2') void resumeWorkspace.show().catch(() => {});
+  if (page === 'resume-v2') resumeWorkspace.show();
 
   for (const [name, node] of Object.entries(PAGES)) {
     if (name === 'applications') continue;   // shares the Jobs container

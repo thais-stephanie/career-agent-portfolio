@@ -265,7 +265,8 @@ def test_a_template_change_keeps_every_word_and_is_a_version_point(
     page: Chrome, editor_server: dict
 ) -> None:
     open_editor(page, editor_server["url"])
-    words = page.evaluate(f"{DOC}.body.innerText")
+    # textContent: the words themselves, not how a template styles them.
+    words = page.evaluate(f"{DOC}.body.textContent")
     page.evaluate("document.querySelector('.rve__panel').open = true")
     page.evaluate(
         "(() => { const s = document.querySelector('select[aria-label=\"Template\"]');"
@@ -273,7 +274,7 @@ def test_a_template_change_keeps_every_word_and_is_a_version_point(
     )
     h2 = f"getComputedStyle({DOC}.documentElement).getPropertyValue('--h2-size').trim()"
     page.wait_for(f"{h2} === '1.08em'", message="modern")
-    assert page.evaluate(f"{DOC}.body.innerText") == words
+    assert page.evaluate(f"{DOC}.body.textContent") == words
     page.wait_for(f"{STATE} === 'saved'", message="saved")
     page.evaluate("new Promise((r) => setTimeout(r, 500))")
     assert [r.reason for r in _revisions(editor_server["db"])][-1] == "TEMPLATE_CHANGED"
