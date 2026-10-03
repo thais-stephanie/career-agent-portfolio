@@ -180,3 +180,29 @@ def test_no_name_and_a_refused_export_are_said_plainly(page: Chrome, server: str
     blocked = page.evaluate("document.querySelector('.rh-blocked').innerText")
     assert "Led a team of 40 engineers." in blocked
     assert "A bigger role than your sources show" in blocked
+
+
+def test_a_tab_chosen_while_another_loads_is_the_one_that_stays(page: Chrome, server: str) -> None:
+    """Start is still loading when My resumes is chosen: Start finishing
+    later must not paint over the tab the person chose."""
+    page.set_viewport(*DESKTOP)
+    page.navigate(server)
+    page.wait_for("document.querySelector('.topnav__link[data-page=\"resume\"]')", message="rail")
+    page.evaluate(ENGINE)
+    # The first list of versions (Start's) answers last.
+    page.evaluate(
+        "(() => { const f = window.fetch; let n = 0; window.fetch = (u, o) =>"
+        " String(u).endsWith('/applications')"
+        " ? new Promise((r) => setTimeout(r, n++ === 0 ? 800 : 50)).then(() => f(u, o))"
+        " : f(u, o); })()"
+    )
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"resume\"]').click()")
+    page.wait_for("document.getElementById('rh-tab-resumes') !== null", message="the tabs")
+    page.evaluate("document.getElementById('rh-tab-resumes').click()")
+    page.wait_for("document.querySelector('.rh-made') !== null", message="My resumes")
+    page.evaluate("new Promise((r) => setTimeout(r, 1200))")
+    assert page.evaluate("document.querySelector('.rh-made') !== null"), "Start painted over it"
+    assert (
+        page.evaluate("document.getElementById('rh-tab-resumes').getAttribute('aria-selected')")
+        == "true"
+    )
