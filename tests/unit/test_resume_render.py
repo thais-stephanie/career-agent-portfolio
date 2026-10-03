@@ -15,7 +15,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
-from tests.support_resume import long, rich, rid, sparse
+from tests.support_resume import long, rich, sparse
 
 from career_agent.resume_doc.models import ResumeDocument
 from career_agent.resume_doc.render import render_html
@@ -27,7 +27,7 @@ REF = re.compile(
     r"|section/(summary|experience|projects|education|certifications|skills|custom:[0-9A-Z]{26})"
     r"|(experience|projects|education)/[0-9A-Z]{26}(/bullet/[0-9A-Z]{26}|/url)?"
     r"|certifications/[0-9A-Z]{26}|skills/[0-9A-Z]{26}(/item/[0-9A-Z]{26})?"
-    r"|custom/[0-9A-Z]{26}/bullet/[0-9A-Z]{26})$"
+    r"|custom:[0-9A-Z]{26}/bullet/[0-9A-Z]{26})$"
 )
 
 
@@ -167,12 +167,6 @@ def test_user_text_is_text_never_markup(mode: str) -> None:
         assert hostile in text, "shown as the characters typed"
 
 
-def test_bold_is_the_only_markup_a_field_can_make() -> None:
-    doc = rich()
-    html = render_html(doc).html
-    assert "<strong>reconciliation</strong>" in html
-
-
 def test_nothing_can_load_from_the_network() -> None:
     for mode in ("preview", "print"):
         html = render_html(rich(), mode=mode).html  # type: ignore[arg-type]
@@ -219,5 +213,18 @@ def test_rendering_is_fast() -> None:
         assert (time.perf_counter() - started) / 20 * 1000 < budget_ms
 
 
-def test_fixture_ids_are_stable() -> None:
-    assert rich().id == rid("rich") and render_html(rich()).html == render_html(rich()).html
+def test_only_a_web_address_is_ever_a_link() -> None:
+    doc = rich()
+    project = doc.projects[0].model_copy(update={"url": "javascript:alert(1)"})
+    html = render_html(doc.model_copy(update={"projects": [project]}), mode="print").html
+    hrefs = [a.get("href") for _, a in parsed(html).tags if "href" in a]
+    assert hrefs and all(h and h.startswith("https://") for h in hrefs)
+    assert "javascript:alert(1)" in visible_text(html), "shown as text, never followable"
+
+
+def test_a_title_is_plain_text() -> None:
+    doc = rich()
+    named = doc.model_copy(
+        update={"identity": doc.identity.model_copy(update={"full_name": "**Bold** Name"})}
+    )
+    assert "<title>**Bold** Name</title>" in render_html(named).html

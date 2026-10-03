@@ -42,6 +42,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 from career_agent.pipeline.retrieval import ProfileRetired
+from career_agent.resume_doc.render import CSP as RESUME_CSP
 
 #: Stops every server this process started (scripts/launch.py sets it). None
 #: when the process cannot stop itself cleanly, as under `career-agent serve`,
@@ -96,10 +97,7 @@ class InlinePage:
 
 #: The policy an `InlinePage` is served under. `sandbox` without
 #: `allow-scripts` means no script runs even if the page is opened alone.
-INLINE_PAGE_POLICY = (
-    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; "
-    "form-action 'none'; frame-ancestors 'self'; sandbox allow-same-origin"
-)
+INLINE_PAGE_POLICY = f"{RESUME_CSP}; frame-ancestors 'self'; sandbox allow-same-origin"
 
 
 class ApiError(Exception):

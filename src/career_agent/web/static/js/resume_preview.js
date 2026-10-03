@@ -27,16 +27,15 @@ import { el } from './dom.js';
 import { t } from './i18n.js';
 
 /** CSS pixels per millimetre. */
-export const PX_PER_MM = 96 / 25.4;
+const PX_PER_MM = 96 / 25.4;
 /** The grey band drawn between two pages, in CSS pixels. */
 const GAP = 24;
 
-function relativeTop(node, root) {
-  return node.getBoundingClientRect().top - root.getBoundingClientRect().top;
-}
-
-function relativeBottom(node, root) {
-  return node.getBoundingClientRect().bottom - root.getBoundingClientRect().top;
+/** A node's top and bottom, measured from the top of the document. */
+function span(node, root) {
+  const box = node.getBoundingClientRect();
+  const base = root.getBoundingClientRect().top;
+  return { top: box.top - base, bottom: box.bottom - base };
 }
 
 /** Consecutive blocks that must share a page: each `[data-keep]` joins the next. */
@@ -70,24 +69,21 @@ export function paginate(doc, page) {
   for (const group of groups([...root.querySelectorAll('[data-block]')])) {
     const first = group[0];
     const last = group[group.length - 1];
-    if (relativeBottom(last, root) > bottomLimit(current) + 0.5
-        && relativeTop(first, root) > top(current) + M + 0.5) {
+    if (span(last, root).bottom > bottomLimit(current) + 0.5
+        && span(first, root).top > top(current) + M + 0.5) {
       // Push the group to the top of the next page.
       const spacer = doc.createElement(first.tagName === 'LI' ? 'li' : 'div');
       spacer.className = 'rv-spacer';
       spacer.setAttribute('aria-hidden', 'true');
-      spacer.style.listStyle = 'none';
-      spacer.style.margin = '0';
-      spacer.style.padding = '0';
       first.before(spacer);
       current += 1;
       // Margins stop collapsing once the spacer has height: correct twice.
       for (let pass = 0; pass < 2; pass += 1) {
-        const missing = top(current) + M - relativeTop(first, root);
+        const missing = top(current) + M - span(first, root).top;
         spacer.style.height = `${Math.max(0, (parseFloat(spacer.style.height) || 0) + missing)}px`;
       }
     }
-    while (relativeBottom(last, root) > bottomLimit(current) + 0.5) {
+    while (span(last, root).bottom > bottomLimit(current) + 0.5) {
       // Taller than what is left of an empty page: it cannot stay whole.
       overflow.push(first.dataset.ref || '');
       current += 1;
@@ -102,10 +98,8 @@ export function paginate(doc, page) {
     const band = doc.createElement('div');
     band.className = 'rv-gap';
     band.setAttribute('aria-hidden', 'true');
-    Object.assign(band.style, {
-      position: 'absolute', left: '0', right: '0', top: `${top(n) - GAP}px`,
-      height: `${GAP}px`, background: '#d9d6cf',
-    });
+    band.style.top = `${top(n) - GAP}px`;
+    band.style.height = `${GAP}px`;
     root.append(band);
   }
   return { pages, overflow, width: page.width_mm * PX_PER_MM, height, pageHeight: H, gap: GAP };
@@ -190,13 +184,14 @@ export function createResumePreview({ onRef = () => {} } = {}) {
     const next = frames[1 - shown];
     if (!(await load(next, rendered.url, mine))) return null;
     const doc = next.contentDocument;
+    // A load event left over from an earlier navigation is not this render.
+    if (!doc || !doc.URL.endsWith(rendered.url)) return null;
     const layout = paginate(doc, rendered.page);
     doc.addEventListener('click', (event) => {
       const target = event.target.closest('[data-ref]');
       event.preventDefault();
       if (target) onRef(target.dataset.ref);
     });
-    if (mine !== serial) return null;
     last = layout;
     delete next.dataset.off;
     next.setAttribute('aria-hidden', 'false');
@@ -210,9 +205,6 @@ export function createResumePreview({ onRef = () => {} } = {}) {
     return layout;
   }
 
-  /** The visible frame's document (tests and focus highlighting read it). */
-  const current = () => frames[shown].contentDocument;
-
   window.addEventListener('resize', fit);
-  return { root, update, current, fit };
+  return { root, update };
 }

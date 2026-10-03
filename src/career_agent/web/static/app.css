@@ -10944,9 +10944,8 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rvw__sub { margin: 0; font-size: 14px; color: var(--body2); }
 .rvw__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .rvw__label { font-size: 13px; font-weight: 600; color: var(--body2); }
-.rvw__clicked, .rvw__empty { margin: 0; font-size: 13px; color: var(--body2); }
+.rvw__clicked, .rvw__empty, .rvp__status { margin: 0; font-size: 13px; color: var(--body2); }
 .rvp { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.rvp__status { margin: 0; font-size: 13px; color: var(--body2); }
 .rvp__stage {
   overflow-x: hidden; padding: 12px; border-radius: 12px;
   background: var(--surface-alt); border: 1px solid var(--divider);

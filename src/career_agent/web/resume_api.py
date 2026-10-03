@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import secrets
 import threading
-import time
 from collections import OrderedDict
 from typing import Any
 
@@ -23,20 +22,19 @@ from career_agent.resume_doc.render import render_html
 from career_agent.resume_doc.store import NotFound, ResumeStore, StoredDocument
 from career_agent.web.server import ApiError, InlinePage, LocalApp, closing
 
-#: Renders kept for the preview frame: a few, briefly, in memory only.
+#: Renders kept for the preview frame: the last few, in memory only.
 KEEP_RENDERS = 8
-KEEP_SECONDS = 600
 
 
 class _Renders:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._held: OrderedDict[str, tuple[float, str | None, str]] = OrderedDict()
+        self._held: OrderedDict[str, tuple[str | None, str]] = OrderedDict()
 
     def put(self, profile: str | None, html: str) -> str:
         token = secrets.token_urlsafe(18)
         with self._lock:
-            self._held[token] = (time.monotonic(), profile, html)
+            self._held[token] = (profile, html)
             while len(self._held) > KEEP_RENDERS:
                 self._held.popitem(last=False)
         return token
@@ -44,9 +42,7 @@ class _Renders:
     def get(self, token: str, profile: str | None) -> str | None:
         with self._lock:
             held = self._held.get(token)
-        if held is None or time.monotonic() - held[0] > KEEP_SECONDS or held[1] != profile:
-            return None
-        return held[2]
+        return held[1] if held is not None and held[0] == profile else None
 
 
 def _summary(doc: StoredDocument) -> dict[str, Any]:

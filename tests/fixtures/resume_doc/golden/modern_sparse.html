@@ -7,7 +7,7 @@ body {
   line-height: var(--lh); text-align: left; -webkit-print-color-adjust: exact;
 }
 .rv-doc { position: relative; }
-.rv--preview .rv-doc { width: var(--page-w); padding: var(--margin); }
+.rv-mode--preview .rv-doc { width: var(--page-w); padding: var(--margin); }
 .rv-head { margin: 0 0 calc(0.6em * var(--gap)); }
 .rv-name { margin: 0; font-size: var(--name-size); line-height: 1.15; color: var(--name-color); }
 .rv-contact { margin: 0.25em 0 0; font-size: 0.92em; }
@@ -27,10 +27,13 @@ body {
 .rv-list li { margin: 0 0 calc(0.18em * var(--gap) * var(--density)); }
 .rv-skills { margin: 0 0 0.2em; }
 .rv-link { color: inherit; text-decoration: none; }
-[data-block] { break-inside: avoid; page-break-inside: avoid; }
-[data-keep] { break-after: avoid; page-break-after: avoid; }
+[data-block] { break-inside: avoid; }
+[data-keep] { break-after: avoid; }
 /* The preview frame is sized to the whole document: it never scrolls itself. */
 .rv-mode--preview { overflow: hidden; }
-.rv--preview [data-empty]::before { content: attr(data-empty); color: #9a9a9a; }
-@media print { .rv--preview .rv-doc { width: auto; padding: 0; } }
-</style></head><body class="rv rv--preview rv--modern"><article class="rv-doc" data-ref="document"><header class="rv-head" data-ref="identity" data-block><h1 class="rv-name" data-ref="identity/name">Alex Exemplo</h1></header><section class="rv-section" data-ref="section/experience"><h2 class="rv-h2" data-ref="section/experience" data-block data-keep>Experiência</h2><article class="rv-entry" data-ref="experience/57FAWDRXV8XMJ6MG6CJVB0W3M4"><header class="rv-entry__head" data-ref="experience/57FAWDRXV8XMJ6MG6CJVB0W3M4" data-block data-keep><h3 class="rv-h3">Analista<span class="rv-sep" aria-hidden="true"> | </span>Exemplo Digital</h3><p class="rv-meta">fev 2024 - Atual</p></header><ul class="rv-list"><li data-ref="experience/57FAWDRXV8XMJ6MG6CJVB0W3M4/bullet/0T9QVXMQAYWA2JFB0NJWZBC3MP" data-block>Organizei os relatórios semanais.</li></ul></article></section></article></body></html>
+.rv-mode--preview [data-empty]::before { content: attr(data-empty); color: #9a9a9a; }
+/* Drawn by the preview's paginator: the gap between two pages sits BEHIND
+   the text, so a block taller than a page stays readable across it. */
+.rv-spacer { list-style: none; margin: 0; padding: 0; }
+.rv-gap { position: absolute; left: 0; right: 0; z-index: -1; background: #d9d6cf; }
+</style></head><body><article class="rv-doc" data-ref="document"><header class="rv-head" data-ref="identity" data-block><h1 class="rv-name" data-ref="identity/name">Alex Exemplo</h1></header><section class="rv-section" data-ref="section/experience"><h2 class="rv-h2" data-ref="section/experience" data-block data-keep>Experiência</h2><article class="rv-entry" data-ref="experience/57FAWDRXV8XMJ6MG6CJVB0W3M4"><header class="rv-entry__head" data-ref="experience/57FAWDRXV8XMJ6MG6CJVB0W3M4" data-block data-keep><h3 class="rv-h3">Analista<span class="rv-sep" aria-hidden="true"> | </span>Exemplo Digital</h3><p class="rv-meta">fev 2024 - Atual</p></header><ul class="rv-list"><li data-ref="experience/57FAWDRXV8XMJ6MG6CJVB0W3M4/bullet/0T9QVXMQAYWA2JFB0NJWZBC3MP" data-block>Organizei os relatórios semanais.</li></ul></article></section></article></body></html>

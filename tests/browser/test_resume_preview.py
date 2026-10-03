@@ -134,9 +134,12 @@ def test_the_latest_render_wins_and_a_template_keeps_the_words(page: Chrome, res
             "(() => { const s = document.getElementById('rvw-template');"
             f" s.value = '{value}'; s.dispatchEvent(new Event('change')); }})()"
         )
-    page.wait_for(f"{DOC}.body.classList.contains('rv--compact')", message="compact")
+    compact = (
+        f"getComputedStyle({DOC}.documentElement).getPropertyValue('--h2-size').trim() === '0.88em'"
+    )
+    page.wait_for(compact, message="compact")
     page.evaluate("new Promise((r) => setTimeout(r, 1200))")
-    assert page.evaluate(f"{DOC}.body.classList.contains('rv--compact')"), "an old render won"
+    assert page.evaluate(compact), "an old render won"
     assert page.evaluate(f"{DOC}.body.innerText") == before
 
 

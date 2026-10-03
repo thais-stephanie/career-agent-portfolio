@@ -140,7 +140,8 @@ function careerChanged() {
 // Needs organizing, imported groups, organization history. It is kept only as
 // a developer tool, opened with `?debug=statements` in the address and linked
 // from nowhere; without that flag it is not even built.
-const DEV_STATEMENTS = new URLSearchParams(window.location.search).get('debug') === 'statements';
+const DEBUG = new URLSearchParams(window.location.search).get('debug');
+const DEV_STATEMENTS = DEBUG === 'statements';
 
 // THE SCORING VOCABULARY IS NOT A USER SURFACE EITHER (2026-09-25). The phrase
 // groups, their reach and the concept review are how the scoring policy is
@@ -149,10 +150,10 @@ const DEV_STATEMENTS = new URLSearchParams(window.location.search).get('debug') 
 // shown only with `?debug=1` (or `?debug=scoring`) in the address. Nothing
 // behind it changed: the configuration files, the /api/preferences and
 // /api/search-review endpoints and the CLI still read and write the same data.
-const DEV_SCORING = ['1', 'scoring'].includes(new URLSearchParams(window.location.search).get('debug'));
+const DEV_SCORING = ['1', 'scoring'].includes(DEBUG);
 // RESUME WORKSPACE V2 IS NOT A USER SURFACE YET. The Resume helper is where a
 // resume is made and edited; the new workspace is reachable only on purpose.
-const DEV_RESUME_V2 = new URLSearchParams(window.location.search).get('debug') === 'resume-v2';
+const DEV_RESUME_V2 = DEBUG === 'resume-v2';
 const scoringBlock = document.getElementById('settings-model-block');
 if (scoringBlock) scoringBlock.hidden = !DEV_SCORING;
 const evidence = DEV_STATEMENTS ? createEvidence({ onChanged: () => careerChanged() }) : null;

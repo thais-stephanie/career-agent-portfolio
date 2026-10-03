@@ -32,7 +32,6 @@ from career_agent.resume_doc.models import (
     DEFAULT_ORDER,
     Bullet,
     CertificationEntry,
-    CustomSection,
     EducationEntry,
     ExperienceEntry,
     PartialDate,
@@ -60,18 +59,20 @@ ACCENTS = {
 }
 SPACING = {"tight": 0.7, "normal": 1.0, "airy": 1.35}
 #: Each template is a set of values for the shared stylesheet's variables.
+_CLEAN = {
+    "--name-size": "1.9em",
+    "--name-color": "var(--ink)",
+    "--h2-color": "var(--ink)",
+    "--h2-rule": "1px solid var(--accent)",
+    "--h2-case": "uppercase",
+    "--h2-tracking": "0.08em",
+    "--h2-size": "0.92em",
+    "--density": "1",
+}
 TEMPLATES = {
-    "clean": {
-        "--name-size": "1.9em",
-        "--name-color": "var(--ink)",
-        "--h2-color": "var(--ink)",
-        "--h2-rule": "1px solid var(--accent)",
-        "--h2-case": "uppercase",
-        "--h2-tracking": "0.08em",
-        "--h2-size": "0.92em",
-        "--density": "1",
-    },
+    "clean": _CLEAN,
     "modern": {
+        **_CLEAN,
         "--name-size": "2.1em",
         "--name-color": "var(--accent)",
         "--h2-color": "var(--accent)",
@@ -82,11 +83,8 @@ TEMPLATES = {
         "--density": "0.9",
     },
     "compact": {
+        **_CLEAN,
         "--name-size": "1.6em",
-        "--name-color": "var(--ink)",
-        "--h2-color": "var(--ink)",
-        "--h2-rule": "1px solid var(--accent)",
-        "--h2-case": "uppercase",
         "--h2-tracking": "0.06em",
         "--h2-size": "0.88em",
         "--density": "0.7",
@@ -131,7 +129,7 @@ body {
   line-height: var(--lh); text-align: left; -webkit-print-color-adjust: exact;
 }
 .rv-doc { position: relative; }
-.rv--preview .rv-doc { width: var(--page-w); padding: var(--margin); }
+.rv-mode--preview .rv-doc { width: var(--page-w); padding: var(--margin); }
 .rv-head { margin: 0 0 calc(0.6em * var(--gap)); }
 .rv-name { margin: 0; font-size: var(--name-size); line-height: 1.15; color: var(--name-color); }
 .rv-contact { margin: 0.25em 0 0; font-size: 0.92em; }
@@ -151,12 +149,15 @@ body {
 .rv-list li { margin: 0 0 calc(0.18em * var(--gap) * var(--density)); }
 .rv-skills { margin: 0 0 0.2em; }
 .rv-link { color: inherit; text-decoration: none; }
-[data-block] { break-inside: avoid; page-break-inside: avoid; }
-[data-keep] { break-after: avoid; page-break-after: avoid; }
+[data-block] { break-inside: avoid; }
+[data-keep] { break-after: avoid; }
 /* The preview frame is sized to the whole document: it never scrolls itself. */
 .rv-mode--preview { overflow: hidden; }
-.rv--preview [data-empty]::before { content: attr(data-empty); color: #9a9a9a; }
-@media print { .rv--preview .rv-doc { width: auto; padding: 0; } }
+.rv-mode--preview [data-empty]::before { content: attr(data-empty); color: #9a9a9a; }
+/* Drawn by the preview's paginator: the gap between two pages sits BEHIND
+   the text, so a block taller than a page stays readable across it. */
+.rv-spacer { list-style: none; margin: 0; padding: 0; }
+.rv-gap { position: absolute; left: 0; right: 0; z-index: -1; background: #d9d6cf; }
 """
 
 
@@ -174,10 +175,6 @@ def _lang(doc: ResumeDocument) -> str:
 def _text(value: str) -> str:
     """Escaped text; the model's inline **bold** is the only markup kept."""
     return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escape(value, quote=True))
-
-
-def _attr(value: str) -> str:
-    return escape(value, quote=True)
 
 
 def _date(value: PartialDate | None, fmt: str, lang: str) -> str:
@@ -210,21 +207,22 @@ class _Renderer:
         self.doc, self.mode = doc, mode
         self.lang = _lang(doc)
         self.fmt = doc.design.date_format
+        self.customs = {f"custom:{c.id}": c for c in doc.custom_sections}
 
     def heading(self, ref: str) -> str:
-        custom = self.doc.layout.headings.get(ref)
+        custom = (self.doc.layout.headings.get(ref) or "").strip()
         if custom:
             return custom
-        if ref.startswith("custom:"):
-            section = next(c for c in self.doc.custom_sections if f"custom:{c.id}" == ref)
-            return section.heading
+        if ref in self.customs:
+            return self.customs[ref].heading
         return HEADINGS[self.lang][ref]
 
     def link(self, url: str, label: str, ref: str) -> str:
         shown = _text(label)
-        if self.mode == "print":
-            return f'<a class="rv-link" href="{_attr(url)}" data-ref="{_attr(ref)}">{shown}</a>'
-        return f'<span class="rv-link" data-ref="{_attr(ref)}">{shown}</span>'
+        # Only a web address is ever followable, whatever a field holds.
+        if self.mode == "print" and re.match(r"^https?://", url, re.IGNORECASE):
+            return f'<a class="rv-link" href="{escape(url)}" data-ref="{escape(ref)}">{shown}</a>'
+        return f'<span class="rv-link" data-ref="{escape(ref)}">{shown}</span>'
 
     def bullets(self, items: list[Bullet], prefix: str) -> str:
         shown = [b for b in items if not b.hidden]
@@ -251,7 +249,7 @@ class _Renderer:
                 label = link.label or re.sub(r"^https?://(www\.)?", "", link.url).rstrip("/")
                 parts.append(self.link(link.url, label, f"identity/link/{link.id}"))
         name = who.full_name.strip()
-        empty = f' data-empty="{_attr(NAME_HINT[self.lang])}"' if not name else ""
+        empty = f' data-empty="{escape(NAME_HINT[self.lang])}"' if not name else ""
         contact = f'<p class="rv-contact">{_joined(parts)}</p>' if parts else ""
         return (
             '<header class="rv-head" data-ref="identity" data-block>'
@@ -263,8 +261,8 @@ class _Renderer:
         if not body:
             return ""
         return (
-            f'<section class="rv-section" data-ref="section/{_attr(ref)}">'
-            f'<h2 class="rv-h2" data-ref="section/{_attr(ref)}" data-block data-keep>'
+            f'<section class="rv-section" data-ref="section/{escape(ref)}">'
+            f'<h2 class="rv-h2" data-ref="section/{escape(ref)}" data-block data-keep>'
             f"{_text(self.heading(ref))}</h2>{body}</section>"
         )
 
@@ -313,9 +311,6 @@ class _Renderer:
         label = f"<strong>{_text(g.name)}:</strong> " if g.name else ""
         return f'<p class="rv-skills" data-ref="skills/{g.id}" data-block>{label}{items}</p>'
 
-    def custom(self, c: CustomSection) -> str:
-        return self.bullets(c.items, f"custom/{c.id}")
-
     def text(self, block: TextBlock | None, kind: str, css: str) -> str:
         if block is None or not block.text.strip():
             return ""
@@ -338,8 +333,8 @@ class _Renderer:
         if ref == "certifications":
             rows = "".join(self.certification(c) for c in d.certifications if not c.hidden)
             return self.section(ref, f'<ul class="rv-list">{rows}</ul>' if rows else "")
-        custom = next(c for c in d.custom_sections if f"custom:{c.id}" == ref)
-        return "" if custom.hidden else self.section(ref, self.custom(custom))
+        custom = self.customs[ref]
+        return "" if custom.hidden else self.section(ref, self.bullets(custom.items, ref))
 
     def order(self) -> list[str]:
         """The layout's order, then any section it does not name, minus hidden."""
@@ -381,14 +376,14 @@ def render_html(doc: ResumeDocument, *, mode: Mode = "preview") -> RenderedResum
     width, height = PAGE_MM[doc.design.page.size]
     html = (
         "<!doctype html>"
-        f'<html lang="{_attr(doc.language)}" class="rv-mode--{mode}">'
+        f'<html lang="{escape(doc.language)}" class="rv-mode--{mode}">'
         "<head>"
         '<meta charset="utf-8">'
         f'<meta http-equiv="Content-Security-Policy" content="{CSP}">'
-        f"<title>{_text(title)}</title>"
+        f"<title>{escape(title)}</title>"
         f"<style>{stylesheet(doc)}</style>"
         "</head>"
-        f'<body class="rv rv--{mode} rv--{doc.design.template}">'
+        "<body>"
         f'<article class="rv-doc" data-ref="document">{content}</article>'
         "</body></html>"
     )
