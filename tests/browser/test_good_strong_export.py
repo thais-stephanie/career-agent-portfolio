@@ -54,6 +54,6 @@ def test_the_saved_file_holds_every_good_and_strong_posting(
     assert {r["Search Fit band"] for r in rows} <= {"GOOD", "STRONG"}
     assert str(page.evaluate("window.__name")).startswith("career-agent-good-strong-")
     page.wait_for(
-        f"document.body.innerText.includes('Saved {len(rows)} GOOD and STRONG postings')",
+        f"document.body.innerText.includes('Saved {len(rows)} of your best-fitting jobs')",
         message="the confirmation",
     )

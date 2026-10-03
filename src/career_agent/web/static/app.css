@@ -8828,13 +8828,13 @@ body { font-synthesis-weight: none; }
   font-size: 11px; line-height: 18px; text-align: center;
 }
 .quickrow__spacer { flex: 1; }
-.quickrow__clear, .quickrow__today, .quickrow__export {
+.quickrow__clear, .quickrow__today {
   padding: 6px 8px;
   border: 0; border-radius: 8px;
   background: transparent; color: var(--muted);
   font: inherit; font-size: 13px; cursor: pointer;
 }
-.quickrow__clear:hover, .quickrow__today:hover, .quickrow__export:hover { color: var(--ink); background: var(--surface-alt); }
+.quickrow__clear:hover, .quickrow__today:hover { color: var(--ink); background: var(--surface-alt); }
 .quickrow__today { color: var(--link); font-weight: 600; }
 
 /* -- List tools: Columns | Export CSV --------------------------------------- */
@@ -9578,7 +9578,7 @@ body:not([data-page="home"]) .pagehead:not(:has(.pagehead__actions > *)) { margi
 .topbar__controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 #page-jobs .results { padding-top: 0; }
 .quickrow { padding: 0 2px; gap: 6px; }
-.quickrow__today.allfilters { margin-left: 0; color: var(--link); }
+.quickrow__today.allfilters { margin-left: 0; }
 .listtools__sep:has(+ [hidden]) { display: none; }
 .listtools__btn:last-of-type { border-radius: 9px; }
 
@@ -9967,6 +9967,7 @@ table.jobs .row--blocked .cell__title-btn, table.jobs .row--offtarget .cell__tit
 .d-fit__bars { display: flex; gap: 5px; }
 .d-fit__bar { flex: 1; height: 6px; border-radius: 999px; background: var(--chip-bg); }
 .d-fit__bar.is-on { background: var(--green-bar); }
+.d-fit__bar.is-part { background: var(--m2-bar); }
 .d-fit__note { font-size: 12px; color: var(--faint); }
 .d-list-card {
   margin: 0; padding: 0; list-style: none;
@@ -10221,3 +10222,16 @@ button.d-step__ring { cursor: pointer; }
   .pq__parts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .drawer__panel .quote, .drawer__panel .quote--inline { font-family: var(--sans); font-size: 13px; line-height: 1.5; }
+
+/* -- phones: the open drawer owns the screen; the List becomes a compact list
+      of Match and Job (everything else is one tap away, in the drawer). -- */
+body.has-drawer .sidenav__opener, body.has-filters .sidenav__opener { display: none; }
+@media (max-width: 600px) {
+  table.jobs { min-width: 0 !important; }
+  table.jobs tr { grid-template-columns: 52px minmax(0, 1fr); padding: 10px 14px; }
+  table.jobs tr > :not(.col--score):not(.col--title) { display: none; }
+  .tablewrap .tablescroll { overflow-x: visible; }
+}
+/* Clip, with room for a focus ring: a long title never widens its track. */
+table.jobs tbody th, table.jobs tbody td { overflow: clip; overflow-clip-margin: 4px; }
+table.jobs .cell__title-btn { max-width: 100%; }

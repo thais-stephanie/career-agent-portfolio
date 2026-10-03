@@ -532,6 +532,8 @@ export function fromSearch(search) {
     ? params.get('group_duplicates') === '1' || params.get('group_duplicates') === 'true'
     : VIEW_GROUPING[state.view];
   state.limit = PAGE_SIZE[state.view] || DEFAULTS.limit;
+  // An old address may carry an offset from another page size: land on a page.
+  state.offset = Math.floor(state.offset / state.limit) * state.limit;
   if (params.has('job')) state.openJobId = params.get('job') || null;
   return state;
 }

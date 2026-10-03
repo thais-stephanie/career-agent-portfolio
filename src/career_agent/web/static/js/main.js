@@ -945,9 +945,6 @@ function announce(state, shown, total) {
   const filters = activeFilterCount(state);
   const from = total ? state.offset + 1 : 0;
   const to = state.offset + shown;
-  // V3 says "jobs" in both groupings: a grouped card is one job, and the
-  // reposts it stands for are counted beside it ("2 reposts folded in").
-  const unit = 'Job';
 
   // Why the numbers on this screen do not subtract.
   //
@@ -973,9 +970,11 @@ function announce(state, shown, total) {
   replace(dom.count, [
     el('strong', {
       className: 'resultcount__n',
-      text: total === 1 ? t(`count.one${unit}`) : t(`count.${unit.toLowerCase()}s`, { n: total }),
+      // "jobs" in both groupings: a grouped card is one job, and the reposts
+      // it stands for are counted beside it ("2 reposts folded in").
+      text: total === 1 ? t('count.oneJob') : t('count.jobs', { n: total }),
     }),
-    ` ${filters ? t('count.matchSearch') : t('count.pickedForYou')}`,
+    ` ${t(`count.${filters ? 'matchSearch' : 'pickedForYou'}${total === 1 ? 'One' : ''}`)}`,
     quiet.length ? el('span', { className: 'resultcount__quiet', text: ` · ${quiet.join(' · ')}` }) : null,
   ].filter(Boolean));
   renderRevisionNotice();

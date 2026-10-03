@@ -20,6 +20,9 @@ import { t } from './i18n.js';
 import * as api from './api.js';
 
 const STORE = 'careerAgent.practice.v1';
+//: Answers typed while practising stay in this tab only: free text about
+//: salary and past jobs is not written to disk by a rehearsal aid.
+const DRAFTS = new Map();
 
 //: The STAR parts, in order, with the V3 colour pair each one wears.
 const STAR = [
@@ -46,29 +49,37 @@ function letter(part) {
   });
 }
 
-function readAll() {
+/**
+ * A small mark per local profile and job, in this browser (practised
+ * questions, an ad marked as read). Never free text.
+ */
+export function jobMark(store, jobId) {
   try {
-    return JSON.parse(window.localStorage.getItem(STORE) || '{}') || {};
+    const all = JSON.parse(window.localStorage.getItem(store) || '{}') || {};
+    return all[`${api.getLocalProfile() || 'default'}:${jobId}`];
   } catch {
-    return {};
+    return undefined;
   }
 }
 
-function writeAll(all) {
+export function setJobMark(store, jobId, value) {
   try {
-    window.localStorage.setItem(STORE, JSON.stringify(all));
+    const all = JSON.parse(window.localStorage.getItem(store) || '{}') || {};
+    const key = `${api.getLocalProfile() || 'default'}:${jobId}`;
+    if (value === null || value === undefined) delete all[key];
+    else all[key] = value;
+    window.localStorage.setItem(store, JSON.stringify(all));
   } catch {
-    /* A rehearsal aid is not worth an error message. */
+    /* A mark is a nicety. */
   }
 }
 
-/** The tool to ask about: one the ad names, as the drawer shows it. */
-export function askedTool(job) {
-  const enriched = (job.enrichment && job.enrichment.technologies) || [];
-  const named = enriched.map((item) => (item && (item.name || item.text || item.value)) || '').filter(Boolean);
-  if (named.length) return String(named[0]);
-  const signal = (job.technologies || [])[0];
-  return signal ? String(signal.label || '') : '';
+/** The tools the ad names: the local reading's when there is one, else the search's labels. */
+export function adTools(job) {
+  const enriched = ((job.enrichment && job.enrichment.technologies) || [])
+    .map((item) => String((item && (item.text || item.name)) || '').trim()).filter(Boolean);
+  if (enriched.length) return enriched;
+  return [...new Set((job.technologies || []).map((tech) => String(tech.label || '')).filter(Boolean))];
 }
 
 /**
@@ -80,9 +91,11 @@ function lineFor(kind, career, tool) {
   const lines = experiences.flatMap((entry) => (entry.highlights || [])
     .map((h) => String(h.text || '').trim()).filter(Boolean));
   if (kind === 'latest') {
-    const latest = experiences.find((entry) => entry.current_role) || experiences[0];
+    // Only a role she has confirmed something about is named as hers.
+    const confirmed = experiences.filter((entry) => (entry.highlights || []).length);
+    const latest = confirmed.find((entry) => entry.current_role) || confirmed[0];
     if (!latest || !(latest.title || latest.company)) return null;
-    const role = [latest.title, latest.company].filter(Boolean).join(t('practice.at'));
+    const role = [latest.title, latest.company].filter(Boolean).join(` ${t('practice.at')} `);
     const first = (latest.highlights || []).map((h) => String(h.text || '').trim()).find(Boolean);
     return first ? `${t('practice.latestJob', { role })} ${first}` : t('practice.latestJob', { role });
   }
@@ -103,11 +116,12 @@ export function createPractice() {
   let token = 0;
 
   const scope = () => `${api.getLocalProfile() || 'default'}:${job ? job.job_id : ''}`;
-  const state = () => readAll()[scope()] || { done: {}, drafts: {}, current: 0 };
+  const state = () => ({
+    done: {}, current: 0, ...(jobMark(STORE, job.job_id) || {}), drafts: DRAFTS.get(scope()) || {},
+  });
   const save = (next) => {
-    const all = readAll();
-    all[scope()] = next;
-    writeAll(all);
+    DRAFTS.set(scope(), next.drafts);
+    setJobMark(STORE, job.job_id, { done: next.done, current: next.current });
   };
 
   function load(nextJob) {
@@ -138,7 +152,7 @@ export function createPractice() {
   function paint() {
     if (!job) return;
     const saved = state();
-    const tool = askedTool(job);
+    const tool = adTools(job)[0] || '';
     const doneCount = QUESTIONS.filter((_, index) => saved.done[index]).length;
     const all = doneCount === QUESTIONS.length;
     const q = QUESTIONS[current];

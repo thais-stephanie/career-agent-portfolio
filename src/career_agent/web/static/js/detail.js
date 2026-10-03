@@ -33,14 +33,10 @@ import {
 import { searchFitIsReady } from './badges.js';
 import { SENT, matchTone } from './cards.js';
 import { createPrepare } from './prepare.js';
-import { createPractice } from './practice.js';
+import { adTools, createPractice, jobMark, setJobMark } from './practice.js';
 import { getLocale, t, tState } from './i18n.js';
 import * as api from './api.js';
 
-/** The phrase components the product names itself (Search Fit v5). */
-const PHRASE_COMPONENTS = new Set(['responsibilities', 'technologies', 'automation_integration']);
-//: Components with a plain name of their own in the catalogue.
-const NAMED_COMPONENTS = new Set([...PHRASE_COMPONENTS, 'seniority', 'compensation_contract', 'work_model']);
 //: The gates, in the order "Can you take this job?" shows them.
 const GATE_ORDER = ['geography', 'work_authorization', 'worksite', 'travel', 'clearance', 'credential', 'requirement'];
 const PREP_STORE = 'careerAgent.prep.read.v1';
@@ -84,6 +80,10 @@ export function createDrawer({
       if (currentJob) paintPrepare(currentJob);
     },
   });
+  const prepDetail = el('details', { className: 'd-prepdetail' }, [
+    el('summary', { className: 'd-link', text: t('prep3.details') }),
+    prepare.host,
+  ]);
   const practice = createPractice();
   practicePanel.append(practice.host);
 
@@ -145,6 +145,7 @@ export function createDrawer({
   });
 
   function selectTab(key) {
+    if (key !== activeTab) bodyHost.scrollTop = 0;
     activeTab = key;
     // Loaded on demand: most opens never reach these tabs.
     if (key === 'prepare' && currentJob && loadedPrepareFor !== currentJob.job_id) {
@@ -163,7 +164,6 @@ export function createDrawer({
       tabButtons[index].setAttribute('tabindex', chosen ? '0' : '-1');
       tab.panel.hidden = !chosen;
     });
-    bodyHost.scrollTop = 0;
   }
 
   const PANELS = [detailPanel, whyPanel, preparePanel, practicePanel, notesPanel];
@@ -390,11 +390,7 @@ export function createDrawer({
         value: job.employment_type ? vocabLabel(job.employment_type) : t('drawer.tile.notStated'),
         absent: !job.employment_type,
       },
-      {
-        key: 'where', icon: '⌂',
-        value: job.work_model ? vocabLabel(job.work_model) : (place.text || t('drawer.tile.notStated')),
-        absent: !job.work_model && !place.text,
-      },
+      { key: 'where', icon: '\u2302', value: place.text || t('drawer.tile.notStated'), absent: !place.text },
       {
         key: 'level', icon: '▲',
         value: job.seniority_stated ? vocabLabel(job.seniority) : t('drawer.tile.notStated'),
@@ -427,11 +423,7 @@ export function createDrawer({
 
   /** The tools the ad names: the local reading's when there is one. */
   function toolsSection(job) {
-    const enriched = ((job.enrichment && job.enrichment.technologies) || [])
-      .map((item) => String((item && (item.text || item.name)) || '').trim()).filter(Boolean);
-    const labels = enriched.length
-      ? enriched
-      : [...new Set((job.technologies || []).map((tech) => String(tech.label || '')).filter(Boolean))];
+    const labels = adTools(job);
     if (!labels.length) return null;
     return section(t('drawer.toolsHead'), [
       el('ul', { className: 'd-chips' }, labels.map((label) => el('li', { className: 'd-chip', text: label }))),
@@ -512,9 +504,6 @@ export function createDrawer({
       unverifiable: 'local.state.unverifiable',
       ollama_error: 'local.state.ollamaError',
       no_such_job: 'local.state.noSuchJob',
-      prompt_changed: 'local.state.unexpected',
-      unexpected: 'local.state.unexpected',
-      no_answer: 'local.state.unexpected',
       busy: 'local.state.busy',
       refused: 'local.state.refused',
     };
@@ -531,9 +520,13 @@ export function createDrawer({
       cancelButton.disabled = Boolean(state.cancel_requested);
       messageHost.className = 'enrich__msg';
       messageHost.dataset.state = 'RUNNING';
-      messageHost.textContent = state.cancel_requested
-        ? t('local.cancelling')
-        : t(`local.phase.${state.phase || 'checking'}`, { model: state.model || model, tokens: state.tokens || 0 });
+      let words = t('drawer.inShortWriting');
+      if (state.cancel_requested) words = t('local.cancelling');
+      else if (debug) {
+        const params = { model: state.model || model, tokens: state.tokens || 0 };
+        words = t(`local.phase.${state.phase || 'checking'}`, params);
+      }
+      messageHost.textContent = words;
       elapsedHost.textContent = `${Math.round(state.elapsed_s || 0)}s`;
     }
 
@@ -545,7 +538,9 @@ export function createDrawer({
       messageHost.dataset.state = state.state;
       messageHost.className = state.state === 'SUCCESS' ? 'enrich__msg' : 'enrich__msg enrich__msg--calm';
       const seconds = Math.round(state.elapsed_s || 0);
-      const key = (state.state === 'ERROR' && ERROR_KEYS[state.code]) || `local.state.${state.state}`;
+      const key = state.state === 'ERROR'
+        ? (ERROR_KEYS[state.code] || (state.code ? 'local.state.unexpected' : 'local.state.ERROR'))
+        : `local.state.${state.state}`;
       messageHost.textContent = t(key, { seconds, model: state.model || model, error: state.message || '' });
       if (state.state === 'SUCCESS' && sawRunning) {
         sawRunning = false;
@@ -596,18 +591,23 @@ export function createDrawer({
     }, { className: 'btn btn--quiet', attrs: { 'aria-describedby': 'enrich-hint', id: 'enrich-run' } });
     if (ollama.configured === false) runButton.disabled = true;
 
+    if (enrichCleanup) enrichCleanup();
     enrichCleanup = () => {
       stopped = true;
       stopPolling();
     };
     api.enrichStatus(job.job_id).then(show).catch(() => {});
 
+    if (!summary && ollama.configured === false) {
+      enrichCleanup();
+      return null;
+    }
     return section(t('drawer.inShort'), [
       summary
         ? el('p', { className: 'd-short' }, [summary])
         : el('p', { className: 'd-note', text: t('drawer.inShortNone') }),
       el('div', { className: 'enrich__actions' }, [runButton, cancelButton, elapsedHost, messageHost]),
-      hint,
+      debug ? hint : null,
     ], { lede: t('drawer.inShortLede'), className: 'd-sec--enrich d-sec--short' });
   }
 
@@ -641,26 +641,31 @@ export function createDrawer({
 
   /** The configured parts of the match, in a plain name. */
   function componentName(component) {
-    if (NAMED_COMPONENTS.has(component.component_id)) {
-      const key = `component.${component.component_id}`;
-      const named = t(key);
-      if (named !== key) return named;
-    }
-    return component.label || humanLabel(component.component_id);
+    return named(`component.${component.component_id}`, component.label || component.component_id);
   }
 
   /**
    * The things the person asked for, as the score already counts them: every
-   * configured component with points to give. A component the posting earned
-   * nothing on is a real difference, except pay when the ad states none.
-   * Silence about pay is not a mismatch (V3), and it is not counted at all.
+   * configured component with points to give, in three states. FULL earned
+   * its whole share, PART some of it, NONE nothing. Partial credit is never
+   * shown as a fit (invariant 6).
+   *
+   * Silence is not a mismatch (V3, and invariant 2 the other way round): pay
+   * when the ad states none, a level the ad never stated (ADR-0014: a default
+   * level earns zero) and a way of working the ad never named are left out.
    */
   function askedFor(job) {
-    const asked = (job.components || []).filter((c) => c.configured !== false && Number(c.max_points) > 0);
-    const silentPay = (c) => c.component_id === 'compensation_contract' && !job.salary && !(Number(c.points) > 0);
-    const counted = asked.filter((c) => !silentPay(c));
+    const silent = {
+      compensation_contract: !job.salary,
+      seniority: !job.seniority_stated,
+      work_model: !job.work_model,
+    };
+    const counted = (job.components || []).filter((c) => c.configured !== false && Number(c.max_points) > 0
+      && !(silent[c.component_id] && !(Number(c.points) > 0)));
+    const full = (c) => Number(c.points) >= Number(c.max_points) - 0.05;
     return {
-      fits: counted.filter((c) => Number(c.points) > 0),
+      fits: counted.filter(full),
+      parts: counted.filter((c) => Number(c.points) > 0 && !full(c)),
       gaps: counted.filter((c) => !(Number(c.points) > 0)),
     };
   }
@@ -674,14 +679,15 @@ export function createDrawer({
     }
     const score = Math.round(job.match_score);
     const tone = matchTone(job.match_score);
-    const { fits, gaps } = askedFor(job);
-    const total = fits.length + gaps.length;
-    const sentence = !total
-      ? ''
-      : gaps.length ? t('drawer.fitSome', { n: fits.length, total }) : t('drawer.fitAll');
+    const { fits, parts, gaps } = askedFor(job);
+    const total = fits.length + parts.length + gaps.length;
+    let sentence = '';
+    if (total && fits.length === total) sentence = t('drawer.fitAll');
+    else if (total && parts.length) sentence = t('drawer.fitSomePart', { n: fits.length, total, part: parts.length });
+    else if (total) sentence = t('drawer.fitSome', { n: fits.length, total });
     const bars = el('div', { className: 'd-fit__bars', attrs: { 'aria-hidden': 'true' } },
       Array.from({ length: total }, (_, index) => el('span', {
-        className: `d-fit__bar${index < fits.length ? ' is-on' : ''}`,
+        className: `d-fit__bar${index < fits.length ? ' is-on' : index < fits.length + parts.length ? ' is-part' : ''}`,
       })));
     return el('section', { className: 'd-card d-fit' }, [
       el('div', { className: 'd-fit__head' }, [
@@ -735,18 +741,19 @@ export function createDrawer({
   }
 
   function whatDoesNotFit(job) {
-    const { gaps } = askedFor(job);
-    const blockers = job.blockers || [];
-    if (!gaps.length && !blockers.length) return null;
+    const { parts, gaps } = askedFor(job);
+    if (!gaps.length && !parts.length) return null;
+    const row = (component, text) => el('li', { className: 'gap d-row' }, [
+      el('span', { className: 'd-row__mark d-row__mark--part', text: '-', attrs: { 'aria-hidden': 'true' } }),
+      el('div', { className: 'd-row__body' }, [
+        el('p', { className: 'd-row__title', text: componentName(component) }),
+        el('p', { className: 'd-row__text', text }),
+      ]),
+    ]);
     return section(t('drawer.gapsHead'), [
       el('ul', { className: 'gaps d-list-card' }, [
-        ...gaps.map((component) => el('li', { className: 'gap d-row' }, [
-          el('span', { className: 'd-row__mark d-row__mark--part', text: '-', attrs: { 'aria-hidden': 'true' } }),
-          el('div', { className: 'd-row__body' }, [
-            el('p', { className: 'd-row__title', text: componentName(component) }),
-            el('p', { className: 'd-row__text', text: t('drawer.gapText') }),
-          ]),
-        ])),
+        ...parts.map((component) => row(component, t('drawer.partText'))),
+        ...gaps.map((component) => row(component, t('drawer.gapText'))),
       ]),
     ], { lede: t('drawer.gapsLede2') });
   }
@@ -781,9 +788,7 @@ export function createDrawer({
   }
 
   function gateName(gate) {
-    const key = `gateName.${gate}`;
-    const named = t(key);
-    return named === key ? humanLabel(gate) : named;
+    return named(`gateName.${gate}`, gate);
   }
 
   /**
@@ -797,14 +802,13 @@ export function createDrawer({
     if (!requirement && !signals.length) return null;
     const years = job.experience_min_years;
     const sentence = {
-      NONE_REQUIRED: () => t('drawer.experienceNone'),
-      REQUIRED_MINIMUM: () => (years === null || years === undefined
-        ? t('drawer.experienceUnquantified') : t('drawer.experienceYears', { n: years })),
-      REQUIRED_UNQUANTIFIED: () => t('drawer.experienceUnquantified'),
-      PREFERRED: () => t('drawer.experiencePreferred'),
-      NICE_TO_HAVE: () => t('drawer.experienceBonus'),
-      NOT_STATED: () => t('drawer.experienceSilent'),
-    }[requirement];
+      NONE_REQUIRED: t('drawer.experienceNone'),
+      REQUIRED_MINIMUM: years === null || years === undefined
+        ? t('drawer.experienceUnquantified') : t('drawer.experienceYears', { n: years }),
+      REQUIRED_UNQUANTIFIED: t('drawer.experienceUnquantified'),
+      PREFERRED: t('drawer.experiencePreferred'),
+      NICE_TO_HAVE: t('drawer.experienceBonus'),
+    }[requirement] || t('drawer.experienceSilent');
     const tone = requirement === 'NONE_REQUIRED' ? ['m1', 'PASS']
       : (!requirement || requirement === 'NOT_STATED') ? ['chip', 'UNRESOLVED'] : ['m2', 'CHECK'];
     return el('li', { className: 'd-take d-take--experience' }, [
@@ -812,7 +816,7 @@ export function createDrawer({
         el('strong', { text: t('drawer.experienceHeading') }),
         el('span', { className: `tpill tpill--${tone[0]}`, text: t(`drawer.take.${tone[1]}`) }),
       ]),
-      el('p', { className: 'd-take__text', text: sentence ? sentence() : t('drawer.experienceSilent') }),
+      el('p', { className: 'd-take__text', text: sentence }),
       signals.length
         ? el('ul', { className: 'd-list' }, signals.map((value) => el('li', { text: tState('entrySignal', value) })))
         : null,
@@ -999,24 +1003,8 @@ export function createDrawer({
   // BEFORE YOU APPLY: three steps, then "Good to know"
   // ======================================================================
 
-  const prepKey = (job) => `${api.getLocalProfile() || 'default'}:${job.job_id}`;
-  function readDone(job) {
-    try {
-      return Boolean((JSON.parse(window.localStorage.getItem(PREP_STORE) || '{}') || {})[prepKey(job)]);
-    } catch {
-      return false;
-    }
-  }
-  function writeDone(job, value) {
-    try {
-      const all = JSON.parse(window.localStorage.getItem(PREP_STORE) || '{}') || {};
-      if (value) all[prepKey(job)] = 1;
-      else delete all[prepKey(job)];
-      window.localStorage.setItem(PREP_STORE, JSON.stringify(all));
-    } catch {
-      /* A reading mark is a nicety. */
-    }
-  }
+  const readDone = (job) => Boolean(jobMark(PREP_STORE, job.job_id));
+  const writeDone = (job, value) => setJobMark(PREP_STORE, job.job_id, value ? 1 : null);
 
   // The tailoring step's host, filled by `tailorStep`, kept across repaints.
   const tailorHost = el('div', { className: 'd-tailorhost' });
@@ -1046,9 +1034,9 @@ export function createDrawer({
       }),
       el('div', { className: 'd-step__body' }, [
         el('strong', { className: 'd-step__title', text: t('prep3.s1') }),
-        el('span', { className: 'd-step__text', text: t('prep3.s1Text') }),
+        el('span', { className: 'd-step__text', text: t(summaryOf(job) ? 'prep3.s1Text' : 'prep3.s1TextNoShort') }),
         el('div', { className: 'd-step__links' }, [
-          button(t('prep3.s1Short'), () => {
+          button(t(summaryOf(job) ? 'prep3.s1Short' : 'prep3.s1About'), () => {
             writeDone(job, true);
             paintPrepare(job);
             selectTab('details');
@@ -1073,17 +1061,14 @@ export function createDrawer({
         ])))]
         : [el('p', { className: 'd-note', text: t('prep3.noSkills') })];
 
-    const detail = el('details', { className: 'd-prepdetail' }, [
-      el('summary', { className: 'd-link', text: t('prep3.details') }),
-      prepare.host,
-    ]);
+    prepDetail.firstChild.textContent = t('prep3.details');
     const step2Card = el('section', { className: 'd-card d-step' }, [
       el('span', { className: ring(1), text: done[1] ? '✓' : '', attrs: { 'aria-hidden': 'true' } }),
       el('div', { className: 'd-step__body' }, [
         el('strong', { className: 'd-step__title', text: t('prep3.s2') }),
         el('span', { className: 'd-step__text', text: t('prep3.s2Text') }),
         ...skillRows,
-        detail,
+        prepDetail,
       ]),
     ]);
 
@@ -1123,14 +1108,12 @@ export function createDrawer({
    */
   function tailorStep(job, made) {
     const host = el('div', { className: 'd-tailor', attrs: { role: 'group', 'aria-label': t('tailor.groupLabel') } });
-    const make = () => {
+    const make = (className = 'btn btn--primary d-tailor__btn') => {
       const label = made ? t('prep3.s3Open') : t('prep3.s3Make');
       if (onTailor) {
-        return button(label, () => onTailor(job), {
-          className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-open-tailor' },
-        });
+        return button(label, () => onTailor(job), { className, attrs: { id: 'drawer-open-tailor' } });
       }
-      return el('a', { className: 'btn btn--primary d-tailor__btn', text: label, attrs: {
+      return el('a', { className, text: label, attrs: {
         href: `/resume-tailor?job=${encodeURIComponent(job.job_id)}&lang=${encodeURIComponent(getLocale())}`,
         target: '_blank', rel: 'noopener noreferrer', id: 'drawer-open-tailor',
       } });
@@ -1148,12 +1131,10 @@ export function createDrawer({
               className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-add-career' },
             })
             : null,
-          make(),
+          make('btn d-tailor__btn'),
         ].filter(Boolean)),
       ]);
       host.dataset.tailor = 'needs-career';
-      const link = host.querySelector('#drawer-open-tailor');
-      if (link) link.className = 'btn d-tailor__btn';
     };
     if (!careerContext) {
       ready();
@@ -1296,6 +1277,16 @@ const FIT_REASONS = {
   TOO_LOW: ['WORK_MATCHES_MORE', 'WORDING_MISSED', 'CENTRAL_AS_SECONDARY', 'TOOLS_MISSED',
     'SENIORITY_FITS', 'OTHER'],
 };
+
+/** The catalogue's words for a key, or the id in plain letters. */
+function named(key, fallback) {
+  const words = t(key);
+  return words === key ? humanLabel(fallback) : words;
+}
+
+function summaryOf(job) {
+  return Boolean(job.enrichment && String(job.enrichment.summary || '').trim());
+}
 
 function section(heading, children, { lede = '', className = '' } = {}) {
   return el('section', { className: `d-sec ${className}`.trim() }, [

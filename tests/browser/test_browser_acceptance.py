@@ -1053,11 +1053,11 @@ def test_a_full_pass_raises_nothing_from_page_script(page: Chrome, server: str) 
 
 
 def test_the_mobile_layout_scrolls_the_table_and_not_the_page(page: Chrome, server: str) -> None:
-    """13. At 390x844 the page fits; only the table moves sideways.
+    """13. At 390x844 the page fits, and the List is a compact list.
 
     A horizontally scrolling BODY is the failure this guards: it drags the
-    header off screen and makes every tap a guess. The table is allowed to
-    overflow, inside its own labelled scroll region.
+    header off screen and makes every tap a guess. V3: a phone does not get an
+    unusable desktop table; it gets Match and Job, and the drawer has the rest.
     """
     page.set_viewport(*MOBILE, mobile=True)
     try:
@@ -1070,7 +1070,7 @@ def test_the_mobile_layout_scrolls_the_table_and_not_the_page(page: Chrome, serv
 
         click(page, "document.getElementById('view-table')")
         page.wait_for(
-            "Boolean(document.querySelector('.tablescroll table.jobs'))",
+            "Boolean(document.querySelector('.tablescroll table.jobs tr[data-job-id]'))",
             message="the table on mobile",
         )
         assert page.evaluate("document.body.scrollWidth <= document.documentElement.clientWidth"), (
@@ -1078,11 +1078,14 @@ def test_the_mobile_layout_scrolls_the_table_and_not_the_page(page: Chrome, serv
         )
 
         scroller = "document.querySelector('.tablescroll')"
-        assert page.evaluate(f"{scroller}.scrollWidth > {scroller}.clientWidth"), (
-            "the table did not overflow, so this assertion proves nothing"
+        assert page.evaluate(f"{scroller}.scrollWidth <= {scroller}.clientWidth"), (
+            "the phone list still scrolls sideways"
         )
-        overflow = str(page.evaluate(f"getComputedStyle({scroller}).overflowX"))
-        assert overflow in {"auto", "scroll"}, overflow
+        shown = page.evaluate(
+            "[...document.querySelector('.jobs tr[data-job-id]').children]"
+            ".filter((n) => getComputedStyle(n).display !== 'none').length"
+        )
+        assert shown == 2, f"a phone row shows {shown} cells, not Match and Job"
     finally:
         page.set_viewport(1440, 960)
 
