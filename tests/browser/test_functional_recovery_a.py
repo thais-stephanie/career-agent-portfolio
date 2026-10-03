@@ -54,13 +54,13 @@ def _click(page: Chrome, selector: str) -> None:
 
 def test_cards_and_list_are_two_presentations_kept_in_hand(page: Chrome, server: str) -> None:
     _open_jobs(page, server)
-    # The other presentation is fetched ahead once the cards are on screen.
-    page.evaluate("document.getElementById('direction').click()")
+    # The first visit to List reads it once; after that both are in hand.
+    _click(page, "#view-table")
     page.wait_for(
-        "window.__watch.done.some((u) =>"
-        " !u.includes('group_duplicates') && u.includes('limit=25'))",
-        message="the list presentation fetched ahead",
+        "document.querySelector('table.jobs:not([aria-hidden]) tbody tr') !== null",
+        message="the list",
     )
+    _click(page, "#view-cards")
     page.wait_for("document.querySelector('.card:not(.card--skeleton)') !== null", message="cards")
     before = len(_lists(page))
     page.evaluate("window.__watch.skeleton = false")

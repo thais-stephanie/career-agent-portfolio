@@ -160,8 +160,9 @@ def metrics(
             "tracking",
             _count(
                 conn,
+                # What My applications shows: a tracked status, or saved with the heart.
                 f"SELECT COUNT(*) FROM job_application WHERE status IN "
-                f"({', '.join('?' for _ in tracked)})",
+                f"({', '.join('?' for _ in tracked)}) OR saved = 1",
                 tracked,
             ),
             "stock",

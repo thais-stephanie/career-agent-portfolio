@@ -19,8 +19,8 @@ import * as api from './api.js';
 import { el, button, replace, clear } from './dom.js';
 import { keepFocus, toast } from './ui.js';
 import {
-  createStore, SORTS, VIEW_GROUPING, PAGE_SIZE, activeFilterCount, clearedFilters, TRACKED_STATUSES,
-  LIST_KEYS, FLAG_KEYS, apiQuery,
+  createStore, SORTS, VIEW_GROUPING, activeFilterCount, clearedFilters, TRACKED_STATUSES,
+  LIST_KEYS, FLAG_KEYS,
 } from './state.js';
 import { createFilterPanel, renderChips } from './filters.js';
 import { renderCards, cardsSkeleton } from './cards.js';
@@ -90,8 +90,10 @@ let lastQueryString = null;   // the query that produced it
 //: (`jobsFreshness`) before deciding to read it again. See `showHeld`.
 const heldLists = new Map();
 const HELD_LISTS = 12;
-//: The other presentation being fetched ahead (see `afterList`), by query.
-const prefetching = new Map();
+//: Changes made on this page (a save, a status, a hide). A list held from
+//: before one is never shown again without reading it afresh: its rows may
+//: no longer belong to it.
+let localWrites = 0;
 let inFlight = 0;
 //: Whether a list request is being fetched; see `mergeJob`.
 let loading = false;
@@ -838,11 +840,12 @@ async function load(queryString, state, { quiet = false } = {}) {
     // list the server returns include them.
     await settledJobSaves();
     if (token !== inFlight) return;
-    const [response] = await Promise.all([
-      // Switching view while that view is being fetched ahead waits for it.
-      (!quiet && prefetching.get(queryString)) || api.listJobs(new URLSearchParams(queryString)),
-      refreshReadiness(),
-    ]);
+    // The "N more" counts come after the list (see `afterList`).
+    const params = new URLSearchParams(queryString);
+    params.set('narrowings', 'later');
+    const writes = localWrites;
+    const [response] = await Promise.all([api.listJobs(params), refreshReadiness()]);
+    response.writes = writes;
     if (token !== inFlight) return;
     loading = false;
     lastResponse = response;
@@ -867,6 +870,10 @@ function hold(queryString, response) {
 /** A list already read: on screen now, read again only if it could have moved. */
 function showHeld(queryString, state) {
   const held = heldLists.get(queryString);
+  if (held.writes !== localWrites) {
+    load(queryString, state);
+    return;
+  }
   lastQueryString = queryString;
   const token = ++inFlight;
   loading = false;
@@ -877,39 +884,29 @@ function showHeld(queryString, state) {
     if (token !== inFlight) return;
     if (freshness !== held.freshness) load(queryString, store.get(), { quiet: true });
     else afterList(queryString, held);
-  }).catch(() => {});
+  }).catch(() => {
+    // Not known to be current: read it again rather than keep it on trust.
+    if (token === inFlight) load(queryString, store.get(), { quiet: true });
+  });
 }
 
 /**
  * Once a list is on screen: its "N more if you tick this box" counts, which
- * the server sends later because they cost more than the list itself; then,
- * on Find jobs, the other presentation of the same search, so switching
- * between Cards and List shows a list rather than a skeleton.
+ * the server sends later because they cost more than the list itself. Asked
+ * twice before giving up: one of them is the only way back to jobs she hid.
  */
 async function afterList(queryString, response) {
-  try {
-    if (response.narrowings_pending) {
+  if (!response.narrowings_pending) return;
+  for (const wait of [0, 3000]) {
+    if (wait) await new Promise((resolve) => { setTimeout(resolve, wait); });
+    try {
       const counts = await api.jobNarrowings(new URLSearchParams(queryString));
       Object.assign(response, counts, { narrowings_pending: false });
       if (lastResponse === response) renderHiddenNotice(store.get());
+      return;
+    } catch {
+      // Tried again below; the list on screen is complete without them.
     }
-    const now = store.get();
-    const other = { cards: 'table', table: 'cards' }[now.view];
-    if (!other || currentPage !== 'jobs' || store.apiQueryString() !== queryString) return;
-    // Exactly what the view switch writes (see the Cards / List control).
-    const otherQuery = apiQuery({
-      ...now, view: other, group_duplicates: VIEW_GROUPING[other], limit: PAGE_SIZE[other], offset: 0,
-    }).toString();
-    if (heldLists.has(otherQuery) || prefetching.has(otherQuery)) return;
-    const pending = api.listJobs(new URLSearchParams(otherQuery));
-    prefetching.set(otherQuery, pending);
-    try {
-      hold(otherQuery, await pending);
-    } finally {
-      prefetching.delete(otherQuery);
-    }
-  } catch {
-    // Both are conveniences: the list on screen is already complete.
   }
 }
 
@@ -1937,12 +1934,11 @@ function findJob(jobId) {
 
 function mergeJob(updated) {
   if (!updated || !lastResponse) return;
-  // Every list held, not only the one on screen, so a heart saved in Cards is
-  // already filled when List is shown; the freshness check then rereads them.
-  for (const response of new Set([lastResponse, ...heldLists.values()])) {
-    const index = response.items.findIndex((job) => job.job_id === updated.job_id);
-    if (index >= 0) response.items[index] = { ...response.items[index], ...updated };
-  }
+  // Every other list held is now older than this change (see `showHeld`).
+  localWrites += 1;
+  lastResponse.writes = localWrites;
+  const index = lastResponse.items.findIndex((job) => job.job_id === updated.job_id);
+  if (index >= 0) lastResponse.items[index] = { ...lastResponse.items[index], ...updated };
   // While a new list is on its way, the one in hand belongs to the previous
   // query; painting it into the new view would show the wrong jobs. The new
   // list is fetched after the save settles, so it already carries the change.
@@ -2125,6 +2121,7 @@ const HIDE_REASONS = [
 async function changeHidden(jobId, hidden, scope = 'posting', reason = null) {
   try {
     await api.patchHidden(jobId, hidden, scope, reason);
+    localWrites += 1;
     // Reload rather than merge: this row no longer belongs to this query.
     await load(store.apiQueryString(), store.get());
     if (!hidden) {

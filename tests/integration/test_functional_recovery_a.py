@@ -62,8 +62,16 @@ def _get(api: JobsApi, path: str, **params) -> dict:
 # =========================================================================
 
 
+def test_without_asking_for_later_the_list_still_carries_its_counts(api: JobsApi) -> None:
+    """Every caller but the page keeps the old contract: the counts are in."""
+    payload = _get(api, "/api/jobs", **NARROWED)
+    assert payload["narrowings_pending"] is False
+    assert isinstance(payload["hidden_by_eligibility"], int)
+    assert payload == {**payload, **_get(api, "/api/jobs/narrowings", **NARROWED)}
+
+
 def test_hidden_counts_arrive_after_the_list_and_equal_the_old_reading(api: JobsApi) -> None:
-    first = _get(api, "/api/jobs", **NARROWED)
+    first = _get(api, "/api/jobs", **NARROWED, narrowings="later")
     assert first["narrowings_pending"] is True
     assert first["hidden_by_eligibility"] is None
     counts = _get(api, "/api/jobs/narrowings", **NARROWED)
@@ -85,7 +93,7 @@ def test_hidden_counts_arrive_after_the_list_and_equal_the_old_reading(api: Jobs
         conn.close()
     assert first["total"] == total
     # Asked again, the list carries them.
-    again = _get(api, "/api/jobs", **NARROWED)
+    again = _get(api, "/api/jobs", **NARROWED, narrowings="later")
     assert again["narrowings_pending"] is False
     assert again["hidden_by_eligibility"] == counts["hidden_by_eligibility"]
 

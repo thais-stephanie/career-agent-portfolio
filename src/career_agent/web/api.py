@@ -79,6 +79,8 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
         "min_confidence",
         "saved_only",
         "with_saved",
+        # "later": the page asks /api/jobs/narrowings itself once the list is shown.
+        "narrowings",
         "enriched_only",
         "has_salary",
         "remote_only",
@@ -2037,22 +2039,39 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # remembered while nothing they depend on moves.
             freshness = self._jobs_freshness(conn)
             key = self._aggregate_key(freshness, config_id, config_version, job_filter)
-            with ThreadPoolExecutor(max_workers=1) as pool:
-                pending = pool.submit(self._job_totals, key, config_id, config_version, job_filter)
+            totals = self._remembered(("totals", *key))
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                if totals is None:
+                    counted = pool.submit(
+                        self._read, self._counts, config_id, config_version, job_filter
+                    )
+                    facets_read = pool.submit(
+                        self._read,
+                        lambda repo, *args: repo.facets(*args),
+                        config_id,
+                        config_version,
+                        job_filter,
+                    )
                 repo = ScoredJobQuery(conn)
                 rows = repo.page(config_id, config_version, job_filter)
                 # Read from the WHOLE ad: the page holds only its first characters.
                 whole = repo.descriptions([row.job_id for row in rows])
-                totals = pending.result()
+                if totals is None:
+                    totals = self._remember(
+                        ("totals", *key), {**counted.result(), "facets": facets_read.result()}
+                    )
             total = totals["total"]
             facets = totals["facets"]
             grouped_away = totals["grouped_away"]
             # The "N more if you tick this box" counts are the slowest part of
             # this answer (each widened population is counted in full) and the
-            # list does not need them to be read. Sent when already counted;
-            # otherwise `null`, and the page asks `/api/jobs/narrowings` after
-            # the list is on screen.
+            # list does not need them to be read. The page asks with
+            # `narrowings=later`: then they are sent only when already counted,
+            # otherwise `null`, and it asks `/api/jobs/narrowings` once the
+            # list is on screen. Any other caller gets them counted here.
             narrowings = self._remembered(("narrowings", *key))
+            if narrowings is None and query.get("narrowings") != ["later"]:
+                narrowings = self._narrowings(conn, key, config_id, config_version, job_filter)
             hidden = narrowings and narrowings["hidden_by_eligibility"]
             off_target = narrowings and narrowings["hidden_off_target"]
             unresolved = narrowings and narrowings["hidden_unresolved"]
@@ -2162,11 +2181,15 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         applications = conn.execute(
             "SELECT COUNT(*), MAX(updated_at) FROM job_application"
         ).fetchone()
+        # A local reading is written by a background thread after its request
+        # returned, so the write counter cannot see it.
+        readings = conn.execute("SELECT COUNT(*), MAX(created_at) FROM job_enrichment").fetchone()
         parts = (
             config_id,
             config_version,
             population_token(conn),
             tuple(applications),
+            tuple(readings),
             self.writes,
             utc_today().isoformat(),
         )
@@ -2210,48 +2233,69 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 self._aggregates.popitem(last=False)
         return value
 
-    def _job_totals(self, key: tuple, config_id: str, config_version: int, f: Any) -> dict:
-        """The total, the facets and how many reposts grouping folded away.
-
-        The facets are read on a second connection, beside the counts.
-        """
+    def _read(self, read: Any, *args: Any) -> Any:
+        """`read(repo, *args)` on a connection of its own, so it runs beside the page."""
         from career_agent.storage.mvp_repo import ScoredJobQuery
 
-        remembered = self._remembered(("totals", *key))
-        if remembered is not None:
-            return remembered
+        with _closing(self.connect()) as conn:
+            return read(ScoredJobQuery(conn), *args)
 
-        def facets() -> dict:
-            with _closing(self.connect()) as conn:
-                return ScoredJobQuery(conn).facets(config_id, config_version, f)
+    @staticmethod
+    def _counts(repo: Any, config_id: str, config_version: int, f: Any) -> dict:
+        """The total, and how many reposts grouping folded away.
 
-        with ThreadPoolExecutor(max_workers=1) as pool, _closing(self.connect()) as conn:
-            pending = pool.submit(facets)
-            repo = ScoredJobQuery(conn)
-            total = repo.count(config_id, config_version, f)
-            # How many rows grouping folded away, so the three numbers on the
-            # screen reconcile. The header says "19 jobs", the notice says "3
-            # hidden" and the list said "14 roles"; 19 minus 3 is 16, and
-            # nothing accounted for the other two. They are the same role
-            # posted in three cities.
-            grouped_away = (
-                repo.count(config_id, config_version, replace(f, group_duplicates=False)) - total
-                if f.group_duplicates
-                else 0
-            )
-            return self._remember(
-                ("totals", *key),
-                {"total": total, "facets": pending.result(), "grouped_away": grouped_away},
-            )
+        Folded away so the three numbers on the screen reconcile. The header
+        says "19 jobs", the notice says "3 hidden" and the list said "14
+        roles"; 19 minus 3 is 16, and nothing accounted for the other two.
+        They are the same role posted in three cities.
+        """
+        total = repo.count(config_id, config_version, f)
+        ungrouped = (
+            repo.count(config_id, config_version, replace(f, group_duplicates=False))
+            if f.group_duplicates
+            else total
+        )
+        return {"total": total, "grouped_away": ungrouped - total}
 
-    def job_narrowings(self, *, query: dict, body: dict) -> dict:
+    def _narrowings(
+        self, conn: Any, key: tuple, config_id: str, config_version: int, f: Any
+    ) -> dict:
         """How many MORE postings each narrowing in force would let through.
 
-        Asked by the page after the list is on screen (`list_jobs` sends these
-        as `null` until they are counted). Same query string as `/api/jobs`.
+        Each is counted against the SAME filter with one field flipped, so it
+        is exactly "how many more you would see if you ticked the box". They
+        are separate numbers because they are separate sentences: an employer
+        ruled you out; your search ruled the work out; the posting did not
+        say; a level or a way of working you said not to show; and the ones
+        you hid yourself.
         """
         from career_agent.storage.mvp_repo import ScoredJobQuery
 
+        remembered = self._remembered(("narrowings", *key))
+        if remembered is not None:
+            return remembered
+        repo = ScoredJobQuery(conn)
+        totals = self._remembered(("totals", *key))
+        total = totals["total"] if totals is not None else repo.count(config_id, config_version, f)
+        counts = {
+            name: getattr(repo, method)(config_id, config_version, f, narrow_total=total)
+            for name, method in (
+                ("hidden_by_eligibility", "hidden_by_eligibility"),
+                ("hidden_off_target", "hidden_by_screening"),
+                ("hidden_unresolved", "hidden_unresolved"),
+                ("hidden_by_seniority", "hidden_by_seniority"),
+                ("hidden_by_work_model", "hidden_by_work_model"),
+                ("hidden_by_you", "hidden_by_the_candidate"),
+            )
+        }
+        return self._remember(("narrowings", *key), counts)
+
+    def job_narrowings(self, *, query: dict, body: dict) -> dict:
+        """The "N more if you tick this box" counts of one `/api/jobs` query.
+
+        Asked by the page once the list is on screen (it asks the list with
+        `narrowings=later`). Same query string as `/api/jobs`.
+        """
         f = self._filter_from(query)
         with _closing(self.connect()) as conn:
             decision = self._serving(conn)
@@ -2260,29 +2304,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 config_id = decision.serving.config_id
                 config_version = decision.serving.config_version
             key = self._aggregate_key(self._jobs_freshness(conn), config_id, config_version, f)
-            remembered = self._remembered(("narrowings", *key))
-            if remembered is not None:
-                return remembered
-            repo = ScoredJobQuery(conn)
-            total = self._job_totals(key, config_id, config_version, f)["total"]
-            # Each is counted against the SAME filter with one field flipped,
-            # so it is exactly "how many more you would see if you ticked the
-            # box". They are separate numbers because they are separate
-            # sentences: an employer ruled you out; your search ruled the work
-            # out; the posting did not say; a level or a way of working you
-            # said not to show; and the ones you hid yourself.
-            counts = {
-                name: getattr(repo, method)(config_id, config_version, f, narrow_total=total)
-                for name, method in (
-                    ("hidden_by_eligibility", "hidden_by_eligibility"),
-                    ("hidden_off_target", "hidden_by_screening"),
-                    ("hidden_unresolved", "hidden_unresolved"),
-                    ("hidden_by_seniority", "hidden_by_seniority"),
-                    ("hidden_by_work_model", "hidden_by_work_model"),
-                    ("hidden_by_you", "hidden_by_the_candidate"),
-                )
-            }
-            return self._remember(("narrowings", *key), counts)
+            return self._narrowings(conn, key, config_id, config_version, f)
 
     def _signal_labels(self) -> dict[str, str]:
         """`signal_id -> label`, from the loaded configuration's lexicon."""

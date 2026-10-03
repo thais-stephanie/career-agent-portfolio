@@ -122,14 +122,13 @@ export function createShell() {
    */
   function setStats({ jobs = null } = {}) {
     lastStats = { jobs };
-    const tiles = [['jobs', jobs, 'sidenav.statJobs']]
-      .filter(([, value]) => Number.isFinite(value))
-      .map(([key, value, label]) => el('span', { className: `sidenav__stat sidenav__stat--${key}` }, [
-        // With the reader's own thousands separator: 154,631 or 154.631.
-        el('span', { className: 'sidenav__statvalue num', text: Number(value).toLocaleString(getLocale()) }),
-        el('span', { className: 'sidenav__statlabel', text: ` ${t(label)}` }),
-      ]));
-    nodes.stats.replaceChildren(...tiles);
+    nodes.stats.replaceChildren(...(Number.isFinite(jobs) ? [el('span', {
+      className: 'sidenav__stat sidenav__stat--jobs',
+    }, [
+      // With the reader's own thousands separator: 154,631 or 154.631.
+      el('span', { className: 'sidenav__statvalue num', text: Number(jobs).toLocaleString(getLocale()) }),
+      el('span', { className: 'sidenav__statlabel', text: ` ${t('sidenav.statJobs')}` }),
+    ])] : []));
   }
 
   /**
