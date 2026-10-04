@@ -45,6 +45,7 @@ from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.models import ResumeDocument
 from career_agent.resume_doc.render import ACCENTS, FONTS, PAGE_MM, render_html
 from career_agent.resume_doc.store import (
+    EvidenceNotConfirmed,
     ExportFormat,
     ResumeExport,
     ResumeStore,
@@ -66,10 +67,9 @@ PDF_TIMEOUT = 60
 class ExportRefused(ValueError):
     """The export was not attempted: `code` says why, for the reader."""
 
-    def __init__(self, code: str, lines: list[str] | None = None) -> None:
+    def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
-        self.lines = lines or []
 
 
 class ExportFailed(RuntimeError):
@@ -152,10 +152,12 @@ def print_pdf(html: str, *, timeout: float = PDF_TIMEOUT) -> tuple[bytes, str]:
     exe, engine = browser
     _sweep_old_profiles()
     tmp = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
+    browser_proc: subprocess.Popen[bytes] | None = None
+    printed = False
     try:
         source, out = tmp / "resume.html", tmp / "resume.pdf"
         source.write_text(html, encoding="utf-8")
-        subprocess.Popen(
+        browser_proc = subprocess.Popen(
             [
                 exe,
                 "--headless",
@@ -187,27 +189,47 @@ def print_pdf(html: str, *, timeout: float = PDF_TIMEOUT) -> tuple[bytes, str]:
                 data = out.read_bytes()
                 try:
                     PdfReader(io.BytesIO(data))
+                    printed = True
                     return data, f"{engine}-headless"
                 except Exception:  # noqa: BLE001  -- still being written
                     pass
             last = size
             time.sleep(0.15)
-        _stop_browser(tmp)
         raise ExportFailed("PDF_TIMEOUT")
     finally:
-        # The resume's own text goes at once; the browser may hold its
-        # profile a moment longer, and what it still holds is swept later.
+        if not printed:  # a timeout or any error: this export's browser stops now
+            _stop(browser_proc, tmp)
+        # The resume's own text goes first; the browser may hold its profile
+        # a moment longer. One that still holds it after that is stopped
+        # (it is ours, by its exact folder) and the cleanup is tried again.
+        if not _clean(tmp):
+            _stop(browser_proc, tmp)
+            _clean(tmp)
+
+
+def _clean(tmp: Path) -> bool:
+    """Delete the resume files, then the folder, retrying ~10 s. True when gone."""
+    for _ in range(100):
         for name in ("resume.html", "resume.pdf"):
             with contextlib.suppress(OSError):
                 (tmp / name).unlink(missing_ok=True)
-        for _ in range(100):
-            try:
-                shutil.rmtree(tmp)
-                break
-            except FileNotFoundError:
-                break
-            except OSError:
-                time.sleep(0.1)
+        try:
+            shutil.rmtree(tmp)
+            return True
+        except FileNotFoundError:
+            return True
+        except OSError:
+            time.sleep(0.1)
+    return False
+
+
+def _stop(proc: subprocess.Popen[bytes] | None, tmp: Path) -> None:
+    """The launched process (the browser itself where it does not detach),
+    then on Windows the detached browser found by its folder."""
+    if proc is not None:
+        with contextlib.suppress(OSError):
+            proc.kill()
+    _stop_browser(tmp)
 
 
 TEMP_PREFIX = "career-agent-pdf-"
@@ -223,12 +245,15 @@ def _sweep_old_profiles(age: float = 3600) -> None:
 
 def _stop_browser(profile: Path) -> None:
     """Stop the headless browser printing with `profile`, and only it: Edge
-    runs detached from its launcher, so it is found by its own command line."""
+    runs detached from its launcher, so it is found by its own command line,
+    which names this export's temp folder (exactly: no wildcards, and never
+    a process name). The PowerShell asking is spared: its line names it too."""
     if os.name != "nt":
         return
+    needle = (str(profile) + os.sep).replace("'", "''")
     command = (
-        "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "
-        f"'*{str(profile).replace(chr(39), chr(39) * 2)}*' }} | "
+        "Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and"
+        f" $_.CommandLine -and $_.CommandLine.Contains('{needle}') }} | "
         "ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
     )
     with contextlib.suppress(OSError, subprocess.SubprocessError):
@@ -333,7 +358,7 @@ def export_revision(
     doc = stored.working
     lines = unconfirmed_lines(conn, doc)
     if lines:
-        raise ExportRefused("EVIDENCE_NOT_CONFIRMED", lines)
+        raise EvidenceNotConfirmed(lines)
     if doc.identity.name_finding():
         raise ExportRefused("NAME_MISSING")
     # The PDF breaks pages where the preview did (`page_breaks`, its refs).

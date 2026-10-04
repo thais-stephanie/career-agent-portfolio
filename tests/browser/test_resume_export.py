@@ -23,7 +23,7 @@ from typing import Any
 import pytest
 from tests.browser.chrome import Chrome
 from tests.browser.conftest import _free_port
-from tests.browser.test_resume_editor import STATE, open_editor, type_into
+from tests.browser.test_resume_editor import STATE, open_editor, press, type_into
 from tests.support_resume import LONG_BULLET, confirm_cited, exportable, long, rich, sparse
 
 from career_agent.clock import new_id
@@ -289,3 +289,24 @@ def test_evidence_retired_meanwhile_can_be_kept_as_the_persons_own_words(
     with connect(server["db"]) as conn:
         line = ResumeStore(conn).get_document(exportable().id).working.experience[0].bullets[0]
     assert line.origin == "USER_AUTHORED" and line.evidence_ids == []
+
+
+def test_evidence_retired_after_saving_never_traps_the_person_in_the_editor(
+    page: Chrome, server: dict[str, Any]
+) -> None:
+    open_editor(page, server["url"])
+    type_into(page, "identity/phone", "+1 555 0124")
+    page.wait_for(f"{STATE} === 'saved'", message="saved")
+    key = exportable().experience[0].bullets[0].evidence_ids[0]
+    with connect(server["db"]) as conn, transaction(conn):
+        from career_agent.storage.repositories import ClaimRepo
+        from career_agent.storage.workspace_repo import ensure_candidate
+
+        candidate, repo = ensure_candidate(conn), ClaimRepo(conn)
+        repo.supersede(candidate, repo.history(candidate, key)[-1].next_revision(verified=False))
+    press(page, "Back")
+    page.wait_for("document.querySelector('.rvw').dataset.view === 'list'", message="left")
+    with connect(server["db"]) as conn:
+        store = ResumeStore(conn)
+        assert [r.reason for r in store.list_revisions(exportable().id)] == ["CREATED"]
+        assert store.get_document(exportable().id).working.identity.phone == "+1 555 0124"

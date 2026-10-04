@@ -8,7 +8,12 @@ retired after a document cited it.
 
 Typed and imported lines may cite nothing. Any id a line does cite is
 checked, whatever its origin, so an edited evidence line keeps its ids only
-while they still hold.
+while they still hold. A project, education or certification entry's
+`claim_key` is a claim key too (the Master sets it from a confirmed claim),
+checked the same way under the entry's id.
+
+`ResumeStore` asks this on every create, save and checkpoint; export asks it
+before making a file. It is the one place the rule is written.
 """
 
 from __future__ import annotations
@@ -16,7 +21,13 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterator
 
-from career_agent.resume_doc.models import ResumeDocument, TextBlock
+from career_agent.resume_doc.models import (
+    CertificationEntry,
+    EducationEntry,
+    ProjectEntry,
+    ResumeDocument,
+    TextBlock,
+)
 from career_agent.storage.workspace_repo import candidate_id_of
 
 
@@ -33,6 +44,14 @@ def _cited(doc: ResumeDocument) -> Iterator[tuple[str, list[str]]]:
     for group in doc.skills:
         for item in group.items:
             yield item.id, item.evidence_ids
+    keyed: list[ProjectEntry | EducationEntry | CertificationEntry] = [
+        *doc.projects,
+        *doc.education,
+        *doc.certifications,
+    ]
+    for one in keyed:
+        if one.claim_key is not None:
+            yield one.id, [one.claim_key]
 
 
 def unconfirmed_lines(conn: sqlite3.Connection, doc: ResumeDocument) -> list[str]:

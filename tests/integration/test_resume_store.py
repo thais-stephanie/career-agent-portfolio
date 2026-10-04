@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
+from tests.support_resume import confirm_cited
 
 from career_agent.clock import new_id
 from career_agent.resume_doc.models import (
@@ -37,6 +38,8 @@ def db(tmp_path: Path) -> Path:
     path = tmp_path / "profile.db"
     conn = connect(path)
     migrate(conn)
+    with transaction(conn):
+        confirm_cited(conn, document())
     conn.close()
     return path
 
@@ -467,6 +470,8 @@ def test_two_profiles_never_see_each_others_resumes(tmp_path: Path) -> None:
     for name in ("a", "b"):
         conn = connect(tmp_path / name / "personal.db")
         migrate(conn)
+        with transaction(conn):
+            confirm_cited(conn, document())
         stores.append(ResumeStore(conn))
     a, b = stores
     a.create_document(document())

@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 from tests.support import committed_config_dir
-from tests.support_resume import rich, sparse
+from tests.support_resume import confirm_cited, rich, sparse
 
 from career_agent.resume_doc.store import ResumeStore
 from career_agent.runtime import RuntimeMode, stamp_identity
@@ -33,6 +33,7 @@ def api(tmp_path: Path) -> JobsApi:
     migrate(conn)
     with transaction(conn):
         stamp_identity(conn, RuntimeMode.PERSONAL, "Synthetic")
+        confirm_cited(conn, rich())
     ResumeStore(conn).create_document(rich())
     conn.close()
     return JobsApi(ServerConfig(db_path=db, config_dir=committed_config_dir(), port=0), quiet=True)

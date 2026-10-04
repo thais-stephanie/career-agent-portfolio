@@ -138,7 +138,7 @@ def register_career_routes(app: LocalApp) -> None:
         resume only: no evidence, search setting or score reads it."""
         from career_agent.resume_doc.master import update_resume_identity
         from career_agent.resume_doc.models import Identity
-        from career_agent.resume_doc.store import NotFound, StaleDocument
+        from career_agent.resume_doc.store import EvidenceNotConfirmed, NotFound, StaleDocument
 
         if set(body) != {"identity", "expected_sha256"}:
             raise ApiError(400, "Send the identity and the version it edits.")
@@ -156,6 +156,14 @@ def register_career_routes(app: LocalApp) -> None:
             except StaleDocument as exc:
                 raise ApiError(
                     409, "Your resume changed in another window. Reload it.", for_reader=True
+                ) from exc
+            except EvidenceNotConfirmed as exc:
+                raise ApiError(
+                    400,
+                    "Your Master cites evidence that is no longer confirmed. Open it first.",
+                    for_reader=True,
+                    code="evidence_not_confirmed",
+                    data={"lines": exc.lines},
                 ) from exc
             return _master_view(conn, master)
 

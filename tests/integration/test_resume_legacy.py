@@ -25,6 +25,7 @@ from tests.integration.test_resume_pr0 import PT_JD, PT_TITLE, THIN_PROFILE
 
 from career_agent.domain.claims import VerifiedClaim
 from career_agent.domain.enums import ClaimSource, ClaimType
+from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.legacy import (
     NOT_CHECKED,
     LegacyMigrationError,
@@ -304,6 +305,30 @@ def test_evidence_is_cited_only_while_this_profile_still_confirms_it(
     assert master is not None
     bullets = [b for e in master.working.experience for b in e.bullets]
     assert bullets and all(b.evidence_ids == [] and b.origin == "IMPORTED" for b in bullets)
+
+
+def test_a_claim_retired_before_migration_is_cited_by_no_migrated_line(
+    tmp_path: Path, legacy: Path
+) -> None:
+    conn = profile(tmp_path)
+    retired = THIN_PROFILE["experiences"][0]["highlights"][0]["key"]  # type: ignore[index]
+    repo, candidate = ClaimRepo(conn), ensure_candidate(conn)
+    with transaction(conn):
+        repo.supersede(
+            candidate, repo.history(candidate, retired)[-1].next_revision(verified=False)
+        )
+    migrated(tmp_path, legacy, conn)
+    store = ResumeStore(conn)
+    documents = store.list_documents(include_archived=True)
+    assert documents
+    cited: set[str] = set()
+    for stored in documents:
+        for revision in store.list_revisions(stored.id):
+            assert unconfirmed_lines(conn, revision.content) == [], "a migrated line cites retired"
+            cited |= {
+                k for b in revision.content.experience for x in b.bullets for k in x.evidence_ids
+            }
+    assert cited and retired not in cited, "other confirmed statements are still cited"
 
 
 def test_a_renamed_workspace_or_old_label_is_never_the_name(tmp_path: Path, legacy: Path) -> None:
