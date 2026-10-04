@@ -688,3 +688,75 @@ def test_forgetting_everything_takes_the_old_helpers_backups_too(
     (backup,) = (api.config.db_path.parent / "resume_helper_backups").glob("*.zip")
     with connect(api.config.db_path) as conn:
         assert backup.resolve() in {p.resolve() for p in forget_resume_data(conn)}
+
+
+# ------------------------------------------------------ PR 8, phase 0
+
+
+def test_marking_a_resume_used_writes_no_resume_revision(api: JobsApi) -> None:
+    master(api)
+    job = jobs(api)[0]
+    v1 = call(api, "POST", f"/jobs/{job}/versions")
+    doc = v1["document"]
+    call(
+        api,
+        "PATCH",
+        f"/documents/{v1['id']}/working",
+        {"document": {**doc, "title": "Edited, not checkpointed"}, "expected_sha256": v1["sha256"]},
+    )
+    before = revisions(api, v1["id"])
+    call(api, "POST", f"/jobs/{job}/used", {"document_id": v1["id"]})
+    assert revisions(api, v1["id"]) == before  # tracking, not content
+    assert call(api, "GET", f"/jobs/{job}")["used"]["revision_seq"] == before[-1][0]
+
+
+def test_forget_tracking_forgets_which_resume_was_used_and_keeps_the_resumes(
+    api: JobsApi,
+) -> None:
+    from typer.testing import CliRunner
+
+    from career_agent.cli import app
+
+    master(api)
+    job = jobs(api)[0]
+    v1 = call(api, "POST", f"/jobs/{job}/versions")
+    call(api, "POST", f"/jobs/{job}/used", {"document_id": v1["id"]})
+    with connect(api.config.db_path) as conn:
+        kept = {t: n for t, n in resume_row_counts(conn).items() if t != "application_resume"}
+    result = CliRunner().invoke(
+        app,
+        ["forget", "tracking", "--yes", "--db", str(api.config.db_path),
+         "--config-dir", str(api.config.config_dir)],
+    )  # fmt: skip
+    assert result.exit_code == 0, result.output
+    assert "1 notes of which resume was used" in result.output
+    with connect(api.config.db_path) as conn:
+        counts = resume_row_counts(conn)
+    assert counts.pop("application_resume") == 0
+    assert counts == kept  # documents, revisions, ads and exports all stay
+    assert call(api, "GET", f"/jobs/{job}")["used"] is None
+
+
+def test_the_old_engine_itself_refuses_writes_once_resumes_moved(tmp_path: Path) -> None:
+    """Straight to the engine's own routes, not through Career Agent's proxy."""
+    from tests.integration.test_tailor_bridge import TAILOR, _profile
+
+    _, owner, client = _profile(tmp_path, "prof-01SYNTHETICENGINEAAAAAAAA", "Synthetic")
+    _, _, other_client = _profile(tmp_path, "prof-01SYNTHETICENGINEBBBBBBBB", "Other")
+    post = {"json": {}, "headers": {"Origin": TAILOR}}
+    # Not moved: the old helper still writes (here: refused for an empty profile, not 409).
+    assert client.post("/api/career/base-resume", **post).status_code == 400
+    data = sparse().model_dump(mode="json")
+    data.update(
+        id=new_id(), kind="IMPORTED", title="Moved",
+        provenance={"created_from": "IMPORT", "import_id": "legacy:base:synthetic"},
+    )  # fmt: skip
+    with connect(owner.config.db_path) as conn:
+        ResumeStore(conn).create_document(upgrade_resume_document(data))
+    refused = client.post("/api/career/base-resume", **post)
+    assert refused.status_code == 409
+    assert refused.json()["detail"]["code"] == "legacy_moved"
+    cid = client.get("/api/workspace").json()["candidate_id"]
+    assert client.get(f"/api/candidates/{cid}/resumes").status_code == 200  # reading stays
+    # Another profile that moved nothing keeps its old helper.
+    assert other_client.post("/api/career/base-resume", **post).status_code == 400

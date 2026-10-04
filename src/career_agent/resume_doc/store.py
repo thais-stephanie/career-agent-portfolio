@@ -571,17 +571,22 @@ class ResumeStore:
     # ------------------------------------------------- applications
 
     def mark_used(self, job_id: str, document_id: str, *, now: str | None = None) -> None:
-        """The person says THIS resume, as it is now, is the one they used for
-        the job. Recorded with the exact revision; never inferred."""
+        """The person says THIS resume is the one they used for the job,
+        recorded with its latest saved revision (a download writes one). It is
+        tracking, not content: no revision is written for it. Never inferred."""
         now = now or now_utc()
         with self._tx():
-            revision = self.checkpoint_revision(document_id, "MANUAL_CHECKPOINT", now=now)
+            self._row("resume_document", document_id)
+            revision = self.conn.execute(
+                "SELECT id FROM resume_revision WHERE document_id = ? ORDER BY seq DESC LIMIT 1",
+                (document_id,),
+            ).fetchone()
             self.conn.execute(
                 "INSERT INTO application_resume (job_id, document_id, revision_id, marked_at)"
                 " VALUES (?, ?, ?, ?) ON CONFLICT (job_id) DO UPDATE SET"
                 " document_id = excluded.document_id, revision_id = excluded.revision_id,"
                 " marked_at = excluded.marked_at",
-                (job_id, document_id, revision.id, now),
+                (job_id, document_id, revision["id"], now),
             )
 
     def clear_used(self, job_id: str) -> None:

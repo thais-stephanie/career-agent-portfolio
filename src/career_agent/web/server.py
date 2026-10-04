@@ -570,12 +570,6 @@ class _Handler(BaseHTTPRequestHandler):
             if content_type != "application/json":
                 raise ApiError(415, "request body must be application/json")
 
-    def _resumes_moved(self) -> bool:
-        from career_agent.resume_doc.store import ResumeStore
-
-        with closing(self.app.connect()) as conn:
-            return ResumeStore(conn).has_legacy_documents()
-
     def _forward_to_resume_helper(self, method: str, parsed: Any) -> None:
         """The Resume helper's API, on this origin.
 
@@ -607,16 +601,6 @@ class _Handler(BaseHTTPRequestHandler):
                 raise ApiError(403, "uploads need a page of this app")
         else:
             self._check_origin(method)
-        if method != "GET" and self._resumes_moved():
-            # ONE PLACE EDITS A RESUME. Once this profile's old resumes are in
-            # My resumes, the old helper only shows them: a change made there
-            # would edit a second copy nobody reads.
-            raise ApiError(
-                409,
-                "These resumes moved to My resumes. Change them there.",
-                for_reader=True,
-                code="legacy_moved",
-            )
         body = b""
         if method != "GET":
             length = int(self.headers.get("Content-Length") or 0)

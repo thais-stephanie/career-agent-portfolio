@@ -158,6 +158,15 @@ class CareerBridge:
             raise ValueError(str(exc)) from exc
         return self.job(job_id)
 
+    def resumes_moved(self) -> bool:
+        """Whether this profile's old resumes are in the Resume Workspace now:
+        then the engine refuses every write (it only shows them)."""
+        from career_agent.resume_doc.store import ResumeStore
+
+        # No liveness check: a retired bridge still answers about its own profile.
+        with closing(self._api.connect()) as conn:
+            return ResumeStore(conn).has_legacy_documents()
+
     def person_name(self) -> str:
         """The person's own name for a resume, or "" (see `evidence`)."""
         from career_agent.storage.workspace_repo import person_name

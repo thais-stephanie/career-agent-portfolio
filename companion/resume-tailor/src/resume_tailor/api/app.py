@@ -98,6 +98,22 @@ def create_app(home: Path | None = None, bridge: Any | None = None) -> FastAPI:
                         ),
                         status_code=409,
                     )
+        # ONE PLACE EDITS A RESUME. Once Career Agent's Resume Workspace holds
+        # this profile's resumes, this engine only shows them: a write here
+        # would edit a second copy nobody reads. Asked at the engine itself,
+        # so a request sent straight to this port is refused too.
+        if (
+            bridge is not None
+            and request.method not in {"GET", "HEAD", "OPTIONS"}
+            and path.startswith("/api/")
+            and getattr(bridge, "resumes_moved", lambda: False)()
+        ):
+            return JSONResponse(
+                errors.body(
+                    "legacy_moved", "These resumes moved to My resumes. Change them there."
+                ),
+                status_code=409,
+            )
         origin = request.headers.get("origin")
         if origin is not None and origin != "http://" + host:
             return JSONResponse(
