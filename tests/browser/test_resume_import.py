@@ -156,7 +156,7 @@ def test_an_unreadable_pdf_says_why_and_offers_ways_on(
     upload(page, out.getvalue(), "scan.pdf")
     page.wait_for("document.querySelector('.rvi__alert p') !== null", message="refusal")
     text = page.evaluate("document.querySelector('.rvi__alert').textContent")
-    assert "couldn't read text from this PDF" in text and "DOCX" in text
+    assert "read text from this PDF" in text and "DOCX" in text
     assert documents(server["db"]) == 0
 
 

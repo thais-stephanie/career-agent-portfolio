@@ -1864,8 +1864,8 @@ const EN = {
   'rv.import.refused.UNSAFE_CONTAINER': 'This DOCX is built in a way that is not safe to open here (too many or too ' +
     'large parts).',
   'rv.import.refused.MACROS': 'This document contains macros. Save it as a plain .docx without macros and import that.',
-  'rv.import.refused.NO_TEXT': "We couldn't read text from this PDF. It may be a scanned or image-only resume. You " +
-    "can:",
+  'rv.import.refused.NO_TEXT': 'We couldn’t read text from this PDF. It may be a scanned or image-only resume. ' +
+    'You can:',
   'rv.import.way.docx': 'upload a DOCX version of your resume;',
   'rv.import.way.pdf': 'upload a PDF in which the text can be selected;',
   'rv.import.way.scratch': 'Type it into a new blank resume',
