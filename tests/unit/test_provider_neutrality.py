@@ -267,6 +267,9 @@ ORDINARY_WORD_USES: dict[str, frozenset[str]] = {
     # region, country) and where each job or school was, read from HER file
     # and written into her own document. Never a provider payload.
     "resume_doc/imports.py": frozenset({"location", "region", "country"}),
+    # The Tailor's reading of a job AD: "Salary" is a heading in the ad's own
+    # text, a section to skip, never a provider payload path.
+    "resume_doc/jd.py": frozenset({"salary"}),
     "storage/mvp_repo.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/api.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/presenter.py": frozenset({"employment_type", "salary"}),
