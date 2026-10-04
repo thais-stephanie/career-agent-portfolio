@@ -73,3 +73,22 @@ def test_names_are_what_may_not_be_claimed_without_evidence() -> None:
     assert named_terms("Managed a $10M pipeline") == set()  # numbers are their own guard
     assert "crm" in named_terms("Cleaned up the CRM")
     assert tokens("Automações de processos") == {"automation", "process"}
+
+
+def test_a_wrapped_ad_with_an_unheaded_role_and_eligibility_reads_right() -> None:
+    """The shape the demo corpus has: text wrapped at a fixed width, the work
+    described before any heading, and where the job hires at the end."""
+    ad = (
+        "Own the revenue systems behind our go to market motion. You will build workflow\n"
+        "automation, own lead routing, and maintain the REST API integrations between our\n"
+        "CRM and the data warehouse.\n\nRequirements\n- Strong HubSpot experience.\n\n"
+        "Location: this role is remote, but candidates must be located within the\n"
+        "United States. We do not sponsor visas."
+    )
+    found = analyse(ad).requirements
+    kinds = {r.kind for r in found}
+    duty = next(r for r in found if r.source_quote.startswith("You will build"))
+    assert duty.kind == "RESPONSIBILITY" and duty.source_quote.endswith("data warehouse.")
+    assert {"LOCATION", "WORK_AUTHORIZATION"} <= kinds
+    place = next(r for r in found if r.kind == "LOCATION")
+    assert place.source_quote.endswith("United States.") and place.eligibility

@@ -464,3 +464,66 @@ The person can say which resume they used for an application ("I used this
 one", `POST /api/resume/jobs/<id>/used`): migration 0049 keeps the job, the
 document and the exact revision. A download is never taken to mean a resume
 was sent.
+
+## Tailor V2: deterministic, from the Master
+
+"Tailor from Master" (job drawer, or a pasted ad on the Resumes home) builds a
+new version for one job from the Master and confirmed Career Evidence only.
+No model and no provider is involved: the run records `mode=DETERMINISTIC`
+with no provider or model, and the screen says "Built from your confirmed
+experience without AI". It sits beside "Create a version for this job" (a copy
+made by hand), and a manual version is never labelled Tailored.
+
+* **Inputs, fixed first.** The ad is captured as an immutable snapshot (text,
+  title, company, URL, language, hash). The Master's exact revision is
+  captured (checkpointed only if it has edits since its last milestone), and
+  the version records it; a later Master edit never moves a version.
+* **Requirements quote the ad** (`resume_doc/jd.py`). The ad is cut into items
+  on lines, bullets, semicolons and sentences, with headings in EN/PT/ES, a
+  heading written inline ("Requisitos: ..."), and lines wrapped at a fixed
+  width joined back. Each requirement is a span of the snapshot (its
+  `source_quote` is found in it, always), with a kind (responsibility, skill,
+  tool, experience, education, certification, language, location, work
+  authorization, schedule, other), a hardness (REQUIRED only on an explicit
+  cue or under a requirements heading; PREFERRED on a nice-to-have cue or
+  heading; otherwise UNKNOWN) and an importance (required 3, responsibility
+  2, other 1, plus 1 when asked twice). Clearly identical asks merge, keeping
+  both quotes; different products of one vendor do not.
+* **Support** (`resume_doc/tailor.py`): each requirement is SHOWN_IN_MASTER,
+  HAVE_EVIDENCE_NOT_SHOWN or NO_EVIDENCE against confirmed claims of this
+  profile and the Master's lines and skills. A named tool or product in the
+  ask must be named by the source itself ("CRM" never answers "Salesforce");
+  otherwise two shared words (after a small, documented bilingual concept
+  table) are needed. Location, work authorization and schedule are
+  eligibility: reported apart, never covered or gapped by a resume. Years of
+  experience are never judged: such an ask is at most "partly covered".
+* **Strategy, then draft.** Confirmed lines the Master does not show are added
+  to their own role, verbatim or with a leading first-person pronoun dropped
+  (`RULE_REWRITE`), each citing its evidence and the requirement it answers;
+  hidden Master lines that answer an ask are shown; within a role, relevant
+  lines come first; roles keep their chronology; a role with more than six
+  shown lines hides the ones that answer nothing. Headline, summary, titles,
+  employers, dates, education and certifications are the Master's.
+* **An independent review** checks every changed line against its own
+  evidence: grounding, numbers, named terms and words (a set difference: no
+  number, tool or word the evidence lacks), and the Master's titles,
+  employers, dates and role order. A FAIL saves nothing. Validation then asks
+  again whether every cited claim is still confirmed, whether every quote is
+  in the ad and whether the Master moved; all of it runs in one write
+  transaction, so evidence retired mid-run saves nothing either.
+* **Stored**: the TAILORED document (revision `GENERATED`, the next number in
+  the job's group, never made preferred on its own), the run with every
+  stage's output and timings, and each change as an accepted RULE change.
+* **The job panel** (Editor): what the ad asks with Covered / Partly covered /
+  Not found, a count ("5 of 10 asks have confirmed support", never a score),
+  why the version changed (emphasized, added from confirmed experience with
+  its source, hidden), "Before you apply" ("I couldn't find these in your
+  confirmed experience"), and Make it better, recomputed on the version as it
+  is: a confirmed line or skill to add, a hidden line to show (Apply, an
+  ordinary undoable edit), a gap (Add evidence in Proof of my work, never
+  Apply), a long line (Edit). Dismiss sets one aside for that version only.
+* **Invariants, tested**: the Master, Career Evidence, Search Fit scores,
+  search preferences and other profiles are unchanged by tailoring.
+
+Measured on synthetic profiles: about 10 ms (thin), 80 ms (a five-role
+senior profile) and 650 ms (fifteen roles, 150 statements, a long ad).
