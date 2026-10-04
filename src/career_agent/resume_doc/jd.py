@@ -43,6 +43,12 @@ REQUIRED_CUE = re.compile(
     r"|indispens[aá]ve(?:l|is)|requerid[oa]s?|excluyente)\b",
     re.IGNORECASE,
 )
+#: The work itself, said outside a heading ("You will build...").
+DUTY_CUE = re.compile(
+    r"\b(you will|you'll|you would|responsible for|in this role you|voc[eê] vai|voc[eê] ir[aá]"
+    r"|ser[aá] respons[aá]vel|ser[aá]s responsable)\b",
+    re.IGNORECASE,
+)
 PREFERRED_CUE = re.compile(
     r"\b(preferred|preferably|nice to have|nice-to-have|bonus|a plus|is a plus|ideally"
     r"|desej[aá]ve(?:l|is)|diferencia(?:l|is)|ser[aá] um diferencial|plus|deseable|valorado)\b",
@@ -166,7 +172,7 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "WORK_AUTHORIZATION",
         re.compile(
-            r"\b(authori[sz]ed to work|work authori[sz]ation|visa|sponsorship|citizen(ship)?"
+            r"\b(authori[sz]ed to work|work authori[sz]ation|visas?|sponsor\w*|citizen(ship)?"
             r"|right to work|autoriza[cç][aã]o de trabalho|cidadania|permiso de trabajo)\b",
             re.I,
         ),
@@ -174,7 +180,9 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "LOCATION",
         re.compile(
-            r"\b(based in|located in|must live|reside|relocat\w*|on-?site|onsite|in-office|hybrid"
+            r"\b(based in|located (?:in|within)|be located|must live|reside|relocat\w*"
+            r"|on-?site|onsite"
+            r"|in-office|hybrid"
             r"|presencial|h[ií]brido|residir|morar em|residencia|remote within)\b",
             re.I,
         ),
@@ -329,6 +337,8 @@ _SENTENCE = re.compile(r"(?<=[a-zà-ÿ0-9)][.!?])\s+(?=[A-ZÀ-Ý])")
 _HEAD_COLON = re.compile(r"^\s*([^\n:]{3,60}):\s*")
 _BULLET_LEAD = re.compile(r"^\s*(?:[•·▪●◦■□‣∙*-]|\d+[.)])\s*")  # punctuation-check: allow
 MAX_WORDS = 60
+#: A line at least this long that does not end a sentence was wrapped, not ended.
+WRAPPED = 50
 #: What may lead an item and is not part of it.
 _TRIM = " \t;•·▪●◦■□‣∙*-\u2013,"
 
@@ -444,7 +454,20 @@ _INLINE_HEAD = re.compile(
 def _lines(text: str) -> list[tuple[int, int]]:
     """Lines of the ad, also cut before a heading written inline ("... Requisitos: ...")."""
     flat, offsets = fold(text)
-    cuts = {0, len(text)} | {m.end() for m in _LINE_BREAK.finditer(text)}
+    # A line break inside a sentence (text wrapped at a fixed width) is not a
+    # new item: a long line that does not end a sentence runs on, unless the
+    # next line opens a list item.
+    breaks = [
+        m
+        for m in _LINE_BREAK.finditer(text)
+        if not (
+            len(text[text.rfind("\n", 0, m.start()) + 1 : m.start()]) >= WRAPPED
+            and text[: m.start()].rstrip()[-1:] not in ".!?:;"
+            and not _BULLET_LEAD.match(text[m.end() :])
+            and len(m.group(0)) == 1
+        )
+    ]
+    cuts = {0, len(text)} | {m.end() for m in breaks}
     cuts |= {offsets[m.start()] for m in _INLINE_HEAD.finditer(flat)}
     ordered = sorted(cuts)
     return [(a, b) for a, b in zip(ordered, ordered[1:], strict=False)]
@@ -491,7 +514,7 @@ def _kind(quote: str, section: str, named: set[str], concepts: set[str]) -> str:
     for kind, cue in _KIND_CUES:
         if cue.search(quote):
             return kind
-    if section == "RESPONSIBILITIES":
+    if section == "RESPONSIBILITIES" or DUTY_CUE.search(quote):
         return "RESPONSIBILITY"
     if named and len(named) >= max(1, len(concepts) - len(named)):
         return "TOOL"
@@ -528,7 +551,12 @@ def analyse(text: str) -> Analysis:
         concepts, named = tokens(quote), named_terms(quote)
         if not concepts and not named:
             continue
-        if section == "OTHER" and not (REQUIRED_CUE.search(quote) or PREFERRED_CUE.search(quote)):
+        if section == "OTHER" and not (
+            REQUIRED_CUE.search(quote)
+            or PREFERRED_CUE.search(quote)
+            or DUTY_CUE.search(quote)
+            or any(cue.search(quote) for _, cue in _KIND_CUES)
+        ):
             continue  # an unheaded line with no cue: the company talking, not asking
         kind = _kind(quote, section, named, concepts)
         hardness = _hardness(quote, section)

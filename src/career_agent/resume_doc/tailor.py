@@ -639,7 +639,8 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
             plan = strategy(doc, [sup])
             action: dict[str, Any] | None = None
             if plan["show"]:
-                action = {"type": "show", "line_id": plan["show"][0]}
+                shown = next(line for _, line, _ in _lines(doc) if line.id == plan["show"][0])
+                action = {"type": "show", "line_id": shown.id, "text": shown.text}
             elif plan["add"]:
                 add = plan["add"][0]
                 action = {"type": "add_bullet", "entry_id": add["entry_id"], "text": add["text"],

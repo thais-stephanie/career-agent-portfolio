@@ -52,6 +52,14 @@ export const createJobResume = (jobId, from = null) =>
 /** The person says which resume they used for this job (null: none). */
 export const markResumeUsed = (jobId, documentId) =>
   request(jobResumePath(jobId, '/used'), { method: 'POST', body: { document_id: documentId } });
+/** Tailor from the Master for a job, or for a pasted ad (`{title, company, text}`). No AI. */
+export const tailorForJob = (jobId) => request(jobResumePath(jobId, '/tailor'), { method: 'POST', body: {} });
+export const tailorPasted = (body) => request('/resume/tailor', { method: 'POST', body });
+/** A job version against its ad: coverage, why it changed, gaps and suggestions. */
+export const getResumeJob = (id) => request(resumePath(id, '/job'));
+/** Set one suggestion aside, for this version only. */
+export const dismissResumeSuggestion = (id, key) =>
+  request(resumePath(id, '/dismissals'), { method: 'POST', body: { key } });
 /** Resumes of the previous Resume Helper: what there is, and moving them (backup first). */
 export const getLegacyResumes = () => request('/resume/legacy');
 export const moveLegacyResumes = () => request('/resume/legacy/migrate', { method: 'POST', body: {} });

@@ -31,8 +31,8 @@
 
 import {
   createJobResume, createResumeDocument, createResumeMaster, downloadResumeExport, exportResume, getCareer,
-  getLocalProfile, getResumeDocument, getResumeMaster, listResumeDocuments, saveResumeCheckpoint,
-  saveResumeWorkingCopy,
+  getLocalProfile, getResumeDocument, getResumeMaster, listResumeDocuments, manageResume, saveResumeCheckpoint,
+  saveResumeWorkingCopy, tailorForJob, tailorPasted,
 } from './api.js';
 import { button, el } from './dom.js';
 import { formatDate } from './format.js';
@@ -41,6 +41,7 @@ import {
   createAutosave, createHistory, evidenceLine, move, newLine, rewordLine, ulid,
 } from './resume_editor.js';
 import { createResumeImport } from './resume_import.js';
+import { createJobPanel } from './resume_job.js';
 import { createLibrary, legacyNotice, versionLabel } from './resume_library.js';
 import { createResumePreview } from './resume_preview.js';
 import { openDrawer } from './ui.js';
@@ -100,14 +101,16 @@ const flatten = (lib) => [
   ...(lib.master ? [lib.master] : []), ...lib.others, ...lib.jobs.flatMap((g) => g.versions),
 ].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
-export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = () => {} }) {
+export function createResumeWorkspace({
+  host, onEvidence = () => {}, onLegacy = () => {}, onAddEvidence = () => {},
+}) {
   const tabs = {};
   const views = {};
-  for (const name of ['home', 'list', 'editor', 'import']) {
+  for (const name of ['home', 'list', 'editor', 'import', 'tailor']) {
     views[name] = el('section', {
       className: `rvw__view rvw__view--${name}`, attrs: { id: `rvw-view-${name}` },
     });
-    if (name === 'import') continue; // reached from Home and My resumes, not a tab
+    if (name === 'import' || name === 'tailor') continue; // reached from a button, not a tab
     tabs[name] = button(t(`rv.tab.${name}`), () => show(name), {
       className: 'rvw__tab', attrs: { 'aria-controls': `rvw-view-${name}` },
     });
@@ -157,7 +160,7 @@ export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = 
     const shown = answer || await getResumeDocument(id);
     if (editor) editor.destroy();
     editor = createEditor(shown, {
-      onClose: () => show('list'), onDiscard: close, onOpen: (next) => open(next), restored,
+      onClose: () => show('list'), onDiscard: close, onOpen: (next) => open(next), restored, onAddEvidence,
     });
     views.editor.replaceChildren(editor.root);
     show('editor');
@@ -235,6 +238,13 @@ export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = 
           el('p', { text: t('rv.home.importLede') }),
           importing,
         ]),
+        there ? el('article', { className: 'rvw__card' }, [
+          el('h2', { className: 'rvw__cardtitle', text: t('rv.tailor.card') }),
+          el('p', { text: t('rv.tailor.cardLede') }),
+          el('details', { className: 'rvt__paste' }, [
+            el('summary', { className: 'btn btn--small', text: t('rv.tailor.paste') }), pastedForm(),
+          ]),
+        ]) : null,
         el('article', { className: 'rvw__card' }, [
           el('h2', { className: 'rvw__cardtitle', text: t('rv.tab.list') }),
           el('p', { text: all.length ? tCount('rv.home.count', { n: all.length }) : t('rv.home.none') }),
@@ -253,6 +263,72 @@ export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = 
         }),
       ]))) : null,
     ].filter(Boolean));
+  }
+
+  /**
+   * Tailor from the Master: one request runs every step on the server, so the
+   * steps are listed for what they are, then marked done together. Nothing is
+   * saved unless every check passes; then the version opens in the Editor.
+   */
+  async function runTailor(request) {
+    const steps = ['read', 'find', 'build', 'check'].map((key) => el('li', {
+      className: 'rvt__step', text: t(`rv.tailor.step.${key}`),
+    }));
+    const state = el('p', { className: 'rvt__state', attrs: { role: 'status', 'aria-live': 'polite' } });
+    state.textContent = t('rv.tailor.working');
+    const box = el('section', { className: 'rvt', attrs: { 'aria-labelledby': 'rvt-h' } }, [
+      el('h2', { className: 'rvw__h2', attrs: { id: 'rvt-h', tabindex: '-1' }, text: t('rv.tailor.preparing') }),
+      el('ol', { className: 'rvt__steps' }, steps),
+      state,
+      el('p', { className: 'rve__note', text: t('rv.job.noAi') }),
+    ]);
+    views.tailor.replaceChildren(box);
+    show('tailor');
+    box.querySelector('h2').focus();
+    try {
+      const made = await request();
+      for (const step of steps) step.dataset.done = 'true';
+      state.textContent = t('rv.tailor.done');
+      await open(made.id, { answer: made });
+    } catch (error) {
+      const code = error.detail && error.detail.code;
+      state.textContent = t(code === 'tailor_failed' ? 'rv.tailor.unsafe'
+        : code === 'no_master' ? 'rv.job.needMaster' : 'rv.tailor.failed');
+      box.append(smallButton(t('rv.back'), () => show('home')));
+    }
+  }
+
+  function pastedForm() {
+    const title = el('input', { className: 'input', attrs: { maxlength: '300', id: 'rvt-title' } });
+    const company = el('input', { className: 'input', attrs: { maxlength: '200', id: 'rvt-company' } });
+    const text = el('textarea', { className: 'rve__textarea rvt__ad', attrs: { id: 'rvt-text', rows: '6' } });
+    const field = (id, key, node) => el('label', { className: 'rve__field', attrs: { for: id } }, [
+      el('span', { className: 'rve__label', text: t(key) }), node,
+    ]);
+    const hint = el('p', { className: 'rve__hint', attrs: { 'aria-live': 'polite' } });
+    const form = el('form', {
+      className: 'rvt__form',
+      attrs: { novalidate: '' },
+      on: {
+        submit: (event) => {
+          event.preventDefault();
+          if (!title.value.trim() || text.value.trim().length < 20) {
+            hint.textContent = t('rv.tailor.need');
+            return;
+          }
+          void runTailor(() => tailorPasted({
+            title: title.value.trim(), company: company.value.trim() || null, text: text.value,
+          }));
+        },
+      },
+    }, [
+      field('rvt-title', 'rv.tailor.title', title),
+      field('rvt-company', 'rv.tailor.company', company),
+      field('rvt-text', 'rv.tailor.ad', text),
+      hint,
+      button(t('rv.tailor.go'), null, { className: 'btn btn--small btn--primary', type: 'submit' }),
+    ]);
+    return form;
   }
 
   /** Import: pick, review, save; then the saved document opens in the Editor. */
@@ -279,6 +355,8 @@ export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = 
     show: () => { show(editor ? 'editor' : 'home'); },
     /** Open one resume in the Editor (from the job drawer). */
     openDocument: (id) => open(id),
+    /** Tailor from the Master for a job (no AI), then the Editor. */
+    tailorForJob: (jobId) => runTailor(() => tailorForJob(jobId)),
     /** A version for this job, made by hand from the Master or another version; then the Editor. */
     async createForJob(jobId, from = null) {
       const made = await createJobResume(jobId, from);
@@ -300,10 +378,11 @@ export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = 
 // the editor
 // ===========================================================================
 
-function createEditor(answer, { onClose, onDiscard, onOpen, restored = false }) {
+function createEditor(answer, { onClose, onDiscard, onOpen, restored = false, onAddEvidence = () => {} }) {
   let doc = structuredClone(answer.document);
   let editedSinceOpen = false;
   let previewTimer = null;
+  let jobTimer = null;
   let layout = null;
   const history = createHistory();
   const saveState = el('p', { className: 'rve__state', attrs: { role: 'status', 'aria-live': 'polite' } });
@@ -325,6 +404,11 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false }) 
     onState: (state) => {
       say(state);
       if (state === 'conflict') drawConflict();
+      // What the job panel says follows what is saved, a moment after.
+      if (state === 'saved' && jobPanel) {
+        clearTimeout(jobTimer);
+        jobTimer = setTimeout(() => void jobPanel.load(), 700);
+      }
     },
   });
   say('saved');
@@ -374,7 +458,19 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false }) 
   const bar = el('header', { className: 'rve__bar' }, [
     backButton, title, kindTag, undoButton, redoButton, pointButton, downloadGroup, saveState,
   ]);
+  const jobPanel = answer.document.target ? createJobPanel({
+    documentId: answer.id,
+    preferred: answer.preferred,
+    onApply: (action) => void applySuggestion(action),
+    onFocus: (lineId) => {
+      const node = [...form.querySelectorAll('[data-ref]')].find((n) => n.dataset.ref.endsWith('/bullet/' + lineId));
+      if (node) focusRef(node.dataset.ref);
+    },
+    onAddEvidence,
+    onPrefer: () => manageResume(answer.id, 'prefer'),
+  }) : null;
   const side = el('div', { className: 'rve__side' }, [
+    jobPanel ? jobPanel.root : null,
     el('details', { className: 'rve__panel' }, [designSummary, design]),
     el('details', { className: 'rve__panel', props: { open: true } }, [checkSummary, check]),
     preview.root,
@@ -1138,6 +1234,30 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false }) 
     drawer.body.replaceChildren(...(groups.length ? groups : [el('p', { text: t('rv.evidence.none') })]));
   }
 
+  // -- a suggestion, applied as an ordinary undoable edit ---------------------
+  async function applySuggestion(action) {
+    reshape((d) => {
+      if (action.type === 'add_bullet') {
+        const entry = d.experience.find((e) => e.id === action.entry_id);
+        if (entry) {
+          entry.bullets.unshift({
+            id: ulid(), text: action.text, origin: action.origin, evidence_ids: action.evidence_ids,
+            requirement_ids: action.requirement_ids, override: 'NONE', original_text: null, hidden: false,
+            flags: [],
+          });
+        }
+      } else if (action.type === 'show') {
+        for (const line of linesOf(d).blocks) if (line.id === action.line_id) line.hidden = false;
+      } else if (action.type === 'add_skill') {
+        if (!d.skills.length) d.skills.push({ id: ulid(), name: t('rv.skills.group'), hidden: false, items: [] });
+        d.skills[0].items.unshift({
+          id: ulid(), label: action.label, origin: 'EVIDENCE_VERBATIM', evidence_ids: action.evidence_ids,
+        });
+      }
+    })();
+    await autosave.flush();
+  }
+
   // -- the Master and its evidence ------------------------------------------
   async function masterNotice() {
     if (answer.kind !== 'MASTER') return;
@@ -1154,6 +1274,7 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false }) 
   drawForm();
   schedulePreview(0);
   void masterNotice();
+  if (jobPanel) void jobPanel.load();
   if (restored) {
     // Restored as a new version; lines whose evidence is no longer confirmed
     // are said now, not trusted again.
@@ -1166,12 +1287,14 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false }) 
     leave,
     relabel() {
       label();
+      if (jobPanel) jobPanel.relabel();
       drawForm();
       drawCheck();
     },
     failed,
     destroy: () => {
       clearTimeout(previewTimer);
+      clearTimeout(jobTimer);
       preview.destroy();
     },
     dirty: () => autosave.dirty,
