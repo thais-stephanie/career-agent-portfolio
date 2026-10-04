@@ -128,6 +128,7 @@ EXPECTED_TABLES = {
     "tailoring_change",
     "resume_export",
     "resume_finding_dismissal",
+    "application_resume",
     # 0031: where a query-scoped walk got to, slice by slice, across runs.
     "source_slice_state",
     "source_health",

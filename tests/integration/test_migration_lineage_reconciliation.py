@@ -131,6 +131,7 @@ def test_the_production_path(production_shaped) -> None:
         (46, "search_fit_feedback"),
         (47, "resume_workspace"),
         (48, "resume_one_master"),
+        (49, "application_resume"),
     ]
     after = _ledger_rows(conn)
     assert after[:37] == before
