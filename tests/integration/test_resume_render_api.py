@@ -87,7 +87,7 @@ def test_an_unknown_or_other_profiles_render_is_not_served(api: JobsApi) -> None
 
 
 def test_documents_are_listed_and_read(api: JobsApi) -> None:
-    [listed] = api.handle_api("GET", "/api/resume/documents", {}, {})
+    listed = api.handle_api("GET", "/api/resume/documents", {}, {})["master"]
     assert listed["id"] == rich().id and listed["kind"] == "MASTER"
     one = api.handle_api("GET", f"/api/resume/documents/{listed['id']}", {}, {})
     assert one["document"]["identity"]["full_name"] == "Morgan Example" and one["sha256"]

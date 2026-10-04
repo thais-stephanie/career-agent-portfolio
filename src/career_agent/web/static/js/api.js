@@ -27,7 +27,34 @@ export const getCareer = () => request('/career');
 /** Resume Workspace: render a whole document for the preview (nothing is saved). */
 export const renderResume = (document, { signal = null } = {}) =>
   request('/resume/render', { method: 'POST', body: { document }, signal });
-export const listResumeDocuments = () => request('/resume/documents');
+/** My resumes, grouped (`{master, others, jobs}`); `archived` lists the archived ones instead. */
+export const listResumeDocuments = (archived = false) =>
+  request(`/resume/documents${archived ? '?archived=1' : ''}`);
+const resumePath = (id, rest = '') => `/resume/documents/${encodeURIComponent(id)}${rest}`;
+/** One act on a resume: rename (`{title}`), archive, unarchive, prefer or make_master. */
+export const manageResume = (id, action, extra = {}) =>
+  request(resumePath(id), { method: 'PATCH', body: { action, ...extra } });
+/** A copy; for a job's version, that job's next version. */
+export const copyResume = (id, title = '') =>
+  request(resumePath(id, '/copy'), { method: 'POST', body: title ? { title } : {} });
+export const getResumeHistory = (id) => request(resumePath(id, '/history'));
+/** An earlier milestone back, as a NEW revision; `unconfirmed` names lines to decide about. */
+export const restoreResume = (id, revision_id, expected_sha256) =>
+  request(resumePath(id, '/restore'), { method: 'POST', body: { revision_id, expected_sha256 } });
+export const compareResumes = (a, b) =>
+  request(`/resume/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);
+const jobResumePath = (jobId, rest = '') => `/resume/jobs/${encodeURIComponent(jobId)}${rest}`;
+/** A job's resume versions, newest first, and the one marked as used. */
+export const getJobResumes = (jobId) => request(jobResumePath(jobId));
+/** A version for a job, by hand: from the Master, or from another version (`from`). */
+export const createJobResume = (jobId, from = null) =>
+  request(jobResumePath(jobId, '/versions'), { method: 'POST', body: from ? { from } : {} });
+/** The person says which resume they used for this job (null: none). */
+export const markResumeUsed = (jobId, documentId) =>
+  request(jobResumePath(jobId, '/used'), { method: 'POST', body: { document_id: documentId } });
+/** Resumes of the previous Resume Helper: what there is, and moving them (backup first). */
+export const getLegacyResumes = () => request('/resume/legacy');
+export const moveLegacyResumes = () => request('/resume/legacy/migrate', { method: 'POST', body: {} });
 export const getResumeDocument = (id) => request(`/resume/documents/${encodeURIComponent(id)}`);
 /** A new SCRATCH resume: `{title}` for a blank one, `{from: document}` for a copy. */
 export const createResumeDocument = (body) => request('/resume/documents', { method: 'POST', body });

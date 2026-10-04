@@ -52,6 +52,7 @@ JOB_REFERENCES: dict[str, str] = {
     "job_enrichment": "job_id",
     "semantic_evaluation": "job_id",
     "search_fit_feedback": "job_id",
+    "application_resume": "job_id",
 }
 
 #: What must survive value for value, not only in number.

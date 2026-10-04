@@ -444,7 +444,8 @@ def _open_first_job(page: Chrome, base: str) -> None:
     page.wait_for("document.querySelector('#list [data-job-id]')", timeout=20)
     page.evaluate("document.querySelector('#list [data-job-id]').click()")
     page.wait_for(
-        "document.querySelector('.d-tailor')?.dataset.tailor", message="the Tailor section"
+        "!['loading', undefined].includes(document.querySelector('.d-tailor')?.dataset.tailor)",
+        message="the resume step, settled",
     )
 
 
@@ -454,18 +455,16 @@ def test_tailor_waits_for_career_context_and_says_what_to_add(
     _open_first_job(page, pristine_server)
     assert page.evaluate("document.querySelector('.d-tailor').dataset.tailor") == "needs-career"
     text = _text(page, ".d-tailor")
-    assert "builds from your own experience" in text, text
+    assert "starts from your own experience" in text, text
     assert "Open Resume Tailor Beta" not in text.split("?")[0], (
         "Tailor still reads as the next step"
     )
-    # Access is kept for a resume already given to the helper itself.
-    assert page.evaluate("Boolean(document.querySelector('#drawer-open-tailor'))")
     _click(page, "#drawer-add-career")
     page.wait_for("!document.querySelector('#page-documents').hidden", message="Documents")
     assert page.console_errors() == []
 
 
-def test_tailor_is_the_next_step_once_career_context_exists(
+def test_the_master_is_the_next_step_once_career_context_exists(
     page: Chrome, pristine_server: str
 ) -> None:
     page.navigate(pristine_server)
@@ -475,8 +474,11 @@ def test_tailor_is_the_next_step_once_career_context_exists(
         ".then(r => r.status)"
     )
     _open_first_job(page, pristine_server)
-    page.wait_for("document.querySelector('.d-tailor').dataset.tailor === 'ready'")
-    assert "Make my resume for this job" in _text(page, ".d-tailor")
+    # A version for a job starts from the Master: without one, the step says so.
+    page.wait_for("document.querySelector('.d-tailor').dataset.tailor === 'needs-master'")
+    assert "Make your Master first" in _text(page, ".d-tailor")
+    _click(page, "#drawer-to-resumes")
+    page.wait_for("!document.querySelector('#page-resume').hidden", message="Resumes")
 
 
 # =========================================================================

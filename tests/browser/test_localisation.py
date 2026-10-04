@@ -155,7 +155,7 @@ def test_the_interface_renders_in_portuguese_when_asked(page: Chrome, server: st
         "Minhas candidaturas",
         "Meu perfil",
         "Provas do meu trabalho",
-        "Ajuda com o currículo",
+        "Currículos",
         "Configurações",
     ], nav(page)
     assert texts(page, "#view-cards") == ["Cartões"]

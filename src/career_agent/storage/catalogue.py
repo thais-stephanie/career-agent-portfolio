@@ -145,6 +145,8 @@ PRIVATE_TABLES: frozenset[str] = frozenset(
         "tailoring_change",
         "resume_export",
         "resume_finding_dismissal",
+        # 0049: which resume the person says they used for a job.
+        "application_resume",
         "requirement_review",
         "job_retrieval_lane",
         "job_enrichment",

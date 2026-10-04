@@ -119,9 +119,10 @@ ENGINE = f"""(() => {{
 def _open_resumes(page: Chrome, server: str) -> None:
     page.set_viewport(*DESKTOP)
     page.navigate(server)
-    page.wait_for("document.querySelector('.topnav__link[data-page=\"resume\"]')", message="rail")
+    page.wait_for("document.getElementById('settings-legacy-open')", message="settings")
     page.evaluate(ENGINE)
-    page.evaluate("document.querySelector('.topnav__link[data-page=\"resume\"]').click()")
+    # The previous Resume Helper is a fallback, reached from Settings only.
+    page.evaluate("document.getElementById('settings-legacy-open').click()")
     page.wait_for("document.getElementById('rh-tab-resumes') !== null", message="the tabs")
     page.evaluate("document.getElementById('rh-tab-resumes').click()")
     page.wait_for("document.querySelector('.rh-made') !== null", message="My resumes")
@@ -129,11 +130,11 @@ def _open_resumes(page: Chrome, server: str) -> None:
 
 def test_my_resumes_lists_a_jobs_versions_and_offers_another(page: Chrome, server: str) -> None:
     _open_resumes(page, server)
-    text = page.evaluate("document.querySelector('#page-resume').innerText")
+    text = page.evaluate("document.querySelector('#page-resume-legacy').innerText")
     assert "2 versions" in text
     assert "Make another version" in text
     page.evaluate(
-        "[...document.querySelectorAll('#page-resume button')]"
+        "[...document.querySelectorAll('#page-resume-legacy button')]"
         ".find((b) => b.textContent === 'See versions').click()"
     )
     page.wait_for("document.querySelectorAll('.rh-made--version').length === 2", message="V1, V2")
@@ -144,7 +145,7 @@ def test_a_reopened_version_shows_its_ad_its_target_and_says_how_it_was_made(
 ) -> None:
     _open_resumes(page, server)
     page.evaluate(
-        "[...document.querySelectorAll('#page-resume button')]"
+        "[...document.querySelectorAll('#page-resume-legacy button')]"
         ".find((b) => b.textContent === 'Open latest').click()"
     )
     page.wait_for("document.querySelector('.rh-result') !== null", message="the result")
@@ -166,7 +167,7 @@ def test_a_reopened_version_shows_its_ad_its_target_and_says_how_it_was_made(
 def test_no_name_and_a_refused_export_are_said_plainly(page: Chrome, server: str) -> None:
     _open_resumes(page, server)
     page.evaluate(
-        "[...document.querySelectorAll('#page-resume button')]"
+        "[...document.querySelectorAll('#page-resume-legacy button')]"
         ".find((b) => b.textContent === 'Open latest').click()"
     )
     page.wait_for("document.querySelector('.rh-paper') !== null", message="the paper")
@@ -187,7 +188,7 @@ def test_a_tab_chosen_while_another_loads_is_the_one_that_stays(page: Chrome, se
     later must not paint over the tab the person chose."""
     page.set_viewport(*DESKTOP)
     page.navigate(server)
-    page.wait_for("document.querySelector('.topnav__link[data-page=\"resume\"]')", message="rail")
+    page.wait_for("document.getElementById('settings-legacy-open')", message="settings")
     page.evaluate(ENGINE)
     # The first list of versions (Start's) answers last.
     page.evaluate(
@@ -196,7 +197,8 @@ def test_a_tab_chosen_while_another_loads_is_the_one_that_stays(page: Chrome, se
         " ? new Promise((r) => setTimeout(r, n++ === 0 ? 800 : 50)).then(() => f(u, o))"
         " : f(u, o); })()"
     )
-    page.evaluate("document.querySelector('.topnav__link[data-page=\"resume\"]').click()")
+    # The previous Resume Helper is a fallback, reached from Settings only.
+    page.evaluate("document.getElementById('settings-legacy-open').click()")
     page.wait_for("document.getElementById('rh-tab-resumes') !== null", message="the tabs")
     page.evaluate("document.getElementById('rh-tab-resumes').click()")
     page.wait_for("document.querySelector('.rh-made') !== null", message="My resumes")

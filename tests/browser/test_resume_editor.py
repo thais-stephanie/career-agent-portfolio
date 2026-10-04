@@ -94,11 +94,11 @@ def stored(db: Path) -> Any:
 
 def open_editor(page: Chrome, url: str, *, width: int = 1600, height: int = 900) -> None:
     page.set_viewport(width, height, mobile=width < 500)
-    page.navigate(f"{url}/?debug=resume-v2#resume-v2")
+    page.navigate(f"{url}/#resume")
     page.wait_for("document.querySelector('.rvw__card') !== null", message="home")
     page.evaluate("[...document.querySelectorAll('.rvw__tab')][1].click()")
-    page.wait_for("document.querySelector('.rvw__row button') !== null", message="my resumes")
-    page.evaluate("document.querySelector('.rvw__row button').click()")
+    page.wait_for("document.querySelector('.rvl__primary') !== null", message="my resumes")
+    page.evaluate("document.querySelector('.rvl__primary').click()")
     page.wait_for(
         "document.querySelector('.rvp[data-state=\"ready\"]') !== null", message="preview"
     )
@@ -125,7 +125,7 @@ def serial(page: Chrome) -> int:
 
 
 def test_history_undo_then_redo_gives_back_the_edit(page: Chrome, editor_server: dict) -> None:
-    page.navigate(f"{editor_server['url']}/?debug=resume-v2#resume-v2")
+    page.navigate(f"{editor_server['url']}/#resume")
     page.wait_for("document.querySelector('.rvw') !== null", message="page")
     result = page.evaluate("""(async () => {
       const { createHistory } = await import('/js/resume_editor.js');
@@ -156,7 +156,7 @@ def test_history_undo_then_redo_gives_back_the_edit(page: Chrome, editor_server:
 def test_autosave_is_single_flight_newest_wins_and_never_overwrites(
     page: Chrome, editor_server: dict
 ) -> None:
-    page.navigate(f"{editor_server['url']}/?debug=resume-v2#resume-v2")
+    page.navigate(f"{editor_server['url']}/#resume")
     page.wait_for("document.querySelector('.rvw') !== null", message="page")
     result = page.evaluate("""(async () => {
       const { createAutosave } = await import('/js/resume_editor.js');
@@ -315,7 +315,7 @@ def test_a_second_window_is_never_overwritten(page: Chrome, editor_server: dict)
     assert stored(editor_server["db"]).title == "Changed elsewhere", (
         "the other window was overwritten"
     )
-    page.evaluate("[...document.querySelectorAll('.rve__notice button')][0].click()")
+    page.evaluate("[...document.querySelectorAll('.rve .rve__notice button')][0].click()")
     page.wait_for(
         "document.querySelector('.rve__titleinput').value === 'Changed elsewhere'", message="reload"
     )
@@ -362,11 +362,13 @@ def test_edits_that_cannot_be_saved_yet_are_never_left_behind(
 
 def test_a_blank_resume_asks_for_a_name_never_you(page: Chrome, editor_server: dict) -> None:
     page.set_viewport(*DESKTOP)
-    page.navigate(f"{editor_server['url']}/?debug=resume-v2#resume-v2")
-    page.wait_for(
-        "document.querySelector('.rvw__card .btn:not(.btn--primary)') !== null", message="home"
+    page.navigate(f"{editor_server['url']}/#resume")
+    blank = (
+        "[...document.querySelectorAll('.rvw__card .btn')]"
+        ".find((b) => b.textContent === 'New blank resume')"
     )
-    page.evaluate("document.querySelector('.rvw__card .btn:not(.btn--primary)').click()")
+    page.wait_for(f"{blank} !== undefined", message="home")
+    page.evaluate(f"{blank}.click()")
     page.wait_for(
         "document.querySelector('.rvp[data-state=\"ready\"]') !== null", message="preview"
     )

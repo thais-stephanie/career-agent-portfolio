@@ -1,9 +1,10 @@
 # Resume Workspace: document and storage
 
-Status: foundation, Master and migration bridge. Nothing on screen uses this
-yet: the Resume helper keeps working from its own files, and stays the one
-place a person edits a resume, until a later change moves it here. No AI is
-involved anywhere below.
+Status: in use. **Resumes** in the sidebar is this workspace (Home, My
+resumes, Editor). The previous Resume helper stays reachable as **Legacy
+Resume Helper** under Settings, Backup and privacy, Advanced, as a fallback;
+its resumes move here only when the person asks. No AI is involved anywhere
+below, and nothing here tailors a resume yet.
 
 ## One document model
 
@@ -96,7 +97,14 @@ only code that touches them.
 ## Migrating the old Resume helper
 
 `career_agent.resume_doc.legacy` reads one Resume helper workspace into one
-profile's database. It is not run automatically.
+profile's database. It is not run automatically: Resumes says when the
+profile has old resumes, shows what would move (contact details, base
+resumes, versions for a job, edited drafts, downloads) and that a backup comes
+first, and moves them only on "Back up and move". The backup is a verified ZIP
+beside the profile's database (`resume_helper_backups/`); without it nothing
+moves. Once anything has moved, the old helper only shows its resumes: a
+change made there is refused (`409 legacy_moved`) so one resume is never
+edited in two places.
 
 * **Backup first.** `backup_legacy_workspace` zips the whole workspace and
   checks every file in the archive. `migrate_legacy_workspace` refuses to
@@ -167,12 +175,12 @@ document. There is no second copy of any template.
   in a sandboxed frame, double-buffered so the visible resume is never blank,
   and paginates it into real pages; a block taller than a page is reported as
   overflow, never clipped.
-* **Internal for now.** The preview lives on an internal page
-  (`?debug=resume-v2`); the Resume helper is still the user's resume surface.
+* **On the Resumes page.** The preview is part of the editor, reached from
+  the sidebar with no address parameter.
 
 ## The editor
 
-The internal page now has Home, My resumes and the Editor. Tailor and
+The Resumes page has Home, My resumes and the Editor. Tailor and
 Analyze are not built and not shown.
 
 * **One document object.** Every edit is a function over a copy of the
@@ -400,3 +408,59 @@ setting or a score input.
 * **Profiles**: a read keeps no server-side state (no token to reuse); the
   saved document lives in the active profile's database like any other.
 * **Not carried back**: bold emphasis inside a line (the text is kept).
+
+## My resumes and versions
+
+My resumes is one request (`GET /api/resume/documents`, `?archived=1` for
+the archived ones), answered from one summary query: no document body is
+read for the list, and no export is looked up one document at a time. The
+server groups it: the Master, the imported and other standalone resumes, and
+each job's versions, newest first, numbered by the store
+(`job:<job id>`, or `jd:<ad hash>` for a pasted ad). The page draws the
+groups it is given; it never numbers or groups anything itself.
+
+* **One act per call** (`PATCH /api/resume/documents/<id>`): rename (the
+  document's own name; the job it is for, its source titles and every line
+  stay), archive, unarchive, prefer (one preferred version per job, enforced
+  by the database), make Master.
+* **Archive, never delete.** Revisions are append-only and kept by trigger,
+  so there is no permanent delete. Archiving hides a resume from the list and
+  keeps its history, downloads and any application that names it. The
+  current Master cannot be archived from the list.
+* **Make Master** is one transaction: the current Master is archived (never
+  deleted). An archived Master simply comes back; any other resume is copied
+  into a new Master (a document's kind never changes) and is itself
+  archived. Both keep their whole history, and there is never a second
+  current Master.
+* **Duplicate** (`POST .../copy`) is a new document with its own first
+  revision and the same content, line ids included. A copy of the Master is
+  a draft; a copy of a job's version is that job's next version ("Make
+  another version"), a copy to edit differently, not a new tailoring.
+* **History** (`GET .../history`) lists the milestones (created, imported,
+  version points, before a template change, restored), never autosaves.
+  **Restore** (`POST .../restore`) writes the old content as a NEW revision;
+  nothing earlier is rewritten. Lines citing evidence that is no longer
+  confirmed are returned (`unconfirmed`) and shown in the editor, where the
+  person keeps them as their own words or changes them; the next save refuses
+  them until then.
+* **Compare** (`GET /api/resume/compare?a=&b=`) reads two versions of the
+  same job and lists what was added, removed, changed, hidden or shown:
+  headline, summary, entries, display titles, lines, skills, hidden sections
+  and section order. It writes nothing.
+* **Downloads.** Each resume's history lists its downloads with format,
+  date, checks and pages; "Download again" only while the private file is
+  still there, otherwise "File no longer available". No path is ever sent.
+
+## A version for a job, by hand
+
+Until Tailor V2 exists, "Create a version for this job" (job drawer, Before
+you apply) keeps the job ad as an immutable snapshot, copies the Master's
+current revision exactly (`created_from: MASTER_COPY`, with that revision's
+id) and opens it in the editor. Nothing is chosen, rewritten or added, and
+the words on screen say so. Without a Master, the step says to make one
+first.
+
+The person can say which resume they used for an application ("I used this
+one", `POST /api/resume/jobs/<id>/used`): migration 0049 keeps the job, the
+document and the exact revision. A download is never taken to mean a resume
+was sent.

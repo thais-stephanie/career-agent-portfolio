@@ -40,7 +40,7 @@ export const PAGE_HEADERS = {
   manage: { title: 'pagehead.title.manage' },
   settings: { title: 'pagehead.title.settings', sub: 'pagehead.sub.settings' },
   resume: { title: 'nav.tailor', sub: 'pagehead.sub.resume' },
-  'resume-v2': { eyebrow: 'rv.internal', title: 'rv.title', sub: 'rv.sub' },
+  'resume-legacy': { title: 'rv.legacy.title', sub: 'rv.legacy.sub' },
   setup: { eyebrow: 'pagehead.eyebrow.setup', title: 'pagehead.title.setup' },
 };
 

@@ -70,7 +70,7 @@ def documents(db: Path) -> int:
 
 def start(page: Chrome, url: str, *, width: int = 1600, height: int = 900) -> None:
     page.set_viewport(width, height, mobile=width < 500)
-    page.navigate(f"{url}/?debug=resume-v2#resume-v2")
+    page.navigate(f"{url}/#resume")
     page.wait_for("document.querySelector('.rvw__card') !== null", message="home")
     click(page, "Import PDF or DOCX")
     page.wait_for(f"{STEP} === 'pick'", message="pick a file")

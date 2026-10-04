@@ -427,7 +427,8 @@ def test_my_resumes_shows_the_last_export(api: JobsApi) -> None:
     made = _stored(api, exportable())
     _export(api, made, "JSON")
     out = _export(api, made, "DOCX")
-    listed = next(d for d in call(api, "GET", "/documents") if d["id"] == made["id"])
+    listed = call(api, "GET", "/documents")["master"]
+    assert listed["id"] == made["id"]
     assert listed["last_export"]["id"] == out["id"] and listed["last_export"]["format"] == "DOCX"
     assert "score" not in json.dumps(listed).lower()
 

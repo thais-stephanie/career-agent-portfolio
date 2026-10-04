@@ -93,6 +93,10 @@ class EvidenceNotConfirmed(ResumeStoreError):
         self.lines = lines
 
 
+class MasterInPlace(ResumeStoreError):
+    """An archived Master cannot come back beside the current one."""
+
+
 class StaleDocument(ResumeStoreError):
     """The working copy changed since the caller read it."""
 
@@ -414,6 +418,196 @@ class ResumeStore:
                 "UPDATE resume_document SET preferred = 1 WHERE id = ?", (document_id,)
             )
 
+    def unarchive(self, document_id: str) -> None:
+        """Back among the current resumes. An old Master comes back only when
+        there is no current one (`make_master` replaces it on purpose)."""
+        with self._tx():
+            row = self._row("resume_document", document_id)
+            if row["kind"] == DocumentKind.MASTER and self.current_master() is not None:
+                raise MasterInPlace(document_id)
+            self.conn.execute(
+                "UPDATE resume_document SET archived_at = NULL WHERE id = ?", (document_id,)
+            )
+
+    def rename(self, document_id: str, title: str, *, now: str | None = None) -> StoredDocument:
+        """The document's own name. The job it is for, its source titles and
+        every line stay as they are."""
+        with self._tx():
+            doc = self.get_document(document_id)
+            renamed = doc.working.model_copy(update={"title": title})
+            self.save_working_copy(
+                document_id, renamed, expected_sha256=doc.working_sha256, now=now
+            )
+        return self.get_document(document_id)
+
+    def copy_document(
+        self, source_id: str, *, title: str | None = None, now: str | None = None
+    ) -> StoredDocument:
+        """A new document holding the source's working copy, line ids and all.
+        A copy of a version for a job is the NEXT version of that job; a copy
+        of the Master is a draft (there is one Master). Nothing is rewritten."""
+        with self._tx():
+            src = self.get_document(source_id)
+            data = src.working.model_dump(mode="json")
+            kind = DocumentKind.SCRATCH if src.kind is DocumentKind.MASTER else src.kind
+            data.update(
+                id=new_id(),
+                kind=kind.value,
+                title=(title or src.title)[:300],
+                provenance={
+                    **data["provenance"],
+                    "created_from": "DUPLICATE",
+                    "tailoring_run_id": None,
+                },
+            )
+            doc = upgrade_resume_document(data)
+            return self.create_document(doc, parent_document_id=src.id, now=now)
+
+    def make_master(self, document_id: str, *, now: str | None = None) -> StoredDocument:
+        """This resume becomes the profile's Master, in one transaction. The
+        current Master is archived, never deleted. An archived Master simply
+        comes back; any other resume is copied into a new Master (a kind never
+        changes) and is archived itself, both keeping their whole history."""
+        now = now or now_utc()
+        with self._tx():
+            src = self.get_document(document_id)
+            current = self.current_master()
+            if current is not None and current.id == src.id:
+                return current
+            if src.kind is DocumentKind.TAILORED:
+                raise ResumeStoreError("a version for a job is not made the Master")
+            if current is not None:
+                self.archive_document(current.id, now=now)
+            if src.kind is DocumentKind.MASTER:
+                self.unarchive(src.id)
+                return self.get_document(src.id)
+            data = src.working.model_dump(mode="json")
+            data.update(
+                id=new_id(),
+                kind=DocumentKind.MASTER.value,
+                provenance={**data["provenance"], "created_from": "DUPLICATE"},
+            )
+            made = self.create_document(
+                upgrade_resume_document(data), parent_document_id=src.id, now=now
+            )
+            self.archive_document(src.id, now=now)
+            return made
+
+    def version_from_master(
+        self,
+        *,
+        job_id: str,
+        title: str,
+        company: str | None,
+        url: str | None,
+        text: str,
+        now: str | None = None,
+    ) -> StoredDocument:
+        """A version for a job, BY HAND: the job ad kept as it is now, and the
+        Master's current revision copied as it is. No line is chosen, rewritten
+        or added; this is where the person starts editing for this job."""
+        with self._tx():
+            master = self.current_master()
+            if master is None:
+                raise NotFound("there is no Master resume yet")
+            revision = self.checkpoint_revision(master.id, "MANUAL_CHECKPOINT", now=now)
+            snap = self.create_jd_snapshot(
+                text=text, title=title, company=company, job_id=job_id, url=url, now=now
+            )
+            data = revision.content.model_dump(mode="json")
+            data.update(
+                id=new_id(),
+                kind=DocumentKind.TAILORED.value,
+                title=" · ".join(filter(None, [snap.title, snap.company]))[:300],
+                target={
+                    "jd_snapshot_id": snap.id,
+                    "job_id": snap.job_id,
+                    "title": snap.title,
+                    "company": snap.company,
+                },
+                provenance={
+                    "created_from": "MASTER_COPY",
+                    "master_document_id": master.id,
+                    "master_revision_id": revision.id,
+                },
+            )
+            return self.create_document(
+                upgrade_resume_document(data), parent_document_id=master.id, now=now
+            )
+
+    def summaries(
+        self, *, archived: bool = False, version_group: str | None = None
+    ) -> list[dict[str, Any]]:
+        """What a list of resumes shows, in ONE query: no document body is
+        parsed here, and each row carries its job and its latest export.
+        `version_group` narrows it to one job's versions."""
+        rows = self.conn.execute(
+            "SELECT d.id, d.kind, d.title, d.version_group, d.version_number, d.preferred,"
+            " d.archived_at, d.created_at, d.updated_at,"
+            " json_extract(d.working_json, '$.design.template') AS template,"
+            " s.job_id, s.title AS job_title, s.company AS job_company,"
+            " e.id AS export_id, e.format AS export_format, e.page_count,"
+            " e.created_at AS exported_at, e.ats_check_json"
+            " FROM resume_document d"
+            " LEFT JOIN jd_snapshot s ON s.id = d.jd_snapshot_id"
+            " LEFT JOIN resume_export e ON e.id = (SELECT x.id FROM resume_export x"
+            "   WHERE x.document_id = d.id ORDER BY x.created_at DESC, x.id DESC LIMIT 1)"
+            " WHERE (d.archived_at IS NOT NULL) = ? AND (? IS NULL OR d.version_group = ?)"
+            " ORDER BY d.updated_at DESC, d.id",
+            (1 if archived else 0, version_group, version_group),
+        )
+        return [dict(r) for r in rows]
+
+    def revision_log(self, document_id: str) -> list[dict[str, Any]]:
+        """A document's milestones, newest first, without their content."""
+        self._row("resume_document", document_id)
+        rows = self.conn.execute(
+            "SELECT id, seq, reason, content_sha256, created_at FROM resume_revision"
+            " WHERE document_id = ? ORDER BY seq DESC",
+            (document_id,),
+        )
+        return [dict(r) for r in rows]
+
+    # ------------------------------------------------- applications
+
+    def mark_used(self, job_id: str, document_id: str, *, now: str | None = None) -> None:
+        """The person says THIS resume, as it is now, is the one they used for
+        the job. Recorded with the exact revision; never inferred."""
+        now = now or now_utc()
+        with self._tx():
+            revision = self.checkpoint_revision(document_id, "MANUAL_CHECKPOINT", now=now)
+            self.conn.execute(
+                "INSERT INTO application_resume (job_id, document_id, revision_id, marked_at)"
+                " VALUES (?, ?, ?, ?) ON CONFLICT (job_id) DO UPDATE SET"
+                " document_id = excluded.document_id, revision_id = excluded.revision_id,"
+                " marked_at = excluded.marked_at",
+                (job_id, document_id, revision.id, now),
+            )
+
+    def clear_used(self, job_id: str) -> None:
+        with self._tx():
+            self.conn.execute("DELETE FROM application_resume WHERE job_id = ?", (job_id,))
+
+    def used_for(self, job_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT a.document_id, a.marked_at, r.seq AS revision_seq, d.title,"
+            " d.version_number, d.archived_at IS NOT NULL AS archived"
+            " FROM application_resume a JOIN resume_revision r ON r.id = a.revision_id"
+            " JOIN resume_document d ON d.id = a.document_id WHERE a.job_id = ?",
+            (job_id,),
+        ).fetchone()
+        return {**dict(row), "archived": bool(row["archived"])} if row else None
+
+    def has_legacy_documents(self) -> bool:
+        """Whether resumes of the old Resume helper were moved here."""
+        return (
+            self.conn.execute(
+                "SELECT 1 FROM resume_document WHERE"
+                " json_extract(working_json, '$.provenance.import_id') LIKE 'legacy:%' LIMIT 1"
+            ).fetchone()
+            is not None
+        )
+
     # --------------------------------------------------------- job ads
 
     def create_jd_snapshot(
@@ -733,6 +927,7 @@ class ResumeStore:
 
 #: Every Resume Workspace table, children first, so a delete never orphans a row.
 RESUME_TABLES = (
+    "application_resume",
     "resume_finding_dismissal",
     "resume_export",
     "tailoring_change",
@@ -772,10 +967,22 @@ def forget_resume_data(conn: sqlite3.Connection) -> list[Path]:
             conn.execute(f"DELETE FROM {table}")
         for sql in guards:
             conn.execute(sql)
+    # The verified backups made before moving the old helper's resumes are
+    # copies of resume data too, kept beside the database: they go as well.
+    backups = sorted(legacy_backup_dir(conn).glob("*.zip")) if _has_folder(conn) else []
     if root is None:
-        return []
+        return backups
     paths = [(root / name).resolve() for name in files]
-    return [p for p in paths if p.is_relative_to(root)]
+    return [p for p in paths if p.is_relative_to(root)] + backups
+
+
+def _has_folder(conn: sqlite3.Connection) -> bool:
+    return any(row[1] == "main" and row[2] for row in conn.execute("PRAGMA database_list"))
+
+
+def legacy_backup_dir(conn: sqlite3.Connection) -> Path:
+    """Where the old helper's workspace is backed up before a move."""
+    return export_root(conn).parent / "resume_helper_backups"
 
 
 def export_root(conn: sqlite3.Connection) -> Path:

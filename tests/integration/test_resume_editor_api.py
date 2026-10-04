@@ -161,7 +161,7 @@ def test_editing_writes_nothing_but_the_resume(api: JobsApi) -> None:
 def test_each_profile_sees_only_its_own_resumes(tmp_path: Path) -> None:
     a, b = make_api(tmp_path, "a"), make_api(tmp_path, "b")
     made = call(a, "POST", "/documents", {"title": "A only"})
-    assert call(b, "GET", "/documents") == []
+    assert call(b, "GET", "/documents") == {"master": None, "others": [], "jobs": []}
     with pytest.raises(ApiError) as missing:
         call(b, "GET", f"/documents/{made['id']}")
     assert missing.value.status == 404
