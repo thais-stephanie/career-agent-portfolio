@@ -37,6 +37,7 @@ import sqlite3
 import zipfile
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -101,7 +102,7 @@ def backup_legacy_workspace(root: Path, destination: Path) -> LegacyBackup:
     """Zip the whole workspace and verify the archive file by file."""
     manifest = _manifest(root)
     destination.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f")
     archive = destination / f"resume-helper-{root.name}-{stamp}.zip"
     with zipfile.ZipFile(archive, "x", zipfile.ZIP_DEFLATED) as zf:
         for name in manifest:
@@ -121,6 +122,62 @@ def verify_backup(backup: LegacyBackup) -> None:
         raise LegacyMigrationError("the backup archive does not hold the workspace's files")
     if _manifest(backup.root) != backup.manifest:
         raise LegacyMigrationError("the workspace changed since its backup: back it up again")
+
+
+def find_workspace(home: Path, profile_id: str) -> Path | None:
+    """This profile's Resume helper workspace under its Tailor home, or None.
+    Only looks: never creates or adopts one (the old engine does that)."""
+    candidates = home / "candidates"
+    own = candidates / profile_id.strip().lower()
+    if (own / "candidate.json").is_file():
+        return own
+    for meta in sorted(candidates.glob("*/candidate.json")):
+        try:
+            if json.loads(meta.read_text("utf-8")).get(PROFILE_KEY) == profile_id:
+                return meta.parent
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def preflight(conn: sqlite3.Connection, root: Path) -> dict[str, Any]:
+    """What a migration of `root` would move, read without changing anything.
+    `state` is NONE (nothing to move), FOUND (nothing moved yet) or MOVED (moved
+    before; `remaining` counts the resumes a move could not bring, if any)."""
+    meta: dict[str, Any] = {}
+    with suppress(OSError, ValueError):
+        meta = json.loads((root / "candidate.json").read_text("utf-8"))
+    bases: list[str] = []
+    for path in sorted((root / "base_resumes").glob("*.json")):
+        with suppress(OSError, ValueError):
+            bases.append(str(json.loads(path.read_text("utf-8"))["id"]))
+    folders = sorted(p for p in (root / "applications").glob("*") if p.is_dir())
+    runs = [p.name for p in folders if (p / "run.json").is_file()]
+    exports = [
+        p for p in sorted((root / "exports").glob("*")) if p.suffix.lower() in (".pdf", ".docx")
+    ]
+    ids = [stable_id("legacy-base", b) for b in bases] + [stable_id("legacy-run", r) for r in runs]
+    held = (
+        {
+            r[0]
+            for r in conn.execute(
+                f"SELECT id FROM resume_document WHERE id IN ({','.join('?' * len(ids))})", ids
+            )
+        }
+        if ids
+        else set()
+    )
+    state = "NONE" if not ids else "MOVED" if held else "FOUND"
+    return {
+        "state": state,
+        "remaining": len(set(ids) - held),
+        "contact": any(meta.get(k) for k in ("email", "phone", "location", "linkedin")),
+        "base_resumes": len(bases),
+        "job_versions": len(runs),
+        "drafts": sum((root / "drafts" / f"{r}.json").is_file() for r in runs),
+        "exports": len(exports),
+        "unfinished": len(folders) - len(runs),
+    }
 
 
 @dataclass

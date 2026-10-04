@@ -151,9 +151,6 @@ const DEV_STATEMENTS = DEBUG === 'statements';
 // behind it changed: the configuration files, the /api/preferences and
 // /api/search-review endpoints and the CLI still read and write the same data.
 const DEV_SCORING = ['1', 'scoring'].includes(DEBUG);
-// RESUME WORKSPACE V2 IS NOT A USER SURFACE YET. The Resume helper is where a
-// resume is made and edited; the new workspace is reachable only on purpose.
-const DEV_RESUME_V2 = DEBUG === 'resume-v2';
 const scoringBlock = document.getElementById('settings-model-block');
 if (scoringBlock) scoringBlock.hidden = !DEV_SCORING;
 const evidence = DEV_STATEMENTS ? createEvidence({ onChanged: () => careerChanged() }) : null;
@@ -214,10 +211,15 @@ const drawer = createDrawer({
   // offered as the next step or after the step that gives it something.
   careerContext: () => careerContext(),
   onAddCareer: () => afterDrawerCloses(() => goTo('documents')),
-  // Step 3 of Before you apply: the Resume helper, in this window, with the
-  // job already chosen. Whether a resume exists for it is the helper's answer.
-  onTailor: (job) => afterDrawerCloses(() => goTo('resume', { resume: { tab: 'make', jobId: job.job_id } })),
-  resumeFor: (jobId) => resumeHelper.hasResumeFor(jobId),
+  // Step 3 of Before you apply: this job's resume versions. A new one is a
+  // copy of the Master made by hand, opened in the Editor; nothing is tailored.
+  resumeFor: (jobId) => api.getJobResumes(jobId),
+  onResume: {
+    create: (job) => toResumes(() => resumeWorkspace.createForJob(job.job_id)),
+    another: (job, fromId) => toResumes(() => resumeWorkspace.createForJob(job.job_id, fromId)),
+    open: (id) => toResumes(() => resumeWorkspace.openDocument(id)),
+    home: () => toResumes(() => null),
+  },
   // "Hide this job" from the scam warning: the ordinary hide, with its Undo.
   onHide: (jobId) => afterDrawerCloses(() => changeHidden(jobId, true)),
   // The arithmetic and the raw local reading, for `?debug=1` only.
@@ -262,9 +264,10 @@ const PAGES = {
   // filter, and reaching it meant opening a disclosure inside a panel that
   // only exists on one page.
   settings: document.getElementById('page-settings'),
-  // The Resume helper: a page of this app, never a second one.
+  // Resumes: Home, My resumes and the Editor, a page of this app.
   resume: document.getElementById('page-resume'),
-  ...(DEV_RESUME_V2 ? { 'resume-v2': document.getElementById('page-resume-v2') } : {}),
+  // The previous Resume Helper, kept as a fallback and reached from Settings.
+  'resume-legacy': document.getElementById('page-resume-legacy'),
 };
 
 // The rail, the page header and the mobile drawer. See `shell.js` for why the
@@ -272,7 +275,7 @@ const PAGES = {
 const shell = createShell();
 
 const resumeHelper = createResumeHelper({
-  host: PAGES.resume,
+  host: PAGES['resume-legacy'],
   onOpenJob: (jobId) => {
     store.set({ openJobId: jobId });
     drawer.open(jobId, document.querySelector('.topnav__link[data-page="resume"]'));
@@ -286,9 +289,20 @@ const resumeHelper = createResumeHelper({
   toast: (message, bad = false, undo = null) => flash(message, bad, undo ? undo.run : null),
 });
 
-const resumeWorkspace = DEV_RESUME_V2
-  ? createResumeWorkspace({ host: PAGES['resume-v2'], onEvidence: () => goTo('documents') })
-  : null;
+/** From the job drawer to Resumes, then `step` there; a failure is said, not lost. */
+function toResumes(step) {
+  afterDrawerCloses(() => {
+    goTo('resume');
+    void Promise.resolve(step()).catch((error) => flash(error.userMessage || t('rv.failed'), true));
+  });
+}
+
+const resumeWorkspace = createResumeWorkspace({
+  host: PAGES.resume,
+  onEvidence: () => goTo('documents'),
+  onLegacy: () => goTo('resume-legacy'),
+});
+document.getElementById('settings-legacy-open').addEventListener('click', () => goTo('resume-legacy'));
 
 // -- the career pages -------------------------------------------------------
 const evidenceView = evidencePage({
@@ -360,11 +374,11 @@ let currentPage = 'home';
 
 function goTo(page, { push = true, resume = null } = {}) {
   if (!PAGES[page]) return;
-  // Leaving the resume workspace finishes its saving first (and marks the visit).
-  if (currentPage === 'resume-v2' && page !== 'resume-v2' && resumeWorkspace) void resumeWorkspace.leave();
+  // Leaving Resumes finishes its saving first (and marks the visit).
+  if (currentPage === 'resume' && page !== 'resume') void resumeWorkspace.leave();
   currentPage = page;
-  if (page === 'resume') resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
-  if (page === 'resume-v2') resumeWorkspace.show();
+  if (page === 'resume-legacy') resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
+  if (page === 'resume') resumeWorkspace.show();
 
   for (const [name, node] of Object.entries(PAGES)) {
     if (name === 'applications') continue;   // shares the Jobs container
@@ -3213,12 +3227,15 @@ function relabelStaticText() {
     if (node) node.textContent = t(key);
   };
   swap('.skip', 'app.skip');
+  swap('#settings-legacy-summary', 'rv.legacy.advanced');
+  swap('#settings-legacy-text', 'rv.legacy.settingsText');
+  swap('#settings-legacy-open', 'rv.legacy.title');
   swap('#view-cards', 'view.cards');
   swap('#view-table', 'view.table');
   swap('#view-kanban', 'view.board');
   swap('#export-good-strong', 'export.goodStrong');
   resumeHelper.relabel();
-  if (resumeWorkspace) resumeWorkspace.relabel();
+  resumeWorkspace.relabel();
   // The two toolbar controls whose words depend on STATE rather than only
   // on the catalogue: which way the sort runs, and whether duplicates are
   // folded. `syncHeader` already knows how to label both from the state,
@@ -3305,17 +3322,18 @@ localProfiles.mountSettings(document.getElementById('settings-profiles-host'));
 // reload land where the person left off.
 const wanted = DEV_STATEMENTS ? 'manage' : window.location.hash.replace('#', '');
 // An old Resume Tailor link arrives as `?resume_job=<id>#resume`: the job is
-// read once and dropped from the address.
+// read once and dropped from the address, and its drawer opens over Resumes.
 const resumeJob = new URLSearchParams(window.location.search).get('resume_job');
 if (resumeJob) {
   const url = new URL(window.location.href);
   url.searchParams.delete('resume_job');
   window.history.replaceState(window.history.state, '', url);
 }
-goTo(PAGES[wanted] ? wanted : 'home', {
-  push: false,
-  resume: resumeJob ? { tab: 'make', jobId: resumeJob } : null,
-});
+goTo(PAGES[wanted] ? wanted : 'home', { push: false });
+if (resumeJob) {
+  store.set({ openJobId: resumeJob });
+  drawer.open(resumeJob, document.querySelector('.topnav__link[data-page="resume"]'));
+}
 
 relabelStaticText();
 

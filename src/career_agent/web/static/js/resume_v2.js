@@ -1,17 +1,21 @@
 /**
- * resume_v2.js -- Resume Workspace V2 (internal page, `?debug=resume-v2`).
+ * resume_v2.js -- Resumes: Home, My resumes and the Editor.
  *
- * Not a user surface yet: the Resume helper is still where a person's
- * resumes are made, and nothing here opens a resume of the helper's. This
- * page edits ResumeDocuments created here (from scratch, the Master made
- * from the confirmed Career Profile, or a PDF or DOCX imported and reviewed
- * in `resume_import.js`).
+ * THE resume page of Career Agent. Every resume is a ResumeDocument: the
+ * Master made from the confirmed Career Profile, a resume imported from a
+ * PDF or DOCX (`resume_import.js`), one started blank, and the versions made
+ * for a job. My resumes is `resume_library.js`. The previous Resume Helper
+ * stays reachable from Settings as "Legacy Resume Helper", and its resumes
+ * move here only when the person asks (with a backup first).
  *
- * Home, My resumes and the Editor. The editor holds ONE document object:
- * every edit is a function over a copy of it, recorded for undo, sent to the
- * preview (120 ms after the last change, newest render wins) and to autosave
- * (600 ms, the working copy only). A milestone revision is written on
- * purpose: "Save version point", a template change, leaving after edits.
+ * Opening this page creates nothing: the Master is made when the person
+ * chooses "Build from My Profile", after being told what it uses.
+ *
+ * The editor holds ONE document object: every edit is a function over a copy
+ * of it, recorded for undo, sent to the preview (120 ms after the last
+ * change, newest render wins) and to autosave (600 ms, the working copy
+ * only). A milestone revision is written on purpose: "Save version point", a
+ * template change, leaving after edits.
  *
  * Nothing here writes Career Evidence, search settings or scores. Adding a
  * line "from evidence" copies an already-confirmed statement into THIS
@@ -26,15 +30,18 @@
  */
 
 import {
-  createResumeDocument, createResumeMaster, downloadResumeExport, exportResume, getCareer,
-  getResumeDocument, getResumeMaster, listResumeDocuments, saveResumeCheckpoint, saveResumeWorkingCopy,
+  createJobResume, createResumeDocument, createResumeMaster, downloadResumeExport, exportResume, getCareer,
+  getLocalProfile, getResumeDocument, getResumeMaster, listResumeDocuments, saveResumeCheckpoint,
+  saveResumeWorkingCopy,
 } from './api.js';
 import { button, el } from './dom.js';
-import { t } from './i18n.js';
+import { formatDate } from './format.js';
+import { t, tCount } from './i18n.js';
 import {
   createAutosave, createHistory, evidenceLine, move, newLine, rewordLine, ulid,
 } from './resume_editor.js';
 import { createResumeImport } from './resume_import.js';
+import { createLibrary, legacyNotice } from './resume_library.js';
 import { createResumePreview } from './resume_preview.js';
 import { openDrawer } from './ui.js';
 
@@ -52,7 +59,7 @@ const realName = (name) => {
   return Boolean(plain) && !PLACEHOLDER_NAMES.has(plain.toLowerCase());
 };
 /** A check's state as a mark beside its words: never colour alone. */
-const MARKS = { PASS: '\u2713', WARNING: '!', FAIL: '\u2717', NOT_MEASURED: '\u25cb' };
+const MARKS = { PASS: '✓', WARNING: '!', FAIL: '✗', NOT_MEASURED: '○' };
 
 /** Every line object of a document: text blocks, then skill items. */
 function linesOf(d) {
@@ -88,33 +95,40 @@ function originLabel(line) {
 
 const smallButton = (label, onClick, extra = {}) => button(label, onClick, { className: 'btn btn--small', ...extra });
 
-export function createResumeWorkspace({ host, onEvidence = () => {} }) {
+/** Every resume of a grouped list, newest edit first. */
+const flatten = (lib) => [
+  ...(lib.master ? [lib.master] : []), ...lib.others, ...lib.jobs.flatMap((g) => g.versions),
+].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+
+export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = () => {} }) {
   const tabs = {};
   const views = {};
   for (const name of ['home', 'list', 'editor', 'import']) {
     views[name] = el('section', {
       className: `rvw__view rvw__view--${name}`, attrs: { id: `rvw-view-${name}` },
     });
-    if (name === 'import') continue; // reached from Home, not a tab
+    if (name === 'import') continue; // reached from Home and My resumes, not a tab
     tabs[name] = button(t(`rv.tab.${name}`), () => show(name), {
       className: 'rvw__tab', attrs: { 'aria-controls': `rvw-view-${name}` },
     });
   }
-  const heading = el('h1', { className: 'rvw__title' });
-  const sub = el('p', { className: 'rvw__sub' });
   const nav = el('nav', { className: 'rvw__tabs' }, Object.values(tabs));
-  const head = el('header', { className: 'rvw__head' }, [heading, sub, nav]);
   function label() {
-    heading.textContent = t('rv.title');
-    sub.textContent = t('rv.sub');
     nav.setAttribute('aria-label', t('rv.title'));
     for (const [name, tab] of Object.entries(tabs)) tab.textContent = t(`rv.tab.${name}`);
   }
   label();
-  const root = el('div', { className: 'rvw' }, [head, ...Object.values(views)]);
+  const root = el('div', { className: 'rvw' }, [nav, ...Object.values(views)]);
   host.replaceChildren(root);
 
   let editor = null;
+  const library = createLibrary({
+    onOpen: (id) => void open(id).catch(failed),
+    onOpenRestored: (answer) => void open(answer.id, { answer, restored: true }).catch(failed),
+    onHome: () => show('home'),
+    onImport: () => void startImport(),
+  });
+  views.list.append(library.root);
 
   function show(name) {
     for (const [key, view] of Object.entries(views)) view.hidden = key !== name;
@@ -124,7 +138,7 @@ export function createResumeWorkspace({ host, onEvidence = () => {} }) {
     tabs.editor.disabled = !editor;
     root.dataset.view = name;
     if (name === 'home') void drawHome();
-    if (name === 'list') void drawList();
+    if (name === 'list') void library.load();
   }
 
   function close() {
@@ -134,15 +148,17 @@ export function createResumeWorkspace({ host, onEvidence = () => {} }) {
     show('list');
   }
 
-  async function open(id) {
+  async function open(id, { answer = null, restored = false } = {}) {
     // An editor whose edits could not be saved stays open and says why.
     if (editor && !(await editor.leave())) {
       show('editor');
       return;
     }
-    const answer = await getResumeDocument(id);
+    const shown = answer || await getResumeDocument(id);
     if (editor) editor.destroy();
-    editor = createEditor(answer, { onClose: () => show('list'), onDiscard: close, onOpen: (next) => open(next) });
+    editor = createEditor(shown, {
+      onClose: () => show('list'), onDiscard: close, onOpen: (next) => open(next), restored,
+    });
     views.editor.replaceChildren(editor.root);
     show('editor');
   }
@@ -151,43 +167,88 @@ export function createResumeWorkspace({ host, onEvidence = () => {} }) {
     if (editor) editor.failed();
   };
 
+  // -- Home ------------------------------------------------------------------
   async function drawHome() {
-    const [listed, master] = await Promise.all([listResumeDocuments(), getResumeMaster()]);
+    const [lib, master] = await Promise.all([listResumeDocuments(), getResumeMaster()]);
     const there = Boolean(master.master);
-    const makeMaster = button(t(there ? 'rv.home.openMaster' : 'rv.home.makeMaster'), () => {
-      void Promise.resolve(master.master || createResumeMaster().then((made) => made.master))
-        .then((made) => open(made.id)).catch(failed);
-    }, { className: 'btn btn--primary' });
-    const scratch = button(t('rv.home.scratch'), () => {
+    const changes = master.evidence_changes
+      ? Object.values(master.evidence_changes).reduce((sum, keys) => sum + keys.length, 0) : 0;
+    const scratch = smallButton(t('rv.home.scratch'), () => {
       void createResumeDocument({ title: t('rv.home.scratchTitle') }).then((made) => open(made.id)).catch(failed);
-    }, { className: 'btn' });
-    const importing = button(t('rv.home.importButton'), () => startImport(there), { className: 'btn' });
-    const recent = [...listed].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3);
-    views.home.replaceChildren(
+    });
+    const importing = smallButton(t('rv.home.importButton'), () => void startImport(), {
+      className: there ? 'btn btn--small btn--primary' : 'btn btn--small',
+    });
+    const masterBox = el('div', { className: 'rvw__masterbox' });
+    const build = () => masterBox.replaceChildren(
+      el('p', { className: 'rvw__explain', text: t('rv.home.buildExplain') }),
+      el('div', { className: 'rvl__rename' }, [
+        smallButton(t('rv.home.buildConfirm'), () => {
+          void createResumeMaster().then((made) => open(made.master.id)).catch(failed);
+        }, { className: 'btn btn--small btn--primary', attrs: { id: 'rvw-build-confirm' } }),
+        smallButton(t('ui.cancel'), () => masterBox.replaceChildren()),
+      ]),
+    );
+    const masterCard = el('article', { className: 'rvw__card' }, there ? [
+      el('h2', { className: 'rvw__cardtitle', text: t('rv.home.master') }),
+      el('p', { text: master.master.title }),
+      el('p', { className: 'rve__note', text: t('rv.lib.edited', { date: formatDate(master.master.updated_at) }) }),
+      changes ? el('div', { className: 'rve__notice', attrs: { role: 'note' } }, [
+        el('p', { text: t('rv.home.newerEvidence') }),
+        smallButton(t('rv.home.reviewChanges'), () => void open(master.master.id).catch(failed)),
+      ]) : null,
+      smallButton(t('rv.home.editMaster'), () => void open(master.master.id).catch(failed), {
+        className: 'btn btn--small btn--primary',
+      }),
+    ] : [
+      el('h2', { className: 'rvw__cardtitle', text: t('rv.home.master') }),
+      el('p', { text: t('rv.home.masterNone') }),
+      el('div', { className: 'rvw__choices' }, [
+        smallButton(t('rv.home.build'), build, { className: 'btn btn--small btn--primary' }),
+        smallButton(t('rv.home.importButton'), () => void startImport()),
+        scratch,
+      ]),
+      masterBox,
+    ]);
+    const all = flatten(lib);
+    const recent = all.filter((d) => d.kind !== 'MASTER').slice(0, 3);
+    const notice = await legacyNotice({
+      profile: getLocalProfile(),
+      onMoved: () => show('list'),
+      onLegacy,
+    });
+    views.home.replaceChildren(...[
+      ...(notice ? [notice] : []),
       el('div', { className: 'rvw__cards' }, [
-        el('article', { className: 'rvw__card' }, [
-          el('h2', { className: 'rvw__cardtitle', text: t('rv.home.master') }),
-          el('p', { text: t(there ? 'rv.home.masterThere' : 'rv.home.masterNone') }),
-          makeMaster,
-        ]),
-        el('article', { className: 'rvw__card' }, [
-          el('h2', { className: 'rvw__cardtitle', text: t('rv.home.start') }),
-          el('p', { text: t('rv.home.startLede') }),
-          scratch,
-        ]),
+        masterCard,
         el('article', { className: 'rvw__card' }, [
           el('h2', { className: 'rvw__cardtitle', text: t('rv.home.import') }),
           el('p', { text: t('rv.home.importLede') }),
           importing,
         ]),
+        el('article', { className: 'rvw__card' }, [
+          el('h2', { className: 'rvw__cardtitle', text: t('rv.tab.list') }),
+          el('p', { text: all.length ? tCount('rv.home.count', { n: all.length }) : t('rv.home.none') }),
+          there ? scratch : null,
+          smallButton(t('rv.home.seeAll'), () => show('list')),
+        ]),
       ]),
       recent.length ? el('h2', { className: 'rvw__h2', text: t('rv.home.recent') }) : null,
-      ...recent.map((d) => docRow(d)),
-    );
+      recent.length ? el('ul', { className: 'rvl__list' }, recent.map((d) => el('li', { className: 'rvl__row' }, [
+        el('div', { className: 'rvl__main' }, [
+          el('p', { className: 'rvl__name', text: d.version_number ? `V${d.version_number} · ${d.title}` : d.title }),
+          el('p', { className: 'rvl__meta', text: t('rv.lib.edited', { date: formatDate(d.updated_at) }) }),
+        ]),
+        smallButton(t('rv.home.continue'), () => void open(d.id).catch(failed), {
+          ariaLabel: `${t('rv.home.continue')}: ${d.title}`,
+        }),
+      ]))) : null,
+    ].filter(Boolean));
   }
 
   /** Import: pick, review, save; then the saved document opens in the Editor. */
-  function startImport(hasMaster) {
+  async function startImport() {
+    const hasMaster = Boolean((await getResumeMaster()).master);
     const flow = createResumeImport({
       hasMaster,
       onSaved: (id) => { views.import.replaceChildren(); void open(id); },
@@ -201,47 +262,19 @@ export function createResumeWorkspace({ host, onEvidence = () => {} }) {
     show('import');
   }
 
-  function docRow(d) {
-    const label = d.version_number ? `${d.title} · V${d.version_number}` : d.title;
-    const last = d.last_export;
-    const unmeasured = last ? last.checks.filter((c) => c.status === 'NOT_MEASURED').length : 0;
-    let result = 'rv.export.problemShort';
-    if (last && last.verified) result = unmeasured ? 'rv.export.checkedSome' : 'rv.export.checked';
-    const exported = last ? t('rv.export.last', {
-      format: last.format,
-      date: new Date(last.created_at).toLocaleDateString(),
-      result: t(result, { n: unmeasured }),
-    }) : '';
-    return el('div', { className: 'rvw__row' }, [
-      el('span', { className: 'rvw__rowtitle', text: label }),
-      el('span', { className: 'rvw__kind', text: t(`rv.kind.${d.kind}`) }),
-      last ? el('span', { className: 'rvw__kind rvw__exported', text: exported }) : null,
-      smallButton(t('rv.open'), () => void open(d.id).catch(failed), { ariaLabel: `${t('rv.open')}: ${label}` }),
-    ]);
-  }
-
-  async function drawList() {
-    const listed = await listResumeDocuments();
-    const groups = [
-      ['MASTER', listed.filter((d) => d.kind === 'MASTER')],
-      ['TAILORED', listed.filter((d) => d.kind === 'TAILORED')],
-      ['OTHER', listed.filter((d) => d.kind !== 'MASTER' && d.kind !== 'TAILORED')],
-    ].filter(([, docs]) => docs.length);
-    views.list.replaceChildren(
-      ...(groups.length ? [] : [el('p', { className: 'rvw__empty', text: t('rv.docs.empty') })]),
-      ...groups.flatMap(([kind, docs]) => [
-        el('h2', { className: 'rvw__h2', text: t(`rv.group.${kind}`) }),
-        ...docs.map((d) => docRow(d)),
-      ]),
-    );
-  }
-
   window.addEventListener('beforeunload', (event) => {
     if (editor && editor.dirty()) event.preventDefault();
   });
 
   return {
     show: () => { show(editor ? 'editor' : 'home'); },
+    /** Open one resume in the Editor (from the job drawer). */
+    openDocument: (id) => open(id),
+    /** A version for this job, made by hand from the Master or another version; then the Editor. */
+    async createForJob(jobId, from = null) {
+      const made = await createJobResume(jobId, from);
+      await open(made.id, { answer: made });
+    },
     /** Leaving the page: finish saving, and mark the visit if it changed anything. */
     leave: () => (editor ? editor.leave() : Promise.resolve(true)),
     /** The language changed: every word again, nothing else. */
@@ -249,7 +282,7 @@ export function createResumeWorkspace({ host, onEvidence = () => {} }) {
       label();
       if (editor) editor.relabel();
       if (root.dataset.view === 'home') void drawHome();
-      if (root.dataset.view === 'list') void drawList();
+      if (root.dataset.view === 'list') library.relabel();
     },
   };
 }
@@ -258,7 +291,7 @@ export function createResumeWorkspace({ host, onEvidence = () => {} }) {
 // the editor
 // ===========================================================================
 
-function createEditor(answer, { onClose, onDiscard, onOpen }) {
+function createEditor(answer, { onClose, onDiscard, onOpen, restored = false }) {
   let doc = structuredClone(answer.document);
   let editedSinceOpen = false;
   let previewTimer = null;
@@ -1112,6 +1145,12 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
   drawForm();
   schedulePreview(0);
   void masterNotice();
+  if (restored) {
+    // Restored as a new version; lines whose evidence is no longer confirmed
+    // are said now, not trusted again.
+    say('saved', 'rv.save.restored');
+    if ((answer.unconfirmed || []).length) drawEvidence(answer.unconfirmed);
+  }
 
   return {
     root,

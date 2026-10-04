@@ -11108,3 +11108,77 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rvi__save { display: flex; flex-direction: column; gap: 10px; }
 .rvi__dest { display: flex; flex-direction: column; gap: 6px; }
 .rvi .rve__line > .btn { align-self: flex-start; }
+
+/* -- My resumes (resume_library.js): compact rows, one primary action, a
+   native "More" disclosure, and a panel under the row for what it opens. -- */
+.rvl { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rvl__filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.rvl__filter {
+  padding: 5px 12px; border: 1px solid var(--divider); border-radius: 999px;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer;
+}
+.rvl__filter[aria-pressed="true"] { background: var(--inv-bg); color: var(--inv-fg); }
+.rvl__filter:focus-visible, .rvl__moresum:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rvl__status { margin: 0; font-size: 13px; color: var(--body2); }
+.rvl__status:empty { display: none; }
+.rvl__body, .rvl__section { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rvl__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rvl__row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 12px;
+  border: 1px solid var(--divider); border-radius: 10px; background: var(--surface); min-width: 0;
+}
+.rvl__main { flex: 1 1 260px; min-width: 0; }
+.rvl__name { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-weight: 600; }
+.rvl__title { overflow-wrap: anywhere; }
+.rvl__meta { margin: 2px 0 0; font-size: 12px; color: var(--body2); overflow-wrap: anywhere; }
+.rvl__preferred {
+  padding: 0 8px; border-radius: 999px; background: var(--mint-soft); color: var(--ink);
+  font-size: 12px; font-weight: 700;
+}
+.rvl__actions { display: flex; align-items: flex-start; gap: 6px; }
+.rvl__more { position: relative; }
+.rvl__more > summary { list-style: none; cursor: pointer; }
+.rvl__more > summary::-webkit-details-marker { display: none; }
+.rvl__menu {
+  position: absolute; right: 0; z-index: 5; margin-top: 4px; min-width: 200px;
+  display: flex; flex-direction: column; gap: 4px; padding: 6px;
+  border: 1px solid var(--divider); border-radius: 10px; background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+.rvl__menu .btn { justify-content: flex-start; text-align: left; }
+.rvl__panel { flex-basis: 100%; min-width: 0; }
+.rvl__panel:empty { display: none; }
+.rvl__rename { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.rvl__rename .input { min-width: 0; width: min(100%, 360px); }
+.rvl__history, .rvl__comparebox { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
+.rvl__h3 { margin: 0; font-size: 14px; }
+.rvl__hists { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rvl__hist { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; }
+.rvl__current { font-size: 12px; font-weight: 700; color: var(--body2); }
+.rvl__group {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px;
+  border: 1px solid var(--divider); border-radius: 12px; background: var(--surface-alt); min-width: 0;
+}
+.rvl__group > .btn { align-self: flex-start; }
+.rvl__grouptitle { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.rvl__cmphead { margin: 0; font-weight: 700; }
+.rvl__changes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.rvl__change { padding: 6px 10px; border-left: 3px solid var(--divider); background: var(--surface); }
+.rvl__change[data-change="ADDED"] { border-left-color: var(--mint); }
+.rvl__change[data-change="REMOVED"] { border-left-color: var(--yellow); }
+.rvl__change p { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.rvl__before, .rvl__after { color: var(--body2); }
+.rvl__legacy { flex-direction: column; align-items: stretch; }
+.rvl__legacy p, .rvl__what { margin: 0; }
+.rvl__backup { font-weight: 700; }
+.rvw__choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.rvw__masterbox:empty { display: none; }
+.rvw__explain { color: var(--ink) !important; }
+/* the job drawer's resume versions */
+.d-resumes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.d-resumes__row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 14px; }
+.d-resumes__name { font-weight: 600; overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .rvl__actions { width: 100%; justify-content: flex-start; }
+  .rvl__menu { left: 0; right: auto; }
+}

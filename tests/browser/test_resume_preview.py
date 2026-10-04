@@ -87,14 +87,16 @@ def open_workspace(
 ) -> None:
     """My resumes, then Open on the resume called `title`; the preview is shown."""
     page.set_viewport(width, height, mobile=width < 500)
-    page.navigate(f"{server}/?debug=resume-v2#resume-v2")
+    page.navigate(f"{server}/#resume")
     page.wait_for("document.querySelector('.rvw__tab') !== null", message="page")
     page.evaluate("[...document.querySelectorAll('.rvw__tab')][1].click()")
-    page.wait_for("document.querySelector('.rvw__row') !== null", message="my resumes")
+    page.wait_for(
+        "document.querySelector('#rvw-view-list .rvl__row') !== null", message="my resumes"
+    )
     page.evaluate(
-        "[...document.querySelectorAll('.rvw__row')]"
-        f".find((r) => r.querySelector('.rvw__rowtitle').textContent === {title!r})"
-        ".querySelector('button').click()"
+        "[...document.querySelectorAll('#rvw-view-list .rvl__row')]"
+        f".find((r) => r.querySelector('.rvl__title').textContent === {title!r})"
+        ".querySelector('.rvl__primary').click()"
     )
     if width < 1100:
         page.wait_for("document.querySelector('.rve__mode') !== null", message="editor")

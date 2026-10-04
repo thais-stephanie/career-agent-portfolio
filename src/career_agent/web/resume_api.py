@@ -26,9 +26,11 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import secrets
 import threading
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
@@ -45,6 +47,7 @@ from career_agent.resume_doc.export import (
 )
 from career_agent.resume_doc.models import (
     SCHEMA_VERSION,
+    DocumentKind,
     ResumeDocument,
     UnsupportedSchemaVersion,
     upgrade_resume_document,
@@ -52,6 +55,7 @@ from career_agent.resume_doc.models import (
 from career_agent.resume_doc.render import render_html
 from career_agent.resume_doc.store import (
     EvidenceNotConfirmed,
+    MasterInPlace,
     NotFound,
     ResumeExport,
     ResumeStore,
@@ -84,15 +88,15 @@ class _Renders:
         return held[1] if held is not None and held[0] == profile else None
 
 
-def _summary(doc: StoredDocument, last: ResumeExport | None = None) -> dict[str, Any]:
+def _summary(doc: StoredDocument) -> dict[str, Any]:
     return {
         "id": doc.id,
         "kind": doc.kind.value,
         "title": doc.title,
         "version_number": doc.version_number,
         "preferred": doc.preferred,
+        "archived": doc.archived_at is not None,
         "updated_at": doc.updated_at,
-        "last_export": _export(last) if last else None,
     }
 
 
@@ -109,6 +113,61 @@ def _export(e: ResumeExport) -> dict[str, Any]:
         "verified": bool(e.ats_check.get("verified")),
         "download": f"/api/resume/exports/{e.id}/file",
     }
+
+
+def _listed(row: dict[str, Any]) -> dict[str, Any]:
+    """One row of My resumes, from `ResumeStore.summaries`: no document body."""
+    checks = json.loads(row["ats_check_json"]) if row["export_id"] else {}
+    return {
+        "id": row["id"],
+        "kind": row["kind"],
+        "title": row["title"],
+        "version_number": row["version_number"],
+        "preferred": bool(row["preferred"]),
+        "archived": row["archived_at"] is not None,
+        "updated_at": row["updated_at"],
+        "template": row["template"],
+        "last_export": {
+            "id": row["export_id"],
+            "format": row["export_format"],
+            "page_count": row["page_count"],
+            "created_at": row["exported_at"],
+            "checks": checks.get("checks", []),
+            "verified": bool(checks.get("verified")),
+        }
+        if row["export_id"]
+        else None,
+    }
+
+
+def _library(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Grouped as the person thinks of them: the Master, standalone resumes,
+    and each job's versions newest first (the store's group and numbers)."""
+    groups: dict[str, dict[str, Any]] = {}
+    out: dict[str, Any] = {"master": None, "others": [], "jobs": []}
+    for row in rows:
+        item = _listed(row)
+        if row["version_group"]:
+            group = groups.setdefault(
+                row["version_group"],
+                {
+                    "key": row["version_group"],
+                    "job_id": row["job_id"],
+                    "title": row["job_title"],
+                    "company": row["job_company"],
+                    "updated_at": row["updated_at"],
+                    "versions": [],
+                },
+            )
+            group["versions"].append(item)
+        elif row["kind"] == "MASTER" and out["master"] is None and row["archived_at"] is None:
+            out["master"] = item
+        else:
+            out["others"].append(item)
+    for group in groups.values():
+        group["versions"].sort(key=lambda v: -v["version_number"])
+    out["jobs"] = list(groups.values())
+    return out
 
 
 def _unconfirmed(lines: list[str]) -> ApiError:
@@ -173,6 +232,9 @@ def _read_import(body: dict) -> dict[str, Any]:
         ) from exc
 
 
+#: What `PATCH /api/resume/documents/<id>` may do, one per call.
+MANAGE_ACTIONS = ("rename", "archive", "unarchive", "prefer", "make_master")
+
 #: The milestones a person can ask for. The others (GENERATED, IMPORTED...)
 #: are written by the code that does those things.
 ASKED_CHECKPOINTS = ("MANUAL_CHECKPOINT", "TEMPLATE_CHANGED")
@@ -204,13 +266,13 @@ def register_resume_routes(app: LocalApp) -> None:
             raise ApiError(404, "This preview has expired.")
         return InlinePage(html.encode("utf-8"))
 
-    def documents(*, query: dict, body: dict) -> list[dict[str, Any]]:
+    def documents(*, query: dict, body: dict) -> dict[str, Any]:
+        """My resumes, grouped; `?archived=1` for the archived ones instead."""
+        if set(query) - {"archived"}:
+            raise ApiError(400, "Unknown resume list filter.")
+        archived = query.get("archived", ["0"])[0] == "1"
         with closing(app.connect()) as conn:
-            store = ResumeStore(conn)
-            return [
-                _summary(d, next(reversed(store.list_exports(d.id)), None))
-                for d in store.list_documents()
-            ]
+            return _library(ResumeStore(conn).summaries(archived=archived))
 
     def document(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
         with closing(app.connect()) as conn:
@@ -344,7 +406,14 @@ def register_resume_routes(app: LocalApp) -> None:
                 store.get_document(document_id)
             except NotFound as exc:
                 raise ApiError(404, "No such resume.") from exc
-            return [_export(e) for e in reversed(store.list_exports(document_id))]
+            listed = []
+            for e in reversed(store.list_exports(document_id)):
+                try:
+                    available = bool(stored_file(conn, e))
+                except FileNotFoundError:
+                    available = False  # deleted, or never in this profile's folder
+                listed.append({**_export(e), "available": available})
+            return listed
 
     def export_file(*, query: dict, body: dict, export_id: str) -> Download:
         """An export of THIS profile, by its id; the server finds the file."""
@@ -405,6 +474,278 @@ def register_resume_routes(app: LocalApp) -> None:
                     409, "This import was already saved differently.", code="import_conflict"
                 ) from exc
 
+    def _one(conn: Any, document_id: str) -> StoredDocument:
+        try:
+            return ResumeStore(conn).get_document(document_id)
+        except NotFound as exc:
+            raise ApiError(404, "No such resume.") from exc
+
+    def manage(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """Rename, archive, bring back, prefer, or make the Master: one act per call."""
+        action = body.get("action")
+        allowed = {"action", "title"} if action == "rename" else {"action"}
+        if set(body) != allowed or action not in MANAGE_ACTIONS:
+            raise ApiError(400, "Unknown change to this resume.")
+        with closing(app.connect()) as conn:
+            store, doc = ResumeStore(conn), _one(conn, document_id)
+            try:
+                if action == "rename":
+                    title = " ".join(str(body.get("title") or "").split())
+                    if not title or len(title) > 300:
+                        raise ApiError(400, "Give the resume a name.", for_reader=True)
+                    doc = store.rename(document_id, title)
+                elif action == "archive":
+                    if doc.kind is DocumentKind.MASTER and doc.archived_at is None:
+                        raise ApiError(
+                            409,
+                            "Your Master stays: make another resume the Master first.",
+                            for_reader=True,
+                            code="master_kept",
+                        )
+                    store.archive_document(document_id)
+                elif action == "unarchive":
+                    store.unarchive(document_id)
+                elif action == "prefer":
+                    store.set_preferred(document_id)
+                else:
+                    doc = store.make_master(document_id)
+            except MasterInPlace as exc:
+                raise ApiError(
+                    409, "You already have a Master resume.", for_reader=True, code="master_exists"
+                ) from exc
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
+            except StaleDocument as exc:
+                raise ApiError(
+                    409, "This resume changed in another window.", for_reader=True
+                ) from exc
+            except ResumeStoreError as exc:
+                raise ApiError(409, str(exc)) from exc
+            return _summary(store.get_document(doc.id))
+
+    def copy(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """Duplicate a resume; for a job's version, the next version of that job."""
+        title = body.get("title", "")
+        if set(body) - {"title"} or not isinstance(title, str) or len(title) > 300:
+            raise ApiError(400, "Unknown field for a copy.")
+        with closing(app.connect()) as conn:
+            _one(conn, document_id)
+            try:
+                made = ResumeStore(conn).copy_document(document_id, title=title.strip() or None)
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
+            return _detail(made)
+
+    def history(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """The milestones of a resume, newest first; no content, no autosaves."""
+        with closing(app.connect()) as conn:
+            doc = _one(conn, document_id)
+            log = ResumeStore(conn).revision_log(document_id)
+        return {
+            "sha256": doc.working_sha256,
+            "revisions": [
+                {
+                    "id": r["id"],
+                    "seq": r["seq"],
+                    "reason": r["reason"],
+                    "created_at": r["created_at"],
+                    "current": r["content_sha256"] == doc.working_sha256,
+                }
+                for r in log
+            ],
+        }
+
+    def restore(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """An earlier milestone back as the working copy, written as a NEW
+        revision. Evidence it cites is not trusted again: what is no longer
+        confirmed is named, for the person to decide."""
+        from career_agent.resume_doc.evidence import unconfirmed_lines
+
+        if set(body) != {"revision_id", "expected_sha256"}:
+            raise ApiError(400, "Send the version to restore and the one it replaces.")
+        with closing(app.connect()) as conn:
+            store = ResumeStore(conn)
+            _one(conn, document_id)
+            try:
+                store.restore_revision(
+                    document_id,
+                    str(body["revision_id"]),
+                    expected_sha256=str(body["expected_sha256"]),
+                )
+            except NotFound as exc:
+                raise ApiError(404, "No such version of this resume.") from exc
+            except StaleDocument as exc:
+                raise ApiError(
+                    409, "This resume changed in another window.", for_reader=True
+                ) from exc
+            except ResumeStoreError as exc:
+                raise ApiError(400, str(exc)) from exc
+            doc = store.get_document(document_id)
+            return {**_detail(doc), "unconfirmed": unconfirmed_lines(conn, doc.working)}
+
+    def compare_versions(*, query: dict, body: dict) -> dict[str, Any]:
+        """Two versions of the SAME job, side by side in words. Reads only."""
+        from career_agent.resume_doc.compare import compare
+
+        if set(query) != {"a", "b"}:
+            raise ApiError(400, "Choose two versions to compare.")
+        a, b = query["a"][0], query["b"][0]
+        if a == b:
+            raise ApiError(400, "Choose two versions to compare.")
+        with closing(app.connect()) as conn:
+            first, second = _one(conn, a), _one(conn, b)
+        if first.version_group is None or first.version_group != second.version_group:
+            raise ApiError(400, "Only versions for the same job are compared.", for_reader=True)
+        return {
+            "a": _summary(first),
+            "b": _summary(second),
+            "changes": compare(first.working, second.working),
+        }
+
+    def job_resumes(*, query: dict, body: dict, job_id: str) -> dict[str, Any]:
+        """This job's resume versions (newest first) and the one marked as used."""
+        with closing(app.connect()) as conn:
+            store = ResumeStore(conn)
+            rows = [r for r in store.summaries() if r["version_group"] == f"job:{job_id}"]
+            return {
+                "versions": sorted((_listed(r) for r in rows), key=lambda v: -v["version_number"]),
+                "used": store.used_for(job_id),
+                "has_master": store.current_master() is not None,
+            }
+
+    def job_version(*, query: dict, body: dict, job_id: str) -> dict[str, Any]:
+        """A version for this job, made by hand from the Master (or from
+        another version of it, `from`): the ad is kept as it is now and
+        nothing is rewritten, chosen or added."""
+        if set(body) - {"from"}:
+            raise ApiError(400, "Unknown field for a job version.")
+        with closing(app.connect()) as conn:
+            store = ResumeStore(conn)
+            try:
+                if "from" in body:
+                    source = _one(conn, str(body["from"]))
+                    if source.version_group != f"job:{job_id}":
+                        raise ApiError(400, "That resume is not a version for this job.")
+                    return _detail(store.copy_document(source.id))
+                row = conn.execute(
+                    "SELECT j.title, j.url, c.name AS company, r.description_text"
+                    " FROM job j JOIN company c ON c.id = j.company_id"
+                    " LEFT JOIN job_raw r ON r.content_hash = j.content_hash WHERE j.id = ?",
+                    (job_id,),
+                ).fetchone()
+                if row is None:
+                    raise ApiError(404, "This job is not in this profile.")
+                title = str(row["title"] or "").strip() or "Job"
+                return _detail(
+                    store.version_from_master(
+                        job_id=job_id,
+                        title=title,
+                        company=row["company"] or None,
+                        url=row["url"] or None,
+                        text=str(row["description_text"] or "").strip() or title,
+                    )
+                )
+            except NotFound as exc:
+                raise ApiError(
+                    409, "Make your Master resume first.", for_reader=True, code="no_master"
+                ) from exc
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
+
+    def job_used(*, query: dict, body: dict, job_id: str) -> dict[str, Any]:
+        """The person says which resume they used for this job, or none."""
+        if set(body) != {"document_id"}:
+            raise ApiError(400, "Say which resume you used.")
+        with closing(app.connect()) as conn:
+            store = ResumeStore(conn)
+            if body["document_id"] is None:
+                store.clear_used(job_id)
+            else:
+                _one(conn, str(body["document_id"]))
+                try:
+                    store.mark_used(job_id, str(body["document_id"]))
+                except EvidenceNotConfirmed as exc:
+                    raise _unconfirmed(exc.lines) from exc
+            return {"used": store.used_for(job_id)}
+
+    # -- the old Resume helper's resumes -------------------------------------
+
+    def labels() -> list[str]:
+        active = getattr(getattr(app, "profile_host", None), "active", None)
+        label = getattr(active, "label", None)
+        return [str(label)] if label else []
+
+    def legacy_root() -> Any:
+        from career_agent.resume_doc.legacy import find_workspace
+
+        host = getattr(app, "profile_host", None)
+        active = getattr(host, "active", None)
+        if host is None or active is None:
+            return None
+        return find_workspace(Path(host.root) / active.tailor_home, active.id)
+
+    def legacy(*, query: dict, body: dict) -> dict[str, Any]:
+        """Whether this profile has resumes in the old Resume helper, and what
+        moving them would move. Reads only."""
+        from career_agent.resume_doc.legacy import preflight
+
+        root = legacy_root()
+        if root is None:
+            return {"state": "NONE"}
+        with closing(app.connect()) as conn:
+            return preflight(conn, root)
+
+    def legacy_migrate(*, query: dict, body: dict) -> dict[str, Any]:
+        """Back up the old workspace (verified), then move it. Without a
+        verified backup nothing is moved; the old files are never changed."""
+        from career_agent.resume_doc.legacy import (
+            LegacyMigrationError,
+            backup_legacy_workspace,
+            migrate_legacy_workspace,
+        )
+        from career_agent.resume_doc.store import export_root
+
+        if body:
+            raise ApiError(400, "Nothing is sent to move the old resumes.")
+        root = legacy_root()
+        if root is None:
+            raise ApiError(404, "There are no old resumes to move.", for_reader=True)
+        with closing(app.connect()) as conn:
+            try:
+                backup = backup_legacy_workspace(
+                    root, export_root(conn).parent / "resume_helper_backups"
+                )
+            except (OSError, ValueError, LegacyMigrationError) as exc:
+                raise ApiError(
+                    409,
+                    "The backup could not be made and checked, so nothing was moved.",
+                    for_reader=True,
+                    code="backup_failed",
+                ) from exc
+            try:
+                report = migrate_legacy_workspace(conn, backup, labels=labels())
+            except LegacyMigrationError as exc:
+                raise ApiError(
+                    409,
+                    "These resumes could not be moved.",
+                    for_reader=True,
+                    code="migration_refused",
+                ) from exc
+            kinds = [
+                ResumeStore(conn).get_document(i).kind.value
+                for i in report.created
+                if conn.execute("SELECT 1 FROM resume_document WHERE id = ?", (i,)).fetchone()
+            ]
+        return {
+            "masters": kinds.count("MASTER"),
+            "imported": kinds.count("IMPORTED"),
+            "job_versions": kinds.count("TAILORED"),
+            "exports": len(report.created) - len(kinds),
+            "already": len(report.already),
+            "failed": [f["unit"].split(" ")[0] for f in report.failures],
+            "notes": len(report.notes),
+        }
+
     app.register("POST", r"/api/resume/import/read", import_read)
     app.register("POST", r"/api/resume/import/save", import_save)
     app.register("POST", r"/api/resume/render", render)
@@ -419,3 +760,14 @@ def register_resume_routes(app: LocalApp) -> None:
     app.register("GET", one + "/exports", exports)
     export_one = r"/api/resume/exports/(?P<export_id>[0-9A-HJKMNP-TV-Z]{26})/file"
     app.register("GET", export_one, export_file)
+    app.register("PATCH", one, manage)
+    app.register("POST", one + "/copy", copy)
+    app.register("GET", one + "/history", history)
+    app.register("POST", one + "/restore", restore)
+    app.register("GET", r"/api/resume/compare", compare_versions)
+    job = r"/api/resume/jobs/(?P<job_id>[A-Za-z0-9_-]{1,64})"
+    app.register("GET", job, job_resumes)
+    app.register("POST", job + "/versions", job_version)
+    app.register("POST", job + "/used", job_used)
+    app.register("GET", r"/api/resume/legacy", legacy)
+    app.register("POST", r"/api/resume/legacy/migrate", legacy_migrate)

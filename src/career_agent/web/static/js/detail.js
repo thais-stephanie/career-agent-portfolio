@@ -47,7 +47,7 @@ export function createDrawer({
   onApplied = null,
   getOllama = () => ({}), onEvidence = null,
   careerContext = null, onAddCareer = null,
-  onTailor = null,
+  onResume = null,
   resumeFor = null,
   onHide = null,
   debug = false,
@@ -1046,7 +1046,7 @@ export function createDrawer({
   const readDone = (job) => Boolean(jobMark(PREP_STORE, job.job_id));
   const writeDone = (job, value) => setJobMark(PREP_STORE, job.job_id, value ? 1 : null);
 
-  //: Whether a resume exists for a job, asked once per drawer open.
+  //: A job's resume versions (`GET /api/resume/jobs/<id>`), asked once per drawer open.
   const madeFor = new Map();
   // The tailoring step's host, filled by `tailorStep`, kept across repaints.
   const tailorHost = el('div', { className: 'd-tailorhost' });
@@ -1059,14 +1059,15 @@ export function createDrawer({
     // naming none has nothing to prove). Step 3 marks itself in the Resume
     // helper, where the resume is made.
     const step2 = rows !== null && rows.every(proven);
-    // Step 3 is the Resume helper's answer: a resume made for this job.
-    const step3 = madeFor.get(job.job_id) === true;
+    // Step 3 is done when this job has a resume version.
+    const versions = madeFor.get(job.job_id) || null;
+    const step3 = Boolean(versions && versions.versions.length);
     if (resumeFor && !madeFor.has(job.job_id)) {
       madeFor.set(job.job_id, null);
-      Promise.resolve(resumeFor(job.job_id)).then((made) => {
-        madeFor.set(job.job_id, Boolean(made));
-        if (made && currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
-      });
+      Promise.resolve(resumeFor(job.job_id)).then((answer) => {
+        madeFor.set(job.job_id, answer);
+        if (currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
+      }).catch(() => madeFor.delete(job.job_id));
     }
     const done = [read, step2, step3];
     const count = done.filter(Boolean).length;
@@ -1130,7 +1131,7 @@ export function createDrawer({
         tailorHost,
       ]),
     ]);
-    replace(tailorHost, [tailorStep(job, step3)]);
+    replace(tailorHost, [tailorStep(job, versions)]);
 
     replace(preparePanel, [
       el('section', { className: 'd-prephead' }, [
@@ -1152,20 +1153,74 @@ export function createDrawer({
   }
 
   /**
-   * Step 3's action. The Resume helper builds from the person's own career,
-   * so before Career Agent holds anything about it the next step shown is the
-   * one that gives it something. The posting travels by id only.
+   * Step 3: this job's resume versions, newest first. A new version is a copy
+   * of the Master made BY HAND for this job and opened in the editor; nothing
+   * is rewritten or chosen for the person, and the words say so. Which
+   * version was sent is said by the person ("I used this one"), never taken
+   * from a download.
    */
-  function tailorStep(job, made) {
+  function tailorStep(job, answer) {
     const host = el('div', { className: 'd-tailor', attrs: { role: 'group', 'aria-label': t('tailor.groupLabel') } });
-    const make = (className = 'btn btn--primary d-tailor__btn') => button(
-      made ? t('prep3.s3Open') : t('prep3.s3Make'),
-      () => onTailor && onTailor(job),
-      { className, attrs: { id: 'drawer-open-tailor' } },
-    );
-    const ready = () => {
-      replace(host, [make()]);
+    const go = (fn) => () => onResume && fn();
+    const create = (className = 'btn btn--primary d-tailor__btn') => button(t('prep3.s3Make'),
+      go(() => onResume.create(job)), { className, attrs: { id: 'drawer-open-tailor' } });
+    if (answer === null) {
+      replace(host, [el('p', { className: 'd-step__text', text: t('rv.lib.loading') })]);
+      host.dataset.tailor = 'loading';
+      return host;
+    }
+    if (answer.versions.length) {
+      const used = answer.used && answer.used.document_id;
+      // A version is named after its job until renamed; then its name is news.
+      const byDefault = [job.title, job.company_name].filter(Boolean).join(' \u00b7 ');
+      const mark = (v) => button(t('rv.job.markUsed'), async (event) => {
+        event.currentTarget.disabled = true;
+        try {
+          madeFor.set(job.job_id, { ...answer, used: (await api.markResumeUsed(job.job_id, v.id)).used });
+        } catch (error) {
+          event.currentTarget.disabled = false;
+          return;
+        }
+        if (currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
+      }, { className: 'd-link', ariaLabel: `${t('rv.job.markUsed')}: V${v.version_number}` });
+      const rows = answer.versions.map((v) => el('li', { className: 'd-resumes__row' }, [
+        el('span', {
+          className: 'd-resumes__name',
+          text: v.title === byDefault ? `V${v.version_number}` : `V${v.version_number} \u00b7 ${v.title}`,
+        }),
+        v.preferred ? el('span', { className: 'tpill tpill--m1', text: `\u2605 ${t('rv.lib.preferred')}` }) : null,
+        used === v.id ? el('span', { className: 'tpill tpill--blue', text: `\u2713 ${t('rv.job.used')}` }) : null,
+        button(t('rv.open'), go(() => onResume.open(v.id)), {
+          className: 'd-link', ariaLabel: `${t('rv.open')}: V${v.version_number}`,
+        }),
+        used === v.id || v.archived ? null : mark(v),
+      ]));
+      const from = answer.versions.find((v) => v.preferred) || answer.versions[0];
+      replace(host, [
+        el('p', { className: 'd-step__text', text: t('rv.job.versions') }),
+        el('ul', { className: 'd-resumes' }, rows),
+        el('div', { className: 'd-tailor__actions' }, [
+          button(t('rv.lib.another'), go(() => onResume.another(job, from.id)), {
+            className: 'btn d-tailor__btn', attrs: { id: 'drawer-another-version' },
+          }),
+        ]),
+      ]);
+      host.dataset.tailor = 'versions';
+      return host;
+    }
+    if (answer.has_master) {
+      replace(host, [create()]);
       host.dataset.tailor = 'ready';
+      return host;
+    }
+    const needsMaster = () => {
+      replace(host, [
+        el('p', { className: 'd-step__text', text: t('rv.job.needMaster') }),
+        button(t('rv.job.toResumes'), go(() => onResume.home()), {
+          className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-to-resumes' },
+        }),
+      ]);
+      host.dataset.tailor = 'needs-master';
     };
     const needsCareer = () => {
       replace(host, [
@@ -1176,18 +1231,17 @@ export function createDrawer({
               className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-add-career' },
             })
             : null,
-          make('btn d-tailor__btn'),
         ].filter(Boolean)),
       ]);
       host.dataset.tailor = 'needs-career';
     };
     if (!careerContext) {
-      ready();
+      needsMaster();
       return host;
     }
     Promise.resolve(careerContext()).then((known) => {
       if (currentJob && currentJob.job_id !== job.job_id) return;
-      if (known) ready();
+      if (known) needsMaster();
       else needsCareer();
     });
     return host;
