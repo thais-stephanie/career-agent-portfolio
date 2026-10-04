@@ -545,6 +545,7 @@ class ResumeStore:
             "SELECT d.id, d.kind, d.title, d.version_group, d.version_number, d.preferred,"
             " d.archived_at, d.created_at, d.updated_at,"
             " json_extract(d.working_json, '$.design.template') AS template,"
+            " json_extract(d.working_json, '$.provenance.created_from') AS created_from,"
             " s.job_id, s.title AS job_title, s.company AS job_company,"
             " e.id AS export_id, e.format AS export_format, e.page_count,"
             " e.created_at AS exported_at, e.ats_check_json"
