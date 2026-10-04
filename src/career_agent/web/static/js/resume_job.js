@@ -19,7 +19,7 @@ import { button, el } from './dom.js';
 import { t, tCount } from './i18n.js';
 
 /** Coverage as a sign and a word, never a colour alone. */
-const MARK = { COVERED: '✓', PARTLY: '◐', NOT_FOUND: '○', ELIGIBILITY: 'ℹ' };
+const MARK = { COVERED: '✓', PARTLY: '◐', SAID: '◌', NOT_FOUND: '○', ELIGIBILITY: 'ℹ' };
 const GROUPS = [
   ['emphasized', ['REORDER_BULLETS', 'SHOW_BULLET']],
   ['added', ['ADD_BULLET', 'ADD_SKILL']],
@@ -29,8 +29,12 @@ const small = (label, onClick, extra = {}) => button(label, onClick, { className
 
 export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddEvidence, onPrefer }) {
   const summary = el('summary');
-  const body = el('div', { className: 'rvj', attrs: { 'aria-live': 'polite' } });
-  const root = el('details', { className: 'rve__panel rvj__panel', props: { open: true } }, [summary, body]);
+  // Only the count is announced; the panel itself is redrawn quietly.
+  const status = el('p', { className: 'rvj__status', attrs: { role: 'status' } });
+  const body = el('div', { className: 'rvj' });
+  const root = el('details', { className: 'rve__panel rvj__panel', props: { open: true } }, [
+    summary, status, body,
+  ]);
   let last = null;
 
   function source(where) {
@@ -53,7 +57,7 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
   function suggestion(s) {
     const actions = [];
     if (s.action) {
-      actions.push(small(t('rv.job.apply'), () => onApply(s.action), {
+      actions.push(small(t('rv.job.apply'), () => onApply(s.key), {
         className: 'btn btn--small btn--primary',
         ariaLabel: `${t('rv.job.apply')}: ${s.action.text || s.action.label || s.ask}`,
       }));
@@ -68,6 +72,7 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
       event.currentTarget.disabled = true;
       await dismissResumeSuggestion(documentId, s.key).catch(() => null);
       await load();
+      summary.focus();
     }, { ariaLabel: `${t('rv.job.dismiss')}: ${s.ask || s.text}` }));
     let words = '';
     if (s.kind === 'UNSHOWN_EVIDENCE') {
@@ -93,6 +98,8 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
       return;
     }
     const gaps = view.coverage.filter((c) => c.coverage === 'NOT_FOUND');
+    const counted = tCount('rv.job.supported', { n: view.supported, of: view.total });
+    if (status.textContent !== counted) status.textContent = counted;
     const eligibility = view.coverage.filter((c) => c.coverage === 'ELIGIBILITY');
     const judged = view.coverage.filter((c) => c.coverage !== 'ELIGIBILITY');
     const parts = [
@@ -104,7 +111,6 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
         event.currentTarget.replaceWith(el('p', { className: 'rve__note', text: t('rv.lib.preferredSaid') }));
       }) : null,
       el('h3', { className: 'rvl__h3', text: t('rv.job.coverage') }),
-      el('p', { text: tCount('rv.job.supported', { n: view.supported, of: view.total }) }),
       el('ul', { className: 'rvj__list' }, judged.map((c) => el('li', {
         className: 'rvj__ask', dataset: { coverage: c.coverage },
       }, [

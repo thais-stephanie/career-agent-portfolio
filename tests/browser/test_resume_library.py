@@ -358,8 +358,11 @@ def test_a_version_for_a_job_is_a_copy_made_by_hand(
     page.wait_for("document.querySelector('.d-tailor')?.dataset.tailor === 'ready'")
     text = page.evaluate("document.querySelector('.d-tailor').closest('.d-step').innerText")
     assert "Nothing is rewritten automatically." in text
-    for claim in ("Tailor", "Optimized", "optimized", "Matched to this job"):
+    for claim in ("Optimized", "optimized", "Matched to this job", "AI-tailored"):
         assert claim not in text, claim
+    # The copy made by hand is said apart from Tailor, and never claims tailoring.
+    manual = page.evaluate("document.getElementById('drawer-open-tailor').textContent")
+    assert manual == "Create a version for this job"
     page.evaluate("document.getElementById('drawer-open-tailor').click()")
     page.wait_for("document.querySelector('.rvw')?.dataset.view === 'editor'", message="editor")
     assert page.evaluate("document.querySelector('.rve .rvw__kind').textContent") == (

@@ -441,13 +441,6 @@ def test_tailoring_moves_no_search_fit_score_preference_or_evidence(api: JobsApi
 
 
 def test_make_it_better_offers_confirmed_lines_gaps_and_dismissals(api: JobsApi) -> None:
-    job = jobs(api)[0]
-    manual = call(api, "POST", f"/jobs/{job}/versions")
-    path = f"/documents/{manual['id']}"
-    with connect(api.config.db_path) as conn:
-        with transaction(conn):
-            ad = conn.execute("SELECT id FROM jd_snapshot").fetchone()[0]
-        del ad
     # A manual version for the senior ad: the same people, the same ad, by hand.
     made = pasted(api)
     copy = call(api, "POST", f"/documents/{made['id']}/copy", {})
@@ -474,7 +467,6 @@ def test_make_it_better_offers_confirmed_lines_gaps_and_dismissals(api: JobsApi)
     ]  # fmt: skip
     add = next(s["action"] for s in offered if s["action"]["type"] == "add_bullet")
     assert add["evidence_ids"] == ["k-n8n-flows"] and add["text"] == n8n["text"]
-    assert call(api, "GET", path)["id"] == manual["id"]
 
 
 def test_a_long_line_is_pointed_at_not_rewritten(api: JobsApi) -> None:
@@ -540,3 +532,98 @@ def test_a_claim_never_confirmed_is_never_used(api: JobsApi) -> None:
     assert "k-draft" not in keys
     assert "Apex rewrite" not in " ".join(texts(made["document"]))
     assert isinstance(VerifiedClaim, type)
+
+
+# ------------------------------------------------------- review regressions
+
+
+def _support_for(api: JobsApi, ask: str, extra: Any = None) -> Any:
+    with connect(api.config.db_path) as conn:
+        if extra:
+            extra(conn)
+        master = ResumeStore(conn).current_master()
+        pool = sources(conn, master.working)
+    (sup,) = retrieve(jd.analyse(f"Requirements\n- {ask}\n"), pool)
+    return sup
+
+
+@pytest.mark.parametrize("ask", ["Experience with Excel", "Experience with Power BI",
+                                 "Experience with Go"])  # fmt: skip
+def test_an_ordinary_word_never_answers_a_named_ask(api: JobsApi, ask: str) -> None:
+    def coach(conn: Any) -> None:
+        with transaction(conn):
+            role = experience(conn, "Coaching Co", "Coach", "2010-01", "2011-01")
+            claim(conn, "k-excel-word", E, "Excel at coaching new account executives.",
+                  experience=role)  # fmt: skip
+            claim(conn, "k-power-word", E,
+                  "Helped the sales team go to market with new power dashboards and BI reporting.",
+                  experience=role)  # fmt: skip
+
+    sup = _support_for(api, ask, coach)
+    assert sup.state == "NO_EVIDENCE" and sup.coverage == "NOT_FOUND", ask
+
+
+def test_evidence_of_an_archived_role_stays_out(api: JobsApi) -> None:
+    def archived(conn: Any) -> None:
+        with transaction(conn):
+            role = experience(conn, "Old Co", "Platform Engineer", "2005-01", "2006-01",
+                              archived=True)  # fmt: skip
+            claim(conn, "k-k8s", E, "Ran Kubernetes clusters.", experience=role,
+                  tools=["Kubernetes"])  # fmt: skip
+
+    assert _support_for(api, "Experience with Kubernetes", archived).state == "NO_EVIDENCE"
+
+
+def test_a_line_only_typed_by_the_person_is_said_not_covered(api: JobsApi) -> None:
+    made = pasted(api)
+    doc = made["document"]
+    doc["experience"][0]["bullets"].append(
+        {"id": "01" + "Z" * 24, "text": "Led a Salesforce Apex rewrite.", "origin": "USER_AUTHORED"}
+    )
+    call(api, "PATCH", f"/documents/{made['id']}/working",
+         {"document": doc, "expected_sha256": made["sha256"]})  # fmt: skip
+    view = call(api, "GET", f"/documents/{made['id']}/job")
+    apex = next(c for c in view["coverage"] if c["ask"] == "Salesforce Apex is a must")
+    assert apex["coverage"] == "SAID"
+
+
+def test_apply_is_made_by_the_server_from_the_confirmed_text_now(api: JobsApi) -> None:
+    made = pasted(api)
+    doc = made["document"]
+    for entry in doc["experience"]:
+        entry["bullets"] = [b for b in entry["bullets"] if "k-n8n-flows" not in b["evidence_ids"]]
+    saved = call(api, "PATCH", f"/documents/{made['id']}/working",
+                 {"document": doc, "expected_sha256": made["sha256"]})  # fmt: skip
+    # The person corrects the claim after the suggestion was first shown.
+    with connect(api.config.db_path) as conn, transaction(conn):
+        repo, candidate = ClaimRepo(conn), ensure_candidate(conn)
+        last = repo.history(candidate, "k-n8n-flows")[-1]
+        repo.supersede(candidate, last.next_revision(text="Built n8n integrations for invoicing."))
+    view = call(api, "GET", f"/documents/{made['id']}/job")
+    key = next(s["key"] for s in view["suggestions"] if s["kind"] == "UNSHOWN_EVIDENCE")
+    with pytest.raises(ApiError) as unknown:
+        call(api, "POST", f"/documents/{made['id']}/apply",
+             {"key": "add:nothing", "expected_sha256": saved["sha256"]})  # fmt: skip
+    assert unknown.value.status == 409
+    out = call(api, "POST", f"/documents/{made['id']}/apply",
+               {"key": key, "expected_sha256": saved["sha256"]})  # fmt: skip
+    lines = texts(out["document"])
+    assert "Built n8n integrations for invoicing." in lines
+    assert "Built n8n integrations between HubSpot and the billing system." not in lines
+    with pytest.raises(ApiError) as twice:
+        call(api, "POST", f"/documents/{made['id']}/apply",
+             {"key": key, "expected_sha256": out["sha256"]})  # fmt: skip
+    assert twice.value.status == 409  # applied: it no longer stands
+
+
+def test_only_a_real_suggestion_is_dismissed(api: JobsApi) -> None:
+    made = pasted(api)
+    with pytest.raises(ApiError) as unknown:
+        call(api, "POST", f"/documents/{made['id']}/dismissals", {"key": "gap:invented"})
+    assert unknown.value.status == 404
+
+
+def test_a_padded_ad_is_refused_at_the_door(api: JobsApi) -> None:
+    with pytest.raises(ApiError) as big:
+        pasted(api, {**AD, "text": "Requirements\n- HubSpot\n" + " " * 70_000})
+    assert big.value.status == 400

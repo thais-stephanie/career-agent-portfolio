@@ -1960,6 +1960,9 @@ const EN = {
   'rv.job.state.COVERED': 'Covered',
   'rv.job.state.PARTLY': 'Partly covered',
   'rv.job.state.NOT_FOUND': 'Not found in your confirmed experience',
+  'rv.job.state.SAID': 'In your resume, not in your confirmed experience',
+  'rv.tailor.stepDone': 'done',
+  'rv.job.applied': 'Applied and saved',
   'rv.job.eligibility': '{n} asks are about where or how you can work: see Can you take this job, not your resume.',
   'rv.job.eligibilityOne': '1 ask is about where or how you can work: see Can you take this job, not your resume.',
   'rv.job.changed': 'Why this version changed',
@@ -6139,6 +6142,9 @@ const PT_BR = {
   'rv.job.state.COVERED': 'Coberto',
   'rv.job.state.PARTLY': 'Coberto em parte',
   'rv.job.state.NOT_FOUND': 'Não encontrado na sua experiência confirmada',
+  'rv.job.state.SAID': 'No currículo, mas não na sua experiência confirmada',
+  'rv.tailor.stepDone': 'concluída',
+  'rv.job.applied': 'Aplicado e salvo',
   'rv.job.eligibility': '{n} pedidos são sobre onde ou como você pode trabalhar: veja Você pode aceitar esta vaga, '
     + 'não o currículo.',
   'rv.job.eligibilityOne': '1 pedido é sobre onde ou como você pode trabalhar: veja Você pode aceitar esta vaga, '

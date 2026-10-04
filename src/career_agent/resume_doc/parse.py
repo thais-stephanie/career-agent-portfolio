@@ -628,7 +628,12 @@ def _other(section: _Section) -> FoundGroup:
 
 
 def _language(lines: list[SourceLine]) -> str:
-    words = Counter(w for line in lines for w in re.findall(r"[a-z]+", fold(line.text)))
+    return language_of(" ".join(line.text for line in lines))
+
+
+def language_of(text: str) -> str:
+    """en, pt or es, by a vote of each language's stop words; en when none vote."""
+    words = Counter(re.findall(r"[a-z]+", fold(text)))
     scores = {lang: sum(words[w] for w in stop) for lang, stop in _STOP.items()}
     best = max(scores, key=lambda lang: scores[lang])
     return best if scores[best] else "en"

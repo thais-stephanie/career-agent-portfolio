@@ -92,3 +92,30 @@ def test_a_wrapped_ad_with_an_unheaded_role_and_eligibility_reads_right() -> Non
     assert {"LOCATION", "WORK_AUTHORIZATION"} <= kinds
     place = next(r for r in found if r.kind == "LOCATION")
     assert place.source_quote.endswith("United States.") and place.eligibility
+
+
+def test_eligibility_cues_the_review_found() -> None:
+    found = quotes(
+        "Requirements\n- Must be able to obtain a US security clearance\n"
+        "- Brazil-based candidates only\n- Experience designing hybrid cloud architectures\n"
+        "- Experience with C#\n"
+    )
+    assert found["Must be able to obtain a US security clearance"].eligibility
+    assert found["Brazil-based candidates only"].eligibility
+    assert not found["Experience designing hybrid cloud architectures"].eligibility
+    assert "c#" in found["Experience with C#"].named
+
+
+def test_names_are_read_strictly_from_evidence() -> None:
+    assert named_terms("Excel at coaching new account executives.", strict=True) == set()
+    assert named_terms("Built dashboards in Power BI for sales.", strict=True) == {"power bi"}
+    assert "excel" in named_terms("Excel at coaching", strict=False)  # an ad is read generously
+
+
+def test_a_huge_padded_ad_is_read_in_bounded_time() -> None:
+    import time
+
+    ad = "Requirements\n- Experience with HubSpot\n" + ("x" * 49 + " \n") * 40_000
+    started = time.perf_counter()
+    analyse(ad)
+    assert time.perf_counter() - started < 3.0

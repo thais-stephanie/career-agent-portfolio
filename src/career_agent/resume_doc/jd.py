@@ -36,6 +36,8 @@ import re
 from dataclasses import dataclass, field
 
 from career_agent.match.text import fold
+from career_agent.match.years import career_years
+from career_agent.resume_doc.parse import language_of
 
 REQUIRED_CUE = re.compile(
     r"\b(required|requirements?|must|mandatory|minimum|need to|needs to|you need|essential"
@@ -167,12 +169,21 @@ HEADINGS: dict[str, str] = {
     ),
 }
 
+
+class _Years:
+    """A figure of years about a career (`match.years`, which skips ages)."""
+
+    def search(self, text: str) -> bool:
+        return next(career_years(text), None) is not None
+
+
 #: Kinds, by cue, in the order they are asked. The first that fires wins.
-_KIND_CUES: tuple[tuple[str, re.Pattern[str]], ...] = (
+_KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
     (
         "WORK_AUTHORIZATION",
         re.compile(
             r"\b(authori[sz]ed to work|work authori[sz]ation|visas?|sponsor\w*|citizen(ship)?"
+            r"|(?:security )?clearance"
             r"|right to work|autoriza[cç][aã]o de trabalho|cidadania|permiso de trabajo)\b",
             re.I,
         ),
@@ -182,7 +193,8 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(
             r"\b(based in|located (?:in|within)|be located|must live|reside|relocat\w*"
             r"|on-?site|onsite"
-            r"|in-office|hybrid"
+            r"|in-office|hybrid (?:role|work|model|position|schedule|setup)"
+            r"|(?-i:[A-Z][a-z]+)-based|(?:candidates|applicants) (?:in|from|based)"
             r"|presencial|h[ií]brido|residir|morar em|residencia|remote within)\b",
             re.I,
         ),
@@ -218,13 +230,7 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str]], ...] = (
             re.I,
         ),
     ),
-    (
-        "EXPERIENCE",
-        re.compile(
-            r"\b(\d+\+?\s*(years?|anos?|a[nñ]os)|years? of|anos de|track record)\b",
-            re.I,
-        ),
-    ),
+    ("EXPERIENCE", _Years()),
 )
 ELIGIBILITY_KINDS = frozenset({"LOCATION", "WORK_AUTHORIZATION", "SCHEDULE"})
 
@@ -258,26 +264,20 @@ CONCEPTS: dict[str, str] = {
     "integracao": "integration",
     "integracoes": "integration",
     "integracion": "integration",
-    "integrations": "integration",
     "integrate": "integration",
     "dados": "data",
     "datos": "data",
-    "relatorios": "reporting",
     "relatorio": "reporting",
-    "reports": "reporting",
     "report": "reporting",
     "informes": "reporting",
     "vendas": "sales",
     "ventas": "sales",
     "receita": "revenue",
     "ingresos": "revenue",
-    "processos": "process",
     "processo": "process",
     "procesos": "process",
     "processes": "process",
-    "clientes": "customer",
     "cliente": "customer",
-    "customers": "customer",
     "client": "customer",
     "gestao": "management",
     "gerenciamento": "management",
@@ -291,21 +291,15 @@ CONCEPTS: dict[str, str] = {
     "desenvolvimento": "development",
     "desarrollo": "development",
     "develop": "development",
-    "projetos": "project",
     "projeto": "project",
     "proyectos": "project",
-    "projects": "project",
     "equipe": "team",
-    "equipes": "team",
     "equipo": "team",
-    "teams": "team",
     "operacoes": "operations",
     "operacao": "operations",
     "operaciones": "operations",
     "operation": "operations",
-    "fluxos": "workflow",
     "fluxo": "workflow",
-    "workflows": "workflow",
     "flujos": "workflow",
     "ferramentas": "tools",
     "herramientas": "tools",
@@ -313,11 +307,20 @@ CONCEPTS: dict[str, str] = {
 
 #: Tools usually written in lower case, so capitalisation cannot find them.
 LOWERCASE_TOOLS = frozenset({"dbt", "n8n", "git", "jira", "make.com", "zapier", "excel"})
+#: Tools whose names are also ordinary words or that open a sentence: in
+#: evidence, a capital at a sentence start counts as a name only for these.
+#: Tool names that are also everyday words ("Excel at coaching", "go to market"):
+#: in evidence they count only from the claim's tools or written mid-sentence.
+AMBIGUOUS_TOOLS = frozenset({"excel", "go", "r", "c", "slack", "notion", "sheets", "make"})
+KNOWN_TOOLS = (LOWERCASE_TOOLS | frozenset(
+    {"salesforce", "hubspot", "workato", "tableau", "looker", "asana", "python", "java",
+     "kotlin", "ruby", "swift"}
+)) - AMBIGUOUS_TOOLS  # fmt: skip
 
 _TOKEN = re.compile(r"[a-z0-9][a-z0-9.+#/-]*[a-z0-9+#]|[a-z0-9]")
 _NAMED = re.compile(
-    r"(?<![\w.])(?:[A-Z][a-z]*[A-Z][\w.]*|[A-Z]{2,}[\w.+#]*|\w*\d\w*(?:\.\w+)?|[\w]+\.(?:js|io|com|ai|net)"
-    r"|[A-Z][a-zà-ÿ]+(?:\s+[A-Z][a-zà-ÿ]+)*)(?![\w])"
+    r"(?<![\w.])(?:[A-Z][#+]+|[A-Z][a-z]*[A-Z][\w.]*|[A-Z]{2,}[\w.+#]*|\w*\d\w*(?:\.\w+)?"
+    r"|[\w]+\.(?:js|io|com|ai|net)|[A-Z][a-zà-ÿ]+(?:\s+(?:[A-Z][a-zà-ÿ]+|[A-Z]{2,}))*)(?![\w#+])"
 )
 _COMMON_CAPS = frozenset(
     """
@@ -337,6 +340,8 @@ _SENTENCE = re.compile(r"(?<=[a-zà-ÿ0-9)][.!?])\s+(?=[A-ZÀ-Ý])")
 _HEAD_COLON = re.compile(r"^\s*([^\n:]{3,60}):\s*")
 _BULLET_LEAD = re.compile(r"^\s*(?:[•·▪●◦■□‣∙*-]|\d+[.)])\s*")  # punctuation-check: allow
 MAX_WORDS = 60
+#: The longest ad read, in characters (a quote still points into the whole text).
+MAX_AD = 60_000
 #: A line at least this long that does not end a sentence was wrapped, not ended.
 WRAPPED = 50
 #: What may lead an item and is not part of it.
@@ -372,7 +377,7 @@ _OPENERS = frozenset(
     conhecimento experiencia vivencia dominio forte boa bom ingles espanhol
     """.split()  # noqa: SIM905
 )
-_ABSTRACT = re.compile(r"(ing|ed|ly|ar|er|ir|cao|coes|mento|ment|ness|ity|dade|ive|ous)$")
+_ABSTRACT = re.compile(r"(ing|ed|ly|ar|er|ir|cao|coes|ao|oes|mento|ment|ness|ity|dade|ive|ous)$")
 
 
 def _opener(word: str) -> bool:
@@ -380,8 +385,12 @@ def _opener(word: str) -> bool:
     return plain in _OPENERS or plain in _STOP or bool(_ABSTRACT.search(plain))
 
 
-def named_terms(text: str, *, sentence_start: bool = True) -> set[str]:
-    """Named things in `text`, folded: what a resume may not claim without evidence."""
+def named_terms(text: str, *, sentence_start: bool = True, strict: bool = False) -> set[str]:
+    """Named things in `text`, folded: what a resume may not claim without evidence.
+
+    `strict` reads EVIDENCE: a capitalised word that opens a sentence is a name
+    only when it is a known tool, so "Excel at coaching" names nothing. An ad
+    is read generously instead: a missed name there would hide a gap."""
     found: set[str] = set()
     starts = {0} | {
         m.end() for m in re.finditer(r"[.!?:;\n•]\s*|^\s*[-*]\s*", text)
@@ -390,6 +399,14 @@ def named_terms(text: str, *, sentence_start: bool = True) -> set[str]:
         word = match.group(0).strip()
         first = word.split()[0]
         at_start = sentence_start and match.start() in starts
+        if (
+            strict
+            and at_start
+            and " " not in word
+            and word.istitle()
+            and folded(word) not in KNOWN_TOOLS
+        ):
+            continue
         if at_start and word.istitle() and first.isalpha() and _opener(first):
             word = word[len(first) :].strip()  # "Build", "Experiência": an opener, not a name
         elif at_start and " " in word and first in _COMMON_CAPS:
@@ -398,7 +415,7 @@ def named_terms(text: str, *, sentence_start: bool = True) -> set[str]:
             continue
         found.add(folded(word).rstrip("."))
     for word in _TOKEN.findall(folded(text)):
-        if word in LOWERCASE_TOOLS:
+        if word in LOWERCASE_TOOLS and not (strict and word in AMBIGUOUS_TOOLS):
             found.add(word)
     return found
 
@@ -428,18 +445,6 @@ class Analysis:
     requirements: list[Requirement] = field(default_factory=list)
     language: str = "en"
 
-    def by_id(self) -> dict[str, Requirement]:
-        return {r.id: r for r in self.requirements}
-
-
-def _language(text: str) -> str:
-    words = set(folded(text).split())
-    pt = len(words & {"de", "com", "para", "voce", "em", "uma", "dos", "das", "experiencia", "e"})
-    es = len(words & {"con", "para", "usted", "los", "las", "una", "del", "experiencia", "y"})
-    en = len(words & {"the", "with", "and", "you", "for", "experience", "of", "to", "in"})
-    best = max((en, "en"), (pt, "pt"), (es, "es"))
-    return best[1]
-
 
 def _heading(line: str) -> str | None:
     key = folded(line).strip(" :.-*#").strip()
@@ -454,6 +459,11 @@ _INLINE_HEAD = re.compile(
 def _lines(text: str) -> list[tuple[int, int]]:
     """Lines of the ad, also cut before a heading written inline ("... Requisitos: ...")."""
     flat, offsets = fold(text)
+    last_seen, visible = [], -1
+    for i, ch in enumerate(text):
+        if not ch.isspace():
+            visible = i
+        last_seen.append(visible)
     # A line break inside a sentence (text wrapped at a fixed width) is not a
     # new item: a long line that does not end a sentence runs on, unless the
     # next line opens a list item.
@@ -461,8 +471,9 @@ def _lines(text: str) -> list[tuple[int, int]]:
         m
         for m in _LINE_BREAK.finditer(text)
         if not (
-            len(text[text.rfind("\n", 0, m.start()) + 1 : m.start()]) >= WRAPPED
-            and text[: m.start()].rstrip()[-1:] not in ".!?:;"
+            m.start() - (text.rfind("\n", 0, m.start()) + 1) >= WRAPPED
+            and last_seen[m.start() - 1] >= 0
+            and text[last_seen[m.start() - 1]] not in ".!?:;"
             and not _BULLET_LEAD.match(text[m.end() :])
             and len(m.group(0)) == 1
         )
@@ -540,7 +551,9 @@ def _same_ask(a: Requirement, b: Requirement) -> bool:
 
 
 def analyse(text: str) -> Analysis:
-    """Requirements, quoted from `text` exactly, de-duplicated conservatively."""
+    """Requirements, quoted from `text` exactly, de-duplicated conservatively.
+    Only the first `MAX_AD` characters are read: an ad is never longer."""
+    text = text[:MAX_AD]
     found: list[Requirement] = []
     for start, end, section in _spans(text):
         quote = text[start:end]
@@ -564,7 +577,7 @@ def analyse(text: str) -> Analysis:
         rid = "r" + hashlib.sha256(folded(quote).encode("utf-8")).hexdigest()[:10]
         req = Requirement(
             id=rid, source_quote=quote, start=start, section=section, kind=kind,
-            hardness=hardness, importance=importance, language=_language(quote),
+            hardness=hardness, importance=importance, language=language_of(quote),
             concepts=tuple(sorted(concepts)), named=tuple(sorted(named)),
         )  # fmt: skip
         twin = next((r for r in found if r.id == rid or _same_ask(r, req)), None)
@@ -582,4 +595,4 @@ def analyse(text: str) -> Analysis:
                 "also_quoted": (*twin.also_quoted, quote),
             }
         )
-    return Analysis(requirements=found, language=_language(text))
+    return Analysis(requirements=found, language=language_of(text))

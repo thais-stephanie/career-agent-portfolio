@@ -57,6 +57,9 @@ export const tailorForJob = (jobId) => request(jobResumePath(jobId, '/tailor'), 
 export const tailorPasted = (body) => request('/resume/tailor', { method: 'POST', body });
 /** A job version against its ad: coverage, why it changed, gaps and suggestions. */
 export const getResumeJob = (id) => request(resumePath(id, '/job'));
+/** Make one suggestion's change on the server, from the confirmed text now. */
+export const applyResumeSuggestion = (id, key, expected_sha256) =>
+  request(resumePath(id, '/apply'), { method: 'POST', body: { key, expected_sha256 } });
 /** Set one suggestion aside, for this version only. */
 export const dismissResumeSuggestion = (id, key) =>
   request(resumePath(id, '/dismissals'), { method: 'POST', body: { key } });

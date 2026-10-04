@@ -31,7 +31,8 @@
 
 import {
   createJobResume, createResumeDocument, createResumeMaster, downloadResumeExport, exportResume, getCareer,
-  getLocalProfile, getResumeDocument, getResumeMaster, listResumeDocuments, manageResume, saveResumeCheckpoint,
+  applyResumeSuggestion, getLocalProfile, getResumeDocument, getResumeMaster, listResumeDocuments, manageResume,
+  saveResumeCheckpoint,
   saveResumeWorkingCopy, tailorForJob, tailorPasted,
 } from './api.js';
 import { button, el } from './dom.js';
@@ -287,7 +288,10 @@ export function createResumeWorkspace({
     box.querySelector('h2').focus();
     try {
       const made = await request();
-      for (const step of steps) step.dataset.done = 'true';
+      for (const step of steps) {
+        step.dataset.done = 'true';
+        step.append(el('span', { className: 'sr-only', text: ` (${t('rv.tailor.stepDone')})` }));
+      }
       state.textContent = t('rv.tailor.done');
       await open(made.id, { answer: made });
     } catch (error) {
@@ -461,7 +465,7 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false, on
   const jobPanel = answer.document.target ? createJobPanel({
     documentId: answer.id,
     preferred: answer.preferred,
-    onApply: (action) => void applySuggestion(action),
+    onApply: (key) => void applySuggestion(key),
     onFocus: (lineId) => {
       const node = [...form.querySelectorAll('[data-ref]')].find((n) => n.dataset.ref.endsWith('/bullet/' + lineId));
       if (node) focusRef(node.dataset.ref);
@@ -1234,28 +1238,22 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false, on
     drawer.body.replaceChildren(...(groups.length ? groups : [el('p', { text: t('rv.evidence.none') })]));
   }
 
-  // -- a suggestion, applied as an ordinary undoable edit ---------------------
-  async function applySuggestion(action) {
-    reshape((d) => {
-      if (action.type === 'add_bullet') {
-        const entry = d.experience.find((e) => e.id === action.entry_id);
-        if (entry) {
-          entry.bullets.unshift({
-            id: ulid(), text: action.text, origin: action.origin, evidence_ids: action.evidence_ids,
-            requirement_ids: action.requirement_ids, override: 'NONE', original_text: null, hidden: false,
-            flags: [],
-          });
-        }
-      } else if (action.type === 'show') {
-        for (const line of linesOf(d).blocks) if (line.id === action.line_id) line.hidden = false;
-      } else if (action.type === 'add_skill') {
-        if (!d.skills.length) d.skills.push({ id: ulid(), name: t('rv.skills.group'), hidden: false, items: [] });
-        d.skills[0].items.unshift({
-          id: ulid(), label: action.label, origin: 'EVIDENCE_VERBATIM', evidence_ids: action.evidence_ids,
-        });
-      }
-    })();
-    await autosave.flush();
+  // -- a suggestion, applied by the server from the confirmed text now --------
+  async function applySuggestion(key) {
+    if (!valid() || !(await autosave.flush())) {
+      drawUnsaved();
+      return;
+    }
+    try {
+      await applyResumeSuggestion(answer.id, key, autosave.sha);
+    } catch (error) {
+      if (error.detail && error.detail.code === 'evidence_not_confirmed') drawEvidence(error.detail.lines);
+      else failed();
+      return;
+    }
+    await reload();
+    say('saved', 'rv.job.applied');
+    jobPanel.root.querySelector('summary').focus();
   }
 
   // -- the Master and its evidence ------------------------------------------

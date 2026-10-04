@@ -578,17 +578,21 @@ class ResumeStore:
         now = now or now_utc()
         with self._tx():
             self._row("resume_document", document_id)
-            revision = self.conn.execute(
-                "SELECT id FROM resume_revision WHERE document_id = ? ORDER BY seq DESC LIMIT 1",
-                (document_id,),
-            ).fetchone()
+            revision_id = self.latest_revision_id(document_id)
             self.conn.execute(
                 "INSERT INTO application_resume (job_id, document_id, revision_id, marked_at)"
                 " VALUES (?, ?, ?, ?) ON CONFLICT (job_id) DO UPDATE SET"
                 " document_id = excluded.document_id, revision_id = excluded.revision_id,"
                 " marked_at = excluded.marked_at",
-                (job_id, document_id, revision["id"], now),
+                (job_id, document_id, revision_id, now),
             )
+
+    def latest_revision_id(self, document_id: str) -> str | None:
+        row = self.conn.execute(
+            "SELECT id FROM resume_revision WHERE document_id = ? ORDER BY seq DESC LIMIT 1",
+            (document_id,),
+        ).fetchone()
+        return row["id"] if row else None
 
     def clear_used(self, job_id: str) -> None:
         with self._tx():

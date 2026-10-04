@@ -28,6 +28,7 @@ invented tenure get in.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import sqlite3
 import time
@@ -39,8 +40,9 @@ from career_agent.resume_doc import jd
 from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.master import _career
 from career_agent.resume_doc.models import ResumeDocument, upgrade_resume_document
-from career_agent.resume_doc.store import ResumeStore, ResumeStoreError, StoredDocument
+from career_agent.resume_doc.store import NotFound, ResumeStore, ResumeStoreError, StoredDocument
 from career_agent.storage.career_repo import HIGHLIGHT_CATEGORIES, SKILL_CATEGORIES
+from career_agent.storage.db import transaction
 
 MODE = "DETERMINISTIC"
 SHOWN, HAVE, NONE = "SHOWN_IN_MASTER", "HAVE_EVIDENCE_NOT_SHOWN", "NO_EVIDENCE"
@@ -77,14 +79,14 @@ class Source:
     #: In the resume being compared (the Master, or the version itself).
     in_resume: bool = False
     shown: bool = False
-    #: The resume line's id, and the entry it sits in.
+    #: The resume line's id, and the confirmed claims it cites.
     line_id: str | None = None
-    entry_id: str | None = None
     evidence_ids: tuple[str, ...] = ()
 
     @property
     def names(self) -> set[str]:
-        return jd.named_terms(self.text) | {jd.folded(t) for t in self.tools}
+        """Names this source states: its tools, and names read strictly."""
+        return jd.named_terms(self.text, strict=True) | {jd.folded(t) for t in self.tools}
 
     @property
     def tokens(self) -> set[str]:
@@ -118,11 +120,11 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
     # not what the person did with it.
     shown_keys: set[str] = set()
     shown_skills: set[str] = set()
-    for entry_id, line, shown in _lines(doc):
+    for _, line, shown in _lines(doc):
         out.append(
             Source(
                 id=line.id, text=line.text, in_resume=True, shown=shown, line_id=line.id,
-                entry_id=entry_id, evidence_ids=tuple(line.evidence_ids),
+                evidence_ids=tuple(line.evidence_ids),
             )
         )  # fmt: skip
         if shown:
@@ -143,10 +145,13 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
             Source(id=cert.id, text=cert.name, in_resume=True, shown=not cert.hidden,
                    line_id=cert.id, category="CERTIFICATION")
         )  # fmt: skip
-    _, rows = _career(conn)
+    overview, rows = _career(conn)
+    placed = {str(e["id"]) for e in overview["experiences"]}
     for row in rows:
         if row["state"] != "CONFIRMED" or not str(row.get("text") or "").strip():
             continue
+        if row.get("experience_id") is not None and row["experience_id"] not in placed:
+            continue  # an experience the person archived: theirs to leave out
         key, category = row["claim_key"], row.get("category")
         shown = key in shown_keys or (category in SKILL_CATEGORIES and key in shown_skills)
         out.append(
@@ -170,10 +175,10 @@ def strength(req: jd.Requirement, source: Source) -> float:
     words must reach two (or all of the ask, when it has fewer)."""
     if not req.concepts and not req.named:
         return 0.0
-    text = jd.folded(source.text) + " " + " ".join(jd.folded(t) for t in source.tools)
-    named_hit = {
-        n for n in req.named if n in source.names or re.search(rf"\b{re.escape(n)}\b", text)
-    }
+    names = source.names
+    # A name answers a name: the same one, or inside a longer one the source
+    # states ("Salesforce" in "Salesforce Apex"). Ordinary words never do.
+    named_hit = {n for n in req.named if any(n == m or f" {n} " in f" {m} " for m in names)}
     if req.named and not named_hit:
         return 0.0
     overlap = len(set(req.concepts) & source.tokens)
@@ -194,12 +199,13 @@ class Support:
 
     @property
     def coverage(self) -> str:
-        """COVERED, PARTLY or NOT_FOUND, for the person; ELIGIBILITY is not ours."""
+        """COVERED, PARTLY, SAID or NOT_FOUND for the person; ELIGIBILITY is not ours."""
         if self.requirement.eligibility:
             return "ELIGIBILITY"
-        best = max([s for _, s in self.shown] or [0.0])
+        best = max([v for s, v in self.shown if s.claim_key or s.evidence_ids] or [0.0])
         if not best:
-            return "NOT_FOUND"
+            # Only lines the person typed say it: in the resume, not evidenced.
+            return "SAID" if self.shown else "NOT_FOUND"
         # Years are never compared: the work may be shown, the tenure is not judged.
         if self.requirement.kind == "EXPERIENCE":
             return "PARTLY"
@@ -337,7 +343,8 @@ def draft(
                 changes.append({"op": "HIDE_BULLET", "line_id": b["id"], "after": b["text"]})
     if plan["skills"]:
         if not data["skills"]:
-            data["skills"].append({"id": new_id(), "name": "Skills", "hidden": False, "items": []})
+            name = {"pt": "Competências", "es": "Habilidades"}.get(data["language"][:2], "Skills")
+            data["skills"].append({"id": new_id(), "name": name, "hidden": False, "items": []})
         group = data["skills"][0]
         for skill in plan["skills"]:
             item = {"id": new_id(), "label": skill["label"], "origin": "EVIDENCE_VERBATIM",
@@ -480,9 +487,6 @@ def tailor(
     `NotFound` without a Master, `TailorFailed` on a blocking finding and
     `EvidenceNotConfirmed` when evidence was retired before saving: in each
     case nothing is written."""
-    from career_agent.resume_doc.store import NotFound
-    from career_agent.storage.db import transaction
-
     store = ResumeStore(conn)
     timings: dict[str, float] = {}
     clock = time.perf_counter()
@@ -495,13 +499,14 @@ def tailor(
         if pause is not None:
             pause(stage)
 
+    # Reading the ad holds no lock: it touches nothing stored.
+    analysis = jd.analyse(ad["text"])
     with transaction(conn):
         master_row = store.current_master()
         if master_row is None:
             raise NotFound("there is no Master resume yet")
         revision = store.checkpoint_revision(master_row.id, "MANUAL_CHECKPOINT")
         master = revision.content
-        analysis = jd.analyse(ad["text"])
         snap = store.create_jd_snapshot(
             text=ad["text"], title=ad["title"], company=ad.get("company"),
             job_id=ad.get("job_id"), url=ad.get("url"), language=analysis.language,
@@ -573,11 +578,7 @@ def validate(
         problems.append(
             {"check": "EVIDENCE", "ref": line_id, "detail": "evidence not confirmed now"}
         )
-    latest = conn.execute(
-        "SELECT id FROM resume_revision WHERE document_id = ? ORDER BY seq DESC LIMIT 1",
-        (master_id,),
-    ).fetchone()
-    if latest is None or latest["id"] != revision_id:
+    if ResumeStore(conn).latest_revision_id(master_id) != revision_id:
         problems.append({"check": "MASTER", "ref": master_id, "detail": "the Master moved"})
     for p in problems:
         p["outcome"] = "FAIL"
@@ -585,12 +586,7 @@ def validate(
 
 
 def _requirement(r: jd.Requirement) -> dict[str, Any]:
-    return {
-        "id": r.id, "quote": r.source_quote, "start": r.start, "section": r.section,
-        "kind": r.kind, "hardness": r.hardness, "importance": r.importance,
-        "language": r.language, "concepts": list(r.concepts), "named": list(r.named),
-        "also_quoted": list(r.also_quoted),
-    }  # fmt: skip
+    return {**dataclasses.asdict(r), "quote": r.source_quote}
 
 
 def _support(s: Support) -> dict[str, Any]:
@@ -677,3 +673,48 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
         "changes": changes,
         "suggestions": [s for s in suggestions if s["key"] not in dismissed],
     }
+
+
+def apply_suggestion(
+    conn: sqlite3.Connection, document_id: str, key: str, *, expected_sha256: str
+) -> StoredDocument:
+    """Make one suggestion's exact change, from the confirmed text AS IT IS NOW.
+
+    The browser names the suggestion; it never supplies the line. A suggestion
+    that no longer stands (applied, dismissed, or its evidence changed) is
+    refused rather than guessed at."""
+    store = ResumeStore(conn)
+    with transaction(conn):
+        stored = store.get_document(document_id)
+        found = next((s for s in explain(conn, stored)["suggestions"] if s["key"] == key), None)
+        action = found and found["action"]
+        if not action:
+            raise ResumeStoreError("this suggestion no longer applies")
+        data = stored.working.model_dump(mode="json")
+        if action["type"] == "add_bullet":
+            entry = next(e for e in data["experience"] if e["id"] == action["entry_id"])
+            entry["bullets"].insert(0, {
+                "id": new_id(), "text": action["text"], "origin": action["origin"],
+                "evidence_ids": action["evidence_ids"],
+                "requirement_ids": action["requirement_ids"],
+            })  # fmt: skip
+        elif action["type"] == "show":
+            for section in ("experience", "projects", "education"):
+                for entry in data[section]:
+                    for b in entry["bullets"]:
+                        if b["id"] == action["line_id"]:
+                            b["hidden"] = False
+        else:
+            if not data["skills"]:
+                name = {"pt": "Competências", "es": "Habilidades"}.get(
+                    data["language"][:2], "Skills"
+                )
+                data["skills"].append({"id": new_id(), "name": name, "hidden": False, "items": []})
+            data["skills"][0]["items"].insert(0, {
+                "id": new_id(), "label": action["label"], "origin": "EVIDENCE_VERBATIM",
+                "evidence_ids": action["evidence_ids"],
+            })  # fmt: skip
+        store.save_working_copy(
+            document_id, upgrade_resume_document(data), expected_sha256=expected_sha256
+        )
+    return store.get_document(document_id)
