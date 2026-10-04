@@ -602,16 +602,16 @@ def test_apply_is_made_by_the_server_from_the_confirmed_text_now(api: JobsApi) -
     view = call(api, "GET", f"/documents/{made['id']}/job")
     key = next(s["key"] for s in view["suggestions"] if s["kind"] == "UNSHOWN_EVIDENCE")
     with pytest.raises(ApiError) as unknown:
-        call(api, "POST", f"/documents/{made['id']}/apply",
+        call(api, "POST", f"/documents/{made['id']}/accept",
              {"key": "add:nothing", "expected_sha256": saved["sha256"]})  # fmt: skip
     assert unknown.value.status == 409
-    out = call(api, "POST", f"/documents/{made['id']}/apply",
+    out = call(api, "POST", f"/documents/{made['id']}/accept",
                {"key": key, "expected_sha256": saved["sha256"]})  # fmt: skip
     lines = texts(out["document"])
     assert "Built n8n integrations for invoicing." in lines
     assert "Built n8n integrations between HubSpot and the billing system." not in lines
     with pytest.raises(ApiError) as twice:
-        call(api, "POST", f"/documents/{made['id']}/apply",
+        call(api, "POST", f"/documents/{made['id']}/accept",
              {"key": key, "expected_sha256": out["sha256"]})  # fmt: skip
     assert twice.value.status == 409  # applied: it no longer stands
 

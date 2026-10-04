@@ -714,7 +714,7 @@ def register_resume_routes(app: LocalApp) -> None:
             ResumeStore(conn).dismiss_finding(document_id, key)
         return {"dismissed": key}
 
-    def apply(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+    def accept(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
         """Make one suggestion's change on the server, from the confirmed text now."""
         key, sha = body.get("key"), body.get("expected_sha256")
         if set(body) != {"key", "expected_sha256"} or not isinstance(key, str):
@@ -857,6 +857,6 @@ def register_resume_routes(app: LocalApp) -> None:
     app.register("POST", r"/api/resume/tailor", pasted_tailor)
     app.register("GET", one + "/job", job_view)
     app.register("POST", one + "/dismissals", dismiss)
-    app.register("POST", one + "/apply", apply)
+    app.register("POST", one + "/accept", accept)
     app.register("GET", r"/api/resume/legacy", legacy)
     app.register("POST", r"/api/resume/legacy/migrate", legacy_migrate)
