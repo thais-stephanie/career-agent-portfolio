@@ -263,6 +263,10 @@ ORDINARY_WORD_USES: dict[str, frozenset[str]] = {
     # own files and written into her own document. Never a provider payload.
     "resume_doc/master.py": frozenset({"location"}),
     "resume_doc/legacy.py": frozenset({"location"}),
+    # An uploaded resume's own words: where the person says she is (city,
+    # region, country) and where each job or school was, read from HER file
+    # and written into her own document. Never a provider payload.
+    "resume_doc/imports.py": frozenset({"location", "region", "country"}),
     "storage/mvp_repo.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/api.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/presenter.py": frozenset({"employment_type", "salary"}),

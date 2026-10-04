@@ -307,3 +307,86 @@ made but failed a check is kept and says exactly what failed.
 In the editor, Download (PDF, DOCX, JSON) first finishes saving, refuses
 edits that cannot be saved or a copy changed in another window, then shows
 the checks. My resumes shows each document's last export.
+
+## Import: PDF and DOCX
+
+`POST /api/resume/import/read` reads an uploaded PDF or DOCX and returns an
+`ImportProposal` (`resume_doc.imports`): what the file appears to say, for
+review. Nothing is stored by reading it. `POST /api/resume/import/save` saves
+the REVIEWED proposal. Importing is not confirmation: imported text is
+resume content, never Career Evidence, the candidate's identity, a search
+setting or a score input.
+
+* **Intake** (`resume_doc.intake`): only `.pdf` and `.docx`, and the bytes
+  must be that container (a PDF starts with `%PDF-`; a DOCX is a ZIP with a
+  WordprocessingML main part). Read in memory, never written to disk. Limits:
+  10 MB, 20 PDF pages, 400 ZIP members, 20 MB per member and 60 MB in all as
+  declared (the reader never inflates past a declared size), 200,000
+  characters kept. Refused with a reason the page words: a PDF needing a
+  password, a damaged file, macros (`vbaProject`, a macro-enabled main part),
+  a container that is not what its name says. Nothing in a file is run or
+  fetched: no PDF JavaScript or actions, link targets read as text, DOCX
+  external relationships never followed, embedded objects ignored (and said
+  so in the report). A PDF with no text layer is `NO_TEXT`, shown as "We
+  couldn't read text from this PDF" with the ways on (a DOCX, a PDF with
+  selectable text, typing it); there is no OCR.
+* **Lines**: PDF and DOCX become one line shape (`SourceLine`), so one parser
+  reads both. A PDF line keeps pypdf's text and gains the font size, bold and
+  position of the runs it was built from; a DOCX paragraph keeps its style
+  (Title, Heading 1, lists), runs, list level and hyperlinks; table cells are
+  read in reading order as source text, and their layout is not kept.
+* **Parser** (`resume_doc.parse`), deterministic and conservative:
+  * sections by the heading vocabulary the Career Evidence CV reader uses
+    (English, Portuguese, Spanish) or by shape (a heading style, or short,
+    mostly upper case and bold or larger than the body); "Curriculum vitae"
+    is a document title, never a section or a name;
+  * the top of the document gives the name (a prominent line that is
+    nothing else; never "You"), email, phone as typed (Brazilian and other
+    international forms), links (LinkedIn and GitHub by address, others as
+    a portfolio; PDF link annotations give the whole address of a wrapped
+    one) and a location the places resolver names;
+  * entries: a header block (role, organisation, dates) and its lines
+    (bullets by list style, glyph or indent); a PDF's wrapped lines are
+    joined back; bullet text is kept as written, never shortened or
+    corrected;
+  * dates: `2024`, `Jan 2024`, `01/2024`, `2024-01`, month names in the
+    three languages, "Present" / "atual" / "actualidad"; a year stays a year
+    and an open end stays open;
+  * skills split on list punctuation only ("Revenue Operations" stays one
+    item); `Group: a, b` is a group;
+  * anything with no typed home (Languages, Awards, an unknown heading,
+    text above the first section that is not the headline) is kept as
+    "Other content we found", never dropped.
+* **Confidence**: every value is HIGH, MEDIUM or LOW (how sure the reader
+  is that this source text belongs to that field; never a percentage) with
+  its source ("page 1, line 4" or "paragraph 7", and the text). A value is a
+  substring of its source text, except a date (its `YYYY` / `YYYY-MM`
+  reading) and a link (the target the file carries). LOW comes with what is
+  in doubt and the alternatives: two lines that could be the name, a part
+  that could be a place or the company, no role word to tell the role from
+  the company, an unknown heading. Rules of thumb: contact details and
+  bullets are HIGH; a role and company told apart by a role word, a location,
+  a headline are MEDIUM.
+* **Review** ("We found this. Check it before saving."): every value is an
+  editable field with its confidence in words and a mark (never colour
+  alone) and, when not HIGH, the line it came from; LOW fields say "Check
+  this" and get focus first; "View extracted text" shows every line read.
+  Entries, lines, groups and other sections can be removed or added to.
+* **Save**: the server builds the ResumeDocument from the reviewed VALUES
+  only (every line `origin=IMPORTED`, no evidence ids, `created_from=IMPORT`,
+  `import_id` naming the parser version, format and read), validates it like
+  any write and stores it with an `IMPORTED` revision. Missing required
+  fields are named, never filled in. Destinations: an imported resume, or
+  the Master when there is none; with a Master, "make this my new Master"
+  archives the current one (kept whole, with its history) in the same
+  transaction, so there is never a second current Master. The document id
+  is drawn when the file is read: saving the same proposal again (a lost
+  response, a double click) returns the document already saved, and reading
+  the file again is a second import.
+* **Career Evidence, separately**: after saving, "Propose these details for
+  Proof of my work" hands the same file (kept in the page's memory only) to
+  the existing CV reading, which stages suggestions to review one by one and
+  confirms nothing.
+* **Profiles**: a read keeps no server-side state (no token to reuse); the
+  saved document lives in the active profile's database like any other.
+* **Not carried back**: bold emphasis inside a line (the text is kept).

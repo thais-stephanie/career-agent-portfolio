@@ -228,7 +228,9 @@ MAX_UPLOAD_BYTES = 34 * 1024 * 1024
 #: `/api/intake` is the second, and it says so here. It takes SEVERAL documents
 #: in one body -- a CV and a LinkedIn export together -- which is exactly the
 #: kind of route a prefix rule would have admitted without anybody deciding.
-UPLOAD_PATHS = frozenset({"/api/cv/import", "/api/intake"})
+#: `/api/resume/import/read` is the third: one resume, read for review and
+#: never stored.
+UPLOAD_PATHS = frozenset({"/api/cv/import", "/api/intake", "/api/resume/import/read"})
 
 
 #: A Content-Length this server will frame a body by. ASCII only: `str.isdigit`
