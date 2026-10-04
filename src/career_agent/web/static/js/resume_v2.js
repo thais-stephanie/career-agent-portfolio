@@ -41,7 +41,7 @@ import {
   createAutosave, createHistory, evidenceLine, move, newLine, rewordLine, ulid,
 } from './resume_editor.js';
 import { createResumeImport } from './resume_import.js';
-import { createLibrary, legacyNotice } from './resume_library.js';
+import { createLibrary, legacyNotice, versionLabel } from './resume_library.js';
 import { createResumePreview } from './resume_preview.js';
 import { openDrawer } from './ui.js';
 
@@ -169,7 +169,16 @@ export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = 
 
   // -- Home ------------------------------------------------------------------
   async function drawHome() {
-    const [lib, master] = await Promise.all([listResumeDocuments(), getResumeMaster()]);
+    let lib;
+    let master;
+    try {
+      [lib, master] = await Promise.all([listResumeDocuments(), getResumeMaster()]);
+    } catch (error) {
+      views.home.replaceChildren(el('p', {
+        className: 'rve__notice rve__notice--bad', attrs: { role: 'alert' }, text: error.userMessage || t('rv.failed'),
+      }));
+      return;
+    }
     const there = Boolean(master.master);
     const changes = master.evidence_changes
       ? Object.values(master.evidence_changes).reduce((sum, keys) => sum + keys.length, 0) : 0;
@@ -236,7 +245,7 @@ export function createResumeWorkspace({ host, onEvidence = () => {}, onLegacy = 
       recent.length ? el('h2', { className: 'rvw__h2', text: t('rv.home.recent') }) : null,
       recent.length ? el('ul', { className: 'rvl__list' }, recent.map((d) => el('li', { className: 'rvl__row' }, [
         el('div', { className: 'rvl__main' }, [
-          el('p', { className: 'rvl__name', text: d.version_number ? `V${d.version_number} · ${d.title}` : d.title }),
+          el('p', { className: 'rvl__name', text: versionLabel(d) }),
           el('p', { className: 'rvl__meta', text: t('rv.lib.edited', { date: formatDate(d.updated_at) }) }),
         ]),
         smallButton(t('rv.home.continue'), () => void open(d.id).catch(failed), {

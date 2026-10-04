@@ -581,18 +581,19 @@ def test_old_resumes_are_found_and_moved_only_when_asked(moving: tuple[JobsApi, 
     before = _manifest(workspace)
     found = call(api, "GET", "/legacy")
     assert found["state"] == "FOUND" and found["base_resumes"] == 1
-    assert found["job_versions"] == 4 and found["drafts"] == 1 and found["exports"] == 2
-    assert found["unfinished"] == 1 and found["contact"] is True
+    assert found["job_versions"] == 3 and found["drafts"] == 1 and found["exports"] == 2
+    # A run.json that does not parse can never move: it is counted as unfinished.
+    assert found["unfinished"] == 2 and found["contact"] is True
     # Looking moved nothing.
     assert library(api) == {"master": None, "others": [], "jobs": []}
     out = call(api, "POST", "/legacy/migrate")
     assert out["masters"] == 1 and out["job_versions"] == 3 and out["exports"] == 1
-    assert out["failed"] == ["run", "export"] and out["already"] == 0
+    assert out["failed"] == 2 and out["already"] == 0  # the corrupt run, one ambiguous export
     assert _manifest(workspace) == before  # the old files are never changed
     backups = list((api.config.db_path.parent / "resume_helper_backups").glob("*.zip"))
     assert len(backups) == 1
     after = call(api, "GET", "/legacy")
-    assert after["state"] == "MOVED" and after["remaining"] == 1  # the corrupt run
+    assert after["state"] == "MOVED" and after["remaining"] == 0
     with connect(api.config.db_path) as conn:
         counts = resume_row_counts(conn)
         assert ResumeStore(conn).has_legacy_documents()
@@ -618,3 +619,72 @@ def test_no_backup_no_move(moving: tuple[JobsApi, Path], monkeypatch: pytest.Mon
     assert library(api) == {"master": None, "others": [], "jobs": []}
     assert _manifest(workspace) == before
     assert call(api, "GET", "/legacy")["state"] == "FOUND"
+
+
+# ------------------------------------------------------- review regressions
+
+
+def test_used_needs_a_real_job_and_stays_said_once_archived(api: JobsApi) -> None:
+    master(api)
+    job = jobs(api)[0]
+    v1 = call(api, "POST", f"/jobs/{job}/versions")
+    with pytest.raises(ApiError) as unknown:
+        call(api, "POST", "/jobs/no-such-job/used", {"document_id": v1["id"]})
+    assert unknown.value.status == 404
+    call(api, "POST", f"/jobs/{job}/used", {"document_id": v1["id"]})
+    manage(api, v1["id"], "archive")
+    answer = call(api, "GET", f"/jobs/{job}")
+    assert answer["versions"] == []
+    assert answer["used"]["archived"] is True and answer["used"]["version_number"] == 1
+
+
+def test_only_the_newest_matching_revision_is_current(api: JobsApi) -> None:
+    source = imported(api)
+    doc = source["document"]
+    saved = call(
+        api,
+        "PATCH",
+        f"/documents/{source['id']}/working",
+        {"document": {**doc, "title": "Edited"}, "expected_sha256": source["sha256"]},
+    )
+    call(api, "POST", f"/documents/{source['id']}/checkpoint", {"reason": "MANUAL_CHECKPOINT"})
+    first = call(api, "GET", f"/documents/{source['id']}/history")["revisions"][-1]["id"]
+    call(
+        api,
+        "POST",
+        f"/documents/{source['id']}/restore",
+        {"revision_id": first, "expected_sha256": saved["sha256"]},
+    )
+    log = call(api, "GET", f"/documents/{source['id']}/history")["revisions"]
+    assert [r["current"] for r in log] == [True, False, False]  # RESTORED, not CREATED too
+
+
+def test_a_pasted_ads_version_gets_its_next_version_by_copy(api: JobsApi) -> None:
+    mine = master(api)
+    with connect(api.config.db_path) as conn:
+        store = ResumeStore(conn)
+        snap = store.create_jd_snapshot(text="An invented pasted ad.", title="Invented Role")
+        data = mine["document"] | {
+            "id": new_id(),
+            "kind": "TAILORED",
+            "title": "Invented Role",
+            "target": {"jd_snapshot_id": snap.id, "title": "Invented Role"},
+            "provenance": {"created_from": "MASTER_COPY"},
+        }
+        pasted = store.create_document(upgrade_resume_document(data))
+    (group,) = library(api)["jobs"]
+    assert group["job_id"] is None and group["key"].startswith("jd:")
+    copy = call(api, "POST", f"/documents/{pasted.id}/copy", {})
+    assert copy["version_number"] == 2
+
+
+def test_forgetting_everything_takes_the_old_helpers_backups_too(
+    moving: tuple[JobsApi, Path],
+) -> None:
+    from career_agent.resume_doc.store import forget_resume_data
+
+    api, _ = moving
+    call(api, "POST", "/legacy/migrate")
+    (backup,) = (api.config.db_path.parent / "resume_helper_backups").glob("*.zip")
+    with connect(api.config.db_path) as conn:
+        assert backup.resolve() in {p.resolve() for p in forget_resume_data(conn)}

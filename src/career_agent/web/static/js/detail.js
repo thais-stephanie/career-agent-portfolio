@@ -37,6 +37,7 @@ import { adTools, createPractice, jobMark, setJobMark } from './practice.js';
 import { t, tState } from './i18n.js';
 import { cautionOf, markChecked } from './caution.js';
 import * as api from './api.js';
+import { versionLabel } from './resume_library.js';
 
 //: The gates, in the order "Can you take this job?" shows them.
 const GATE_ORDER = ['geography', 'work_authorization', 'worksite', 'travel', 'clearance', 'credential', 'requirement'];
@@ -1067,7 +1068,12 @@ export function createDrawer({
       Promise.resolve(resumeFor(job.job_id)).then((answer) => {
         madeFor.set(job.job_id, answer);
         if (currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
-      }).catch(() => madeFor.delete(job.job_id));
+      }).catch(() => {
+        // Unknown is not "none": the step offers its way in (which says itself
+        // if a Master is missing), and the next open of this job asks again.
+        madeFor.set(job.job_id, { versions: [], used: null, has_master: true });
+        if (currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
+      });
     }
     const done = [read, step2, step3];
     const count = done.filter(Boolean).length;
@@ -1161,9 +1167,9 @@ export function createDrawer({
    */
   function tailorStep(job, answer) {
     const host = el('div', { className: 'd-tailor', attrs: { role: 'group', 'aria-label': t('tailor.groupLabel') } });
-    const go = (fn) => () => onResume && fn();
     const create = (className = 'btn btn--primary d-tailor__btn') => button(t('prep3.s3Make'),
-      go(() => onResume.create(job)), { className, attrs: { id: 'drawer-open-tailor' } });
+      (event) => { event.currentTarget.disabled = true; onResume.create(job); },
+      { className, attrs: { id: 'drawer-open-tailor' } });
     if (answer === null) {
       replace(host, [el('p', { className: 'd-step__text', text: t('rv.lib.loading') })]);
       host.dataset.tailor = 'loading';
@@ -1174,23 +1180,23 @@ export function createDrawer({
       // A version is named after its job until renamed; then its name is news.
       const byDefault = [job.title, job.company_name].filter(Boolean).join(' \u00b7 ');
       const mark = (v) => button(t('rv.job.markUsed'), async (event) => {
-        event.currentTarget.disabled = true;
+        const button = event.currentTarget;
+        button.disabled = true;
         try {
           madeFor.set(job.job_id, { ...answer, used: (await api.markResumeUsed(job.job_id, v.id)).used });
         } catch (error) {
-          event.currentTarget.disabled = false;
+          button.disabled = false;
+          const said = error.userMessage || t('rv.failed');
+          button.after(el('span', { className: 'd-note', attrs: { role: 'alert' }, text: said }));
           return;
         }
         if (currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
       }, { className: 'd-link', ariaLabel: `${t('rv.job.markUsed')}: V${v.version_number}` });
       const rows = answer.versions.map((v) => el('li', { className: 'd-resumes__row' }, [
-        el('span', {
-          className: 'd-resumes__name',
-          text: v.title === byDefault ? `V${v.version_number}` : `V${v.version_number} \u00b7 ${v.title}`,
-        }),
+        el('span', { className: 'd-resumes__name', text: versionLabel(v, byDefault) }),
         v.preferred ? el('span', { className: 'tpill tpill--m1', text: `\u2605 ${t('rv.lib.preferred')}` }) : null,
         used === v.id ? el('span', { className: 'tpill tpill--blue', text: `\u2713 ${t('rv.job.used')}` }) : null,
-        button(t('rv.open'), go(() => onResume.open(v.id)), {
+        button(t('rv.open'), () => onResume.open(v.id), {
           className: 'd-link', ariaLabel: `${t('rv.open')}: V${v.version_number}`,
         }),
         used === v.id || v.archived ? null : mark(v),
@@ -1199,8 +1205,18 @@ export function createDrawer({
       replace(host, [
         el('p', { className: 'd-step__text', text: t('rv.job.versions') }),
         el('ul', { className: 'd-resumes' }, rows),
+        // The resume said to be used stays said, even once archived.
+        answer.used && !answer.versions.some((v) => v.id === used)
+          ? el('p', {
+            className: 'd-step__text',
+            text: t('rv.job.usedArchived', { name: versionLabel(answer.used, byDefault) }),
+          })
+          : null,
         el('div', { className: 'd-tailor__actions' }, [
-          button(t('rv.lib.another'), go(() => onResume.another(job, from.id)), {
+          button(t('rv.lib.another'), (event) => {
+            event.currentTarget.disabled = true;
+            onResume.create(job, from.id);
+          }, {
             className: 'btn d-tailor__btn', attrs: { id: 'drawer-another-version' },
           }),
         ]),
@@ -1216,7 +1232,7 @@ export function createDrawer({
     const needsMaster = () => {
       replace(host, [
         el('p', { className: 'd-step__text', text: t('rv.job.needMaster') }),
-        button(t('rv.job.toResumes'), go(() => onResume.home()), {
+        button(t('rv.job.toResumes'), () => onResume.home(), {
           className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-to-resumes' },
         }),
       ]);

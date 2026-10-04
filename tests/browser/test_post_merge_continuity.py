@@ -444,7 +444,8 @@ def _open_first_job(page: Chrome, base: str) -> None:
     page.wait_for("document.querySelector('#list [data-job-id]')", timeout=20)
     page.evaluate("document.querySelector('#list [data-job-id]').click()")
     page.wait_for(
-        "document.querySelector('.d-tailor')?.dataset.tailor", message="the Tailor section"
+        "!['loading', undefined].includes(document.querySelector('.d-tailor')?.dataset.tailor)",
+        message="the resume step, settled",
     )
 
 

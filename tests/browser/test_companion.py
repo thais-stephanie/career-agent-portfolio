@@ -54,6 +54,8 @@ def test_the_previous_helper_is_a_fallback_reached_from_settings(page, pristine_
     assert page.evaluate("document.getElementById('pagehead-title').textContent") == (
         "Legacy Resume Helper"
     )
+    # Nothing has moved here, so the old helper does not say it only shows.
+    assert page.evaluate("document.querySelector('#page-resume-legacy > .rve__notice').hidden")
 
 
 def test_a_jobs_resume_step_leads_to_resumes_in_this_window(page, pristine_server):

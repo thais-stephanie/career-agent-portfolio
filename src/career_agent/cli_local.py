@@ -3492,8 +3492,9 @@ def forget_command(
                 f"clear resumes in {path}: {resumes['resume_document']} resumes,"
                 f" {resumes['resume_revision']} saved versions,"
                 f" {resumes['jd_snapshot']} job ads, {resumes['resume_export']} export records"
-                " and their files in this profile's folder (copies you downloaded,"
-                " and the Resume helper's own folder, stay)"
+                " and their files in this profile's folder, with the backups made before"
+                " moving the old Resume helper's resumes (copies you downloaded, and the"
+                " Resume helper's own folder, stay)"
             )
 
     typer.secho("This will:", bold=True)

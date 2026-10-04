@@ -10939,9 +10939,6 @@ table.jobs .cell__title-btn { max-width: 100%; }
    it. Only the stage around the paper lives in this stylesheet.
    ========================================================================= */
 .rvw { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.rvw__head { display: flex; flex-direction: column; gap: 4px; }
-.rvw__title { margin: 0; font-family: var(--display); font-size: 28px; line-height: 1.15; }
-.rvw__sub { margin: 0; font-size: 14px; color: var(--body2); }
 .rvw__empty, .rvp__status { margin: 0; font-size: 13px; color: var(--body2); }
 .rvw__tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .rvw__tab {
@@ -10959,11 +10956,6 @@ table.jobs .cell__title-btn { max-width: 100%; }
 }
 .rvw__card p { margin: 0; color: var(--body2); font-size: 14px; }
 .rvw__cardtitle, .rvw__h2 { margin: 0; font-size: 17px; }
-.rvw__row {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px;
-  border: 1px solid var(--divider); border-radius: 10px; background: var(--surface);
-}
-.rvw__rowtitle { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
 .rvw__kind { font-size: 12px; color: var(--body2); }
 
 /* -- the editor: fields left, the paper right; stacked when narrow -------- */

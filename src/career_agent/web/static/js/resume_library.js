@@ -53,9 +53,28 @@ function metaLine(item) {
   ].filter(Boolean).join(' · ');
 }
 
+/** "V2", or "V2 · US version" once renamed: a version is named after its job until then. */
+export function versionLabel(item, heading = '') {
+  const number = item.version_number ? `V${item.version_number}` : '';
+  return [number, item.title === heading ? '' : item.title].filter(Boolean).join(' \u00b7 ');
+}
+
 export function createLibrary({ onOpen, onOpenRestored, onHome, onImport }) {
   let filter = 'all';
   let current = null;
+  let busy = false;
+  /** Run one act at a time; a click while one is out does nothing. */
+  async function once(fn) {
+    if (busy) return;
+    busy = true;
+    try {
+      await fn();
+    } catch (error) {
+      status.textContent = failure(error);
+    } finally {
+      busy = false;
+    }
+  }
   const status = el('p', { className: 'rvl__status', attrs: { role: 'status', 'aria-live': 'polite' } });
   const filters = el('div', { className: 'rvl__filters', attrs: { role: 'group' } });
   const body = el('div', { className: 'rvl__body' });
@@ -132,12 +151,9 @@ export function createLibrary({ onOpen, onOpenRestored, onHome, onImport }) {
   const list = (rows) => el('ul', { className: 'rvl__list' }, rows);
 
   // -- one resume ------------------------------------------------------------
-  function row(item, group = null) {
+  function row(item, group = null, heading = '') {
     const panel = el('div', { className: 'rvl__panel' });
-    // In a job's group a version is its number; its own name only when renamed.
-    const heading = group ? [group.title, group.company].filter(Boolean).join(' · ') : '';
-    const number = item.version_number ? `V${item.version_number}` : '';
-    const name = [number, item.title === heading ? '' : item.title].filter(Boolean).join(' · ');
+    const name = versionLabel(item, heading);
     const more = el('details', { className: 'rvl__more' });
     const close = () => { more.open = false; };
     const act = (label, fn) => small(label, () => { close(); fn(); });
@@ -199,23 +215,16 @@ export function createLibrary({ onOpen, onOpenRestored, onHome, onImport }) {
     await load({ focus: item.id, said });
   }
 
-  async function duplicate(item) {
-    try {
-      const made = await copyResume(item.id, t('rv.lib.copyTitle', { title: item.title }));
-      await load({ focus: made.id, said: t('rv.lib.copied') });
-    } catch (error) {
-      status.textContent = failure(error);
-    }
-  }
+  const duplicate = (item) => once(async () => {
+    const made = await copyResume(item.id, t('rv.lib.copyTitle', { title: item.title }));
+    await load({ focus: made.id, said: t('rv.lib.copied') });
+  });
 
-  async function another(group, item) {
-    try {
-      const made = await createJobResume(group.job_id, item.id);
-      onOpen(made.id);
-    } catch (error) {
-      status.textContent = failure(error);
-    }
-  }
+  // A pasted ad's versions have no job id: a copy is that group's next version too.
+  const another = (group, item) => once(async () => {
+    const made = group.job_id ? await createJobResume(group.job_id, item.id) : await copyResume(item.id);
+    onOpen(made.id);
+  });
 
   function rename(item, panel) {
     const input = el('input', {
@@ -324,7 +333,7 @@ export function createLibrary({ onOpen, onOpenRestored, onHome, onImport }) {
     const versions = group.versions;
     return el('article', { className: 'rvl__group', dataset: { group: group.key } }, [
       el('h3', { className: 'rvl__grouptitle', text: heading }),
-      list(versions.map((v) => row(v, group))),
+      list(versions.map((v) => row(v, group, heading))),
       versions.length > 1 && !versions.some((v) => v.archived)
         ? small(t('rv.cmp.open'), () => drawCompare(group, panel))
         : null,
@@ -373,8 +382,7 @@ export function createLibrary({ onOpen, onOpenRestored, onHome, onImport }) {
 
 /** Where a change is, in words: a section's name, or an entry's own name. */
 function whereOf(change) {
-  if (['section', 'headline', 'summary'].includes(change.area)) return t(`rv.section.${change.where}`);
-  if (change.area === 'entry') return t(`rv.section.${change.where === 'custom' ? 'custom' : change.where}`);
+  if (['section', 'headline', 'summary', 'entry'].includes(change.area)) return t(`rv.section.${change.where}`);
   if (change.area === 'skill') return t('rv.section.skills');
   if (change.area === 'order') return t('rv.section.layout');
   return change.where || t('rv.untitled');
@@ -412,21 +420,24 @@ function drawChanges(host, answer) {
 
 const NOT_NOW = 'careerAgent.rv.legacyNotNow.v1';
 
-function notNow(profile) {
+/** "Not now", per profile and per browser; without storage the message just comes back. */
+function notNowAnswers() {
   try {
-    return (JSON.parse(window.localStorage.getItem(NOT_NOW) || '{}') || {})[profile || 'default'] === true;
+    return JSON.parse(window.localStorage.getItem(NOT_NOW) || '{}') || {};
   } catch {
-    return false;
+    return {};
   }
 }
 
-function rememberNotNow(profile) {
+const answerOf = (found) => `${found.state}:${found.remaining}`;
+const notNow = (profile, found) => notNowAnswers()[profile || 'default'] === answerOf(found);
+
+function rememberNotNow(profile, found) {
   try {
-    const all = JSON.parse(window.localStorage.getItem(NOT_NOW) || '{}') || {};
-    all[profile || 'default'] = true;
+    const all = { ...notNowAnswers(), [profile || 'default']: answerOf(found) };
     window.localStorage.setItem(NOT_NOW, JSON.stringify(all));
   } catch {
-    // Without storage the message simply comes back next time.
+    // Not remembered: asked again next time.
   }
 }
 
@@ -442,7 +453,7 @@ export async function legacyNotice({ profile, onMoved, onLegacy, force = false }
     return null;
   }
   const retry = found.state === 'MOVED' && found.remaining > 0;
-  if (found.state === 'NONE' || (found.state === 'MOVED' && !retry) || (!force && !retry && notNow(profile))) {
+  if (found.state === 'NONE' || (found.state === 'MOVED' && !retry) || (!force && notNow(profile, found))) {
     return null;
   }
   const box = el('section', {
@@ -461,14 +472,14 @@ export async function legacyNotice({ profile, onMoved, onLegacy, force = false }
         small(t(retry ? 'rv.legacy.retry' : 'rv.legacy.review'), () => preflight(), {
           className: 'btn btn--small btn--primary',
         }),
-        retry ? null : small(t('rv.legacy.notNow'), () => { rememberNotNow(profile); box.remove(); }),
+        small(t('rv.legacy.notNow'), () => { rememberNotNow(profile, found); box.remove(); }),
       ]),
     ]);
   }
 
   function preflight() {
     const counts = [
-      ['contact', found.contact ? 1 : 0],
+      ['contactOne', found.contact ? 1 : 0],
       ['base', found.base_resumes],
       ['versions', found.job_versions],
       ['drafts', found.drafts],
@@ -510,10 +521,10 @@ export async function legacyNotice({ profile, onMoved, onLegacy, force = false }
     say([
       el('p', { attrs: { role: 'status' }, text: t(nothingNew ? 'rv.legacy.already' : 'rv.legacy.done') }),
       moved.length ? el('ul', { className: 'rvl__what' }, moved) : null,
-      out.failed.length
-        ? el('p', { attrs: { role: 'alert' }, text: tCount('rv.legacy.someFailed', { n: out.failed.length }) })
+      out.failed
+        ? el('p', { attrs: { role: 'alert' }, text: tCount('rv.legacy.someFailed', { n: out.failed }) })
         : null,
-      out.failed.length ? el('div', { className: 'rvl__rename' }, [fallback]) : null,
+      out.failed ? el('div', { className: 'rvl__rename' }, [fallback]) : null,
       small(t('rv.legacy.seeThem'), () => onMoved(), { className: 'btn btn--small btn--primary' }),
     ]);
     box.querySelector('h2').focus();

@@ -512,7 +512,7 @@ const EN = {
   'prep3.details': 'See each requirement in detail',
   'prep3.s3': '3. Have a resume version for this job',
   'prep3.s3Text': 'A version of your resume for this job: a copy of your Master for you to edit. Nothing is '
-    + 'rewritten for you.',
+    + 'rewritten automatically.',
   'prep3.s3Make': 'Create a version for this job',
   'prep3.good': 'Good to know',
   'practice.head': 'Practice for the interview',
@@ -1984,7 +1984,11 @@ const EN = {
   'rv.lib.unarchived': 'Back in My resumes.',
   'rv.lib.makeMaster': 'Make Master',
   'rv.lib.masterQ': 'Make {title} your Master resume?',
-  'rv.lib.masterDetail': 'Your current Master is archived, never deleted, and keeps its history.',
+  'rv.lib.masterDetail': 'Your new Master is a copy of this resume, which then moves to Archived. Your current '
+    + 'Master is archived too, never deleted, and both keep their history.',
+  'rv.job.usedArchived': 'Used for this application: {name} (archived)',
+  'rv.legacy.readOnly': 'Your resumes from here moved to Resumes. This helper only shows them now: change them '
+    + 'in Resumes.',
   'rv.lib.masterSaid': 'This is your Master resume now. The previous one is under Archived.',
   'rv.lib.history': 'View history',
   'rv.lib.loading': 'Loading...',
@@ -2057,7 +2061,6 @@ const EN = {
   'rv.legacy.review': 'Review and move them',
   'rv.legacy.notNow': 'Not now',
   'rv.legacy.willMove': 'This will be moved:',
-  'rv.legacy.what.contact': 'Your contact details',
   'rv.legacy.what.contactOne': 'Your contact details',
   'rv.legacy.what.base': '{n} base resumes',
   'rv.legacy.what.baseOne': '1 base resume',
@@ -4708,7 +4711,7 @@ const PT_BR = {
   'prep3.details': 'Ver cada requisito em detalhe',
   'prep3.s3': '3. Tenha uma versão do currículo para esta vaga',
   'prep3.s3Text': 'Uma versão do seu currículo para esta vaga: uma cópia do seu mestre para você editar. Nada é '
-    + 'reescrito por você.',
+    + 'reescrito automaticamente.',
   'prep3.s3Make': 'Criar uma versão para esta vaga',
   'prep3.good': 'Bom saber',
   'practice.head': 'Treine para a entrevista',
@@ -6104,7 +6107,11 @@ const PT_BR = {
   'rv.lib.unarchived': 'De volta em Meus currículos.',
   'rv.lib.makeMaster': 'Tornar mestre',
   'rv.lib.masterQ': 'Tornar {title} o seu currículo mestre?',
-  'rv.lib.masterDetail': 'O mestre atual é arquivado, nunca apagado, e mantém o histórico.',
+  'rv.lib.masterDetail': 'O novo mestre é uma cópia deste currículo, que vai para Arquivados. O mestre atual também '
+    + 'é arquivado, nunca apagado, e os dois mantêm o histórico.',
+  'rv.job.usedArchived': 'Usado nesta candidatura: {name} (arquivado)',
+  'rv.legacy.readOnly': 'Seus currículos daqui foram para Currículos. Esta ajuda agora só os mostra: altere-os em '
+    + 'Currículos.',
   'rv.lib.masterSaid': 'Este agora é o seu currículo mestre. O anterior está em Arquivados.',
   'rv.lib.history': 'Ver histórico',
   'rv.lib.loading': 'Carregando...',
@@ -6178,7 +6185,6 @@ const PT_BR = {
   'rv.legacy.review': 'Revisar e trazer',
   'rv.legacy.notNow': 'Agora não',
   'rv.legacy.willMove': 'Isto será trazido:',
-  'rv.legacy.what.contact': 'Seus dados de contato',
   'rv.legacy.what.contactOne': 'Seus dados de contato',
   'rv.legacy.what.base': '{n} currículos-base',
   'rv.legacy.what.baseOne': '1 currículo-base',

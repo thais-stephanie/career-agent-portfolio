@@ -155,7 +155,6 @@ def _library(rows: list[dict[str, Any]]) -> dict[str, Any]:
                     "job_id": row["job_id"],
                     "title": row["job_title"],
                     "company": row["job_company"],
-                    "updated_at": row["updated_at"],
                     "versions": [],
                 },
             )
@@ -541,6 +540,8 @@ def register_resume_routes(app: LocalApp) -> None:
         with closing(app.connect()) as conn:
             doc = _one(conn, document_id)
             log = ResumeStore(conn).revision_log(document_id)
+        # The newest revision holding what is on screen is the current one.
+        current = next((r["id"] for r in log if r["content_sha256"] == doc.working_sha256), None)
         return {
             "sha256": doc.working_sha256,
             "revisions": [
@@ -549,7 +550,7 @@ def register_resume_routes(app: LocalApp) -> None:
                     "seq": r["seq"],
                     "reason": r["reason"],
                     "created_at": r["created_at"],
-                    "current": r["content_sha256"] == doc.working_sha256,
+                    "current": r["id"] == current,
                 }
                 for r in log
             ],
@@ -606,7 +607,7 @@ def register_resume_routes(app: LocalApp) -> None:
         """This job's resume versions (newest first) and the one marked as used."""
         with closing(app.connect()) as conn:
             store = ResumeStore(conn)
-            rows = [r for r in store.summaries() if r["version_group"] == f"job:{job_id}"]
+            rows = store.summaries(version_group=f"job:{job_id}")
             return {
                 "versions": sorted((_listed(r) for r in rows), key=lambda v: -v["version_number"]),
                 "used": store.used_for(job_id),
@@ -658,6 +659,8 @@ def register_resume_routes(app: LocalApp) -> None:
             raise ApiError(400, "Say which resume you used.")
         with closing(app.connect()) as conn:
             store = ResumeStore(conn)
+            if conn.execute("SELECT 1 FROM job WHERE id = ?", (job_id,)).fetchone() is None:
+                raise ApiError(404, "This job is not in this profile.")
             if body["document_id"] is None:
                 store.clear_used(job_id)
             else:
@@ -671,11 +674,11 @@ def register_resume_routes(app: LocalApp) -> None:
     # -- the old Resume helper's resumes -------------------------------------
 
     def labels() -> list[str]:
-        active = getattr(getattr(app, "profile_host", None), "active", None)
-        label = getattr(active, "label", None)
+        label = getattr(getattr(getattr(app, "profile_host", None), "active", None), "label", None)
         return [str(label)] if label else []
 
     def legacy_root() -> Any:
+        """This profile's old workspace, or None (no launcher, so no profile)."""
         from career_agent.resume_doc.legacy import find_workspace
 
         host = getattr(app, "profile_host", None)
@@ -703,7 +706,7 @@ def register_resume_routes(app: LocalApp) -> None:
             backup_legacy_workspace,
             migrate_legacy_workspace,
         )
-        from career_agent.resume_doc.store import export_root
+        from career_agent.resume_doc.store import legacy_backup_dir
 
         if body:
             raise ApiError(400, "Nothing is sent to move the old resumes.")
@@ -712,9 +715,7 @@ def register_resume_routes(app: LocalApp) -> None:
             raise ApiError(404, "There are no old resumes to move.", for_reader=True)
         with closing(app.connect()) as conn:
             try:
-                backup = backup_legacy_workspace(
-                    root, export_root(conn).parent / "resume_helper_backups"
-                )
+                backup = backup_legacy_workspace(root, legacy_backup_dir(conn))
             except (OSError, ValueError, LegacyMigrationError) as exc:
                 raise ApiError(
                     409,
@@ -731,10 +732,12 @@ def register_resume_routes(app: LocalApp) -> None:
                     for_reader=True,
                     code="migration_refused",
                 ) from exc
+            marks = ",".join("?" * len(report.created)) or "NULL"
             kinds = [
-                ResumeStore(conn).get_document(i).kind.value
-                for i in report.created
-                if conn.execute("SELECT 1 FROM resume_document WHERE id = ?", (i,)).fetchone()
+                r[0]
+                for r in conn.execute(
+                    f"SELECT kind FROM resume_document WHERE id IN ({marks})", report.created
+                )
             ]
         return {
             "masters": kinds.count("MASTER"),
@@ -742,8 +745,8 @@ def register_resume_routes(app: LocalApp) -> None:
             "job_versions": kinds.count("TAILORED"),
             "exports": len(report.created) - len(kinds),
             "already": len(report.already),
-            "failed": [f["unit"].split(" ")[0] for f in report.failures],
-            "notes": len(report.notes),
+            # How many units stayed behind; never their legacy names or ids.
+            "failed": len(report.failures),
         }
 
     app.register("POST", r"/api/resume/import/read", import_read)

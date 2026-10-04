@@ -357,7 +357,7 @@ def test_a_version_for_a_job_is_a_copy_made_by_hand(
     page.evaluate("document.getElementById('drawer-tab-prepare').click()")
     page.wait_for("document.querySelector('.d-tailor')?.dataset.tailor === 'ready'")
     text = page.evaluate("document.querySelector('.d-tailor').closest('.d-step').innerText")
-    assert "Nothing is rewritten for you." in text
+    assert "Nothing is rewritten automatically." in text
     for claim in ("Tailor", "Optimized", "optimized", "Matched to this job"):
         assert claim not in text, claim
     page.evaluate("document.getElementById('drawer-open-tailor').click()")

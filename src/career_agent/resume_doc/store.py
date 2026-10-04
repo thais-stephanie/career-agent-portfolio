@@ -535,9 +535,12 @@ class ResumeStore:
                 upgrade_resume_document(data), parent_document_id=master.id, now=now
             )
 
-    def summaries(self, *, archived: bool = False) -> list[dict[str, Any]]:
+    def summaries(
+        self, *, archived: bool = False, version_group: str | None = None
+    ) -> list[dict[str, Any]]:
         """What a list of resumes shows, in ONE query: no document body is
-        parsed here, and each row carries its job and its latest export."""
+        parsed here, and each row carries its job and its latest export.
+        `version_group` narrows it to one job's versions."""
         rows = self.conn.execute(
             "SELECT d.id, d.kind, d.title, d.version_group, d.version_number, d.preferred,"
             " d.archived_at, d.created_at, d.updated_at,"
@@ -549,9 +552,9 @@ class ResumeStore:
             " LEFT JOIN jd_snapshot s ON s.id = d.jd_snapshot_id"
             " LEFT JOIN resume_export e ON e.id = (SELECT x.id FROM resume_export x"
             "   WHERE x.document_id = d.id ORDER BY x.created_at DESC, x.id DESC LIMIT 1)"
-            " WHERE (d.archived_at IS NOT NULL) = ?"
+            " WHERE (d.archived_at IS NOT NULL) = ? AND (? IS NULL OR d.version_group = ?)"
             " ORDER BY d.updated_at DESC, d.id",
-            (1 if archived else 0,),
+            (1 if archived else 0, version_group, version_group),
         )
         return [dict(r) for r in rows]
 
@@ -587,11 +590,13 @@ class ResumeStore:
 
     def used_for(self, job_id: str) -> dict[str, Any] | None:
         row = self.conn.execute(
-            "SELECT a.document_id, a.marked_at, r.seq AS revision_seq FROM application_resume a"
-            " JOIN resume_revision r ON r.id = a.revision_id WHERE a.job_id = ?",
+            "SELECT a.document_id, a.marked_at, r.seq AS revision_seq, d.title,"
+            " d.version_number, d.archived_at IS NOT NULL AS archived"
+            " FROM application_resume a JOIN resume_revision r ON r.id = a.revision_id"
+            " JOIN resume_document d ON d.id = a.document_id WHERE a.job_id = ?",
             (job_id,),
         ).fetchone()
-        return dict(row) if row else None
+        return {**dict(row), "archived": bool(row["archived"])} if row else None
 
     def has_legacy_documents(self) -> bool:
         """Whether resumes of the old Resume helper were moved here."""
@@ -962,10 +967,22 @@ def forget_resume_data(conn: sqlite3.Connection) -> list[Path]:
             conn.execute(f"DELETE FROM {table}")
         for sql in guards:
             conn.execute(sql)
+    # The verified backups made before moving the old helper's resumes are
+    # copies of resume data too, kept beside the database: they go as well.
+    backups = sorted(legacy_backup_dir(conn).glob("*.zip")) if _has_folder(conn) else []
     if root is None:
-        return []
+        return backups
     paths = [(root / name).resolve() for name in files]
-    return [p for p in paths if p.is_relative_to(root)]
+    return [p for p in paths if p.is_relative_to(root)] + backups
+
+
+def _has_folder(conn: sqlite3.Connection) -> bool:
+    return any(row[1] == "main" and row[2] for row in conn.execute("PRAGMA database_list"))
+
+
+def legacy_backup_dir(conn: sqlite3.Connection) -> Path:
+    """Where the old helper's workspace is backed up before a move."""
+    return export_root(conn).parent / "resume_helper_backups"
 
 
 def export_root(conn: sqlite3.Connection) -> Path:

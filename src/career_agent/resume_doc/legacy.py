@@ -140,6 +140,14 @@ def find_workspace(home: Path, profile_id: str) -> Path | None:
     return None
 
 
+def _parses(path: Path) -> bool:
+    try:
+        json.loads(path.read_text("utf-8"))
+    except (OSError, ValueError):
+        return False
+    return True
+
+
 def preflight(conn: sqlite3.Connection, root: Path) -> dict[str, Any]:
     """What a migration of `root` would move, read without changing anything.
     `state` is NONE (nothing to move), FOUND (nothing moved yet) or MOVED (moved
@@ -152,7 +160,9 @@ def preflight(conn: sqlite3.Connection, root: Path) -> dict[str, Any]:
         with suppress(OSError, ValueError):
             bases.append(str(json.loads(path.read_text("utf-8"))["id"]))
     folders = sorted(p for p in (root / "applications").glob("*") if p.is_dir())
-    runs = [p.name for p in folders if (p / "run.json").is_file()]
+    # A run.json that does not even parse can never move: it counts as
+    # unfinished, so it does not hold "could not be moved" open forever.
+    runs = [p.name for p in folders if _parses(p / "run.json")]
     exports = [
         p for p in sorted((root / "exports").glob("*")) if p.suffix.lower() in (".pdf", ".docx")
     ]

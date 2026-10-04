@@ -215,8 +215,7 @@ const drawer = createDrawer({
   // copy of the Master made by hand, opened in the Editor; nothing is tailored.
   resumeFor: (jobId) => api.getJobResumes(jobId),
   onResume: {
-    create: (job) => toResumes(() => resumeWorkspace.createForJob(job.job_id)),
-    another: (job, fromId) => toResumes(() => resumeWorkspace.createForJob(job.job_id, fromId)),
+    create: (job, fromId = null) => toResumes(() => resumeWorkspace.createForJob(job.job_id, fromId)),
     open: (id) => toResumes(() => resumeWorkspace.openDocument(id)),
     home: () => toResumes(() => null),
   },
@@ -274,8 +273,19 @@ const PAGES = {
 // header is a contract rather than five headers that happen to look alike.
 const shell = createShell();
 
+// Once this profile's old resumes have moved, the old helper only shows them,
+// and says so above itself (its writes are refused by the server too).
+const legacyNotice = el('p', { className: 'rve__notice', attrs: { role: 'note' }, props: { hidden: true } });
+const legacyHost = el('div');
+PAGES['resume-legacy'].append(legacyNotice, legacyHost);
+function paintLegacyNotice() {
+  legacyNotice.textContent = t('rv.legacy.readOnly');
+  void api.getLegacyResumes().then((found) => { legacyNotice.hidden = found.state !== 'MOVED'; })
+    .catch(() => { legacyNotice.hidden = true; });
+}
+
 const resumeHelper = createResumeHelper({
-  host: PAGES['resume-legacy'],
+  host: legacyHost,
   onOpenJob: (jobId) => {
     store.set({ openJobId: jobId });
     drawer.open(jobId, document.querySelector('.topnav__link[data-page="resume"]'));
@@ -377,7 +387,10 @@ function goTo(page, { push = true, resume = null } = {}) {
   // Leaving Resumes finishes its saving first (and marks the visit).
   if (currentPage === 'resume' && page !== 'resume') void resumeWorkspace.leave();
   currentPage = page;
-  if (page === 'resume-legacy') resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
+  if (page === 'resume-legacy') {
+    paintLegacyNotice();
+    resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
+  }
   if (page === 'resume') resumeWorkspace.show();
 
   for (const [name, node] of Object.entries(PAGES)) {
@@ -3234,7 +3247,7 @@ function relabelStaticText() {
   swap('#view-table', 'view.table');
   swap('#view-kanban', 'view.board');
   swap('#export-good-strong', 'export.goodStrong');
-  resumeHelper.relabel();
+  if (currentPage === 'resume-legacy') resumeHelper.relabel();
   resumeWorkspace.relabel();
   // The two toolbar controls whose words depend on STATE rather than only
   // on the catalogue: which way the sort runs, and whether duplicates are
