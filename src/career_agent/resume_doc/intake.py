@@ -39,7 +39,9 @@ MAX_PAGES = 20
 #: A DOCX's ZIP: entries, any one member, and all members, as declared.
 MAX_MEMBERS = 400
 MAX_MEMBER_BYTES = 20 * 1024 * 1024
-MAX_UNPACKED_BYTES = 60 * 1024 * 1024
+MAX_UNPACKED_BYTES = 40 * 1024 * 1024
+#: The document body itself, which python-docx parses into one XML tree.
+MAX_BODY_BYTES = 8 * 1024 * 1024
 #: Characters kept across the whole document; the rest is reported as cut.
 MAX_TEXT = 200_000
 #: Less text than this across the document is not a text layer.
@@ -145,6 +147,9 @@ def _read_pdf(data: bytes) -> Extracted:
             raise ImportRefused("TOO_MANY_PAGES")
         out = Extracted("PDF", len(reader.pages))
         for number, page in enumerate(reader.pages, start=1):
+            if sum(len(line.text) for line in out.lines) >= MAX_TEXT:
+                out.warnings.append("TEXT_CUT")  # no more pages read once enough text is
+                break
             out.lines += _pdf_page(page, number)
     except ImportRefused:
         raise
@@ -268,7 +273,10 @@ def _check_zip(data: bytes) -> zipfile.ZipFile:
             raise ImportRefused("UNSAFE_CONTAINER")
     if total > MAX_UNPACKED_BYTES:
         raise ImportRefused("UNSAFE_CONTAINER")
-    names = {m.filename for m in members}
+    sizes = {m.filename: m.file_size for m in members}
+    if sizes.get("word/document.xml", 0) > MAX_BODY_BYTES:
+        raise ImportRefused("UNSAFE_CONTAINER")
+    names = set(sizes)
     if "[Content_Types].xml" not in names or "word/document.xml" not in names:
         raise ImportRefused("NOT_THE_TYPE")
     if any(n.lower().endswith("vbaproject.bin") for n in names):

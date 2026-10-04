@@ -320,9 +320,10 @@ setting or a score input.
 * **Intake** (`resume_doc.intake`): only `.pdf` and `.docx`, and the bytes
   must be that container (a PDF starts with `%PDF-`; a DOCX is a ZIP with a
   WordprocessingML main part). Read in memory, never written to disk. Limits:
-  10 MB, 20 PDF pages, 400 ZIP members, 20 MB per member and 60 MB in all as
-  declared (the reader never inflates past a declared size), 200,000
-  characters kept. Refused with a reason the page words: a PDF needing a
+  10 MB, 20 PDF pages, 400 ZIP members, 20 MB per member, 40 MB in all and
+  8 MB for the document body, as declared (the reader never inflates past a
+  declared size), 200,000 characters kept (no further PDF page is read once
+  that is reached). Refused with a reason the page words: a PDF needing a
   password, a damaged file, macros (`vbaProject`, a macro-enabled main part),
   a container that is not what its name says. Nothing in a file is run or
   fetched: no PDF JavaScript or actions, link targets read as text, DOCX
@@ -344,16 +345,25 @@ setting or a score input.
     nothing else; never "You"), email, phone as typed (Brazilian and other
     international forms), links (LinkedIn and GitHub by address, others as
     a portfolio; PDF link annotations give the whole address of a wrapped
-    one) and a location the places resolver names;
+    one) and a location the places resolver names (LOW when it is not beside
+    an email or phone: it could be a company's office); "Resume of" is not
+    part of a name, and a name is HIGH only when nothing else near the top
+    could be one;
   * entries: a header block (role, organisation, dates) and its lines
     (bullets by list style, glyph or indent); a PDF's wrapped lines are
     joined back; bullet text is kept as written, never shortened or
     corrected;
   * dates: `2024`, `Jan 2024`, `01/2024`, `2024-01`, month names in the
-    three languages, "Present" / "atual" / "actualidad"; a year stays a year
-    and an open end stays open;
-  * skills split on list punctuation only ("Revenue Operations" stays one
-    item); `Group: a, b` is a group;
+    three languages (only at a word's start), "Present" / "atual" /
+    "actualidad"; a year stays a year, an academic year (`2010-11`) is
+    never November, and an open end stays open;
+  * an entry ends where the next header with its own dates begins, so older
+    roles without bullets stay separate; header parts that fit no field
+    ("GPA 3.9") are kept as lines marked to check;
+  * skills split on list punctuation only, never inside parentheses
+    ("Revenue Operations" and "Excel (advanced, VBA)" stay one item);
+    `Group: a, b` is a group;
+  * text longer than a field holds is split between words, never dropped;
   * anything with no typed home (Languages, Awards, an unknown heading,
     text above the first section that is not the headline) is kept as
     "Other content we found", never dropped.

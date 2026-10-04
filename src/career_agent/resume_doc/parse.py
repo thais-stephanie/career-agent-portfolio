@@ -73,9 +73,14 @@ PHONE = re.compile(r"(?<![\w/])\+?\(?\d[\d\s().-]{6,20}\d(?![\w/])")
 #: Separators between the parts of a header line. Spaced dashes only: a
 #: hyphen inside a word ("Co-founder") is part of it.
 SEP = re.compile(rf"\s+[|•·]\s+|\s*\|\s*|\s+[{_DASHES}]\s+|\s+(?:at|@|na|no)\s+(?=[A-Z0-9À-Þ])")
+#: "Resume of", "CV de": what is left is the name.
+_OF = re.compile(
+    r"^(?:r[eé]sum[eé]|cv|curr[ií]cul(?:um|o)(?: vitae)?)\s+(?:of|de|do|da)\s+",
+    re.IGNORECASE,
+)
 #: What a document calls itself at the top; never a section, never a name.
 DOC_TITLES = frozenset(
-    {"curriculum vitae", "curriculum", "resume", "cv", "curriculo", "hoja de vida", "resumo"}
+    {"curriculum vitae", "curriculum", "resume", "cv", "curriculo", "hoja de vida"}
 )
 REMOTE = frozenset({"remote", "remoto", "hybrid", "hibrido", "on-site", "onsite", "presencial"})
 DEGREE = re.compile(
@@ -94,9 +99,22 @@ _STOP = {
 # ----------------------------------------------------------------- values
 
 
-def _src(lines: list[SourceLine]) -> Source:
+LIMIT = 5000  # characters a text field holds
+
+
+def _src(lines: list[SourceLine], text: str | None = None) -> Source:
     where = lines[0].where if len(lines) == 1 else f"{lines[0].where} to {lines[-1].where}"
-    return Source(where=where[:80], text=" ".join(line.text for line in lines)[:5000])
+    return Source(where=where[:80], text=(text or " ".join(x.text for x in lines))[:LIMIT])
+
+
+def _chunks(text: str) -> list[str]:
+    """Text a field cannot hold, in pieces it can, cut between words."""
+    out = []
+    while len(text) > LIMIT:
+        cut = text.rfind(" ", 0, LIMIT) if " " in text[:LIMIT] else LIMIT
+        out.append(text[:cut].strip())
+        text = text[cut:].strip()
+    return [*out, text] if text else out
 
 
 def _found(
@@ -108,7 +126,7 @@ def _found(
 ) -> Found | None:
     """A value, only when the source text holds it."""
     value = " ".join(value.split()).strip(" ,;|")
-    source = _src(lines)
+    source = _src(lines, value if len(value) > LIMIT - 200 else None)
     if not value or value.casefold() not in source.text.casefold():
         return None
     return Found(
@@ -123,6 +141,11 @@ def _found(
 def _line(lines: list[SourceLine], text: str | None = None) -> FoundLine | None:
     found = _found(text if text is not None else " ".join(x.text for x in lines), lines)
     return FoundLine(id=new_id(), text=found) if found else None
+
+
+def _lines(lines: list[SourceLine], text: str) -> list[FoundLine]:
+    """One line, or several when it is longer than a line holds."""
+    return [found for piece in _chunks(" ".join(text.split())) if (found := _line(lines, piece))]
 
 
 def _bare(text: str) -> str:
@@ -141,7 +164,8 @@ def _date(token: str) -> str | None:
     """'YYYY' or 'YYYY-MM' for one written date; never a month not written."""
     t = fold(token).strip().rstrip(".")
     if m := re.fullmatch(r"(\d{4})-(\d{2})", t):
-        return f"{m[1]}-{m[2]}"
+        # "2010-11" is the academic year 2010 to 2011, not November.
+        return m[1] if int(m[2]) == (int(m[1][2:]) + 1) % 100 else f"{m[1]}-{m[2]}"
     if m := re.fullmatch(r"(\d{1,2})\s*/\s*(\d{4})", t):
         return f"{m[2]}-{int(m[1]):02d}"
     if m := re.fullmatch(r"([a-z]+)\.?\s*(?:de\s+)?(\d{4})", t):
@@ -202,13 +226,13 @@ def _heading_of(line: SourceLine, body: float) -> tuple[str, Confidence] | None:
     return None
 
 
-def _sections(lines: list[SourceLine]) -> list[_Section]:
-    sizes = sorted(line.size for line in lines if line.size)
-    body = sizes[len(sizes) // 2] if sizes else 0.0
+def _sections(lines: list[SourceLine], body: float) -> list[_Section]:
     out = [_Section("top")]
     for line in lines:
         found = _heading_of(line, body)
-        if found:
+        # A heading nobody uses starts a section only once a known one has:
+        # above that, a bold upper-case line is as likely to be the name.
+        if found and (found[1] != "LOW" or len(out) > 1):
             out.append(_Section(found[0], line, found[1]))
         else:
             out[-1].lines.append(line)
@@ -289,14 +313,23 @@ def _identity(top: list[SourceLine], body: float) -> tuple[FoundIdentity, list[S
             if ident.location is None and len(parts) > 1 and not re.search(r"\d", part):
                 place = resolve_place(part)
                 if len(place.countries) == 1 or fold(part) in REMOTE:
-                    ident.location, contact = _found(part, [line], "MEDIUM"), True
+                    # Beside an email or phone it is where the person is;
+                    # beside anything else it could be a company's office.
+                    personal = bool(EMAIL.search(line.text) or PHONE.search(line.text))
+                    ident.location = _found(
+                        part,
+                        [line],
+                        "MEDIUM" if personal else "LOW",
+                        note=None if personal else "LOCATION_OR_COMPANY",
+                    )
+                    contact = True
         if contact:
             used.add(i)
     ident.links = list(links.values())
     # The name: a prominent line near the top that is nothing else.
     candidates = []
     for i, line in enumerate(top[:8]):
-        text = line.text.strip()
+        text = _OF.sub("", line.text.strip())  # "Resume of Jane Doe": the name is Jane Doe
         words = text.split()
         if i in used or not 2 <= len(words) <= 5 or re.search(r"[\d@/:]", text):
             continue
@@ -306,19 +339,22 @@ def _identity(top: list[SourceLine], body: float) -> tuple[FoundIdentity, list[S
             continue
         big = bool(line.size and body and line.size >= body * 1.3)
         score = 3 * (line.style == "title") + 2 * big + line.bold + (i == 0)
-        candidates.append((score, i, line))
+        candidates.append((score, i, line, text))
     candidates.sort(key=lambda c: (-c[0], c[1]))
     if candidates:
-        score, i, line = candidates[0]
+        score, i, line, text = candidates[0]
         rivals = [c for c in candidates[1:] if c[0] >= score - 1]
         prominent = line.style == "title" or bool(line.size and body and line.size >= body * 1.3)
-        confidence: Confidence = "LOW" if rivals else "HIGH" if prominent else "MEDIUM"
+        # HIGH only when nothing else near the top could be a name: a company
+        # set in a title style would otherwise win on style alone.
+        sole = len(candidates) == 1 and text == line.text.strip()
+        confidence: Confidence = "LOW" if rivals else "HIGH" if prominent and sole else "MEDIUM"
         ident.name = _found(
-            line.text,
+            text,
             [line],
             confidence,
             note="TWO_NAMES" if rivals else None,
-            alternatives=tuple(c[2].text for c in rivals),
+            alternatives=tuple(c[3] for c in candidates[1:4]),
         )
         used.add(i)
     rest = [line for i, line in enumerate(top) if i not in used and not _link_tail(top, i)]
@@ -333,10 +369,12 @@ def _same(url: str, other: str) -> bool:
 
 
 def _link_tail(top: list[SourceLine], i: int) -> bool:
-    """A line holding only the wrapped end of the link above it."""
-    if i == 0 or " " in top[i].text.strip():
+    """A line holding only the wrapped end of a link above it, which the
+    link's own target spells whole."""
+    tail = top[i].text.strip()
+    if i == 0 or " " in tail or not top[i - 1].text.rstrip().endswith(("-", "/")):
         return False
-    return top[i - 1].text.rstrip().endswith(("-", "/")) and bool(top[i - 1].links)
+    return any(t.rstrip("/").casefold().endswith(tail.casefold()) for t in top[i - 1].links)
 
 
 def _add_link(links: dict[str, FoundLink], url: str, source: Source | None, conf: str) -> None:
@@ -380,8 +418,13 @@ def _entries(lines: list[SourceLine], kind: str) -> list[FoundEntry]:
             blocks[-1][1].append(line)
             continue
         prose = len(line.text.split()) >= 12 and not _span(line.text)
-        dated = any(_span(h.text) for h in head)
-        if not blocks or body and not prose or (dated and not _span(line.text) and not prose):
+        # A header that already names something AND has its dates is whole;
+        # a date standing alone first (a date-first layout) is not.
+        dated = any(_span(h.text) for h in head) and any(_named(h.text) for h in head)
+        if not blocks or (body or dated) and not prose and not _place_only(line.text, dated):
+            # After bullets, or after a header that already has its dates,
+            # a header line starts the next entry (older roles often have
+            # no bullets at all).
             blocks.append(([line], []))
         elif prose and head:
             body.append(line)
@@ -453,17 +496,38 @@ def _entry(head: list[SourceLine], body: list[SourceLine], kind: str) -> FoundEn
     else:  # projects: the name, then a role
         entry.title = _pick(named[0] if named else None, "MEDIUM", None, None)
         entry.org = _pick(named[1] if len(named) > 1 else None, "MEDIUM", None, None)
-    entry.lines = _bullets(body)
+    taken = {f.value for f in (entry.title, entry.org, entry.location) if f}
+    kept = [
+        FoundLine(id=new_id(), text=found)
+        for p, ln in [*named, *location]
+        if p not in taken and (found := _found(p, [ln], "LOW", note="HEADER_PART"))
+    ]
+    entry.lines = kept + _bullets(body)
     return entry
+
+
+def _named(text: str) -> bool:
+    """Does a header line name anything besides its dates?"""
+    span = _span(text)
+    return bool(re.search(r"[^\W\d_]", text.replace(span.text, "") if span else text))
+
+
+def _place_only(text: str, dated: bool) -> bool:
+    """A line naming only where a dated entry was: it belongs to that entry."""
+    from career_agent.match.places import resolve_place
+
+    if not dated or _span(text) or len(text.split()) > 5:
+        return False
+    return fold(text.strip()) in REMOTE or len(resolve_place(text).countries) == 1
 
 
 def _bullets(lines: list[SourceLine]) -> list[FoundLine]:
     """One line per item, its bullet glyph dropped, its wrapped lines joined."""
-    return [
-        found
-        for item in _items(lines)
-        if (found := _line(item, _bare(" ".join(x.text for x in item))))
-    ]
+    return [found for item in _items(lines) for found in _lines(item, _bare(_join(item)))]
+
+
+def _join(item: list[SourceLine]) -> str:
+    return " ".join(x.text for x in item)
 
 
 def _pick(
@@ -490,8 +554,12 @@ def _certifications(lines: list[SourceLine]) -> list[FoundEntry]:
         parts = [p.strip(" ,;|()") for p in pieces]
         parts = [p for p in parts if p and re.search(r"\w", p)]
         entry = FoundEntry(id=new_id())
-        entry.title = _found(parts[0], item, "MEDIUM") if parts else None
-        entry.org = _found(parts[1], item, "MEDIUM") if len(parts) > 1 else None
+        if len(parts) > 2:  # more parts than fields: the whole text, to split by hand
+            whole = text[: text.find(span.text)] if span and text.find(span.text) > 0 else text
+            entry.title = _found(whole, item, "LOW", note="CHECK_SPLIT")
+        else:
+            entry.title = _found(parts[0], item, "MEDIUM") if parts else None
+            entry.org = _found(parts[1], item, "MEDIUM") if len(parts) > 1 else None
         if span and span.start:
             entry.start = Found(value=span.start, source=_src(item))
         out.append(entry)
@@ -506,9 +574,7 @@ def _skills(section: _Section) -> list[FoundGroup]:
         labelled = re.match(r"^([^:,;]{2,40}):\s*(.+)$", text)
         values = labelled[2] if labelled else text
         found = [
-            line
-            for part in re.split(r"\s*[,;|•·]\s*", values)
-            if (line := _line(item, part.strip().rstrip(".")))
+            line for part in _list_items(values) if (line := _line(item, part.strip().rstrip(".")))
         ]
         name = _found(labelled[1], item) if labelled else None
         if name:
@@ -524,10 +590,27 @@ def _skills(section: _Section) -> list[FoundGroup]:
     return groups
 
 
+def _list_items(text: str) -> list[str]:
+    """Split a list on , ; | and bullets, never inside parentheses:
+    "Excel (advanced, VBA)" is one item."""
+    out, depth, cur = [], 0, ""
+    for ch in text:
+        depth += (ch in "([") - (ch in ")]")
+        if depth <= 0 and ch in ",;|\u2022\u00b7":
+            out.append(cur)
+            cur, depth = "", 0
+        else:
+            cur += ch
+    return [p.strip() for p in [*out, cur] if p.strip()]
+
+
 def _other(section: _Section) -> FoundGroup:
     if section.heading is not None:
         heading = section.heading.text.strip().rstrip(":")
-        value = heading.capitalize() if _upper(heading) else heading
+        # A heading this reader knows reads better capitalised; one it does
+        # not is kept exactly as written.
+        known = section.confidence != "LOW"
+        value = heading.capitalize() if _upper(heading) and known else heading
         name = _found(value, [section.heading], section.confidence, note=(
             "UNKNOWN_HEADING" if section.confidence == "LOW" else None
         ))  # fmt: skip
@@ -556,7 +639,7 @@ def parse(extracted: Extracted, filename: str) -> ImportProposal:
     lines = extracted.lines
     sizes = sorted(line.size for line in lines if line.size)
     body = sizes[len(sizes) // 2] if sizes else 0.0
-    sections = _sections(lines)
+    sections = _sections(lines, body)
     identity, rest = _identity(sections[0].lines, body)
     proposal = ImportProposal(
         document_id=new_id(),
@@ -590,14 +673,24 @@ def parse(extracted: Extracted, filename: str) -> ImportProposal:
         else:
             leftover += item
     if leftover and not has_summary:
-        proposal.summary = _line(leftover)
-        if proposal.summary:
+        pieces = _lines(leftover, _join(leftover))
+        if pieces:
+            proposal.summary, rest_of_it = pieces[0], pieces[1:]
             proposal.summary.text.confidence = "MEDIUM"
+            if rest_of_it:
+                more = _other(_Section("other"))
+                more.lines = rest_of_it
+                proposal.other.append(more)
     elif leftover:
         proposal.other.append(_other(_Section("other", lines=leftover)))
     for section in sections[1:]:
         if section.key == "summary" and proposal.summary is None and section.lines:
-            proposal.summary = _line(section.lines)
+            pieces = _lines(section.lines, _join(section.lines))
+            proposal.summary = pieces[0] if pieces else None
+            if len(pieces) > 1:
+                more = _other(section)
+                more.lines = pieces[1:]
+                proposal.other.append(more)
         elif section.key in ("experience", "education", "projects"):
             getattr(proposal, section.key).extend(_entries(section.lines, section.key))
         elif section.key == "certifications":

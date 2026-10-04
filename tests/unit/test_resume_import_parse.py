@@ -311,3 +311,87 @@ def test_markup_in_a_resume_is_text_never_markup() -> None:
 
     html = render_html(to_document(proposal, DocumentKind.IMPORTED), mode="print").html
     assert "<script>alert" not in html and "&lt;script&gt;" in html
+
+
+# ---------------------------------------- adversarial review (PR 6) findings
+
+
+def test_entries_without_bullets_are_each_kept() -> None:
+    proposal = of(
+        lines(
+            "#Experience",
+            "Engineer | Acme | 2019 - 2021",
+            "Analyst | Beta | 2015 - 2018",
+            "Intern | Gamma | 2014",
+        )
+    )
+    assert [(e.title and e.title.value, e.org and e.org.value) for e in proposal.experience] == [
+        ("Engineer", "Acme"),
+        ("Analyst", "Beta"),
+        ("Intern", "Gamma"),
+    ]
+
+
+def test_a_date_first_header_stays_one_entry() -> None:
+    proposal = of(lines("#Experience", "2019 - 2021", "Engineer | Acme", "*Built things."))
+    [entry] = proposal.experience
+    assert entry.title and entry.title.value == "Engineer"
+    assert entry.start and entry.start.value == "2019"
+
+
+def test_an_upper_case_bold_name_is_the_name_not_a_section() -> None:
+    proposal = of(lines("!JANE DOE", "jane@example.invalid", "#Experience", "Engineer | Acme"))
+    assert proposal.identity.name and proposal.identity.name.value == "JANE DOE"
+    assert proposal.other == []
+
+
+def test_an_academic_year_is_not_a_month_and_a_city_is_not_a_month() -> None:
+    assert _date("2010-11") == "2010"
+    assert _date("2021-05") == "2021-05"
+    entry = of(lines("#Experience", "Engineer | Acme Chicago | 2019 - 2021")).experience[0]
+    assert entry.start and entry.start.value == "2019"
+    assert entry.org and entry.org.value == "Acme Chicago"
+
+
+def test_a_resume_of_prefix_and_a_styled_company_are_never_a_confident_name() -> None:
+    proposal = of(lines("Resume of Jane Doe", "jane@example.invalid", "#Skills", "SQL"))
+    assert proposal.identity.name and proposal.identity.name.value == "Jane Doe"
+    assert proposal.identity.name.confidence != "HIGH"
+    proposal = of(lines("@Acme Corporation", "Jane Doe", "#Skills", "SQL"))
+    assert proposal.identity.name and proposal.identity.name.confidence != "HIGH"
+    assert "Jane Doe" in proposal.identity.name.alternatives
+
+
+def test_resumo_is_a_summary_heading() -> None:
+    proposal = of(lines("@Ana Exemplo", "#RESUMO", "Analista de dados.", "#Experiência"))
+    assert proposal.summary and proposal.summary.text.value == "Analista de dados."
+
+
+def test_header_parts_with_no_field_are_kept_as_lines() -> None:
+    proposal = of(lines("#Education", "BSc | Example University | GPA 3.9 | 2014 - 2018"))
+    [entry] = proposal.education
+    kept = [(line.text.value, line.text.note) for line in entry.lines]
+    assert ("GPA 3.9", "HEADER_PART") in kept
+
+
+def test_a_very_long_summary_is_split_never_dropped() -> None:
+    long_text = " ".join(["Built reliable reporting for operations teams."] * 150)
+    proposal = of(lines("@Robin Example", "#Summary", long_text))
+    assert proposal.summary is not None
+    kept = (
+        proposal.summary.text.value
+        + " "
+        + " ".join(line.text.value for group in proposal.other for line in group.lines)
+    )
+    assert kept.split() == long_text.split()
+
+
+def test_parentheses_hold_one_skill() -> None:
+    [group] = of(lines("#Skills", "Excel (advanced, VBA), SQL")).skills
+    assert [i.text.value for i in group.lines] == ["Excel (advanced, VBA)", "SQL"]
+
+
+def test_a_place_beside_no_contact_could_be_a_company() -> None:
+    ident = of(lines("@Robin Example", "Acme | London, UK", "#Skills", "SQL")).identity
+    assert ident.location and ident.location.confidence == "LOW"
+    assert ident.location.note == "LOCATION_OR_COMPANY"

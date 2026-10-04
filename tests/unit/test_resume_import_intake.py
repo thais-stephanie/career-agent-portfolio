@@ -219,3 +219,10 @@ def test_a_docx_hyperlink_is_read_as_its_address() -> None:
     word.save(out)
     read = read_upload(out.getvalue(), "r.docx")
     assert read.lines[-1].links == ("https://github.com/morgan-example",)
+
+
+def test_text_and_the_document_body_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(intake, "MAX_TEXT", 200)
+    assert "TEXT_CUT" in read_upload(docx(SIMPLE), "r.docx").warnings
+    monkeypatch.setattr(intake, "MAX_BODY_BYTES", 100)
+    assert refused(docx(SIMPLE), "r.docx") == "UNSAFE_CONTAINER"

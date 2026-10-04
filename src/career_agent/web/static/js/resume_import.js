@@ -41,7 +41,8 @@ const blankLine = (text = '') => ({
   id: ulid(), text: { value: text, confidence: 'HIGH', source: null, alternatives: [], note: null },
 });
 
-export function createResumeImport({ hasMaster, onSaved, onCancel, onEvidence, onScratch }) {
+export function createResumeImport({ hasMaster: masterAtStart, onSaved, onCancel, onEvidence, onScratch }) {
+  let hasMaster = masterAtStart;
   const root = el('section', { className: 'rvi', attrs: { 'aria-labelledby': 'rvi-title' } });
   const status = el('p', { className: 'rvi__status', attrs: { role: 'status', 'aria-live': 'polite' } });
   const alert = el('div', { className: 'rvi__alert', attrs: { role: 'alert' } });
@@ -112,7 +113,7 @@ export function createResumeImport({ hasMaster, onSaved, onCancel, onEvidence, o
     const toCheck = (p.report.confidence && p.report.confidence.LOW) || 0;
     root.dataset.step = 'review';
     root.replaceChildren(
-      el('h2', { className: 'rvw__h2', attrs: { id: 'rvi-title' }, text: t('rv.import.found') }),
+      el('h2', { className: 'rvw__h2', attrs: { id: 'rvi-title', tabindex: '-1' }, text: t('rv.import.found') }),
       el('p', { className: 'rvi__lede', text: t('rv.import.foundLede', { name: p.report.filename }) }),
       toCheck ? el('p', { className: 'rvi__tocheck', text: t('rv.import.toCheck', { n: toCheck }) }) : null,
       el('div', { className: 'rvi__form' }, [
@@ -341,6 +342,10 @@ export function createResumeImport({ hasMaster, onSaved, onCancel, onEvidence, o
     } catch (error) {
       status.textContent = '';
       const code = error.detail && error.detail.code;
+      if (code === 'master_exists' && !hasMaster) {
+        hasMaster = true; // made in another window: offer replacing it, on purpose
+        root.querySelector('.rvi__save').replaceWith(saveArea());
+      }
       if (code === 'import_incomplete') flag(error.detail.fields || []);
       alert.replaceChildren(el('div', { className: 'rve__notice rve__notice--bad' }, [
         el('p', { text: t(code ? `rv.import.err.${code}` : 'rv.import.failed') }),
