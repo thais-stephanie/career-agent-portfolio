@@ -3,8 +3,9 @@
  *
  * Not a user surface yet: the Resume helper is still where a person's
  * resumes are made, and nothing here opens a resume of the helper's. This
- * page edits ResumeDocuments created here (from scratch, or the Master made
- * from the confirmed Career Profile).
+ * page edits ResumeDocuments created here (from scratch, the Master made
+ * from the confirmed Career Profile, or a PDF or DOCX imported and reviewed
+ * in `resume_import.js`).
  *
  * Home, My resumes and the Editor. The editor holds ONE document object:
  * every edit is a function over a copy of it, recorded for undo, sent to the
@@ -33,6 +34,7 @@ import { t } from './i18n.js';
 import {
   createAutosave, createHistory, evidenceLine, move, newLine, rewordLine, ulid,
 } from './resume_editor.js';
+import { createResumeImport } from './resume_import.js';
 import { createResumePreview } from './resume_preview.js';
 import { openDrawer } from './ui.js';
 
@@ -86,13 +88,14 @@ function originLabel(line) {
 
 const smallButton = (label, onClick, extra = {}) => button(label, onClick, { className: 'btn btn--small', ...extra });
 
-export function createResumeWorkspace({ host }) {
+export function createResumeWorkspace({ host, onEvidence = () => {} }) {
   const tabs = {};
   const views = {};
-  for (const name of ['home', 'list', 'editor']) {
+  for (const name of ['home', 'list', 'editor', 'import']) {
     views[name] = el('section', {
       className: `rvw__view rvw__view--${name}`, attrs: { id: `rvw-view-${name}` },
     });
+    if (name === 'import') continue; // reached from Home, not a tab
     tabs[name] = button(t(`rv.tab.${name}`), () => show(name), {
       className: 'rvw__tab', attrs: { 'aria-controls': `rvw-view-${name}` },
     });
@@ -158,6 +161,7 @@ export function createResumeWorkspace({ host }) {
     const scratch = button(t('rv.home.scratch'), () => {
       void createResumeDocument({ title: t('rv.home.scratchTitle') }).then((made) => open(made.id)).catch(failed);
     }, { className: 'btn' });
+    const importing = button(t('rv.home.importButton'), () => startImport(there), { className: 'btn' });
     const recent = [...listed].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 3);
     views.home.replaceChildren(
       el('div', { className: 'rvw__cards' }, [
@@ -171,10 +175,30 @@ export function createResumeWorkspace({ host }) {
           el('p', { text: t('rv.home.startLede') }),
           scratch,
         ]),
+        el('article', { className: 'rvw__card' }, [
+          el('h2', { className: 'rvw__cardtitle', text: t('rv.home.import') }),
+          el('p', { text: t('rv.home.importLede') }),
+          importing,
+        ]),
       ]),
       recent.length ? el('h2', { className: 'rvw__h2', text: t('rv.home.recent') }) : null,
       ...recent.map((d) => docRow(d)),
     );
+  }
+
+  /** Import: pick, review, save; then the saved document opens in the Editor. */
+  function startImport(hasMaster) {
+    const flow = createResumeImport({
+      hasMaster,
+      onSaved: (id) => { views.import.replaceChildren(); void open(id); },
+      onCancel: () => { views.import.replaceChildren(); show('home'); },
+      onEvidence,
+      onScratch: () => {
+        void createResumeDocument({ title: t('rv.home.scratchTitle') }).then((made) => open(made.id)).catch(failed);
+      },
+    });
+    views.import.replaceChildren(flow.root);
+    show('import');
   }
 
   function docRow(d) {

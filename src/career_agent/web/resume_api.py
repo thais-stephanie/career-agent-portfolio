@@ -24,6 +24,8 @@ serves an export of this profile. The browser never names a path.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import secrets
 import threading
 from collections import OrderedDict
@@ -136,6 +138,39 @@ def _detail(doc: StoredDocument) -> dict[str, Any]:
         "sha256": doc.working_sha256,
         "document": doc.working.model_dump(mode="json"),
     }
+
+
+#: What a refused upload is, for the page to word (`ImportRefused.code`).
+_REFUSED_STATUS = {"TOO_LARGE": 413, "NO_TEXT": 422}
+
+
+def _read_import(body: dict) -> dict[str, Any]:
+    """Read an uploaded PDF or DOCX into a proposal for review. Stores nothing:
+    the bytes are parsed in memory and dropped; the proposal goes to the page."""
+    from career_agent.cv.extract import safe_name
+    from career_agent.resume_doc.intake import ImportRefused, read_upload
+    from career_agent.resume_doc.parse import parse
+
+    name, raw = body.get("filename"), body.get("content_base64")
+    if set(body) != {"filename", "content_base64"} or not isinstance(name, str):
+        raise ApiError(400, "Send the file name and its contents.")
+    if not isinstance(raw, str) or not raw:
+        raise ApiError(400, "Send the file name and its contents.")
+    try:
+        data = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ApiError(400, "The file did not arrive whole.") from exc
+    filename = safe_name(name)
+    try:
+        return parse(read_upload(data, filename), filename).model_dump(mode="json")
+    except ImportRefused as exc:
+        raise ApiError(
+            _REFUSED_STATUS.get(exc.code, 400),
+            "This file could not be read.",
+            for_reader=True,
+            code="import_refused",
+            data={"reason": exc.code},
+        ) from exc
 
 
 #: The milestones a person can ask for. The others (GENERATED, IMPORTED...)
@@ -325,6 +360,53 @@ def register_resume_routes(app: LocalApp) -> None:
                 path.read_bytes(), CONTENT_TYPES[made.format], filename(doc, made.format)
             )
 
+    def import_read(*, query: dict, body: dict) -> dict[str, Any]:
+        return _read_import(body)
+
+    def import_save(*, query: dict, body: dict) -> dict[str, Any]:
+        """Save a REVIEWED import. Only the values are trusted: the document
+        is built here, every line IMPORTED, and validated like any write."""
+        from career_agent.resume_doc.imports import (
+            ImportConflict,
+            ImportIncomplete,
+            ImportProposal,
+            MasterExists,
+            save_import,
+        )
+
+        destination = body.get("destination")
+        if set(body) != {"proposal", "destination"} or destination not in (
+            "IMPORTED",
+            "MASTER",
+            "REPLACE_MASTER",
+        ):
+            raise ApiError(400, "Send the reviewed import and where to save it.")
+        try:
+            proposal = ImportProposal.model_validate(body["proposal"])
+        except ValidationError as exc:
+            raise ApiError(400, "Some fields are not valid yet.", for_reader=True) from exc
+        with closing(app.connect()) as conn:
+            try:
+                return _detail(save_import(conn, proposal, destination))
+            except ImportIncomplete as exc:
+                raise ApiError(
+                    400,
+                    "Some fields need a value before saving.",
+                    for_reader=True,
+                    code="import_incomplete",
+                    data={"fields": exc.fields},
+                ) from exc
+            except MasterExists as exc:
+                raise ApiError(
+                    409, "You already have a Master resume.", for_reader=True, code="master_exists"
+                ) from exc
+            except ImportConflict as exc:
+                raise ApiError(
+                    409, "This import was already saved differently.", code="import_conflict"
+                ) from exc
+
+    app.register("POST", r"/api/resume/import/read", import_read)
+    app.register("POST", r"/api/resume/import/save", import_save)
     app.register("POST", r"/api/resume/render", render)
     app.register("GET", r"/api/resume/preview/(?P<token>[A-Za-z0-9_-]{16,64})", preview)
     one = r"/api/resume/documents/(?P<document_id>[0-9A-HJKMNP-TV-Z]{26})"

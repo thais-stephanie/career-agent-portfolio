@@ -42,6 +42,12 @@ export const saveResumeCheckpoint = (id, reason) =>
 export const exportResume = (id, body) =>
   request(`/resume/documents/${encodeURIComponent(id)}/exports`, { method: 'POST', body });
 export const listResumeExports = (id) => request(`/resume/documents/${encodeURIComponent(id)}/exports`);
+/** Read a PDF or DOCX for review (base64 in JSON, like the CV reading). Nothing is saved. */
+export const readResumeImport = (filename, bytes) =>
+  request('/resume/import/read', { method: 'POST', body: { filename, content_base64: base64Of(bytes) } });
+/** Save a reviewed import as IMPORTED, MASTER or REPLACE_MASTER. A retried save returns the same document. */
+export const saveResumeImport = (proposal, destination) =>
+  request('/resume/import/save', { method: 'POST', body: { proposal, destination } });
 /** Save an export's file; `path` is the `download` the server gave for it. */
 export async function downloadResumeExport(path, fallbackName) {
   const headers = localProfile ? { 'X-Local-Profile': localProfile } : {};

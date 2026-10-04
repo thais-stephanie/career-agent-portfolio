@@ -11064,3 +11064,47 @@ table.jobs .cell__title-btn { max-width: 100%; }
   transform-origin: 0 0; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 .rvp__frame[data-off] { visibility: hidden; }
+
+/* -- import: pick a file, review what was found, save ----------------------- */
+.rvi { display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 980px; }
+.rvi__lede { margin: 0; color: var(--body2); font-size: 14px; }
+.rvi__pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rvi__file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.rvi__file:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+.rvi__status { margin: 0; font-size: 13px; color: var(--body2); }
+.rvi__status:empty, .rvi__alert:empty { display: none; }
+.rvi__ways { margin: 0; padding-left: 18px; flex-basis: 100%; display: flex; flex-direction: column; gap: 4px; }
+.rvi__tocheck { margin: 0; font-weight: 600; }
+.rvi__form { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rvi__set { display: grid; gap: 10px 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.rvi__set > legend { grid-column: 1 / -1; }
+.rvi__entry, .rvi__set > .rve__note, .rvi__set[data-section="summary"] > .rvi__field {
+  grid-column: 1 / -1;
+}
+.rvi__entry {
+  display: grid; gap: 10px 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  padding-top: 10px; border-top: 1px solid var(--divider); min-width: 0;
+}
+.rvi__entry > .rve__lines, .rvi__entry > .btn, .rvi__dates { grid-column: 1 / -1; }
+.rvi__entry > .btn { justify-self: start; }
+.rvi__dates { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
+.rvi__dates > .rvi__field { flex: 1 1 160px; }
+.rvi__field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rvi__field .input, .rvi__field .rve__textarea { width: 100%; min-width: 0; }
+.rvi__about { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; color: var(--body2); }
+.rvi__about:empty { display: none; }
+.rvi__conf { display: inline-flex; gap: 4px; align-items: center; }
+.rvi__conf[data-confidence="LOW"] {
+  padding: 1px 8px; border-radius: 999px; background: var(--yellow-soft); color: var(--ink); font-weight: 700;
+}
+.rvi__field[data-confidence="LOW"] .input, .rvi__field[data-confidence="LOW"] .rve__textarea {
+  border-left: 4px solid var(--yellow);
+}
+.rvi__why { color: var(--ink); }
+.rvi__source { flex-basis: 100%; overflow-wrap: anywhere; font-style: italic; }
+.rvi__raw ol { margin: 8px 0 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.rvi__rawlist li { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; overflow-wrap: anywhere; }
+.rvi__where { color: var(--body2); flex: 0 0 auto; min-width: 9em; }
+.rvi__save { display: flex; flex-direction: column; gap: 10px; }
+.rvi__dest { display: flex; flex-direction: column; gap: 6px; }
+.rvi .rve__line > .btn { align-self: flex-start; }

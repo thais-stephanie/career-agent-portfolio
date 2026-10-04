@@ -156,25 +156,54 @@ ROLE_WORDS = frozenset(
         "redatora",
         "instrutor",
         "instrutora",
+        # Spanish (the forms Portuguese does not already spell)
+        "coordinador",
+        "coordinadora",
+        "directora",
+        "ingeniero",
+        "ingeniera",
+        "desarrollador",
+        "desarrolladora",
+        "jefe",
+        "jefa",
+        "becario",
+        "becaria",
+        "practicante",
+        "planner",
+        "planejador",
+        "planejadora",
+        "planificador",
+        "planificadora",
+        "asesor",
+        "asesora",
     }
 )
 
-#: Month names a CV writes, both languages, folded.
+#: Month names a CV writes (English, Portuguese, Spanish), folded.
 _MONTH_NAMES = (
     "january|february|march|april|may|june|july|august|september|october|november|december"
     "|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro"
-    "|jan|feb|fev|mar|apr|abr|jun|jul|aug|ago|sep|sept|set|oct|out|nov|dec|dez|mai"
+    "|enero|febrero|marzo|mayo|junio|julio|septiembre|setiembre|octubre|noviembre|diciembre"
+    "|jan|feb|fev|mar|apr|abr|jun|jul|aug|ago|sep|sept|set|oct|out|nov|dec|dez|mai|ene|dic"
 )
-#: One date: an optional month, then a four-digit year. `05/2021` too.
-_DATE = rf"(?:(?:{_MONTH_NAMES})\.?\s*(?:de\s+)?|(?:0?[1-9]|1[0-2])\s*/\s*)?(?:19|20)\d{{2}}"
+#: One date: an optional month, then a four-digit year. `05/2021` and
+#: `2021-05` too.
+_DATE = (
+    r"(?:(?:19|20)\d{2}-(?:0[1-9]|1[0-2])(?!\d)"
+    rf"|(?:\b(?:{_MONTH_NAMES})\.?\s*(?:de\s+)?|(?:0?[1-9]|1[0-2])\s*/\s*)?(?:19|20)\d{{2}})"
+)
 #: Words meaning a role has not ended.
-_NOW = r"present|current|now|today|atual|atualmente|presente|hoje|o momento|ongoing"
+_NOW = (
+    r"present|current|now|today|atual|atualmente|presente|hoje|o momento|ongoing"
+    r"|actualidad|actualmente|actual"
+)
 #: A span: a date, a separator, and a date or a "still there" word. Or a date
 #: alone. The dash class is DATA -- what other people's documents write --
 #: and is built from code points so this file contains none of it.
 _DASHES = "\\-" + chr(0x2013) + chr(0x2014) + chr(0x2012)
 _SPAN = re.compile(
-    rf"(?P<start>{_DATE})(?:\s*(?:[{_DASHES}]|\bto\b|\bate\b|\ba\b)\s*(?P<end>{_DATE}|{_NOW}))?",
+    rf"(?P<start>{_DATE})(?:\s*(?:[{_DASHES}]|\bto\b|\bate\b|\bhasta\b|\ba\b)\s*"
+    rf"(?P<end>{_DATE}|{_NOW}))?",
     re.IGNORECASE,
 )
 #: Separators between a company and a role on one line. Spaced dashes only: a

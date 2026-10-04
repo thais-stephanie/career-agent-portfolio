@@ -286,7 +286,9 @@ const resumeHelper = createResumeHelper({
   toast: (message, bad = false, undo = null) => flash(message, bad, undo ? undo.run : null),
 });
 
-const resumeWorkspace = DEV_RESUME_V2 ? createResumeWorkspace({ host: PAGES['resume-v2'] }) : null;
+const resumeWorkspace = DEV_RESUME_V2
+  ? createResumeWorkspace({ host: PAGES['resume-v2'], onEvidence: () => goTo('documents') })
+  : null;
 
 // -- the career pages -------------------------------------------------------
 const evidenceView = evidencePage({

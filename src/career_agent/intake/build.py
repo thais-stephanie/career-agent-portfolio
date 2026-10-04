@@ -62,18 +62,18 @@ from career_agent.intake.models import (
 _MONTHS: dict[str, int] = {}
 for index, names in enumerate(
     [
-        ("jan", "january", "janeiro"),
-        ("feb", "february", "fev", "fevereiro"),
-        ("mar", "march", "marco", "março"),
+        ("jan", "january", "janeiro", "ene", "enero"),
+        ("feb", "february", "fev", "fevereiro", "febrero"),
+        ("mar", "march", "marco", "março", "marzo"),
         ("apr", "april", "abr", "abril"),
-        ("may", "maio", "mai"),
-        ("jun", "june", "junho"),
-        ("jul", "july", "julho"),
+        ("may", "maio", "mai", "mayo"),
+        ("jun", "june", "junho", "junio"),
+        ("jul", "july", "julho", "julio"),
         ("aug", "august", "ago", "agosto"),
-        ("sep", "sept", "september", "set", "setembro"),
-        ("oct", "october", "out", "outubro"),
-        ("nov", "november", "novembro"),
-        ("dec", "december", "dez", "dezembro"),
+        ("sep", "sept", "september", "set", "setembro", "septiembre", "setiembre"),
+        ("oct", "october", "out", "outubro", "octubre"),
+        ("nov", "november", "novembro", "noviembre"),
+        ("dec", "december", "dez", "dezembro", "dic", "diciembre"),
     ],
     start=1,
 ):
