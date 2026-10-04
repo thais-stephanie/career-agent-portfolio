@@ -1167,9 +1167,16 @@ export function createDrawer({
    */
   function tailorStep(job, answer) {
     const host = el('div', { className: 'd-tailor', attrs: { role: 'group', 'aria-label': t('tailor.groupLabel') } });
-    const create = (className = 'btn btn--primary d-tailor__btn') => button(t('prep3.s3Make'),
-      (event) => { event.currentTarget.disabled = true; onResume.create(job); },
-      { className, attrs: { id: 'drawer-open-tailor' } });
+    // Two different acts, said apart: Tailor (built from confirmed experience,
+    // no AI) and a version made by hand (a copy of the Master).
+    const once = (fn) => (event) => { event.currentTarget.disabled = true; fn(); };
+    const tailorButton = (label) => button(t(label), once(() => onResume.tailor(job)), {
+      className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-tailor' },
+    });
+    const create = () => button(t('prep3.s3Make'), once(() => onResume.create(job)), {
+      className: 'btn d-tailor__btn', attrs: { id: 'drawer-open-tailor' },
+    });
+    const noAi = el('p', { className: 'd-tailor__note', text: t('rv.job.noAi') });
     if (answer === null) {
       replace(host, [el('p', { className: 'd-step__text', text: t('rv.lib.loading') })]);
       host.dataset.tailor = 'loading';
@@ -1179,27 +1186,33 @@ export function createDrawer({
       const used = answer.used && answer.used.document_id;
       // A version is named after its job until renamed; then its name is news.
       const byDefault = [job.title, job.company_name].filter(Boolean).join(' \u00b7 ');
-      const mark = (v) => button(t('rv.job.markUsed'), async (event) => {
-        const button = event.currentTarget;
-        button.disabled = true;
+      // "I used this one" and "Set as preferred": the server's answer is drawn again.
+      const act = (label, v, call) => button(t(label), async (event) => {
+        const node = event.currentTarget;
+        node.disabled = true;
         try {
-          madeFor.set(job.job_id, { ...answer, used: (await api.markResumeUsed(job.job_id, v.id)).used });
+          await call();
+          madeFor.set(job.job_id, await resumeFor(job.job_id));
         } catch (error) {
-          button.disabled = false;
+          node.disabled = false;
           const said = error.userMessage || t('rv.failed');
-          button.after(el('span', { className: 'd-note', attrs: { role: 'alert' }, text: said }));
+          node.after(el('span', { className: 'd-note', attrs: { role: 'alert' }, text: said }));
           return;
         }
         if (currentJob && currentJob.job_id === job.job_id) paintPrepare(currentJob);
-      }, { className: 'd-link', ariaLabel: `${t('rv.job.markUsed')}: V${v.version_number}` });
+      }, { className: 'd-link', ariaLabel: `${t(label)}: V${v.version_number}` });
+      const mark = (v) => act('rv.job.markUsed', v, () => api.markResumeUsed(job.job_id, v.id));
+      const prefer = (v) => act('rv.lib.prefer', v, () => api.manageResume(v.id, 'prefer'));
       const rows = answer.versions.map((v) => el('li', { className: 'd-resumes__row' }, [
         el('span', { className: 'd-resumes__name', text: versionLabel(v, byDefault) }),
+        v.tailored ? el('span', { className: 'tpill', text: t('rv.lib.tailored') }) : null,
         v.preferred ? el('span', { className: 'tpill tpill--m1', text: `\u2605 ${t('rv.lib.preferred')}` }) : null,
         used === v.id ? el('span', { className: 'tpill tpill--blue', text: `\u2713 ${t('rv.job.used')}` }) : null,
         button(t('rv.open'), () => onResume.open(v.id), {
           className: 'd-link', ariaLabel: `${t('rv.open')}: V${v.version_number}`,
         }),
         used === v.id || v.archived ? null : mark(v),
+        v.preferred || v.archived ? null : prefer(v),
       ]));
       const from = answer.versions.find((v) => v.preferred) || answer.versions[0];
       replace(host, [
@@ -1213,19 +1226,18 @@ export function createDrawer({
           })
           : null,
         el('div', { className: 'd-tailor__actions' }, [
-          button(t('rv.lib.another'), (event) => {
-            event.currentTarget.disabled = true;
-            onResume.create(job, from.id);
-          }, {
+          tailorButton('rv.job.tailorAnother'),
+          button(t('rv.job.anotherManual'), once(() => onResume.create(job, from.id)), {
             className: 'btn d-tailor__btn', attrs: { id: 'drawer-another-version' },
           }),
         ]),
+        noAi,
       ]);
       host.dataset.tailor = 'versions';
       return host;
     }
     if (answer.has_master) {
-      replace(host, [create()]);
+      replace(host, [el('div', { className: 'd-tailor__actions' }, [tailorButton('rv.job.tailor'), create()]), noAi]);
       host.dataset.tailor = 'ready';
       return host;
     }

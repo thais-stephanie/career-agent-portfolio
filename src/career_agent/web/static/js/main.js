@@ -216,6 +216,7 @@ const drawer = createDrawer({
   resumeFor: (jobId) => api.getJobResumes(jobId),
   onResume: {
     create: (job, fromId = null) => toResumes(() => resumeWorkspace.createForJob(job.job_id, fromId)),
+    tailor: (job) => toResumes(() => resumeWorkspace.tailorForJob(job.job_id)),
     open: (id) => toResumes(() => resumeWorkspace.openDocument(id)),
     home: () => toResumes(() => null),
   },
@@ -311,6 +312,11 @@ const resumeWorkspace = createResumeWorkspace({
   host: PAGES.resume,
   onEvidence: () => goTo('documents'),
   onLegacy: () => goTo('resume-legacy'),
+  // A gap is answered in Proof of my work, with the ask named; never in the resume.
+  onAddEvidence: (ask) => {
+    goTo('evidence');
+    evidenceView.add({ requirement: ask });
+  },
 });
 document.getElementById('settings-legacy-open').addEventListener('click', () => goTo('resume-legacy'));
 

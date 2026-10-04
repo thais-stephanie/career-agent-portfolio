@@ -3464,7 +3464,7 @@ def forget_command(
     )
 
     conn = None
-    counts = {"saved": 0, "tracked": 0, "notes": 0, "events": 0, "fit": 0}
+    counts = {"saved": 0, "tracked": 0, "notes": 0, "events": 0, "fit": 0, "used": 0}
     resumes: dict[str, int] = {}
     if doing_tracking:
         path = resolve_database(RuntimeMode.PERSONAL, db)
@@ -3481,10 +3481,14 @@ def forget_command(
         ).fetchone()[0]
         counts["events"] = conn.execute("SELECT COUNT(*) FROM job_application_event").fetchone()[0]
         counts["fit"] = conn.execute("SELECT COUNT(*) FROM search_fit_feedback").fetchone()[0]
+        # Which resume was used for which application is tracking, not resume
+        # content: the resumes, their history and their files stay.
+        counts["used"] = conn.execute("SELECT COUNT(*) FROM application_resume").fetchone()[0]
         plan.append(
             f"clear tracking in {path}: {counts['saved']} saved, {counts['tracked']} tracked, "
             f"{counts['notes']} with notes, {counts['events']} history entries, "
-            f"{counts['fit']} Search Fit answers"
+            f"{counts['fit']} Search Fit answers, {counts['used']} notes of which resume was used"
+            " (the resumes themselves stay)"
         )
         if what == "everything":
             resumes = resume_row_counts(conn)
@@ -3521,6 +3525,7 @@ def forget_command(
             conn.execute("DELETE FROM job_application_event")
             conn.execute("DELETE FROM job_application")
             conn.execute("DELETE FROM search_fit_feedback")
+            conn.execute("DELETE FROM application_resume")
             if what == "everything":
                 exported = forget_resume_data(conn)  # in the same transaction: all or nothing
         delete_export_files(exported)  # their files, once the rows are gone for good

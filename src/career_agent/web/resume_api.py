@@ -45,6 +45,7 @@ from career_agent.resume_doc.export import (
     filename,
     stored_file,
 )
+from career_agent.resume_doc.jd import MAX_AD
 from career_agent.resume_doc.models import (
     SCHEMA_VERSION,
     DocumentKind,
@@ -62,6 +63,13 @@ from career_agent.resume_doc.store import (
     ResumeStoreError,
     StaleDocument,
     StoredDocument,
+)
+from career_agent.resume_doc.tailor import (
+    TailorFailed,
+    apply_suggestion,
+    explain,
+    job_ad,
+    tailor,
 )
 from career_agent.web.server import ApiError, Download, InlinePage, LocalApp, closing
 
@@ -127,6 +135,7 @@ def _listed(row: dict[str, Any]) -> dict[str, Any]:
         "archived": row["archived_at"] is not None,
         "updated_at": row["updated_at"],
         "template": row["template"],
+        "tailored": row["created_from"] == "TAILOR",
         "last_export": {
             "id": row["export_id"],
             "format": row["export_format"],
@@ -628,30 +637,102 @@ def register_resume_routes(app: LocalApp) -> None:
                     if source.version_group != f"job:{job_id}":
                         raise ApiError(400, "That resume is not a version for this job.")
                     return _detail(store.copy_document(source.id))
-                row = conn.execute(
-                    "SELECT j.title, j.url, c.name AS company, r.description_text"
-                    " FROM job j JOIN company c ON c.id = j.company_id"
-                    " LEFT JOIN job_raw r ON r.content_hash = j.content_hash WHERE j.id = ?",
-                    (job_id,),
-                ).fetchone()
-                if row is None:
+                ad = job_ad(conn, job_id)
+                if ad is None:
                     raise ApiError(404, "This job is not in this profile.")
-                title = str(row["title"] or "").strip() or "Job"
-                return _detail(
-                    store.version_from_master(
-                        job_id=job_id,
-                        title=title,
-                        company=row["company"] or None,
-                        url=row["url"] or None,
-                        text=str(row["description_text"] or "").strip() or title,
-                    )
-                )
+                return _detail(store.version_from_master(**ad))
             except NotFound as exc:
                 raise ApiError(
                     409, "Make your Master resume first.", for_reader=True, code="no_master"
                 ) from exc
             except EvidenceNotConfirmed as exc:
                 raise _unconfirmed(exc.lines) from exc
+
+    def run_tailor(ad: dict[str, Any]) -> dict[str, Any]:
+        """Tailor from the Master for one ad; nothing is saved unless every check passes."""
+        with closing(app.connect()) as conn:
+            try:
+                stored, _ = tailor(conn, ad=ad)
+            except NotFound as exc:
+                raise ApiError(
+                    409, "Make your Master resume first.", for_reader=True, code="no_master"
+                ) from exc
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
+            except TailorFailed as exc:
+                raise ApiError(
+                    422,
+                    "This version could not be built safely, so nothing was saved.",
+                    for_reader=True,
+                    code="tailor_failed",
+                    data={"checks": sorted({f["check"] for f in exc.findings})},
+                ) from exc
+            return _detail(stored)
+
+    def job_tailor(*, query: dict, body: dict, job_id: str) -> dict[str, Any]:
+        """Tailor from the Master for a Career Agent job, from a snapshot of its ad."""
+        if body:
+            raise ApiError(400, "Nothing is sent to tailor for a job.")
+        with closing(app.connect()) as conn:
+            ad = job_ad(conn, job_id)
+        if ad is None:
+            raise ApiError(404, "This job is not in this profile.")
+        return run_tailor(ad)
+
+    def pasted_tailor(*, query: dict, body: dict) -> dict[str, Any]:
+        """Tailor from the Master for an ad the person pasted."""
+        title, company, text = (body.get(k) for k in ("title", "company", "text"))
+        if (
+            set(body) - {"title", "company", "text"}
+            or not isinstance(title, str)
+            or not title.strip()
+            or len(title) > 300
+            or not isinstance(text, str)
+            or len(text) > MAX_AD
+            or len(text.strip()) < 20
+            or not (company is None or (isinstance(company, str) and len(company) <= 200))
+        ):
+            raise ApiError(400, "Give the job's title and paste its ad.", for_reader=True)
+        return run_tailor(
+            {"title": title.strip(), "company": (company or "").strip() or None, "text": text}
+        )
+
+    def job_view(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """A job version against its ad: coverage, why it changed, gaps, suggestions."""
+        with closing(app.connect()) as conn:
+            return explain(conn, _one(conn, document_id))
+
+    def dismiss(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """Set one suggestion aside for THIS version only."""
+        key = body.get("key")
+        if set(body) != {"key"} or not isinstance(key, str) or not 1 <= len(key) <= 120:
+            raise ApiError(400, "Say which suggestion to set aside.")
+        with closing(app.connect()) as conn:
+            suggestions = explain(conn, _one(conn, document_id)).get("suggestions", [])
+            if key not in {s["key"] for s in suggestions}:
+                raise ApiError(404, "No such suggestion for this resume.")
+            ResumeStore(conn).dismiss_finding(document_id, key)
+        return {"dismissed": key}
+
+    def accept(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """Make one suggestion's change on the server, from the confirmed text now."""
+        key, sha = body.get("key"), body.get("expected_sha256")
+        if set(body) != {"key", "expected_sha256"} or not isinstance(key, str):
+            raise ApiError(400, "Say which suggestion to apply.")
+        with closing(app.connect()) as conn:
+            _one(conn, document_id)
+            try:
+                return _detail(apply_suggestion(conn, document_id, key, expected_sha256=str(sha)))
+            except StaleDocument as exc:
+                raise ApiError(
+                    409, "This resume changed in another window.", for_reader=True
+                ) from exc
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
+            except ResumeStoreError as exc:
+                raise ApiError(
+                    409, "This suggestion no longer applies.", for_reader=True, code="stale"
+                ) from exc
 
     def job_used(*, query: dict, body: dict, job_id: str) -> dict[str, Any]:
         """The person says which resume they used for this job, or none."""
@@ -772,5 +853,10 @@ def register_resume_routes(app: LocalApp) -> None:
     app.register("GET", job, job_resumes)
     app.register("POST", job + "/versions", job_version)
     app.register("POST", job + "/used", job_used)
+    app.register("POST", job + "/tailor", job_tailor)
+    app.register("POST", r"/api/resume/tailor", pasted_tailor)
+    app.register("GET", one + "/job", job_view)
+    app.register("POST", one + "/dismissals", dismiss)
+    app.register("POST", one + "/accept", accept)
     app.register("GET", r"/api/resume/legacy", legacy)
     app.register("POST", r"/api/resume/legacy/migrate", legacy_migrate)
