@@ -211,18 +211,30 @@ Analyze are not built and not shown.
 
 ## Evidence ids at the boundary
 
-A line's `evidence_ids` are Career Evidence claim keys. Every write
-(`POST /api/resume/documents`, autosave) and every export asks again whether
-each one is a confirmed, current (not superseded) claim of THIS profile's
-candidate (`resume_doc.evidence`). A nonexistent, unconfirmed, retired or
-another profile's id refuses the write with `evidence_not_confirmed` and the
-ids of the lines concerned; nothing is saved. Typed and imported lines may
-cite nothing. An edited evidence line keeps its ids only while they hold.
+A line's `evidence_ids` are Career Evidence claim keys, and so is the
+`claim_key` of a project, education or certification entry (the Master sets
+it from a confirmed claim; it never holds another kind of id). One function,
+`resume_doc.evidence.unconfirmed_lines`, asks whether each is a confirmed,
+current (not superseded) claim of THIS profile's candidate, and `ResumeStore`
+asks it on every acceptance: creating a document, saving its working copy and
+checkpointing it. Every route, the Master and the legacy migration write
+through the store, so none of them can skip it; export asks it too, before a
+file is made. Restoring a revision is the one write that does not ask, on
+purpose (below). A nonexistent, unconfirmed, retired or another profile's id
+refuses the write with `evidence_not_confirmed` (`EvidenceNotConfirmed` in
+the store) and the ids of the lines or entries concerned; nothing is saved.
+Typed and imported lines may cite nothing. An edited evidence line keeps its
+ids only while they hold.
+
+Reading never asks. A revision whose evidence was retired later still loads,
+as it was written. Restoring it puts that content back unchanged and trusts
+nothing: the next save, checkpoint or export refuses the lines that no longer
+hold, until the person decides about them.
 
 A claim can be retired after a resume cited it. The editor then says which
 lines are affected and offers to keep them as the person's own words (origin
-`USER_AUTHORED`, no evidence); nothing changes until the person chooses that,
-and Career Evidence is never written.
+`USER_AUTHORED`, no evidence; an entry loses its `claim_key`); nothing changes
+until the person chooses that, and Career Evidence is never written.
 
 ## Export: PDF, DOCX and JSON
 
@@ -238,11 +250,20 @@ has saved, and `POST /api/resume/documents/<id>/exports` is its route.
 * **Refused, not attempted,** without a real name (blank, "You" and the like),
   or while a line cites evidence that is not confirmed now.
 * **PDF** prints the renderer's print HTML in headless Microsoft Edge (Chrome
-  when Edge is absent): a throwaway profile in a temp directory that is removed
-  afterwards, no window, no header or footer, a time limit, and every network
+  when Edge is absent): a throwaway profile in a temp directory, no window, no
+  header or footer, a time limit, and every network
   address routed to a closed local port (the document's own policy forbids any
   load as well). Links stay links in the PDF; printing visits none of them.
   With no browser the export fails as "could not be made", never as checked.
+  Cleanup: `resume.html` and `resume.pdf` (a name, contact details, the
+  resume) are deleted on their own before the folder, which is removed with
+  retries for up to 10 seconds. A print that times out or fails stops its
+  browser: the launched process, and on Windows the detached Edge found by
+  THIS export's temp folder in its command line (exact match, never a
+  process name, so the person's own Edge and other exports are untouched).
+  A browser still holding the folder after the retries is stopped the same
+  way and the cleanup is tried once more. A folder that still cannot go is
+  swept by a later export once it is an hour old (`career-agent-pdf-*` only).
 * **DOCX** writes the same rendered blocks with real Word styles (Title,
   Heading 1, Heading 2, List Bullet, Normal), A4 or Letter, the document's
   margins, font and spacing; no tables, text boxes, shapes or icons. Links are

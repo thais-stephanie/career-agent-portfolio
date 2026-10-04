@@ -33,7 +33,6 @@ from pydantic import ValidationError
 
 from career_agent.clock import new_id
 from career_agent.resume_doc.check import findings
-from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.export import (
     CONTENT_TYPES,
     ExportFailed,
@@ -50,6 +49,7 @@ from career_agent.resume_doc.models import (
 )
 from career_agent.resume_doc.render import render_html
 from career_agent.resume_doc.store import (
+    EvidenceNotConfirmed,
     NotFound,
     ResumeExport,
     ResumeStore,
@@ -117,12 +117,6 @@ def _unconfirmed(lines: list[str]) -> ApiError:
         code="evidence_not_confirmed",
         data={"lines": lines},
     )
-
-
-def _guard_evidence(conn: Any, doc: ResumeDocument) -> None:
-    lines = unconfirmed_lines(conn, doc)
-    if lines:
-        raise _unconfirmed(lines)
 
 
 def _validated(value: Any) -> ResumeDocument:
@@ -217,8 +211,10 @@ def register_resume_routes(app: LocalApp) -> None:
             }
         doc = _validated(data)
         with closing(app.connect()) as conn:
-            _guard_evidence(conn, doc)
-            return _detail(ResumeStore(conn).create_document(doc))
+            try:
+                return _detail(ResumeStore(conn).create_document(doc))
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
 
     def save(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
         """Autosave: the working copy, against the hash the page last read."""
@@ -226,7 +222,6 @@ def register_resume_routes(app: LocalApp) -> None:
             raise ApiError(400, "Send the resume and the version it edits.")
         doc = _validated(body["document"])
         with closing(app.connect()) as conn:
-            _guard_evidence(conn, doc)
             try:
                 sha = ResumeStore(conn).save_working_copy(
                     document_id, doc, expected_sha256=str(body["expected_sha256"])
@@ -237,6 +232,8 @@ def register_resume_routes(app: LocalApp) -> None:
                 raise ApiError(
                     409, "This resume changed in another window.", for_reader=True
                 ) from exc
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
             except ResumeStoreError as exc:
                 raise ApiError(400, str(exc)) from exc
         return {"sha256": sha}
@@ -251,6 +248,8 @@ def register_resume_routes(app: LocalApp) -> None:
                 revision = ResumeStore(conn).checkpoint_revision(document_id, reason)
             except NotFound as exc:
                 raise ApiError(404, "No such resume.") from exc
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
         return {"revision": revision.seq, "reason": revision.reason}
 
     def export(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
@@ -289,9 +288,9 @@ def register_resume_routes(app: LocalApp) -> None:
                 raise ApiError(
                     409, "This resume changed in another window.", for_reader=True
                 ) from exc
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
             except ExportRefused as exc:
-                if exc.code == "EVIDENCE_NOT_CONFIRMED":
-                    raise _unconfirmed(exc.lines) from exc
                 raise ApiError(
                     400, "Add your name before downloading.", for_reader=True, code="name_missing"
                 ) from exc

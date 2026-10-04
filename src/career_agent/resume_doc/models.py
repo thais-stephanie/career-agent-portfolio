@@ -240,6 +240,10 @@ class ProjectEntry(_Dated):
     name: Name
     role: str | None = None
     url: str | None = None
+    #: The Career Evidence claim (`verified_claim.claim_key`, never another id)
+    #: this entry came from; checked like `evidence_ids` on every write
+    #: (`resume_doc.evidence`). It records where the entry came from: the
+    #: person may still reword the entry's own fields.
     claim_key: str | None = None
     bullets: list[Bullet] = []
 

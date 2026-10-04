@@ -405,13 +405,20 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
   }
 
   // -- saving ---------------------------------------------------------------
-  /** A version point of what is SAVED; refused while edits are not saved. */
+  /** A version point of what is SAVED; refused while edits are not saved (false).
+   *  Null when saved but refused for evidence no longer confirmed: the person may still leave. */
   async function checkpoint(reason, announce = false) {
     if (!valid() || !(await autosave.flush())) {
       drawUnsaved();
       return false;
     }
-    await saveResumeCheckpoint(answer.id, reason);
+    try {
+      await saveResumeCheckpoint(answer.id, reason);
+    } catch (error) {
+      if (!(error.detail && error.detail.code === 'evidence_not_confirmed')) throw error;
+      drawEvidence(error.detail.lines);
+      return null;
+    }
     if (announce) say('saved', 'rv.save.point');
     return true;
   }
@@ -424,7 +431,7 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
       drawUnsaved();
       return false;
     }
-    if (!(await checkpoint('MANUAL_CHECKPOINT'))) return false;
+    if ((await checkpoint('MANUAL_CHECKPOINT')) === false) return false;
     editedSinceOpen = false;
     return true;
   }
@@ -528,6 +535,9 @@ function createEditor(answer, { onClose, onDiscard, onOpen }) {
           }
           for (const i of items.filter((x) => ids.has(x.id))) {
             Object.assign(i, { origin: 'USER_AUTHORED', evidence_ids: [] });
+          }
+          for (const e of [...d.projects, ...d.education, ...d.certifications]) {
+            if (ids.has(e.id)) e.claim_key = null;
           }
         })();
       }),

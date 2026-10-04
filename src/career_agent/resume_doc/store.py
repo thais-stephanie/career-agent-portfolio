@@ -17,6 +17,14 @@ here writes a master as a side effect of tailoring.
 
 Every document is validated again on the way in, so a model built without
 validation (`model_copy`, `model_construct`) cannot store what the model forbids.
+
+Evidence is checked at every ACCEPTANCE: creating a document, saving its
+working copy and checkpointing it each ask `evidence.unconfirmed_lines` and
+refuse with `EvidenceNotConfirmed` (nothing written). Reading never asks, so
+a revision stays readable after a claim it cites is retired. Restoring one
+puts its content back as it was and trusts nothing: the next save,
+checkpoint or export asks again, and the person decides about the lines that
+no longer hold.
 """
 
 from __future__ import annotations
@@ -29,6 +37,7 @@ from pathlib import Path
 from typing import Any, Literal, TypeVar
 
 from career_agent.clock import new_id, now_utc
+from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.models import (
     DocumentKind,
     ResumeDocument,
@@ -73,6 +82,15 @@ class ResumeStoreError(ValueError):
 
 class NotFound(ResumeStoreError):
     pass
+
+
+class EvidenceNotConfirmed(ResumeStoreError):
+    """Lines (or entries) cite Career Evidence that is not a confirmed,
+    current claim of this profile now. `lines` are their ids."""
+
+    def __init__(self, lines: list[str]) -> None:
+        super().__init__("some lines cite evidence that is not confirmed now")
+        self.lines = lines
 
 
 class StaleDocument(ResumeStoreError):
@@ -200,6 +218,12 @@ class ResumeStore:
         migration groups several store calls into one all-or-nothing unit."""
         return nullcontext() if self.conn.in_transaction else transaction(self.conn)
 
+    def _accept(self, doc: ResumeDocument) -> None:
+        """Refuse a document citing evidence this profile has not confirmed now."""
+        lines = unconfirmed_lines(self.conn, doc)
+        if lines:
+            raise EvidenceNotConfirmed(lines)
+
     # ------------------------------------------------------------ documents
 
     def create_document(
@@ -216,6 +240,7 @@ class ResumeStore:
         now = now or now_utc()
         doc, body, sha = _body(doc)
         with self._tx():
+            self._accept(doc)
             master = doc.provenance.master_document_id
             rev = doc.provenance.master_revision_id
             if rev is not None and master is None:
@@ -293,6 +318,7 @@ class ResumeStore:
         """Autosave. Returns the new hash; `StaleDocument` if another write came first."""
         doc, body, sha = _body(doc)
         with self._tx():
+            self._accept(doc)
             current = self._row("resume_document", document_id)
             if current["working_sha256"] == sha:
                 # Already exactly this: a retried save whose answer was lost.
@@ -314,6 +340,7 @@ class ResumeStore:
         the latest revision is that revision: no duplicate row is written."""
         with self._tx():
             current = self._row("resume_document", document_id)
+            self._accept(upgrade_resume_document(current["working_json"]))
             latest = self.conn.execute(
                 "SELECT id, content_sha256 FROM resume_revision WHERE document_id = ?"
                 " ORDER BY seq DESC LIMIT 1",
@@ -335,7 +362,12 @@ class ResumeStore:
     def restore_revision(
         self, document_id: str, revision_id: str, *, expected_sha256: str, now: str | None = None
     ) -> Revision:
-        """Make an old revision the working copy again, as a NEW revision."""
+        """Make an old revision the working copy again, as a NEW revision.
+
+        History is put back as it was, never rewritten and never re-trusted:
+        evidence it cites that is no longer confirmed stays as written, and the
+        next save, checkpoint or export refuses it until the person decides
+        (`EvidenceNotConfirmed` names the lines)."""
         now = now or now_utc()
         with self._tx():
             old = self._row("resume_revision", revision_id)
