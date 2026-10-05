@@ -494,8 +494,8 @@ made by hand), and a manual version is never labelled Tailored.
   profile and the Master's lines and skills. A named tool or product in the
   ask must be named by the source itself ("CRM" never answers "Salesforce");
   otherwise two shared words (after a small, documented bilingual concept
-  table) are needed. Location, work authorization and schedule are
-  eligibility: reported apart, never covered or gapped by a resume. Years of
+  table) are needed. Location, work authorization, schedule and a language
+  the job requires are eligibility: reported apart, never covered or gapped by a resume. Years of
   experience are never judged: such an ask is at most "partly covered".
 * **Strategy, then draft.** Confirmed lines the Master does not show are added
   to their own role, verbatim or with a leading first-person pronoun dropped
@@ -681,3 +681,66 @@ Measured locally (fake provider, the provider's time excluded): building the
 review request about 3 ms for a senior profile's proposals (3.5 thousand
 characters, against 4.7 for the drafting request), checking the answer about
 3 ms.
+
+## Analyze: what can be verified, never a score
+
+Analyze is a view of its own (Resumes > Analyze), reached also from Home,
+from a resume's menu in My resumes, from the Editor (which finishes saving
+first) and from a version in the job drawer. It answers what Career Agent can
+verify about one saved resume and, with a job, what that resume shows against
+what the job explicitly asks. It never answers whether someone will be
+hired: no ATS score, no match percentage, no quality rating, no prediction.
+Only named findings and counts. It needs no AI.
+
+* **One exact input.** The resume is analyzed as a milestone: the latest
+  revision when the working copy is that revision, else a new milestone of
+  it; a page that is behind is refused. When the working copy cites
+  experience no longer confirmed (so no milestone can be taken), the working
+  copy itself is analyzed, anchored by its hash. A job is one immutable ad
+  snapshot: the version's own, a Career Agent job's, or a pasted ad. Results
+  are recomputed, not stored, under `resume-analyze-v1`, so nothing stale
+  can be shown as current. Analyze writes nothing else.
+* **One finding model** (`resume_doc/check.py`), shared with the Editor: a
+  stable key, a category (identity, structure, readability, content,
+  evidence, consistency, export, job), a severity (BLOCKING, WARNING,
+  OPPORTUNITY, INFO), a nature (OBJECTIVE, a plain fact of the document, or
+  ADVISORY, a heuristic said as advice) and a next action.
+* **Resume only** (`resume_doc/analyze.py`): name and a way to be reached;
+  duplicate headings, incomplete entries, hidden experience; long summary,
+  long lines, many lines in a role; exact repeats (objective) and near
+  repeats (advice); generic phrases; each line's evidence status (from
+  confirmed experience, changed since, no longer confirmed, written by the
+  person, imported); on lines linked to evidence, the same grounding reader
+  as the AI drafter for numbers, tools and rank; several current roles as a
+  date check, never an error; titles shown differently from the confirmed
+  title. Typed and imported text is never called confirmed, and never
+  becomes evidence; a line counts as confirmed only when it is made from
+  evidence and every claim it cites is confirmed now, and a line reworded
+  from evidence (by AI or by the person) answers only by what its evidence
+  says. Nothing hidden (a line, an entry, a section, the headline, the
+  summary or a custom section) is counted or raises a finding.
+* **Export readiness** is read from the export checks already run on this
+  exact version; an older export says the resume changed since, none says
+  so, and "Run export check" leads to the Editor's export. Analyze makes no
+  file, and NOT_MEASURED is never shown as a pass.
+* **With a job**, the Tailor's own requirements and retrieval: each ask is
+  Shown in this resume (with the lines that show it and the confirmed
+  experience behind them), confirmed but not shown, mentioned without
+  confirmed support, or not found in confirmed experience. The employer's
+  own words are kept; required asks come first, then the work, then
+  preferred. A shown ask with only partial support (a tenure, which is
+  never compared) says "partly". Where, papers, schedule and a language the job requires are
+  eligibility, listed apart and never counted. The summary counts ("This
+  resume shows confirmed support for 5 of 11 job asks. 2 more have confirmed
+  experience you could add.").
+* **Actions.** Apply only for exact changes the server makes itself:
+  removing an exact repeated line, and adding or showing confirmed
+  experience the job asks for. A gap has none: Add evidence (only if true),
+  Edit, or Dismiss. A dismissal is for that resume and that condition; its
+  key carries the condition, so a changed condition is a new finding. A
+  blocking fact (no name, no way to be reached) cannot be set aside. Each
+  time the view opens it is drawn afresh: a result never outlives an edit.
+
+Measured on synthetic profiles: about 1 to 3 ms for a sparse or normal
+resume and 50 ms for a large one; with a job, 2 to 10 ms, and about 180 ms
+for a large resume against a long ad.

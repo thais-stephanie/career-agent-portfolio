@@ -69,6 +69,12 @@ export const reviewResumeDraft = (id, signal) =>
   request(draftPath(id, '/review'), { method: 'POST', body: {}, signal });
 export const cancelResumeReview = (id) =>
   request(draftPath(id, '/review/cancel'), { method: 'POST', body: {} });
+/** Analyze: one saved resume, alone or against a job; its safe changes and dismissals. */
+export const analyzeResume = (id, body) => request(resumePath(id, '/analyze'), { method: 'POST', body });
+export const applyAnalysis = (id, body) =>
+  request(resumePath(id, '/analysis/changes'), { method: 'POST', body });
+export const dismissAnalysis = (id, body) =>
+  request(resumePath(id, '/analysis/dismissals'), { method: 'POST', body });
 /** A job version against its ad: coverage, why it changed, gaps and suggestions. */
 export const getResumeJob = (id) => request(resumePath(id, '/job'));
 /** Make one suggestion's change on the server, from the confirmed text now. */

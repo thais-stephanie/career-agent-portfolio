@@ -36,6 +36,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from career_agent.clock import new_id
+from career_agent.resume_doc import analyze
 from career_agent.resume_doc.check import findings
 from career_agent.resume_doc.export import (
     CONTENT_TYPES,
@@ -178,6 +179,23 @@ def _library(rows: list[dict[str, Any]]) -> dict[str, Any]:
         group["versions"].sort(key=lambda v: -v["version_number"])
     out["jobs"] = list(groups.values())
     return out
+
+
+def _pasted_ad(body: dict) -> dict[str, Any]:
+    """A pasted job ad, checked: a title, the ad's text, an optional company."""
+    title, company, text = (body.get(k) for k in ("title", "company", "text"))
+    if (
+        set(body) - {"title", "company", "text"}
+        or not isinstance(title, str)
+        or not title.strip()
+        or len(title) > 300
+        or not isinstance(text, str)
+        or len(text) > MAX_AD
+        or len(text.strip()) < 20
+        or not (company is None or (isinstance(company, str) and len(company) <= 200))
+    ):
+        raise ApiError(400, "Give the job's title and paste its ad.", for_reader=True)
+    return {"title": title.strip(), "company": (company or "").strip() or None, "text": text}
 
 
 def _unconfirmed(lines: list[str]) -> ApiError:
@@ -683,21 +701,100 @@ def register_resume_routes(app: LocalApp) -> None:
 
     def pasted_tailor(*, query: dict, body: dict) -> dict[str, Any]:
         """Tailor from the Master for an ad the person pasted."""
-        title, company, text = (body.get(k) for k in ("title", "company", "text"))
-        if (
-            set(body) - {"title", "company", "text"}
-            or not isinstance(title, str)
-            or not title.strip()
-            or len(title) > 300
-            or not isinstance(text, str)
-            or len(text) > MAX_AD
-            or len(text.strip()) < 20
-            or not (company is None or (isinstance(company, str) and len(company) <= 200))
-        ):
-            raise ApiError(400, "Give the job's title and paste its ad.", for_reader=True)
-        return run_tailor(
-            {"title": title.strip(), "company": (company or "").strip() or None, "text": text}
+        return run_tailor(_pasted_ad(body))
+
+    def _snapshot(conn: Any, stored: StoredDocument, body: dict) -> str | None:
+        """Which job ad Analyze reads: none, the version's own, a Career Agent
+        job's ad, or a pasted one, each as an immutable snapshot."""
+        store = ResumeStore(conn)
+        if body.get("job") == "own":
+            if stored.jd_snapshot_id is None:
+                raise ApiError(400, "This resume is not for a job; choose one.", for_reader=True)
+            return stored.jd_snapshot_id
+        if "job_id" in body:
+            ad = job_ad(conn, str(body["job_id"]))
+            if ad is None:
+                raise ApiError(404, "This job is not in this profile.")
+        elif "ad" in body:
+            ad = _pasted_ad(body["ad"] if isinstance(body["ad"], dict) else {})
+        else:
+            return None
+        snap = store.create_jd_snapshot(
+            text=ad["text"], title=ad["title"], company=ad.get("company"),
+            job_id=ad.get("job_id"), url=ad.get("url"),
+        )  # fmt: skip
+        return snap.id
+
+    def analyze_view(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """Analyze the exact content the page saved (409 when the page is behind),
+        resume-only or against one job ad. Nothing else is written."""
+        allowed = {"expected_sha256", "job", "job_id", "ad"}
+        if set(body) - allowed or not isinstance(body.get("expected_sha256"), str):
+            raise ApiError(400, "Say which saved resume to analyze.")
+        if len({"job", "job_id", "ad"} & set(body)) > 1:
+            raise ApiError(400, "Choose one job to analyze against.")
+        with closing(app.connect()) as conn:
+            stored = _one(conn, document_id)
+            if stored.working_sha256 != body["expected_sha256"]:
+                raise ApiError(409, "This resume changed in another window.", for_reader=True,
+                               code="stale")  # fmt: skip
+            return analyze.run(conn, document_id, snapshot_id=_snapshot(conn, stored, body))
+
+    def analysis_dismiss(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """Set one Analyze finding aside for THIS resume only. Its key carries the
+        condition, so a changed condition is a new finding."""
+        key = body.get("key")
+        if set(body) != {"key"} or not isinstance(key, str) or len(key) > 160:
+            raise ApiError(400, "Say which finding to set aside.")
+        with closing(app.connect()) as conn:
+            _one(conn, document_id)
+            found = next((f for f in analyze.run(conn, document_id)["findings"]
+                          if f["key"] == key), None)  # fmt: skip
+            if found is None:
+                raise ApiError(404, "No such finding for this resume.")
+            if found["severity"] == "BLOCKING":
+                # The resume is not usable as it is: that is not set aside.
+                raise ApiError(409, "This can't be set aside: the resume needs it.",
+                               for_reader=True, code="blocking")  # fmt: skip
+            ResumeStore(conn).dismiss_finding(document_id, key)
+        return {"dismissed": key}
+
+    def analysis_apply(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """The safe, exact changes Analyze offers: remove an exact duplicate line,
+        or add or show confirmed experience the job asks for. Made on the
+        server from what is confirmed now; a gap has none."""
+        key, sha, snapshot = (
+            body.get("key"),
+            body.get("expected_sha256"),
+            body.get("jd_snapshot_id"),
         )
+        if (
+            set(body) - {"key", "expected_sha256", "jd_snapshot_id"}
+            or not isinstance(key, str)
+            or not (snapshot is None or isinstance(snapshot, str))
+        ):
+            raise ApiError(400, "Say which change to make.")
+        with closing(app.connect()) as conn:
+            _one(conn, document_id)
+            try:
+                if key.startswith("DUPLICATE_BULLET:"):
+                    analyze.remove_duplicate(conn, document_id, key, expected_sha256=str(sha))
+                elif key.startswith("add:") and isinstance(snapshot, str):
+                    apply_suggestion(conn, document_id, key, expected_sha256=str(sha),
+                                     snapshot_id=snapshot)  # fmt: skip
+                else:
+                    raise ApiError(400, "This finding has no change to make.")
+            except NotFound as exc:
+                raise ApiError(404, "No such job ad for this resume.") from exc
+            except StaleDocument as exc:
+                raise ApiError(409, "This resume changed in another window.",
+                               for_reader=True) from exc  # fmt: skip
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
+            except ResumeStoreError as exc:
+                raise ApiError(409, "This change no longer applies.", for_reader=True,
+                               code="stale") from exc  # fmt: skip
+            return _detail(ResumeStore(conn).get_document(document_id))
 
     def job_view(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
         """A job version against its ad: coverage, why it changed, gaps, suggestions."""
@@ -858,6 +955,9 @@ def register_resume_routes(app: LocalApp) -> None:
     app.register("POST", job + "/tailor", job_tailor)
     app.register("POST", r"/api/resume/tailor", pasted_tailor)
     app.register("GET", one + "/job", job_view)
+    app.register("POST", one + "/analyze", analyze_view)
+    app.register("POST", one + "/analysis/dismissals", analysis_dismiss)
+    app.register("POST", one + "/analysis/changes", analysis_apply)
     app.register("POST", one + "/dismissals", dismiss)
     app.register("POST", one + "/accept", accept)
     app.register("GET", r"/api/resume/legacy", legacy)

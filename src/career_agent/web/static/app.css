@@ -11030,7 +11030,7 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rve__design { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 8px; }
 .rve__check { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .rve__finding { font-size: 13px; }
-.rve__finding[data-severity="problem"] .btn--link { color: var(--block-ink); font-weight: 600; }
+.rve__finding[data-severity="BLOCKING"] .btn--link, .rve__finding[data-severity="WARNING"] .btn--link { color: var(--block-ink); font-weight: 600; }
 .rve__flash { outline: 3px solid var(--focus); outline-offset: 2px; }
 .rve__evgroup { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .rve__evtitle { margin: 0; font-size: 15px; }
@@ -11218,3 +11218,15 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rva__flag, .rva__summary { margin: 0; font-weight: 600; }
 .rva__yours { margin: 4px 0 0; font-size: 12px; color: var(--body2); }
 .rva__option { display: flex; gap: 6px; align-items: center; font-weight: 600; }
+/* Analyze: findings and asks as plain lists; severity is a sign and a word. */
+.rvan { display: flex; flex-direction: column; gap: 10px; max-width: 760px; min-width: 0; }
+.rvan__modes { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.rvan__findings, .rvan__reqs { margin: 0; padding: 0; list-style: none; display: flex;
+  flex-direction: column; gap: 6px; }
+.rvan__finding, .rvan__req { padding: 6px 10px; border-left: 3px solid var(--divider);
+  background: var(--surface); min-width: 0; overflow-wrap: anywhere; }
+.rvan__finding p, .rvan__req p { margin: 0; }
+.rvan__finding[data-severity="BLOCKING"], .rvan__finding[data-severity="WARNING"] { border-left-color: var(--coral); }
+.rvan__req[data-state="SUPPORTED_IN_RESUME"] { border-left-color: var(--mint); }
+.rvan__req summary { cursor: pointer; }
+.rvan__result { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
