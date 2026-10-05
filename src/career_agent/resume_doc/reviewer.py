@@ -30,11 +30,11 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from typing import Annotated, Any, Literal
+import time
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
-from career_agent.resume_doc import jd
 from career_agent.resume_doc.drafter import (
     _FENCE,
     MAX_CHANGES,
@@ -43,20 +43,16 @@ from career_agent.resume_doc.drafter import (
     _ctx,
     _proposal,
     _run,
+    _said,
     _stale,
     _target,
+    check,
 )
 from career_agent.resume_doc.store import ResumeStore
-from career_agent.resume_doc.tailor import grounding
 from career_agent.storage.db import transaction
 
 PROMPT_VERSION = "resume-reviewer-v1"
 MAX_RESPONSE_CHARS = 20_000
-RUBRIC = (
-    "FACTUAL_GROUNDING", "SEMANTIC_PRESERVATION", "REQUIREMENT_ALIGNMENT", "NUMBERS",
-    "NAMED_TOOLS", "NAMED_ENTITIES", "SENIORITY", "EMPLOYER_CONTEXT", "CHRONOLOGY",
-    "OVERSTATEMENT", "RESULT_CLAIMS", "SCALE_CLAIMS", "READABILITY", "REDUNDANCY",
-)  # fmt: skip
 #: Python's own code for a SUPPORTED verdict whose citations do not hold.
 CITATION = "CITATION"
 Verdict = Literal["SUPPORTED", "CHECK", "UNSUPPORTED"]
@@ -66,6 +62,11 @@ Finding = Literal[
     "NAMED_TOOLS", "NAMED_ENTITIES", "SENIORITY", "EMPLOYER_CONTEXT", "CHRONOLOGY",
     "OVERSTATEMENT", "RESULT_CLAIMS", "SCALE_CLAIMS", "READABILITY", "REDUNDANCY",
 ]  # fmt: skip
+RUBRIC = get_args(Finding)
+#: At most this many review requests per run: a retry loop is bounded too.
+MAX_ATTEMPTS = 3
+#: A review RUNNING longer than this was lost (a crash, a killed process).
+LOST_AFTER_SECONDS = 600
 
 
 class ProposalReview(BaseModel):
@@ -100,12 +101,13 @@ SCHEMA: dict[str, Any] = {
                              "finding_codes", "reason"],  # fmt: skip
                 "properties": {
                     "proposal_id": {"type": "string"},
-                    "verdict": {"type": "string", "enum": ["SUPPORTED", "CHECK", "UNSUPPORTED"]},
-                    "evidence_ids": {"type": "array", "items": {"type": "string"}},
-                    "requirement_ids": {"type": "array", "items": {"type": "string"}},
-                    "finding_codes": {"type": "array", "items": {"type": "string",
-                                                                 "enum": list(RUBRIC)}},
-                    "reason": {"type": "string"},
+                    "verdict": {"type": "string", "enum": list(get_args(Verdict))},
+                    "evidence_ids": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
+                    "requirement_ids": {"type": "array", "maxItems": 5,
+                                        "items": {"type": "string"}},
+                    "finding_codes": {"type": "array", "maxItems": 4,
+                                      "items": {"type": "string", "enum": list(RUBRIC)}},
+                    "reason": {"type": "string", "maxLength": 240},
                 },
             },
         }
@@ -178,8 +180,11 @@ def prepare(
         if run.status != "PENDING" or _stale(store, run):
             raise DrafterError("closed")
         held = run.stages["review"].get("ai", {})
-        if held.get("status") in ("RUNNING", "DONE"):
+        lost = time.time() - float(held.get("started", 0)) > LOST_AFTER_SECONDS
+        if held.get("status") == "DONE" or (held.get("status") == "RUNNING" and not lost):
             raise DrafterError("reviewed")
+        if int(held.get("attempts", 0)) >= MAX_ATTEMPTS:
+            raise DrafterError("attempts")
         ctx = _ctx(conn, run)
         changes = _pending(conn, run_id)
         if not changes:
@@ -207,7 +212,8 @@ def prepare(
         )
         attempt = _sha(run_id + json.dumps(sent, sort_keys=True) + str(held.get("attempts", 0)))
         review = {**run.stages["review"], "ai": {
-            "version": 1, "status": "RUNNING", "attempt": attempt,
+            "status": "RUNNING", "attempt": attempt, "started": time.time(),
+            "spent_usd": float(held.get("spent_usd", 0.0)),
             "attempts": int(held.get("attempts", 0)) + 1, "asks": asks, "sent": sent,
             "prompt": f"{PROMPT_VERSION}:{PROMPT_DIGEST}", "request_chars": len(message),
             "provider": provider, "model": model,
@@ -224,10 +230,32 @@ def _set(conn: sqlite3.Connection, run_id: str, attempt: str, **fields: Any) -> 
         held = run.stages["review"].get("ai", {})
         if held.get("attempt") != attempt or held.get("status") != "RUNNING":
             return False
+        if run.status != "PENDING" and fields.get("status") == "DONE":
+            return False
         store.update_tailoring_run_stage(
             run_id, review={**run.stages["review"], "ai": {**held, **fields}}
         )
     return True
+
+
+def charge(conn: sqlite3.Connection, run_id: str, cost: float | None) -> float:
+    """Add one review call's cost to the run, whatever became of its answer:
+    a cancelled or unreadable review was still paid for. Returns the total."""
+    store = ResumeStore(conn)
+    with transaction(conn):
+        run = _run(store, run_id)
+        held = run.stages["review"].get("ai", {})
+        total = float(held.get("spent_usd", 0.0)) + float(cost or 0.0)
+        store.update_tailoring_run_stage(
+            run_id, review={**run.stages["review"], "ai": {**held, "spent_usd": total}}
+        )
+    return total
+
+
+def spent(conn: sqlite3.Connection, run_id: str) -> float:
+    """What this run's review calls cost so far, when the provider said."""
+    ai = _run(ResumeStore(conn), run_id).stages["review"].get("ai", {})
+    return float(ai.get("spent_usd", 0.0))
 
 
 def end(conn: sqlite3.Connection, run_id: str, attempt: str, why: str) -> None:
@@ -288,40 +316,51 @@ def receive(conn: sqlite3.Connection, run_id: str, attempt: str, answer: Any) ->
     results = {}
     for r in parsed.reviews:
         sent = held["sent"][r.proposal_id]
-        cited = [k for k in r.evidence_ids if k in sent["evidence"] and k in ctx.claims]
+        named = list(dict.fromkeys(r.evidence_ids))
+        cited = [k for k in named if k in sent["evidence"] and k in ctx.claims]
         findings: list[str] = list(dict.fromkeys(r.finding_codes))
         verdict = r.verdict
         change = changes.get(r.proposal_id)
         if verdict == "SUPPORTED" and (
-            change is None or not cited or len(cited) != len(r.evidence_ids)
+            change is None or not cited or len(cited) != len(named)
             or _ungrounded(ctx, change, cited)
         ):  # fmt: skip
             verdict, findings = "CHECK", [*findings, CITATION]
         results[r.proposal_id] = {
             "verdict": verdict, "evidence_ids": cited,
-            "requirement_ids": [q for q in r.requirement_ids if q in asks],
-            "findings": findings[:5], "reason": r.reason, "text_sha256": sent["text_sha256"],
+            "requirement_ids": list(dict.fromkeys(q for q in r.requirement_ids if q in asks)),
+            "findings": findings, "reason": _said(r.reason),
+            "text_sha256": sent["text_sha256"],
         }  # fmt: skip
     if not _set(conn, run_id, attempt, status="DONE", results=results, usage=usage):
         raise DrafterError("cancelled")
 
 
 def _ungrounded(ctx: Context, change: Any, cited: list[str]) -> bool:
-    """Whether the cited evidence alone fails to ground the wording."""
-    before = change.op.get("before") or ""
-    held = [ctx.claims[k] for k in cited]
-    source = " ".join([before, *(s.text + " " + " ".join(s.tools) for s in held)])
-    tools = {jd.folded(t) for s in held for t in s.tools}
-    return bool(grounding(_text(change), source, tools, ai=True))
+    """Whether the evidence the REVIEWER cited fails the drafter's own check
+    for this wording: the same reader, titles, bait and allowances."""
+    proposal = _proposal(change).model_copy(update={"evidence_ids": cited})
+    return bool(check(proposal, ctx, _text(change)))
 
 
-def opinion(review: dict[str, Any], change: Any) -> dict[str, Any] | None:
-    """The reviewer's verdict on a change, only for the wording it reviewed."""
+def opinion(
+    review: dict[str, Any], change: Any, confirmed: set[str] | None = None
+) -> dict[str, Any] | None:
+    """The reviewer's verdict on a change, only for the wording it reviewed.
+    A SUPPORTED verdict whose evidence is no longer confirmed (`confirmed`,
+    when known) reads as CHECK: an opinion never outlives its evidence."""
     ai = review.get("ai") or {}
     found = (ai.get("results") or {}).get(change.id) if ai.get("status") == "DONE" else None
     if not found or found["text_sha256"] != _sha(_text(change)):
         return None
-    return {k: found[k] for k in ("verdict", "findings", "reason")}
+    said = {k: found[k] for k in ("verdict", "findings", "reason")}
+    if (
+        said["verdict"] == "SUPPORTED"
+        and confirmed is not None
+        and not set(found["evidence_ids"]) <= confirmed
+    ):
+        said.update(verdict="CHECK", findings=[*said["findings"], CITATION])
+    return said
 
 
 def summary(review: dict[str, Any]) -> dict[str, Any] | None:

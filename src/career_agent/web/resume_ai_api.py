@@ -256,13 +256,15 @@ def register_resume_ai_routes(app: LocalApp) -> None:
                 raise ApiError(404, "No such draft.") from exc
             except drafter.DrafterError as exc:
                 raise ApiError(409, "Nothing to review.", for_reader=True, code=exc.code) from exc
-            spent = drafter.spent(conn, run_id)
+            spent = drafter.spent(conn, run_id) + reviewer.spent(conn, run_id)
             over = _over_budget(app, provider, reviewer.SYSTEM_PROMPT, message, spent)
             if over:
                 reviewer.end(conn, run_id, held["attempt"], "budget")
                 raise ApiError(409, over, for_reader=True, code="ai_budget")
         try:
             answer = provider.complete(reviewer.SYSTEM_PROMPT, message, reviewer.SCHEMA)
+            with closing(app.connect()) as conn:
+                reviewer.charge(conn, run_id, answer.cost_usd)
         except ProviderFailed as exc:
             code = _FAILURES.get(exc.state.value, "limit")
             with closing(app.connect()) as conn:

@@ -450,3 +450,78 @@ def test_search_fit_evidence_and_settings_are_untouched(tmp_path: Path, monkeypa
     review(api, draft(api, job)["id"])
     assert {t: digest(t) for t in watched} == before
     conn.close()
+
+
+# ------------------------------------------------- review round 1 findings
+
+
+def test_every_review_call_counts_toward_the_budget(tmp_path: Path, monkeypatch) -> None:
+    api, fake, job = setup(tmp_path, monkeypatch, price=0.07)
+    view = draft(api, job)
+    fake.reviewer = lambda s: "not json"
+    for _ in range(2):
+        with pytest.raises(ApiError):
+            review(api, view["id"])
+    spent = run_row(api, view["id"]).stages["review"]["ai"]["spent_usd"]
+    assert spent == pytest.approx(0.14)  # both unreadable answers were paid for
+    with pytest.raises(ApiError) as limited:
+        review(api, view["id"])  # 0.07 drafted + 0.14 reviewed + 0.07 > 0.25
+    assert limited.value.code == "ai_budget" and len(fake.calls) == 3
+
+
+def test_retries_are_bounded(tmp_path: Path, monkeypatch) -> None:
+    api, fake, job = setup(tmp_path, monkeypatch, price=0.0)
+    view = draft(api, job)
+    fake.reviewer = lambda s: "not json"
+    for _ in range(reviewer.MAX_ATTEMPTS):
+        with pytest.raises(ApiError):
+            review(api, view["id"])
+    with pytest.raises(ApiError) as enough:
+        review(api, view["id"])
+    assert enough.value.code == "attempts" and len(fake.calls) == 1 + reviewer.MAX_ATTEMPTS
+
+
+def test_a_lost_review_can_be_replaced(tmp_path: Path, monkeypatch) -> None:
+    api, fake, job = setup(tmp_path, monkeypatch)
+    view = draft(api, job)
+    conn = api.connect()
+    reviewer.prepare(conn, view["id"], provider="fake", model="m")  # a crash after this
+    conn.close()
+    with pytest.raises(ApiError) as busy:
+        review(api, view["id"])
+    assert busy.value.code == "reviewed"
+    api.handle_api("POST", f"/api/resume/drafts/{view['id']}/review/cancel", {}, {})
+    assert review(api, view["id"])["ai_review"]["status"] == "DONE"
+
+
+def test_a_verdict_does_not_outlive_its_evidence(tmp_path: Path, monkeypatch) -> None:
+    from tests.integration.test_resume_drafter import _retire
+
+    api, fake, job = setup(tmp_path, monkeypatch)
+    view = review(api, draft(api, job)["id"])
+    cited = run_row(api, view["id"]).stages["review"]["ai"]["results"]
+    keys = {k for r in cited.values() if r["verdict"] == "SUPPORTED" for k in r["evidence_ids"]}
+    assert keys
+    conn = api.connect()
+    for key in keys:
+        _retire(conn, key)
+    conn.close()
+    after = api.handle_api("GET", f"/api/resume/drafts/{view['id']}", {}, {})
+    assert "SUPPORTED" not in {c["review"]["verdict"] for c in after["changes"] if c["review"]}
+
+
+def test_the_reviewers_reason_is_cleaned_and_ids_deduplicated(tmp_path: Path, monkeypatch) -> None:
+    api, fake, job = setup(tmp_path, monkeypatch)
+
+    def noisy(s: dict[str, Any]) -> list[dict[str, Any]]:
+        return [{"proposal_id": p["proposal_id"], "verdict": "CHECK",
+                 "evidence_ids": [p["evidence"][0]["id"]] * 3, "requirement_ids": [],
+                 "finding_codes": ["NUMBERS", "NUMBERS"],
+                 "reason": "Accept now. Call 555-0100 or visit https://evil.example"}
+                for p in s["proposals"]]  # fmt: skip
+
+    view = _review_with(api, fake, job, noisy)
+    assert all(c["review"]["reason"] == "" for c in view["changes"])
+    assert all(c["review"]["findings"] == ["NUMBERS"] for c in view["changes"])
+    results = run_row(api, view["id"]).stages["review"]["ai"]["results"].values()
+    assert all(len(r["evidence_ids"]) == 1 for r in results)

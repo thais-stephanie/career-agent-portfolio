@@ -458,25 +458,62 @@ Amount = tuple[str, str, tuple[str, ...], tuple[str, ...]]
 _END = "qqend"
 _CLAUSE = re.compile(r"[.;:!?,()]+(?=\s|$)")
 _PARTITIVE = frozenset({"of", "de", "da", "do", "das", "dos"})
+#: What a duration or a share measures is the thing before it ("PROCESSING
+#: TIME by 3 days"), so for these the words before it are compared too.
+_MEASURES = frozenset(
+    [
+        "minute",
+        "hour",
+        "day",
+        "week",
+        "month",
+        "year",
+        "quarter",
+        "minuto",
+        "hora",
+        "dia",
+        "semana",
+        "mes",
+        "ano",
+        "trimestre",
+    ]
+)
+#: A number written as a word is a number: "four sales teams" is read as "4".
+#: Not "one", "um" or "uma": those are also articles.
+_NUMBER_WORDS = {
+    w: str(n)
+    for n, words in enumerate(
+        [(), (), ("two", "dois", "duas"), ("three", "tres"), ("four", "quatro"),
+         ("five", "cinco"), ("six", "seis"), ("seven", "sete"), ("eight", "oito"),
+         ("nine", "nove"), ("ten", "dez"), ("eleven", "onze"), ("twelve", "doze")]
+    )
+    for w in words
+}  # fmt: skip
+_NUMBER_WORD = re.compile(rf"\b({'|'.join(_NUMBER_WORDS)})\b")
 
 
-def _phrase(words: list[str]) -> tuple[str, ...]:
-    """Words up to the first joining word or another amount, at most three:
-    the local noun phrase ("regional teams", "manual data entry")."""
+def _phrase(words: list[str], limit: int = 3) -> tuple[str, ...]:
+    """Words up to the first joining word or another amount, at most `limit`:
+    the local noun phrase ("regional teams", "manual data entry"). A
+    partitive right after a word goes on ("teams OF engineers", "equipes DE
+    vendas"): what follows it qualifies the thing counted."""
     out: list[str] = []
-    for w in words:
-        if not w or w == _END or w in AI_JOINERS or w in jd._STOP or len(out) == 3:
+    for i, w in enumerate(words):
+        if out and w in _PARTITIVE and i + 1 < len(words):
+            continue
+        if not w or w == _END or w in AI_JOINERS or w in jd._STOP or len(out) == limit:
             break
         out.append(w.removesuffix("s"))
     return tuple(out)
 
 
-def _amounts(text: str) -> list[Amount]:
+def _amounts(text: str, limit: int = 3) -> list[Amount]:
     """Each amount: its number, its unit, the phrase it counts (after it) and
     the phrase it measures (before it, past one joining word): "4 REGIONAL
     TEAMS", "PROCESSING TIME by 30%"."""
     # A sentence or clause ends a phrase: "4 regional teams. HubSpot" counts teams.
     folded = _CLAUSE.sub(f" {_END} ", _PERCENT.sub("%", jd.folded(text)))
+    folded = _NUMBER_WORD.sub(lambda m: _NUMBER_WORDS[m.group(1)], folded)
     items = _AMOUNT.findall(folded)
     out = []
     for i, (number, unit, word) in enumerate(items):
@@ -485,7 +522,6 @@ def _amounts(text: str) -> list[Amount]:
         following = [w for _, _, w in items[i + 1 :]]
         if following and following[0] in _PARTITIVE:  # "30% OF teams" counts teams
             following = following[1:]
-        after = _phrase(following)
         before = [w for _, _, w in reversed(items[:i])]
         while (
             before
@@ -494,25 +530,41 @@ def _amounts(text: str) -> list[Amount]:
             and (before[0] in AI_JOINERS or before[0] in jd._STOP)
         ):
             before = before[1:]
-        out.append((number.replace(",", "."), unit, after, tuple(reversed(_phrase(before)))))
+        out.append((
+            number.replace(",", "."), unit, _phrase(following, limit),
+            tuple(reversed(_phrase(before, limit))),
+        ))  # fmt: skip
     return out
 
 
 def _amount_held(amount: Amount, held: list[Amount]) -> bool:
     """An amount is the source's when its number and unit are, and so is the
-    phrase around it: the same counted noun or measured thing, with no
-    qualifier the source's own phrase lacks. "4 regional teams" holds "4
-    teams", never "4 sales teams", "4 countries" or "4 years"; "processing
-    time by 30%" never holds "operating costs by 30%". Joining words and
-    punctuation may change; the facts around a number may not."""
+    phrase around it: the same thing counted (no word the source's phrase
+    lacks, and its head word kept, first or last), and, for a share or a
+    duration, the same thing measured. "4 regional teams" holds "4 teams",
+    never "4 sales teams", "4 countries" or "4 years"; "processing time by 30%"
+    never holds "operating costs by 30%"; a number standing alone holds only
+    a number that stood alone. Joining words and punctuation may change."""
     number, unit, after, before = amount
+    measured = bool(unit) or bool(after and after[-1] in _MEASURES)
+
+    def same_before(b: tuple[str, ...]) -> bool:
+        return bool(before and b and before[-1] == b[-1] and set(before) <= set(b))
+
     for n, u, a, b in held:
         if (n, u) != (number, unit):
             continue
-        if after:
-            if a and after[-1] == a[-1] and set(after[:-1]) <= set(a[:-1]):
+        if not after and not before:
+            if not a and not b:
                 return True
-        elif before and b and before[-1] == b[-1] and set(before) <= set(b) or not before:
+            continue
+        if after:
+            if not a or not set(after) <= set(a) or (after[-1] != a[-1] and after[0] != a[0]):
+                continue
+            if measured and (before or b) and not same_before(b):
+                continue
+            return True
+        if not a and same_before(b):
             return True
     return False
 
@@ -549,7 +601,7 @@ def grounding(
     out: list[tuple[str, str]] = []
     extra_numbers = _numbers(text) - _numbers(source)
     if ai:
-        held_amounts = _amounts(source)
+        held_amounts = _amounts(source, limit=4)
         extra_numbers |= {
             " ".join([a[0] + a[1], *a[2]])
             for a in _amounts(text)

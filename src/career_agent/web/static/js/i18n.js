@@ -1979,6 +1979,10 @@ const EN = {
   'rv.ai.reviewFailed': 'The independent AI review couldn’t finish. Your suggestions are all still here.',
   'rv.ai.reviewCancelled': 'The independent AI review was cancelled. Your suggestions are all still here.',
   'rv.ai.retryReview': 'Try review again',
+  'rv.ai.reviewNot.budget': 'The independent AI review was not sent: it would go over your AI budget per run, or the '
+    + 'price is not known.',
+  'rv.ai.reviewNot.attempts': 'The independent AI review was not sent: it was already tried three times for this '
+    + 'draft.',
   'rv.ai.continueWithout': 'Or continue without it: review the suggestions below.',
   'rv.ai.reviewSummary': 'Independent AI review: {s} supported, {c} need a closer look, {u} couldn’t be supported. '
     + 'This is a model’s opinion.',
@@ -6271,6 +6275,10 @@ const PT_BR = {
   'rv.ai.reviewFailed': 'A revisão independente por IA não conseguiu terminar. Todas as suas sugestões continuam aqui.',
   'rv.ai.reviewCancelled': 'A revisão independente por IA foi cancelada. Todas as suas sugestões continuam aqui.',
   'rv.ai.retryReview': 'Tentar a revisão de novo',
+  'rv.ai.reviewNot.budget': 'A revisão independente por IA não foi enviada: passaria do seu orçamento de IA por '
+    + 'execução, ou o preço não é conhecido.',
+  'rv.ai.reviewNot.attempts': 'A revisão independente por IA não foi enviada: já foi tentada três vezes neste '
+    + 'rascunho.',
   'rv.ai.continueWithout': 'Ou continue sem ela: revise as sugestões abaixo.',
   'rv.ai.reviewSummary': 'Revisão independente por IA: {s} com apoio, {c} pedem um olhar mais atento, {u} sem apoio '
     + 'encontrado. É a opinião de um modelo.',

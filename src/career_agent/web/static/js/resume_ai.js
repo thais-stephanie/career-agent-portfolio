@@ -182,10 +182,18 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
         s: count('SUPPORTED'), c: count('CHECK'), u: count('UNSUPPORTED'),
       }) });
     }
+    // Over the budget, or tried enough: said, and no button that cannot work.
+    const final = ['budget', 'attempts'].includes(ai.ended);
+    const key = final ? `rv.ai.reviewNot.${ai.ended}`
+      : ai.status === 'CANCELLED' ? 'rv.ai.reviewCancelled' : 'rv.ai.reviewFailed';
     return el('div', { className: 'rve__notice', attrs: { role: 'status', id: 'rva-review-failed' } }, [
-      el('p', { text: t(ai.status === 'CANCELLED' ? 'rv.ai.reviewCancelled' : 'rv.ai.reviewFailed') }),
-      el('div', { className: 'rvl__rename' }, [
-        small(t('rv.ai.retryReview'), () => void independentReview(answer), { attrs: { id: 'rva-retry-review' } }),
+      el('p', { text: t(key) }),
+      final ? null : el('div', { className: 'rvl__rename' }, [
+        // A review lost mid-request is let go first, so trying again can work.
+        small(t('rv.ai.retryReview'), async () => {
+          await cancelResumeReview(answer.id).catch(() => null);
+          await independentReview(answer);
+        }, { attrs: { id: 'rva-retry-review' } }),
       ]),
       el('p', { className: 'rve__note', text: t('rv.ai.continueWithout') }),
     ]);

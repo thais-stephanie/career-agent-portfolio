@@ -668,7 +668,7 @@ def view(conn: sqlite3.Connection, run_id: str) -> dict[str, Any]:
             "sources": [s.text for s in cited],
             "asks": [quotes[r] for r in c.requirement_ids if r in quotes],
             "decision": c.decision,
-            "review": opinion(run.stages["review"], c),
+            "review": opinion(run.stages["review"], c, set(ctx.claims) if ctx else None),
         })  # fmt: skip
     return {
         "id": run.id, "status": run.status, "ended": run.stages["validation"].get("ended"),
