@@ -554,6 +554,32 @@ def test_serve_without_db_creates_no_database(
     assert _files(tmp_path) == before
 
 
+def test_demo_serve_refuses_a_database_it_would_not_serve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`serve --demo --db X` used to ignore X and open `data/demo.db`, so a
+    visual check asked for a scratch database wrote test resumes into the demo.
+    It is refused now, before anything is opened."""
+    monkeypatch.chdir(tmp_path)
+    demo = tmp_path / "data" / "demo.db"
+    demo.parent.mkdir()
+    demo.write_bytes(b"sentinel")
+    scratch = tmp_path / "scratch.db"
+    result = runner.invoke(
+        app,
+        ["serve", "--demo", "--db", str(scratch), "--no-open",
+         "--config-dir", str(committed_config_dir())],
+    )  # fmt: skip
+    assert result.exit_code == 2
+    assert "--demo always serves" in result.output
+    assert demo.read_bytes() == b"sentinel"
+    assert not scratch.exists()
+    # And no test may write it either: the session guard watches it.
+    from tests.protected_paths import protected_files
+
+    assert demo in protected_files(tmp_path)
+
+
 def test_daily_without_db_creates_no_database(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

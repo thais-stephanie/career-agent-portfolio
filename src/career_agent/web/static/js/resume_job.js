@@ -22,6 +22,7 @@ import { t, tCount } from './i18n.js';
 const MARK = { COVERED: '✓', PARTLY: '◐', SAID: '◌', NOT_FOUND: '○', ELIGIBILITY: 'ℹ' };
 const GROUPS = [
   ['emphasized', ['REORDER_BULLETS', 'SHOW_BULLET']],
+  ['reworded', ['REWRITE_HEADLINE', 'REWRITE_SUMMARY', 'REWRITE_BULLET']],
   ['added', ['ADD_BULLET', 'ADD_SKILL']],
   ['hidden', ['HIDE_BULLET']],
 ];
@@ -104,7 +105,9 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
     const judged = view.coverage.filter((c) => c.coverage !== 'ELIGIBILITY');
     const parts = [
       el('p', { className: 'rvj__job', text: [view.job.title, view.job.company].filter(Boolean).join(' · ') }),
-      view.tailored ? el('p', { className: 'rve__note', text: t('rv.job.noAi') }) : null,
+      view.tailored
+        ? el('p', { className: 'rve__note', text: t(view.ai_assisted ? 'rv.job.aiAssisted' : 'rv.job.noAi') })
+        : null,
       !preferred ? small(t('rv.job.prefer'), async (event) => {
         event.currentTarget.disabled = true;
         await onPrefer();

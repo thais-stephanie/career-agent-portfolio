@@ -55,6 +55,15 @@ export const markResumeUsed = (jobId, documentId) =>
 /** Tailor from the Master for a job, or for a pasted ad (`{title, company, text}`). No AI. */
 export const tailorForJob = (jobId) => request(jobResumePath(jobId, '/tailor'), { method: 'POST', body: {} });
 export const tailorPasted = (body) => request('/resume/tailor', { method: 'POST', body });
+/** Tailor with AI: which provider would be used; one request that drafts; each decision. */
+export const getResumeAi = () => request('/resume/ai');
+export const startResumeDraft = (jobId, runId, signal) =>
+  request(jobResumePath(jobId, '/drafts'), { method: 'POST', body: { run_id: runId }, signal });
+const draftPath = (id, rest = '') => `/resume/drafts/${encodeURIComponent(id)}${rest}`;
+export const decideResumeDraft = (id, changeId, body) =>
+  request(draftPath(id, `/changes/${encodeURIComponent(changeId)}`), { method: 'POST', body });
+export const finalizeResumeDraft = (id) => request(draftPath(id, '/finalize'), { method: 'POST', body: {} });
+export const cancelResumeDraft = (id) => request(draftPath(id, '/cancel'), { method: 'POST', body: {} });
 /** A job version against its ad: coverage, why it changed, gaps and suggestions. */
 export const getResumeJob = (id) => request(resumePath(id, '/job'));
 /** Make one suggestion's change on the server, from the confirmed text now. */

@@ -22,6 +22,7 @@ import typer
 
 from career_agent.domain.enums import DomesticContext, EligibilityStatus
 from career_agent.runtime import (
+    DEMO_DB_PATH,
     RuntimeMode,
     RuntimeModeError,
     database_ref,
@@ -2449,6 +2450,16 @@ def serve_command(
     from career_agent.web.server import PortInUse, ServerConfig, build_server
 
     mode = RuntimeMode.DEMO if demo else RuntimeMode.PERSONAL
+    if demo and db is not None and db != DEMO_DB_PATH:
+        # Demo mode serves ONE database. Ignoring the `--db` that was asked
+        # for once let a visual check write test resumes into `data/demo.db`.
+        typer.secho(
+            f"--demo always serves {DEMO_DB_PATH}; it cannot serve {db}.\n"
+            f"To serve that database, leave out --demo:  career-agent serve --db {db}",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
     db = resolve_database(mode, db)
     if mode is RuntimeMode.PERSONAL:
         _check_profile_pair(db, config_dir)

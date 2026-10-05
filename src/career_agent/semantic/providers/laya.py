@@ -61,5 +61,8 @@ class LayaProvider:
     def evaluate(self, intent: SearchIntent, title: str, posting: str) -> ProviderAnswer:
         raise ProviderFailed(UNSUPPORTED_REASON, state=Availability.UNSUPPORTED)
 
+    def complete(self, system: str, user: str, schema: dict) -> ProviderAnswer:
+        raise ProviderFailed(UNSUPPORTED_REASON, state=Availability.UNSUPPORTED)
+
     def healthcheck(self) -> ProviderStatus:
         return self.availability()

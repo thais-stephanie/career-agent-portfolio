@@ -136,6 +136,8 @@ def _listed(row: dict[str, Any]) -> dict[str, Any]:
         "updated_at": row["updated_at"],
         "template": row["template"],
         "tailored": row["created_from"] == "TAILOR",
+        # Said, never ranked: drafted with AI and reviewed by the person.
+        "ai_assisted": row["tailor_mode"] == "AI_ASSISTED",
         "last_export": {
             "id": row["export_id"],
             "format": row["export_format"],

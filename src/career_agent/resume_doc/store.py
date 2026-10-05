@@ -546,6 +546,8 @@ class ResumeStore:
             " d.archived_at, d.created_at, d.updated_at,"
             " json_extract(d.working_json, '$.design.template') AS template,"
             " json_extract(d.working_json, '$.provenance.created_from') AS created_from,"
+            " (SELECT t.mode FROM tailoring_run t WHERE t.id ="
+            "   json_extract(d.working_json, '$.provenance.tailoring_run_id')) AS tailor_mode,"
             " s.job_id, s.title AS job_title, s.company AS job_company,"
             " e.id AS export_id, e.format AS export_format, e.page_count,"
             " e.created_at AS exported_at, e.ats_check_json"
@@ -707,6 +709,51 @@ class ResumeStore:
             )
         return self.get_tailoring_run(run_id)
 
+    def open_tailoring_run(
+        self,
+        run_id: str,
+        *,
+        master_id: str,
+        revision_id: str,
+        jd_snapshot_id: str,
+        mode: str,
+        provider: str | None,
+        model: str | None,
+        now: str | None = None,
+    ) -> TailoringRun:
+        """A run whose version does not exist yet (AI-assisted drafting).
+
+        `document_id` is NOT NULL, so until the person finishes the review the
+        run is anchored on the Master it was made from; `attach_tailoring_run`
+        names the version once it exists. No version number is taken here."""
+        with self._tx():
+            if self._row("resume_document", master_id)["kind"] != DocumentKind.MASTER:
+                raise ResumeStoreError("an open tailoring run starts from the Master")
+            if self._row("resume_revision", revision_id)["document_id"] != master_id:
+                raise ResumeStoreError("master_revision_id is not a revision of that master")
+            if self.conn.execute("SELECT 1 FROM tailoring_run WHERE id = ?", (run_id,)).fetchone():
+                raise ResumeStoreError("this tailoring run already exists")
+            self.get_jd_snapshot(jd_snapshot_id)
+            self.conn.execute(
+                "INSERT INTO tailoring_run (id, document_id, jd_snapshot_id, master_document_id,"
+                " master_revision_id, mode, provider, model, status, started_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'RUNNING', ?)",
+                (run_id, master_id, jd_snapshot_id, master_id, revision_id, mode, provider, model,
+                 now or now_utc()),
+            )  # fmt: skip
+        return self.get_tailoring_run(run_id)
+
+    def attach_tailoring_run(self, run_id: str, document_id: str) -> None:
+        """Name the version an open run made, once it exists."""
+        with self._tx():
+            doc = self.get_document(document_id)
+            run = self._row("tailoring_run", run_id)
+            if doc.kind is not DocumentKind.TAILORED or doc.jd_snapshot_id != run["jd_snapshot_id"]:
+                raise ResumeStoreError("a tailoring run belongs to a version of its own job ad")
+            self.conn.execute(
+                "UPDATE tailoring_run SET document_id = ? WHERE id = ?", (document_id, run_id)
+            )
+
     def update_tailoring_run_stage(
         self,
         run_id: str,
@@ -770,16 +817,23 @@ class ResumeStore:
         return self._change(self._row("tailoring_change", change_id))
 
     def decide_tailoring_change(
-        self, change_id: str, decision: Decision, *, now: str | None = None
+        self,
+        change_id: str,
+        decision: Decision,
+        *,
+        op: dict[str, Any] | None = None,
+        now: str | None = None,
     ) -> TailoringChange:
         """Decided once. The accepted text itself lands in the document as a
-        revision (AI_ACCEPTED), not here."""
+        revision (AI_ACCEPTED), not here; `op` replaces the proposal's record
+        when the person edited its wording."""
         with self._tx():
             if self._row("tailoring_change", change_id)["decision"] != "PENDING":
                 raise ResumeStoreError("this change was already decided")
             self.conn.execute(
-                "UPDATE tailoring_change SET decision = ?, decided_at = ? WHERE id = ?",
-                (decision, now or now_utc(), change_id),
+                "UPDATE tailoring_change SET decision = ?, decided_at = ?,"
+                " op_json = COALESCE(?, op_json) WHERE id = ?",
+                (decision, now or now_utc(), None if op is None else _object(op), change_id),
             )
         return self._change(self._row("tailoring_change", change_id))
 

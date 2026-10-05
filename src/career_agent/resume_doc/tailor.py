@@ -39,7 +39,7 @@ from career_agent.clock import new_id
 from career_agent.resume_doc import jd
 from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.master import _career
-from career_agent.resume_doc.models import ResumeDocument, upgrade_resume_document
+from career_agent.resume_doc.models import Origin, ResumeDocument, upgrade_resume_document
 from career_agent.resume_doc.store import NotFound, ResumeStore, ResumeStoreError, StoredDocument
 from career_agent.storage.career_repo import HIGHLIGHT_CATEGORIES, SKILL_CATEGORIES
 from career_agent.storage.db import transaction
@@ -372,6 +372,53 @@ def _numbers(text: str) -> set[str]:
     return {n.replace(",", ".") for n in _NUMBER.findall(text)}
 
 
+#: Words that claim rank or leadership. A line may say one only when its own
+#: sources do: "Analyst" never becomes "Director", "built" never becomes "led".
+SENIORITY = frozenset(
+    """
+    senior sr lead leader led leading head principal director diretor diretora gerente manager
+    managed supervised supervisor mentored oversaw directed vp vice chief executive coordenador
+    coordenadora lider liderei liderou gerenciei coordenei supervisionei
+    """.split()  # noqa: SIM905
+)
+_WORD = re.compile(r"[a-z]+")
+
+
+def grounding(
+    text: str, source: str, names: set[str] | frozenset[str] = frozenset(), *, ai: bool = False
+) -> list[tuple[str, str]]:
+    """What `text` says that `source` does not hold, as (check, detail) pairs.
+
+    The one reader of grounding: the deterministic reviewer and the AI drafter
+    both ask it. Numbers and named terms must be the source's exactly. For a
+    rule-made line every word must be the source's too. For an AI rewrite
+    (`ai`) connecting words may be new, but no more than half of the line,
+    names are also read at a sentence start, and no word of rank or
+    leadership may appear that the source does not say."""
+    out: list[tuple[str, str]] = []
+    extra_numbers = _numbers(text) - _numbers(source)
+    if extra_numbers:
+        out.append(("NUMBERS", f"numbers not in its evidence: {sorted(extra_numbers)}"))
+    said = jd.named_terms(text, sentence_start=False)
+    if ai:
+        said |= jd.named_terms(text, strict=True)
+    known = jd.named_terms(source) | set(names)
+    extra_names = {n for n in said - known if n not in jd.folded(source)}
+    if extra_names:
+        out.append(("NAMED_TOOLS", f"named terms not in its evidence: {sorted(extra_names)}"))
+    words, held = jd.tokens(text), jd.tokens(source)
+    if ai:
+        raised = set(_WORD.findall(jd.folded(text))) & SENIORITY
+        raised -= set(_WORD.findall(jd.folded(source)))
+        if raised:
+            out.append(("SENIORITY", f"rank or leadership not in its evidence: {sorted(raised)}"))
+        if len(words - held) > max(2, len(words) // 2):
+            out.append(("OVERSTATEMENT", "most of its words are not in its evidence"))
+    elif not words <= held:
+        out.append(("OVERSTATEMENT", "words not in its evidence"))
+    return out
+
+
 def review(
     draft_doc: ResumeDocument, master: ResumeDocument, pool: list[Source], supports: list[Support]
 ) -> list[dict[str, Any]]:
@@ -390,28 +437,36 @@ def review(
     def warn(check: str, ref: str, detail: str) -> None:
         findings.append({"check": check, "outcome": "WARN", "ref": ref, "detail": detail})
 
-    lines = [(line.id, line.text, list(line.evidence_ids)) for _, line, _ in _lines(draft_doc)]
-    lines += [(i.id, i.label, list(i.evidence_ids)) for g in draft_doc.skills for i in g.items]
-    for line_id, text, cited in lines:
+    titles = " ".join(f"{e.display_title} {e.source_title}" for e in master.experience)
+    roles = {b.id: e.experience_id for e in draft_doc.experience for b in e.bullets}
+    lines = [
+        (line.id, line.text, list(line.evidence_ids), line.origin is Origin.AI_REWRITE, holder)
+        for holder, line, _ in _lines(draft_doc)
+    ]
+    lines += [(i.id, i.label, list(i.evidence_ids), False, "skill")
+              for g in draft_doc.skills for i in g.items]  # fmt: skip
+    for line_id, text, cited, ai, holder in lines:
         if before.get(line_id) == text:
             continue  # the Master's own line, unchanged
         if not cited or any(k not in claims for k in cited):
             fail("GROUNDING", line_id, "a new line cites no confirmed evidence")
             continue
-        source = " ".join(claims[k].text + " " + " ".join(claims[k].tools) for k in cited)
-        extra_numbers = _numbers(text) - _numbers(source)
-        if extra_numbers:
-            fail("NUMBERS", line_id, f"numbers not in its evidence: {sorted(extra_numbers)}")
-        known = jd.named_terms(source) | {jd.folded(t) for k in cited for t in claims[k].tools}
-        extra_names = {
-            n
-            for n in jd.named_terms(text, sentence_start=False) - known
-            if n not in jd.folded(source)
-        }
-        if extra_names:
-            fail("NAMED_TOOLS", line_id, f"named terms not in its evidence: {sorted(extra_names)}")
-        if not set(jd.tokens(text)) <= jd.tokens(source) | jd.tokens(before.get(line_id, "")):
-            fail("OVERSTATEMENT", line_id, "words not in its evidence")
+        held = {claims[k].experience_id for k in cited} - {None}
+        if line_id in roles and held - {roles[line_id]}:
+            fail("EMPLOYER", line_id, "a line cites another role's evidence")
+        # A rewrite may keep what the line said before; a headline or a
+        # summary rewritten by AI may name the person's own titles.
+        source = " ".join(
+            [
+                before.get(line_id, ""),
+                *(claims[k].text + " " + " ".join(claims[k].tools) for k in cited),
+            ]
+        )
+        if ai and holder is None:
+            source += " " + titles
+        tools = {jd.folded(t) for k in cited for t in claims[k].tools}
+        for check, detail in grounding(text, source, tools, ai=ai):
+            fail(check, line_id, detail)
     old = [(e.id, e.employer, e.source_title, e.display_title, e.start, e.end, e.current)
            for e in master.experience]  # fmt: skip
     new = [(e.id, e.employer, e.source_title, e.display_title, e.start, e.end, e.current)
@@ -620,11 +675,20 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
 
     changes = []
     run_id = doc.provenance.tailoring_run_id
+    ai = False
     if run_id and doc.provenance.created_from.value == "TAILOR":
+        ai = store.get_tailoring_run(run_id).mode == "AI_ASSISTED"
+        rows = {e.id: e.id for e in doc.experience} | {
+            b.id: e.id for e in doc.experience for b in e.bullets
+        }
         for change in store.list_tailoring_changes(run_id):
             op = change.op
+            if change.decision not in ("ACCEPTED", "EDITED"):
+                continue  # a proposal the person rejected changed nothing
+            text = op.get("edited") or op.get("after") or op.get("proposed_text")
+            entry = op.get("entry_id") or rows.get(op.get("target_ref") or "")
             changes.append(
-                {"op": op["op"], "text": op.get("after"), "where": where(op.get("entry_id")),
+                {"op": op["op"], "text": text, "where": where(entry),
                  "asks": [quotes[r] for r in change.requirement_ids if r in quotes]}
             )  # fmt: skip
     dismissed = store.dismissed_findings(stored.id)
@@ -667,6 +731,7 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
     return {
         "job": {"title": snap.title, "company": snap.company, "job_id": snap.job_id},
         "tailored": doc.provenance.created_from.value == "TAILOR",
+        "ai_assisted": ai,
         "coverage": coverage,
         "supported": sum(c["coverage"] in ("COVERED", "PARTLY") for c in judged),
         "total": len(judged),

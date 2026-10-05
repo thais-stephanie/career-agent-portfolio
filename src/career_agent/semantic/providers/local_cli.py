@@ -295,6 +295,9 @@ class ClaudeCodeProvider:
     def evaluate(self, intent: SearchIntent, title: str, posting: str) -> ProviderAnswer:
         return self._ask(SYSTEM_PROMPT, user_message(intent, title, posting), answer_schema())
 
+    def complete(self, system: str, user: str, schema: dict) -> ProviderAnswer:
+        return self._ask(system, user, schema)
+
     def healthcheck(self) -> ProviderStatus:
         status = self.availability()
         if not status.state.usable:
@@ -450,6 +453,9 @@ class CodexProvider:
     def evaluate(self, intent: SearchIntent, title: str, posting: str) -> ProviderAnswer:
         prompt = f"{SYSTEM_PROMPT}\n\nINPUT:\n{user_message(intent, title, posting)}"
         return self._ask(prompt, answer_schema())
+
+    def complete(self, system: str, user: str, schema: dict) -> ProviderAnswer:
+        return self._ask(f"{system}\n\nINPUT:\n{user}", schema)
 
     def healthcheck(self) -> ProviderStatus:
         status = self.availability()

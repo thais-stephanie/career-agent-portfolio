@@ -527,3 +527,73 @@ made by hand), and a manual version is never labelled Tailored.
 
 Measured on synthetic profiles: about 10 ms (thin), 80 ms (a five-role
 senior profile) and 650 ms (fifteen roles, 150 statements, a long ad).
+
+## Tailor with AI: a drafter on top of Tailor V2
+
+"Tailor with AI" (job drawer) is Tailor V2 with one more stage: an AI
+provider PROPOSES wording, and Career Agent decides whether to offer it. It
+is optional and never runs on its own: opening a job, a resume or a tab sends
+nothing. The deterministic path stays beside it, unchanged.
+
+* **The provider is Career Agent's.** Settings, AI & Semantic Matching
+  (`config/semantic.local.yaml`, the key in the root `.env`) chooses it through
+  `semantic.routing.resolve`; each provider gained one `complete(system, user,
+  schema)` method over the client it already had. There is no resume-specific
+  key, model or setting. Demo mode sends nothing; with no provider the screen
+  says so and offers "Set up AI in Settings" and "Tailor without AI".
+* **Said before it is sent.** The screen names the provider and model, how it
+  bills, what is sent and what never is, and that it is ONE request. Send is
+  the person's act. A failure (sign-in, limit, unreachable, unreadable answer)
+  is said in plain words; Try again is a new, explicit request. There is no
+  automatic retry.
+* **Built on the deterministic run** (`resume_doc/drafter.py`). Snapshot,
+  requirements, retrieval, strategy and the deterministic draft run exactly as
+  in Tailor V2; that draft is the base. Sent to the provider: the job's title
+  and company, the quoted asks this profile has support for (never a gap,
+  never an eligibility ask), the base's headline and summary, the lines
+  relevant to those asks under their role's title, and the confirmed
+  statements retrieved for them. Never contact details, dates, other jobs,
+  applications, Search Fit or settings. The ad's text is never sent whole, and
+  the prompt tells the model that job text is untrusted data, never
+  instructions. A request is 2 to 5 thousand characters.
+* **A patch, never a resume.** The answer must be `{"changes": [...]}`, at most
+  12, each one of four operations: REWRITE_HEADLINE, REWRITE_SUMMARY,
+  REWRITE_BULLET (a line of the base) or ADD_BULLET (under a role), with
+  `proposed_text`, `evidence_ids`, `requirement_ids` and a short `reason`. Any
+  other field, operation, size or shape fails the whole answer; the only
+  repair is removing a Markdown code fence. No operation can reach identity,
+  employers, titles, dates, education, certifications, the job, the Master or
+  Career Evidence.
+* **Checked, never believed** (`drafter.check`, with `tailor.grounding`, the
+  reader the deterministic reviewer also uses). Every requirement id must be
+  one of this snapshot's that was sent; every evidence id a confirmed, current
+  claim of THIS profile that was sent or that the line already cites, and from
+  the line's own role. The wording may hold no number, named term, rank or
+  leadership word that its sources do not, and at most half new words. A
+  proposal that fails is not offered: the person sees only how many were
+  left out.
+* **Reviewed, one by one.** Each change shows Before, After, Why, its source
+  and the job's ask, with Accept, Edit and Reject. An edit is held to the same
+  checks; wording Career Agent cannot verify is refused, and can still be
+  typed in the Editor later, as the person's own line. The decisions are the
+  run's `tailoring_change` rows (source DRAFTER).
+* **No version until the end.** The run is anchored on the Master
+  (`tailoring_run.document_id` is NOT NULL and the version does not exist
+  yet): RUNNING while the provider works, PENDING during the review, ERROR when
+  cancelled, discarded, stale or failed, DONE once "Create version" runs every
+  check again (evidence now, the Master unmoved, the deterministic reviewer)
+  and creates the TAILORED document from the Master revision, the
+  deterministic plan and the accepted changes. Only then is a version number
+  taken, so a cancelled attempt leaves no gap. If the Master changes while the
+  provider works, its answer is not used. Accepted wording is `AI_REWRITE`
+  with its evidence, its requirements and the original text kept.
+* **Recorded without the prompt**: provider, model, the prompt template's
+  version and digest, the token counts the provider reported, and every
+  stage's output. Neither the prompt nor any credential is stored or logged.
+* **Labelled, not ranked.** My resumes and the job drawer say "AI-assisted";
+  the job panel says the version was drafted with AI and reviewed by the
+  person.
+
+Measured locally with a fake provider (the provider's own time excluded):
+preparing about 10 to 20 ms, checking the answer 3 to 6 ms, the decisions
+4 to 14 ms, creating the version 6 to 22 ms.
