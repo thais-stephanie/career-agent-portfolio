@@ -714,7 +714,11 @@ Only named findings and counts. It needs no AI.
   as the AI drafter for numbers, tools and rank; several current roles as a
   date check, never an error; titles shown differently from the confirmed
   title. Typed and imported text is never called confirmed, and never
-  becomes evidence.
+  becomes evidence; a line counts as confirmed only when it is made from
+  evidence and every claim it cites is confirmed now, and a line reworded
+  from evidence (by AI or by the person) answers only by what its evidence
+  says. Nothing hidden (a line, an entry, a section, the headline, the
+  summary or a custom section) is counted or raises a finding.
 * **Export readiness** is read from the export checks already run on this
   exact version; an older export says the resume changed since, none says
   so, and "Run export check" leads to the Editor's export. Analyze makes no
@@ -724,7 +728,8 @@ Only named findings and counts. It needs no AI.
   experience behind them), confirmed but not shown, mentioned without
   confirmed support, or not found in confirmed experience. The employer's
   own words are kept; required asks come first, then the work, then
-  preferred. Where, papers, schedule and a language the job requires are
+  preferred. A shown ask with only partial support (a tenure, which is
+  never compared) says "partly". Where, papers, schedule and a language the job requires are
   eligibility, listed apart and never counted. The summary counts ("This
   resume shows confirmed support for 5 of 11 job asks. 2 more have confirmed
   experience you could add.").
@@ -732,7 +737,9 @@ Only named findings and counts. It needs no AI.
   removing an exact repeated line, and adding or showing confirmed
   experience the job asks for. A gap has none: Add evidence (only if true),
   Edit, or Dismiss. A dismissal is for that resume and that condition; its
-  key carries the condition, so a changed condition is a new finding.
+  key carries the condition, so a changed condition is a new finding. A
+  blocking fact (no name, no way to be reached) cannot be set aside. Each
+  time the view opens it is drawn afresh: a result never outlives an edit.
 
 Measured on synthetic profiles: about 1 to 3 ms for a sparse or normal
 resume and 50 ms for a large one; with a job, 2 to 10 ms, and about 180 ms

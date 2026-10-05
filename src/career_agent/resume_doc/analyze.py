@@ -26,7 +26,7 @@ import sqlite3
 from typing import Any
 
 from career_agent.resume_doc import jd
-from career_agent.resume_doc.check import LONG_BULLET_CHARS, SEVERITIES, finding, findings
+from career_agent.resume_doc.check import SEVERITIES, finding, findings
 from career_agent.resume_doc.models import (
     EVIDENCED_ORIGINS,
     Origin,
@@ -69,17 +69,24 @@ def _fingerprint(*parts: str) -> str:
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:10]
 
 
-def _visible(doc: ResumeDocument) -> list[tuple[str, Any, Any]]:
-    """(section, entry, bullet) for every bullet on the page."""
-    hidden = set(doc.layout.hidden_sections)
+def _shown(doc: ResumeDocument, section: str) -> list[Any]:
+    """The entries of a section that are on the page."""
+    if section in doc.layout.hidden_sections:
+        return []
+    return [e for e in getattr(doc, section) if not e.hidden]
+
+
+def _bullets(doc: ResumeDocument) -> list[tuple[str, Any]]:
+    """(ref, line) for every bullet on the page, custom sections included."""
     out = []
     for section in ("experience", "projects", "education"):
-        if section in hidden:
-            continue
-        for entry in getattr(doc, section):
-            if entry.hidden:
-                continue
-            out += [(section, entry, b) for b in entry.bullets if not b.hidden]
+        for entry in _shown(doc, section):
+            out += [
+                (f"{section}/{entry.id}/bullet/{b.id}", b) for b in entry.bullets if not b.hidden
+            ]
+    for c in doc.custom_sections:
+        if not c.hidden and f"custom:{c.id}" not in doc.layout.hidden_sections:
+            out += [(f"custom:{c.id}/bullet/{b.id}", b) for b in c.items if not b.hidden]
     return out
 
 
@@ -90,63 +97,68 @@ def _structure(doc: ResumeDocument) -> list[dict[str, Any]]:
         out.append(finding("NO_CONTACT", "identity"))
     hidden = set(doc.layout.hidden_sections)
     # A heading cannot be blank (the model refuses it); two alike can be.
-    names = [c.heading.strip().casefold() for c in doc.custom_sections if not c.hidden]
-    for c in doc.custom_sections:
-        if c.hidden or f"custom:{c.id}" in hidden:
-            continue
+    shown = [c for c in doc.custom_sections if not c.hidden and f"custom:{c.id}" not in hidden]
+    names = [c.heading.strip().casefold() for c in shown]
+    for c in shown:
         if names.count(c.heading.strip().casefold()) > 1:
             out.append(finding("DUPLICATE_SECTION", f"section/custom:{c.id}"))
-    for e in doc.experience:
-        if not e.hidden and e.start is None:
+    for e in _shown(doc, "experience"):
+        if e.start is None:
             out.append(finding("ENTRY_INCOMPLETE", f"experience/{e.id}"))
-    for ed in doc.education:
-        if not ed.hidden and not (ed.degree or ed.field_of_study):
+    for ed in _shown(doc, "education"):
+        if not (ed.degree or ed.field_of_study):
             out.append(finding("ENTRY_INCOMPLETE", f"education/{ed.id}"))
-    if doc.experience and ("experience" in hidden or all(e.hidden for e in doc.experience)):
+    if doc.experience and not _shown(doc, "experience"):
         out.append(finding("NO_VISIBLE_EXPERIENCE", "section/experience"))
     return out
 
 
 def _content(doc: ResumeDocument) -> list[dict[str, Any]]:
     out = []
-    if doc.summary and len(doc.summary.text) > LONG_SUMMARY_CHARS:
+    hidden = doc.layout.hidden_sections
+    if doc.summary and "summary" not in hidden and len(doc.summary.text) > LONG_SUMMARY_CHARS:
         out.append(finding("LONG_SUMMARY", "summary"))
-    seen: dict[str, str] = {}
+    seen: dict[str, tuple[str, Any]] = {}
     tokens: list[tuple[str, set[str]]] = []
-    per_entry: dict[str, int] = {}
-    for section, entry, b in _visible(doc):
-        ref = f"{section}/{entry.id}/bullet/{b.id}"
-        per_entry[f"{section}/{entry.id}"] = per_entry.get(f"{section}/{entry.id}", 0) + 1
-        folded = " ".join(jd.folded(b.text).split()).strip(" .")
-        if folded in seen:
-            out.append(finding("DUPLICATE_BULLET", ref, first=seen[folded]))
+    for ref, b in _bullets(doc):
+        same = " ".join(b.text.split())  # exact, but for spacing
+        if same in seen:
+            # The copy to remove is the one NOT made from evidence, if either is not.
+            first_ref, first = seen[same]
+            typed = first.origin not in EVIDENCED_ORIGINS and b.origin in EVIDENCED_ORIGINS
+            out.append(finding("DUPLICATE_BULLET", first_ref if typed else ref,
+                               keep=ref if typed else first_ref))  # fmt: skip
             continue
-        seen[folded] = ref
+        seen[same] = (ref, b)
         words = jd.tokens(b.text)
         for other, held in tokens:
             if len(words) >= 4 and len(words & held) / len(words | held) >= 0.8:
                 out.append(finding("NEAR_DUPLICATE_BULLET", ref, first=other))
                 break
         tokens.append((ref, words))
-        if any(g in folded for g in GENERIC):
+        if any(g in jd.folded(same) for g in GENERIC):
             out.append(finding("GENERIC_PHRASE", ref))
-    for ref, n in per_entry.items():
-        if n > MANY_BULLETS:
-            out.append(finding("MANY_BULLETS", ref, n=n))
-    labels: dict[str, str] = {}
-    for g in doc.skills:
+    for section in ("experience", "projects"):
+        for e in _shown(doc, section):
+            n = sum(not b.hidden for b in e.bullets)
+            if n > MANY_BULLETS:
+                out.append(finding("MANY_BULLETS", f"{section}/{e.id}", n=n))
+    labels: set[str] = set()
+    for g in doc.skills if "skills" not in doc.layout.hidden_sections else []:
         for item in g.items if not g.hidden else []:
             label = jd.folded(item.label).strip()
             if label in labels:
                 out.append(finding("DUPLICATE_SKILL", f"skills/{g.id}/item/{item.id}"))
-            labels.setdefault(label, item.id)
+            labels.add(label)
     return out
 
 
-def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list[dict], dict[str, int]]:
-    """Each line's evidence status, and the shared grounding reader on every
-    evidence-linked line against what its evidence says NOW."""
-    overview, rows = _career(conn)
+def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list, dict[str, int]]:
+    """Each shown line's evidence status, by what it is made of: the person's
+    own text by its origin (never by ids it carries), evidence lines by
+    whether their claims are confirmed now and unchanged; and the shared
+    grounding reader on every evidence line against what its evidence says."""
+    _, rows = _career(conn)
     confirmed = {r["claim_key"]: r for r in rows if r["state"] == "CONFIRMED"}
     counts = dict.fromkeys(
         ("CONFIRMED", "EVIDENCE_CHANGED", "NO_LONGER_CONFIRMED", "USER_AUTHORED", "IMPORTED"), 0
@@ -156,61 +168,58 @@ def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list[dict]
         if not shown or not line.text.strip():
             continue
         ref = line.id
-        if not line.evidence_ids:
-            status = "IMPORTED" if line.origin is Origin.IMPORTED else "USER_AUTHORED"
-            counts[status] += 1
+        if line.origin not in EVIDENCED_ORIGINS:
+            counts["IMPORTED" if line.origin is Origin.IMPORTED else "USER_AUTHORED"] += 1
             continue
-        if any(k not in confirmed for k in line.evidence_ids):
+        ids = list(line.evidence_ids)
+        if any(k not in confirmed for k in ids):
             counts["NO_LONGER_CONFIRMED"] += 1
-            key = f"STALE_EVIDENCE:{ref}:{_fingerprint(*sorted(line.evidence_ids))}"
-            out.append(finding("STALE_EVIDENCE", ref, key=key, evidence_ids=line.evidence_ids))
+            key = f"STALE_EVIDENCE:{ref}:{_fingerprint(*sorted(ids))}"
+            out.append(finding("STALE_EVIDENCE", ref, key=key, evidence_ids=ids))
             continue
-        held = [confirmed[k] for k in line.evidence_ids]
+        held = [confirmed[k] for k in ids]
         said = line.original_text or line.text
         verbatim = line.origin is Origin.EVIDENCE_VERBATIM and len(held) == 1
         if verbatim and jd.folded(said).strip(" .") != jd.folded(held[0]["text"]).strip(" ."):
             counts["EVIDENCE_CHANGED"] += 1
             key = f"EVIDENCE_CHANGED:{ref}:{_fingerprint(held[0]['text'])}"
-            out.append(finding("EVIDENCE_CHANGED", ref, key=key, evidence_ids=line.evidence_ids))
+            out.append(finding("EVIDENCE_CHANGED", ref, key=key, evidence_ids=ids))
             continue
         counts["CONFIRMED"] += 1
-        if line.origin in EVIDENCED_ORIGINS:
-            source = " ".join(
-                [
-                    line.original_text or "",
-                    *(h["text"] + " " + " ".join(h.get("tools") or []) for h in held),
-                ]
-            )
-            tools = {jd.folded(t) for h in held for t in h.get("tools") or []}
-            titles = " ".join(
-                f"{e.display_title} {e.source_title}"
-                for e in doc.experience
-                if holder in (None, e.id)
-            )
-            for code, _ in grounding(line.text, source, tools, ai=True, titles=titles):
-                if code in _GROUNDING:
-                    kind = _GROUNDING[code]
-                    key = f"{kind}:{ref}:{_fingerprint(line.text)}"
-                    out.append(finding(kind, ref, key=key, evidence_ids=line.evidence_ids))
+        source = " ".join(
+            [
+                line.original_text or "",
+                *(h["text"] + " " + " ".join(h.get("tools") or []) for h in held),
+            ]
+        )
+        tools = {jd.folded(t) for h in held for t in h.get("tools") or []}
+        titles = " ".join(
+            f"{e.display_title} {e.source_title or ''}"
+            for e in doc.experience
+            if holder in (None, e.id)
+        )
+        for code, _ in grounding(line.text, source, tools, ai=True, titles=titles):
+            if code in _GROUNDING:
+                kind = _GROUNDING[code]
+                key = f"{kind}:{ref}:{_fingerprint(line.text)}"
+                out.append(finding(kind, ref, key=key, evidence_ids=ids))
     return out, counts  # fmt: skip
 
 
 def _consistency(doc: ResumeDocument) -> list[dict[str, Any]]:
     out = []
-    current = [e for e in doc.experience if e.current and not e.hidden]
-    for e in doc.experience:
+    shown = _shown(doc, "experience")
+    for e in shown:
         if e.source_title and e.display_title.strip() != e.source_title.strip():
             out.append(finding("TITLE_RENAMED", f"experience/{e.id}"))
+    current = [e for e in shown if e.current]
     if len(current) > 1:
         # Two current roles can be true: said as a check, never as an error.
         out.append(finding("CHECK_DATES", "section/experience", n=len(current)))
     seen = set()
-    for e in doc.experience:
-        same = (
-            jd.folded(e.employer),
-            jd.folded(e.source_title or ""),
-            e.start.key() if e.start else None,
-        )
+    for e in shown:
+        same = (jd.folded(e.employer), jd.folded(e.source_title or e.display_title),
+                e.start.key() if e.start else None)  # fmt: skip
         if same in seen:
             out.append(finding("DUPLICATE_ROLE", f"experience/{e.id}"))
         seen.add(same)
@@ -223,23 +232,11 @@ def _export(store: ResumeStore, document_id: str, revision_id: str) -> tuple[lis
     exports = store.list_exports(document_id)
     if not exports:
         return [finding("EXPORT_NOT_CHECKED", "document")], None
-    latest = exports[-1]
     mine = [x for x in exports if x.revision_id == revision_id]
-    if not mine:
-        return [finding("EXPORT_OUTDATED", "document")], {
-            "format": latest.format,
-            "current": False,
-            "checks": latest.ats_check.get("checks", []),
-        }
-    x = mine[-1]
-    checks = x.ats_check.get("checks", [])
-    out = []
-    for c in checks:
-        kind = {"FAIL": "EXPORT_PROBLEM", "WARNING": "EXPORT_WORTH_A_LOOK"}.get(c["status"])
-        if kind:
-            out.append(finding(kind, f"export/{c['name']}", check=c["name"]))
-    return out, {"format": x.format, "current": True, "page_count": x.page_count,
-                 "checks": checks}  # fmt: skip
+    x = mine[-1] if mine else exports[-1]
+    said = [] if mine else [finding("EXPORT_OUTDATED", "document")]
+    return said, {"format": x.format, "current": bool(mine), "page_count": x.page_count,
+                  "checks": x.ats_check.get("checks", [])}  # fmt: skip
 
 
 def resume(conn: sqlite3.Connection, doc: ResumeDocument, document_id: str,
@@ -249,14 +246,16 @@ def resume(conn: sqlite3.Connection, doc: ResumeDocument, document_id: str,
     evidence, counts = _evidence(conn, doc)
     exported, export = _export(store, document_id, revision_id)
     found = findings(doc) + _structure(doc) + _content(doc) + evidence + _consistency(doc)
-    found += exported
-    shown = _visible(doc)
-    roles = [e for e in doc.experience if not e.hidden]
+    # Each line-level finding carries the line, so it can be found without the Editor.
+    texts = {line.id: line.text for _, line, _ in _lines(doc)}
+    for f in found:
+        line = f["ref"].rsplit("/", 1)[-1]
+        if line in texts:
+            f["text"] = texts[line]
     return {
-        "overview": {"roles": len(roles), "bullets": len(shown),
-                     "long_bullets": sum(len(b.text) > LONG_BULLET_CHARS for _, _, b in shown),
+        "overview": {"roles": len(_shown(doc, "experience")), "bullets": len(_bullets(doc)),
                      "evidence": counts},
-        "findings": found,
+        "findings": found + exported,
         "export": export,
     }  # fmt: skip
 
@@ -269,16 +268,15 @@ def job(conn: sqlite3.Connection, doc: ResumeDocument, text: str) -> dict[str, A
     supports = retrieve(analysis, pool)
     lines = {s.line_id: s.text for s in pool if s.line_id}
     claims = {s.claim_key: s.text for s in pool if s.claim_key}
-    actions = {s["key"].split(":", 1)[1]: s for s in suggest(doc, supports)
-               if s["key"].startswith("add:")}  # fmt: skip
+    addable = {s["key"][4:] for s in suggest(doc, supports) if s["key"].startswith("add:")}
     rows: list[dict[str, Any]] = []
     for sup in supports:
         req = sup.requirement
         coverage = sup.coverage
-        # The Tailor's own retrieval decides: confirmed experience the resume
-        # does not show (or shows less well) is NOT_SHOWN, even beside a partial line.
         # Where, papers, schedule and a language the job requires are about the
         # person's situation, not what a resume shows: apart, never counted.
+        # The Tailor's own retrieval decides the rest: confirmed experience the
+        # resume does not show (or shows less well) is NOT_SHOWN.
         if req.eligibility or req.kind == "LANGUAGE":
             state = ELIGIBILITY
         elif sup.state == HAVE:
@@ -292,32 +290,24 @@ def job(conn: sqlite3.Connection, doc: ResumeDocument, text: str) -> dict[str, A
         shown = [s for s, _ in sup.shown]
         rows.append({
             "id": req.id, "quote": req.source_quote, "hardness": req.hardness, "kind": req.kind,
-            "importance": req.importance, "state": state, "partly": coverage == "PARTLY",
+            "state": state,
+            # Partly: some support, or a tenure that is never judged.
+            "partly": state == SHOWN and coverage == "PARTLY",
             "lines": [lines[s.line_id] for s in shown if s.line_id in lines][:3],
             "evidence": [claims[k] for s, _ in sup.shown + sup.unshown
                          for k in ([s.claim_key] if s.claim_key else s.evidence_ids)
                          if k in claims][:3],
-            "apply": f"add:{req.id}" if req.id in actions else None,
-            "action": actions[req.id]["action"] if req.id in actions else None,
+            "apply": f"add:{req.id}" if req.id in addable else None,
+            "_rank": (_ORDER.get(req.hardness, _ORDER.get(req.kind, 3)), -req.importance),
         })  # fmt: skip
     # Explicitly required first, then the work itself, then preferred, then the rest.
-    rows.sort(key=lambda r: (_ORDER.get(r["hardness"], _ORDER.get(r["kind"], 3)),
-                             -r["importance"]))  # fmt: skip
+    rows.sort(key=lambda r: r.pop("_rank"))
     judged = [r for r in rows if r["state"] != ELIGIBILITY]
-    count = {s: sum(r["state"] == s for r in judged) for s in (SHOWN, NOT_SHOWN, UNCONFIRMED,
-                                                              NOT_FOUND)}  # fmt: skip
-    found = []
-    for r in judged:
-        kind = {NOT_SHOWN: "JOB_EVIDENCE_NOT_SHOWN", NOT_FOUND: "JOB_NOT_FOUND",
-                UNCONFIRMED: "JOB_TEXT_NOT_CONFIRMED"}.get(r["state"])  # fmt: skip
-        if kind:
-            key = f"{kind}:{_fingerprint(r['quote'])}"
-            found.append(finding(kind, f"requirement/{r['id']}", key=key,
-                                 requirement_ids=[r["id"]], quote=r["quote"],
-                                 apply=r["apply"]))  # fmt: skip
-    return {"requirements": rows, "counts": {**count, "total": len(judged)},
-            "eligibility": [r for r in rows if r["state"] == ELIGIBILITY],
-            "findings": found, "language": analysis.language}  # fmt: skip
+    counts = {s: sum(r["state"] == s for r in judged) for s in (SHOWN, NOT_SHOWN, UNCONFIRMED,
+                                                               NOT_FOUND)}  # fmt: skip
+    counts |= {"partly": sum(r["partly"] for r in judged), "total": len(judged)}
+    return {"requirements": rows, "counts": counts,
+            "eligibility": [r for r in rows if r["state"] == ELIGIBILITY]}  # fmt: skip
 
 
 def run(
@@ -327,8 +317,8 @@ def run(
     revision when the working copy is that revision, else a new milestone of
     it (the caller saved first). When the working copy cites experience no
     longer confirmed, no milestone can be taken: the working copy itself is
-    analyzed, anchored by its hash, and says so. With a snapshot, also
-    against that ad. Dismissed findings are left out and counted."""
+    analyzed, anchored by its hash. With a snapshot, also against that ad.
+    Dismissed findings are left out and counted."""
     store = ResumeStore(conn)
     stored = store.get_document(document_id)
     latest = store.latest_revision_id(document_id)
@@ -349,15 +339,8 @@ def run(
     }  # fmt: skip
     if snapshot_id:
         snap = store.get_jd_snapshot(snapshot_id)
-        said = job(conn, doc, snap.text)
-        out["job"] = {
-            "snapshot_id": snap.id,
-            "title": snap.title,
-            "company": snap.company,
-            "job_id": snap.job_id,
-            **{k: v for k, v in said.items() if k != "findings"},
-        }
-        out["findings"] += said["findings"]  # fmt: skip
+        out["job"] = {"snapshot_id": snap.id, "title": snap.title, "company": snap.company,
+                      "job_id": snap.job_id, **job(conn, doc, snap.text)}  # fmt: skip
     dismissed = store.dismissed_findings(document_id)
     out["dismissed"] = len(dismissed & {f["key"] for f in out["findings"]})
     out["findings"] = sorted(
@@ -370,19 +353,25 @@ def run(
 def remove_duplicate(
     conn: sqlite3.Connection, document_id: str, key: str, *, expected_sha256: str
 ) -> None:
-    """Remove the exact duplicate a current DUPLICATE_BULLET finding names; the
-    first copy stays. Anything else is refused."""
+    """Remove the exact repeat a current DUPLICATE_BULLET finding names (the
+    copy not made from evidence, when one is not); the other stays. Anything
+    else is refused."""
     store = ResumeStore(conn)
     with transaction(conn):
-        found = next((f for f in run(conn, document_id)["findings"]
+        stored = store.get_document(document_id)
+        found = next((f for f in _content(stored.working)
                       if f["key"] == key and f["kind"] == "DUPLICATE_BULLET"), None)  # fmt: skip
         if found is None:
             raise ResumeStoreError("this finding no longer applies")
-        section, entry_id, _, bullet_id = found["ref"].split("/")
-        stored = store.get_document(document_id)
+        section, bullet_id = found["ref"].split("/")[0], found["ref"].rsplit("/", 1)[-1]
         data = stored.working.model_dump(mode="json")
-        entry = next(e for e in data[section] if e["id"] == entry_id)
-        entry["bullets"] = [b for b in entry["bullets"] if b["id"] != bullet_id]
+        holders = (
+            data["custom_sections"] if section.startswith("custom:")
+            else data[section]
+        )  # fmt: skip
+        for entry in holders:
+            field = "items" if section.startswith("custom:") else "bullets"
+            entry[field] = [b for b in entry[field] if b["id"] != bullet_id]
         store.save_working_copy(
             document_id, upgrade_resume_document(data), expected_sha256=expected_sha256
         )

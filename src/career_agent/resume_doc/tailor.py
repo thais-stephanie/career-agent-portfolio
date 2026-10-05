@@ -39,7 +39,13 @@ from career_agent.clock import new_id
 from career_agent.resume_doc import jd
 from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.master import _career
-from career_agent.resume_doc.models import Origin, ResumeDocument, upgrade_resume_document
+from career_agent.resume_doc.models import (
+    EVIDENCED_ORIGINS,
+    Origin,
+    Override,
+    ResumeDocument,
+    upgrade_resume_document,
+)
 from career_agent.resume_doc.store import NotFound, ResumeStore, ResumeStoreError, StoredDocument
 from career_agent.storage.career_repo import HIGHLIGHT_CATEGORIES, SKILL_CATEGORIES
 from career_agent.storage.db import transaction
@@ -97,7 +103,10 @@ class Source:
 
 
 def _lines(doc: ResumeDocument) -> list[tuple[str | None, Any, bool]]:
-    """(entry id, line, shown) for every bullet-like line of a document."""
+    """(entry id, line, shown) for every bullet-like line of a document. Shown
+    means on the page: the line, its entry and its section are not hidden (the
+    headline, the summary and a custom section included, as the renderer
+    hides them)."""
     hidden = set(doc.layout.hidden_sections)
     out: list[tuple[str | None, Any, bool]] = []
     for section in ("experience", "projects", "education"):
@@ -105,53 +114,65 @@ def _lines(doc: ResumeDocument) -> list[tuple[str | None, Any, bool]]:
             for b in entry.bullets:
                 out.append((entry.id, b, not (b.hidden or entry.hidden or section in hidden)))
     for custom in doc.custom_sections:
+        off = custom.hidden or f"custom:{custom.id}" in hidden
         for b in custom.items:
-            out.append((custom.id, b, not (b.hidden or custom.hidden)))
-    for block in (doc.headline, doc.summary):
+            out.append((custom.id, b, not (b.hidden or off)))
+    for name in ("headline", "summary"):
+        block = getattr(doc, name)
         if block is not None:
-            out.append((None, block, True))
+            out.append((None, block, name not in hidden))
     return out
 
 
 def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
-    """Confirmed claims of THIS profile, and every line and skill of `doc`."""
+    """Confirmed claims of THIS profile, and every line and skill of `doc`.
+
+    A resume line stands for confirmed experience only when it is made from
+    evidence (its origin says so) AND every claim it cites is confirmed now;
+    otherwise it is the person's own text, matched by its words and never
+    called confirmed. A line reworded from evidence (by AI, or edited by the
+    person) answers an ask only by what its evidence says: wording is not
+    support."""
+    hidden = set(doc.layout.hidden_sections)
+    overview, rows = _career(conn)
+    placed = {str(e["id"]) for e in overview["experiences"]}
+    confirmed = {r["claim_key"] for r in rows if r["state"] == "CONFIRMED"}
     out: list[Source] = []
     # A statement shows only as a line; a skill item citing it shows the skill,
     # not what the person did with it.
     shown_keys: set[str] = set()
     shown_skills: set[str] = set()
-    # An AI line answers an ask only by what its evidence says, never by the
-    # words the AI chose: wording is not support.
     reworded: list[tuple[Source, str]] = []
     for _, line, shown in _lines(doc):
+        backed = line.origin in EVIDENCED_ORIGINS and set(line.evidence_ids) <= confirmed
         out.append(
             Source(
                 id=line.id, text=line.text, in_resume=True, shown=shown, line_id=line.id,
-                evidence_ids=tuple(line.evidence_ids),
+                evidence_ids=tuple(line.evidence_ids) if backed else (),
             )
         )  # fmt: skip
-        if line.origin is Origin.AI_REWRITE:
+        if backed and (line.origin is Origin.AI_REWRITE or line.override is not Override.NONE):
             reworded.append((out[-1], line.original_text or ""))
-        if shown:
+        if backed and shown:
             shown_keys |= set(line.evidence_ids)
     for group in doc.skills:
         for item in group.items:
-            shown = not group.hidden and "skills" not in doc.layout.hidden_sections
+            shown = not group.hidden and "skills" not in hidden
+            backed = set(item.evidence_ids) <= confirmed
             out.append(
                 Source(
                     id=item.id, text=item.label, in_resume=True, shown=shown, line_id=item.id,
-                    evidence_ids=tuple(item.evidence_ids), category="SKILL",
+                    evidence_ids=tuple(item.evidence_ids) if backed else (), category="SKILL",
                 )
             )  # fmt: skip
-            if shown:
+            if shown and backed:
                 shown_skills |= set(item.evidence_ids)
     for cert in doc.certifications:
         out.append(
-            Source(id=cert.id, text=cert.name, in_resume=True, shown=not cert.hidden,
+            Source(id=cert.id, text=cert.name, in_resume=True,
+                   shown=not cert.hidden and "certifications" not in hidden,
                    line_id=cert.id, category="CERTIFICATION")
         )  # fmt: skip
-    overview, rows = _career(conn)
-    placed = {str(e["id"]) for e in overview["experiences"]}
     for row in rows:
         if row["state"] != "CONFIRMED" or not str(row.get("text") or "").strip():
             continue
@@ -230,7 +251,9 @@ def retrieve(analysis: jd.Analysis, pool: list[Source]) -> list[Support]:
         hits = sorted(((s, strength(req, s)) for s in pool), key=lambda pair: -pair[1])
         hits = [(s, v) for s, v in hits if v > 0]
         shown = [(s, v) for s, v in hits if s.shown]
-        unshown = [(s, v) for s, v in hits if not s.shown]
+        # Not shown, and still support: confirmed evidence, or a hidden line made
+        # from it. A hidden line the person typed is no confirmed experience.
+        unshown = [(s, v) for s, v in hits if not s.shown and (s.claim_key or s.evidence_ids)]
         # Shown only when what shows answers it well, or as well as anything
         # unshown would: a bare tool name in Skills does not hide a confirmed
         # line that says what was done with it.
@@ -946,16 +969,16 @@ def _support(s: Support) -> dict[str, Any]:
 # ----------------------------------------------------- explain, make it better
 
 
+def _where(doc: ResumeDocument, entry_id: str | None) -> dict[str, str] | None:
+    """A role, as the panel names it: its title and employer."""
+    entry = next((e for e in doc.experience if e.id == entry_id), None)
+    return {"title": entry.display_title, "employer": entry.employer} if entry else None
+
+
 def suggest(doc: ResumeDocument, supports: list[Support]) -> list[dict[str, Any]]:
     """What would make `doc` better against these supports, each with the exact
     change when there is one (a confirmed line to add or show, a confirmed
     skill to add) and none for a gap. Shared by the job panel and Analyze."""
-    entries = {e.id: e for e in doc.experience}
-
-    def where(entry_id: str | None) -> dict[str, str] | None:
-        entry = entries.get(entry_id or "")
-        return {"title": entry.display_title, "employer": entry.employer} if entry else None
-
     suggestions: list[dict[str, Any]] = []
     for sup in supports:
         req = sup.requirement
@@ -970,7 +993,7 @@ def suggest(doc: ResumeDocument, supports: list[Support]) -> list[dict[str, Any]
                 action = {"type": "add_bullet", "entry_id": add["entry_id"], "text": add["text"],
                           "origin": "EVIDENCE_VERBATIM" if add["verbatim"] else "RULE_REWRITE",
                           "evidence_ids": [add["evidence_id"]], "requirement_ids": [req.id],
-                          "where": where(add["entry_id"])}  # fmt: skip
+                          "where": _where(doc, add["entry_id"])}  # fmt: skip
             elif plan["skills"]:
                 skill = plan["skills"][0]
                 action = {"type": "add_skill", "label": skill["label"],
@@ -1003,12 +1026,7 @@ def explain(
     doc = stored.working
     analysis = jd.analyse(snap.text)
     supports = retrieve(analysis, sources(conn, doc))
-    entries = {e.id: e for e in doc.experience}
     quotes = {r.id: r.source_quote for r in analysis.requirements}
-
-    def where(entry_id: str | None) -> dict[str, str] | None:
-        entry = entries.get(entry_id or "")
-        return {"title": entry.display_title, "employer": entry.employer} if entry else None
 
     changes = []
     run_id = doc.provenance.tailoring_run_id
@@ -1027,7 +1045,7 @@ def explain(
             text = op.get("edited") or op.get("after") or op.get("proposed_text")
             entry = op.get("entry_id") or rows.get(op.get("target_ref") or "")
             changes.append(
-                {"op": op["op"], "text": text, "where": where(entry),
+                {"op": op["op"], "text": text, "where": _where(doc, entry),
                  "asks": [quotes[r] for r in change.requirement_ids if r in quotes]}
             )  # fmt: skip
     dismissed = store.dismissed_findings(stored.id)

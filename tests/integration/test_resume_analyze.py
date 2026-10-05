@@ -465,3 +465,155 @@ def test_analyze_is_fast(tmp_path: Path, size: str, who: Any, ad: str, limit: fl
     conn.close()
     print(f"\nANALYZE {size}: resume {alone * 1000:.0f} ms, with job {with_job * 1000:.0f} ms")
     assert alone < limit and with_job < limit
+
+
+# ------------------------------------------------- review round 1 findings
+
+
+def _retire_and_job(api: JobsApi) -> dict[str, Any]:
+    conn = api.connect()
+    _retire(conn, "k-hubspot-routing")
+    conn.close()
+    return run(api, master(api).id, ad=AD)
+
+
+def test_evidence_no_longer_confirmed_is_not_support(api: JobsApi) -> None:
+    rows = _retire_and_job(api)["job"]["requirements"]
+    hubspot = next(r for r in rows if r["quote"] == "Experience with HubSpot")
+    assert hubspot["state"] != analyze.SHOWN or not any(
+        "lead routing" in line for line in hubspot["lines"]
+    )
+
+
+def test_typed_or_edited_words_are_never_confirmed_support(api: JobsApi) -> None:
+    doc = master(api).id
+
+    def claims_apex(data: dict[str, Any]) -> None:
+        role = data["experience"][0]
+        role["bullets"].append(
+            {
+                "id": new_id(),
+                "origin": "USER_AUTHORED",
+                "text": "Wrote Salesforce Apex triggers and dbt models.",
+                "evidence_ids": ["k-hubspot-routing"],
+            }
+        )
+        edited = role["bullets"][0]
+        edited.update(
+            text=edited["text"] + " Also Workato certification.",
+            override="EDITED",
+            original_text=edited["text"],
+        )
+
+    edit(api, doc, claims_apex)
+    result = run(api, doc, ad=AD)
+    rows = {r["quote"]: r["state"] for r in result["job"]["requirements"]}
+    for ask in ("Salesforce Apex is a must", "Experience with dbt", "Workato certification"):
+        assert rows[ask] != analyze.SHOWN, ask
+    assert result["overview"]["evidence"]["USER_AUTHORED"] >= 1
+
+
+def test_hidden_text_is_never_counted(api: JobsApi) -> None:
+    doc = master(api).id
+
+    def hide(data: dict[str, Any]) -> None:
+        data["summary"] = {
+            "id": new_id(),
+            "text": "Salesforce Apex expert.",
+            "origin": "USER_AUTHORED",
+        }
+        custom = {
+            "id": new_id(),
+            "heading": "Extra",
+            "items": [{"id": new_id(), "text": "Salesforce Apex.", "origin": "USER_AUTHORED"}],
+        }
+        data["custom_sections"] = [custom]
+        data["layout"]["hidden_sections"] = ["summary", f"custom:{custom['id']}"]
+
+    edit(api, doc, hide)
+    result = run(api, doc, ad=AD)
+    apex = next(r for r in result["job"]["requirements"] if "Apex" in r["quote"])
+    assert apex["state"] == analyze.NOT_FOUND and apex["lines"] == []
+    assert result["overview"]["evidence"]["USER_AUTHORED"] == 0
+
+
+def test_tenure_is_partly_never_simply_shown(api: JobsApi) -> None:
+    result = run(api, master(api).id, ad=AD)
+    years = next(r for r in result["job"]["requirements"] if "10+ years" in r["quote"])
+    assert years["state"] != analyze.SHOWN or years["partly"]
+    assert result["job"]["counts"]["partly"] >= 0
+
+
+def test_bad_snapshots_and_blocking_dismissals_are_said(api: JobsApi) -> None:
+    doc = master(api).id
+    for snapshot in (["x"], 5):
+        with pytest.raises(ApiError) as bad:
+            api.handle_api(
+                "POST",
+                f"/api/resume/documents/{doc}/analysis/changes",
+                {},
+                {"key": "add:r", "expected_sha256": "x", "jd_snapshot_id": snapshot},
+            )
+        assert bad.value.status == 400
+    with pytest.raises(ApiError) as missing:
+        api.handle_api(
+            "POST",
+            f"/api/resume/documents/{doc}/analysis/changes",
+            {},
+            {"key": "add:r", "expected_sha256": "x", "jd_snapshot_id": "nope"},
+        )
+    assert missing.value.status in (404, 409)
+    edit(api, doc, lambda d: d["identity"].update(email=None, phone=None, links=[]))
+    with pytest.raises(ApiError) as blocking:
+        api.handle_api(
+            "POST",
+            f"/api/resume/documents/{doc}/analysis/dismissals",
+            {},
+            {"key": "NO_CONTACT:identity"},
+        )
+    assert blocking.value.code == "blocking"
+
+
+def test_hidden_entries_raise_no_findings(api: JobsApi) -> None:
+    doc = master(api).id
+
+    def hidden_copy(data: dict[str, Any]) -> None:
+        copy = {
+            **data["experience"][0],
+            "id": new_id(),
+            "hidden": True,
+            "bullets": [{**b, "id": new_id()} for b in data["experience"][0]["bullets"]],
+        }
+        data["experience"].append(copy)
+        data["layout"]["hidden_sections"] = ["skills"]
+
+    edit(api, doc, hidden_copy)
+    found = kinds(run(api, doc))
+    assert "DUPLICATE_ROLE" not in found and "DUPLICATE_BULLET" not in found
+    assert "DUPLICATE_SKILL" not in found
+
+
+def test_a_repeat_keeps_the_evidence_copy(api: JobsApi) -> None:
+    doc = master(api).id
+
+    def typed_first(data: dict[str, Any]) -> None:
+        role = data["experience"][0]
+        role["bullets"].insert(
+            0, {"id": new_id(), "text": role["bullets"][0]["text"], "origin": "USER_AUTHORED"}
+        )
+
+    edit(api, doc, typed_first)
+    dup = next(f for f in run(api, doc)["findings"] if f["kind"] == "DUPLICATE_BULLET")
+    conn = api.connect()
+    stored = ResumeStore(conn).get_document(doc)
+    conn.close()
+    api.handle_api(
+        "POST",
+        f"/api/resume/documents/{doc}/analysis/changes",
+        {},
+        {"key": dup["key"], "expected_sha256": stored.working_sha256},
+    )
+    conn = api.connect()
+    role = ResumeStore(conn).get_document(doc).working.experience[0]
+    conn.close()
+    assert role.bullets[0].origin.value != "USER_AUTHORED"

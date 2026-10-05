@@ -6,13 +6,13 @@ is about (`ref`, the same path the preview and the editor use), a stable
 place can hold different facts) a dismissal can name, and, from `KINDS`:
 
 * `category`: IDENTITY, STRUCTURE, READABILITY, CONTENT, EVIDENCE,
-  CONSISTENCY, EXPORT or JOB;
+  CONSISTENCY or EXPORT;
 * `severity`: BLOCKING (the resume is not usable as it is), WARNING (a
   problem worth fixing), OPPORTUNITY (could be better) or INFO;
 * `nature`: OBJECTIVE (plainly true of the document) or ADVISORY (a
   heuristic, said as advice and never as fact);
-* `action`: what to do next (EDIT, APPLY, OPEN_EVIDENCE, ADD_EVIDENCE,
-  EXPORT_CHECK, TAILOR) or None.
+* `action`: what to do next (EDIT, APPLY, OPEN_EVIDENCE, EXPORT_CHECK) or
+  None.
 
 There is no percentage, no "ATS score" and no prediction.
 """
@@ -59,7 +59,7 @@ KINDS: dict[str, tuple[str, str, str, str | None]] = {
     "NUMBER_NOT_IN_EVIDENCE": ("EVIDENCE", W, OBJ, "EDIT"),
     "UNSUPPORTED_NUMBER": ("EVIDENCE", W, OBJ, "EDIT"),
     "UNSUPPORTED_TOOL": ("EVIDENCE", W, OBJ, "EDIT"),
-    "UNSUPPORTED_SENIORITY": ("EVIDENCE", W, OBJ, "EDIT"),
+    "UNSUPPORTED_SENIORITY": ("EVIDENCE", W, ADV, "EDIT"),
     "NOT_FROM_EVIDENCE": ("EVIDENCE", I, OBJ, "OPEN_EVIDENCE"),
     "STALE_EVIDENCE": ("EVIDENCE", W, OBJ, "EDIT"),
     "EVIDENCE_CHANGED": ("EVIDENCE", I, OBJ, "EDIT"),
@@ -68,11 +68,6 @@ KINDS: dict[str, tuple[str, str, str, str | None]] = {
     "TITLE_RENAMED": ("CONSISTENCY", I, OBJ, "EDIT"),
     "EXPORT_NOT_CHECKED": ("EXPORT", I, OBJ, "EXPORT_CHECK"),
     "EXPORT_OUTDATED": ("EXPORT", I, OBJ, "EXPORT_CHECK"),
-    "EXPORT_PROBLEM": ("EXPORT", W, OBJ, "EXPORT_CHECK"),
-    "EXPORT_WORTH_A_LOOK": ("EXPORT", O, OBJ, "EXPORT_CHECK"),
-    "JOB_EVIDENCE_NOT_SHOWN": ("JOB", O, OBJ, "APPLY"),
-    "JOB_NOT_FOUND": ("JOB", I, OBJ, "ADD_EVIDENCE"),
-    "JOB_TEXT_NOT_CONFIRMED": ("JOB", I, OBJ, "OPEN_EVIDENCE"),
 }
 SEVERITIES = (B, W, O, I)
 

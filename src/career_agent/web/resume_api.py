@@ -181,6 +181,23 @@ def _library(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def _pasted_ad(body: dict) -> dict[str, Any]:
+    """A pasted job ad, checked: a title, the ad's text, an optional company."""
+    title, company, text = (body.get(k) for k in ("title", "company", "text"))
+    if (
+        set(body) - {"title", "company", "text"}
+        or not isinstance(title, str)
+        or not title.strip()
+        or len(title) > 300
+        or not isinstance(text, str)
+        or len(text) > MAX_AD
+        or len(text.strip()) < 20
+        or not (company is None or (isinstance(company, str) and len(company) <= 200))
+    ):
+        raise ApiError(400, "Give the job's title and paste its ad.", for_reader=True)
+    return {"title": title.strip(), "company": (company or "").strip() or None, "text": text}
+
+
 def _unconfirmed(lines: list[str]) -> ApiError:
     return ApiError(
         400,
@@ -684,21 +701,7 @@ def register_resume_routes(app: LocalApp) -> None:
 
     def pasted_tailor(*, query: dict, body: dict) -> dict[str, Any]:
         """Tailor from the Master for an ad the person pasted."""
-        title, company, text = (body.get(k) for k in ("title", "company", "text"))
-        if (
-            set(body) - {"title", "company", "text"}
-            or not isinstance(title, str)
-            or not title.strip()
-            or len(title) > 300
-            or not isinstance(text, str)
-            or len(text) > MAX_AD
-            or len(text.strip()) < 20
-            or not (company is None or (isinstance(company, str) and len(company) <= 200))
-        ):
-            raise ApiError(400, "Give the job's title and paste its ad.", for_reader=True)
-        return run_tailor(
-            {"title": title.strip(), "company": (company or "").strip() or None, "text": text}
-        )
+        return run_tailor(_pasted_ad(body))
 
     def _snapshot(conn: Any, stored: StoredDocument, body: dict) -> str | None:
         """Which job ad Analyze reads: none, the version's own, a Career Agent
@@ -713,16 +716,7 @@ def register_resume_routes(app: LocalApp) -> None:
             if ad is None:
                 raise ApiError(404, "This job is not in this profile.")
         elif "ad" in body:
-            ad = body["ad"] if isinstance(body["ad"], dict) else {}
-            title, text = ad.get("title"), ad.get("text")
-            if (
-                not isinstance(title, str) or not title.strip() or len(title) > 300
-                or not isinstance(text, str) or len(text.strip()) < 20 or len(text) > MAX_AD
-                or not (ad.get("company") is None or isinstance(ad.get("company"), str))
-            ):  # fmt: skip
-                raise ApiError(400, "Give the job's title and paste its ad.", for_reader=True)
-            ad = {"title": title.strip(), "company": (ad.get("company") or "").strip() or None,
-                  "text": text}  # fmt: skip
+            ad = _pasted_ad(body["ad"] if isinstance(body["ad"], dict) else {})
         else:
             return None
         snap = store.create_jd_snapshot(
@@ -749,14 +743,19 @@ def register_resume_routes(app: LocalApp) -> None:
     def analysis_dismiss(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
         """Set one Analyze finding aside for THIS resume only. Its key carries the
         condition, so a changed condition is a new finding."""
-        key, snapshot = body.get("key"), body.get("jd_snapshot_id")
-        if set(body) - {"key", "jd_snapshot_id"} or not isinstance(key, str) or len(key) > 160:
+        key = body.get("key")
+        if set(body) != {"key"} or not isinstance(key, str) or len(key) > 160:
             raise ApiError(400, "Say which finding to set aside.")
         with closing(app.connect()) as conn:
             _one(conn, document_id)
-            said = analyze.run(conn, document_id, snapshot_id=snapshot)
-            if key not in {f["key"] for f in said["findings"]}:
+            found = next((f for f in analyze.run(conn, document_id)["findings"]
+                          if f["key"] == key), None)  # fmt: skip
+            if found is None:
                 raise ApiError(404, "No such finding for this resume.")
+            if found["severity"] == "BLOCKING":
+                # The resume is not usable as it is: that is not set aside.
+                raise ApiError(409, "This can't be set aside: the resume needs it.",
+                               for_reader=True, code="blocking")  # fmt: skip
             ResumeStore(conn).dismiss_finding(document_id, key)
         return {"dismissed": key}
 
@@ -769,7 +768,11 @@ def register_resume_routes(app: LocalApp) -> None:
             body.get("expected_sha256"),
             body.get("jd_snapshot_id"),
         )
-        if set(body) - {"key", "expected_sha256", "jd_snapshot_id"} or not isinstance(key, str):
+        if (
+            set(body) - {"key", "expected_sha256", "jd_snapshot_id"}
+            or not isinstance(key, str)
+            or not (snapshot is None or isinstance(snapshot, str))
+        ):
             raise ApiError(400, "Say which change to make.")
         with closing(app.connect()) as conn:
             _one(conn, document_id)
@@ -781,6 +784,8 @@ def register_resume_routes(app: LocalApp) -> None:
                                      snapshot_id=snapshot)  # fmt: skip
                 else:
                     raise ApiError(400, "This finding has no change to make.")
+            except NotFound as exc:
+                raise ApiError(404, "No such job ad for this resume.") from exc
             except StaleDocument as exc:
                 raise ApiError(409, "This resume changed in another window.",
                                for_reader=True) from exc  # fmt: skip

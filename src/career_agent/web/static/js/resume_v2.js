@@ -153,7 +153,8 @@ export function createResumeWorkspace({
     root.dataset.view = name;
     if (name === 'home') void drawHome();
     if (name === 'list') void library.load();
-    if (name === 'analyze' && !views.analyze.firstChild) void analyzer.show();
+    // Analyze is drawn afresh each time: a result never outlives an edit.
+    if (name === 'analyze') void analyzer.show();
   }
 
   function close() {

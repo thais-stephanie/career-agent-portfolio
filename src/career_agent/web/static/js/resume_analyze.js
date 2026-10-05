@@ -30,13 +30,18 @@ export function createAnalyze({ host, show, open, onEvidence, onTailor }) {
   // What is being analyzed: the document, and how the job is chosen.
   let choice = { id: null, job: null };
   let last = null;
+  // Only the latest drawing paints: opening the view and choosing a resume can overlap.
+  let drawing = 0;
   const status = el('p', { className: 'rvt__state', attrs: { role: 'status', 'aria-live': 'polite' } });
 
   /** The form: which resume, which mode, which job. Nothing runs until Analyze. */
   async function draw(focus = true) {
+    const mine = ++drawing;
+    last = null;
     let library;
     try {
       library = await listResumeDocuments();
+      if (mine !== drawing) return;
     } catch (error) {
       host.replaceChildren(el('p', { attrs: { role: 'alert' }, text: error.userMessage || t('rv.failed') }));
       return;
@@ -158,14 +163,18 @@ export function createAnalyze({ host, show, open, onEvidence, onTailor }) {
       actions.push(small(t('rv.an.exportCheck'), () => void open(r.document_id)));
     }
     const what = t(`rv.find.${f.kind}`, { n: f.n || '' });
-    actions.push(small(t('rv.job.dismiss'), () => void act(() => dismissAnalysis(r.document_id, {
-      key: f.key, ...(r.job ? { jd_snapshot_id: r.job.snapshot_id } : {}),
-    })), { ariaLabel: `${t('rv.job.dismiss')}: ${what}` }));
+    // A blocking fact is not set aside: the resume is not usable without it.
+    if (f.severity !== 'BLOCKING') {
+      actions.push(small(t('rv.job.dismiss'), () => void act(() => dismissAnalysis(r.document_id, { key: f.key })), {
+        ariaLabel: `${t('rv.job.dismiss')}: ${what}`,
+      }));
+    }
     return el('li', { className: 'rvan__finding', dataset: { severity: f.severity, kind: f.kind } }, [
       el('p', {}, [
         el('strong', { text: `${SIGN[f.severity]} ${t(`rv.an.sev.${f.severity}`)}` }),
         ` · ${t(`rv.an.nature.${f.nature}`)}: `, what,
       ]),
+      f.text ? el('p', { className: 'rve__note rvan__quote', text: `“${f.text}”` }) : null,
       el('div', { className: 'rvl__rename' }, actions),
     ]);
   }
@@ -192,7 +201,7 @@ export function createAnalyze({ host, show, open, onEvidence, onTailor }) {
     }
     return el('li', { className: 'rvan__req', dataset: { state: q.state } }, [
       el('details', {}, [
-        el('summary', { text: `${t(`rv.an.state.${q.state}`)}: ${q.quote}` }),
+        el('summary', { text: `${t(q.partly ? 'rv.an.state.PARTLY' : `rv.an.state.${q.state}`)}: ${q.quote}` }),
         ...detail.filter(Boolean),
         actions.length ? el('div', { className: 'rvl__rename' }, actions) : null,
       ]),
@@ -226,6 +235,7 @@ export function createAnalyze({ host, show, open, onEvidence, onTailor }) {
             ? tCount('rv.an.sumMore', { n: c.SUPPORTED_IN_CONFIRMED_EXPERIENCE_NOT_RESUME }) : '',
           c.RESUME_TEXT_WITHOUT_CONFIRMED_SUPPORT
             ? tCount('rv.an.sumSaid', { n: c.RESUME_TEXT_WITHOUT_CONFIRMED_SUPPORT }) : '',
+          c.partly ? tCount('rv.an.sumPartly', { n: c.partly }) : '',
           c.NOT_FOUND_IN_CONFIRMED_EXPERIENCE
             ? tCount('rv.an.sumMissing', { n: c.NOT_FOUND_IN_CONFIRMED_EXPERIENCE }) : '',
         ].filter(Boolean).join(' ') }),
@@ -249,7 +259,7 @@ export function createAnalyze({ host, show, open, onEvidence, onTailor }) {
       }
     }
     const technical = r.findings.filter((f) => f.category === 'EXPORT');
-    const improve = r.findings.filter((f) => f.category !== 'EXPORT' && f.category !== 'JOB');
+    const improve = r.findings.filter((f) => f.category !== 'EXPORT');
     parts.push(el('h3', { className: 'rvl__h3', text: t('rv.an.improve') }));
     parts.push(improve.length
       ? el('ul', { className: 'rvan__findings' }, improve.map((f) => findingItem(r, f)))
