@@ -50,6 +50,25 @@ def _provider(app: LocalApp) -> tuple[SemanticProvider | None, str]:
     return route.provider, "" if route.provider else "NO_PROVIDER"
 
 
+def _over_budget(app: LocalApp, provider: SemanticProvider, message: str) -> str:
+    """Why a metered provider may not be asked: the person's AI budget per run
+    (Settings) is the ceiling for this call too, with the answer at its longest."""
+    from career_agent.semantic.providers import Billing
+    from career_agent.semantic.settings import load_settings
+
+    if provider.capabilities().billing is not Billing.METERED_API:
+        return ""
+    budget = load_settings(app.config.config_dir).budget_per_run_usd
+    # About four characters a token; the answer is priced at its ceiling.
+    inputs = (len(drafter.SYSTEM_PROMPT) + len(message)) // 3
+    cost = provider.estimate_cost(inputs, int(getattr(provider, "max_output_tokens", 2500)))
+    if cost is None:
+        return "The price of this AI provider is not known, so nothing was sent."
+    if cost > budget:
+        return "This would cost more than your AI budget per run, so nothing was sent."
+    return ""
+
+
 def register_resume_ai_routes(app: LocalApp) -> None:
     # A Cancel can arrive before its run is written (the page names the run as
     # it sends it). Remembered here, so the draft stops before the provider is
@@ -86,7 +105,7 @@ def register_resume_ai_routes(app: LocalApp) -> None:
             if ad is None:
                 raise ApiError(404, "This job is not in this profile.")
             try:
-                _, message = drafter.start(
+                message = drafter.start(
                     conn,
                     ad=ad,
                     run_id=run_id,
@@ -99,29 +118,41 @@ def register_resume_ai_routes(app: LocalApp) -> None:
                 ) from exc
             except drafter.DrafterError as exc:
                 raise ApiError(409, "This draft already exists.", code=exc.code) from exc
-            if run_id in early:
+            if run_id in early or drafter.status(conn, run_id) != "RUNNING":
                 drafter.end(conn, run_id, "cancelled")
                 raise ApiError(409, "Cancelled.", for_reader=True, code="ai_cancelled")
-        # The provider is asked with no connection open and no lock held.
+            over = _over_budget(app, provider, message)
+            if over:
+                drafter.end(conn, run_id, "budget")
+                raise ApiError(409, over, for_reader=True, code="ai_budget")
+        # The provider is asked with no connection open and no lock held, once.
         from career_agent.semantic.providers import ProviderFailed
 
         try:
-            answer = provider.complete(drafter.SYSTEM_PROMPT, message, drafter.SCHEMA)
-        except ProviderFailed as exc:
-            code = _FAILURES.get(exc.state.value, "limit")
-            with closing(app.connect()) as conn:
-                drafter.end(conn, run_id, code)
-            raise ApiError(
-                502, "The AI provider did not answer.", for_reader=True, code=f"ai_{code}"
-            ) from exc
-        with closing(app.connect()) as conn:
             try:
-                drafter.receive(conn, run_id, answer)
-            except drafter.DrafterError as exc:
+                answer = provider.complete(drafter.SYSTEM_PROMPT, message, drafter.SCHEMA)
+            except ProviderFailed as exc:
+                code = _FAILURES.get(exc.state.value, "limit")
+                with closing(app.connect()) as conn:
+                    drafter.end(conn, run_id, code)
                 raise ApiError(
-                    409, "Nothing was applied.", for_reader=True, code=f"ai_{exc.code}"
+                    502, "The AI provider did not answer.", for_reader=True, code=f"ai_{code}"
                 ) from exc
-            return drafter.view(conn, run_id)
+            with closing(app.connect()) as conn:
+                try:
+                    drafter.receive(conn, run_id, answer)
+                except drafter.DrafterError as exc:
+                    raise ApiError(
+                        409, "Nothing was applied.", for_reader=True, code=f"ai_{exc.code}"
+                    ) from exc
+                return drafter.view(conn, run_id)
+        except ApiError:
+            raise
+        except Exception:
+            # Never a run left RUNNING by a fault: it ends, and says so.
+            with closing(app.connect()) as conn:
+                drafter.end(conn, run_id, "failed")
+            raise
 
     def one(*, query: dict, body: dict, run_id: str) -> dict[str, Any]:
         with closing(app.connect()) as conn:
@@ -134,7 +165,7 @@ def register_resume_ai_routes(app: LocalApp) -> None:
         decision, text = body.get("decision"), body.get("text")
         if (
             set(body) - {"decision", "text"}
-            or decision not in ("ACCEPTED", "EDITED", "REJECTED")
+            or decision not in ("ACCEPTED", "EDITED", "REJECTED", "PENDING")
             or (decision == "EDITED") != isinstance(text, str)
             or (isinstance(text, str) and not 1 <= len(text.strip()) <= 700)
         ):

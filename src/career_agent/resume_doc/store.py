@@ -837,6 +837,19 @@ class ResumeStore:
             )
         return self._change(self._row("tailoring_change", change_id))
 
+    def reopen_tailoring_change(self, change_id: str, op: dict[str, Any]) -> TailoringChange:
+        """Take a decision back, while the run's review is still open."""
+        with self._tx():
+            run = self._row("tailoring_run", self._row("tailoring_change", change_id)["run_id"])
+            if run["status"] != "PENDING":
+                raise ResumeStoreError("this run's review is closed")
+            self.conn.execute(
+                "UPDATE tailoring_change SET decision = 'PENDING', decided_at = NULL,"
+                " op_json = ? WHERE id = ?",
+                (_object(op), change_id),
+            )
+        return self._change(self._row("tailoring_change", change_id))
+
     def list_tailoring_changes(self, run_id: str) -> list[TailoringChange]:
         rows = self.conn.execute(
             "SELECT * FROM tailoring_change WHERE run_id = ? ORDER BY id", (run_id,)

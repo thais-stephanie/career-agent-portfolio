@@ -543,14 +543,18 @@ nothing. The deterministic path stays beside it, unchanged.
   says so and offers "Set up AI in Settings" and "Tailor without AI".
 * **Said before it is sent.** The screen names the provider and model, how it
   bills, what is sent and what never is, and that it is ONE request. Send is
-  the person's act. A failure (sign-in, limit, unreachable, unreadable answer)
-  is said in plain words; Try again is a new, explicit request. There is no
-  automatic retry.
+  the person's act. A metered provider is held to the AI budget per run set
+  in Settings (the answer priced at its longest); a price nobody recorded is
+  never taken as free, and nothing is sent. A failure (sign-in, limit,
+  unreachable, unreadable answer) is said in plain words; Try again is a new,
+  explicit request. There is no automatic retry. Cancel stops the request
+  before the provider is asked whenever it can; a late answer is kept nowhere.
 * **Built on the deterministic run** (`resume_doc/drafter.py`). Snapshot,
   requirements, retrieval, strategy and the deterministic draft run exactly as
   in Tailor V2; that draft is the base. Sent to the provider: the job's title
   and company, the quoted asks this profile has support for (never a gap,
-  never an eligibility ask), the base's headline and summary, the lines
+  never an eligibility ask), the base's headline and summary when they rest on
+  confirmed evidence (a typed one may hold anything), the lines
   relevant to those asks under their role's title, and the confirmed
   statements retrieved for them. Never contact details, dates, other jobs,
   applications, Search Fit or settings. The ad's text is never sent whole, and
@@ -567,16 +571,24 @@ nothing. The deterministic path stays beside it, unchanged.
 * **Checked, never believed** (`drafter.check`, with `tailor.grounding`, the
   reader the deterministic reviewer also uses). Every requirement id must be
   one of this snapshot's that was sent; every evidence id a confirmed, current
-  claim of THIS profile that was sent or that the line already cites, and from
-  the line's own role. The wording may hold no number, named term, rank or
-  leadership word that its sources do not, and at most half new words. A
-  proposal that fails is not offered: the person sees only how many were
-  left out.
+  claim of THIS profile that was sent or that the line already cites, and a
+  role's line rests on that role's statements only. The wording may hold no
+  number (with its unit: "30%" is not "30x"), no tool or name the ad asks for
+  or Career Agent knows (in any case), no word of result, scale or quantity
+  ("award-winning", "worldwide", "millions", "forty", "a decade"), no word of
+  rank or leadership in English or Portuguese unless a source says it in the
+  same place ("lead routing" is not leadership) or the role's own title does,
+  and at most two content words its sources lack (four in a summary). A line
+  reworded by AI supports an ask only through what its evidence says, so
+  wording never turns a gap into coverage. A proposal that fails is not
+  offered: the person sees only how many were left out, and the AI's one-line
+  reason is dropped if it holds a link, an address or a number.
 * **Reviewed, one by one.** Each change shows Before, After, Why, its source
   and the job's ask, with Accept, Edit and Reject. An edit is held to the same
   checks; wording Career Agent cannot verify is refused, and can still be
-  typed in the Editor later, as the person's own line. The decisions are the
-  run's `tailoring_change` rows (source DRAFTER).
+  typed in the Editor later, as the person's own line. A decision can be
+  changed while the review is open. The decisions are the run's
+  `tailoring_change` rows (source DRAFTER).
 * **No version until the end.** The run is anchored on the Master
   (`tailoring_run.document_id` is NOT NULL and the version does not exist
   yet): RUNNING while the provider works, PENDING during the review, ERROR when

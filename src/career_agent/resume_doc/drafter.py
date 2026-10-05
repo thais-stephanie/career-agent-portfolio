@@ -56,11 +56,13 @@ from career_agent.resume_doc.store import (
     TailoringRun,
 )
 from career_agent.resume_doc.tailor import (
+    AI_NEW_WORDS,
     HAVE,
     NONE,
     SHOWN,
     Source,
     TailorFailed,
+    ai_titles,
     draft,
     grounding,
     retrieve,
@@ -73,7 +75,6 @@ from career_agent.storage.db import transaction
 
 MODE = "AI_ASSISTED"
 PROMPT_VERSION = "resume-drafter-v1"
-OPS = ("REWRITE_HEADLINE", "REWRITE_SUMMARY", "REWRITE_BULLET", "ADD_BULLET")
 #: What a normal resume needs, and no more: a model cannot answer with a dump.
 MAX_CHANGES = 12
 MAX_TEXT = {"REWRITE_HEADLINE": 160, "REWRITE_SUMMARY": 700, "REWRITE_BULLET": 300,
@@ -132,7 +133,7 @@ SCHEMA: dict[str, Any] = {
                 ],  # fmt: skip
                 "properties": {
                     "id": {"type": "string"},
-                    "op": {"type": "string", "enum": list(OPS)},
+                    "op": {"type": "string", "enum": list(MAX_TEXT)},
                     "target_ref": {"type": "string"},
                     "proposed_text": {"type": "string"},
                     "evidence_ids": {"type": "array", "items": {"type": "string"}},
@@ -204,6 +205,8 @@ class Context:
     #: What was sent: the asks and the statements the provider may cite.
     asks: set[str]
     evidence: set[str]
+    #: Every name the ad asks for: the bait an AI must not take, in any case.
+    bait: set[str]
 
 
 def _context(base: ResumeDocument, supports: list[Any], pool: list[Source]) -> dict[str, Any]:
@@ -244,8 +247,11 @@ def _context(base: ResumeDocument, supports: list[Any], pool: list[Source]) -> d
                           "kind": s.requirement.kind} for s in asks]},
         "resume": {
             "language": base.language,
-            "headline": base.headline.text if base.headline else None,
-            "summary": base.summary.text if base.summary else None,
+            # Only wording that rests on confirmed evidence: a typed headline
+            # may hold anything, contact details included.
+            "headline": base.headline.text if base.headline and base.headline.evidence_ids
+            else None,
+            "summary": base.summary.text if base.summary and base.summary.evidence_ids else None,
             "roles": roles,
         },
         "evidence": [
@@ -271,7 +277,10 @@ def _ctx(conn: sqlite3.Connection, run: TailoringRun) -> Context:
     base = upgrade_resume_document(run.stages["strategy"]["base"])
     sent = run.stages["options"].get("sent", {})
     claims = {s.claim_key: s for s in sources(conn, base) if s.claim_key}
-    return Context(base, claims, set(sent.get("asks", [])), set(sent.get("evidence", [])))
+    bait: set[str] = set()
+    for r in run.stages["analysis"].get("requirements", []):
+        bait |= jd.named_terms(r["quote"])
+    return Context(base, claims, set(sent.get("asks", [])), set(sent.get("evidence", [])), bait)
 
 
 # ------------------------------------------------------------------ checks
@@ -313,15 +322,20 @@ def check(p: Proposal, ctx: Context, text: str | None = None) -> list[str]:
         problems.append("EVIDENCE")
         return problems
     held = [ctx.claims[k] for k in cited]
-    if entry is not None:
-        roles = {s.experience_id for s in held if s.experience_id}
-        if roles - {entry.experience_id} or (line is None and entry.experience_id not in roles):
-            problems.append("EMPLOYER")
+    # A role's line rests on that role's statements only (or what it already
+    # cites): a skill, a tool or another role lends it no words.
+    if entry is not None and any(
+        ctx.claims[k].experience_id != entry.experience_id for k in set(p.evidence_ids) - own
+    ):
+        problems.append("EMPLOYER")
     source = " ".join([before, *(s.text + " " + " ".join(s.tools) for s in held)])
-    if entry is None:  # a headline or a summary may name the person's own titles
-        source += " " + " ".join(f"{e.display_title} {e.source_title}" for e in ctx.base.experience)
     tools = {jd.folded(t) for s in held for t in s.tools}
-    problems += [c for c, _ in grounding(text, source, tools, ai=True)]
+    problems += [
+        c for c, _ in grounding(
+            text, source, tools, ai=True, titles=ai_titles(ctx.base, entry.id if entry else None),
+            bait=ctx.bait, new_words=AI_NEW_WORDS * (2 if p.op == "REWRITE_SUMMARY" else 1),
+        )
+    ]  # fmt: skip
     return problems
 
 
@@ -352,14 +366,10 @@ def parse(raw: str) -> DraftResponse:
 # --------------------------------------------------------------------- run
 
 
-def new_run_id() -> str:
-    return new_id()
-
-
 def start(
     conn: sqlite3.Connection, *, ad: dict[str, Any], run_id: str, provider: str, model: str
-) -> tuple[str, str]:
-    """Every deterministic stage, then the run (RUNNING). Returns (run id, message).
+) -> str:
+    """Every deterministic stage, then the run (RUNNING). Returns the message to send.
 
     Commits before the provider is asked: nothing waits on a lock while it works."""
     store = ResumeStore(conn)
@@ -407,7 +417,7 @@ def start(
             strategy={"plan": {k: v for k, v in plan.items() if k != "relevance"},
                       "base": base.model_dump(mode="json"), "rule_changes": rule_changes},
         )  # fmt: skip
-    return run_id, message
+    return message
 
 
 def _run(store: ResumeStore, run_id: str) -> TailoringRun:
@@ -425,6 +435,10 @@ def _stale(store: ResumeStore, run: TailoringRun) -> bool:
     ) != run.master_revision_id or master.working_sha256 != run.stages["options"].get(
         "master_sha256"
     )
+
+
+def status(conn: sqlite3.Connection, run_id: str) -> str:
+    return _run(ResumeStore(conn), run_id).status
 
 
 def end(
@@ -453,7 +467,8 @@ def receive(conn: sqlite3.Connection, run_id: str, answer: Any) -> None:
     Either way nothing is offered and nothing is written to any document."""
     store = ResumeStore(conn)
     usage = {"input_tokens": answer.input_tokens, "output_tokens": answer.output_tokens,
-             "latency_ms": answer.latency_ms, "model": answer.model}  # fmt: skip
+             "latency_ms": answer.latency_ms, "model": answer.model,
+             "cost_usd": answer.cost_usd}  # fmt: skip
     failure = ""
     with transaction(conn):
         run = _run(store, run_id)
@@ -481,7 +496,7 @@ def receive(conn: sqlite3.Connection, run_id: str, answer: Any) -> None:
                 store.record_tailoring_change(
                     run_id, op={**p.model_dump(), "before": before[2] if before else ""},
                     source="DRAFTER", evidence_ids=p.evidence_ids,
-                    requirement_ids=p.requirement_ids, reason=p.reason,
+                    requirement_ids=p.requirement_ids, reason=_said(p.reason),
                 )  # fmt: skip
             store.update_tailoring_run_stage(
                 run_id, status="PENDING", token_usage=usage,
@@ -492,16 +507,26 @@ def receive(conn: sqlite3.Connection, run_id: str, answer: Any) -> None:
         raise DrafterError(failure)
 
 
+_LINK = re.compile(r"https?://|www\.|@|\d")
+
+
+def _said(reason: str) -> str:
+    """The provider's one-line why, shown to the person: never a link, an
+    address or a number, which no explanation of a rewrite needs."""
+    return "" if _LINK.search(reason) else reason
+
+
 def _proposal(change: Any) -> Proposal:
-    fields = {k: change.op[k] for k in Proposal.model_fields}
-    return Proposal.model_validate(fields)
+    return Proposal.model_validate({k: change.op[k] for k in Proposal.model_fields})
 
 
 def decide(
     conn: sqlite3.Connection, run_id: str, change_id: str, decision: str, text: str | None = None
 ) -> None:
     """The person's answer to one proposal. Accepting or editing checks it again,
-    now; an edit is held to the same checks as the provider's wording."""
+    now; an edit is held to the same checks as the provider's wording.
+    PENDING takes a decision back while the review is open (a misclick, or an
+    accepted change whose evidence was retired since)."""
     store = ResumeStore(conn)
     with transaction(conn):
         run = _run(store, run_id)
@@ -510,6 +535,12 @@ def decide(
         change = next((c for c in store.list_tailoring_changes(run_id) if c.id == change_id), None)
         if change is None or change.source != "DRAFTER":
             raise NotFound("no such change")
+        if decision == "PENDING":
+            store.reopen_tailoring_change(change_id, {k: v for k, v in change.op.items()
+                                                      if k != "edited"})  # fmt: skip
+            return
+        if change.decision != "PENDING":
+            raise DrafterError("decided")
         if decision != "REJECTED":
             problems = check(_proposal(change), _ctx(conn, run), text)
             if problems:
@@ -574,12 +605,12 @@ def finalize(conn: sqlite3.Connection, run_id: str) -> StoredDocument:
         doc = upgrade_resume_document(data)
         master = store.get_revision(run.master_revision_id or "").content
         pool = sources(conn, master)
-        analysis = jd.analyse(store.get_jd_snapshot(run.jd_snapshot_id).text)
+        snap_text = store.get_jd_snapshot(run.jd_snapshot_id).text
+        analysis = jd.analyse(snap_text)
         supports = retrieve(analysis, pool)
         findings = review(doc, master, pool, supports)
         if any(f["outcome"] == "FAIL" for f in findings):
             raise TailorFailed([f for f in findings if f["outcome"] == "FAIL"])
-        snap_text = store.get_jd_snapshot(run.jd_snapshot_id).text
         invalid = validate(conn, doc, analysis, snap_text, run.master_revision_id or "",
                            run.master_document_id or "")  # fmt: skip
         if invalid:

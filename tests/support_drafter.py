@@ -61,6 +61,8 @@ class FakeDrafter:
     id: str = "fake"
     display_name: str = "Fake AI"
     model: str = "fake-model-1"
+    #: USD per call, as a metered provider prices it (None: price unknown).
+    price: float | None = 0.0001
     calls: list[str] = field(default_factory=list)
     systems: list[str] = field(default_factory=list)
 
@@ -73,7 +75,7 @@ class FakeDrafter:
         )
 
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float | None:
-        return None
+        return self.price
 
     def healthcheck(self) -> ProviderStatus:
         return self.availability()

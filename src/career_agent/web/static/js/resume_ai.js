@@ -35,7 +35,7 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
     return box;
   }
 
-  const withoutAi = () => small(t('rv.ai.withoutAi'), () => onWithoutAi(jobId), { className: 'btn btn--small' });
+  const withoutAi = () => small(t('rv.ai.withoutAi'), () => onWithoutAi(jobId));
 
   /** Step 1: what will happen, before anything is sent. */
   async function disclose(id) {
@@ -88,7 +88,7 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
     const state = el('p', { className: 'rvt__state', attrs: { role: 'status', 'aria-live': 'polite' } });
     state.textContent = t('rv.ai.working');
     let cancelled = false;
-    const box = screen(t('rv.ai.drafting'), [
+    screen(t('rv.ai.drafting'), [
       el('ol', { className: 'rvt__steps' }, steps),
       state,
       small(t('rv.ai.cancel'), async () => {
@@ -104,14 +104,14 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
     } catch (error) {
       if (cancelled) return;
       const code = (error.detail && error.detail.code) || '';
-      ended(code.replace(/^ai_/, '') || 'failed', box);
+      ended(code.replace(/^ai_/, '') || 'failed');
     }
   }
 
   /** Any end that made no version: said, with the ways on. */
   function ended(code) {
     const known = ['cancelled', 'stale', 'auth', 'limit', 'unreachable', 'invalid_output', 'unavailable',
-      'no_master', 'discarded'];
+      'no_master', 'discarded', 'budget'];
     const key = known.includes(code) ? code : 'failed';
     const retry = ['auth', 'limit', 'unreachable', 'invalid_output', 'failed', 'stale'].includes(key);
     screen(t('rv.ai.title'), [
@@ -229,10 +229,14 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
       c.asks.length ? el('p', { className: 'rve__note' }, [
         el('strong', { text: `${t('rv.ai.ask')}: ` }), c.asks.join(' / '),
       ]) : null,
-      c.decision === 'PENDING' ? actions : el('p', {
-        className: 'rva__decided', attrs: { tabindex: '-1' },
-        text: `${DECIDED[c.decision]} ${t(`rv.ai.decision.${c.decision}`)}`,
-      }),
+      c.decision === 'PENDING' ? actions : el('div', { className: 'rvl__rename' }, [
+        el('p', {
+          className: 'rva__decided', attrs: { tabindex: '-1' },
+          text: `${DECIDED[c.decision]} ${t(`rv.ai.decision.${c.decision}`)}`,
+        }),
+        // A decision can be taken back while the review is open.
+        small(t('rv.ai.change'), () => void decide('PENDING'), { ariaLabel: `${t('rv.ai.change')}: ${what}` }),
+      ]),
       said,
     ]);
   }

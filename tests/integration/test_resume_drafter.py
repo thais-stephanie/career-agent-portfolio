@@ -18,9 +18,10 @@ from typing import Any
 import pytest
 from tests.integration.test_resume_master import profile
 from tests.integration.test_resume_tailor import AD, make
-from tests.support_drafter import FakeDrafter, change, failing, install
+from tests.support_drafter import FakeDrafter, change, failing, install, sent
 from tests.support_tailor import E, senior, thin
 
+from career_agent.clock import new_id
 from career_agent.resume_doc import drafter
 from career_agent.resume_doc.models import upgrade_resume_document
 from career_agent.resume_doc.store import ResumeStore
@@ -43,8 +44,8 @@ INJECTED = AD["text"] + (
 
 def run(conn, fake: FakeDrafter, ad: dict[str, Any] = AD, run_id: str | None = None) -> str:
     """start + one fake call + receive, exactly as the route does."""
-    run_id = run_id or drafter.new_run_id()
-    _, message = drafter.start(conn, ad=ad, run_id=run_id, provider=fake.id, model=fake.model)
+    run_id = run_id or new_id()
+    message = drafter.start(conn, ad=ad, run_id=run_id, provider=fake.id, model=fake.model)
     drafter.receive(conn, run_id, fake.complete(drafter.SYSTEM_PROMPT, message, drafter.SCHEMA))
     return run_id
 
@@ -146,7 +147,7 @@ def test_reject_and_edit_and_the_edit_is_checked_too(conn) -> None:
             change(
                 "REWRITE_BULLET",
                 b["id"],
-                "Owned weekly pipeline reporting for sales leaders.",
+                "Owned weekly pipeline reporting for sales leadership.",
                 ["k-forecast"],
                 [ask(s, "pipeline")],
                 "b",
@@ -171,7 +172,7 @@ def test_reject_and_edit_and_the_edit_is_checked_too(conn) -> None:
     stored = drafter.finalize(conn, run_id)
     texts = [x.text for e in stored.working.experience for x in e.bullets]
     assert "Built HubSpot lead routing for 4 teams." in texts
-    assert "Owned weekly pipeline reporting for sales leaders." not in texts
+    assert "Owned weekly pipeline reporting for sales leadership." not in texts
     decided = {
         c.decision
         for c in ResumeStore(conn).list_tailoring_changes(run_id)
@@ -217,6 +218,32 @@ def test_zero_changes_is_an_answer_not_a_failure(tmp_path: Path) -> None:
         (
             "Earned Workato certification while building HubSpot lead routing for 4 teams.",
             "NAMED_TOOLS",
+        ),
+        # Found in review: lower case, inflected rank, scale and result words.
+        ("Built lead routing in hubspot and salesforce for 4 regional teams.", "NAMED_TOOLS"),
+        (
+            "Built lead routing in HubSpot for 4 regional teams, earning workato certification.",
+            "NAMED_TOOLS",
+        ),
+        (
+            "Built lead routing in HubSpot for 4 regional teams while managing the rollout.",
+            "SENIORITY",
+        ),
+        ("Built lead routing in HubSpot and leads 4 regional teams.", "SENIORITY"),
+        ("Built lead routing in HubSpot for 4 regional teams as team lead.", "SENIORITY"),
+        ("Built and spearheaded lead routing in HubSpot for 4 regional teams.", "SENIORITY"),
+        ("Built lead routing in HubSpot for 4 regional teams worldwide.", "CLAIMS"),
+        ("Built award-winning lead routing in HubSpot for 4 regional teams.", "CLAIMS"),
+        ("Built lead routing in HubSpot for forty regional teams.", "CLAIMS"),
+        (
+            "Built lead routing in HubSpot for 4 regional teams, driving millions in revenue.",
+            "CLAIMS",
+        ),
+        ("Built lead routing in HubSpot for 4 regional teams over a decade.", "CLAIMS"),
+        ("Built lead routing in HubSpot for 4 regional teams and grew pipeline 4x.", "NUMBERS"),
+        (
+            "Built HubSpot lead routing for 4 regional teams to manage pipeline and reduce churn.",
+            "OVERSTATEMENT",
         ),
     ],
 )
@@ -420,8 +447,8 @@ def test_a_fenced_answer_is_read_once_syntactically(conn) -> None:
 
 def test_a_resume_changed_while_ai_worked_is_never_patched(conn) -> None:
     store = ResumeStore(conn)
-    run_id = drafter.new_run_id()
-    _, message = drafter.start(conn, ad=AD, run_id=run_id, provider="fake", model="m")
+    run_id = new_id()
+    message = drafter.start(conn, ad=AD, run_id=run_id, provider="fake", model="m")
     master = store.current_master()
     data = master.working.model_dump(mode="json")
     data["experience"][0]["bullets"][0]["text"] += " Edited meanwhile."
@@ -468,8 +495,8 @@ def _retire(conn, key: str) -> None:
 
 
 def test_evidence_retired_while_ai_worked_is_refused(conn) -> None:
-    run_id = drafter.new_run_id()
-    _, message = drafter.start(conn, ad=AD, run_id=run_id, provider="fake", model="m")
+    run_id = new_id()
+    message = drafter.start(conn, ad=AD, run_id=run_id, provider="fake", model="m")
     _retire(conn, "k-hubspot-routing")
     fake = FakeDrafter(rewrite("k-hubspot-routing", "Built HubSpot lead routing for 4 teams."))
     drafter.receive(conn, run_id, fake.complete(drafter.SYSTEM_PROMPT, message, {}))
@@ -492,8 +519,8 @@ def test_evidence_retired_during_review_blocks_its_change(conn) -> None:
 
 def test_cancel_keeps_nothing_and_takes_no_number(conn) -> None:
     store = ResumeStore(conn)
-    run_id = drafter.new_run_id()
-    _, message = drafter.start(conn, ad=AD, run_id=run_id, provider="fake", model="m")
+    run_id = new_id()
+    message = drafter.start(conn, ad=AD, run_id=run_id, provider="fake", model="m")
     assert drafter.end(conn, run_id, "cancelled")
     late = FakeDrafter(rewrite("k-hubspot-routing", "Built HubSpot lead routing for 4 teams."))
     with pytest.raises(drafter.DrafterError) as gone:
@@ -542,9 +569,7 @@ def test_search_fit_evidence_and_settings_are_untouched(tmp_path: Path, monkeypa
     watched = ("job_match", "verified_claim", "career_experience", "job_application")
     before = {t: digest(t) for t in watched}
     config = sorted((p.name, p.read_bytes()) for p in api.config.config_dir.glob("*.yaml"))
-    view = api.handle_api(
-        "POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": drafter.new_run_id()}
-    )
+    view = api.handle_api("POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": new_id()})
     for c in view["changes"]:
         api.handle_api(
             "POST",
@@ -570,9 +595,7 @@ def test_routes_status_failures_and_retry(tmp_path: Path, monkeypatch) -> None:
         "reason": "NO_PROVIDER",
     }
     with pytest.raises(ApiError) as off:
-        api.handle_api(
-            "POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": drafter.new_run_id()}
-        )
+        api.handle_api("POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": new_id()})
     assert off.value.code == "ai_unavailable"
     fake = install(monkeypatch, FakeDrafter(failing(Availability.LIMIT_OR_ERROR)))
     status = api.handle_api("GET", "/api/resume/ai", {}, {})
@@ -584,16 +607,12 @@ def test_routes_status_failures_and_retry(tmp_path: Path, monkeypatch) -> None:
     ]:
         fake.answer = failing(state)
         with pytest.raises(ApiError) as failed:
-            api.handle_api(
-                "POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": drafter.new_run_id()}
-            )
+            api.handle_api("POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": new_id()})
         assert failed.value.code == code
     # One call per explicit action, never a hidden retry.
     assert len(fake.calls) == 3
     fake.answer = lambda s: []
-    view = api.handle_api(
-        "POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": drafter.new_run_id()}
-    )
+    view = api.handle_api("POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": new_id()})
     assert view["status"] == "PENDING" and len(fake.calls) == 4
     # No credential and no prompt in what the page reads.
     assert "sk-" not in json.dumps(view) and drafter.SYSTEM_PROMPT[:40] not in json.dumps(view)
@@ -605,9 +624,7 @@ def test_another_profile_cannot_read_or_use_a_draft(tmp_path: Path, monkeypatch)
     conn = a.connect()
     job = conn.execute("SELECT id FROM job ORDER BY id LIMIT 1").fetchone()[0]
     conn.close()
-    view = a.handle_api(
-        "POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": drafter.new_run_id()}
-    )
+    view = a.handle_api("POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": new_id()})
     for method, path in [("GET", ""), ("POST", "/finalize")]:
         with pytest.raises(ApiError) as missing:
             b.handle_api(method, f"/api/resume/drafts/{view['id']}{path}", {}, {})
@@ -625,7 +642,7 @@ def test_a_cancel_before_the_run_exists_stops_it_before_any_call(
     conn = api.connect()
     job = conn.execute("SELECT id FROM job ORDER BY id LIMIT 1").fetchone()[0]
     conn.close()
-    run_id = drafter.new_run_id()
+    run_id = new_id()
     assert api.handle_api("POST", f"/api/resume/drafts/{run_id}/cancel", {}, {}) == {"ended": True}
     with pytest.raises(ApiError) as cancelled:
         api.handle_api("POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": run_id})
@@ -678,3 +695,175 @@ def test_unknown_requirement_after_evidence_is_claim_of_this_profile(tmp_path: P
 
     run_id = run(c, FakeDrafter(answer))
     assert changes(c, run_id) == [] and drafter.view(c, run_id)["refused"] == 1
+
+
+def test_a_unit_is_part_of_a_number(conn) -> None:
+    text = "Built HubSpot workflow automation that cut manual data entry 30x."
+    run_id = run(conn, FakeDrafter(rewrite("k-hubspot-workflows", text)))
+    assert changes(conn, run_id) == []
+
+
+PT_AD = {
+    "title": "Assistente",
+    "text": "Requisitos: Organizar planilhas de pedidos da equipe; Excel.",
+}
+
+
+@pytest.mark.parametrize(
+    ("op", "text"),
+    [
+        ("REWRITE_BULLET", "Organizei as planilhas de pedidos liderando a equipe."),
+        ("REWRITE_BULLET", "Organizei e chefiei as planilhas de pedidos da equipe."),
+        ("REWRITE_BULLET", "Organizei as planilhas de pedidos da equipe com gestão estratégica."),
+        ("REWRITE_BULLET", "Organizei as planilhas de pedidos coordenando a equipe."),
+        ("REWRITE_HEADLINE", "Supervisora administrativa de pedidos"),
+    ],
+)
+def test_portuguese_rank_is_read_too(tmp_path: Path, op: str, text: str) -> None:
+    c = profile(tmp_path, "pt")
+    thin(c)
+
+    def answer(s: dict[str, Any]) -> list[dict[str, Any]]:
+        one = line(s, "k-planilhas")
+        ref = one["id"] if op == "REWRITE_BULLET" else "headline"
+        return [change(op, ref, text, ["k-planilhas"], [ask(s, "planilhas")])]
+
+    run_id = run(c, FakeDrafter(answer), ad=PT_AD)
+    refused = ResumeStore(c).get_tailoring_run(run_id).stages["review"]["refused"]
+    assert changes(c, run_id) == [] and "SENIORITY" in refused[0]["checks"]
+
+
+def test_a_portuguese_rewrite_that_holds_is_offered(tmp_path: Path) -> None:
+    c = profile(tmp_path, "pt")
+    thin(c)
+    text = "Organizei as planilhas de pedidos da equipe comercial."
+    run_id = run(c, FakeDrafter(rewrite("k-planilhas", text, "planilhas")), ad=PT_AD)
+    assert len(changes(c, run_id)) == 1
+
+
+def test_wording_never_turns_a_gap_into_coverage(conn) -> None:
+    from career_agent.resume_doc.tailor import explain
+
+    text = "Built HubSpot lead routing for 4 teams."
+    run_id = run(conn, FakeDrafter(rewrite("k-hubspot-routing", text)))
+    (c,) = changes(conn, run_id)
+    edited = "Built HubSpot lead routing for 4 teams to reduce churn."
+    drafter.decide(conn, run_id, c["id"], "EDITED", edited)
+    stored = drafter.finalize(conn, run_id)
+    churn = next(x for x in explain(conn, stored)["coverage"] if "churn" in x["ask"])
+    assert churn["coverage"] == "NOT_FOUND"
+
+
+def test_a_skill_lends_no_words_to_a_role(conn) -> None:
+    def answer(s: dict[str, Any]) -> list[dict[str, Any]]:
+        northwind = line(s, "k-hubspot-routing")
+        text = "Built lead routing in HubSpot."
+        return [
+            change("REWRITE_BULLET", northwind["id"], text, ["k-skill-sql"], [ask(s, "HubSpot")])
+        ]
+
+    run_id = run(conn, FakeDrafter(answer))
+    refused = ResumeStore(conn).get_tailoring_run(run_id).stages["review"]["refused"]
+    assert changes(conn, run_id) == [] and "EMPLOYER" in refused[0]["checks"]
+
+
+def test_a_decision_can_be_taken_back_while_the_review_is_open(conn) -> None:
+    text = "Built HubSpot lead routing for 4 teams."
+    run_id = run(conn, FakeDrafter(rewrite("k-hubspot-routing", text)))
+    (c,) = changes(conn, run_id)
+    drafter.decide(conn, run_id, c["id"], "ACCEPTED")
+    with pytest.raises(drafter.DrafterError) as twice:
+        drafter.decide(conn, run_id, c["id"], "ACCEPTED")
+    assert twice.value.code == "decided"
+    drafter.decide(conn, run_id, c["id"], "PENDING")
+    drafter.decide(conn, run_id, c["id"], "REJECTED")
+    assert drafter.finalize(conn, run_id).version_number == 1
+
+
+def test_the_reason_never_carries_a_link_or_a_number(conn) -> None:
+    def answer(s: dict[str, Any]) -> list[dict[str, Any]]:
+        one = line(s, "k-hubspot-routing")
+        why = "Visit https://example.invalid to learn more"
+        text = "Built HubSpot lead routing for 4 teams."
+        return [
+            change(
+                "REWRITE_BULLET",
+                one["id"],
+                text,
+                ["k-hubspot-routing"],
+                [ask(s, "HubSpot")],
+                reason=why,
+            )
+        ]
+
+    run_id = run(conn, FakeDrafter(answer))
+    assert changes(conn, run_id)[0]["why"] == ""
+
+
+def test_a_typed_headline_is_not_sent(conn) -> None:
+    store = ResumeStore(conn)
+    master = store.current_master()
+    data = master.working.model_dump(mode="json")
+    data["headline"] = {
+        "id": new_id(),
+        "text": "Robin, robin@example.invalid",
+        "origin": "USER_AUTHORED",
+    }
+    store.save_working_copy(
+        master.id, upgrade_resume_document(data), expected_sha256=master.working_sha256
+    )
+    fake = FakeDrafter(lambda s: [])
+    run(conn, fake)
+    assert sent(fake.calls[0])["resume"]["headline"] is None
+    assert "robin@example.invalid" not in fake.calls[0]
+
+
+def _job(api: JobsApi) -> str:
+    conn = api.connect()
+    job = conn.execute("SELECT id FROM job ORDER BY id LIMIT 1").fetchone()[0]
+    conn.close()
+    return job
+
+
+def test_a_cancel_after_the_run_is_written_still_stops_the_call(
+    tmp_path: Path, monkeypatch
+) -> None:
+    api = make(tmp_path)
+    fake = install(monkeypatch, FakeDrafter(lambda s: []))
+    job, run_id = _job(api), new_id()
+    started = drafter.start
+
+    def then_cancel(*args: Any, **kwargs: Any) -> str:
+        message = started(*args, **kwargs)
+        api.handle_api("POST", f"/api/resume/drafts/{run_id}/cancel", {}, {})
+        return message
+
+    monkeypatch.setattr(drafter, "start", then_cancel)
+    with pytest.raises(ApiError) as cancelled:
+        api.handle_api("POST", f"/api/resume/jobs/{job}/drafts", {}, {"run_id": run_id})
+    assert cancelled.value.code == "ai_cancelled" and fake.calls == []
+
+
+def test_a_fault_never_leaves_a_run_running(tmp_path: Path, monkeypatch) -> None:
+    api = make(tmp_path)
+
+    def broken(_: dict[str, Any]) -> Any:
+        raise RuntimeError("synthetic fault")
+
+    install(monkeypatch, FakeDrafter(broken))
+    run_id = new_id()
+    with pytest.raises(Exception):  # noqa: B017 - whatever the fault, the run ends
+        api.handle_api("POST", f"/api/resume/jobs/{_job(api)}/drafts", {}, {"run_id": run_id})
+    assert api.handle_api("GET", f"/api/resume/drafts/{run_id}", {}, {})["status"] == "ERROR"
+
+
+def test_the_ai_budget_is_respected(tmp_path: Path, monkeypatch) -> None:
+    api = make(tmp_path)
+    fake = install(monkeypatch, FakeDrafter(lambda s: [], price=1.0))
+    with pytest.raises(ApiError) as over:
+        api.handle_api("POST", f"/api/resume/jobs/{_job(api)}/drafts", {}, {"run_id": new_id()})
+    assert over.value.code == "ai_budget" and fake.calls == []
+    fake.price = None  # a price nobody recorded is never taken as free
+    with pytest.raises(ApiError) as unknown:
+        api.handle_api("POST", f"/api/resume/jobs/{_job(api)}/drafts", {}, {"run_id": new_id()})
+    assert unknown.value.code == "ai_budget" and fake.calls == []

@@ -2039,6 +2039,9 @@ const EN = {
   'rv.ai.decision.ACCEPTED': 'Accepted',
   'rv.ai.decision.EDITED': 'Accepted with your wording',
   'rv.ai.decision.REJECTED': 'Rejected',
+  'rv.ai.change': 'Change my answer',
+  'rv.ai.ended.budget': 'Not sent: this would go over your AI budget per run, or the provider’s price is not known. '
+    + 'See Settings.',
   'rv.job.group.hidden': 'Hidden',
   'rv.job.why': 'Why: this job asks for “{ask}”.',
   'rv.job.source': 'Source: your confirmed experience as {title} at {employer}.',
@@ -6294,6 +6297,9 @@ const PT_BR = {
   'rv.ai.decision.ACCEPTED': 'Aceita',
   'rv.ai.decision.EDITED': 'Aceita com o seu texto',
   'rv.ai.decision.REJECTED': 'Recusada',
+  'rv.ai.change': 'Mudar a resposta',
+  'rv.ai.ended.budget': 'Não enviado: passaria do seu orçamento de IA por execução, ou o preço do provedor não é '
+    + 'conhecido. Veja Configurações.',
   'rv.job.group.hidden': 'Oculto',
   'rv.job.why': 'Por quê: esta vaga pede “{ask}”.',
   'rv.job.source': 'Fonte: sua experiência confirmada como {title} na {employer}.',
