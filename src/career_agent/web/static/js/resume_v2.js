@@ -173,12 +173,18 @@ export function createResumeWorkspace({
   };
 
   // -- Home ------------------------------------------------------------------
+  // Only the latest draw paints: two in flight (opening the page shows Home
+  // twice) used to let the slower one wipe what a click had just opened.
+  let homeDraw = 0;
   async function drawHome() {
+    const mine = ++homeDraw;
     let lib;
     let master;
     try {
       [lib, master] = await Promise.all([listResumeDocuments(), getResumeMaster()]);
+      if (mine !== homeDraw) return;
     } catch (error) {
+      if (mine !== homeDraw) return;
       views.home.replaceChildren(el('p', {
         className: 'rve__notice rve__notice--bad', attrs: { role: 'alert' }, text: error.userMessage || t('rv.failed'),
       }));
