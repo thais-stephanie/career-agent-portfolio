@@ -90,7 +90,9 @@ class DeepSeekProvider:
             return None
         return estimate_cost(price, input_tokens, output_tokens)
 
-    def _complete(self, system: str, user: str, max_output_tokens: int) -> ProviderAnswer:
+    def _complete(
+        self, system: str, user: str, max_output_tokens: int, schema: dict | None = None
+    ) -> ProviderAnswer:
         if not key_configured():
             raise ProviderFailed("DeepSeek API key missing.", state=Availability.KEY_MISSING)
         client = DeepSeekClient(timeout_seconds=TIMEOUT_SECONDS)
@@ -98,8 +100,8 @@ class DeepSeekProvider:
             family=Family.SEMANTIC,
             system=system,
             user=user,
-            schema=answer_schema(),
-            schema_name="semantic_answer",
+            schema=answer_schema() if schema is None else schema,
+            schema_name="semantic_answer" if schema is None else "structured_answer",
         )
         started = time.monotonic()
         try:
@@ -136,6 +138,9 @@ class DeepSeekProvider:
     def evaluate(self, intent: SearchIntent, title: str, posting: str) -> ProviderAnswer:
         message = user_message(intent, title, posting)
         return self._complete(SYSTEM_PROMPT, message, self.max_output_tokens)
+
+    def complete(self, system: str, user: str, schema: dict) -> ProviderAnswer:
+        return self._complete(system, user, self.max_output_tokens, schema)
 
     @property
     def max_output_tokens(self) -> int:

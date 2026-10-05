@@ -39,7 +39,7 @@ from career_agent.clock import new_id
 from career_agent.resume_doc import jd
 from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.master import _career
-from career_agent.resume_doc.models import ResumeDocument, upgrade_resume_document
+from career_agent.resume_doc.models import Origin, ResumeDocument, upgrade_resume_document
 from career_agent.resume_doc.store import NotFound, ResumeStore, ResumeStoreError, StoredDocument
 from career_agent.storage.career_repo import HIGHLIGHT_CATEGORIES, SKILL_CATEGORIES
 from career_agent.storage.db import transaction
@@ -120,6 +120,9 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
     # not what the person did with it.
     shown_keys: set[str] = set()
     shown_skills: set[str] = set()
+    # An AI line answers an ask only by what its evidence says, never by the
+    # words the AI chose: wording is not support.
+    reworded: list[tuple[Source, str]] = []
     for _, line, shown in _lines(doc):
         out.append(
             Source(
@@ -127,6 +130,8 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
                 evidence_ids=tuple(line.evidence_ids),
             )
         )  # fmt: skip
+        if line.origin is Origin.AI_REWRITE:
+            reworded.append((out[-1], line.original_text or ""))
         if shown:
             shown_keys |= set(line.evidence_ids)
     for group in doc.skills:
@@ -161,6 +166,9 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
                 shown=shown, evidence_ids=(key,),
             )
         )  # fmt: skip
+    said = {s.claim_key: s.text for s in out if s.claim_key}
+    for source, original in reworded:
+        source.text = " ".join([original, *(said.get(k, "") for k in source.evidence_ids)])
     return out
 
 
@@ -372,6 +380,203 @@ def _numbers(text: str) -> set[str]:
     return {n.replace(",", ".") for n in _NUMBER.findall(text)}
 
 
+#: Words of rank, leadership or scope, EN and PT (folded). A line may say one
+#: only where a source says the same word before the same next word ("lead
+#: routing" is no leadership claim; "owned the reporting" is not "owned 4
+#: teams"), or where the role's own title says it.
+_RANK = re.compile(
+    r"^(?:lead(?:s|er|ers|ership|ing)?|led|manag\w*|head(?:s|ed|ing)?|direct\w*|supervis\w*"
+    r"|oversee\w*|oversaw|spearhead\w*|mentor\w*|chief|senior|sr|principal|vp|executive|boss"
+    r"|own|owns|owned|owning|owner\w*|ran|run|runs|running|charge|champion\w*|steer\w*"
+    r"|chair\w*|lider\w*|gerent\w*|gerenc\w*|gest\w*|coorden\w*|chef\w*|diretor\w*|dirig\w*"
+    r"|comand\w*|frente|encarregad\w*)$"
+)
+#: Words that claim a result, a scale or a quantity, EN and PT (folded): never
+#: new in an AI rewrite. A number written as a word counts as a number.
+_CLAIM = re.compile(
+    r"^(?:award\w*|premi\w*|record\w*|global\w*|worldwide|mundial\w*|enterprise|corporativ\w*"
+    r"|million\w*|milho\w*|billion\w*|bilho\w*|thousand\w*|milhar\w*|hundred\w*|centena\w*"
+    r"|dozen\w*|dezena\w*|decade\w*|decada\w*|doubl\w*|dobr\w*|tripl\w*|quadrupl\w*"
+    r"|multipl\w*|several|numerous|inumer\w*|certif\w*|best|melhor\w*|top|first|primeir\w*"
+    r"|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty"
+    r"|forty|fifty|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|vinte|trinta"
+    r"|quarenta|cinquenta|cem|cento)$"
+)
+#: The only words an AI rewrite may bring that its sources do not hold (by
+#: root): ways of saying what was done and how the words join, EN and PT. A
+#: list we chose, because a list of forbidden words is never complete: a
+#: result ("reducing churn"), a tool nobody catalogued ("snowflake"), a rank
+#: ("in charge of") is simply not on it.
+AI_WORDS = frozenset(
+    """
+    built build building created create designed design developed develop delivered deliver
+    automated automate automating configured configure implemented implement maintained
+    maintain organized organised organize wrote write written documented document analyzed
+    analysed analyze prepared prepare supported support integrated integrate migrated migrate
+    cleaned clean standardized standardised standardize structured structure mapped map
+    tracked track reported set setup used use added add updated update reviewed review tested
+    test handled handle existing internal external daily weekly monthly process processes
+    workflow workflows data system systems tool tools reporting report reports team teams work
+    sales rule rules pipeline record records request
+    requests campaign campaigns dashboard dashboards documentation routing
+    construi criei desenvolvi organizei estruturei automatizei configurei implementei mantive
+    documentei analisei preparei apoiei integrei padronizei mapeei acompanhei atualizei revisei
+    usando diarios diarias semanais mensais processo processos fluxo fluxos dados equipe
+    sistema sistemas ferramenta ferramentas relatorio relatorios trabalho vendas regra regras
+    pedido pedidos registro registros campanha campanhas painel paineis
+    """.split()  # noqa: SIM905
+)
+#: Words that only join others, EN and PT: free, and never a claim.
+AI_JOINERS = frozenset(
+    """
+    and or the a an to of in on for with by from at as via into onto per each its their
+    across within through using including is are was were be been has have had it this
+    that these those our we who which also
+    o os as e ou de da do das dos em no na nos nas um uma uns umas ao aos por pela pelo pelas
+    pelos com para entre que se cada meio
+    """.split()  # noqa: SIM905
+)
+_WORD = re.compile(r"[a-z]+")
+_PERCENT = re.compile(r"\s*(?:percent|per cent|por cento)\b")
+_AMOUNT = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?|([a-z]+)"
+)
+#: New content words an AI rewrite may bring, beyond its sources' (by root).
+AI_NEW_WORDS = 2
+
+
+def ai_titles(doc: ResumeDocument, holder: str | None) -> str:
+    """The titles an AI line may echo: its role's, or (a headline or a summary,
+    which read as now) the current role's. A hidden or past title lends nothing."""
+    shown = [e for e in doc.experience if not e.hidden and holder in (None, e.id)]
+    if holder is None:
+        shown = [e for e in shown if e.current or e.end is None] or shown[:1]
+    return " ".join(f"{e.display_title} {e.source_title}" for e in shown)
+
+
+def _amounts(text: str) -> list[tuple[str, str, str, tuple[str, ...]]]:
+    """Each amount: its number, unit, the word before it and the two after it
+    (filler words skipped): "entry by 30%", "4 regional teams"."""
+    folded = _PERCENT.sub("%", jd.folded(text))
+    items = [(n, u, w) for n, u, w in _AMOUNT.findall(folded) if w not in jd._STOP or not w]
+    out = []
+    for i, (number, unit, word) in enumerate(items):
+        if word:
+            continue
+        before = items[i - 1][2] if i else ""
+        after = tuple(x[2] for x in items[i + 1 : i + 4] if x[2])
+        out.append((number.replace(",", "."), unit, before, after))
+    return out
+
+
+def _amount_held(
+    amount: tuple[str, str, str, tuple[str, ...]],
+    held: list[tuple[str, str, str, tuple[str, ...]]],
+) -> bool:
+    """An amount is the source's when the number and unit are, and so is what
+    it counts: "4 regional teams" holds "4 teams", never "4 countries",
+    "4 years" or "4 regional systems"; "entry by 30%" holds "entry by 30
+    percent", never "30% of teams"."""
+    number, unit, before, after = amount
+    for n, u, b, a in held:
+        if (n, u) != (number, unit):
+            continue
+        # What the source counts is the second word after it ("regional TEAMS").
+        counted = a[:2][-1] if a else ""
+        if counted and counted in after:
+            lead = after[: after.index(counted)]
+            if all(w in a or w in AI_WORDS for w in lead):
+                return True
+        if before and before == b and (unit or not after):
+            return True
+    return False
+
+
+def _pairs(text: str) -> set[tuple[str, str]]:
+    """Each word with the next one that says something ("owned the weekly"
+    reads as "owned weekly")."""
+    words = [w for w in _WORD.findall(jd.folded(text)) if w not in jd._STOP]
+    return set(zip(words, [*words[1:], ""], strict=True))
+
+
+def grounding(
+    text: str,
+    source: str,
+    names: set[str] | frozenset[str] = frozenset(),
+    *,
+    ai: bool = False,
+    titles: str = "",
+    bait: set[str] | frozenset[str] = frozenset(),
+    new_words: int = AI_NEW_WORDS,
+) -> list[tuple[str, str]]:
+    """What `text` says that `source` does not hold, as (check, detail) pairs.
+
+    The one reader of grounding: the deterministic reviewer and the AI drafter
+    both ask it. Numbers and named terms must be the source's exactly. For a
+    rule-made line every word must be the source's too.
+
+    An AI rewrite (`ai`) may reorder and condense. A word its sources lack
+    must be a joining word or one of `AI_WORDS`, at most `new_words` of them. On top
+    of that, read in any case: no tool, product or name the ad asked for
+    (`bait`) or Career Agent knows; an amount only with its unit and what it
+    counts; no word of result, scale or quantity; and no word of rank or
+    leadership unless a source says it in the same place or `titles` holds it."""
+    out: list[tuple[str, str]] = []
+    extra_numbers = _numbers(text) - _numbers(source)
+    if ai:
+        held_amounts = _amounts(source)
+        extra_numbers |= {
+            " ".join(filter(None, a[:3]))
+            for a in _amounts(text)
+            if not _amount_held(a, held_amounts)
+        }
+    if extra_numbers:
+        out.append(("NUMBERS", f"numbers not in its evidence: {sorted(extra_numbers)}"))
+    folded, held_text = jd.folded(text), jd.folded(source)
+    if ai:
+        folded, held_text = _PERCENT.sub("%", folded), _PERCENT.sub("%", held_text)
+        # A capital at a sentence start is a name only when it is a known
+        # tool: "Automated ..." names nothing.
+        said = jd.named_terms(text, strict=True)
+        known_tools = jd.KNOWN_TOOLS | jd.LOWERCASE_TOOLS
+        said |= {w for w in jd.tokens(text) | set(_WORD.findall(folded)) if w in known_tools}
+        said |= {b for b in bait if re.search(rf"(?<![a-z0-9]){re.escape(b)}(?![a-z0-9])", folded)}
+    else:
+        said = jd.named_terms(text, sentence_start=False)
+    known = jd.named_terms(source) | jd.named_terms(titles) | set(names)
+    held_text = f"{held_text} {jd.folded(titles)}"
+    extra_names = {n for n in said - known if n not in held_text}
+    if extra_names:
+        out.append(("NAMED_TOOLS", f"named terms not in its evidence: {sorted(extra_names)}"))
+    if not ai:
+        if not jd.tokens(text) <= jd.tokens(source):
+            out.append(("OVERSTATEMENT", "words not in its evidence"))
+        return out
+    words = _WORD.findall(folded)
+    held = set(_WORD.findall(held_text))
+    allowed = _pairs(source)
+    titled = set(_WORD.findall(jd.folded(titles)))
+    raised = {
+        w for w, after in _pairs(text)
+        if _RANK.match(w) and (w, after) not in allowed and w not in titled
+    }  # fmt: skip
+    if raised:
+        out.append(("SENIORITY", f"rank or leadership not in its evidence: {sorted(raised)}"))
+    claims = {w for w in words if _CLAIM.match(w) and w not in held}
+    if claims:
+        out.append(("CLAIMS", f"results or scale not in its evidence: {sorted(claims)}"))
+    forms = held | titled
+    new = {
+        w for w in words
+        if w not in AI_JOINERS and w not in forms
+        and w.removesuffix("s") not in forms and f"{w}s" not in forms
+    }  # fmt: skip
+    foreign = new - AI_WORDS
+    if foreign or len(new) > new_words:
+        out.append(("OVERSTATEMENT", f"words not in its evidence: {sorted(foreign or new)}"))
+    return out
+
+
 def review(
     draft_doc: ResumeDocument, master: ResumeDocument, pool: list[Source], supports: list[Support]
 ) -> list[dict[str, Any]]:
@@ -390,28 +595,36 @@ def review(
     def warn(check: str, ref: str, detail: str) -> None:
         findings.append({"check": check, "outcome": "WARN", "ref": ref, "detail": detail})
 
-    lines = [(line.id, line.text, list(line.evidence_ids)) for _, line, _ in _lines(draft_doc)]
-    lines += [(i.id, i.label, list(i.evidence_ids)) for g in draft_doc.skills for i in g.items]
-    for line_id, text, cited in lines:
+    roles = {b.id: e.experience_id for e in draft_doc.experience for b in e.bullets}
+    lines = [
+        (line.id, line.text, list(line.evidence_ids), line.origin is Origin.AI_REWRITE, holder)
+        for holder, line, _ in _lines(draft_doc)
+    ]
+    lines += [(i.id, i.label, list(i.evidence_ids), False, "skill")
+              for g in draft_doc.skills for i in g.items]  # fmt: skip
+    for line_id, text, cited, ai, holder in lines:
         if before.get(line_id) == text:
             continue  # the Master's own line, unchanged
         if not cited or any(k not in claims for k in cited):
             fail("GROUNDING", line_id, "a new line cites no confirmed evidence")
             continue
-        source = " ".join(claims[k].text + " " + " ".join(claims[k].tools) for k in cited)
-        extra_numbers = _numbers(text) - _numbers(source)
-        if extra_numbers:
-            fail("NUMBERS", line_id, f"numbers not in its evidence: {sorted(extra_numbers)}")
-        known = jd.named_terms(source) | {jd.folded(t) for k in cited for t in claims[k].tools}
-        extra_names = {
-            n
-            for n in jd.named_terms(text, sentence_start=False) - known
-            if n not in jd.folded(source)
-        }
-        if extra_names:
-            fail("NAMED_TOOLS", line_id, f"named terms not in its evidence: {sorted(extra_names)}")
-        if not set(jd.tokens(text)) <= jd.tokens(source) | jd.tokens(before.get(line_id, "")):
-            fail("OVERSTATEMENT", line_id, "words not in its evidence")
+        held = {claims[k].experience_id for k in cited} - {None}
+        if line_id in roles and held - {roles[line_id]}:
+            fail("EMPLOYER", line_id, "a line cites another role's evidence")
+        # A rewrite may keep what the line said before.
+        source = " ".join(
+            [
+                before.get(line_id, ""),
+                *(claims[k].text + " " + " ".join(claims[k].tools) for k in cited),
+            ]
+        )
+        tools = {jd.folded(t) for k in cited for t in claims[k].tools}
+        summary = draft_doc.summary is not None and line_id == draft_doc.summary.id
+        for check, detail in grounding(
+            text, source, tools, ai=ai, titles=ai_titles(master, holder),
+            new_words=AI_NEW_WORDS * (2 if summary else 1),
+        ):  # fmt: skip
+            fail(check, line_id, detail)
     old = [(e.id, e.employer, e.source_title, e.display_title, e.start, e.end, e.current)
            for e in master.experience]  # fmt: skip
     new = [(e.id, e.employer, e.source_title, e.display_title, e.start, e.end, e.current)
@@ -620,11 +833,20 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
 
     changes = []
     run_id = doc.provenance.tailoring_run_id
+    ai = False
     if run_id and doc.provenance.created_from.value == "TAILOR":
+        ai = store.get_tailoring_run(run_id).mode == "AI_ASSISTED"
+        rows = {e.id: e.id for e in doc.experience} | {
+            b.id: e.id for e in doc.experience for b in e.bullets
+        }
         for change in store.list_tailoring_changes(run_id):
             op = change.op
+            if change.decision not in ("ACCEPTED", "EDITED"):
+                continue  # a proposal the person rejected changed nothing
+            text = op.get("edited") or op.get("after") or op.get("proposed_text")
+            entry = op.get("entry_id") or rows.get(op.get("target_ref") or "")
             changes.append(
-                {"op": op["op"], "text": op.get("after"), "where": where(op.get("entry_id")),
+                {"op": op["op"], "text": text, "where": where(entry),
                  "asks": [quotes[r] for r in change.requirement_ids if r in quotes]}
             )  # fmt: skip
     dismissed = store.dismissed_findings(stored.id)
@@ -667,6 +889,7 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
     return {
         "job": {"title": snap.title, "company": snap.company, "job_id": snap.job_id},
         "tailored": doc.provenance.created_from.value == "TAILOR",
+        "ai_assisted": ai,
         "coverage": coverage,
         "supported": sum(c["coverage"] in ("COVERED", "PARTLY") for c in judged),
         "total": len(judged),

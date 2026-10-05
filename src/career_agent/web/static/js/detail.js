@@ -1173,6 +1173,12 @@ export function createDrawer({
     const tailorButton = (label) => button(t(label), once(() => onResume.tailor(job)), {
       className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-tailor' },
     });
+    // A third act, apart again: the same tailoring, with an AI provider proposing
+    // wording that the person reviews change by change. Nothing is sent until
+    // the next screen says what, and the person presses Send.
+    const aiButton = () => (onResume.tailorAi ? button(t('rv.ai.tailor'), once(() => onResume.tailorAi(job)), {
+      className: 'btn d-tailor__btn', attrs: { id: 'drawer-tailor-ai' },
+    }) : null);
     const create = () => button(t('prep3.s3Make'), once(() => onResume.create(job)), {
       className: 'btn d-tailor__btn', attrs: { id: 'drawer-open-tailor' },
     });
@@ -1206,6 +1212,7 @@ export function createDrawer({
       const rows = answer.versions.map((v) => el('li', { className: 'd-resumes__row' }, [
         el('span', { className: 'd-resumes__name', text: versionLabel(v, byDefault) }),
         v.tailored ? el('span', { className: 'tpill', text: t('rv.lib.tailored') }) : null,
+        v.ai_assisted ? el('span', { className: 'tpill', text: t('rv.lib.aiAssisted') }) : null,
         v.preferred ? el('span', { className: 'tpill tpill--m1', text: `\u2605 ${t('rv.lib.preferred')}` }) : null,
         used === v.id ? el('span', { className: 'tpill tpill--blue', text: `\u2713 ${t('rv.job.used')}` }) : null,
         button(t('rv.open'), () => onResume.open(v.id), {
@@ -1227,6 +1234,7 @@ export function createDrawer({
           : null,
         el('div', { className: 'd-tailor__actions' }, [
           tailorButton('rv.job.tailorAnother'),
+          aiButton(),
           button(t('rv.job.anotherManual'), once(() => onResume.create(job, from.id)), {
             className: 'btn d-tailor__btn', attrs: { id: 'drawer-another-version' },
           }),
@@ -1237,7 +1245,10 @@ export function createDrawer({
       return host;
     }
     if (answer.has_master) {
-      replace(host, [el('div', { className: 'd-tailor__actions' }, [tailorButton('rv.job.tailor'), create()]), noAi]);
+      replace(host, [
+        el('div', { className: 'd-tailor__actions' }, [tailorButton('rv.job.tailor'), aiButton(), create()]),
+        noAi,
+      ]);
       host.dataset.tailor = 'ready';
       return host;
     }

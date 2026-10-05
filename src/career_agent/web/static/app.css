@@ -11199,3 +11199,16 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rvj__suggestion[data-kind="NO_EVIDENCE"] { border-left-color: var(--yellow); }
 .rvj__text { font-weight: 600; }
 .d-tailor__note { margin: 0; font-size: 12px; color: var(--body2); }
+/* Tailor with AI: one card per proposed change; the decision is a sign and a word. */
+.rva__cards { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.rva__card {
+  padding: 8px 10px; border-left: 3px solid var(--divider); background: var(--surface);
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere;
+}
+.rva__card[data-decision="ACCEPTED"], .rva__card[data-decision="EDITED"] { border-left-color: var(--mint); }
+.rva__card p { margin: 0; }
+.rva__what { margin: 0; font-size: 14px; }
+.rva__after { font-weight: 600; }
+.rva__decided { font-weight: 600; }
+.rva__card .rve__textarea { width: 100%; min-width: 0; }
+.rva__count { margin: 0; font-weight: 600; }

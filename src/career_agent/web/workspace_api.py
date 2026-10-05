@@ -507,10 +507,12 @@ class WorkspaceRoutes(_MixinBase):
     # =================================================================
     def register_workspace_routes(self) -> None:
         from career_agent.web.career_api import register_career_routes
+        from career_agent.web.resume_ai_api import register_resume_ai_routes
         from career_agent.web.resume_api import register_resume_routes
 
         register_career_routes(self)
         register_resume_routes(self)
+        register_resume_ai_routes(self)
         self.register("GET", r"/api/evidence", self.evidence)
         self.register("POST", r"/api/evidence", self.create_claim)
         self.register("PATCH", r"/api/evidence/(?P<claim_key>[^/]+)", self.edit_claim)

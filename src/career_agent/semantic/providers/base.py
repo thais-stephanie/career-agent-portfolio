@@ -115,3 +115,9 @@ class SemanticProvider(Protocol):
     def healthcheck(self) -> ProviderStatus:
         """A live, minimal request. Used only when the person asks."""
         ...
+
+    def complete(self, system: str, user: str, schema: dict) -> ProviderAnswer:
+        """One structured answer to another Career Agent task (the resume
+        drafter), through the same client, credential and limits. Raises
+        `ProviderFailed`; never retries."""
+        ...

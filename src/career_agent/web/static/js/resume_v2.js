@@ -41,6 +41,7 @@ import { t, tCount } from './i18n.js';
 import {
   createAutosave, createHistory, evidenceLine, move, newLine, rewordLine, ulid,
 } from './resume_editor.js';
+import { createAiDraft } from './resume_ai.js';
 import { createResumeImport } from './resume_import.js';
 import { createJobPanel } from './resume_job.js';
 import { createLibrary, legacyNotice, versionLabel } from './resume_library.js';
@@ -103,7 +104,7 @@ const flatten = (lib) => [
 ].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
 export function createResumeWorkspace({
-  host, onEvidence = () => {}, onLegacy = () => {}, onAddEvidence = () => {},
+  host, onEvidence = () => {}, onLegacy = () => {}, onAddEvidence = () => {}, onSettings = () => {},
 }) {
   const tabs = {};
   const views = {};
@@ -172,12 +173,18 @@ export function createResumeWorkspace({
   };
 
   // -- Home ------------------------------------------------------------------
+  // Only the latest draw paints: two in flight (opening the page shows Home
+  // twice) used to let the slower one wipe what a click had just opened.
+  let homeDraw = 0;
   async function drawHome() {
+    const mine = ++homeDraw;
     let lib;
     let master;
     try {
       [lib, master] = await Promise.all([listResumeDocuments(), getResumeMaster()]);
+      if (mine !== homeDraw) return;
     } catch (error) {
+      if (mine !== homeDraw) return;
       views.home.replaceChildren(el('p', {
         className: 'rve__notice rve__notice--bad', attrs: { role: 'alert' }, text: error.userMessage || t('rv.failed'),
       }));
@@ -302,6 +309,15 @@ export function createResumeWorkspace({
     }
   }
 
+  const aiDraft = createAiDraft({
+    host: views.tailor,
+    show,
+    open,
+    onSettings,
+    onWithoutAi: (jobId) => runTailor(() => tailorForJob(jobId)),
+    onBack: () => show('home'),
+  });
+
   function pastedForm() {
     const title = el('input', { className: 'input', attrs: { maxlength: '300', id: 'rvt-title' } });
     const company = el('input', { className: 'input', attrs: { maxlength: '200', id: 'rvt-company' } });
@@ -361,6 +377,8 @@ export function createResumeWorkspace({
     openDocument: (id) => open(id),
     /** Tailor from the Master for a job (no AI), then the Editor. */
     tailorForJob: (jobId) => runTailor(() => tailorForJob(jobId)),
+    /** Tailor with AI: say what is sent, ask once, review each change, then the Editor. */
+    tailorWithAi: (jobId) => aiDraft.start(jobId),
     /** A version for this job, made by hand from the Master or another version; then the Editor. */
     async createForJob(jobId, from = null) {
       const made = await createJobResume(jobId, from);

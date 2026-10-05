@@ -195,6 +195,7 @@ export function createLibrary({ onOpen, onOpenRestored, onHome, onImport }) {
         el('p', { className: 'rvl__name' }, [
           el('span', { className: 'rvl__title', text: name }),
           item.tailored ? el('span', { className: 'rvw__kind', text: t('rv.lib.tailored') }) : null,
+          item.ai_assisted ? el('span', { className: 'rvw__kind', text: t('rv.lib.aiAssisted') }) : null,
           item.preferred ? el('span', { className: 'rvl__preferred', text: `${STAR} ${t('rv.lib.preferred')}` }) : null,
           item.kind === 'MASTER' || item.kind === 'TAILORED'
             ? null : el('span', { className: 'rvw__kind', text: t(`rv.kind.${item.kind}`) }),
