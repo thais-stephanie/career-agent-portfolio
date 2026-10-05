@@ -892,11 +892,23 @@ SECOND_ROUND = [
     "Built HubSpot lead routing for 4 countries.",
     "Built HubSpot lead routing over 4 years for regional teams.",
     "Built HubSpot lead routing in 4 hours for regional teams.",
+    # Third round: short words, look-alike words, result verbs, moved amounts.
+    "Built ai lead routing in HubSpot for 4 regional teams.",
+    "Built HubSpot lead routing with ml and bi for 4 regional teams.",
+    "Built HubSpot lead routing for 4 international teams.",
+    "Built regulatory HubSpot lead routing for 4 regional teams.",
+    "Built HubSpot lead routing as developer for 4 regional teams.",
+    "Improved HubSpot lead routing for 4 regional teams.",
+    "Streamlined HubSpot lead routing for 4 regional teams.",
+    "Built HubSpot lead routing for 4 regional systems.",
+    "Built key HubSpot lead routing for 4 new regional teams.",
 ]
 
 
 @pytest.mark.parametrize("text", SECOND_ROUND)
 def test_second_round_attacks_are_refused(conn, text: str) -> None:
+    """Results, uncatalogued tools, rank synonyms and reused numbers; then
+    short words, look-alike words, result verbs and moved amounts."""
     run_id = run(conn, FakeDrafter(rewrite("k-hubspot-routing", text)))
     assert changes(conn, run_id) == [] and drafter.view(conn, run_id)["refused"] == 1
 
@@ -937,6 +949,16 @@ def test_owned_is_read_in_place(conn) -> None:
             "HubSpot",
         ),
         ("k-hubspot-routing", "Built HubSpot lead routing for 4 teams.", "HubSpot"),
+        (
+            "k-hubspot-routing",
+            "Built lead routing in HubSpot for 4 regional sales teams.",
+            "HubSpot",
+        ),
+        (
+            "k-hubspot-routing",
+            "Configured HubSpot lead routing rules for 4 regional teams.",
+            "HubSpot",
+        ),
     ],
 )
 def test_ordinary_rewrites_still_pass(conn, key: str, text: str, word: str) -> None:

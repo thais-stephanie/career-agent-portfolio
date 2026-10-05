@@ -409,54 +409,84 @@ _CLAIM = re.compile(
 #: ("in charge of") is simply not on it.
 AI_WORDS = frozenset(
     """
-    built build created create designed design developed develop delivered deliver automated
-    automate automating configured configure implemented implement maintained maintain improved
-    improve streamlined streamline organized organised organize wrote write written documented
-    document analyzed analysed analyze prepared prepare supported support integrated integrate
-    migrated migrate cleaned clean standardized standardised standardize structured structure
-    mapped tracked reported set setup using used use across within through via including into
-    onto both each new existing internal external daily weekly monthly regular key core clear
-    accurate consistent reliable process processes workflow workflows data system systems
-    tool tools reporting report reports team teams work handled handle ensured ensure enabled
-    enable added add updated update reviewed review tested test focused focus help helped
+    built build building created create designed design developed develop delivered deliver
+    automated automate automating configured configure implemented implement maintained
+    maintain organized organised organize wrote write written documented document analyzed
+    analysed analyze prepared prepare supported support integrated integrate migrated migrate
+    cleaned clean standardized standardised standardize structured structure mapped map
+    tracked track reported set setup used use added add updated update reviewed review tested
+    test handled handle existing internal external daily weekly monthly process processes
+    workflow workflows data system systems tool tools reporting report reports team teams work
+    sales rule rules pipeline account accounts customer customers record records request
+    requests campaign campaigns dashboard dashboards documentation routing
     construi criei desenvolvi organizei estruturei automatizei configurei implementei mantive
     documentei analisei preparei apoiei integrei padronizei mapeei acompanhei atualizei revisei
-    usando com para entre por meio incluindo das dos pela pelo pelas pelos uma cada novos novas
-    novo nova diarios diarias semanais mensais processo processos fluxo fluxos dados equipe
-    sistema sistemas ferramenta ferramentas relatorio relatorios trabalho apoio
+    usando diarios diarias semanais mensais processo processos fluxo fluxos dados equipe
+    sistema sistemas ferramenta ferramentas relatorio relatorios trabalho vendas regra regras
+    cliente clientes pedido pedidos registro registros campanha campanhas painel paineis
     """.split()  # noqa: SIM905
 )
-_AI_ROOTS = frozenset(w[:5] for w in AI_WORDS)
+#: Words that only join others, EN and PT: free, and never a claim.
+AI_JOINERS = frozenset(
+    """
+    and or the a an to of in on for with by from at as via into onto per each its their
+    across within through using including
+    o os as e ou de da do das dos em no na nos nas um uma uns umas ao aos por pela pelo pelas
+    pelos com para entre que se cada meio
+    """.split()  # noqa: SIM905
+)
 _WORD = re.compile(r"[a-z]+")
 _PERCENT = re.compile(r"\s*(?:percent|per cent|por cento)\b")
 _AMOUNT = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?(?:\s+([a-z]+))?"
-    r"(?:\s+([a-z]+))?"
+    r"(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?|([a-z]+)"
 )
 #: New content words an AI rewrite may bring, beyond its sources' (by root).
 AI_NEW_WORDS = 2
 
 
 def ai_titles(doc: ResumeDocument, holder: str | None) -> str:
-    """The titles an AI line may echo: its role's, or (a headline or a summary)
-    every shown role's. A hidden old title lends nothing."""
+    """The titles an AI line may echo: its role's, or (a headline or a summary,
+    which read as now) the current role's. A hidden or past title lends nothing."""
     shown = [e for e in doc.experience if not e.hidden and holder in (None, e.id)]
+    if holder is None:
+        shown = [e for e in shown if e.current or e.end is None] or shown[:1]
     return " ".join(f"{e.display_title} {e.source_title}" for e in shown)
 
 
-def _amounts(text: str) -> list[tuple[str, str, str, str]]:
-    """Each amount with its unit and the two words after it ("4 regional teams")."""
+def _amounts(text: str) -> list[tuple[str, str, str, tuple[str, ...]]]:
+    """Each amount: its number, unit, the word before it and the two after it
+    (filler words skipped): "entry by 30%", "4 regional teams"."""
     folded = _PERCENT.sub("%", jd.folded(text))
-    return [(n.replace(",", "."), u, a, b) for n, u, a, b in _AMOUNT.findall(folded)]
+    items = [(n, u, w) for n, u, w in _AMOUNT.findall(folded) if w not in jd._STOP or not w]
+    out = []
+    for i, (number, unit, word) in enumerate(items):
+        if word:
+            continue
+        before = items[i - 1][2] if i else ""
+        after = tuple(x[2] for x in items[i + 1 : i + 4] if x[2])
+        out.append((number.replace(",", "."), unit, before, after))
+    return out
 
 
-def _amount_held(amount: tuple[str, str, str, str], held: list[tuple[str, str, str, str]]) -> bool:
-    """An amount is the source's when the number and unit are, and (without a
-    unit) what it counts is too: "4 regional teams" holds "4 teams", never
-    "4 countries" or "4 years"."""
-    number, unit, after, _ = amount
-    for n, u, a, b in held:
-        if (n, u) == (number, unit) and (unit or not after or after in (a, b)):
+def _amount_held(
+    amount: tuple[str, str, str, tuple[str, ...]],
+    held: list[tuple[str, str, str, tuple[str, ...]]],
+) -> bool:
+    """An amount is the source's when the number and unit are, and so is what
+    it counts: "4 regional teams" holds "4 teams", never "4 countries",
+    "4 years" or "4 regional systems"; "entry by 30%" holds "entry by 30
+    percent", never "30% of teams"."""
+    number, unit, before, after = amount
+    for n, u, b, a in held:
+        if (n, u) != (number, unit):
+            continue
+        # What the source counts is the second word after it ("regional TEAMS").
+        counted = a[:2][-1] if a else ""
+        if counted and counted in after:
+            lead = after[: after.index(counted)]
+            if all(w in a or w in AI_WORDS for w in lead):
+                return True
+        if before and before == b and (unit or not after):
             return True
     return False
 
@@ -484,8 +514,8 @@ def grounding(
     both ask it. Numbers and named terms must be the source's exactly. For a
     rule-made line every word must be the source's too.
 
-    An AI rewrite (`ai`) may reorder and condense. A word its sources lack (by
-    root) must be one of `AI_WORDS`, and at most `new_words` of them. On top
+    An AI rewrite (`ai`) may reorder and condense. A word its sources lack
+    must be a joining word or one of `AI_WORDS`, at most `new_words` of them. On top
     of that, read in any case: no tool, product or name the ad asked for
     (`bait`) or Career Agent knows; an amount only with its unit and what it
     counts; no word of result, scale or quantity; and no word of rank or
@@ -534,9 +564,13 @@ def grounding(
     claims = {w for w in words if _CLAIM.match(w) and w not in held}
     if claims:
         out.append(("CLAIMS", f"results or scale not in its evidence: {sorted(claims)}"))
-    roots = {w[:5] for w in held | titled}
-    new = {w for w in words if len(w) > 2 and w not in jd._STOP and w[:5] not in roots}
-    foreign = {w for w in new if w[:5] not in _AI_ROOTS}
+    forms = held | titled
+    new = {
+        w for w in words
+        if w not in AI_JOINERS and w not in jd._STOP and w not in forms
+        and w.removesuffix("s") not in forms and f"{w}s" not in forms
+    }  # fmt: skip
+    foreign = new - AI_WORDS
     if foreign or len(new) > new_words:
         out.append(("OVERSTATEMENT", f"words not in its evidence: {sorted(foreign or new)}"))
     return out

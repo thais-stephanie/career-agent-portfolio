@@ -578,12 +578,15 @@ nothing. The deterministic path stays beside it, unchanged.
   ("award-winning", "worldwide", "millions", "forty", "a decade"), no word of
   rank or leadership in English or Portuguese unless a source says it in the
   same place ("lead routing" is not leadership; "owned the reporting" is not
-  "owned 4 teams") or the role's own title does, and a number only with what
-  it counts ("4 regional teams" is not "4 countries" or "4 years"). A word the
-  sources lack may only be one of a short, closed list of verbs and joining
-  words ("automated", "designed", "using", "padronizei"), at most two (four in
-  a summary): a result, a tool nobody listed or a new rank is simply not on
-  it. A line
+  "owned 4 teams") or the role's own title does (for a headline or a summary,
+  the current role's), and a number only with what
+  it counts ("4 regional teams" is not "4 countries", "4 years" or "4 regional
+  systems"; "entry by 30%" is not "30% of teams"). A word the sources lack,
+  compared as a whole word of any length, may only be a joining word or one of
+  a short, closed list of neutral verbs and work nouns ("automated",
+  "configured", "rules", "padronizei"), at most two (four in a summary): a
+  result ("improved"), a tool nobody listed ("ai", "snowflake") or a new rank
+  is simply not on it. A line
   reworded by AI supports an ask only through what its evidence says, so
   wording never turns a gap into coverage. A proposal that fails is not
   offered: the person sees only how many were left out, and the AI's one-line
