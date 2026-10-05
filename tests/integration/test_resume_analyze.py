@@ -617,3 +617,88 @@ def test_a_repeat_keeps_the_evidence_copy(api: JobsApi) -> None:
     role = ResumeStore(conn).get_document(doc).working.experience[0]
     conn.close()
     assert role.bullets[0].origin.value != "USER_AUTHORED"
+
+
+# ------------------------------------------------- review round 2 findings
+
+
+def test_a_typed_skill_or_line_never_buys_confirmed_support(api: JobsApi) -> None:
+    doc = master(api).id
+    before = {r["quote"]: r for r in run(api, doc, ad=AD)["job"]["requirements"]}
+    have = [q for q, r in before.items() if r["state"] == analyze.NOT_SHOWN]
+    assert have
+
+    def typed(data: dict[str, Any]) -> None:
+        data["skills"] = [
+            {
+                "id": new_id(),
+                "name": "Skills",
+                "items": [
+                    {
+                        "id": new_id(),
+                        "label": "Salesforce Apex",
+                        "origin": "USER_AUTHORED",
+                        "evidence_ids": ["k-hubspot-routing"],
+                    },
+                    {
+                        "id": new_id(),
+                        "label": "dbt",
+                        "origin": "EVIDENCE_VERBATIM",
+                        "evidence_ids": ["k-hubspot-routing"],
+                    },
+                ],
+            }
+        ]
+        data["experience"][0]["bullets"].append(
+            {"id": new_id(), "origin": "USER_AUTHORED", "text": "; ".join(have) + "."}
+        )
+
+    edit(api, doc, typed)
+    after = {r["quote"]: r for r in run(api, doc, ad=AD)["job"]["requirements"]}
+    for ask in ("Salesforce Apex is a must", "Experience with dbt"):
+        assert after[ask]["state"] != analyze.SHOWN, ask
+    for ask in have:
+        # Still confirmed but not shown, and still offered where a line can be added.
+        assert after[ask]["state"] == analyze.NOT_SHOWN, ask
+        assert bool(after[ask]["apply"]) == bool(before[ask]["apply"]), ask
+
+
+def test_in_this_resume_quotes_the_page_and_corrected_evidence_is_read_now(
+    api: JobsApi,
+) -> None:
+    from career_agent.storage.db import transaction
+    from career_agent.storage.repositories import ClaimRepo
+    from career_agent.storage.workspace_repo import ensure_candidate
+
+    doc = master(api).id
+    conn = api.connect()
+    with transaction(conn):
+        candidate = ensure_candidate(conn)
+        repo = ClaimRepo(conn)
+        last = repo.history(candidate, "k-hubspot-routing")[-1]
+        repo.supersede(candidate, last.next_revision(text="Configured a few views for one team."))
+    conn.close()
+    result = run(api, doc, ad=AD)
+    hubspot = next(
+        r for r in result["job"]["requirements"] if r["quote"] == "Experience with HubSpot"
+    )
+    page = json.dumps(master(api).working.model_dump(mode="json"), ensure_ascii=False)
+    assert all(
+        json.dumps(line, ensure_ascii=False)[1:-1] in page
+        for r in result["job"]["requirements"]
+        for line in r["lines"]
+    )
+    assert "EVIDENCE_CHANGED" in kinds(result)
+    assert (
+        not any("lead routing" in line for line in hubspot["lines"])
+        or hubspot["state"] != analyze.SHOWN
+    )
+
+
+def test_the_job_panel_and_analyze_count_the_same(api: JobsApi) -> None:
+    conn = api.connect()
+    made, _ = tailor(conn, ad=AD)
+    said = explain(conn, ResumeStore(conn).get_document(made.id))
+    conn.close()
+    result = run(api, made.id, job="own")
+    assert result["job"]["counts"]["total"] == said["total"]

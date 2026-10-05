@@ -154,7 +154,9 @@ def test_the_senior_dogfood_adds_real_support_reports_gaps_and_invents_nothing(
     assert {"Salesforce Apex is a must", "Workato certification", "Experience with dbt"} <= gaps
     assert "Must be authorized to work in the United States" not in gaps  # eligibility, elsewhere
     eligibility = [c for c in view["coverage"] if c["coverage"] == "ELIGIBILITY"]
-    assert len(eligibility) == 1 and view["total"] == len(view["coverage"]) - 1
+    # Work authorization and a required language are about the person, not the resume.
+    assert {c["kind"] for c in eligibility} == {"WORK_AUTHORIZATION", "LANGUAGE"}
+    assert view["total"] == len(view["coverage"]) - len(eligibility)
     changed = {c["op"] for c in view["changes"]}
     assert "ADD_BULLET" in changed
     added_change = next(c for c in view["changes"] if c["op"] == "ADD_BULLET")
@@ -363,11 +365,12 @@ def test_portuguese_and_mixed_ads_tailor_and_stay_grounded(api: JobsApi) -> None
         covered = {c["ask"] for c in view["coverage"] if c["coverage"] != "NOT_FOUND"}
         assert any("n8n" in ask for ask in covered), ad[:20]
         assert "Salesforce" not in " ".join(texts(made["document"]))
-    gaps = {
-        s["ask"] for s in call(api, "GET", f"/documents/{made['id']}/job")["suggestions"]
-        if s["kind"] == "NO_EVIDENCE"
-    }  # fmt: skip
-    assert gaps  # the mixed ad's Zapier/English asks stay asks
+    view = call(api, "GET", f"/documents/{made['id']}/job")
+    gaps = {s["ask"] for s in view["suggestions"] if s["kind"] == "NO_EVIDENCE"}
+    # The mixed ad's English ask is a language the job requires: eligibility, never a gap.
+    english = [c for c in view["coverage"] if "English" in c["ask"]]
+    assert english and english[0]["coverage"] == "ELIGIBILITY"
+    assert not any("English" in g for g in gaps)
 
 
 def test_another_profile_cannot_reach_any_of_it(api: JobsApi, tmp_path: Path) -> None:

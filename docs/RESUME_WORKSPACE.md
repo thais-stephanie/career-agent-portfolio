@@ -494,8 +494,8 @@ made by hand), and a manual version is never labelled Tailored.
   profile and the Master's lines and skills. A named tool or product in the
   ask must be named by the source itself ("CRM" never answers "Salesforce");
   otherwise two shared words (after a small, documented bilingual concept
-  table) are needed. Location, work authorization and schedule are
-  eligibility: reported apart, never covered or gapped by a resume. Years of
+  table) are needed. Location, work authorization, schedule and a language
+  the job requires are eligibility: reported apart, never covered or gapped by a resume. Years of
   experience are never judged: such an ask is at most "partly covered".
 * **Strategy, then draft.** Confirmed lines the Master does not show are added
   to their own role, verbatim or with a leading first-person pronoun dropped

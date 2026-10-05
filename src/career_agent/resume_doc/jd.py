@@ -232,7 +232,9 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
     ),
     ("EXPERIENCE", _Years()),
 )
-ELIGIBILITY_KINDS = frozenset({"LOCATION", "WORK_AUTHORIZATION", "SCHEDULE"})
+#: About the person's situation, not what a resume shows: never covered or a gap.
+#: A language the job requires is one (PR 11): Tailor, the job panel and Analyze agree.
+ELIGIBILITY_KINDS = frozenset({"LOCATION", "WORK_AUTHORIZATION", "SCHEDULE", "LANGUAGE"})
 
 _STOP = frozenset(
     """

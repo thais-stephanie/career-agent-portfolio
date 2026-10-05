@@ -137,6 +137,8 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
     overview, rows = _career(conn)
     placed = {str(e["id"]) for e in overview["experiences"]}
     confirmed = {r["claim_key"] for r in rows if r["state"] == "CONFIRMED"}
+    texts = {r["claim_key"]: str(r.get("text") or "") for r in rows if r["state"] == "CONFIRMED"}
+    tools = {r["claim_key"]: [jd.folded(t) for t in r.get("tools") or []] for r in rows}
     out: list[Source] = []
     # A statement shows only as a line; a skill item citing it shows the skill,
     # not what the person did with it.
@@ -151,14 +153,31 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
                 evidence_ids=tuple(line.evidence_ids) if backed else (),
             )
         )  # fmt: skip
-        if backed and (line.origin is Origin.AI_REWRITE or line.override is not Override.NONE):
-            reworded.append((out[-1], line.original_text or ""))
+        stale = (
+            backed
+            and line.origin is Origin.EVIDENCE_VERBATIM
+            and any(
+                jd.folded(texts.get(k, "")).strip(" .") != jd.folded(line.text).strip(" .")
+                for k in line.evidence_ids
+            )
+        )
+        if backed and (
+            line.origin is Origin.AI_REWRITE or line.override is not Override.NONE or stale
+        ):
+            reworded.append((out[-1], "" if stale else line.original_text or ""))
         if backed and shown:
             shown_keys |= set(line.evidence_ids)
     for group in doc.skills:
         for item in group.items:
             shown = not group.hidden and "skills" not in hidden
-            backed = set(item.evidence_ids) <= confirmed
+            label = jd.folded(item.label).strip()
+            backed = (
+                item.origin in EVIDENCED_ORIGINS
+                and bool(item.evidence_ids)
+                and set(item.evidence_ids) <= confirmed
+                and any(label in tools.get(k, []) or label in jd.folded(texts[k])
+                        for k in item.evidence_ids)
+            )  # fmt: skip
             out.append(
                 Source(
                     id=item.id, text=item.label, in_resume=True, shown=shown, line_id=item.id,
@@ -257,9 +276,12 @@ def retrieve(analysis: jd.Analysis, pool: list[Source]) -> list[Support]:
         # Shown only when what shows answers it well, or as well as anything
         # unshown would: a bare tool name in Skills does not hide a confirmed
         # line that says what was done with it.
-        best_shown = shown[0][1] if shown else 0.0
+        # Typed text on the page only SAYS it (coverage SAID): it never hides
+        # confirmed experience that answers better.
+        backed = [v for s, v in shown if s.claim_key or s.evidence_ids]
+        best_shown = backed[0] if backed else 0.0
         best_unshown = unshown[0][1] if unshown else 0.0
-        if shown and (best_shown >= COVERED_AT or best_shown >= best_unshown):
+        if backed and (best_shown >= COVERED_AT or best_shown >= best_unshown):
             state = SHOWN
         else:
             state = HAVE if unshown else NONE

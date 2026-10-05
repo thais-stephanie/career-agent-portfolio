@@ -266,7 +266,8 @@ def job(conn: sqlite3.Connection, doc: ResumeDocument, text: str) -> dict[str, A
     analysis = jd.analyse(text)
     pool = sources(conn, doc)
     supports = retrieve(analysis, pool)
-    lines = {s.line_id: s.text for s in pool if s.line_id}
+    on_page = {line.id: line.text for _, line, _ in _lines(doc)}
+    on_page |= {i.id: i.label for g in doc.skills for i in g.items}
     claims = {s.claim_key: s.text for s in pool if s.claim_key}
     addable = {s["key"][4:] for s in suggest(doc, supports) if s["key"].startswith("add:")}
     rows: list[dict[str, Any]] = []
@@ -274,10 +275,11 @@ def job(conn: sqlite3.Connection, doc: ResumeDocument, text: str) -> dict[str, A
         req = sup.requirement
         coverage = sup.coverage
         # Where, papers, schedule and a language the job requires are about the
-        # person's situation, not what a resume shows: apart, never counted.
-        # The Tailor's own retrieval decides the rest: confirmed experience the
-        # resume does not show (or shows less well) is NOT_SHOWN.
-        if req.eligibility or req.kind == "LANGUAGE":
+        # person's situation (`jd.ELIGIBILITY_KINDS`), not what a resume shows:
+        # apart, never counted. The Tailor's own retrieval decides the rest:
+        # confirmed experience the resume does not show (or shows less well) is
+        # NOT_SHOWN.
+        if req.eligibility:
             state = ELIGIBILITY
         elif sup.state == HAVE:
             state = NOT_SHOWN
@@ -287,13 +289,14 @@ def job(conn: sqlite3.Connection, doc: ResumeDocument, text: str) -> dict[str, A
             state = UNCONFIRMED
         else:
             state = NOT_FOUND
-        shown = [s for s, _ in sup.shown]
+        evidenced = state == SHOWN
+        shown = [s for s, _ in sup.shown if bool(s.claim_key or s.evidence_ids) == evidenced]
         rows.append({
             "id": req.id, "quote": req.source_quote, "hardness": req.hardness, "kind": req.kind,
             "state": state,
             # Partly: some support, or a tenure that is never judged.
             "partly": state == SHOWN and coverage == "PARTLY",
-            "lines": [lines[s.line_id] for s in shown if s.line_id in lines][:3],
+            "lines": [on_page[s.line_id] for s in shown if s.line_id in on_page][:3],
             "evidence": [claims[k] for s, _ in sup.shown + sup.unshown
                          for k in ([s.claim_key] if s.claim_key else s.evidence_ids)
                          if k in claims][:3],
