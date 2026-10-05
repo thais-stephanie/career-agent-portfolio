@@ -59,7 +59,7 @@ export function versionLabel(item, heading = '') {
   return [number, item.title === heading ? '' : item.title].filter(Boolean).join(' \u00b7 ');
 }
 
-export function createLibrary({ onOpen, onOpenRestored, onHome, onImport }) {
+export function createLibrary({ onOpen, onOpenRestored, onHome, onImport, onAnalyze = () => {} }) {
   let filter = 'all';
   let current = null;
   let busy = false;
@@ -178,6 +178,7 @@ export function createLibrary({ onOpen, onOpenRestored, onHome, onImport }) {
       actions.push(act(t('rv.lib.archive'), () => confirmArchive(item, panel)));
     }
     actions.push(act(t('rv.lib.history'), () => void history(item, panel)));
+    if (!item.archived) actions.push(act(t('rv.an.title'), () => onAnalyze(item.id)));
     more.append(
       el('summary', {
         className: 'btn btn--small rvl__moresum',

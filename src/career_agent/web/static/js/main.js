@@ -218,6 +218,7 @@ const drawer = createDrawer({
     create: (job, fromId = null) => toResumes(() => resumeWorkspace.createForJob(job.job_id, fromId)),
     tailor: (job) => toResumes(() => resumeWorkspace.tailorForJob(job.job_id)),
     tailorAi: (job) => toResumes(() => resumeWorkspace.tailorWithAi(job.job_id)),
+    analyze: (job, v) => toResumes(() => resumeWorkspace.analyzeForJob(v.id, job.job_id, v.tailored)),
     open: (id) => toResumes(() => resumeWorkspace.openDocument(id)),
     home: () => toResumes(() => null),
   },

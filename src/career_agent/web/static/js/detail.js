@@ -1219,6 +1219,9 @@ export function createDrawer({
           className: 'd-link', ariaLabel: `${t('rv.open')}: V${v.version_number}`,
         }),
         used === v.id || v.archived ? null : mark(v),
+        v.archived || !onResume.analyze ? null : button(t('rv.an.title'), () => onResume.analyze(job, v), {
+          className: 'd-link', ariaLabel: `${t('rv.an.forThisJob')}: V${v.version_number}`,
+        }),
         v.preferred || v.archived ? null : prefer(v),
       ]));
       const from = answer.versions.find((v) => v.preferred) || answer.versions[0];

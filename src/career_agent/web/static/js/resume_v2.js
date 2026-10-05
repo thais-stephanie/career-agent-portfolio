@@ -42,6 +42,7 @@ import {
   createAutosave, createHistory, evidenceLine, move, newLine, rewordLine, ulid,
 } from './resume_editor.js';
 import { createAiDraft } from './resume_ai.js';
+import { createAnalyze } from './resume_analyze.js';
 import { createResumeImport } from './resume_import.js';
 import { createJobPanel } from './resume_job.js';
 import { createLibrary, legacyNotice, versionLabel } from './resume_library.js';
@@ -108,7 +109,7 @@ export function createResumeWorkspace({
 }) {
   const tabs = {};
   const views = {};
-  for (const name of ['home', 'list', 'editor', 'import', 'tailor']) {
+  for (const name of ['home', 'list', 'editor', 'analyze', 'import', 'tailor']) {
     views[name] = el('section', {
       className: `rvw__view rvw__view--${name}`, attrs: { id: `rvw-view-${name}` },
     });
@@ -132,8 +133,16 @@ export function createResumeWorkspace({
     onOpenRestored: (answer) => void open(answer.id, { answer, restored: true }).catch(failed),
     onHome: () => show('home'),
     onImport: () => void startImport(),
+    onAnalyze: (id) => void analyzer.start(id),
   });
   views.list.append(library.root);
+  const analyzer = createAnalyze({
+    host: views.analyze,
+    show,
+    open: (id) => void open(id).catch(failed),
+    onEvidence: (ask) => onAddEvidence(ask),
+    onTailor: (jobId) => void runTailor(() => tailorForJob(jobId)),
+  });
 
   function show(name) {
     for (const [key, view] of Object.entries(views)) view.hidden = key !== name;
@@ -144,6 +153,7 @@ export function createResumeWorkspace({
     root.dataset.view = name;
     if (name === 'home') void drawHome();
     if (name === 'list') void library.load();
+    if (name === 'analyze' && !views.analyze.firstChild) void analyzer.show();
   }
 
   function close() {
@@ -163,6 +173,8 @@ export function createResumeWorkspace({
     if (editor) editor.destroy();
     editor = createEditor(shown, {
       onClose: () => show('list'), onDiscard: close, onOpen: (next) => open(next), restored, onAddEvidence,
+      // Analyze what is saved: the editor finishes saving (and checkpoints) first.
+      onAnalyze: async () => { if (editor && await editor.leave()) await analyzer.start(shown.id); },
     });
     views.editor.replaceChildren(editor.root);
     show('editor');
@@ -252,6 +264,11 @@ export function createResumeWorkspace({
           el('details', { className: 'rvt__paste' }, [
             el('summary', { className: 'btn btn--small', text: t('rv.tailor.paste') }), pastedForm(),
           ]),
+        ]) : null,
+        all.length ? el('article', { className: 'rvw__card' }, [
+          el('h2', { className: 'rvw__cardtitle', text: t('rv.an.card') }),
+          el('p', { text: t('rv.an.cardLede') }),
+          smallButton(t('rv.an.cardGo'), () => void analyzer.start(), { attrs: { id: 'rvw-analyze' } }),
         ]) : null,
         el('article', { className: 'rvw__card' }, [
           el('h2', { className: 'rvw__cardtitle', text: t('rv.tab.list') }),
@@ -379,6 +396,8 @@ export function createResumeWorkspace({
     tailorForJob: (jobId) => runTailor(() => tailorForJob(jobId)),
     /** Tailor with AI: say what is sent, ask once, review each change, then the Editor. */
     tailorWithAi: (jobId) => aiDraft.start(jobId),
+    /** Analyze one resume for a job (from the drawer): its own ad for a job version. */
+    analyzeForJob: (id, jobId, own) => analyzer.start(id, own ? 'own' : { job_id: jobId }),
     /** A version for this job, made by hand from the Master or another version; then the Editor. */
     async createForJob(jobId, from = null) {
       const made = await createJobResume(jobId, from);
@@ -392,6 +411,7 @@ export function createResumeWorkspace({
       if (editor) editor.relabel();
       if (root.dataset.view === 'home') void drawHome();
       if (root.dataset.view === 'list') library.relabel();
+      if (root.dataset.view === 'analyze') analyzer.relabel();
     },
   };
 }
@@ -400,7 +420,9 @@ export function createResumeWorkspace({
 // the editor
 // ===========================================================================
 
-function createEditor(answer, { onClose, onDiscard, onOpen, restored = false, onAddEvidence = () => {} }) {
+function createEditor(answer, {
+  onClose, onDiscard, onOpen, restored = false, onAddEvidence = () => {}, onAnalyze = () => {},
+}) {
   let doc = structuredClone(answer.document);
   let editedSinceOpen = false;
   let previewTimer = null;
@@ -478,7 +500,9 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false, on
     },
   });
   const bar = el('header', { className: 'rve__bar' }, [
-    backButton, title, kindTag, undoButton, redoButton, pointButton, downloadGroup, saveState,
+    backButton, title, kindTag, undoButton, redoButton, pointButton, downloadGroup,
+    smallButton(t('rv.an.title'), () => void onAnalyze(), { attrs: { id: `rve-analyze-${answer.id}` } }),
+    saveState,
   ]);
   const jobPanel = answer.document.target ? createJobPanel({
     documentId: answer.id,
@@ -1192,10 +1216,10 @@ function createEditor(answer, { onClose, onDiscard, onOpen, restored = false, on
       ref: f.ref, text: t(`rv.find.${f.kind}`), severity: f.severity,
     }));
     for (const ref of (layout && layout.overflow) || []) {
-      items.push({ ref, text: t('rv.find.TALLER_THAN_PAGE'), severity: 'problem' });
+      items.push({ ref, text: t('rv.find.TALLER_THAN_PAGE'), severity: 'WARNING' });
     }
     if (layout && layout.pages > 2) {
-      items.push({ ref: 'document', text: t('rv.find.PAGES', { n: layout.pages }), severity: 'advice' });
+      items.push({ ref: 'document', text: t('rv.find.PAGES', { n: layout.pages }), severity: 'OPPORTUNITY' });
     }
     if (!items.length) {
       check.replaceChildren(el('li', { className: 'rve__finding', text: t('rv.find.none') }));

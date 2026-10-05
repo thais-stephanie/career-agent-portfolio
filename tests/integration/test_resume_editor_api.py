@@ -185,6 +185,7 @@ def test_findings_are_named_facts_never_a_score() -> None:
     assert ("EDITED_EVIDENCE", second["id"]) in found
     assert {"LONG_BULLET", "NOT_FROM_EVIDENCE", "EMAIL_MISSING"} <= kinds
     assert all(
-        set(f) == {"key", "kind", "ref", "severity"} for f in findings(upgrade_resume_document(doc))
+        set(f) == {"key", "kind", "ref", "category", "severity", "nature", "action"}
+        for f in findings(upgrade_resume_document(doc))
     )
     assert findings(sparse()) and not any("score" in f["kind"].lower() for f in findings(sparse()))

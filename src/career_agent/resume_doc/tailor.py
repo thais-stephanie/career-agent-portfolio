@@ -946,14 +946,60 @@ def _support(s: Support) -> dict[str, Any]:
 # ----------------------------------------------------- explain, make it better
 
 
-def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
-    """A job version, against its ad: coverage, why it changed, gaps, and
-    what would make it better now. Read only; recomputed on the version as it
-    is, so a suggestion already applied is gone."""
+def suggest(doc: ResumeDocument, supports: list[Support]) -> list[dict[str, Any]]:
+    """What would make `doc` better against these supports, each with the exact
+    change when there is one (a confirmed line to add or show, a confirmed
+    skill to add) and none for a gap. Shared by the job panel and Analyze."""
+    entries = {e.id: e for e in doc.experience}
+
+    def where(entry_id: str | None) -> dict[str, str] | None:
+        entry = entries.get(entry_id or "")
+        return {"title": entry.display_title, "employer": entry.employer} if entry else None
+
+    suggestions: list[dict[str, Any]] = []
+    for sup in supports:
+        req = sup.requirement
+        if sup.state == HAVE:
+            plan = strategy(doc, [sup])
+            action: dict[str, Any] | None = None
+            if plan["show"]:
+                shown = next(line for _, line, _ in _lines(doc) if line.id == plan["show"][0])
+                action = {"type": "show", "line_id": shown.id, "text": shown.text}
+            elif plan["add"]:
+                add = plan["add"][0]
+                action = {"type": "add_bullet", "entry_id": add["entry_id"], "text": add["text"],
+                          "origin": "EVIDENCE_VERBATIM" if add["verbatim"] else "RULE_REWRITE",
+                          "evidence_ids": [add["evidence_id"]], "requirement_ids": [req.id],
+                          "where": where(add["entry_id"])}  # fmt: skip
+            elif plan["skills"]:
+                skill = plan["skills"][0]
+                action = {"type": "add_skill", "label": skill["label"],
+                          "evidence_ids": [skill["evidence_id"]]}  # fmt: skip
+            if action is not None:
+                suggestions.append({"key": f"add:{req.id}", "kind": "UNSHOWN_EVIDENCE",
+                                    "ask": req.source_quote, "action": action})  # fmt: skip
+        elif sup.state == NONE and not req.eligibility:
+            suggestions.append({"key": f"gap:{req.id}", "kind": "NO_EVIDENCE",
+                                "ask": req.source_quote, "action": None})  # fmt: skip
+    for _, line, shown in _lines(doc):
+        words = len(line.text.split())
+        if shown and words > LONG_LINE_WORDS:
+            suggestions.append({"key": f"long:{line.id}", "kind": "LONG_LINE", "words": words,
+                                "line_id": line.id, "text": line.text, "action": None})  # fmt: skip
+    return suggestions
+
+
+def explain(
+    conn: sqlite3.Connection, stored: StoredDocument, snapshot_id: str | None = None
+) -> dict[str, Any]:
+    """A version against a job ad (its own, or `snapshot_id`): coverage, why it
+    changed, gaps, and what would make it better now. Read only; recomputed on
+    the version as it is, so a suggestion already applied is gone."""
     store = ResumeStore(conn)
-    if stored.jd_snapshot_id is None:
+    snapshot_id = snapshot_id or stored.jd_snapshot_id
+    if snapshot_id is None:
         return {}
-    snap = store.get_jd_snapshot(stored.jd_snapshot_id)
+    snap = store.get_jd_snapshot(snapshot_id)
     doc = stored.working
     analysis = jd.analyse(snap.text)
     supports = retrieve(analysis, sources(conn, doc))
@@ -985,36 +1031,7 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
                  "asks": [quotes[r] for r in change.requirement_ids if r in quotes]}
             )  # fmt: skip
     dismissed = store.dismissed_findings(stored.id)
-    suggestions: list[dict[str, Any]] = []
-    for sup in supports:
-        req = sup.requirement
-        if sup.state == HAVE:
-            plan = strategy(doc, [sup])
-            action: dict[str, Any] | None = None
-            if plan["show"]:
-                shown = next(line for _, line, _ in _lines(doc) if line.id == plan["show"][0])
-                action = {"type": "show", "line_id": shown.id, "text": shown.text}
-            elif plan["add"]:
-                add = plan["add"][0]
-                action = {"type": "add_bullet", "entry_id": add["entry_id"], "text": add["text"],
-                          "origin": "EVIDENCE_VERBATIM" if add["verbatim"] else "RULE_REWRITE",
-                          "evidence_ids": [add["evidence_id"]], "requirement_ids": [req.id],
-                          "where": where(add["entry_id"])}  # fmt: skip
-            elif plan["skills"]:
-                skill = plan["skills"][0]
-                action = {"type": "add_skill", "label": skill["label"],
-                          "evidence_ids": [skill["evidence_id"]]}  # fmt: skip
-            if action is not None:
-                suggestions.append({"key": f"add:{req.id}", "kind": "UNSHOWN_EVIDENCE",
-                                    "ask": req.source_quote, "action": action})  # fmt: skip
-        elif sup.state == NONE and not req.eligibility:
-            suggestions.append({"key": f"gap:{req.id}", "kind": "NO_EVIDENCE",
-                                "ask": req.source_quote, "action": None})  # fmt: skip
-    for _, line, shown in _lines(doc):
-        words = len(line.text.split())
-        if shown and words > LONG_LINE_WORDS:
-            suggestions.append({"key": f"long:{line.id}", "kind": "LONG_LINE", "words": words,
-                                "line_id": line.id, "text": line.text, "action": None})  # fmt: skip
+    suggestions = suggest(doc, supports)
     coverage = [
         {"ask": s.requirement.source_quote, "hardness": s.requirement.hardness,
          "kind": s.requirement.kind, "coverage": s.coverage}
@@ -1035,7 +1052,12 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
 
 
 def apply_suggestion(
-    conn: sqlite3.Connection, document_id: str, key: str, *, expected_sha256: str
+    conn: sqlite3.Connection,
+    document_id: str,
+    key: str,
+    *,
+    expected_sha256: str,
+    snapshot_id: str | None = None,
 ) -> StoredDocument:
     """Make one suggestion's exact change, from the confirmed text AS IT IS NOW.
 
@@ -1045,7 +1067,8 @@ def apply_suggestion(
     store = ResumeStore(conn)
     with transaction(conn):
         stored = store.get_document(document_id)
-        found = next((s for s in explain(conn, stored)["suggestions"] if s["key"] == key), None)
+        said = explain(conn, stored, snapshot_id)
+        found = next((s for s in said.get("suggestions", []) if s["key"] == key), None)
         action = found and found["action"]
         if not action:
             raise ResumeStoreError("this suggestion no longer applies")
