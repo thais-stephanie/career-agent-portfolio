@@ -454,40 +454,65 @@ def ai_titles(doc: ResumeDocument, holder: str | None) -> str:
     return " ".join(f"{e.display_title} {e.source_title}" for e in shown)
 
 
-def _amounts(text: str) -> list[tuple[str, str, str, tuple[str, ...]]]:
-    """Each amount: its number, unit, the word before it and the two after it
-    (filler words skipped): "entry by 30%", "4 regional teams"."""
-    folded = _PERCENT.sub("%", jd.folded(text))
-    items = [(n, u, w) for n, u, w in _AMOUNT.findall(folded) if w not in jd._STOP or not w]
+Amount = tuple[str, str, tuple[str, ...], tuple[str, ...]]
+_END = "qqend"
+_CLAUSE = re.compile(r"[.;:!?,()]+(?=\s|$)")
+_PARTITIVE = frozenset({"of", "de", "da", "do", "das", "dos"})
+
+
+def _phrase(words: list[str]) -> tuple[str, ...]:
+    """Words up to the first joining word or another amount, at most three:
+    the local noun phrase ("regional teams", "manual data entry")."""
+    out: list[str] = []
+    for w in words:
+        if not w or w == _END or w in AI_JOINERS or w in jd._STOP or len(out) == 3:
+            break
+        out.append(w.removesuffix("s"))
+    return tuple(out)
+
+
+def _amounts(text: str) -> list[Amount]:
+    """Each amount: its number, its unit, the phrase it counts (after it) and
+    the phrase it measures (before it, past one joining word): "4 REGIONAL
+    TEAMS", "PROCESSING TIME by 30%"."""
+    # A sentence or clause ends a phrase: "4 regional teams. HubSpot" counts teams.
+    folded = _CLAUSE.sub(f" {_END} ", _PERCENT.sub("%", jd.folded(text)))
+    items = _AMOUNT.findall(folded)
     out = []
     for i, (number, unit, word) in enumerate(items):
         if word:
             continue
-        before = items[i - 1][2] if i else ""
-        after = tuple(x[2] for x in items[i + 1 : i + 4] if x[2])
-        out.append((number.replace(",", "."), unit, before, after))
+        following = [w for _, _, w in items[i + 1 :]]
+        if following and following[0] in _PARTITIVE:  # "30% OF teams" counts teams
+            following = following[1:]
+        after = _phrase(following)
+        before = [w for _, _, w in reversed(items[:i])]
+        while (
+            before
+            and before[0]
+            and before[0] != _END
+            and (before[0] in AI_JOINERS or before[0] in jd._STOP)
+        ):
+            before = before[1:]
+        out.append((number.replace(",", "."), unit, after, tuple(reversed(_phrase(before)))))
     return out
 
 
-def _amount_held(
-    amount: tuple[str, str, str, tuple[str, ...]],
-    held: list[tuple[str, str, str, tuple[str, ...]]],
-) -> bool:
-    """An amount is the source's when the number and unit are, and so is what
-    it counts: "4 regional teams" holds "4 teams", never "4 countries",
-    "4 years" or "4 regional systems"; "entry by 30%" holds "entry by 30
-    percent", never "30% of teams"."""
-    number, unit, before, after = amount
-    for n, u, b, a in held:
+def _amount_held(amount: Amount, held: list[Amount]) -> bool:
+    """An amount is the source's when its number and unit are, and so is the
+    phrase around it: the same counted noun or measured thing, with no
+    qualifier the source's own phrase lacks. "4 regional teams" holds "4
+    teams", never "4 sales teams", "4 countries" or "4 years"; "processing
+    time by 30%" never holds "operating costs by 30%". Joining words and
+    punctuation may change; the facts around a number may not."""
+    number, unit, after, before = amount
+    for n, u, a, b in held:
         if (n, u) != (number, unit):
             continue
-        # What the source counts is the second word after it ("regional TEAMS").
-        counted = a[:2][-1] if a else ""
-        if counted and counted in after:
-            lead = after[: after.index(counted)]
-            if all(w in a or w in AI_WORDS for w in lead):
+        if after:
+            if a and after[-1] == a[-1] and set(after[:-1]) <= set(a[:-1]):
                 return True
-        if before and before == b and (unit or not after):
+        elif before and b and before[-1] == b[-1] and set(before) <= set(b) or not before:
             return True
     return False
 
@@ -526,7 +551,7 @@ def grounding(
     if ai:
         held_amounts = _amounts(source)
         extra_numbers |= {
-            " ".join(filter(None, a[:3]))
+            " ".join([a[0] + a[1], *a[2]])
             for a in _amounts(text)
             if not _amount_held(a, held_amounts)
         }

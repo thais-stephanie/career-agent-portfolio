@@ -907,6 +907,9 @@ SECOND_ROUND = [
     "Built excellent, strong HubSpot lead routing for 4 regional teams.",
     "Proficient in HubSpot; built lead routing for 4 regional teams.",
     "Built HubSpot lead routing for 4 regional teams, cutting work for customers.",
+    # PR 10: a qualifier the source's phrase lacks, on a counted thing.
+    "Built lead routing in HubSpot for 4 regional sales teams.",
+    "Built lead routing in HubSpot for 4 sales teams.",
 ]
 
 
@@ -968,11 +971,6 @@ def test_owned_is_read_in_place(conn) -> None:
             "HubSpot",
         ),
         ("k-hubspot-routing", "Built HubSpot lead routing for 4 teams.", "HubSpot"),
-        (
-            "k-hubspot-routing",
-            "Built lead routing in HubSpot for 4 regional sales teams.",
-            "HubSpot",
-        ),
         (
             "k-hubspot-routing",
             "Configured HubSpot lead routing rules for 4 regional teams.",
