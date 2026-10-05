@@ -83,14 +83,27 @@ def test_what_a_number_counts_cannot_change(source: str, text: str) -> None:
         ("Organizei as planilhas de pedidos.", "Organizei uma planilha de pedidos."),
         ("Configured GA4 dashboards for marketing.", "Configured marketing dashboards in GA4."),
         ("Built n8n integrations with HubSpot.", "Built n8n workflows with HubSpot."),
-        (
-            TWO,
-            f"{N8N.capitalize()}. Supported 4 regional teams.",
-        ),
     ],
 )
 def test_a_number_may_keep_its_phrase_in_other_words(source: str, text: str) -> None:
     assert "NUMBERS" not in checks(source, text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        f"{N8N}. For 4 regional teams.",
+        f"{N8N}. Used by 4 regional teams.",
+        f"{N8N}. Built for 4 regional teams.",
+        f"{N8N}! 4 regional teams.",
+        f"{N8N}, i.e. 4 regional teams.",
+        # The price of the rule, the safe way: a true second sentence that only
+        # restates the number with an allowed verb is refused too.
+        f"{N8N}. Supported 4 regional teams.",
+    ],
+)
+def test_a_number_never_stands_alone_beside_other_work(text: str) -> None:
+    assert "NUMBERS" in checks(TWO, text)
 
 
 def test_a_head_first_phrase_may_not_lose_its_qualifier_yet() -> None:

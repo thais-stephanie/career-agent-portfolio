@@ -462,6 +462,8 @@ _ARTICLES = frozenset(["the", "a", "an", "o", "a", "os", "as", "um", "uma", "uns
 _END = "qqend"
 _FULL_STOP = "qqstop"
 _SENTENCE = re.compile(r"[.!?]+(?=\s|$)")
+#: Abbreviations end no sentence: "i.e.", "e.g.", "U.S.", "approx.", "vs.".
+_ABBREVIATION = re.compile(r"\b(?:([a-z])\.|(approx|aprox|vs|etc|incl|ex|aprox)\.)")
 _CLAUSE = re.compile(r"[.;:!?,()]+(?=\s|$)")
 _PARTITIVE = frozenset({"of", "de", "da", "do", "das", "dos"})
 #: What a duration or a share measures is the thing before it ("PROCESSING
@@ -526,13 +528,20 @@ def _phrase(words: list[str], limit: int = 3) -> tuple[tuple[str, ...], str]:
     return tuple(out), head or (out[-1] if out else "")
 
 
+def _sentences(text: str) -> int:
+    """How many sentences `text` has (abbreviations end none)."""
+    folded = _ABBREVIATION.sub(lambda m: m.group(1) or m.group(2), jd.folded(text))
+    return sum(1 for part in _SENTENCE.split(folded) if part.strip())
+
+
 def _amounts(text: str, limit: int = 3) -> list[Amount]:
     """Each amount: its number, its unit, the phrase it counts (after it) and
     the phrase it measures (before it, past one joining word): "4 REGIONAL
     TEAMS", "PROCESSING TIME by 30%"; the head of what it counts; and the
     words of its own sentence."""
     # A sentence or clause ends a phrase: "4 regional teams. HubSpot" counts teams.
-    folded = _SENTENCE.sub(f" {_FULL_STOP} ", _PERCENT.sub("%", jd.folded(text)))
+    folded = _ABBREVIATION.sub(lambda m: m.group(1) or m.group(2), jd.folded(text))
+    folded = _SENTENCE.sub(f" {_FULL_STOP} ", _PERCENT.sub("%", folded))
     folded = _CLAUSE.sub(f" {_END} ", folded)
     folded = _NUMBER_WORD.sub(lambda m: _NUMBER_WORDS[m.group(1)], folded)
     items = _AMOUNT.findall(folded)
@@ -564,7 +573,7 @@ def _amounts(text: str, limit: int = 3) -> list[Amount]:
     return out
 
 
-def _amount_held(amount: Amount, held: list[Amount]) -> bool:
+def _amount_held(amount: Amount, held: list[Amount], *, alone: bool = True) -> bool:
     """An amount is the source's when its number and unit are, and so is the
     phrase around it: the same thing counted (its head kept, no word the
     source's phrase lacks), for a share or a duration the same thing
@@ -580,18 +589,26 @@ def _amount_held(amount: Amount, held: list[Amount]) -> bool:
     def same_before(b: tuple[str, ...]) -> bool:
         return bool(before and b and before[-1] == b[-1] and set(before) <= set(b))
 
-    def from_sentence(source: frozenset[str]) -> bool:
+    def plain(w: str) -> bool:
+        return (
+            w in AI_WORDS
+            or f"{w}s" in AI_WORDS
+            or w in AI_JOINERS
+            or (w in jd._STOP or f"{w}s" in jd._STOP)
+        )
+
+    def from_sentence(source: frozenset[str], phrase: set[str]) -> bool:
         """Every word of the sentence holding the amount is the source
-        sentence's, or only joins or says what was done: a number never
-        lends itself to another statement's work, across a comma or not."""
-        return all(
-            w in source or w in AI_WORDS or f"{w}s" in AI_WORDS or w in AI_JOINERS
-            or w in jd._STOP or f"{w}s" in jd._STOP
-            for w in said
-        )  # fmt: skip
+        sentence's, or only joins or says what was done, AND that sentence
+        keeps a word of the source sentence's own work beyond what is
+        counted, when the line has more than one sentence: a number never
+        lends itself to another statement, across a comma or as a fragment
+        of its own ("... system. For 4 teams.")."""
+        anchors = {w for w in source - phrase if not plain(w)}
+        return all(w in source or plain(w) for w in said) and (alone or bool(said & anchors))
 
     for n, u, a, b, head, sentence in held:
-        if (n, u) != (number, unit) or not from_sentence(sentence):
+        if (n, u) != (number, unit) or not from_sentence(sentence, set(a) | set(b)):
             continue
         if not after and not before:
             if not a and not b:
@@ -644,7 +661,7 @@ def grounding(
         extra_numbers |= {
             " ".join([a[0] + a[1], *a[2]])
             for a in _amounts(text)
-            if not _amount_held(a, held_amounts)
+            if not _amount_held(a, held_amounts, alone=_sentences(text) < 2)
         }
     if extra_numbers:
         out.append(("NUMBERS", f"numbers not in its evidence: {sorted(extra_numbers)}"))
