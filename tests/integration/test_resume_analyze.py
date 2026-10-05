@@ -702,3 +702,41 @@ def test_the_job_panel_and_analyze_count_the_same(api: JobsApi) -> None:
     conn.close()
     result = run(api, made.id, job="own")
     assert result["job"]["counts"]["total"] == said["total"]
+
+
+def test_a_skill_is_named_by_its_evidence_as_a_whole_term(api: JobsApi) -> None:
+    from career_agent.storage.db import transaction
+    from career_agent.storage.repositories import ClaimRepo
+    from career_agent.storage.workspace_repo import ensure_candidate
+
+    doc = master(api).id
+    conn = api.connect()
+    with transaction(conn):
+        candidate = ensure_candidate(conn)
+        repo = ClaimRepo(conn)
+        last = repo.history(candidate, "k-campaign-ops")[-1]
+        repo.supersede(
+            candidate, last.next_revision(text="Maintained the JavaScript widgets for 12 launches.")
+        )
+    conn.close()
+
+    def java(data: dict[str, Any]) -> None:
+        data["skills"] = [
+            {
+                "id": new_id(),
+                "name": "Skills",
+                "items": [
+                    {
+                        "id": new_id(),
+                        "label": "Java",
+                        "origin": "EVIDENCE_VERBATIM",
+                        "evidence_ids": ["k-campaign-ops"],
+                    }
+                ],
+            }
+        ]
+
+    edit(api, doc, java)
+    ad = {"title": "Developer", "text": "Requirements\n- Java is required\n"}
+    rows = run(api, doc, ad=ad)["job"]["requirements"]
+    assert all(r["state"] != analyze.SHOWN for r in rows if "Java" in r["quote"])

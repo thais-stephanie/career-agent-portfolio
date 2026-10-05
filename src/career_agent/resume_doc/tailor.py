@@ -124,6 +124,14 @@ def _lines(doc: ResumeDocument) -> list[tuple[str | None, Any, bool]]:
     return out
 
 
+def _whole(term: str, text: str) -> bool:
+    """`term` as a whole term of `text` ("Java" is not in "JavaScript")."""
+    folded = jd.folded(text)
+    return (
+        bool(term) and re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", folded) is not None
+    )
+
+
 def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
     """Confirmed claims of THIS profile, and every line and skill of `doc`.
 
@@ -175,7 +183,7 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
                 item.origin in EVIDENCED_ORIGINS
                 and bool(item.evidence_ids)
                 and set(item.evidence_ids) <= confirmed
-                and any(label in tools.get(k, []) or label in jd.folded(texts[k])
+                and any(label in tools.get(k, []) or _whole(label, texts[k])
                         for k in item.evidence_ids)
             )  # fmt: skip
             out.append(
