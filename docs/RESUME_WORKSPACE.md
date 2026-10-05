@@ -573,7 +573,12 @@ nothing. The deterministic path stays beside it, unchanged.
   one of this snapshot's that was sent; every evidence id a confirmed, current
   claim of THIS profile that was sent or that the line already cites, and a
   role's line rests on that role's statements only. The wording may hold no
-  number (with its unit: "30%" is not "30x"), no tool or name the ad asks for
+  number (with its unit: "30%" is not "30x"; with the phrase it counts or
+  measures, its head word kept and no qualifier the source lacks: "4
+  regional teams" is never "4 sales teams", "200 hospital staff" never "200
+  hospitals", "processing time by 30%" never "operating costs by 30%"; and
+  from the number's own source sentence, so it never moves to another
+  statement's work), no tool or name the ad asks for
   or Career Agent knows (in any case), no word of result, scale or quantity
   ("award-winning", "worldwide", "millions", "forty", "a decade"), no word of
   rank or leadership in English or Portuguese unless a source says it in the

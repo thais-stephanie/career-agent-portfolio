@@ -456,10 +456,12 @@ def ai_titles(doc: ResumeDocument, holder: str | None) -> str:
 
 
 #: number, unit, phrase counted (after), phrase measured (before), the
-#: counted phrase's head word, and every word of the amount's own clause.
+#: counted phrase's head word, and every word of the amount's own sentence.
 Amount = tuple[str, str, tuple[str, ...], tuple[str, ...], str, frozenset[str]]
 _ARTICLES = frozenset(["the", "a", "an", "o", "a", "os", "as", "um", "uma", "uns", "umas"])
 _END = "qqend"
+_FULL_STOP = "qqstop"
+_SENTENCE = re.compile(r"[.!?]+(?=\s|$)")
 _CLAUSE = re.compile(r"[.;:!?,()]+(?=\s|$)")
 _PARTITIVE = frozenset({"of", "de", "da", "do", "das", "dos"})
 #: What a duration or a share measures is the thing before it ("PROCESSING
@@ -512,7 +514,13 @@ def _phrase(words: list[str], limit: int = 3) -> tuple[tuple[str, ...], str]:
         if after_partitive and w in _ARTICLES:
             continue
         after_partitive = False
-        if not w or w == _END or w in AI_JOINERS or w in jd._STOP or len(out) == limit:
+        if (
+            not w
+            or w in (_END, _FULL_STOP)
+            or w in AI_JOINERS
+            or w in jd._STOP
+            or len(out) == limit
+        ):
             break
         out.append(w.removesuffix("s"))
     return tuple(out), head or (out[-1] if out else "")
@@ -522,9 +530,10 @@ def _amounts(text: str, limit: int = 3) -> list[Amount]:
     """Each amount: its number, its unit, the phrase it counts (after it) and
     the phrase it measures (before it, past one joining word): "4 REGIONAL
     TEAMS", "PROCESSING TIME by 30%"; the head of what it counts; and the
-    words of its own clause."""
+    words of its own sentence."""
     # A sentence or clause ends a phrase: "4 regional teams. HubSpot" counts teams.
-    folded = _CLAUSE.sub(f" {_END} ", _PERCENT.sub("%", jd.folded(text)))
+    folded = _SENTENCE.sub(f" {_FULL_STOP} ", _PERCENT.sub("%", jd.folded(text)))
+    folded = _CLAUSE.sub(f" {_END} ", folded)
     folded = _NUMBER_WORD.sub(lambda m: _NUMBER_WORDS[m.group(1)], folded)
     items = _AMOUNT.findall(folded)
     words = [w for _, _, w in items]
@@ -539,17 +548,19 @@ def _amounts(text: str, limit: int = 3) -> list[Amount]:
         while (
             before
             and before[0]
-            and before[0] != _END
+            and before[0] not in (_END, _FULL_STOP)
             and (before[0] in AI_JOINERS or before[0] in jd._STOP)
         ):
             before = before[1:]
-        start = max((j for j in range(i) if words[j] == _END), default=-1) + 1
-        end = next((j for j in range(i + 1, len(words)) if words[j] == _END), len(words))
-        clause = frozenset(w.removesuffix("s") for w in words[start:end] if w and w != _END)
+        start = max((j for j in range(i) if words[j] == _FULL_STOP), default=-1) + 1
+        end = next((j for j in range(i + 1, len(words)) if words[j] == _FULL_STOP), len(words))
+        sentence = frozenset(
+            w.removesuffix("s") for w in words[start:end] if w and w not in (_END, _FULL_STOP)
+        )
         counted, head = _phrase(following, limit)
         measured, _ = _phrase(before, limit)
         out.append((number.replace(",", "."), unit, counted, tuple(reversed(measured)), head,
-                    clause))  # fmt: skip
+                    sentence))  # fmt: skip
     return out
 
 
@@ -557,20 +568,30 @@ def _amount_held(amount: Amount, held: list[Amount]) -> bool:
     """An amount is the source's when its number and unit are, and so is the
     phrase around it: the same thing counted (its head kept, no word the
     source's phrase lacks), for a share or a duration the same thing
-    measured, and the words leading up to it from the same source clause.
+    measured, and every word of its sentence from that number's source sentence.
     "4 regional teams" holds "4 teams", never "4 sales teams", "4 regional
     sales team" (for "team leads"), "4 countries" or "4 years"; "processing
     time by 30%" never holds "operating costs by 30%"; a number standing alone
     holds only a number that stood alone. Joining words and punctuation may
     change; a number does not move to another sentence's work."""
-    number, unit, after, before, _, _ = amount
+    number, unit, after, before, _, said = amount
     measured = bool(unit) or bool(after and after[-1] in _MEASURES)
 
     def same_before(b: tuple[str, ...]) -> bool:
         return bool(before and b and before[-1] == b[-1] and set(before) <= set(b))
 
-    for n, u, a, b, head, clause in held:
-        if (n, u) != (number, unit) or not set(before) <= clause | AI_WORDS:
+    def from_sentence(source: frozenset[str]) -> bool:
+        """Every word of the sentence holding the amount is the source
+        sentence's, or only joins or says what was done: a number never
+        lends itself to another statement's work, across a comma or not."""
+        return all(
+            w in source or w in AI_WORDS or f"{w}s" in AI_WORDS or w in AI_JOINERS
+            or w in jd._STOP or f"{w}s" in jd._STOP
+            for w in said
+        )  # fmt: skip
+
+    for n, u, a, b, head, sentence in held:
+        if (n, u) != (number, unit) or not from_sentence(sentence):
             continue
         if not after and not before:
             if not a and not b:
