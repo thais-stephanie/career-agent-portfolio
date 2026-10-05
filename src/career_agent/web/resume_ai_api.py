@@ -118,13 +118,15 @@ def register_resume_ai_routes(app: LocalApp) -> None:
                 ) from exc
             except drafter.DrafterError as exc:
                 raise ApiError(409, "This draft already exists.", code=exc.code) from exc
-            if run_id in early or drafter.status(conn, run_id) != "RUNNING":
-                drafter.end(conn, run_id, "cancelled")
-                raise ApiError(409, "Cancelled.", for_reader=True, code="ai_cancelled")
             over = _over_budget(app, provider, message)
             if over:
                 drafter.end(conn, run_id, "budget")
                 raise ApiError(409, over, for_reader=True, code="ai_budget")
+            # Asked last, right before the call: a Cancel that landed while
+            # the run was being prepared stops it here, before any cost.
+            if run_id in early or drafter.status(conn, run_id) != "RUNNING":
+                drafter.end(conn, run_id, "cancelled")
+                raise ApiError(409, "Cancelled.", for_reader=True, code="ai_cancelled")
         # The provider is asked with no connection open and no lock held, once.
         from career_agent.semantic.providers import ProviderFailed
 
@@ -145,7 +147,6 @@ def register_resume_ai_routes(app: LocalApp) -> None:
                     raise ApiError(
                         409, "Nothing was applied.", for_reader=True, code=f"ai_{exc.code}"
                     ) from exc
-                return drafter.view(conn, run_id)
         except ApiError:
             raise
         except Exception:
@@ -153,6 +154,8 @@ def register_resume_ai_routes(app: LocalApp) -> None:
             with closing(app.connect()) as conn:
                 drafter.end(conn, run_id, "failed")
             raise
+        with closing(app.connect()) as conn:
+            return drafter.view(conn, run_id)
 
     def one(*, query: dict, body: dict, run_id: str) -> dict[str, Any]:
         with closing(app.connect()) as conn:
@@ -184,9 +187,12 @@ def register_resume_ai_routes(app: LocalApp) -> None:
                     data={"checks": exc.checks},
                 ) from exc
             except drafter.DrafterError as exc:
-                raise ApiError(
-                    409, "This draft is closed.", for_reader=True, code=exc.code
-                ) from exc
+                said = (
+                    "This change was already decided."
+                    if exc.code == "decided"
+                    else ("This draft is closed.")
+                )
+                raise ApiError(409, said, for_reader=True, code=exc.code) from exc
             return drafter.view(conn, run_id)
 
     def finalize(*, query: dict, body: dict, run_id: str) -> dict[str, Any]:

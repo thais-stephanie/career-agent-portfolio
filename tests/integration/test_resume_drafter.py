@@ -92,7 +92,7 @@ def documents(conn) -> int:
 
 def test_a_grounded_rewrite_is_offered_decided_and_becomes_the_version(conn) -> None:
     fake = FakeDrafter(
-        rewrite("k-hubspot-routing", "Built HubSpot lead routing for 4 regional sales teams.")
+        rewrite("k-hubspot-routing", "Built HubSpot lead routing for 4 regional teams.")
     )
     before = documents(conn)
     run_id = run(conn, fake)
@@ -736,7 +736,7 @@ def test_portuguese_rank_is_read_too(tmp_path: Path, op: str, text: str) -> None
 def test_a_portuguese_rewrite_that_holds_is_offered(tmp_path: Path) -> None:
     c = profile(tmp_path, "pt")
     thin(c)
-    text = "Organizei as planilhas de pedidos da equipe comercial."
+    text = "Organizei e padronizei as planilhas de pedidos da equipe."
     run_id = run(c, FakeDrafter(rewrite("k-planilhas", text, "planilhas")), ad=PT_AD)
     assert len(changes(c, run_id)) == 1
 
@@ -747,8 +747,16 @@ def test_wording_never_turns_a_gap_into_coverage(conn) -> None:
     text = "Built HubSpot lead routing for 4 teams."
     run_id = run(conn, FakeDrafter(rewrite("k-hubspot-routing", text)))
     (c,) = changes(conn, run_id)
-    edited = "Built HubSpot lead routing for 4 teams to reduce churn."
-    drafter.decide(conn, run_id, c["id"], "EDITED", edited)
+    # An invented outcome is refused even as the person's own edit here.
+    with pytest.raises(drafter.Refused):
+        drafter.decide(
+            conn,
+            run_id,
+            c["id"],
+            "EDITED",
+            "Built HubSpot lead routing for 4 teams to reduce churn.",
+        )
+    drafter.decide(conn, run_id, c["id"], "ACCEPTED")
     stored = drafter.finalize(conn, run_id)
     churn = next(x for x in explain(conn, stored)["coverage"] if "churn" in x["ask"])
     assert churn["coverage"] == "NOT_FOUND"
@@ -867,3 +875,102 @@ def test_the_ai_budget_is_respected(tmp_path: Path, monkeypatch) -> None:
     with pytest.raises(ApiError) as unknown:
         api.handle_api("POST", f"/api/resume/jobs/{_job(api)}/drafts", {}, {"run_id": new_id()})
     assert unknown.value.code == "ai_budget" and fake.calls == []
+
+
+#: Second review round: results, uncatalogued tools, rank synonyms, a number
+#: reused for something else. Each must be refused, whatever the check.
+SECOND_ROUND = [
+    "Built HubSpot lead routing for 4 regional teams to reduce churn.",
+    "Built HubSpot lead routing for 4 regional teams, boosting revenue.",
+    "Built HubSpot lead routing for 4 regional teams, cutting costs.",
+    "Built lead routing in HubSpot with marketo for 4 regional teams.",
+    "Built lead routing in HubSpot and sfdc for 4 regional teams.",
+    "Built lead routing in HubSpot on snowflake for 4 regional teams.",
+    "Built lead routing in HubSpot and ran 4 regional teams.",
+    "Built lead routing in HubSpot, directing 4 regional teams.",
+    "Built lead routing in HubSpot, in charge of 4 regional teams.",
+    "Built HubSpot lead routing for 4 countries.",
+    "Built HubSpot lead routing over 4 years for regional teams.",
+    "Built HubSpot lead routing in 4 hours for regional teams.",
+]
+
+
+@pytest.mark.parametrize("text", SECOND_ROUND)
+def test_second_round_attacks_are_refused(conn, text: str) -> None:
+    run_id = run(conn, FakeDrafter(rewrite("k-hubspot-routing", text)))
+    assert changes(conn, run_id) == [] and drafter.view(conn, run_id)["refused"] == 1
+
+
+def test_owned_is_read_in_place(conn) -> None:
+    """'Owned the weekly reporting' lends nothing to 'owned 4 regional teams'."""
+
+    def answer(s: dict[str, Any]) -> list[dict[str, Any]]:
+        one = line(s, "k-hubspot-routing")
+        text = "Built HubSpot lead routing and owned 4 regional teams."
+        return [
+            change(
+                "REWRITE_BULLET",
+                one["id"],
+                text,
+                ["k-hubspot-routing", "k-forecast"],
+                [ask(s, "HubSpot")],
+            )
+        ]
+
+    run_id = run(conn, FakeDrafter(answer))
+    assert changes(conn, run_id) == []
+
+
+@pytest.mark.parametrize(
+    ("key", "text", "word"),
+    [
+        ("k-hubspot-routing", "Automated lead routing in HubSpot for 4 regional teams.", "HubSpot"),
+        (
+            "k-hubspot-routing",
+            "Designed and built HubSpot lead routing for 4 regional teams.",
+            "HubSpot",
+        ),
+        ("k-hubspot-routing", "Configured HubSpot lead routing for 4 regional teams.", "HubSpot"),
+        (
+            "k-hubspot-workflows",
+            "Cut manual data entry by 30 percent with HubSpot workflow automation.",
+            "HubSpot",
+        ),
+        ("k-hubspot-routing", "Built HubSpot lead routing for 4 teams.", "HubSpot"),
+    ],
+)
+def test_ordinary_rewrites_still_pass(conn, key: str, text: str, word: str) -> None:
+    run_id = run(conn, FakeDrafter(rewrite(key, text, word)))
+    assert len(changes(conn, run_id)) == 1, drafter.view(conn, run_id)
+
+
+def test_a_role_without_linked_experience_takes_no_roleless_claim(conn) -> None:
+    store = ResumeStore(conn)
+    master = store.current_master()
+    data = master.working.model_dump(mode="json")
+    typed = {
+        **data["experience"][0],
+        "id": new_id(),
+        "experience_id": None,
+        "employer": "Typed Co",
+        "bullets": [{"id": new_id(), "text": "Advised clients.", "origin": "USER_AUTHORED"}],
+    }
+    data["experience"].append(typed)
+    store.save_working_copy(
+        master.id, upgrade_resume_document(data), expected_sha256=master.working_sha256
+    )
+    bullet = typed["bullets"][0]["id"]
+
+    def answer(s: dict[str, Any]) -> list[dict[str, Any]]:
+        return [
+            change(
+                "REWRITE_BULLET",
+                bullet,
+                "Advised clients on reporting in SQL.",
+                ["k-skill-sql"],
+                [ask(s, "SQL")],
+            )
+        ]
+
+    run_id = run(conn, FakeDrafter(answer))
+    assert changes(conn, run_id) == []

@@ -382,11 +382,14 @@ def _numbers(text: str) -> set[str]:
 
 #: Words of rank, leadership or scope, EN and PT (folded). A line may say one
 #: only where a source says the same word before the same next word ("lead
-#: routing" is no leadership claim), or where the role's own title says it.
+#: routing" is no leadership claim; "owned the reporting" is not "owned 4
+#: teams"), or where the role's own title says it.
 _RANK = re.compile(
-    r"^(?:lead(?:s|er|ers|ership|ing)?|led|manag\w*|head(?:s|ed|ing)?|director\w*|directed"
-    r"|supervis\w*|oversee\w*|oversaw|spearhead\w*|mentor\w*|chief|senior|sr|principal|vp"
-    r"|executive|lider\w*|gerent\w*|gerenc\w*|gest\w*|coorden\w*|chef\w*|diretor\w*)$"
+    r"^(?:lead(?:s|er|ers|ership|ing)?|led|manag\w*|head(?:s|ed|ing)?|direct\w*|supervis\w*"
+    r"|oversee\w*|oversaw|spearhead\w*|mentor\w*|chief|senior|sr|principal|vp|executive|boss"
+    r"|own|owns|owned|owning|owner\w*|ran|run|runs|running|charge|champion\w*|steer\w*"
+    r"|chair\w*|lider\w*|gerent\w*|gerenc\w*|gest\w*|coorden\w*|chef\w*|diretor\w*|dirig\w*"
+    r"|comand\w*|frente|encarregad\w*)$"
 )
 #: Words that claim a result, a scale or a quantity, EN and PT (folded): never
 #: new in an AI rewrite. A number written as a word counts as a number.
@@ -399,8 +402,37 @@ _CLAIM = re.compile(
     r"|forty|fifty|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|vinte|trinta"
     r"|quarenta|cinquenta|cem|cento)$"
 )
+#: The only words an AI rewrite may bring that its sources do not hold (by
+#: root): ways of saying what was done and how the words join, EN and PT. A
+#: list we chose, because a list of forbidden words is never complete: a
+#: result ("reducing churn"), a tool nobody catalogued ("snowflake"), a rank
+#: ("in charge of") is simply not on it.
+AI_WORDS = frozenset(
+    """
+    built build created create designed design developed develop delivered deliver automated
+    automate automating configured configure implemented implement maintained maintain improved
+    improve streamlined streamline organized organised organize wrote write written documented
+    document analyzed analysed analyze prepared prepare supported support integrated integrate
+    migrated migrate cleaned clean standardized standardised standardize structured structure
+    mapped tracked reported set setup using used use across within through via including into
+    onto both each new existing internal external daily weekly monthly regular key core clear
+    accurate consistent reliable process processes workflow workflows data system systems
+    tool tools reporting report reports team teams work handled handle ensured ensure enabled
+    enable added add updated update reviewed review tested test focused focus help helped
+    construi criei desenvolvi organizei estruturei automatizei configurei implementei mantive
+    documentei analisei preparei apoiei integrei padronizei mapeei acompanhei atualizei revisei
+    usando com para entre por meio incluindo das dos pela pelo pelas pelos uma cada novos novas
+    novo nova diarios diarias semanais mensais processo processos fluxo fluxos dados equipe
+    sistema sistemas ferramenta ferramentas relatorio relatorios trabalho apoio
+    """.split()  # noqa: SIM905
+)
+_AI_ROOTS = frozenset(w[:5] for w in AI_WORDS)
 _WORD = re.compile(r"[a-z]+")
-_AMOUNT = re.compile(r"(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?")
+_PERCENT = re.compile(r"\s*(?:percent|per cent|por cento)\b")
+_AMOUNT = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?(?:\s+([a-z]+))?"
+    r"(?:\s+([a-z]+))?"
+)
 #: New content words an AI rewrite may bring, beyond its sources' (by root).
 AI_NEW_WORDS = 2
 
@@ -412,12 +444,27 @@ def ai_titles(doc: ResumeDocument, holder: str | None) -> str:
     return " ".join(f"{e.display_title} {e.source_title}" for e in shown)
 
 
-def _amounts(text: str) -> set[tuple[str, str]]:
-    return {(n.replace(",", "."), unit) for n, unit in _AMOUNT.findall(jd.folded(text))}
+def _amounts(text: str) -> list[tuple[str, str, str, str]]:
+    """Each amount with its unit and the two words after it ("4 regional teams")."""
+    folded = _PERCENT.sub("%", jd.folded(text))
+    return [(n.replace(",", "."), u, a, b) for n, u, a, b in _AMOUNT.findall(folded)]
+
+
+def _amount_held(amount: tuple[str, str, str, str], held: list[tuple[str, str, str, str]]) -> bool:
+    """An amount is the source's when the number and unit are, and (without a
+    unit) what it counts is too: "4 regional teams" holds "4 teams", never
+    "4 countries" or "4 years"."""
+    number, unit, after, _ = amount
+    for n, u, a, b in held:
+        if (n, u) == (number, unit) and (unit or not after or after in (a, b)):
+            return True
+    return False
 
 
 def _pairs(text: str) -> set[tuple[str, str]]:
-    words = _WORD.findall(jd.folded(text))
+    """Each word with the next one that says something ("owned the weekly"
+    reads as "owned weekly")."""
+    words = [w for w in _WORD.findall(jd.folded(text)) if w not in jd._STOP]
     return set(zip(words, [*words[1:], ""], strict=True))
 
 
@@ -437,25 +484,34 @@ def grounding(
     both ask it. Numbers and named terms must be the source's exactly. For a
     rule-made line every word must be the source's too.
 
-    An AI rewrite (`ai`) may reorder and condense, and bring at most
-    `new_words` content words its sources lack (compared by root). On top of
-    that, read in any case: no tool, product or name the ad asked for
-    (`bait`) or Career Agent knows, no amount with another unit ("30%" is not
-    "30x"), no word of result, scale or quantity, and no word of rank or
+    An AI rewrite (`ai`) may reorder and condense. A word its sources lack (by
+    root) must be one of `AI_WORDS`, and at most `new_words` of them. On top
+    of that, read in any case: no tool, product or name the ad asked for
+    (`bait`) or Career Agent knows; an amount only with its unit and what it
+    counts; no word of result, scale or quantity; and no word of rank or
     leadership unless a source says it in the same place or `titles` holds it."""
     out: list[tuple[str, str]] = []
     extra_numbers = _numbers(text) - _numbers(source)
     if ai:
-        extra_numbers |= {f"{n}{u}" for n, u in _amounts(text) - _amounts(source)}
+        held_amounts = _amounts(source)
+        extra_numbers |= {
+            " ".join(filter(None, a[:3]))
+            for a in _amounts(text)
+            if not _amount_held(a, held_amounts)
+        }
     if extra_numbers:
         out.append(("NUMBERS", f"numbers not in its evidence: {sorted(extra_numbers)}"))
-    said = jd.named_terms(text, sentence_start=False)
     folded, held_text = jd.folded(text), jd.folded(source)
     if ai:
-        said |= jd.named_terms(text, strict=True)
+        folded, held_text = _PERCENT.sub("%", folded), _PERCENT.sub("%", held_text)
+        # A capital at a sentence start is a name only when it is a known
+        # tool: "Automated ..." names nothing.
+        said = jd.named_terms(text, strict=True)
         known_tools = jd.KNOWN_TOOLS | jd.LOWERCASE_TOOLS
         said |= {w for w in jd.tokens(text) | set(_WORD.findall(folded)) if w in known_tools}
         said |= {b for b in bait if re.search(rf"(?<![a-z0-9]){re.escape(b)}(?![a-z0-9])", folded)}
+    else:
+        said = jd.named_terms(text, sentence_start=False)
     known = jd.named_terms(source) | jd.named_terms(titles) | set(names)
     held_text = f"{held_text} {jd.folded(titles)}"
     extra_names = {n for n in said - known if n not in held_text}
@@ -480,8 +536,9 @@ def grounding(
         out.append(("CLAIMS", f"results or scale not in its evidence: {sorted(claims)}"))
     roots = {w[:5] for w in held | titled}
     new = {w for w in words if len(w) > 2 and w not in jd._STOP and w[:5] not in roots}
-    if len(new) > new_words:
-        out.append(("OVERSTATEMENT", f"words not in its evidence: {sorted(new)}"))
+    foreign = {w for w in new if w[:5] not in _AI_ROOTS}
+    if foreign or len(new) > new_words:
+        out.append(("OVERSTATEMENT", f"words not in its evidence: {sorted(foreign or new)}"))
     return out
 
 

@@ -577,8 +577,13 @@ nothing. The deterministic path stays beside it, unchanged.
   or Career Agent knows (in any case), no word of result, scale or quantity
   ("award-winning", "worldwide", "millions", "forty", "a decade"), no word of
   rank or leadership in English or Portuguese unless a source says it in the
-  same place ("lead routing" is not leadership) or the role's own title does,
-  and at most two content words its sources lack (four in a summary). A line
+  same place ("lead routing" is not leadership; "owned the reporting" is not
+  "owned 4 teams") or the role's own title does, and a number only with what
+  it counts ("4 regional teams" is not "4 countries" or "4 years"). A word the
+  sources lack may only be one of a short, closed list of verbs and joining
+  words ("automated", "designed", "using", "padronizei"), at most two (four in
+  a summary): a result, a tool nobody listed or a new rank is simply not on
+  it. A line
   reworded by AI supports an ask only through what its evidence says, so
   wording never turns a gap into coverage. A proposal that fails is not
   offered: the person sees only how many were left out, and the AI's one-line

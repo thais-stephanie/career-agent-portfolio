@@ -325,7 +325,8 @@ def check(p: Proposal, ctx: Context, text: str | None = None) -> list[str]:
     # A role's line rests on that role's statements only (or what it already
     # cites): a skill, a tool or another role lends it no words.
     if entry is not None and any(
-        ctx.claims[k].experience_id != entry.experience_id for k in set(p.evidence_ids) - own
+        ctx.claims[k].experience_id is None or ctx.claims[k].experience_id != entry.experience_id
+        for k in set(p.evidence_ids) - own
     ):
         problems.append("EMPLOYER")
     source = " ".join([before, *(s.text + " " + " ".join(s.tools) for s in held)])
