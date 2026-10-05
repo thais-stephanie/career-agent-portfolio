@@ -438,6 +438,12 @@ def _stale(store: ResumeStore, run: TailoringRun) -> bool:
     )
 
 
+def spent(conn: sqlite3.Connection, run_id: str) -> float:
+    """What this run's drafting call cost, when the provider said (else 0)."""
+    usage = _run(ResumeStore(conn), run_id).stages["token_usage"]
+    return float(usage.get("cost_usd") or 0.0)
+
+
 def status(conn: sqlite3.Connection, run_id: str) -> str:
     return _run(ResumeStore(conn), run_id).status
 
@@ -635,7 +641,10 @@ def finalize(conn: sqlite3.Connection, run_id: str) -> StoredDocument:
 
 def view(conn: sqlite3.Connection, run_id: str) -> dict[str, Any]:
     """The review screen: each proposal with its sources and the asks it answers,
-    how many were left out, and the gaps the AI was never asked to fill."""
+    the independent reviewer's opinion on its current wording (if one was asked
+    for), how many were left out, and the gaps the AI was never asked to fill."""
+    from career_agent.resume_doc.reviewer import opinion, summary
+
     store = ResumeStore(conn)
     run = _run(store, run_id)
     snap = store.get_jd_snapshot(run.jd_snapshot_id)
@@ -659,6 +668,7 @@ def view(conn: sqlite3.Connection, run_id: str) -> dict[str, Any]:
             "sources": [s.text for s in cited],
             "asks": [quotes[r] for r in c.requirement_ids if r in quotes],
             "decision": c.decision,
+            "review": opinion(run.stages["review"], c),
         })  # fmt: skip
     return {
         "id": run.id, "status": run.status, "ended": run.stages["validation"].get("ended"),
@@ -668,6 +678,7 @@ def view(conn: sqlite3.Connection, run_id: str) -> dict[str, Any]:
         "provider": run.provider, "model": run.model,
         "changes": out,
         "refused": len(run.stages["review"].get("refused", [])),
+        "ai_review": summary(run.stages["review"]),
         "gaps": [quotes[k] for k, s in states.items()
                  if s["state"] == NONE and s["coverage"] != "ELIGIBILITY" and k in quotes],
     }  # fmt: skip

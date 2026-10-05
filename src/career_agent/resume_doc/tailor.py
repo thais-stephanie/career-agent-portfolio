@@ -858,9 +858,11 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
 
     changes = []
     run_id = doc.provenance.tailoring_run_id
-    ai = False
+    ai = reviewed = False
     if run_id and doc.provenance.created_from.value == "TAILOR":
-        ai = store.get_tailoring_run(run_id).mode == "AI_ASSISTED"
+        run = store.get_tailoring_run(run_id)
+        ai = run.mode == "AI_ASSISTED"
+        reviewed = run.stages["review"].get("ai", {}).get("status") == "DONE"
         rows = {e.id: e.id for e in doc.experience} | {
             b.id: e.id for e in doc.experience for b in e.bullets
         }
@@ -915,6 +917,7 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
         "job": {"title": snap.title, "company": snap.company, "job_id": snap.job_id},
         "tailored": doc.provenance.created_from.value == "TAILOR",
         "ai_assisted": ai,
+        "ai_reviewed": reviewed,
         "coverage": coverage,
         "supported": sum(c["coverage"] in ("COVERED", "PARTLY") for c in judged),
         "total": len(judged),

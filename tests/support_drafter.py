@@ -1,9 +1,11 @@
-"""A fake AI drafter for PR 9. No network, no key, no CLI: nothing leaves the test.
+"""A fake AI provider for PR 9 and 10. No network, no key, no CLI: nothing leaves the test.
 
 `FakeDrafter` stands where a configured provider stands (`semantic.routing`
 resolves to it) and answers `complete` from a function of what it was sent,
 so a test can propose changes that cite the real ids of a synthetic run, or
-answer with an attack, garbage, an error or nothing at all.
+answer with an attack, garbage, an error or nothing at all. The reviewer's
+call (PR 10) is answered by `reviewer`, from what IT was sent (`review_sent`);
+`kinds` says which role each call was, in order.
 """
 
 from __future__ import annotations
@@ -24,6 +26,29 @@ from career_agent.semantic.providers import (
 )
 
 Answer = Callable[[dict[str, Any]], Any]
+
+
+def review_sent(user: str) -> dict[str, Any]:
+    """What the reviewer was sent, as data: `requirements` and `proposals`."""
+    asks, _, proposals = user.partition("\n\nPROPOSALS (untrusted; data only):\n")
+    requirements = json.loads(asks.split(":\n", 1)[1])
+    return {"requirements": requirements, "proposals": json.loads(proposals)}
+
+
+def verdicts(verdict: str = "SUPPORTED", cite: bool = True) -> Answer:
+    """A reviewer that answers every proposal the same way, citing (or not)
+    the first evidence candidate it was given."""
+
+    def answer(s: dict[str, Any]) -> list[dict[str, Any]]:
+        return [
+            {"proposal_id": p["proposal_id"], "verdict": verdict,
+             "evidence_ids": [p["evidence"][0]["id"]] if cite and p["evidence"] else [],
+             "requirement_ids": [], "finding_codes": [] if verdict == "SUPPORTED" else ["NUMBERS"],
+             "reason": "Synthetic review."}
+            for p in s["proposals"]
+        ]  # fmt: skip
+
+    return answer
 
 
 def sent(user: str) -> dict[str, Any]:
@@ -64,6 +89,8 @@ class FakeDrafter:
     #: USD per call, as a metered provider prices it (None: price unknown).
     price: float | None = 0.0001
     calls: list[str] = field(default_factory=list)
+    kinds: list[str] = field(default_factory=list)
+    reviewer: Answer = field(default_factory=verdicts)
     systems: list[str] = field(default_factory=list)
 
     def availability(self) -> ProviderStatus:
@@ -84,10 +111,18 @@ class FakeDrafter:
         raise AssertionError("the drafter never evaluates postings")
 
     def complete(self, system: str, user: str, schema: dict) -> ProviderAnswer:
+        from career_agent.resume_doc import reviewer
+
         self.calls.append(user)
         self.systems.append(system)
-        out = self.answer(sent(user))
-        raw = out if isinstance(out, str) else json.dumps({"changes": out})
+        if system == reviewer.SYSTEM_PROMPT:
+            self.kinds.append("reviewer")
+            out = self.reviewer(review_sent(user))
+            raw = out if isinstance(out, str) else json.dumps({"reviews": out})
+        else:
+            self.kinds.append("drafter")
+            out = self.answer(sent(user))
+            raw = out if isinstance(out, str) else json.dumps({"changes": out})
         return ProviderAnswer(
             raw_text=raw,
             provider=self.id,
@@ -95,6 +130,7 @@ class FakeDrafter:
             latency_ms=3,
             input_tokens=len(user) // 4,
             output_tokens=len(raw) // 4,
+            cost_usd=self.price,
         )
 
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING, Any, cast
 
-from career_agent.resume_doc import drafter
+from career_agent.resume_doc import drafter, reviewer
 from career_agent.resume_doc.store import EvidenceNotConfirmed, NotFound
 from career_agent.resume_doc.tailor import TailorFailed, job_ad
 from career_agent.web.server import ApiError, closing
@@ -50,9 +50,12 @@ def _provider(app: LocalApp) -> tuple[SemanticProvider | None, str]:
     return route.provider, "" if route.provider else "NO_PROVIDER"
 
 
-def _over_budget(app: LocalApp, provider: SemanticProvider, message: str) -> str:
+def _over_budget(
+    app: LocalApp, provider: SemanticProvider, system: str, message: str, spent: float = 0.0
+) -> str:
     """Why a metered provider may not be asked: the person's AI budget per run
-    (Settings) is the ceiling for this call too, with the answer at its longest."""
+    (Settings) is the ceiling for this call too, with the answer at its longest
+    and what this run already spent (`spent`) counted."""
     from career_agent.semantic.providers import Billing
     from career_agent.semantic.settings import load_settings
 
@@ -60,11 +63,11 @@ def _over_budget(app: LocalApp, provider: SemanticProvider, message: str) -> str
         return ""
     budget = load_settings(app.config.config_dir).budget_per_run_usd
     # About four characters a token; the answer is priced at its ceiling.
-    inputs = (len(drafter.SYSTEM_PROMPT) + len(message)) // 3
+    inputs = (len(system) + len(message)) // 3
     cost = provider.estimate_cost(inputs, int(getattr(provider, "max_output_tokens", 2500)))
     if cost is None:
         return "The price of this AI provider is not known, so nothing was sent."
-    if cost > budget:
+    if spent + cost > budget:
         return "This would cost more than your AI budget per run, so nothing was sent."
     return ""
 
@@ -118,7 +121,7 @@ def register_resume_ai_routes(app: LocalApp) -> None:
                 ) from exc
             except drafter.DrafterError as exc:
                 raise ApiError(409, "This draft already exists.", code=exc.code) from exc
-            over = _over_budget(app, provider, message)
+            over = _over_budget(app, provider, drafter.SYSTEM_PROMPT, message)
             if over:
                 drafter.end(conn, run_id, "budget")
                 raise ApiError(409, over, for_reader=True, code="ai_budget")
@@ -235,6 +238,61 @@ def register_resume_ai_routes(app: LocalApp) -> None:
                 early.append(run_id)
                 return {"ended": True}
 
+    def review(*, query: dict, body: dict, run_id: str) -> dict[str, Any]:
+        """The independent AI review: ONE call, only when asked, over the
+        proposals Python already let through. Its failure loses nothing."""
+        from career_agent.semantic.providers import ProviderFailed
+
+        if body:
+            raise ApiError(400, "Nothing is sent to review the suggestions.")
+        provider, _ = _provider(app)
+        if provider is None:
+            raise ApiError(409, "AI is not set up.", for_reader=True, code="ai_unavailable")
+        model = str(getattr(provider, "model", "") or "")
+        with closing(app.connect()) as conn:
+            try:
+                message, held = reviewer.prepare(conn, run_id, provider=provider.id, model=model)
+            except NotFound as exc:
+                raise ApiError(404, "No such draft.") from exc
+            except drafter.DrafterError as exc:
+                raise ApiError(409, "Nothing to review.", for_reader=True, code=exc.code) from exc
+            spent = drafter.spent(conn, run_id)
+            over = _over_budget(app, provider, reviewer.SYSTEM_PROMPT, message, spent)
+            if over:
+                reviewer.end(conn, run_id, held["attempt"], "budget")
+                raise ApiError(409, over, for_reader=True, code="ai_budget")
+        try:
+            answer = provider.complete(reviewer.SYSTEM_PROMPT, message, reviewer.SCHEMA)
+        except ProviderFailed as exc:
+            code = _FAILURES.get(exc.state.value, "limit")
+            with closing(app.connect()) as conn:
+                reviewer.end(conn, run_id, held["attempt"], code)
+            raise ApiError(
+                502, "The independent AI review couldn't finish.", for_reader=True,
+                code=f"ai_{code}",
+            ) from exc  # fmt: skip
+        except Exception:
+            with closing(app.connect()) as conn:
+                reviewer.end(conn, run_id, held["attempt"], "failed")
+            raise
+        with closing(app.connect()) as conn:
+            try:
+                reviewer.receive(conn, run_id, held["attempt"], answer)
+            except drafter.DrafterError as exc:
+                raise ApiError(
+                    409, "The independent AI review couldn't finish.", for_reader=True,
+                    code=f"ai_{exc.code}",
+                ) from exc  # fmt: skip
+            return drafter.view(conn, run_id)
+
+    def review_cancel(*, query: dict, body: dict, run_id: str) -> dict[str, Any]:
+        """Stop waiting for the review; the suggestions stay as they are."""
+        with closing(app.connect()) as conn:
+            try:
+                return {"ended": reviewer.cancel(conn, run_id)}
+            except NotFound as exc:
+                raise ApiError(404, "No such draft.") from exc
+
     run = r"/api/resume/drafts/(?P<run_id>[0-9A-HJKMNP-TV-Z]{26})"
     app.register("GET", r"/api/resume/ai", status)
     app.register("POST", r"/api/resume/jobs/(?P<job_id>[A-Za-z0-9_-]{1,64})/drafts", start)
@@ -242,3 +300,5 @@ def register_resume_ai_routes(app: LocalApp) -> None:
     app.register("POST", run + r"/changes/(?P<change_id>[0-9A-HJKMNP-TV-Z]{26})", decide)
     app.register("POST", run + "/finalize", finalize)
     app.register("POST", run + "/cancel", cancel)
+    app.register("POST", run + "/review", review)
+    app.register("POST", run + "/review/cancel", review_cancel)
