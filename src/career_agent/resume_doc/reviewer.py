@@ -260,8 +260,14 @@ def spent(conn: sqlite3.Connection, run_id: str) -> float:
 
 def end(conn: sqlite3.Connection, run_id: str, attempt: str, why: str) -> None:
     """The review ends without a result (cancelled, failed, unreadable). The
-    drafter's proposals and the person's decisions stay exactly as they were."""
-    _set(conn, run_id, attempt, status="FAILED" if why != "cancelled" else "CANCELLED", ended=why)
+    drafter's proposals and the person's decisions stay exactly as they were.
+    A review refused for its cost was never sent: it uses up no attempt."""
+    fields: dict[str, Any] = {"status": "CANCELLED" if why == "cancelled" else "FAILED",
+                              "ended": why}  # fmt: skip
+    if why == "budget":
+        held = _run(ResumeStore(conn), run_id).stages["review"].get("ai", {})
+        fields["attempts"] = max(0, int(held.get("attempts", 1)) - 1)
+    _set(conn, run_id, attempt, **fields)
 
 
 def cancel(conn: sqlite3.Connection, run_id: str) -> bool:

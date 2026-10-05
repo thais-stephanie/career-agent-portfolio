@@ -525,3 +525,14 @@ def test_the_reviewers_reason_is_cleaned_and_ids_deduplicated(tmp_path: Path, mo
     assert all(c["review"]["findings"] == ["NUMBERS"] for c in view["changes"])
     results = run_row(api, view["id"]).stages["review"]["ai"]["results"].values()
     assert all(len(r["evidence_ids"]) == 1 for r in results)
+
+
+def test_a_review_refused_for_its_cost_uses_no_attempt(tmp_path: Path, monkeypatch) -> None:
+    api, fake, job = setup(tmp_path, monkeypatch, price=0.2)
+    view = draft(api, job)
+    for _ in range(reviewer.MAX_ATTEMPTS + 1):
+        with pytest.raises(ApiError) as over:
+            review(api, view["id"])
+        assert over.value.code == "ai_budget"
+    assert run_row(api, view["id"]).stages["review"]["ai"]["attempts"] == 0
+    assert len(fake.calls) == 1

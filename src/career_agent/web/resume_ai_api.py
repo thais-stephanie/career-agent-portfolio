@@ -50,6 +50,12 @@ def _provider(app: LocalApp) -> tuple[SemanticProvider | None, str]:
     return route.provider, "" if route.provider else "NO_PROVIDER"
 
 
+def _estimate(provider: SemanticProvider, system: str, message: str) -> float | None:
+    """A call's price at its longest answer (about four characters a token)."""
+    inputs = (len(system) + len(message)) // 3
+    return provider.estimate_cost(inputs, int(getattr(provider, "max_output_tokens", 2500)))
+
+
 def _over_budget(
     app: LocalApp, provider: SemanticProvider, system: str, message: str, spent: float = 0.0
 ) -> str:
@@ -62,9 +68,7 @@ def _over_budget(
     if provider.capabilities().billing is not Billing.METERED_API:
         return ""
     budget = load_settings(app.config.config_dir).budget_per_run_usd
-    # About four characters a token; the answer is priced at its ceiling.
-    inputs = (len(system) + len(message)) // 3
-    cost = provider.estimate_cost(inputs, int(getattr(provider, "max_output_tokens", 2500)))
+    cost = _estimate(provider, system, message)
     if cost is None:
         return "The price of this AI provider is not known, so nothing was sent."
     if spent + cost > budget:
@@ -264,7 +268,11 @@ def register_resume_ai_routes(app: LocalApp) -> None:
         try:
             answer = provider.complete(reviewer.SYSTEM_PROMPT, message, reviewer.SCHEMA)
             with closing(app.connect()) as conn:
-                reviewer.charge(conn, run_id, answer.cost_usd)
+                # A cost the provider did not report is charged as estimated.
+                cost = answer.cost_usd
+                if cost is None:
+                    cost = _estimate(provider, reviewer.SYSTEM_PROMPT, message)
+                reviewer.charge(conn, run_id, cost)
         except ProviderFailed as exc:
             code = _FAILURES.get(exc.state.value, "limit")
             with closing(app.connect()) as conn:

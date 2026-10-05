@@ -439,7 +439,8 @@ AI_JOINERS = frozenset(
 _WORD = re.compile(r"[a-z]+")
 _PERCENT = re.compile(r"\s*(?:percent|per cent|por cento)\b")
 _AMOUNT = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?|([a-z]+)"
+    r"(?<![a-z0-9])(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?"
+    r"(?![a-z0-9])|([a-z]+)"
 )
 #: New content words an AI rewrite may bring, beyond its sources' (by root).
 AI_NEW_WORDS = 2
@@ -454,7 +455,10 @@ def ai_titles(doc: ResumeDocument, holder: str | None) -> str:
     return " ".join(f"{e.display_title} {e.source_title}" for e in shown)
 
 
-Amount = tuple[str, str, tuple[str, ...], tuple[str, ...]]
+#: number, unit, phrase counted (after), phrase measured (before), the
+#: counted phrase's head word, and every word of the amount's own clause.
+Amount = tuple[str, str, tuple[str, ...], tuple[str, ...], str, frozenset[str]]
+_ARTICLES = frozenset(["the", "a", "an", "o", "a", "os", "as", "um", "uma", "uns", "umas"])
 _END = "qqend"
 _CLAUSE = re.compile(r"[.;:!?,()]+(?=\s|$)")
 _PARTITIVE = frozenset({"of", "de", "da", "do", "das", "dos"})
@@ -492,37 +496,46 @@ _NUMBER_WORDS = {
 _NUMBER_WORD = re.compile(rf"\b({'|'.join(_NUMBER_WORDS)})\b")
 
 
-def _phrase(words: list[str], limit: int = 3) -> tuple[str, ...]:
+def _phrase(words: list[str], limit: int = 3) -> tuple[tuple[str, ...], str]:
     """Words up to the first joining word or another amount, at most `limit`:
-    the local noun phrase ("regional teams", "manual data entry"). A
-    partitive right after a word goes on ("teams OF engineers", "equipes DE
-    vendas"): what follows it qualifies the thing counted."""
+    the local noun phrase ("regional teams", "manual data entry"), and its
+    head: the word before a partitive ("TEAMS of engineers", "FUNCIONARIOS de
+    hospitais"), else the last. A partitive goes on, past an article."""
     out: list[str] = []
+    head = ""
+    after_partitive = False
     for i, w in enumerate(words):
         if out and w in _PARTITIVE and i + 1 < len(words):
+            head = head or out[-1]
+            after_partitive = True
             continue
+        if after_partitive and w in _ARTICLES:
+            continue
+        after_partitive = False
         if not w or w == _END or w in AI_JOINERS or w in jd._STOP or len(out) == limit:
             break
         out.append(w.removesuffix("s"))
-    return tuple(out)
+    return tuple(out), head or (out[-1] if out else "")
 
 
 def _amounts(text: str, limit: int = 3) -> list[Amount]:
     """Each amount: its number, its unit, the phrase it counts (after it) and
     the phrase it measures (before it, past one joining word): "4 REGIONAL
-    TEAMS", "PROCESSING TIME by 30%"."""
+    TEAMS", "PROCESSING TIME by 30%"; the head of what it counts; and the
+    words of its own clause."""
     # A sentence or clause ends a phrase: "4 regional teams. HubSpot" counts teams.
     folded = _CLAUSE.sub(f" {_END} ", _PERCENT.sub("%", jd.folded(text)))
     folded = _NUMBER_WORD.sub(lambda m: _NUMBER_WORDS[m.group(1)], folded)
     items = _AMOUNT.findall(folded)
+    words = [w for _, _, w in items]
     out = []
     for i, (number, unit, word) in enumerate(items):
         if word:
             continue
-        following = [w for _, _, w in items[i + 1 :]]
+        following = words[i + 1 :]
         if following and following[0] in _PARTITIVE:  # "30% OF teams" counts teams
             following = following[1:]
-        before = [w for _, _, w in reversed(items[:i])]
+        before = list(reversed(words[:i]))
         while (
             before
             and before[0]
@@ -530,36 +543,41 @@ def _amounts(text: str, limit: int = 3) -> list[Amount]:
             and (before[0] in AI_JOINERS or before[0] in jd._STOP)
         ):
             before = before[1:]
-        out.append((
-            number.replace(",", "."), unit, _phrase(following, limit),
-            tuple(reversed(_phrase(before, limit))),
-        ))  # fmt: skip
+        start = max((j for j in range(i) if words[j] == _END), default=-1) + 1
+        end = next((j for j in range(i + 1, len(words)) if words[j] == _END), len(words))
+        clause = frozenset(w.removesuffix("s") for w in words[start:end] if w and w != _END)
+        counted, head = _phrase(following, limit)
+        measured, _ = _phrase(before, limit)
+        out.append((number.replace(",", "."), unit, counted, tuple(reversed(measured)), head,
+                    clause))  # fmt: skip
     return out
 
 
 def _amount_held(amount: Amount, held: list[Amount]) -> bool:
     """An amount is the source's when its number and unit are, and so is the
-    phrase around it: the same thing counted (no word the source's phrase
-    lacks, and its head word kept, first or last), and, for a share or a
-    duration, the same thing measured. "4 regional teams" holds "4 teams",
-    never "4 sales teams", "4 countries" or "4 years"; "processing time by 30%"
-    never holds "operating costs by 30%"; a number standing alone holds only
-    a number that stood alone. Joining words and punctuation may change."""
-    number, unit, after, before = amount
+    phrase around it: the same thing counted (its head kept, no word the
+    source's phrase lacks), for a share or a duration the same thing
+    measured, and the words leading up to it from the same source clause.
+    "4 regional teams" holds "4 teams", never "4 sales teams", "4 regional
+    sales team" (for "team leads"), "4 countries" or "4 years"; "processing
+    time by 30%" never holds "operating costs by 30%"; a number standing alone
+    holds only a number that stood alone. Joining words and punctuation may
+    change; a number does not move to another sentence's work."""
+    number, unit, after, before, _, _ = amount
     measured = bool(unit) or bool(after and after[-1] in _MEASURES)
 
     def same_before(b: tuple[str, ...]) -> bool:
         return bool(before and b and before[-1] == b[-1] and set(before) <= set(b))
 
-    for n, u, a, b in held:
-        if (n, u) != (number, unit):
+    for n, u, a, b, head, clause in held:
+        if (n, u) != (number, unit) or not set(before) <= clause | AI_WORDS:
             continue
         if not after and not before:
             if not a and not b:
                 return True
             continue
         if after:
-            if not a or not set(after) <= set(a) or (after[-1] != a[-1] and after[0] != a[0]):
+            if not a or not set(after) <= set(a) or head not in after:
                 continue
             if measured and (before or b) and not same_before(b):
                 continue
