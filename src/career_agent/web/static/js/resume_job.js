@@ -108,6 +108,7 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
       view.tailored
         ? el('p', { className: 'rve__note', text: t(view.ai_assisted ? 'rv.job.aiAssisted' : 'rv.job.noAi') })
         : null,
+      view.ai_reviewed ? el('p', { className: 'rve__note', text: t('rv.job.aiReviewed') }) : null,
       !preferred ? small(t('rv.job.prefer'), async (event) => {
         event.currentTarget.disabled = true;
         await onPrefer();

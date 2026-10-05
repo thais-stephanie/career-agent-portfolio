@@ -135,7 +135,7 @@ def test_disclose_send_review_accept_edit_reject_and_create(
     open_ai(page, ai_server)
     said = text(page)
     # Said before anything is sent: which AI, what goes, what never does, one call.
-    assert "Fake AI (fake-model-1)" in said and "One AI request" in said
+    assert "Fake AI (fake-model-1)" in said and "AI requests: 1" in said
     assert "Not sent: your contact details" in said
     assert ai_server["fake"].calls == [], "opening the screen sent nothing"
     page.evaluate("document.getElementById('rva-send').click()")
@@ -261,3 +261,86 @@ def test_the_review_fits_a_phone(page: Chrome, ai_server: dict[str, Any]) -> Non
     )
     assert all(label and ":" in label for label in labels), "each action names its change"
     assert page.evaluate("document.querySelector('.rva__count').getAttribute('role')") == "status"
+
+
+# ------------------------------------------------- PR 10: independent review
+
+
+def _with_review(page: Chrome) -> None:
+    page.evaluate("document.getElementById('rva-review').click()")
+    assert "AI requests: 2" in text(page)
+
+
+def test_the_review_is_chosen_said_and_shown_apart(page: Chrome, ai_server: dict[str, Any]) -> None:
+    fake = ai_server["fake"]
+    open_ai(page, ai_server)
+    said = text(page)
+    assert "Use independent AI review" in said and "AI requests: 1" in said
+    _with_review(page)
+    page.evaluate("document.getElementById('rva-send').click()")
+    page.wait_for("document.getElementById('rva-summary') !== null", message="the review summary")
+    assert fake.kinds == ["drafter", "reviewer"]
+    said = text(page)
+    assert "Independent AI review:" in said and "This is a model" in said
+    for word in ("Verified", "Fact checked", "Guaranteed"):
+        assert word not in said, word
+    summary = page.evaluate("document.getElementById('rva-summary').textContent")
+    assert "%" not in summary, "a count of opinions, never a score"
+    # The opinion, the suggestion and the decision are three things.
+    first = page.evaluate("document.querySelector('.rva__card').innerText")
+    assert "Independent AI review" in first and "Your decision" in first
+    assert page.evaluate("document.querySelectorAll('.rva__opinion').length") == 2
+    assert page.console_errors() == []
+
+
+def test_a_failed_review_keeps_everything_and_can_be_retried(
+    page: Chrome, ai_server: dict[str, Any]
+) -> None:
+    from tests.support_drafter import failing, verdicts
+
+    from career_agent.semantic.providers import Availability
+
+    fake = ai_server["fake"]
+    fake.reviewer = failing(Availability.LIMIT_OR_ERROR)
+    open_ai(page, ai_server)
+    _with_review(page)
+    page.evaluate("document.getElementById('rva-send').click()")
+    page.wait_for("document.getElementById('rva-review-failed') !== null", message="failure")
+    said = text(page)
+    assert "couldn’t finish" in said and "continue without it" in said
+    assert page.evaluate("document.querySelectorAll('.rva__card').length") == 2
+    fake.reviewer = verdicts()
+    page.evaluate("document.getElementById('rva-retry-review').click()")
+    page.wait_for("document.getElementById('rva-summary') !== null", message="retried")
+    assert fake.kinds == ["drafter", "reviewer", "reviewer"]
+
+
+def test_editing_a_reviewed_suggestion_drops_its_verdict(
+    page: Chrome, ai_server: dict[str, Any]
+) -> None:
+    open_ai(page, ai_server)
+    _with_review(page)
+    page.evaluate("document.getElementById('rva-send').click()")
+    page.wait_for("document.querySelectorAll('.rva__opinion').length === 2", message="opinions")
+    page.evaluate(
+        "Array.from(document.querySelectorAll('.rva__card')[0].querySelectorAll('button'))"
+        ".find(b => b.textContent === 'Edit').click()"
+    )
+    page.evaluate(
+        "const box = document.querySelector('.rva__card textarea');"
+        "box.value = box.value.replace(/^Built /, 'Configured ');"
+    )
+    page.evaluate(
+        "Array.from(document.querySelectorAll('.rva__card')[0].querySelectorAll('button'))"
+        ".find(b => b.textContent === 'Accept my wording').click()"
+    )
+    page.wait_for("document.querySelectorAll('.rva__opinion').length === 1", message="dropped")
+    assert len(ai_server["fake"].calls) == 2, "no call to review the edit"
+
+
+def test_the_reviewed_flow_fits_a_phone(page: Chrome, ai_server: dict[str, Any]) -> None:
+    open_ai(page, ai_server, width=390)
+    _with_review(page)
+    page.evaluate("document.getElementById('rva-send').click()")
+    page.wait_for("document.getElementById('rva-summary') !== null", message="the review summary")
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")

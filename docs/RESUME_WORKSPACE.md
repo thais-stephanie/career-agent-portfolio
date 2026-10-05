@@ -573,7 +573,12 @@ nothing. The deterministic path stays beside it, unchanged.
   one of this snapshot's that was sent; every evidence id a confirmed, current
   claim of THIS profile that was sent or that the line already cites, and a
   role's line rests on that role's statements only. The wording may hold no
-  number (with its unit: "30%" is not "30x"), no tool or name the ad asks for
+  number (with its unit: "30%" is not "30x"; with the phrase it counts or
+  measures, its head word kept and no qualifier the source lacks: "4
+  regional teams" is never "4 sales teams", "200 hospital staff" never "200
+  hospitals", "processing time by 30%" never "operating costs by 30%"; and
+  from the number's own source sentence, so it never moves to another
+  statement's work), no tool or name the ad asks for
   or Career Agent knows (in any case), no word of result, scale or quantity
   ("award-winning", "worldwide", "millions", "forty", "a decade"), no word of
   rank or leadership in English or Portuguese unless a source says it in the
@@ -617,3 +622,62 @@ nothing. The deterministic path stays beside it, unchanged.
 Measured locally with a fake provider (the provider's own time excluded):
 preparing about 10 to 20 ms, checking the answer 3 to 6 ms, the decisions
 4 to 14 ms, creating the version 6 to 22 ms.
+
+## Independent AI review: a second opinion, never an authority
+
+Three paths stay distinct: Tailor without AI (deterministic, no request),
+Tailor with AI (one request: the drafter), and Tailor with AI plus
+"Use independent AI review", an option on the same disclosure screen that
+then says two requests. Nothing calls a provider unless the person presses
+Send; there is no automatic retry and never a third request.
+
+* **The same provider.** The reviewer is a second structured prompt
+  (`resume_doc/reviewer.py`, `resume-reviewer-v1`) through the provider
+  Career Agent already uses; no reviewer key, model or setting. A metered
+  provider is held to the AI budget per run with the drafting call's cost
+  counted, before the review is sent.
+* **Only what Python let through.** The review runs after the drafter's
+  proposals passed every check, and only over those; with none, no request
+  is made. A refused proposal is never shown to the reviewer, so it cannot
+  be rescued.
+* **Blind.** For each proposal it receives the operation, the role's title,
+  the text before and after, that role's evidence candidates (every sent
+  statement for a headline or summary) and the requirement candidates. It is
+  NOT told which evidence or requirement the drafter cited, nor the drafter's
+  reason, and must re-cite support itself. All of it is marked untrusted
+  data; the reviewer never sees contact details, other roles' material,
+  applications or Search Fit.
+* **A review, not a rewrite.** One answer per proposal sent, nothing else:
+  `proposal_id`, a verdict (SUPPORTED, CHECK, UNSUPPORTED), the evidence and
+  requirement ids it found support in, up to four codes from a fixed rubric
+  (factual grounding, semantic preservation, requirement alignment, numbers,
+  named tools, named entities, seniority, employer context, chronology,
+  overstatement, result claims, scale claims, readability, redundancy) and
+  one short reason. No replacement text; an extra field, a missing or
+  duplicate proposal, an unknown id or an oversize answer fails the review.
+  UNSUPPORTED with no citation is a valid answer.
+* **Advisory.** Python checks the citations again: only that proposal's
+  candidates, still confirmed now; a requirement that was not sent is
+  dropped; a SUPPORTED verdict that cites nothing, cites outside its
+  candidates or cites evidence that does not ground the wording reads as
+  CHECK. The verdict never accepts, unlocks or blocks anything: the person
+  still decides every change, an UNSUPPORTED one is marked "Needs review",
+  and the final checks are unchanged.
+* **Held for the wording it read.** A verdict is shown only while the
+  wording is the one reviewed; an edit drops it, with no new request. If the
+  Master changes while the review runs, its answer is not used. A failed or
+  cancelled review loses nothing: "Continue without it" or "Try review
+  again" (one more, explicit request).
+* **Stored** in the run's `review_json["ai"]` against the same change ids:
+  status, provider, model, prompt version and digest, usage, and per
+  proposal the verdict, citations, codes, reason and the digest of the
+  wording reviewed. Never the prompt, the payload or any reasoning.
+* **Said, not scored.** "Independent AI review: 2 supported, 1 needs a
+  closer look, 0 couldn't be supported. This is a model's opinion." Never
+  "verified" or a percentage. A version made this way says in its job panel
+  that an independent AI review was used as a second opinion.
+
+Measured locally (fake provider, the provider's time excluded): building the
+review request about 3 ms for a senior profile's proposals (3.5 thousand
+characters, against 4.7 for the drafting request), checking the answer about
+3 ms.

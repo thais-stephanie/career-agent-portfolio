@@ -1,28 +1,34 @@
 /**
- * resume_ai.js -- Tailor with AI: say what is sent, ask once, review each change.
+ * resume_ai.js -- Tailor with AI: say what is sent, ask, review each change.
  *
  * Nothing here calls a provider on its own. The person chooses Tailor with
- * AI, reads which provider and model will be used and what is sent, and
- * presses Send: ONE request. The server runs the deterministic stages, asks
- * the provider once and checks every proposal; only what it verified comes
- * back, each with Before, After, Why, its source and the job's ask. Accept,
- * Edit (the server checks the new wording too) or Reject; then Create version.
+ * AI, reads which provider and model will be used, what is sent and how many
+ * requests it makes (one; two with the optional independent review), and
+ * presses Send. The server runs the deterministic stages, asks the provider
+ * once and checks every proposal; only what it verified comes back. With the
+ * independent review, ONE more request asks a second AI pass for its opinion
+ * on those proposals: advisory, shown apart from the suggestion and from the
+ * person's decision, and gone the moment the wording is edited. Accept, Edit
+ * (the server checks the new wording too) or Reject; then Create version.
  * No version exists until then, and Cancel or Discard leaves none.
  */
 
 import {
-  cancelResumeDraft, decideResumeDraft, finalizeResumeDraft, getResumeAi, startResumeDraft,
+  cancelResumeDraft, cancelResumeReview, decideResumeDraft, finalizeResumeDraft, getResumeAi,
+  reviewResumeDraft, startResumeDraft,
 } from './api.js';
 import { button, el } from './dom.js';
 import { t, tCount } from './i18n.js';
 import { ulid } from './resume_editor.js';
 
-/** Decisions said with a sign and a word, never a colour alone. */
+/** Decisions and verdicts said with a sign and a word, never a colour alone. */
 const DECIDED = { ACCEPTED: '✓', EDITED: '✎', REJECTED: '✕' };
+const VERDICT = { SUPPORTED: '✓', CHECK: '?', UNSUPPORTED: '!' };
 const small = (label, onClick, extra = {}) => button(label, onClick, { className: 'btn btn--small', ...extra });
 
 export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBack }) {
   let jobId = null;
+  let withReview = false;
 
   function screen(heading, children) {
     const box = el('section', { className: 'rvt rva', attrs: { 'aria-labelledby': 'rva-h' } }, [
@@ -61,12 +67,22 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
       ]);
       return;
     }
+    const calls = el('p', { className: 'rve__note', attrs: { id: 'rva-calls', 'aria-live': 'polite' } });
+    const sayCalls = () => { calls.textContent = tCount('rv.ai.calls', { n: withReview ? 2 : 1 }); };
+    const option = el('input', { attrs: { type: 'checkbox', id: 'rva-review' } });
+    option.checked = withReview;
+    option.addEventListener('change', () => { withReview = option.checked; sayCalls(); });
+    sayCalls();
     screen(t('rv.ai.title'), [
       el('p', { className: 'rva__provider', text: t('rv.ai.uses', { provider: ai.name, model: ai.model || '' }) }),
       el('p', { text: t(`rv.ai.billing.${ai.billing}`) }),
       el('p', { text: t('rv.ai.sends') }),
       el('p', { className: 'rve__note', text: t('rv.ai.neverSends') }),
-      el('p', { className: 'rve__note', text: t('rv.ai.oneCall') }),
+      el('label', { className: 'rva__option', attrs: { for: 'rva-review' } }, [
+        option, el('span', { text: ` ${t('rv.ai.reviewOption')}` }),
+      ]),
+      el('p', { className: 'rve__note', text: t('rv.ai.reviewOptionHelp') }),
+      calls,
       el('div', { className: 'rvl__rename' }, [
         small(t('rv.ai.send'), () => void draft(), {
           className: 'btn btn--small btn--primary', attrs: { id: 'rva-send' },
@@ -77,34 +93,63 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
     ]);
   }
 
-  /** Step 2: the one request, with true steps and a Cancel that stops waiting. */
+  /** True steps and a Cancel that stops waiting, for one request. */
+  function progress(heading, keys, onCancel) {
+    const steps = keys.map((key) => el('li', { className: 'rvt__step', text: t(`rv.ai.step.${key}`) }));
+    const state = el('p', { className: 'rvt__state', attrs: { role: 'status', 'aria-live': 'polite' } });
+    state.textContent = t('rv.ai.working');
+    screen(heading, [
+      el('ol', { className: 'rvt__steps' }, steps),
+      state,
+      small(t('rv.ai.cancel'), onCancel, { attrs: { id: 'rva-cancel' } }),
+    ]);
+  }
+
+  /** Step 2: the drafting request, then (if chosen) the review request. */
   async function draft() {
     // Named here, so a request still in flight can be cancelled by name.
     const id = ulid();
     const controller = new AbortController();
-    const steps = ['read', 'find', 'draft', 'check'].map((key) => el('li', {
-      className: 'rvt__step', text: t(`rv.ai.step.${key}`),
-    }));
-    const state = el('p', { className: 'rvt__state', attrs: { role: 'status', 'aria-live': 'polite' } });
-    state.textContent = t('rv.ai.working');
     let cancelled = false;
-    screen(t('rv.ai.drafting'), [
-      el('ol', { className: 'rvt__steps' }, steps),
-      state,
-      small(t('rv.ai.cancel'), async () => {
-        cancelled = true;
-        controller.abort();
-        await cancelResumeDraft(id).catch(() => null);
-        ended('cancelled');
-      }, { attrs: { id: 'rva-cancel' } }),
-    ]);
+    progress(t('rv.ai.drafting'), ['read', 'find', 'draft', 'check'], async () => {
+      cancelled = true;
+      controller.abort();
+      await cancelResumeDraft(id).catch(() => null);
+      ended('cancelled');
+    });
+    let answer;
     try {
-      const answer = await startResumeDraft(jobId, id, controller.signal);
-      if (!cancelled) review(answer);
+      answer = await startResumeDraft(jobId, id, controller.signal);
     } catch (error) {
       if (cancelled) return;
       const code = (error.detail && error.detail.code) || '';
       ended(code.replace(/^ai_/, '') || 'failed');
+      return;
+    }
+    if (cancelled) return;
+    // No call is spent reviewing nothing.
+    if (withReview && answer.changes.length) await independentReview(answer);
+    else showReview(answer);
+  }
+
+  /** The second request. Its failure or cancel keeps every suggestion. */
+  async function independentReview(answer) {
+    const controller = new AbortController();
+    let cancelled = false;
+    progress(t('rv.ai.reviewing'), ['review'], async () => {
+      cancelled = true;
+      controller.abort();
+      await cancelResumeReview(answer.id).catch(() => null);
+      showReview({ ...answer, ai_review: { status: 'CANCELLED' } });
+    });
+    try {
+      const reviewed = await reviewResumeDraft(answer.id, controller.signal);
+      if (!cancelled) showReview(reviewed);
+    } catch (error) {
+      if (cancelled) return;
+      const code = (error.detail && error.detail.code) || '';
+      if (code === 'ai_stale') ended('stale');
+      else showReview({ ...answer, ai_review: { status: 'FAILED', ended: code.replace(/^ai_/, '') } });
     }
   }
 
@@ -127,8 +172,35 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
     ]);
   }
 
+  /** What the independent review said, above the cards: counts, never a score. */
+  function reviewSummary(answer) {
+    const ai = answer.ai_review;
+    if (!ai) return null;
+    if (ai.status === 'DONE') {
+      const count = (v) => answer.changes.filter((c) => c.review && c.review.verdict === v).length;
+      return el('p', { className: 'rva__summary', attrs: { id: 'rva-summary' }, text: t('rv.ai.reviewSummary', {
+        s: count('SUPPORTED'), c: count('CHECK'), u: count('UNSUPPORTED'),
+      }) });
+    }
+    // Over the budget, or tried enough: said, and no button that cannot work.
+    const final = ['budget', 'attempts'].includes(ai.ended);
+    const key = final ? `rv.ai.reviewNot.${ai.ended}`
+      : ai.status === 'CANCELLED' ? 'rv.ai.reviewCancelled' : 'rv.ai.reviewFailed';
+    return el('div', { className: 'rve__notice', attrs: { role: 'status', id: 'rva-review-failed' } }, [
+      el('p', { text: t(key) }),
+      final ? null : el('div', { className: 'rvl__rename' }, [
+        // A review lost mid-request is let go first, so trying again can work.
+        small(t('rv.ai.retryReview'), async () => {
+          await cancelResumeReview(answer.id).catch(() => null);
+          await independentReview(answer);
+        }, { attrs: { id: 'rva-retry-review' } }),
+      ]),
+      el('p', { className: 'rve__note', text: t('rv.ai.continueWithout') }),
+    ]);
+  }
+
   /** Step 3: each verified change, decided one by one. */
-  function review(answer) {
+  function showReview(answer) {
     if (answer.stale) {
       ended('stale');
       return;
@@ -155,6 +227,7 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
     screen(t('rv.ai.review'), [
       el('p', { className: 'rvj__job', text: [answer.job.title, answer.job.company].filter(Boolean).join(' · ') }),
       el('p', { className: 'rve__note', text: t('rv.ai.reviewLede') }),
+      reviewSummary(answer),
       count,
       answer.refused ? el('p', { className: 'rve__note', attrs: { id: 'rva-refused' },
         text: tCount('rv.ai.refused', { n: answer.refused }) }) : null,
@@ -176,6 +249,21 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
     ].filter(Boolean));
   }
 
+  /** The reviewer's opinion on this wording: a section of its own, in words. */
+  function opinion(c) {
+    if (!c.review) return null;
+    const { verdict, findings, reason } = c.review;
+    const why = findings.map((code) => t(`rv.ai.finding.${code}`)).join(' · ');
+    return el('div', { className: 'rva__opinion', dataset: { verdict } }, [
+      el('p', {}, [
+        el('strong', { text: `${t('rv.ai.reviewHead')}: ` }),
+        `${VERDICT[verdict]} ${t(`rv.ai.verdict.${verdict}`)}`,
+      ]),
+      why ? el('p', { className: 'rve__note', text: why }) : null,
+      reason ? el('p', { className: 'rve__note', text: reason }) : null,
+    ]);
+  }
+
   function card(answer, c) {
     const actions = el('div', { className: 'rvl__rename' });
     const said = el('p', { className: 'rva__said', attrs: { 'aria-live': 'polite' } });
@@ -183,10 +271,10 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
     const decide = async (decision, text) => {
       for (const b of actions.querySelectorAll('button')) b.disabled = true;
       try {
-        review(await decideResumeDraft(answer.id, c.id, text === undefined ? { decision } : { decision, text }));
+        showReview(await decideResumeDraft(answer.id, c.id, text === undefined ? { decision } : { decision, text }));
         // Focus stays on the decision just made, now said in words.
         const again = Array.from(host.querySelectorAll('.rva__card')).find((n) => n.dataset.change === c.id);
-        if (again) again.querySelector('.rva__decided').focus();
+        if (again) (again.querySelector('.rva__decided') || again).focus();
       } catch (error) {
         for (const b of actions.querySelectorAll('button')) b.disabled = false;
         const code = error.detail && error.detail.code;
@@ -212,12 +300,18 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
         small(t('rv.ai.saveEdit'), () => void decide('EDITED', box.value), {
           className: 'btn btn--small btn--primary',
         }),
-        small(t('rv.ai.cancelEdit'), () => review(answer)),
+        small(t('rv.ai.cancelEdit'), () => showReview(answer)),
       );
       box.focus();
     }
-    return el('li', { className: 'rva__card', dataset: { change: c.id, decision: c.decision } }, [
+    const flagged = c.review && c.review.verdict === 'UNSUPPORTED' && c.decision === 'PENDING';
+    return el('li', {
+      className: 'rva__card',
+      attrs: { tabindex: '-1' },
+      dataset: { change: c.id, decision: c.decision, review: c.review ? c.review.verdict : '' },
+    }, [
       el('h3', { className: 'rva__what', text: c.role ? `${what} · ${c.role.title}` : what }),
+      flagged ? el('p', { className: 'rva__flag', text: `! ${t('rv.ai.needsReview')}` }) : null,
       c.before
         ? el('p', { className: 'rva__before' }, [el('strong', { text: `${t('rv.ai.before')}: ` }), c.before])
         : null,
@@ -229,6 +323,8 @@ export function createAiDraft({ host, show, open, onSettings, onWithoutAi, onBac
       c.asks.length ? el('p', { className: 'rve__note' }, [
         el('strong', { text: `${t('rv.ai.ask')}: ` }), c.asks.join(' / '),
       ]) : null,
+      opinion(c),
+      el('p', { className: 'rva__yours', text: t('rv.ai.yourDecision') }),
       c.decision === 'PENDING' ? actions : el('div', { className: 'rvl__rename' }, [
         el('p', {
           className: 'rva__decided', attrs: { tabindex: '-1' },

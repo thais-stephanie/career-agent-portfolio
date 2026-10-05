@@ -64,6 +64,11 @@ export const decideResumeDraft = (id, changeId, body) =>
   request(draftPath(id, `/changes/${encodeURIComponent(changeId)}`), { method: 'POST', body });
 export const finalizeResumeDraft = (id) => request(draftPath(id, '/finalize'), { method: 'POST', body: {} });
 export const cancelResumeDraft = (id) => request(draftPath(id, '/cancel'), { method: 'POST', body: {} });
+/** The optional independent AI review: one more request, and its cancel. */
+export const reviewResumeDraft = (id, signal) =>
+  request(draftPath(id, '/review'), { method: 'POST', body: {}, signal });
+export const cancelResumeReview = (id) =>
+  request(draftPath(id, '/review/cancel'), { method: 'POST', body: {} });
 /** A job version against its ad: coverage, why it changed, gaps and suggestions. */
 export const getResumeJob = (id) => request(resumePath(id, '/job'));
 /** Make one suggestion's change on the server, from the confirmed text now. */

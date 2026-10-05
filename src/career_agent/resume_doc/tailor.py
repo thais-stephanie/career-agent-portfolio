@@ -439,7 +439,8 @@ AI_JOINERS = frozenset(
 _WORD = re.compile(r"[a-z]+")
 _PERCENT = re.compile(r"\s*(?:percent|per cent|por cento)\b")
 _AMOUNT = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?|([a-z]+)"
+    r"(?<![a-z0-9])(\d+(?:[.,]\d+)?)\s*(%|x(?![a-z])|k(?![a-z])|m(?![a-z])|bn(?![a-z]))?"
+    r"(?![a-z0-9])|([a-z]+)"
 )
 #: New content words an AI rewrite may bring, beyond its sources' (by root).
 AI_NEW_WORDS = 2
@@ -454,40 +455,172 @@ def ai_titles(doc: ResumeDocument, holder: str | None) -> str:
     return " ".join(f"{e.display_title} {e.source_title}" for e in shown)
 
 
-def _amounts(text: str) -> list[tuple[str, str, str, tuple[str, ...]]]:
-    """Each amount: its number, unit, the word before it and the two after it
-    (filler words skipped): "entry by 30%", "4 regional teams"."""
-    folded = _PERCENT.sub("%", jd.folded(text))
-    items = [(n, u, w) for n, u, w in _AMOUNT.findall(folded) if w not in jd._STOP or not w]
+#: number, unit, phrase counted (after), phrase measured (before), the
+#: counted phrase's head word, and every word of the amount's own sentence.
+Amount = tuple[str, str, tuple[str, ...], tuple[str, ...], str, frozenset[str]]
+_ARTICLES = frozenset(["the", "a", "an", "o", "a", "os", "as", "um", "uma", "uns", "umas"])
+_END = "qqend"
+_FULL_STOP = "qqstop"
+_SENTENCE = re.compile(r"[.!?]+(?=\s|$)")
+#: Abbreviations end no sentence: "i.e.", "e.g.", "U.S.", "approx.", "vs.".
+_ABBREVIATION = re.compile(r"\b(?:([a-z])\.|(approx|aprox|vs|etc|incl|ex|aprox)\.)")
+_CLAUSE = re.compile(r"[.;:!?,()]+(?=\s|$)")
+_PARTITIVE = frozenset({"of", "de", "da", "do", "das", "dos"})
+#: What a duration or a share measures is the thing before it ("PROCESSING
+#: TIME by 3 days"), so for these the words before it are compared too.
+_MEASURES = frozenset(
+    [
+        "minute",
+        "hour",
+        "day",
+        "week",
+        "month",
+        "year",
+        "quarter",
+        "minuto",
+        "hora",
+        "dia",
+        "semana",
+        "mes",
+        "ano",
+        "trimestre",
+    ]
+)
+#: A number written as a word is a number: "four sales teams" is read as "4".
+#: Not "one", "um" or "uma": those are also articles.
+_NUMBER_WORDS = {
+    w: str(n)
+    for n, words in enumerate(
+        [(), (), ("two", "dois", "duas"), ("three", "tres"), ("four", "quatro"),
+         ("five", "cinco"), ("six", "seis"), ("seven", "sete"), ("eight", "oito"),
+         ("nine", "nove"), ("ten", "dez"), ("eleven", "onze"), ("twelve", "doze")]
+    )
+    for w in words
+}  # fmt: skip
+_NUMBER_WORD = re.compile(rf"\b({'|'.join(_NUMBER_WORDS)})\b")
+
+
+def _phrase(words: list[str], limit: int = 3) -> tuple[tuple[str, ...], str]:
+    """Words up to the first joining word or another amount, at most `limit`:
+    the local noun phrase ("regional teams", "manual data entry"), and its
+    head: the word before a partitive ("TEAMS of engineers", "FUNCIONARIOS de
+    hospitais"), else the last. A partitive goes on, past an article."""
+    out: list[str] = []
+    head = ""
+    after_partitive = False
+    for i, w in enumerate(words):
+        if out and w in _PARTITIVE and i + 1 < len(words):
+            head = head or out[-1]
+            after_partitive = True
+            continue
+        if after_partitive and w in _ARTICLES:
+            continue
+        after_partitive = False
+        if (
+            not w
+            or w in (_END, _FULL_STOP)
+            or w in AI_JOINERS
+            or w in jd._STOP
+            or len(out) == limit
+        ):
+            break
+        out.append(w.removesuffix("s"))
+    return tuple(out), head or (out[-1] if out else "")
+
+
+def _sentences(text: str) -> int:
+    """How many sentences `text` has (abbreviations end none)."""
+    folded = _ABBREVIATION.sub(lambda m: m.group(1) or m.group(2), jd.folded(text))
+    return sum(1 for part in _SENTENCE.split(folded) if part.strip())
+
+
+def _amounts(text: str, limit: int = 3) -> list[Amount]:
+    """Each amount: its number, its unit, the phrase it counts (after it) and
+    the phrase it measures (before it, past one joining word): "4 REGIONAL
+    TEAMS", "PROCESSING TIME by 30%"; the head of what it counts; and the
+    words of its own sentence."""
+    # A sentence or clause ends a phrase: "4 regional teams. HubSpot" counts teams.
+    folded = _ABBREVIATION.sub(lambda m: m.group(1) or m.group(2), jd.folded(text))
+    folded = _SENTENCE.sub(f" {_FULL_STOP} ", _PERCENT.sub("%", folded))
+    folded = _CLAUSE.sub(f" {_END} ", folded)
+    folded = _NUMBER_WORD.sub(lambda m: _NUMBER_WORDS[m.group(1)], folded)
+    items = _AMOUNT.findall(folded)
+    words = [w for _, _, w in items]
     out = []
     for i, (number, unit, word) in enumerate(items):
         if word:
             continue
-        before = items[i - 1][2] if i else ""
-        after = tuple(x[2] for x in items[i + 1 : i + 4] if x[2])
-        out.append((number.replace(",", "."), unit, before, after))
+        following = words[i + 1 :]
+        if following and following[0] in _PARTITIVE:  # "30% OF teams" counts teams
+            following = following[1:]
+        before = list(reversed(words[:i]))
+        while (
+            before
+            and before[0]
+            and before[0] not in (_END, _FULL_STOP)
+            and (before[0] in AI_JOINERS or before[0] in jd._STOP)
+        ):
+            before = before[1:]
+        start = max((j for j in range(i) if words[j] == _FULL_STOP), default=-1) + 1
+        end = next((j for j in range(i + 1, len(words)) if words[j] == _FULL_STOP), len(words))
+        sentence = frozenset(
+            w.removesuffix("s") for w in words[start:end] if w and w not in (_END, _FULL_STOP)
+        )
+        counted, head = _phrase(following, limit)
+        measured, _ = _phrase(before, limit)
+        out.append((number.replace(",", "."), unit, counted, tuple(reversed(measured)), head,
+                    sentence))  # fmt: skip
     return out
 
 
-def _amount_held(
-    amount: tuple[str, str, str, tuple[str, ...]],
-    held: list[tuple[str, str, str, tuple[str, ...]]],
-) -> bool:
-    """An amount is the source's when the number and unit are, and so is what
-    it counts: "4 regional teams" holds "4 teams", never "4 countries",
-    "4 years" or "4 regional systems"; "entry by 30%" holds "entry by 30
-    percent", never "30% of teams"."""
-    number, unit, before, after = amount
-    for n, u, b, a in held:
-        if (n, u) != (number, unit):
+def _amount_held(amount: Amount, held: list[Amount], *, alone: bool = True) -> bool:
+    """An amount is the source's when its number and unit are, and so is the
+    phrase around it: the same thing counted (its head kept, no word the
+    source's phrase lacks), for a share or a duration the same thing
+    measured, and every word of its sentence from that number's source sentence.
+    "4 regional teams" holds "4 teams", never "4 sales teams", "4 regional
+    sales team" (for "team leads"), "4 countries" or "4 years"; "processing
+    time by 30%" never holds "operating costs by 30%"; a number standing alone
+    holds only a number that stood alone. Joining words and punctuation may
+    change; a number does not move to another sentence's work."""
+    number, unit, after, before, _, said = amount
+    measured = bool(unit) or bool(after and after[-1] in _MEASURES)
+
+    def same_before(b: tuple[str, ...]) -> bool:
+        return bool(before and b and before[-1] == b[-1] and set(before) <= set(b))
+
+    def plain(w: str) -> bool:
+        return (
+            w in AI_WORDS
+            or f"{w}s" in AI_WORDS
+            or w in AI_JOINERS
+            or (w in jd._STOP or f"{w}s" in jd._STOP)
+        )
+
+    def from_sentence(source: frozenset[str], phrase: set[str]) -> bool:
+        """Every word of the sentence holding the amount is the source
+        sentence's, or only joins or says what was done, AND that sentence
+        keeps a word of the source sentence's own work beyond what is
+        counted, when the line has more than one sentence: a number never
+        lends itself to another statement, across a comma or as a fragment
+        of its own ("... system. For 4 teams.")."""
+        anchors = {w for w in source - phrase if not plain(w)}
+        return all(w in source or plain(w) for w in said) and (alone or bool(said & anchors))
+
+    for n, u, a, b, head, sentence in held:
+        if (n, u) != (number, unit) or not from_sentence(sentence, set(a) | set(b)):
             continue
-        # What the source counts is the second word after it ("regional TEAMS").
-        counted = a[:2][-1] if a else ""
-        if counted and counted in after:
-            lead = after[: after.index(counted)]
-            if all(w in a or w in AI_WORDS for w in lead):
+        if not after and not before:
+            if not a and not b:
                 return True
-        if before and before == b and (unit or not after):
+            continue
+        if after:
+            if not a or not set(after) <= set(a) or head not in after:
+                continue
+            if measured and (before or b) and not same_before(b):
+                continue
+            return True
+        if not a and same_before(b):
             return True
     return False
 
@@ -524,11 +657,11 @@ def grounding(
     out: list[tuple[str, str]] = []
     extra_numbers = _numbers(text) - _numbers(source)
     if ai:
-        held_amounts = _amounts(source)
+        held_amounts = _amounts(source, limit=4)
         extra_numbers |= {
-            " ".join(filter(None, a[:3]))
+            " ".join([a[0] + a[1], *a[2]])
             for a in _amounts(text)
-            if not _amount_held(a, held_amounts)
+            if not _amount_held(a, held_amounts, alone=_sentences(text) < 2)
         }
     if extra_numbers:
         out.append(("NUMBERS", f"numbers not in its evidence: {sorted(extra_numbers)}"))
@@ -833,9 +966,11 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
 
     changes = []
     run_id = doc.provenance.tailoring_run_id
-    ai = False
+    ai = reviewed = False
     if run_id and doc.provenance.created_from.value == "TAILOR":
-        ai = store.get_tailoring_run(run_id).mode == "AI_ASSISTED"
+        run = store.get_tailoring_run(run_id)
+        ai = run.mode == "AI_ASSISTED"
+        reviewed = run.stages["review"].get("ai", {}).get("status") == "DONE"
         rows = {e.id: e.id for e in doc.experience} | {
             b.id: e.id for e in doc.experience for b in e.bullets
         }
@@ -890,6 +1025,7 @@ def explain(conn: sqlite3.Connection, stored: StoredDocument) -> dict[str, Any]:
         "job": {"title": snap.title, "company": snap.company, "job_id": snap.job_id},
         "tailored": doc.provenance.created_from.value == "TAILOR",
         "ai_assisted": ai,
+        "ai_reviewed": reviewed,
         "coverage": coverage,
         "supported": sum(c["coverage"] in ("COVERED", "PARTLY") for c in judged),
         "total": len(judged),
