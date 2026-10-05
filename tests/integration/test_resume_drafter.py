@@ -902,7 +902,26 @@ SECOND_ROUND = [
     "Streamlined HubSpot lead routing for 4 regional teams.",
     "Built HubSpot lead routing for 4 regional systems.",
     "Built key HubSpot lead routing for 4 new regional teams.",
+    # Fourth round: skill level and praise ("advanced", "proficient").
+    "Built advanced HubSpot lead routing for 4 regional teams.",
+    "Built excellent, strong HubSpot lead routing for 4 regional teams.",
+    "Proficient in HubSpot; built lead routing for 4 regional teams.",
+    "Built HubSpot lead routing for 4 regional teams, cutting work for customers.",
 ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Advanced Revenue Operations Analyst, HubSpot", "Experienced Revenue Operations Analyst"],
+)
+def test_a_headline_cannot_claim_a_level(conn, text: str) -> None:
+    def answer(s: dict[str, Any]) -> list[dict[str, Any]]:
+        return [
+            change("REWRITE_HEADLINE", "headline", text, ["k-hubspot-routing"], [ask(s, "HubSpot")])
+        ]
+
+    run_id = run(conn, FakeDrafter(answer))
+    assert changes(conn, run_id) == []
 
 
 @pytest.mark.parametrize("text", SECOND_ROUND)

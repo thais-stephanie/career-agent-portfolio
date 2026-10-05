@@ -417,20 +417,21 @@ AI_WORDS = frozenset(
     tracked track reported set setup used use added add updated update reviewed review tested
     test handled handle existing internal external daily weekly monthly process processes
     workflow workflows data system systems tool tools reporting report reports team teams work
-    sales rule rules pipeline account accounts customer customers record records request
+    sales rule rules pipeline record records request
     requests campaign campaigns dashboard dashboards documentation routing
     construi criei desenvolvi organizei estruturei automatizei configurei implementei mantive
     documentei analisei preparei apoiei integrei padronizei mapeei acompanhei atualizei revisei
     usando diarios diarias semanais mensais processo processos fluxo fluxos dados equipe
     sistema sistemas ferramenta ferramentas relatorio relatorios trabalho vendas regra regras
-    cliente clientes pedido pedidos registro registros campanha campanhas painel paineis
+    pedido pedidos registro registros campanha campanhas painel paineis
     """.split()  # noqa: SIM905
 )
 #: Words that only join others, EN and PT: free, and never a claim.
 AI_JOINERS = frozenset(
     """
     and or the a an to of in on for with by from at as via into onto per each its their
-    across within through using including
+    across within through using including is are was were be been has have had it this
+    that these those our we who which also
     o os as e ou de da do das dos em no na nos nas um uma uns umas ao aos por pela pelo pelas
     pelos com para entre que se cada meio
     """.split()  # noqa: SIM905
@@ -567,7 +568,7 @@ def grounding(
     forms = held | titled
     new = {
         w for w in words
-        if w not in AI_JOINERS and w not in jd._STOP and w not in forms
+        if w not in AI_JOINERS and w not in forms
         and w.removesuffix("s") not in forms and f"{w}s" not in forms
     }  # fmt: skip
     foreign = new - AI_WORDS
