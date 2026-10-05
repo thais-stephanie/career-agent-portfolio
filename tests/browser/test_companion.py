@@ -26,7 +26,7 @@ def test_the_sidebar_opens_resumes_as_a_page_of_this_app(page, pristine_server):
     tabs = page.evaluate(
         "[...document.querySelectorAll('#page-resume .rvw__tab')].map(t => t.textContent)"
     )
-    assert tabs == ["Home", "My resumes", "Editor"]
+    assert tabs == ["Home", "My resumes", "Editor", "Analyze"]
     text = page.evaluate("document.getElementById('page-resume').innerText")
     assert "Tailor" not in text and "Analyze" not in text
     # The old helper is not a peer in the navigation.

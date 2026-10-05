@@ -199,9 +199,10 @@ export function createAnalyze({ host, show, open, onEvidence, onTailor }) {
         ariaLabel: `${t('rv.job.addEvidence')}: ${q.quote}`,
       }));
     }
+    const said = t(`rv.an.state.${q.partly ? 'PARTLY' : q.state}`);
     return el('li', { className: 'rvan__req', dataset: { state: q.state } }, [
       el('details', {}, [
-        el('summary', { text: `${t(q.partly ? 'rv.an.state.PARTLY' : `rv.an.state.${q.state}`)}: ${q.quote}` }),
+        el('summary', { text: `${said}: ${q.quote}` }),
         ...detail.filter(Boolean),
         actions.length ? el('div', { className: 'rvl__rename' }, actions) : null,
       ]),
