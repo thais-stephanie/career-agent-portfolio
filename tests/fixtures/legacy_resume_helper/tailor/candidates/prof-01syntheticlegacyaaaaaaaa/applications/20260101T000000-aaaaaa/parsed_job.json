@@ -1,0 +1,208 @@
+{
+  "role_title": "Engenheiro(a) de Automação de IA - Sênior",
+  "company": "",
+  "seniority": "",
+  "domain": [],
+  "must_have": [
+    "Experiência com Python em produção",
+    "Conhecimento de APIs REST e webhooks",
+    "Vivência com ferramentas de automação como n8n ou Zapier",
+    "Inglês intermediário para leitura de documentação técnica",
+    "Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes."
+  ],
+  "nice_to_have": [
+    "Experiência com LangChain ou agentes de IA.",
+    "Conhecimento de SQL."
+  ],
+  "responsibilities": [
+    "Desenvolver integrações entre sistemas usando APIs REST e webhooks.",
+    "Automatizar processos internos com Python e n8n.",
+    "Garantir a observabilidade dos fluxos, com alertas e registros claros.",
+    "Documentar as soluções e apoiar o time de operações no dia a dia."
+  ],
+  "technologies": [
+    "rest apis",
+    "webhooks",
+    "python",
+    "n8n",
+    "zapier",
+    "langchain",
+    "sql"
+  ],
+  "business_capabilities": [],
+  "keywords": [
+    "rest apis",
+    "webhooks",
+    "python",
+    "n8n",
+    "zapier",
+    "langchain",
+    "sql"
+  ],
+  "customer_facing_expectations": [],
+  "management_expectations": [],
+  "potential_hard_filters": [],
+  "years_required": null,
+  "role_scope_observations": [],
+  "requirements": [
+    {
+      "id": "must_001",
+      "text": "Experiência com Python em produção",
+      "category": "must_have",
+      "terms": [
+        "python"
+      ],
+      "weight": 3.0
+    },
+    {
+      "id": "must_002",
+      "text": "Conhecimento de APIs REST e webhooks",
+      "category": "must_have",
+      "terms": [
+        "rest apis",
+        "webhooks"
+      ],
+      "weight": 3.0
+    },
+    {
+      "id": "must_003",
+      "text": "Vivência com ferramentas de automação como n8n ou Zapier",
+      "category": "must_have",
+      "terms": [
+        "n8n",
+        "zapier"
+      ],
+      "weight": 3.0
+    },
+    {
+      "id": "must_004",
+      "text": "Inglês intermediário para leitura de documentação técnica",
+      "category": "must_have",
+      "terms": [],
+      "weight": 3.0
+    },
+    {
+      "id": "must_005",
+      "text": "Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes.",
+      "category": "must_have",
+      "terms": [],
+      "weight": 3.0
+    },
+    {
+      "id": "nice_006",
+      "text": "Experiência com LangChain ou agentes de IA.",
+      "category": "nice_to_have",
+      "terms": [
+        "langchain"
+      ],
+      "weight": 1.0
+    },
+    {
+      "id": "nice_007",
+      "text": "Conhecimento de SQL.",
+      "category": "nice_to_have",
+      "terms": [
+        "sql"
+      ],
+      "weight": 1.0
+    },
+    {
+      "id": "resp_008",
+      "text": "Desenvolver integrações entre sistemas usando APIs REST e webhooks.",
+      "category": "responsibility",
+      "terms": [
+        "rest apis",
+        "webhooks"
+      ],
+      "weight": 2.0
+    },
+    {
+      "id": "resp_009",
+      "text": "Automatizar processos internos com Python e n8n.",
+      "category": "responsibility",
+      "terms": [
+        "python",
+        "n8n"
+      ],
+      "weight": 2.0
+    },
+    {
+      "id": "resp_010",
+      "text": "Garantir a observabilidade dos fluxos, com alertas e registros claros.",
+      "category": "responsibility",
+      "terms": [],
+      "weight": 2.0
+    },
+    {
+      "id": "resp_011",
+      "text": "Documentar as soluções e apoiar o time de operações no dia a dia.",
+      "category": "responsibility",
+      "terms": [],
+      "weight": 2.0
+    },
+    {
+      "id": "tech_012",
+      "text": "rest apis",
+      "category": "technology",
+      "terms": [
+        "rest apis"
+      ],
+      "weight": 2.0
+    },
+    {
+      "id": "tech_013",
+      "text": "webhooks",
+      "category": "technology",
+      "terms": [
+        "webhooks"
+      ],
+      "weight": 2.0
+    },
+    {
+      "id": "tech_014",
+      "text": "python",
+      "category": "technology",
+      "terms": [
+        "python"
+      ],
+      "weight": 2.0
+    },
+    {
+      "id": "tech_015",
+      "text": "n8n",
+      "category": "technology",
+      "terms": [
+        "n8n"
+      ],
+      "weight": 2.0
+    },
+    {
+      "id": "tech_016",
+      "text": "zapier",
+      "category": "technology",
+      "terms": [
+        "zapier"
+      ],
+      "weight": 2.0
+    },
+    {
+      "id": "tech_017",
+      "text": "langchain",
+      "category": "technology",
+      "terms": [
+        "langchain"
+      ],
+      "weight": 2.0
+    },
+    {
+      "id": "tech_018",
+      "text": "sql",
+      "category": "technology",
+      "terms": [
+        "sql"
+      ],
+      "weight": 2.0
+    }
+  ],
+  "analysis_source": "deterministic"
+}

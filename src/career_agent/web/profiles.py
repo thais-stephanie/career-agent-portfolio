@@ -1,12 +1,11 @@
 """Switching local profiles inside the one running app.
 
-ONE PROCESS, ONE WRITER PER PROFILE. The launcher runs Career Agent and
-Resume Tailor in one process. A switch builds a fresh `JobsApi` for the chosen
+ONE PROCESS, ONE WRITER PER PROFILE. The launcher runs Career Agent in one
+process with one server. A switch builds a fresh `JobsApi` for the chosen
 profile (its own database, settings and caches), checks the database belongs
-to that profile, and swaps it in for the next request; Resume Tailor is
-rebuilt on that profile's own workspace and swapped the same way. Nothing of
-the previous profile's in-memory state survives: search settings, band
-caches and background runners all belong to the old instance.
+to that profile, and swaps it in for the next request. Nothing of the
+previous profile's in-memory state survives: search settings, band caches
+and background runners all belong to the old instance.
 
 A switch is REFUSED while a collection, a scoring pass or a semantic run is in
 progress: those threads write the current profile's database and must not be
@@ -21,9 +20,7 @@ says profiles are unavailable and nothing can be switched.
 from __future__ import annotations
 
 import contextlib
-import os
 import threading
-from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -46,38 +43,6 @@ if TYPE_CHECKING:
     from career_agent.web.api import JobsApi
 
 
-TAILOR_ENV = ("RESUME_TAILOR_HOME", "RESUME_TAILOR_DATA")
-
-
-def tailor_environment(root: Path, profile: Profile) -> dict[str, str | None]:
-    """Point Resume Tailor at this profile's own workspace. Returns what the
-    variables held before, so a failed switch can put them back."""
-    previous = {name: os.environ.get(name) for name in TAILOR_ENV}
-    home = root / profile.tailor_home
-    home.mkdir(parents=True, exist_ok=True)
-    os.environ["RESUME_TAILOR_HOME"] = str(home)
-    os.environ["RESUME_TAILOR_DATA"] = str(home / "runtime")
-    return previous
-
-
-def restore_environment(previous: dict[str, str | None]) -> None:
-    for name, value in previous.items():
-        if value is None:
-            os.environ.pop(name, None)
-        else:
-            os.environ[name] = value
-
-
-class SwitchableApp:
-    """An ASGI app that forwards to whichever inner app is current."""
-
-    def __init__(self, inner: Any) -> None:
-        self.inner = inner
-
-    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-        await self.inner(scope, receive, send)
-
-
 class ProfileHost:
     def __init__(
         self,
@@ -85,16 +50,10 @@ class ProfileHost:
         *,
         host: str = "127.0.0.1",
         port: int = 8765,
-        tailor: SwitchableApp | None = None,
-        #: Builds Resume Tailor for a profile: (its Tailor home, the profile,
-        #: the profile's app). See `tailor_bridge.tailor_app`.
-        tailor_factory: Callable[[Path, Profile, JobsApi], Any] | None = None,
     ) -> None:
         self.root = root
         self.host = host
         self.port = port
-        self.tailor = tailor
-        self.tailor_factory = tailor_factory
         self.server: Any = None
         #: Serialises switching, deleting and EVERY background run start of
         #: the served app (see `gate`): no run can begin on a profile that is
@@ -203,7 +162,7 @@ class ProfileHost:
         Order, and why: retire the old app first (so no run can start on it
         while it is checked), refuse if anything is still running, open the
         new profile (its identity and its OS lock), record it in the
-        registry, rebuild Resume Tailor, and only then swap. Any failure
+        registry, and only then swap. Any failure
         puts everything back as it was.
         """
         with self._lock:
@@ -223,20 +182,12 @@ class ProfileHost:
                 if old is not None:
                     old.retired = False
                 raise ApiError(409, reason, for_reader=True)
-            previous_env: dict[str, str | None] | None = None
             try:
                 api = self.open(profile)
                 set_active(self.root, profile.id)
-                if self.tailor is not None and self.tailor_factory is not None:
-                    previous_env = tailor_environment(self.root, profile)
-                    self.tailor.inner = self.tailor_factory(
-                        self.root / profile.tailor_home, profile, api
-                    )
             except BaseException:
                 if old is not None:
                     old.retired = False
-                if previous_env is not None:
-                    restore_environment(previous_env)
                 pending = getattr(self, "_pending_lock", None)
                 if pending is not None:
                     pending.release()

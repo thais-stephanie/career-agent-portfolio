@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "prof-01syntheticlegacyaaaaaaaa",
+  "name": "Synthetic Work",
+  "career_agent_profile_id": "prof-01SYNTHETICLEGACYAAAAAAAA",
+  "email": "riley@example.invalid",
+  "phone": "",
+  "location": "Curitiba, Brazil",
+  "linkedin": "linkedin.com/in/riley-synthetic",
+  "portfolio": "",
+  "languages": [],
+  "archived": false,
+  "created_at": "2026-10-06T00:20:06.069157+00:00",
+  "updated_at": "2026-10-06T00:20:06.093924+00:00"
+}

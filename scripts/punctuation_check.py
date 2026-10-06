@@ -95,9 +95,9 @@ class Exclusion:
 #: gate quiet. If the text is ours, fix the text.
 EXCLUSIONS: tuple[Exclusion, ...] = (
     Exclusion(
-        "companion/resume-tailor",
-        "Vendored Apache-2.0 component; original input grammar, resume typography "
-        "and punctuation are preserved.",
+        "tests/fixtures/legacy_resume_helper",
+        "Files the retired Resume helper wrote, frozen byte for byte as the "
+        "migration's compatibility contract; their punctuation is data.",
     ),
     Exclusion(
         "src/career_agent/llm/prompts",

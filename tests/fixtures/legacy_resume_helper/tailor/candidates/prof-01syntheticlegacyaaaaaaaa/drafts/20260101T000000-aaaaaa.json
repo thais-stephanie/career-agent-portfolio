@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "history": [
+    {
+      "headline": null,
+      "summary": null,
+      "bullets": {},
+      "order": {},
+      "skills": null,
+      "hidden_skills": [],
+      "certifications": null,
+      "note": ""
+    },
+    {
+      "headline": null,
+      "summary": null,
+      "bullets": {
+        "b001": {
+          "text": "Reworded by the person."
+        },
+        "b002": {
+          "hidden": true
+        }
+      },
+      "order": {},
+      "skills": null,
+      "hidden_skills": [],
+      "certifications": null,
+      "note": ""
+    }
+  ],
+  "cursor": 1
+}

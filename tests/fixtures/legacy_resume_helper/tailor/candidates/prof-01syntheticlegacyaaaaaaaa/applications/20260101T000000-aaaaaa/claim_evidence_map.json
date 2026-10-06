@@ -1,0 +1,428 @@
+{
+  "entries": [
+    {
+      "claim_id": "s002",
+      "location": "summary",
+      "text": "Most recently at Northwind Ops, built integrations between the billing system and the CRM.",
+      "evidence_ids": [
+        "careeragent-4c50565573b8244c922b"
+      ],
+      "status": "supported",
+      "checks": [
+        {
+          "check": "evidence_exists",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "bindings",
+          "passed": true,
+          "detail": "single record"
+        },
+        {
+          "check": "terms_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "numbers_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_overstatement",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "number_scope",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_upgrade",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "years_plausible",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "replacement_text": null,
+      "bindings": []
+    },
+    {
+      "claim_id": "s003",
+      "location": "summary",
+      "text": "Earlier, at Contoso Health (2020–2022), mapped recruiting workflows and documented the requirements.",
+      "evidence_ids": [
+        "careeragent-3c25523f0e9b14d5fb92"
+      ],
+      "status": "supported",
+      "checks": [
+        {
+          "check": "evidence_exists",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "bindings",
+          "passed": true,
+          "detail": "single record"
+        },
+        {
+          "check": "terms_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "numbers_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_overstatement",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "number_scope",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_upgrade",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "years_plausible",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "replacement_text": null,
+      "bindings": []
+    },
+    {
+      "claim_id": "b001",
+      "location": "careeragent-246f4ba1ded53d5b1c1b",
+      "text": "Built integrations between the billing system and the CRM.",
+      "evidence_ids": [
+        "careeragent-4c50565573b8244c922b"
+      ],
+      "status": "supported",
+      "checks": [
+        {
+          "check": "evidence_exists",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "bindings",
+          "passed": true,
+          "detail": "single record"
+        },
+        {
+          "check": "terms_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "numbers_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_overstatement",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "number_scope",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_upgrade",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "years_plausible",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "replacement_text": null,
+      "bindings": []
+    },
+    {
+      "claim_id": "b002",
+      "location": "careeragent-c0b7ec2412bfdbb16d0d",
+      "text": "Mapped recruiting workflows and documented the requirements.",
+      "evidence_ids": [
+        "careeragent-3c25523f0e9b14d5fb92"
+      ],
+      "status": "supported",
+      "checks": [
+        {
+          "check": "evidence_exists",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "bindings",
+          "passed": true,
+          "detail": "single record"
+        },
+        {
+          "check": "terms_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "numbers_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_overstatement",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "number_scope",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_upgrade",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "years_plausible",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "replacement_text": null,
+      "bindings": []
+    },
+    {
+      "claim_id": "b003",
+      "location": "careeragent-4e84f046d30194698c2f",
+      "text": "Kept the inventory reports accurate for store managers.",
+      "evidence_ids": [
+        "careeragent-18e9539f61dfdb9c0b49"
+      ],
+      "status": "supported",
+      "checks": [
+        {
+          "check": "evidence_exists",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "bindings",
+          "passed": true,
+          "detail": "single record"
+        },
+        {
+          "check": "terms_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "numbers_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_overstatement",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "number_scope",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_upgrade",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "years_plausible",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "replacement_text": null,
+      "bindings": []
+    },
+    {
+      "claim_id": "b004",
+      "location": "careeragent-f5d87505806fe7a647f5",
+      "text": "Answered customer questions about deliveries.",
+      "evidence_ids": [
+        "careeragent-fc4e6bcc05c8ff47ae20"
+      ],
+      "status": "supported",
+      "checks": [
+        {
+          "check": "evidence_exists",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "bindings",
+          "passed": true,
+          "detail": "single record"
+        },
+        {
+          "check": "terms_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "numbers_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_overstatement",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "number_scope",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_upgrade",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "years_plausible",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "replacement_text": null,
+      "bindings": []
+    },
+    {
+      "claim_id": "b005",
+      "location": "careeragent-b9d26dcb78586fba3d8c",
+      "text": "Organized the office calendar and supplies.",
+      "evidence_ids": [
+        "careeragent-22d4a4c0aca332e499c2"
+      ],
+      "status": "supported",
+      "checks": [
+        {
+          "check": "evidence_exists",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "bindings",
+          "passed": true,
+          "detail": "single record"
+        },
+        {
+          "check": "terms_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "numbers_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_overstatement",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "number_scope",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_upgrade",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "years_plausible",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "replacement_text": null,
+      "bindings": []
+    },
+    {
+      "claim_id": "b006",
+      "location": "careeragent-7b9f9bbedf939c06d439",
+      "text": "Entered shipping data into spreadsheets.",
+      "evidence_ids": [
+        "careeragent-e3cf26b2624b2013d4bc"
+      ],
+      "status": "supported",
+      "checks": [
+        {
+          "check": "evidence_exists",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "bindings",
+          "passed": true,
+          "detail": "single record"
+        },
+        {
+          "check": "terms_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "numbers_supported",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_overstatement",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "number_scope",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "no_upgrade",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "check": "years_plausible",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "replacement_text": null,
+      "bindings": []
+    }
+  ]
+}

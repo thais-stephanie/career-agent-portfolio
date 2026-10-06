@@ -735,28 +735,3 @@ def test_forget_tracking_forgets_which_resume_was_used_and_keeps_the_resumes(
     assert counts.pop("application_resume") == 0
     assert counts == kept  # documents, revisions, ads and exports all stay
     assert call(api, "GET", f"/jobs/{job}")["used"] is None
-
-
-def test_the_old_engine_itself_refuses_writes_once_resumes_moved(tmp_path: Path) -> None:
-    """Straight to the engine's own routes, not through Career Agent's proxy."""
-    from tests.integration.test_tailor_bridge import TAILOR, _profile
-
-    _, owner, client = _profile(tmp_path, "prof-01SYNTHETICENGINEAAAAAAAA", "Synthetic")
-    _, _, other_client = _profile(tmp_path, "prof-01SYNTHETICENGINEBBBBBBBB", "Other")
-    post = {"json": {}, "headers": {"Origin": TAILOR}}
-    # Not moved: the old helper still writes (here: refused for an empty profile, not 409).
-    assert client.post("/api/career/base-resume", **post).status_code == 400
-    data = sparse().model_dump(mode="json")
-    data.update(
-        id=new_id(), kind="IMPORTED", title="Moved",
-        provenance={"created_from": "IMPORT", "import_id": "legacy:base:synthetic"},
-    )  # fmt: skip
-    with connect(owner.config.db_path) as conn:
-        ResumeStore(conn).create_document(upgrade_resume_document(data))
-    refused = client.post("/api/career/base-resume", **post)
-    assert refused.status_code == 409
-    assert refused.json()["detail"]["code"] == "legacy_moved"
-    cid = client.get("/api/workspace").json()["candidate_id"]
-    assert client.get(f"/api/candidates/{cid}/resumes").status_code == 200  # reading stays
-    # Another profile that moved nothing keeps its old helper.
-    assert other_client.post("/api/career/base-resume", **post).status_code == 400

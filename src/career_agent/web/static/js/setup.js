@@ -1318,8 +1318,8 @@ export function createSetup({
         readiness,
         hint(t('setup.ready.note')),
         // Without career data the search still works; this says what adding
-        // it would change, and nothing louder. Resume Tailor is not the next
-        // step until there is something for it to work from.
+        // it would change, and nothing louder. Tailoring a resume is not the
+        // next step until there is something for it to work from.
         cvAdded() ? null : el('p', { className: 'setup__hint', text: t('setup.ready.noCv') }),
         status,
       ].filter(Boolean),

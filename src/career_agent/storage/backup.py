@@ -157,9 +157,10 @@ def _manifest(
             "config_files": sorted(result.config_files),
             "not_included": {
                 "other_profiles": "Each local profile is backed up on its own.",
-                "resume_tailor": (
-                    "Resume Tailor keeps its own per-candidate backup; its workspace "
-                    "is not in this archive."
+                "resume_helper_files": (
+                    "Files of the retired Resume helper stay in the profile's own "
+                    "folder; they are not in this archive. Moving them into Resumes "
+                    "makes its own verified backup first."
                 ),
             },
             "contains_public_jobs": (

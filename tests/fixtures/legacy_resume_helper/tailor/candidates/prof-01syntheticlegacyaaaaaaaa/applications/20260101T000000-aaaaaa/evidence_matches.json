@@ -1,0 +1,215 @@
+{
+  "matches": [
+    {
+      "requirement_id": "must_001",
+      "requirement_text": "Experiência com Python em produção",
+      "category": "must_have",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "must_002",
+      "requirement_text": "Conhecimento de APIs REST e webhooks",
+      "category": "must_have",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "must_003",
+      "requirement_text": "Vivência com ferramentas de automação como n8n ou Zapier",
+      "category": "must_have",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "must_004",
+      "requirement_text": "Inglês intermediário para leitura de documentação técnica",
+      "category": "must_have",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "must_005",
+      "requirement_text": "Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes.",
+      "category": "must_have",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "nice_006",
+      "requirement_text": "Experiência com LangChain ou agentes de IA.",
+      "category": "nice_to_have",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "nice_007",
+      "requirement_text": "Conhecimento de SQL.",
+      "category": "nice_to_have",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "resp_008",
+      "requirement_text": "Desenvolver integrações entre sistemas usando APIs REST e webhooks.",
+      "category": "responsibility",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "resp_009",
+      "requirement_text": "Automatizar processos internos com Python e n8n.",
+      "category": "responsibility",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "resp_010",
+      "requirement_text": "Garantir a observabilidade dos fluxos, com alertas e registros claros.",
+      "category": "responsibility",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "resp_011",
+      "requirement_text": "Documentar as soluções e apoiar o time de operações no dia a dia.",
+      "category": "responsibility",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "tech_012",
+      "requirement_text": "rest apis",
+      "category": "technology",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "tech_013",
+      "requirement_text": "webhooks",
+      "category": "technology",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "tech_014",
+      "requirement_text": "python",
+      "category": "technology",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "tech_015",
+      "requirement_text": "n8n",
+      "category": "technology",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "tech_016",
+      "requirement_text": "zapier",
+      "category": "technology",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "tech_017",
+      "requirement_text": "langchain",
+      "category": "technology",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    },
+    {
+      "requirement_id": "tech_018",
+      "requirement_text": "sql",
+      "category": "technology",
+      "match_type": "unsupported",
+      "evidence": [],
+      "rationale": "No evidence in the bank supports this requirement.",
+      "deterministic_ceiling": "unsupported",
+      "hard_capped": false
+    }
+  ],
+  "gaps": [
+    "must_001",
+    "must_002",
+    "must_003",
+    "must_004",
+    "must_005",
+    "nice_006",
+    "nice_007",
+    "resp_008",
+    "resp_009",
+    "resp_010",
+    "resp_011",
+    "tech_012",
+    "tech_013",
+    "tech_014",
+    "tech_015",
+    "tech_016",
+    "tech_017",
+    "tech_018"
+  ],
+  "coverage": {
+    "must_have_evidence_coverage": 0.0,
+    "must_have_direct_coverage": 0.0,
+    "nice_to_have_evidence_coverage": 0.0,
+    "responsibility_coverage": 0.0,
+    "technology_coverage": 0.0,
+    "overall_coverage": 0.0,
+    "requirements_total": 18.0,
+    "gaps_total": 18.0
+  },
+  "matching_source": "deterministic"
+}

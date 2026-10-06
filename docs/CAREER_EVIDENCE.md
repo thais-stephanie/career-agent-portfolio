@@ -17,8 +17,8 @@ Three rules hold everywhere below:
   all (`source_text`, with `source_line`). Editing, moving, merging or
   splitting changes where a suggestion is organised and never those fields.
 - **Nothing here reaches Search Fit or eligibility.** Neither reads a claim
-  (`tests/integration/test_evidence_reach.py`). Resume Tailor keeps its own
-  evidence store and nothing is synchronised with it.
+  (`tests/integration/test_evidence_reach.py`). Resumes cites a confirmed
+  claim by its key and re-checks it whenever a resume is exported.
 
 ## Reading a CV: structure before claims
 

@@ -58,8 +58,8 @@ HELP = (
     "are in data/logs/desktop.log there."
 )
 PORT_BUSY = (
-    f"Career Agent could not start because the local address it uses (port {PORT} "
-    f"or {PORT + 1}) is in use by another program. Close the other program and try "
+    f"Career Agent could not start because the local address it uses (port {PORT}) "
+    "is in use by another program. Close the other program and try "
     "again. Nothing was changed."
 )
 OTHER_MODE = (

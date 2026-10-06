@@ -1,0 +1,71 @@
+{
+  "status": "pass",
+  "total_claims": 8,
+  "supported": 8,
+  "rejected": 0,
+  "replaced": 0,
+  "issues": [],
+  "unsupported_skills_removed": [],
+  "structural_checks": [
+    {
+      "check": "position_fields_unaltered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "chronology",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "position_fields_unaltered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "chronology",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "position_fields_unaltered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "chronology",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "position_fields_unaltered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "chronology",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "position_fields_unaltered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "chronology",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "position_fields_unaltered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "chronology",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

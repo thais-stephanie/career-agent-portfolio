@@ -29,10 +29,10 @@
       alt="Beta 2"
     />
   </a>
-  <a href="#resume-tailor-beta">
+  <a href="#resumes">
     <img
-      src="https://img.shields.io/badge/Resume_Tailor-Beta-d8c8ff"
-      alt="Resume Tailor Beta"
+      src="https://img.shields.io/badge/Resumes-Workspace_V2-d8c8ff"
+      alt="Currículos: Resume Workspace V2"
     />
   </a>
   <a href="docs/VALIDATION.md">
@@ -57,14 +57,6 @@
   <img
     src="https://img.shields.io/badge/JavaScript-ES%20Modules-F7DF1E?logo=javascript&logoColor=111"
     alt="JavaScript ES Modules"
-  />
-  <img
-    src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white"
-    alt="FastAPI"
-  />
-  <img
-    src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111"
-    alt="React 18"
   />
   <img
     src="https://img.shields.io/badge/uv-gerenciamento%20de%20pacotes-DE5FE9"
@@ -96,15 +88,17 @@ O Career Agent é um espaço de busca de emprego que roda no seu próprio
 computador. Ele coleta vagas públicas de job boards e de sistemas de
 recrutamento das empresas, verifica se cada empresa pode contratar você onde
 você mora e dá a cada vaga uma nota de **Search Fit** de 0 a 100, citando o
-texto da vaga para explicar a nota. O **Resume Tailor Beta**, incluído no
-mesmo download, prepara um currículo para uma vaga a partir de experiências
+texto da vaga para explicar a nota. Em **Currículos** ficam
+seus currículos, e uma versão para uma vaga é feita a partir de experiências
 que você confirmou. Seus dados ficam em arquivos dentro da pasta do Career
 Agent; nada é enviado para um servidor do Career Agent, porque ele não existe.
 
 > [!NOTE]
 >
-> Esta é a versão **v0.2.0-beta.2**: Career Agent Beta com Resume Tailor Beta,
-> para quem roda no próprio computador. O Search Fit descreve como uma vaga
+> A versão mais recente é a **v0.2.0-beta.2**, para quem roda no próprio
+> computador; ela trouxe a ferramenta de currículo anterior, o Resume Tailor
+> Beta. Esta página descreve o código desde então, em que **Currículos** a
+> substituiu. O Search Fit descreve como uma vaga
 > combina com as suas preferências de busca. Ele não estima suas chances de
 > contratação.
 
@@ -140,7 +134,7 @@ como [abrir de novo](docs/INSTALL.md#how-to-open-career-agent-next-time),
 
 ## Capturas de tela
 
-As quatro mostram o produto com dados sintéticos da demonstração ou com um
+As três mostram o produto com dados sintéticos da demonstração ou com um
 espaço de trabalho vazio na primeira execução. A interface aparece em inglês;
 ela também tem português.
 
@@ -148,11 +142,11 @@ ela também tem português.
 |---|---|
 | ![Descobrir com vagas sintéticas, Search Fit e Posting completeness em cada cartão](docs/assets/readme/discover.png) | ![Motivos do Search Fit, cada um citado da vaga](docs/assets/readme/why.png) |
 
-| Resume Tailor Beta | Primeira execução |
-|---|---|
-| ![Resume Tailor com a pessoa candidata sintética Alex Morgan](docs/assets/readme/tailor.png) | ![Configuração inicial com o menu de perfil e dez perguntas curtas](docs/assets/readme/first-run.png) |
+| Primeira execução |
+|---|
+| ![Configuração inicial com o menu de perfil e dez perguntas curtas](docs/assets/readme/first-run.png) |
 
-![Fluxo: descobrir, entender o Search Fit, preparar com o Tailor Beta e acompanhar candidaturas](docs/assets/readme/how-it-works.png)
+![Fluxo: descobrir, entender o Search Fit, preparar um currículo e acompanhar candidaturas](docs/assets/readme/how-it-works.png)
 
 *Ilustração do fluxo, não uma captura de tela.*
 
@@ -165,7 +159,7 @@ ela também tem português.
 | Search Fit | Uma nota de 0 a 100 com uma faixa (STRONG, GOOD, MODERATE, WEAK), motivos citados da vaga e o que a vaga não informou. **Posting completeness** aparece ao lado e nunca altera a nota. |
 | Career Evidence | O Career Agent lê seu currículo no seu computador e propõe afirmações. Cada uma só entra no seu Career Profile quando você a confirma. |
 | Candidaturas | Status (Encontrada, Tenho interesse, Candidatura enviada, Em entrevista, Proposta, Recusada e outros), notas e histórico das vagas em que você age. |
-| Resume Tailor Beta | Preparação de currículo para uma vaga, a partir de experiência confirmada, com exportação em Markdown, Word e PDF. |
+| Currículos | Um currículo mestre, importação de PDF e Word, uma versão para cada vaga, um editor com prévia ao vivo, exportação em PDF, Word e JSON, adaptação a partir de experiência confirmada e Analisar: achados com nome, nunca uma nota. |
 
 ### O que é estável, opcional, experimental ou inexistente
 
@@ -174,7 +168,8 @@ ela também tem português.
 | Coleta de 26 fontes, elegibilidade, Search Fit, Career Evidence, candidaturas | Parte deste Beta |
 | Perfis locais (várias pessoas em uma instalação) | Parte deste Beta |
 | Catálogo local compartilhado de vagas | Parte deste Beta |
-| Resume Tailor | Beta |
+| Currículos (Resume Workspace V2) | Beta |
+| Rascunho e revisão com IA em Currículos | Opcionais, só quando você aperta os botões |
 | Semantic matching (DeepSeek, Claude Code ou Codex) | Opcional, desligado até você iniciar uma execução |
 | Leitura com modelo local (Ollama, `qwen3:4b`) | Opcional, roda só neste computador |
 | LinkedIn via JobSpy | Experimental, desligado por padrão, por perfil |
@@ -200,8 +195,8 @@ frase citada da vaga. O título sozinho não vale pontos.
   aceita apenas citações que encontra na vaga, e a própria aritmética dele
   calcula a nota. Detalhes: [SEMANTIC_MATCHING.md](docs/SEMANTIC_MATCHING.md).
 
-O Search Fit nunca lê suas evidências confirmadas, e a nota de correspondência
-do Resume Tailor (Tailor Match) é outro número.
+O Search Fit nunca lê suas evidências confirmadas, e Currículos não mostra
+nenhuma nota de correspondência.
 
 ## Fontes de vagas
 
@@ -245,7 +240,7 @@ novo. Você também pode colar qualquer vaga do LinkedIn na importação manual.
 Uma instalação pode ter vários **perfis locais**, por exemplo você e alguém da
 sua família. Cada perfil tem suas próprias configurações, role anchors,
 currículo, evidências confirmadas, notas de Search Fit, candidaturas, anotações
-e espaço do Resume Tailor. Os dados de um perfil nunca aparecem em outro nem
+e currículos. Os dados de um perfil nunca aparecem em outro nem
 o influenciam.
 
 Os dados públicos das vagas (vagas, descrições, empresas, boards e o índice de
@@ -256,32 +251,38 @@ Perfis **não são contas**. Não há login nem senha, e qualquer pessoa que use
 mesma conta do sistema operacional consegue ler os arquivos de todos os
 perfis. Detalhes: [MULTI_PROFILE.md](docs/MULTI_PROFILE.md).
 
-## Resume Tailor Beta
+## Currículos
 
-Abra o **Resume Tailor** pela barra lateral ou pelos detalhes de uma vaga. Ele
-segue o perfil local ativo, abre na vaga de onde você veio e lista as vagas que
-você acompanha. Um currículo-base pode vir do seu Career Profile confirmado ou
-de um arquivo PDF, Word (.docx) ou Markdown enviado por você.
+Abra **Currículos** pela barra lateral ou pelos detalhes de uma vaga. Comece
+com um currículo **mestre** feito a partir do seu Career Profile confirmado,
+importe um de um arquivo PDF ou Word (.docx) e revise o que foi lido, ou
+comece um em branco. Cada currículo tem um histórico que pode ser restaurado,
+e **Meus currículos** agrupa as versões feitas para cada vaga.
 
-Ele analisa a vaga, relaciona os requisitos às suas evidências, mostra gaps,
-gera um rascunho, valida, permite editar e exporta Markdown, Word ou PDF. As
-exportações em Markdown e Word funcionam sem IA. O PDF precisa do Microsoft
-Word ou do LibreOffice no computador; sem eles, o Resume Tailor informa que o
-PDF não está disponível.
+Uma versão para uma vaga é montada a partir das suas experiências
+confirmadas, sem IA: Currículos lê os pedidos da vaga, encontra o que você
+confirmou para cada um e mostra o que não encontrou. **Analisar** confere um
+currículo sozinho ou contra uma vaga e diz o que encontrou (um contato
+faltando, um número sem evidência, um pedido que o currículo não mostra);
+nunca dá uma nota. As exportações em PDF, Word e JSON são conferidas antes do
+download. O rascunho e a revisão independente com IA são opcionais: cada um
+só roda quando você aperta, e diz antes qual provedor recebe o quê.
 
-Afirmações confirmadas do Career Profile só passam para o Resume Tailor quando
-você escolhe **Use my Career Profile** ou atualiza a partir dele; afirmações
-ainda em revisão nunca passam. Uma frase gerada pelo Resume Tailor nunca vira
-evidência confirmada, e uma edição que afirma experiência sem evidência é
-rejeitada pela exportação somente com evidências. Veja as
-[notas de arquitetura](docs/ARCHITECTURE.md).
+Uma frase escrita por Currículos ou por uma IA nunca vira evidência
+confirmada, e uma linha que cita evidência que você não confirmou não pode ser
+exportada. Detalhes: [RESUME_WORKSPACE.md](docs/RESUME_WORKSPACE.md).
+
+A ferramenta de currículo anterior, o Resume Tailor, foi aposentada. Se você
+a usou, Currículos oferece trazer os currículos dela depois de uma cópia de
+segurança conferida; nada muda de lugar até você escolher, e os arquivos dela
+ficam no seu computador.
 
 ## Privacidade
 
 Suas configurações, vagas, notas de Search Fit, anotações, candidaturas, texto
 do currículo e evidências ficam nas pastas `data` e `config`, dentro da pasta
 do Career Agent. O Career Agent guarda o texto extraído de um currículo, não o
-arquivo enviado. O Resume Tailor guarda os documentos que você envia a ele. Não
+arquivo enviado. Currículos guarda o que você salvou de um currículo importado, não o arquivo. Não
 há telemetria, e o aplicativo não criptografa os arquivos.
 
 Estas ações enviam dados para fora do computador, cada uma só quando você a
@@ -293,7 +294,7 @@ faz:
 | Coletar vagas | Requisições a job boards e sites de empresas, com frases de busca e lugares. Nunca seu currículo ou perfil. |
 | LinkedIn via JobSpy (se você ligou) | Frases de busca curtas e lugares, enviados ao LinkedIn. |
 | Semantic matching (se você iniciar uma execução) | Suas frases de busca e o texto das vagas selecionadas, para o provedor escolhido. |
-| IA do Resume Tailor (se você configurou) | Descrições de vagas e evidências selecionadas, para esse provedor. |
+| Rascunho ou revisão com IA em Currículos (quando você aperta) | O título da vaga e os pedidos que ela cita, e as linhas do currículo e as afirmações confirmadas ligadas a eles, para o provedor que você configurou. Nunca seus dados de contato. |
 | Abrir o link de uma empresa | Seu navegador visita aquele site. |
 
 A leitura com modelo local (Ollama) fica no computador: o Career Agent recusa
@@ -336,12 +337,9 @@ ignorados e as verificações de instalação.
   requisições, e uma fonte recusada espera um dia.
 - A disponibilidade das fontes muda, e algumas devolvem só janelas recentes ou
   metadados. Uma vaga que não diz onde contrata fica sem resolução.
-- A interface do Career Agent está em inglês e português do Brasil. A do
-  Resume Tailor está em inglês; as mensagens de erro dele estão em inglês e
-  português do Brasil.
+- A interface do Career Agent está em inglês e português do Brasil.
 - A leitura com modelo local leva minutos em um processador de notebook.
-- A exportação em PDF precisa do Word ou do LibreOffice. O LibreOffice não foi
-  testado.
+- A exportação em PDF precisa do Microsoft Edge ou do Chrome no computador.
 - Nenhum provedor de IA hospedado foi chamado durante os testes da versão.
 - Alguns conjuntos de validação usados no desenvolvimento são privados e não
   são distribuídos; os testes deles ficam de fora e não contam como aprovados.
@@ -349,13 +347,12 @@ ignorados e as verificações de instalação.
 ## Desenvolvimento
 
 Veja o [CONTRIBUTING.md](CONTRIBUTING.md) para os comandos de desenvolvimento e
-a verificação de versão. O bundle do frontend do Tailor está incluído; o Node
-só é necessário para recompilá-lo. [Arquitetura](docs/ARCHITECTURE.md),
+a verificação de versão. [Arquitetura](docs/ARCHITECTURE.md),
 [permissões das fontes](docs/SOURCES.md) e [auditoria pública](docs/PUBLIC_AUDIT.md)
 explicam os limites de engenharia.
 
 ## Licença e avisos de terceiros
 
-O Career Agent usa a licença [MIT](LICENSE). O Resume Tailor, em `companion/resume-tailor`, usa [Apache-2.0](companion/resume-tailor/LICENSE). As fontes incluídas mantêm suas licenças OFL. Veja o [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) para os limites entre componentes, dependências e atribuições.
+O Career Agent usa a licença [MIT](LICENSE). O leitor que traz os currículos do Resume Tailor aposentado adapta código dele, sob Apache-2.0 ([licença](licenses/resume-tailor-Apache-2.0.txt), [aviso](licenses/resume-tailor-NOTICE.txt)). As fontes incluídas mantêm suas licenças OFL. Veja o [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) para os limites entre componentes, dependências e atribuições.
 
 Crédito ao [Career-Ops](https://github.com/career-ops-hq/career-ops) pelos padrões de protocolo que orientaram o trabalho nos adaptadores. Referências de apresentação: [ECC](https://github.com/affaan-m/ECC), [Open Code Review](https://github.com/alibaba/open-code-review), [Ponytail](https://github.com/DietrichGebert/ponytail), [Colibri](https://github.com/JustVugg/colibri). Os avisos distinguem material adaptado, conhecimento de protocolo, inspiração e dependências. Nenhuma afiliação é implícita.

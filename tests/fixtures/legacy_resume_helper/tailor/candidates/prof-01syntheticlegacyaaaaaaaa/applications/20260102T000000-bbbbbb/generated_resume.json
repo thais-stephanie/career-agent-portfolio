@@ -1,0 +1,186 @@
+{
+  "candidate": {
+    "name": "",
+    "email": "",
+    "phone": "+55 41 0000-0000",
+    "location": "",
+    "linkedin": "",
+    "portfolio": "",
+    "languages": [],
+    "overrides_applied": [
+      "override_002"
+    ]
+  },
+  "headline": "Automation Engineer",
+  "summary": [
+    {
+      "id": "s002",
+      "text": "Most recently at Northwind Ops, built integrations between the billing system and the CRM.",
+      "evidence_ids": [
+        "careeragent-4c50565573b8244c922b"
+      ],
+      "bindings": [],
+      "requirement_ids": [],
+      "origin": "verbatim",
+      "status": "supported"
+    },
+    {
+      "id": "s003",
+      "text": "Earlier, at Contoso Health (2020–2022), mapped recruiting workflows and documented the requirements.",
+      "evidence_ids": [
+        "careeragent-3c25523f0e9b14d5fb92"
+      ],
+      "bindings": [],
+      "requirement_ids": [],
+      "origin": "verbatim",
+      "status": "supported"
+    }
+  ],
+  "experience": [
+    {
+      "position_id": "careeragent-246f4ba1ded53d5b1c1b",
+      "company": "Northwind Ops",
+      "title": "Automation Engineer",
+      "start": "2023-01",
+      "end": null,
+      "location": "",
+      "company_blurb": "",
+      "bullets": [
+        {
+          "id": "b001",
+          "text": "Built integrations between the billing system and the CRM.",
+          "evidence_ids": [
+            "careeragent-4c50565573b8244c922b"
+          ],
+          "bindings": [],
+          "requirement_ids": [],
+          "origin": "verbatim",
+          "status": "supported"
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-c0b7ec2412bfdbb16d0d",
+      "company": "Contoso Health",
+      "title": "Business Systems Analyst",
+      "start": "2020-03",
+      "end": "2022-12",
+      "location": "",
+      "company_blurb": "",
+      "bullets": [
+        {
+          "id": "b002",
+          "text": "Mapped recruiting workflows and documented the requirements.",
+          "evidence_ids": [
+            "careeragent-3c25523f0e9b14d5fb92"
+          ],
+          "bindings": [],
+          "requirement_ids": [],
+          "origin": "verbatim",
+          "status": "supported"
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-4e84f046d30194698c2f",
+      "company": "Fabrikam Retail",
+      "title": "Operations Analyst",
+      "start": "2018-01",
+      "end": "2020-02",
+      "location": "Remote",
+      "company_blurb": "",
+      "bullets": [
+        {
+          "id": "b003",
+          "text": "Kept the inventory reports accurate for store managers.",
+          "evidence_ids": [
+            "careeragent-18e9539f61dfdb9c0b49"
+          ],
+          "bindings": [],
+          "requirement_ids": [],
+          "origin": "verbatim",
+          "status": "supported"
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-f5d87505806fe7a647f5",
+      "company": "Tailspin Logistics",
+      "title": "Support Specialist",
+      "start": "2016-05",
+      "end": "2017-12",
+      "location": "",
+      "company_blurb": "",
+      "bullets": [
+        {
+          "id": "b004",
+          "text": "Answered customer questions about deliveries.",
+          "evidence_ids": [
+            "careeragent-fc4e6bcc05c8ff47ae20"
+          ],
+          "bindings": [],
+          "requirement_ids": [],
+          "origin": "verbatim",
+          "status": "supported"
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-b9d26dcb78586fba3d8c",
+      "company": "Adventure Works",
+      "title": "Office Assistant",
+      "start": "2014-02",
+      "end": "2016-04",
+      "location": "",
+      "company_blurb": "",
+      "bullets": [
+        {
+          "id": "b005",
+          "text": "Organized the office calendar and supplies.",
+          "evidence_ids": [
+            "careeragent-22d4a4c0aca332e499c2"
+          ],
+          "bindings": [],
+          "requirement_ids": [],
+          "origin": "verbatim",
+          "status": "supported"
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-7b9f9bbedf939c06d439",
+      "company": "Wide World Importers",
+      "title": "Intern",
+      "start": "2013-01",
+      "end": "2013-12",
+      "location": "",
+      "company_blurb": "",
+      "bullets": [
+        {
+          "id": "b006",
+          "text": "Entered shipping data into spreadsheets.",
+          "evidence_ids": [
+            "careeragent-e3cf26b2624b2013d4bc"
+          ],
+          "bindings": [],
+          "requirement_ids": [],
+          "origin": "verbatim",
+          "status": "supported"
+        }
+      ]
+    }
+  ],
+  "skills": [],
+  "education": [],
+  "certifications": [],
+  "section_order": [
+    "summary",
+    "experience",
+    "skills",
+    "education",
+    "certifications"
+  ],
+  "generation_source": "deterministic",
+  "estimated_pages": 0.67,
+  "estimated_words": 66
+}

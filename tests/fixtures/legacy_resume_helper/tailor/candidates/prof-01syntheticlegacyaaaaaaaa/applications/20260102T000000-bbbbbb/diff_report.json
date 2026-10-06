@@ -1,0 +1,164 @@
+{
+  "base_resume_id": "career_agent_profile",
+  "changes": [
+    {
+      "section": "headline",
+      "kind": "kept",
+      "original": "Automation Engineer",
+      "tailored": "Automation Engineer",
+      "why": "",
+      "supported_by": [],
+      "requirement_ids": []
+    },
+    {
+      "section": "summary",
+      "kind": "modified",
+      "original": "",
+      "tailored": "Most recently at Northwind Ops, built integrations between the billing system and the CRM. Earlier, at Contoso Health (2020–2022), mapped recruiting workflows and documented the requirements.",
+      "why": "Summary rewritten to lead with evidence answering the must-haves. Position as Automation Engineer: lead with Northwind Ops evidence that answers the must-haves; keep unsupported requirements (18) visible as gaps rather than papering over them.",
+      "supported_by": [
+        "careeragent-3c25523f0e9b14d5fb92",
+        "careeragent-4c50565573b8244c922b"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-246f4ba1ded53d5b1c1b",
+      "kind": "kept",
+      "original": "Built integrations between the billing system and the CRM.",
+      "tailored": "Built integrations between the billing system and the CRM.",
+      "why": "",
+      "supported_by": [
+        "careeragent-4c50565573b8244c922b"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-246f4ba1ded53d5b1c1b",
+      "kind": "removed",
+      "original": "Automated weekly reporting for the finance team.",
+      "tailored": null,
+      "why": "Omitted: its evidence answers no requirement in this JD.",
+      "supported_by": [
+        "careeragent-674f73f3d5533813f2b8"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-c0b7ec2412bfdbb16d0d",
+      "kind": "kept",
+      "original": "Mapped recruiting workflows and documented the requirements.",
+      "tailored": "Mapped recruiting workflows and documented the requirements.",
+      "why": "",
+      "supported_by": [
+        "careeragent-3c25523f0e9b14d5fb92"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-c0b7ec2412bfdbb16d0d",
+      "kind": "removed",
+      "original": "Supported payroll operations during a system migration.",
+      "tailored": null,
+      "why": "Omitted: its evidence answers no requirement in this JD.",
+      "supported_by": [
+        "careeragent-43e1b3336f46395386de"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-4e84f046d30194698c2f",
+      "kind": "kept",
+      "original": "Kept the inventory reports accurate for store managers.",
+      "tailored": "Kept the inventory reports accurate for store managers.",
+      "why": "",
+      "supported_by": [
+        "careeragent-18e9539f61dfdb9c0b49"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-4e84f046d30194698c2f",
+      "kind": "removed",
+      "original": "Trained new analysts on the reporting process.",
+      "tailored": null,
+      "why": "Omitted: its evidence answers no requirement in this JD.",
+      "supported_by": [
+        "careeragent-d1713a3ede74768cba21"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-f5d87505806fe7a647f5",
+      "kind": "kept",
+      "original": "Answered customer questions about deliveries.",
+      "tailored": "Answered customer questions about deliveries.",
+      "why": "",
+      "supported_by": [
+        "careeragent-fc4e6bcc05c8ff47ae20"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-f5d87505806fe7a647f5",
+      "kind": "removed",
+      "original": "Wrote help articles for common delivery issues.",
+      "tailored": null,
+      "why": "Omitted: its evidence answers no requirement in this JD.",
+      "supported_by": [
+        "careeragent-1ae4e460f1a0067b1f71"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-b9d26dcb78586fba3d8c",
+      "kind": "kept",
+      "original": "Organised the office calendar and supplies.",
+      "tailored": "Organized the office calendar and supplies.",
+      "why": "",
+      "supported_by": [
+        "careeragent-22d4a4c0aca332e499c2"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-b9d26dcb78586fba3d8c",
+      "kind": "removed",
+      "original": "Prepared monthly expense summaries.",
+      "tailored": null,
+      "why": "Omitted: its evidence answers no requirement in this JD.",
+      "supported_by": [
+        "careeragent-99bf18285b5655f1ed0d"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-7b9f9bbedf939c06d439",
+      "kind": "kept",
+      "original": "Entered shipping data into spreadsheets.",
+      "tailored": "Entered shipping data into spreadsheets.",
+      "why": "",
+      "supported_by": [
+        "careeragent-e3cf26b2624b2013d4bc"
+      ],
+      "requirement_ids": []
+    },
+    {
+      "section": "careeragent-7b9f9bbedf939c06d439",
+      "kind": "removed",
+      "original": "Helped the team check customs paperwork.",
+      "tailored": null,
+      "why": "Omitted: its evidence answers no requirement in this JD.",
+      "supported_by": [
+        "careeragent-95c155bfb01ecb736dd1"
+      ],
+      "requirement_ids": []
+    }
+  ],
+  "summary": {
+    "added": 0,
+    "modified": 1,
+    "removed": 6,
+    "kept": 7
+  }
+}

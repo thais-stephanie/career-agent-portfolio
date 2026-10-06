@@ -5,8 +5,8 @@ WHAT A PROFILE IS
 One person's Career Agent: their database (Career Profile, evidence, Search
 Fit, semantic findings, applications, notes, source choices such as the
 experimental LinkedIn opt-in), their private configuration (search intent,
-role anchors, semantic settings and budget) and their Resume Tailor
-workspace. A profile has a stable identifier that never changes and a label
+role anchors, semantic settings and budget) and the files the retired
+Resume helper left for it, if any. A profile has a stable identifier that never changes and a label
 the person can rename.
 
 WHAT A PROFILE IS NOT
@@ -22,7 +22,8 @@ LAYOUT
     data/profiles/<id>/personal.db  a profile's database
     data/profiles/<id>/config/      its private settings, plus the shipped
                                     files, refreshed from `config/` on start
-    data/profiles/<id>/tailor/      its Resume Tailor workspace
+    data/profiles/<id>/tailor/      files of the retired Resume helper, read
+                                    only to move them into Resumes
     data/profiles/.trash/           deleted profiles, moved rather than erased
 
 The first profile ADOPTS the existing installation where it already is:
@@ -336,8 +337,7 @@ def create_profile(root: Path, label: str) -> Profile:
             tailor_home=(base / "tailor").as_posix(),
             color=_COLORS[len(registry.profiles) % len(_COLORS)],
         )
-        db, config_dir, tailor = profile.paths(root)
-        tailor.mkdir(parents=True, exist_ok=True)
+        db, config_dir, _ = profile.paths(root)
         config_dir.mkdir(parents=True, exist_ok=True)
         sync_shipped_config(root, profile)
         conn = connect(db)

@@ -668,7 +668,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         }
 
     def quit_app(self, *, query: dict, body: dict) -> dict:
-        """Stop Career Agent and Resume Tailor, as Ctrl+C in the launcher does.
+        """Stop Career Agent, as Ctrl+C in the launcher does.
 
         Reached only through the local checks every POST passes (own Host,
         own Origin, a JSON body). The stop runs after this answer is sent."""

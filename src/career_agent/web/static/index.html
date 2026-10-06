@@ -85,7 +85,7 @@
       <!-- RESUMES: a page of this app, in this window (js/resume_v2.js). -->
       <button type="button" class="topnav__link topnav__link--tailor" data-page="resume">
         <span class="topnav__icon" aria-hidden="true">&#9998;&#65038;</span>
-        <span class="topnav__label" id="nav-tailor-label">Resume helper</span>
+        <span class="topnav__label" id="nav-tailor-label">Resumes</span>
       </button>
     </div>
   </div>
@@ -241,10 +241,8 @@
      Where the postings come from is not a filter, and reaching it meant
      opening a disclosure inside a panel that only exists on one page. The
      panels move; the code behind them does not. -->
-<!-- RESUMES, a page of this app (js/resume_v2.js): Home, My resumes, Editor. -->
+<!-- RESUMES, a page of this app (js/resume_v2.js): Home, My resumes, Editor, Analyze. -->
 <main class="page page--resume" id="page-resume" hidden></main>
-<!-- The previous Resume Helper (js/resume.js), reached from Settings only. -->
-<main class="page page--resume-legacy" id="page-resume-legacy" hidden></main>
 
 <main class="page page--settings" id="page-settings" data-tab="search" hidden>
   <!-- SIX SECTIONS over the same blocks (V3). The nav (drawn by main.js,
@@ -301,11 +299,8 @@
   </details>
   <section class="settings__block settings__block--plain" data-settab="look" id="settings-look-host"></section>
   <section class="settings__block settings__block--plain" data-settab="backup" id="settings-backup-host"></section>
-  <details class="settings__block" data-settab="backup">
-    <summary id="settings-legacy-summary">Advanced</summary>
-    <p class="settings__note" id="settings-legacy-text"></p>
-    <button type="button" class="btn btn--small" id="settings-legacy-open">Legacy Resume Helper</button>
-  </details>
+  <!-- Only while the retired Resume helper left resumes to move (main.js). -->
+  <section class="settings__block settings__block--plain" data-settab="backup" id="settings-legacy-host" hidden></section>
   </div>
   </div>
 </main>

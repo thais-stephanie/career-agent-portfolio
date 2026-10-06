@@ -1,0 +1,145 @@
+{
+ "existing_master": {
+  "report": {
+   "already": 0,
+   "created": 5,
+   "failures": [
+    {
+     "reason": "Invalid JSON: key must be a string at line 1 column 2",
+     "unit": "run 20260105T000000-eeeeee"
+    },
+    {
+     "reason": "matches 2 migrated versions by name; it is left where it is",
+     "unit": "export Resume - Engenheiro(a) de Automação de IA - Sênior.docx"
+    }
+   ],
+   "notes": [
+    "identity linkedin: no http(s) scheme, https:// was added",
+    "run 20260104T000000-dddddd: never finished, nothing to migrate"
+   ]
+  },
+  "rows": {
+   "jd_snapshot": [
+    "f7e3ce791e1fb3dcc6a3c3c82277ac0c9f3363cbdf0bd129039c2adcd40e54ae",
+    "4bf55486c152bd121fef4420f577a886bfbeedaf7e48f229547c5f5ab5effdaf"
+   ],
+   "resume_document": [
+    "7c8bee88ac730370732958405e8b290dd862f977ea375900157799c7383c0d56",
+    "720c1cd4f2cb0e38d1af8d5ed8aca8eb960c54bdf5504816f779dd3b39784fa3",
+    "274c73bd5fadef6fcdfcd72b691ba0c718fd8098d892f750bf95d153d904a908",
+    "0ab6ed333a4b059dd8f814e0513f32b6103afe767d7ec7f9aebd2ffdde30519a",
+    "28d7201528ee295a9ee47735acdd8270ce3266f1851fb529b9f65494838729f9"
+   ],
+   "resume_export": [
+    "c9cfa16fa15bfcce09e2359a1055250db1a5857d671270f2aa95c52fc63ece08"
+   ],
+   "resume_revision": [
+    "e8cd1925ca9f2f085709ed8761954a12540a4dec9174eb3a5e61589d766a499e",
+    "4d47dd6c671dc60b54cc2e755e7c798f810aa6fc0f6836c6b27ef77c52247598",
+    "da7d144a5c2388226f0301a978390326b00c3fb00f1407c980b3bae401bbf52b",
+    "1518437c3c84923f97dc0e80021a1061db23e0ffdf2b7d493b3d93d103be8dff",
+    "476aed61cbca3c05a4e1b998b8a88083e41e2a7b7d8f8b8a883b75272ead89e8",
+    "6b7892ee4ff139d6da46fea85b1a025b814b05530796e958e592ef45fef37b26"
+   ],
+   "tailoring_run": [
+    "0b4ef17de2134c095d723f2d705d1bc60e539db620386b0a832f8cd9782b7d50",
+    "54436059d25b715ce3e5f98763bf5c3c05d4055d0e538e3159e61a67cfd5298d",
+    "f385966d17f5a27071c2d795a8cf62c2a2ea2254d611233c9b172faa0e735de4"
+   ]
+  }
+ },
+ "migrated": {
+  "report": {
+   "already": 0,
+   "created": 5,
+   "failures": [
+    {
+     "reason": "Invalid JSON: key must be a string at line 1 column 2",
+     "unit": "run 20260105T000000-eeeeee"
+    },
+    {
+     "reason": "matches 2 migrated versions by name; it is left where it is",
+     "unit": "export Resume - Engenheiro(a) de Automação de IA - Sênior.docx"
+    }
+   ],
+   "notes": [
+    "identity linkedin: no http(s) scheme, https:// was added",
+    "run 20260104T000000-dddddd: never finished, nothing to migrate"
+   ]
+  },
+  "rows": {
+   "jd_snapshot": [
+    "e1e520005ae60d036d026edc649a54911fb63c87c404c549b35a4d903a61f161",
+    "4bf55486c152bd121fef4420f577a886bfbeedaf7e48f229547c5f5ab5effdaf"
+   ],
+   "resume_document": [
+    "35858d0c8cbed0fe82218fc8aef57487d24d791518484fa961e75048d096d6c3",
+    "87a144e02fff9cd0d0768f4f01f1168957c03735ac6d01bb4951de08633cae15",
+    "a8c5eaa232db760bd4b7691ac2de994e4d38336553ae4a69a341e2d28ad94a27",
+    "2f9f078e248dc21f21318736dfa2a158698e980dfbeebe1a5d87dc993f475102"
+   ],
+   "resume_export": [
+    "5a5696defec04a022879957812eba70e01383b40d3a615e4df9c3bdbb0e704c5"
+   ],
+   "resume_revision": [
+    "27485c2ca71518abbe441b7c5e9bbc8ab23604ab4c66ed96f6c1e1e34109ce4b",
+    "8eaa87f740c93988eb2040978b9e46c9d286d39889db8e4df202daada9a3109e",
+    "a8c0dfbf6aaecc3ba1c18e7d842b6489ce5508d7be51fbc88e8713b6e9b716a2",
+    "7147d8b89594d1ff3846da8080964fb2924ca392144677378e52ce98fb77c850",
+    "b4a93186decddfe3bb07c57eb4d89868bdb3219ba8d364ec4833c504ae9b01e1"
+   ],
+   "tailoring_run": [
+    "7134e30a68709bbfcbfe1f907d3c085b32726f607ff66277ed1b5c40d35670bb",
+    "60d3e46c85c4b6f7598bdaee459a6f72a9598636a1855d6b98516ced093e4cda",
+    "31bf4abb3f57b1b9ca10cf620a5fd3dc9f5f12d619edd619915137f264d04657"
+   ]
+  }
+ },
+ "no_claims": {
+  "report": {
+   "already": 0,
+   "created": 5,
+   "failures": [
+    {
+     "reason": "Invalid JSON: key must be a string at line 1 column 2",
+     "unit": "run 20260105T000000-eeeeee"
+    },
+    {
+     "reason": "matches 2 migrated versions by name; it is left where it is",
+     "unit": "export Resume - Engenheiro(a) de Automação de IA - Sênior.docx"
+    }
+   ],
+   "notes": [
+    "identity linkedin: no http(s) scheme, https:// was added",
+    "run 20260104T000000-dddddd: never finished, nothing to migrate"
+   ]
+  },
+  "rows": {
+   "jd_snapshot": [
+    "e1e520005ae60d036d026edc649a54911fb63c87c404c549b35a4d903a61f161",
+    "4bf55486c152bd121fef4420f577a886bfbeedaf7e48f229547c5f5ab5effdaf"
+   ],
+   "resume_document": [
+    "383ca05e42c40ffbd72dd31e6693ce5b7294f975ea25742a2691fa6e45396a01",
+    "726f6383189ef31c31ca764589c472ac52d43f96938a63daed69e102af8c56f3",
+    "50a634546fec070604ba02c0f67bff31385c1bc4723555b08e12724692b55091",
+    "c4b09e45523c0f09de047c2702c804952092241ad4f3ed1d4a506118a90cff8b"
+   ],
+   "resume_export": [
+    "5a5696defec04a022879957812eba70e01383b40d3a615e4df9c3bdbb0e704c5"
+   ],
+   "resume_revision": [
+    "6a6263d6d1789258775f5bca470c868ab20f89f348c9d09d6ccedd36c4d73c75",
+    "45e7eb8ba809f849e55f827766fbec01dbbbf5f88b6a46b9f31d3e32cd4904c0",
+    "af8b7a8af054c104ab7102db13340cd7ed057d5140456a999899f96d301db723",
+    "e085ec659cf594a6ba440464d93113894607f86adf4fdc449ea3de25e87c25f1",
+    "0052af363e2b396fcd71cf09544eeb590fa9b5141b0e02ae7c784c087c98c872"
+   ],
+   "tailoring_run": [
+    "7134e30a68709bbfcbfe1f907d3c085b32726f607ff66277ed1b5c40d35670bb",
+    "60d3e46c85c4b6f7598bdaee459a6f72a9598636a1855d6b98516ced093e4cda",
+    "31bf4abb3f57b1b9ca10cf620a5fd3dc9f5f12d619edd619915137f264d04657"
+   ]
+  }
+ }
+}

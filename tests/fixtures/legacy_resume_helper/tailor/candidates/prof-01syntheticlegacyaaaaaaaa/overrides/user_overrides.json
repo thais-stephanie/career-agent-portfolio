@@ -1,0 +1,21 @@
+{
+  "overrides": [
+    {
+      "id": "override_001",
+      "topic": "location",
+      "applies_to": "position",
+      "target_id": "careeragent-4e84f046d30194698c2f",
+      "field": "location",
+      "value": "Remote",
+      "confirmed_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "override_002",
+      "topic": "phone",
+      "applies_to": "candidate",
+      "field": "phone",
+      "value": "+55 41 0000-0000",
+      "confirmed_at": "2026-01-01T00:00:00Z"
+    }
+  ]
+}
