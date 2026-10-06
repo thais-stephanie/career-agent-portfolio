@@ -59,14 +59,6 @@
     alt="JavaScript ES Modules"
   />
   <img
-    src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white"
-    alt="FastAPI"
-  />
-  <img
-    src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111"
-    alt="React 18"
-  />
-  <img
     src="https://img.shields.io/badge/uv-package%20management-DE5FE9"
     alt="uv"
   />
@@ -151,7 +143,7 @@ workspace.
 |---|
 | ![First-run setup with the profile menu and ten short questions](docs/assets/readme/first-run.png) |
 
-![Workflow: discover, inspect Search Fit and reasons, prepare with Tailor Beta, track applications](docs/assets/readme/how-it-works.png)
+![Workflow: discover, inspect Search Fit and reasons, prepare a resume, track applications](docs/assets/readme/how-it-works.png)
 
 *Workflow illustration, not a screenshot.*
 

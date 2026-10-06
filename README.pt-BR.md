@@ -59,14 +59,6 @@
     alt="JavaScript ES Modules"
   />
   <img
-    src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white"
-    alt="FastAPI"
-  />
-  <img
-    src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111"
-    alt="React 18"
-  />
-  <img
     src="https://img.shields.io/badge/uv-gerenciamento%20de%20pacotes-DE5FE9"
     alt="uv"
   />
@@ -154,7 +146,7 @@ ela também tem português.
 |---|
 | ![Configuração inicial com o menu de perfil e dez perguntas curtas](docs/assets/readme/first-run.png) |
 
-![Fluxo: descobrir, entender o Search Fit, preparar com o Tailor Beta e acompanhar candidaturas](docs/assets/readme/how-it-works.png)
+![Fluxo: descobrir, entender o Search Fit, preparar um currículo e acompanhar candidaturas](docs/assets/readme/how-it-works.png)
 
 *Ilustração do fluxo, não uma captura de tela.*
 

@@ -454,24 +454,25 @@ def register_resume_routes(app: LocalApp) -> None:
 
     def export_path(conn: Any, made: Any) -> Path:
         """Where an export's file is. A file moved from the retired Resume
-        helper stays in that helper's folder: it is served only from THIS
-        profile's old `exports` folder and only while it is the file that
-        was recorded (same sha256); no other path outside this profile's
-        export folder is ever read."""
+        helper stays in that helper's folder: it is looked for by its name in
+        THIS profile's old `exports` folder (so a copied installation still
+        finds it), and only the file that was recorded (same sha256) counts;
+        no other path outside this profile's export folder is ever read."""
         from career_agent.resume_doc.legacy import ENGINE
 
         if made.engine != ENGINE:
             return stored_file(conn, made)
         root = legacy_root()
-        path = Path(made.file_path).resolve()
-        if (
-            root is None
-            or not path.is_relative_to((root / "exports").resolve())
-            or not path.is_file()
-            or hashlib.sha256(path.read_bytes()).hexdigest() != made.file_sha256
-        ):
+        if root is None:
+            raise FileNotFoundError(made.id)
+        exports = (root / "exports").resolve()
+        path = (exports / Path(made.file_path).name).resolve()
+        if not path.is_relative_to(exports) or not path.is_file() or not _same(path, made):
             raise FileNotFoundError(made.id)
         return path
+
+    def _same(path: Path, made: Any) -> bool:
+        return hashlib.sha256(path.read_bytes()).hexdigest() == made.file_sha256
 
     def export_file(*, query: dict, body: dict, export_id: str) -> Download:
         """An export of THIS profile, by its id; the server finds the file."""
@@ -482,10 +483,14 @@ def register_resume_routes(app: LocalApp) -> None:
                 path = export_path(conn, made)
             except (NotFound, FileNotFoundError) as exc:
                 raise ApiError(404, "This file is no longer here.", for_reader=True) from exc
+            from career_agent.resume_doc.legacy import ENGINE
+
+            data = path.read_bytes()
+            if made.engine == ENGINE and hashlib.sha256(data).hexdigest() != made.file_sha256:
+                # Changed between the check and the read: never sent unchecked.
+                raise ApiError(404, "This file is no longer here.", for_reader=True)
             doc = store.get_revision(made.revision_id).content
-            return Download(
-                path.read_bytes(), CONTENT_TYPES[made.format], filename(doc, made.format)
-            )
+            return Download(data, CONTENT_TYPES[made.format], filename(doc, made.format))
 
     def import_read(*, query: dict, body: dict) -> dict[str, Any]:
         return _read_import(body)

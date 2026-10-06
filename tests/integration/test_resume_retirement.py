@@ -310,7 +310,7 @@ def _with_workspace(tmp_path: Path, pid: str, label: str, *, legacy: bool) -> tu
 
 
 def test_each_profile_sees_and_moves_only_its_own_old_resumes(tmp_path: Path) -> None:
-    a, api_a = _with_workspace(tmp_path, "prof-01SYNTHETICRETIREAAAAAAAA", LABEL, legacy=True)
+    _, api_a = _with_workspace(tmp_path, "prof-01SYNTHETICRETIREAAAAAAAA", LABEL, legacy=True)
     _, api_b = _with_workspace(tmp_path, "prof-01SYNTHETICRETIREBBBBBBBB", "Other", legacy=False)
     assert _call(api_b, "GET", "/legacy") == {"state": "NONE"}
     with pytest.raises(ApiError) as nothing:
@@ -331,11 +331,10 @@ def test_each_profile_sees_and_moves_only_its_own_old_resumes(tmp_path: Path) ->
     with pytest.raises(ApiError) as other:
         _call(api_b, "GET", f"/exports/{export_id}/file")
     assert other.value.status == 404
-    assert a.id.lower() in str(Path(a.tailor_home) / "candidates" / a.id.lower())
 
 
 def test_a_moved_download_is_served_only_while_it_is_the_recorded_file(tmp_path: Path) -> None:
-    found, api = _with_workspace(tmp_path, "prof-01SYNTHETICDOWNLOADAAAAAA", LABEL, legacy=True)
+    _, api = _with_workspace(tmp_path, "prof-01SYNTHETICDOWNLOADAAAAAA", LABEL, legacy=True)
     _call(api, "POST", "/legacy/migrate")
     with connect(api.config.db_path) as conn:
         row = conn.execute(
@@ -349,18 +348,75 @@ def test_a_moved_download_is_served_only_while_it_is_the_recorded_file(tmp_path:
         _call(api, "GET", f"/exports/{export_id}/file")
     assert changed.value.status == 404, "a file that is no longer the recorded one is not served"
     path.write_bytes(original)
-    # A recorded path outside the old helper's own exports folder is never read.
+    # Only the recorded file's NAME is used, inside this profile's old
+    # exports folder: a path elsewhere is never read, even with the same bytes.
     with connect(api.config.db_path) as conn:
         outside = tmp_path / "outside.docx"
         outside.write_bytes(original)
+        for crafted in (str(outside), r"..\..\outside.docx", "../../outside.docx"):
+            conn.execute(
+                "UPDATE resume_export SET file_path = ? WHERE id = ?", (crafted, export_id)
+            )
+            conn.commit()
+            with pytest.raises(ApiError) as escaped:
+                _call(api, "GET", f"/exports/{export_id}/file")
+            assert escaped.value.status == 404, crafted
+
+
+def test_a_copied_installation_still_downloads_its_moved_files(tmp_path: Path) -> None:
+    """The documented update copies `data` into a new folder: a moved download
+    recorded at the OLD folder's absolute path is found again by its name."""
+    found, api = _with_workspace(tmp_path, "prof-01SYNTHETICCOPIEDAAAAAAAA", LABEL, legacy=True)
+    _call(api, "POST", "/legacy/migrate")
+    with connect(api.config.db_path) as conn:
+        export_id, recorded = conn.execute(
+            "SELECT id, file_path FROM resume_export WHERE engine = 'resume_tailor_legacy'"
+        ).fetchone()
         conn.execute(
-            "UPDATE resume_export SET file_path = ? WHERE id = ?", (str(outside), export_id)
+            "UPDATE resume_export SET file_path = ? WHERE id = ?",
+            (str(tmp_path / "old-install" / "exports" / Path(recorded).name), export_id),
         )
         conn.commit()
-    with pytest.raises(ApiError) as escaped:
-        _call(api, "GET", f"/exports/{export_id}/file")
-    assert escaped.value.status == 404
+    body = _call(api, "GET", f"/exports/{export_id}/file").body
+    assert body.startswith(b"PK synthetic docx")
     assert found is not None
+
+
+def test_a_malformed_old_file_never_hides_the_move(tmp_path: Path) -> None:
+    found, api = _with_workspace(tmp_path, "prof-01SYNTHETICMALFORMEDAAAAA", LABEL, legacy=True)
+    root = Path(found.tailor_home) / "candidates" / found.id.lower()
+    (root / "base_resumes" / "broken.json").write_text("[1, 2]", encoding="utf-8")
+    (root / "base_resumes" / "noid.json").write_text("{}", encoding="utf-8")
+    said = _call(api, "GET", "/legacy")
+    assert said["state"] == "FOUND" and said["base_resumes"] == 1
+    moved = _call(api, "POST", "/legacy/migrate")
+    assert moved["masters"] == 1
+    assert {"kind": "base", "name": "broken"} in moved["failures"]
+
+
+def test_one_workspace_used_before_profiles_is_found_and_never_guessed(tmp_path: Path) -> None:
+    """The old engine adopted the ONE unclaimed workspace someone used before
+    it followed Career Agent's profiles; so does the migration, read-only."""
+    from career_agent.resume_doc.legacy import find_workspace
+
+    home = tmp_path / "tailor"
+    root = workspace_copy(tmp_path / "frozen")
+    unclaimed = home / "candidates" / "my-old-resumes-x1y2"
+    shutil.copytree(root, unclaimed)
+    meta = json.loads((unclaimed / "candidate.json").read_text("utf-8"))
+    meta.pop(PROFILE_KEY)
+    (unclaimed / "candidate.json").write_text(json.dumps(meta), encoding="utf-8")
+    before = _manifest(unclaimed)
+    assert find_workspace(home, "prof-01SYNTHETICANYONEAAAAAAAAA") == unclaimed
+    assert _manifest(unclaimed) == before, "finding a workspace stamps nothing"
+    # A second unclaimed one makes it a guess: neither is taken.
+    shutil.copytree(unclaimed, home / "candidates" / "another-z9")
+    assert find_workspace(home, "prof-01SYNTHETICANYONEAAAAAAAAA") is None
+    # One claimed by ANOTHER profile means this profile has none.
+    shutil.rmtree(home / "candidates" / "another-z9")
+    meta[PROFILE_KEY] = "prof-01SYNTHETICOTHERAAAAAAAAA"
+    (unclaimed / "candidate.json").write_text(json.dumps(meta), encoding="utf-8")
+    assert find_workspace(home, "prof-01SYNTHETICANYONEAAAAAAAAA") is None
 
 
 def test_a_partial_move_completes_on_retry_without_duplicating_anything(tmp_path: Path) -> None:

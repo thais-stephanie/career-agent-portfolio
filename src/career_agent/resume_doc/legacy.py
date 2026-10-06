@@ -133,20 +133,35 @@ def verify_backup(backup: LegacyBackup) -> None:
         raise LegacyMigrationError("the workspace changed since its backup: back it up again")
 
 
+def _meta(path: Path) -> dict[str, Any]:
+    """A candidate.json as a dict; {} when it cannot be read as one."""
+    try:
+        data = json.loads(path.read_text("utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def find_workspace(home: Path, profile_id: str) -> Path | None:
     """This profile's Resume helper workspace under its Tailor home, or None.
-    Only looks: never creates or adopts one (the old engine does that)."""
+
+    The old engine's own rules, read-only: the folder named after the
+    profile, else the one stamped with its id, else (nothing claimed at all)
+    the ONE unclaimed, unarchived workspace someone used before the helper
+    followed Career Agent's profiles. Several unclaimed ones are a guess and
+    are left alone. Only looks: never creates, stamps or adopts anything."""
     candidates = home / "candidates"
     own = candidates / profile_id.strip().lower()
     if (own / "candidate.json").is_file():
         return own
-    for meta in sorted(candidates.glob("*/candidate.json")):
-        try:
-            if json.loads(meta.read_text("utf-8")).get(PROFILE_KEY) == profile_id:
-                return meta.parent
-        except (OSError, ValueError):
-            continue
-    return None
+    metas = [(m.parent, _meta(m)) for m in sorted(candidates.glob("*/candidate.json"))]
+    for folder, meta in metas:
+        if meta.get(PROFILE_KEY) == profile_id:
+            return folder
+    if any(meta.get(PROFILE_KEY) for _, meta in metas):
+        return None
+    unclaimed = [folder for folder, meta in metas if meta and not meta.get("archived")]
+    return unclaimed[0] if len(unclaimed) == 1 else None
 
 
 def _parses(path: Path) -> bool:
@@ -161,12 +176,12 @@ def preflight(conn: sqlite3.Connection, root: Path) -> dict[str, Any]:
     """What a migration of `root` would move, read without changing anything.
     `state` is NONE (nothing to move), FOUND (nothing moved yet) or MOVED (moved
     before; `remaining` counts the resumes a move could not bring, if any)."""
-    meta: dict[str, Any] = {}
-    with suppress(OSError, ValueError):
-        meta = json.loads((root / "candidate.json").read_text("utf-8"))
+    meta = _meta(root / "candidate.json")
     bases: list[str] = []
     for path in sorted((root / "base_resumes").glob("*.json")):
-        with suppress(OSError, ValueError):
+        # A base resume that cannot be read is the migration's to name; here
+        # it is simply not counted, never a reason to hide the rest.
+        with suppress(OSError, ValueError, KeyError, TypeError):
             bases.append(str(json.loads(path.read_text("utf-8"))["id"]))
     folders = sorted(p for p in (root / "applications").glob("*") if p.is_dir())
     # A run.json that does not even parse can never move: it counts as

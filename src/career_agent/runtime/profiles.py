@@ -337,8 +337,7 @@ def create_profile(root: Path, label: str) -> Profile:
             tailor_home=(base / "tailor").as_posix(),
             color=_COLORS[len(registry.profiles) % len(_COLORS)],
         )
-        db, config_dir, tailor = profile.paths(root)
-        tailor.mkdir(parents=True, exist_ok=True)
+        db, config_dir, _ = profile.paths(root)
         config_dir.mkdir(parents=True, exist_ok=True)
         sync_shipped_config(root, profile)
         conn = connect(db)
