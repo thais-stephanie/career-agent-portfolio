@@ -11,3 +11,6 @@
 *.lock  text eol=lf
 
 BUILD_ID export-subst
+
+# A frozen legacy workspace is a byte-exact contract: never convert it.
+tests/fixtures/legacy_resume_helper/** -text
