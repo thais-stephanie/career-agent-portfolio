@@ -1,0 +1,279 @@
+{
+  "candidate": {
+    "name": ""
+  },
+  "positions": [
+    {
+      "id": "careeragent-246f4ba1ded53d5b1c1b",
+      "company": "Northwind Ops",
+      "title": "Automation Engineer",
+      "start": "2023-01",
+      "end": null,
+      "kind": "employment"
+    },
+    {
+      "id": "careeragent-c0b7ec2412bfdbb16d0d",
+      "company": "Contoso Health",
+      "title": "Business Systems Analyst",
+      "start": "2020-03",
+      "end": "2022-12",
+      "kind": "employment"
+    },
+    {
+      "id": "careeragent-4e84f046d30194698c2f",
+      "company": "Fabrikam Retail",
+      "title": "Operations Analyst",
+      "start": "2018-01",
+      "end": "2020-02",
+      "kind": "employment"
+    },
+    {
+      "id": "careeragent-f5d87505806fe7a647f5",
+      "company": "Tailspin Logistics",
+      "title": "Support Specialist",
+      "start": "2016-05",
+      "end": "2017-12",
+      "kind": "employment"
+    },
+    {
+      "id": "careeragent-b9d26dcb78586fba3d8c",
+      "company": "Adventure Works",
+      "title": "Office Assistant",
+      "start": "2014-02",
+      "end": "2016-04",
+      "kind": "employment"
+    },
+    {
+      "id": "careeragent-7b9f9bbedf939c06d439",
+      "company": "Wide World Importers",
+      "title": "Intern",
+      "start": "2013-01",
+      "end": "2013-12",
+      "kind": "employment"
+    }
+  ],
+  "records": [
+    {
+      "id": "careeragent-4c50565573b8244c922b",
+      "position_id": "careeragent-246f4ba1ded53d5b1c1b",
+      "company": "Northwind Ops",
+      "role": "Automation Engineer",
+      "start": "2023-01",
+      "end": null,
+      "claim": "Built integrations between the billing system and the CRM.",
+      "resume_text": "Built integrations between the billing system and the CRM.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k0a",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-674f73f3d5533813f2b8",
+      "position_id": "careeragent-246f4ba1ded53d5b1c1b",
+      "company": "Northwind Ops",
+      "role": "Automation Engineer",
+      "start": "2023-01",
+      "end": null,
+      "claim": "Automated weekly reporting for the finance team.",
+      "resume_text": "Automated weekly reporting for the finance team.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k0b",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-3c25523f0e9b14d5fb92",
+      "position_id": "careeragent-c0b7ec2412bfdbb16d0d",
+      "company": "Contoso Health",
+      "role": "Business Systems Analyst",
+      "start": "2020-03",
+      "end": "2022-12",
+      "claim": "Mapped recruiting workflows and documented the requirements.",
+      "resume_text": "Mapped recruiting workflows and documented the requirements.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k1a",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-43e1b3336f46395386de",
+      "position_id": "careeragent-c0b7ec2412bfdbb16d0d",
+      "company": "Contoso Health",
+      "role": "Business Systems Analyst",
+      "start": "2020-03",
+      "end": "2022-12",
+      "claim": "Supported payroll operations during a system migration.",
+      "resume_text": "Supported payroll operations during a system migration.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k1b",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-18e9539f61dfdb9c0b49",
+      "position_id": "careeragent-4e84f046d30194698c2f",
+      "company": "Fabrikam Retail",
+      "role": "Operations Analyst",
+      "start": "2018-01",
+      "end": "2020-02",
+      "claim": "Kept the inventory reports accurate for store managers.",
+      "resume_text": "Kept the inventory reports accurate for store managers.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k2a",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-d1713a3ede74768cba21",
+      "position_id": "careeragent-4e84f046d30194698c2f",
+      "company": "Fabrikam Retail",
+      "role": "Operations Analyst",
+      "start": "2018-01",
+      "end": "2020-02",
+      "claim": "Trained new analysts on the reporting process.",
+      "resume_text": "Trained new analysts on the reporting process.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k2b",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-fc4e6bcc05c8ff47ae20",
+      "position_id": "careeragent-f5d87505806fe7a647f5",
+      "company": "Tailspin Logistics",
+      "role": "Support Specialist",
+      "start": "2016-05",
+      "end": "2017-12",
+      "claim": "Answered customer questions about deliveries.",
+      "resume_text": "Answered customer questions about deliveries.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k3a",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-1ae4e460f1a0067b1f71",
+      "position_id": "careeragent-f5d87505806fe7a647f5",
+      "company": "Tailspin Logistics",
+      "role": "Support Specialist",
+      "start": "2016-05",
+      "end": "2017-12",
+      "claim": "Wrote help articles for common delivery issues.",
+      "resume_text": "Wrote help articles for common delivery issues.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k3b",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-22d4a4c0aca332e499c2",
+      "position_id": "careeragent-b9d26dcb78586fba3d8c",
+      "company": "Adventure Works",
+      "role": "Office Assistant",
+      "start": "2014-02",
+      "end": "2016-04",
+      "claim": "Organised the office calendar and supplies.",
+      "resume_text": "Organised the office calendar and supplies.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k4a",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-99bf18285b5655f1ed0d",
+      "position_id": "careeragent-b9d26dcb78586fba3d8c",
+      "company": "Adventure Works",
+      "role": "Office Assistant",
+      "start": "2014-02",
+      "end": "2016-04",
+      "claim": "Prepared monthly expense summaries.",
+      "resume_text": "Prepared monthly expense summaries.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k4b",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-e3cf26b2624b2013d4bc",
+      "position_id": "careeragent-7b9f9bbedf939c06d439",
+      "company": "Wide World Importers",
+      "role": "Intern",
+      "start": "2013-01",
+      "end": "2013-12",
+      "claim": "Entered shipping data into spreadsheets.",
+      "resume_text": "Entered shipping data into spreadsheets.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k5a",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    },
+    {
+      "id": "careeragent-95c155bfb01ecb736dd1",
+      "position_id": "careeragent-7b9f9bbedf939c06d439",
+      "company": "Wide World Importers",
+      "role": "Intern",
+      "start": "2013-01",
+      "end": "2013-12",
+      "claim": "Helped the team check customs paperwork.",
+      "resume_text": "Helped the team check customs paperwork.",
+      "skills": [],
+      "source_file": "career_agent",
+      "source_reference": "k5b",
+      "sources": [
+        "career_agent"
+      ],
+      "verification": "user_verified",
+      "confidence": 1.0
+    }
+  ],
+  "sources": {
+    "career_agent": "Career Agent (confirmed Career Profile)"
+  },
+  "education": [],
+  "certifications": [],
+  "conflicts": []
+}

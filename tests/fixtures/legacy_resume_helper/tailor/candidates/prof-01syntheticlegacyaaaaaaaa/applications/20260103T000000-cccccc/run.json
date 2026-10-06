@@ -1,0 +1,1458 @@
+{
+  "run_id": "20260103T000000-cccccc",
+  "created_at": "2026-10-06T00:20:37.536881+00:00",
+  "request": {
+    "jd_text": "Você gosta de resolver problemas reais com automação? Na Exemplo Digital, construímos integrações para empresas de todos os tamanhos e acreditamos em times pequenos e autônomos que entregam com qualidade.Trabalhamos de forma remota, com ritmo sustentável e muita colaboração entre produto, dados e operações.Se você quer crescer com a gente, venha conversar.Responsabilidades e atribuições• Desenvolver integrações entre sistemas usando APIs REST e webhooks.• Automatizar processos internos com Python e n8n.• Garantir a observabilidade dos fluxos, com alertas e registros claros.• Documentar as soluções e apoiar o time de operações no dia a dia.\nRequisitos: Experiência com Python em produção; Conhecimento de APIs REST e webhooks; Vivência com ferramentas de automação como n8n ou Zapier; Inglês intermediário para leitura de documentação técnica; Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes.\nDiferenciais• Experiência com LangChain ou agentes de IA.• Conhecimento de SQL.",
+    "resume_id": "career_agent_profile",
+    "target_profile": null,
+    "options": {
+      "evidence_only_claims": true,
+      "ats_friendly": true,
+      "max_two_pages": true,
+      "preserve_metrics": true,
+      "show_explanations": true,
+      "use_llm": false,
+      "resume_locale": "en-US"
+    },
+    "target_title": "Synthetic Analyst",
+    "target_company": "",
+    "source": {
+      "kind": "pasted"
+    }
+  },
+  "provider": {
+    "provider": "none",
+    "model": "deterministic",
+    "available": "False"
+  },
+  "job_analysis": {
+    "role_title": "Synthetic Analyst",
+    "company": "",
+    "seniority": "",
+    "domain": [],
+    "must_have": [
+      "Experiência com Python em produção",
+      "Conhecimento de APIs REST e webhooks",
+      "Vivência com ferramentas de automação como n8n ou Zapier",
+      "Inglês intermediário para leitura de documentação técnica",
+      "Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes."
+    ],
+    "nice_to_have": [
+      "Experiência com LangChain ou agentes de IA.",
+      "Conhecimento de SQL."
+    ],
+    "responsibilities": [
+      "Desenvolver integrações entre sistemas usando APIs REST e webhooks.",
+      "Automatizar processos internos com Python e n8n.",
+      "Garantir a observabilidade dos fluxos, com alertas e registros claros.",
+      "Documentar as soluções e apoiar o time de operações no dia a dia."
+    ],
+    "technologies": [
+      "rest apis",
+      "webhooks",
+      "python",
+      "n8n",
+      "zapier",
+      "langchain",
+      "sql"
+    ],
+    "business_capabilities": [],
+    "keywords": [
+      "rest apis",
+      "webhooks",
+      "python",
+      "n8n",
+      "zapier",
+      "langchain",
+      "sql"
+    ],
+    "customer_facing_expectations": [],
+    "management_expectations": [],
+    "potential_hard_filters": [],
+    "years_required": null,
+    "role_scope_observations": [],
+    "requirements": [
+      {
+        "id": "must_001",
+        "text": "Experiência com Python em produção",
+        "category": "must_have",
+        "terms": [
+          "python"
+        ],
+        "weight": 3.0
+      },
+      {
+        "id": "must_002",
+        "text": "Conhecimento de APIs REST e webhooks",
+        "category": "must_have",
+        "terms": [
+          "rest apis",
+          "webhooks"
+        ],
+        "weight": 3.0
+      },
+      {
+        "id": "must_003",
+        "text": "Vivência com ferramentas de automação como n8n ou Zapier",
+        "category": "must_have",
+        "terms": [
+          "n8n",
+          "zapier"
+        ],
+        "weight": 3.0
+      },
+      {
+        "id": "must_004",
+        "text": "Inglês intermediário para leitura de documentação técnica",
+        "category": "must_have",
+        "terms": [],
+        "weight": 3.0
+      },
+      {
+        "id": "must_005",
+        "text": "Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes.",
+        "category": "must_have",
+        "terms": [],
+        "weight": 3.0
+      },
+      {
+        "id": "nice_006",
+        "text": "Experiência com LangChain ou agentes de IA.",
+        "category": "nice_to_have",
+        "terms": [
+          "langchain"
+        ],
+        "weight": 1.0
+      },
+      {
+        "id": "nice_007",
+        "text": "Conhecimento de SQL.",
+        "category": "nice_to_have",
+        "terms": [
+          "sql"
+        ],
+        "weight": 1.0
+      },
+      {
+        "id": "resp_008",
+        "text": "Desenvolver integrações entre sistemas usando APIs REST e webhooks.",
+        "category": "responsibility",
+        "terms": [
+          "rest apis",
+          "webhooks"
+        ],
+        "weight": 2.0
+      },
+      {
+        "id": "resp_009",
+        "text": "Automatizar processos internos com Python e n8n.",
+        "category": "responsibility",
+        "terms": [
+          "python",
+          "n8n"
+        ],
+        "weight": 2.0
+      },
+      {
+        "id": "resp_010",
+        "text": "Garantir a observabilidade dos fluxos, com alertas e registros claros.",
+        "category": "responsibility",
+        "terms": [],
+        "weight": 2.0
+      },
+      {
+        "id": "resp_011",
+        "text": "Documentar as soluções e apoiar o time de operações no dia a dia.",
+        "category": "responsibility",
+        "terms": [],
+        "weight": 2.0
+      },
+      {
+        "id": "tech_012",
+        "text": "rest apis",
+        "category": "technology",
+        "terms": [
+          "rest apis"
+        ],
+        "weight": 2.0
+      },
+      {
+        "id": "tech_013",
+        "text": "webhooks",
+        "category": "technology",
+        "terms": [
+          "webhooks"
+        ],
+        "weight": 2.0
+      },
+      {
+        "id": "tech_014",
+        "text": "python",
+        "category": "technology",
+        "terms": [
+          "python"
+        ],
+        "weight": 2.0
+      },
+      {
+        "id": "tech_015",
+        "text": "n8n",
+        "category": "technology",
+        "terms": [
+          "n8n"
+        ],
+        "weight": 2.0
+      },
+      {
+        "id": "tech_016",
+        "text": "zapier",
+        "category": "technology",
+        "terms": [
+          "zapier"
+        ],
+        "weight": 2.0
+      },
+      {
+        "id": "tech_017",
+        "text": "langchain",
+        "category": "technology",
+        "terms": [
+          "langchain"
+        ],
+        "weight": 2.0
+      },
+      {
+        "id": "tech_018",
+        "text": "sql",
+        "category": "technology",
+        "terms": [
+          "sql"
+        ],
+        "weight": 2.0
+      }
+    ],
+    "analysis_source": "deterministic"
+  },
+  "evidence_matches": {
+    "matches": [
+      {
+        "requirement_id": "must_001",
+        "requirement_text": "Experiência com Python em produção",
+        "category": "must_have",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "must_002",
+        "requirement_text": "Conhecimento de APIs REST e webhooks",
+        "category": "must_have",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "must_003",
+        "requirement_text": "Vivência com ferramentas de automação como n8n ou Zapier",
+        "category": "must_have",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "must_004",
+        "requirement_text": "Inglês intermediário para leitura de documentação técnica",
+        "category": "must_have",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "must_005",
+        "requirement_text": "Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes.",
+        "category": "must_have",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "nice_006",
+        "requirement_text": "Experiência com LangChain ou agentes de IA.",
+        "category": "nice_to_have",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "nice_007",
+        "requirement_text": "Conhecimento de SQL.",
+        "category": "nice_to_have",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "resp_008",
+        "requirement_text": "Desenvolver integrações entre sistemas usando APIs REST e webhooks.",
+        "category": "responsibility",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "resp_009",
+        "requirement_text": "Automatizar processos internos com Python e n8n.",
+        "category": "responsibility",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "resp_010",
+        "requirement_text": "Garantir a observabilidade dos fluxos, com alertas e registros claros.",
+        "category": "responsibility",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "resp_011",
+        "requirement_text": "Documentar as soluções e apoiar o time de operações no dia a dia.",
+        "category": "responsibility",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "tech_012",
+        "requirement_text": "rest apis",
+        "category": "technology",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "tech_013",
+        "requirement_text": "webhooks",
+        "category": "technology",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "tech_014",
+        "requirement_text": "python",
+        "category": "technology",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "tech_015",
+        "requirement_text": "n8n",
+        "category": "technology",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "tech_016",
+        "requirement_text": "zapier",
+        "category": "technology",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "tech_017",
+        "requirement_text": "langchain",
+        "category": "technology",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      },
+      {
+        "requirement_id": "tech_018",
+        "requirement_text": "sql",
+        "category": "technology",
+        "match_type": "unsupported",
+        "evidence": [],
+        "rationale": "No evidence in the bank supports this requirement.",
+        "deterministic_ceiling": "unsupported",
+        "hard_capped": false
+      }
+    ],
+    "gaps": [
+      "must_001",
+      "must_002",
+      "must_003",
+      "must_004",
+      "must_005",
+      "nice_006",
+      "nice_007",
+      "resp_008",
+      "resp_009",
+      "resp_010",
+      "resp_011",
+      "tech_012",
+      "tech_013",
+      "tech_014",
+      "tech_015",
+      "tech_016",
+      "tech_017",
+      "tech_018"
+    ],
+    "coverage": {
+      "must_have_evidence_coverage": 0.0,
+      "must_have_direct_coverage": 0.0,
+      "nice_to_have_evidence_coverage": 0.0,
+      "responsibility_coverage": 0.0,
+      "technology_coverage": 0.0,
+      "overall_coverage": 0.0,
+      "requirements_total": 18.0,
+      "gaps_total": 18.0
+    },
+    "matching_source": "deterministic"
+  },
+  "resume_strategy": {
+    "target_profile": "general",
+    "profile_inferred": true,
+    "profile_scores": {
+      "general": 0.0
+    },
+    "recommended_title": "Automation Engineer",
+    "positioning": "Position as Automation Engineer: lead with Northwind Ops evidence that answers the must-haves; keep unsupported requirements (18) visible as gaps rather than papering over them.",
+    "position_plans": [
+      {
+        "position_id": "careeragent-246f4ba1ded53d5b1c1b",
+        "relevance": 0.2,
+        "max_bullets": 2,
+        "featured_evidence_ids": [
+          "careeragent-4c50565573b8244c922b"
+        ],
+        "note": "lead with this experience"
+      },
+      {
+        "position_id": "careeragent-c0b7ec2412bfdbb16d0d",
+        "relevance": 0.0,
+        "max_bullets": 1,
+        "featured_evidence_ids": [
+          "careeragent-3c25523f0e9b14d5fb92"
+        ],
+        "note": "compress: 1-2 bullets"
+      },
+      {
+        "position_id": "careeragent-4e84f046d30194698c2f",
+        "relevance": 0.0,
+        "max_bullets": 1,
+        "featured_evidence_ids": [
+          "careeragent-18e9539f61dfdb9c0b49"
+        ],
+        "note": "compress: 1-2 bullets"
+      },
+      {
+        "position_id": "careeragent-f5d87505806fe7a647f5",
+        "relevance": 0.0,
+        "max_bullets": 1,
+        "featured_evidence_ids": [
+          "careeragent-fc4e6bcc05c8ff47ae20"
+        ],
+        "note": "compress: 1-2 bullets"
+      },
+      {
+        "position_id": "careeragent-b9d26dcb78586fba3d8c",
+        "relevance": 0.0,
+        "max_bullets": 2,
+        "featured_evidence_ids": [
+          "careeragent-22d4a4c0aca332e499c2"
+        ],
+        "note": "supporting experience"
+      },
+      {
+        "position_id": "careeragent-7b9f9bbedf939c06d439",
+        "relevance": 0.0,
+        "max_bullets": 2,
+        "featured_evidence_ids": [
+          "careeragent-e3cf26b2624b2013d4bc"
+        ],
+        "note": "supporting experience"
+      }
+    ],
+    "emphasized_projects": [],
+    "evidence_to_feature": [],
+    "content_to_reduce": [
+      "careeragent-246f4ba1ded53d5b1c1b -> 2 bullet(s)",
+      "careeragent-c0b7ec2412bfdbb16d0d -> 1 bullet(s)",
+      "careeragent-4e84f046d30194698c2f -> 1 bullet(s)",
+      "careeragent-f5d87505806fe7a647f5 -> 1 bullet(s)",
+      "careeragent-b9d26dcb78586fba3d8c -> 2 bullet(s)",
+      "careeragent-7b9f9bbedf939c06d439 -> 2 bullet(s)"
+    ],
+    "terms_to_introduce": [],
+    "underrepresented_skills": [],
+    "irrelevant_content": [
+      "careeragent-246f4ba1ded53d5b1c1b: Built integrations between the billing system and the CRM.",
+      "careeragent-246f4ba1ded53d5b1c1b: Automated weekly reporting for the finance team.",
+      "careeragent-c0b7ec2412bfdbb16d0d: Mapped recruiting workflows and documented the requirements.",
+      "careeragent-c0b7ec2412bfdbb16d0d: Supported payroll operations during a system migration.",
+      "careeragent-4e84f046d30194698c2f: Kept the inventory reports accurate for store managers.",
+      "careeragent-4e84f046d30194698c2f: Trained new analysts on the reporting process.",
+      "careeragent-f5d87505806fe7a647f5: Answered customer questions about deliveries.",
+      "careeragent-f5d87505806fe7a647f5: Wrote help articles for common delivery issues.",
+      "careeragent-b9d26dcb78586fba3d8c: Organised the office calendar and supplies.",
+      "careeragent-b9d26dcb78586fba3d8c: Prepared monthly expense summaries.",
+      "careeragent-7b9f9bbedf939c06d439: Entered shipping data into spreadsheets.",
+      "careeragent-7b9f9bbedf939c06d439: Helped the team check customs paperwork."
+    ],
+    "section_order": [
+      "summary",
+      "experience",
+      "skills",
+      "education",
+      "certifications"
+    ],
+    "target_length_pages": 2,
+    "rationale": "Deterministic plan: bullet budgets follow weighted requirement coverage per position; gaps: Experiência com Python em produção; Conhecimento de APIs REST e webhooks; Vivência com ferramentas de automação como n8n ou Zapier; Inglês intermediário para leitura de documentação técnica; Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes.",
+    "fit_notes": [],
+    "hero_evidence_ids": [],
+    "evidence_value": {},
+    "strategy_source": "deterministic"
+  },
+  "generated_resume": {
+    "candidate": {
+      "name": "",
+      "email": "",
+      "phone": "+55 41 0000-0000",
+      "location": "",
+      "linkedin": "",
+      "portfolio": "",
+      "languages": [],
+      "overrides_applied": [
+        "override_002"
+      ]
+    },
+    "headline": "Automation Engineer",
+    "summary": [
+      {
+        "id": "s002",
+        "text": "Most recently at Northwind Ops, built integrations between the billing system and the CRM.",
+        "evidence_ids": [
+          "careeragent-4c50565573b8244c922b"
+        ],
+        "bindings": [],
+        "requirement_ids": [],
+        "origin": "verbatim",
+        "status": "supported"
+      },
+      {
+        "id": "s003",
+        "text": "Earlier, at Contoso Health (2020–2022), mapped recruiting workflows and documented the requirements.",
+        "evidence_ids": [
+          "careeragent-3c25523f0e9b14d5fb92"
+        ],
+        "bindings": [],
+        "requirement_ids": [],
+        "origin": "verbatim",
+        "status": "supported"
+      }
+    ],
+    "experience": [
+      {
+        "position_id": "careeragent-246f4ba1ded53d5b1c1b",
+        "company": "Northwind Ops",
+        "title": "Automation Engineer",
+        "start": "2023-01",
+        "end": null,
+        "location": "",
+        "company_blurb": "",
+        "bullets": [
+          {
+            "id": "b001",
+            "text": "Built integrations between the billing system and the CRM.",
+            "evidence_ids": [
+              "careeragent-4c50565573b8244c922b"
+            ],
+            "bindings": [],
+            "requirement_ids": [],
+            "origin": "verbatim",
+            "status": "supported"
+          }
+        ]
+      },
+      {
+        "position_id": "careeragent-c0b7ec2412bfdbb16d0d",
+        "company": "Contoso Health",
+        "title": "Business Systems Analyst",
+        "start": "2020-03",
+        "end": "2022-12",
+        "location": "",
+        "company_blurb": "",
+        "bullets": [
+          {
+            "id": "b002",
+            "text": "Mapped recruiting workflows and documented the requirements.",
+            "evidence_ids": [
+              "careeragent-3c25523f0e9b14d5fb92"
+            ],
+            "bindings": [],
+            "requirement_ids": [],
+            "origin": "verbatim",
+            "status": "supported"
+          }
+        ]
+      },
+      {
+        "position_id": "careeragent-4e84f046d30194698c2f",
+        "company": "Fabrikam Retail",
+        "title": "Operations Analyst",
+        "start": "2018-01",
+        "end": "2020-02",
+        "location": "Remote",
+        "company_blurb": "",
+        "bullets": [
+          {
+            "id": "b003",
+            "text": "Kept the inventory reports accurate for store managers.",
+            "evidence_ids": [
+              "careeragent-18e9539f61dfdb9c0b49"
+            ],
+            "bindings": [],
+            "requirement_ids": [],
+            "origin": "verbatim",
+            "status": "supported"
+          }
+        ]
+      },
+      {
+        "position_id": "careeragent-f5d87505806fe7a647f5",
+        "company": "Tailspin Logistics",
+        "title": "Support Specialist",
+        "start": "2016-05",
+        "end": "2017-12",
+        "location": "",
+        "company_blurb": "",
+        "bullets": [
+          {
+            "id": "b004",
+            "text": "Answered customer questions about deliveries.",
+            "evidence_ids": [
+              "careeragent-fc4e6bcc05c8ff47ae20"
+            ],
+            "bindings": [],
+            "requirement_ids": [],
+            "origin": "verbatim",
+            "status": "supported"
+          }
+        ]
+      },
+      {
+        "position_id": "careeragent-b9d26dcb78586fba3d8c",
+        "company": "Adventure Works",
+        "title": "Office Assistant",
+        "start": "2014-02",
+        "end": "2016-04",
+        "location": "",
+        "company_blurb": "",
+        "bullets": [
+          {
+            "id": "b005",
+            "text": "Organized the office calendar and supplies.",
+            "evidence_ids": [
+              "careeragent-22d4a4c0aca332e499c2"
+            ],
+            "bindings": [],
+            "requirement_ids": [],
+            "origin": "verbatim",
+            "status": "supported"
+          }
+        ]
+      },
+      {
+        "position_id": "careeragent-7b9f9bbedf939c06d439",
+        "company": "Wide World Importers",
+        "title": "Intern",
+        "start": "2013-01",
+        "end": "2013-12",
+        "location": "",
+        "company_blurb": "",
+        "bullets": [
+          {
+            "id": "b006",
+            "text": "Entered shipping data into spreadsheets.",
+            "evidence_ids": [
+              "careeragent-e3cf26b2624b2013d4bc"
+            ],
+            "bindings": [],
+            "requirement_ids": [],
+            "origin": "verbatim",
+            "status": "supported"
+          }
+        ]
+      }
+    ],
+    "skills": [],
+    "education": [],
+    "certifications": [],
+    "section_order": [
+      "summary",
+      "experience",
+      "skills",
+      "education",
+      "certifications"
+    ],
+    "generation_source": "deterministic",
+    "estimated_pages": 0.67,
+    "estimated_words": 66
+  },
+  "claim_evidence_map": {
+    "entries": [
+      {
+        "claim_id": "s002",
+        "location": "summary",
+        "text": "Most recently at Northwind Ops, built integrations between the billing system and the CRM.",
+        "evidence_ids": [
+          "careeragent-4c50565573b8244c922b"
+        ],
+        "status": "supported",
+        "checks": [
+          {
+            "check": "evidence_exists",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "bindings",
+            "passed": true,
+            "detail": "single record"
+          },
+          {
+            "check": "terms_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "numbers_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_overstatement",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "number_scope",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_upgrade",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "years_plausible",
+            "passed": true,
+            "detail": ""
+          }
+        ],
+        "replacement_text": null,
+        "bindings": []
+      },
+      {
+        "claim_id": "s003",
+        "location": "summary",
+        "text": "Earlier, at Contoso Health (2020–2022), mapped recruiting workflows and documented the requirements.",
+        "evidence_ids": [
+          "careeragent-3c25523f0e9b14d5fb92"
+        ],
+        "status": "supported",
+        "checks": [
+          {
+            "check": "evidence_exists",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "bindings",
+            "passed": true,
+            "detail": "single record"
+          },
+          {
+            "check": "terms_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "numbers_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_overstatement",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "number_scope",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_upgrade",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "years_plausible",
+            "passed": true,
+            "detail": ""
+          }
+        ],
+        "replacement_text": null,
+        "bindings": []
+      },
+      {
+        "claim_id": "b001",
+        "location": "careeragent-246f4ba1ded53d5b1c1b",
+        "text": "Built integrations between the billing system and the CRM.",
+        "evidence_ids": [
+          "careeragent-4c50565573b8244c922b"
+        ],
+        "status": "supported",
+        "checks": [
+          {
+            "check": "evidence_exists",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "bindings",
+            "passed": true,
+            "detail": "single record"
+          },
+          {
+            "check": "terms_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "numbers_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_overstatement",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "number_scope",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_upgrade",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "years_plausible",
+            "passed": true,
+            "detail": ""
+          }
+        ],
+        "replacement_text": null,
+        "bindings": []
+      },
+      {
+        "claim_id": "b002",
+        "location": "careeragent-c0b7ec2412bfdbb16d0d",
+        "text": "Mapped recruiting workflows and documented the requirements.",
+        "evidence_ids": [
+          "careeragent-3c25523f0e9b14d5fb92"
+        ],
+        "status": "supported",
+        "checks": [
+          {
+            "check": "evidence_exists",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "bindings",
+            "passed": true,
+            "detail": "single record"
+          },
+          {
+            "check": "terms_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "numbers_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_overstatement",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "number_scope",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_upgrade",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "years_plausible",
+            "passed": true,
+            "detail": ""
+          }
+        ],
+        "replacement_text": null,
+        "bindings": []
+      },
+      {
+        "claim_id": "b003",
+        "location": "careeragent-4e84f046d30194698c2f",
+        "text": "Kept the inventory reports accurate for store managers.",
+        "evidence_ids": [
+          "careeragent-18e9539f61dfdb9c0b49"
+        ],
+        "status": "supported",
+        "checks": [
+          {
+            "check": "evidence_exists",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "bindings",
+            "passed": true,
+            "detail": "single record"
+          },
+          {
+            "check": "terms_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "numbers_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_overstatement",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "number_scope",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_upgrade",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "years_plausible",
+            "passed": true,
+            "detail": ""
+          }
+        ],
+        "replacement_text": null,
+        "bindings": []
+      },
+      {
+        "claim_id": "b004",
+        "location": "careeragent-f5d87505806fe7a647f5",
+        "text": "Answered customer questions about deliveries.",
+        "evidence_ids": [
+          "careeragent-fc4e6bcc05c8ff47ae20"
+        ],
+        "status": "supported",
+        "checks": [
+          {
+            "check": "evidence_exists",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "bindings",
+            "passed": true,
+            "detail": "single record"
+          },
+          {
+            "check": "terms_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "numbers_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_overstatement",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "number_scope",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_upgrade",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "years_plausible",
+            "passed": true,
+            "detail": ""
+          }
+        ],
+        "replacement_text": null,
+        "bindings": []
+      },
+      {
+        "claim_id": "b005",
+        "location": "careeragent-b9d26dcb78586fba3d8c",
+        "text": "Organized the office calendar and supplies.",
+        "evidence_ids": [
+          "careeragent-22d4a4c0aca332e499c2"
+        ],
+        "status": "supported",
+        "checks": [
+          {
+            "check": "evidence_exists",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "bindings",
+            "passed": true,
+            "detail": "single record"
+          },
+          {
+            "check": "terms_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "numbers_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_overstatement",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "number_scope",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_upgrade",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "years_plausible",
+            "passed": true,
+            "detail": ""
+          }
+        ],
+        "replacement_text": null,
+        "bindings": []
+      },
+      {
+        "claim_id": "b006",
+        "location": "careeragent-7b9f9bbedf939c06d439",
+        "text": "Entered shipping data into spreadsheets.",
+        "evidence_ids": [
+          "careeragent-e3cf26b2624b2013d4bc"
+        ],
+        "status": "supported",
+        "checks": [
+          {
+            "check": "evidence_exists",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "bindings",
+            "passed": true,
+            "detail": "single record"
+          },
+          {
+            "check": "terms_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "numbers_supported",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_overstatement",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "number_scope",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "no_upgrade",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "years_plausible",
+            "passed": true,
+            "detail": ""
+          }
+        ],
+        "replacement_text": null,
+        "bindings": []
+      }
+    ]
+  },
+  "validation_report": {
+    "status": "pass",
+    "total_claims": 8,
+    "supported": 8,
+    "rejected": 0,
+    "replaced": 0,
+    "issues": [],
+    "unsupported_skills_removed": [],
+    "structural_checks": [
+      {
+        "check": "position_fields_unaltered",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "chronology",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "position_fields_unaltered",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "chronology",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "position_fields_unaltered",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "chronology",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "position_fields_unaltered",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "chronology",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "position_fields_unaltered",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "chronology",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "position_fields_unaltered",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "check": "chronology",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  "lint_report": {
+    "findings": [
+      {
+        "code": "unsupported_keyword",
+        "severity": "error",
+        "message": "'automation' appears in the resume but no evidence record vouches for it",
+        "location": "keywords"
+      },
+      {
+        "code": "page_length_short",
+        "severity": "warning",
+        "message": "Estimated 0.67 pages; likely too thin",
+        "location": "document"
+      },
+      {
+        "code": "jd_terms_without_evidence",
+        "severity": "info",
+        "message": "JD terms with no evidence (gaps, correctly absent): langchain, n8n, python, rest apis, sql, webhooks, zapier",
+        "location": "keywords"
+      }
+    ],
+    "metrics": {
+      "must_have_evidence_coverage": 0.0,
+      "must_have_direct_coverage": 0.0,
+      "nice_to_have_evidence_coverage": 0.0,
+      "supported_keyword_coverage": 1.0,
+      "jd_terms_total": 7,
+      "jd_terms_evidenced": 0,
+      "jd_terms_in_resume": 0,
+      "unsupported_claims_count": 0,
+      "unsupported_keywords_in_resume": 1,
+      "underrepresented_evidence_count": 0,
+      "must_have_gaps": 5,
+      "nice_to_have_gaps": 2,
+      "estimated_pages": 0.67,
+      "estimated_words": 66,
+      "errors": 1,
+      "warnings": 1
+    },
+    "disclaimer": "Internal coverage metrics computed from the evidence bank and the parsed job description. They are not hiring or ATS-acceptance probabilities."
+  },
+  "diff_report": {
+    "base_resume_id": "career_agent_profile",
+    "changes": [
+      {
+        "section": "headline",
+        "kind": "kept",
+        "original": "Automation Engineer",
+        "tailored": "Automation Engineer",
+        "why": "",
+        "supported_by": [],
+        "requirement_ids": []
+      },
+      {
+        "section": "summary",
+        "kind": "modified",
+        "original": "",
+        "tailored": "Most recently at Northwind Ops, built integrations between the billing system and the CRM. Earlier, at Contoso Health (2020–2022), mapped recruiting workflows and documented the requirements.",
+        "why": "Summary rewritten to lead with evidence answering the must-haves. Position as Automation Engineer: lead with Northwind Ops evidence that answers the must-haves; keep unsupported requirements (18) visible as gaps rather than papering over them.",
+        "supported_by": [
+          "careeragent-3c25523f0e9b14d5fb92",
+          "careeragent-4c50565573b8244c922b"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-246f4ba1ded53d5b1c1b",
+        "kind": "kept",
+        "original": "Built integrations between the billing system and the CRM.",
+        "tailored": "Built integrations between the billing system and the CRM.",
+        "why": "",
+        "supported_by": [
+          "careeragent-4c50565573b8244c922b"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-246f4ba1ded53d5b1c1b",
+        "kind": "removed",
+        "original": "Automated weekly reporting for the finance team.",
+        "tailored": null,
+        "why": "Omitted: its evidence answers no requirement in this JD.",
+        "supported_by": [
+          "careeragent-674f73f3d5533813f2b8"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-c0b7ec2412bfdbb16d0d",
+        "kind": "kept",
+        "original": "Mapped recruiting workflows and documented the requirements.",
+        "tailored": "Mapped recruiting workflows and documented the requirements.",
+        "why": "",
+        "supported_by": [
+          "careeragent-3c25523f0e9b14d5fb92"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-c0b7ec2412bfdbb16d0d",
+        "kind": "removed",
+        "original": "Supported payroll operations during a system migration.",
+        "tailored": null,
+        "why": "Omitted: its evidence answers no requirement in this JD.",
+        "supported_by": [
+          "careeragent-43e1b3336f46395386de"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-4e84f046d30194698c2f",
+        "kind": "kept",
+        "original": "Kept the inventory reports accurate for store managers.",
+        "tailored": "Kept the inventory reports accurate for store managers.",
+        "why": "",
+        "supported_by": [
+          "careeragent-18e9539f61dfdb9c0b49"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-4e84f046d30194698c2f",
+        "kind": "removed",
+        "original": "Trained new analysts on the reporting process.",
+        "tailored": null,
+        "why": "Omitted: its evidence answers no requirement in this JD.",
+        "supported_by": [
+          "careeragent-d1713a3ede74768cba21"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-f5d87505806fe7a647f5",
+        "kind": "kept",
+        "original": "Answered customer questions about deliveries.",
+        "tailored": "Answered customer questions about deliveries.",
+        "why": "",
+        "supported_by": [
+          "careeragent-fc4e6bcc05c8ff47ae20"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-f5d87505806fe7a647f5",
+        "kind": "removed",
+        "original": "Wrote help articles for common delivery issues.",
+        "tailored": null,
+        "why": "Omitted: its evidence answers no requirement in this JD.",
+        "supported_by": [
+          "careeragent-1ae4e460f1a0067b1f71"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-b9d26dcb78586fba3d8c",
+        "kind": "kept",
+        "original": "Organised the office calendar and supplies.",
+        "tailored": "Organized the office calendar and supplies.",
+        "why": "",
+        "supported_by": [
+          "careeragent-22d4a4c0aca332e499c2"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-b9d26dcb78586fba3d8c",
+        "kind": "removed",
+        "original": "Prepared monthly expense summaries.",
+        "tailored": null,
+        "why": "Omitted: its evidence answers no requirement in this JD.",
+        "supported_by": [
+          "careeragent-99bf18285b5655f1ed0d"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-7b9f9bbedf939c06d439",
+        "kind": "kept",
+        "original": "Entered shipping data into spreadsheets.",
+        "tailored": "Entered shipping data into spreadsheets.",
+        "why": "",
+        "supported_by": [
+          "careeragent-e3cf26b2624b2013d4bc"
+        ],
+        "requirement_ids": []
+      },
+      {
+        "section": "careeragent-7b9f9bbedf939c06d439",
+        "kind": "removed",
+        "original": "Helped the team check customs paperwork.",
+        "tailored": null,
+        "why": "Omitted: its evidence answers no requirement in this JD.",
+        "supported_by": [
+          "careeragent-95c155bfb01ecb736dd1"
+        ],
+        "requirement_ids": []
+      }
+    ],
+    "summary": {
+      "added": 0,
+      "modified": 1,
+      "removed": 6,
+      "kept": 7
+    }
+  },
+  "page_measurement": {
+    "limit": 2,
+    "estimated_pages": 0.67,
+    "actual_pages": 1,
+    "source": "word",
+    "passes": 1,
+    "trimmed": [],
+    "limit_met": true,
+    "note": "verified: 1 page(s) rendered by word"
+  },
+  "warnings": [
+    "headline replaced with the stable one: unsupported terms"
+  ]
+}

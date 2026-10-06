@@ -1,0 +1,113 @@
+{
+  "id": "career_agent_profile",
+  "name": "From my Career Profile",
+  "headline": "Automation Engineer",
+  "summary": [],
+  "positions": [
+    {
+      "position_id": "careeragent-246f4ba1ded53d5b1c1b",
+      "bullets": [
+        {
+          "text": "Built integrations between the billing system and the CRM.",
+          "evidence_ids": [
+            "careeragent-4c50565573b8244c922b"
+          ]
+        },
+        {
+          "text": "Automated weekly reporting for the finance team.",
+          "evidence_ids": [
+            "careeragent-674f73f3d5533813f2b8"
+          ]
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-c0b7ec2412bfdbb16d0d",
+      "bullets": [
+        {
+          "text": "Mapped recruiting workflows and documented the requirements.",
+          "evidence_ids": [
+            "careeragent-3c25523f0e9b14d5fb92"
+          ]
+        },
+        {
+          "text": "Supported payroll operations during a system migration.",
+          "evidence_ids": [
+            "careeragent-43e1b3336f46395386de"
+          ]
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-4e84f046d30194698c2f",
+      "bullets": [
+        {
+          "text": "Kept the inventory reports accurate for store managers.",
+          "evidence_ids": [
+            "careeragent-18e9539f61dfdb9c0b49"
+          ]
+        },
+        {
+          "text": "Trained new analysts on the reporting process.",
+          "evidence_ids": [
+            "careeragent-d1713a3ede74768cba21"
+          ]
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-f5d87505806fe7a647f5",
+      "bullets": [
+        {
+          "text": "Answered customer questions about deliveries.",
+          "evidence_ids": [
+            "careeragent-fc4e6bcc05c8ff47ae20"
+          ]
+        },
+        {
+          "text": "Wrote help articles for common delivery issues.",
+          "evidence_ids": [
+            "careeragent-1ae4e460f1a0067b1f71"
+          ]
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-b9d26dcb78586fba3d8c",
+      "bullets": [
+        {
+          "text": "Organised the office calendar and supplies.",
+          "evidence_ids": [
+            "careeragent-22d4a4c0aca332e499c2"
+          ]
+        },
+        {
+          "text": "Prepared monthly expense summaries.",
+          "evidence_ids": [
+            "careeragent-99bf18285b5655f1ed0d"
+          ]
+        }
+      ]
+    },
+    {
+      "position_id": "careeragent-7b9f9bbedf939c06d439",
+      "bullets": [
+        {
+          "text": "Entered shipping data into spreadsheets.",
+          "evidence_ids": [
+            "careeragent-e3cf26b2624b2013d4bc"
+          ]
+        },
+        {
+          "text": "Helped the team check customs paperwork.",
+          "evidence_ids": [
+            "careeragent-95c155bfb01ecb736dd1"
+          ]
+        }
+      ]
+    }
+  ],
+  "skills": [],
+  "source_file": "career_agent",
+  "default_profile": null
+}

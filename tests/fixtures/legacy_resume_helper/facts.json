@@ -1,0 +1,64 @@
+{
+  "label": "Synthetic Work",
+  "profile_id": "prof-01SYNTHETICLEGACYAAAAAAAA",
+  "job_title": "Engenheiro(a) de Automação de IA - Sênior",
+  "job_ad": "Você gosta de resolver problemas reais com automação? Na Exemplo Digital, construímos integrações para empresas de todos os tamanhos e acreditamos em times pequenos e autônomos que entregam com qualidade.Trabalhamos de forma remota, com ritmo sustentável e muita colaboração entre produto, dados e operações.Se você quer crescer com a gente, venha conversar.Responsabilidades e atribuições• Desenvolver integrações entre sistemas usando APIs REST e webhooks.• Automatizar processos internos com Python e n8n.• Garantir a observabilidade dos fluxos, com alertas e registros claros.• Documentar as soluções e apoiar o time de operações no dia a dia.\nRequisitos: Experiência com Python em produção; Conhecimento de APIs REST e webhooks; Vivência com ferramentas de automação como n8n ou Zapier; Inglês intermediário para leitura de documentação técnica; Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes.\nDiferenciais• Experiência com LangChain ou agentes de IA.• Conhecimento de SQL.",
+  "titles": [
+    "Automation Engineer",
+    "Business Systems Analyst",
+    "Operations Analyst",
+    "Support Specialist",
+    "Office Assistant",
+    "Intern"
+  ],
+  "claims": [
+    {
+      "key": "k0a",
+      "text": "Built integrations between the billing system and the CRM."
+    },
+    {
+      "key": "k0b",
+      "text": "Automated weekly reporting for the finance team."
+    },
+    {
+      "key": "k1a",
+      "text": "Mapped recruiting workflows and documented the requirements."
+    },
+    {
+      "key": "k1b",
+      "text": "Supported payroll operations during a system migration."
+    },
+    {
+      "key": "k2a",
+      "text": "Kept the inventory reports accurate for store managers."
+    },
+    {
+      "key": "k2b",
+      "text": "Trained new analysts on the reporting process."
+    },
+    {
+      "key": "k3a",
+      "text": "Answered customer questions about deliveries."
+    },
+    {
+      "key": "k3b",
+      "text": "Wrote help articles for common delivery issues."
+    },
+    {
+      "key": "k4a",
+      "text": "Organised the office calendar and supplies."
+    },
+    {
+      "key": "k4b",
+      "text": "Prepared monthly expense summaries."
+    },
+    {
+      "key": "k5a",
+      "text": "Entered shipping data into spreadsheets."
+    },
+    {
+      "key": "k5b",
+      "text": "Helped the team check customs paperwork."
+    }
+  ]
+}

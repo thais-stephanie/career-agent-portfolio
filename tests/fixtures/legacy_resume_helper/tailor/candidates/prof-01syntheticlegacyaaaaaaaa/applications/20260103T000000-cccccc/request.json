@@ -1,0 +1,19 @@
+{
+  "jd_text": "Você gosta de resolver problemas reais com automação? Na Exemplo Digital, construímos integrações para empresas de todos os tamanhos e acreditamos em times pequenos e autônomos que entregam com qualidade.Trabalhamos de forma remota, com ritmo sustentável e muita colaboração entre produto, dados e operações.Se você quer crescer com a gente, venha conversar.Responsabilidades e atribuições• Desenvolver integrações entre sistemas usando APIs REST e webhooks.• Automatizar processos internos com Python e n8n.• Garantir a observabilidade dos fluxos, com alertas e registros claros.• Documentar as soluções e apoiar o time de operações no dia a dia.\nRequisitos: Experiência com Python em produção; Conhecimento de APIs REST e webhooks; Vivência com ferramentas de automação como n8n ou Zapier; Inglês intermediário para leitura de documentação técnica; Capacidade de explicar soluções para pessoas não técnicas de forma clara e objetiva, sempre com cuidado com os detalhes.\nDiferenciais• Experiência com LangChain ou agentes de IA.• Conhecimento de SQL.",
+  "resume_id": "career_agent_profile",
+  "target_profile": null,
+  "options": {
+    "evidence_only_claims": true,
+    "ats_friendly": true,
+    "max_two_pages": true,
+    "preserve_metrics": true,
+    "show_explanations": true,
+    "use_llm": false,
+    "resume_locale": "en-US"
+  },
+  "target_title": "Synthetic Analyst",
+  "target_company": "",
+  "source": {
+    "kind": "pasted"
+  }
+}
