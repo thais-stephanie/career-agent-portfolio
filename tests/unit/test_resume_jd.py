@@ -37,6 +37,22 @@ def test_sections_hardness_and_kinds_in_english() -> None:
     assert auth.kind == "WORK_AUTHORIZATION" and auth.eligibility
 
 
+@pytest.mark.parametrize(
+    ("line", "eligibility"),
+    [
+        ("You must be able to work in the EU", True),
+        ("Must be eligible to work in Canada", True),
+        ("Legally able to work in Brazil", True),
+        ("Able to work in a fast-paced team", False),
+        ("Able to work independently", False),
+    ],
+)
+def test_where_someone_may_work_is_eligibility_never_a_gap(line: str, eligibility: bool) -> None:
+    """Found in the Beta 3 dogfood: "able to work in the EU" read as a gap."""
+    (found,) = analyse(f"Requirements\n- {line}\n").requirements
+    assert found.eligibility is eligibility, found.kind
+
+
 def test_the_same_ask_twice_is_one_requirement_with_both_quotes() -> None:
     found = quotes(SENIOR_AD)
     hubspot = found["Experience with HubSpot"]

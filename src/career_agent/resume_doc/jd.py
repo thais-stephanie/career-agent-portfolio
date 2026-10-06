@@ -184,6 +184,10 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
         re.compile(
             r"\b(authori[sz]ed to work|work authori[sz]ation|visas?|sponsor\w*|citizen(ship)?"
             r"|(?:security )?clearance"
+            # "eligible to work", "legally able to work", and "able to work in" a
+            # NAMED place; never "able to work in a team".
+            r"|(?:eligible|legally able|permitted|entitled) to (?:legally )?work"
+            r"|able to (?:legally )?work (?:in|from) (?:the )?(?=(?-i:[A-Z]))"
             r"|right to work|autoriza[cç][aã]o de trabalho|cidadania|permiso de trabajo)\b",
             re.I,
         ),
