@@ -2314,6 +2314,11 @@ const EN = {
   'rv.legacy.unit.base': 'Base resume',
   'rv.legacy.unit.run': 'Resume made for a job',
   'rv.legacy.unit.export': 'Downloaded file',
+  'rv.legacy.unmatched': '{n} old exported files could not be matched to a resume version. '
+    + 'The original files were kept unchanged.',
+  'rv.legacy.unmatchedOne': '1 old exported file could not be matched to a resume version. '
+    + 'The original file was kept unchanged.',
+  'rv.legacy.keptUnchanged': '(kept unchanged)',
   'rv.legacy.seeThem': 'See My resumes',
   'rv.back': 'Back',
   'rv.docTitle': 'Resume name',
@@ -6467,6 +6472,11 @@ const PT_BR = {
   'rv.legacy.unit.base': 'Currículo-base',
   'rv.legacy.unit.run': 'Currículo feito para uma vaga',
   'rv.legacy.unit.export': 'Arquivo baixado',
+  'rv.legacy.unmatched': '{n} arquivos exportados antigos não puderam ser ligados a uma versão do currículo. '
+    + 'Os arquivos originais ficaram sem mudanças.',
+  'rv.legacy.unmatchedOne': '1 arquivo exportado antigo não pôde ser ligado a uma versão do currículo. '
+    + 'O arquivo original ficou sem mudanças.',
+  'rv.legacy.keptUnchanged': '(mantido sem mudanças)',
   'rv.legacy.seeThem': 'Ver Meus currículos',
   'rv.back': 'Voltar',
   'rv.docTitle': 'Nome do currículo',

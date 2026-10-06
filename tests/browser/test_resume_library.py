@@ -320,8 +320,9 @@ FAILS = FOUND.replace(
     " if (url.endsWith('/api/resume/legacy/migrate')) { window.__moved += 1; }",
     " if (url.endsWith('/api/resume/legacy/migrate')) { window.__moved += 1;"
     " return Promise.resolve(new Response(JSON.stringify({masters: 1, imported: 0,"
-    " job_versions: 2, exports: 1, already: 0, failed: 1,"
-    " failures: [{kind: 'run', name: '20260105T000000-eeeeee'}]}),"
+    " job_versions: 2, exports: 1, already: 0, failed: 2,"
+    " failures: [{kind: 'run', name: '20260105T000000-eeeeee'},"
+    " {kind: 'export', name: 'Resume - Synthetic Role.docx', why: 'UNMATCHED'}]}),"
     " {headers: {'Content-Type': 'application/json'}})); }",
 )
 
@@ -355,9 +356,14 @@ def test_a_partial_move_says_what_stayed_and_never_points_to_the_old_helper(
     assert not any("Legacy" in b or "Helper" in b for b in buttons), buttons
     text = page.evaluate("document.querySelector('.rvl__legacy').innerText")
     assert "Your old Resume Helper files were not changed." in text
+    assert (
+        "1 old exported file could not be matched to a resume version. "
+        "The original file was kept unchanged."
+    ) in text
     page.evaluate("document.querySelector('.rvl__details summary').click()")
     details = page.evaluate("document.querySelector('.rvl__details').innerText")
     assert "Resume made for a job: 20260105T000000-eeeeee" in details
+    assert "Downloaded file: Resume - Synthetic Role.docx (kept unchanged)" in details
     assert "couldn’t safely move" in details
     page.evaluate(press.format("Keep original files"))
     page.wait_for("document.querySelector('.rvl__legacy') === null", message="put away")
