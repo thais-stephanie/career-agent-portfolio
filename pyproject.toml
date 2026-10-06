@@ -1,6 +1,6 @@
 [project]
 name = "career-agent"
-version = "0.2.0b2"
+version = "0.2.0b3"
 description = "Local job discovery, eligibility and Search Fit, with local profiles and a Resume Workspace"
 readme = "README.md"
 requires-python = ">=3.12"

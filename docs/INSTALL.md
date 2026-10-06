@@ -1,7 +1,7 @@
 # Install Career Agent
 
 This guide takes you from nothing installed to a running Career Agent, with no
-programming knowledge needed. It covers version **v0.2.0-beta.2**.
+programming knowledge needed. It covers version **v0.2.0-beta.3**.
 
 Career Agent runs on your own computer. It is a program that opens in your web
 browser, but the pages come from your computer, not from a website.
@@ -82,7 +82,7 @@ explain each step in plain words before you do it, and ask me before anything
 that needs administrator rights.
 
 Project: https://github.com/thais-stephanie/career-agent-portfolio
-Release: v0.2.0-beta.2
+Release: v0.2.0-beta.3
 Install guide: docs/INSTALL.md in that repository.
 
 Follow these rules:
@@ -127,9 +127,9 @@ downloads what it needs.
 ### 1. Download the ZIP file
 
 1. Open this page in your browser:
-   <https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2>
+   <https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3>
 2. Scroll down to **Assets**.
-3. Click **Career-Agent-v0.2.0-beta.2-Windows.zip**. Your browser saves it in
+3. Click **Career-Agent-v0.2.0-beta.3-Windows.zip**. Your browser saves it in
    your **Downloads** folder.
 
 ### 2. Extract it
@@ -139,7 +139,7 @@ program inside can run.
 
 1. Open **File Explorer** (the yellow folder icon on the taskbar) and go to
    **Downloads**.
-2. Right-click **Career-Agent-v0.2.0-beta.2-Windows.zip** and choose
+2. Right-click **Career-Agent-v0.2.0-beta.3-Windows.zip** and choose
    **Properties**. If the bottom of the **General** tab shows **Unblock**,
    tick it and click **OK**. This tells Windows you trust the file you
    downloaded, so it does not block the launcher later.
@@ -282,11 +282,11 @@ If you see something like `uv 0.11.7`, continue. If you see
 
 ### 2. Download and extract Career Agent
 
-1. Open <https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2>.
-2. Under **Assets**, click **Career-Agent-v0.2.0-beta.2-source.tar.gz**. It
+1. Open <https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3>.
+2. Under **Assets**, click **Career-Agent-v0.2.0-beta.3-source.tar.gz**. It
    goes to your **Downloads** folder.
 3. Double-click the downloaded file. macOS and most Linux desktops extract it
-   into a folder called **Career-Agent-v0.2.0-beta.2** in Downloads.
+   into a folder called **Career-Agent-v0.2.0-beta.3** in Downloads.
 
 ### 3. Enter the Career Agent folder
 
@@ -294,7 +294,7 @@ A terminal always works "inside" one folder. `cd` means "change folder".
 Copy this and press **Enter**:
 
 ```sh
-cd ~/Downloads/Career-Agent-v0.2.0-beta.2
+cd ~/Downloads/Career-Agent-v0.2.0-beta.3
 ```
 
 `~` means your home folder. If you moved the folder somewhere else, type
@@ -302,7 +302,7 @@ cd ~/Downloads/Career-Agent-v0.2.0-beta.2
 window, and press **Enter**.
 
 To check where you are, type `pwd` and press **Enter**. The last part of the
-answer should be `Career-Agent-v0.2.0-beta.2`.
+answer should be `Career-Agent-v0.2.0-beta.3`.
 
 ### 4. Install
 
@@ -399,7 +399,7 @@ Windows, macOS or Linux user account can open every profile's files.
 **Windows**
 
 1. Open File Explorer and go to the Career Agent folder (for example
-   Downloads, then **Career-Agent-v0.2.0-beta.2-Windows**).
+   Downloads, then **Career-Agent-v0.2.0-beta.3-Windows**).
 2. Double-click **Start-Career-Agent.cmd**.
 3. Keep the window open while you use Career Agent.
 
@@ -412,7 +412,7 @@ shortcut)**. The shortcut starts the launcher from its own folder.
 1. Open Terminal.
 2. Enter the folder:
    ```sh
-   cd ~/Downloads/Career-Agent-v0.2.0-beta.2
+   cd ~/Downloads/Career-Agent-v0.2.0-beta.3
    ```
 3. Start it:
    ```sh
@@ -447,7 +447,7 @@ A PowerShell window opens. The line before the cursor ends with the Career
 Agent folder's name, for example:
 
 ```text
-PS C:\Users\you\Downloads\Career-Agent-v0.2.0-beta.2-Windows>
+PS C:\Users\you\Downloads\Career-Agent-v0.2.0-beta.3-Windows>
 ```
 
 Commands in this guide are pasted there, one at a time, followed by
@@ -519,28 +519,38 @@ lost if something goes wrong.
    stays as your copy.
 3. Download and extract the new version, as in
    [Path B](#path-b-on-windows-download-and-double-click). It gets a new
-   folder name, for example **Career-Agent-v0.2.1-Windows**.
+   folder name, for example **Career-Agent-v0.2.0-beta.3-Windows**.
 4. In File Explorer, open **View**, then **Show**, and tick **File name
    extensions**, so you see full names such as `search.local.yaml`.
 5. From the **old** folder, copy these into the **new** folder:
    - the whole `data` folder;
    - the files in `config` whose names end in `.local.yaml` (into the new
      `config` folder);
-   - the `.env` file, if you have one;
-   - (`companion\resume-tailor\.env` from v0.2.0-beta.2 is no longer read:
-     Resumes uses the AI provider set in Settings, so there is nothing to
-     copy from it);
+   - the `.env` file, if you have one (your API keys);
    - the `backups` folder, if you want your backups next to the new version.
+
+   Do not copy `companion\resume-tailor\.env` from v0.2.0-beta.2 or older:
+   Resume Tailor is retired and that file is not read. AI drafting and review
+   in Resumes use the provider set in Settings & Sources, AI & Semantic
+   Matching. The files Resume Tailor kept (`data\tailor-personal`, and
+   `data\profiles\<id>\tailor` for other profiles) are inside `data`, so
+   they come across with it.
    If Windows asks whether to replace files, choose **Replace**.
 6. Double-click **Start-Career-Agent.cmd** in the **new** folder. The first
    start installs the new version's libraries and updates your data to the
    new format. Your jobs, profiles and applications stay.
-7. If the old folder is **v0.2.0-beta.1** or older, a notice above your job
-   list says how many scores were calculated by an earlier version. Press
-   **Recalculate search fit** in that notice once. It stays on your computer,
-   calls no AI provider and takes a few minutes on a large list. Until then the
-   list shows the older scores.
-8. When everything looks right, you can delete the old folder. You do not
+7. If a notice above your job list says how many scores were calculated by
+   an earlier version, press **Recalculate search fit** in that notice once.
+   It stays on your computer, calls no AI provider and takes a few minutes on
+   a large list. Until then the list shows the older scores.
+8. If you used Resume Tailor (v0.2.0-beta.2 or older), **Resumes** says
+   "We found resumes from the previous version". Nothing moves until you
+   choose **Review and move them**, which shows what will move, makes a
+   verified backup and then moves your contact details, base resumes, the
+   resumes made for a job, edited drafts and downloads into Resumes. The old
+   files are not changed. **Not now** leaves them for later; Settings, Backup
+   and privacy offers the same move while anything is left.
+9. When everything looks right, you can delete the old folder. You do not
    have to.
 
 On macOS and Linux, copy the same items between the two folders, then run the
@@ -699,7 +709,7 @@ Open an issue at
 free GitHub account) and include:
 
 - your operating system and version (for example Windows 11);
-- the Career Agent version (v0.2.0-beta.2);
+- the Career Agent version (v0.2.0-beta.3);
 - what you did: the file you double-clicked or the exact command;
 - the exact error text, copied from the launcher window: select it with the
   mouse and press **Ctrl+C** (Windows; with text selected this copies instead

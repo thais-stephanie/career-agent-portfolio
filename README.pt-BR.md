@@ -23,10 +23,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">
     <img
-      src="https://img.shields.io/badge/status-Beta_2-fff08a"
-      alt="Beta 2"
+      src="https://img.shields.io/badge/status-Beta_3-fff08a"
+      alt="Beta 3"
     />
   </a>
   <a href="#resumes">
@@ -78,7 +78,7 @@
   <strong>
     <a href="docs/INSTALL.md">Guia de instalação (em inglês)</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Baixar para Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">Baixar para Windows</a>
     &nbsp;·&nbsp;
     <a href="#capturas-de-tela">Ver o aplicativo</a>
   </strong>
@@ -95,10 +95,10 @@ Agent; nada é enviado para um servidor do Career Agent, porque ele não existe.
 
 > [!NOTE]
 >
-> A versão mais recente é a **v0.2.0-beta.2**, para quem roda no próprio
-> computador; ela trouxe a ferramenta de currículo anterior, o Resume Tailor
-> Beta. Esta página descreve o código desde então, em que **Currículos** a
-> substituiu. O Search Fit descreve como uma vaga
+> Esta é a versão **v0.2.0-beta.3**, para quem roda no próprio computador.
+> **Currículos** substitui o Resume Tailor Beta, a ferramenta de currículo das
+> betas anteriores; os currículos feitos com ele podem ser trazidos para
+> Currículos. O Search Fit descreve como uma vaga
 > combina com as suas preferências de busca. Ele não estima suas chances de
 > contratação.
 
@@ -112,8 +112,8 @@ escrito para quem nunca usou um terminal. Ele está em inglês.
   nele. Ele instala o Career Agent, roda a demonstração e explica como abrir
   de novo.
 - **Quero instalar por conta própria:**
-  - **Windows:** baixe `Career-Agent-v0.2.0-beta.2-Windows.zip` na
-    [página da versão](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
+  - **Windows:** baixe `Career-Agent-v0.2.0-beta.3-Windows.zip` na
+    [página da versão](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3),
     desbloqueie o arquivo (botão direito, **Propriedades**, **Desbloquear**),
     clique com o botão direito, escolha **Extrair tudo** e dê dois cliques em
     **Start-Demo.cmd** na pasta extraída. Você não precisa instalar Python

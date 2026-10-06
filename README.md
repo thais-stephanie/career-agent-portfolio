@@ -23,10 +23,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">
     <img
-      src="https://img.shields.io/badge/status-Beta_2-fff08a"
-      alt="Beta 2"
+      src="https://img.shields.io/badge/status-Beta_3-fff08a"
+      alt="Beta 3"
     />
   </a>
   <a href="#resumes">
@@ -78,7 +78,7 @@
   <strong>
     <a href="docs/INSTALL.md">Install guide</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Download for Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">Download for Windows</a>
     &nbsp;·&nbsp;
     <a href="#screenshots">See the app</a>
   </strong>
@@ -95,10 +95,10 @@ because there is none.
 
 > [!NOTE]
 >
-> The latest release is **v0.2.0-beta.2**, for people who run it on their
-> own computer; it shipped the previous resume tool, Resume Tailor Beta. This
-> page describes the code since then, where **Resumes** replaced it. Search Fit describes how a posting
-> matches your search preferences. It does not estimate your chances of being
+> This is **v0.2.0-beta.3**, for people who run it on their own computer.
+> Resumes replaces Resume Tailor Beta, the resume tool of the earlier betas;
+> resumes made with it can be moved into Resumes. Search Fit describes how a
+> posting matches your search preferences. It does not estimate your chances of being
 > hired.
 
 ## Install
@@ -111,8 +111,8 @@ for people who have never used a terminal.
   into it. It installs Career Agent, runs the demo and tells you how to start
   it again.
 - **I want to install it myself:**
-  - **Windows:** download `Career-Agent-v0.2.0-beta.2-Windows.zip` from the
-    [release page](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
+  - **Windows:** download `Career-Agent-v0.2.0-beta.3-Windows.zip` from the
+    [release page](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3),
     unblock it (right-click, **Properties**, **Unblock**), right-click it and
     choose **Extract All**, then double-click
     **Start-Demo.cmd** in the extracted folder. You do not need to install
