@@ -364,13 +364,25 @@ _PLACEHOLDER_NAMES = frozenset({"you", "candidate", "my profile", "meu perfil"})
 _INVALID_FS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
-def export_filename(candidate_name: str, role_title: str, headline: str, extension: str) -> str:
-    """The name the helper gave an exported file: "<Name> - <Role>.<ext>"."""
+def export_filename(
+    candidate_name: str,
+    role_title: str,
+    headline: str,
+    extension: str,
+    *,
+    placeholders: bool = False,
+) -> str:
+    """The name the helper gave an exported file: "<Name> - <Role>.<ext>".
+
+    v0.2.0-beta.2 wrote the candidate's name as it was, "You" included
+    (`placeholders=True`); later builds left a placeholder name out."""
 
     def clean(part: str) -> str:
         return re.sub(r"\s+", " ", _INVALID_FS.sub(" ", part)).strip().rstrip(". ")
 
     name = " ".join(str(candidate_name or "").split())
-    name = clean("" if name.casefold() in _PLACEHOLDER_NAMES else name) or "Resume"
+    if not placeholders and name.casefold() in _PLACEHOLDER_NAMES:
+        name = ""
+    name = clean(name) or "Resume"
     role = clean(role_title) or clean(headline) or "Resume"
     return f"{f'{name} - {role}'[:120].rstrip('. ')}.{extension}"
