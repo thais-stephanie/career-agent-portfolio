@@ -13,7 +13,7 @@
 <p align="center">
   <img
     src="docs/assets/readme/hero.png"
-    alt="Career Agent"
+    alt="Ilustração do Career Agent: Encontrar vagas com percentuais de Search Fit ao lado de uma etapa de Currículos, do mestre a uma versão para a vaga, Analisar e exportar em PDF"
     width="100%"
   />
 </p>
@@ -134,19 +134,21 @@ como [abrir de novo](docs/INSTALL.md#how-to-open-career-agent-next-time),
 
 ## Capturas de tela
 
-As três mostram o produto com dados sintéticos da demonstração ou com um
-espaço de trabalho vazio na primeira execução. A interface aparece em inglês;
-ela também tem português.
+As três são capturas da demonstração, com vagas sintéticas e uma pessoa candidata inventada. A interface aparece em inglês; ela também tem português.
 
-| Descobrir vagas | Por que esta vaga combina |
-|---|---|
-| ![Descobrir com vagas sintéticas, Search Fit e Posting completeness em cada cartão](docs/assets/readme/discover.png) | ![Motivos do Search Fit, cada um citado da vaga](docs/assets/readme/why.png) |
+**Encontrar vagas**
 
-| Primeira execução |
-|---|
-| ![Configuração inicial com o menu de perfil e dez perguntas curtas](docs/assets/readme/first-run.png) |
+![Encontrar vagas na demonstração: cartões com o percentual de Search Fit, a empresa, o lugar, o nível, o salário e a fonte de cada vaga sintética](docs/assets/readme/find-jobs.png)
 
-![Fluxo: descobrir, entender o Search Fit, preparar um currículo e acompanhar candidaturas](docs/assets/readme/how-it-works.png)
+**Editor de currículo**
+
+![O editor de Currículos: campos de contato ao lado da lista de verificação e uma prévia ao vivo do currículo de uma página](docs/assets/readme/resume-editor.png)
+
+**Analisar para uma vaga**
+
+![Analisar para uma vaga: contagens e achados com nome para cada pedido, lacunas e uma nota de elegibilidade separada, nunca uma nota](docs/assets/readme/analyze.png)
+
+![Ilustração do fluxo: encontrar vagas, Search Fit, por que combina, Currículos e Candidaturas](docs/assets/readme/how-it-works.png)
 
 *Ilustração do fluxo, não uma captura de tela.*
 

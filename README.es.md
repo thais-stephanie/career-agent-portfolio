@@ -13,7 +13,7 @@
 <p align="center">
   <img
     src="docs/assets/readme/hero.png"
-    alt="Career Agent"
+    alt="Ilustración de Career Agent: Find jobs con porcentajes de Search Fit junto a un paso de Resumes, del currículum maestro a una versión para la oferta, Analyze y exportación a PDF"
     width="100%"
   />
 </p>
@@ -133,19 +133,21 @@ cómo [abrirlo de nuevo](docs/INSTALL.md#how-to-open-career-agent-next-time),
 
 ## Capturas de pantalla
 
-Las tres muestran el producto con datos sintéticos de la demo o con un
-espacio de trabajo vacío en el primer inicio. La interfaz aparece en inglés;
-también está en portugués de Brasil.
+Las tres son capturas de la demo, con ofertas sintéticas y una persona candidata inventada. La interfaz aparece en inglés; también está en portugués de Brasil.
 
-| Descubrir ofertas | Por qué encaja con tu búsqueda |
-|---|---|
-| ![Descubrir con ofertas sintéticas, Search Fit y Posting completeness en cada tarjeta](docs/assets/readme/discover.png) | ![Motivos de Search Fit, cada uno citado de la oferta](docs/assets/readme/why.png) |
+**Find jobs**
 
-| Primer inicio |
-|---|
-| ![Configuración inicial con el menú de perfil y diez preguntas cortas](docs/assets/readme/first-run.png) |
+![Find jobs en la demo: tarjetas con el porcentaje de Search Fit, la empresa, el lugar, el nivel, el salario y la fuente de cada oferta sintética](docs/assets/readme/find-jobs.png)
 
-![Flujo: descubrir, entender el Search Fit, preparar un currículum y seguir postulaciones](docs/assets/readme/how-it-works.png)
+**Editor de currículum**
+
+![El editor de Resumes: campos de contacto junto a la lista de revisión y una vista previa en vivo del currículum de una página](docs/assets/readme/resume-editor.png)
+
+**Analyze para una oferta**
+
+![Analyze para una oferta: conteos y hallazgos con nombre para cada requisito, brechas y una nota de elegibilidad aparte, nunca una puntuación](docs/assets/readme/analyze.png)
+
+![Ilustración del flujo: encontrar ofertas, Search Fit, por qué encaja, Resumes y postulaciones](docs/assets/readme/how-it-works.png)
 
 *Ilustración del flujo, no una captura de pantalla.*
 

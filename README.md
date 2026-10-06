@@ -13,7 +13,7 @@
 <p align="center">
   <img
     src="docs/assets/readme/hero.png"
-    alt="Career Agent"
+    alt="Career Agent illustration: Find jobs with Search Fit percentages beside a Resumes step from Master to a job version, Analyze and PDF export"
     width="100%"
   />
 </p>
@@ -132,18 +132,21 @@ then double-click **Start-Career-Agent.cmd** to set up your own search. The guid
 
 ## Screenshots
 
-All three show the product with synthetic demo data or an empty first-run
-workspace.
+All three are captures of the demo, with synthetic jobs and an invented candidate.
 
-| Discover jobs | Why this fits your search |
-|---|---|
-| ![Discover with synthetic jobs, Search Fit and Posting completeness on each card](docs/assets/readme/discover.png) | ![Search Fit reasons, each quoted from the posting](docs/assets/readme/why.png) |
+**Find jobs**
 
-| First run |
-|---|
-| ![First-run setup with the profile menu and ten short questions](docs/assets/readme/first-run.png) |
+![Find jobs in the demo: cards with a Search Fit percentage, the employer, place, level, pay and source of each synthetic posting](docs/assets/readme/find-jobs.png)
 
-![Workflow: discover, inspect Search Fit and reasons, prepare a resume, track applications](docs/assets/readme/how-it-works.png)
+**Resume editor**
+
+![The Resumes editor: contact fields beside the Check list and a live preview of the one-page resume](docs/assets/readme/resume-editor.png)
+
+**Analyze for a job**
+
+![Analyze for a job: counts and named findings for each ask, gaps, and an eligibility note kept apart, never a score](docs/assets/readme/analyze.png)
+
+![Workflow illustration: find jobs, Search Fit, why it fits, Resumes and Applications](docs/assets/readme/how-it-works.png)
 
 *Workflow illustration, not a screenshot.*
 

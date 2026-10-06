@@ -1,42 +1,35 @@
-# README illustrations
+# README illustrations and screenshots
 
-The hero and workflow banners are editorial illustrations, not application
-screenshots. They use fictional examples and do not report product outcomes.
-The README labels them accordingly. The other PNGs in this directory are real
-captures of the synthetic demo.
+Updated for v0.2.0-beta.3. Every image here was reviewed for private data
+before it was added: none shows a real person's name, contact details, CV,
+career evidence, job search, applications, settings, a local path, an id or a
+secret.
 
-Both banners were adapted from designs supplied for this README update using
-the built-in image generation tool. The original supplied files were preserved.
-No private CV, job-search data or application history was used.
+## Illustrations
 
-Both banners still show **Resume Tailor Beta**, the resume tool retired in
-Resume Workspace V2 PR 12 (Resumes replaced it). They must be redrawn before
-the next release; until then the README keeps them as illustrations of
-v0.2.0-beta.2.
+- `hero.png` (2560 x 800): the README banner. Supplied by the owner for Beta 3.
+  It shows Find jobs with Search Fit percentages on invented roles and a
+  Resumes step (Master, a job version, Analyze, Export PDF). The roles,
+  counts and fits are fictional examples, not measured outcomes.
+- `how-it-works.png` (2560 x 800): the workflow banner. Supplied by the owner
+  for Beta 3. Five steps: Find jobs, Search Fit, Why it fits, Resumes,
+  Applications. It does not claim automatic applications, hiring outcomes or
+  that an AI decides fit or eligibility.
 
-## Saved assets and edit specifications
+Both replace the v0.2.0-beta.2 banners, which showed the retired Resume Tailor
+Beta. The README labels the illustrations as illustrations.
 
-- `hero.png`: preserve the wide cream dotted layout, serif title, outlined
-  illustrated interface and mint, lavender, yellow and blue palette. Use
-  "RUNS ON YOUR MACHINE" and "Find jobs, understand Search Fit, and prepare
-  evidence-backed resumes." Chips: "25+ job sources", "transparent scoring",
-  "open source". Footer: "Employer systems, remote boards and aggregators."
-  Job reasons refer to posting facts and search preferences, not proven
-  experience. The companion panel reads "Resume Tailor Beta" and
-  "Copy job description. Open Beta. Review evidence.", with "Open Beta".
-  Replace pixel stars with original geometric four-point yellow sparkles.
-  Do not imply profile synchronization, guaranteed pages or hiring success.
-- `how-it-works.png`: preserve the wide five-card layout, cream lined
-  background, outlined cards and palette. Subtitle: "25+ integrated job
-  sources. From discovery to a tailored, tracked application." Badge:
-  "LOCAL-FIRST". Found: "Collect jobs from supported sources in one place."
-  Scored: "Search Fit compares posting facts with your search preferences."
-  Explained: "Inspect the reasons, source quotes and missing information."
-  Prepared: "Review evidence and prepare your resume with Resume Tailor Beta."
-  Tracked: "Keep application statuses and notes in your local workspace."
-  Card badges: "Discover", "Search Fit", "Why?", "Tailor Beta", "Applications".
-  Replace the pixel star with an original geometric four-point yellow sparkle.
+## Screenshots
 
-The corrected wording avoids the supplied designs' claims of daily collection,
-fully offline operation, experience-based Search Fit and guaranteed page counts.
-The drawings do not represent automatic transfer between the two evidence stores.
+Captured from the demo (`Start-Demo.cmd`: synthetic jobs and an invented
+candidate, Alex Morgan) of a clean copy of the release code, at 1440 x 900,
+light theme, English. The demo candidate's resume was imported from a
+synthetic DOCX through the product's own import and review.
+
+- `find-jobs.png`: Find jobs, cards view.
+- `resume-editor.png`: the Resumes editor beside its live preview.
+- `analyze.png`: Analyze for a job with a pasted, invented job ad.
+
+They replace the v0.2.0-beta.2 screenshots (`discover.png`, `why.png`,
+`first-run.png`), which showed the previous interface and Resume Tailor Beta.
+Images are lossless PNG with metadata removed.
