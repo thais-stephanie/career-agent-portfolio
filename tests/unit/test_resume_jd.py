@@ -51,6 +51,9 @@ def test_sections_hardness_and_kinds_in_english() -> None:
         ("You must be able to work in Python and SQL.", False),
         ("Able to work in Agile teams.", False),
         ("Able to work from the United States", True),
+        ("Able to work in Sweden", True),
+        # Round 2: a time zone, hours or a setting is never a work permit.
+        ("Able to work in US-based healthcare compliance (HIPAA).", False),
     ],
 )
 def test_where_someone_may_work_is_eligibility_never_a_gap(line: str, eligibility: bool) -> None:
@@ -141,3 +144,24 @@ def test_a_huge_padded_ad_is_read_in_bounded_time() -> None:
     started = time.perf_counter()
     analyse(ad)
     assert time.perf_counter() - started < 3.0
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Able to work in US time zones.",
+        "Able to work in Europe hours.",
+        "Able to work in EMEA business hours.",
+        "Able to work in EU-friendly hours",
+        "Must overlap with US time zones.",
+    ],
+)
+def test_a_time_zone_or_hours_is_a_schedule_never_a_work_permit(line: str) -> None:
+    """Invariant 3: a time zone is not geography (Beta 3 release review)."""
+    (found,) = analyse(f"Requirements\n- {line}\n").requirements
+    assert found.kind == "SCHEDULE" and found.eligibility, (line, found.kind)
+
+
+def test_a_based_team_is_never_a_work_permit() -> None:
+    (found,) = analyse("Requirements\n- Able to work in India-based teams.\n").requirements
+    assert found.kind != "WORK_AUTHORIZATION"

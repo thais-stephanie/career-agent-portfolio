@@ -35,7 +35,7 @@ If the shortcut is missing, or the folder was moved, double-click
 ## Returning and stopping
 
 Double-click the same launcher in the same folder. **Ctrl+C** in its window
-stops both apps; if Windows then asks `Terminate batch job (Y/N)?`, type `Y`.
+stops Career Agent; if Windows then asks `Terminate batch job (Y/N)?`, type `Y`.
 
 If the port is in use, the launcher refuses to open a browser onto an
 unknown service. Close the other launcher window, or open PowerShell in this

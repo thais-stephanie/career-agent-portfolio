@@ -2072,8 +2072,8 @@ const EN = {
   'rv.ai.billing.SUBSCRIPTION': 'This uses your own subscription and counts toward its limits.',
   'rv.ai.billing.LOCAL': 'This runs on this computer.',
   'rv.ai.billing.NONE': 'This provider does not charge for requests.',
-  'rv.ai.sends': 'AI will receive this job’s requirements that your experience supports, and the confirmed experience '
-    + 'selected for this resume.',
+  'rv.ai.sends': 'AI will receive this job’s title and company, the requirements your experience supports, '
+    + 'and the confirmed experience selected for this resume.',
   'rv.ai.neverSends': 'Not sent: your contact details, dates, other jobs, applications, gaps or settings.',
   'rv.ai.send': 'Send to AI',
   'rv.ai.drafting': 'Drafting suggestions',
@@ -6230,8 +6230,8 @@ const PT_BR = {
   'rv.ai.billing.SUBSCRIPTION': 'Isto usa a sua própria assinatura e conta para os limites dela.',
   'rv.ai.billing.LOCAL': 'Isto roda neste computador.',
   'rv.ai.billing.NONE': 'Este provedor não cobra pelos pedidos.',
-  'rv.ai.sends': 'A IA vai receber os requisitos desta vaga que a sua experiência apoia e a experiência confirmada '
-    + 'escolhida para este currículo.',
+  'rv.ai.sends': 'A IA vai receber o título e a empresa desta vaga, os requisitos que a sua experiência apoia '
+    + 'e a experiência confirmada escolhida para este currículo.',
   'rv.ai.neverSends': 'Não é enviado: seus contatos, datas, outras vagas, candidaturas, lacunas ou configurações.',
   'rv.ai.send': 'Enviar para a IA',
   'rv.ai.drafting': 'Rascunhando sugestões',

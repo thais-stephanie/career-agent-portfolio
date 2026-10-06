@@ -184,7 +184,9 @@ _WORK_PLACES = (
     r"EU|EEA|European Union|Europe|UK|United Kingdom|Britain|US|USA|U\.S\.|United States"
     r"|America|Americas|Canada|Mexico|Brazil|Brasil|Argentina|Chile|Colombia|Peru|Uruguay"
     r"|LATAM|Latin America|Portugal|Spain|France|Germany|Netherlands|Ireland|Italy|Poland"
-    r"|India|Australia|New Zealand|Singapore|Japan|EMEA|APAC|Asia|Africa"
+    r"|Sweden|Norway|Denmark|Finland|Nordics|Scandinavia|Switzerland|Austria|Belgium"
+    r"|Israel|South Africa|Philippines|China|India|Australia|New Zealand|Singapore|Japan"
+    r"|EMEA|APAC|Asia|Africa"
 )
 
 
@@ -199,6 +201,7 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
             # PLACE; never "able to work in a team" or "in Salesforce".
             r"|(?:eligible|legally able|permitted|entitled) to (?:legally )?work"
             rf"|able to (?:legally )?work (?:in|from) (?:the )?(?:{_WORK_PLACES})\b"
+            r"(?![-\w]|\s+(?:time|hours?|business|shifts?|based|friendly)\b)"
             r"|right to work|autoriza[cç][aã]o de trabalho|cidadania|permiso de trabajo)\b",
             re.I,
         ),
@@ -217,8 +220,8 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
     (
         "SCHEDULE",
         re.compile(
-            r"\b(shifts?|weekends?|night|overtime|business hours|time ?zone|hor[aá]rio|turnos?"
-            r"|plant[aã]o|fins de semana|jornada)\b",
+            r"\b(shifts?|weekends?|night|overtime|business hours|time ?zones?|hours"
+            r"|hor[aá]rio|turnos?|plant[aã]o|fins de semana|jornada)\b",
             re.I,
         ),
     ),
