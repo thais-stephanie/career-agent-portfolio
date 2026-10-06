@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/Beta_2_tests-9%2C105_passed-a7ebcf"
-      alt="9,105 tests passed"
+      src="https://img.shields.io/badge/Beta_3_tests-11%2C007_passed-a7ebcf"
+      alt="11,007 tests passed"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -299,25 +299,22 @@ an Ollama address that is not local. The full inventory is in
 
 ## Validation
 
-The v0.2.0-beta.2 release gate passed **9,105 tests** with 7 skipped and 0
-failed, on Windows 11 with Python 3.12:
+The v0.2.0-beta.3 release gate passed **11,007 tests** with 6 skipped and 0
+failed, on Windows 11 with Python 3.12, all on one exact commit:
 
 | Suite | Passed |
 |---|---:|
-| Career Agent unit | 7,018 |
-| Career Agent integration | 1,656 |
-| Career Agent browser | 371 |
-| Resume Tailor Python | 22 |
-| Resume Tailor frontend | 38 |
+| Career Agent unit and integration | 10,560 |
+| Career Agent browser | 447 |
 
-Ruff, the formatter check, mypy and the frontend checks were clean. The
-release ZIP was installed in a new folder whose path contains spaces, with no
-uv or Python available beforehand, and the demo, personal mode, a port
-conflict, restart and shutdown were checked, as was an update from
-v0.2.0-beta.1 with synthetic data. There is no continuous
-integration: the gate runs on the maintainer's Windows computer.
-[Release validation](docs/VALIDATION.md) lists the skips and the install
-checks.
+Ruff, the formatter check, mypy, the frontend checks and the contrast report
+were clean. The release ZIP was installed in a new folder whose path contains
+spaces, with no uv or Python available beforehand, and the demo, personal
+mode, a second start, restart and shutdown were checked. An update from the
+published v0.2.0-beta.2 ZIP, with synthetic data and resumes made in Resume
+Tailor, followed the update steps in the install guide. There is no
+continuous integration: the gate runs on the maintainer's Windows computer.
+[Release validation](docs/VALIDATION.md) lists the skips and every check.
 
 ## Known limitations
 

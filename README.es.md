@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/pruebas_Beta_2-9.105_aprobadas-a7ebcf"
-      alt="9.105 pruebas aprobadas"
+      src="https://img.shields.io/badge/pruebas_Beta_3-11.007_aprobadas-a7ebcf"
+      alt="11.007 pruebas aprobadas"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -308,25 +308,24 @@ en [PRIVACY.md](docs/PRIVACY.md).
 
 ## Validación
 
-La verificación de la versión v0.2.0-beta.2 pasó **9.105 pruebas**, con 7
-omitidas y 0 fallos, en Windows 11 con Python 3.12:
+La verificación de la versión v0.2.0-beta.3 pasó **11.007 pruebas**, con 6
+omitidas y 0 fallos, en Windows 11 con Python 3.12, todas en el mismo commit:
 
 | Conjunto | Aprobadas |
 |---|---:|
-| Career Agent, unitarias | 7.018 |
-| Career Agent, integración | 1.656 |
-| Career Agent, navegador | 371 |
-| Resume Tailor, Python | 22 |
-| Resume Tailor, frontend | 38 |
+| Career Agent, unitarias e integración | 10.560 |
+| Career Agent, navegador | 447 |
 
-Ruff, la verificación de formato, mypy y las verificaciones del frontend
-pasaron. El ZIP de la versión se instaló en una carpeta nueva cuya ruta tiene
-espacios, sin uv ni Python disponibles antes, y se comprobaron la demo, el modo
-personal, un conflicto de puertos, el reinicio y el cierre, además de una
-actualización desde v0.2.0-beta.1 con datos sintéticos. No hay integración
-continua: la verificación se ejecuta en la computadora Windows de quien
-mantiene el proyecto. La [validación de la versión](docs/VALIDATION.md) lista
-las pruebas omitidas y las comprobaciones de instalación.
+Ruff, la verificación de formato, mypy, las verificaciones del frontend y el
+informe de contraste pasaron. El ZIP de la versión se instaló en una carpeta
+nueva cuya ruta tiene espacios, sin uv ni Python disponibles antes, y se
+comprobaron la demo, el modo personal, una segunda apertura, el reinicio y el
+cierre. Una actualización desde el ZIP publicado de v0.2.0-beta.2, con datos
+sintéticos y currículums hechos en Resume Tailor, siguió los pasos de
+actualización de la guía de instalación. No hay integración continua: la
+verificación se ejecuta en la computadora Windows de quien mantiene el
+proyecto. La [validación de la versión](docs/VALIDATION.md) lista las pruebas
+omitidas y cada comprobación.
 
 ## Limitaciones conocidas
 

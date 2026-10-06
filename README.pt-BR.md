@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/testes_Beta_2-9.105_aprovados-a7ebcf"
-      alt="9.105 testes aprovados"
+      src="https://img.shields.io/badge/testes_Beta_3-11.007_aprovados-a7ebcf"
+      alt="11.007 testes aprovados"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -305,25 +305,24 @@ um endereço do Ollama que não seja local. O inventário completo está em
 
 ## Validação
 
-A verificação da versão v0.2.0-beta.2 passou em **9.105 testes**, com 7
-ignorados e 0 falhas, no Windows 11 com Python 3.12:
+A verificação da versão v0.2.0-beta.3 passou em **11.007 testes**, com 6
+ignorados e 0 falhas, no Windows 11 com Python 3.12, todos no mesmo commit:
 
 | Conjunto | Aprovados |
 |---|---:|
-| Career Agent, unitários | 7.018 |
-| Career Agent, integração | 1.656 |
-| Career Agent, navegador | 371 |
-| Resume Tailor, Python | 22 |
-| Resume Tailor, frontend | 38 |
+| Career Agent, unitários e integração | 10.560 |
+| Career Agent, navegador | 447 |
 
-Ruff, a verificação de formatação, o mypy e as verificações do frontend
-passaram. O ZIP da versão foi instalado em uma pasta nova cujo caminho tem
-espaços, sem uv nem Python disponíveis antes, e foram verificados a
-demonstração, o modo pessoal, conflito de portas, reinício e encerramento, além de uma
-atualização a partir da v0.2.0-beta.1 com dados sintéticos. Não
-há integração contínua: a verificação roda no computador Windows de
-quem mantém o projeto. A [validação da versão](docs/VALIDATION.md) lista os testes
-ignorados e as verificações de instalação.
+Ruff, a verificação de formatação, o mypy, as verificações do frontend e o
+relatório de contraste passaram. O ZIP da versão foi instalado em uma pasta
+nova cujo caminho tem espaços, sem uv nem Python disponíveis antes, e foram
+verificados a demonstração, o modo pessoal, uma segunda abertura, o reinício e
+o encerramento. Uma atualização a partir do ZIP publicado da v0.2.0-beta.2,
+com dados sintéticos e currículos feitos no Resume Tailor, seguiu os passos de
+atualização do guia de instalação. Não há integração contínua: a verificação
+roda no computador Windows de quem mantém o projeto. A
+[validação da versão](docs/VALIDATION.md) lista os testes ignorados e cada
+verificação.
 
 ## Limitações conhecidas
 
