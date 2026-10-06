@@ -38,7 +38,6 @@ def main() -> None:
         raise SystemExit("Commit the reviewed changes before packaging.")
     commit = git("rev-parse", args.ref + "^{commit}")
     project = tomllib.loads(git("show", commit + ":pyproject.toml"))["project"]
-    tailor = tomllib.loads(git("show", commit + ":companion/resume-tailor/pyproject.toml"))
     version, status = release_name(project["version"])
     args.output.mkdir(parents=True, exist_ok=True)
     windows = args.output / f"Career-Agent-{version}-Windows.zip"
@@ -93,7 +92,6 @@ def main() -> None:
         assert any(n.endswith(".sql") for n in migrations), "migrations missing"
         for name in (
             "src/career_agent/web/static/index.html",
-            "companion/resume-tailor/src/resume_tailor/ui/static_v2/index.html",
             "config/companies.yaml",
             "config/source_catalogue.yaml",
             "uv.lock",
@@ -111,7 +109,7 @@ def main() -> None:
             "README.md",
             "README.pt-BR.md",
             "README.es.md",
-            "companion/resume-tailor/LICENSE",
+            "licenses/resume-tailor-Apache-2.0.txt",
         ):
             assert name in archive.namelist(), name
     hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (windows, source)}
@@ -122,7 +120,6 @@ def main() -> None:
         "version": version,
         "commit": commit,
         "status": status,
-        "resume_tailor": f"{tailor['project']['version']} (Beta)",
         "sha256": hashes,
     }
     (args.output / "release.json").write_text(json.dumps(manifest, indent=2) + "\n")

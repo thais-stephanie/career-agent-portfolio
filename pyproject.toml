@@ -1,7 +1,7 @@
 [project]
 name = "career-agent"
 version = "0.2.0b2"
-description = "Local job discovery, eligibility and Search Fit, with local profiles and Resume Tailor"
+description = "Local job discovery, eligibility and Search Fit, with local profiles and a Resume Workspace"
 readme = "README.md"
 requires-python = ">=3.12"
 
@@ -11,7 +11,6 @@ requires-python = ">=3.12"
 # `GoogleClient.complete`, so nothing loads it unless a live call is actually
 # being made. jinja2 at M5.
 dependencies = [
-    "resume-tailor",
     "pydantic>=2.7",       # validates config and (later) LLM output
     "pyyaml>=6.0",         # reads the .yaml config files
     "typer>=0.12",         # turns Python functions into terminal commands
@@ -99,5 +98,3 @@ warn_unused_ignores = true
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
 
-[tool.uv.sources]
-resume-tailor = { path = "companion/resume-tailor", editable = true }

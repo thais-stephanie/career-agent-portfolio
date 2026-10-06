@@ -100,10 +100,9 @@ Follow these rules:
 5. Never create, guess or ask me to paste an API key. If an optional feature
    needs a key, tell me which one and where it would go, and stop there.
 6. Start the demo first (Start-Demo.cmd on Windows, or the --demo command on
-   macOS/Linux) and check that both addresses answer:
-   http://127.0.0.1:8765/ (Career Agent) and http://127.0.0.1:8766/
-   (Resume Tailor). Then stop the demo by ending the process you started,
-   and check that ports 8765 and 8766 are free again.
+   macOS/Linux) and check that http://127.0.0.1:8765/ answers. Then stop
+   the demo by ending the process you started, and check that port 8765 is
+   free again.
 7. Only after the demo works, run the normal launcher once with its check
    option (Windows: .\Start-Career-Agent.cmd -Check -NoOpen; macOS/Linux:
    uv run --no-sync python scripts/launch.py --check) and show me that it
@@ -169,7 +168,7 @@ three steps:
 
 ```text
 [1/3] First setup: downloading uv, the small tool that installs Python for you.
-[2/3] Checking Career Agent and Resume Tailor Beta. Python 3.12 is managed automatically.
+[2/3] Checking Career Agent. Python 3.12 is managed automatically.
 [3/3] Starting. Your browser will open by itself.
 ```
 
@@ -186,9 +185,8 @@ When it is ready, the window shows:
 
 ```text
 Career Agent is running: http://127.0.0.1:8765/
-Resume Tailor Beta: http://127.0.0.1:8766/
-If your browser did not open, copy the first address into it.
-Keep this window open while you use the apps. Press Ctrl+C here to stop both.
+If your browser did not open, copy this address into it.
+Keep this window open while you use Career Agent. Press Ctrl+C here to stop it.
 ```
 
 and your browser opens Career Agent. Continue at
@@ -215,10 +213,10 @@ open.
 - **The window.** Career Agent opens in its own window, without browser tabs
   or an address bar, using Microsoft Edge, which comes with Windows 11. If
   Edge is not on the computer, it opens in your usual browser instead.
-- **Resume Tailor** opens from **Resume Tailor** in Career Agent's side menu,
-  as before.
-- **Quitting.** Close the Career Agent windows; Career Agent and Resume Tailor
-  then stop by themselves. If it is still finding jobs or recalculating, it
+- **Resumes** opens from **Resumes** in Career Agent's side menu, in the
+  same window.
+- **Quitting.** Close the Career Agent windows; Career Agent then stops by
+  itself. If it is still finding jobs or recalculating, it
   finishes that first and then stops. You can also choose **Quit Career
   Agent** at the bottom of the side menu. Everything you saved is kept.
 - **If a message says the address is in use,** another program is using the
@@ -329,11 +327,8 @@ browser opens Career Agent. Leave the Terminal window open.
 
 `127.0.0.1` is an address that means "this computer". The pages come from
 the launcher window you just started, not from the internet, and nobody else
-on the internet can open them. Two addresses are used:
-
-- <http://127.0.0.1:8765/>: Career Agent.
-- <http://127.0.0.1:8766/>: Resume Tailor Beta. You normally open it from
-  Career Agent's side bar instead.
+on the internet can open them. One address is used:
+<http://127.0.0.1:8765/>, and everything, Resumes included, is a page of it.
 
 If the browser did not open by itself, copy `http://127.0.0.1:8765/` into the
 browser's address bar and press **Enter**.
@@ -341,7 +336,7 @@ browser's address bar and press **Enter**.
 ## Try the demo first
 
 The demo has 21 invented jobs and an invented candidate, Alex Morgan. It uses
-separate storage (`data/demo.db`, `data/demo-config` and `data/tailor-demo`)
+separate storage (`data/demo.db` and `data/demo-config`)
 and never touches your personal data. It never uses an AI provider.
 
 Things to try:
@@ -350,15 +345,15 @@ Things to try:
   whether anything in the posting rules you out.
 - Click a job title, then **Why this fits your search**: every reason is
   quoted from the posting.
-- **Resume Tailor** in the side bar: Alex Morgan's resume, evidence and the
-  details that still need review.
+- **Resumes** in the side bar: build a resume, edit it with a live preview
+  and try **Analyze**.
 
 When you are done, go to the launcher window and press **Ctrl+C** (hold the
 **Ctrl** key and press **C**). The window says
-`Both apps stopped.` and you can close it.
+`Career Agent stopped.` and you can close it.
 
-The demo and your personal workspace use the same two addresses, so only one
-of them can run at a time.
+The demo and your personal workspace use the same address, so only one of
+them can run at a time.
 
 ## Set up your own search
 
@@ -391,7 +386,7 @@ it, and nothing becomes part of your Career Profile until you confirm it.
 
 Several people can use one installation. Open the profile menu at the top of
 the side bar to create or switch profiles. Each profile has its own settings,
-CV, evidence, scores, applications and Resume Tailor workspace. Public job
+CV, evidence, scores, applications and resumes. Public job
 postings are stored once, in a shared catalogue, so a posting collected for
 one profile is visible to the others; the searches that found it stay
 private to the profile that ran them.
@@ -431,7 +426,7 @@ inside the Career Agent folder.
 ## How to stop Career Agent
 
 Click the launcher window (on Windows) or the Terminal window, then press
-**Ctrl+C**. Both apps stop and the window says `Both apps stopped.`
+**Ctrl+C**. Career Agent stops and the window says `Career Agent stopped.`
 On Windows the window may then ask `Terminate batch job (Y/N)?`: type `Y` and
 press **Enter**, or close the window. Closing the browser tab does not stop
 Career Agent.
@@ -469,8 +464,9 @@ There are two kinds of Career Agent backup:
 - A **catalogue backup** holds the shared public job postings that every
   profile reads. It has nothing private in it.
 
-Resume Tailor keeps its own backup: in Resume Tailor, open the candidate menu
-and choose **Export backup**.
+Files left by the previous resume tool, Resume Tailor, stay in the profile's
+own folder and are not in a profile backup. Moving them into Resumes makes
+its own verified backup first.
 
 **Windows.** [Open PowerShell in the Career Agent folder](#windows-open-powershell),
 then paste this line to back up the first profile, **My profile**:
@@ -531,8 +527,9 @@ lost if something goes wrong.
    - the files in `config` whose names end in `.local.yaml` (into the new
      `config` folder);
    - the `.env` file, if you have one;
-   - `companion\resume-tailor\.env`, if you created one (into the same place
-     in the new folder);
+   - (`companion\resume-tailor\.env` from v0.2.0-beta.2 is no longer read:
+     Resumes uses the AI provider set in Settings, so there is nothing to
+     copy from it);
    - the `backups` folder, if you want your backups next to the new version.
    If Windows asks whether to replace files, choose **Replace**.
 6. Double-click **Start-Career-Agent.cmd** in the **new** folder. The first
@@ -609,41 +606,25 @@ Details: [SEMANTIC_MATCHING.md](SEMANTIC_MATCHING.md).
   details, choose **Ask the local model to read it**.
 - **Turn off:** do not start a reading. **Cancel** stops one in progress.
 
-### Resume Tailor AI provider
+### AI drafting and review in Resumes
 
-Resume Tailor works without AI: Markdown and Word export are generated on your
-computer. It can also use Anthropic, an OpenAI-compatible service or Ollama.
-Those services receive job descriptions and the evidence you select, and
-hosted ones charge you for use.
+- **What it does:** **Tailor with AI** proposes wording for a version made for
+  a job, on top of the version built without AI, and an independent AI review
+  can give a second opinion on it. Career Agent decides what may be offered,
+  and you decide what is kept.
+- **What leaves your computer:** the job's title and the asks it quotes, and
+  the resume lines and confirmed statements relevant to them, sent to the
+  provider you set up. Never your contact details, other jobs or applications.
+  The screen says which provider receives what before anything is sent.
+- **Cost:** the same provider and budget as semantic matching.
+- **Turn on:** set up a provider in Settings & Sources, AI & Semantic
+  Matching. Nothing runs until you press the button; demo mode sends nothing.
+- **Turn off:** do not press the button.
 
-To turn it on under the launcher (Windows):
+### PDF export in Resumes
 
-1. Stop Career Agent.
-2. Open **Notepad** and type one line, with your own key:
-   ```text
-   ANTHROPIC_API_KEY=YOUR_API_KEY_HERE
-   ```
-   Choose **File**, **Save as**, go to the Career Agent folder and then
-   `companion\resume-tailor`, set **Save as type** to **All files**, type
-   `.env` as the file name and click **Save**. Without **All files**, Notepad
-   saves `.env.txt`, which is not read. Do not share this value, paste it into
-   an issue or show it in a screenshot.
-3. [Open PowerShell in the Career Agent folder](#windows-open-powershell) and
-   run these two lines:
-   ```powershell
-   $env:LLM_PROVIDER = "anthropic"
-   .\Start-Career-Agent.cmd
-   ```
-
-The provider is used only while this PowerShell window's launcher runs. To
-turn it off, stop the launcher and start it again by double-clicking, which
-uses no provider. Demo mode never uses one.
-
-### PDF export in Resume Tailor
-
-PDF export and page counts need Microsoft Word or LibreOffice installed on the
-computer. Without either, Resume Tailor says PDF is unavailable, and Markdown
-and Word export still work.
+PDF export needs Microsoft Edge (it comes with Windows 11) or Google Chrome on
+the computer. Word (.docx) and JSON export work without either.
 
 ## Troubleshooting
 
@@ -653,7 +634,7 @@ and Word export still work.
 could not reach the internet. Check your connection and double-click the
 launcher again. Nothing you saved was changed.
 
-#### "ports 8765 and 8766 are already in use"
+#### "port 8765 is already in use"
 
 Career Agent is probably already running in another launcher window. Use that
 window's page (<http://127.0.0.1:8765/>), or press **Ctrl+C** in that window
@@ -669,8 +650,8 @@ one of these:
 .\Start-Career-Agent.cmd -Port 8875 -ProfileName "Profile name"
 ```
 
-That copy uses <http://127.0.0.1:8875/> and <http://127.0.0.1:8876/>. The same
-profile cannot be open in two windows at once.
+That copy uses <http://127.0.0.1:8875/>. The same profile cannot be open in
+two windows at once.
 
 #### PowerShell says running scripts is disabled
 
@@ -687,14 +668,9 @@ window must still be open.
 
 The launcher is not running. Start it again, and keep its window open.
 
-#### Resume Tailor says Career Agent switched to another profile
-
-A Resume Tailor tab opened for one profile stays tied to it. Reload the tab,
-or open Resume Tailor again from Career Agent's side bar.
-
 #### PDF export is unavailable
 
-Install Microsoft Word or LibreOffice, or use Markdown or Word export.
+Install Microsoft Edge or Google Chrome, or use Word or JSON export.
 
 #### The local model is taking several minutes
 
@@ -739,15 +715,15 @@ Everything Career Agent stores is inside its folder:
 
 | Inside the Career Agent folder | What it is |
 |---|---|
-| `data` | All profiles, the shared job catalogue, Resume Tailor workspaces and the demo. **Private.** |
+| `data` | All profiles, the shared job catalogue, files left by the previous resume tool and the demo. **Private.** |
 | `config\*.local.yaml` | The first profile's search settings. **Private.** |
 | `backups` | Backups you made. **Private.** |
-| `.env` and `companion\resume-tailor\.env` | API keys, if you added any. **Secret.** |
+| `.env` | API keys, if you added any. **Secret.** |
 | `.venv`, `.tools` | Installed Python libraries and uv. Safe to delete. |
 | everything else | The program itself. |
 
 **To remove the program and keep your data:** stop Career Agent, copy the
-`data` folder, the `config\*.local.yaml` files, both `.env` files and
+`data` folder, the `config\*.local.yaml` files, the `.env` file and
 `backups` to a safe place (not a synced folder), then delete the Career Agent
 folder.
 

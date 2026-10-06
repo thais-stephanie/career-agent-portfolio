@@ -4,9 +4,9 @@
  * THE resume page of Career Agent. Every resume is a ResumeDocument: the
  * Master made from the confirmed Career Profile, a resume imported from a
  * PDF or DOCX (`resume_import.js`), one started blank, and the versions made
- * for a job. My resumes is `resume_library.js`. The previous Resume Helper
- * stays reachable from Settings as "Legacy Resume Helper", and its resumes
- * move here only when the person asks (with a backup first).
+ * for a job. My resumes is `resume_library.js`. Resumes left by the retired
+ * Resume helper move here only when the person asks (with a backup first);
+ * the helper itself no longer runs.
  *
  * Opening this page creates nothing: the Master is made when the person
  * chooses "Build from My Profile", after being told what it uses.
@@ -105,7 +105,7 @@ const flatten = (lib) => [
 ].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
 export function createResumeWorkspace({
-  host, onEvidence = () => {}, onLegacy = () => {}, onAddEvidence = () => {}, onSettings = () => {},
+  host, onEvidence = () => {}, onAddEvidence = () => {}, onSettings = () => {},
 }) {
   const tabs = {};
   const views = {};
@@ -248,7 +248,6 @@ export function createResumeWorkspace({
     const notice = await legacyNotice({
       profile: getLocalProfile(),
       onMoved: () => show('list'),
-      onLegacy,
     });
     views.home.replaceChildren(...[
       ...(notice ? [notice] : []),

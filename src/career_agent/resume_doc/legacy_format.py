@@ -1,3 +1,7 @@
+# Adapted from Resume Tailor (Apache-2.0, upstream eb22205d06de2975191fb06961b4b0677d4238d8;
+# see licenses/resume-tailor-Apache-2.0.txt and licenses/resume-tailor-NOTICE.txt).
+# Modified for Career Agent (2026-10-05): its workspace models, draft rules and
+# export file names reduced to read-only readers for migration.
 """The retired Resume helper's files, read for migration only. FROZEN.
 
 The Resume helper (the companion engine, retired in Resume Workspace V2

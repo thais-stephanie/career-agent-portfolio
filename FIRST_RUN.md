@@ -9,8 +9,8 @@ Program Files) and double-click **Start-Demo.cmd** to try the demo, or
 first setup downloads uv, Python 3.12 and the locked libraries over HTTPS;
 Node is not needed.
 
-Career Agent opens at http://127.0.0.1:8765/ and Resume Tailor Beta at
-http://127.0.0.1:8766/. 127.0.0.1 means this computer.
+Career Agent opens at http://127.0.0.1:8765/; Resumes is a page of it.
+127.0.0.1 means this computer.
 
 ## The Career Agent shortcut
 
@@ -18,12 +18,12 @@ After the first setup succeeds, a **Career Agent** shortcut appears on the
 Desktop and in the Start menu. It starts Career Agent with no console window
 and opens it in its own window (Microsoft Edge in app mode, or your usual
 browser without Edge). Closing the Career Agent windows, or **Quit Career
-Agent** in the side menu, stops both apps.
+Agent** in the side menu, stops it.
 
 If the shortcut shows a message:
 
-- **The address is in use**: another program, or the demo, is using port 8765
-  or 8766. Close it and try again.
+- **The address is in use**: another program, or the demo, is using port 8765.
+  Close it and try again.
 - **Setup is not finished**: double-click **Start-Career-Agent.cmd** once.
 - **Could not start** or **took too long**: double-click
   **Start-Career-Agent.cmd** to see what happens. The shortcut's own record of
@@ -46,20 +46,20 @@ downloaded ZIP, so use the `.cmd` file.
 ## Where your data is
 
 Personal mode keeps everything under `data\`: the profile registry
-`data\profiles.json`, the first profile's database `data\personal.db` and
-Resume Tailor workspace `data\tailor-personal`, every later profile under
+`data\profiles.json`, the first profile's database `data\personal.db`
+(and `data\tailor-personal`, files of the retired Resume Tailor, if it was
+used), every later profile under
 `data\profiles\`, and the shared job catalogue `data\shared\catalogue.db`. The
 first profile's settings are `config\*.local.yaml`. The demo uses
-`data\demo.db`, `data\demo-config` and `data\tailor-demo`, and never reads
-personal data. Demo and personal mode cannot run at the same time on the same
-ports.
+`data\demo.db` and `data\demo-config`, and never reads personal data. Demo
+and personal mode cannot run at the same time on the same port.
 
 ## Recovery and backups
 
 If setup fails, check the internet connection and run the launcher again. Do
 not delete `data` to repair a failed setup.
 
-Before an update, stop both apps and make a backup from PowerShell in this
+Before an update, stop Career Agent and make a backup from PowerShell in this
 folder:
 
 ```powershell
@@ -67,11 +67,10 @@ folder:
 .\.venv\Scripts\career-agent.exe backup --catalogue --profile "My profile"
 ```
 
-Resume Tailor has **Export backup** in its candidate menu. Backups contain
-personal information, never API keys, and are not encrypted. See
+Backups contain personal information, never API keys, and are not
+encrypted. See
 [updating](docs/INSTALL.md#updating-to-a-new-version).
 
-PDF requires Word or LibreOffice. Without either, use Word or Markdown export.
-The first resume can take longer while a local office application starts to
-count its pages. If you stop the launcher during generation, start it again and
-generate that resume again; an interrupted run is not a completed export.
+PDF export uses Microsoft Edge (or Chrome) on this computer. Without either,
+use Word or JSON export. If you stop the launcher during an export, start it
+again and export again; an interrupted export is not a completed one.

@@ -1,5 +1,5 @@
 /**
- * resume_library.js -- My resumes, and the old Resume Helper's resumes.
+ * resume_library.js -- My resumes, and moving the retired Resume helper's resumes.
  *
  * MY RESUMES is drawn from ONE request (`GET /api/resume/documents`): the
  * server groups the Master, the standalone resumes and each job's versions,
@@ -418,7 +418,7 @@ function drawChanges(host, answer) {
 }
 
 // ===========================================================================
-// the previous Resume Helper's resumes
+// the retired Resume helper's resumes
 // ===========================================================================
 
 const NOT_NOW = 'careerAgent.rv.legacyNotNow.v1';
@@ -445,10 +445,12 @@ function rememberNotNow(profile, found) {
 }
 
 /**
- * The message about the old helper's resumes, or null when there is none to
- * show. Nothing is moved until "Move them" is pressed, after the preflight.
+ * The message about the retired Resume helper's resumes, or null when there
+ * is none to show. Nothing is moved until "Move them" is pressed, after the
+ * preflight; the helper itself is gone, so a failure offers to try again,
+ * says which items stayed and that the old files were not changed.
  */
-export async function legacyNotice({ profile, onMoved, onLegacy, force = false }) {
+export async function legacyNotice({ profile, onMoved, onClose = () => {}, force = false }) {
   let found;
   try {
     found = await getLegacyResumes();
@@ -466,7 +468,7 @@ export async function legacyNotice({ profile, onMoved, onLegacy, force = false }
     el('h2', { className: 'rvw__h2', attrs: { id: 'rvl-legacy-h', tabindex: '-1' }, text: t('rv.legacy.found') }),
     ...children.filter(Boolean),
   );
-  const fallback = small(t('rv.legacy.open'), () => onLegacy());
+  const close = () => { rememberNotNow(profile, found); box.remove(); onClose(); };
 
   function ask() {
     say([
@@ -475,9 +477,30 @@ export async function legacyNotice({ profile, onMoved, onLegacy, force = false }
         small(t(retry ? 'rv.legacy.retry' : 'rv.legacy.review'), () => preflight(), {
           className: 'btn btn--small btn--primary',
         }),
-        small(t('rv.legacy.notNow'), () => { rememberNotNow(profile, found); box.remove(); }),
+        small(t('rv.legacy.notNow'), close),
       ]),
     ]);
+  }
+
+  /** "Try again", the failed items on request, and leaving the old files be. */
+  function failed(units) {
+    const details = units.length
+      ? el('details', { className: 'rvl__details' }, [
+        el('summary', { text: t('rv.legacy.details') }),
+        el('ul', { className: 'rvl__what' }, units.map((u) => el('li', {
+          text: u.name ? `${t(`rv.legacy.unit.${u.kind}`)}: ${u.name}` : t(`rv.legacy.unit.${u.kind}`),
+        }))),
+        el('p', { className: 'rve__note', text: t('rv.legacy.unsafe') }),
+      ])
+      : null;
+    return [
+      el('p', { className: 'rve__note', text: t('rv.legacy.unchanged') }),
+      details,
+      el('div', { className: 'rvl__rename' }, [
+        small(t('rv.legacy.retry'), () => preflight(), { className: 'btn btn--small btn--primary' }),
+        small(t('rv.legacy.keep'), close),
+      ]),
+    ];
   }
 
   function preflight() {
@@ -497,10 +520,9 @@ export async function legacyNotice({ profile, onMoved, onLegacy, force = false }
         say([
           el('p', { attrs: { role: 'alert' }, text: error.detail && error.detail.code === 'backup_failed'
             ? t('rv.legacy.noBackup') : t('rv.legacy.failed') }),
-          el('div', { className: 'rvl__rename' }, [
-            small(t('rv.legacy.retry'), () => preflight(), { className: 'btn btn--small btn--primary' }), fallback,
-          ]),
+          ...failed([]),
         ]);
+        box.querySelector('h2').focus();
       }
     }, { className: 'btn btn--small btn--primary' });
     say([
@@ -527,7 +549,7 @@ export async function legacyNotice({ profile, onMoved, onLegacy, force = false }
       out.failed
         ? el('p', { attrs: { role: 'alert' }, text: tCount('rv.legacy.someFailed', { n: out.failed }) })
         : null,
-      out.failed ? el('div', { className: 'rvl__rename' }, [fallback]) : null,
+      ...(out.failed ? failed(out.failures || []) : []),
       small(t('rv.legacy.seeThem'), () => onMoved(), { className: 'btn btn--small btn--primary' }),
     ]);
     box.querySelector('h2').focus();

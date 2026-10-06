@@ -37,8 +37,8 @@ import { LOCALES, getLocale, initialLocale, setLocale, t, tCount, tState } from 
 import { createRetrievalPanel } from './retrieval.js';
 import { createCollection, createProgressView, outcomeText } from './collection.js';
 import { createDrawer } from './detail.js';
-import { createResumeHelper } from './resume.js';
 import { createResumeWorkspace } from './resume_v2.js';
+import { legacyNotice } from './resume_library.js';
 import { createEvidence } from './evidence.js';
 import { documentsPage } from './documents.js';
 import { evidencePage } from './evidence_page.js';
@@ -206,9 +206,9 @@ const drawer = createDrawer({
     evidenceView.add({ requirement: (row && row.label) || '' });
   },
   // Whether Career Agent holds anything about this person's career -- a read
-  // document, or evidence waiting or confirmed. Resume Tailor keeps its own
-  // store, which this never reads; this only decides whether Tailor is
-  // offered as the next step or after the step that gives it something.
+  // document, or evidence waiting or confirmed. This only decides whether
+  // tailoring a resume is offered as the next step or after the step that
+  // gives it something.
   careerContext: () => careerContext(),
   onAddCareer: () => afterDrawerCloses(() => goTo('documents')),
   // Step 3 of Before you apply: this job's resume versions. A new one is a
@@ -266,41 +266,13 @@ const PAGES = {
   // filter, and reaching it meant opening a disclosure inside a panel that
   // only exists on one page.
   settings: document.getElementById('page-settings'),
-  // Resumes: Home, My resumes and the Editor, a page of this app.
+  // Resumes: Home, My resumes, the Editor and Analyze, a page of this app.
   resume: document.getElementById('page-resume'),
-  // The previous Resume Helper, kept as a fallback and reached from Settings.
-  'resume-legacy': document.getElementById('page-resume-legacy'),
 };
 
 // The rail, the page header and the mobile drawer. See `shell.js` for why the
 // header is a contract rather than five headers that happen to look alike.
 const shell = createShell();
-
-// Once this profile's old resumes have moved, the old helper only shows them,
-// and says so above itself (its writes are refused by the server too).
-const legacyNotice = el('p', { className: 'rve__notice', attrs: { role: 'note' }, props: { hidden: true } });
-const legacyHost = el('div');
-PAGES['resume-legacy'].append(legacyNotice, legacyHost);
-function paintLegacyNotice() {
-  legacyNotice.textContent = t('rv.legacy.readOnly');
-  void api.getLegacyResumes().then((found) => { legacyNotice.hidden = found.state !== 'MOVED'; })
-    .catch(() => { legacyNotice.hidden = true; });
-}
-
-const resumeHelper = createResumeHelper({
-  host: legacyHost,
-  onOpenJob: (jobId) => {
-    store.set({ openJobId: jobId });
-    drawer.open(jobId, document.querySelector('.topnav__link[data-page="resume"]'));
-  },
-  onGoJobs: () => goTo('jobs'),
-  onGoEvidence: (requirement) => {
-    goTo('evidence');
-    if (requirement) evidenceView.add({ requirement });
-  },
-  onGoProfile: () => goTo('profile'),
-  toast: (message, bad = false, undo = null) => flash(message, bad, undo ? undo.run : null),
-});
 
 /** From the job drawer to Resumes, then `step` there; a failure is said, not lost. */
 function toResumes(step) {
@@ -313,7 +285,6 @@ function toResumes(step) {
 const resumeWorkspace = createResumeWorkspace({
   host: PAGES.resume,
   onEvidence: () => goTo('documents'),
-  onLegacy: () => goTo('resume-legacy'),
   onSettings: () => goTo('settings'),
   // A gap is answered in Proof of my work, with the ask named; never in the resume.
   onAddEvidence: (ask) => {
@@ -321,7 +292,20 @@ const resumeWorkspace = createResumeWorkspace({
     evidenceView.add({ requirement: ask });
   },
 });
-document.getElementById('settings-legacy-open').addEventListener('click', () => goTo('resume-legacy'));
+
+// Settings: the retired Resume helper's resumes, only while some are left to
+// move. The same question Resumes asks; nothing moves until it is answered.
+const settingsLegacy = document.getElementById('settings-legacy-host');
+async function paintSettingsLegacy() {
+  const box = await legacyNotice({
+    profile: api.getLocalProfile(),
+    force: true,
+    onMoved: () => goTo('resume'),
+    onClose: () => { settingsLegacy.hidden = true; },
+  });
+  settingsLegacy.replaceChildren(...(box ? [box] : []));
+  settingsLegacy.hidden = !box;
+}
 
 // -- the career pages -------------------------------------------------------
 const evidenceView = evidencePage({
@@ -391,15 +375,11 @@ let homeHeader = 'home';
 
 let currentPage = 'home';
 
-function goTo(page, { push = true, resume = null } = {}) {
+function goTo(page, { push = true } = {}) {
   if (!PAGES[page]) return;
   // Leaving Resumes finishes its saving first (and marks the visit).
   if (currentPage === 'resume' && page !== 'resume') void resumeWorkspace.leave();
   currentPage = page;
-  if (page === 'resume-legacy') {
-    paintLegacyNotice();
-    resumeHelper.show(resume ? resume.tab : undefined, { ...(resume || {}), fresh: true });
-  }
   if (page === 'resume') resumeWorkspace.show();
 
   for (const [name, node] of Object.entries(PAGES)) {
@@ -460,6 +440,7 @@ function goTo(page, { push = true, resume = null } = {}) {
   // question nobody has asked yet, and a list of jobs should not wait on it.
   if (page === 'settings') {
     setSettingsTab(settingsTab);
+    void paintSettingsLegacy();
     renderSetupEntry(document.getElementById('settings-setup-host'));
     renderSearchSettings(document.getElementById('search-settings-host'), store);
     sourcesPanel.load();
@@ -2364,7 +2345,7 @@ function separator() {
 }
 
 /**
- * "Quit Career Agent": stops Career Agent and Resume Tailor, as Ctrl+C does in
+ * "Quit Career Agent": stops Career Agent, as Ctrl+C does in
  * the launcher window. Offered only when this server was started by a launcher
  * that can stop it, so a window opened from the desktop shortcut has a way out.
  */
@@ -3249,14 +3230,11 @@ function relabelStaticText() {
     if (node) node.textContent = t(key);
   };
   swap('.skip', 'app.skip');
-  swap('#settings-legacy-summary', 'rv.legacy.advanced');
-  swap('#settings-legacy-text', 'rv.legacy.settingsText');
-  swap('#settings-legacy-open', 'rv.legacy.title');
   swap('#view-cards', 'view.cards');
   swap('#view-table', 'view.table');
   swap('#view-kanban', 'view.board');
   swap('#export-good-strong', 'export.goodStrong');
-  if (currentPage === 'resume-legacy') resumeHelper.relabel();
+  if (currentPage === 'settings') void paintSettingsLegacy();
   resumeWorkspace.relabel();
   // The two toolbar controls whose words depend on STATE rather than only
   // on the catalogue: which way the sort runs, and whether duplicates are
@@ -3342,8 +3320,10 @@ localProfiles.mountSettings(document.getElementById('settings-profiles-host'));
 
 // The landing page is HOME. A hash chooses another, so a bookmark and a
 // reload land where the person left off.
-const wanted = DEV_STATEMENTS ? 'manage' : window.location.hash.replace('#', '');
-// An old Resume Tailor link arrives as `?resume_job=<id>#resume`: the job is
+// The retired Resume helper's own page (`#resume-legacy`) opens Resumes.
+const hashed = window.location.hash.replace('#', '');
+const wanted = DEV_STATEMENTS ? 'manage' : (hashed === 'resume-legacy' ? 'resume' : hashed);
+// An old Resume helper link arrives as `?resume_job=<id>#resume`: the job is
 // read once and dropped from the address, and its drawer opens over Resumes.
 const resumeJob = new URLSearchParams(window.location.search).get('resume_job');
 if (resumeJob) {

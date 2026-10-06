@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import secrets
 import threading
@@ -179,6 +180,14 @@ def _library(rows: list[dict[str, Any]]) -> dict[str, Any]:
         group["versions"].sort(key=lambda v: -v["version_number"])
     out["jobs"] = list(groups.values())
     return out
+
+
+def _unit(name: str) -> dict[str, str]:
+    """A migration unit as the page names it: `{kind, name}`."""
+    for prefix, kind in (("base resume ", "base"), ("run ", "run"), ("export ", "export")):
+        if name.startswith(prefix):
+            return {"kind": kind, "name": name[len(prefix) :]}
+    return {"kind": "identity", "name": ""}
 
 
 def _pasted_ad(body: dict) -> dict[str, Any]:
@@ -437,11 +446,32 @@ def register_resume_routes(app: LocalApp) -> None:
             listed = []
             for e in reversed(store.list_exports(document_id)):
                 try:
-                    available = bool(stored_file(conn, e))
+                    available = bool(export_path(conn, e))
                 except FileNotFoundError:
                     available = False  # deleted, or never in this profile's folder
                 listed.append({**_export(e), "available": available})
             return listed
+
+    def export_path(conn: Any, made: Any) -> Path:
+        """Where an export's file is. A file moved from the retired Resume
+        helper stays in that helper's folder: it is served only from THIS
+        profile's old `exports` folder and only while it is the file that
+        was recorded (same sha256); no other path outside this profile's
+        export folder is ever read."""
+        from career_agent.resume_doc.legacy import ENGINE
+
+        if made.engine != ENGINE:
+            return stored_file(conn, made)
+        root = legacy_root()
+        path = Path(made.file_path).resolve()
+        if (
+            root is None
+            or not path.is_relative_to((root / "exports").resolve())
+            or not path.is_file()
+            or hashlib.sha256(path.read_bytes()).hexdigest() != made.file_sha256
+        ):
+            raise FileNotFoundError(made.id)
+        return path
 
     def export_file(*, query: dict, body: dict, export_id: str) -> Download:
         """An export of THIS profile, by its id; the server finds the file."""
@@ -449,7 +479,7 @@ def register_resume_routes(app: LocalApp) -> None:
             store = ResumeStore(conn)
             try:
                 made = store.get_export(export_id)
-                path = stored_file(conn, made)
+                path = export_path(conn, made)
             except (NotFound, FileNotFoundError) as exc:
                 raise ApiError(404, "This file is no longer here.", for_reader=True) from exc
             doc = store.get_revision(made.revision_id).content
@@ -925,8 +955,11 @@ def register_resume_routes(app: LocalApp) -> None:
             "job_versions": kinds.count("TAILORED"),
             "exports": len(report.created) - len(kinds),
             "already": len(report.already),
-            # How many units stayed behind; never their legacy names or ids.
             "failed": len(report.failures),
+            # Which units stayed behind, to name them: their kind and the
+            # name the old helper gave them (a run id, a file name), never
+            # their contents or the reason's internals.
+            "failures": [_unit(f["unit"]) for f in report.failures],
         }
 
     app.register("POST", r"/api/resume/import/read", import_read)

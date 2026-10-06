@@ -29,10 +29,10 @@
       alt="Beta 2"
     />
   </a>
-  <a href="#resume-tailor-beta">
+  <a href="#resumes">
     <img
-      src="https://img.shields.io/badge/Resume_Tailor-Beta-d8c8ff"
-      alt="Resume Tailor Beta"
+      src="https://img.shields.io/badge/Resumes-Workspace_V2-d8c8ff"
+      alt="Resumes: Resume Workspace V2"
     />
   </a>
   <a href="docs/VALIDATION.md">
@@ -96,15 +96,16 @@ Career Agent is a job-search workspace that runs on your own computer. It
 collects public postings from job boards and employer hiring systems, checks
 whether each employer can hire you where you live, and gives every posting a
 **Search Fit** score from 0 to 100 that quotes the posting to explain itself.
-**Resume Tailor Beta**, included in the same download, prepares a resume for
-one posting from experience you have confirmed. Your data is kept in files
+**Resumes** keeps your resumes and makes a version for one posting from
+experience you have confirmed. Your data is kept in files
 inside the Career Agent folder; nothing is uploaded to a Career Agent server,
 because there is none.
 
 > [!NOTE]
 >
-> This is **v0.2.0-beta.2**: Career Agent Beta with Resume Tailor Beta, for
-> people who run it on their own computer. Search Fit describes how a posting
+> The latest release is **v0.2.0-beta.2**, for people who run it on their
+> own computer; it shipped the previous resume tool, Resume Tailor Beta. This
+> page describes the code since then, where **Resumes** replaced it. Search Fit describes how a posting
 > matches your search preferences. It does not estimate your chances of being
 > hired.
 
@@ -139,16 +140,16 @@ then double-click **Start-Career-Agent.cmd** to set up your own search. The guid
 
 ## Screenshots
 
-All four show the product with synthetic demo data or an empty first-run
+All three show the product with synthetic demo data or an empty first-run
 workspace.
 
 | Discover jobs | Why this fits your search |
 |---|---|
 | ![Discover with synthetic jobs, Search Fit and Posting completeness on each card](docs/assets/readme/discover.png) | ![Search Fit reasons, each quoted from the posting](docs/assets/readme/why.png) |
 
-| Resume Tailor Beta | First run |
-|---|---|
-| ![Resume Tailor with the synthetic candidate Alex Morgan](docs/assets/readme/tailor.png) | ![First-run setup with the profile menu and ten short questions](docs/assets/readme/first-run.png) |
+| First run |
+|---|
+| ![First-run setup with the profile menu and ten short questions](docs/assets/readme/first-run.png) |
 
 ![Workflow: discover, inspect Search Fit and reasons, prepare with Tailor Beta, track applications](docs/assets/readme/how-it-works.png)
 
@@ -163,7 +164,7 @@ workspace.
 | Search Fit | A 0 to 100 score with a band (STRONG, GOOD, MODERATE, WEAK), reasons quoted from the posting and the facts the posting left out. **Posting completeness** is shown beside it and never changes it. |
 | Career Evidence | Career Agent reads your CV on your computer and proposes statements. Each one becomes part of your Career Profile only when you confirm it. |
 | Applications | Statuses (Found, Interested, Applied, Interviewing, Offer, Rejected and others), notes and history for the postings you act on. |
-| Resume Tailor Beta | Resume preparation for one posting, from confirmed experience, with Markdown, Word and PDF export. |
+| Resumes | A Master resume, PDF and Word import, a version for each job, an editor with a live preview, PDF, Word and JSON export, tailoring from confirmed experience, and Analyze: named findings, never a score. |
 
 ### What is stable, optional, experimental or missing
 
@@ -172,7 +173,8 @@ workspace.
 | Collection from 26 sources, eligibility, Search Fit, Career Evidence, applications | Part of this Beta |
 | Local profiles (several people on one installation) | Part of this Beta |
 | Shared local job catalogue | Part of this Beta |
-| Resume Tailor | Beta |
+| Resumes (Resume Workspace V2) | Beta |
+| AI drafting and AI review in Resumes | Optional, only when you press their buttons |
 | Semantic matching (DeepSeek, Claude Code or Codex) | Optional, off until you start a run |
 | Local model reading (Ollama, `qwen3:4b`) | Optional, runs only on this computer |
 | LinkedIn through JobSpy | Experimental, off by default, per profile |
@@ -198,8 +200,8 @@ sentence from the posting. The title alone earns nothing.
   Agent accepts only quotes it can find in the posting, and its own
   arithmetic does the scoring. Details: [SEMANTIC_MATCHING.md](docs/SEMANTIC_MATCHING.md).
 
-Search Fit never reads your confirmed evidence, and Resume Tailor's match
-score (Tailor Match) is a separate number.
+Search Fit never reads your confirmed evidence, and Resumes shows no match
+score at all.
 
 ## Job sources
 
@@ -241,7 +243,7 @@ into manual import.
 
 One installation can hold several **local profiles**, for example you and a
 family member. Each profile has its own settings, role anchors, CV, confirmed
-evidence, Search Fit scores, applications, notes and Resume Tailor workspace.
+evidence, Search Fit scores, applications, notes and resumes.
 One profile's data never appears in or influences another's.
 
 Public job data (postings, descriptions, employers, boards and the search
@@ -252,32 +254,37 @@ Profiles are **not accounts**. There is no login or password, and anyone who
 can use the same operating-system account can read every profile's files.
 Details: [MULTI_PROFILE.md](docs/MULTI_PROFILE.md).
 
-## Resume Tailor Beta
+## Resumes
 
-Open **Resume Tailor** from the side bar, or from a job's details. Resume
-Tailor follows the active local profile, opens on the posting you came from
-and lists the jobs you are tracking. A base resume can come from your
-confirmed Career Profile or from an uploaded PDF, Word (.docx) or Markdown
-file.
+Open **Resumes** from the side bar, or from a job's details. Start with a
+**Master** resume made from your confirmed Career Profile, import one from a
+PDF or Word (.docx) file and review what was read, or start a blank one.
+Every resume has a history you can restore, and **My resumes** groups the
+versions made for each job.
 
-It analyzes the job, matches its requirements to your evidence, shows gaps,
-generates a draft, validates it, lets you edit it and exports Markdown, Word
-or PDF. Markdown and Word export work without AI. PDF needs Microsoft Word or
-LibreOffice on the computer; otherwise Resume Tailor says PDF is unavailable.
+A version for a job is built from your confirmed experience, without AI:
+Resumes reads the job's asks, finds what you have confirmed for each one and
+shows what it could not find. **Analyze** checks a resume on its own or
+against a job and names what it found (a missing contact, an unsupported
+number, an ask your resume does not show); it never gives a score. PDF, Word
+and JSON export are checked before you download them. AI drafting and an
+independent AI review are optional: each runs only when you press it, and
+says first which provider receives what.
 
-Confirmed Career Profile statements move into Resume Tailor only when you
-choose **Use my Career Profile** or update from it; statements still waiting
-for review never move. A sentence Resume Tailor generates never becomes
-confirmed evidence, and an edit that claims experience you have not backed up
-is rejected by the evidence-only export. See the
-[architecture notes](docs/ARCHITECTURE.md).
+A sentence Resumes or an AI writes never becomes confirmed evidence, and a
+line that cites evidence you have not confirmed cannot be exported. Details:
+[RESUME_WORKSPACE.md](docs/RESUME_WORKSPACE.md).
+
+The previous resume tool, Resume Tailor, is retired. If you used it, Resumes
+offers to move its resumes, after a verified backup; nothing moves until you
+choose to, and its files stay on your computer.
 
 ## Privacy
 
 Your settings, postings, scores, notes, applications, CV text and evidence
 are stored in the `data` and `config` folders inside the Career Agent folder.
 Career Agent keeps the text it extracts from a CV, not the uploaded file.
-Resume Tailor keeps the source documents you upload to it. No telemetry is
+Resumes keeps what you saved from an imported resume, not the file. No telemetry is
 implemented, and the application does not encrypt its files.
 
 These actions send data off the computer, each only when you take it:
@@ -288,7 +295,7 @@ These actions send data off the computer, each only when you take it:
 | Collecting jobs | Requests to job boards and employer sites, with search phrases and places. Never your CV or profile. |
 | LinkedIn via JobSpy (if you turned it on) | Short search phrases and places, sent to LinkedIn. |
 | Semantic matching (if you start a run) | Your search phrases and the selected postings' text, to the provider you chose. |
-| Resume Tailor AI (if you configured one) | Job descriptions and selected evidence, to that provider. |
+| AI drafting or review in Resumes (when you press it) | The job's title and the asks it quotes, and the resume lines and confirmed statements relevant to them, to the provider you set up. Never your contact details. |
 | Opening an employer link | Your browser visits that website. |
 
 The local model reading (Ollama) stays on the computer: Career Agent refuses
@@ -330,11 +337,9 @@ checks.
   and a refused source waits a day.
 - Source availability changes, and some sources return only recent windows or
   metadata. A posting that does not say where it hires stays unresolved.
-- Career Agent's interface is in English and Brazilian Portuguese. Resume
-  Tailor's interface is in English; its error messages are in English and
-  Brazilian Portuguese.
+- Career Agent's interface is in English and Brazilian Portuguese.
 - The local model reading takes minutes on a laptop processor.
-- PDF export needs Word or LibreOffice. LibreOffice was not tested.
+- PDF export needs Microsoft Edge or Chrome on the computer.
 - No live hosted AI provider was called during release testing.
 - Some validation datasets used during development are private and are not
   shipped; their tests are excluded, not counted as passing.
@@ -342,13 +347,12 @@ checks.
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development commands and the
-release gate. The Tailor frontend bundle is included; Node is needed only to
-rebuild it. [Architecture](docs/ARCHITECTURE.md),
+release gate. [Architecture](docs/ARCHITECTURE.md),
 [source permissions](docs/SOURCES.md) and
 [public audit](docs/PUBLIC_AUDIT.md) explain the engineering boundaries.
 
 ## License and third-party notices
 
-Career Agent is [MIT](LICENSE). Resume Tailor in `companion/resume-tailor` is [Apache-2.0](companion/resume-tailor/LICENSE). Bundled fonts retain their OFL licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for component boundaries, dependencies and attribution.
+Career Agent is [MIT](LICENSE). The reader that moves resumes from the retired Resume Tailor adapts its Apache-2.0 code ([license](licenses/resume-tailor-Apache-2.0.txt), [notice](licenses/resume-tailor-NOTICE.txt)). Bundled fonts retain their OFL licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for component boundaries, dependencies and attribution.
 
 Credit to [Career-Ops](https://github.com/career-ops-hq/career-ops) for protocol patterns that informed adapter work. Presentation references: [ECC](https://github.com/affaan-m/ECC), [Open Code Review](https://github.com/alibaba/open-code-review), [Ponytail](https://github.com/DietrichGebert/ponytail), [Colibri](https://github.com/JustVugg/colibri). The notices distinguish adapted material, protocol knowledge, inspiration and dependencies. No affiliation is implied.

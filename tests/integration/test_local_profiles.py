@@ -3,7 +3,7 @@
 Adversarial and synthetic throughout. Profile A is an installation's original
 workspace, adopted in place; profile B is created empty through the API. A's
 CV, confirmed evidence, role anchors, saved job, note, source choice and
-Resume Tailor candidate must never be visible from B, and B's must never
+resumes must never be visible from B, and B's must never
 reach A. Everything lives under a temporary folder; no real profile is read.
 """
 
@@ -15,7 +15,6 @@ import types
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from tests.support import committed_config_dir
 
 from career_agent.config.search_config import load_search_config
@@ -29,13 +28,11 @@ from career_agent.runtime.profiles import (
     load_registry,
 )
 from career_agent.storage.db import connect, migrate, transaction
-from career_agent.web.profiles import ProfileHost, SwitchableApp, tailor_environment
+from career_agent.web.profiles import ProfileHost
 from career_agent.web.server import ApiError
-from career_agent.web.tailor_bridge import tailor_app
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_FILE = REPO_ROOT / "evaluation" / "demo" / "demo_postings.yaml"
-TAILOR = "http://127.0.0.1:8766"
 
 CV_A = """Robin Example
 Operations Analyst
@@ -80,13 +77,9 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.Fix
         profile, shared, _ = catalogue_split.build(db, tmp_path / "staging")
         assert catalogue_split.verify(db, profile, shared).ok
         catalogue_split.install(db, profile, shared)
-    monkeypatch.setenv("RESUME_TAILOR_HOME", str(root / "unused"))
     registry = ensure_registry(root)
     first = registry.current
-    tailor_environment(root, first)
-    from resume_tailor.api.app import create_app
-
-    host = ProfileHost(root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=tailor_app)
+    host = ProfileHost(root, port=0)
     api = host.open(first)
     host.server = types.SimpleNamespace(RequestHandlerClass=type("H", (), {"app": api}))
     host.serve(first, api)
@@ -98,12 +91,6 @@ def app(host: ProfileHost):
     api = host.current()
     assert api is not None
     return api
-
-
-def tailor(host: ProfileHost) -> TestClient:
-    """Resume Tailor as a page opened on the active profile sees it."""
-    headers = {"X-Local-Profile": host.active.id} if host.active is not None else {}
-    return TestClient(host.tailor, base_url=TAILOR, headers=headers)
 
 
 def fill_profile_a(host: ProfileHost) -> dict:
@@ -136,9 +123,25 @@ def fill_profile_a(host: ProfileHost) -> dict:
         {},
         {"source_id": "linkedin_br", "opted_in": True, "acknowledged": True},
     )
-    created = tailor(host).post("/api/candidates", json={"name": "Synthetic A"})
-    assert created.status_code == 200, created.text
+    master(host, "Synthetic A")
     return {"job": job}
+
+
+def master(host: ProfileHost, title: str) -> None:
+    """A Master resume for the active profile, titled `title`."""
+    made = app(host).handle_api("POST", "/api/resume/master", {}, {})["master"]
+    app(host).handle_api(
+        "PATCH",
+        f"/api/resume/documents/{made['id']}",
+        {},
+        {"action": "rename", "title": title},
+    )
+
+
+def resumes(host: ProfileHost) -> list[str]:
+    listed = app(host).handle_api("GET", "/api/resume/documents", {}, {})
+    mine = [listed["master"]] if listed["master"] else []
+    return sorted(d["title"] for d in [*mine, *listed["others"]])
 
 
 def snapshot(host: ProfileHost) -> dict:
@@ -158,7 +161,7 @@ def snapshot(host: ProfileHost) -> dict:
         "linkedin": next(s for s in sources if s["id"] == "linkedin_br")["experimental"][
             "opted_in"
         ],
-        "tailor": sorted(c["name"] for c in tailor(host).get("/api/candidates").json()),
+        "resumes": resumes(host),
         "search_file": (Path(api.config.config_dir) / "search.local.yaml").exists(),
     }
 
@@ -172,7 +175,7 @@ def test_profile_b_sees_nothing_of_a_and_a_nothing_of_b(install: ProfileHost) ->
     assert (
         a_before["saved"] and a_before["noted"] and a_before["modes"] == {"programathor": "PAUSED"}
     )
-    assert a_before["tailor"] == ["Synthetic A"] and a_before["search_file"]
+    assert a_before["resumes"] == ["Synthetic A"] and a_before["search_file"]
     assert a_before["linkedin"] is True
 
     created = app(host).handle_api("POST", "/api/profiles", {}, {"label": "Synthetic B"})
@@ -189,7 +192,7 @@ def test_profile_b_sees_nothing_of_a_and_a_nothing_of_b(install: ProfileHost) ->
         "saved": [],
         "noted": [],
         "modes": {},
-        "tailor": [],
+        "resumes": [],
         "search_file": False,
         "linkedin": False,
     }
@@ -197,14 +200,14 @@ def test_profile_b_sees_nothing_of_a_and_a_nothing_of_b(install: ProfileHost) ->
 
     # B's own data.
     app(host).handle_api("PATCH", "/api/role-anchors", {}, {"anchors": [{"text": "Nurse"}]})
-    assert tailor(host).post("/api/candidates", json={"name": "Synthetic B"}).status_code == 200
+    master(host, "Synthetic B")
 
     app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": first.id})
     assert snapshot(host) == a_before, "profile A changed while B was in use"
 
     app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
     after = snapshot(host)
-    assert after["anchors"] == ["Nurse"] and after["tailor"] == ["Synthetic B"]
+    assert after["anchors"] == ["Nurse"] and after["resumes"] == ["Synthetic B"]
 
 
 def test_a_database_answers_only_to_its_own_profile(install: ProfileHost) -> None:
@@ -244,17 +247,11 @@ def test_rapid_switches_and_a_restart_keep_every_profile_whole(install: ProfileH
     assert snapshot(host) == a_before
 
     # A "restart": a new host reads the registry and opens the active profile.
-    from resume_tailor.api.app import create_app
-
     app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
     host.close()  # the first process ends; its OS lock goes with it
-    reopened = ProfileHost(
-        host.root, port=0, tailor=SwitchableApp(create_app()), tailor_factory=tailor_app
-    )
+    reopened = ProfileHost(host.root, port=0)
     active = load_registry(host.root).current
     assert active.id == second
-    tailor_environment(host.root, active)
-    reopened.tailor.inner = create_app()
     reopened_api = reopened.open(active)
     reopened.server = types.SimpleNamespace(
         RequestHandlerClass=type("H", (), {"app": reopened_api})
@@ -411,39 +408,6 @@ def test_a_rename_is_kept_when_the_registry_is_rebuilt(install: ProfileHost) -> 
     app(host).handle_api("PATCH", f"/api/profiles/{created['id']}", {}, {"label": "After"})
     (host.root / "data" / "profiles.json").unlink()
     assert {p.id: p.label for p in ensure_registry(host.root).profiles}[created["id"]] == "After"
-
-
-def test_a_tailor_tab_left_open_after_a_switch_cannot_touch_the_new_profile(
-    install: ProfileHost,
-) -> None:
-    host = install
-    """A switch rebuilds Resume Tailor on the new profile behind the same
-    port. A page still showing the old profile sends the old id and is
-    refused, so it can neither read nor write the new profile."""
-    first = host.active
-    job = app(host).handle_api("GET", "/api/jobs", {"limit": ["1"]}, {})["items"][0]["job_id"]
-    old_page = TestClient(host.tailor, base_url=TAILOR, headers={"X-Local-Profile": first.id})
-    created = app(host).handle_api("POST", "/api/profiles", {}, {"label": "Synthetic B"})
-    second = created["created"]["id"]
-    app(host).handle_api("POST", "/api/profiles/switch", {}, {"profile_id": second})
-    for method, path, body in (
-        ("GET", "/api/career/applications", None),
-        ("PATCH", f"/api/career/applications/{job}", {"status": "APPLIED"}),
-        ("POST", "/api/career/evidence/import", {}),
-        ("GET", "/api/candidates", None),
-    ):
-        response = old_page.request(method, path, json=body, headers={"Origin": TAILOR})
-        assert response.status_code == 409, (method, path, response.text)
-        assert "Reload" in response.json()["detail"]["message"]
-    with connect(Path(host.root) / load_registry(host.root).current.db) as conn:
-        row = conn.execute("SELECT status FROM job_application WHERE job_id = ?", (job,)).fetchone()
-    assert row is None, "the old page wrote the new profile's application"
-    # A page that reloaded follows the new profile.
-    fresh = TestClient(host.tailor, base_url=TAILOR)
-    info = fresh.get("/api/workspace").json()
-    assert info["profile"]["id"] == second
-    new_page = TestClient(host.tailor, base_url=TAILOR, headers={"X-Local-Profile": second})
-    assert new_page.get("/api/career/applications").status_code == 200
 
 
 def test_search_fit_feedback_stays_in_its_profile(install: ProfileHost) -> None:

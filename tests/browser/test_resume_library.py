@@ -292,7 +292,7 @@ def test_old_resumes_are_offered_never_moved_by_looking(
     page.evaluate(FOUND)
     page.evaluate("document.querySelector('.topnav__link[data-page=\"resume\"]').click()")
     page.wait_for("document.querySelector('.rvl__legacy') !== null", message="the message")
-    assert "We found resumes from the previous Resume Helper" in page.evaluate(
+    assert "We found resumes from the previous version" in page.evaluate(
         "document.querySelector('.rvl__legacy').innerText"
     )
     page.evaluate(
@@ -314,6 +314,75 @@ def test_old_resumes_are_offered_never_moved_by_looking(
     )
     page.wait_for("document.querySelector('.rvl__legacy') === null", message="put away")
     assert page.evaluate("window.__moved") == 0  # nothing was asked to move
+
+
+FAILS = FOUND.replace(
+    " if (url.endsWith('/api/resume/legacy/migrate')) { window.__moved += 1; }",
+    " if (url.endsWith('/api/resume/legacy/migrate')) { window.__moved += 1;"
+    " return Promise.resolve(new Response(JSON.stringify({masters: 1, imported: 0,"
+    " job_versions: 2, exports: 1, already: 0, failed: 1,"
+    " failures: [{kind: 'run', name: '20260105T000000-eeeeee'}]}),"
+    " {headers: {'Content-Type': 'application/json'}})); }",
+)
+
+
+def test_a_partial_move_says_what_stayed_and_never_points_to_the_old_helper(
+    page: Chrome, library_server: dict[str, Any]
+) -> None:
+    """PR 12: the old helper is gone. A move that leaves something behind
+    offers to try again, names what stayed (its kind and name only) and says
+    the old files were not changed."""
+    page.set_viewport(1366, 900)
+    page.navigate(f"{library_server['url']}/#jobs")
+    page.wait_for("document.querySelector('.topnav__link[data-page=\"resume\"]')")
+    page.evaluate(FAILS)
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"resume\"]').click()")
+    page.wait_for("document.querySelector('.rvl__legacy') !== null", message="the message")
+    press = (
+        "[...document.querySelectorAll('.rvl__legacy button')]"
+        ".find((b) => b.textContent === {!r}).click()"
+    )
+    page.evaluate(press.format("Review and move them"))
+    page.evaluate(press.format("Back up and move"))
+    page.wait_for(
+        "document.querySelector('.rvl__legacy').innerText.includes('could not be moved')",
+        message="the result",
+    )
+    buttons = page.evaluate(
+        "[...document.querySelectorAll('.rvl__legacy button')].map((b) => b.textContent)"
+    )
+    assert "Try again" in buttons and "Keep original files" in buttons, buttons
+    assert not any("Legacy" in b or "Helper" in b for b in buttons), buttons
+    text = page.evaluate("document.querySelector('.rvl__legacy').innerText")
+    assert "Your old Resume Helper files were not changed." in text
+    page.evaluate("document.querySelector('.rvl__details summary').click()")
+    details = page.evaluate("document.querySelector('.rvl__details').innerText")
+    assert "Resume made for a job: 20260105T000000-eeeeee" in details
+    assert "couldn’t safely move" in details
+    page.evaluate(press.format("Keep original files"))
+    page.wait_for("document.querySelector('.rvl__legacy') === null", message="put away")
+    assert page.evaluate("window.__moved") == 1
+
+
+def test_settings_offers_the_move_only_while_old_resumes_are_left(
+    page: Chrome, library_server: dict[str, Any]
+) -> None:
+    page.navigate(f"{library_server['url']}/#jobs")
+    page.wait_for("document.querySelector('.topnav__link[data-page=\"settings\"]')")
+    page.evaluate(FOUND)
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"settings\"]').click()")
+    page.wait_for(
+        "!document.getElementById('settings-legacy-host').hidden"
+        " && document.querySelector('#settings-legacy-host .rvl__legacy') !== null",
+        message="the move offered in Settings",
+    )
+    buttons = page.evaluate(
+        "[...document.querySelectorAll('#settings-legacy-host button')].map((b) => b.textContent)"
+    )
+    assert buttons == ["Review and move them", "Not now"], buttons
+    page.evaluate("document.querySelectorAll('#settings-legacy-host button')[1].click()")
+    page.wait_for("document.getElementById('settings-legacy-host').hidden", message="put away")
+    assert page.evaluate("window.__moved") == 0
 
 
 # --------------------------------------------------------- phone, Portuguese

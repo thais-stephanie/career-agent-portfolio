@@ -9,6 +9,11 @@ Both banners were adapted from designs supplied for this README update using
 the built-in image generation tool. The original supplied files were preserved.
 No private CV, job-search data or application history was used.
 
+Both banners still show **Resume Tailor Beta**, the resume tool retired in
+Resume Workspace V2 PR 12 (Resumes replaced it). They must be redrawn before
+the next release; until then the README keeps them as illustrations of
+v0.2.0-beta.2.
+
 ## Saved assets and edit specifications
 
 - `hero.png`: preserve the wide cream dotted layout, serif title, outlined

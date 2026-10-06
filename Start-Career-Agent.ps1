@@ -62,7 +62,7 @@ try {
         [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $toolsDir)
     }
     $stage = 'install'
-    Write-Host '[2/3] Checking Career Agent and Resume Tailor Beta. Python 3.12 is managed automatically.'
+    Write-Host '[2/3] Checking Career Agent. Python 3.12 is managed automatically.'
     Write-Host '      The first time this downloads everything they need and can take a few minutes.'
     Write-Host '      Later starts only check, and take seconds.'
     & $uvExe sync --locked --no-dev --python 3.12

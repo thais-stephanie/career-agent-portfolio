@@ -1,8 +1,8 @@
-"""Resumes is a page of this app; the previous Resume Helper is its fallback.
+"""Resumes is a page of this app, and the only resume tool (PR 12).
 
-The sidebar opens Resumes (Home, My resumes, Editor) in this window, with no
-query string. The previous Resume Helper is still reachable, from Settings
-only, and is named for what it is.
+The sidebar opens Resumes (Home, My resumes, Editor, Analyze) in this window,
+with no query string. The retired Resume Helper is reachable from nowhere:
+not the sidebar, not Settings, not its old address.
 """
 
 from tests.browser.test_browser_acceptance import click, open_list
@@ -36,27 +36,23 @@ def test_the_sidebar_opens_resumes_as_a_page_of_this_app(page, pristine_server):
     assert page.console_errors() == []
 
 
-def test_the_previous_helper_is_a_fallback_reached_from_settings(page, pristine_server):
-    page.navigate(pristine_server)
-    page.wait_for("document.getElementById('settings-legacy-open')")
-    assert page.evaluate("document.getElementById('settings-legacy-open').textContent") == (
-        "Legacy Resume Helper"
-    )
-    click(page, "document.getElementById('settings-legacy-open')")
+def test_the_retired_helper_is_reachable_from_nowhere(page, pristine_server):
+    """Settings offers no old helper, and the old helper's own page address
+    opens Resumes. With nothing left to move, Settings says nothing about it."""
+    page.navigate(pristine_server + "/#settings")
+    page.wait_for("!document.getElementById('page-settings').hidden", message="Settings")
+    assert page.evaluate("document.getElementById('settings-legacy-open')") is None
+    assert page.evaluate("document.getElementById('page-resume-legacy')") is None
+    page.wait_for("document.getElementById('settings-legacy-host').hidden")
+    text = page.evaluate("document.getElementById('page-settings').innerText")
+    assert "Legacy Resume Helper" not in text and "Resume Helper" not in text
+    page.navigate(pristine_server + "/#resume-legacy")
+    page.evaluate("window.location.reload()")  # a hash alone opens no page; a load does
     page.wait_for(
-        "!document.getElementById('page-resume-legacy').hidden"
-        " && document.querySelectorAll('#page-resume-legacy [role=\"tab\"]').length === 5",
-        message="the previous helper's five tabs",
+        "!document.getElementById('page-resume').hidden",
+        message="the old helper's page opens Resumes",
     )
-    # The test server runs no engine: the helper says so, in words.
-    page.wait_for(
-        "document.querySelector('#page-resume-legacy .rh-empty')", message="the not-running notice"
-    )
-    assert page.evaluate("document.getElementById('pagehead-title').textContent") == (
-        "Legacy Resume Helper"
-    )
-    # Nothing has moved here, so the old helper does not say it only shows.
-    assert page.evaluate("document.querySelector('#page-resume-legacy > .rve__notice').hidden")
+    assert page.console_errors() == []
 
 
 def test_a_jobs_resume_step_leads_to_resumes_in_this_window(page, pristine_server):

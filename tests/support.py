@@ -82,3 +82,40 @@ def comparable_score(name: str, value: object) -> object:
         {key: item for key, item in payload.items() if key not in SCORE_AUDIT_FIELDS},
         sort_keys=True,
     )
+
+
+def career_profile(tmp_path: Path, pid: str, label: str) -> tuple[object, object]:
+    """A synthetic local profile, served as the launcher serves one: its own
+    database (seeded with the demo postings) and configuration, and its app.
+    Returns `(Profile, JobsApi)`."""
+    from career_agent.config.search_config import load_search_config
+    from career_agent.pipeline.demo_seed import seed_demo
+    from career_agent.runtime import RuntimeMode, stamp_identity
+    from career_agent.runtime.profiles import Profile
+    from career_agent.storage.db import connect, migrate, transaction
+    from career_agent.web.api import JobsApi
+    from career_agent.web.server import ServerConfig
+
+    base = tmp_path / pid
+    config = base / "config"
+    shutil.copytree(committed_config_dir(), config, ignore=shutil.ignore_patterns("*.local.*"))
+    shutil.copyfile(config / "search.worked-example.yaml", config / "search.local.yaml")
+    db = base / "personal.db"
+    conn = connect(db)
+    try:
+        migrate(conn)
+        with transaction(conn):
+            stamp_identity(conn, RuntimeMode.PERSONAL, label)
+        search, _ = load_search_config(config)
+        seed_demo(conn, search, source=REPO_ROOT / "evaluation" / "demo" / "demo_postings.yaml")
+    finally:
+        conn.close()
+    profile = Profile(
+        id=pid,
+        label=label,
+        created_at="2026-09-26T00:00:00Z",
+        db=str(db),
+        config_dir=str(config),
+        tailor_home=str(base / "tailor"),
+    )
+    return profile, JobsApi(ServerConfig(db_path=db, config_dir=config, port=0), quiet=True)

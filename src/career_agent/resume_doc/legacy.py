@@ -225,7 +225,9 @@ class _Migration:
         self.identity = Identity()
         self.claims: dict[str, str] = {}
         self.verbatim: dict[str, str] = {}
-        self.versions: list[tuple[str, TailorRun]] = []
+        #: Every run whose run.json is a JSON object, moved or not, by the
+        #: names its export would carry: (role title, headline).
+        self.named: dict[str, tuple[str, str]] = {}
         self.bank: fmt.EvidenceBank | None = None
         self.bases = sorted((root / "base_resumes").glob("*.json"))
 
@@ -242,7 +244,9 @@ class _Migration:
                 self.report.notes.append(f"run {folder.name}: never finished, nothing to migrate")
                 continue
             try:
-                runs.append(TailorRun.model_validate_json((folder / "run.json").read_text("utf-8")))
+                text = (folder / "run.json").read_text("utf-8")
+                self._name(folder.name, text)
+                runs.append(TailorRun.model_validate_json(text))
             except (ValueError, OSError) as exc:
                 self._fail(f"run {folder.name}", exc)
         for run in sorted(runs, key=lambda r: (r.created_at, r.run_id)):
@@ -251,6 +255,18 @@ class _Migration:
             if path.is_file():
                 self._unit(f"export {path.name}", lambda p=path: self._export(p))
         return self.report
+
+    def _name(self, run_id: str, text: str) -> None:
+        """What an export of this run would be called, read leniently: a run
+        that cannot move still makes a file name ambiguous."""
+        with suppress(ValueError):
+            data = json.loads(text)
+            if isinstance(data, dict):
+                analysis, resume = data.get("job_analysis"), data.get("generated_resume")
+                self.named[run_id] = (
+                    str((analysis or {}).get("role_title") or ""),
+                    str((resume or {}).get("headline") or ""),
+                )
 
     def _unit(self, name: str, step: Any) -> bool:
         """One all-or-nothing unit. Any failure rolls it back and is named."""
@@ -370,7 +386,6 @@ class _Migration:
         state = fmt.load_draft_state(self.root, run.run_id)
         draft_sha = sha256_text(json.dumps(state, sort_keys=True, ensure_ascii=False))
         if self._exists(doc_id):
-            self.versions.append((doc_id, run))
             held = self.store.get_tailoring_run(run_id).stages["review"].get("draft_sha256")
             if held != draft_sha:
                 # Edited in the old helper after it was migrated: said, never applied.
@@ -463,7 +478,6 @@ class _Migration:
             self.store.checkpoint_revision(doc_id, "MANUAL_CHECKPOINT", now=run.created_at)
             if state.get("note"):
                 self.report.notes.append(f"run {run.run_id}: its personal note was not migrated")
-        self.versions.append((doc_id, run))
         self.report.created.append(doc_id)
 
     # -- exports --------------------------------------------------------------
@@ -478,25 +492,22 @@ class _Migration:
         if fmt not in ("PDF", "DOCX"):
             raise ValueError(f"not a resume export ({path.suffix})")
         # The old helper named a file after the person and the role and kept
-        # no link to its run; a file is attached only to the ONE version
-        # whose name it carries.
+        # no link to its run; a file is attached only to the ONE run whose
+        # name it carries, counted over every run there is (moved or not), so
+        # a run that failed never makes another one look like the owner.
         name = self.bank.candidate.name if self.bank else ""
-        owners = {
-            doc_id
-            for doc_id, run in self.versions
-            if export_filename(
-                name,
-                str(run.job_analysis.get("role_title") or ""),
-                run.generated_resume.headline,
-                path.suffix[1:],
-            )
-            == path.name
-        }
+        owners = [
+            run_id
+            for run_id, (role, headline) in sorted(self.named.items())
+            if export_filename(name, role, headline, path.suffix[1:]) == path.name
+        ]
         if len(owners) != 1:
             raise ValueError(
                 f"matches {len(owners)} migrated versions by name; it is left where it is"
             )
-        doc_id = owners.pop()
+        doc_id = stable_id("legacy-run", owners[0])
+        if self._get(doc_id) is None:
+            raise ValueError("the resume it was made from has not moved yet")
         revision = self.store.list_revisions(doc_id)[-1]
         when = datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat().replace("+00:00", "Z")
         self.store.record_export(

@@ -1,10 +1,12 @@
 # Resume Workspace: document and storage
 
 Status: in use. **Resumes** in the sidebar is this workspace (Home, My
-resumes, Editor). The previous Resume helper stays reachable as **Legacy
-Resume Helper** under Settings, Backup and privacy, Advanced, as a fallback;
-its resumes move here only when the person asks. No AI is involved anywhere
-below, and nothing here tailors a resume yet.
+resumes, Editor, Analyze) and the only resume tool: the previous Resume
+helper (the Resume Tailor companion) was retired in PR 12. Its engine no
+longer runs, nothing in Career Agent starts it, and its resumes move here
+only when the person asks (see "Migrating the old Resume helper"). Tailoring
+is deterministic; AI drafting and an AI review are optional and run only
+when the person presses their buttons (see the sections at the end).
 
 ## One document model
 
@@ -97,14 +99,34 @@ only code that touches them.
 ## Migrating the old Resume helper
 
 `career_agent.resume_doc.legacy` reads one Resume helper workspace into one
-profile's database. It is not run automatically: Resumes says when the
-profile has old resumes, shows what would move (contact details, base
-resumes, versions for a job, edited drafts, downloads) and that a backup comes
-first, and moves them only on "Back up and move". The backup is a verified ZIP
-beside the profile's database (`resume_helper_backups/`); without it nothing
-moves. Once anything has moved, the old helper only shows its resumes: a
-change made there is refused (`409 legacy_moved`) so one resume is never
-edited in two places.
+profile's database. The helper itself is retired: its files are read
+directly by `resume_doc/legacy_format.py`, and none of its code runs. It is
+not run automatically: Resumes (and Settings, Backup and privacy, while
+anything is left to move) says when the profile has old resumes, shows what
+would move (contact details, base resumes, versions for a job, edited
+drafts, downloads) and that a backup comes first, and moves them only on
+"Back up and move". The backup is a verified ZIP beside the profile's
+database (`resume_helper_backups/`); without it nothing moves. The old files
+stay on this computer, unchanged, after the move.
+
+* **The format is frozen.** The helper wrote one shape of workspace
+  (`candidate.json` `schema_version` 1, as v0.2.0-beta.2 left it), and
+  `legacy_format` reads exactly that shape with strict models. A newer data
+  version, an unknown field in a run or an override of an unknown kind is
+  refused, never guessed: that unit is reported ("We couldn't safely move
+  this item") and its files stay as they are. The run's analysis and reports
+  are kept verbatim as untrusted history. `tests/fixtures/legacy_resume_helper`
+  is a frozen synthetic workspace with a golden of what the migration wrote
+  while it still ran on the old engine's readers; the frozen readers must
+  write the same rows.
+* **A failure says what stayed.** The result names each item that stayed
+  (its kind and the name the helper gave it, never its content), offers
+  **Try again** (which moves only what is missing) and **Keep original
+  files**, and says the old files were not changed.
+* **Downloads come back.** A moved download is recorded where it is, in the
+  helper's own `exports` folder. **Download again** serves it from there,
+  for that profile only, and only while it is still the recorded file (same
+  sha256); no other path outside the profile's export folder is read.
 
 * **Backup first.** `backup_legacy_workspace` zips the whole workspace and
   checks every file in the archive. `migrate_legacy_workspace` refuses to
@@ -129,7 +151,8 @@ edited in two places.
   hidden. A draft edited in the old helper after it was migrated is
   reported, never applied. An exported
   file is recorded where it is, attached only to the one version whose file
-  name it carries, and never marked as checked.
+  name it carries (counted over every run, moved or not, so a run that
+  failed never makes another the owner), and never marked as checked.
 * **Failures are named.** Each unit (identity, one base resume, one run, one
   export) is one transaction, and nothing runs after a failed identity unit. A unit that cannot be read leaves nothing
   behind and is listed in the report with the reason; the rest migrate, and
@@ -140,9 +163,10 @@ edited in two places.
 `career-agent forget everything` also deletes every resume row in that
 profile's database, in the same transaction as the tracking data, and then
 the files exported from those documents (`resume_exports/`, beside that
-database). The shared job catalogue, other profiles, copies already
-downloaded elsewhere and the Resume helper's own folder are not touched, and
-the confirmation says so.
+database), and the verified backups made before moving the old Resume
+helper's resumes. The shared job catalogue, other profiles, copies already
+downloaded elsewhere and the Resume helper's own folder are not touched (its
+resumes can be moved again afterwards), and the confirmation says so.
 
 ## Rendering and the live preview
 
@@ -180,8 +204,9 @@ document. There is no second copy of any template.
 
 ## The editor
 
-The Resumes page has Home, My resumes and the Editor. Tailor and
-Analyze are not built and not shown.
+The Resumes page has Home, My resumes, the Editor and Analyze. A version
+for a job is tailored from the job's drawer or by pasting an ad (see "Tailor
+V2" below).
 
 * **One document object.** Every edit is a function over a copy of the
   document; the form, the preview and autosave all read that one object. The

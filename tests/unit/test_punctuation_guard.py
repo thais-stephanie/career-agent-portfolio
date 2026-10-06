@@ -137,7 +137,7 @@ def test_the_exclusions_cover_the_files_that_must_not_be_rewritten() -> None:
     """
     for path in (
         "src/career_agent/llm/prompts/description_v6.md",
-        "companion/resume-tailor/ARCHITECTURE.md",
+        "tests/fixtures/legacy_resume_helper/golden.json",
         "tests/fixtures/providers/lever/board_small.json",
     ):
         assert guard.is_excluded(path) is not None, f"{path} must not be swept"

@@ -1,11 +1,10 @@
-"""Start both local applications with one runtime and isolated demo storage."""
+"""Start Career Agent: one server, one process, isolated demo storage."""
 
 from __future__ import annotations
 
 import argparse
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import threading
@@ -27,13 +26,10 @@ def main() -> int:
         help="Start with this local profile (its name or id) and make it the active one.",
     )
     args = parser.parse_args()
-    if not 1024 <= args.port <= 65534:
-        parser.error("Choose a port between 1024 and 65534; Tailor uses the next port.")
+    if not 1024 <= args.port <= 65535:
+        parser.error("Choose a port between 1024 and 65535.")
     os.chdir(ROOT)
     mode = "demo" if args.demo else "personal"
-    # Never discover another installation's personal files.
-    os.environ["RESUME_TAILOR_HOME"] = str(ROOT / "data" / f"tailor-{mode}")
-    os.environ["RESUME_TAILOR_DATA"] = str(ROOT / "data" / f"tailor-{mode}" / "runtime")
     profile = None
     if not args.demo and not args.check:
         # LOCAL PROFILES. The first start adopts the existing workspace as the
@@ -59,12 +55,6 @@ def main() -> int:
                 parser.error(str(exc))
             registry = ensure_registry(ROOT)
         profile = registry.current
-        tailor_home = ROOT / profile.tailor_home
-        os.environ["RESUME_TAILOR_HOME"] = str(tailor_home)
-        os.environ["RESUME_TAILOR_DATA"] = str(tailor_home / "runtime")
-    os.environ.setdefault("LLM_PROVIDER", "none")
-    if args.demo:
-        os.environ["LLM_PROVIDER"] = "none"
     config = ROOT / ("data/demo-config" if args.demo else "config")
     if profile is not None:
         config = ROOT / profile.config_dir
@@ -120,72 +110,34 @@ def main() -> int:
             sync_registry_quietly(connection, config)
     finally:
         connection.close()
-    if args.demo:
-        from resume_tailor.workspace import WorkspaceStore
-        from resume_tailor.workspace.demo import create_demo_candidate
-
-        store = WorkspaceStore()
-        if not store.list_candidates():
-            create_demo_candidate(store)
     if args.check:
-        print(f"Setup complete: {mode}. Both applications are installed. No AI was called.")
+        print(f"Setup complete: {mode}. Career Agent is installed. No AI was called.")
         return 0
 
-    import uvicorn
-    from resume_tailor.api.app import create_app
-
+    from career_agent.runtime.profiles import ProfileError
+    from career_agent.web import server as web_server
     from career_agent.web.api import JobsApi
-    from career_agent.web.profiles import ProfileHost, SwitchableApp
+    from career_agent.web.profiles import ProfileHost
     from career_agent.web.server import ServerConfig, build_server
-    from career_agent.web.tailor_bridge import tailor_app
 
-    # The Tailor app is reached through a switch, so a profile change can
-    # rebuild it on that profile's own workspace.
-    tailor_app_obj = SwitchableApp(create_app())
-    host = (
-        ProfileHost(
-            ROOT,
-            port=args.port,
-            tailor=tailor_app_obj,
-            tailor_factory=tailor_app,
-        )
-        if profile is not None
-        else None
-    )
-
-    # Bind both ports before opening a browser. Never open an unrelated service.
-    career = None
-    tailor_socket = socket.socket()
+    host = ProfileHost(ROOT, port=args.port) if profile is not None else None
+    # Bind before opening a browser. Never open an unrelated service.
     try:
-        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
-            tailor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-        tailor_socket.bind(("127.0.0.1", args.port + 1))
-        tailor_socket.listen(128)
-        from career_agent.runtime.profiles import ProfileError
-
-        try:
-            api = (
-                host.open(profile)
-                if host is not None and profile is not None
-                else JobsApi(ServerConfig(db_path=db, config_dir=config, port=args.port))
-            )
-        except ProfileError as exc:
-            tailor_socket.close()
-            print(f"Career Agent could not start: {exc}")
-            return 2
+        api = (
+            host.open(profile)
+            if host is not None and profile is not None
+            else JobsApi(ServerConfig(db_path=db, config_dir=config, port=args.port))
+        )
+    except ProfileError as exc:
+        print(f"Career Agent could not start: {exc}")
+        return 2
+    try:
         career = build_server(api)
-        if host is not None and profile is not None:
-            host.server = career
-            host.serve(profile, api)
-            # Resume Tailor follows this profile from the first request on.
-            tailor_app_obj.inner = tailor_app(ROOT / profile.tailor_home, profile, api)
     except OSError:
-        tailor_socket.close()
-        if career:
-            career.server_close()
+        if host is not None:
+            host.close()
         print(
-            f"Career Agent could not start: ports {args.port} and {args.port + 1} are already "
-            "in use.\n"
+            f"Career Agent could not start: port {args.port} is already in use.\n"
             "It is probably already running in another launcher window. Use that window's "
             f"page (http://127.0.0.1:{args.port}/), or close that window and start again.\n"
             "Nothing was changed; your data is safe.\n"
@@ -201,52 +153,34 @@ def main() -> int:
             )
         )
         return 2
-    worker = threading.Thread(target=career.serve_forever, daemon=True)
-    worker.start()
-    server = uvicorn.Server(
-        uvicorn.Config(tailor_app_obj, host="127.0.0.1", port=args.port + 1, log_level="warning")
-    )
-    from career_agent.web import server as web_server
-
+    if host is not None and profile is not None:
+        host.server = career
+        host.serve(profile, api)
     # "Quit Career Agent" and the desktop launcher end the same way Ctrl+C
-    # does: uvicorn returns from run() and the finally below stops both.
-    web_server.on_quit = lambda: setattr(server, "should_exit", True)
-
-    def open_when_ready():
-        import time
-
-        for _ in range(100):
-            if server.started:
-                webbrowser.open(f"http://127.0.0.1:{args.port}/")
-                return
-            if server.should_exit:
-                return
-            time.sleep(0.1)
-
+    # does: serve_forever returns and the finally below closes everything.
+    web_server.on_quit = lambda: threading.Thread(target=career.shutdown, daemon=True).start()
     if not args.no_open:
-        threading.Thread(target=open_when_ready, daemon=True).start()
+        threading.Thread(
+            target=webbrowser.open, args=(f"http://127.0.0.1:{args.port}/",), daemon=True
+        ).start()
     if profile is not None:
         print(f"Local profile: {profile.label}")
     print(
         f"Career Agent is running: http://127.0.0.1:{args.port}/\n"
-        "Resume helper: inside Career Agent (sidebar)\n"
-        "If your browser did not open, copy the first address into it.\n"
-        "Keep this window open while you use the apps. Press Ctrl+C here to stop both."
+        "If your browser did not open, copy this address into it.\n"
+        "Keep this window open while you use Career Agent. Press Ctrl+C here to stop it."
     )
     try:
-        server.run(sockets=[tailor_socket])
+        career.serve_forever()
     except KeyboardInterrupt:
         print(
-            "Both apps stopped. Everything you saved stays in this folder. "
-            "Double-click the launcher to open them again."
+            "Career Agent stopped. Everything you saved stays in this folder. "
+            "Double-click the launcher to open it again."
         )
     finally:
-        career.shutdown()
         career.server_close()
         if host is not None:
             host.close()
-        tailor_socket.close()
-        worker.join(timeout=5)
     return 0
 
 

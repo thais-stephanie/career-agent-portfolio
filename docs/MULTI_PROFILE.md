@@ -11,7 +11,7 @@ Classified from the schema (54 tables at migration 0043), not from table names. 
 | Class | What | Where |
 |---|---|---|
 | **Shared public** (candidate-independent) | `job`, `job_raw`, `job_provider_payload`, `job_discovery_source` (sightings: board, URL, id, never a query), `company` and `source_board` (from the shipped `companies.yaml` and from public boards), `board_discovery_lead`, `source_slice_state` (public feed slices), the FTS index `job_search` with `search_index_map` and `search_index_state`, the input revision clock `compute_revision` with `job_input_revision`, the index refresh queue `job_dirty`, posting-side extraction (`fingerprint`, `evidence`, `fp_*`, `provider_observation`, `llm_call`: facts quoted from the posting, no candidate data), `data/cache/http` | `data/shared/catalogue.db` |
-| **Profile private** | `database_identity`, `candidate`, `candidate_state` (source choices, including the experimental LinkedIn opt-in), `search_profile_version`, `verified_claim`, `cv_*`, `career_*`, `intake_*`, `job_match`, `job_score_revision`, `job_application` (saved, hidden, notes, status), `job_application_event`, `requirement_review`, `semantic_run`, `semantic_evaluation` (keyed by the intent digest), `job_retrieval_lane` (which of this person's queries found a posting), `job_enrichment` (its prompt carries the person's capability line), `pipeline_run` (a targeted run's stats count what this person's terms found), `config/*.local.yaml` (search intent, role anchors, semantic settings and budget), the Resume Tailor workspace | the profile's own database and folders |
+| **Profile private** | `database_identity`, `candidate`, `candidate_state` (source choices, including the experimental LinkedIn opt-in), `search_profile_version`, `verified_claim`, `cv_*`, `career_*`, `intake_*`, `job_match`, `job_score_revision`, `job_application` (saved, hidden, notes, status), `job_application_event`, `requirement_review`, `semantic_run`, `semantic_evaluation` (keyed by the intent digest), `job_retrieval_lane` (which of this person's queries found a posting), `job_enrichment` (its prompt carries the person's capability line), `pipeline_run` (a targeted run's stats count what this person's terms found), `config/*.local.yaml` (search intent, role anchors, semantic settings and budget), files left by the retired Resume Tailor | the profile's own database and folders |
 | **Installation secret** | `.env` (the DeepSeek key, Jooble) and the Jooble quota ledger | the installation root; never in a profile, the catalogue or a backup |
 | **Shipped config** | `config/*.yaml` tracked in git | `config/`, copied into each later profile's folder |
 
@@ -23,18 +23,18 @@ Two tables were **mixed** in stage 1 and are now split by what they carry. `job_
 data/profiles.json                 registry: ids, names, which one is active
 data/personal.db                   the original profile, adopted where it was
 config/                            its private settings (and the shipped files)
-data/tailor-personal/              its Resume Tailor workspace
+data/tailor-personal/              files of the retired Resume Tailor, if used
 data/profiles/<id>/personal.db     every later profile's database
 data/profiles/<id>/config/         its private settings, plus copies of the
                                    shipped files refreshed from config/
-data/profiles/<id>/tailor/         its Resume Tailor workspace
+data/profiles/<id>/tailor/         the same, for that profile
 data/profiles/.trash/              deleted profiles, moved, not erased
 ```
 
 - **Identity.** Each profile has an immutable id (`prof-<ULID>`) separate from its renameable label. Migration 0043 adds `database_identity.profile_id`. A profile stamps its id into its database on first open, and a database stamped for one profile is refused when opened as another (`ProfileMismatch`).
 - **Adoption, not migration.** On its first start the launcher registers the existing workspace as the first profile, "My profile", pointing at the files exactly where they are. Nothing is moved, copied or rewritten. The only change to the database is the new, empty `profile_id` column and then the id in that one row. A copy of the real workspace was adopted first, and every table's row count was compared before and after.
-- **Switching in the one running app.** The launcher runs Career Agent and Resume Tailor in one process.
-  - A switch builds a fresh `JobsApi` on the chosen profile's database and settings, after checking the identity, and swaps it in for the next request. Resume Tailor is rebuilt on that profile's workspace behind a switchable ASGI wrapper, with a profile bridge bound to that profile (see ARCHITECTURE.md, "One person, one profile"); the previous bridge refuses every call from then on.
+- **Switching in the one running app.** The launcher runs Career Agent as one process with one server.
+  - A switch builds a fresh `JobsApi` on the chosen profile's database and settings, after checking the identity, and swaps it in for the next request. Resumes reads only that profile's database, and a move of the retired Resume Tailor's resumes reads only that profile's own `tailor/` folder.
   - A switch is refused while a collection, a scoring pass or a semantic run is writing, and the page reloads afterwards. So there is always exactly one writer per profile database, and no screen keeps the previous person's data in memory.
   - `.\Start-Career-Agent.cmd -ProfileName NAME` starts on a given profile. `career-agent profiles` lists them.
 - **Safeguards around a switch:**
@@ -42,7 +42,6 @@ data/profiles/.trash/              deleted profiles, moved, not erased
   - The registry is updated before the swap, and any failure puts everything back.
   - Each served profile holds an operating-system lock on its database. A second Career Agent window cannot serve the same profile, and a crashed process never leaves the lock stale.
   - Every page sends the id of the profile it was drawn for. A tab left open across a switch is refused (409) and reloads, and other tabs are told to reload when one switches.
-  - Resume Tailor is rebuilt on the new profile's workspace explicitly, and its environment is restored if that fails.
 - **The command line** keeps `--db` and `--config-dir`. Without `--db` (and without `CAREER_AGENT_DB`), `serve`, `start`, `rescore`, `daily`, `semantic-match`, `import-job`, `integrity` and the other commands that resolve the personal database use the active profile's database from `data/profiles.json` when that profile's settings are the default `config/`; any other profile needs `--db` and `--config-dir`. Every other command, including the collectors, `init`, `doctor`, `migrate` and `migrate-profile`, still defaults to `data/career.db`, so pass `--db` to them. `serve`, `start`, `rescore`, `daily` and the commands that open the database through the same check refuse a file that does not exist instead of creating it. Every command that reads both (serve, rescore, semantic-match, import-job, enrich, daily, backup, the Himalayas and LinkedIn collectors) refuses a database stamped for a profile with another profile's settings folder, so one person's search intent can never score another's jobs. `career-agent backup --profile NAME` picks both.
 - **A lost or corrupt registry** is never a lockout. A registry that cannot be parsed is a readable refusal. A missing one is rebuilt from the databases themselves: the original workspace keeps the id already stamped in it, and every profile folder comes back under its stored name.
 - **Installation-wide state stays installation-wide:** the `.env` key file and the Jooble daily quota ledger are found from the installation root, never inside a profile's folder.
@@ -50,7 +49,7 @@ data/profiles/.trash/              deleted profiles, moved, not erased
 - **Deleting** is refused for the active profile and for the adopted original, and it requires typing the profile's name. The folder is moved to `data/profiles/.trash/`, not erased, and no other profile's files are touched.
 - **Settings isolation.** Search intent, role anchors, semantic matching settings and budget, and the LinkedIn opt-in are per profile. The DeepSeek key stays installation-wide in `.env`.
 - **Retrieval provenance** (`job_retrieval_lane`) lives in each profile's own database, so one person's search terms are never visible to another. It stays there in stage 2.
-- **Backup** (`career-agent backup --profile NAME`) holds exactly one profile's database and private settings (stage 2 adds a separate catalogue backup, below). The manifest names the profile and states what is not included: other profiles, the Resume Tailor workspace (which has its own per-candidate backup) and credentials. No archive mixes two people.
+- **Backup** (`career-agent backup --profile NAME`) holds exactly one profile's database and private settings (stage 2 adds a separate catalogue backup, below). The manifest names the profile and states what is not included: other profiles, files left by the retired Resume Tailor (moving them into Resumes makes its own verified backup) and credentials. No archive mixes two people.
 
 ## Stage 2: the shared public catalogue
 

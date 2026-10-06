@@ -284,11 +284,11 @@ def test_editing_identity_is_a_revision_and_touches_nothing_else(tmp_path: Path)
 
 
 def test_the_identity_api(tmp_path: Path) -> None:
-    from tests.integration.test_tailor_bridge import _profile
+    from tests.support import career_profile
 
     from career_agent.web.server import ApiError
 
-    _, api, _ = _profile(tmp_path, "prof-01SYNTHETICRESUMEAPIAAAAAA", LABEL)
+    _, api = career_profile(tmp_path, "prof-01SYNTHETICRESUMEAPIAAAAAA", LABEL)
     config = api.config.config_dir / "search.local.yaml"
     config_before = config.read_bytes()
     matches_before = _scores(api)
@@ -325,12 +325,12 @@ def _scores(api: Any) -> list[tuple[Any, ...]]:
 
 
 def test_forget_everything_clears_this_profiles_resumes_only(tmp_path: Path) -> None:
-    from tests.integration.test_tailor_bridge import _profile
+    from tests.support import career_profile
 
     from career_agent.cli import app
 
-    _, api, _ = _profile(tmp_path, "prof-01SYNTHETICFORGETAAAAAAAAA", LABEL)
-    _, other, _ = _profile(tmp_path, "prof-01SYNTHETICKEEPAAAAAAAAAA", "Other")
+    _, api = career_profile(tmp_path, "prof-01SYNTHETICFORGETAAAAAAAAA", LABEL)
+    _, other = career_profile(tmp_path, "prof-01SYNTHETICKEEPAAAAAAAAAA", "Other")
     for each in (api, other):
         with connect(each.config.db_path) as conn:
             master, _ = get_or_create_master(conn)
