@@ -127,6 +127,8 @@ stay on this computer, unchanged, after the move.
   helper's own `exports` folder. **Download again** serves it from there,
   for that profile only, and only while it is still the recorded file (same
   sha256); no other path outside the profile's export folder is read.
+  A download whose name matches several versions (or none) is not attached:
+  the move says so once, and the file stays in that folder.
 
 * **Backup first.** `backup_legacy_workspace` zips the whole workspace and
   checks every file in the archive. `migrate_legacy_workspace` refuses to

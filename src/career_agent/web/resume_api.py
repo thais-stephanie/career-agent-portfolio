@@ -31,7 +31,7 @@ import json
 import secrets
 import threading
 from collections import OrderedDict
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from pydantic import ValidationError
@@ -466,7 +466,8 @@ def register_resume_routes(app: LocalApp) -> None:
         if root is None:
             raise FileNotFoundError(made.id)
         exports = (root / "exports").resolve()
-        path = (exports / Path(made.file_path).name).resolve()
+        # The name only, whichever system wrote the path (Windows separators too).
+        path = (exports / PureWindowsPath(made.file_path).name).resolve()
         if not path.is_relative_to(exports) or not path.is_file() or not _same(path, made):
             raise FileNotFoundError(made.id)
         return path
