@@ -622,7 +622,7 @@ Details: [SEMANTIC_MATCHING.md](SEMANTIC_MATCHING.md).
   a job, on top of the version built without AI, and an independent AI review
   can give a second opinion on it. Career Agent decides what may be offered,
   and you decide what is kept.
-- **What leaves your computer:** the job's title and the asks it quotes, and
+- **What leaves your computer:** the job's title and company and the asks it quotes, and
   the resume lines and confirmed statements relevant to them, sent to the
   provider you set up. Never your contact details, other jobs or applications.
   The screen says which provider receives what before anything is sent.

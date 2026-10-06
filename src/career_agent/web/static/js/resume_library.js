@@ -506,9 +506,12 @@ export async function legacyNotice({ profile, onMoved, onClose = () => {}, force
       el('p', { className: 'rve__note', text: t('rv.legacy.unchanged') }),
       details,
       el('div', { className: 'rvl__rename' }, [
-        small(t('rv.legacy.retry'), () => preflight(), { className: 'btn btn--small btn--primary' }),
+        // Trying again cannot match a download no single version names.
+        units.length && units.every((u) => u.why === 'UNMATCHED')
+          ? null
+          : small(t('rv.legacy.retry'), () => preflight(), { className: 'btn btn--small btn--primary' }),
         small(t('rv.legacy.keep'), close),
-      ]),
+      ].filter(Boolean)),
     ];
   }
 

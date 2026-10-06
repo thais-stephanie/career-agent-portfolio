@@ -177,6 +177,17 @@ class _Years:
         return next(career_years(text), None) is not None
 
 
+#: Where someone may be asked to be able to work: countries and regions, as a
+#: closed list. ponytail: a place outside it reads as an ordinary ask, never as
+#: eligibility; the places gazetteer would cover more if a real ad needs it.
+_WORK_PLACES = (
+    r"EU|EEA|European Union|Europe|UK|United Kingdom|Britain|US|USA|U\.S\.|United States"
+    r"|America|Americas|Canada|Mexico|Brazil|Brasil|Argentina|Chile|Colombia|Peru|Uruguay"
+    r"|LATAM|Latin America|Portugal|Spain|France|Germany|Netherlands|Ireland|Italy|Poland"
+    r"|India|Australia|New Zealand|Singapore|Japan|EMEA|APAC|Asia|Africa"
+)
+
+
 #: Kinds, by cue, in the order they are asked. The first that fires wins.
 _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
     (
@@ -185,9 +196,9 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
             r"\b(authori[sz]ed to work|work authori[sz]ation|visas?|sponsor\w*|citizen(ship)?"
             r"|(?:security )?clearance"
             # "eligible to work", "legally able to work", and "able to work in" a
-            # NAMED place; never "able to work in a team".
+            # PLACE; never "able to work in a team" or "in Salesforce".
             r"|(?:eligible|legally able|permitted|entitled) to (?:legally )?work"
-            r"|able to (?:legally )?work (?:in|from) (?:the )?(?=(?-i:[A-Z]))"
+            rf"|able to (?:legally )?work (?:in|from) (?:the )?(?:{_WORK_PLACES})\b"
             r"|right to work|autoriza[cç][aã]o de trabalho|cidadania|permiso de trabajo)\b",
             re.I,
         ),

@@ -296,7 +296,7 @@ faz:
 | Coletar vagas | Requisições a job boards e sites de empresas, com frases de busca e lugares. Nunca seu currículo ou perfil. |
 | LinkedIn via JobSpy (se você ligou) | Frases de busca curtas e lugares, enviados ao LinkedIn. |
 | Semantic matching (se você iniciar uma execução) | Suas frases de busca e o texto das vagas selecionadas, para o provedor escolhido. |
-| Rascunho ou revisão com IA em Currículos (quando você aperta) | O título da vaga e os pedidos que ela cita, e as linhas do currículo e as afirmações confirmadas ligadas a eles, para o provedor que você configurou. Nunca seus dados de contato. |
+| Rascunho ou revisão com IA em Currículos (quando você aperta) | O título e a empresa da vaga e os pedidos que ela cita, e as linhas do currículo e as afirmações confirmadas ligadas a eles, para o provedor que você configurou. Nunca seus dados de contato. |
 | Abrir o link de uma empresa | Seu navegador visita aquele site. |
 
 A leitura com modelo local (Ollama) fica no computador: o Career Agent recusa

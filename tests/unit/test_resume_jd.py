@@ -45,6 +45,12 @@ def test_sections_hardness_and_kinds_in_english() -> None:
         ("Legally able to work in Brazil", True),
         ("Able to work in a fast-paced team", False),
         ("Able to work independently", False),
+        # Found by the Beta 3 release review: a tool or a way of working is an
+        # ask to answer, never "check the job's eligibility".
+        ("Able to work in Salesforce and HubSpot daily.", False),
+        ("You must be able to work in Python and SQL.", False),
+        ("Able to work in Agile teams.", False),
+        ("Able to work from the United States", True),
     ],
 )
 def test_where_someone_may_work_is_eligibility_never_a_gap(line: str, eligibility: bool) -> None:

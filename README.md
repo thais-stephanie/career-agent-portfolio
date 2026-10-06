@@ -290,7 +290,7 @@ These actions send data off the computer, each only when you take it:
 | Collecting jobs | Requests to job boards and employer sites, with search phrases and places. Never your CV or profile. |
 | LinkedIn via JobSpy (if you turned it on) | Short search phrases and places, sent to LinkedIn. |
 | Semantic matching (if you start a run) | Your search phrases and the selected postings' text, to the provider you chose. |
-| AI drafting or review in Resumes (when you press it) | The job's title and the asks it quotes, and the resume lines and confirmed statements relevant to them, to the provider you set up. Never your contact details. |
+| AI drafting or review in Resumes (when you press it) | The job's title and company and the asks it quotes, and the resume lines and confirmed statements relevant to them, to the provider you set up. Never your contact details. |
 | Opening an employer link | Your browser visits that website. |
 
 The local model reading (Ollama) stays on the computer: Career Agent refuses

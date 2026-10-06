@@ -299,7 +299,7 @@ haces:
 | Recopilar ofertas | Solicitudes a portales de empleo y sitios de empresas, con frases de búsqueda y lugares. Nunca tu currículum ni tu perfil. |
 | LinkedIn via JobSpy (si lo activaste) | Frases de búsqueda cortas y lugares, enviados a LinkedIn. |
 | Semantic matching (si inicias una ejecución) | Tus frases de búsqueda y el texto de las ofertas seleccionadas, al proveedor elegido. |
-| Borrador o revisión con IA en Resumes (cuando lo presionas) | El título de la oferta y los requisitos que cita, y las líneas del currículum y las afirmaciones confirmadas relacionadas con ellos, al proveedor que configuraste. Nunca tus datos de contacto. |
+| Borrador o revisión con IA en Resumes (cuando lo presionas) | El título y la empresa de la oferta y los requisitos que cita, y las líneas del currículum y las afirmaciones confirmadas relacionadas con ellos, al proveedor que configuraste. Nunca tus datos de contacto. |
 | Abrir el enlace de una empresa | Tu navegador visita ese sitio. |
 
 La lectura con modelo local (Ollama) se queda en la computadora: Career Agent

@@ -37,7 +37,7 @@ If the shortcut is missing, or the folder was moved, double-click
 Double-click the same launcher in the same folder. **Ctrl+C** in its window
 stops both apps; if Windows then asks `Terminate batch job (Y/N)?`, type `Y`.
 
-If the ports are in use, the launcher refuses to open a browser onto an
+If the port is in use, the launcher refuses to open a browser onto an
 unknown service. Close the other launcher window, or open PowerShell in this
 folder (type `powershell` in File Explorer's address bar) and run
 `.\Start-Career-Agent.cmd -Port 8875`. Windows blocks the `.ps1` file from a

@@ -450,3 +450,33 @@ def test_a_version_for_a_job_is_a_copy_made_by_hand(
     master_doc = api(page, f"/documents/{master['id']}")["document"]
     assert made["experience"] == master_doc["experience"]  # nothing rewritten or chosen
     assert made["provenance"]["created_from"] == "MASTER_COPY"
+
+
+def test_only_unmatched_downloads_offer_no_retry(
+    page: Chrome, library_server: dict[str, Any]
+) -> None:
+    """Trying again cannot match a download no single version names."""
+    only = FAILS.replace(
+        "failures: [{kind: 'run', name: '20260105T000000-eeeeee'},",
+        "failures: [",
+    ).replace("failed: 2,", "failed: 1,")
+    page.set_viewport(1366, 900)
+    page.navigate(f"{library_server['url']}/#jobs")
+    page.wait_for("document.querySelector('.topnav__link[data-page=\"resume\"]')")
+    page.evaluate(only)
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"resume\"]').click()")
+    page.wait_for("document.querySelector('.rvl__legacy') !== null", message="the message")
+    press = (
+        "[...document.querySelectorAll('.rvl__legacy button')]"
+        ".find((b) => b.textContent === {!r}).click()"
+    )
+    page.evaluate(press.format("Review and move them"))
+    page.evaluate(press.format("Back up and move"))
+    page.wait_for(
+        "document.querySelector('.rvl__legacy').innerText.includes('could not be matched')",
+        message="the result",
+    )
+    buttons = page.evaluate(
+        "[...document.querySelectorAll('.rvl__legacy button')].map((b) => b.textContent)"
+    )
+    assert "Try again" not in buttons and "Keep original files" in buttons, buttons
