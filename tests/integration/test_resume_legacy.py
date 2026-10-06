@@ -1,8 +1,8 @@
-"""Migrating a Resume helper workspace into the Resume Workspace (PR 2).
+"""Migrating a retired Resume helper workspace into the Resume Workspace.
 
-The old workspace is built with the old engine itself, from a synthetic
-profile, so its files have exactly the shapes a real one has. Nothing here
-is anybody's real career, job ad or resume.
+The workspace is the frozen synthetic one in `tests/fixtures/legacy_resume_helper`:
+written once by the old engine, read here without it (PR 12 retired the
+engine). Nothing here is anybody's real career, job ad or resume.
 """
 
 from __future__ import annotations
@@ -13,18 +13,18 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from resume_tailor.core.models import TailorOptions, TailorRequest
-from resume_tailor.core.pipeline import TailorService
-from resume_tailor.export.exporters import export_filename
-from resume_tailor.integration.career import base_resume_from_profile
-from resume_tailor.providers.llm.vendors import NoneProvider
-from resume_tailor.storage.runs import RunStore
-from resume_tailor.workspace import WorkspaceStore
-from resume_tailor.workspace import drafts as dr
-from tests.integration.test_resume_pr0 import PT_JD, PT_TITLE, THIN_PROFILE
+from tests.support_legacy import (
+    FACTS,
+    FIXTURE,
+    JOB_AD,
+    JOB_TITLE,
+    LABEL,
+    digest,
+    dump,
+    profile,
+    workspace_copy,
+)
 
-from career_agent.domain.claims import VerifiedClaim
-from career_agent.domain.enums import ClaimSource, ClaimType
 from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.legacy import (
     NOT_CHECKED,
@@ -36,103 +36,19 @@ from career_agent.resume_doc.legacy import (
 )
 from career_agent.resume_doc.master import get_or_create_master
 from career_agent.resume_doc.store import ResumeStore, resume_row_counts
-from career_agent.runtime import RuntimeMode, stamp_identity
-from career_agent.storage.db import connect, migrate, transaction
+from career_agent.storage.db import transaction
 from career_agent.storage.repositories import ClaimRepo
 from career_agent.storage.workspace_repo import ensure_candidate
 
-LABEL = "Synthetic Work"
+__all__ = ["LABEL", "legacy", "profile"]
 
 
-def profile(
-    tmp_path: Path, name: str = "p", display_name: str = "Riley Synthetic", *, claims: bool = True
-) -> Any:
-    """A profile whose Career Evidence still holds the confirmed statements the
-    old workspace cites (`claims=False`: none of them)."""
-    conn = connect(tmp_path / name / "personal.db")
-    migrate(conn)
-    with transaction(conn):
-        stamp_identity(conn, RuntimeMode.PERSONAL, LABEL)
-        candidate = ensure_candidate(conn)
-        conn.execute(
-            "UPDATE candidate SET display_name = ? WHERE id = ?", (display_name, candidate)
-        )
-        for experience in THIN_PROFILE["experiences"] if claims else []:
-            for highlight in experience["highlights"]:  # type: ignore[index]
-                ClaimRepo(conn).add(
-                    candidate,
-                    VerifiedClaim(
-                        claim_key=highlight["key"],
-                        claim_type=ClaimType.EMPLOYMENT,
-                        text=highlight["text"],
-                        source=ClaimSource.SELF_ATTESTED,
-                        verified=True,
-                    ),
-                )
-    return conn
-
-
-@pytest.fixture(scope="module")
-def legacy(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """One base resume, two versions for one job, one pasted ad, a draft,
-    two exports, a run that never finished and one that is corrupt."""
-    home = tmp_path_factory.mktemp("legacy")
-    ws = WorkspaceStore(home).create(LABEL)  # the old helper named it after the profile
-    ws.save_meta(
-        {
-            **ws.meta(),
-            "email": "riley@example.invalid",
-            "location": "Curitiba, Brazil",
-            "linkedin": "linkedin.com/in/riley-synthetic",
-        }
-    )
-    base = base_resume_from_profile(ws, THIN_PROFILE)
-    service = TailorService(ws.load_index(), ws.load_resumes(), ws.load_profiles(), NoneProvider())
-    store = RunStore(ws.root / "applications")
-
-    def run(run_id: str, **extra: Any) -> Any:
-        made = service.run(
-            TailorRequest(
-                jd_text=PT_JD, resume_id=base.id, options=TailorOptions(use_llm=False), **extra
-            ),
-            run_id,
-        )
-        store.save(made)
-        return made
-
-    job = {"career_job_id": "job-1", "kind": "career_agent"}
-    first = run("20260101T000000-aaaaaa", target_title=PT_TITLE, source=job)
-    run("20260102T000000-bbbbbb", target_title=PT_TITLE, source=job)
-    pasted = run(
-        "20260103T000000-cccccc", target_title="Synthetic Analyst", source={"kind": "pasted"}
-    )
-    # A draft on the first version: one line reworded, one hidden.
-    one, two = (e.bullets[0] for e in first.generated_resume.experience[:2])
-    doc = dr.load_doc(ws, first.run_id)
-    dr.push_state(
-        doc,
-        {
-            **dr.EMPTY_STATE,
-            "bullets": {
-                one.id: {"text": "Reworded by the person."},
-                two.id: {"hidden": True},
-            },
-        },
-    )
-    dr.save_doc(ws, first.run_id, doc)
-    # Exports: one names only the pasted version; one names both job versions.
-    exports = ws.root / "exports"
-    for made in (pasted, first):
-        name = export_filename(
-            "", made.job_analysis.role_title, made.generated_resume.headline, "docx"
-        )
-        (exports / name).write_bytes(b"PK synthetic docx " + made.run_id.encode())
-    (ws.root / "applications" / "20260104T000000-dddddd").mkdir()
-    (ws.root / "applications" / "20260104T000000-dddddd" / "status.json").write_text("{}")
-    broken = ws.root / "applications" / "20260105T000000-eeeeee"
-    broken.mkdir()
-    (broken / "run.json").write_text("{not json", encoding="utf-8")
-    return Path(ws.root)
+@pytest.fixture
+def legacy(tmp_path: Path) -> Path:
+    """A writable copy of the frozen workspace: one base resume, two versions
+    for one job, one pasted ad, a draft, two exports, a run that never
+    finished and one that is corrupt, and two confirmed overrides."""
+    return workspace_copy(tmp_path / "tailor")
 
 
 def migrated(tmp_path: Path, legacy: Path, conn: Any = None) -> tuple[Any, Any]:
@@ -175,10 +91,7 @@ def test_the_whole_workspace_migrates_without_touching_a_file(tmp_path: Path, le
     assert tailored[2].version_group.startswith("jd:") and tailored[2].version_number == 1
     for doc in tailored:
         assert doc.master_document_id == master.id
-        assert doc.working.experience[0].source_title in {
-            e["title"]  # type: ignore[index]
-            for e in THIN_PROFILE["experiences"]
-        }
+        assert doc.working.experience[0].source_title in {e for e in FACTS["titles"]}
 
 
 def test_runs_keep_their_history_as_legacy_and_untrusted(tmp_path: Path, legacy: Path) -> None:
@@ -190,7 +103,7 @@ def test_runs_keep_their_history_as_legacy_and_untrusted(tmp_path: Path, legacy:
     assert run.stages["analysis"]["job_analysis"]["requirements"]
     assert run.stages["options"]["use_llm"] is False
     snapshot = store.get_jd_snapshot(run.jd_snapshot_id)
-    assert snapshot.text == PT_JD and snapshot.title == PT_TITLE and snapshot.job_id == "job-1"
+    assert snapshot.text == JOB_AD and snapshot.title == JOB_TITLE and snapshot.job_id == "job-1"
 
 
 def test_a_draft_becomes_the_working_copy_and_nothing_is_lost(tmp_path: Path, legacy: Path) -> None:
@@ -223,7 +136,8 @@ def test_an_export_points_at_its_file_and_claims_no_check(tmp_path: Path, legacy
     assert (
         export.format == "DOCX" and Path(export.file_path).parent == (legacy / "exports").resolve()
     )
-    assert export.file_sha256 and not list(tmp_path.glob("**/*.docx")), "no bytes were copied"
+    copied = [p for p in tmp_path.glob("**/*.docx") if not p.is_relative_to(legacy)]
+    assert export.file_sha256 and not copied, "no bytes were copied"
 
 
 def test_a_second_migration_writes_nothing(tmp_path: Path, legacy: Path) -> None:
@@ -311,7 +225,7 @@ def test_a_claim_retired_before_migration_is_cited_by_no_migrated_line(
     tmp_path: Path, legacy: Path
 ) -> None:
     conn = profile(tmp_path)
-    retired = THIN_PROFILE["experiences"][0]["highlights"][0]["key"]  # type: ignore[index]
+    retired = FACTS["claims"][0]["key"]
     repo, candidate = ClaimRepo(conn), ensure_candidate(conn)
     with transaction(conn):
         repo.supersede(
@@ -382,3 +296,84 @@ def test_a_draft_edited_after_migration_is_reported_not_applied(
         "its draft changed after it was migrated; the change is not applied"
     )} in report.failures  # fmt: skip
     assert ResumeStore(conn).get_document(doc_id).working_sha256 == before
+
+
+# ------------------------------------------- PR 12: the frozen format contract
+
+
+@pytest.mark.parametrize(
+    ("variant", "claims", "master"),
+    [("migrated", True, False), ("no_claims", False, False), ("existing_master", True, True)],
+)
+def test_the_frozen_workspace_migrates_exactly_as_the_old_engine_read_it(
+    tmp_path: Path, legacy: Path, variant: str, claims: bool, master: bool
+) -> None:
+    """The long-term compatibility contract. `golden.json` was written by the
+    migration while it still ran on the old engine's own readers; the frozen
+    readers must write the same rows, row for row, with no engine at all."""
+    golden = json.loads((FIXTURE / "golden.json").read_text("utf-8"))[variant]
+    conn = profile(tmp_path, claims=claims)
+    if master:
+        get_or_create_master(conn)
+    report = migrate_legacy_workspace(
+        conn, backup_legacy_workspace(legacy, tmp_path / "backups"), labels=[LABEL]
+    )
+    said = {
+        "created": len(report.created),
+        "already": len(report.already),
+        "failures": report.failures,
+        "notes": report.notes,
+    }
+    assert said == golden["report"]
+    rows = digest(dump(conn, tmp_path))
+    for table, expected in golden["rows"].items():
+        assert rows[table] == expected, f"{table} differs from what the old engine's reader wrote"
+
+
+def _set(path: Path, change: Any) -> None:
+    data = json.loads(path.read_text("utf-8"))
+    change(data)
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_a_newer_workspace_is_refused_whole_and_left_as_it_is(tmp_path: Path, legacy: Path) -> None:
+    _set(legacy / "candidate.json", lambda d: d.update(schema_version=2))
+    before = _manifest(legacy)
+    conn, report = migrated(tmp_path, legacy)
+    assert [f["unit"] for f in report.failures] == ["identity"]
+    assert "data version 2" in report.failures[0]["reason"]
+    assert set(resume_row_counts(conn).values()) == {0} and _manifest(legacy) == before
+
+
+def test_an_unknown_field_in_a_run_is_not_guessed_at(tmp_path: Path, legacy: Path) -> None:
+    run = legacy / "applications" / "20260102T000000-bbbbbb" / "run.json"
+    _set(run, lambda d: d["generated_resume"].update(a_field_from_the_future=1))
+    before = _manifest(legacy)
+    conn, report = migrated(tmp_path, legacy)
+    assert {"unit": "run 20260102T000000-bbbbbb", "reason": "Extra inputs are not permitted"} in (
+        report.failures
+    )
+    store = ResumeStore(conn)
+    assert store.current_master() is not None, "the other units still move"
+    with pytest.raises(Exception):  # noqa: B017
+        store.get_document(stable_id("legacy-run", "20260102T000000-bbbbbb"))
+    assert _manifest(legacy) == before
+
+
+def test_an_override_of_an_unknown_kind_stops_before_anything_moves(
+    tmp_path: Path, legacy: Path
+) -> None:
+    overrides = legacy / "overrides" / "user_overrides.json"
+    _set(overrides, lambda d: d["overrides"].append({"id": "x", "applies_to": "planet"}))
+    conn, report = migrated(tmp_path, legacy)
+    assert [f["unit"] for f in report.failures] == ["identity"]
+    assert set(resume_row_counts(conn).values()) == {0}
+
+
+def test_facts_confirmed_in_the_old_helper_are_read_as_it_showed_them(
+    tmp_path: Path, legacy: Path
+) -> None:
+    conn, _ = migrated(tmp_path, legacy)
+    master = ResumeStore(conn).current_master()
+    assert master is not None
+    assert [e.location for e in master.working.experience][2] == "Remote"

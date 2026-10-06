@@ -1,4 +1,7 @@
-"""Bring a Resume helper (companion engine) workspace into the Resume Workspace.
+"""Bring a retired Resume helper workspace into the Resume Workspace.
+
+The helper's engine is gone (PR 12): its files are read here directly, by
+the frozen readers in `legacy_format`, and nothing of the old engine runs.
 
 READ-ONLY on the old files, PROFILE-SCOPED (one workspace into one profile's
 database) and IDEMPOTENT: every migrated row has an id derived from what it
@@ -44,15 +47,21 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
-from resume_tailor.core.models import BaseResume, GeneratedResume, TailorRun
-from resume_tailor.core.models import Bullet as LegacyBullet
-from resume_tailor.core.models import ExperienceEntry as LegacyEntry
-from resume_tailor.export.exporters import export_filename
-from resume_tailor.integration.career import BASE_RESUME_ID, PROFILE_KEY, SOURCE
-from resume_tailor.workspace import drafts
-from resume_tailor.workspace.store import CandidateWorkspace
 
 from career_agent.clock import new_id
+from career_agent.resume_doc import legacy_format as fmt
+from career_agent.resume_doc.legacy_format import (
+    BASE_RESUME_ID,
+    EMPTY_STATE,
+    PROFILE_KEY,
+    SOURCE,
+    BaseResume,
+    GeneratedResume,
+    TailorRun,
+    export_filename,
+)
+from career_agent.resume_doc.legacy_format import Bullet as LegacyBullet
+from career_agent.resume_doc.legacy_format import ExperienceEntry as LegacyEntry
 from career_agent.resume_doc.master import partial_date, real_name, resolve_identity
 from career_agent.resume_doc.models import (
     DocumentKind,
@@ -212,13 +221,12 @@ class _Migration:
     def __init__(self, conn: sqlite3.Connection, root: Path, labels: Iterable[str]) -> None:
         self.conn, self.root, self.labels = conn, root, list(labels)
         self.store = ResumeStore(conn)
-        self.ws = CandidateWorkspace(root)
         self.report = MigrationReport()
         self.identity = Identity()
         self.claims: dict[str, str] = {}
         self.verbatim: dict[str, str] = {}
         self.versions: list[tuple[str, TailorRun]] = []
-        self.index: Any = None
+        self.bank: fmt.EvidenceBank | None = None
         self.bases = sorted((root / "base_resumes").glob("*.json"))
 
     def run(self) -> MigrationReport:
@@ -272,13 +280,12 @@ class _Migration:
 
     # -- identity and the evidence it can cite ------------------------------
     def _identity(self) -> None:
-        meta = self.ws.meta() if self.ws.candidate_file.exists() else {}
+        meta = fmt.meta(self.root) if (self.root / "candidate.json").exists() else {}
         owner = meta.get(PROFILE_KEY)
         row = self.conn.execute("SELECT profile_id FROM database_identity").fetchone()
         if owner and row and row[0] and str(owner).casefold() != str(row[0]).casefold():
             raise LegacyMigrationError("this Resume helper workspace belongs to another profile")
-        self.index = self.ws.load_index() if self.ws.evidence_file.exists() else None
-        bank = self.index.bank if self.index else None
+        self.bank = bank = fmt.load_bank(self.root)
         # `candidate.json`'s name is the WORKSPACE's name (a profile label,
         # or whatever it was renamed to): never a person's name. The name
         # comes from the evidence bank, else from Career Agent, else nobody.
@@ -304,13 +311,13 @@ class _Migration:
         doc_id = stable_id("legacy-base", base.id)
         if self._exists(doc_id):
             return
-        default = self.ws.settings().get("default_resume_id") or BASE_RESUME_ID
+        default = fmt.default_resume_id(self.root) or BASE_RESUME_ID
         if len(self.bases) == 1:
             default = base.id
         master = base.id == default and self.store.current_master() is None
-        if self.index is None:
+        if self.bank is None:
             raise ValueError("no evidence bank: its roles cannot be read")
-        bank = self.index.bank
+        bank = self.bank
         positions = {p.id: p for p in bank.positions}
 
         def bullet(n: str, text: str, ids: list[str]) -> LegacyBullet:
@@ -360,7 +367,7 @@ class _Migration:
     def _run(self, run: TailorRun) -> None:
         doc_id = stable_id("legacy-run", run.run_id)
         run_id = stable_id("legacy-tailoring", run.run_id)
-        state = drafts.current_state(drafts.load_doc(self.ws, run.run_id))
+        state = fmt.load_draft_state(self.root, run.run_id)
         draft_sha = sha256_text(json.dumps(state, sort_keys=True, ensure_ascii=False))
         if self._exists(doc_id):
             self.versions.append((doc_id, run))
@@ -372,11 +379,11 @@ class _Migration:
                 )
             return
         req = run.request
-        title = req.target_title or run.job_analysis.role_title or "Job ad"
+        title = req.target_title or run.job_analysis.get("role_title") or "Job ad"
         snapshot = self.store.create_jd_snapshot(
             text=req.jd_text,
             title=title,
-            company=req.target_company or run.job_analysis.company or None,
+            company=req.target_company or run.job_analysis.get("company") or None,
             job_id=req.source.get("career_job_id") or None,
             url=req.source.get("url") or None,
             now=run.created_at,
@@ -427,26 +434,25 @@ class _Migration:
             now=run.created_at,
             analysis={
                 **legacy,
-                "job_analysis": run.job_analysis.model_dump(mode="json"),
-                "evidence_matches": run.evidence_matches.model_dump(mode="json"),
+                "job_analysis": run.job_analysis,
+                "evidence_matches": run.evidence_matches,
             },
-            strategy={**legacy, "resume_strategy": run.resume_strategy.model_dump(mode="json")},
+            strategy={**legacy, "resume_strategy": run.resume_strategy},
             validation={
                 **legacy,
-                "validation_report": run.validation_report.model_dump(mode="json"),
-                "lint_report": run.lint_report.model_dump(mode="json"),
-                "claim_evidence_map": run.claim_evidence_map.model_dump(mode="json"),
+                "validation_report": run.validation_report,
+                "lint_report": run.lint_report,
+                "claim_evidence_map": run.claim_evidence_map,
             },
             review={
                 **legacy,
-                "diff_report": run.diff_report.model_dump(mode="json"),
+                "diff_report": run.diff_report,
                 "draft_sha256": draft_sha,
             },
         )
-        if state != drafts.EMPTY_STATE:
-            # The exact resume the old helper exported for this draft, with
-            # its own rules; with evidence-only off it refuses nothing it shows.
-            effective = drafts.export_resume(run, state, self.index, evidence_only=False)
+        if state != EMPTY_STATE:
+            # The exact resume the old helper exported for this draft.
+            effective = fmt.apply_draft(run, state)
             edited = _mark_edits(generated, self._document(effective, **common))
             if state.get("hidden_skills"):
                 self.report.notes.append(
@@ -474,12 +480,15 @@ class _Migration:
         # The old helper named a file after the person and the role and kept
         # no link to its run; a file is attached only to the ONE version
         # whose name it carries.
-        name = self.index.bank.candidate.name if self.index else ""
+        name = self.bank.candidate.name if self.bank else ""
         owners = {
             doc_id
             for doc_id, run in self.versions
             if export_filename(
-                name, run.job_analysis.role_title, run.generated_resume.headline, path.suffix[1:]
+                name,
+                str(run.job_analysis.get("role_title") or ""),
+                run.generated_resume.headline,
+                path.suffix[1:],
             )
             == path.name
         }
