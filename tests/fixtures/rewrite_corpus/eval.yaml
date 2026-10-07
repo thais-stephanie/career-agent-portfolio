@@ -1,0 +1,271 @@
+# Rewrite corpus: EVALUATION split. Written and frozen on 2026-10-07, BEFORE
+# any rule change, in other domains and other phrasings than the development
+# split. Rules are never written against these cases: a miss here is reported
+# as a limit, not fixed by adding the case's own words to a list.
+# Same format as dev.yaml.
+cases:
+  # ---------------------------------------------------- authorship / agent
+  - id: ev-01
+    dimension: agent
+    lang: en
+    sources: ["Presented quarterly results prepared by the finance team."]
+    tools: []
+    text: "Prepared and presented quarterly results for the finance team."
+    expect: FLAG
+  - id: ev-02
+    dimension: agent
+    lang: pt
+    sources: ["Treinei a equipe no sistema desenvolvido pelo fornecedor."]
+    tools: []
+    text: "Desenvolvi e treinei a equipe no sistema do fornecedor."
+    expect: FLAG
+  - id: ev-03
+    dimension: agent
+    lang: en
+    sources: ["Configured Zendesk triggers designed by the support lead."]
+    tools: [Zendesk]
+    text: "Configured the Zendesk triggers designed by the support lead."
+    expect: PASS
+  - id: ev-04
+    dimension: authorship
+    lang: pt
+    sources: ["Mapeei os processos de faturamento com a equipe financeira."]
+    tools: []
+    text: "Mapeei, com a equipe financeira, os processos de faturamento."
+    expect: PASS
+
+  # -------------------------------------------------------- participation
+  - id: ev-05
+    dimension: participation
+    lang: en
+    sources: ["Assisted the clinic manager with patient scheduling in Epic."]
+    tools: [Epic]
+    text: "Managed patient scheduling in Epic for the clinic."
+    expect: FLAG
+  - id: ev-06
+    dimension: participation
+    lang: en
+    sources: ["Collaborated with engineers on the Snowflake data migration."]
+    tools: [Snowflake]
+    text: "Migrated data to Snowflake with engineers."
+    expect: FLAG
+  - id: ev-07
+    dimension: participation
+    lang: pt
+    sources: ["Contribuí para a padronização dos contratos no DocuSign."]
+    tools: [DocuSign]
+    text: "Padronizei os contratos no DocuSign."
+    expect: FLAG
+  - id: ev-08
+    dimension: participation
+    lang: pt
+    sources: ["Ajudei a organizar o inventário da loja."]
+    tools: []
+    text: "Organizei o inventário da loja."
+    expect: FLAG
+  - id: ev-09
+    dimension: participation
+    lang: en
+    sources: ["Assisted with the Jira migration for the support team."]
+    tools: [Jira]
+    text: "Assisted the support team with the Jira migration."
+    expect: PASS
+  - id: ev-10
+    dimension: participation
+    lang: pt
+    sources: ["Colaborei com o time de dados na criação de dashboards no Tableau."]
+    tools: [Tableau]
+    text: "Colaborei com o time de dados na criação de dashboards Tableau."
+    expect: PASS
+  - id: ev-35
+    dimension: participation
+    lang: en
+    sources: ["Co-authored the data retention policy."]
+    tools: []
+    text: "Authored the data retention policy."
+    expect: FLAG
+  - id: ev-36
+    dimension: participation
+    lang: en
+    sources: ["Co-authored the data retention policy."]
+    tools: []
+    text: "Co-authored the policy on data retention."
+    expect: PASS
+
+  # ------------------------------------------------------- responsibility
+  - id: ev-11
+    dimension: responsibility
+    lang: en
+    sources: ["Used Airtable to log customer requests."]
+    tools: [Airtable]
+    text: "Built an Airtable system to log customer requests."
+    expect: FLAG
+  - id: ev-12
+    dimension: responsibility
+    lang: en
+    sources: ["Tested the new onboarding workflow in Workday."]
+    tools: [Workday]
+    text: "Implemented the new onboarding workflow in Workday."
+    expect: FLAG
+  - id: ev-13
+    dimension: responsibility
+    lang: en
+    sources: ["Maintained the vendor database in Excel."]
+    tools: [Excel]
+    text: "Designed the vendor database in Excel."
+    expect: FLAG
+  - id: ev-14
+    dimension: responsibility
+    lang: pt
+    sources: ["Revisei os fluxos de aprovação no SAP."]
+    tools: [SAP]
+    text: "Estruturei os fluxos de aprovação no SAP."
+    expect: FLAG
+  - id: ev-15
+    dimension: responsibility
+    lang: en
+    sources: ["Created onboarding checklists in Notion for new hires."]
+    tools: [Notion]
+    text: "Built onboarding checklists in Notion for new hires."
+    expect: PASS
+  - id: ev-16
+    dimension: responsibility
+    lang: pt
+    sources: ["Desenvolvi relatórios de estoque no Power BI."]
+    tools: [Power BI]
+    text: "Criei relatórios de estoque no Power BI."
+    expect: PASS
+  - id: ev-17
+    dimension: responsibility
+    lang: en
+    sources: ["Implemented Zapier automations for lead intake."]
+    tools: [Zapier]
+    text: "Built Zapier automations for lead intake."
+    expect: PASS
+  - id: ev-18
+    dimension: responsibility
+    lang: en
+    sources: ["Created the onboarding guide. Reviewed the payroll process."]
+    tools: []
+    text: "Created the payroll process."
+    expect: FLAG
+  - id: ev-19
+    dimension: responsibility
+    lang: en
+    sources: ["Created the onboarding guide. Reviewed the payroll process."]
+    tools: []
+    text: "Created the onboarding guide and reviewed the payroll process."
+    expect: PASS
+
+  # ---------------------------------------------------------------- scope
+  - id: ev-20
+    dimension: scope
+    lang: en
+    sources: ["Configured a pilot of automated ticket tagging in Zendesk."]
+    tools: [Zendesk]
+    text: "Configured automated ticket tagging in Zendesk."
+    expect: FLAG
+  - id: ev-21
+    dimension: scope
+    lang: pt
+    sources: ["Automatizei parcialmente a conciliação bancária no Excel."]
+    tools: [Excel]
+    text: "Automatizei a conciliação bancária no Excel."
+    expect: FLAG
+  - id: ev-22
+    dimension: scope
+    lang: en
+    sources: ["Built CRM reports for the regional sales team."]
+    tools: []
+    text: "Built CRM reports for the external sales team."
+    expect: FLAG
+  - id: ev-23
+    dimension: scope
+    lang: en
+    sources: ["Configured a pilot of automated ticket tagging in Zendesk."]
+    tools: [Zendesk]
+    text: "Configured a Zendesk pilot of automated ticket tagging."
+    expect: PASS
+  - id: ev-24
+    dimension: scope
+    lang: pt
+    sources: ["Automatizei parcialmente a conciliação bancária no Excel."]
+    tools: [Excel]
+    text: "Automatizei parcialmente a conciliação bancária usando Excel."
+    expect: PASS
+
+  # ------------------------------------------------------------ frequency
+  - id: ev-25
+    dimension: frequency
+    lang: en
+    sources: ["Reconciled vendor invoices weekly in QuickBooks."]
+    tools: [QuickBooks]
+    text: "Reconciled vendor invoices daily in QuickBooks."
+    expect: FLAG
+  - id: ev-26
+    dimension: frequency
+    lang: pt
+    sources: ["Preparei relatórios mensais de vendas."]
+    tools: []
+    text: "Preparei relatórios semanais de vendas."
+    expect: FLAG
+  - id: ev-27
+    dimension: frequency
+    lang: en
+    sources: ["Reconciled vendor invoices weekly in QuickBooks."]
+    tools: [QuickBooks]
+    text: "Reconciled vendor invoices in QuickBooks weekly."
+    expect: PASS
+  - id: ev-28
+    dimension: frequency
+    lang: pt
+    sources: ["Preparei relatórios mensais de vendas."]
+    tools: []
+    text: "Preparei os relatórios mensais de vendas."
+    expect: PASS
+
+  # ------------------------------------------------------------ causality
+  - id: ev-29
+    dimension: causality
+    lang: en
+    sources: ["Standardized intake forms in Typeform. Processing errors fell that year."]
+    tools: [Typeform]
+    text: "Standardized intake forms in Typeform, which reduced processing errors."
+    expect: FLAG
+  - id: ev-30
+    dimension: causality
+    lang: en
+    sources: ["Rebuilt the Zendesk macros. First reply time dropped 20% that quarter."]
+    tools: [Zendesk]
+    text: "Rebuilt the Zendesk macros for a 20% drop in first reply time."
+    expect: FLAG
+  - id: ev-31
+    dimension: causality
+    lang: pt
+    sources: ["Reorganizei o estoque no Bling. As perdas diminuíram no semestre."]
+    tools: [Bling]
+    text: "Reorganizei o estoque no Bling, o que diminuiu as perdas no semestre."
+    expect: FLAG
+  - id: ev-32
+    dimension: causality
+    lang: en
+    sources: ["Rebuilt the Zendesk macros that cut first reply time by 20%."]
+    tools: [Zendesk]
+    text: "Cut first reply time by 20% by rebuilding the Zendesk macros."
+    expect: PASS
+
+  # ------------------------------------------------------- plain controls
+  - id: ev-33
+    dimension: authorship
+    lang: en
+    sources: ["I organized the shared drive for the legal team."]
+    tools: []
+    text: "Organized the shared drive for the legal team."
+    expect: PASS
+  - id: ev-34
+    dimension: authorship
+    lang: pt
+    sources: ["Eu documentei os processos de compras."]
+    tools: []
+    text: "Documentei os processos de compras."
+    expect: PASS

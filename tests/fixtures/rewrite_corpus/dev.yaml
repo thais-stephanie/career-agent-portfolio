@@ -1,0 +1,294 @@
+# Rewrite corpus: DEVELOPMENT split. Rules may be written against these cases.
+# Synthetic statements only. Each case is one AI rewrite of confirmed evidence,
+# read by `resume_doc.tailor.grounding(ai=True)`, the reader the drafter and
+# Analyze share.
+#   expect: FLAG  the rewrite claims something its evidence does not say
+#           PASS  a faithful rewrite (a control): it must not be flagged
+# The first 18 cases are the probes run against 181b639 on 2026-10-07.
+cases:
+  # ---------------------------------------------------- probes (181b639)
+  - id: dev-probe-d1
+    dimension: responsibility
+    lang: en
+    sources: ["Used HubSpot to track weekly sales requests."]
+    tools: [HubSpot]
+    text: "Built HubSpot workflows to track weekly sales requests."
+    expect: FLAG
+  - id: dev-probe-d2
+    dimension: participation
+    lang: en
+    sources: ["Helped build the n8n integration between HubSpot and billing."]
+    tools: [n8n, HubSpot]
+    text: "Built the n8n integration between HubSpot and billing."
+    expect: FLAG
+  - id: dev-probe-d3
+    dimension: participation
+    lang: en
+    sources: ["Supported the Salesforce migration for the sales team."]
+    tools: [Salesforce]
+    text: "Migrated Salesforce for the sales team."
+    expect: FLAG
+  - id: dev-probe-d4
+    dimension: responsibility
+    lang: en
+    sources: ["Built lead routing in HubSpot for 4 regional teams."]
+    tools: [HubSpot]
+    text: "Designed and built lead routing in HubSpot for 4 regional teams."
+    expect: FLAG
+  - id: dev-probe-d5
+    dimension: participation
+    lang: en
+    sources: ["Contributed to monthly pipeline reports."]
+    tools: []
+    text: "Created monthly pipeline reports."
+    expect: FLAG
+  - id: dev-probe-d6
+    dimension: responsibility
+    lang: en
+    sources: ["Reviewed the weekly sales dashboard."]
+    tools: []
+    text: "Designed the weekly sales dashboard."
+    expect: FLAG
+  - id: dev-probe-d7
+    dimension: scope
+    lang: en
+    sources: ["Built monthly sales reports for the internal team."]
+    tools: []
+    text: "Built daily sales reports for the external team."
+    expect: FLAG
+  - id: dev-probe-d8
+    dimension: agent
+    lang: en
+    sources: ["Tested HubSpot workflows built by the RevOps team."]
+    tools: [HubSpot]
+    text: "Built and tested HubSpot workflows for the RevOps team."
+    expect: FLAG
+  - id: dev-probe-d9
+    dimension: participation
+    lang: pt
+    sources: ["Participei da implementação do HubSpot na equipe de vendas."]
+    tools: [HubSpot]
+    text: "Implementei o HubSpot na equipe de vendas."
+    expect: FLAG
+  - id: dev-probe-d10
+    dimension: participation
+    lang: pt
+    sources: ["Apoiei a migração de dados do CRM."]
+    tools: []
+    text: "Migrei os dados do CRM."
+    expect: FLAG
+  - id: dev-probe-d11
+    dimension: causality
+    lang: en
+    sources: ["Built HubSpot workflow automation. The team reported 30% less manual data entry."]
+    tools: [HubSpot]
+    text: "Built HubSpot workflow automation for 30% less manual data entry."
+    expect: FLAG
+  - id: dev-probe-d12
+    dimension: responsibility
+    lang: en
+    sources: ["Built n8n integrations between HubSpot and the billing system."]
+    tools: [n8n, HubSpot]
+    text: "Designed and maintained n8n integrations between HubSpot and the billing system."
+    expect: FLAG
+  - id: dev-probe-f1
+    dimension: responsibility
+    lang: en
+    sources: ["Wrote SQL models for revenue reporting in BigQuery."]
+    tools: [SQL, BigQuery]
+    text: "Developed SQL models for revenue reporting in BigQuery."
+    expect: PASS
+  - id: dev-probe-f2
+    dimension: authorship
+    lang: en
+    sources: ["Built lead routing in HubSpot for 4 regional teams."]
+    tools: [HubSpot]
+    text: "Built HubSpot lead routing for 4 regional teams."
+    expect: PASS
+  - id: dev-probe-f3
+    dimension: responsibility
+    lang: en
+    sources: ["I built n8n integrations between HubSpot and the billing system."]
+    tools: [n8n, HubSpot]
+    text: "Built n8n integrations connecting HubSpot to the billing system."
+    expect: PASS
+  - id: dev-probe-f4
+    dimension: participation
+    lang: en
+    sources: ["Helped build the n8n integration between HubSpot and billing."]
+    tools: [n8n, HubSpot]
+    text: "Helped build the HubSpot and billing integration in n8n."
+    expect: PASS
+  - id: dev-probe-f5
+    dimension: responsibility
+    lang: pt
+    sources: ["Construí automações no HubSpot para a equipe de vendas."]
+    tools: [HubSpot]
+    text: "Desenvolvi automações no HubSpot para a equipe de vendas."
+    expect: PASS
+  - id: dev-probe-f6
+    dimension: responsibility
+    lang: en
+    sources: ["Cleaned up 120,000 CRM records before a migration."]
+    tools: []
+    text: "Cleaned 120,000 CRM records before a migration."
+    expect: PASS
+
+  # ----------------------------------------------------------- authorship
+  - id: dev-au-01
+    dimension: agent
+    lang: en
+    sources: ["Documented the Salesforce data model designed by the architecture team."]
+    tools: [Salesforce]
+    text: "Designed and documented the Salesforce data model for the architecture team."
+    expect: FLAG
+  - id: dev-au-02
+    dimension: agent
+    lang: pt
+    sources: ["Revisei os relatórios criados pela equipe de BI."]
+    tools: []
+    text: "Criei e revisei os relatórios da equipe de BI."
+    expect: FLAG
+  - id: dev-au-03
+    dimension: agent
+    lang: en
+    sources: ["Tested HubSpot workflows built by the RevOps team."]
+    tools: [HubSpot]
+    text: "Tested the HubSpot workflows built by the RevOps team."
+    expect: PASS
+
+  # -------------------------------------------------------- participation
+  - id: dev-pa-01
+    dimension: participation
+    lang: en
+    sources: ["Worked with the finance team on the invoice automation in Zapier."]
+    tools: [Zapier]
+    text: "Automated invoices in Zapier for the finance team."
+    expect: FLAG
+  - id: dev-pa-02
+    dimension: participation
+    lang: pt
+    sources: ["Participei da implementação do HubSpot na equipe de vendas."]
+    tools: [HubSpot]
+    text: "Participei da implementação do HubSpot para a equipe de vendas."
+    expect: PASS
+
+  # ------------------------------------------------------- responsibility
+  - id: dev-re-01
+    dimension: responsibility
+    lang: pt
+    sources: ["Usei o Power BI para acompanhar as metas de vendas."]
+    tools: [Power BI]
+    text: "Desenvolvi painéis no Power BI para acompanhar as metas de vendas."
+    expect: FLAG
+  - id: dev-re-02
+    dimension: responsibility
+    lang: en
+    sources: ["Built monthly sales reports. Reviewed the commission dashboard."]
+    tools: []
+    text: "Built the commission dashboard."
+    expect: FLAG
+  - id: dev-re-03
+    dimension: responsibility
+    lang: en
+    sources: ["Built monthly sales reports. Reviewed the commission dashboard."]
+    tools: []
+    text: "Built monthly sales reports and reviewed the commission dashboard."
+    expect: PASS
+  - id: dev-re-04
+    dimension: responsibility
+    lang: en
+    sources: ["Built lead routing in HubSpot for 4 regional teams."]
+    tools: [HubSpot]
+    text: "Configured HubSpot lead routing for 4 regional teams."
+    expect: PASS
+  - id: dev-re-05
+    dimension: responsibility
+    lang: pt
+    sources: ["Analisei dados de vendas no Excel."]
+    tools: [Excel]
+    text: "Analisei os dados de vendas no Excel."
+    expect: PASS
+
+  # ---------------------------------------------------------------- scope
+  - id: dev-sc-01
+    dimension: scope
+    lang: en
+    sources: ["Built sales reports for the internal team."]
+    tools: []
+    text: "Built sales reports for the external team."
+    expect: FLAG
+  - id: dev-sc-02
+    dimension: scope
+    lang: en
+    sources: ["Partially automated invoice matching in NetSuite."]
+    tools: [NetSuite]
+    text: "Automated invoice matching in NetSuite."
+    expect: FLAG
+  - id: dev-sc-03
+    dimension: scope
+    lang: pt
+    sources: ["Criei um protótipo de painel de vendas no Looker Studio."]
+    tools: [Looker Studio]
+    text: "Criei o painel de vendas no Looker Studio."
+    expect: FLAG
+  - id: dev-sc-04
+    dimension: scope
+    lang: en
+    sources: ["Partially automated invoice matching in NetSuite."]
+    tools: [NetSuite]
+    text: "Partially automated NetSuite invoice matching."
+    expect: PASS
+  - id: dev-sc-05
+    dimension: scope
+    lang: en
+    sources: ["Built lead routing in HubSpot for the sales team."]
+    tools: [HubSpot]
+    text: "Built company-wide lead routing in HubSpot."
+    expect: FLAG
+
+  # ------------------------------------------------------------ frequency
+  - id: dev-fr-01
+    dimension: frequency
+    lang: en
+    sources: ["Built monthly sales reports for the internal team."]
+    tools: []
+    text: "Built daily sales reports for the internal team."
+    expect: FLAG
+  - id: dev-fr-02
+    dimension: frequency
+    lang: pt
+    sources: ["Atualizei o painel de vendas semanalmente."]
+    tools: []
+    text: "Atualizei o painel de vendas diariamente."
+    expect: FLAG
+  - id: dev-fr-03
+    dimension: frequency
+    lang: en
+    sources: ["Built monthly sales reports for the internal team."]
+    tools: []
+    text: "For the internal team, built monthly sales reports."
+    expect: PASS
+
+  # ------------------------------------------------------------ causality
+  - id: dev-ca-01
+    dimension: causality
+    lang: en
+    sources: ["Automated lead assignment in HubSpot. Response times improved that quarter."]
+    tools: [HubSpot]
+    text: "Automated lead assignment in HubSpot, which improved response times."
+    expect: FLAG
+  - id: dev-ca-02
+    dimension: causality
+    lang: pt
+    sources: ["Automatizei o envio de propostas no HubSpot. As vendas cresceram no trimestre."]
+    tools: [HubSpot]
+    text: "Automatizei o envio de propostas no HubSpot, o que fez as vendas crescerem no trimestre."
+    expect: FLAG
+  - id: dev-ca-03
+    dimension: causality
+    lang: en
+    sources: ["Built HubSpot workflow automation that cut manual data entry by 30%."]
+    tools: [HubSpot]
+    text: "Cut manual data entry by 30% with HubSpot workflow automation."
+    expect: PASS
