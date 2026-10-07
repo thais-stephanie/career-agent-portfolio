@@ -292,3 +292,22 @@ cases:
     tools: [HubSpot]
     text: "Cut manual data entry by 30% with HubSpot workflow automation."
     expect: PASS
+
+  # ------------------------------------------- false positives, added after
+  # the evaluation baseline showed the defect (ev-03, ev-17). Written here in
+  # other words so the fix is held by a development case; those two
+  # evaluation cases are no longer independent and are reported as such.
+  - id: dev-fp-01
+    dimension: agent
+    lang: en
+    sources: ["Approved the budget prepared by the finance lead."]
+    tools: [Excel]
+    text: "Approved the Excel budget prepared by the finance lead."
+    expect: PASS
+  - id: dev-fp-02
+    dimension: responsibility
+    lang: en
+    sources: ["Configured Asana boards for the product team."]
+    tools: [Asana]
+    text: "Built Asana boards for the product team."
+    expect: PASS

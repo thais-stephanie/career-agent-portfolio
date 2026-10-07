@@ -2,6 +2,7 @@
 
     uv run python scripts/rewrite_corpus.py            # both splits, a table
     uv run python scripts/rewrite_corpus.py --json     # outcomes, for a record
+    uv run python scripts/rewrite_corpus.py --split dev  # while writing rules
 
 Each case is one rewrite of confirmed evidence, read exactly as the drafter
 reads it: `tailor.grounding(text, statements + tools, tools, ai=True)`.
@@ -74,8 +75,9 @@ def measure(split: str) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--json", action="store_true", help="print outcomes as JSON")
+    parser.add_argument("--split", choices=SPLITS, help="one split only (dev while writing rules)")
     args = parser.parse_args(argv)
-    results = [measure(split) for split in SPLITS]
+    results = [measure(split) for split in ([args.split] if args.split else SPLITS)]
     if args.json:
         print(json.dumps(results, indent=2, ensure_ascii=False))
         return 0
@@ -83,8 +85,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n{r['split'].upper()}")
         for row in r["rows"]:
             mark = "  " if row["got"] == row["expect"] else "XX"
+            codes = ",".join(row["codes"])
             print(f" {mark} {row['id']:16} {row['dimension']:15} {row['lang']}  "
-                  f"expect {row['expect']}  got {row['got']}  {','.join(row['codes'])}")  # fmt: skip
+                  f"expect {row['expect']}  got {row['got']}  {codes}")  # fmt: skip
         print(f" distortions flagged {r['distortions_flagged']}/{r['distortions']}, "
               f"controls passed {r['controls_passed']}/{r['controls']}, "
               f"missed by dimension {r['missed_by_dimension']}")  # fmt: skip

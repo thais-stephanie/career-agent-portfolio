@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from career_agent.match.text import fold
 from career_agent.match.years import career_years
 from career_agent.resume_doc.parse import language_of
+from career_agent.resume_doc.roles import ROLE
 
 REQUIRED_CUE = re.compile(
     r"\b(required|requirements?|must|mandatory|minimum|need to|needs to|you need|essential"
@@ -402,7 +403,7 @@ _ABSTRACT = re.compile(r"(ing|ed|ly|ar|er|ir|cao|coes|ao|oes|mento|ment|ness|ity
 
 def _opener(word: str) -> bool:
     plain = folded(word)
-    return plain in _OPENERS or plain in _STOP or bool(_ABSTRACT.search(plain))
+    return plain in _OPENERS or plain in _STOP or plain in ROLE or bool(_ABSTRACT.search(plain))
 
 
 def named_terms(text: str, *, sentence_start: bool = True, strict: bool = False) -> set[str]:
@@ -427,8 +428,9 @@ def named_terms(text: str, *, sentence_start: bool = True, strict: bool = False)
             and folded(word) not in KNOWN_TOOLS
         ):
             continue
-        if at_start and word.istitle() and first.isalpha() and _opener(first):
-            word = word[len(first) :].strip()  # "Build", "Experiência": an opener, not a name
+        # "Build", "Experiência", and "Developed" before "SQL": an opener, not a name.
+        if at_start and first.istitle() and first.isalpha() and _opener(first):  # noqa: SIM114
+            word = word[len(first) :].strip()
         elif at_start and " " in word and first in _COMMON_CAPS:
             word = word[len(first) :].strip()
         if not word or word in _COMMON_CAPS or word[0].isdigit() or word[0] == "$":

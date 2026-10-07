@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from career_agent.clock import new_id
-from career_agent.resume_doc import jd
+from career_agent.resume_doc import jd, roles
 from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.master import _career
 from career_agent.resume_doc.models import (
@@ -459,7 +459,10 @@ _CLAIM = re.compile(
 #: root): ways of saying what was done and how the words join, EN and PT. A
 #: list we chose, because a list of forbidden words is never complete: a
 #: result ("reducing churn"), a tool nobody catalogued ("snowflake"), a rank
-#: ("in charge of") is simply not on it.
+#: ("in charge of") is simply not on it. A verb here is a way of saying, not a
+#: licence: `_responsibility` still refuses one of another kind than its
+#: evidence says ("designed" for "built"), and a frequency or an audience
+#: here ("weekly", "internal") still has to be the evidence's own.
 AI_WORDS = frozenset(
     """
     built build building created create designed design developed develop delivered deliver
@@ -471,12 +474,13 @@ AI_WORDS = frozenset(
     test handled handle existing internal external daily weekly monthly process processes
     workflow workflows data system systems tool tools reporting report reports team teams work
     sales rule rules pipeline record records request
-    requests campaign campaigns dashboard dashboards documentation routing
+    requests campaign campaigns dashboard dashboards documentation routing connect connected
+    connecting
     construi criei desenvolvi organizei estruturei automatizei configurei implementei mantive
     documentei analisei preparei apoiei integrei padronizei mapeei acompanhei atualizei revisei
     usando diarios diarias semanais mensais processo processos fluxo fluxos dados equipe
     sistema sistemas ferramenta ferramentas relatorio relatorios trabalho vendas regra regras
-    pedido pedidos registro registros campanha campanhas painel paineis
+    pedido pedidos registro registros campanha campanhas painel paineis conectei conectando
     """.split()  # noqa: SIM905
 )
 #: Words that only join others, EN and PT: free, and never a claim.
@@ -680,9 +684,139 @@ def _amount_held(amount: Amount, held: list[Amount], *, alone: bool = True) -> b
 
 def _pairs(text: str) -> set[tuple[str, str]]:
     """Each word with the next one that says something ("owned the weekly"
-    reads as "owned weekly")."""
-    words = [w for w in _WORD.findall(jd.folded(text)) if w not in jd._STOP]
-    return set(zip(words, [*words[1:], ""], strict=True))
+    reads as "owned weekly"). A sentence's last word pairs with nothing: the
+    next sentence, or a tool name appended after it, says nothing about it."""
+    out: set[tuple[str, str]] = set()
+    for words in _sentence_words(text):
+        said = [w for w in words if w not in jd._STOP]
+        out |= set(zip(said, [*said[1:], ""], strict=True))
+    return out
+
+
+def _sentence_words(text: str) -> list[list[str]]:
+    """The folded words of each sentence (abbreviations end none)."""
+    folded = _ABBREVIATION.sub(lambda m: m.group(1) or m.group(2), jd.folded(text))
+    return [words for part in _SENTENCE.split(folded) if (words := _WORD.findall(part))]
+
+
+def _content(words: list[str]) -> set[str]:
+    """What a sentence is about: its words, less joiners and the words this
+    reader compares on their own (verbs, participation, frequency, extent)."""
+    return {
+        w.removesuffix("s")
+        for w in words
+        if len(w) > 2
+        and w not in AI_JOINERS
+        and w not in jd._STOP
+        and w not in roles.ROLE
+        and w not in roles.PARTICIPATION
+        and w not in roles.FREQUENCY
+        and w not in roles.EXTENT
+        and w not in roles.LIMITS
+    }
+
+
+def _closest(about: set[str], sentences: list[list[str]]) -> list[list[str]]:
+    """The source sentences that share the most of `about` (ties kept);
+    every sentence when none shares anything."""
+    shared = [len(_content(s) & about) for s in sentences]
+    best = max(shared, default=0)
+    return [s for s, n in zip(sentences, shared, strict=True) if n == best] if best else sentences
+
+
+def _own(words: list[str], i: int) -> bool:
+    """`words[i]` is a verb of responsibility the person claims: "built BY
+    the RevOps team" is somebody else's."""
+    return words[i] in roles.ROLE and not (i + 1 < len(words) and words[i + 1] in roles.BY)
+
+
+def _own_verbs(words: list[str]) -> list[str]:
+    return [w for i, w in enumerate(words) if _own(words, i)]
+
+
+def _participates(words: list[str]) -> bool:
+    return any(w in roles.PARTICIPATION for w in words) or any(
+        pair in roles.PARTICIPATION_PAIRS for pair in zip(words, words[1:], strict=False)
+    )
+
+
+def _agents(words: list[str]) -> set[str]:
+    """Who else did the work: the first word that says something after
+    "<participle> by" ("designed by the ARCHITECTURE team")."""
+    out = set()
+    for i, w in enumerate(words):
+        if w in roles.BY and i and roles.participle(words[i - 1]):
+            after = [x for x in words[i + 1 : i + 5] if x not in AI_JOINERS and x not in jd._STOP]
+            if after and after[0] not in roles.SELF:
+                out.add(after[0])
+    return out
+
+
+def _segments(words: list[str]) -> list[tuple[str, set[str]]]:
+    """Each verb of responsibility the sentence claims, with what it acts on:
+    the words up to the next such verb ("designed and built LEAD ROUTING"
+    gives "designed" the object of "built")."""
+    verbs = [i for i in range(len(words)) if _own(words, i)]
+    out = []
+    for n, i in enumerate(verbs):
+        obj: set[str] = set()
+        for start, end in zip(verbs[n:], [*verbs[n + 1 :], len(words)], strict=True):
+            obj = _content(words[start + 1 : end])
+            if obj:
+                break
+        out.append((words[i], obj))
+    return out
+
+
+def _responsibility(text: str, source: str) -> list[tuple[str, str]]:
+    """What a rewrite says about WHO did WHAT, HOW OFTEN, for WHOM and with
+    what RESULT that its evidence does not. A heuristic over `roles`: it can
+    refuse a faithful line and miss an unfaithful one, and it never says a
+    line is true. Each part is compared with the source sentence(s) about the
+    same thing, so another statement's verb or qualifier lends nothing."""
+    out: list[tuple[str, str]] = []
+    said = _sentence_words(source)
+    if not said:
+        return out
+    for words in _sentence_words(text):
+        about = _content(words)
+        near = _closest(about, said)
+        held = {w for s in near for w in s}
+        # 1. A verb of a kind its evidence does not say of the same thing.
+        for verb, obj in _segments(words):
+            kinds = {roles.ROLE[v] for s in _closest(obj or about, said) for v in _own_verbs(s)}
+            if roles.ROLE[verb] not in kinds:
+                out.append(("RESPONSIBILITY", f"'{verb}' is not what its evidence says was done"))
+        # 2. Taking part turned into doing it.
+        if any(_participates(s) for s in near) and not _participates(words):
+            out.append(("PARTICIPATION", "its evidence says the person took part"))
+        # 3. Somebody else's work turned into the person's.
+        missing = {
+            a for s in near for a in _agents(s)
+            if not any(w in roles.BY and a in words[i + 1 : i + 5] for i, w in enumerate(words))
+        }  # fmt: skip
+        if missing:
+            out.append(("AGENT", f"its evidence says this was done by: {sorted(missing)}"))
+        # 4. How often, for whom, how far.
+        often = {roles.FREQUENCY[w] for w in words if w in roles.FREQUENCY}
+        if often - {roles.FREQUENCY[w] for w in held if w in roles.FREQUENCY}:
+            out.append(("SCOPE", f"a frequency its evidence does not state: {sorted(often)}"))
+        wider = {w for w in words if w in roles.EXTENT} - held
+        if wider:
+            out.append(("SCOPE", f"an audience or extent its evidence omits: {sorted(wider)}"))
+        dropped = {roles.LIMITS[w] for w in held if w in roles.LIMITS} - {
+            roles.LIMITS[w] for w in words if w in roles.LIMITS
+        }
+        if dropped:
+            out.append(("SCOPE", f"a limit its evidence states is gone: {sorted(dropped)}"))
+        # 5. An action and a result its evidence states apart, joined.
+        if (
+            any(roles.outcome(w) for w in words)
+            and _own_verbs(words)
+            and not any(_own_verbs(s) and any(roles.outcome(w) for w in s) for s in said)
+        ):
+            out.append(("CAUSALITY", "its evidence does not say this work caused the result"))
+    return list(dict.fromkeys(out))
 
 
 def grounding(
@@ -760,7 +894,7 @@ def grounding(
     foreign = new - AI_WORDS
     if foreign or len(new) > new_words:
         out.append(("OVERSTATEMENT", f"words not in its evidence: {sorted(foreign or new)}"))
-    return out
+    return out + _responsibility(text, source)
 
 
 def review(

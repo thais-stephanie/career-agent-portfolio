@@ -959,11 +959,6 @@ def test_owned_is_read_in_place(conn) -> None:
     ("key", "text", "word"),
     [
         ("k-hubspot-routing", "Automated lead routing in HubSpot for 4 regional teams.", "HubSpot"),
-        (
-            "k-hubspot-routing",
-            "Designed and built HubSpot lead routing for 4 regional teams.",
-            "HubSpot",
-        ),
         ("k-hubspot-routing", "Configured HubSpot lead routing for 4 regional teams.", "HubSpot"),
         (
             "k-hubspot-workflows",
@@ -981,6 +976,25 @@ def test_owned_is_read_in_place(conn) -> None:
 def test_ordinary_rewrites_still_pass(conn, key: str, text: str, word: str) -> None:
     run_id = run(conn, FakeDrafter(rewrite(key, text, word)))
     assert len(changes(conn, run_id)) == 1, drafter.view(conn, run_id)
+
+
+@pytest.mark.parametrize(
+    ("key", "text"),
+    [
+        # The evidence says "Built". Designing it is another claim; this case
+        # was once listed above as an ordinary rewrite (probe, 181b639).
+        ("k-hubspot-routing", "Designed and built HubSpot lead routing for 4 regional teams."),
+        # A one-off build is not a design, nor maintaining it since.
+        (
+            "k-n8n-flows",
+            "Designed and maintained n8n integrations between HubSpot and the billing system.",
+        ),
+    ],
+)
+def test_a_responsibility_its_evidence_does_not_state_is_refused(conn, key: str, text: str) -> None:
+    run_id = run(conn, FakeDrafter(rewrite(key, text)))
+    assert changes(conn, run_id) == []
+    assert drafter.view(conn, run_id)["refused"] == 1
 
 
 def test_a_role_without_linked_experience_takes_no_roleless_claim(conn) -> None:

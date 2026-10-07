@@ -1,0 +1,756 @@
+[
+  {
+    "split": "dev",
+    "distortions_flagged": 25,
+    "distortions": 25,
+    "controls_passed": 16,
+    "controls": 16,
+    "missed_by_dimension": {},
+    "rows": [
+      {
+        "id": "dev-probe-d1",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d2",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d3",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d4",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d5",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d6",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d7",
+        "dimension": "scope",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "dev-probe-d8",
+        "dimension": "agent",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "AGENT",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d9",
+        "dimension": "participation",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d10",
+        "dimension": "participation",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "OVERSTATEMENT",
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d11",
+        "dimension": "causality",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "CAUSALITY",
+          "NUMBERS",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-d12",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-probe-f1",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-probe-f2",
+        "dimension": "authorship",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-probe-f3",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-probe-f4",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-probe-f5",
+        "dimension": "responsibility",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-probe-f6",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-au-01",
+        "dimension": "agent",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "AGENT",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-au-02",
+        "dimension": "agent",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "AGENT",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-au-03",
+        "dimension": "agent",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-pa-01",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-pa-02",
+        "dimension": "participation",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-re-01",
+        "dimension": "responsibility",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-re-02",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "dev-re-03",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-re-04",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-re-05",
+        "dimension": "responsibility",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-sc-01",
+        "dimension": "scope",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "dev-sc-02",
+        "dimension": "scope",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "dev-sc-03",
+        "dimension": "scope",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "dev-sc-04",
+        "dimension": "scope",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-sc-05",
+        "dimension": "scope",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "OVERSTATEMENT"
+        ]
+      },
+      {
+        "id": "dev-fr-01",
+        "dimension": "frequency",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "dev-fr-02",
+        "dimension": "frequency",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "OVERSTATEMENT",
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "dev-fr-03",
+        "dimension": "frequency",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-ca-01",
+        "dimension": "causality",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "CAUSALITY"
+        ]
+      },
+      {
+        "id": "dev-ca-02",
+        "dimension": "causality",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "CAUSALITY",
+          "OVERSTATEMENT"
+        ]
+      },
+      {
+        "id": "dev-ca-03",
+        "dimension": "causality",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-fp-01",
+        "dimension": "agent",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "dev-fp-02",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      }
+    ]
+  },
+  {
+    "split": "eval",
+    "distortions_flagged": 20,
+    "distortions": 20,
+    "controls_passed": 15,
+    "controls": 16,
+    "missed_by_dimension": {},
+    "rows": [
+      {
+        "id": "ev-01",
+        "dimension": "agent",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "AGENT",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-02",
+        "dimension": "agent",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "AGENT",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-03",
+        "dimension": "agent",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-04",
+        "dimension": "authorship",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-05",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "OVERSTATEMENT",
+          "PARTICIPATION",
+          "SENIORITY"
+        ]
+      },
+      {
+        "id": "ev-06",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-07",
+        "dimension": "participation",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-08",
+        "dimension": "participation",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-09",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-10",
+        "dimension": "participation",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-35",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "PARTICIPATION"
+        ]
+      },
+      {
+        "id": "ev-36",
+        "dimension": "participation",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-11",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-12",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-13",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-14",
+        "dimension": "responsibility",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-15",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-16",
+        "dimension": "responsibility",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-17",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-18",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-19",
+        "dimension": "responsibility",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-20",
+        "dimension": "scope",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "ev-21",
+        "dimension": "scope",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "ev-22",
+        "dimension": "scope",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "ev-23",
+        "dimension": "scope",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-24",
+        "dimension": "scope",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-25",
+        "dimension": "frequency",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "ev-26",
+        "dimension": "frequency",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "SCOPE"
+        ]
+      },
+      {
+        "id": "ev-27",
+        "dimension": "frequency",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-28",
+        "dimension": "frequency",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-29",
+        "dimension": "causality",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "CAUSALITY",
+          "OVERSTATEMENT"
+        ]
+      },
+      {
+        "id": "ev-30",
+        "dimension": "causality",
+        "lang": "en",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "CAUSALITY",
+          "NUMBERS",
+          "OVERSTATEMENT",
+          "RESPONSIBILITY"
+        ]
+      },
+      {
+        "id": "ev-31",
+        "dimension": "causality",
+        "lang": "pt",
+        "expect": "FLAG",
+        "got": "FLAG",
+        "codes": [
+          "OVERSTATEMENT"
+        ]
+      },
+      {
+        "id": "ev-32",
+        "dimension": "causality",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "FLAG",
+        "codes": [
+          "NUMBERS",
+          "OVERSTATEMENT"
+        ]
+      },
+      {
+        "id": "ev-33",
+        "dimension": "authorship",
+        "lang": "en",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      },
+      {
+        "id": "ev-34",
+        "dimension": "authorship",
+        "lang": "pt",
+        "expect": "PASS",
+        "got": "PASS",
+        "codes": []
+      }
+    ]
+  }
+]
