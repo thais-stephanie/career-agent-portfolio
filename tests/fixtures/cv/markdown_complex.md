@@ -64,15 +64,15 @@ Portuguese (native), English (fluent), Spanish (intermediate)
 
 ## Additional experience
 
-### Teem
-#### Business Operations / RevOps
-2025{EN}2026
+### Tailspin
+#### Partner Operations / Billing
+2023{EN}2024
 
 1. Built the `lead-routing` rules in HubSpot for __four__ regions.
 2. Managed the quarterly forecast review with _sales leadership_.
 + Automated renewal reminders with a `cron` job.
 
-> Recognised as "Operator of the Quarter" in Q3 2025.
+> Recognised as "Operator of the Quarter" in Q3 2023.
 
 ```
 this fenced block is decoration and must never become a claim

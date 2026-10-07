@@ -71,9 +71,9 @@ def test_a_markdown_cv_opens_on_its_experiences(page: Chrome, pristine_server: s
     assert summary(page).startswith("5 experiences found / 30 suggestions /")
     assert page.evaluate("document.querySelectorAll('#page-manage .ev__card').length") == 0
     found = rows(page)
-    # Newest first: the role still held, then Teem, which the CV lists last.
+    # Newest first: the role still held, then Tailspin, which the CV lists last.
     assert found[0].startswith("Fabrikam CloudSenior Solutions Consultant")
-    assert "Teem" in found[1] and "Business Operations / RevOps" in found[1]
+    assert "Tailspin" in found[1] and "Partner Operations / Billing" in found[1]
     text = str(page.evaluate("document.querySelector('#page-manage .cvr').textContent"))
     for token in ("**", "##", "](", "`"):
         assert token not in text, token

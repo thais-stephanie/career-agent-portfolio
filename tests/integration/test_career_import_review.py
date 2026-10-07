@@ -11,7 +11,7 @@ from career_agent.storage.repositories import ClaimRepo
 from career_agent.storage.workspace_repo import CvReviewRepo, candidate_id_of, ensure_candidate
 
 
-def package(names=("Teem", "Teem LLC"), *, conflicting=False):
+def package(names=("Tailspin", "Tailspin LLC"), *, conflicting=False):
     return parse_package(
         {
             "schema_version": "1.0",
@@ -67,7 +67,7 @@ def test_duplicate_import_proposes_alias_and_keeps_original_sources(staged):
     assert view["aliases"][0]["decision"] is None
     assert all(p["title"] == "Service coordinator" for p in view["proposals"])
     keys = staged.page()["keys"]
-    apply(staged, {"action": "merge_companies", "first": "Teem", "second": "Teem LLC"})
+    apply(staged, {"action": "merge_companies", "first": "Tailspin", "second": "Tailspin LLC"})
     assert before == [
         tuple(r) for r in staged.conn.execute("SELECT * FROM intake_claim ORDER BY id")
     ]
@@ -77,7 +77,7 @@ def test_duplicate_import_proposes_alias_and_keeps_original_sources(staged):
             "action": "create",
             "keys": keys,
             "metadata": {
-                "company": "Teem LLC",
+                "company": "Tailspin LLC",
                 "title": "Service coordinator",
                 "period_start": "2020-01",
                 "period_end": "2022-12",
@@ -88,7 +88,7 @@ def test_duplicate_import_proposes_alias_and_keeps_original_sources(staged):
         apply(staged, {"action": "confirm", "keys": [key]}, reviewed=True)
     claims = ClaimRepo(staged.conn).current(staged.candidate_id)
     assert len(claims) == 2 and all(c.verified for c in claims)
-    assert {c.employer for c in claims} == {"Teem", "Teem LLC"}
+    assert {c.employer for c in claims} == {"Tailspin", "Tailspin LLC"}
     assert len({c.claim_key for c in claims}) == 2
     assert staged.overview()["experiences"][0]["count"] == 2
     assert all(item["source_records"] for item in staged.items())

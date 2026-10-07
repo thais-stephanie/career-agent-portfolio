@@ -519,11 +519,11 @@ def starter_search_path(config_dir: Path) -> Path:
 
 
 def example_search_path(config_dir: Path) -> Path:
-    """The WORKED example: a complete, real search, and somebody's real search.
+    """The WORKED example: a complete search for an invented candidate.
 
-    Named `search.worked-example.yaml` rather than `search.worked-example.yaml`
-    because the old name read as "the default one" and it is not: it is the
-    owner's own Business Systems / Automation search, with their phrases, their
+    Named `search.worked-example.yaml` rather than `search.example.yaml`
+    because the old name read as "the default one" and it is not: it is one
+    candidate's Business Systems / Automation search, with their phrases, their
     country and the kinds of work they will not do. A stranger cloning this
     repository should be able to see that from the filename alone, in every
     place the filename appears.

@@ -329,8 +329,8 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
   // WHAT THE LEDGER HOLDS, NOT WHAT IT IMPLIES. The first version of this
   // counted the employer-and-period GROUPS and called them "Roles", which
   // read 25 over a career of four companies: her CV and her LinkedIn export
-  // name the same employer differently -- Globalfy and Globalfy LLC, Teem and
-  // Teem LLC -- and seven groups name no employer at all. Nothing here merges
+  // name the same employer differently -- Litware and Litware LLC, Tailspin and
+  // Tailspin LLC -- and seven groups name no employer at all. Nothing here merges
   // two names into one company, so nothing here may count as though it had.
   // A confirmed statement is a thing that exists and can be counted.
   const unique = uniqueSkills(skills);

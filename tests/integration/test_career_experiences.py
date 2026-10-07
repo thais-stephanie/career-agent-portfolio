@@ -23,7 +23,9 @@ def career(tmp_path):
                     claim_key=f"item-{n}",
                     claim_type=ClaimType.EMPLOYMENT,
                     text=f"Owned service {n} and trained colleagues.",
-                    employer=["Teem", "Teem LLC", "Company B", "Company C", "Company D"][n % 5],
+                    employer=["Tailspin", "Tailspin LLC", "Company B", "Company C", "Company D"][
+                        n % 5
+                    ],
                     period_start="2019-01" if n < 160 else "2021-01",
                     period_end="2020-12" if n < 160 else "2023-12",
                     source=ClaimSource.RESUME,
@@ -58,8 +60,8 @@ def test_large_profile_starts_as_reviewable_proposals(career):
     assert all(p["needs_role"] for p in view["proposals"])
     assert view["aliases"] == [
         {
-            "first": "Teem",
-            "second": "Teem LLC",
+            "first": "Tailspin",
+            "second": "Tailspin LLC",
             "decision": None,
             "reason": "name_variant",
         }
@@ -86,7 +88,7 @@ def test_lookup_finds_reviewed_experience_metadata_without_rewriting_claims(care
         },
     )
     assert career.page(query="training coordinator")["keys"] == ["item-0"]
-    assert "item-0" in career.page(query="Teem")["keys"]
+    assert "item-0" in career.page(query="Tailspin")["keys"]
 
 
 def test_multiple_roles_merge_split_and_sequential_undo(career):
@@ -94,7 +96,7 @@ def test_multiple_roles_merge_split_and_sequential_undo(career):
     first = create(
         career,
         ["item-0", "item-5"],
-        company="Teem",
+        company="Tailspin",
         title="Role 1",
         period_start="2019-01",
         period_end="2020-12",
@@ -102,7 +104,7 @@ def test_multiple_roles_merge_split_and_sequential_undo(career):
     second = create(
         career,
         ["item-160"],
-        company="Teem",
+        company="Tailspin",
         title="Role 2",
         period_start="2021-01",
         period_end="2023-12",
@@ -113,7 +115,7 @@ def test_multiple_roles_merge_split_and_sequential_undo(career):
         {
             "action": "split",
             "keys": ["item-5"],
-            "metadata": {"company": "Teem", "title": "Project"},
+            "metadata": {"company": "Tailspin", "title": "Project"},
         },
     )
     merged = apply(
@@ -134,30 +136,32 @@ def test_multiple_roles_merge_split_and_sequential_undo(career):
 
 def test_aliases_are_explicit_reversible_and_do_not_merge_roles(career):
     before = ledger(career)
-    create(career, ["item-0"], company="Teem", title="Role 1")
-    create(career, ["item-1"], company="Teem LLC", title="Role 2")
-    command = {"action": "merge_companies", "first": "Teem", "second": "Teem LLC"}
+    create(career, ["item-0"], company="Tailspin", title="Role 1")
+    create(career, ["item-1"], company="Tailspin LLC", title="Role 2")
+    command = {"action": "merge_companies", "first": "Tailspin", "second": "Tailspin LLC"}
     assert career.preview(command)["count"] == 128
     result = apply(career, command)
     experiences = career.overview()["experiences"]
     assert len(experiences) == 2
-    assert {e["company"] for e in experiences} == {"Teem LLC"}
+    assert {e["company"] for e in experiences} == {"Tailspin LLC"}
     apply(career, {"action": "undo", "event_id": result["event_id"]})
-    assert {e["company"] for e in career.overview()["experiences"]} == {"Teem", "Teem LLC"}
+    assert {e["company"] for e in career.overview()["experiences"]} == {"Tailspin", "Tailspin LLC"}
     apply(career, {**command, "action": "keep_separate"})
     assert career.overview()["aliases"][0]["decision"] == "SEPARATE"
     assert ledger(career) == before
 
 
 def test_alias_undo_before_first_experience_does_not_revive_a_hidden_merge(career):
-    merged = apply(career, {"action": "merge_companies", "first": "Teem", "second": "Teem LLC"})
+    merged = apply(
+        career, {"action": "merge_companies", "first": "Tailspin", "second": "Tailspin LLC"}
+    )
     apply(career, {"action": "undo", "event_id": merged["event_id"]})
-    create(career, ["item-0"], company="Teem", title="Coordinator")
-    assert career.overview()["experiences"][0]["company"] == "Teem"
+    create(career, ["item-0"], company="Tailspin", title="Coordinator")
+    assert career.overview()["experiences"][0]["company"] == "Tailspin"
 
 
 def test_older_organization_history_remains_accessible_and_reversible(career):
-    first = create(career, ["item-0"], company="Teem", title="Coordinator")
+    first = create(career, ["item-0"], company="Tailspin", title="Coordinator")
     for _n in range(21):
         apply(career, {"action": "category", "keys": ["item-1"], "category": "PROJECT"})
     page = career.history()
@@ -169,7 +173,7 @@ def test_older_organization_history_remains_accessible_and_reversible(career):
 
 
 def test_undo_organization_preserves_later_category_and_confirmation_reviews(career):
-    created = create(career, ["item-0"], company="Teem", title="Coordinator")
+    created = create(career, ["item-0"], company="Tailspin", title="Coordinator")
     apply(career, {"action": "category", "keys": ["item-0"], "category": "PROJECT"})
     apply(career, {"action": "retire", "keys": ["item-0"]})
     before = ledger(career)
@@ -186,7 +190,7 @@ def test_stale_preview_and_bulk_review_preserve_revisions(career):
     keys = ["item-0", "item-1"]
     command = {"action": "retire", "keys": keys}
     preview = career.preview(command)
-    create(career, keys, company="Teem", title="Support")
+    create(career, keys, company="Tailspin", title="Support")
     with pytest.raises(CareerError, match="changed"), transaction(career.conn):
         career.apply(command, preview["preview_hash"])
     apply(career, command)

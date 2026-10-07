@@ -17,7 +17,7 @@ document or left empty. When a heading could be a company or a role and
 nothing in the document settles it, the entry keeps the heading as its label
 and says the structure is unresolved; the review asks the person, who knows.
 
-**Headings are strong signals.** `### Teem` followed by `#### RevOps` is a
+**Headings are strong signals.** `### Tailspin` followed by `#### Billing` is a
 company with a role inside it, because that is what the nesting says. A
 heading with a title word in it ("Implementation Lead") is a role. A line with
 a date range and a name on it is a job header. Nothing cleverer than that.

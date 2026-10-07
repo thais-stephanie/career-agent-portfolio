@@ -6629,7 +6629,7 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   color: var(--body);
 }
 /* Provenance beside a qualification, on its own line rather than trailing the
-   sentence: "Analyze Data With SQL - CodeAcademy From LinkedIn" reads as one
+   sentence: "Invented Routing Practitioner I From LinkedIn" reads as one
    title until the two are separated. */
 .role__line .role__from { display: block; margin: 2px 0 0; }
 
