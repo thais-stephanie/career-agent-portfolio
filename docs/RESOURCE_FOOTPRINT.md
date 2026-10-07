@@ -44,8 +44,9 @@ child process; measuring the launcher reports about 5 MB, which is wrong.
 The browser's own memory is not included: it is the browser's, and it depends on
 the browser far more than on this page.
 
-Not measured here: the combined launcher (`scripts/launch.py`) runs Career Agent
-and Resume Tailor Beta in one Python process. It changes into the project folder
+Not measured here: the launcher (`scripts/launch.py`), which at the time ran
+Career Agent and Resume Tailor Beta in one Python process (since v0.2.0-beta.3
+it runs Career Agent alone, on one port). It changes into the project folder
 and writes `data/`, so measuring it would have written into this checkout.
 Measuring it on a copy of the release folder is left as a follow-up.
 

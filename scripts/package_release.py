@@ -110,6 +110,7 @@ def main() -> None:
             "README.pt-BR.md",
             "README.es.md",
             "licenses/resume-tailor-Apache-2.0.txt",
+            "licenses/resume-tailor-NOTICE.txt",
         ):
             assert name in archive.namelist(), name
     hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (windows, source)}

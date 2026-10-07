@@ -1,130 +1,203 @@
-# Release validation: v0.2.0-beta.2
+# Release validation: v0.2.0-beta.3
 
-Validated on Windows 11 (x64, 16 GB RAM) with uv-managed Python 3.12, Chrome
-for the browser tests, and the included Resume Tailor frontend. No live AI
-provider was called, no job source was contacted and no private data was used
-in any test below. The release's validation.json names the commit.
+Validated on Windows 11 (x64) with uv-managed Python 3.12 and Chrome for the
+browser tests. No live AI provider was called: AI drafting and review were
+tested with a fake provider. No job source was contacted by any test below,
+and no private data is in any test, screenshot or archive.
 
-The test gate ran on commit `aaecaef` in a fresh worktree, like a public
-checkout, and its logs record that commit. The release commit differs from it
-only in Markdown documentation, including the test counts and badges in the
-three READMEs; no code, test, script or configuration file differs. There is no continuous integration. The gate runs on one computer,
-one suite at a time: the unit, integration and browser suites and the Tailor
-frontend exhausted memory when an earlier gate ran them together.
+- **Gated code commit:** `a1a2669b4f6fde9cdffbde216a022723ddc97fb4`. Every
+  test and static gate below ran on this exact commit, one suite at a time,
+  after the last code change.
+- **Release candidate:** built from the commit that adds this file, which
+  changes only Markdown files after the gated commit. The archives' `BUILD_ID`
+  and `release.json` name that commit.
 
-## Measured test inventory
+There is no continuous integration. The gate runs on the maintainer's computer.
 
-| Suite | Passed | Skipped |
-|---|---:|---:|
-| Career Agent unit | 7,018 | 6 |
-| Career Agent integration | 1,656 | 1 |
-| Career Agent browser | 371 | 0 |
-| Resume Tailor Python | 22 | 0 |
-| Resume Tailor frontend, seven test files | 38 | 0 |
-| **Total** | **9,105** | **7** |
+## Tests
 
-No test failed on the gated commit. The v0.2.0-beta.1 gate counted 7,001 unit
-and 370 browser tests.
+| Suite | Passed | Skipped | Failed | Time |
+|---|---:|---:|---:|---:|
+| Unit and integration | 10,560 | 6 | 0 | 29 min 29 s |
+| Browser (headless Chrome) | 447 | 0 | 0 | 15 min 8 s |
 
-The seven skips:
+Skipped tests are not counted as passing. All six need files the public
+edition does not carry:
 
-- Five need private material that the public edition does not ship: three
-  programme ledgers (`test_budget_ledger_concurrency.py`,
-  `test_glm_recheck_authorization.py` twice), one corpus
-  (`test_glm_recheck_authorization.py`) and the golden corpus
-  (`test_prompts.py`).
-- `test_protected_paths.py` checks the maintainer's operational data folder
-  and skips in a fresh worktree, which has none.
-- One integration persona (`test_onboarding_personas.py`) uses words that
-  legitimately overlap the vocabulary an owner-leak assertion looks for; its
-  other onboarding tests run.
+- `test_onboarding_personas.py:127`: this persona's own words overlap the
+  maintainer's field, so the check does not apply;
+- `test_budget_ledger_concurrency.py:301`, `test_glm_recheck_authorization.py:82`
+  and `:97`: no model-evaluation ledger in a public working tree;
+- `test_glm_recheck_authorization.py:346`: no job corpus in a public working
+  tree;
+- `test_prompts.py:228`: the private golden corpus is excluded from the public
+  edition.
 
-None is counted as passing. Four corpus and experimental test modules are
-omitted together with their private dependencies: test_golden, test_screen,
-test_match_benchmark and test_match_context.
+The Resume Tailor engine suite and its frontend tests are gone with the
+engine. The move of its files is proved instead by a frozen synthetic
+workspace that engine wrote (`tests/fixtures/legacy_resume_helper`), with the
+rows the move wrote from it while it still used the engine's own readers: the
+move must write the same rows.
 
-## Static checks
+Static gates, all clean on the gated commit: ruff, the formatter check, mypy
+(279 source files), the punctuation gate, the frontend check (49 modules,
+2 pages: parse, resolve, safety, hygiene), SQL portability, provider
+neutrality, design tokens, the contrast report (100 pairs, 0 below their
+floor), web boundaries and `uv lock --check`.
 
-Ruff and the Ruff formatter pass for Career Agent (603 files) and Resume
-Tailor (72 files). Mypy passes on 256 Career Agent source files. The frontend
-checker passes on 39 modules and two pages, the localisation check on 35
-modules, and the punctuation check on 740 project-authored files.
-`uv lock --check` passes at the root and in `companion/resume-tailor`. `npm ci`
-installs the Tailor frontend from its lock file, `npm audit` reports zero
-vulnerabilities, and the Tailor build reproduces the committed bundle except
-for line endings. Exact commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
+## Update from v0.2.0-beta.2
 
-## Update from v0.2.0-beta.1
+The published `Career-Agent-v0.2.0-beta.2-Windows.zip` (sha256 matching its
+release page) was installed in a folder whose path contains spaces. Beta 2's
+own code then made a synthetic user state through its running app:
 
-The published v0.2.0-beta.1 ZIP was installed in a new folder whose path
-contains spaces, with no uv or Python on PATH and uv told to use only Pythons
-it installs itself, so it downloaded Python 3.12 into the test folder. It was
-started once. Synthetic data was then added with v0.2.0-beta.1's own code:
-three invented postings, a Search Fit configuration with invented phrases, one
-stored semantic finding marked partial, one status, one note and one confirmed
-statement. Its rescore wrote those scores under schema 11. That folder had no
-`.env` file to copy.
+- two local profiles;
+- role anchors;
+- four imported jobs and their scores;
+- a saved job, an applied job and a note;
+- confirmed evidence;
+- a Resume Tailor workspace: a resume source with three accepted details, a
+  base resume, two tailored versions for the same job, an edited draft and an
+  exported Word file.
 
-Following [INSTALL.md](INSTALL.md#updating-to-a-new-version), the `data`
-folder and `config\*.local.yaml` were copied into the extracted
-v0.2.0-beta.2 folder, and its launcher was started.
+The Beta 3 Windows ZIP built from the gated commit was then extracted into a
+new folder and the update followed [INSTALL.md](INSTALL.md) exactly: `data`
+and `config\*.local.yaml` copied (that state had no `.env` and no backups).
+Results:
 
-- The list showed the schema 11 scores, and the notice above it read "3 scores
-  were calculated by an earlier version of Career Agent and may be out of
-  date" with a **Recalculate search fit** button.
-- Pressing the button rescored the three postings from their stored readings
-  (`jobs_replayed` 3, none read again, 0 errors). The first check, half a
-  second later, found no older score and the notice gone.
-- The posting whose only work evidence was the partial finding went from 47 to
-  42, because its tools were held at half. The other two did not change.
-- The status, the note, the confirmed statement, the stored finding, the
-  postings and the configuration files were identical before and after.
-- During the recalculation the Career Agent (`python.exe`) and `uv.exe`
-  processes had no connection to anything but 127.0.0.1. Two connections to
-  GitHub belonged to the launcher's `powershell.exe`, left from downloading uv
-  at setup.
-- After a restart, no score from an earlier version remained.
+- The database moved from schema 45 to 49. Profiles, anchors, jobs, the
+  applied status and its date, the saved job, the note and the evidence were
+  all as Beta 2 left them. Scores stayed current: same schema, same values,
+  no recalculation.
+- Nothing moved by itself. Resumes found the old resumes (2 base resumes,
+  2 versions, 1 draft, 1 download).
+- The move made a verified backup first, then created 2 imported resumes and
+  the job's V1 and V2. The edited draft became V1's working copy. A second
+  move copied nothing.
+- The Beta 2 download stayed behind as unmatched, because both versions carry
+  the same file name, and the result said so. This test is what found that
+  Beta 2 names downloads differently from later builds; the fix and its test
+  are in this release.
+- The old folder and the old workspace files were byte-for-byte unchanged.
+- One port only, and nothing listened on the next one. Quit freed the port, a
+  restart found everything moved, and the second profile kept its own
+  anchors with no move offered. No contact detail or resume line appeared in
+  the console.
 
-## Installation checks
+## Fresh Windows ZIP
 
-- **Windows ZIP, cold.** The release ZIP was extracted into a new folder whose
-  path contains spaces. uv and Python were not on PATH, uv's cache and Python
-  folders pointed into the test folder, and uv was told to use only Pythons it
-  installs itself, so nothing was preinstalled. `Start-Demo.cmd` downloaded uv
-  (checksum verified), Python 3.12 and the locked libraries and was ready in
-  38 seconds.
-- **Demo.** Both addresses (127.0.0.1:8765 and :8766) returned 200. The demo
-  held 21 synthetic postings.
-- **Personal mode.** The first start created `data/profiles.json`, the first
-  profile's database and the shared catalogue, with zero jobs, and was ready
-  in 4.3 seconds. A second launcher on the same ports exited with the
-  port-conflict message.
-- **Ctrl+C and restart.** Ctrl+C sent to the launcher's console stopped the
-  Career Agent and uv processes and freed both ports, for the demo and for
-  personal mode. A restart was ready in 2.8 seconds, and after the last
-  Ctrl+C no process from the install folder remained.
-- **Network.** While the demo and personal mode ran, the Career Agent
-  processes had no TCP connection to anything but 127.0.0.1.
-- **Containment.** `~/.resume-tailor`, the user's uv folder and the user's
-  uv-managed Pythons were not modified.
-- **Disk.** 361 MB in the Career Agent folder, plus 303 MB of Python and
-  download cache that uv keeps outside it.
+The Beta 3 Windows ZIP built from the gated commit was extracted into a path
+with spaces, in a cold environment: no uv on the PATH, an empty uv cache and
+managed Python only.
 
-Not repeated for this release, and last checked for v0.2.0-beta.1: the macOS
-and Linux commands run from the source archive, the demo and personal mode
-side by side, the update from v0.1.0-alpha.2, and the Windows execution-policy
-refusal of the `.ps1` file. Not checked at all: double-clicking the launcher
-in File Explorer (the tests started the same `.cmd` files from a process),
-automatic browser opening, macOS, Linux, Windows 10, Windows on ARM and live
-hosted AI providers.
+- **First start, demo:** 53.0 s. The launcher downloaded uv and checked its
+  checksum, then installed Python 3.12 and the locked libraries.
+- The demo had 21 jobs and Resumes opened. Only 127.0.0.1 on the chosen port
+  listened, `/rt/api` answered 404, and Quit left no process and a free port.
+- **Personal mode:** first start 6.1 s. One profile, a private database, the
+  shared catalogue, zero jobs, Resumes usable and no move offered. A second
+  start on the same profile was refused with "This profile is already open in
+  another Career Agent window" and paused for the reader. A restart took
+  3.0 s.
+- The ZIP contained no `.venv`, `.tools`, `data`, `.env` or local
+  configuration.
+
+## Windows shortcut and window
+
+Measured on an earlier candidate of this release whose launcher files are
+identical to the gated commit, with the maintainer's own shortcuts backed up
+and restored byte for byte afterwards.
+
+- **Shortcuts:** the Desktop and Start menu shortcuts point at that folder,
+  with the star icon (`career-agent.ico`).
+- **Window:** a double-click on the shortcut's target opened Career Agent in
+  5.1 s, in an Edge app window titled "Career Agent". The window uses its own
+  data in `data\app-window`, never the person's Edge profile, and only
+  127.0.0.1:8765 listened.
+- **Closing:** closing the window stopped Career Agent in 6.6 s with no
+  process left; reopening took 5.1 s.
+- **Moved folder:** after moving the folder, the next start made the
+  shortcuts again for the new path.
+- **NOT TESTED:** the taskbar icon, hover preview and Alt+Tab were not
+  checked by automation.
+
+## Network
+
+Measured on the Career Agent server process, in personal mode, on a private
+copy of a real-size installation, through Home, Find jobs, Resumes, Editor,
+export, tailoring without AI, Analyze and the Resume Tailor move. It listened
+only on 127.0.0.1 and had only loopback connections. The launcher's first
+setup downloads uv, Python and libraries; collecting jobs, semantic matching
+and AI drafting or review send data only when started, as
+[PRIVACY.md](PRIVACY.md) describes.
+
+## Privacy contract for AI drafting and review
+
+A fake provider recorded every prompt
+(`tests/integration/test_resume_ai_privacy.py`). Markers planted in:
+
+- contact details;
+- another job;
+- an application note;
+- unrelated confirmed evidence;
+- another profile;
+- Search Fit and eligibility results.
+
+None reached a prompt. Drafting made one call, and drafting with review made
+two, with no retry. Editing, preview, export, tailoring without AI and Analyze
+made no call.
+
+## Dogfood on a private copy
+
+A real installation was copied with SQLite's backup API (both databases
+passed `integrity_check`) into a temporary folder. The original was left
+unchanged, and the copy was deleted afterwards. Exercised:
+
+- Home, Find jobs, My applications, My profile, Proof of my work, Resumes and
+  Settings, with no console error;
+- the Master, a Word import, the Editor and preview, PDF and Word export, a
+  manual job version, tailoring without AI and Analyze (resume and job);
+- the resume used for an application;
+- the Resume Tailor move, then a second move that copied nothing;
+- AI drafting and review with the fake provider: one and two calls, and no
+  other job title in any prompt;
+- profile backup and Quit.
+
+## Performance (measured)
+
+Dogfood times are from the private copy above, on a large job catalogue. The
+first Find jobs load read a freshly copied database that was not yet in the
+file cache.
+
+| What | Time |
+|---|---:|
+| Demo first start, cold machine (downloads uv, Python, libraries) | 53.0 s |
+| Personal first start after setup | 6.1 s |
+| Restart | 3.0 s |
+| Open from the shortcut / close the window | 5.1 s / 6.6 s |
+| Start on the real-size copy | 4.1 s |
+| Find jobs, first load / next loads | 27.9 s / 0.19 s |
+| Home | 0.6 s |
+| Resumes home | 0.014 s |
+| Proof of my work | 0.07 s |
+| Sources | 1.2 s |
+| Manual job version | 0.06 s |
+| Tailor for a job without AI | 0.58 s |
+| Analyze, resume / against a job | 0.1 s / 0.07 s |
+| Export PDF (4 pages) / Word | 13.9 s / 0.21 s |
 
 ## Public audit
 
-gitleaks 8.30.1 found no leaks in the extracted Windows ZIP (13.65 MB) or in
-the 98 non-merge commits in the history of the gated commit `aaecaef`. A
-deterministic scan of the ZIP found no databases, `.env`, `*.local.yaml`,
-`profiles.json`, backups, runtime folders or key-shaped strings. The only
-owner-identity matches are the two negative privacy tests that assert those
-strings never appear, unchanged since v0.2.0-beta.1. None of the maintainer's
-local search phrases or role anchors appears in any file changed since
-v0.2.0-beta.1. No image changed. See [PUBLIC_AUDIT.md](PUBLIC_AUDIT.md).
+- gitleaks 8.30.1 (official release, checksum verified) over the full git
+  history and over the extracted release archives: no leaks.
+- The maintainer's own identity strings appear in the archives only inside
+  tests that assert their absence.
+- The archives contain no `.env`, no local configuration, no `data` folder,
+  no database and no virtual environment.
+- The README images are the supplied illustrations and screenshots of the
+  demo with synthetic data, with their metadata removed.
+
+## Not tested
+
+macOS and Linux; the taskbar icon, hover preview and Alt+Tab; a live hosted
+AI provider; LibreOffice.

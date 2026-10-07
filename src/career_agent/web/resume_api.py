@@ -182,11 +182,16 @@ def _library(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
-def _unit(name: str) -> dict[str, str]:
-    """A migration unit as the page names it: `{kind, name}`."""
+def _unit(name: str, reason: str = "") -> dict[str, str]:
+    """A migration unit as the page names it: `{kind, name}`, and `why`
+    UNMATCHED for a download that names no single moved version (its file is
+    kept where it is); never the reason's own words."""
     for prefix, kind in (("base resume ", "base"), ("run ", "run"), ("export ", "export")):
         if name.startswith(prefix):
-            return {"kind": kind, "name": name[len(prefix) :]}
+            unit = {"kind": kind, "name": name[len(prefix) :]}
+            if kind == "export" and reason.startswith("matches "):
+                unit["why"] = "UNMATCHED"
+            return unit
     return {"kind": "identity", "name": ""}
 
 
@@ -965,7 +970,7 @@ def register_resume_routes(app: LocalApp) -> None:
             # Which units stayed behind, to name them: their kind and the
             # name the old helper gave them (a run id, a file name), never
             # their contents or the reason's internals.
-            "failures": [_unit(f["unit"]) for f in report.failures],
+            "failures": [_unit(f["unit"], f["reason"]) for f in report.failures],
         }
 
     app.register("POST", r"/api/resume/import/read", import_read)

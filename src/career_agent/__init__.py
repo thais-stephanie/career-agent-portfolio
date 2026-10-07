@@ -3,7 +3,7 @@
 import hashlib
 from pathlib import Path
 
-__version__ = "0.2.0b2"
+__version__ = "0.2.0b3"
 
 
 def install_id(root: Path | None = None) -> str:

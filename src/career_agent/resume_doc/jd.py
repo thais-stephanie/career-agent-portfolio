@@ -177,6 +177,19 @@ class _Years:
         return next(career_years(text), None) is not None
 
 
+#: Where someone may be asked to be able to work: countries and regions, as a
+#: closed list. ponytail: a place outside it reads as an ordinary ask, never as
+#: eligibility; the places gazetteer would cover more if a real ad needs it.
+_WORK_PLACES = (
+    r"EU|EEA|European Union|Europe|UK|United Kingdom|Britain|US|USA|U\.S\.|United States"
+    r"|America|Americas|Canada|Mexico|Brazil|Brasil|Argentina|Chile|Colombia|Peru|Uruguay"
+    r"|LATAM|Latin America|Portugal|Spain|France|Germany|Netherlands|Ireland|Italy|Poland"
+    r"|Sweden|Norway|Denmark|Finland|Nordics|Scandinavia|Switzerland|Austria|Belgium"
+    r"|Israel|South Africa|Philippines|China|India|Australia|New Zealand|Singapore|Japan"
+    r"|EMEA|APAC|Asia|Africa"
+)
+
+
 #: Kinds, by cue, in the order they are asked. The first that fires wins.
 _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
     (
@@ -184,6 +197,11 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
         re.compile(
             r"\b(authori[sz]ed to work|work authori[sz]ation|visas?|sponsor\w*|citizen(ship)?"
             r"|(?:security )?clearance"
+            # "eligible to work", "legally able to work", and "able to work in" a
+            # PLACE; never "able to work in a team" or "in Salesforce".
+            r"|(?:eligible|legally able|permitted|entitled) to (?:legally )?work"
+            rf"|able to (?:legally )?work (?:in|from) (?:the )?(?:{_WORK_PLACES})\b"
+            r"(?![-\w]|\s+(?:time|hours?|business|shifts?|based|friendly)\b)"
             r"|right to work|autoriza[cç][aã]o de trabalho|cidadania|permiso de trabajo)\b",
             re.I,
         ),
@@ -202,8 +220,8 @@ _KIND_CUES: tuple[tuple[str, re.Pattern[str] | _Years], ...] = (
     (
         "SCHEDULE",
         re.compile(
-            r"\b(shifts?|weekends?|night|overtime|business hours|time ?zone|hor[aá]rio|turnos?"
-            r"|plant[aã]o|fins de semana|jornada)\b",
+            r"\b(shifts?|weekends?|night|overtime|business hours|time ?zones?|hours"
+            r"|hor[aá]rio|turnos?|plant[aã]o|fins de semana|jornada)\b",
             re.I,
         ),
     ),

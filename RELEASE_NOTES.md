@@ -1,3 +1,109 @@
+# v0.2.0-beta.3
+
+Career Agent 0.2.0b3. It replaces v0.2.0-beta.2. Resumes replaces Resume
+Tailor Beta, which no longer ships or runs; resumes made with it can be moved
+into Resumes when you choose. To update, extract it into a new folder and copy
+the old folder's `data`, `config\*.local.yaml` and `.env` into it
+([how](docs/INSTALL.md#updating-to-a-new-version)).
+
+## New: Resumes
+
+Resumes is a page of Career Agent, in the same window, with Home, My resumes,
+the Editor and Analyze.
+
+- **Master resume and My resumes.** Build a Master resume from your confirmed
+  Career Profile, import one, or start blank. My resumes groups the versions
+  made for each job (V1, V2, V3) and keeps every resume's history, which you
+  can restore.
+- **Import from PDF or Word.** The file is read on this computer and shown for
+  review before anything is saved; the file itself is not kept.
+- **Editor with a live preview.** Undo and redo, autosave, three templates
+  (Clean, Modern, Compact) and named checks beside the preview.
+- **Export to PDF, Word and JSON.** Each file is checked before you download
+  it. PDF uses Microsoft Edge (or Chrome) on this computer.
+- **Tailor for a job, without AI.** A version for a job is built from your
+  confirmed experience: Resumes reads the job's asks, finds what you have
+  confirmed for each one and says what it could not find.
+- **Optional AI drafting and an optional independent AI review.** Each runs
+  only when you press its button, says first which provider receives what,
+  uses the provider and budget set in AI & Semantic Matching, and never turns
+  a wording into confirmed evidence. Demo mode sends nothing.
+- **Analyze.** Checks a resume on its own or against a job and names what it
+  found: missing contact details, a number your evidence does not show, an ask
+  your resume does not show. It shows counts and named findings, never a
+  score or a match percentage. Where you may work, papers, schedule and
+  languages are kept apart as eligibility.
+- **The resume you used.** An application remembers the exact resume version
+  you marked as used.
+
+## Changed
+
+- **One application, one server.** Career Agent runs as one process on one
+  port. The second server Resume Tailor needed is gone, and the launcher
+  starts faster.
+- **Find jobs, cards and list.** A denser List view, cards four to a row, and
+  faster loading. Saved jobs appear on the applications board.
+- **The interface was redesigned**: sidebar, Home, Settings tabs, job drawer
+  and plain match words.
+- **A Career Agent shortcut** (Windows) opens the app in its own window from
+  the Desktop or the Start menu; closing the window stops it.
+- **Find jobs refreshes from one plan**, with honest counts and sources that
+  continue where they stopped.
+- **"Does this Search Fit look right?"** records your answer per job, and the
+  answers can be exported as a private CSV.
+
+## Privacy and safety
+
+- Resumes live in each profile's own database; another profile never sees
+  them.
+- Resume lines cite confirmed Career Evidence, and an export is refused while
+  a line cites evidence that is not confirmed now.
+- AI drafting and review never send contact details, other jobs,
+  applications, Search Fit or settings, and send nothing unless you press
+  their buttons. Editing, preview, export, tailoring without AI and Analyze
+  call no AI provider.
+- Nothing from Resume Tailor is moved automatically. A move makes a verified
+  backup first and leaves the old files unchanged.
+
+## Updating from v0.2.0-beta.2
+
+Copy `data`, `config\*.local.yaml` and `.env` from the old folder, as
+[INSTALL.md](docs/INSTALL.md#updating-to-a-new-version) describes. Do not copy
+`companion\resume-tailor\.env`; it is no longer read. Resume Tailor's files are
+inside `data` and come across with it. Your jobs, scores, statuses, notes,
+evidence and profiles stay; scores from Beta 2 stay current and need no
+recalculation.
+
+If you used Resume Tailor, Resumes says "We found resumes from the previous
+version". **Review and move them** shows what will move, makes a verified
+backup, then moves your contact details, base resumes, resumes made for a
+job, edited drafts and downloads. **Not now** leaves them; Settings offers
+the same move later. A move can be repeated and copies nothing twice.
+
+## Known limitations
+
+- Windows 11 is the only platform tested for this release. macOS and Linux
+  instructions exist but were not run.
+- Local profiles separate data inside the app; they are not a security
+  boundary.
+- A Resume Tailor download is attached to a moved resume only when its file
+  name points to exactly one of them. Resume Tailor gave every version made
+  for the same job the same file name, so such downloads stay in the old
+  folder, unchanged, and the move says so.
+- A Resume Tailor workspace with several base resumes and no default moves
+  them all as imported resumes; none becomes the Master.
+- The first Find jobs load after starting can take tens of seconds on a large
+  job catalogue that is not yet in the computer's file cache; later loads are
+  fast.
+- PDF export needs Microsoft Edge or Chrome.
+- LinkedIn collection is experimental and may be refused or rate-limited.
+- The Gupy feed is unavailable upstream; jobs already collected from it stay.
+- The interface is in English and Brazilian Portuguese.
+- No live hosted AI provider was called during release testing: AI drafting
+  and review were tested with a fake provider.
+
+Validation: [docs/VALIDATION.md](docs/VALIDATION.md).
+
 # v0.2.0-beta.2
 
 Career Agent 0.2.0b2 with Resume Tailor 0.2.0b1, which did not change. It

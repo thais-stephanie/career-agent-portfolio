@@ -13,7 +13,7 @@
 <p align="center">
   <img
     src="docs/assets/readme/hero.png"
-    alt="Career Agent"
+    alt="Career Agent illustration: Find jobs with Search Fit percentages beside a Resumes step from Master to a job version, Analyze and PDF export"
     width="100%"
   />
 </p>
@@ -23,10 +23,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">
     <img
-      src="https://img.shields.io/badge/status-Beta_2-fff08a"
-      alt="Beta 2"
+      src="https://img.shields.io/badge/status-Beta_3-fff08a"
+      alt="Beta 3"
     />
   </a>
   <a href="#resumes">
@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/Beta_2_tests-9%2C105_passed-a7ebcf"
-      alt="9,105 tests passed"
+      src="https://img.shields.io/badge/Beta_3_tests-11%2C007_passed-a7ebcf"
+      alt="11,007 tests passed"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -78,7 +78,7 @@
   <strong>
     <a href="docs/INSTALL.md">Install guide</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Download for Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">Download for Windows</a>
     &nbsp;·&nbsp;
     <a href="#screenshots">See the app</a>
   </strong>
@@ -95,10 +95,10 @@ because there is none.
 
 > [!NOTE]
 >
-> The latest release is **v0.2.0-beta.2**, for people who run it on their
-> own computer; it shipped the previous resume tool, Resume Tailor Beta. This
-> page describes the code since then, where **Resumes** replaced it. Search Fit describes how a posting
-> matches your search preferences. It does not estimate your chances of being
+> This is **v0.2.0-beta.3**, for people who run it on their own computer.
+> Resumes replaces Resume Tailor Beta, the resume tool of the earlier betas;
+> resumes made with it can be moved into Resumes. Search Fit describes how a
+> posting matches your search preferences. It does not estimate your chances of being
 > hired.
 
 ## Install
@@ -111,8 +111,8 @@ for people who have never used a terminal.
   into it. It installs Career Agent, runs the demo and tells you how to start
   it again.
 - **I want to install it myself:**
-  - **Windows:** download `Career-Agent-v0.2.0-beta.2-Windows.zip` from the
-    [release page](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
+  - **Windows:** download `Career-Agent-v0.2.0-beta.3-Windows.zip` from the
+    [release page](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3),
     unblock it (right-click, **Properties**, **Unblock**), right-click it and
     choose **Extract All**, then double-click
     **Start-Demo.cmd** in the extracted folder. You do not need to install
@@ -132,18 +132,21 @@ then double-click **Start-Career-Agent.cmd** to set up your own search. The guid
 
 ## Screenshots
 
-All three show the product with synthetic demo data or an empty first-run
-workspace.
+All three are captures of the demo, with synthetic jobs and an invented candidate.
 
-| Discover jobs | Why this fits your search |
-|---|---|
-| ![Discover with synthetic jobs, Search Fit and Posting completeness on each card](docs/assets/readme/discover.png) | ![Search Fit reasons, each quoted from the posting](docs/assets/readme/why.png) |
+**Find jobs**
 
-| First run |
-|---|
-| ![First-run setup with the profile menu and ten short questions](docs/assets/readme/first-run.png) |
+![Find jobs in the demo: cards with a Search Fit percentage, the employer, place, level, pay and source of each synthetic posting](docs/assets/readme/find-jobs.png)
 
-![Workflow: discover, inspect Search Fit and reasons, prepare a resume, track applications](docs/assets/readme/how-it-works.png)
+**Resume editor**
+
+![The Resumes editor: contact fields beside the Check list and a live preview of the one-page resume](docs/assets/readme/resume-editor.png)
+
+**Analyze for a job**
+
+![Analyze for a job: counts and named findings for each ask, gaps, and an eligibility note kept apart, never a score](docs/assets/readme/analyze.png)
+
+![Workflow illustration: find jobs, Search Fit with eligibility kept apart, Resumes, Tailor and Analyze, and Applications](docs/assets/readme/how-it-works.png)
 
 *Workflow illustration, not a screenshot.*
 
@@ -287,7 +290,7 @@ These actions send data off the computer, each only when you take it:
 | Collecting jobs | Requests to job boards and employer sites, with search phrases and places. Never your CV or profile. |
 | LinkedIn via JobSpy (if you turned it on) | Short search phrases and places, sent to LinkedIn. |
 | Semantic matching (if you start a run) | Your search phrases and the selected postings' text, to the provider you chose. |
-| AI drafting or review in Resumes (when you press it) | The job's title and the asks it quotes, and the resume lines and confirmed statements relevant to them, to the provider you set up. Never your contact details. |
+| AI drafting or review in Resumes (when you press it) | The job's title and company and the asks it quotes, and the resume lines and confirmed statements relevant to them, to the provider you set up. Never your contact details. |
 | Opening an employer link | Your browser visits that website. |
 
 The local model reading (Ollama) stays on the computer: Career Agent refuses
@@ -296,25 +299,22 @@ an Ollama address that is not local. The full inventory is in
 
 ## Validation
 
-The v0.2.0-beta.2 release gate passed **9,105 tests** with 7 skipped and 0
-failed, on Windows 11 with Python 3.12:
+The v0.2.0-beta.3 release gate passed **11,007 tests** with 6 skipped and 0
+failed, on Windows 11 with Python 3.12, all on one exact commit:
 
 | Suite | Passed |
 |---|---:|
-| Career Agent unit | 7,018 |
-| Career Agent integration | 1,656 |
-| Career Agent browser | 371 |
-| Resume Tailor Python | 22 |
-| Resume Tailor frontend | 38 |
+| Career Agent unit and integration | 10,560 |
+| Career Agent browser | 447 |
 
-Ruff, the formatter check, mypy and the frontend checks were clean. The
-release ZIP was installed in a new folder whose path contains spaces, with no
-uv or Python available beforehand, and the demo, personal mode, a port
-conflict, restart and shutdown were checked, as was an update from
-v0.2.0-beta.1 with synthetic data. There is no continuous
-integration: the gate runs on the maintainer's Windows computer.
-[Release validation](docs/VALIDATION.md) lists the skips and the install
-checks.
+Ruff, the formatter check, mypy, the frontend checks and the contrast report
+were clean. The release ZIP was installed in a new folder whose path contains
+spaces, with no uv or Python available beforehand, and the demo, personal
+mode, a second start, restart and shutdown were checked. An update from the
+published v0.2.0-beta.2 ZIP, with synthetic data and resumes made in Resume
+Tailor, followed the update steps in the install guide. There is no
+continuous integration: the gate runs on the maintainer's Windows computer.
+[Release validation](docs/VALIDATION.md) lists the skips and every check.
 
 ## Known limitations
 

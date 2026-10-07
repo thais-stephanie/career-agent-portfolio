@@ -482,13 +482,22 @@ export async function legacyNotice({ profile, onMoved, onClose = () => {}, force
     ]);
   }
 
+  /** Old downloads that name no single moved version: kept, never guessed. */
+  function unmatched(units) {
+    const n = units.filter((u) => u.why === 'UNMATCHED').length;
+    return n ? el('p', { className: 'rve__note', text: tCount('rv.legacy.unmatched', { n }) }) : null;
+  }
+
   /** "Try again", the failed items on request, and leaving the old files be. */
   function failed(units) {
     const details = units.length
       ? el('details', { className: 'rvl__details' }, [
         el('summary', { text: t('rv.legacy.details') }),
         el('ul', { className: 'rvl__what' }, units.map((u) => el('li', {
-          text: u.name ? `${t(`rv.legacy.unit.${u.kind}`)}: ${u.name}` : t(`rv.legacy.unit.${u.kind}`),
+          text: [
+            u.name ? `${t(`rv.legacy.unit.${u.kind}`)}: ${u.name}` : t(`rv.legacy.unit.${u.kind}`),
+            u.why === 'UNMATCHED' ? t('rv.legacy.keptUnchanged') : '',
+          ].filter(Boolean).join(' '),
         }))),
         el('p', { className: 'rve__note', text: t('rv.legacy.unsafe') }),
       ])
@@ -497,9 +506,12 @@ export async function legacyNotice({ profile, onMoved, onClose = () => {}, force
       el('p', { className: 'rve__note', text: t('rv.legacy.unchanged') }),
       details,
       el('div', { className: 'rvl__rename' }, [
-        small(t('rv.legacy.retry'), () => preflight(), { className: 'btn btn--small btn--primary' }),
+        // Trying again cannot match a download no single version names.
+        units.length && units.every((u) => u.why === 'UNMATCHED')
+          ? null
+          : small(t('rv.legacy.retry'), () => preflight(), { className: 'btn btn--small btn--primary' }),
         small(t('rv.legacy.keep'), close),
-      ]),
+      ].filter(Boolean)),
     ];
   }
 
@@ -549,6 +561,7 @@ export async function legacyNotice({ profile, onMoved, onClose = () => {}, force
       out.failed
         ? el('p', { attrs: { role: 'alert' }, text: tCount('rv.legacy.someFailed', { n: out.failed }) })
         : null,
+      unmatched(out.failures || []),
       ...(out.failed ? failed(out.failures || []) : []),
       small(t('rv.legacy.seeThem'), () => onMoved(), { className: 'btn btn--small btn--primary' }),
     ]);

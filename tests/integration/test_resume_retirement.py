@@ -229,6 +229,10 @@ def test_a_beta2_installation_upgrades_with_one_server_and_its_old_resumes_move_
         moved = client.json("POST", "/api/resume/legacy/migrate")
         assert (moved["masters"], moved["job_versions"], moved["exports"]) == (1, 3, 1)
         assert moved["failed"] == 2 and {f["kind"] for f in moved["failures"]} == {"run", "export"}
+        # The download both job versions name is kept, said as such, never guessed.
+        (unmatched,) = [f for f in moved["failures"] if f["kind"] == "export"]
+        assert unmatched["why"] == "UNMATCHED" and unmatched["name"].endswith(".docx")
+        assert all("why" not in f for f in moved["failures"] if f["kind"] == "run")
         backups = list((root / "data" / "resume_helper_backups").glob("*.zip"))
         assert len(backups) == 1
         again = client.json("POST", "/api/resume/legacy/migrate")

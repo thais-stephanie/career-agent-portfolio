@@ -13,7 +13,7 @@
 <p align="center">
   <img
     src="docs/assets/readme/hero.png"
-    alt="Career Agent"
+    alt="Ilustración de Career Agent: Find jobs con porcentajes de Search Fit junto a un paso de Resumes, del currículum maestro a una versión para la oferta, Analyze y exportación a PDF"
     width="100%"
   />
 </p>
@@ -23,10 +23,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">
     <img
-      src="https://img.shields.io/badge/status-Beta_2-fff08a"
-      alt="Beta 2"
+      src="https://img.shields.io/badge/status-Beta_3-fff08a"
+      alt="Beta 3"
     />
   </a>
   <a href="#resumes">
@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/pruebas_Beta_2-9.105_aprobadas-a7ebcf"
-      alt="9.105 pruebas aprobadas"
+      src="https://img.shields.io/badge/pruebas_Beta_3-11.007_aprobadas-a7ebcf"
+      alt="11.007 pruebas aprobadas"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -78,7 +78,7 @@
   <strong>
     <a href="docs/INSTALL.md">Guía de instalación (en inglés)</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Descargar para Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">Descargar para Windows</a>
     &nbsp;·&nbsp;
     <a href="#capturas-de-pantalla">Ver la aplicación</a>
   </strong>
@@ -95,10 +95,10 @@ Career Agent; nada se sube a un servidor de Career Agent, porque no existe.
 
 > [!NOTE]
 >
-> La versión más reciente es la **v0.2.0-beta.2**, para quien lo ejecuta en
-> su propia computadora; trajo la herramienta de currículum anterior, Resume
-> Tailor Beta. Esta página describe el código desde entonces, en el que
-> **Resumes** la reemplazó. Search Fit describe
+> Esta es la versión **v0.2.0-beta.3**, para quien lo ejecuta en su propia
+> computadora. **Resumes** reemplaza a Resume Tailor Beta, la herramienta de
+> currículum de las betas anteriores; los currículums hechos con ella se pueden
+> traer a Resumes. Search Fit describe
 > cómo una oferta encaja con tus preferencias de búsqueda. No estima tus
 > probabilidades de ser contratado o contratada.
 
@@ -111,8 +111,8 @@ escrito para quien nunca usó una terminal. Está en inglés.
   [mensaje de instalación preparado](docs/INSTALL.md#path-a-install-with-claude-code-or-codex).
   Instala Career Agent, ejecuta la demo y te explica cómo abrirlo de nuevo.
 - **Quiero instalarlo por mi cuenta:**
-  - **Windows:** descarga `Career-Agent-v0.2.0-beta.2-Windows.zip` en la
-    [página de la versión](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
+  - **Windows:** descarga `Career-Agent-v0.2.0-beta.3-Windows.zip` en la
+    [página de la versión](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3),
     desbloquéalo (clic derecho, **Propiedades**, **Desbloquear**), haz clic
     derecho, elige **Extraer todo** y haz doble clic en
     **Start-Demo.cmd** en la carpeta extraída. No necesitas instalar Python
@@ -133,19 +133,21 @@ cómo [abrirlo de nuevo](docs/INSTALL.md#how-to-open-career-agent-next-time),
 
 ## Capturas de pantalla
 
-Las tres muestran el producto con datos sintéticos de la demo o con un
-espacio de trabajo vacío en el primer inicio. La interfaz aparece en inglés;
-también está en portugués de Brasil.
+Las tres son capturas de la demo, con ofertas sintéticas y una persona candidata inventada. La interfaz aparece en inglés; también está en portugués de Brasil.
 
-| Descubrir ofertas | Por qué encaja con tu búsqueda |
-|---|---|
-| ![Descubrir con ofertas sintéticas, Search Fit y Posting completeness en cada tarjeta](docs/assets/readme/discover.png) | ![Motivos de Search Fit, cada uno citado de la oferta](docs/assets/readme/why.png) |
+**Find jobs**
 
-| Primer inicio |
-|---|
-| ![Configuración inicial con el menú de perfil y diez preguntas cortas](docs/assets/readme/first-run.png) |
+![Find jobs en la demo: tarjetas con el porcentaje de Search Fit, la empresa, el lugar, el nivel, el salario y la fuente de cada oferta sintética](docs/assets/readme/find-jobs.png)
 
-![Flujo: descubrir, entender el Search Fit, preparar un currículum y seguir postulaciones](docs/assets/readme/how-it-works.png)
+**Editor de currículum**
+
+![El editor de Resumes: campos de contacto junto a la lista de revisión y una vista previa en vivo del currículum de una página](docs/assets/readme/resume-editor.png)
+
+**Analyze para una oferta**
+
+![Analyze para una oferta: conteos y hallazgos con nombre para cada requisito, brechas y una nota de elegibilidad aparte, nunca una puntuación](docs/assets/readme/analyze.png)
+
+![Ilustración del flujo: encontrar ofertas, Search Fit con la elegibilidad aparte, Resumes, adaptar y analizar, y postulaciones](docs/assets/readme/how-it-works.png)
 
 *Ilustración del flujo, no una captura de pantalla.*
 
@@ -297,7 +299,7 @@ haces:
 | Recopilar ofertas | Solicitudes a portales de empleo y sitios de empresas, con frases de búsqueda y lugares. Nunca tu currículum ni tu perfil. |
 | LinkedIn via JobSpy (si lo activaste) | Frases de búsqueda cortas y lugares, enviados a LinkedIn. |
 | Semantic matching (si inicias una ejecución) | Tus frases de búsqueda y el texto de las ofertas seleccionadas, al proveedor elegido. |
-| Borrador o revisión con IA en Resumes (cuando lo presionas) | El título de la oferta y los requisitos que cita, y las líneas del currículum y las afirmaciones confirmadas relacionadas con ellos, al proveedor que configuraste. Nunca tus datos de contacto. |
+| Borrador o revisión con IA en Resumes (cuando lo presionas) | El título y la empresa de la oferta y los requisitos que cita, y las líneas del currículum y las afirmaciones confirmadas relacionadas con ellos, al proveedor que configuraste. Nunca tus datos de contacto. |
 | Abrir el enlace de una empresa | Tu navegador visita ese sitio. |
 
 La lectura con modelo local (Ollama) se queda en la computadora: Career Agent
@@ -306,25 +308,24 @@ en [PRIVACY.md](docs/PRIVACY.md).
 
 ## Validación
 
-La verificación de la versión v0.2.0-beta.2 pasó **9.105 pruebas**, con 7
-omitidas y 0 fallos, en Windows 11 con Python 3.12:
+La verificación de la versión v0.2.0-beta.3 pasó **11.007 pruebas**, con 6
+omitidas y 0 fallos, en Windows 11 con Python 3.12, todas en el mismo commit:
 
 | Conjunto | Aprobadas |
 |---|---:|
-| Career Agent, unitarias | 7.018 |
-| Career Agent, integración | 1.656 |
-| Career Agent, navegador | 371 |
-| Resume Tailor, Python | 22 |
-| Resume Tailor, frontend | 38 |
+| Career Agent, unitarias e integración | 10.560 |
+| Career Agent, navegador | 447 |
 
-Ruff, la verificación de formato, mypy y las verificaciones del frontend
-pasaron. El ZIP de la versión se instaló en una carpeta nueva cuya ruta tiene
-espacios, sin uv ni Python disponibles antes, y se comprobaron la demo, el modo
-personal, un conflicto de puertos, el reinicio y el cierre, además de una
-actualización desde v0.2.0-beta.1 con datos sintéticos. No hay integración
-continua: la verificación se ejecuta en la computadora Windows de quien
-mantiene el proyecto. La [validación de la versión](docs/VALIDATION.md) lista
-las pruebas omitidas y las comprobaciones de instalación.
+Ruff, la verificación de formato, mypy, las verificaciones del frontend y el
+informe de contraste pasaron. El ZIP de la versión se instaló en una carpeta
+nueva cuya ruta tiene espacios, sin uv ni Python disponibles antes, y se
+comprobaron la demo, el modo personal, una segunda apertura, el reinicio y el
+cierre. Una actualización desde el ZIP publicado de v0.2.0-beta.2, con datos
+sintéticos y currículums hechos en Resume Tailor, siguió los pasos de
+actualización de la guía de instalación. No hay integración continua: la
+verificación se ejecuta en la computadora Windows de quien mantiene el
+proyecto. La [validación de la versión](docs/VALIDATION.md) lista las pruebas
+omitidas y cada comprobación.
 
 ## Limitaciones conocidas
 

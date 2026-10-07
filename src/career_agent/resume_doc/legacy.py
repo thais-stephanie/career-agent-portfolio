@@ -240,9 +240,9 @@ class _Migration:
         self.identity = Identity()
         self.claims: dict[str, str] = {}
         self.verbatim: dict[str, str] = {}
-        #: Every run whose run.json is a JSON object, moved or not, by the
-        #: names its export would carry: (role title, headline).
-        self.named: dict[str, tuple[str, str]] = {}
+        #: Every run whose run.json is a JSON object, moved or not, by what
+        #: its export's name was made of: (candidate name, role title, headline).
+        self.named: dict[str, tuple[str, str, str]] = {}
         self.bank: fmt.EvidenceBank | None = None
         self.bases = sorted((root / "base_resumes").glob("*.json"))
 
@@ -278,7 +278,9 @@ class _Migration:
             data = json.loads(text)
             if isinstance(data, dict):
                 analysis, resume = data.get("job_analysis"), data.get("generated_resume")
+                candidate = (resume or {}).get("candidate") if isinstance(resume, dict) else None
                 self.named[run_id] = (
+                    str((candidate or {}).get("name") or "") if isinstance(candidate, dict) else "",
                     str((analysis or {}).get("role_title") or ""),
                     str((resume or {}).get("headline") or ""),
                 )
@@ -510,11 +512,19 @@ class _Migration:
         # no link to its run; a file is attached only to the ONE run whose
         # name it carries, counted over every run there is (moved or not), so
         # a run that failed never makes another one look like the owner.
-        name = self.bank.candidate.name if self.bank else ""
+        # Named as v0.2.0-beta.2 named it (the run's own candidate name, "You"
+        # included) or as later builds did (a placeholder left out); a run that
+        # carries the name either way counts once.
+        bank_name = self.bank.candidate.name if self.bank else ""
+        ext = path.suffix[1:]
         owners = [
             run_id
-            for run_id, (role, headline) in sorted(self.named.items())
-            if export_filename(name, role, headline, path.suffix[1:]) == path.name
+            for run_id, (own, role, headline) in sorted(self.named.items())
+            if path.name
+            in {
+                export_filename(bank_name, role, headline, ext),
+                export_filename(own or bank_name, role, headline, ext, placeholders=True),
+            }
         ]
         if len(owners) != 1:
             raise ValueError(

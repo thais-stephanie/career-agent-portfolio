@@ -13,7 +13,7 @@
 <p align="center">
   <img
     src="docs/assets/readme/hero.png"
-    alt="Career Agent"
+    alt="Ilustração do Career Agent: Encontrar vagas com percentuais de Search Fit ao lado de uma etapa de Currículos, do mestre a uma versão para a vaga, Analisar e exportar em PDF"
     width="100%"
   />
 </p>
@@ -23,10 +23,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">
+  <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">
     <img
-      src="https://img.shields.io/badge/status-Beta_2-fff08a"
-      alt="Beta 2"
+      src="https://img.shields.io/badge/status-Beta_3-fff08a"
+      alt="Beta 3"
     />
   </a>
   <a href="#resumes">
@@ -37,8 +37,8 @@
   </a>
   <a href="docs/VALIDATION.md">
     <img
-      src="https://img.shields.io/badge/testes_Beta_2-9.105_aprovados-a7ebcf"
-      alt="9.105 testes aprovados"
+      src="https://img.shields.io/badge/testes_Beta_3-11.007_aprovados-a7ebcf"
+      alt="11.007 testes aprovados"
     />
   </a>
   <a href="docs/INSTALL.md#which-computers-it-runs-on">
@@ -78,7 +78,7 @@
   <strong>
     <a href="docs/INSTALL.md">Guia de instalação (em inglês)</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2">Baixar para Windows</a>
+    <a href="https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3">Baixar para Windows</a>
     &nbsp;·&nbsp;
     <a href="#capturas-de-tela">Ver o aplicativo</a>
   </strong>
@@ -95,10 +95,10 @@ Agent; nada é enviado para um servidor do Career Agent, porque ele não existe.
 
 > [!NOTE]
 >
-> A versão mais recente é a **v0.2.0-beta.2**, para quem roda no próprio
-> computador; ela trouxe a ferramenta de currículo anterior, o Resume Tailor
-> Beta. Esta página descreve o código desde então, em que **Currículos** a
-> substituiu. O Search Fit descreve como uma vaga
+> Esta é a versão **v0.2.0-beta.3**, para quem roda no próprio computador.
+> **Currículos** substitui o Resume Tailor Beta, a ferramenta de currículo das
+> betas anteriores; os currículos feitos com ele podem ser trazidos para
+> Currículos. O Search Fit descreve como uma vaga
 > combina com as suas preferências de busca. Ele não estima suas chances de
 > contratação.
 
@@ -112,8 +112,8 @@ escrito para quem nunca usou um terminal. Ele está em inglês.
   nele. Ele instala o Career Agent, roda a demonstração e explica como abrir
   de novo.
 - **Quero instalar por conta própria:**
-  - **Windows:** baixe `Career-Agent-v0.2.0-beta.2-Windows.zip` na
-    [página da versão](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.2),
+  - **Windows:** baixe `Career-Agent-v0.2.0-beta.3-Windows.zip` na
+    [página da versão](https://github.com/thais-stephanie/career-agent-portfolio/releases/tag/v0.2.0-beta.3),
     desbloqueie o arquivo (botão direito, **Propriedades**, **Desbloquear**),
     clique com o botão direito, escolha **Extrair tudo** e dê dois cliques em
     **Start-Demo.cmd** na pasta extraída. Você não precisa instalar Python
@@ -134,19 +134,21 @@ como [abrir de novo](docs/INSTALL.md#how-to-open-career-agent-next-time),
 
 ## Capturas de tela
 
-As três mostram o produto com dados sintéticos da demonstração ou com um
-espaço de trabalho vazio na primeira execução. A interface aparece em inglês;
-ela também tem português.
+As três são capturas da demonstração, com vagas sintéticas e uma pessoa candidata inventada. A interface aparece em inglês; ela também tem português.
 
-| Descobrir vagas | Por que esta vaga combina |
-|---|---|
-| ![Descobrir com vagas sintéticas, Search Fit e Posting completeness em cada cartão](docs/assets/readme/discover.png) | ![Motivos do Search Fit, cada um citado da vaga](docs/assets/readme/why.png) |
+**Encontrar vagas**
 
-| Primeira execução |
-|---|
-| ![Configuração inicial com o menu de perfil e dez perguntas curtas](docs/assets/readme/first-run.png) |
+![Encontrar vagas na demonstração: cartões com o percentual de Search Fit, a empresa, o lugar, o nível, o salário e a fonte de cada vaga sintética](docs/assets/readme/find-jobs.png)
 
-![Fluxo: descobrir, entender o Search Fit, preparar um currículo e acompanhar candidaturas](docs/assets/readme/how-it-works.png)
+**Editor de currículo**
+
+![O editor de Currículos: campos de contato ao lado da lista de verificação e uma prévia ao vivo do currículo de uma página](docs/assets/readme/resume-editor.png)
+
+**Analisar para uma vaga**
+
+![Analisar para uma vaga: contagens e achados com nome para cada pedido, lacunas e uma nota de elegibilidade separada, nunca uma nota](docs/assets/readme/analyze.png)
+
+![Ilustração do fluxo: encontrar vagas, Search Fit com a elegibilidade separada, Currículos, adaptar e analisar, e Candidaturas](docs/assets/readme/how-it-works.png)
 
 *Ilustração do fluxo, não uma captura de tela.*
 
@@ -294,7 +296,7 @@ faz:
 | Coletar vagas | Requisições a job boards e sites de empresas, com frases de busca e lugares. Nunca seu currículo ou perfil. |
 | LinkedIn via JobSpy (se você ligou) | Frases de busca curtas e lugares, enviados ao LinkedIn. |
 | Semantic matching (se você iniciar uma execução) | Suas frases de busca e o texto das vagas selecionadas, para o provedor escolhido. |
-| Rascunho ou revisão com IA em Currículos (quando você aperta) | O título da vaga e os pedidos que ela cita, e as linhas do currículo e as afirmações confirmadas ligadas a eles, para o provedor que você configurou. Nunca seus dados de contato. |
+| Rascunho ou revisão com IA em Currículos (quando você aperta) | O título e a empresa da vaga e os pedidos que ela cita, e as linhas do currículo e as afirmações confirmadas ligadas a eles, para o provedor que você configurou. Nunca seus dados de contato. |
 | Abrir o link de uma empresa | Seu navegador visita aquele site. |
 
 A leitura com modelo local (Ollama) fica no computador: o Career Agent recusa
@@ -303,25 +305,24 @@ um endereço do Ollama que não seja local. O inventário completo está em
 
 ## Validação
 
-A verificação da versão v0.2.0-beta.2 passou em **9.105 testes**, com 7
-ignorados e 0 falhas, no Windows 11 com Python 3.12:
+A verificação da versão v0.2.0-beta.3 passou em **11.007 testes**, com 6
+ignorados e 0 falhas, no Windows 11 com Python 3.12, todos no mesmo commit:
 
 | Conjunto | Aprovados |
 |---|---:|
-| Career Agent, unitários | 7.018 |
-| Career Agent, integração | 1.656 |
-| Career Agent, navegador | 371 |
-| Resume Tailor, Python | 22 |
-| Resume Tailor, frontend | 38 |
+| Career Agent, unitários e integração | 10.560 |
+| Career Agent, navegador | 447 |
 
-Ruff, a verificação de formatação, o mypy e as verificações do frontend
-passaram. O ZIP da versão foi instalado em uma pasta nova cujo caminho tem
-espaços, sem uv nem Python disponíveis antes, e foram verificados a
-demonstração, o modo pessoal, conflito de portas, reinício e encerramento, além de uma
-atualização a partir da v0.2.0-beta.1 com dados sintéticos. Não
-há integração contínua: a verificação roda no computador Windows de
-quem mantém o projeto. A [validação da versão](docs/VALIDATION.md) lista os testes
-ignorados e as verificações de instalação.
+Ruff, a verificação de formatação, o mypy, as verificações do frontend e o
+relatório de contraste passaram. O ZIP da versão foi instalado em uma pasta
+nova cujo caminho tem espaços, sem uv nem Python disponíveis antes, e foram
+verificados a demonstração, o modo pessoal, uma segunda abertura, o reinício e
+o encerramento. Uma atualização a partir do ZIP publicado da v0.2.0-beta.2,
+com dados sintéticos e currículos feitos no Resume Tailor, seguiu os passos de
+atualização do guia de instalação. Não há integração contínua: a verificação
+roda no computador Windows de quem mantém o projeto. A
+[validação da versão](docs/VALIDATION.md) lista os testes ignorados e cada
+verificação.
 
 ## Limitações conhecidas
 

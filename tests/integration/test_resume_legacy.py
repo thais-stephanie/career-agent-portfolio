@@ -377,3 +377,17 @@ def test_facts_confirmed_in_the_old_helper_are_read_as_it_showed_them(
     master = ResumeStore(conn).current_master()
     assert master is not None
     assert [e.location for e in master.working.experience][2] == "Remote"
+
+
+def test_a_download_named_as_beta2_named_it_is_attached(tmp_path: Path, legacy: Path) -> None:
+    """v0.2.0-beta.2 wrote the candidate's name as it was, "You" included:
+    found by the Beta 3 update test, where every such download stayed behind."""
+    run = legacy / "applications" / "20260103T000000-cccccc" / "run.json"
+    _set(run, lambda d: d["generated_resume"]["candidate"].update(name="You"))
+    exports = legacy / "exports"
+    (old,) = [p for p in exports.iterdir() if "Synthetic Analyst" in p.name]
+    renamed = old.rename(exports / "You - Synthetic Analyst.docx")
+    conn, report = migrated(tmp_path, legacy)
+    assert not any(renamed.name in f["unit"] for f in report.failures)
+    [export] = ResumeStore(conn).list_exports(stable_id("legacy-run", "20260103T000000-cccccc"))
+    assert Path(export.file_path).name == renamed.name

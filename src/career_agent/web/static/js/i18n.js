@@ -2072,8 +2072,8 @@ const EN = {
   'rv.ai.billing.SUBSCRIPTION': 'This uses your own subscription and counts toward its limits.',
   'rv.ai.billing.LOCAL': 'This runs on this computer.',
   'rv.ai.billing.NONE': 'This provider does not charge for requests.',
-  'rv.ai.sends': 'AI will receive this job’s requirements that your experience supports, and the confirmed experience '
-    + 'selected for this resume.',
+  'rv.ai.sends': 'AI will receive this job’s title and company, the requirements your experience supports, '
+    + 'and the confirmed experience selected for this resume.',
   'rv.ai.neverSends': 'Not sent: your contact details, dates, other jobs, applications, gaps or settings.',
   'rv.ai.send': 'Send to AI',
   'rv.ai.drafting': 'Drafting suggestions',
@@ -2314,6 +2314,11 @@ const EN = {
   'rv.legacy.unit.base': 'Base resume',
   'rv.legacy.unit.run': 'Resume made for a job',
   'rv.legacy.unit.export': 'Downloaded file',
+  'rv.legacy.unmatched': '{n} old exported files could not be matched to a resume version. '
+    + 'The original files were kept unchanged.',
+  'rv.legacy.unmatchedOne': '1 old exported file could not be matched to a resume version. '
+    + 'The original file was kept unchanged.',
+  'rv.legacy.keptUnchanged': '(kept unchanged)',
   'rv.legacy.seeThem': 'See My resumes',
   'rv.back': 'Back',
   'rv.docTitle': 'Resume name',
@@ -2427,7 +2432,7 @@ const EN = {
   'rv.find.EMPTY_SECTION': 'A section with nothing shown in it.',
   'rv.find.EDITED_EVIDENCE': 'You reworded a line from your evidence: check it still says what happened.',
   'rv.find.NUMBER_NOT_IN_EVIDENCE': 'An edited line has a number your evidence does not.',
-  'rv.find.NOT_FROM_EVIDENCE': 'Written by you: not backed by your saved evidence.',
+  'rv.find.NOT_FROM_EVIDENCE': 'Not linked to your saved evidence (typed or imported).',
   'rv.find.TALLER_THAN_PAGE': 'Something is taller than a page.',
   'rv.find.PAGES': '{n} pages: most resumes fit in two.',
   'rv.unsaved': 'Not saved: some fields need fixing, or the last save failed. Your edits are still here.',
@@ -6225,8 +6230,8 @@ const PT_BR = {
   'rv.ai.billing.SUBSCRIPTION': 'Isto usa a sua própria assinatura e conta para os limites dela.',
   'rv.ai.billing.LOCAL': 'Isto roda neste computador.',
   'rv.ai.billing.NONE': 'Este provedor não cobra pelos pedidos.',
-  'rv.ai.sends': 'A IA vai receber os requisitos desta vaga que a sua experiência apoia e a experiência confirmada '
-    + 'escolhida para este currículo.',
+  'rv.ai.sends': 'A IA vai receber o título e a empresa desta vaga, os requisitos que a sua experiência apoia '
+    + 'e a experiência confirmada escolhida para este currículo.',
   'rv.ai.neverSends': 'Não é enviado: seus contatos, datas, outras vagas, candidaturas, lacunas ou configurações.',
   'rv.ai.send': 'Enviar para a IA',
   'rv.ai.drafting': 'Rascunhando sugestões',
@@ -6467,6 +6472,11 @@ const PT_BR = {
   'rv.legacy.unit.base': 'Currículo-base',
   'rv.legacy.unit.run': 'Currículo feito para uma vaga',
   'rv.legacy.unit.export': 'Arquivo baixado',
+  'rv.legacy.unmatched': '{n} arquivos exportados antigos não puderam ser ligados a uma versão do currículo. '
+    + 'Os arquivos originais ficaram sem mudanças.',
+  'rv.legacy.unmatchedOne': '1 arquivo exportado antigo não pôde ser ligado a uma versão do currículo. '
+    + 'O arquivo original ficou sem mudanças.',
+  'rv.legacy.keptUnchanged': '(mantido sem mudanças)',
   'rv.legacy.seeThem': 'Ver Meus currículos',
   'rv.back': 'Voltar',
   'rv.docTitle': 'Nome do currículo',
@@ -6580,7 +6590,7 @@ const PT_BR = {
   'rv.find.EMPTY_SECTION': 'Uma seção sem nada visível.',
   'rv.find.EDITED_EVIDENCE': 'Você reescreveu uma linha da sua evidência: confira se ela ainda diz o que aconteceu.',
   'rv.find.NUMBER_NOT_IN_EVIDENCE': 'Uma linha editada tem um número que sua evidência não tem.',
-  'rv.find.NOT_FROM_EVIDENCE': 'Escrita por você: sem respaldo na sua evidência salva.',
+  'rv.find.NOT_FROM_EVIDENCE': 'Sem ligação com a sua evidência salva (digitada ou importada).',
   'rv.find.TALLER_THAN_PAGE': 'Algo é mais alto que uma página.',
   'rv.find.PAGES': '{n} páginas: a maioria dos currículos cabe em duas.',
   'rv.unsaved': 'Não salvo: alguns campos precisam de ajuste, ou o último salvamento falhou. '
