@@ -236,7 +236,8 @@ def test_duplicate_import_is_a_question_and_can_stay_separate(page, pristine_ser
     page.wait_for("document.querySelector('.career__proposals') !== null")
     page.evaluate("document.querySelector('.career__proposals').open = true")
     assert page.evaluate(
-        "document.querySelector('.career__proposals').textContent.includes('Teem / Teem LLC')"
+        "document.querySelector('.career__proposals').textContent"
+        ".includes('Tailspin / Tailspin LLC')"
     )
     assert page.evaluate("document.querySelectorAll('.career__cards article').length") == 0
     click(page, "Keep separate")

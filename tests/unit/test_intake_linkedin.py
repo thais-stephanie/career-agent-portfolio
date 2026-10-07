@@ -29,29 +29,29 @@ Automation
 Experience
 
 Northwind
-Staff Integration Engineer | Billing Systems and Data
-Governance
-March 2025 - Present
+Principal Logistics Engineer | Routing Systems and Data
+Stewardship
+November 2016 - Present
 Somewhere, XX
-Owned the billing pipeline end to end.
-- Rebuilt the subscription flow as two workflows.
+Owned the routing pipeline end to end.
+- Rebuilt the depot sync as two workflows.
 Skills and Tools: iPaaS, SQL.
 
 Contoso
-2 years 4 months
-Product Manager | Workflow Automation and Product
-Analytics
-February 2024 - July 2024 (6 months)
+4 years 1 month
+Program Manager | Fleet Telemetry and Partner
+Reporting
+January 2016 - October 2016 (10 months)
 Somewhere Else
-Moved into product when the team was wound down.
-Owned discovery for compliance workflows.
+Moved into program work when the depot team was merged.
+Owned discovery for dispatch workflows.
 
-Senior Solutions Engineer | Low-Code Automation,
-Integrations and Process Design
-April 2023 - February 2024 (11 months)
+Senior Support Engineer | Scheduling Tools,
+Routing and Process Design
+October 2012 - January 2016 (3 years 4 months)
 Somewhere Else
-Built integrations that cut document generation time.
-Keywords: Automation, Integrations, Delivery
+Built schedules that cut overtime planning time.
+Keywords: Scheduling, Routing, Delivery
 
 Education
 Some University
@@ -66,11 +66,11 @@ def test_it_finds_every_position_the_export_states() -> None:
 def test_a_company_on_its_own_line_is_read_as_the_employer() -> None:
     first = read_positions(EXPORT)[0]
     assert first.employer == "Northwind"
-    assert "Staff Integration Engineer" in first.title
+    assert "Principal Logistics Engineer" in first.title
 
 
 def test_a_group_duration_line_names_the_employer_above_it() -> None:
-    """The template's own grouping. `2 years 4 months` says the line above is
+    """The template's own grouping. `4 years 1 month` says the line above is
     the company for the roles beneath."""
     second = read_positions(EXPORT)[1]
     assert second.employer == "Contoso"
@@ -79,14 +79,14 @@ def test_a_group_duration_line_names_the_employer_above_it() -> None:
 def test_a_grouped_role_inherits_the_employer_of_its_group() -> None:
     third = read_positions(EXPORT)[2]
     assert third.employer == "Contoso"
-    assert "Senior Solutions Engineer" in third.title
+    assert "Senior Support Engineer" in third.title
 
 
 def test_a_wrapped_title_is_never_read_as_an_employer() -> None:
     """The failure this reader was rewritten to stop.
 
-    Measured on the owner's export: without positive identification, a wrapped
-    title line became the employer on 7 of 12 positions.
+    Measured on a real export: without positive identification, a wrapped
+    title line became the employer on most positions.
     """
     employers = {p.employer for p in read_positions(EXPORT)}
     assert employers == {"Northwind", "Contoso"}
@@ -100,7 +100,7 @@ def test_the_date_line_is_kept_verbatim_for_one_period_reader() -> None:
     period = read_period(first.period_line)
     assert period is not None
     assert period.start is not None
-    assert period.start.normalized == "2025-03"
+    assert period.start.normalized == "2016-11"
     assert period.current is True
 
 
@@ -109,7 +109,7 @@ def test_a_role_that_ended_keeps_both_ends() -> None:
     period = read_period(second.period_line)
     assert period is not None
     assert period.start is not None and period.end is not None
-    assert (period.start.normalized, period.end.normalized) == ("2024-02", "2024-07")
+    assert (period.start.normalized, period.end.normalized) == ("2016-01", "2016-10")
     assert period.current is False
 
 
@@ -117,7 +117,7 @@ def test_the_original_wording_of_a_date_is_never_discarded() -> None:
     """`normalized` is a reading; `original` is the evidence for it."""
     period = read_period(read_positions(EXPORT)[1].period_line)
     assert period is not None and period.start is not None
-    assert period.start.original == "February 2024"
+    assert period.start.original == "January 2016"
 
 
 def test_education_dates_are_not_read_as_roles() -> None:
@@ -139,7 +139,7 @@ def test_a_bare_noun_phrase_is_a_company() -> None:
 
 
 def test_a_compound_title_is_not_a_company() -> None:
-    assert not looks_like_a_company("Senior Solutions Engineer | Enterprise Integration")
+    assert not looks_like_a_company("Senior Support Engineer | Routing Platforms")
 
 
 def test_a_keyword_line_is_not_a_company() -> None:
@@ -161,10 +161,10 @@ def test_a_group_boundary_resets_an_employer_it_could_not_read() -> None:
 
     A group-duration line proves a NEW employer starts. When its name cannot
     be read the answer is None, never the previous company -- on the owner's
-    own export, carrying it forward attributed four roles at three other
+    own export, carrying it forward attributed several roles at other
     companies to one employer.
     """
-    export = EXPORT.replace("Contoso\n2 years 4 months", "Keywords: things\n2 years 4 months")
+    export = EXPORT.replace("Contoso\n4 years 1 month", "Keywords: things\n4 years 1 month")
 
     positions = read_positions(export)
 
@@ -185,6 +185,6 @@ def test_one_positions_body_never_swallows_the_next_positions_header() -> None:
 
     body = " ".join(first.body)
     assert "Contoso" not in body
-    assert "Product Manager" not in body
-    assert "Owned the billing pipeline" in body
+    assert "Program Manager" not in body
+    assert "Owned the routing pipeline" in body
     assert second.employer == "Contoso"

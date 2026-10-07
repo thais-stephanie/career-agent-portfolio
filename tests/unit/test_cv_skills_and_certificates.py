@@ -103,23 +103,23 @@ def test_a_sentence_about_tools_is_not_a_heading() -> None:
 
 def test_title_issuer_issued_expiry_and_id() -> None:
     cert = read_certificate(
-        "Certified Administrator | Salesforce | Sep 2026 | Sep 2027 | ABC-12345"
+        "Certified Administrator | Salesforce | Jan 2026 | Jan 2028 | ABC-12345"
     )
     assert cert is not None
     assert (cert.title, cert.issuer, cert.issued, cert.expires, cert.credential_id) == (
         "Certified Administrator",
         "Salesforce",
-        "2026-09",
-        "2027-09",
+        "2026-01",
+        "2028-01",
         "ABC-12345",
     )
 
 
 def test_title_issuer_and_issued_only() -> None:
-    cert = read_certificate("Certified Administrator | Salesforce | Sep 2026")
+    cert = read_certificate("Certified Administrator | Salesforce | Jan 2026")
     assert cert is not None
     assert (cert.issued, cert.expires, cert.no_expiry, cert.credential_id) == (
-        "2026-09",
+        "2026-01",
         None,
         False,
         None,
@@ -152,10 +152,10 @@ def test_no_expiration_is_read_only_when_the_line_says_it() -> None:
 @pytest.mark.parametrize(
     "line",
     [
-        "Course | Provider | Sep 2027 | Sep 2026 | ID9999",  # expiry before issue
+        "Course | Provider | Jan 2028 | Jan 2026 | ID9999",  # expiry before issue
         "Course | Provider | Sep 2024 | Oct 2024 | Nov 2024",  # a third date
-        "Course | Provider | Other text | Sep 2026",  # a second free-text field
-        "Course | Provider | Sep 2026 | Some words here | X1",
+        "Course | Provider | Other text | Jan 2026",  # a second free-text field
+        "Course | Provider | Jan 2026 | Some words here | X1",
         "Certification | Issuer | Issued | Expires | Credential ID",  # a header row
     ],
 )
@@ -164,7 +164,7 @@ def test_an_ambiguous_line_stays_unstructured(line: str) -> None:
 
 
 def test_reading_a_certificate_leaves_its_text_as_it_was() -> None:
-    line = "Certified Administrator | Salesforce | Sep 2026 | Sep 2027 | ABC-12345"
+    line = "Certified Administrator | Salesforce | Jan 2026 | Jan 2028 | ABC-12345"
     original = str(line)
     read_certificate(line)
     assert line == original

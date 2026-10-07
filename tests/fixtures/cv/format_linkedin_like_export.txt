@@ -15,7 +15,7 @@ Skills & Tools: Workato, Salesforce, SQL
 Keywords: CI/CD
 
 Licenses & Certifications
-Salesforce: Certified Administrator (Sep 2026)
+Salesforce: Certified Administrator (Jan 2026)
 
 Education
 Invented University

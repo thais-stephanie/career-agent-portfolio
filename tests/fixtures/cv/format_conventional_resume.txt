@@ -14,7 +14,7 @@ HubSpot, n8n, Python, SQL
 Workato; Salesforce; CI/CD
 
 CERTIFICATIONS
-Certified Administrator | Salesforce | Sep 2026
+Certified Administrator | Salesforce | Jan 2026
 
 EDUCATION
 BSc Business Administration, Invented University, 2019

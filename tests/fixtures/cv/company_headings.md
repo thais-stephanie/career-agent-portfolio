@@ -3,37 +3,37 @@
 ## PROFESSIONAL EXPERIENCE
 
 ### CONTOSO LLC {EM} Springfield, ST, Invented Country · Remote
-**Senior Revenue Engineer | Billing Systems, Automation & Data Quality**
-*March 2025 {EM} September 2026*
+**Lead Logistics Engineer | Routing Platforms, Scheduling & Data Quality**
+*May 2015 {EM} October 2017*
 
-**Subscription billing pipeline (CRM to payments)**
-- Rebuilt the invoice sync so every renewal reached billing the same day.
-- Added a reconciliation report that finance reviewed every Monday.
+**Depot routing pipeline (orders to dispatch)**
+- Rebuilt the dispatch sync so every order reached its depot within the hour.
+- Added a late-delivery report that the planning team reviewed every Friday.
 
 **Reliability and monitoring**
 - Added alerting for failed syncs, cutting silent failures to zero.
 
 ### FABRIKAM INC {EM} Metro City, ST, Invented Country · Remote
-*April 2022 {EM} July 2024*
+*January 2011 {EM} April 2015*
 
-**Product Manager | Product Systems & Data** · *February 2024 {EM} July 2024*
-- Owned the roadmap for the internal data platform.
+**Program Manager | Fleet Telemetry & Reporting** · *November 2013 {EM} April 2015*
+- Owned the roadmap for the fleet reporting platform.
 
-**Senior Solutions Engineer | Finance Automation** · *April 2023 {EM} February 2024*
-- Automated month-end close tasks for four regional teams.
+**Senior Support Engineer | Scheduling Automation** · *January 2011 {EM} November 2013*
+- Automated shift planning for four regional depots.
 
 ### NORTHWIND JR. {EM} Harbor Town
-**Process Consultant · Project Manager · Brand Analyst** · *February 2018 {EM} July 2020*
-- Mapped the onboarding process for a student consultancy.
+**Field Coordinator · Event Planner · Content Analyst** · *March 2007 {EM} October 2010*
+- Mapped the volunteer onboarding process for a student society.
 
 ## INDEPENDENT ENGINEERING PROJECTS
 
-### Invented Agent {EM} local-first matching tool
-*August 2026 {EM} present · solo builder · public alpha*
-- Built a local matching tool with an evidence review workflow.
+### Invented Ledger {EM} offline budgeting tool
+*June 2016 {EM} present · solo builder · open beta*
+- Built an offline budgeting tool with a review queue for imported receipts.
 
 ## CERTIFICATIONS AND LICENSES
-- Invented Automation Pro I (2025)
+- Invented Routing Practitioner I (2014)
 
 ## Education
-**Bachelor of Business Administration** {EM} Invented University · 2018 {EM} 2023
+**Bachelor of Science in Logistics** {EM} Invented University · 2006 {EM} 2010

@@ -27,7 +27,7 @@ Operations engineer who automates revenue workflows.
 
 | Certification | Issuer | Issued | Expires | Credential ID |
 |---|---|---|---|---|
-| Certified Administrator | Salesforce | Sep 2026 | Sep 2027 | ABC-12345 |
+| Certified Administrator | Salesforce | Jan 2026 | Jan 2028 | ABC-12345 |
 
 ## Education
 BSc Business Administration, Invented University, 2019

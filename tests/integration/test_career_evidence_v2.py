@@ -171,16 +171,16 @@ def test_the_complex_cv_is_read_as_company_role_dates_evidence(workspace) -> Non
     review = upload(api, load_cv("markdown_complex.md"), "riley.md")
     jobs = [(e["company"], e["role_title"], e["period_text"]) for e in review["entries"]]
     # Newest first, from the dates, and a role still held before one that
-    # ended: the current Fabrikam role, then Teem (2025 to 2026), which sits at
+    # ended: the current Fabrikam role, then Tailspin (2023 to 2024), which sits at
     # the END of the document.
-    assert [j[0] for j in jobs[:2]] == ["Fabrikam Cloud", "Teem"]
-    assert ("Teem", "Business Operations / RevOps") in [j[:2] for j in jobs]
+    assert [j[0] for j in jobs[:2]] == ["Fabrikam Cloud", "Tailspin"]
+    assert ("Tailspin", "Partner Operations / Billing") in [j[:2] for j in jobs]
     assert ("Fabrikam Cloud", "Senior Solutions Consultant") in [j[:2] for j in jobs]
     assert ("Fabrikam Cloud", "Solutions Consultant") in [j[:2] for j in jobs]
     assert ("Contoso Health", "Implementation Lead") in [j[:2] for j in jobs]
     assert ("Northwind Retail", "Implementation Analyst") in [j[:2] for j in jobs]
-    teem = next(e for e in review["entries"] if e["company"] == "Teem")
-    assert [p["text"] for p in teem["proposals"]][:1] == [
+    tailspin = next(e for e in review["entries"] if e["company"] == "Tailspin")
+    assert [p["text"] for p in tailspin["proposals"]][:1] == [
         "Built the lead-routing rules in HubSpot for four regions."
     ]
     summary = review["summary"]
@@ -198,11 +198,11 @@ def test_raw_provenance_survives_normalisation(workspace) -> None:
         == "1. Built the `lead-routing` rules in HubSpot for __four__ regions."
     )
     assert isinstance(routing["source_line"], int)
-    teem = next(e for e in review["entries"] if e["company"] == "Teem")
-    assert [line["text"] for line in teem["source"]] == [
-        "### Teem",
-        "#### Business Operations / RevOps",
-        f"2025{EN_DASH}2026",
+    tailspin = next(e for e in review["entries"] if e["company"] == "Tailspin")
+    assert [line["text"] for line in tailspin["source"]] == [
+        "### Tailspin",
+        "#### Partner Operations / Billing",
+        f"2023{EN_DASH}2024",
     ]
     assert rows(db, "SELECT COUNT(*) FROM cv_proposal WHERE source_text IS NULL") == [(0,)]
 
@@ -418,15 +418,15 @@ def test_a_delete_keeps_confirmed_evidence_and_its_provenance(workspace) -> None
     api, db = workspace
     review = upload(api, load_cv("markdown_complex.md"), "riley.md")
     import_id = review["import_id"]
-    teem = next(e for e in review["entries"] if e["company"] == "Teem")
-    kept = teem["proposals"][0]
+    tailspin = next(e for e in review["entries"] if e["company"] == "Tailspin")
+    kept = tailspin["proposals"][0]
     call(
         api,
         "POST",
         f"/api/cv/imports/{import_id}/decide",
         {"claim_key": kept["claim_key"], "decision": "EDITED", "text": "Built lead routing."},
     )
-    rejected = teem["proposals"][1]
+    rejected = tailspin["proposals"][1]
     call(
         api,
         "POST",
@@ -444,12 +444,12 @@ def test_a_delete_keeps_confirmed_evidence_and_its_provenance(workspace) -> None
     assert call(api, "GET", "/api/cv/imports")["imports"] == []
     # The confirmed claim is untouched and still verified.
     (claim,) = rows(db, "SELECT text, verified, employer FROM verified_claim")
-    assert claim == ("Built lead routing.", 1, "Teem")
+    assert claim == ("Built lead routing.", 1, "Tailspin")
     # The row it cites stays, raw line and all, with the job above it.
     assert rows(db, "SELECT claim_key, source_text FROM cv_proposal") == [
         (kept["claim_key"], kept["source_text"])
     ]
-    assert rows(db, "SELECT company FROM cv_entry") == [("Teem",)]
+    assert rows(db, "SELECT company FROM cv_entry") == [("Tailspin",)]
     evidence = call(api, "GET", "/api/evidence")
     assert evidence["confirmed"] == 1
     with pytest.raises(ApiError):
@@ -794,7 +794,7 @@ def test_the_career_workspace_suggests_the_cvs_jobs_in_date_order(workspace) -> 
     # spans as written rather than as invented months.
     assert [s[0] for s in suggested] == [
         "Fabrikam Cloud",
-        "Teem",
+        "Tailspin",
         "Fabrikam Cloud",
         "Contoso Health",
         "Northwind Retail",

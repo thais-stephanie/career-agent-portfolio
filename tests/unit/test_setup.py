@@ -686,7 +686,7 @@ def test_plain_setup_starts_blank_and_the_worked_example_is_asked_for(
 
     The two are the same two starting points with the DEFAULT swapped, and the
     swap is the point. Starting from a worked example and editing it is easier
-    than starting from nothing -- but the worked example is one person's real
+    than starting from nothing -- but the worked example is one complete
     search, and inheriting it without being asked is not a convenience.
     """
     plain, from_plain = base_config(full_config_dir)

@@ -99,14 +99,14 @@ def test_headings_are_never_proposals() -> None:
 
 def test_a_nested_heading_is_a_role_inside_a_company() -> None:
     text = (
-        "## Experience\n### Teem\n#### Business Operations / RevOps\n"
-        f"2025{EN_DASH}2026\n- Built it.\n"
+        "## Experience\n### Tailspin\n#### Partner Operations / Billing\n"
+        f"2012{EN_DASH}2014\n- Built it.\n"
     )
     (entry,) = read_cv(text).entries
     assert (entry.company, entry.role, entry.span.text) == (
-        "Teem",
-        "Business Operations / RevOps",
-        f"2025{EN_DASH}2026",
+        "Tailspin",
+        "Partner Operations / Billing",
+        f"2012{EN_DASH}2014",
     )
 
 
@@ -201,7 +201,7 @@ def test_a_package_built_from_a_markdown_cv_has_clean_jobs() -> None:
         ("Fabrikam Cloud", "Solutions Consultant"),
         ("Contoso Health", "Implementation Lead"),
         ("Northwind Retail", "Implementation Analyst"),
-        ("Teem", "Business Operations / RevOps"),
+        ("Tailspin", "Partner Operations / Billing"),
     }
     skills = [c for c in package.claims if c.type.value == "SKILL"]
     assert skills and all(c.employer is None for c in skills)
@@ -209,7 +209,7 @@ def test_a_package_built_from_a_markdown_cv_has_clean_jobs() -> None:
 
 
 # =========================================================================
-# 3. THE LAYOUT OF A REAL SENIOR CV (found in the real-workspace QA, invented here)
+# 3. THE LAYOUT OF A SENIOR CV (invented)
 # =========================================================================
 
 
@@ -220,8 +220,8 @@ def test_a_company_heading_owns_the_role_lines_beneath_it() -> None:
     read = read_cv(load_cv("company_headings.md"))
     contoso = read.entries[0]
     assert contoso.company == "CONTOSO LLC"
-    assert contoso.role == "Senior Revenue Engineer | Billing Systems, Automation & Data Quality"
-    assert contoso.span is not None and contoso.span.start == "2025-03"
+    assert contoso.role == "Lead Logistics Engineer | Routing Platforms, Scheduling & Data Quality"
+    assert contoso.span is not None and contoso.span.start == "2015-05"
     assert contoso.location == "Springfield, ST, Invented Country, Remote"
 
 
@@ -229,8 +229,8 @@ def test_a_company_tenure_with_several_roles_is_not_a_job_of_its_own() -> None:
     read = read_cv(load_cv("company_headings.md"))
     fabrikam = [e for e in read.entries if e.company == "FABRIKAM INC"]
     assert [e.role for e in fabrikam] == [
-        "Product Manager | Product Systems & Data",
-        "Senior Solutions Engineer | Finance Automation",
+        "Program Manager | Fleet Telemetry & Reporting",
+        "Senior Support Engineer | Scheduling Automation",
     ]
     # The heading and its tenure line travel with each role as its source.
     assert all(any("FABRIKAM" in line.raw for line in e.lines) for e in fabrikam)
@@ -240,14 +240,14 @@ def test_a_company_tenure_with_several_roles_is_not_a_job_of_its_own() -> None:
 def test_several_titles_on_one_line_stay_one_role() -> None:
     read = read_cv(load_cv("company_headings.md"))
     northwind = next(e for e in read.entries if e.company == "NORTHWIND JR.")
-    assert northwind.role == "Process Consultant · Project Manager · Brand Analyst"
+    assert northwind.role == "Field Coordinator · Event Planner · Content Analyst"
 
 
 def test_bold_sub_headings_inside_a_job_are_not_claims() -> None:
     read = read_cv(load_cv("company_headings.md"))
     texts = {p.text for p in read.proposals}
     assert "Reliability and monitoring" not in texts
-    assert "Subscription billing pipeline (CRM to payments)" not in texts
+    assert "Depot routing pipeline (orders to dispatch)" not in texts
     contoso = read.entries[0]
     assert any("Reliability and monitoring" in line.raw for line in contoso.lines)
 
@@ -258,15 +258,17 @@ def test_section_headings_with_more_words_are_recognised() -> None:
     assert {"projects", "certifications", "education"} <= by_section
     projects = [p.text for p in read.proposals if p.section == "projects"]
     # The project's date line dates it; it is not a claim.
-    assert projects == ["Built a local matching tool with an evidence review workflow."]
+    assert projects == [
+        "Built an offline budgeting tool with a review queue for imported receipts."
+    ]
     assert read.unread_lines == ["Morgan Invented"]
 
 
 def test_a_title_keeps_its_own_parentheses() -> None:
     text = (
         "## Experience\n### Initech {EM} Harbor Town\n"
-        "**Business Process Analyst (Intern)** · *August 2019 {EM} March 2020*\n"
+        "**Warehouse Systems Analyst (Intern)** · *October 2009 {EM} May 2010*\n"
         "- Mapped a process.\n"
     ).replace("{EM}", EM_DASH)
     (entry,) = read_cv(text).entries
-    assert entry.role == "Business Process Analyst (Intern)"
+    assert entry.role == "Warehouse Systems Analyst (Intern)"

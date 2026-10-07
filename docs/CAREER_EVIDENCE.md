@@ -33,7 +33,7 @@ Imported text is always shown as text and never rendered as HTML.
 
 | The document says | Read as |
 | --- | --- |
-| `### Teem` then `#### Business Operations / RevOps` | company Teem, role inside it |
+| `### Tailspin` then `#### Partner Operations / Billing` | company Tailspin, role inside it |
 | `### Fabrikam Cloud - Senior Solutions Consultant` | company and role (a title word decides which is which) |
 | `Consultant, Company A, Jan 2020 - Dec 2021` | company, role and dates on one line |
 | `Globex Logistics` alone, then `Operations Director` and a date line | one company, several roles (promotions) |

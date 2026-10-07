@@ -317,7 +317,7 @@ def test_posting_facts_stay_candidate_independent() -> None:
 
 def test_the_committed_configurations_declare_exactly_what_they_mean_to(tmp_path: Path) -> None:
     """Matrix 11 and 12: the starter is neutral (no blocker at all: no
-    credential is assumed of anybody); the worked example is somebody's real
+    credential is assumed of anybody); the worked example is a complete
     search and declares one blocker on each of the five named gates and none
     on the two new ones; both load under the gate validator."""
     directory = tmp_path / "config"

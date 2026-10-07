@@ -98,27 +98,30 @@ def test_a_new_user_sees_every_experience_as_new(workspace) -> None:
 def test_adding_an_experience_confirms_nothing_and_highlights_need_review(workspace) -> None:
     api, db = workspace
     import_id = upload(api, load_cv("markdown_complex.md"), "riley.md")
-    teem = entry(review(api, import_id), "Teem")
-    placed = place(api, import_id, teem["key"], "new")
+    tailspin = entry(review(api, import_id), "Tailspin")
+    placed = place(api, import_id, tailspin["key"], "new")
     assert placed["event_id"] and placed["experience_id"]
     career = call(api, "GET", "/api/career")
     (experience,) = career["experiences"]
-    assert (experience["company"], experience["title"]) == ("Teem", "Business Operations / RevOps")
+    assert (experience["company"], experience["title"]) == (
+        "Tailspin",
+        "Partner Operations / Billing",
+    )
     # Year-only dates stay years: nothing invented.
-    assert (experience["period_start"], experience["period_end"]) == ("2025", "2026")
+    assert (experience["period_start"], experience["period_end"]) == ("2023", "2024")
     assert experience["highlights"] == [] and experience["waiting"] == 4
-    teem = entry(placed, "Teem")
-    assert teem["state"] == "EXISTING_WITH_NEW_DETAILS" and teem["counts"]["new"] == 4
+    tailspin = entry(placed, "Tailspin")
+    assert tailspin["state"] == "EXISTING_WITH_NEW_DETAILS" and tailspin["counts"]["new"] == 4
     conn = connect(db)
     try:
         assert conn.execute("SELECT COUNT(*) FROM verified_claim").fetchone()[0] == 0
     finally:
         conn.close()
 
-    first = teem["items"][0]
+    first = tailspin["items"][0]
     after = answer(api, import_id, first["key"], "CONFIRM")
-    teem = entry(after, "Teem")
-    assert teem["counts"]["confirmed"] == 1 and teem["counts"]["new"] == 3
+    tailspin = entry(after, "Tailspin")
+    assert tailspin["counts"]["confirmed"] == 1 and tailspin["counts"]["new"] == 3
     (experience,) = call(api, "GET", "/api/career")["experiences"]
     assert [h["text"] for h in experience["highlights"]] == [first["text"]]
     assert experience["highlights"][0]["origin"] == "document"

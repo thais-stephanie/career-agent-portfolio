@@ -2,7 +2,7 @@
 
 THE DEFECT (2026-09-25, the owner's own CV)
 -------------------------------------------
-Certifications arrived as one line each, "Title | Issuer | Sep 2026 | Sep 2027
+Certifications arrived as one line each, "Title | Issuer | Jan 2026 | Jan 2028
 | credential-id", and Career Profile showed that raw pipe-delimited string.
 The claim text and its source line are provenance and stay exactly as they
 are; this module only READS them, for display.
@@ -19,9 +19,9 @@ THE SHAPES IT READS, and nothing else:
 A column may be empty: "-", an en or em dash, or "N/A" fills its place and
 states nothing. After the expiry column, one unbroken token is the ID.
 
-A date may be a month and year ("Sep 2026", "September 2026", "09/2026",
-"2026-09", Portuguese month names too) or a year alone. A field may say what
-it is ("Issued Sep 2026", "Expires Sep 2027", "Credential ID ABC-123").
+A date may be a month and year ("Jan 2026", "January 2026", "01/2026",
+"2026-01", Portuguese month names too) or a year alone. A field may say what
+it is ("Issued Jan 2026", "Expires Jan 2028", "Credential ID ABC-123").
 
 **Two dates are issued and expiry ONLY in that position, in that order, and
 only when the second is not earlier than the first.** Anything else -- a third
@@ -250,7 +250,7 @@ def _read_unpiped(text: str) -> Certificate | None:
     """The forms written without columns.
 
     Issuer: Title            a short issuer, no digits, before one colon
-    Title (Sep 2026)         a date in trailing parentheses
+    Title (Jan 2026)         a date in trailing parentheses
     Title, 2021              a date after the last comma or spaced hyphen
     Title                    anything else: the title alone, as written
     """

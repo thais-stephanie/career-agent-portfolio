@@ -1,7 +1,7 @@
 """What a stranger gets, and what a stranger must not get.
 
 `config/search.worked-example.yaml` is a WORKED example, which is a polite way
-of saying it is one person's real job search: forty-nine phrases about HubSpot,
+of saying it is one complete job search: dozens of phrases about HubSpot,
 n8n and RevOps, a country, fourteen title rules, and twenty kinds of work they
 will not do. It used to be where `career-agent setup` began when there was no
 local file, and because the wizard only ever ADDS to the lexicon, a new user's

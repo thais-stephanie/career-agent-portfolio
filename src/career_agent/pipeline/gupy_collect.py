@@ -19,7 +19,7 @@ usable inventory per request than anything else in this corpus.
 
 **A BOARD IS `careerPageId`, NOT A SLUG.** Every other feed collector here
 slugifies an employer name because it has nothing better, which merges
-`Grupo SysMap` and `Grupo Sysmap` and separates `Teem` from `Teem LLC`. This
+`Grupo Exemplo` and `Grupo exemplo` and separates `Tailspin` from `Tailspin LLC`. This
 feed carries the vendor's own stable numeric employer id AND that employer's
 own career-page URL, so ADR-0008's "a board belongs to one company" is
 satisfied by an identifier rather than by a normalisation that hopes.

@@ -5,8 +5,8 @@ is exactly what its generator produces. This file asks the question one level
 up: after somebody answers the wizard, does the configuration describe HER, or
 does it still describe the person who wrote the product?
 
-Four backgrounds, deliberately far apart. Business systems is the owner's own
-field and is here as the control; healthcare, design and customer support are
+Four backgrounds, deliberately far apart. Business systems is the worked
+example's field and is here as the control; healthcare, design and customer support are
 here because a product that only works for the field it was built in is a
 product with one user.
 
@@ -25,11 +25,11 @@ from tests.support import committed_config_dir
 from career_agent.config.search_config import load_search_config
 from career_agent.config.setup import Answers, run_setup
 
-#: Words that belong to the OWNER's search and to nobody else's. A fresh
+#: Words that belong to the WORKED EXAMPLE's search and to nobody else's. A fresh
 #: configuration containing one of these inherited it rather than being asked
 #: for it. `BR` is checked separately, as a whole value rather than a
 #: substring, because two letters appear inside ordinary words.
-OWNER_WORDS = (
+EXAMPLE_WORDS = (
     "hubspot",
     "salesforce",
     "revops",
@@ -124,10 +124,10 @@ def test_nothing_of_the_owner_survives_into_a_fresh_configuration(
     could reach for the worked example by mistake and the failure would look
     like a very well-informed first run."""
     if persona == "business_systems":
-        pytest.skip("this persona's own words legitimately overlap the owner's field")
+        pytest.skip("this persona's own words legitimately overlap the worked example's field")
     run_setup(fresh_config, PERSONAS[persona])
     written = _text_of(fresh_config)
-    found = [word for word in OWNER_WORDS if word in written]
+    found = [word for word in EXAMPLE_WORDS if word in written]
     assert not found, f"{persona} inherited: {found}"
 
 

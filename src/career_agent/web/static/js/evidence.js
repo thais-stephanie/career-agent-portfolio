@@ -2075,11 +2075,11 @@ export function createEvidence({ onChanged = null } = {}) {
   /**
    * A line of what is inside a closed category.
    *
-   * Four bordered rectangles reading only "Experience 243" are a table of
+   * Four bordered rectangles reading only "Experience 200" are a table of
    * contents with no contents. For words -- skills, tools -- the preview is
    * the first few of them, which is the most information per pixel this
-   * screen can offer. For sentences it is the employers, because "Teem,
-   * Pipefy, Globalfy" says more about 243 statements than any one of them.
+   * screen can offer. For sentences it is the employers, because "Tailspin,
+   * Wingtip, Litware" says more about 200 statements than any one of them.
    */
   function previewOf(claims) {
     const words = claims.filter((claim) => CHIP_TYPES.has(claim.claim_type));

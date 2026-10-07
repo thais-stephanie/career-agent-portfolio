@@ -98,7 +98,7 @@ def placed(tmp_path: Path, committed_config: Path) -> Iterator[Workspace]:
             "claim_type": "PROJECT",
             "text": "Billing Automation: Built an automated billing workflow for the finance team.",
             "tools": ["Stripe", "Python"],
-            "period_start": "2025-03",
+            "period_start": "2015-08",
             "experience_id": experiences[0]["id"],
         },
     )
@@ -630,9 +630,9 @@ def test_the_skills_tab_separates_skills_certificates_and_education(
         {"claim_type": "SKILL", "text": "Python"},
         {
             "claim_type": "CERTIFICATION",
-            "text": "Certified Administrator | Salesforce | Sep 2026 | Sep 2027 | ABC-12345",
+            "text": "Certified Administrator | Salesforce | Jan 2026 | Jan 2028 | ABC-12345",
         },
-        {"claim_type": "CERTIFICATION", "text": "Course | Provider | Other text | Sep 2026"},
+        {"claim_type": "CERTIFICATION", "text": "Course | Provider | Other text | Jan 2026"},
         {"claim_type": "EDUCATION", "text": "BSc Business Administration, Invented University"},
     ):
         _call(empty.api, "POST", "/api/evidence", body)
@@ -658,12 +658,12 @@ def test_the_skills_tab_separates_skills_certificates_and_education(
     structured = next(c for c in certs if c["title"] == "Certified Administrator")
     assert structured["issuer"] == "Salesforce"
     assert "Issued" in structured["dates"] and "Expires" in structured["dates"]
-    assert "2026" in structured["dates"] and "2027" in structured["dates"]
+    assert "2026" in structured["dates"] and "2028" in structured["dates"]
     assert structured["id"] == "Credential ID: ABC-12345"
     # No raw pipe-delimited string where the fields could be read.
     assert "|" not in " ".join(str(v) for v in structured.values())
     # An ambiguous line is shown exactly as written.
-    assert any(c["title"] == "Course | Provider | Other text | Sep 2026" for c in certs), certs
+    assert any(c["title"] == "Course | Provider | Other text | Jan 2026" for c in certs), certs
     headings = page.evaluate(
         "[...document.querySelectorAll('#page-profile .profile__heading')]"
         ".map((n) => n.textContent)"
