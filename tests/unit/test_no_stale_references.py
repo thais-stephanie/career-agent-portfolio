@@ -109,7 +109,7 @@ def test_a_retired_name_is_only_ever_mentioned_beside_its_replacement() -> None:
     """The rename may be explained. It may not be an instruction.
 
     `search.example.yaml` became `search.worked-example.yaml` because "example"
-    read as "the default" for a file that is somebody's real job search, and a
+    read as "the default" for a file that is one complete job search, and a
     new user starting from it inherited a stranger's preferences. Every
     surviving mention has to sit near the new name, which is what makes it an
     explanation rather than a broken pointer.

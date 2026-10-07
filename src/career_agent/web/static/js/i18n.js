@@ -3373,8 +3373,8 @@ const EN = {
   'profile.periodUnknown': 'Dates not stated',
   'profile.showAllLines': 'Show all {n}',
   // NOT "{n} earlier roles". A group is one employer and one period, and
-  // her two documents produce twenty-three of them over four companies, so
-  // counting them as roles would state a career she never claimed.
+  // two documents can produce dozens of them over a handful of companies, so
+  // counting them as roles would state a career nobody claimed.
   'profile.showOlderRoles': 'Show {n} more',
   'profile.experienceLead': 'Grouped by employer and period, most recent first. These are your '
     + 'own confirmed sentences, word for word.',

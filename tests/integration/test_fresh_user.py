@@ -3,11 +3,11 @@
 The failure this file exists to catch is quiet and embarrassing: a stranger
 runs `setup`, answers about nursing, and gets a search that quietly still
 knows about HubSpot, RevOps and a salary in a currency they never named. The
-committed worked example IS the owner's real search, so every one of her
-answers is one directory away from a fresh install at all times.
+committed worked example is a complete search, so every one of its answers
+is one directory away from a fresh install at all times.
 
 Three professions, chosen to share no vocabulary at all. If any one of them
-inherits a word from another, or from the owner, the setup is leaking.
+inherits a word from another, or from the worked example, the setup is leaking.
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from career_agent.config.setup import Answers, run_setup
 
 ROOT = Path(__file__).resolve().parents[2]
 
-#: Words that belong to the OWNER'S search and to nobody else's. Every one is
+#: Words that belong to the WORKED EXAMPLE'S search and to nobody else's. Every one is
 #: in `search.worked-example.yaml`; none should survive a fresh setup.
-OWNER_WORDS = (
+EXAMPLE_WORDS = (
     "hubspot",
     "revops",
     "revenue operations",
@@ -97,7 +97,7 @@ def test_a_stranger_inherits_none_of_the_owners_search(fresh, name: str) -> None
 
     asked_for = " ".join(answers.role_examples).lower()
     text = written(directory)
-    leaked = [word for word in OWNER_WORDS if word in text and word not in asked_for]
+    leaked = [word for word in EXAMPLE_WORDS if word in text and word not in asked_for]
     assert not leaked, f"{name} inherited the owner's search: {leaked}"
 
 

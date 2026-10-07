@@ -1,8 +1,8 @@
 """Derive the neutral starting configuration from the worked example.
 
-`config/search.worked-example.yaml` is one person's real job search: forty-nine
-signals about revenue operations and integration platforms, a Brazilian
-candidate country, and a taxonomy of the titles that work is posted under. It
+`config/search.worked-example.yaml` is one complete job search: dozens of
+signals about one kind of work, a candidate country, and a taxonomy of the
+titles that work is posted under. It
 is an excellent EXAMPLE and it is a bad DEFAULT, because a stranger who clones
 this repository and runs `setup` inherits somebody else's career.
 
