@@ -148,7 +148,7 @@ As três são capturas da demonstração, com vagas sintéticas e uma pessoa can
 
 ![Analisar para uma vaga: contagens e achados com nome para cada pedido, lacunas e uma nota de elegibilidade separada, nunca uma nota](docs/assets/readme/analyze.png)
 
-![Ilustração do fluxo: encontrar vagas, Search Fit, por que combina, Currículos e Candidaturas](docs/assets/readme/how-it-works.png)
+![Ilustração do fluxo: encontrar vagas, Search Fit com a elegibilidade separada, Currículos, adaptar e analisar, e Candidaturas](docs/assets/readme/how-it-works.png)
 
 *Ilustração do fluxo, não uma captura de tela.*
 

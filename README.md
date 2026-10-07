@@ -146,7 +146,7 @@ All three are captures of the demo, with synthetic jobs and an invented candidat
 
 ![Analyze for a job: counts and named findings for each ask, gaps, and an eligibility note kept apart, never a score](docs/assets/readme/analyze.png)
 
-![Workflow illustration: find jobs, Search Fit, why it fits, Resumes and Applications](docs/assets/readme/how-it-works.png)
+![Workflow illustration: find jobs, Search Fit with eligibility kept apart, Resumes, Tailor and Analyze, and Applications](docs/assets/readme/how-it-works.png)
 
 *Workflow illustration, not a screenshot.*
 

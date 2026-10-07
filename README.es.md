@@ -147,7 +147,7 @@ Las tres son capturas de la demo, con ofertas sintéticas y una persona candidat
 
 ![Analyze para una oferta: conteos y hallazgos con nombre para cada requisito, brechas y una nota de elegibilidad aparte, nunca una puntuación](docs/assets/readme/analyze.png)
 
-![Ilustración del flujo: encontrar ofertas, Search Fit, por qué encaja, Resumes y postulaciones](docs/assets/readme/how-it-works.png)
+![Ilustración del flujo: encontrar ofertas, Search Fit con la elegibilidad aparte, Resumes, adaptar y analizar, y postulaciones](docs/assets/readme/how-it-works.png)
 
 *Ilustración del flujo, no una captura de pantalla.*
 
