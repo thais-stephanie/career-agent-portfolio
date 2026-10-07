@@ -464,9 +464,9 @@ def test_consecutive_roles_at_one_employer_are_not_a_disagreement() -> None:
     package = parse_package(
         _package(
             claims=[
-                role("Engineer", "2022-04", "2023-04"),
-                role("Senior Engineer", "2023-04", "2024-02"),
-                role("Staff Engineer", "2024-02", "2024-07"),
+                role("Engineer", "2011-03", "2012-06"),
+                role("Senior Engineer", "2012-06", "2013-09"),
+                role("Staff Engineer", "2013-09", "2014-01"),
             ]
         )
     )
@@ -482,7 +482,7 @@ def test_two_documents_overlapping_on_one_role_do_disagree() -> None:
     described two ways."""
 
     def role(ref: str, end: str | None, current: bool) -> dict[str, Any]:
-        period: dict[str, Any] = {"start": {"original": "Mar 2025", "normalized": "2025-03"}}
+        period: dict[str, Any] = {"start": {"original": "Aug 2015", "normalized": "2015-08"}}
         if current:
             period["current"] = True
         else:
@@ -502,7 +502,7 @@ def test_two_documents_overlapping_on_one_role_do_disagree() -> None:
                 {"ref": "cv", "kind": "RESUME", "title": "cv.docx"},
                 {"ref": "li", "kind": "LINKEDIN", "title": "profile.pdf"},
             ],
-            claims=[role("cv", None, True), role("li", "2026-09", False)],
+            claims=[role("cv", None, True), role("li", "2016-11", False)],
         )
     )
 

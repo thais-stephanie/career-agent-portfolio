@@ -328,7 +328,7 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
 
   // WHAT THE LEDGER HOLDS, NOT WHAT IT IMPLIES. The first version of this
   // counted the employer-and-period GROUPS and called them "Roles", which
-  // read 25 over a career of four companies: her CV and her LinkedIn export
+  // read dozens over a handful of companies: a CV and a LinkedIn export
   // name the same employer differently -- Litware and Litware LLC, Tailspin and
   // Tailspin LLC -- and seven groups name no employer at all. Nothing here merges
   // two names into one company, so nothing here may count as though it had.
@@ -583,7 +583,7 @@ function skillsPanel(skills, confirmed) {
   return el('section', { className: 'profile__stack' }, out);
 }
 
-/** "Sep 2026", or "2026" when only the year was stated. */
+/** "Jan 2026", or "2026" when only the year was stated. */
 function monthLabel(value) {
   const [year, month] = String(value || '').split('-');
   if (!month) return year || '';

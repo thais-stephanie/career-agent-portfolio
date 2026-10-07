@@ -12,7 +12,7 @@
 #
 # `search.example.yaml` no longer exists. It was renamed because "example"
 # read as "the default", and it is not one: the worked example is a COMPLETE
-# SEARCH for an invented candidate -- business systems, automation and
+# SEARCH, kept as an example -- business systems, automation and
 # integration work, a residence country and a set of hiring scopes. Starting
 # from it is a deliberate choice (`career-agent setup --example`), never the
 # default.

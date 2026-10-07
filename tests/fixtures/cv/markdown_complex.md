@@ -54,7 +54,7 @@ Implementation Analyst, 2015 {EN} 2017
 ## Certifications
 
 - Salesforce Certified Administrator (2021)
-- Workato Automation Pro I (2022)
+- Invented Workflow Builder I (2016)
 
 ## Languages
 

@@ -59,7 +59,7 @@ def test_every_layout_yields_the_same_certificate(name: str) -> None:
     assert (read.title, read.issuer, read.issued) == (
         "Certified Administrator",
         "Salesforce",
-        "2026-09",
+        "2026-01",
     )
 
 

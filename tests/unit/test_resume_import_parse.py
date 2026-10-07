@@ -52,7 +52,7 @@ def of(source: list[SourceLine], fmt: str = "DOCX") -> ImportProposal:
         ("2024-01 - 2024-06", "2024-01", "2024-06", False),
         (f"2019 {EN} 2021", "2019", "2021", False),
         (f"Mar 2019 {EM} Present", "2019-03", None, True),
-        ("Apr 2021 - Current", "2021-04", None, True),
+        ("Apr 2011 - Current", "2011-04", None, True),
         ("jan 2024 - atual", "2024-01", None, True),
         ("janeiro de 2021 até presente", "2021-01", None, True),
         ("ene 2020 - actualidad", "2020-01", None, True),

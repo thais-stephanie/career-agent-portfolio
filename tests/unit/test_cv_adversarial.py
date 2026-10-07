@@ -104,7 +104,7 @@ def test_prose_inside_a_job_is_never_a_skill_list(line: str) -> None:
 MATRIX = (
     "# Riley\n\n## Top Skills\nBoomi\nPython\n\n## Technology Matrix\n"
     "| Technology | Depth | Where |\n|---|---|---|\n"
-    "| Boomi | Certified only | Professional Integration Developer |\n"
+    "| Boomi | Certified only | Invented Pipeline Badge |\n"
     "| n8n | Built & owned | Production billing system |\n\n"
     "## Experience\n### Contoso\n#### Analyst (Jan 2020 - Dec 2021)\n- Built reports.\n"
 )

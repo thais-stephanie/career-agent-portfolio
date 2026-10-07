@@ -519,7 +519,7 @@ def starter_search_path(config_dir: Path) -> Path:
 
 
 def example_search_path(config_dir: Path) -> Path:
-    """The WORKED example: a complete search for an invented candidate.
+    """The WORKED example: a complete search, kept as an example.
 
     Named `search.worked-example.yaml` rather than `search.example.yaml`
     because the old name read as "the default one" and it is not: it is one

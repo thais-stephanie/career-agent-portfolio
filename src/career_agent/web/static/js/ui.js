@@ -10,7 +10,7 @@
  *   openDrawer       a side panel (a full-screen sheet on a phone) that
  *                    returns focus where it came from
  *   sourceSnippet    "From your CV · line 14 [View source]", expandable
- *   periodLabel      "Apr 2022 to Apr 2023", "2015 to 2017", "Not stated"
+ *   periodLabel      "Oct 2012 to May 2014", "2015 to 2017", "Not stated"
  *
  * Nothing here is hover-only. Actions that appear on hover also appear when
  * anything inside the card has keyboard focus, and on touch screens (no
@@ -58,7 +58,7 @@ export function keepFocus(root, draw) {
   }
 }
 
-/** "Apr 2022 to Apr 2023", "2015 to 2017", "Mar 2022 to present", or not stated. */
+/** "Oct 2012 to May 2014", "2015 to 2017", "Aug 2015 to present", or not stated. */
 export function periodLabel(start, end, current = false, written = null) {
   if (!start && !end && written) return written;
   if (!start && !end) return current ? t('ui.periodPresentOnly') : t('ui.datesNotStated');

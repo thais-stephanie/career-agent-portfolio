@@ -733,9 +733,9 @@ def base_config(config_dir: Path, *, worked_example: bool = False) -> tuple[dict
     ADDS to the lexicon, their own answers landed on top of all of it. Their
     search was the owner's search plus their words.
 
-    **`worked_example` asks for the owner's search on purpose.** It is a real
-    one, and starting from a real one and editing it is genuinely easier than
-    starting from nothing when the thing being described is a kind of work.
+    **`worked_example` asks for the worked example on purpose.** It is a
+    complete search, and starting from a complete one and editing it is easier
+    than starting from nothing when the thing being described is a kind of work.
     That is a choice somebody can now make rather than one made for them.
     """
     local = local_search_path(config_dir)

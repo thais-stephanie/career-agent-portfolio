@@ -3208,7 +3208,7 @@ def setup_command(
     rules, no country and no blockers, so what you end up with is yours.
 
     `config/search.worked-example.yaml` is a worked example, which means it is
-    one invented candidate's whole job search -- phrases about business systems and
+    one complete job search -- phrases about business systems and
     integration work, a country, and a list of work they will not do. If that
     is roughly your field, `--example` starts from it and editing it is often
     easier than starting from nothing. It is a choice rather than the default,

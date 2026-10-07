@@ -28,8 +28,8 @@ built from prose has nowhere structured to put a date.
 A package does have somewhere, and the contract requires both halves -- the
 document's own wording AND the normalised form -- so a wrong reading is
 visible beside the words it came from rather than standing in for them. That is
-what makes the CV's "Jun 2024 - Mar 2025" and a LinkedIn export's "June 2024 -
-April 2025" resolvable as a disagreement rather than as two unrelated lines.
+what makes the CV's "Oct 2012 - May 2014" and a LinkedIn export's "October 2012 -
+June 2014" resolvable as a disagreement rather than as two unrelated lines.
 
 **A date it cannot read is left out.** `normalized` is optional in the contract
 precisely so that "the document said 2019" can be carried without this module
@@ -80,7 +80,7 @@ for index, names in enumerate(
     for name in names:
         _MONTHS[name] = index
 
-#: "Jun 2024", "June 2024", "junho de 2024". The year is required; a month name
+#: "Oct 2012", "October 2012", "outubro de 2012". The year is required; a month name
 #: on its own dates nothing.
 _MONTH_YEAR = re.compile(
     r"\b(?P<month>[A-Za-zçÇ]{3,9})\.?\s*(?:de\s+)?(?P<year>(?:19|20)\d{2})\b",
@@ -97,7 +97,7 @@ _YEAR = re.compile(r"\b(?P<year>(?:19|20)\d{2})\b")
 #: **The word separators require whitespace on both sides, and that is a bug
 #: fix rather than tidiness.** The first version allowed zero spaces around
 #: them, so the Portuguese separator `a` matched the letter inside `February`
-#: and split the month away from its own year: the date read as "2024" with no
+#: and split the month away from its own year: the date read as a bare year with no
 #: month, and a normalisation silently disappeared. Caught by a test written
 #: against LinkedIn's own date line.
 #: The dash class covers the hyphen AND the en and em dashes. Those characters
@@ -107,7 +107,7 @@ _YEAR = re.compile(r"\b(?P<year>(?:19|20)\d{2})\b")
 #: Leaving them out was not cosmetic. The owner's CV writes its date ranges
 #: with an em dash, so every role parsed as a start with no end while the same
 #: role from a LinkedIn export parsed with both -- and the two documents then
-#: "disagreed" about 202 of 334 claims, none of it real. A conflict this
+#: "disagreed" about most of their claims, none of it real. A conflict this
 #: program manufactures is worse than one it misses: it asks somebody to
 #: resolve a disagreement that does not exist.
 _SEPARATOR = re.compile(
