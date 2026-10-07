@@ -124,7 +124,7 @@ def test_nothing_of_the_owner_survives_into_a_fresh_configuration(
     could reach for the worked example by mistake and the failure would look
     like a very well-informed first run."""
     if persona == "business_systems":
-        pytest.skip("this persona's own words legitimately overlap the owner's field")
+        pytest.skip("this persona's own words legitimately overlap the worked example's field")
     run_setup(fresh_config, PERSONAS[persona])
     written = _text_of(fresh_config)
     found = [word for word in EXAMPLE_WORDS if word in written]

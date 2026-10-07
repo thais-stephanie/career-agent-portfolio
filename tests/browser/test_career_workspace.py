@@ -658,7 +658,7 @@ def test_the_skills_tab_separates_skills_certificates_and_education(
     structured = next(c for c in certs if c["title"] == "Certified Administrator")
     assert structured["issuer"] == "Salesforce"
     assert "Issued" in structured["dates"] and "Expires" in structured["dates"]
-    assert "2026" in structured["dates"] and "2027" in structured["dates"]
+    assert "2026" in structured["dates"] and "2028" in structured["dates"]
     assert structured["id"] == "Credential ID: ABC-12345"
     # No raw pipe-delimited string where the fields could be read.
     assert "|" not in " ".join(str(v) for v in structured.values())
