@@ -115,7 +115,11 @@ DEMO_OFF_TARGET_COUNT = 4
 #: session ran the browser suite: six tests waited thirty seconds each for a
 #: number that had changed underneath them. The three narrowings are disjoint
 #: in this corpus, which is why the visible count subtracts all three.
-DEMO_UNRESOLVED_COUNT = 3
+#:
+#: FOUR since the explicit declarations: demo-004's own contract-type field
+#: says contractor and it names no client country (LATAM is a region), so it
+#: waits for an answer instead of reading as eligible (`match.authorization`).
+DEMO_UNRESOLVED_COUNT = 4
 
 #: Postings on screen by default, ungrouped. Table, or `?group_duplicates=0`.
 DEMO_VISIBLE_COUNT = (
