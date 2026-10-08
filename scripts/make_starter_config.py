@@ -198,14 +198,16 @@ def derive(example: dict[str, Any]) -> dict[str, Any]:
             "blockers",
             "eligible_countries",
             "eligible_scopes",
-            "not_eligible_countries",
+            "authorized_countries",
+            "not_authorized_countries",
             "sponsorship_needed",
         ):
             if key in eligibility:
                 eligibility[key] = _blank_like(eligibility[key])
         # Not answered is an answer of its own: a stranger has said nothing.
-        if "contractor" in eligibility:
-            eligibility["contractor"] = None
+        for key in ("contractor", "contractor_abroad"):
+            if key in eligibility:
+                eligibility[key] = None
         if "positive_scope_patterns" in eligibility:
             eligibility["positive_scope_patterns"] = {}
 

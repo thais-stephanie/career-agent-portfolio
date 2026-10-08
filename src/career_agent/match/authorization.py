@@ -4,10 +4,13 @@ candidate DECLARED. Neither alone answers anything.
 Four questions, kept apart because they have different answers:
 
 * EMPLOYMENT AUTHORIZATION in a country: "must be authorized to work in the
-  United States", "right to work in the UK", "valid work permit". Answered by
-  the countries the candidate declared she MAY be employed in
-  (`eligible_countries`, the existing "Countries that may hire you
-  directly") or MAY NOT (`not_eligible_countries`).
+  United States", "right to work in the UK", "valid work permit". Answered
+  only by the countries she declared she IS (`authorized_countries`) or is
+  NOT (`not_authorized_countries`) authorized to be employed in. NEVER by
+  `eligible_countries`: that list has always said where employers may hire
+  her FROM (a location and hiring-scope fact the geography gate reads), and
+  a person in Brazil may list a country whose employers hire her remotely,
+  as a contractor, with no right to be employed there.
 * VISA SPONSORSHIP: "we do not sponsor visas". Answered by the countries
   where she declared she would NEED sponsorship (`sponsorship_needed`), or
   by a declared authorization there, which needs none.
@@ -17,7 +20,13 @@ Four questions, kept apart because they have different answers:
   in that country does answer it: no citizen lacks it.
 * ENGAGEMENT AS A CONTRACTOR: a posting that states, explicitly or in its
   own contract-type field, that the work is done as an independent
-  contractor (invoice, PJ, B2B). Answered by `contractor`, yes or no.
+  contractor (invoice, PJ, B2B). Where the client is decides which answer
+  counts: a client in the country she lives in is answered by `contractor`;
+  a client ABROAD by `contractor_abroad`, because being available as a
+  contractor does not show she can invoice across a border. A posting that
+  does not say where the client is stays PENDING whatever she answered,
+  unless she said she cannot work as a contractor at all. Where she lives
+  is used here only to tell home from abroad, never as an answer.
 
 WHERE THE CANDIDATE LIVES (`candidate_country`) answers none of these: a
 residence is the location question, which the geography gate asks. And a
@@ -155,10 +164,13 @@ def read_requirements(
     return sorted(out, key=lambda r: r.char_start)
 
 
-def contractor_requirement(employment: EmploymentReading | None) -> Requirement | None:
+def contractor_requirement(
+    employment: EmploymentReading | None, place: ResolvedPlace | None = None
+) -> Requirement | None:
     """A posting that SAYS the work is done as an independent contractor: in
     its own contract-type field, or in so many words. A benefit or a likely
-    regime is not a statement and is not read."""
+    regime is not a statement and is not read. Its country is the posting's
+    own single country, where the client is; None when it states none."""
     if employment is None or employment.relationship is not EmploymentRelationship.CONTRACTOR_B2B:
         return None
     if employment.source not in (
@@ -166,7 +178,7 @@ def contractor_requirement(employment: EmploymentReading | None) -> Requirement 
         EmploymentSource.STRUCTURED_FIELD,
     ):
         return None
-    return Requirement(CONTRACTOR, None, employment.evidence or "", -1, -1)
+    return Requirement(CONTRACTOR, _one(place), employment.evidence or "", -1, -1)
 
 
 #: Why, per requirement and answer. `{c}` is the country the posting names.
@@ -184,7 +196,7 @@ _WHY = {
         "The posting requires authorization to work in {c}; you have not said whether you have it."
     ),
     (CITIZENSHIP, INCOMPATIBLE): (
-        "The posting requires {c} citizenship; you said you may not work in {c}."
+        "The posting requires {c} citizenship; you said you are not authorized to work in {c}."
     ),
     (CITIZENSHIP, PENDING): (
         "The posting requires a citizenship; Career Agent never infers one from where you live."
@@ -196,45 +208,60 @@ _WHY = {
         "The posting does not sponsor visas in {c}; you said you would need sponsorship there."
     ),
     (NO_SPONSORSHIP, COMPATIBLE): (
-        "The posting does not sponsor visas in {c}; you said you may already work there."
+        "The posting does not sponsor visas in {c}; you said you are authorized to work there."
     ),
     (NO_SPONSORSHIP, PENDING): (
         "The posting does not sponsor visas in {c}; you have not said whether you would need it."
     ),
-    (CONTRACTOR, INCOMPATIBLE): (
-        "The posting engages an independent contractor; you said you cannot work as one."
-    ),
-    (CONTRACTOR, COMPATIBLE): (
-        "The posting engages an independent contractor; you said you can work as one."
-    ),
-    (CONTRACTOR, PENDING): (
-        "The posting engages an independent contractor; you have not said whether you can "
-        "work as one."
-    ),
 }
 
 
-def _state(requirement: Requirement, eligibility: Eligibility) -> str:
-    yes = {c.upper() for c in eligibility.eligible_countries}
-    no = {c.upper() for c in eligibility.not_eligible_countries}
-    sponsor = {c.upper() for c in eligibility.sponsorship_needed}
-    c = requirement.country
-    if requirement.kind == CONTRACTOR:
-        return {False: INCOMPATIBLE, True: COMPATIBLE, None: PENDING}[eligibility.contractor]
+def _contractor(c: str | None, eligibility: Eligibility) -> tuple[str, str]:
+    """A contractor engagement, answered in the client's context."""
+    lead = "The posting engages an independent contractor"
+    if eligibility.contractor is False:
+        return INCOMPATIBLE, f"{lead}; you said you cannot work as one."
     if c is None:
-        return "NO_COUNTRY" if requirement.kind != CITIZENSHIP else PENDING
-    if requirement.kind == AUTHORIZATION:
-        return INCOMPATIBLE if c in no else COMPATIBLE if c in yes else PENDING
-    if requirement.kind == CITIZENSHIP:
-        # Never COMPATIBLE: an authorization is not a citizenship.
-        return INCOMPATIBLE if c in no else PENDING
-    return INCOMPATIBLE if c in sponsor else COMPATIBLE if c in yes else PENDING
+        return PENDING, (
+            f"{lead} and does not say where the client is, which decides whether the work "
+            "is abroad."
+        )
+    home = (eligibility.candidate_country or "").upper()
+    if not home:
+        return PENDING, (
+            f"{lead} for a client in {c}; you have not said where you live, so whether that "
+            "is abroad is not known."
+        )
+    said: bool | None
+    if c == home:
+        said, where = eligibility.contractor, f"in {c}, where you live"
+    else:
+        said, where = eligibility.contractor_abroad, f"in {c}, abroad"
+    if said is True:
+        return COMPATIBLE, f"{lead} for a client {where}; you said you can."
+    if said is False:
+        return INCOMPATIBLE, f"{lead} for a client {where}; you said you cannot."
+    return PENDING, f"{lead} for a client {where}; you have not said whether you can."
 
 
 def answer(requirement: Requirement, eligibility: Eligibility) -> tuple[str, str]:
     """COMPATIBLE, INCOMPATIBLE or PENDING, and the sentence that says why."""
-    state = _state(requirement, eligibility)
-    why = _WHY[(requirement.kind, state)].format(c=requirement.country)
+    c = requirement.country
+    if requirement.kind == CONTRACTOR:
+        return _contractor(c, eligibility)
+    yes = {x.upper() for x in eligibility.authorized_countries}
+    no = {x.upper() for x in eligibility.not_authorized_countries}
+    sponsor = {x.upper() for x in eligibility.sponsorship_needed}
+    if c is None:
+        state = "NO_COUNTRY" if requirement.kind != CITIZENSHIP else PENDING
+    elif requirement.kind == AUTHORIZATION:
+        state = INCOMPATIBLE if c in no else COMPATIBLE if c in yes else PENDING
+    elif requirement.kind == CITIZENSHIP:
+        # Never COMPATIBLE: an authorization is not a citizenship.
+        state = INCOMPATIBLE if c in no else PENDING
+    else:
+        state = INCOMPATIBLE if c in sponsor else COMPATIBLE if c in yes else PENDING
+    why = _WHY[(requirement.kind, state)].format(c=c)
     return (PENDING if state == "NO_COUNTRY" else state), why
 
 
@@ -249,7 +276,7 @@ def authorization_gate(
     (FAIL); else any PENDING one (UNRESOLVED, quoted, so the eligibility
     status cannot read as verified); else COMPATIBLE (PASS)."""
     found = read_requirements(config, field, place)
-    contractor = contractor_requirement(employment)
+    contractor = contractor_requirement(employment, place)
     if contractor is not None:
         found.append(contractor)
     if not found:

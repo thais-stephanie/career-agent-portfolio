@@ -175,10 +175,16 @@ FIELDS: dict[str, dict[str, Any]] = {
     # EXPLICIT DECLARATIONS (`match.authorization`). Each answers a posting's
     # requirement about the right to work; an empty one leaves it PENDING.
     # None is read from where she lives or from a nationality.
-    "not_eligible_countries": {
-        "path": ("eligibility", "not_eligible_countries"),
+    "authorized_countries": {
+        "path": ("eligibility", "authorized_countries"),
         "kind": "country_list",
-        "label": "Countries that may not employ you",
+        "label": "Countries where you are authorized to be employed",
+        "allow_empty": True,
+    },
+    "not_authorized_countries": {
+        "path": ("eligibility", "not_authorized_countries"),
+        "kind": "country_list",
+        "label": "Countries where you are not authorized to be employed",
         "allow_empty": True,
     },
     "sponsorship_needed": {
@@ -190,7 +196,13 @@ FIELDS: dict[str, dict[str, Any]] = {
     "contractor": {
         "path": ("eligibility", "contractor"),
         "kind": "answer",
-        "label": "Can you work as an independent contractor (invoice, PJ or B2B)?",
+        "label": "Can you work as an independent contractor (invoice, PJ or B2B) for a client "
+        "in the country you live in?",
+    },
+    "contractor_abroad": {
+        "path": ("eligibility", "contractor_abroad"),
+        "kind": "answer",
+        "label": "Can you provide services to a client abroad (invoicing across a border)?",
     },
 }
 

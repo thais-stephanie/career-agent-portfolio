@@ -200,36 +200,47 @@ class Eligibility(_Section):
     candidate_country_label: str
     blockers: list[Blocker] = Field(default_factory=list)
     eligible_scopes: list[str] = Field(default_factory=list)
-    #: Countries the candidate DECLARED she may be employed in ("may hire you
-    #: directly"). Read by the geography gate, and by `match.authorization`
-    #: as a declared work authorization there.
+    #: Countries whose employers may hire her from where she is: a LOCATION
+    #: and hiring-scope fact, read by the geography gate, retrieval and
+    #: scheduling. It has never meant, and is never read as, a legal
+    #: authorization to be employed there (`authorized_countries` is).
     eligible_countries: list[str] = Field(default_factory=list)
     positive_scope_patterns: dict[str, list[str]] = Field(default_factory=dict)
     # -- explicit declarations (`match.authorization`). Each is the
     # candidate's own answer; none is ever inferred from where she lives or
     # from a nationality, and an unanswered one leaves a requirement PENDING.
-    #: Countries she declared she may NOT be employed in.
-    not_eligible_countries: list[str] = Field(default_factory=list)
+    #: Countries where she declared she IS authorized to be employed.
+    authorized_countries: list[str] = Field(default_factory=list)
+    #: Countries where she declared she is NOT authorized to be employed.
+    not_authorized_countries: list[str] = Field(default_factory=list)
     #: Countries where an employer would have to sponsor a visa for her.
     sponsorship_needed: list[str] = Field(default_factory=list)
-    #: Whether she can work as an independent contractor (invoice, PJ, B2B).
-    #: None: not answered.
+    #: Whether she can work as an independent contractor (invoice, PJ, B2B)
+    #: for a client in the country she lives in. None: not answered.
     contractor: bool | None = None
+    #: Whether she can provide services to a client ABROAD (invoicing across
+    #: a border). Being available as a contractor does not answer it.
+    contractor_abroad: bool | None = None
 
     @model_validator(mode="after")
     def _declarations_agree(self) -> Eligibility:
-        yes = {c.upper() for c in self.eligible_countries}
-        no = {c.upper() for c in self.not_eligible_countries}
+        yes = {c.upper() for c in self.authorized_countries}
+        no = {c.upper() for c in self.not_authorized_countries}
         sponsor = {c.upper() for c in self.sponsorship_needed}
         if yes & no:
             raise ValueError(
-                f"{', '.join(sorted(yes & no))}: declared both as a country that may hire you "
-                "directly and one that may not"
+                f"{', '.join(sorted(yes & no))}: declared both as a country where you are "
+                "authorized to be employed and one where you are not"
             )
         if yes & sponsor:
             raise ValueError(
-                f"{', '.join(sorted(yes & sponsor))}: declared both as a country that may hire "
-                "you directly and one where you would need visa sponsorship"
+                f"{', '.join(sorted(yes & sponsor))}: declared both as a country where you are "
+                "authorized to be employed and one where you would need visa sponsorship"
+            )
+        if self.contractor is False and self.contractor_abroad is True:
+            raise ValueError(
+                "declared both that you cannot work as an independent contractor and that you "
+                "can for a client abroad"
             )
         return self
 

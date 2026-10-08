@@ -774,8 +774,8 @@ function valueOf(row) {
  */
 const CHOICE_GROUPS = [
   { key: 'where', fields: ['work_models', 'candidate_country',
-    'eligible_countries', 'not_eligible_countries', 'sponsorship_needed', 'contractor',
-    'eligible_scopes'] },
+    'eligible_countries', 'eligible_scopes', 'authorized_countries', 'not_authorized_countries',
+    'sponsorship_needed', 'contractor', 'contractor_abroad'] },
   { key: 'what', fields: ['contract_preferred', 'contract_unwanted',
     'seniority_preferred', 'seniority_excluded', 'travel_max_pct'] },
   { key: 'pay', fields: ['compensation_target'] },

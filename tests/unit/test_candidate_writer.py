@@ -286,10 +286,14 @@ def test_what_was_written_is_what_reads_back(workspace: Path) -> None:
 def test_the_declarations_round_trip_and_not_answered_stays_not_answered(workspace: Path) -> None:
     set_candidate_fields(
         workspace,
-        {"not_eligible_countries": ["us"], "sponsorship_needed": ["US", "gb"], "contractor": True},
+        {
+            "not_authorized_countries": ["us"],
+            "sponsorship_needed": ["US", "gb"],
+            "contractor": True,
+        },
     )
     eligibility = document(workspace)["eligibility"]
-    assert eligibility["not_eligible_countries"] == ["US"]
+    assert eligibility["not_authorized_countries"] == ["US"]
     assert eligibility["sponsorship_needed"] == ["US", "GB"]
     assert eligibility["contractor"] is True
     set_candidate_fields(workspace, {"contractor": None})
@@ -298,11 +302,17 @@ def test_the_declarations_round_trip_and_not_answered_stays_not_answered(workspa
 
 
 def test_a_contradictory_declaration_is_refused_and_nothing_is_written(workspace: Path) -> None:
-    set_candidate_fields(workspace, {"eligible_countries": ["BR", "US"]})
+    set_candidate_fields(workspace, {"authorized_countries": ["BR", "US"]})
     before = (workspace / "search.local.yaml").read_text(encoding="utf-8")
     with pytest.raises(PreferenceError, match="declared both"):
-        set_candidate_fields(workspace, {"not_eligible_countries": ["US"]})
+        set_candidate_fields(workspace, {"not_authorized_countries": ["US"]})
     assert (workspace / "search.local.yaml").read_text(encoding="utf-8") == before
+    # Where employers may hire from is a different fact: listing US there
+    # beside "not authorized in US" is coherent, and is accepted.
+    set_candidate_fields(workspace, {"authorized_countries": ["BR"]})
+    set_candidate_fields(
+        workspace, {"eligible_countries": ["BR", "US"], "not_authorized_countries": ["US"]}
+    )
 
 
 @pytest.mark.parametrize("value", ["yes", 1, "maybe"])
@@ -315,11 +325,18 @@ def test_a_search_written_before_the_declarations_loads_unchanged(workspace: Pat
     from career_agent.config.search_config import load_search_config
 
     old = yaml.safe_load((workspace / "search.worked-example.yaml").read_text(encoding="utf-8"))
-    for key in ("not_eligible_countries", "sponsorship_needed", "contractor"):
+    for key in (
+        "authorized_countries",
+        "not_authorized_countries",
+        "sponsorship_needed",
+        "contractor",
+        "contractor_abroad",
+    ):
         old["eligibility"].pop(key, None)  # as every file written before them
     (workspace / "search.local.yaml").write_text(yaml.safe_dump(old), encoding="utf-8")
     config, _ = load_search_config(workspace)
-    assert config.eligibility.not_eligible_countries == []
+    assert config.eligibility.authorized_countries == []
+    assert config.eligibility.not_authorized_countries == []
     assert config.eligibility.sponsorship_needed == []
     assert config.eligibility.contractor is None
     # Its existing answers are exactly what they were.

@@ -277,7 +277,11 @@ postings:
     expects:
       title_class: PRIMARY
       title_adjustment: PROMOTED
-      eligibility_status: VERIFIED_ELIGIBLE
+      # UNRESOLVED, not eligible: its own contract-type field says contractor
+      # and it names no client country (LATAM is a region), so whether this is
+      # work abroad is not known. Availability as a contractor does not answer
+      # that (match.authorization). Geography still passes.
+      eligibility_status: UNRESOLVED
       min_score: 55
       must_fire: [customer_implementation, api_integration, workflow_automation, applied_ai_workflow]
 

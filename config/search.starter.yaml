@@ -97,9 +97,11 @@ eligibility:
   blockers: []
   eligible_scopes: []
   eligible_countries: []
-  not_eligible_countries: []
+  authorized_countries: []
+  not_authorized_countries: []
   sponsorship_needed: []
   contractor: null
+  contractor_abroad: null
   positive_scope_patterns: {}
 scoring:
   components:

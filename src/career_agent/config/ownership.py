@@ -129,11 +129,18 @@ FACTS: tuple[Fact, ...] = (
         field="eligible_countries",
     ),
     Fact(
-        subject="Countries that may not employ you",
+        subject="Countries where you are authorized to be employed",
         owner=Owner.CANDIDATE,
         home=Home.SEARCH_CONFIG,
-        path="eligibility.not_eligible_countries",
-        field="not_eligible_countries",
+        path="eligibility.authorized_countries",
+        field="authorized_countries",
+    ),
+    Fact(
+        subject="Countries where you are not authorized to be employed",
+        owner=Owner.CANDIDATE,
+        home=Home.SEARCH_CONFIG,
+        path="eligibility.not_authorized_countries",
+        field="not_authorized_countries",
     ),
     Fact(
         subject="Countries where you would need visa sponsorship",
@@ -148,6 +155,13 @@ FACTS: tuple[Fact, ...] = (
         home=Home.SEARCH_CONFIG,
         path="eligibility.contractor",
         field="contractor",
+    ),
+    Fact(
+        subject="Whether you can provide services to a client abroad",
+        owner=Owner.CANDIDATE,
+        home=Home.SEARCH_CONFIG,
+        path="eligibility.contractor_abroad",
+        field="contractor_abroad",
     ),
     # -- how she will work ---------------------------------------------
     Fact(

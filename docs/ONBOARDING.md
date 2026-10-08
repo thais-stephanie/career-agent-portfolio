@@ -26,9 +26,11 @@ Settings means Career Profile to Preferences unless stated otherwise.
 | Where you live | Where do you currently live? | Setup, Settings | `eligibility.candidate_country` | gates (residence as a place an employer can name), `plan_refresh` | Eligibility + retrieval | Yes | none | Yes | Decides the gate and which regional sources run |
 | Can be hired where you live | Can companies hire you in {country}? | Setup, Settings | `eligibility.eligible_countries` | gates, `plan_refresh` | Eligibility + retrieval | Yes | where you live | Yes | Explicit yes or not sure; residence is never copied |
 | Other hiring countries | Countries that can employ you directly | Setup, Settings | `eligibility.eligible_countries` | gates | Eligibility | Yes | none | Yes, same card | none |
-| Countries that may not employ you | Can companies hire you in {country}? (No), Settings | Setup, Settings | `eligibility.not_eligible_countries` | `match.authorization` | Eligibility | Yes | none | Yes, same card | An explicit no; "not sure" records nothing |
+| Authorized to be employed | Where are you legally authorized to be employed? | Settings | `eligibility.authorized_countries` | `match.authorization` | Eligibility | Yes | none | No | Never read from `eligible_countries` (where employers may hire you from), nor from residence or nationality |
+| Not authorized to be employed | Where are you NOT authorized to be employed? | Settings | `eligibility.not_authorized_countries` | `match.authorization` | Eligibility | Yes | none | No | An explicit no; left out means not said |
 | Visa sponsorship | Where would an employer need to sponsor a visa for you? | Settings | `eligibility.sponsorship_needed` | `match.authorization` | Eligibility | Yes | none | No | Never answered from residence or nationality |
-| Independent contractor | Can you work as an independent contractor (invoice, PJ or B2B)? | Settings | `eligibility.contractor` | `match.authorization` | Eligibility | Yes | none | No | Yes, no or not answered; not answered is never "no" |
+| Contractor at home | Can you work as an independent contractor for a client in the country you live in? | Settings | `eligibility.contractor` | `match.authorization` | Eligibility | Yes | none | No | Yes, no or not answered; not answered is never "no" |
+| Contractor for a client abroad | Can you provide services to a client abroad? | Settings | `eligibility.contractor_abroad` | `match.authorization` | Eligibility | Yes | none | No | Being available as a contractor does not answer it |
 | Hiring regions | Which regions can you work in? | Setup, Settings | `eligibility.eligible_scopes` | `gates._region_verdict` | Eligibility | Only for a region containing where you live | where you live | Yes, only regions that contain the home country and none of the confirmed countries | A region holding a confirmed country already admits through it, so asking would change nothing; a scope without a home country fails every on-site and hybrid posting |
 | Ways of working you prefer | How do you prefer to work? | Settings only | `preferences.remote.accepted_work_models` | display only (before V2) | Inert before V2, now **Search Fit (A)** | Now yes | none | Yes | Wired: a posting whose stated work model you prefer earns the component maximum |
 | Ways of working you would rather avoid | (new) | none | `preferences.remote.avoided_work_models` | score | **Search Fit (A)** | Yes | none | Yes, same card | Soft: earns nothing on that component. Never eligibility |
@@ -66,10 +68,15 @@ by what the candidate DECLARED:
 
 | The posting requires | Compatible | Incompatible | Pending |
 |---|---|---|---|
-| Authorization to work in X | X is a country that may hire you | X may not employ you | Neither was said, or no country is named |
-| Citizenship of X | never: an authorization is not a citizenship | X may not employ you | Otherwise |
-| No visa sponsorship in X | X may hire you | You need sponsorship in X | Neither was said, or no country is named |
-| A contractor | You can work as one | You cannot | Not answered |
+| Authorization to work in X | You declared you are authorized in X | You declared you are not | Neither was said, or no country is named |
+| Citizenship of X | never: an authorization is not a citizenship | You declared you are not authorized in X | Otherwise |
+| No visa sponsorship in X | You declared you are authorized in X | You need sponsorship in X | Neither was said, or no country is named |
+| A contractor, client at home | You can work as one at home | You cannot work as one | Not answered |
+| A contractor, client abroad | You can provide services abroad | You cannot, or cannot work as one at all | Not answered, or the client's country is not stated |
+
+`eligible_countries` ("Countries that can employ you directly", the onboarding
+hire card) answers none of these: it has always said where employers may hire
+you FROM, and the geography gate, retrieval and scheduling read it so.
 
 Any incompatible answer fails the work-authorization gate; otherwise any
 pending one leaves it UNRESOLVED, quoted, and the eligibility status cannot be
