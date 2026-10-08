@@ -812,20 +812,24 @@ export function createSetup({
     hire: () => {
       const home = value('candidate_country') || '';
       const saved = Array.isArray(value('eligible_countries')) ? value('eligible_countries') : [];
+      const refused = Array.isArray(value('not_eligible_countries')) ? value('not_eligible_countries') : [];
       // The draft answers a question ABOUT ONE COUNTRY. When where-you-live
       // changes, the old "Yes" was about somewhere else: start again from what
       // is saved, or a Continue would record an eligibility nobody gave.
       const draft = drafts.hire && drafts.hire.home === home ? drafts.hire : {
         home,
-        homeAnswer: home ? (saved.includes(home) ? 'yes' : '') : '',
+        homeAnswer: home ? (saved.includes(home) ? 'yes' : refused.includes(home) ? 'no' : '') : '',
         others: saved.filter((code) => code !== home),
       };
       drafts.hire = draft;
       const nodes = [];
       if (home) {
         const homeName = countryName(home);
+        // "No" is an answer too, and "not sure" stays not sure: living
+        // somewhere answers neither way.
         const answers = [
           ['yes', t('setup.hire.yes', { country: homeName })],
+          ['no', t('setup.hire.no', { country: homeName })],
           ['unsure', t('setup.hire.unsure')],
         ];
         nodes.push(el('fieldset', { className: 'setup__options' }, [
@@ -886,13 +890,15 @@ export function createSetup({
         nodes,
         submit: (error) => {
           const next = [...(draft.homeAnswer === 'yes' && home ? [home] : []), ...draft.others];
-          if (sameList(next, saved)) {
+          const no = [...refused.filter((code) => code !== home && !next.includes(code)),
+            ...(draft.homeAnswer === 'no' && home ? [home] : [])];
+          if (sameList(next, saved) && sameList(no, refused)) {
             advance();
             return;
           }
           // Read back afterwards: which regions are worth asking about
           // depends on the countries just confirmed.
-          save({ eligible_countries: next }, error, { refresh: true });
+          save({ eligible_countries: next, not_eligible_countries: no }, error, { refresh: true });
         },
       };
     },

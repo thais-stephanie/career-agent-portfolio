@@ -270,10 +270,12 @@ def match_job(
     # One reading, three consumers: the score, the confidence items and the
     # card. Made here so they cannot disagree about one posting.
     seniority = read_seniority(title_field, description_field)
-    # Two readings ABOUT the posting, deliberately made after the gates and
-    # deliberately not consulted by them. How a worker is engaged and whether a
-    # job reads as domestic to one country are facts worth showing a candidate;
-    # neither may fail a posting, and neither buys or costs a single point.
+    # Two readings ABOUT the posting. Whether a job reads as domestic to one
+    # country is shown and consulted by nothing. How a worker is engaged buys
+    # or costs no point either; ONE part of it reaches a gate: an EXPLICIT or
+    # declared contractor engagement is a requirement the candidate answers
+    # with her own declaration (`match.authorization`). A likely regime, or a
+    # benefit, never does.
     employment = read_employment(
         description_field,
         # A DECLARED CONTRACT TYPE DECIDES, and the description is not
@@ -317,6 +319,7 @@ def match_job(
         # The employer's OWN WORDS for where this is, so a refusal can quote
         # `Remote U.S.` rather than a sentence this product composed about it.
         location_raw=job.location_raw,
+        employment=employment,
     )
     eligibility = eligibility_status_from(gates)
     screening_state, screening_reason, discovery_channel = evaluate_screening(

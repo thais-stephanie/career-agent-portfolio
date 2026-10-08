@@ -3257,6 +3257,12 @@ const EN = {
   'field.candidate_country': 'Where do you currently live?',
   'field.eligible_scopes': 'Which regions can you work in?',
   'field.eligible_countries': 'Which countries can employ you directly?',
+  'field.not_eligible_countries': 'Which countries can NOT employ you?',
+  'field.sponsorship_needed': 'Where would an employer need to sponsor a visa for you?',
+  'field.contractor': 'Can you work as an independent contractor (invoice, PJ or B2B)?',
+  'profile.answer.yes': 'Yes',
+  'profile.answer.no': 'No',
+  'profile.answer.unset': 'Not answered',
 
   // WHAT THE ANSWER DOES. One sentence, in the second person, naming the
   // consequence rather than the mechanism.
@@ -3284,6 +3290,12 @@ const EN = {
   'fieldHelp.eligible_countries':
     'Countries where a company could put you on their payroll without going '
     + 'through anyone else. Leave it empty if there are none.',
+  'fieldHelp.not_eligible_countries': 'Only what you know: a country you leave out of both lists stays '
+    + '"not said", and a job that requires it is shown as waiting for your answer, never as a match.',
+  'fieldHelp.sponsorship_needed': 'Countries where you could only be employed if the employer arranged '
+    + 'your visa. Where you live and your nationality are never used to answer this for you.',
+  'fieldHelp.contractor': 'Some jobs are offered only as a contract for services. Leave it unanswered if '
+    + 'you do not know yet.',
 
   // The travel readout. A percentage with a word beside it, because 15 on its
   // own answers "fifteen what".
@@ -3588,6 +3600,7 @@ const EN = {
     + 'could put you on their payroll directly, so it can tell which jobs are open to you.',
   'setup.hire.homeQuestion': 'Can a company hire you directly in {country}?',
   'setup.hire.yes': 'Yes, I can work for employers in {country}',
+  'setup.hire.no': 'No, employers in {country} cannot employ me',
   'setup.hire.unsure': 'I am not sure yet',
   'setup.hire.othersLabel': 'Other countries where you can be hired (optional)',
   'setup.hire.countriesLabel': 'Countries where you can be hired',
@@ -7461,6 +7474,12 @@ const PT_BR = {
   'field.candidate_country': 'Onde você mora atualmente?',
   'field.eligible_scopes': 'Em quais regiões você pode trabalhar?',
   'field.eligible_countries': 'Em quais países você pode ser contratado diretamente?',
+  'field.not_eligible_countries': 'Em quais países você NÃO pode ser contratado?',
+  'field.sponsorship_needed': 'Onde um empregador precisaria patrocinar um visto para você?',
+  'field.contractor': 'Você pode trabalhar como prestador de serviço (nota fiscal, PJ ou B2B)?',
+  'profile.answer.yes': 'Sim',
+  'profile.answer.no': 'Não',
+  'profile.answer.unset': 'Sem resposta',
 
   'fieldHelp.work_models': 'Preferir soma um pouco à compatibilidade da vaga e evitar tira um pouco. Nunca mostrar '
     + 'também esconde essas vagas em Encontrar vagas, com um clique para vê-las de novo. Nada disso muda onde você '
@@ -7488,6 +7507,12 @@ const PT_BR = {
   'fieldHelp.eligible_countries':
     'Países onde uma empresa poderia colocar você na folha sem passar por mais '
     + 'ninguém. Deixe vazio se não houver nenhum.',
+  'fieldHelp.not_eligible_countries': 'Só o que você sabe: um país que fica fora das duas listas continua '
+    + '"não informado", e uma vaga que o exige aparece aguardando sua resposta, nunca como compatível.',
+  'fieldHelp.sponsorship_needed': 'Países onde você só poderia ser contratado se o empregador providenciasse '
+    + 'seu visto. Onde você mora e sua nacionalidade nunca são usados para responder por você.',
+  'fieldHelp.contractor': 'Algumas vagas são oferecidas só como prestação de serviço. Deixe sem resposta se '
+    + 'ainda não souber.',
 
   'travel.none': 'Sem viagens',
   'travel.occasional': 'Viagens ocasionais',
@@ -7762,6 +7787,7 @@ const PT_BR = {
     + 'colocar na folha de pagamento diretamente, para o Career Agent saber quais vagas estão abertas para você.',
   'setup.hire.homeQuestion': 'Uma empresa pode te contratar diretamente em {country}?',
   'setup.hire.yes': 'Sim, posso trabalhar para empregadores em {country}',
+  'setup.hire.no': 'Não, empregadores em {country} não podem me contratar',
   'setup.hire.unsure': 'Ainda não tenho certeza',
   'setup.hire.othersLabel': 'Outros países onde você pode ser contratado (opcional)',
   'setup.hire.countriesLabel': 'Países onde você pode ser contratado',

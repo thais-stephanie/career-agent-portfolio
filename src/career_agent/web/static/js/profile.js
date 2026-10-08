@@ -774,7 +774,8 @@ function valueOf(row) {
  */
 const CHOICE_GROUPS = [
   { key: 'where', fields: ['work_models', 'candidate_country',
-    'eligible_countries', 'eligible_scopes'] },
+    'eligible_countries', 'not_eligible_countries', 'sponsorship_needed', 'contractor',
+    'eligible_scopes'] },
   { key: 'what', fields: ['contract_preferred', 'contract_unwanted',
     'seniority_preferred', 'seniority_excluded', 'travel_max_pct'] },
   { key: 'pay', fields: ['compensation_target'] },
@@ -1121,6 +1122,24 @@ function control(row, change, currentValue, options = {}) {
   const { names = {}, partner = null, against = null, prefix = 'profile-field-' } = options;
   const id = prefix + row.field;
   const value = currentValue(row);
+
+  // YES, NO, OR NOT ANSWERED. Three chips, one pressed: "not answered" is an
+  // answer of its own and is never saved as "no".
+  if (row.kind === 'answer') {
+    const options = [[true, 'profile.answer.yes'], [false, 'profile.answer.no'], [null, 'profile.answer.unset']];
+    const current = value === true || value === false ? value : null;
+    const chips = options.map(([option, key]) => {
+      const node = button(t(key), () => change(row, option), { className: 'choicechip' });
+      node.id = `${id}-${String(option)}`;
+      node.setAttribute('aria-pressed', String(option === current));
+      return node;
+    });
+    return el('div', { className: 'choice' }, [
+      el('p', { className: 'choice__q field__label', attrs: { id: id + '-q' }, text: labelOf(row) }),
+      helpFor(row),
+      el('div', { className: 'choicechips', attrs: { role: 'group', 'aria-labelledby': id + '-q' } }, chips),
+    ].filter(Boolean));
+  }
 
   if (row.kind === 'bool') {
     const box = el('input', {

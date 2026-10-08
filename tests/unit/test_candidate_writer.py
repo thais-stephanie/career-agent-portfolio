@@ -276,3 +276,49 @@ def test_what_was_written_is_what_reads_back(workspace: Path) -> None:
     assert config.eligibility.candidate_country == "PT"
     assert current_candidate_fields(workspace)["seniority_preferred"] == ["SENIOR", "LEAD"]
     assert current_candidate_fields(workspace)["travel_max_pct"] == 0
+
+
+# =========================================================================
+# EXPLICIT ELIGIBILITY DECLARATIONS
+# =========================================================================
+
+
+def test_the_declarations_round_trip_and_not_answered_stays_not_answered(workspace: Path) -> None:
+    set_candidate_fields(
+        workspace,
+        {"not_eligible_countries": ["us"], "sponsorship_needed": ["US", "gb"], "contractor": True},
+    )
+    eligibility = document(workspace)["eligibility"]
+    assert eligibility["not_eligible_countries"] == ["US"]
+    assert eligibility["sponsorship_needed"] == ["US", "GB"]
+    assert eligibility["contractor"] is True
+    set_candidate_fields(workspace, {"contractor": None})
+    assert document(workspace)["eligibility"]["contractor"] is None
+    assert current_candidate_fields(workspace)["contractor"] is None
+
+
+def test_a_contradictory_declaration_is_refused_and_nothing_is_written(workspace: Path) -> None:
+    set_candidate_fields(workspace, {"eligible_countries": ["BR", "US"]})
+    before = (workspace / "search.local.yaml").read_text(encoding="utf-8")
+    with pytest.raises(PreferenceError, match="declared both"):
+        set_candidate_fields(workspace, {"not_eligible_countries": ["US"]})
+    assert (workspace / "search.local.yaml").read_text(encoding="utf-8") == before
+
+
+@pytest.mark.parametrize("value", ["yes", 1, "maybe"])
+def test_the_contractor_answer_is_yes_no_or_not_answered(workspace: Path, value: object) -> None:
+    with pytest.raises(PreferenceError, match="yes, no, or not answered"):
+        set_candidate_fields(workspace, {"contractor": value})
+
+
+def test_a_search_written_before_the_declarations_loads_unchanged(workspace: Path) -> None:
+    from career_agent.config.search_config import load_search_config
+
+    shutil.copy(workspace / "search.worked-example.yaml", workspace / "search.local.yaml")
+    config, _ = load_search_config(workspace)
+    assert config.eligibility.not_eligible_countries == []
+    assert config.eligibility.sponsorship_needed == []
+    assert config.eligibility.contractor is None
+    # Its existing answers are exactly what they were.
+    assert config.eligibility.eligible_countries == ["BR"]
+    assert {b.id for b in config.eligibility.blockers} >= {"us_work_authorization_required"}

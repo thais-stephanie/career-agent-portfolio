@@ -204,6 +204,37 @@ def test_where_you_live_is_never_turned_into_where_you_can_be_hired(
     assert config.eligibility.eligible_countries == ["BR"]
 
 
+def test_no_is_an_answer_and_changing_it_back_clears_it(page: Chrome, fresh: Fresh) -> None:
+    """A declared "No" is recorded as such; "not sure" afterwards forgets it,
+    and neither is ever read from where somebody lives."""
+    _open(page, fresh.base)
+    _click(page, "#setup-next")
+    _wait_card(page, "work")
+    _click(page, "#setup-skip")
+    _wait_card(page, "roles")
+    _click(page, "#setup-skip")
+    _wait_card(page, "home")
+    _value(page, "#setup-country", "BR", "change")
+    _click(page, "#setup-next")
+    _wait_card(page, "hire")
+    _click(page, "#setup-hire-no")
+    _click(page, "#setup-next")
+    _wait_card(page, "regions")
+    config, _ = load_search_config(fresh.config_dir)
+    assert config.eligibility.not_eligible_countries == ["BR"]
+    assert config.eligibility.eligible_countries == []
+
+    _click(page, "#setup-back")
+    _wait_card(page, "hire")
+    assert page.evaluate("document.querySelector('#setup-hire-no').checked")
+    _click(page, "#setup-hire-unsure")
+    _click(page, "#setup-next")
+    _wait_card(page, "regions")
+    config, _ = load_search_config(fresh.config_dir)
+    assert config.eligibility.not_eligible_countries == []
+    assert config.eligibility.eligible_countries == []
+
+
 def test_do_this_later_leaves_and_settings_brings_it_back(page: Chrome, fresh: Fresh) -> None:
     _open(page, fresh.base)
     _click(page, "#setup-later")

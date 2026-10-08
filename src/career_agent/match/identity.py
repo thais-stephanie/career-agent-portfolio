@@ -103,7 +103,13 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              every such row as a replay source; the identity moves as well
 #:              because this module's rule is "what the gates PRODUCE moved",
 #:              and a rule with an exception is not a rule.
-READER_IDENTITY = "readers-3"
+#:   readers-4  Explicit eligibility declarations: the work_authorization gate
+#:              answers a posting's requirements (authorization in a country,
+#:              citizenship, no sponsorship, contractor engagement) with what
+#:              the candidate declared, and a stated requirement nobody
+#:              answered holds the status UNRESOLVED. A readers-3 reading
+#:              carries none of that.
+READER_IDENTITY = "readers-4"
 
 
 def guarded_sections(config: Any) -> list[str]:

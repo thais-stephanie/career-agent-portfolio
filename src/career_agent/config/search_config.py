@@ -24,7 +24,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from career_agent.domain.enums import Prominence, ResponsibilityCategory, Seniority
 from career_agent.domain.matching import GATE_NAMES, TitleClass
@@ -187,12 +194,44 @@ class Blocker(_Section):
 
 
 class Eligibility(_Section):
+    #: Where the candidate LIVES: the location question, never an answer
+    #: about the right to work anywhere.
     candidate_country: str
     candidate_country_label: str
     blockers: list[Blocker] = Field(default_factory=list)
     eligible_scopes: list[str] = Field(default_factory=list)
+    #: Countries the candidate DECLARED she may be employed in ("may hire you
+    #: directly"). Read by the geography gate, and by `match.authorization`
+    #: as a declared work authorization there.
     eligible_countries: list[str] = Field(default_factory=list)
     positive_scope_patterns: dict[str, list[str]] = Field(default_factory=dict)
+    # -- explicit declarations (`match.authorization`). Each is the
+    # candidate's own answer; none is ever inferred from where she lives or
+    # from a nationality, and an unanswered one leaves a requirement PENDING.
+    #: Countries she declared she may NOT be employed in.
+    not_eligible_countries: list[str] = Field(default_factory=list)
+    #: Countries where an employer would have to sponsor a visa for her.
+    sponsorship_needed: list[str] = Field(default_factory=list)
+    #: Whether she can work as an independent contractor (invoice, PJ, B2B).
+    #: None: not answered.
+    contractor: bool | None = None
+
+    @model_validator(mode="after")
+    def _declarations_agree(self) -> Eligibility:
+        yes = {c.upper() for c in self.eligible_countries}
+        no = {c.upper() for c in self.not_eligible_countries}
+        sponsor = {c.upper() for c in self.sponsorship_needed}
+        if yes & no:
+            raise ValueError(
+                f"{', '.join(sorted(yes & no))}: declared both as a country that may hire you "
+                "directly and one that may not"
+            )
+        if yes & sponsor:
+            raise ValueError(
+                f"{', '.join(sorted(yes & sponsor))}: declared both as a country that may hire "
+                "you directly and one where you would need visa sponsorship"
+            )
+        return self
 
 
 # =========================================================================

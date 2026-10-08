@@ -128,6 +128,27 @@ FACTS: tuple[Fact, ...] = (
         path="eligibility.eligible_countries",
         field="eligible_countries",
     ),
+    Fact(
+        subject="Countries that may not employ you",
+        owner=Owner.CANDIDATE,
+        home=Home.SEARCH_CONFIG,
+        path="eligibility.not_eligible_countries",
+        field="not_eligible_countries",
+    ),
+    Fact(
+        subject="Countries where you would need visa sponsorship",
+        owner=Owner.CANDIDATE,
+        home=Home.SEARCH_CONFIG,
+        path="eligibility.sponsorship_needed",
+        field="sponsorship_needed",
+    ),
+    Fact(
+        subject="Whether you can work as an independent contractor",
+        owner=Owner.CANDIDATE,
+        home=Home.SEARCH_CONFIG,
+        path="eligibility.contractor",
+        field="contractor",
+    ),
     # -- how she will work ---------------------------------------------
     Fact(
         subject="Ways of working you prefer",

@@ -26,7 +26,14 @@ from dataclasses import dataclass
 
 from career_agent.config.search_config import Blocker, SearchConfig
 from career_agent.domain.enums import EligibilityStatus, GateResult
-from career_agent.domain.matching import GATE_NAMES, GateOutcome, ObservedSignal, SignalHit
+from career_agent.domain.matching import (
+    GATE_NAMES,
+    EmploymentReading,
+    GateOutcome,
+    ObservedSignal,
+    SignalHit,
+)
+from career_agent.match.authorization import authorization_gate
 from career_agent.match.lexicon import compile_patterns, is_negated_before
 from career_agent.match.places import ResolvedPlace, region_contains, resolve_place
 from career_agent.match.text import (
@@ -1281,6 +1288,7 @@ def evaluate_gates(
     workplace_type: str | None = None,
     place: ResolvedPlace | None = None,
     location_raw: str | None = None,
+    employment: EmploymentReading | None = None,
 ) -> tuple[GateOutcome, ...]:
     """Answer every configured gate from the posting text alone.
 
@@ -1352,6 +1360,12 @@ def evaluate_gates(
 
         if outcome is None and gate == "worksite":
             outcome = _required_attendance(config, description_field, place)
+
+        if outcome is None and gate == "work_authorization":
+            # What the posting REQUIRES about the right to work, read against
+            # what the candidate DECLARED (`match.authorization`). A configured
+            # blocker above still decides first, as it always has.
+            outcome = authorization_gate(config, description_field, place, employment)
 
         if outcome is None and gate == "geography" and place is not None:
             # **THE BOARD'S OWN FIELDS, BEFORE ANY PROSE.** A structured
@@ -1512,6 +1526,15 @@ def eligibility_status_from(gates: tuple[GateOutcome, ...]) -> EligibilityStatus
         for gate in gates
     ):
         # Evidence of a requirement is different from silence about worksite.
+        return EligibilityStatus.UNRESOLVED
+    if any(
+        gate.gate == "work_authorization"
+        and gate.result is GateResult.UNRESOLVED
+        and gate.reason != UNRESOLVED_REASONS["work_authorization"]
+        for gate in gates
+    ):
+        # A stated requirement the candidate has not answered is PENDING: the
+        # status may not read as verified over a question nobody answered.
         return EligibilityStatus.UNRESOLVED
     critical = [gate for gate in gates if gate.gate in CRITICAL_GATES]
     if critical and all(gate.result is GateResult.PASS for gate in critical):

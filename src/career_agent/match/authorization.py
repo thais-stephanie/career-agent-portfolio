@@ -1,0 +1,272 @@
+"""The right to do the work: what a posting REQUIRES, read against what the
+candidate DECLARED. Neither alone answers anything.
+
+Four questions, kept apart because they have different answers:
+
+* EMPLOYMENT AUTHORIZATION in a country: "must be authorized to work in the
+  United States", "right to work in the UK", "valid work permit". Answered by
+  the countries the candidate declared she MAY be employed in
+  (`eligible_countries`, the existing "Countries that may hire you
+  directly") or MAY NOT (`not_eligible_countries`).
+* VISA SPONSORSHIP: "we do not sponsor visas". Answered by the countries
+  where she declared she would NEED sponsorship (`sponsorship_needed`), or
+  by a declared authorization there, which needs none.
+* CITIZENSHIP: "US citizenship required", "green card holder". Nothing the
+  candidate declares answers it positively: citizenship is never read from
+  nationality, residence or anything else. A declared lack of authorization
+  in that country does answer it: no citizen lacks it.
+* ENGAGEMENT AS A CONTRACTOR: a posting that states, explicitly or in its
+  own contract-type field, that the work is done as an independent
+  contractor (invoice, PJ, B2B). Answered by `contractor`, yes or no.
+
+WHERE THE CANDIDATE LIVES (`candidate_country`) answers none of these: a
+residence is the location question, which the geography gate asks. And a
+question the candidate has not answered is PENDING, quoted: it is never a
+pass, and never a refusal either.
+
+Each requirement is a sentence the employer wrote, quoted with its offsets.
+A phrase that names a place this product cannot resolve to a country is not
+read as a requirement about any country.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from career_agent.config.search_config import Eligibility, SearchConfig
+from career_agent.domain.enums import EmploymentRelationship, EmploymentSource, GateResult
+from career_agent.domain.matching import EmploymentReading, GateOutcome
+from career_agent.match.lexicon import is_negated_before
+from career_agent.match.places import ResolvedPlace, resolve_place
+from career_agent.match.text import FoldedText, sentence_at
+
+AUTHORIZATION, CITIZENSHIP, NO_SPONSORSHIP, CONTRACTOR = (
+    "AUTHORIZATION", "CITIZENSHIP", "NO_SPONSORSHIP", "CONTRACTOR",
+)  # fmt: skip
+COMPATIBLE, INCOMPATIBLE, PENDING = "COMPATIBLE", "INCOMPATIBLE", "PENDING"
+
+_PLACE = r"(?P<place>[a-z][a-z .'-]{1,40}?)(?=\s*(?:[.;,:!?()\n]|$|\s(?:without|with|now|and|or|at|on|as|who|which|prior|by|to|before|once|if)\b))"  # noqa: E501
+#: "authorized to work in the United States", "right to work in the UK",
+#: "autorizacao para trabalhar no Brasil" (folded: no accents).
+_AUTHORIZED_IN = re.compile(
+    r"\b(?:(?:legally\s+)?(?:authori[sz]ed|permitted|eligible)\s+to\s+(?:live\s+and\s+)?work"
+    r"|right\s+to\s+work|work\s+(?:authori[sz]ation|permit)"
+    r"|autorizacao\s+(?:de|para)\s+trabalh(?:o|ar)|permissao\s+(?:de|para)\s+trabalh(?:o|ar))"
+    r"\s+(?:in|within|for|no|na|nos|em)\s+(?:the\s+)?" + _PLACE
+)
+#: The same requirement with no country named: "must have work authorization",
+#: "proof of work authorization", "valid work permit".
+_AUTHORIZED = re.compile(
+    r"\b(?:(?:must|should|need\s+to|required\s+to)\s+(?:be\s+)?(?:legally\s+)?"
+    r"(?:authori[sz]ed|eligible)\s+to\s+work"
+    r"|(?:valid|current|existing|proof\s+of)\s+(?:work\s+(?:authori[sz]ation|permit)|right\s+to\s+work))\b"
+)
+_DEMONYMS = {
+    "u.s.": "US", "us": "US", "u.s": "US", "american": "US", "united states": "US",
+    "uk": "GB", "british": "GB", "canadian": "CA", "australian": "AU", "german": "DE",
+    "french": "FR", "brazilian": "BR", "brasileiro": "BR", "brasileira": "BR", "indian": "IN",
+    "mexican": "MX", "irish": "IE", "dutch": "NL", "spanish": "ES", "portuguese": "PT",
+}  # fmt: skip
+_CITIZEN = re.compile(
+    r"\b(?P<who>u\.s\.?|us|american|united\s+states|uk|british|canadian|australian|german|french"
+    r"|brazilian|brasileir[oa]|indian|mexican|irish|dutch|spanish|portuguese)\s+citizen(?:ship|s)?\b"
+    r"|\bgreen\s+card\b"
+    r"|\b(?:must\s+be\s+a\s+citizen|citizenship\s+(?:is\s+)?required)\b"
+)
+_NO_SPONSORSHIP = re.compile(
+    r"\b(?:(?:not|unable\s+to|cannot|can['’ ]?t|won['’ ]?t|will\s+not|do\s+not|does\s+not"
+    r"|don['’ ]?t|are\s+not\s+able\s+to|is\s+not\s+able\s+to)\s+(?:currently\s+)?"
+    r"(?:offer|provide|support)(?:\s+\w+){0,2}?\s+(?:visa\s+|work\s+visa\s+|immigration\s+)?sponsorship"
+    r"|(?:not|unable\s+to|cannot|can['’ ]?t|won['’ ]?t|will\s+not|do\s+not|does\s+not"
+    r"|don['’ ]?t|are\s+not\s+able\s+to)\s+(?:currently\s+)?sponsor"
+    r"|no\s+(?:visa\s+|immigration\s+)?sponsorship"
+    r"|without\s+(?:the\s+need\s+for\s+)?(?:visa\s+|immigration\s+)?sponsorship"
+    r"|sponsorship\s+(?:is\s+)?not\s+(?:available|offered|provided)"
+    r"|nao\s+(?:oferecemos|patrocinamos|fornecemos)\s+(?:o\s+)?visto)"
+)
+#: A country written beside a sponsorship sentence: "sponsorship in the US".
+_COUNTRY_NEAR = re.compile(
+    r"\b(?:in|for|within|no|na|em)\s+(?:the\s+)?" + _PLACE.replace("(?P<place>", "(?P<near>")
+)
+
+
+@dataclass(frozen=True)
+class Requirement:
+    kind: str
+    #: ISO alpha-2, or None when the posting names no country.
+    country: str | None
+    quote: str
+    char_start: int
+    char_end: int
+
+
+def _country(text: str | None) -> str | None:
+    """One country a place phrase names, or None."""
+    if not text:
+        return None
+    plain = text.strip(" .")
+    if plain in _DEMONYMS:
+        return _DEMONYMS[plain]
+    found = resolve_place(plain).countries
+    return found[0] if len(found) == 1 else None
+
+
+def _one(place: ResolvedPlace | None) -> str | None:
+    """The posting's own single country, for a requirement that names none."""
+    return place.countries[0] if place and len(place.countries) == 1 else None
+
+
+def read_requirements(
+    config: SearchConfig, field: FoldedText, place: ResolvedPlace | None = None
+) -> list[Requirement]:
+    """Every explicit requirement about the right to work, in text order."""
+    out: list[Requirement] = []
+
+    def add(kind: str, country: str | None, match: re.Match[str]) -> None:
+        if is_negated_before(field, match.start(), config.negation):
+            return
+        start = field.offsets[match.start()]
+        end = field.offsets[match.end() - 1] + 1
+        out.append(Requirement(kind, country, sentence_at(field.original, start, end), start, end))
+
+    text = field.folded
+    claimed: list[tuple[int, int]] = []
+    for match in _AUTHORIZED_IN.finditer(text):
+        country = _country(match.group("place"))
+        if country:  # an unresolvable place is not a country requirement
+            add(AUTHORIZATION, country, match)
+        claimed.append(match.span())
+    for match in _AUTHORIZED.finditer(text):
+        # The same sentence read with its country already: not a second one.
+        if not any(match.start() < b and match.end() > a for a, b in claimed):
+            add(AUTHORIZATION, _one(place), match)
+    for match in _CITIZEN.finditer(text):
+        who = match.group("who")
+        country = (
+            _DEMONYMS.get(re.sub(r"\s+", " ", who)) if who
+            else "US" if "green" in match.group(0) else _one(place)
+        )  # fmt: skip
+        add(CITIZENSHIP, country, match)
+    for match in _NO_SPONSORSHIP.finditer(text):
+        near = _COUNTRY_NEAR.search(text, match.end(), min(len(text), match.end() + 60))
+        country = _country(near.group("near")) if near else None
+        add(NO_SPONSORSHIP, country or _one(place), match)
+    return sorted(out, key=lambda r: r.char_start)
+
+
+def contractor_requirement(employment: EmploymentReading | None) -> Requirement | None:
+    """A posting that SAYS the work is done as an independent contractor: in
+    its own contract-type field, or in so many words. A benefit or a likely
+    regime is not a statement and is not read."""
+    if employment is None or employment.relationship is not EmploymentRelationship.CONTRACTOR_B2B:
+        return None
+    if employment.source not in (
+        EmploymentSource.EXPLICIT_STATEMENT,
+        EmploymentSource.STRUCTURED_FIELD,
+    ):
+        return None
+    return Requirement(CONTRACTOR, None, employment.evidence or "", -1, -1)
+
+
+#: Why, per requirement and answer. `{c}` is the country the posting names.
+_WHY = {
+    (AUTHORIZATION, "NO_COUNTRY"): (
+        "The posting requires work authorization without naming the country."
+    ),
+    (AUTHORIZATION, INCOMPATIBLE): (
+        "The posting requires authorization to work in {c}; you said you do not have it."
+    ),
+    (AUTHORIZATION, COMPATIBLE): (
+        "The posting requires authorization to work in {c}; you said you have it."
+    ),
+    (AUTHORIZATION, PENDING): (
+        "The posting requires authorization to work in {c}; you have not said whether you have it."
+    ),
+    (CITIZENSHIP, INCOMPATIBLE): (
+        "The posting requires {c} citizenship; you said you may not work in {c}."
+    ),
+    (CITIZENSHIP, PENDING): (
+        "The posting requires a citizenship; Career Agent never infers one from where you live."
+    ),
+    (NO_SPONSORSHIP, "NO_COUNTRY"): (
+        "The posting does not sponsor visas; it does not say for which country."
+    ),
+    (NO_SPONSORSHIP, INCOMPATIBLE): (
+        "The posting does not sponsor visas in {c}; you said you would need sponsorship there."
+    ),
+    (NO_SPONSORSHIP, COMPATIBLE): (
+        "The posting does not sponsor visas in {c}; you said you may already work there."
+    ),
+    (NO_SPONSORSHIP, PENDING): (
+        "The posting does not sponsor visas in {c}; you have not said whether you would need it."
+    ),
+    (CONTRACTOR, INCOMPATIBLE): (
+        "The posting engages an independent contractor; you said you cannot work as one."
+    ),
+    (CONTRACTOR, COMPATIBLE): (
+        "The posting engages an independent contractor; you said you can work as one."
+    ),
+    (CONTRACTOR, PENDING): (
+        "The posting engages an independent contractor; you have not said whether you can "
+        "work as one."
+    ),
+}
+
+
+def _state(requirement: Requirement, eligibility: Eligibility) -> str:
+    yes = {c.upper() for c in eligibility.eligible_countries}
+    no = {c.upper() for c in eligibility.not_eligible_countries}
+    sponsor = {c.upper() for c in eligibility.sponsorship_needed}
+    c = requirement.country
+    if requirement.kind == CONTRACTOR:
+        return {False: INCOMPATIBLE, True: COMPATIBLE, None: PENDING}[eligibility.contractor]
+    if c is None:
+        return "NO_COUNTRY" if requirement.kind != CITIZENSHIP else PENDING
+    if requirement.kind == AUTHORIZATION:
+        return INCOMPATIBLE if c in no else COMPATIBLE if c in yes else PENDING
+    if requirement.kind == CITIZENSHIP:
+        # Never COMPATIBLE: an authorization is not a citizenship.
+        return INCOMPATIBLE if c in no else PENDING
+    return INCOMPATIBLE if c in sponsor else COMPATIBLE if c in yes else PENDING
+
+
+def answer(requirement: Requirement, eligibility: Eligibility) -> tuple[str, str]:
+    """COMPATIBLE, INCOMPATIBLE or PENDING, and the sentence that says why."""
+    state = _state(requirement, eligibility)
+    why = _WHY[(requirement.kind, state)].format(c=requirement.country)
+    return (PENDING if state == "NO_COUNTRY" else state), why
+
+
+def authorization_gate(
+    config: SearchConfig,
+    field: FoldedText,
+    place: ResolvedPlace | None = None,
+    employment: EmploymentReading | None = None,
+) -> GateOutcome | None:
+    """The work_authorization gate from requirements and declarations, or None
+    when the posting states no requirement. Any INCOMPATIBLE answer decides
+    (FAIL); else any PENDING one (UNRESOLVED, quoted, so the eligibility
+    status cannot read as verified); else COMPATIBLE (PASS)."""
+    found = read_requirements(config, field, place)
+    contractor = contractor_requirement(employment)
+    if contractor is not None:
+        found.append(contractor)
+    if not found:
+        return None
+    answered = [(r, *answer(r, config.eligibility)) for r in found]
+    for state, result in ((INCOMPATIBLE, GateResult.FAIL), (PENDING, GateResult.UNRESOLVED),
+                          (COMPATIBLE, GateResult.PASS)):  # fmt: skip
+        hit = next(((r, why) for r, s, why in answered if s == state), None)
+        if hit is not None:
+            requirement, why = hit
+            located = requirement.char_start >= 0
+            return GateOutcome(
+                gate="work_authorization",
+                result=result,
+                reason=why,
+                quote=requirement.quote or None,
+                char_start=requirement.char_start if located else None,
+                char_end=requirement.char_end if located else None,
+            )
+    return None

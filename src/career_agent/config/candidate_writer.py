@@ -172,6 +172,26 @@ FIELDS: dict[str, dict[str, Any]] = {
         "label": "Countries that may hire you directly",
         "allow_empty": True,
     },
+    # EXPLICIT DECLARATIONS (`match.authorization`). Each answers a posting's
+    # requirement about the right to work; an empty one leaves it PENDING.
+    # None is read from where she lives or from a nationality.
+    "not_eligible_countries": {
+        "path": ("eligibility", "not_eligible_countries"),
+        "kind": "country_list",
+        "label": "Countries that may not employ you",
+        "allow_empty": True,
+    },
+    "sponsorship_needed": {
+        "path": ("eligibility", "sponsorship_needed"),
+        "kind": "country_list",
+        "label": "Countries where you would need visa sponsorship",
+        "allow_empty": True,
+    },
+    "contractor": {
+        "path": ("eligibility", "contractor"),
+        "kind": "answer",
+        "label": "Can you work as an independent contractor (invoice, PJ or B2B)?",
+    },
 }
 
 #: An ISO 4217 code is three letters. Not validated against a list of real
@@ -196,6 +216,13 @@ def _coerce(field: str, spec: dict[str, Any], value: Any) -> Any:
     if kind == "bool":
         if not isinstance(value, bool):
             raise PreferenceError(f"{label} is a yes or no answer.")
+        return value
+
+    if kind == "answer":
+        # Yes, no, or not answered: three answers, and "not answered" is a
+        # real one. It is never stored as "no".
+        if value is not None and not isinstance(value, bool):
+            raise PreferenceError(f"{label} is yes, no, or not answered.")
         return value
 
     if kind == "enum_list":
