@@ -10345,29 +10345,36 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .home__side .step .metric__open { border-radius: 10px; }
 .home__side .home__progress .home__seclede { margin: 2px 0 0; }
 .home__todos { padding: 0; }
-.home__todos .home__cardhead { padding: 18px 20px 12px; }
+/* Small things to do (2a): one quiet list. Each task is a whole-row button;
+   the only emphasis is the amber line under "update your match scores". */
+.home__todos .home__cardhead { padding: 20px 20px 16px; gap: 4px; }
+.home__todohead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.home__todocount { flex: none; font-size: 13px; color: var(--faint); white-space: nowrap; }
 .home__todolist { list-style: none; margin: 0; padding: 0; }
 .home__todo {
-  width: 100%; display: flex; align-items: center; gap: 12px; background: transparent; border: 0;
-  border-top: 1px solid var(--divider); padding: 12px 20px; cursor: pointer; text-align: left; color: var(--ink); font: inherit;
+  position: relative; width: 100%; display: flex; align-items: center; gap: 14px;
+  background: transparent; border: 0; border-top: 1px solid var(--divider); padding: 14px 20px;
+  cursor: pointer; text-align: left; color: var(--ink); font: inherit;
 }
 .home__todo:hover { background: var(--surface-hover); }
-.home__tododot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
-.home__tododot--yellow { background: var(--yellow-bar); }
-.home__tododot--purple { background: var(--purple); }
-.home__todotext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.home__todotitle { font-size: 14px; font-weight: 500; }
-.home__todohelp { font-size: 12.5px; color: var(--muted); }
-.home__todocta { flex: none; font-size: 13px; font-weight: 600; color: var(--link); }
-.home__todonone { margin: 0; padding: 14px 20px 18px; border-top: 1px solid var(--divider); font-size: 14px; color: var(--muted); }
-/* A task row that carries its own control (Recalculate) rather than being one. */
-.home__todo--action { cursor: default; }
-.home__todo--action:hover { background: transparent; }
-.home__todobtn {
-  background: transparent; border: 1px solid var(--divider); border-radius: 8px; padding: 6px 10px;
-  cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; color: var(--link);
+.home__todo:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.home__todotext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.home__todotitle { font-size: 15px; font-weight: 500; line-height: 1.35; }
+.home__todohelp { font-size: 13px; line-height: 1.45; color: var(--muted); }
+.home__todohelp--amber { color: var(--yellow-text); }
+.home__todochev { flex: none; font-size: 20px; line-height: 1; color: var(--faint); }
+.home__todobar {
+  position: absolute; left: 0; bottom: 0; height: 2px; width: 0;
+  background: var(--yellow-bar); transition: width 0.2s linear;
 }
-.home__todobtn:disabled { cursor: progress; color: var(--muted); }
+.home__todo--recalc.is-running { cursor: progress; }
+.home__todo--recalc.is-running .home__todochev { visibility: hidden; }
+.home__todofoot {
+  margin: 0; padding: 12px 20px; border-top: 1px solid var(--divider); font-size: 13px; line-height: 1.5;
+  color: var(--muted);
+}
+.home__todofoot--ok { color: var(--green-text); }
+@media (prefers-reduced-motion: reduce) { .home__todobar { transition: none; } }
 .home__stale { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
 .choice__withunsure { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 

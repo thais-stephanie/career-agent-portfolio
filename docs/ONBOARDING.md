@@ -91,18 +91,21 @@ profile. It is stored per profile in `candidate_state` (`eligibility.unsure`),
 never in the search file, so it changes no score and asks for no
 recalculation: a posting that asks the question stays pending, and Home stops
 listing the question. Home's "Small things to do" lists only questions with
-neither an answer nor an "I don't know", and its "Answer" opens the profile at
-the first of them.
+neither an answer nor an "I don't know", and its row opens the profile at the
+first of them.
 
 ## Home: small things to do
 
-Every row is an action that exists now, per profile; "Nothing to do right now"
-appears only when there is none.
+Every row is an action that exists now, per profile, and the whole row is the
+control: a title, one short line, a chevron. "You're all set" appears only when
+there is none. A row leaves the list only when the next read of Home no longer
+has it (confirmed done, never on a click), and the footer then says so for a
+few seconds.
 
 | Row | Shown when | Action |
 |---|---|---|
-| Recalculate the match for N jobs | the targeted rescore's own plan has N > 0 postings (stale or never scored) | the same Recalculate as Jobs (`js/recalc.js`); a run already going is followed, never started twice (the server answers 409) |
-| Answer what you know about your right to work | a question above has no answer and no "I don't know" | opens the profile at that question |
+| Update your match scores (amber line: N jobs are showing old scores) | the targeted rescore's own plan has N > 0 postings (stale or never scored), or a run is going | the same Recalculate flow as Jobs (`js/recalc.js`); the line shows "Updating X of Y" over a thin bar, a run already going is followed, a second start is ignored (the server answers 409), the other rows stay usable |
+| Where can you work? (N quick questions) | a question above has no answer and no "I don't know" | opens the profile at that question |
 | Fix job sites / profile gaps | as before | as before |
 
 Preferred markets are optional and never a row: empty means search everywhere.

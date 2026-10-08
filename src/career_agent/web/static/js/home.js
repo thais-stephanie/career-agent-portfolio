@@ -31,7 +31,7 @@ import { createSetup, setupPostponed, setupResumeStep } from './setup.js';
 import { getLocale, t, tCount } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
-import { recalcButton } from './recalc.js';
+import { driveRescore } from './recalc.js';
 
 /**
  * The cards, in reading order.
@@ -81,6 +81,14 @@ const FIELD_FOR_QUESTION = {
   authorization: 'authorized_countries',
   contractor: 'contractor',
   contractor_abroad: 'contractor_abroad',
+};
+
+/** What the footer says once a task is CONFIRMED gone (the next read no longer has it). */
+const TOAST_FOR_TASK = {
+  recalc: 'home.todo.toast.recalc',
+  sites: 'home.todo.toast.sites',
+  'gap.evidence': 'home.todo.toast.evidence',
+  'gap.compensation': 'home.todo.toast.compensation',
 };
 
 /** Which card of the guided setup answers each gap `home.profile_gaps` names. */
@@ -149,6 +157,12 @@ export function createHome({
   //: nothing here -- and the whole page stayed in English while the
   //: navigation above it moved.
   let payload = null;
+  // "Small things to do" across reads: which tasks the last read listed, so a
+  // task that is gone from the next one is said to be done; and the footer
+  // line that says so, until it expires.
+  let todoSeen = null;
+  let todoToast = null;
+  let todoSeq = 0;
 
   /**
    * Draw Home.
@@ -333,64 +347,108 @@ export function createHome({
    */
   function todos(payload) {
     const failed = sitesNeedingAttention();
-    const item = (tone, title, help, cta, onClick) => el('li', {}, [
-      el('button', { className: 'home__todo', attrs: { type: 'button' }, on: { click: onClick } }, [
-        el('span', { className: `home__tododot home__tododot--${tone}`, attrs: { 'aria-hidden': 'true' } }),
-        el('span', { className: 'home__todotext' }, [
-          el('span', { className: 'home__todotitle', text: title }),
-          el('span', { className: 'home__todohelp', text: help }),
-        ]),
-        el('span', { className: 'home__todocta', text: cta }),
-      ]),
-    ]);
+    // Each task is ONE button: title, a short line under it, a chevron. The
+    // line is named by `aria-describedby`, so the button's name is the title.
+    const task = (id, title, desc, onClick, { emphasis = false } = {}) => {
+      const descId = `home-todo-desc-${(todoSeq += 1)}`;
+      const help = el('span', {
+        className: `home__todohelp${emphasis ? ' home__todohelp--amber' : ''}`, attrs: { id: descId }, text: desc,
+      });
+      const button = el('button', {
+        className: 'home__todo', attrs: { type: 'button', 'aria-describedby': descId },
+        on: onClick ? { click: onClick } : {},
+      }, [
+        el('span', { className: 'home__todotext' }, [el('span', { className: 'home__todotitle', text: title }), help]),
+        el('span', { className: 'home__todochev', attrs: { 'aria-hidden': 'true' }, text: '\u203a' }),
+      ]);
+      return { id, li: el('li', {}, [button]), button, help };
+    };
     const scores = payload.scores || {};
     const outdated = Number(scores.outdated) || 0;
-    // Not a button row: the row CARRIES the shared Recalculate control, which
-    // follows a run already going instead of starting another.
+    const idleScores = outdated > 0
+      ? tCount('home.todo.scoresHelp', { n: outdated.toLocaleString(getLocale()) })
+      : t('home.todo.scoresWorking');
+    const scoreWords = {
+      starting: () => t('home.todo.scoresStarting'),
+      running: ({ done, total }) => (total
+        ? t('home.todo.scoresProgress', {
+          done: done.toLocaleString(getLocale()), total: total.toLocaleString(getLocale()),
+        })
+        : t('home.todo.scoresWorking')),
+      done: () => t('home.todo.scoresChecking'),
+      failed: () => t('home.todo.scoresFailed'),
+      lost: () => t('app.rescoreLost'),
+      refused: ({ message }) => message,
+    };
+    // The recalculation row IS the shared Recalculate flow: a click starts the
+    // targeted pass, a run already going is followed, a second start is
+    // refused. It leaves the list only when a fresh read says nothing is
+    // outdated; the other rows stay usable meanwhile.
     const recalc = outdated > 0 || scores.running
-      ? el('li', {}, [
-        el('div', { className: 'home__todo home__todo--action' }, [
-          el('span', { className: 'home__tododot home__tododot--yellow', attrs: { 'aria-hidden': 'true' } }),
-          el('span', { className: 'home__todotext' }, [
-            el('span', { className: 'home__todotitle', text: outdated > 0
-              ? tCount('home.todo.scores', { n: outdated.toLocaleString(getLocale()) })
-              : t('home.todo.scoresRunning') }),
-            el('span', { className: 'home__todohelp', text: t('home.todo.scoresHelp') }),
-          ]),
-          recalcButton({
-            className: 'home__todocta home__todobtn', labelKey: 'home.todo.recalc', onDone: () => load(),
-          }),
-        ]),
-      ])
+      ? (() => {
+        const row = task('recalc', t('home.todo.scores'), idleScores, null, { emphasis: true });
+        const bar = el('span', { className: 'home__todobar', attrs: { 'aria-hidden': 'true' } });
+        row.button.classList.add('home__todo--recalc');
+        row.button.append(bar);
+        driveRescore(row.button, {
+          onDone: () => load(),
+          show: (state) => {
+            row.button.setAttribute('aria-busy', String(state.busy));
+            row.button.classList.toggle('is-running', state.busy || state.phase === 'done');
+            row.help.textContent = (scoreWords[state.phase] || (() => idleScores))(state);
+            const pct = state.phase === 'done' ? 100
+              : state.total ? Math.min(100, Math.round((state.done / state.total) * 100)) : 0;
+            bar.style.width = `${pct}%`;
+          },
+        });
+        return row;
+      })()
       : null;
     const questions = payload.declarations_pending || [];
     const rights = questions.length && onGoTo
-      ? item('purple', t('home.todo.rights'),
-        t('home.todo.rightsHelp', {
-          list: questions.map((q) => t(`home.todo.question.${q}`)).join(', '),
-        }),
-        t('home.todo.answer'),
+      ? task('rights', t('home.todo.rights'), tCount('home.todo.rightsHelp', { n: questions.length }),
         () => onGoTo('profile', null, { field: FIELD_FOR_QUESTION[questions[0]] }))
       : null;
-    const rows = [
+    const tasks = [
       recalc,
       rights,
       failed && onFixSites
-        ? item('yellow', tCount('home.todo.sites', { n: failed }), t('home.todo.sitesHelp'),
-          t('home.todo.fix'), onFixSites)
+        ? task('sites', tCount('home.todo.sites', { n: failed }), t('home.todo.sitesHelp'), onFixSites)
         : null,
-      ...(payload.profile_gaps || []).map((gap) => item('purple', t(`home.todo.gap.${gap}`),
-        t(`home.todo.gapHelp.${gap}`), t('home.todo.add'),
+      ...(payload.profile_gaps || []).map((gap) => task(`gap.${gap}`, t(`home.todo.gap.${gap}`),
+        t(`home.todo.gapHelp.${gap}`),
         () => (SETUP_FOR_GAP[gap] ? openSetup(SETUP_FOR_GAP[gap]) : onGoTo && onGoTo('profile')))),
     ].filter(Boolean);
+
+    // DONE means confirmed: a task the previous read listed and this one does
+    // not. Nothing is removed on a click.
+    const now = new Set(tasks.map((x) => x.id));
+    const gone = todoSeen ? [...todoSeen].filter((id) => !now.has(id)) : [];
+    todoSeen = now;
+    if (gone.length) {
+      const last = gone[gone.length - 1];
+      todoToast = { text: t(TOAST_FOR_TASK[last] || 'home.todo.toast.saved'), until: Date.now() + 3200 };
+    }
+    const toastLeft = todoToast ? todoToast.until - Date.now() : 0;
+    const toast = toastLeft > 0
+      ? el('p', { className: 'home__todofoot home__todofoot--ok', attrs: { role: 'status' },
+        text: `\u2713 ${todoToast.text}` })
+      : null;
+    if (toast) window.setTimeout(() => toast.remove(), toastLeft);
+
     return el('section', { className: 'home__card home__todos', attrs: { 'aria-labelledby': 'home-todo-head' } }, [
       el('div', { className: 'home__cardhead' }, [
-        el('h2', { className: 'home__cardtitle', attrs: { id: 'home-todo-head' }, text: t('home.todo.title') }),
-        el('span', { className: 'home__cardsub', text: rows.length ? t('home.todo.sub') : t('home.todo.subNone') }),
+        el('div', { className: 'home__todohead' }, [
+          el('h2', { className: 'home__cardtitle', attrs: { id: 'home-todo-head' }, text: t('home.todo.title') }),
+          tasks.length
+            ? el('span', { className: 'home__todocount', text: tCount('home.todo.left', { n: tasks.length }) })
+            : null,
+        ]),
+        el('span', { className: 'home__cardsub', text: tasks.length ? t('home.todo.sub') : t('home.todo.subNone') }),
       ]),
-      rows.length
-        ? el('ul', { className: 'home__todolist' }, rows)
-        : el('p', { className: 'home__todonone', text: t('home.todo.none') }),
+      tasks.length ? el('ul', { className: 'home__todolist' }, tasks.map((x) => x.li)) : null,
+      toast,
+      tasks.length ? null : el('p', { className: 'home__todofoot', text: t('home.todo.none') }),
     ]);
   }
 

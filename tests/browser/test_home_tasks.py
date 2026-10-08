@@ -1,6 +1,6 @@
 """Home's "Small things to do", in a real browser: with tasks, while a
-recalculation runs, and with nothing left. Synthetic corpus, own profile
-per test, no network and no model.
+recalculation runs, once it finishes or fails, and with nothing left.
+Synthetic corpus, own profile per test, no network and no model.
 """
 
 from __future__ import annotations
@@ -25,6 +25,8 @@ from career_agent.web.server import build_server
 
 TODOS = "document.querySelector('.home__todos')"
 TODO_TEXT = f"({TODOS} ? {TODOS}.innerText : '')"
+RECALC = "document.querySelector('.home__todo--recalc')"
+RECALC_HELP = f"({RECALC} ? {RECALC}.querySelector('.home__todohelp').innerText : '')"
 NEUTRAL = {
     "authorized_countries": [],
     "not_authorized_countries": [],
@@ -63,27 +65,77 @@ def _todo_button(text: str) -> str:
     )
 
 
-def test_tasks_name_the_scores_and_the_open_questions(
+def _hold(
+    app: JobsApi, release: threading.Event, *, done: int, total: int, fail: bool = False
+) -> None:
+    """A recalculation that reports `done` of `total` and waits, then ends
+    well or badly. It scores nothing."""
+
+    def work(state, cancel) -> None:
+        state.boards_total, state.boards_done = total, done
+        release.wait(30)
+        if fail:
+            raise RuntimeError("held run failed on purpose")
+
+    app.rescore.start(work, "held-run")
+
+
+def test_tasks_are_whole_rows_with_one_amber_line(
     page: Chrome, pending: tuple[str, JobsApi]
 ) -> None:
     base, app = pending
-    outdated = app.handle_api("GET", "/api/home", {}, {})["scores"]["outdated"]
+    payload = app.handle_api("GET", "/api/home", {}, {})
+    outdated = payload["scores"]["outdated"]
     assert outdated > 0
 
     open_home_past_setup(page, base)
-    page.wait_for(f"{TODO_TEXT}.includes('Recalculate the match for {outdated} jobs')")
+    page.wait_for(f"{TODO_TEXT}.includes('{outdated} jobs are showing old scores.')")
     text = str(page.evaluate(TODO_TEXT))
-    assert "Answer what you know about your right to work" in text
-    for question in ("where you may be employed", "for clients where you live", "abroad"):
-        assert question in text, text
-    assert "“I don’t know” is a fine answer" in text
-    assert "Nothing to do right now" not in text
+    assert "A few things to keep your search up to date." in text
+    assert "Update your match scores" in text
+    assert "Where can you work?" in text
+    questions = len(payload["declarations_pending"])
+    assert f"{questions} quick questions. “I don’t know” is fine." in text
+    assert "Nothing to do right now" not in text and "Each one takes" not in text
     assert "market" not in text.lower(), "preferred markets are optional, never a task"
+    rows = int(page.evaluate("document.querySelectorAll('.home__todo').length"))
+    assert page.evaluate("document.querySelector('.home__todocount').innerText") == f"{rows} left"
+    # Each row is ONE button with nothing inside to press; Recalculate first.
+    assert page.evaluate(
+        "Array.from(document.querySelectorAll('.home__todo')).every((b) => b.tagName === 'BUTTON'"
+        " && !b.querySelector('button, a, .home__tododot'))"
+    )
+    assert page.evaluate(f"document.querySelector('.home__todo') === {RECALC}")
+    # Its name is the title; the line under it describes it.
+    assert (
+        page.evaluate(
+            f"document.getElementById({RECALC}.getAttribute('aria-describedby')).innerText"
+        )
+        == f"{outdated} jobs are showing old scores."
+    )
+    # Amber is the recalculation's line, and only that line.
+    colours = page.evaluate(
+        "Array.from(document.querySelectorAll('.home__todohelp'))"
+        ".map((n) => getComputedStyle(n).color)"
+    )
+    assert colours[0] not in colours[1:], colours
+    assert len(set(colours[1:])) == 1, colours
     if page.evaluate("Boolean(document.querySelector('.home__sec--best'))"):
-        assert page.evaluate("Boolean(document.querySelector('.home__sec--best .home__stale'))")
+        stale = "document.querySelector('.home__sec--best .home__stale').innerText"
+        note = str(page.evaluate(stale))
+        assert "Update them in Small things to do." in note
 
-    # "Answer" opens the profile AT the question, where "I don't know" is offered.
-    page.evaluate(f"{_todo_button('right to work')}.click()")
+    # Keyboard: Tab reaches the row and the focus ring shows.
+    for _ in range(80):
+        page.press("Tab")
+        if page.evaluate(f"document.activeElement === {RECALC}"):
+            break
+    else:
+        raise AssertionError("Tab never reached the recalculation row")
+    assert page.evaluate(f"getComputedStyle({RECALC}).outlineStyle") == "solid"
+
+    # The rights row opens the profile AT the question, where "I don't know" is offered.
+    page.evaluate(f"{_todo_button('Where can you work?')}.click()")
     chip = "document.getElementById('profile-field-authorized_countries-unsure')"
     page.wait_for(f"{chip} && !document.getElementById('page-profile').hidden")
     assert page.evaluate(
@@ -100,38 +152,102 @@ def test_tasks_name_the_scores_and_the_open_questions(
 
 def test_the_tasks_read_in_portuguese(page: Chrome, pending: tuple[str, JobsApi]) -> None:
     base, app = pending
-    outdated = app.handle_api("GET", "/api/home", {}, {})["scores"]["outdated"]
+    payload = app.handle_api("GET", "/api/home", {}, {})
+    outdated = payload["scores"]["outdated"]
     page.navigate(base)
     page.evaluate("window.localStorage.setItem('careerAgent.locale.v1', 'pt-BR')")
-    open_home_past_setup(page, base)
-    page.wait_for(f"{TODO_TEXT}.includes('Recalcular o match de {outdated} vagas')")
-    text = str(page.evaluate(TODO_TEXT))
-    assert "Responda o que você sabe sobre seu direito de trabalhar" in text
-    assert "“Não sei” é uma resposta válida" in text
-    page.evaluate("window.localStorage.removeItem('careerAgent.locale.v1')")
+    try:
+        open_home_past_setup(page, base)
+        page.wait_for(f"{TODO_TEXT}.includes('{outdated} vagas estão com o match desatualizado.')")
+        text = str(page.evaluate(TODO_TEXT))
+        assert "Algumas ações para manter sua busca em dia." in text
+        assert "Atualize o match das vagas" in text
+        assert "Onde você pode trabalhar?" in text
+        assert f"{len(payload['declarations_pending'])} perguntas rápidas." in text
+        assert "“Não sei” vale como resposta." in text
+        count = str(page.evaluate("document.querySelector('.home__todocount').innerText"))
+        assert count.startswith("faltam "), count
+    finally:
+        page.evaluate("window.localStorage.removeItem('careerAgent.locale.v1')")
 
 
-def test_a_running_recalculation_is_followed_and_not_started_twice(
+def test_a_running_recalculation_shows_progress_and_is_not_started_twice(
     page: Chrome, pending: tuple[str, JobsApi]
 ) -> None:
     base, app = pending
     release = threading.Event()
-    app.rescore.start(lambda state, cancel: release.wait(30), "held-run")
+    _hold(app, release, done=5, total=20)
     try:
         open_home_past_setup(page, base)
-        button = "document.querySelector('.home__todobtn')"
         page.wait_for(
-            f"{button} && {button}.disabled && {button}.innerText.includes('Recalculating')"
+            f"{RECALC_HELP}.includes('Updating 5 of 20 · you can keep browsing')",
+            message="the live progress line",
         )
-        page.evaluate(f"{button}.click()")  # disabled: starts nothing
-        assert app.rescore.running
+        assert page.evaluate(f"{RECALC}.getAttribute('aria-busy')") == "true"
+        assert (
+            page.evaluate(f"getComputedStyle({RECALC}.querySelector('.home__todochev')).visibility")
+            == "hidden"
+        )
+        page.wait_for(
+            f"Math.abs({RECALC}.querySelector('.home__todobar').getBoundingClientRect().width"
+            f" - {RECALC}.getBoundingClientRect().width / 4) < 3",
+            message="a bar a quarter of the row wide",
+        )
+        before = app.rescore.snapshot()
+        page.evaluate(f"{RECALC}.click()")  # busy: starts nothing
+        time.sleep(0.5)
+        assert app.rescore.running and app.rescore.snapshot()["run_id"] == before["run_id"]
+        # The other rows stay usable while it runs, and the run survives them.
+        rights = _todo_button("Where can you work?")
+        assert page.evaluate(f"!{rights}.disabled && {rights}.getAttribute('aria-busy') !== 'true'")
+        page.evaluate(f"{rights}.click()")
+        page.wait_for("!document.getElementById('page-profile').hidden", message="the profile")
+        open_home_past_setup(page, base)
+        page.wait_for(
+            f"{RECALC_HELP}.includes('Updating 5 of 20')", message="the run, still followed"
+        )
     finally:
         release.set()
         app.rescore.join(10)
-    page.wait_for(f"!{button} || !{button}.disabled", message="the control after the run ended")
 
 
-def test_nothing_to_do_only_when_nothing_is_pending(page: Chrome, tmp_path: Path) -> None:
+def test_a_finished_recalculation_leaves_only_once_confirmed(
+    page: Chrome, pending: tuple[str, JobsApi]
+) -> None:
+    base, app = pending
+    open_home_past_setup(page, base)
+    page.wait_for(RECALC, message="the recalculation row")
+    rows = int(page.evaluate("document.querySelectorAll('.home__todo').length"))
+    page.evaluate(f"{RECALC}.click()")  # a real pass, over this synthetic corpus only
+    page.wait_for(f"!{RECALC}", timeout=60, message="the row gone after a confirmed read")
+    assert app.handle_api("GET", "/api/home", {}, {})["scores"]["outdated"] == 0
+    page.wait_for(f"{TODO_TEXT}.includes('✓ Match scores updated')", message="the done line")
+    count = page.evaluate("document.querySelector('.home__todocount').innerText")
+    assert count == f"{rows - 1} left"
+    page.wait_for(
+        "!document.querySelector('.home__todofoot--ok')", timeout=6, message="the line to go"
+    )
+
+
+def test_a_failed_recalculation_keeps_its_row(page: Chrome, pending: tuple[str, JobsApi]) -> None:
+    base, app = pending
+    release = threading.Event()
+    _hold(app, release, done=3, total=20, fail=True)
+    try:
+        open_home_past_setup(page, base)
+        page.wait_for(f"{RECALC_HELP}.includes('Updating 3 of 20')")
+    finally:
+        release.set()
+        app.rescore.join(10)
+    page.wait_for(
+        f"{RECALC_HELP}.includes('The update stopped before finishing. Try again.')",
+        message="the failure line",
+    )
+    assert page.evaluate(f"{RECALC}.getAttribute('aria-busy')") == "false"
+    assert not page.evaluate("Boolean(document.querySelector('.home__todofoot--ok'))")
+
+
+def test_all_set_only_when_nothing_is_pending(page: Chrome, tmp_path: Path) -> None:
     app = _app(
         tmp_path / "settled",
         authorized_countries=["BR"],
@@ -149,5 +265,7 @@ def test_nothing_to_do_only_when_nothing_is_pending(page: Chrome, tmp_path: Path
     assert payload["profile_gaps"] == [], payload["profile_gaps"]
     for base in _serve(app):
         open_home_past_setup(page, base)
-        page.wait_for(f"{TODO_TEXT}.includes('Nothing to do right now')")
+        page.wait_for(f"{TODO_TEXT}.includes('New tasks show up here when something needs you.')")
+        assert "You’re all set." in str(page.evaluate(TODO_TEXT))
+        assert not page.evaluate("Boolean(document.querySelector('.home__todo, .home__todocount'))")
         assert not page.evaluate("Boolean(document.querySelector('.home__stale'))")
