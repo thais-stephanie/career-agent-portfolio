@@ -31,6 +31,7 @@ import { createSetup, setupPostponed, setupResumeStep } from './setup.js';
 import { getLocale, t, tCount } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
+import { recalcButton } from './recalc.js';
 
 /**
  * The cards, in reading order.
@@ -71,6 +72,16 @@ function store(key, value) {
   }
 }
 
+
+/**
+ * Where each right-to-work question is answered on the profile page: the
+ * field the page opens at. "I don't know" is an answer there too.
+ */
+const FIELD_FOR_QUESTION = {
+  authorization: 'authorized_countries',
+  contractor: 'contractor',
+  contractor_abroad: 'contractor_abroad',
+};
 
 /** Which card of the guided setup answers each gap `home.profile_gaps` names. */
 const SETUP_FOR_GAP = {
@@ -223,7 +234,7 @@ export function createHome({
     return [
       howItWorks(), collectionCard(), startHere(),
       el('div', { className: 'home__cols' }, [
-        el('div', { className: 'home__main' }, [nextStep(payload), ...lists.map(section)]),
+        el('div', { className: 'home__main' }, [nextStep(payload), ...lists.map((d) => section(d, payload))]),
         el('div', { className: 'home__side' }, [progress(payload), todos(payload)]),
       ]),
     ].filter(Boolean);
@@ -314,7 +325,12 @@ export function createHome({
     });
   }
 
-  /** "Small things to do": a job site to fix and the answers still missing. */
+  /**
+   * "Small things to do": scores to recalculate, a job site to fix, and the
+   * answers still missing. Every row is an action that exists right now;
+   * "Nothing to do right now" means exactly that. Preferred markets are
+   * optional and never a row: empty means search everywhere.
+   */
   function todos(payload) {
     const failed = sitesNeedingAttention();
     const item = (tone, title, help, cta, onClick) => el('li', {}, [
@@ -327,7 +343,38 @@ export function createHome({
         el('span', { className: 'home__todocta', text: cta }),
       ]),
     ]);
+    const scores = payload.scores || {};
+    const outdated = Number(scores.outdated) || 0;
+    // Not a button row: the row CARRIES the shared Recalculate control, which
+    // follows a run already going instead of starting another.
+    const recalc = outdated > 0 || scores.running
+      ? el('li', {}, [
+        el('div', { className: 'home__todo home__todo--action' }, [
+          el('span', { className: 'home__tododot home__tododot--yellow', attrs: { 'aria-hidden': 'true' } }),
+          el('span', { className: 'home__todotext' }, [
+            el('span', { className: 'home__todotitle', text: outdated > 0
+              ? tCount('home.todo.scores', { n: outdated.toLocaleString(getLocale()) })
+              : t('home.todo.scoresRunning') }),
+            el('span', { className: 'home__todohelp', text: t('home.todo.scoresHelp') }),
+          ]),
+          recalcButton({
+            className: 'home__todocta home__todobtn', labelKey: 'home.todo.recalc', onDone: () => load(),
+          }),
+        ]),
+      ])
+      : null;
+    const questions = payload.declarations_pending || [];
+    const rights = questions.length && onGoTo
+      ? item('purple', t('home.todo.rights'),
+        t('home.todo.rightsHelp', {
+          list: questions.map((q) => t(`home.todo.question.${q}`)).join(', '),
+        }),
+        t('home.todo.answer'),
+        () => onGoTo('profile', null, { field: FIELD_FOR_QUESTION[questions[0]] }))
+      : null;
     const rows = [
+      recalc,
+      rights,
       failed && onFixSites
         ? item('yellow', tCount('home.todo.sites', { n: failed }), t('home.todo.sitesHelp'),
           t('home.todo.fix'), onFixSites)
@@ -520,12 +567,20 @@ export function createHome({
     ].filter(Boolean));
   }
 
-  function section(data) {
+  function section(data, payload = {}) {
+    // Scores that are not current yet are said where they are READ: the best
+    // matches are ordered by them.
+    const outdated = Number((payload.scores || {}).outdated) || 0;
+    const stale = data.key === 'best' && outdated > 0
+      ? el('p', { className: 'home__stale', attrs: { role: 'note' },
+        text: tCount('home.best.stale', { n: outdated.toLocaleString(getLocale()) }) })
+      : null;
     return el('section', { className: `home__card home__sec home__sec--${data.key}` }, [
       el('h2', { className: 'home__sectitle' }, [
         el('span', { text: words(data, 'title') }),
         el('span', { className: 'home__count num', text: String(data.count) }),
       ]),
+      stale,
       data.items.length
         ? el('ul', { className: 'home__rows' }, data.items.map(row))
         : el('p', { className: 'home__empty', text: t('home.nothing') }),

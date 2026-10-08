@@ -544,6 +544,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("GET", r"/api/search-review", self.search_review)
         self.register("PATCH", r"/api/search-review", self.patch_search_review)
         self.register("PATCH", r"/api/profile", self.patch_profile)
+        self.register("PATCH", r"/api/profile/unsure", self.patch_unsure)
         self.register("GET", r"/api/profile/history", self.profile_history)
         self.register("POST", r"/api/profile/restore", self.restore_profile)
         self.register("GET", r"/api/retrieval", self.retrieval_status)
@@ -1569,8 +1570,13 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         whitelist that validates a write is the same table that describes it.
         """
         from career_agent.config.candidate_writer import FIELDS, current_candidate_fields
+        from career_agent.home import DECLARATION_QUESTIONS, read_unsure
 
         current = current_candidate_fields(self.config.config_dir)
+        with _closing(self.connect()) as conn:
+            unsure = read_unsure(conn)
+        # "I don't know" is drawn once per question, on its first field.
+        asks = {fields[0]: question for question, fields in DECLARATION_QUESTIONS.items()}
         return [
             {
                 "field": name,
@@ -1580,9 +1586,38 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 "choices": list(spec.get("choices", ())),
                 "value": current.get(name),
                 "allow_empty": bool(spec.get("allow_empty")),
+                **(
+                    {"question": asks[name], "unsure": asks[name] in unsure} if name in asks else {}
+                ),
             }
             for name, spec in FIELDS.items()
         ]
+
+    def patch_unsure(self, *, query: dict, body: dict) -> dict:
+        """Record, per profile, that she does not know the answer to one
+        right-to-work question. A real answer: it closes the question on Home
+        without pressing her to declare something she does not know. It
+        changes no score and no configuration; the posting stays pending."""
+        _reject_unknown(query, frozenset(), "profile/unsure")
+        import json
+
+        from career_agent.home import DECLARATION_QUESTIONS, UNSURE_KEY, read_unsure
+        from career_agent.storage.db import transaction
+        from career_agent.storage.workspace_repo import CandidateStateRepo, ensure_candidate
+
+        question = body.get("question")
+        flag = body.get("unsure")
+        if question not in DECLARATION_QUESTIONS or not isinstance(flag, bool):
+            raise ApiError(
+                400, "question must be one of the right-to-work questions, unsure a boolean"
+            )
+        with _closing(self.connect()) as conn:
+            unsure = read_unsure(conn)
+            unsure = (unsure | {question}) if flag else (unsure - {question})
+            with transaction(conn):
+                candidate_id = ensure_candidate(conn)
+                CandidateStateRepo(conn).set(candidate_id, UNSURE_KEY, json.dumps(sorted(unsure)))
+        return {"ok": True, "unsure": sorted(unsure)}
 
     def patch_profile(self, *, query: dict, body: dict) -> dict:
         """Change the candidate's own choices, one save at a time.

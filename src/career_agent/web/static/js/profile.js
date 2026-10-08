@@ -15,7 +15,7 @@
  * the reader that the panel is unreliable.
  */
 
-import { patchProfile } from './api.js';
+import { patchProfile, setUnsure } from './api.js';
 import { button, clear, el, field, replace } from './dom.js';
 import { getLocale, t, tVocab } from './i18n.js';
 import { tagInput } from './tags.js';
@@ -1118,18 +1118,48 @@ function countryPicker({ id, value, names, placeholder, onPick }) {
   return { box, list };
 }
 
+/**
+ * "I DON'T KNOW" IS AN ANSWER. A right-to-work question carries `question`
+ * (the server says which row asks it); saying you do not know is recorded
+ * for this profile at once, closes the question on Home, and changes no
+ * score. Nobody is pressed to declare what they do not know.
+ */
+function rememberUnsure(row, unsure) {
+  if (!row.question || Boolean(row.unsure) === unsure) return;
+  row.unsure = unsure;
+  setUnsure(row.question, unsure).catch(() => { row.unsure = !unsure; });
+}
+
 function control(row, change, currentValue, options = {}) {
+  const drawn = controlBody(row, change, currentValue, options);
+  if (!row.question || row.kind === 'answer' || !drawn) return drawn;
+  // A list question (where she may be employed): one "not yet" beside it.
+  const id = (options.prefix || 'profile-field-') + row.field;
+  const chip = button(t('profile.unsure.list'), () => {
+    rememberUnsure(row, !row.unsure);
+    chip.setAttribute('aria-pressed', String(Boolean(row.unsure)));
+  }, { className: 'choicechip choicechip--unsure' });
+  chip.id = `${id}-unsure`;
+  chip.setAttribute('aria-pressed', String(Boolean(row.unsure)));
+  return el('div', { className: 'choice__withunsure' }, [drawn, chip]);
+}
+
+function controlBody(row, change, currentValue, options = {}) {
   const { names = {}, partner = null, against = null, prefix = 'profile-field-' } = options;
   const id = prefix + row.field;
   const value = currentValue(row);
 
-  // YES, NO, OR NOT ANSWERED. Three chips, one pressed: "not answered" is an
-  // answer of its own and is never saved as "no".
+  // YES, NO, OR I DON'T KNOW. Unanswered presses none; "I don't know" is an
+  // answer of its own, recorded as such, and is never saved as "no".
   if (row.kind === 'answer') {
-    const options = [[true, 'profile.answer.yes'], [false, 'profile.answer.no'], [null, 'profile.answer.unset']];
-    const current = value === true || value === false ? value : null;
+    const options = [[true, 'profile.answer.yes'], [false, 'profile.answer.no'], [null, 'profile.answer.unsure']];
+    const current = value === true || value === false ? value : (row.unsure ? null : undefined);
     const chips = options.map(([option, key]) => {
-      const node = button(t(key), () => change(row, option), { className: 'choicechip' });
+      const node = button(t(key), () => {
+        rememberUnsure(row, option === null);
+        change(row, option);
+        for (const other of chips) other.setAttribute('aria-pressed', String(other === node));
+      }, { className: 'choicechip' });
       node.id = `${id}-${String(option)}`;
       node.setAttribute('aria-pressed', String(option === current));
       return node;

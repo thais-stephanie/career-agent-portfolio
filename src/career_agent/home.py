@@ -190,6 +190,54 @@ def progressed(conn: sqlite3.Connection, *, since: str | None) -> int:
     return len({str(row[0]) for row in rows if moved_forward(row[1], row[2])})
 
 
+#: The right-to-work questions a posting can ask (`match.authorization`), each
+#: with the configuration fields that answer it. ANSWERED when any field holds
+#: a value, or when she said she does not know.
+DECLARATION_QUESTIONS: dict[str, tuple[str, ...]] = {
+    "authorization": ("authorized_countries", "not_authorized_countries", "sponsorship_needed"),
+    "contractor": ("contractor",),
+    "contractor_abroad": ("contractor_abroad",),
+}
+
+#: Which of those she answered "I don't know", per profile. In
+#: `candidate_state` rather than in the search configuration: not knowing
+#: changes no score, and a configuration change would ask for a recalculation.
+UNSURE_KEY = "eligibility.unsure"
+
+
+def read_unsure(conn: sqlite3.Connection) -> set[str]:
+    """The questions this profile answered "I don't know". Read-only."""
+    import json
+
+    from career_agent.storage.workspace_repo import CandidateStateRepo, candidate_id_of
+
+    candidate_id = candidate_id_of(conn)
+    if candidate_id is None:
+        return set()
+    raw = CandidateStateRepo(conn).get(candidate_id, UNSURE_KEY)
+    try:
+        stored = json.loads(raw) if raw else []
+    except ValueError:
+        return set()
+    return {str(q) for q in stored if str(q) in DECLARATION_QUESTIONS}
+
+
+def declarations_pending(config: Any, unsure: set[str]) -> list[str]:
+    """The right-to-work questions nobody has answered: no value and no "I do
+    not know". Never read from where she lives or from a nationality."""
+    eligibility = getattr(config, "eligibility", None)
+    if eligibility is None:
+        return []
+    pending: list[str] = []
+    for question, fields in DECLARATION_QUESTIONS.items():
+        if question in unsure:
+            continue
+        values = [getattr(eligibility, name, None) for name in fields]
+        if all(v is None or v == [] for v in values):
+            pending.append(question)
+    return pending
+
+
 def profile_gaps(conn: sqlite3.Connection, config: Any) -> list[str]:
     """What the Career Profile is missing, as facts rather than as a score.
 

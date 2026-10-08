@@ -2652,6 +2652,21 @@ const EN = {
   'home.todo.gapHelp.compensation': 'So pay counts in your match.',
   'home.todo.gap.work': 'Describe the work you want',
   'home.todo.gapHelp.work': 'So the closest jobs come first.',
+  'home.todo.scores': 'Recalculate the match for {n} jobs',
+  'home.todo.scoresOne': 'Recalculate the match for 1 job',
+  'home.todo.scoresRunning': 'Recalculating your matches',
+  'home.todo.scoresHelp': 'Runs on this computer and calls no AI. Your list stays usable meanwhile.',
+  'home.todo.rights': 'Answer what you know about your right to work',
+  'home.todo.rightsHelp': 'Still open: {list}. “I don’t know” is a fine answer.',
+  'home.todo.question.authorization': 'where you may be employed',
+  'home.todo.question.contractor': 'contractor work for clients where you live',
+  'home.todo.question.contractor_abroad': 'contractor work for clients abroad',
+  'home.todo.answer': 'Answer',
+  'home.todo.recalc': 'Recalculate',
+  'home.best.stale': 'The match for {n} jobs is out of date, '
+    + 'so this order may change. Recalculate in Small things to do.',
+  'home.best.staleOne': 'The match for 1 job is out of date, '
+    + 'so this order may change. Recalculate in Small things to do.',
   'home.progress': 'Your progress',
   'home.progressLede': 'Each job moves through these steps. Tap a step to see its jobs.',
   'home.moved': '{n} moved forward since you last marked the list read.',
@@ -3269,7 +3284,8 @@ const EN = {
   'field.contractor_abroad': 'Can you provide services to a client abroad (invoicing across a border)?',
   'profile.answer.yes': 'Yes',
   'profile.answer.no': 'No',
-  'profile.answer.unset': 'Not answered',
+  'profile.answer.unsure': 'I don’t know',
+  'profile.unsure.list': 'I don’t know yet',
 
   // WHAT THE ANSWER DOES. One sentence, in the second person, naming the
   // consequence rather than the mechanism.
@@ -6877,6 +6893,21 @@ const PT_BR = {
   'home.todo.gapHelp.compensation': 'Para o salário contar na compatibilidade.',
   'home.todo.gap.work': 'Descreva o trabalho que você quer',
   'home.todo.gapHelp.work': 'Para as vagas mais próximas virem primeiro.',
+  'home.todo.scores': 'Recalcular o match de {n} vagas',
+  'home.todo.scoresOne': 'Recalcular o match de 1 vaga',
+  'home.todo.scoresRunning': 'Recalculando seus matches',
+  'home.todo.scoresHelp': 'Roda neste computador e não chama IA. Sua lista continua utilizável enquanto isso.',
+  'home.todo.rights': 'Responda o que você sabe sobre seu direito de trabalhar',
+  'home.todo.rightsHelp': 'Ainda em aberto: {list}. “Não sei” é uma resposta válida.',
+  'home.todo.question.authorization': 'onde você tem autorização para trabalhar',
+  'home.todo.question.contractor': 'prestação de serviços para clientes onde você mora',
+  'home.todo.question.contractor_abroad': 'prestação de serviços para clientes no exterior',
+  'home.todo.answer': 'Responder',
+  'home.todo.recalc': 'Recalcular',
+  'home.best.stale': 'O match de {n} vagas está desatualizado, '
+    + 'então esta ordem pode mudar. Recalcule em Pequenas tarefas.',
+  'home.best.staleOne': 'O match de 1 vaga está desatualizado, '
+    + 'então esta ordem pode mudar. Recalcule em Pequenas tarefas.',
   'home.progress': 'Seu progresso',
   'home.progressLede': 'Cada vaga passa por estas etapas. Toque numa etapa para ver as vagas dela.',
   'home.moved': '{n} avançaram desde que você marcou a lista como lida.',
@@ -7501,7 +7532,8 @@ const PT_BR = {
     + 'país)?',
   'profile.answer.yes': 'Sim',
   'profile.answer.no': 'Não',
-  'profile.answer.unset': 'Sem resposta',
+  'profile.answer.unsure': 'Não sei',
+  'profile.unsure.list': 'Ainda não sei',
 
   'fieldHelp.work_models': 'Preferir soma um pouco à compatibilidade da vaga e evitar tira um pouco. Nunca mostrar '
     + 'também esconde essas vagas em Encontrar vagas, com um clique para vê-las de novo. Nada disso muda onde você '

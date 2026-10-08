@@ -930,6 +930,14 @@ export async function patchProfile(changes) {
   return request('/profile', { method: 'PATCH', body: { changes } });
 }
 
+/**
+ * "I don't know" to one right-to-work question, for this profile. A real
+ * answer: it closes the question on Home and changes no score.
+ */
+export async function setUnsure(question, unsure) {
+  return request('/profile/unsure', { method: 'PATCH', body: { question, unsure } });
+}
+
 
 /**
  * The funnel and the last retrieval. Safe to poll.

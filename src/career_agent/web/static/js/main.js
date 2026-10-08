@@ -45,6 +45,7 @@ import { evidencePage } from './evidence_page.js';
 import { experienceView } from './experience.js';
 import { createDaily } from './daily.js';
 import { createHome } from './home.js';
+import { recalcButton } from './recalc.js';
 import { createSourcesPanel } from './sources.js';
 import { createShell } from './shell.js';
 import { createLocalProfiles } from './local-profiles.js';
@@ -358,9 +359,11 @@ const home = createHome({
     store.set({ openJobId: jobId });
     drawer.open(jobId, document.querySelector('.topnav__link[data-page="home"]'));
   },
-  onGoTo: (page, patch) => {
+  onGoTo: (page, patch, { field = null } = {}) => {
     if (patch) store.set(patch);
     goTo(page);
+    // A task on Home names the question it is about: open the page AT it.
+    if (page === 'profile' && field) void focusProfileField(field);
   },
   // "How is your search going?" is the wrong heading above "Let's set up your
   // job search", so Home says which of the two it is showing.
@@ -1803,66 +1806,16 @@ function emptyReason() {
  * indistinguishable from a hang.
  */
 function rescoreButton() {
-  const label = el('span', { text: t('app.rescore') });
-  const control = el('button', {
-    className: 'btn btn--primary',
-    attrs: { type: 'button' },
-  }, [label]);
-
-  let polling = null;
-
-  async function poll() {
-    const state = await api.getRescore();
-    const run = state.run || {};
-    if (state.running) {
-      const done = Number(run.boards_done) || 0;
-      const total = Number(run.boards_total) || 0;
-      label.textContent = total
-        ? t('rescore.progress', { done: done.toLocaleString(), total: total.toLocaleString() })
-        : t('rescore.working');
-      return;
-    }
-    window.clearInterval(polling);
-    polling = null;
-    control.disabled = false;
-    if (run.status === 'failed') {
-      label.textContent = t('app.rescoreFailed');
-      return;
-    }
-    label.textContent = t('app.rescoreDone');
-    // The scores are new, so the list has to be ASKED again rather than
-    // repainted from what it already holds. The health payload too: it is
-    // where `scored_count` lives, and the empty state's whole sentence is
-    // built from it.
-    showHealth();
-    load(store.apiQueryString(), store.get());
-  }
-
-  control.addEventListener('click', async () => {
-    control.disabled = true;
-    label.textContent = t('app.starting');
-    try {
-      await api.startRescore();
-    } catch (error) {
-      control.disabled = false;
-      label.textContent = error.userMessage || t('rescore.couldNotStart');
-      return;
-    }
-    let misses = 0;
-    polling = window.setInterval(() => {
-      poll().then(() => { misses = 0; }).catch(() => {
-        // A few missed polls are a busy server; many are a stopped one.
-        misses += 1;
-        if (misses < 10) return;
-        window.clearInterval(polling);
-        polling = null;
-        control.disabled = false;
-        label.textContent = t('app.rescoreLost');
-      });
-    }, 700);
+  // The shared control (recalc.js): one flow on Jobs and Home, and a run
+  // already going is followed rather than offered again.
+  return recalcButton({
+    onDone: () => {
+      // The scores are new, so the list has to be ASKED again rather than
+      // repainted from what it already holds; the health payload too.
+      showHealth();
+      load(store.apiQueryString(), store.get());
+    },
   });
-
-  return control;
 }
 
 /**
@@ -2884,9 +2837,35 @@ function retranslateProfile() {
  * first visited, for the same reason: a screen of jobs should not wait on a
  * configuration read nobody asked for.
  */
-async function loadProfile() {
+//: The profile page's first draw, so a caller can wait for it.
+let profileDrawn = null;
+
+function loadProfile() {
+  if (!profileLoaded) profileDrawn = drawProfileFirst();
+  return profileDrawn;
+}
+
+/**
+ * Open the profile at one of her answers: the preferences tab, the fold that
+ * holds it opened, the question in view and its first control focused.
+ */
+async function focusProfileField(field) {
+  await loadProfile();
+  if (profileTabs) profileTabs.show('preferences');
+  const target = document.getElementById(`profile-field-${field}-q`)
+    || document.getElementById(`profile-field-${field}`)
+    || document.querySelector(`[id^="profile-field-${field}-"]`);
+  if (!target) return;
+  const block = target.closest('.choice') || target;
+  const fold = block.closest('details');
+  if (fold) fold.open = true;
+  block.scrollIntoView({ block: 'center' });
+  const first = block.querySelector('button, input, select');
+  if (first) first.focus({ preventScroll: true });
+}
+
+async function drawProfileFirst() {
   const host = document.getElementById('page-profile');
-  if (profileLoaded) return;
   profileLoaded = true;
   host.textContent = t('app.loading');
   try {

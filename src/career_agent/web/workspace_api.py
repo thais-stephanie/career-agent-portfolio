@@ -1885,7 +1885,14 @@ class WorkspaceRoutes(_MixinBase):
         ranks anything.
         """
         from career_agent.digest import default_filter, sections
-        from career_agent.home import latest_refresh_run, metrics, profile_gaps
+        from career_agent.home import (
+            declarations_pending,
+            latest_refresh_run,
+            metrics,
+            profile_gaps,
+            read_unsure,
+        )
+        from career_agent.pipeline.rescore import plan as rescore_plan
         from career_agent.storage.mvp_repo import ScoredJobQuery
         from career_agent.storage.workspace_repo import (
             LAST_REVIEWED_AT,
@@ -1913,6 +1920,10 @@ class WorkspaceRoutes(_MixinBase):
                 config_version=config_version,
             )
             gaps = profile_gaps(conn, config)
+            pending = declarations_pending(config, read_unsure(conn))
+            # What "Recalculate" would score: the targeted pass's own plan, so
+            # this count and the button can never disagree. Reads indexes only.
+            outdated = len(rescore_plan(conn, config).targets)
             refresh_run = latest_refresh_run(conn)
             total = repo.count(config_id, config_version, default_filter(show))
             open_jobs = conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NULL").fetchone()[
@@ -1951,6 +1962,11 @@ class WorkspaceRoutes(_MixinBase):
             "metrics": [metric.as_dict() for metric in cards],
             "sections": built,
             "profile_gaps": gaps,
+            "declarations_pending": pending,
+            "scores": {
+                "outdated": outdated,
+                "running": bool(getattr(getattr(self, "rescore", None), "running", False)),
+            },
             "latest_refresh_run": refresh_run,
         }
 

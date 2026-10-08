@@ -75,14 +75,38 @@ by what the candidate DECLARED:
 | A contractor engagement | You said yes at home AND for clients abroad | You said no at home AND for clients abroad | Any other answer: where the contracting party is decides, and no reader identifies it (a posting's location is where the work is, never where the client is) |
 
 `eligible_countries` ("Countries that can employ you directly", the onboarding
-hire card) answers none of these: it has always said where employers may hire
-you FROM, and the geography gate, retrieval and scheduling read it so.
+hire card) answers none of these: it says where employers may hire you FROM,
+and only the geography gate reads it. Discovery follows the markets you chose
+(ADR-0032).
 
 Any incompatible answer fails the work-authorization gate; otherwise any
 pending one leaves it UNRESOLVED, quoted, and the eligibility status cannot be
 VERIFIED_ELIGIBLE while it waits; otherwise it passes. Where you live answers
 none of these. A blocker written in the search file still decides first, so an
 existing search behaves as before.
+
+**"I don't know" is an answer.** Each of the three questions (where you may be
+employed, contractor work at home, contractor work abroad) offers it on the
+profile. It is stored per profile in `candidate_state` (`eligibility.unsure`),
+never in the search file, so it changes no score and asks for no
+recalculation: a posting that asks the question stays pending, and Home stops
+listing the question. Home's "Small things to do" lists only questions with
+neither an answer nor an "I don't know", and its "Answer" opens the profile at
+the first of them.
+
+## Home: small things to do
+
+Every row is an action that exists now, per profile; "Nothing to do right now"
+appears only when there is none.
+
+| Row | Shown when | Action |
+|---|---|---|
+| Recalculate the match for N jobs | the targeted rescore's own plan has N > 0 postings (stale or never scored) | the same Recalculate as Jobs (`js/recalc.js`); a run already going is followed, never started twice (the server answers 409) |
+| Answer what you know about your right to work | a question above has no answer and no "I don't know" | opens the profile at that question |
+| Fix job sites / profile gaps | as before | as before |
+
+Preferred markets are optional and never a row: empty means search everywhere.
+While N > 0, "Best matches right now" says its order may change.
 
 ## Work-model semantics
 
