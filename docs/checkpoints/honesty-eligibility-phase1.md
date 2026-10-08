@@ -93,17 +93,30 @@ What restricted what:
   default is no longer written into the address. This reverses the V1.5
   default; on the demo corpus a match of 55+ with an open question is now
   listed (5 roles -> 6).
-- **Discovery: narrowed in two places, not changed here.** (1) The refresh
-  plan pauses a regional board of another market (`sources.scheduling`,
-  from where she lives): for a candidate in Brazil that is Arbeitnow, the
-  one operational European board. It is reversible per source in Settings
-  & Sources, and an explicit choice there wins. Changing the rule is an
-  architecture decision: ADR-0019's guard pins the scheduler's inputs to
-  sources, countries and overrides. (2) The two targeted search lanes
-  (Himalayas search, additive to its unrestricted walk; experimental
-  LinkedIn) search only her country and the regions in `eligible_scopes`.
-  Every other collector walks its whole feed whatever she configured.
-- **Desired markets have no reader.** `regions.target` and
-  `regions.opportunistic` are written by `setup` and read by nothing. Wiring
-  them in (as the source of market priority instead of residence) is the
-  owner decision the two discovery points above wait on.
+- **Discovery: fixed (ADR-0032, owner decision 2026-10-08).** The refresh
+  plan no longer pauses a board for covering another market, and the markets
+  she names under "Which markets do you want to search first?"
+  (`regions.target`, editable in Settings) set the order: their sources and
+  targeted searches first, then worldwide boards, then the rest. No markets is
+  a global search. Explicit pauses in Settings & Sources still win, per
+  profile; the query budget is unchanged. Where she lives no longer feeds the
+  scheduler, the targeted scopes or Jobgether's slice order.
+- **Scores.** No matcher reads `regions`, so the matching digest leaves it out
+  and a save that changes only the markets keeps `config_version`: no
+  recalculation. Any other change, alone or in the same save, still bumps
+  both.
+
+## Recovery note for the markets change
+
+`regions.target` already existed, so a `search.local.yaml` with markets loads
+in the previous build. Two things to know when going back: the previous build
+pauses other-market boards again from where she lives (her explicit pauses are
+unaffected, they live in the profile database), and its digest includes
+`regions`, so after a code rollback press Recalculate once, as the table
+above already says for any rollback.
+
+## Gates at the markets commit (2026-10-08)
+
+ruff, ruff format, mypy (282 files), punctuation and frontend gates clean;
+unit + integration 10,783 passed, 7 skipped (private data), 0 failed; browser
+450 of 450. All on synthetic data; no model call, no network, no real profile.

@@ -1,22 +1,11 @@
-"""Scheduling decides WHEN a source runs. It never decides what the source ingests.
+"""Scheduling decides WHEN a source runs. It never decides what the source ingests,
+and it never decides that a source does not run (ADR-0032).
 
-WHY THIS FILE EXISTS
---------------------
-Gupy holds 79,589 of the corpus's 103,272 postings and takes hours to refresh.
-For somebody in Utah looking for work in the United States and Canada, every one
-of those hours buys nothing.
-
-But the last time this product made a decision about Gupy it made the wrong kind:
-V1.6 filtered it AT COLLECTION TIME by one person's preferences and left 72,682
-on-site postings uncollected for everybody. ADR-0019 is the correction, and the
-line it drew is the line these tests defend.
-
-  * WHEN a source is refreshed is a fact about this candidate's market.
-  * WHAT a source ingests once it runs is a fact about the market itself.
-
-The second test section is the important one: it asserts that this module is
-STRUCTURALLY incapable of the first mistake, because there is nowhere in its
-signature to put a role, a seniority or a contract type.
+Gupy once held 79,589 of the corpus's postings, and V1.6 filtered it AT
+COLLECTION TIME by one person's preferences; ADR-0019 drew the line these tests
+defend: WHAT a source ingests is a fact about the market. ADR-0032 drew the
+second line: WHETHER a source runs is the candidate's explicit choice, and the
+markets she NAMED only put boards in order. Where she lives decides nothing here.
 """
 
 from __future__ import annotations
@@ -28,6 +17,7 @@ from career_agent.sources.scheduling import (
     WORLDWIDE,
     plan_refresh,
     regions_for,
+    slice_order,
 )
 
 #: The catalogue's own regions, as `config/source_catalogue.yaml` records them.
@@ -48,68 +38,65 @@ def _by_id(plans) -> dict:
 
 
 # =========================================================================
-# 1. THE TWO SCENARIOS THIS WAS BUILT FOR
+# 1. NO MARKETS: A GLOBAL SEARCH
 # =========================================================================
 
 
-def test_a_candidate_targeting_the_united_states_does_not_wait_for_a_brazilian_board() -> None:
-    """Scenario B. Utah, looking at the United States and Canada.
-
-    Gupy is 77% of the corpus and hours of refreshing, and none of it is work
-    this person can take. It is PAUSED, with a reason, and one button turns it
-    back on.
-    """
-    plans = _by_id(plan_refresh(SOURCES, countries=["US", "CA"]))
-    assert plans["gupy"].paused is True
-    assert plans["gupy"].priority == OTHER_MARKET
-    assert "market you have not asked for" in plans["gupy"].reason
-    # And the worldwide boards, which is where United States work actually is
-    # for this product today, are not paused.
+def test_no_markets_named_refreshes_every_board_worldwide_ones_first() -> None:
+    plans = plan_refresh(SOURCES, markets=[])
+    assert {p.source_id for p in plans} == set(SOURCES)
+    assert not hasattr(plans[0], "paused"), "the scheduler can no longer pause anything"
+    by_id = _by_id(plans)
     for source in ("greenhouse", "ashby", "remoteok"):
-        assert plans[source].paused is False
+        assert by_id[source].priority == WORLDWIDE
+    for source in ("gupy", "getonbrd", "arbeitnow"):
+        assert by_id[source].priority == OTHER_MARKET
+    assert [p.priority for p in plans] == sorted(p.priority for p in plans)
 
 
-def test_a_candidate_targeting_brazil_gets_the_brazilian_boards_first() -> None:
-    """Scenario A. The same machinery, the opposite answer."""
-    plans = _by_id(plan_refresh(SOURCES, countries=["BR"]))
-    assert plans["gupy"].paused is False
+# =========================================================================
+# 2. MARKETS SHE CHOSE GO FIRST; NOTHING ELSE IS LEFT OUT
+# =========================================================================
+
+
+def test_chosen_markets_go_first_and_every_other_board_still_runs() -> None:
+    plans = plan_refresh(SOURCES, markets=["EMEA"])
+    assert {p.source_id for p in plans} == set(SOURCES)
+    assert plans[0].source_id == "arbeitnow" and plans[0].priority == TARGETED
+    assert "market you chose" in plans[0].reason
+    by_id = _by_id(plans)
+    assert by_id["gupy"].priority == OTHER_MARKET
+    assert "may hire from anywhere" in by_id["gupy"].reason
+
+
+def test_where_she_lives_does_not_pause_the_european_board() -> None:
+    """The case ADR-0032 exists for: a remote candidate in Brazil. Residence is
+    not an input at all; with Latin America chosen, Europe still runs."""
+    plans = _by_id(plan_refresh(SOURCES, markets=["LATAM"]))
+    assert plans["gupy"].priority == plans["getonbrd"].priority == TARGETED
+    assert plans["arbeitnow"].priority == OTHER_MARKET
+
+
+def test_a_country_market_reaches_its_own_boards_and_its_region() -> None:
+    plans = _by_id(plan_refresh(SOURCES, markets=["BR"]))
+    assert plans["gupy"].priority == plans["getonbrd"].priority == TARGETED
+
+
+def test_worldwide_as_a_market_prefers_no_regional_board() -> None:
+    plans = _by_id(plan_refresh(SOURCES, markets=["WORLDWIDE"]))
+    assert plans["greenhouse"].priority == WORLDWIDE
+    assert plans["arbeitnow"].priority == OTHER_MARKET
+
+
+# =========================================================================
+# 3. THE CANDIDATE OVERRULES THE SCHEDULER
+# =========================================================================
+
+
+def test_turning_a_source_on_by_hand_always_goes_first() -> None:
+    plans = _by_id(plan_refresh(SOURCES, markets=["NORTH_AMERICA"], enabled=["gupy"]))
     assert plans["gupy"].priority == TARGETED
-    assert plans["programathor"].priority == TARGETED
-    # Brazil is in Latin America, so the LATAM agencies are targeted too.
-    assert plans["getonbrd"].priority == TARGETED
-    # ...and a European board is not.
-    assert plans["arbeitnow"].paused is True
-
-
-def test_a_worldwide_board_is_never_paused_for_anybody() -> None:
-    """ "Remote, worldwide" is the one market everybody shares."""
-    for countries in (["BR"], ["US"], ["DE"], []):
-        plans = _by_id(plan_refresh(SOURCES, countries=countries))
-        assert plans["greenhouse"].paused is False, countries
-        assert plans["greenhouse"].priority == WORLDWIDE, countries
-
-
-def test_saying_nothing_about_where_you_can_work_pauses_only_the_regional_boards() -> None:
-    """The honest default: we do not know the market, so we refresh every market's.
-
-    Not "refresh everything", which is the behaviour this module exists to end,
-    and not "refresh nothing", which would leave a new install with no jobs.
-    """
-    plans = _by_id(plan_refresh(SOURCES, countries=[]))
-    assert plans["gupy"].paused is True
-    assert plans["arbeitnow"].paused is True
-    assert plans["remoteok"].paused is False
-
-
-def test_a_country_nobody_mapped_still_gets_the_worldwide_boards() -> None:
-    plans = _by_id(plan_refresh(SOURCES, countries=["JP"]))
-    assert plans["ashby"].paused is False
-    assert plans["gupy"].paused is True
-
-
-# =========================================================================
-# 2. IT CANNOT EXPRESS WHAT V1.6 GOT WRONG
-# =========================================================================
+    assert "yourself" in plans["gupy"].reason
 
 
 def test_nothing_in_this_module_can_describe_the_content_of_a_feed() -> None:
@@ -185,44 +172,13 @@ def test_nothing_in_this_module_can_describe_the_content_of_a_feed() -> None:
         )
 
     parameters = set(inspect.signature(plan_refresh).parameters)
-    assert parameters == {"sources", "countries", "enabled"}, parameters
-
-
-def test_pausing_hides_no_posting_that_was_already_collected() -> None:
-    """The sentence a candidate reads has to be true, so it is asserted.
-
-    A paused source is one that will not be REFRESHED. Everything it has ever
-    returned is still in the corpus, still scored and still in the list, because
-    nothing here touches a query.
-    """
-    plans = _by_id(plan_refresh(SOURCES, countries=["US"]))
-    assert "still in your list" in plans["gupy"].reason
-
-
-# =========================================================================
-# 3. THE CANDIDATE OVERRULES THE SCHEDULER
-# =========================================================================
-
-
-def test_turning_a_source_on_by_hand_always_wins() -> None:
-    """A Brazilian in Toronto may want Brazilian boards for reasons no country
-    code can express, and a scheduler that could not be overruled would be one
-    making the decision instead of informing it.
-    """
-    plans = _by_id(plan_refresh(SOURCES, countries=["CA"], enabled=["gupy"]))
-    assert plans["gupy"].paused is False
-    assert plans["gupy"].priority == TARGETED
-    assert "yourself" in plans["gupy"].reason
-
-
-# =========================================================================
-# 4. THE REGION MAPPING
-# =========================================================================
+    assert parameters == {"sources", "markets", "enabled"}, parameters
 
 
 def test_global_is_in_every_answer() -> None:
     assert "global" in regions_for([])
     assert "global" in regions_for(["BR"])
+    assert "global" in regions_for(["EMEA"])
     assert "global" in regions_for(["ZZ"])
 
 
@@ -242,3 +198,25 @@ def test_north_america_has_no_regional_board_here_and_that_is_a_coverage_fact() 
 
 def test_the_country_code_is_read_case_insensitively_and_trimmed() -> None:
     assert regions_for([" br "]) == regions_for(["BR"])
+
+
+def test_a_region_market_reaches_its_boards() -> None:
+    assert regions_for(["EMEA"]) == regions_for(["EU"]) == frozenset({"global", "eu"})
+    assert regions_for(["LATAM"]) == frozenset({"global", "br", "latam"})
+
+
+# =========================================================================
+# 5. SLICES OF A QUERY-DRIVEN SOURCE
+# =========================================================================
+
+OFFERED = ("anywhere", "north-america", "latam", "south-america", "europe", "brazil", "asia")
+
+
+def test_slices_keep_the_vendor_order_without_markets() -> None:
+    assert slice_order(OFFERED, markets=[]) == OFFERED
+
+
+def test_chosen_markets_lead_the_slices_and_none_is_dropped() -> None:
+    ordered = slice_order(OFFERED, markets=["EMEA", "LATAM"])
+    assert ordered[:3] == ("europe", "latam", "south-america")
+    assert sorted(ordered) == sorted(OFFERED)

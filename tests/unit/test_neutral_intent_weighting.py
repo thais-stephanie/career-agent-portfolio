@@ -111,6 +111,8 @@ def test_worked_example_preserves_every_explicit_weight_and_legacy_digest():
     legacy = loaded.model_dump(mode="json")
     for c in legacy["scoring"]["components"].values():
         c.pop("setup_weights", None)
+    # Markets order discovery and no matcher reads them (ADR-0032).
+    legacy.pop("regions", None)
     expected = hashlib.sha256(
         json.dumps(legacy, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     ).hexdigest()

@@ -3259,6 +3259,7 @@ const EN = {
   'field.compensation_currency': 'In which currency?',
   'field.candidate_country': 'Where do you currently live?',
   'field.eligible_scopes': 'Which regions can you work in?',
+  'field.target_markets': 'Which markets do you want to search first?',
   'field.eligible_countries': 'Which countries can employ you directly?',
   'field.authorized_countries': 'Where are you legally authorized to be employed?',
   'field.not_authorized_countries': 'Where are you NOT authorized to be employed?',
@@ -3293,6 +3294,8 @@ const EN = {
     'This helps us check which jobs can hire someone where you are.',
   'fieldHelp.eligible_scopes':
     'We use this to check whether the region a job hires in includes you.',
+  'fieldHelp.target_markets': 'Sources and searches for these markets run first. Nothing else is '
+    + 'left out, and where you live does not narrow the search. Leave it empty to search everywhere.',
   'fieldHelp.eligible_countries':
     'Countries where a company could put you on their payroll without going '
     + 'through anyone else. Leave it empty if there are none.',
@@ -7487,6 +7490,7 @@ const PT_BR = {
   'field.compensation_currency': 'Em qual moeda?',
   'field.candidate_country': 'Onde você mora atualmente?',
   'field.eligible_scopes': 'Em quais regiões você pode trabalhar?',
+  'field.target_markets': 'Quais mercados você quer buscar primeiro?',
   'field.eligible_countries': 'Em quais países você pode ser contratado diretamente?',
   'field.authorized_countries': 'Onde você tem autorização legal para ser empregado?',
   'field.not_authorized_countries': 'Onde você NÃO tem autorização para ser empregado?',
@@ -7522,6 +7526,8 @@ const PT_BR = {
     'Isso nos ajuda a verificar quais vagas podem contratar pessoas de onde você está.',
   'fieldHelp.eligible_scopes':
     'Usamos isso para verificar se a região em que a vaga contrata inclui você.',
+  'fieldHelp.target_markets': 'As fontes e buscas desses mercados rodam primeiro. Nada mais fica '
+    + 'de fora, e onde você mora não restringe a busca. Deixe vazio para buscar em todo lugar.',
   'fieldHelp.eligible_countries':
     'Países onde uma empresa poderia colocar você na folha sem passar por mais '
     + 'ninguém. Deixe vazio se não houver nenhum.',

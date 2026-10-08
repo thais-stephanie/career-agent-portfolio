@@ -934,6 +934,31 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             "summary": _source_summary(observed, refresh, opted),
         }
 
+    def _config_version_or_none(self) -> int | None:
+        """The version in force before a save; None when none could be read,
+        so the answer then says a recalculation is needed."""
+        try:
+            return int(self.search_config().config_version)
+        except Exception:  # noqa: BLE001 - an unreadable file is not a save failure
+            return None
+
+    def source_priority(self, entries: list) -> dict[str, int]:
+        """Refresh order per source id: the markets she NAMED first
+        (`regions.target`), then worldwide boards, then the rest. Never where
+        she lives, and never a pause (ADR-0032)."""
+        from career_agent.sources.scheduling import plan_refresh
+        from career_agent.web.source_refresh import modes
+
+        regions = getattr(self.search_config(), "regions", None)
+        markets = list(getattr(regions, "target", ()) or ())
+        with _closing(self.connect()) as conn:
+            enabled = [key for key, mode in modes(conn).items() if mode == "ENABLED"]
+        sources = {entry.source.id: entry.source.region for entry in entries}
+        return {
+            plan.source_id: int(plan.priority)
+            for plan in plan_refresh(sources, markets=markets, enabled=enabled)
+        }
+
     def _refresh_progress(self, observed: list) -> list:
         """Where each source's retrieval stands, derived from the run ledger.
 
@@ -942,7 +967,6 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         opposite of the rule this whole area serves.
         """
         from career_agent.sources.progress import RefreshState, read_progress
-        from career_agent.sources.scheduling import plan_refresh
         from career_agent.web.source_refresh import (
             can_refresh,
             effective_provider,
@@ -966,42 +990,16 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         if not stage_for:
             return []
 
-        regions = {
-            entry.source.id: entry.source.region for entry in observed if entry.source.id in running
-        }
-        # WHERE THE CANDIDATE MAY WORK, and it lives under `eligibility` rather
-        # than `preferences`. The first version read `preferences.
-        # eligible_countries`, which does not exist -- so every candidate got an
-        # empty list, and a candidate in Brazil had the board holding 77% of
-        # their own corpus paused as "a market you have not asked for".
-        #
-        # `candidate_country` is included because somebody who has named where
-        # they live and nothing else has still told us their market. Refusing to
-        # infer that would be a scheduler asking for a form to be filled in
-        # twice.
-        eligibility = getattr(self.search_config(), "eligibility", None)
-        countries = list(getattr(eligibility, "eligible_countries", ()) or ())
-        home = getattr(eligibility, "candidate_country", "") or ""
-        if home:
-            countries.append(home)
         with _closing(self.connect()) as conn:
             refresh_modes = modes(conn)
+        # NOTHING IS PAUSED FOR BEING IN ANOTHER MARKET (ADR-0032). Only her own
+        # choice in Settings & Sources pauses a source; the markets she named
+        # decide the ORDER (`source_priority`), never the set.
         paused = {
-            plan.source_id: plan.reason
-            for plan in plan_refresh(
-                regions,
-                countries=countries,
-                enabled=[key for key, mode in refresh_modes.items() if mode == "ENABLED"],
-            )
-            if plan.paused
+            key: "Paused by your refresh preference."
+            for key, mode in refresh_modes.items()
+            if mode == "PAUSED"
         }
-        paused.update(
-            {
-                key: "Paused by your refresh preference."
-                for key, mode in refresh_modes.items()
-                if mode == "PAUSED"
-            }
-        )
         blocked = {
             entry.source.id: (
                 entry.source.collection_blocker
@@ -1611,6 +1609,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         if len(changes) > len(FIELDS):
             raise ApiError(400, "more fields than this panel has")
 
+        before = self._config_version_or_none()
         try:
             path, version, applied = set_candidate_fields(self.config.config_dir, changes)
         except PreferenceError as exc:
@@ -1646,10 +1645,15 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             "config_version": version,
             "changed": applied,
             "profile_revision": recorded,
-            "rescore_required": True,
+            # A save that touched only where to search first keeps the version:
+            # no stored match was worked out from it (ADR-0032).
+            "rescore_required": version != before,
             "note": (
                 "Saved. Your existing matches were worked out from your older "
                 "settings, so they need recalculating against these."
+                if version != before
+                else "Saved. Your matches are unchanged; this only decides which "
+                "sources and searches run first."
             ),
         }
 
@@ -1775,6 +1779,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         if not changes:
             raise ApiError(400, "that revision holds nothing this panel may write", for_reader=True)
 
+        before = self._config_version_or_none()
         try:
             path, version, applied = set_candidate_fields(self.config.config_dir, changes)
         except PreferenceError as exc:
@@ -1787,7 +1792,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             "written_to": path.name,
             "config_version": version,
             "fields": applied,
-            "rescore_required": True,
+            "rescore_required": version != before,
         }
 
     def retrieval_status(self, *, query: dict, body: dict) -> dict:

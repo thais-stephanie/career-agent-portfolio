@@ -161,6 +161,17 @@ FIELDS: dict[str, dict[str, Any]] = {
         "choices": ("WORLDWIDE", "AMERICAS", "LATAM", "EMEA", "APAC", "NORTH_AMERICA"),
         "label": "Hiring scopes that include you",
     },
+    # WHERE SHE WANTS TO WORK, a third question beside where she lives and
+    # where employers may hire her from (ADR-0032). It orders discovery and
+    # targets searches; it never excludes a posting or pauses a source. Empty
+    # is the neutral value: search everywhere.
+    "target_markets": {
+        "path": ("regions", "target"),
+        "kind": "enum_list",
+        "choices": ("WORLDWIDE", "AMERICAS", "LATAM", "NORTH_AMERICA", "EMEA", "APAC"),
+        "label": "Markets you want to search first",
+        "allow_empty": True,
+    },
     # Countries, not scopes: `BR` here means an employer hiring specifically in
     # Brazil can hire you. Free-form two-letter codes rather than a list, for
     # the same reason the currency is: this program has no opinion about which
@@ -435,6 +446,17 @@ def _derive_require_remote(document: dict[str, Any]) -> None:
     _place(document, ("preferences", "remote", "require_remote"), {"HYBRID", "ONSITE"} <= excluded)
 
 
+#: Top-level sections no matcher reads: `regions` orders discovery (ADR-0032).
+#: A save that changes nothing outside them keeps `config_version`, and
+#: `SearchConfig.digest` leaves them out, so a stored score stays current. A
+#: change anywhere else bumps as always.
+DISCOVERY_ONLY_SECTIONS: frozenset[str] = frozenset({"regions"})
+
+
+def _matching_view(document: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in document.items() if k not in DISCOVERY_ONLY_SECTIONS}
+
+
 def set_candidate_fields(config_dir: Path, changes: dict[str, Any]) -> tuple[Path, int, list[str]]:
     """Apply one or more candidate choices. Returns the file, version and fields.
 
@@ -481,7 +503,9 @@ def set_candidate_fields(config_dir: Path, changes: dict[str, Any]) -> tuple[Pat
         # its content equals the example it was resolved from.
         return target, int(before.get("config_version", 1)), sorted(applied)
 
-    version = int(document.get("config_version", 1)) + 1
+    version = int(document.get("config_version", 1))
+    if _matching_view(document) != _matching_view(before):
+        version += 1
     document["config_version"] = version
 
     _validates(document)

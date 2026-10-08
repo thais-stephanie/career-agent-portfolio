@@ -425,6 +425,9 @@ def register_source_refresh(app: JobsApi) -> None:
         # frozen into the run; a source turning fresh or due while it runs
         # changes the next press, never this run's total.
         rows = app._refresh_progress(entries)
+        # The markets she named go first; nothing is left out by this order.
+        order = app.source_priority(entries)
+        entries = sorted(entries, key=lambda e: order.get(e.source.id, 1))
         due = {p.source_id for p in rows if p.due} if only_due else None
         waiting = sorted(p.source_id for p in rows if p.cooldown_until)
         steps, held_back = _plan(entries, opted, rows, only=due)

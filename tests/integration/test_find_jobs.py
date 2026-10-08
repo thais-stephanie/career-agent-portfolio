@@ -82,6 +82,10 @@ def _expected_keys(api: JobsApi) -> list[str]:
     refreshable = {row["id"] for row in data["sources"] if row["can_refresh"]}
     with connect(api.config.db_path) as conn:
         entries = health(conn, catalogue_path=api.config.config_dir / "source_catalogue.yaml")
+    # The markets she chose go first, then worldwide boards, then the rest
+    # (ADR-0032); a stable sort, so catalogue order holds within each.
+    order = api.source_priority(entries)
+    entries = sorted(entries, key=lambda e: order.get(e.source.id, 1))
     feeds: list[str] = []
     boards: list[str] = []
     for entry in entries:

@@ -219,7 +219,9 @@ a source health table: when each source last succeeded, which ones are due or
 stale (three days old), and two buttons: **Refresh due sources** (the same as
 Find jobs) and **Refresh all available sources** (recently refreshed ones too).
 Neither wakes a paused source or asks a site that refused before its wait is
-over. Nothing is collected until you press a button.
+over. Nothing is collected until you press a button. The markets you choose to
+search first only set the order; no source is skipped for being in another
+market, and where you live never narrows the search.
 
 [Source permissions and coverage notes](docs/SOURCES.md)
 

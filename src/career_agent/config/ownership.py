@@ -122,6 +122,13 @@ FACTS: tuple[Fact, ...] = (
         field="eligible_scopes",
     ),
     Fact(
+        subject="Markets you want to search first",
+        owner=Owner.CANDIDATE,
+        home=Home.SEARCH_CONFIG,
+        path="regions.target",
+        field="target_markets",
+    ),
+    Fact(
         subject="Countries that may hire you directly",
         owner=Owner.CANDIDATE,
         home=Home.SEARCH_CONFIG,

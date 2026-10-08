@@ -773,7 +773,7 @@ function valueOf(row) {
  * this only decides company.
  */
 const CHOICE_GROUPS = [
-  { key: 'where', fields: ['work_models', 'candidate_country',
+  { key: 'where', fields: ['work_models', 'candidate_country', 'target_markets',
     'eligible_countries', 'eligible_scopes', 'authorized_countries', 'not_authorized_countries',
     'sponsorship_needed', 'contractor', 'contractor_abroad'] },
   { key: 'what', fields: ['contract_preferred', 'contract_unwanted',

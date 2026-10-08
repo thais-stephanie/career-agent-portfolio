@@ -108,13 +108,13 @@ def test_the_default_plan_is_every_location_cut_by_the_vendors_lists() -> None:
 
 
 def test_scheduling_reorders_and_never_changes_the_set() -> None:
-    ordered = slice_order(LOCATION_SLUGS, countries=("BR",))
+    ordered = slice_order(LOCATION_SLUGS, markets=("BR",))
     assert set(ordered) == set(LOCATION_SLUGS) and len(ordered) == len(LOCATION_SLUGS)
     assert ordered[:4] == ("anywhere", "south-america", "latam", "brazil")
-    us = slice_order(LOCATION_SLUGS, countries=("US",))
+    us = slice_order(LOCATION_SLUGS, markets=("US",))
     assert us[:3] == ("anywhere", "north-america", "united-states")
     assert set(us) == set(LOCATION_SLUGS)
-    unknown = slice_order(LOCATION_SLUGS, countries=("XX",))
+    unknown = slice_order(LOCATION_SLUGS, markets=("XX",))
     assert unknown == tuple(LOCATION_SLUGS)
 
 

@@ -4889,8 +4889,8 @@ def collect_jobgether_command(
     The hiring scope is why it is worth having: `location` is the employer's
     answer to where the applicant may be, and `Anywhere` means anywhere.
 
-    Your markets go first (`eligible_countries` in your search decides the
-    order, never the set), the budget is in requests, and progress is written
+    Your markets go first (`regions.target` in your search decides the order,
+    never the set; where you live does not), the budget is in requests, and progress is written
     after every page so a stopped run keeps what it read. Read-only, sends
     nothing about you, no inference call.
     """
@@ -4914,15 +4914,13 @@ def collect_jobgether_command(
     if locations:
         chosen = tuple(part.strip() for part in locations.split(",") if part.strip())
     else:
-        countries: tuple[str, ...] = ()
+        markets: tuple[str, ...] = ()
         try:
             search, _ = load_search_config(config_dir)
-            countries = tuple(search.eligibility.eligible_countries)
-            if search.eligibility.candidate_country:
-                countries = (search.eligibility.candidate_country, *countries)
+            markets = tuple(search.regions.target)
         except Exception:  # noqa: BLE001 - no search config is not a reason to refuse
-            countries = ()
-        chosen = slice_order(universe, countries=countries)
+            markets = ()
+        chosen = slice_order(universe, markets=markets)
     # THE SET IS THE PROVIDER'S; THE ORDER IS YOURS. `slices` is the whole
     # neutral universe in the vendor's order and `priority` is your order over
     # it. The collector walks fewest-walked-first, so what you put first is

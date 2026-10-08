@@ -197,12 +197,14 @@ def neutral_server(tmp_path, committed_config, pristine_server):
     thread.join(timeout=10)
 
 
-def test_new_candidate_has_no_occupational_defaults_and_market_pause(page, neutral_server):
+def test_new_candidate_has_no_occupational_defaults_and_no_market_pause(page, neutral_server):
     # `?debug=1`: the concept review below lives in the scoring-vocabulary
     # panel, which is a developer view now.
     page.navigate(neutral_server + "/?debug=1#settings")
     page.wait_for("document.querySelector('[data-source=programathor]') !== null")
-    assert page.evaluate(
+    # No market named is a global search (ADR-0032): a regional board is not
+    # paused for anybody who did not pause it. It used to be, from residence.
+    assert not page.evaluate(
         "document.querySelector('[data-source=programathor]').textContent.includes('Paused')"
     )
     # An upstream that stopped serving says so, keeps no Refresh button, and is

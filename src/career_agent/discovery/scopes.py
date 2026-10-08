@@ -1,11 +1,14 @@
-"""Market scopes for SEARCHING, derived from the person's eligibility answers.
+"""Market scopes for SEARCHING, derived from the markets the person NAMED
+(`regions.target`), never from where she lives (ADR-0032). Residence answers a
+posting's requirements; desired markets guide discovery. No market named is a
+GLOBAL search: one worldwide scope, not one per country she might mean.
 
 Boards name markets differently, and a search for one name does not return
 postings filed under another: a remote role "open in Latin America", one "open
 in South America", one "open in the Americas" and one "open worldwide" are four
-different listings for a person in Brazil, and each board exposes a different
-subset under each word. So these are RELATED SEARCH SCOPES, never synonyms, and
-they are kept apart until results are deduplicated.
+different listings, and each board exposes a different subset under each word.
+So these are RELATED SEARCH SCOPES, never synonyms, kept apart until results
+are deduplicated.
 
 The eligibility gate reads regions its own way (`config/places.yaml` folds
 "south america" into LATAM, which is right for a gate that asks "does this
@@ -21,17 +24,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from career_agent.config.search_config import SearchConfig
-
-#: Countries of South America (ISO 3166-1 alpha-2). A geographic fact, used only
-#: to decide whether "South America" is a word worth searching for somebody.
-SOUTH_AMERICA = frozenset({"AR", "BO", "BR", "CL", "CO", "EC", "GY", "PE", "PY", "SR", "UY", "VE"})
-#: Latin America as boards use it: South and Central America, Mexico, the
-#: Spanish- and Portuguese-speaking Caribbean.
-LATIN_AMERICA = SOUTH_AMERICA | frozenset(
-    {"MX", "GT", "HN", "SV", "NI", "CR", "PA", "CU", "DO", "PR", "BZ"}
-)
-NORTH_AMERICA = frozenset({"US", "CA", "MX"})
-AMERICAS = LATIN_AMERICA | NORTH_AMERICA
 
 #: English country names boards and search boxes accept, for the countries this
 #: product's places data knows. Unknown codes fall back to the code itself.
@@ -102,41 +94,37 @@ class MarketScope:
         return self.label
 
 
-def market_scopes(config: SearchConfig) -> tuple[MarketScope, ...]:
-    """The scopes worth searching for this person, most specific first."""
-    eligibility = config.eligibility
-    home = (eligibility.candidate_country or "").upper()
-    countries = [c.upper() for c in eligibility.eligible_countries if c]
-    if home and home not in countries:
-        countries.insert(0, home)
-    regions = {r.upper() for r in eligibility.eligible_scopes}
+#: Region markets as search scopes: (key, label). EU and EUROPE are EMEA here.
+_REGION_SCOPES: dict[str, tuple[str, str]] = {
+    "LATAM": ("region:LATAM", "Latin America"),
+    "SOUTH_AMERICA": ("region:SOUTH_AMERICA", "South America"),
+    "AMERICAS": ("region:AMERICAS", "Americas"),
+    "NORTH_AMERICA": ("region:NORTH_AMERICA", "North America"),
+    "EMEA": ("region:EMEA", "Europe"),
+    "EU": ("region:EMEA", "Europe"),
+    "EUROPE": ("region:EMEA", "Europe"),
+    "APAC": ("region:APAC", "Asia Pacific"),
+}
 
-    scopes: list[MarketScope] = []
-    for code in countries:
-        scopes.append(MarketScope(f"country:{code}", COUNTRY_NAMES.get(code, code), code))
-    touches_latam = home in LATIN_AMERICA or any(c in LATIN_AMERICA for c in countries)
-    if "LATAM" in regions or ("AMERICAS" in regions and touches_latam):
-        scopes.append(MarketScope("region:LATAM", "Latin America"))
-    in_south = home in SOUTH_AMERICA or any(c in SOUTH_AMERICA for c in countries)
-    if in_south and regions & {"LATAM", "AMERICAS", "SOUTH_AMERICA"}:
-        scopes.append(MarketScope("region:SOUTH_AMERICA", "South America"))
-    if "AMERICAS" in regions:
-        scopes.append(MarketScope("region:AMERICAS", "Americas"))
-    if "NORTH_AMERICA" in regions:
-        scopes.append(MarketScope("region:NORTH_AMERICA", "North America"))
-    if "EMEA" in regions:
-        scopes.append(MarketScope("region:EMEA", "Europe"))
-    if "APAC" in regions:
-        scopes.append(MarketScope("region:APAC", "Asia Pacific"))
+
+def market_scopes(config: SearchConfig) -> tuple[MarketScope, ...]:
+    """One scope per market she named, in her order; none named is one
+    worldwide scope. The query budget (`plan_queries`) bounds the rest."""
+    markets = [str(m).strip().upper() for m in config.regions.target if str(m).strip()]
     remote_ok = "REMOTE" in {m.upper() for m in config.preferences.remote.accepted_work_models}
-    if remote_ok and (home or countries):
-        # Remote roles in the home market: a narrower question than the
-        # country itself, and one many boards answer with a different list.
-        scopes.append(MarketScope("remote", "Remote", remote=True, home=home or countries[0]))
-    if "WORLDWIDE" in regions:
-        scopes.append(
-            MarketScope("remote_worldwide", "Remote Worldwide", remote=True)
-            if remote_ok
-            else MarketScope("worldwide", "Worldwide")
-        )
+    worldwide = (
+        MarketScope("remote_worldwide", "Remote Worldwide", remote=True)
+        if remote_ok
+        else MarketScope("worldwide", "Worldwide")
+    )
+    scopes: list[MarketScope] = []
+    for market in markets or ["WORLDWIDE"]:
+        if market == "WORLDWIDE":
+            scopes.append(worldwide)
+        elif market in _REGION_SCOPES:
+            key, label = _REGION_SCOPES[market]
+            scopes.append(MarketScope(key, label))
+        elif len(market) == 2 and market.isalpha():
+            name = COUNTRY_NAMES.get(market, market)
+            scopes.append(MarketScope(f"country:{market}", name, market))
     return tuple(dict.fromkeys(scopes))

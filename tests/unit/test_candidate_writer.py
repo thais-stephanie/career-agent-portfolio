@@ -342,3 +342,82 @@ def test_a_search_written_before_the_declarations_loads_unchanged(workspace: Pat
     # Its existing answers are exactly what they were.
     assert config.eligibility.eligible_countries == ["BR"]
     assert {b.id for b in config.eligibility.blockers} >= {"us_work_authorization_required"}
+
+
+# =========================================================================
+# MARKETS ORDER DISCOVERY; THEY DO NOT INVALIDATE A SCORE (ADR-0032)
+# =========================================================================
+
+
+def _digest(workspace: Path) -> str:
+    from career_agent.config.search_config import load_search_config
+
+    config, _ = load_search_config(workspace)
+    return config.digest
+
+
+def test_choosing_markets_keeps_the_version_and_the_matching_digest(workspace: Path) -> None:
+    _, version, _ = set_candidate_fields(workspace, {"work_models": ["REMOTE"]})
+    digest = _digest(workspace)
+
+    _, after, applied = set_candidate_fields(workspace, {"target_markets": ["EMEA", "LATAM"]})
+
+    assert applied == ["target_markets"]
+    assert document(workspace)["regions"]["target"] == ["EMEA", "LATAM"]
+    assert after == version, "a discovery-only change detached every stored score"
+    assert _digest(workspace) == digest
+
+
+def test_markets_beside_a_matching_change_still_bump(workspace: Path) -> None:
+    _, version, _ = set_candidate_fields(workspace, {"work_models": ["REMOTE"]})
+    digest = _digest(workspace)
+
+    _, after, _ = set_candidate_fields(
+        workspace, {"target_markets": ["APAC"], "compensation_currency": "EUR"}
+    )
+
+    assert after == version + 1
+    assert _digest(workspace) != digest, "the digest stopped seeing a matching change"
+
+
+def test_naming_an_unchanged_matching_field_beside_markets_does_not_bump(workspace: Path) -> None:
+    """The rule is about what CHANGED in the document, never about which
+    fields a panel happened to send."""
+    _, version, _ = set_candidate_fields(workspace, {"work_models": ["REMOTE"]})
+    _, after, _ = set_candidate_fields(
+        workspace, {"work_models": ["REMOTE"], "target_markets": ["EMEA"]}
+    )
+    assert after == version
+
+
+def test_no_matcher_reads_the_markets() -> None:
+    """What makes leaving `regions` out of the digest honest: no module that
+    scores reads `regions.target` or `regions.opportunistic`. Over the
+    syntax tree, so a comment naming them is not a reader."""
+    import ast
+
+    packages = [ROOT / "src" / "career_agent" / "match", ROOT / "src" / "career_agent" / "pipeline"]
+    offenders = []
+    for package in packages:
+        for path in package.rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Attribute)
+                    and node.attr in {"target", "opportunistic"}
+                    and isinstance(node.value, ast.Attribute)
+                    and node.value.attr == "regions"
+                ):
+                    offenders.append(f"{path.name}:{node.lineno}")
+    assert not offenders, offenders
+
+
+def test_the_writer_and_the_digest_agree_on_what_is_discovery_only() -> None:
+    import inspect
+
+    from career_agent.config.candidate_writer import DISCOVERY_ONLY_SECTIONS
+    from career_agent.config.search_config import SearchConfig
+
+    source = inspect.getsource(SearchConfig.digest.fget)  # type: ignore[attr-defined]
+    for section in DISCOVERY_ONLY_SECTIONS:
+        assert f'"{section}": True' in source, section

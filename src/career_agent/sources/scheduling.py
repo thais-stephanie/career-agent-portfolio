@@ -22,21 +22,24 @@ left 72,682 postings uncollected for everybody. A posting that was never
 collected produces no fingerprint for anybody, and the damage is invisible
 because nothing reports what was not fetched.
 
-So this module produces a PRIORITY and a PAUSE, both reversible from the screen,
-both about scheduling. It is deliberately incapable of expressing anything about
-the CONTENT of a feed: there is no parameter here for a role, a seniority, a
-contract type or a work model, and adding one would be the V1.6 breach again.
+So this module produces a PRIORITY, and nothing else: an ORDER, never a pause.
+It is deliberately incapable of expressing anything about the CONTENT of a
+feed: there is no parameter here for a role, a seniority, a contract type or a
+work model, and adding one would be the V1.6 breach again.
 
-WHAT DECIDES
-------------
-Where the candidate may work, which they answered on the first-run screen and
-which already lives in `preferences.eligible_countries`. Not their nationality,
-not their language, and not where they are sitting: somebody in Sao Paulo
-targeting Berlin needs German sources, and somebody with a Brazilian passport in
-Toronto targeting Canada does not need Gupy.
+WHAT DECIDES (ADR-0032)
+-----------------------
+The markets the candidate SAID she wants (`regions.target`). Never where she
+lives: residence answers a posting's requirements, it does not choose which
+boards are worth reading. It used to: a remote candidate in Brazil had the one
+European board paused as "a market you have not asked for", although remote
+work on it may hire from anywhere.
 
-A source with no market of its own is `global` and is never paused, because
-"remote, worldwide" is the one market everybody shares.
+* No markets named: every board is refreshed, worldwide ones first.
+* Markets named: their boards first, then worldwide ones, then the rest.
+  Nothing is left out.
+* Only an explicit choice leaves a board out: pausing it in Settings & Sources,
+  which the caller applies and this module never overrides.
 """
 
 from __future__ import annotations
@@ -47,12 +50,25 @@ from dataclasses import dataclass
 __all__ = ["Priority", "SourcePlan", "plan_refresh", "regions_for"]
 
 
+#: Which catalogue regions a named MARKET's jobs live in: a region id from
+#: `regions.target`, or a country code. WORLDWIDE prefers no regional board.
+_MARKET_REGIONS: Mapping[str, tuple[str, ...]] = {
+    "LATAM": ("br", "latam"),
+    "SOUTH_AMERICA": ("br", "latam"),
+    "AMERICAS": ("br", "latam"),
+    "EMEA": ("eu",),
+    "EU": ("eu",),
+    "EUROPE": ("eu",),
+    "NORTH_AMERICA": (),
+    "APAC": (),
+    "WORLDWIDE": (),
+}
+
 #: Which catalogue regions a country's jobs live in.
 #:
 #: Small, explicit and INCOMPLETE ON PURPOSE. A country nobody has mapped falls
-#: through to `global` alone, which pauses the regional boards and keeps every
-#: worldwide one -- the conservative direction, because a paused source is a
-#: button away and a source nobody thought to run is invisible.
+#: through to `global` alone: no regional board goes first, and none is left
+#: out.
 #:
 #: `global` is added to every answer rather than listed in each row: a worldwide
 #: board serves every market by definition, and a candidate who wanted none of
@@ -118,96 +134,62 @@ OTHER_MARKET = Priority(2)
 
 @dataclass(frozen=True)
 class SourcePlan:
-    """What to do about one source for one candidate, and why.
+    """When to refresh one source for one candidate, and why.
 
-    `reason` is not decoration. A screen that says "paused" without saying why is
-    a screen somebody has to guess at, and the guess available -- "it is broken"
-    -- is the wrong one.
+    `reason` is not decoration: a screen that orders sources without saying why
+    is a screen somebody has to guess at.
     """
 
     source_id: str
     priority: Priority
-    paused: bool
     reason: str
 
 
-def regions_for(countries: Iterable[str]) -> frozenset[str]:
-    """The catalogue regions worth refreshing for somebody who may work in `countries`.
-
-    An empty answer is impossible: `global` is always in it. A candidate who has
-    not said where they may work therefore gets the worldwide boards and nothing
-    regional, which is the honest default -- we do not know their market, so we
-    refresh the ones that serve every market.
-    """
+def regions_for(markets: Iterable[str]) -> frozenset[str]:
+    """The catalogue regions of the markets a candidate named. `global` is
+    always in it; a market nobody mapped adds nothing regional."""
     out = {GLOBAL}
-    for code in countries:
-        out.update(_COUNTRY_REGIONS.get(str(code).strip().upper(), ()))
+    for market in markets:
+        key = str(market).strip().upper()
+        out.update(_MARKET_REGIONS.get(key, _COUNTRY_REGIONS.get(key, ())))
     return frozenset(out)
 
 
 def plan_refresh(
     sources: Mapping[str, str],
     *,
-    countries: Iterable[str],
+    markets: Iterable[str],
     enabled: Iterable[str] = (),
 ) -> list[SourcePlan]:
-    """One plan per source, most urgent first.
+    """One plan per source, most urgent first. Every source is in it.
 
     `sources` maps a source id to its catalogue region, so this module never
     reads the catalogue itself and never names a vendor -- the rule
     `tests/unit/test_provider_neutrality.py` enforces over the syntax tree.
 
-    `enabled` is the candidate overriding this by hand. It always wins, and it
-    has to: a Brazilian in Toronto may want Brazilian boards for reasons no
-    country code can express, and a scheduler that could not be overruled would
-    be a scheduler making the decision instead of informing it.
+    `markets` are the ones the candidate named (`regions.target`), never where
+    she lives. `enabled` is the candidate turning a source on by hand; it
+    always goes first.
     """
-    wanted = regions_for(countries)
+    wanted = regions_for(markets) - {GLOBAL}
     forced = {str(s) for s in enabled}
     plans: list[SourcePlan] = []
     for source_id, region in sources.items():
         region = (region or GLOBAL).strip().lower()
         if source_id in forced:
-            plans.append(
-                SourcePlan(
-                    source_id=source_id,
-                    priority=TARGETED,
-                    paused=False,
-                    reason="you turned this one on yourself",
-                )
-            )
-        elif region == GLOBAL:
-            plans.append(
-                SourcePlan(
-                    source_id=source_id,
-                    priority=WORLDWIDE,
-                    paused=False,
-                    reason="this board carries work from anywhere",
-                )
-            )
+            plan = SourcePlan(source_id, TARGETED, "you turned this one on yourself")
         elif region in wanted:
-            plans.append(
-                SourcePlan(
-                    source_id=source_id,
-                    priority=TARGETED,
-                    paused=False,
-                    reason="this board covers a place you said you can work",
-                )
-            )
+            plan = SourcePlan(source_id, TARGETED, "this board covers a market you chose")
+        elif region == GLOBAL:
+            plan = SourcePlan(source_id, WORLDWIDE, "this board carries work from anywhere")
         else:
-            plans.append(
-                SourcePlan(
-                    source_id=source_id,
-                    priority=OTHER_MARKET,
-                    paused=True,
-                    reason=(
-                        "this board covers a market you have not asked for. "
-                        "Nothing is hidden: everything already collected from it "
-                        "is still in your list, and you can refresh it whenever "
-                        "you like."
-                    ),
-                )
+            plan = SourcePlan(
+                source_id,
+                OTHER_MARKET,
+                "this board covers another market; it is refreshed after the ones you "
+                "chose, and remote work on it may hire from anywhere",
             )
+        plans.append(plan)
     plans.sort(key=lambda p: (p.priority, p.source_id))
     return plans
 
@@ -239,8 +221,23 @@ _COUNTRY_SLICE_ORDER: Mapping[str, tuple[str, ...]] = {
 }
 
 
-def slice_order(available: Iterable[str], *, countries: Iterable[str]) -> tuple[str, ...]:
-    """`available`, reordered so the candidate's markets come first.
+#: The slices of a named REGION market, in the vendor's slug vocabulary.
+_MARKET_SLICE_ORDER: Mapping[str, tuple[str, ...]] = {
+    "WORLDWIDE": ("anywhere",),
+    "LATAM": ("latam", "south-america", "central-america"),
+    "SOUTH_AMERICA": ("south-america", "latam"),
+    "AMERICAS": ("north-america", "latam", "south-america", "central-america"),
+    "NORTH_AMERICA": ("north-america",),
+    "EMEA": ("europe",),
+    "EU": ("europe",),
+    "EUROPE": ("europe",),
+    "APAC": ("asia", "oceania"),
+}
+
+
+def slice_order(available: Iterable[str], *, markets: Iterable[str]) -> tuple[str, ...]:
+    """`available`, reordered so the markets the candidate named come first
+    (a region id or a country code). No markets: the source's own order.
 
     Every name in `available` is returned exactly once; nothing is added and
     nothing is dropped. A preferred name the source does not offer is
@@ -248,8 +245,9 @@ def slice_order(available: Iterable[str], *, countries: Iterable[str]) -> tuple[
     """
     offered = list(dict.fromkeys(str(a) for a in available))
     preferred: list[str] = []
-    for code in countries:
-        for name in _COUNTRY_SLICE_ORDER.get(str(code).strip().upper(), ()):
+    for market in markets:
+        key = str(market).strip().upper()
+        for name in _MARKET_SLICE_ORDER.get(key, _COUNTRY_SLICE_ORDER.get(key, ())):
             if name in offered and name not in preferred:
                 preferred.append(name)
     return tuple(preferred + [name for name in offered if name not in preferred])

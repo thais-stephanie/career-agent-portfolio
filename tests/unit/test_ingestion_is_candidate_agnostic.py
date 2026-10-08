@@ -102,7 +102,7 @@ def test_three_personas_get_the_same_collection_plan(country: str, scopes: tuple
     persona's search would say and is deliberately unused: nothing about a
     search reaches the plan at all."""
     del scopes
-    ordered = slice_order(LOCATION_SLUGS, countries=(country,))
+    ordered = slice_order(LOCATION_SLUGS, markets=(country,))
     assert set(ordered) == set(LOCATION_SLUGS)
     assert len(ordered) == len(LOCATION_SLUGS)
     plan = default_slices(ordered)

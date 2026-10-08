@@ -40,11 +40,17 @@ PAGE1 = json.loads((FIXTURES / "himalayas" / "feed-page1.json").read_text(encodi
 BASE = safe_load((committed_config_dir() / "search.local.yaml").read_text(encoding="utf-8"))
 
 
-def config(country: str, scopes: list[str], countries: list[str] | None = None) -> SearchConfig:
+def config(
+    country: str,
+    scopes: list[str],
+    countries: list[str] | None = None,
+    markets: list[str] | None = None,
+) -> SearchConfig:
     data = copy.deepcopy(BASE)
     data["eligibility"]["candidate_country"] = country
     data["eligibility"]["eligible_scopes"] = scopes
     data["eligibility"]["eligible_countries"] = countries or []
+    data.setdefault("regions", {})["target"] = markets or []
     data["preferences"]["remote"]["accepted_work_models"] = ["REMOTE"]
     return SearchConfig.model_validate(data)
 
@@ -63,26 +69,24 @@ def conn() -> Iterator[sqlite3.Connection]:
 # =========================================================================
 
 
-def test_a_brazil_search_open_to_the_region_and_the_world_asks_every_related_scope() -> None:
-    keys = [s.key for s in market_scopes(config("BR", ["WORLDWIDE", "AMERICAS", "LATAM"]))]
-    assert keys == [
-        "country:BR",
-        "region:LATAM",
-        "region:SOUTH_AMERICA",
-        "region:AMERICAS",
-        "remote",
-        "remote_worldwide",
-    ]
+def test_no_market_named_is_one_global_search_whatever_she_lives_or_may_be_hired() -> None:
+    """ADR-0032: residence and eligibility answer requirements; they do not
+    choose where to search. No market named is ONE worldwide scope."""
+    keys = [s.key for s in market_scopes(config("BR", ["WORLDWIDE", "AMERICAS", "LATAM"], ["BR"]))]
+    assert keys == ["remote_worldwide"]
 
 
-def test_a_country_only_search_asks_only_that_country() -> None:
-    assert [s.key for s in market_scopes(config("US", []))] == ["country:US", "remote"]
+def test_chosen_markets_are_searched_in_her_order_one_scope_each() -> None:
+    cfg = config("BR", ["LATAM"], ["BR"], markets=["EMEA", "LATAM", "BR", "WORLDWIDE", "EU"])
+    keys = [s.key for s in market_scopes(cfg)]
+    assert keys == ["region:EMEA", "region:LATAM", "country:BR", "remote_worldwide"]
+    assert market_scopes(cfg)[0].location_text == "Europe"
 
 
-def test_scopes_are_derived_for_any_market() -> None:
-    keys = [s.key for s in market_scopes(config("DE", ["EMEA"], ["AT"]))]
-    assert keys == ["country:DE", "country:AT", "region:EMEA", "remote"]
-    assert "region:SOUTH_AMERICA" not in keys
+def test_the_query_budget_still_bounds_many_markets() -> None:
+    cfg = config("BR", [], markets=["EMEA", "LATAM", "APAC", "NORTH_AMERICA", "WORLDWIDE"])
+    terms = query_terms(cfg, RoleAnchors(anchors=(Anchor(text="Analyst"), Anchor(text="Planner"))))
+    assert len(plan_queries(terms, market_scopes(cfg), max_queries=3)) == 3
 
 
 # =========================================================================
@@ -153,7 +157,7 @@ def himalayas(conn: sqlite3.Connection, search: Any) -> tuple[HimalayasCollector
 
 
 def _plan(n: int = 2) -> tuple[Any, ...]:
-    cfg = config("BR", ["LATAM"])
+    cfg = config("BR", ["LATAM"], markets=["BR"])
     terms = query_terms(cfg, RoleAnchors(anchors=(Anchor(text="Widget Engineer"),)))
     return plan_queries(terms, [s for s in market_scopes(cfg) if s.country], max_queries=n)
 

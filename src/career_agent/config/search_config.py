@@ -506,11 +506,16 @@ class SearchConfig(_Section):
         stale rather than as a disagreement. Computed from the canonical JSON
         dump rather than the file bytes, because a reformatted comment is not a
         change of meaning and a re-expanded fragment is.
+
+        `regions` is left out: the markets she wants to search first order
+        DISCOVERY and no matcher reads them (ADR-0032), so changing them must
+        not make a score stale. Anything a matcher reads stays in.
         """
         payload = json.dumps(
             self.model_dump(
                 mode="json",
                 exclude={
+                    "regions": True,
                     "scoring": {
                         "components": {
                             name: {"setup_weights"}
@@ -520,7 +525,7 @@ class SearchConfig(_Section):
                                 "automation_integration",
                             )
                         }
-                    }
+                    },
                 },
             ),
             sort_keys=True,

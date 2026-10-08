@@ -228,12 +228,17 @@ def test_a_run_keeps_its_total_while_the_live_due_count_moves(api, seven, monkey
     during = api.retrieval.snapshot()
     assert during["boards_total"] == 2 == len(during["plan"])
 
-    # C turns fresh while the run is still on B. The live count moves; the
-    # run's total does not.
-    _ledger(api, seven["stage"][seven["C"]], hours_ago=0)
+    # The source still WAITING turns fresh while the run is on the other one.
+    # The live count moves; the run's total does not. Which of B and C runs
+    # first is the refresh order (ADR-0032), so neither is assumed.
+    first = recorder.ran[0]
+    waiting = next(
+        seven["stage"][seven[n]] for n in ("B", "C") if seven["stage"][seven[n]] != first
+    )
+    _ledger(api, waiting, hours_ago=0)
     summary = api.handle_api("GET", "/api/sources", {}, {})["summary"]
-    # Live: B is being read (RUNNING, not due) and C is fresh, so nothing is
-    # due right now; the run still says it is refreshing two.
+    # Live: one is being read (RUNNING, not due) and the other is fresh, so
+    # nothing is due right now; the run still says it is refreshing two.
     assert summary["due"] == 0
     assert api.retrieval.snapshot()["boards_total"] == 2
     gate.set()

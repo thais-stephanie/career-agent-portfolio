@@ -53,16 +53,16 @@ UNIVERSE = tuple(Slice(loc) for loc in LOCATION_SLUGS)
 
 
 def _priority(country: str) -> list[str]:
-    return [Slice(loc).key for loc in slice_order(LOCATION_SLUGS, countries=(country,))]
+    return [Slice(loc).key for loc in slice_order(LOCATION_SLUGS, markets=(country,))]
 
 
 # A. Two candidates produce the same slice universe.
 def test_a_two_candidates_share_one_universe() -> None:
-    brazil = set(slice_order(LOCATION_SLUGS, countries=("BR",)))
-    germany = set(slice_order(LOCATION_SLUGS, countries=("DE",)))
+    brazil = set(slice_order(LOCATION_SLUGS, markets=("BR",)))
+    germany = set(slice_order(LOCATION_SLUGS, markets=("DE",)))
     assert brazil == germany == set(LOCATION_SLUGS)
     assert {s.key for s in default_slices(LOCATION_SLUGS)} == {
-        s.key for s in default_slices(slice_order(LOCATION_SLUGS, countries=("DE",)))
+        s.key for s in default_slices(slice_order(LOCATION_SLUGS, markets=("DE",)))
     }
 
 
