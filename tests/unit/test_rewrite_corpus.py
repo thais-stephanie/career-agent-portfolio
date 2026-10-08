@@ -72,7 +72,7 @@ def test_the_independent_evaluation_report_is_kept_as_it_was() -> None:
 
 
 def test_ev32_is_fixed_as_a_regression_not_as_an_evaluation() -> None:
-    """"Cut first reply time by 20% by rebuilding the Zendesk macros" from
+    """ "Cut first reply time by 20% by rebuilding the Zendesk macros" from
     "Rebuilt the Zendesk macros that cut first reply time by 20%": the
     inflection is the evidence's own word, and so is the amount."""
     case = next(c for c in corpus.load("eval") if c["id"] == "ev-32")

@@ -543,6 +543,30 @@ lost if something goes wrong.
    an earlier version, press **Recalculate search fit** in that notice once.
    It stays on your computer, calls no AI provider and takes a few minutes on
    a large list. Until then the list shows the older scores.
+
+   **When the update changes how postings are read** (the eligibility
+   declarations, for one), the notice counts every score worked out the old
+   way, even though your settings did not change. Pressing the button reads
+   every open posting again: it cannot reuse a stored reading made by the
+   older reader. What to expect:
+
+   * **Trigger.** Nothing starts on its own. The notice offers it; the button
+     (or `career-agent rescore --db <your database>`) runs it.
+   * **While it runs.** The list keeps showing the older scores, and the notice
+     follows the recalculation to its end; nothing disappears.
+   * **If it stops** (you close the app, the computer sleeps), nothing is lost:
+     every posting already done keeps its new score, and the next press reads
+     only the postings still waiting.
+   * **How long.** Measured on synthetic postings on one Windows laptop: about
+     2.5 ms per posting at 700 characters of text and 9 to 14 ms at 3,500.
+     Full re-reads of a real corpus measured 17 to 25 ms per posting (300,688
+     postings in 84 to 126 minutes, 2026-09-20). Expect roughly an hour for
+     150,000 postings; the time scales with how much text the postings hold.
+   * **What changes.** A posting that states a requirement you have not
+     answered (work authorization in a country, no visa sponsorship, a
+     contractor engagement, especially one whose client country is not stated)
+     moves from "eligible" to "waiting for your answer". Answer the questions
+     under Profile, Where, and the next recalculation reads them.
 8. If you used Resume Tailor (v0.2.0-beta.2 or older), **Resumes** says
    "We found resumes from the previous version". Nothing moves until you
    choose **Review and move them**, which shows what will move, makes a

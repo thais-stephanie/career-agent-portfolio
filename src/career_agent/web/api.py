@@ -704,7 +704,6 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # empty facet columns, so the country, region, worksite and salary
             # filters return nothing for them -- which looks exactly like a
             # correctly-filtered empty result unless something says otherwise.
-            stale_scores = repo.stale_schema_count(config_id, config_version)
             version = schema_version(conn)
             # `config_digest` was being written and never read, which made the
             # version discipline advisory. If someone edits the configuration
@@ -716,6 +715,10 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             digest = str(getattr(cfg, "digest", "UNRECORDED"))
             stored = repo.digests_for(config_id, config_version)
             drift = sorted(d for d in stored if d not in (digest, "UNRECORDED"))
+            # What the notice offers to recalculate: an older result schema,
+            # or a reading of this same configuration version that this build
+            # no longer makes (an update that reads the file differently).
+            stale_scores = repo.stale_schema_count(config_id, config_version, digest)
 
             # Which population is this, and does it say so itself? An
             # unstamped database is reported as UNKNOWN rather than assumed

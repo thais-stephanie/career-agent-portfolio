@@ -1231,8 +1231,16 @@ class MatchRepo(_Repo):
         ).fetchall()
         return {str(row["job_id"]) for row in rows}
 
-    def stale_schema_count(self, config_id: str, config_version: int) -> int:
-        """Rows scored under an OLDER result schema than this build writes.
+    def stale_schema_count(
+        self, config_id: str, config_version: int, digest: str | None = None
+    ) -> int:
+        """Rows scored under an OLDER result schema than this build writes, or,
+        given the configuration's current `digest`, under a DIFFERENT reading
+        of this same configuration version: an update that reads the same
+        file differently (a new declaration with its default) leaves every
+        score worked out the old way while the version stays the same, and
+        nothing else would say so or offer the recalculation. A row without a
+        recorded digest is not counted for it.
 
         Reported by `/api/health` so the interface can say "these scores were
         computed before the filter columns existed" instead of four filters
@@ -1243,11 +1251,13 @@ class MatchRepo(_Repo):
         closed one's older row would keep the count, and the notice that
         offers the recalculation, above zero forever.
         """
+        drifted = " OR (m.config_digest NOT IN (?, 'UNRECORDED'))" if digest else ""
         row = self.conn.execute(
             "SELECT COUNT(*) AS n FROM job_match m JOIN job j ON j.id = m.job_id"
-            " WHERE m.config_id = ? AND m.config_version = ? AND m.schema_version < ?"
+            " WHERE m.config_id = ? AND m.config_version = ?"
+            f" AND (m.schema_version < ?{drifted})"
             " AND j.closed_at IS NULL",
-            (config_id, config_version, MATCH_SCHEMA_VERSION),
+            (config_id, config_version, MATCH_SCHEMA_VERSION, *([digest] if digest else [])),
         ).fetchone()
         return int(row["n"])
 
