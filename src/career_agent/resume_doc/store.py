@@ -1005,6 +1005,7 @@ class ResumeStore:
 #: Every Resume Workspace table, children first, so a delete never orphans a row.
 RESUME_TABLES = (
     "application_resume",
+    "resume_statement_acknowledgement",
     "resume_finding_dismissal",
     "resume_export",
     "tailoring_change",

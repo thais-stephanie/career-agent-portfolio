@@ -55,8 +55,15 @@ GENERIC = (
     "responsavel por", "proativo", "proativa", "trabalho em equipe", "orientado a resultados",
 )  # fmt: skip
 #: Shared grounding codes, as Analyze names them for an evidence-linked line.
+#: Every code the grounding reader gives, as the finding Analyze names. Who
+#: did the work, with whom and with what result share one kind: they are one
+#: question for the person ("is this what you did?").
 _GROUNDING = {"NUMBERS": "UNSUPPORTED_NUMBER", "NAMED_TOOLS": "UNSUPPORTED_TOOL",
-              "SENIORITY": "UNSUPPORTED_SENIORITY"}  # fmt: skip
+              "SENIORITY": "UNSUPPORTED_SENIORITY", "CLAIMS": "UNSUPPORTED_CLAIM",
+              "OVERSTATEMENT": "UNSUPPORTED_WORDING",
+              "RESPONSIBILITY": "UNSUPPORTED_RESPONSIBILITY",
+              "PARTICIPATION": "UNSUPPORTED_RESPONSIBILITY", "AGENT": "UNSUPPORTED_RESPONSIBILITY",
+              "SCOPE": "UNSUPPORTED_SCOPE", "CAUSALITY": "UNSUPPORTED_CAUSALITY"}  # fmt: skip
 #: Job coverage, from the Tailor's own states.
 SHOWN, NOT_SHOWN, UNCONFIRMED, NOT_FOUND, ELIGIBILITY = (
     "SUPPORTED_IN_RESUME", "SUPPORTED_IN_CONFIRMED_EXPERIENCE_NOT_RESUME",
@@ -161,8 +168,9 @@ def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list, dict
     _, rows = _career(conn)
     confirmed = {r["claim_key"]: r for r in rows if r["state"] == "CONFIRMED"}
     counts = dict.fromkeys(
-        ("CONFIRMED", "EVIDENCE_CHANGED", "NO_LONGER_CONFIRMED", "USER_AUTHORED", "IMPORTED"), 0
-    )
+        ("CONFIRMED", "NOT_AS_WORDED", "EVIDENCE_CHANGED", "NO_LONGER_CONFIRMED", "USER_AUTHORED",
+         "IMPORTED"), 0
+    )  # fmt: skip
     out = []
     for holder, line, shown in _lines(doc):
         if not shown or not line.text.strip():
@@ -185,7 +193,6 @@ def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list, dict
             key = f"EVIDENCE_CHANGED:{ref}:{_fingerprint(held[0]['text'])}"
             out.append(finding("EVIDENCE_CHANGED", ref, key=key, evidence_ids=ids))
             continue
-        counts["CONFIRMED"] += 1
         source = " ".join(
             [
                 line.original_text or "",
@@ -198,11 +205,16 @@ def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list, dict
             for e in doc.experience
             if holder in (None, e.id)
         )
-        for code, _ in grounding(line.text, source, tools, ai=True, titles=titles):
-            if code in _GROUNDING:
-                kind = _GROUNDING[code]
-                key = f"{kind}:{ref}:{_fingerprint(line.text)}"
-                out.append(finding(kind, ref, key=key, evidence_ids=ids))
+        kinds = dict.fromkeys(
+            _GROUNDING[code]
+            for code, _ in grounding(line.text, source, tools, ai=True, titles=titles)
+        )
+        # A line its evidence does not hold as worded is not "from confirmed
+        # experience", whatever ids it carries.
+        counts["NOT_AS_WORDED" if kinds else "CONFIRMED"] += 1
+        for kind in kinds:
+            key = f"{kind}:{ref}:{_fingerprint(line.text)}"
+            out.append(finding(kind, ref, key=key, evidence_ids=ids))
     return out, counts  # fmt: skip
 
 

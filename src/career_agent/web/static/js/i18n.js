@@ -1970,8 +1970,8 @@ const EN = {
   'rv.an.state.NOT_FOUND_IN_CONFIRMED_EXPERIENCE': 'I couldn’t find this in your confirmed experience',
   'rv.an.overview': 'Overview',
   'rv.an.of': 'Analyzed: {title}, exactly as it was saved.',
-  'rv.an.counts': '{roles} roles, {bullets} lines shown. Lines from confirmed experience: {confirmed}. Written by '
-    + 'you: {typed}. Imported: {imported}.',
+  'rv.an.counts': '{roles} roles, {bullets} lines shown. Lines from confirmed experience: {confirmed}. Linked to '
+    + 'evidence that does not say it as worded: {worded}. Written by you: {typed}. Imported: {imported}.',
   'rv.an.notScore': 'These are counts and named checks, not a score or a prediction.',
   'rv.an.forJob': 'For this job: {job}',
   'rv.an.sumShown': 'This resume shows confirmed support for {n} of {of} job asks.',
@@ -2012,6 +2012,14 @@ const EN = {
   'rv.find.UNSUPPORTED_NUMBER': 'A line linked to your evidence has a number its evidence does not.',
   'rv.find.UNSUPPORTED_TOOL': 'A line linked to your evidence names a tool its evidence does not.',
   'rv.find.UNSUPPORTED_SENIORITY': 'A line linked to your evidence claims more seniority than its evidence.',
+  'rv.find.UNSUPPORTED_RESPONSIBILITY': 'A line linked to your evidence says you did more, or something else, than '
+    + 'its evidence says: who did the work, or your part in it.',
+  'rv.find.UNSUPPORTED_SCOPE': 'A line linked to your evidence changes how often, for whom or how far, or drops a '
+    + 'limit its evidence states.',
+  'rv.find.UNSUPPORTED_CAUSALITY': 'A line linked to your evidence says your work caused a result its evidence '
+    + 'states separately.',
+  'rv.find.UNSUPPORTED_CLAIM': 'A line linked to your evidence claims a result or a scale its evidence does not.',
+  'rv.find.UNSUPPORTED_WORDING': 'A line linked to your evidence uses words its evidence does not hold.',
   'rv.find.STALE_EVIDENCE': 'One line refers to experience that is no longer confirmed. Review the line.',
   'rv.find.EVIDENCE_CHANGED': 'The confirmed experience behind a line has changed since.',
   'rv.find.CHECK_DATES': '{n} roles are marked current: check these dates.',
@@ -2450,6 +2458,26 @@ const EN = {
   'rv.export.checked': 'checked',
   'rv.export.later': 'Edits made while the file was being made are saved, and are not in this file.',
   'rv.export.problemShort': 'a check found a problem',
+  'rv.export.fidelity': 'These checks are about the file: that it reads back as this resume. They do not check '
+    + 'whether what it says is true.',
+  'rv.export.declared': '{n} statements in it are your own, not backed by confirmed evidence.',
+  'rv.export.declaredOne': '{n} statement in it is your own, not backed by confirmed evidence.',
+  'rv.review.title': 'Before this resume leaves your computer',
+  'rv.review.lede': 'These statements are not backed by your confirmed evidence as they are worded. For each, '
+    + 'edit it, put back the wording of its evidence, or say it is your own statement. Saying so is recorded and '
+    + 'does not check whether it is true; the line keeps where it came from.',
+  'rv.review.waiting': '{n} statements wait for your decision.',
+  'rv.review.waitingOne': '{n} statement waits for your decision.',
+  'rv.review.kind.NOT_AS_WORDED': 'Linked to your evidence, which does not say it this way',
+  'rv.review.kind.EVIDENCE_CHANGED': 'Its evidence was reworded after this line was made',
+  'rv.review.kind.WRITTEN': 'Written by you: no confirmed evidence supports it',
+  'rv.review.kind.IMPORTED': 'Imported from a file: no confirmed evidence supports it',
+  'rv.review.edit': 'Edit',
+  'rv.review.putBack': 'Put back the evidence wording',
+  'rv.review.mine': 'This is my own statement',
+  'rv.review.yours': 'Your own statement',
+  'rv.review.undo': 'Undo',
+  'rv.review.again': 'Download {format} again',
   'rv.ats.line': '{status}: {words}',
   'rv.ats.lineIssues': '{status}: {words} ({issues})',
   'rv.ats.status.PASS': 'Checked',
@@ -6128,8 +6156,9 @@ const PT_BR = {
   'rv.an.state.NOT_FOUND_IN_CONFIRMED_EXPERIENCE': 'Não encontrei isso na sua experiência confirmada',
   'rv.an.overview': 'Visão geral',
   'rv.an.of': 'Analisado: {title}, exatamente como foi salvo.',
-  'rv.an.counts': '{roles} cargos, {bullets} linhas visíveis. Linhas da experiência confirmada: {confirmed}. Escritas '
-    + 'por você: {typed}. Importadas: {imported}.',
+  'rv.an.counts': '{roles} cargos, {bullets} linhas visíveis. Linhas da experiência confirmada: {confirmed}. Ligadas '
+    + 'a uma evidência que não diz isso com essas palavras: {worded}. Escritas por você: {typed}. Importadas: '
+    + '{imported}.',
   'rv.an.notScore': 'São contagens e conferências com nome, não uma nota nem uma previsão.',
   'rv.an.forJob': 'Para esta vaga: {job}',
   'rv.an.sumShown': 'Este currículo mostra apoio confirmado para {n} de {of} pedidos da vaga.',
@@ -6170,6 +6199,15 @@ const PT_BR = {
   'rv.find.UNSUPPORTED_NUMBER': 'Uma linha ligada à sua evidência tem um número que a evidência não tem.',
   'rv.find.UNSUPPORTED_TOOL': 'Uma linha ligada à sua evidência cita uma ferramenta que a evidência não cita.',
   'rv.find.UNSUPPORTED_SENIORITY': 'Uma linha ligada à sua evidência sugere mais senioridade do que a evidência.',
+  'rv.find.UNSUPPORTED_RESPONSIBILITY': 'Uma linha ligada à sua evidência diz que você fez mais, ou outra coisa, do '
+    + 'que a evidência diz: quem fez o trabalho ou qual foi a sua parte.',
+  'rv.find.UNSUPPORTED_SCOPE': 'Uma linha ligada à sua evidência muda a frequência, o público ou o alcance, ou tira '
+    + 'um limite que a evidência informa.',
+  'rv.find.UNSUPPORTED_CAUSALITY': 'Uma linha ligada à sua evidência diz que seu trabalho causou um resultado que a '
+    + 'evidência informa à parte.',
+  'rv.find.UNSUPPORTED_CLAIM': 'Uma linha ligada à sua evidência afirma um resultado ou uma escala que a evidência '
+    + 'não afirma.',
+  'rv.find.UNSUPPORTED_WORDING': 'Uma linha ligada à sua evidência usa palavras que a evidência não tem.',
   'rv.find.STALE_EVIDENCE': 'Uma linha se refere a uma experiência que não está mais confirmada. Revise a linha.',
   'rv.find.EVIDENCE_CHANGED': 'A experiência confirmada por trás de uma linha mudou desde então.',
   'rv.find.CHECK_DATES': '{n} cargos estão marcados como atuais: confira essas datas.',
@@ -6606,6 +6644,26 @@ const PT_BR = {
   'rv.export.problem': '{format} gerado, mas a conferência encontrou um problema',
   'rv.export.pages': '{n} página(s)',
   'rv.export.dismiss': 'Fechar',
+  'rv.export.fidelity': 'Essas conferências são sobre o arquivo: que ele se lê como este currículo. Elas não '
+    + 'conferem se o que ele diz é verdade.',
+  'rv.export.declared': '{n} afirmações nele são suas, sem respaldo de evidência confirmada.',
+  'rv.export.declaredOne': '{n} afirmação nele é sua, sem respaldo de evidência confirmada.',
+  'rv.review.title': 'Antes de este currículo sair do seu computador',
+  'rv.review.lede': 'Estas afirmações não têm respaldo da sua evidência confirmada do jeito que estão escritas. '
+    + 'Para cada uma, edite, volte ao texto da evidência ou diga que é uma afirmação sua. Isso fica registrado e '
+    + 'não confere se é verdade; a linha guarda de onde veio.',
+  'rv.review.waiting': '{n} afirmações aguardam sua decisão.',
+  'rv.review.waitingOne': '{n} afirmação aguarda sua decisão.',
+  'rv.review.kind.NOT_AS_WORDED': 'Ligada à sua evidência, que não diz isso desse jeito',
+  'rv.review.kind.EVIDENCE_CHANGED': 'A evidência foi reescrita depois que esta linha foi feita',
+  'rv.review.kind.WRITTEN': 'Escrita por você: nenhuma evidência confirmada a sustenta',
+  'rv.review.kind.IMPORTED': 'Importada de um arquivo: nenhuma evidência confirmada a sustenta',
+  'rv.review.edit': 'Editar',
+  'rv.review.putBack': 'Voltar ao texto da evidência',
+  'rv.review.mine': 'Esta é uma afirmação minha',
+  'rv.review.yours': 'Afirmação sua',
+  'rv.review.undo': 'Desfazer',
+  'rv.review.again': 'Baixar {format} de novo',
   'rv.export.checked': 'conferido',
   'rv.export.later': 'As edições feitas enquanto o arquivo era gerado estão salvas, e não estão neste arquivo.',
   'rv.export.problemShort': 'a conferência encontrou um problema',

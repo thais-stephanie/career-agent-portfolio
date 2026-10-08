@@ -218,7 +218,7 @@ export function createAnalyze({ host, show, open, onEvidence, onTailor }) {
       el('p', { text: t('rv.an.of', { title: r.title }) }),
       el('p', { className: 'rve__note', text: t('rv.an.counts', {
         roles: r.overview.roles, bullets: r.overview.bullets, confirmed: ev.CONFIRMED,
-        typed: ev.USER_AUTHORED, imported: ev.IMPORTED,
+        worded: ev.NOT_AS_WORDED || 0, typed: ev.USER_AUTHORED, imported: ev.IMPORTED,
       }) }),
       el('p', { className: 'rve__note', text: t('rv.an.notScore') }),
     ];
@@ -269,7 +269,7 @@ export function createAnalyze({ host, show, open, onEvidence, onTailor }) {
       parts.push(el('p', { className: 'rve__note', text: tCount('rv.an.dismissed', { n: r.dismissed }) }));
     }
     const checks = r.export ? r.export.checks.map((c) => el('li', {
-      text: `${t(`rv.ats.${c.name}`)}: ${t(`rv.ats.status.${c.status}`)}`,
+      text: `${t(`rv.ats.${c.check}`)}: ${t(`rv.ats.status.${c.status}`)}`,
     })) : [];
     parts.push(el('details', { className: 'rvan__technical' }, [
       el('summary', { text: t('rv.an.technical') }),

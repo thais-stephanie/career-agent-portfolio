@@ -24,7 +24,15 @@ import pytest
 from tests.browser.chrome import Chrome
 from tests.browser.conftest import _free_port
 from tests.browser.test_resume_editor import STATE, open_editor, press, type_into
-from tests.support_resume import LONG_BULLET, confirm_cited, exportable, long, rich, sparse
+from tests.support_resume import (
+    LONG_BULLET,
+    acknowledge_saved,
+    confirm_cited,
+    exportable,
+    long,
+    rich,
+    sparse,
+)
 
 from career_agent.clock import new_id
 from career_agent.resume_doc.ats import read_pdf, squash
@@ -60,6 +68,9 @@ def server(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, Any]]:
         stamp_identity(conn, RuntimeMode.PERSONAL, "Synthetic")
         confirm_cited(conn, exportable())
     ResumeStore(conn).create_document(exportable())
+    # The file tests below are about the file; the review has its own test.
+    with transaction(conn):
+        acknowledge_saved(conn, exportable().id)
     conn.close()
     port = _free_port()
     app = JobsApi(ServerConfig(db_path=db, config_dir=committed_config, port=port), quiet=True)
@@ -217,6 +228,45 @@ def test_download_saves_first_and_makes_the_file_of_what_is_shown(
             break
         page.evaluate("new Promise((r) => setTimeout(r, 100))")
     assert (tmp_path / "Morgan_Conceição_Exemplo_Resume.pdf").read_bytes().startswith(b"%PDF")
+
+
+def test_a_statement_nobody_stood_behind_is_asked_about_before_the_file(
+    page: Chrome, server: dict[str, Any]
+) -> None:
+    typed = exportable().experience[0].bullets[-1]
+    with connect(server["db"]) as conn, transaction(conn):
+        conn.execute(
+            "UPDATE resume_statement_acknowledgement SET withdrawn_at = '2026-10-07T00:00:00Z'"
+            " WHERE item_ref = ?",
+            (typed.id,),
+        )
+    open_editor(page, server["url"])
+    download(page, "DOCX")
+    review = "document.querySelector('.rve__notice--review')"
+    page.wait_for(f"{review} !== null", message="the review")
+    assert _exports(server["db"]) == []
+    assert page.evaluate(f"{review}.querySelector('.rve__reviewhead').textContent") == (
+        "1 statement waits for your decision."
+    )
+    item = f"{review}.querySelector('.rve__reviewitem[data-ref=\"{typed.id}\"]')"
+    assert page.evaluate(f"{item}.querySelector('blockquote').textContent") == typed.text
+    page.evaluate(
+        f"[...{item}.querySelectorAll('button')]"
+        ".find((b) => b.textContent === 'This is my own statement').click()"
+    )
+    page.wait_for(f"{item}.dataset.acknowledged === 'true'", message="acknowledged")
+    page.evaluate(
+        f"[...{review}.querySelectorAll('button')]"
+        ".find((b) => b.textContent === 'Download DOCX again').click()"
+    )
+    page.wait_for(f"{BOX}.dataset.state === 'ready'", timeout=60, message="ready")
+    text = page.evaluate(f"{BOX}.textContent")
+    assert "do not check whether what it says is true" in text
+    assert "your own, not backed by confirmed evidence" in text
+    # The line itself is untouched: the decision is recorded apart.
+    with connect(server["db"]) as conn:
+        line = ResumeStore(conn).get_document(exportable().id).working.experience[0].bullets[-1]
+    assert (line.text, line.origin) == (typed.text, typed.origin)
 
 
 def test_edits_that_cannot_be_saved_refuse_the_download(

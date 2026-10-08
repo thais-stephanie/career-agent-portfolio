@@ -147,6 +147,8 @@ PRIVATE_TABLES: frozenset[str] = frozenset(
         "resume_finding_dismissal",
         # 0049: which resume the person says they used for a job.
         "application_resume",
+        # 0050: statements the person acknowledged as their own before an export.
+        "resume_statement_acknowledgement",
         "requirement_review",
         "job_retrieval_lane",
         "job_enrichment",

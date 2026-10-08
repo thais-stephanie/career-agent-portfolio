@@ -37,7 +37,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from career_agent.clock import new_id
-from career_agent.resume_doc import analyze
+from career_agent.resume_doc import analyze, review
 from career_agent.resume_doc.check import findings
 from career_agent.resume_doc.export import (
     CONTENT_TYPES,
@@ -219,6 +219,16 @@ def _unconfirmed(lines: list[str]) -> ApiError:
         for_reader=True,
         code="evidence_not_confirmed",
         data={"lines": lines},
+    )
+
+
+def _review_required(waiting: list[review.Item]) -> ApiError:
+    return ApiError(
+        409,
+        "Some statements need your decision before this resume is downloaded.",
+        for_reader=True,
+        code="review_required",
+        data={"items": [i.to_json() for i in waiting]},
     )
 
 
@@ -429,6 +439,8 @@ def register_resume_routes(app: LocalApp) -> None:
                 ) from exc
             except EvidenceNotConfirmed as exc:
                 raise _unconfirmed(exc.lines) from exc
+            except review.ReviewRequired as exc:
+                raise _review_required(exc.items) from exc
             except ExportRefused as exc:
                 raise ApiError(
                     400, "Add your name before downloading.", for_reader=True, code="name_missing"
@@ -439,7 +451,55 @@ def register_resume_routes(app: LocalApp) -> None:
                 else:
                     message = "The PDF could not be made. Nothing was saved; try again."
                 raise ApiError(503, message, for_reader=True, code="export_failed") from exc
-        return _export(made)
+            # How many statements in the file are the person's own, said
+            # beside the file check so neither reads as the other.
+            declared = len(review.items(conn, ResumeStore(conn).get_document(document_id).working))
+        return {**_export(made), "declared": declared}
+
+    def review_view(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """What waits for a decision before the saved copy can be downloaded:
+        lines its evidence does not hold as worded, and what the person wrote
+        or imported. Recomputed, never stored."""
+        if set(body) != {"expected_sha256"} or not isinstance(body["expected_sha256"], str):
+            raise ApiError(400, "Say which saved resume to review.")
+        with closing(app.connect()) as conn:
+            stored = _one(conn, document_id)
+            if stored.working_sha256 != body["expected_sha256"]:
+                raise ApiError(409, "This resume changed in another window.", for_reader=True,
+                               code="stale")  # fmt: skip
+            found = review.items(conn, stored.working)
+        return {
+            "items": [i.to_json() for i in found],
+            "waiting": sum(not i.acknowledged for i in found),
+        }
+
+    def _acknowledgement(body: dict, document_id: str, act: Any) -> dict[str, Any]:
+        ref, sha = body.get("ref"), body.get("expected_sha256")
+        if (
+            set(body) != {"ref", "expected_sha256"}
+            or not isinstance(ref, str)
+            or len(ref) > 64
+            or not isinstance(sha, str)
+        ):
+            raise ApiError(400, "Say which statement, in which saved resume.")
+        with closing(app.connect()) as conn:
+            _one(conn, document_id)
+            try:
+                item = act(conn, document_id, ref, expected_sha256=sha)
+            except StaleDocument as exc:
+                raise ApiError(409, "This resume changed in another window.", for_reader=True,
+                               code="stale") from exc  # fmt: skip
+            except review.NothingToAcknowledge as exc:
+                raise ApiError(404, "That statement needs no decision in this resume.") from exc
+        return {"item": item.to_json()}
+
+    def acknowledge(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """The person says one statement, as saved, is their own. Recorded apart
+        from the document: the line keeps its origin, evidence and history."""
+        return _acknowledgement(body, document_id, review.acknowledge)
+
+    def withdraw(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        return _acknowledgement(body, document_id, review.withdraw)
 
     def exports(*, query: dict, body: dict, document_id: str) -> list[dict[str, Any]]:
         with closing(app.connect()) as conn:
@@ -1000,6 +1060,9 @@ def register_resume_routes(app: LocalApp) -> None:
     app.register("POST", r"/api/resume/tailor", pasted_tailor)
     app.register("GET", one + "/job", job_view)
     app.register("POST", one + "/analyze", analyze_view)
+    app.register("POST", one + "/review", review_view)
+    app.register("POST", one + "/acknowledgements", acknowledge)
+    app.register("POST", one + "/acknowledgements/withdraw", withdraw)
     app.register("POST", one + "/analysis/dismissals", analysis_dismiss)
     app.register("POST", one + "/analysis/changes", analysis_apply)
     app.register("POST", one + "/dismissals", dismiss)

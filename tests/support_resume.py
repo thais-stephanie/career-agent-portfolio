@@ -306,3 +306,18 @@ def exportable(**design: Any) -> ResumeDocument:
     data["projects"].append({"id": rid("shelved"), "name": HIDDEN_PROJECT, "bullets": []})
     data["layout"] = {"hidden_sections": ["projects"]}
     return upgrade_resume_document(data)
+
+
+def acknowledge_saved(conn: Any, document_id: str) -> int:
+    """Acknowledge, as the person would one by one, every statement the
+    review asks about in the document's SAVED copy, so a test about the file
+    itself can export it. Returns how many were acknowledged. Tests about the
+    review itself never use this."""
+    from career_agent.resume_doc import review
+    from career_agent.resume_doc.store import ResumeStore
+
+    stored = ResumeStore(conn).get_document(document_id)
+    waiting = review.pending(conn, stored.working)
+    for item in waiting:
+        review.acknowledge(conn, document_id, item.ref, expected_sha256=stored.working_sha256)
+    return len(waiting)

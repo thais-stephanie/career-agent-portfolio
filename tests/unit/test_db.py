@@ -129,6 +129,8 @@ EXPECTED_TABLES = {
     "resume_export",
     "resume_finding_dismissal",
     "application_resume",
+    # 0050: statements a person acknowledged as their own before an export.
+    "resume_statement_acknowledgement",
     # 0031: where a query-scoped walk got to, slice by slice, across runs.
     "source_slice_state",
     "source_health",

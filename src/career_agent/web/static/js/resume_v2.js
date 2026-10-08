@@ -30,6 +30,7 @@
  */
 
 import {
+  acknowledgeStatement, withdrawStatement,
   createJobResume, createResumeDocument, createResumeMaster, downloadResumeExport, exportResume, getCareer,
   applyResumeSuggestion, getLocalProfile, getResumeDocument, getResumeMaster, listResumeDocuments, manageResume,
   saveResumeCheckpoint,
@@ -682,6 +683,7 @@ function createEditor(answer, {
     } catch (error) {
       const detail = error.detail || {};
       if (detail.code === 'evidence_not_confirmed') drawEvidence(detail.lines || []);
+      if (detail.code === 'review_required') drawReview(detail.items || [], format);
       const changed = error.status === 409 && sent !== null && autosave.sha !== sent;
       drawExport('failed', { message: changed ? t('rv.export.changed') : (error.userMessage || t('rv.failed')) });
     } finally {
@@ -725,8 +727,88 @@ function createEditor(answer, {
       }),
       made.later ? el('p', { className: 'rve__note', text: t('rv.export.later') }) : null,
       el('ul', { className: 'rve__atslist' }, items),
+      // The checks are about the FILE; whether what it says is true is not one of them.
+      el('p', { className: 'rve__note rve__fidelity', text: t('rv.export.fidelity') }),
+      made.declared
+        ? el('p', { className: 'rve__note rve__declared', text: tCount('rv.export.declared', { n: made.declared }) })
+        : null,
       smallButton(t('rv.export.dismiss'), () => exportBox.replaceChildren()),
     ]));
+  }
+
+  /**
+   * Statements no confirmed evidence holds as worded, and what the person wrote or imported:
+   * each is edited, put back to its evidence's wording, or said to be the person's own. Saying so
+   * is recorded on the server, apart from the resume; the line keeps its origin and evidence.
+   */
+  function drawReview(items, format) {
+    const shown = new Map(items.map((i) => [i.ref, i]));
+    const head = el('p', { className: 'rve__reviewhead', attrs: { 'aria-live': 'polite' } });
+    const list = el('ul', { className: 'rve__review' });
+    const redraw = () => {
+      const left = [...shown.values()].filter((i) => !i.acknowledged).length;
+      head.textContent = tCount('rv.review.waiting', { n: left });
+      list.replaceChildren(...[...shown.values()].map(row));
+    };
+    async function decide(item, act) {
+      if (!(await autosave.flush())) {
+        head.textContent = t('rv.export.unsaved');
+        return;
+      }
+      try {
+        shown.set(item.ref, (await act(answer.id, item.ref, autosave.sha)).item);
+        redraw();
+      } catch (error) {
+        head.textContent = error.userMessage || t('rv.failed');
+      }
+    }
+    function focusLine(id) {
+      const node = [...form.querySelectorAll('[data-ref]')].find((n) => n.dataset.ref.endsWith(id));
+      if (node) focusRef(node.dataset.ref);
+    }
+    function putBack(item) {
+      reshape((d) => {
+        const block = linesOf(d).blocks.find((b) => b.id === item.ref);
+        if (block && block.original_text) {
+          Object.assign(block, { text: block.original_text, override: 'NONE', original_text: null });
+        }
+      })();
+      shown.delete(item.ref);
+      redraw();
+    }
+    function row(item) {
+      const actions = item.acknowledged
+        ? [el('span', { className: 'rve__note', text: t('rv.review.yours') }),
+          smallButton(t('rv.review.undo'), () => decide(item, withdrawStatement))]
+        : [smallButton(t('rv.review.edit'), () => focusLine(item.ref)),
+          item.original_text ? smallButton(t('rv.review.putBack'), () => putBack(item)) : null,
+          smallButton(t('rv.review.mine'), () => decide(item, acknowledgeStatement))].filter(Boolean);
+      return el('li', {
+        className: 'rve__reviewitem',
+        dataset: { ref: item.ref, kind: item.kind, acknowledged: String(item.acknowledged) },
+      }, [
+        el('p', { className: 'rve__reviewkind', text: t(`rv.review.kind.${item.kind}`) }),
+        el('blockquote', { className: 'rve__reviewtext', text: item.text }),
+        ...item.reasons.map((k) => el('p', { className: 'rve__note', text: t(`rv.find.${k}`) })),
+        el('div', { className: 'rve__reviewactions' }, actions),
+      ]);
+    }
+    notices.replaceChildren(el('section', {
+      className: 'rve__notice rve__notice--review', attrs: { 'aria-label': t('rv.review.title') },
+    }, [
+      el('h3', { className: 'rvl__h3', text: t('rv.review.title') }),
+      el('p', { text: t('rv.review.lede') }),
+      head,
+      list,
+      el('div', { className: 'rve__reviewactions' }, [
+        smallButton(t('rv.review.again', { format }), () => {
+          notices.replaceChildren();
+          exportAs(format);
+        }),
+        smallButton(t('rv.export.dismiss'), () => notices.replaceChildren()),
+      ]),
+    ]));
+    redraw();
   }
 
   /** Lines whose evidence is not confirmed now: kept only as the person's own words, if she says so. */

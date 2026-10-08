@@ -10593,6 +10593,15 @@ table.jobs .cell__title-btn { max-width: 100%; }
 }
 .rve__notice p { margin: 0; flex: 1 1 260px; }
 .rve__notice--bad { border-color: var(--block); background: var(--block-wash); color: var(--block-ink); }
+/* Before an export: one statement per row, its words quoted, the decision beside it. */
+.rve__notice--review { display: block; }
+.rve__notice--review > * + * { margin-top: 8px; }
+.rve__review { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rve__reviewitem { border: 1px solid var(--divider); border-radius: 8px; padding: 8px 10px; background: var(--surface); }
+.rve__reviewkind { margin: 0; font-size: 13px; font-weight: 600; color: var(--body2); }
+.rve__reviewtext { margin: 4px 0; padding-left: 10px; border-left: 3px solid var(--divider); }
+.rve__reviewhead { font-weight: 600; }
+.rve__reviewactions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .rve__switch { display: none; gap: 6px; }
 /* Download: three formats in a labelled group, then what the re-read file showed. */
 .rve__formats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

@@ -97,6 +97,15 @@ export const saveResumeWorkingCopy = (id, document, expected_sha256) =>
 export const saveResumeCheckpoint = (id, reason) =>
   request(`/resume/documents/${encodeURIComponent(id)}/checkpoint`, { method: 'POST', body: { reason } });
 /** Make a PDF, DOCX or JSON of exactly what the page has saved (`expected_sha256`), and check it. */
+/** What waits for a decision before the saved copy can be downloaded. Recomputed, never stored. */
+export const reviewResume = (id, expected_sha256) =>
+  request(resumePath(id, '/review'), { method: 'POST', body: { expected_sha256 } });
+/** The person says one statement, as saved, is their own. Recorded apart from the resume. */
+export const acknowledgeStatement = (id, ref, expected_sha256) =>
+  request(resumePath(id, '/acknowledgements'), { method: 'POST', body: { ref, expected_sha256 } });
+/** Take that back; the record stays, with when it was withdrawn. */
+export const withdrawStatement = (id, ref, expected_sha256) =>
+  request(resumePath(id, '/acknowledgements/withdraw'), { method: 'POST', body: { ref, expected_sha256 } });
 export const exportResume = (id, body) =>
   request(`/resume/documents/${encodeURIComponent(id)}/exports`, { method: 'POST', body });
 export const listResumeExports = (id) => request(`/resume/documents/${encodeURIComponent(id)}/exports`);

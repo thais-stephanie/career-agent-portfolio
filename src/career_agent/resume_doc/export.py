@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from career_agent.clock import new_id
+from career_agent.resume_doc import review
 from career_agent.resume_doc.ats import blocks, check_export
 from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.models import ResumeDocument
@@ -342,8 +343,11 @@ def export_revision(
     """Export what the page has SAVED, as one revision, and check the file.
 
     Refused (nothing written) when the page holds a different copy, when a
-    line cites evidence that is not confirmed now, or when there is no real
-    name. The file is made and checked from that copy first; only then, in
+    line cites evidence that is not confirmed now, when there is no real
+    name, or while a statement waits for the person's decision
+    (`review.ReviewRequired`: a line its evidence does not hold as worded, or
+    one the person wrote, not yet edited, put back or acknowledged). The
+    file is made and checked from that copy first; only then, in
     ONE transaction that asks again that the working copy is still that
     copy, is it checkpointed (reason EXPORTED) and the export recorded. A
     file that could not be made, or a copy changed meanwhile, leaves no
@@ -361,6 +365,9 @@ def export_revision(
         raise EvidenceNotConfirmed(lines)
     if doc.identity.name_finding():
         raise ExportRefused("NAME_MISSING")
+    waiting = review.pending(conn, doc)
+    if waiting:
+        raise review.ReviewRequired(waiting)
     # The PDF breaks pages where the preview did (`page_breaks`, its refs).
     html = render_html(doc, mode="print", breaks=frozenset(page_breaks or [])).html
     try:

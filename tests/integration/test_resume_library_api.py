@@ -511,11 +511,12 @@ def test_export_history_says_when_a_file_is_gone(api: JobsApi) -> None:
     from tests.support_resume import exportable
 
     with connect(api.config.db_path) as conn:
-        from tests.support_resume import confirm_cited
+        from tests.support_resume import acknowledge_saved, confirm_cited
 
         with transaction(conn):
             confirm_cited(conn, exportable())
         ResumeStore(conn).create_document(exportable())
+        acknowledge_saved(conn, exportable().id)
     made = call(api, "GET", f"/documents/{exportable().id}")
     out = call(
         api,

@@ -18,7 +18,13 @@ from typing import Any
 
 import pytest
 from tests.integration.test_resume_editor_api import call, make_api
-from tests.support_resume import HIDDEN_LINE, HIDDEN_PROJECT, confirm_cited, exportable
+from tests.support_resume import (
+    HIDDEN_LINE,
+    HIDDEN_PROJECT,
+    acknowledge_saved,
+    confirm_cited,
+    exportable,
+)
 
 from career_agent.clock import new_id
 from career_agent.domain.claims import VerifiedClaim
@@ -72,9 +78,12 @@ def api(tmp_path: Path) -> JobsApi:
 
 
 def _stored(api: JobsApi, doc: ResumeDocument) -> dict[str, Any]:
+    """The document saved, its statements acknowledged: these tests are about
+    the file (tests/integration/test_resume_review.py is about the review)."""
     with connect(api.config.db_path) as conn, transaction(conn):
         confirm_cited(conn, doc)
         ResumeStore(conn).create_document(doc)
+        acknowledge_saved(conn, doc.id)
     return call(api, "GET", f"/documents/{doc.id}")
 
 

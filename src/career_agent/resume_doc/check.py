@@ -60,6 +60,13 @@ KINDS: dict[str, tuple[str, str, str, str | None]] = {
     "UNSUPPORTED_NUMBER": ("EVIDENCE", W, OBJ, "EDIT"),
     "UNSUPPORTED_TOOL": ("EVIDENCE", W, OBJ, "EDIT"),
     "UNSUPPORTED_SENIORITY": ("EVIDENCE", W, ADV, "EDIT"),
+    # Heuristic readings of WHO did WHAT, how often, how far and with what
+    # result (`resume_doc.roles`): advice, never a verdict on the person.
+    "UNSUPPORTED_RESPONSIBILITY": ("EVIDENCE", W, ADV, "EDIT"),
+    "UNSUPPORTED_SCOPE": ("EVIDENCE", W, ADV, "EDIT"),
+    "UNSUPPORTED_CAUSALITY": ("EVIDENCE", W, ADV, "EDIT"),
+    "UNSUPPORTED_CLAIM": ("EVIDENCE", W, ADV, "EDIT"),
+    "UNSUPPORTED_WORDING": ("EVIDENCE", I, ADV, "EDIT"),
     "NOT_FROM_EVIDENCE": ("EVIDENCE", I, OBJ, "OPEN_EVIDENCE"),
     "STALE_EVIDENCE": ("EVIDENCE", W, OBJ, "EDIT"),
     "EVIDENCE_CHANGED": ("EVIDENCE", I, OBJ, "EDIT"),
