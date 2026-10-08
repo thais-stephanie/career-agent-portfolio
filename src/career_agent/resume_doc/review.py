@@ -14,10 +14,17 @@ For each the person edits it, puts back the evidence's wording (a line with
 an `original_text`), or acknowledges it as their own statement. An
 acknowledgement is recorded apart, in `resume_statement_acknowledgement`:
 the line keeps its origin, its evidence ids and its history, and nothing
-calls it supported. It belongs to the STATEMENT (`statement_sha256`: its
-words folded, plus what it rests on), not to one document, so an unchanged
-statement is not asked about again on every export or in every version; a
-changed word, number or citation is a new statement.
+calls it supported. It belongs to the STATEMENT (`statement_sha256`), not to
+one document, so an unchanged statement is not asked about again on every
+export or in another version OF THIS PROFILE (each profile has its own
+database). A statement is its words folded, plus:
+
+* its CONTEXT: the role (its Career Profile experience, or employer and title),
+  project, education or section it sits in. The same words under another
+  role are another claim;
+* what it rests on: origin, the evidence ids it cites, the evidence's wording
+  it replaced, and the CURRENT wording of that evidence. Evidence revised
+  after the acknowledgement makes it a new statement.
 
 Nothing here says a statement is true. An acknowledgement says who stands
 behind it. `export.export_revision` refuses a file while any item waits.
@@ -105,11 +112,13 @@ def _date(value: PartialDate | None) -> str:
 class _Collect:
     """Items in page order, before their acknowledgement is looked up."""
 
-    def __init__(self, reasons: dict[str, list[str]]) -> None:
+    def __init__(self, reasons: dict[str, list[str]], claims: dict[str, str]) -> None:
         self.reasons = reasons
+        #: The CURRENT wording of every confirmed claim, by key.
+        self.claims = claims
         self.raw: list[dict[str, Any]] = []
 
-    def line(self, section: str, block: TextBlock | None, shown: bool) -> None:
+    def line(self, section: str, block: TextBlock | None, shown: bool, context: str) -> None:
         if block is None or not shown or not block.text.strip():
             return
         if block.origin in EVIDENCED_ORIGINS:
@@ -117,11 +126,15 @@ class _Collect:
             if not said:
                 return
             kind = EVIDENCE_CHANGED if said == ["EVIDENCE_CHANGED"] else NOT_AS_WORDED
-            ids = ",".join(sorted(block.evidence_ids))
-            basis = f"{block.origin.value}|{ids}|{material(block.original_text or '')}"
+            ids = sorted(block.evidence_ids)
+            evidence = hashlib.sha256(
+                "\n".join(material(self.claims.get(k, "")) for k in ids).encode()
+            ).hexdigest()
+            basis = "|".join([block.origin.value, ",".join(ids),
+                              material(block.original_text or ""), evidence, context])  # fmt: skip
         else:
             kind = IMPORTED if block.origin is Origin.IMPORTED else WRITTEN
-            said, basis = [], kind
+            said, basis = [], f"{kind}|{context}"
         self._add(block.id, section, kind, block.text, tuple(said), block.original_text,
                   tuple(block.evidence_ids), basis)  # fmt: skip
 
@@ -142,20 +155,30 @@ def items(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Item]:
     """Every item of `doc` in page order, each marked acknowledged or not."""
     # Imported here: `analyze` reads the export module, which reads this one.
     from career_agent.resume_doc.analyze import _evidence
+    from career_agent.resume_doc.tailor import _career
 
     found, _ = _evidence(conn, doc)
+    _, rows = _career(conn)
+    claims = {r["claim_key"]: r["text"] for r in rows if r["state"] == "CONFIRMED"}
     reasons: dict[str, list[str]] = {}
     for f in found:
         if f["kind"] in _WORDING:
             reasons.setdefault(f["ref"], []).append(f["kind"])
     hidden = set(doc.layout.hidden_sections)
-    out = _Collect(reasons)
+    out = _Collect(reasons, claims)
     for name in ("headline", "summary"):
-        out.line(name, getattr(doc, name), name not in hidden)
+        out.line(name, getattr(doc, name), name not in hidden, name)
     labels = {
         "experience": lambda e: [e.display_title, e.employer, e.location],
         "projects": lambda e: [e.name, e.role],
         "education": lambda e: [e.institution, e.degree, e.field_of_study],
+    }
+    #: What a line inside an entry is said OF: its linked record, else the
+    #: entry's own identifying words.
+    contexts = {
+        "experience": lambda e: e.experience_id or material(f"{e.employer} {e.display_title}"),
+        "projects": lambda e: e.claim_key or material(e.name),
+        "education": lambda e: e.claim_key or material(e.institution),
     }
     for section, label in labels.items():
         for entry in getattr(doc, section):
@@ -166,8 +189,9 @@ def items(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Item]:
                 dates = "-".join(filter(None, [_date(entry.start), _date(entry.end)]))
                 text = " · ".join(filter(None, [*label(entry), dates]))
                 out.typed(entry.id, section, Origin.USER_AUTHORED, text)
+            context = f"{section}:{contexts[section](entry)}"
             for b in entry.bullets:
-                out.line(section, b, not b.hidden)
+                out.line(section, b, not b.hidden, context)
     for cert in doc.certifications:
         if not (cert.hidden or "certifications" in hidden or cert.claim_key):
             text = " · ".join(filter(None, [cert.name, cert.issuer, _date(cert.issued)]))
@@ -181,7 +205,7 @@ def items(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Item]:
     for custom in doc.custom_sections:
         off = custom.hidden or f"custom:{custom.id}" in hidden
         for b in custom.items:
-            out.line("custom", b, not (b.hidden or off))
+            out.line("custom", b, not (b.hidden or off), f"custom:{material(custom.heading)}")
     held = _acknowledged(conn, [r["statement_sha256"] for r in out.raw])
     return [Item(**r, acknowledged=r["statement_sha256"] in held) for r in out.raw]
 

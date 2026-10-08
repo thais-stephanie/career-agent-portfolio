@@ -262,3 +262,50 @@ def test_forgetting_resume_data_forgets_acknowledgements(api: JobsApi) -> None:
         assert (
             conn.execute("SELECT COUNT(*) FROM resume_statement_acknowledgement").fetchone()[0] == 0
         )
+
+
+# ------------------------------------------- across versions and profiles
+
+
+def test_the_same_words_under_another_role_are_another_statement(api: JobsApi) -> None:
+    made = _create(api, _document())
+    _ack(api, made, _bullet(made, 1)["id"])
+    elsewhere = _document()
+    role = elsewhere["experience"][0]
+    role.update(experience_id="exp-another", employer="Contoso Labs")
+    role["bullets"] = [role["bullets"][1]]  # only the typed line, now under another role
+    moved = _create(api, elsewhere)
+    found = _review(api, moved)
+    assert found["waiting"] == 1 and found["items"][0]["text"] == TYPED
+
+
+def test_another_profile_never_reuses_an_acknowledgement(api: JobsApi, tmp_path: Path) -> None:
+    typed_only = _document()
+    typed_only["experience"][0]["bullets"] = typed_only["experience"][0]["bullets"][1:]
+    made = _create(api, typed_only)
+    _ack(api, made, _bullet(made, 0)["id"])
+    other = make_api(tmp_path, "b")  # its own database
+    theirs = _create(other, typed_only)
+    assert _review(other, theirs)["waiting"] == 1
+
+
+def test_revised_evidence_makes_an_acknowledged_rewording_a_new_statement(api: JobsApi) -> None:
+    made = _create(api, _document(typed=False))
+    made = _save(api, made, _reword("Designed lead routing in HubSpot for 4 regional teams."))
+    _ack(api, made, _bullet(made, 0)["id"])
+    assert _review(api, made)["waiting"] == 0
+    with connect(api.config.db_path) as conn, transaction(conn):
+        candidate, repo = ensure_candidate(conn), ClaimRepo(conn)
+        current = repo.history(candidate, "k-routing")[-1]
+        repo.supersede(
+            candidate,
+            current.next_revision(text="Built lead routing in HubSpot for 5 regional teams."),
+        )
+    assert _review(api, made)["waiting"] == 1
+    # Provenance and history stay: the first acknowledgement is still recorded,
+    # it simply no longer names this statement.
+    with connect(api.config.db_path) as conn:
+        rows = conn.execute(
+            "SELECT item_ref, withdrawn_at FROM resume_statement_acknowledgement"
+        ).fetchall()
+    assert [tuple(r) for r in rows] == [(_bullet(made, 0)["id"], None)]
