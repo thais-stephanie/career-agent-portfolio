@@ -1900,6 +1900,7 @@ class WorkspaceRoutes(_MixinBase):
             candidate_id_of,
         )
         from career_agent.web.presenter import job_card, utc_today
+        from career_agent.web.profiles import served_profile_id
 
         show = 5
         config = self.search_config()
@@ -1968,6 +1969,7 @@ class WorkspaceRoutes(_MixinBase):
                 "running": bool(getattr(getattr(self, "rescore", None), "running", False)),
             },
             "latest_refresh_run": refresh_run,
+            "profile": served_profile_id(self),
         }
 
     def daily(self, *, query: dict, body: dict) -> dict:

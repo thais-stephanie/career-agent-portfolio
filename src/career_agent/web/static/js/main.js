@@ -350,7 +350,8 @@ function headerAction(page) {
 
 const home = createHome({
   collection,
-  sitesNeedingAttention: () => Number(railStatus.failed) || 0,
+  // Unknown (null) until `/api/sources` answers; tagged with its profile.
+  sitesNeedingAttention: () => ({ failed: railStatus.failed, profile: railStatus.profile }),
   onFixSites: () => {
     settingsTab = 'sites';
     goTo('settings');
@@ -2447,7 +2448,7 @@ async function showHealth() {
 //: What the rail's one status line is drawn from: sources whose last refresh
 //: failed (from `/api/sources`, the same rows Settings & Sources shows) and
 //: local conditions worth knowing (from `/api/health`).
-const railStatus = { failed: null, degraded: 0, detail: '' };
+const railStatus = { failed: null, profile: null, degraded: 0, detail: '' };
 
 /**
  * ONE status line. A source that needs attention wins, is yellow, and is a
@@ -2576,7 +2577,11 @@ async function loadRailReadouts() {
     // The same rule Settings & Sources uses (`needs_attention`): stale,
     // failed or refused. One definition, so the two can never disagree.
     railStatus.failed = (sources.refresh || []).filter((row) => row.needs_attention).length;
+    railStatus.profile = sources.profile ?? null;
     drawRailStatus();
+    // Home's small things to do name the same sources: redraw that card
+    // alone, from the Home read it already has.
+    home.refreshTodos();
   } catch { /* the status line keeps what it last knew */ }
 
   // The evidence review used to be fetched here as well, to fill a progress

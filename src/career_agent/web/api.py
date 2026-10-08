@@ -845,6 +845,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         _reject_unknown(query, frozenset(), "sources")
         from career_agent.sources.experimental import state as experimental_state
         from career_agent.sources.health import health
+        from career_agent.web.profiles import served_profile_id
         from career_agent.web.source_refresh import (
             can_refresh,
             experimental_available,
@@ -933,6 +934,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # capable and eight hours stale.
             "refresh": refresh,
             "summary": _source_summary(observed, refresh, opted),
+            # Which profile this status belongs to, so Home never puts one
+            # profile's failing sources beside another profile's tasks.
+            "profile": served_profile_id(self),
         }
 
     def _config_version_or_none(self) -> int | None:

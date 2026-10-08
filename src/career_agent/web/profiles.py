@@ -212,6 +212,15 @@ def _host(app: JobsApi) -> ProfileHost:
     return host
 
 
+def served_profile_id(app: Any) -> str | None:
+    """Which local profile THIS process answers for; None without the launcher.
+
+    Stamped on answers that are read together (Home and the sources' status),
+    so a screen can tell when two of them came from different profiles."""
+    active = getattr(getattr(app, "profile_host", None), "active", None)
+    return getattr(active, "id", None)
+
+
 def _listing(host: ProfileHost) -> dict[str, Any]:
     registry = load_registry(host.root) or ensure_registry(host.root)
     # What THIS process serves decides "active", not the registry file: a

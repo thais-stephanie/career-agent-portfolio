@@ -7,6 +7,7 @@ from __future__ import annotations
 import shutil
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -150,3 +151,12 @@ def test_a_running_recalculation_is_reported_and_a_second_is_refused(app: JobsAp
         release.set()
         app.rescore.join(10)
     assert _home(app)["scores"]["running"] is False
+
+
+def test_home_and_sources_say_which_profile_answered(app: JobsApi) -> None:
+    # Read together on Home, so a screen can tell two profiles' answers apart.
+    sources = app.handle_api("GET", "/api/sources", {}, {})
+    assert _home(app)["profile"] is None and sources["profile"] is None
+    app.profile_host = SimpleNamespace(active=SimpleNamespace(id="profile-two"))
+    assert _home(app)["profile"] == "profile-two"
+    assert app.handle_api("GET", "/api/sources", {}, {})["profile"] == "profile-two"

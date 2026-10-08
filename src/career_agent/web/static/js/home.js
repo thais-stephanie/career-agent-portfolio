@@ -160,9 +160,17 @@ export function createHome({
   // "Small things to do" across reads: which tasks the last read listed, so a
   // task that is gone from the next one is said to be done; and the footer
   // line that says so, until it expires.
+  // `todoSeen` remembers the profile too: a task gone because another
+  // profile answered is not a task done.
   let todoSeen = null;
   let todoToast = null;
   let todoSeq = 0;
+  // The card on screen, so the sources' status can redraw it alone; and the
+  // recalculation row of the current read, reused by such a redraw so a run
+  // it follows keeps its progress (and its one poller).
+  let todoCard = null;
+  let recalcRow = null;
+  let recalcFor = null;
 
   /**
    * Draw Home.
@@ -346,7 +354,13 @@ export function createHome({
    * optional and never a row: empty means search everywhere.
    */
   function todos(payload) {
-    const failed = sitesNeedingAttention();
+    // The sources' status arrives on its own, usually after Home. It counts
+    // only when it is known and belongs to the profile this read is for.
+    const profile = payload.profile ?? null;
+    const sites = sitesNeedingAttention() || {};
+    const sitesKnown = sites.failed !== null && sites.failed !== undefined
+      && (sites.profile ?? null) === profile;
+    const failed = sitesKnown ? Number(sites.failed) || 0 : 0;
     // Each task is ONE button: title, a short line under it, a chevron. The
     // line is named by `aria-describedby`, so the button's name is the title.
     const task = (id, title, desc, onClick, { emphasis = false } = {}) => {
@@ -355,7 +369,7 @@ export function createHome({
         className: `home__todohelp${emphasis ? ' home__todohelp--amber' : ''}`, attrs: { id: descId }, text: desc,
       });
       const button = el('button', {
-        className: 'home__todo', attrs: { type: 'button', 'aria-describedby': descId },
+        className: 'home__todo', attrs: { type: 'button', 'aria-describedby': descId, 'data-task': id },
         on: onClick ? { click: onClick } : {},
       }, [
         el('span', { className: 'home__todotext' }, [el('span', { className: 'home__todotitle', text: title }), help]),
@@ -384,7 +398,7 @@ export function createHome({
     // targeted pass, a run already going is followed, a second start is
     // refused. It leaves the list only when a fresh read says nothing is
     // outdated; the other rows stay usable meanwhile.
-    const recalc = outdated > 0 || scores.running
+    const recalc = recalcFor === payload ? recalcRow : outdated > 0 || scores.running
       ? (() => {
         const row = task('recalc', t('home.todo.scores'), idleScores, null, { emphasis: true });
         const bar = el('span', { className: 'home__todobar', attrs: { 'aria-hidden': 'true' } });
@@ -404,6 +418,8 @@ export function createHome({
         return row;
       })()
       : null;
+    recalcRow = recalc;
+    recalcFor = payload;
     const questions = payload.declarations_pending || [];
     const rights = questions.length && onGoTo
       ? task('rights', t('home.todo.rights'), tCount('home.todo.rightsHelp', { n: questions.length }),
@@ -421,10 +437,16 @@ export function createHome({
     ].filter(Boolean);
 
     // DONE means confirmed: a task the previous read listed and this one does
-    // not. Nothing is removed on a click.
+    // not, for the same profile. Nothing is removed on a click; a task that
+    // APPEARS says nothing; and while the sources' status is not known the
+    // sites row is neither there nor gone.
     const now = new Set(tasks.map((x) => x.id));
-    const gone = todoSeen ? [...todoSeen].filter((id) => !now.has(id)) : [];
-    todoSeen = now;
+    const unknown = sitesKnown ? [] : ['sites'];
+    const same = Boolean(todoSeen) && todoSeen.profile === profile;
+    if (!same) todoToast = null;
+    const gone = same ? [...todoSeen.ids].filter((id) => !now.has(id) && !unknown.includes(id)) : [];
+    const carried = same ? unknown.filter((id) => todoSeen.ids.has(id)) : [];
+    todoSeen = { profile, ids: new Set([...now, ...carried]) };
     if (gone.length) {
       const last = gone[gone.length - 1];
       todoToast = { text: t(TOAST_FOR_TASK[last] || 'home.todo.toast.saved'), until: Date.now() + 3200 };
@@ -436,7 +458,7 @@ export function createHome({
       : null;
     if (toast) window.setTimeout(() => toast.remove(), toastLeft);
 
-    return el('section', { className: 'home__card home__todos', attrs: { 'aria-labelledby': 'home-todo-head' } }, [
+    todoCard = el('section', { className: 'home__card home__todos', attrs: { 'aria-labelledby': 'home-todo-head' } }, [
       el('div', { className: 'home__cardhead' }, [
         el('div', { className: 'home__todohead' }, [
           el('h2', { className: 'home__cardtitle', attrs: { id: 'home-todo-head' }, text: t('home.todo.title') }),
@@ -450,6 +472,21 @@ export function createHome({
       toast,
       tasks.length ? null : el('p', { className: 'home__todofoot', text: t('home.todo.none') }),
     ]);
+    return todoCard;
+  }
+
+  /**
+   * Redraw "Small things to do" alone, from the read already held: the
+   * sources' status moved. No new request for Home; focus stays on the task
+   * it was on.
+   */
+  function refreshTodos() {
+    if (!payload || root.dataset.view !== 'dashboard' || !todoCard || !todoCard.isConnected) return;
+    const focused = todoCard.contains(document.activeElement)
+      ? document.activeElement.getAttribute('data-task') : null;
+    const before = todoCard;
+    before.replaceWith(todos(payload));
+    if (focused) todoCard.querySelector(`[data-task="${focused}"]`)?.focus();
   }
 
   /**
@@ -701,7 +738,7 @@ export function createHome({
   }
 
   return {
-    root, load, relabel, openSetup, showsCollection, inSetup, leftForAnotherPage, leaveSetup,
+    root, load, relabel, openSetup, showsCollection, inSetup, leftForAnotherPage, leaveSetup, refreshTodos,
     offersLater: () => setup.offersLater(),
   };
 }
