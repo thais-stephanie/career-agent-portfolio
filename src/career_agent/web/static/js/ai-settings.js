@@ -195,6 +195,8 @@ export function renderAiSettings(host) {
     }
     return el('div', { className: 'ai__key' }, [
       el('p', { text: configured ? t('ai.key.configured') : t('ai.key.missing') }),
+      // One key for the installation: what it is shared with is said, not discovered.
+      el('p', { className: 'ai__keyscope', text: t('ai.key.scope') }),
       field('ai-deepseek-key', t('ai.key.label'), input, { hint: t('ai.key.help') }),
       el('div', { className: 'ai__actions' }, actions),
     ]);
@@ -311,6 +313,12 @@ export function renderAiSettings(host) {
         attrs: { role: 'status' },
       }),
       ...fallbackLines(data),
+      // Whose decision this is: this profile's, made or not made yet.
+      data.demo ? null : el('p', {
+        className: 'ai__choice',
+        dataset: { choice: data.choice || 'chosen' },
+        text: t(`ai.choice.${data.choice || 'chosen'}`),
+      }),
       el('label', { className: 'ai__toggle' }, [enabled, el('span', { text: t('ai.enabled') })]),
       field('ai-mode', t('ai.provider'), mode),
       providers,
@@ -322,7 +330,7 @@ export function renderAiSettings(host) {
       ]));
     }
     if (message) children.push(el('p', { className: 'ai__message', text: message, attrs: { role: 'status' } }));
-    replace(host, children);
+    replace(host, children.filter(Boolean));
   }
 
   void load();

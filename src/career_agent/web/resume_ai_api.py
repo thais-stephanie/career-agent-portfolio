@@ -41,12 +41,11 @@ _FAILURES = {
 def _provider(app: LocalApp) -> tuple[SemanticProvider | None, str]:
     """The configured provider, or None and why: `DEMO` or `NO_PROVIDER`."""
     from career_agent.semantic import routing
-    from career_agent.semantic.settings import load_settings
-    from career_agent.web.semantic_api import _is_personal
+    from career_agent.web.semantic_api import _is_personal, profile_settings
 
     if not _is_personal(cast("JobsApi", app)):
         return None, "DEMO"
-    route = routing.resolve(load_settings(app.config.config_dir))
+    route = routing.resolve(profile_settings(app))
     return route.provider, "" if route.provider else "NO_PROVIDER"
 
 
@@ -63,11 +62,11 @@ def _over_budget(
     (Settings) is the ceiling for this call too, with the answer at its longest
     and what this run already spent (`spent`) counted."""
     from career_agent.semantic.providers import Billing
-    from career_agent.semantic.settings import load_settings
+    from career_agent.web.semantic_api import profile_settings
 
     if provider.capabilities().billing is not Billing.METERED_API:
         return ""
-    budget = load_settings(app.config.config_dir).budget_per_run_usd
+    budget = profile_settings(app).budget_per_run_usd
     cost = _estimate(provider, system, message)
     if cost is None:
         return "The price of this AI provider is not known, so nothing was sent."

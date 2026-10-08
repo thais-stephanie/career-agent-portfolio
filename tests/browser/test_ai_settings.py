@@ -51,6 +51,34 @@ def _settings(page: Chrome, fresh: Fresh) -> None:  # noqa: F811
     page.wait_for("document.querySelector('#ai-settings-host .ai__summary')", message="AI panel")
 
 
+def _choose(page: Chrome, mode: str, summary: str) -> None:
+    page.evaluate(
+        "(() => { const s = document.querySelector('#ai-mode');"
+        f" s.value = {json.dumps(mode)};"
+        " s.dispatchEvent(new Event('change', {bubbles: true})); })()"
+    )
+    page.wait_for(
+        f"document.querySelector('.ai__summary')?.textContent.includes({json.dumps(summary)})",
+        message=f"mode {mode}",
+    )
+
+
+def test_a_profile_that_never_chose_uses_no_ai_and_says_so(
+    page: Chrome,
+    fresh: Fresh,  # noqa: F811
+    offline_providers,
+) -> None:
+    _settings(page, fresh)
+    summary = str(page.evaluate("document.querySelector('.ai__summary').textContent"))
+    assert summary.startswith("Deterministic only"), "Claude Code is signed in: still not chosen"
+    choice = page.evaluate("document.querySelector('.ai__choice').dataset.choice")
+    assert choice == "not_chosen"
+    assert "has not chosen an AI provider" in str(
+        page.evaluate("document.querySelector('.ai__choice').textContent")
+    )
+    assert not (fresh.config_dir / "semantic.local.yaml").exists(), "looking writes nothing"
+
+
 def test_the_default_view_says_what_ai_is_used_and_nothing_more(
     page: Chrome,
     fresh: Fresh,  # noqa: F811
@@ -58,10 +86,12 @@ def test_the_default_view_says_what_ai_is_used_and_nothing_more(
     capture: Callable[[str], Path],
 ) -> None:
     _settings(page, fresh)
+    _choose(page, "auto", "Claude Code")
     summary = str(
         page.evaluate("document.querySelector('#ai-settings-host .ai__summary').textContent")
     )
     assert "ready" in summary.lower() and "Claude Code" in summary
+    assert page.evaluate("document.querySelector('.ai__choice').dataset.choice") == "chosen"
     # DeepSeek was preferred and is not available: said, in words.
     fallback = str(page.evaluate("document.querySelector('.ai__fallback').textContent"))
     assert "DeepSeek Flash" in fallback and "Claude Code" in fallback
@@ -90,6 +120,7 @@ def test_the_key_goes_in_and_never_comes_back_out(
     offline_providers,
 ) -> None:
     _settings(page, fresh)
+    _choose(page, "auto", "Claude Code")
     page.evaluate("document.querySelector('.ai__details').open = true")
     page.evaluate(
         "(() => { const n = document.querySelector('#ai-deepseek-key');"
@@ -110,9 +141,11 @@ def test_the_key_goes_in_and_never_comes_back_out(
     env = fresh.config_dir.parent / ".env"
     assert KEY in env.read_text(encoding="utf-8")
     page.evaluate("document.querySelector('.ai__details').open = true")
+    scope = str(page.evaluate("document.querySelector('.ai__keyscope').textContent"))
+    assert "shared by every profile" in scope and "removes it for every profile" in scope
     page.evaluate(
         "Array.from(document.querySelectorAll('.ai__key button'))"
-        ".find(b => b.textContent === 'Remove key').click()"
+        ".find(b => b.textContent === 'Remove key for every profile').click()"
     )
     page.wait_for(
         "!document.querySelector('.ai__summary')?.textContent.includes('DeepSeek')",
@@ -127,14 +160,8 @@ def test_deterministic_only_is_one_choice_away(
     offline_providers,
 ) -> None:
     _settings(page, fresh)
-    page.evaluate(
-        "(() => { const s = document.querySelector('#ai-mode'); s.value = 'deterministic';"
-        " s.dispatchEvent(new Event('change', {bubbles: true})); })()"
-    )
-    page.wait_for(
-        "document.querySelector('.ai__summary')?.textContent.startsWith('Deterministic only')",
-        message="deterministic only",
-    )
+    _choose(page, "auto", "Claude Code")
+    _choose(page, "deterministic", "Deterministic only")
     saved = (fresh.config_dir / "semantic.local.yaml").read_text(encoding="utf-8")
     assert "mode: deterministic" in saved
 

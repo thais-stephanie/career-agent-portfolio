@@ -12,9 +12,13 @@ from career_agent.match.readiness import Readiness, search_fit_readiness
 from career_agent.semantic import routing
 from career_agent.semantic.providers import Availability, ProviderStatus
 from career_agent.semantic.settings import (
+    CHOSEN,
+    KEPT,
+    NOT_CHOSEN,
     Mode,
     SemanticSettings,
     SettingsError,
+    choice,
     env_path,
     key_state,
     load_settings,
@@ -41,10 +45,71 @@ def config_dir(tmp_path, monkeypatch):
 # =========================================================================
 
 
-def test_defaults_are_auto_and_bounded(config_dir) -> None:
-    settings = load_settings(config_dir)
-    assert settings.mode is Mode.AUTO and settings.enabled
-    assert 0 < settings.budget_per_run_usd <= 5
+def _profile_db(tmp_path, *, used: str | None = None):
+    from career_agent.storage.db import connect, migrate, transaction
+
+    conn = connect(tmp_path / "personal.db")
+    migrate(conn)
+    if used == "semantic":
+        with transaction(conn):
+            conn.execute(
+                "INSERT INTO semantic_run (id, started_at, mode, provider, status)"
+                " VALUES ('r1', '2026-09-30T00:00:00Z', 'auto', 'deepseek', 'DONE')"
+            )
+    elif used == "deterministic":
+        with transaction(conn):
+            conn.execute(
+                "INSERT INTO semantic_run (id, started_at, mode, provider, status)"
+                " VALUES ('r1', '2026-09-30T00:00:00Z', 'deterministic', NULL, 'DONE')"
+            )
+    return conn
+
+
+def test_a_profile_that_never_chose_uses_no_provider(config_dir, tmp_path) -> None:
+    conn = _profile_db(tmp_path)
+    for settings in (load_settings(config_dir), load_settings(config_dir, conn)):
+        assert settings.mode is Mode.DETERMINISTIC and settings.enabled
+        assert not settings.uses_findings
+        assert 0 < settings.budget_per_run_usd <= 5
+    assert choice(config_dir, conn) == NOT_CHOSEN
+    assert not settings_path(config_dir).exists(), "reading writes nothing"
+
+
+def test_a_run_that_reached_no_provider_is_not_using_ai(config_dir, tmp_path) -> None:
+    conn = _profile_db(tmp_path, used="deterministic")
+    assert load_settings(config_dir, conn).mode is Mode.DETERMINISTIC
+    assert choice(config_dir, conn) == NOT_CHOSEN
+
+
+def test_a_profile_that_already_used_ai_keeps_auto_until_it_chooses(config_dir, tmp_path) -> None:
+    conn = _profile_db(tmp_path, used="semantic")
+    kept = load_settings(config_dir, conn)
+    assert kept.mode is Mode.AUTO and kept.uses_findings
+    assert choice(config_dir, conn) == KEPT
+    # Saving another setting writes the kept Auto down; it is never dropped.
+    save_settings(config_dir, {"budget_per_run_usd": 0.5}, conn)
+    assert safe_load(settings_path(config_dir).read_text(encoding="utf-8"))["mode"] == "auto"
+    assert choice(config_dir, conn) == CHOSEN
+
+
+def test_a_written_choice_is_never_overruled_by_history(config_dir, tmp_path) -> None:
+    conn = _profile_db(tmp_path, used="semantic")
+    save_settings(config_dir, {"mode": "deterministic"})
+    assert load_settings(config_dir, conn).mode is Mode.DETERMINISTIC
+    assert choice(config_dir, conn) == CHOSEN
+
+
+def test_a_new_profile_starts_deterministic_in_its_own_file(tmp_path, monkeypatch) -> None:
+    from career_agent.runtime import profiles
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", KEY)  # a key on the computer is not a choice
+    root = tmp_path / "install"
+    (root / "config").mkdir(parents=True)
+    (root / "data").mkdir()
+    made = profiles.create_profile(root, "Second")
+    _, config, _ = made.paths(root)
+    assert safe_load(settings_path(config).read_text(encoding="utf-8"))["mode"] == "deterministic"
+    assert load_settings(config).uses_findings is False
 
 
 def test_saving_round_trips_and_never_holds_a_credential(config_dir) -> None:
@@ -121,14 +186,14 @@ def test_auto_prefers_deepseek_when_it_is_available(monkeypatch) -> None:
         deepseek=Availability.AVAILABLE,
         claude_code=Availability.AVAILABLE,
     )
-    route = routing.resolve(SemanticSettings())
+    route = routing.resolve(SemanticSettings(mode=Mode.AUTO))
     assert route.provider is not None and route.provider.id == "deepseek"
     assert route.fallbacks == []
 
 
 def test_auto_falls_back_and_says_so(monkeypatch) -> None:
     statuses(monkeypatch, codex=Availability.AVAILABLE)
-    route = routing.resolve(SemanticSettings())
+    route = routing.resolve(SemanticSettings(mode=Mode.AUTO))
     assert route.provider is not None and route.provider.id == "codex"
     assert [f["preferred"] for f in route.fallbacks] == ["deepseek", "claude_code"]
     assert all(f["used"] == "codex" for f in route.fallbacks)
@@ -136,7 +201,7 @@ def test_auto_falls_back_and_says_so(monkeypatch) -> None:
 
 def test_auto_with_nothing_available_is_deterministic(monkeypatch) -> None:
     statuses(monkeypatch)
-    route = routing.resolve(SemanticSettings())
+    route = routing.resolve(SemanticSettings(mode=Mode.AUTO))
     assert route.provider is None
     assert all(f["used"] == "deterministic" for f in route.fallbacks)
 

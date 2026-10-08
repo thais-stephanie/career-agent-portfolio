@@ -134,11 +134,12 @@ def _load_config(config_dir: Path):
         raise typer.Exit(code=1) from exc
 
 
-def _semantic_on(config_dir: Path) -> bool:
-    """Whether stored semantic findings take part in scoring. Reads a file."""
+def _semantic_on(config_dir: Path, conn: Any) -> bool:
+    """Whether stored semantic findings take part in scoring: the profile's
+    settings file, or an Auto it already relied on (`load_settings`)."""
     from career_agent.semantic.settings import load_settings
 
-    return load_settings(config_dir).uses_findings
+    return load_settings(config_dir, conn).uses_findings
 
 
 # =====================================================================
@@ -2137,7 +2138,10 @@ def semantic_match_command(
     from career_agent.semantic.settings import load_settings
 
     config, _ = _load_config(config_dir)
-    settings = load_settings(config_dir)
+    from contextlib import closing
+
+    with closing(_open_personal(db)) as probe:
+        settings = load_settings(config_dir, probe)
     overrides: dict[str, Any] = {}
     if limit > 0:
         overrides["max_jobs_per_run"] = limit
@@ -2332,7 +2336,7 @@ def rescore_command(
             limit=limit or None,
             include_closed=include_closed,
             no_replay=no_replay,
-            semantic=_semantic_on(config_dir),
+            semantic=_semantic_on(config_dir, conn),
         )
     finally:
         conn.close()

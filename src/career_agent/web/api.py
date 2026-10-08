@@ -1911,7 +1911,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 # did. Pressed with nothing to do, this now costs seconds.
                 from career_agent.semantic.settings import load_settings
 
-                semantic = load_settings(self.config.config_dir).uses_findings
+                semantic = load_settings(self.config.config_dir, conn).uses_findings
                 stats = run_rescore(conn, config, progress=progress, semantic=semantic)
 
             state.funnel = {

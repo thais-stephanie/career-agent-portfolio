@@ -340,6 +340,12 @@ def create_profile(root: Path, label: str) -> Profile:
         db, config_dir, _ = profile.paths(root)
         config_dir.mkdir(parents=True, exist_ok=True)
         sync_shipped_config(root, profile)
+        # Written down, not left to a default: this profile uses no external
+        # AI provider until it chooses one in Settings. The installation's
+        # key, if any, is not a choice this profile made.
+        from career_agent.semantic.settings import Mode, save_settings
+
+        save_settings(config_dir, {"mode": Mode.DETERMINISTIC.value})
         conn = connect(db)
         try:
             migrate(conn)

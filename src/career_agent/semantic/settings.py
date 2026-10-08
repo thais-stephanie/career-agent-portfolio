@@ -3,17 +3,25 @@
 HOW Career Agent interprets postings, not WHAT the person wants: this lives
 beside Settings & Sources, never in the Search Intent.
 
-Settings are `config/semantic.local.yaml` (gitignored like every local file).
+Settings are `semantic.local.yaml` in the PROFILE's settings folder
+(gitignored like every local file): whether an external AI provider is used,
+and which, is each profile's own decision. A profile that never made it uses
+none: Career Agent works deterministically until somebody chooses (`choice`).
+
 The DeepSeek key is `DEEPSEEK_API_KEY` in the root `.env`, the file the
 project already reads its credentials from and already excludes from backups
-and from git. The key is never written to the database, never returned by an
-API, never logged; the API reports only whether one is configured.
+and from git. It is INSTALLATION-WIDE: one key on this computer, which every
+profile may use only if that profile chose a provider that needs it, and
+which "remove" removes for all of them. The key is never written to the
+database, never returned by an API, never logged; the API reports only
+whether one is configured.
 """
 
 from __future__ import annotations
 
 import os
 import re
+import sqlite3
 import tempfile
 from dataclasses import dataclass
 from enum import StrEnum
@@ -44,7 +52,9 @@ class SemanticSettings(BaseModel):
     #: Whether validated semantic findings take part in Search Fit. Nothing is
     #: ever sent to a provider without an explicit run, whatever this says.
     enabled: bool = True
-    mode: Mode = Mode.AUTO
+    #: No provider until the profile chooses one. Auto, or a named provider,
+    #: is a decision a profile makes in Settings, never a default it inherits.
+    mode: Mode = Mode.DETERMINISTIC
     #: Hard stop for a metered API in one run, in USD.
     budget_per_run_usd: float = Field(default=0.25, ge=0.0, le=5.0)
     #: At most this many postings per run, for every provider.
@@ -66,10 +76,42 @@ def settings_path(config_dir: Path) -> Path:
     return config_dir / SETTINGS_FILE
 
 
-def load_settings(config_dir: Path) -> SemanticSettings:
+#: How a profile's AI choice stands: written in its settings file; KEPT from
+#: before choosing existed (the profile already used an AI provider when the
+#: implicit default was Auto, so Auto stays until it chooses, and nothing it
+#: relied on moves); or never made, which means deterministic.
+CHOSEN, KEPT, NOT_CHOSEN = "chosen", "kept", "not_chosen"
+
+
+def used_ai(conn: sqlite3.Connection) -> bool:
+    """Whether this profile's database shows an AI provider already used: a
+    semantic run that reached one, or a resume drafted with AI."""
+    for sql in (
+        "SELECT EXISTS (SELECT 1 FROM semantic_run WHERE provider IS NOT NULL)",
+        "SELECT EXISTS (SELECT 1 FROM tailoring_run WHERE mode = 'AI_ASSISTED')",
+    ):
+        try:
+            if conn.execute(sql).fetchone()[0]:
+                return True
+        except sqlite3.Error:  # an older or a demo database without the table
+            continue
+    return False
+
+
+def choice(config_dir: Path, conn: sqlite3.Connection | None = None) -> str:
+    if settings_path(config_dir).exists():
+        return CHOSEN
+    return KEPT if conn is not None and used_ai(conn) else NOT_CHOSEN
+
+
+def load_settings(config_dir: Path, conn: sqlite3.Connection | None = None) -> SemanticSettings:
+    """The profile's settings. With no file, deterministic, unless `conn` (the
+    profile's database) shows it already used AI: then Auto is KEPT, so an
+    existing installation behaves as it did until the person chooses."""
     path = settings_path(config_dir)
     if not path.exists():
-        return SemanticSettings()
+        kept = conn is not None and used_ai(conn)
+        return SemanticSettings(mode=Mode.AUTO) if kept else SemanticSettings()
     try:
         data = safe_load(path.read_text(encoding="utf-8")) or {}
         return SemanticSettings.model_validate(data)
@@ -78,8 +120,12 @@ def load_settings(config_dir: Path) -> SemanticSettings:
         return SemanticSettings(enabled=False)
 
 
-def save_settings(config_dir: Path, changes: dict) -> SemanticSettings:
-    current = load_settings(config_dir).model_dump(mode="json")
+def save_settings(
+    config_dir: Path, changes: dict, conn: sqlite3.Connection | None = None
+) -> SemanticSettings:
+    """Write the whole file. With `conn`, a KEPT Auto is written down as it
+    stands when another setting is saved, never silently dropped."""
+    current = load_settings(config_dir, conn).model_dump(mode="json")
     current.update(changes)
     try:
         settings = SemanticSettings.model_validate(current)

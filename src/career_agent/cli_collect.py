@@ -256,7 +256,7 @@ def _score_marked(conn: Any, config_dir: Path) -> Any:
         return None
     from career_agent.semantic.settings import load_settings
 
-    semantic = load_settings(config_dir).uses_findings
+    semantic = load_settings(config_dir, conn).uses_findings
     return rescore(conn, config, mode=RescoreMode.DIRTY, semantic=semantic)
 
 

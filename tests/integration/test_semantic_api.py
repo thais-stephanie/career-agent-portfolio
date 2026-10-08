@@ -50,10 +50,12 @@ def api(tmp_path, monkeypatch):
 
 def test_the_status_says_what_is_used_and_why(api) -> None:
     status = api.handle_api("GET", "/api/semantic", {}, {})
-    assert status["settings"]["mode"] == "auto"
+    # A profile that never chose uses no provider, and says it has not chosen.
+    assert status["settings"]["mode"] == "deterministic"
+    assert status["choice"] == "not_chosen"
     assert status["active_provider"] is None
     assert [p["id"] for p in status["providers"]] == ["deepseek", "codex", "claude_code", "laya"]
-    assert status["deepseek_key"] == {"configured": False}
+    assert status["deepseek_key"] == {"configured": False, "scope": "installation"}
     assert status["readiness"]["state"] in {"NOT_READY", "PARTIAL", "READY"}
     assert "Career Profile" in " ".join(status["privacy"]["never_sends"])
 
@@ -83,10 +85,13 @@ def test_a_bad_key_request_writes_nothing(api, body) -> None:
 
 def test_settings_are_validated_and_saved(api) -> None:
     saved = api.handle_api(
-        "PATCH", "/api/semantic", {}, {"mode": "deterministic", "budget_per_run_usd": 0.1}
+        "PATCH", "/api/semantic", {}, {"mode": "auto", "budget_per_run_usd": 0.1}
     )
-    assert saved["settings"]["mode"] == "deterministic"
+    assert saved["settings"]["mode"] == "auto"
     assert saved["recalculation_required"] is True
+    assert api.handle_api("GET", "/api/semantic", {}, {})["choice"] == "chosen"
+    back = api.handle_api("PATCH", "/api/semantic", {}, {"mode": "deterministic"})
+    assert back["recalculation_required"] is True
     for bad in ({"mode": "gpt"}, {"budget_per_run_usd": 99}, {"secret": 1}, {}):
         with pytest.raises(ApiError):
             api.handle_api("PATCH", "/api/semantic", {}, bad)

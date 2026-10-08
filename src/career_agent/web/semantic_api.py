@@ -35,6 +35,15 @@ def _is_personal(app: JobsApi) -> bool:
     return identity is not None and identity.kind is RuntimeMode.PERSONAL
 
 
+def profile_settings(app: Any) -> Any:
+    """This profile's AI settings, read with its database so an Auto it already
+    relied on is kept (`semantic.settings.load_settings`)."""
+    from career_agent.semantic.settings import load_settings
+
+    with closing(app.connect()) as conn:
+        return load_settings(app.config.config_dir, conn)
+
+
 def register_semantic(app: JobsApi) -> None:
     from career_agent.pipeline.retrieval import RetrievalRunner
     from career_agent.semantic.settings import load_stored_key
@@ -79,14 +88,14 @@ def register_semantic(app: JobsApi) -> None:
     def semantic_status(*, query: dict, body: dict) -> dict:
         from career_agent.match.readiness import search_fit_readiness
         from career_agent.semantic.routing import resolve
-        from career_agent.semantic.settings import key_state, load_settings
+        from career_agent.semantic.settings import choice, key_state
         from career_agent.semantic.store import SemanticRepo
 
         fresh = query.get("refresh") in ("1", "true")
         if set(query) - {"refresh"}:
             raise ApiError(400, "unknown parameter", for_reader=True)
         config_dir = app.config.config_dir
-        settings = load_settings(config_dir)
+        settings = profile_settings(app)
         personal = _is_personal(app)
         if fresh:
             from career_agent.semantic.routing import forget_status
@@ -98,9 +107,13 @@ def register_semantic(app: JobsApi) -> None:
                 last_run = SemanticRepo(conn).last_run()
             except Exception:  # noqa: BLE001 - an unmigrated demo database
                 last_run = None
+            how = choice(config_dir, conn)
         key = key_state(config_dir)
         return {
             "settings": settings.model_dump(mode="json"),
+            # CHOSEN in this profile's file, KEPT from AI it used before, or
+            # NOT_CHOSEN: nothing external is used until this profile decides.
+            "choice": how,
             "demo": not personal,
             "active_provider": route.provider.id if route and route.provider else None,
             "active_reason": "DEMO"
@@ -110,7 +123,9 @@ def register_semantic(app: JobsApi) -> None:
             # `resolve` above already refreshed each status when asked; asking
             # the CLIs a second time would double a slow GET for nothing.
             "providers": provider_rows(),
-            "deepseek_key": {"configured": key.configured},
+            # One key for the whole installation: every profile can see that it
+            # exists, only a profile that chose a provider needing it uses it.
+            "deepseek_key": {"configured": key.configured, "scope": "installation"},
             "last_run": last_run,
             "run": runner.snapshot(),
             "readiness": search_fit_readiness(app.search_config()).as_dict(),
@@ -130,13 +145,14 @@ def register_semantic(app: JobsApi) -> None:
         }
 
     def patch_settings(*, query: dict, body: dict) -> dict:
-        from career_agent.semantic.settings import SettingsError, load_settings, save_settings
+        from career_agent.semantic.settings import SettingsError, save_settings
 
         if query or not body or set(body) - SETTINGS_KEYS:
             raise ApiError(400, "unknown setting", for_reader=True)
-        before = load_settings(app.config.config_dir)
+        before = profile_settings(app)
         try:
-            after = save_settings(app.config.config_dir, body)
+            with closing(app.connect()) as conn:
+                after = save_settings(app.config.config_dir, body, conn)
         except SettingsError as exc:
             raise ApiError(400, str(exc), for_reader=True) from exc
         recalculation = before.uses_findings != after.uses_findings
@@ -184,13 +200,12 @@ def register_semantic(app: JobsApi) -> None:
         from career_agent.semantic.intent import search_intent
         from career_agent.semantic.routing import resolve
         from career_agent.semantic.runner import estimate, run_cap, select_candidates
-        from career_agent.semantic.settings import load_settings
 
         if query or body:
             raise ApiError(400, "unexpected parameters", for_reader=True)
         if not _is_personal(app):
             raise ApiError(409, "Demo mode never uses AI.", for_reader=True)
-        settings = load_settings(app.config.config_dir)
+        settings = profile_settings(app)
         route = resolve(settings)
         config = app.search_config()
         intent = search_intent(config)
@@ -277,9 +292,8 @@ def _work(app: JobsApi, last: dict[str, Any]):
         from career_agent.pipeline.rescore import RescoreMode, rescore
         from career_agent.semantic.routing import resolve
         from career_agent.semantic.runner import run_semantic
-        from career_agent.semantic.settings import load_settings
 
-        settings = load_settings(app.config.config_dir)
+        settings = profile_settings(app)
         route = resolve(settings)
         config = app.search_config()
         with closing(app.connect()) as conn:

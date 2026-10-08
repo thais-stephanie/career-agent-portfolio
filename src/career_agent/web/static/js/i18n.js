@@ -4225,10 +4225,17 @@ const EN = {
   'ai.key.label': 'DeepSeek API key',
   'ai.key.placeholder': 'Paste your key',
   'ai.key.configured': 'An API key is configured on this computer.',
+  'ai.key.scope': 'The key belongs to this computer and is shared by every profile on it. A profile uses it only '
+    + 'if that profile chose a provider that needs it. Removing it removes it for every profile.',
+  'ai.choice.not_chosen': 'This profile has not chosen an AI provider, so none is used. Choose one below if you '
+    + 'want it; the choice is for this profile only.',
+  'ai.choice.kept': 'This profile already used AI before this choice existed, so Auto is kept until you choose. '
+    + 'The choice is for this profile only.',
+  'ai.choice.chosen': 'This choice is for this profile only.',
   'ai.key.missing': 'No API key yet.',
   'ai.key.add': 'Save key',
   'ai.key.replace': 'Replace key',
-  'ai.key.remove': 'Remove key',
+  'ai.key.remove': 'Remove key for every profile',
   'ai.key.help': 'Kept only in the .env file on this computer. It is never shown again, never saved in the '
     + 'database and never sent anywhere except to DeepSeek.',
   'ai.key.saved': 'Key saved.',
@@ -8402,10 +8409,17 @@ const PT_BR = {
   'ai.key.label': 'Chave de API da DeepSeek',
   'ai.key.placeholder': 'Cole a sua chave',
   'ai.key.configured': 'Há uma chave de API configurada neste computador.',
+  'ai.key.scope': 'A chave é deste computador e é compartilhada por todos os perfis dele. Um perfil só a usa se '
+    + 'tiver escolhido um provedor que precisa dela. Removê-la remove para todos os perfis.',
+  'ai.choice.not_chosen': 'Este perfil não escolheu um provedor de IA, então nenhum é usado. Escolha um abaixo se '
+    + 'quiser; a escolha vale só para este perfil.',
+  'ai.choice.kept': 'Este perfil já usava IA antes de esta escolha existir, então o Automático foi mantido até você '
+    + 'escolher. A escolha vale só para este perfil.',
+  'ai.choice.chosen': 'Esta escolha vale só para este perfil.',
   'ai.key.missing': 'Ainda não há chave de API.',
   'ai.key.add': 'Salvar chave',
   'ai.key.replace': 'Substituir chave',
-  'ai.key.remove': 'Remover chave',
+  'ai.key.remove': 'Remover chave de todos os perfis',
   'ai.key.help': 'Fica só no arquivo .env deste computador. Nunca é mostrada de novo, nunca é salva no banco de '
     + 'dados e nunca é enviada a nenhum lugar além da DeepSeek.',
   'ai.key.saved': 'Chave salva.',
