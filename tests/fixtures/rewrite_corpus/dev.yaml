@@ -311,3 +311,12 @@ cases:
     tools: [Asana]
     text: "Built Asana boards for the product team."
     expect: PASS
+  # ------------------------------------------- morphology, added with the
+  # ev-32 fix (a regression case of its own, in other words).
+  - id: dev-fp-03
+    dimension: causality
+    lang: en
+    sources: ["Reorganized the shared drive that cut search time by 30%."]
+    tools: []
+    text: "Cut search time by 30% by reorganizing the shared drive."
+    expect: PASS

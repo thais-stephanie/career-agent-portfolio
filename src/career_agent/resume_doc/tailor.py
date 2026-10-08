@@ -630,6 +630,32 @@ def _amounts(text: str, limit: int = 3) -> list[Amount]:
     return out
 
 
+#: English past forms that no suffix rule reaches.
+_IRREGULAR = {
+    "built": "build", "rebuilt": "rebuild", "wrote": "write", "written": "write",
+    "rewrote": "rewrite", "rewritten": "rewrite", "ran": "run", "made": "make", "grew": "grow",
+    "fell": "fall", "rose": "rise", "taught": "teach", "sent": "send", "held": "hold",
+    "drew": "draw", "drawn": "draw", "brought": "bring", "kept": "keep", "met": "meet",
+    "spent": "spend", "sold": "sell", "took": "take", "taken": "take", "gave": "give",
+    "given": "give", "chose": "choose", "chosen": "choose", "began": "begin", "begun": "begin",
+}  # fmt: skip
+
+
+def _stem(word: str) -> str:
+    """One English word's inflections, folded: "rebuilding", "rebuilt" and
+    "rebuild" read alike, as do "cutting" and "cut". Used only to ask whether
+    a word is the evidence's own; who did the work and their rank are read
+    apart (`_responsibility`, `_RANK`), never through this."""
+    word = _IRREGULAR.get(word, word)
+    for suffix in ("ing", "ed", "es", "s"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            word = word[: -len(suffix)]
+            if suffix in ("ing", "ed") and len(word) >= 4 and word[-1] == word[-2]:
+                word = word[:-1]  # "cutting" -> "cut"
+            break
+    return word[:-1] if word.endswith("e") and len(word) > 4 else word
+
+
 def _amount_held(amount: Amount, held: list[Amount], *, alone: bool = True) -> bool:
     """An amount is the source's when its number and unit are, and so is the
     phrase around it: the same thing counted (its head kept, no word the
@@ -662,7 +688,10 @@ def _amount_held(amount: Amount, held: list[Amount], *, alone: bool = True) -> b
         lends itself to another statement, across a comma or as a fragment
         of its own ("... system. For 4 teams.")."""
         anchors = {w for w in source - phrase if not plain(w)}
-        return all(w in source or plain(w) for w in said) and (alone or bool(said & anchors))
+        stems = {_stem(w) for w in source}
+        return all(w in source or _stem(w) in stems or plain(w) for w in said) and (
+            alone or bool(said & anchors)
+        )
 
     for n, u, a, b, head, sentence in held:
         if (n, u) != (number, unit) or not from_sentence(sentence, set(a) | set(b)):
@@ -886,10 +915,12 @@ def grounding(
     if claims:
         out.append(("CLAIMS", f"results or scale not in its evidence: {sorted(claims)}"))
     forms = held | titled
+    stems = {_stem(w) for w in forms}
     new = {
         w for w in words
         if w not in AI_JOINERS and w not in forms
         and w.removesuffix("s") not in forms and f"{w}s" not in forms
+        and _stem(w) not in stems
     }  # fmt: skip
     foreign = new - AI_WORDS
     if foreign or len(new) > new_words:
