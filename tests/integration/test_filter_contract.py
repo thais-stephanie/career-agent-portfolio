@@ -375,11 +375,8 @@ def test_a_band_is_matched_on_its_TOP_not_its_floor(api: JobsApi) -> None:
 
 def test_a_monthly_figure_is_compared_as_a_year(api: JobsApi) -> None:
     """6,000 a month is 72,000 a year, so it clears 50,000 and not 100,000."""
-    # Unresolved included: the monthly posting (demo-004) waits on a question
-    # this test is not about.
-    wide = "&include_unresolved=1"
-    assert int(_jobs(api, qs="min_salary=50000&salary_currency=USD" + wide)["total"]) > int(
-        _jobs(api, qs="min_salary=100000&salary_currency=USD" + wide)["total"]
+    assert int(_jobs(api, qs="min_salary=50000&salary_currency=USD")["total"]) > int(
+        _jobs(api, qs="min_salary=100000&salary_currency=USD")["total"]
     )
 
 

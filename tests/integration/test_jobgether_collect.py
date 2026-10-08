@@ -120,9 +120,7 @@ def test_a_lead_is_scored_on_its_declared_scope_alone(conn) -> None:
     }
     assert statuses["Anywhere"] == "VERIFIED_ELIGIBLE"
     assert statuses["Brazil"] == "VERIFIED_ELIGIBLE"
-    # A contractor lead hiring across a REGION names no client country, so
-    # whether it is work abroad is not known: it waits, geography passing.
-    assert statuses["Latin America"] == "UNRESOLVED"
+    assert statuses["Latin America"] == "VERIFIED_ELIGIBLE"
     assert statuses["Indiana (USA), New Jersey (USA)"] == "VERIFIED_NOT_ELIGIBLE"
     assert statuses["North America, Europe"] == "VERIFIED_NOT_ELIGIBLE"
     completeness = {

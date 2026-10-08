@@ -662,6 +662,11 @@ nothing. The deterministic path stays beside it, unchanged.
   equivalences, and the checks can refuse a faithful line and miss an
   unfaithful one; `scripts/rewrite_corpus.py` measures both on a synthetic
   corpus with a frozen evaluation split (tests/fixtures/rewrite_corpus).
+  That evaluation was PARTIALLY INFLUENCED by development and is not an
+  independent measure: the same author wrote it after sketching the rules'
+  shapes, two of its cases (ev-03, ev-17) informed fixes, and a third (ev-32)
+  was fixed after it was read. `after-phase1.json` is the original report as
+  it was; `regression-ev32.json` is a regression record, not an evaluation.
 * **Reviewed, one by one.** Each change shows Before, After, Why, its source
   and the job's ask, with Accept, Edit and Reject. An edit is held to the same
   checks; wording Career Agent cannot verify is refused, and can still be

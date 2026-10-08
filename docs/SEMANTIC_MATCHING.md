@@ -182,6 +182,23 @@ Settings, AI & Semantic Matching, and written in that profile's
   key is installation-wide; the screen says it is shared by every profile and
   that removing it removes it for all of them.
 
+### What "Remove key" can remove
+
+Career Agent reads `DEEPSEEK_API_KEY` from two places: the process
+environment, and the installation's `.env`, which it copies into the
+environment at start only when the environment holds none.
+
+- A key saved from Settings lives in `.env`. **Remove key** deletes that line
+  and clears it from the running app: gone for every profile, now and after a
+  restart.
+- A key set as an operating-system environment variable (Windows: System
+  Properties, Environment Variables, or `setx`) is not Career Agent's to
+  delete. **Remove key** clears it from the running app only; the next start
+  reads it again, and Settings says "configured" again. Remove it where it was
+  set, then restart the app.
+- Either way the key is never written to a database, a profile or a backup,
+  and a profile that has not chosen a provider uses none.
+
 ## Routing decision (Auto)
 
 When a profile has chosen Auto, it uses the first available provider in this

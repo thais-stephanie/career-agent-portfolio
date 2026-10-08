@@ -20,13 +20,12 @@ Four questions, kept apart because they have different answers:
   in that country does answer it: no citizen lacks it.
 * ENGAGEMENT AS A CONTRACTOR: a posting that states, explicitly or in its
   own contract-type field, that the work is done as an independent
-  contractor (invoice, PJ, B2B). Where the client is decides which answer
-  counts: a client in the country she lives in is answered by `contractor`;
-  a client ABROAD by `contractor_abroad`, because being available as a
-  contractor does not show she can invoice across a border. A posting that
-  does not say where the client is stays PENDING whatever she answered,
-  unless she said she cannot work as a contractor at all. Where she lives
-  is used here only to tell home from abroad, never as an answer.
+  contractor (invoice, PJ, B2B). She answers twice: for a client in the
+  country she lives in (`contractor`) and for a client abroad
+  (`contractor_abroad`); a no at home is not a no abroad. No reader here
+  identifies the contracting party's country (a posting's location is where
+  the WORK is), so it is COMPATIBLE only when she said yes to both,
+  INCOMPATIBLE only when she said no to both, and PENDING otherwise.
 
 WHERE THE CANDIDATE LIVES (`candidate_country`) answers none of these: a
 residence is the location question, which the geography gate asks. And a
@@ -169,8 +168,8 @@ def contractor_requirement(
 ) -> Requirement | None:
     """A posting that SAYS the work is done as an independent contractor: in
     its own contract-type field, or in so many words. A benefit or a likely
-    regime is not a statement and is not read. Its country is the posting's
-    own single country, where the client is; None when it states none."""
+    regime is not a statement and is not read. It carries no country: the
+    posting's location is where the work is, not where the client is."""
     if employment is None or employment.relationship is not EmploymentRelationship.CONTRACTOR_B2B:
         return None
     if employment.source not in (
@@ -178,7 +177,8 @@ def contractor_requirement(
         EmploymentSource.STRUCTURED_FIELD,
     ):
         return None
-    return Requirement(CONTRACTOR, _one(place), employment.evidence or "", -1, -1)
+    del place  # where the work is; never the contracting party's country
+    return Requirement(CONTRACTOR, None, employment.evidence or "", -1, -1)
 
 
 #: Why, per requirement and answer. `{c}` is the country the posting names.
@@ -216,39 +216,33 @@ _WHY = {
 }
 
 
-def _contractor(c: str | None, eligibility: Eligibility) -> tuple[str, str]:
-    """A contractor engagement, answered in the client's context."""
+def _contractor(eligibility: Eligibility) -> tuple[str, str]:
+    """A contractor engagement. Where the CONTRACTING PARTY is decides which of
+    her two answers counts (at home: `contractor`; abroad: `contractor_abroad`),
+    and no reader here identifies it: a posting's location ("Remote, Brazil")
+    is where the WORK is, which is her own country, never proof of where the
+    client is, and a PJ regime is not either (foreign clients engage Brazilian
+    PJs). So only two answers decide without that context: yes in both places,
+    or no in both. A no at home is never a no abroad."""
     lead = "The posting engages an independent contractor"
-    if eligibility.contractor is False:
-        return INCOMPATIBLE, f"{lead}; you said you cannot work as one."
-    if c is None:
-        return PENDING, (
-            f"{lead} and does not say where the client is, which decides whether the work "
-            "is abroad."
+    home, abroad = eligibility.contractor, eligibility.contractor_abroad
+    if home is True and abroad is True:
+        return COMPATIBLE, f"{lead}; you said you can work as one at home and for clients abroad."
+    if home is False and abroad is False:
+        return INCOMPATIBLE, (
+            f"{lead}; you said you cannot work as one, at home or for clients abroad."
         )
-    home = (eligibility.candidate_country or "").upper()
-    if not home:
-        return PENDING, (
-            f"{lead} for a client in {c}; you have not said where you live, so whether that "
-            "is abroad is not known."
-        )
-    said: bool | None
-    if c == home:
-        said, where = eligibility.contractor, f"in {c}, where you live"
-    else:
-        said, where = eligibility.contractor_abroad, f"in {c}, abroad"
-    if said is True:
-        return COMPATIBLE, f"{lead} for a client {where}; you said you can."
-    if said is False:
-        return INCOMPATIBLE, f"{lead} for a client {where}; you said you cannot."
-    return PENDING, f"{lead} for a client {where}; you have not said whether you can."
+    return PENDING, (
+        f"{lead} and does not say where the contracting party is; your answer depends on it "
+        "(at home or abroad)."
+    )
 
 
 def answer(requirement: Requirement, eligibility: Eligibility) -> tuple[str, str]:
     """COMPATIBLE, INCOMPATIBLE or PENDING, and the sentence that says why."""
     c = requirement.country
     if requirement.kind == CONTRACTOR:
-        return _contractor(c, eligibility)
+        return _contractor(eligibility)
     yes = {x.upper() for x in eligibility.authorized_countries}
     no = {x.upper() for x in eligibility.not_authorized_countries}
     sponsor = {x.upper() for x in eligibility.sponsorship_needed}

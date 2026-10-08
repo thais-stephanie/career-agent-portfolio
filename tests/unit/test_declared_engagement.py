@@ -249,14 +249,15 @@ def test_a_declared_engagement_moves_no_score_at_all() -> None:
     assert declared.match_score == silent.match_score
     assert declared.data_confidence == silent.data_confidence
     assert declared.eligibility_status == silent.eligibility_status
-    # No gate result moves either. The declared engagement is a requirement
-    # `match.authorization` reads, but this posting names no client country,
-    # so whether it is work abroad is not known and it stays UNRESOLVED,
-    # whatever the worked example answers about contracting: it now SAYS why.
-    assert [g.result for g in declared.gates] == [g.result for g in silent.gates]
-    gate = next(g for g in declared.gates if g.gate == "work_authorization")
-    assert gate.result is GateResult.UNRESOLVED
-    assert "does not say where the client is" in gate.reason
+    # ONE gate may move, and only through the candidate's own answer: a
+    # declared contractor engagement is a requirement `match.authorization`
+    # answers with `eligibility.contractor` (the worked example says yes).
+    moved = {
+        d.gate: (s.result, d.result)
+        for d, s in zip(declared.gates, silent.gates, strict=True)
+        if d.result != s.result
+    }
+    assert moved == {"work_authorization": (GateResult.UNRESOLVED, GateResult.PASS)}
 
 
 # -- the coarse vocabulary too -----------------------------------------------

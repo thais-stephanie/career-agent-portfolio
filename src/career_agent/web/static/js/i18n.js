@@ -3301,9 +3301,9 @@ const EN = {
     + 'your visa. Where you live and your nationality are never used to answer this for you.',
   'fieldHelp.contractor': 'Some jobs are offered only as a contract for services. Leave it unanswered if '
     + 'you do not know yet.',
-  'fieldHelp.contractor_abroad': 'Being available as a contractor does not answer this: a client in '
-    + 'another country needs you to invoice across a border. A job whose client country is not stated '
-    + 'waits for your answer.',
+  'fieldHelp.contractor_abroad': 'Answered on its own: a no at home is not a no abroad. Jobs rarely say '
+    + 'where the contracting party is, so a contractor job is a match only when you answer yes to both '
+    + 'questions, and ruled out only when you answer no to both.',
 
   // The travel readout. A percentage with a word beside it, because 15 on its
   // own answers "fifteen what".
@@ -4259,7 +4259,8 @@ const EN = {
   'ai.key.help': 'Kept only in the .env file on this computer. It is never shown again, never saved in the '
     + 'database and never sent anywhere except to DeepSeek.',
   'ai.key.saved': 'Key saved.',
-  'ai.key.removed': 'Key removed.',
+  'ai.key.removed': 'Key removed from .env and from the running app. A key set as a system environment '
+    + 'variable returns at the next start: remove it there.',
   'ai.privacyHead': 'What leaves this computer',
   'ai.privacy.sends': 'Sent to the provider: the work, tools and other signals you said you want, and the title '
     + 'and text of each posting evaluated.',
@@ -7526,8 +7527,9 @@ const PT_BR = {
     + 'seu visto. Onde você mora e sua nacionalidade nunca são usados para responder por você.',
   'fieldHelp.contractor': 'Algumas vagas são oferecidas só como prestação de serviço. Deixe sem resposta se '
     + 'ainda não souber.',
-  'fieldHelp.contractor_abroad': 'Estar disponível como prestador não responde isto: um cliente em outro '
-    + 'país exige faturar para fora. Uma vaga que não diz o país do cliente aguarda sua resposta.',
+  'fieldHelp.contractor_abroad': 'Respondida à parte: um não no Brasil não é um não no exterior. As vagas '
+    + 'raramente dizem onde está o contratante, então uma vaga de prestador só é compatível quando você '
+    + 'responde sim às duas perguntas, e só é descartada quando responde não às duas.',
 
   'travel.none': 'Sem viagens',
   'travel.occasional': 'Viagens ocasionais',
@@ -8463,7 +8465,8 @@ const PT_BR = {
   'ai.key.help': 'Fica só no arquivo .env deste computador. Nunca é mostrada de novo, nunca é salva no banco de '
     + 'dados e nunca é enviada a nenhum lugar além da DeepSeek.',
   'ai.key.saved': 'Chave salva.',
-  'ai.key.removed': 'Chave removida.',
+  'ai.key.removed': 'Chave removida do .env e do app em execução. Uma chave definida como variável de '
+    + 'ambiente do sistema volta no próximo início: remova-a lá.',
   'ai.privacyHead': 'O que sai deste computador',
   'ai.privacy.sends': 'Enviado ao provedor: o trabalho, as ferramentas e os outros sinais que você disse querer, e '
     + 'o título e o texto de cada vaga avaliada.',

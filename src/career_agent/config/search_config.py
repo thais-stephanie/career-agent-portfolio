@@ -237,11 +237,8 @@ class Eligibility(_Section):
                 f"{', '.join(sorted(yes & sponsor))}: declared both as a country where you are "
                 "authorized to be employed and one where you would need visa sponsorship"
             )
-        if self.contractor is False and self.contractor_abroad is True:
-            raise ValueError(
-                "declared both that you cannot work as an independent contractor and that you "
-                "can for a client abroad"
-            )
+        # contractor: false beside contractor_abroad: true is coherent (no at
+        # home, yes for clients abroad) and is accepted.
         return self
 
 

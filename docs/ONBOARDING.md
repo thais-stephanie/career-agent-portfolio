@@ -30,7 +30,7 @@ Settings means Career Profile to Preferences unless stated otherwise.
 | Not authorized to be employed | Where are you NOT authorized to be employed? | Settings | `eligibility.not_authorized_countries` | `match.authorization` | Eligibility | Yes | none | No | An explicit no; left out means not said |
 | Visa sponsorship | Where would an employer need to sponsor a visa for you? | Settings | `eligibility.sponsorship_needed` | `match.authorization` | Eligibility | Yes | none | No | Never answered from residence or nationality |
 | Contractor at home | Can you work as an independent contractor for a client in the country you live in? | Settings | `eligibility.contractor` | `match.authorization` | Eligibility | Yes | none | No | Yes, no or not answered; not answered is never "no" |
-| Contractor for a client abroad | Can you provide services to a client abroad? | Settings | `eligibility.contractor_abroad` | `match.authorization` | Eligibility | Yes | none | No | Being available as a contractor does not answer it |
+| Contractor for a client abroad | Can you provide services to a client abroad? | Settings | `eligibility.contractor_abroad` | `match.authorization` | Eligibility | Yes | none | No | Answered on its own: a no at home is not a no abroad, and being available at home does not answer it |
 | Hiring regions | Which regions can you work in? | Setup, Settings | `eligibility.eligible_scopes` | `gates._region_verdict` | Eligibility | Only for a region containing where you live | where you live | Yes, only regions that contain the home country and none of the confirmed countries | A region holding a confirmed country already admits through it, so asking would change nothing; a scope without a home country fails every on-site and hybrid posting |
 | Ways of working you prefer | How do you prefer to work? | Settings only | `preferences.remote.accepted_work_models` | display only (before V2) | Inert before V2, now **Search Fit (A)** | Now yes | none | Yes | Wired: a posting whose stated work model you prefer earns the component maximum |
 | Ways of working you would rather avoid | (new) | none | `preferences.remote.avoided_work_models` | score | **Search Fit (A)** | Yes | none | Yes, same card | Soft: earns nothing on that component. Never eligibility |
@@ -71,8 +71,7 @@ by what the candidate DECLARED:
 | Authorization to work in X | You declared you are authorized in X | You declared you are not | Neither was said, or no country is named |
 | Citizenship of X | never: an authorization is not a citizenship | You declared you are not authorized in X | Otherwise |
 | No visa sponsorship in X | You declared you are authorized in X | You need sponsorship in X | Neither was said, or no country is named |
-| A contractor, client at home | You can work as one at home | You cannot work as one | Not answered |
-| A contractor, client abroad | You can provide services abroad | You cannot, or cannot work as one at all | Not answered, or the client's country is not stated |
+| A contractor engagement | You said yes at home AND for clients abroad | You said no at home AND for clients abroad | Any other answer: where the contracting party is decides, and no reader identifies it (a posting's location is where the work is, never where the client is) |
 
 `eligible_countries` ("Countries that can employ you directly", the onboarding
 hire card) answers none of these: it has always said where employers may hire

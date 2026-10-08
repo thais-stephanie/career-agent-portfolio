@@ -2,14 +2,16 @@
 
 Development cases must all read as labelled: rules were written against them.
 
-The evaluation split has ONE independent report, `after-phase1.json`: the
+The evaluation split has ONE original report, `after-phase1.json`: the
 frozen cases run once after the phase 1 fix (20/20 distortions, 15/16
-controls, ev-32 refused). It is kept as it was. Every later run is a
-REGRESSION record, not an evaluation: `regression-ev32.json` is the split
-read again after ev-32's own false positive was fixed, so it says nothing
-independent about ev-32 (nor about ev-03 and ev-17, which informed fixes in
-phase 1). Evaluation cases are compared with the latest regression record: a
-change that moves one is visible here, and nobody edits the frozen split.
+controls, ev-32 refused). It is kept as it was, and it was PARTIALLY
+INFLUENCED by development: the same author wrote the split after sketching
+the rules' shapes, and ev-03 and ev-17 informed two phase 1 fixes. Every
+later run is a REGRESSION record, not an evaluation: `regression-ev32.json`
+is the split read again after ev-32's own false positive was fixed, so it
+says nothing independent about ev-32. Evaluation cases are compared with
+the latest regression record: a change that moves one is visible here, and
+nobody edits the frozen split.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from scripts import rewrite_corpus as corpus
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "rewrite_corpus"
 #: sha256 of eval.yaml (LF line ends) as frozen on 2026-10-07, before any fix.
 EVAL_SHA256 = "ffa717fa96fb57744aec9d42b4d07fccbdcfc4d8bf08ca1ba0b3cfe84e0a47f3"
-#: The one independent evaluation report, and the latest regression record.
+#: The original evaluation report, and the latest regression record.
 EVALUATION, REGRESSION = "after-phase1.json", "regression-ev32.json"
 
 
@@ -65,9 +67,10 @@ def test_evaluation_case_reads_as_the_latest_regression_record(case: dict) -> No
     assert got == _recorded(REGRESSION)[case["id"]], codes
 
 
-def test_the_independent_evaluation_report_is_kept_as_it_was() -> None:
-    """The one faithful control the phase 1 fix still refused, in the report
-    that was independent: kept, never rewritten by a later fix."""
+def test_the_original_evaluation_report_is_kept_as_it_was() -> None:
+    """The one faithful control the phase 1 fix still refused, in the
+    original report (partially influenced by development): kept, never
+    rewritten by a later fix."""
     assert _wrong(EVALUATION) == ["ev-32"]
 
 

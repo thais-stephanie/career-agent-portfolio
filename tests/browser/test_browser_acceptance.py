@@ -60,13 +60,9 @@ A_REAL_CARD = "document.querySelector('.card:not(.card--skeleton)')"
 #: eligibility default began hiding a posting that rules this candidate out.
 #: It is FIVE now because the title stopped buying compatibility points: seven
 #: postings clear 55, and three of those seven are one role.
-#:
-#: FOUR since the explicit declarations: demo-004 clears 55 and now waits on a
-#: contractor question it names no client country for, so the default hides
-#: it with the other unresolved postings (`DEMO_UNRESOLVED_COUNT`).
-FILTERED_COUNT = 4
+FILTERED_COUNT = 5
 #: The same population in Table, which does not group.
-FILTERED_UNGROUPED_COUNT = 6
+FILTERED_UNGROUPED_COUNT = 7
 
 #: The role the corpus publishes three times, and the badge Cards draws for it.
 GROUPED_TITLE = "Business Systems Engineer"

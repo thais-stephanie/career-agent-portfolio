@@ -117,7 +117,7 @@ def test_the_whole_corpus_comes_back_unfiltered(api: JobsApi) -> None:
     and can legitimately read zero: every off-target posting in this corpus is
     also unresolved or ineligible, so its own box reveals nothing by itself.
 
-    10 + 3 + 4 + 1 is 18 of 21, and the missing three are postings caught by
+    11 + 3 + 3 + 1 is 18 of 21, and the missing three are postings caught by
     more than one narrowing. **That is a real reporting gap and it is recorded
     rather than papered over.** A posting held back by two narrowings is
     mentioned by neither, and the honest fix is a fourth sentence -- "and 3
@@ -134,15 +134,13 @@ def test_the_whole_corpus_comes_back_unfiltered(api: JobsApi) -> None:
     changer's case, and it is now the one posting this number is about.
     """
     payload = _jobs(api)
-    # demo-004 waits on a contractor question (no client country), so it is
-    # among the unresolved now: 10 shown, 4 unresolved.
-    assert payload["total"] == 10
-    assert len(payload["items"]) == 10
+    assert payload["total"] == 11
+    assert len(payload["items"]) == 11
     assert payload["hidden_by_eligibility"] == 3
     # The third narrowing, added 2026-09-07: postings where nothing in the
     # advert said where the employer hires. Not a rejection, and not a
     # recommendation either.
-    assert payload["hidden_unresolved"] == 4
+    assert payload["hidden_unresolved"] == 3
     # ONE since demo-021, and the one is the career changer's posting: open
     # worldwide, nothing stated against this candidate, set aside purely
     # because the search describes different work. Before it, every off-target
@@ -168,7 +166,7 @@ def test_asking_for_the_unresolved_ones_beats_the_default_that_hides_them(
     """
     asked = _jobs(api, eligibility=["UNRESOLVED"])
 
-    assert asked["total"] == 4, "the default hid the postings the filter asked for"
+    assert asked["total"] == 3, "the default hid the postings the filter asked for"
     assert {item["eligibility_status"] for item in asked["items"]} == {"UNRESOLVED"}
     # And nothing is reported as held back, because nothing is.
     assert asked["hidden_unresolved"] == 0
@@ -433,12 +431,9 @@ def test_setting_applied_records_a_date_and_a_history_entry(api: JobsApi) -> Non
 
 def test_stepping_back_from_applied_keeps_the_date(api: JobsApi) -> None:
     """A status move is not a claim about whether you applied. ADR-0012."""
-    # Unresolved included: this test is about the date, not about eligibility.
-    job_id = next(
-        i
-        for i in _jobs(api, limit=500, include_unresolved=1)["items"]
-        if i["company_slug"] == "cobalt-field"
-    )["job_id"]
+    job_id = next(i for i in _jobs(api, limit=500)["items"] if i["company_slug"] == "cobalt-field")[
+        "job_id"
+    ]
     applied = api.handle_api("PATCH", f"/api/jobs/{job_id}/status", {}, {"status": "APPLIED"})
     stamped = applied["applied_at"]
     assert stamped

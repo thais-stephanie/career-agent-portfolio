@@ -145,37 +145,55 @@ def _contractor(source: EmploymentSource) -> EmploymentReading:
     )
 
 
-BRAZIL, ABROAD = "Sao Paulo, Brazil", "New York, NY, United States"
+REMOTE_BRAZIL, ABROAD = "Remote, Brazil", "New York, NY, United States"
 
 
 @pytest.mark.parametrize(
-    ("declared", "location", "result"),
+    ("declared", "result"),
     [
-        # Cannot work as a contractor at all: refused wherever the client is.
-        ({"contractor": False}, None, GateResult.FAIL),
-        ({"contractor": False}, ABROAD, GateResult.FAIL),
-        # Available as a contractor, client country not stated: the context
-        # that decides home from abroad is missing, so it waits.
-        ({"contractor": True}, None, GateResult.UNRESOLVED),
-        ({"contractor": True, "contractor_abroad": True}, None, GateResult.UNRESOLVED),
-        # A client where she lives: the home answer counts.
-        ({"contractor": True}, BRAZIL, GateResult.PASS),
-        ({}, BRAZIL, GateResult.UNRESOLVED),
-        # A client abroad: availability at home does not answer it.
-        ({"contractor": True}, ABROAD, GateResult.UNRESOLVED),
-        ({"contractor": True, "contractor_abroad": True}, ABROAD, GateResult.PASS),
-        ({"contractor": True, "contractor_abroad": False}, ABROAD, GateResult.FAIL),
-        # Where she lives not said: home or abroad is not known.
-        ({"contractor": True, "contractor_abroad": True, "candidate_country": ""}, ABROAD,
-         GateResult.UNRESOLVED),
+        # Yes at home and abroad: wherever the contracting party is.
+        ({"contractor": True, "contractor_abroad": True}, GateResult.PASS),
+        # No at home and abroad: refused wherever it is.
+        ({"contractor": False, "contractor_abroad": False}, GateResult.FAIL),
+        # Any other answer depends on where the contracting party is, which no
+        # reader identifies: it waits.
+        ({"contractor": True}, GateResult.UNRESOLVED),
+        ({"contractor": True, "contractor_abroad": False}, GateResult.UNRESOLVED),
+        ({"contractor": False}, GateResult.UNRESOLVED),
+        ({"contractor_abroad": True}, GateResult.UNRESOLVED),
+        ({}, GateResult.UNRESOLVED),
     ],
 )  # fmt: skip
-def test_a_contractor_engagement_is_answered_in_the_clients_context(
-    declared: dict, location: str | None, result: GateResult
+@pytest.mark.parametrize("location", [None, REMOTE_BRAZIL, ABROAD])
+def test_a_contractor_engagement_needs_both_answers_without_the_contracting_party(
+    declared: dict, result: GateResult, location: str | None
 ) -> None:
     reading = _contractor(EmploymentSource.EXPLICIT_STATEMENT)
     outcome, _ = gate(config(**declared), "Analyst role.", location, employment=reading)
     assert outcome.result is result, outcome.reason
+
+
+def test_remote_brazil_is_where_the_work_is_not_where_the_client_is() -> None:
+    """A "Remote, Brazil" contractor posting naming no contracting entity: the
+    location is where she would WORK, her own country, and proves nothing
+    about where the client is. Yes at home alone does not answer it."""
+    reading = _contractor(EmploymentSource.STRUCTURED_FIELD)
+    lives_here = config(candidate_country="BR", contractor=True, contractor_abroad=None)
+    outcome, _ = gate(lives_here, "Analyst role.", REMOTE_BRAZIL, employment=reading)
+    assert outcome.result is GateResult.UNRESOLVED
+    assert "does not say where the contracting party is" in outcome.reason
+
+
+def test_no_at_home_is_not_a_no_abroad() -> None:
+    """`contractor: false` beside `contractor_abroad: true` is accepted, and it
+    does not refuse a contractor posting: the client may be abroad."""
+    abroad_only = config(contractor=False, contractor_abroad=True)
+    assert abroad_only.eligibility.contractor is False
+    assert abroad_only.eligibility.contractor_abroad is True
+    reading = _contractor(EmploymentSource.EXPLICIT_STATEMENT)
+    for location in (None, REMOTE_BRAZIL, ABROAD):
+        outcome, _ = gate(abroad_only, "Analyst role.", location, employment=reading)
+        assert outcome.result is GateResult.UNRESOLVED, (location, outcome.reason)
 
 
 def test_a_likely_engagement_is_never_a_requirement() -> None:
@@ -200,7 +218,6 @@ def test_a_configured_blocker_still_decides_first() -> None:
     [
         {"authorized_countries": ["US"], "not_authorized_countries": ["US"]},
         {"authorized_countries": ["US"], "sponsorship_needed": ["us"]},
-        {"contractor": False, "contractor_abroad": True},
     ],
 )
 def test_contradictory_declarations_are_refused(declared: dict) -> None:
