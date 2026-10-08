@@ -885,6 +885,15 @@ eligibility:
   eligible_scopes: [WORLDWIDE, LATAM, AMERICAS]
   eligible_countries: [BR]
 
+  # Explicit declarations (match.authorization): this example's own answers.
+  # Countries that may NOT employ it and countries where it would need visa
+  # sponsorship are left unanswered here (its US blocker above already says
+  # what it says); it can work as an independent contractor, which is also
+  # an arrangement its `preferences.contract` accepts.
+  not_eligible_countries: []
+  sponsorship_needed: []
+  contractor: true
+
   # Phrases that positively OPEN the geography gate.
   positive_scope_patterns:
     WORLDWIDE: ["work from anywhere", "fully remote worldwide", "remote worldwide",

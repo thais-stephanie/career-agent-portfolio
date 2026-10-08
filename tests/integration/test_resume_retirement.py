@@ -249,6 +249,18 @@ def test_a_beta2_installation_upgrades_with_one_server_and_its_old_resumes_move_
             {"document": {**doc["document"], "title": "Edited after the move"},
              "expected_sha256": doc["sha256"]},
         )  # fmt: skip
+        # What the old helper wrote was imported, not confirmed: before a file
+        # leaves, each statement is the person's to stand behind, one by one.
+        review = client.json(
+            "POST", f"/api/resume/documents/{version}/review", {"expected_sha256": saved["sha256"]}
+        )
+        assert review["waiting"] == len(review["items"]) > 0
+        for item in review["items"]:
+            client.json(
+                "POST",
+                f"/api/resume/documents/{version}/acknowledgements",
+                {"ref": item["ref"], "expected_sha256": saved["sha256"]},
+            )
         made = client.json(
             "POST",
             f"/api/resume/documents/{version}/exports",
