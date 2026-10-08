@@ -26,6 +26,9 @@ Settings means Career Profile to Preferences unless stated otherwise.
 | Where you live | Where do you currently live? | Setup, Settings | `eligibility.candidate_country` | gates (residence as a place an employer can name), `plan_refresh` | Eligibility + retrieval | Yes | none | Yes | Decides the gate and which regional sources run |
 | Can be hired where you live | Can companies hire you in {country}? | Setup, Settings | `eligibility.eligible_countries` | gates, `plan_refresh` | Eligibility + retrieval | Yes | where you live | Yes | Explicit yes or not sure; residence is never copied |
 | Other hiring countries | Countries that can employ you directly | Setup, Settings | `eligibility.eligible_countries` | gates | Eligibility | Yes | none | Yes, same card | none |
+| Countries that may not employ you | Can companies hire you in {country}? (No), Settings | Setup, Settings | `eligibility.not_eligible_countries` | `match.authorization` | Eligibility | Yes | none | Yes, same card | An explicit no; "not sure" records nothing |
+| Visa sponsorship | Where would an employer need to sponsor a visa for you? | Settings | `eligibility.sponsorship_needed` | `match.authorization` | Eligibility | Yes | none | No | Never answered from residence or nationality |
+| Independent contractor | Can you work as an independent contractor (invoice, PJ or B2B)? | Settings | `eligibility.contractor` | `match.authorization` | Eligibility | Yes | none | No | Yes, no or not answered; not answered is never "no" |
 | Hiring regions | Which regions can you work in? | Setup, Settings | `eligibility.eligible_scopes` | `gates._region_verdict` | Eligibility | Only for a region containing where you live | where you live | Yes, only regions that contain the home country and none of the confirmed countries | A region holding a confirmed country already admits through it, so asking would change nothing; a scope without a home country fails every on-site and hybrid posting |
 | Ways of working you prefer | How do you prefer to work? | Settings only | `preferences.remote.accepted_work_models` | display only (before V2) | Inert before V2, now **Search Fit (A)** | Now yes | none | Yes | Wired: a posting whose stated work model you prefer earns the component maximum |
 | Ways of working you would rather avoid | (new) | none | `preferences.remote.avoided_work_models` | score | **Search Fit (A)** | Yes | none | Yes, same card | Soft: earns nothing on that component. Never eligibility |
@@ -52,6 +55,27 @@ Settings means Career Profile to Preferences unless stated otherwise.
   preferred seniority levels, travel tolerance, "only remote". They remain
   editable where they were, with copy that no longer promises an effect.
 - **Removed (C):** nothing.
+
+## Right-to-work semantics
+
+`match.authorization` reads four requirements a posting can state: authorization
+to work in a country, a citizenship, no visa sponsorship, and an engagement as
+an independent contractor (in so many words, or in the posting's own
+contract-type field; a benefit or a likely regime is not read). Each is answered
+by what the candidate DECLARED:
+
+| The posting requires | Compatible | Incompatible | Pending |
+|---|---|---|---|
+| Authorization to work in X | X is a country that may hire you | X may not employ you | Neither was said, or no country is named |
+| Citizenship of X | never: an authorization is not a citizenship | X may not employ you | Otherwise |
+| No visa sponsorship in X | X may hire you | You need sponsorship in X | Neither was said, or no country is named |
+| A contractor | You can work as one | You cannot | Not answered |
+
+Any incompatible answer fails the work-authorization gate; otherwise any
+pending one leaves it UNRESOLVED, quoted, and the eligibility status cannot be
+VERIFIED_ELIGIBLE while it waits; otherwise it passes. Where you live answers
+none of these. A blocker written in the search file still decides first, so an
+existing search behaves as before.
 
 ## Work-model semantics
 

@@ -283,7 +283,8 @@ has saved, and `POST /api/resume/documents/<id>/exports` is its route.
   names the revision, format, template, engine, file hash, page count and the
   check result. Exporting changes no content.
 * **Refused, not attempted,** without a real name (blank, "You" and the like),
-  or while a line cites evidence that is not confirmed now.
+  while a line cites evidence that is not confirmed now, or while a statement
+  waits for the person's decision (the review below).
 * **PDF** prints the renderer's print HTML in headless Microsoft Edge (Chrome
   when Edge is absent): a throwaway profile in a temp directory, no window, no
   header or footer, a time limit, and every network
@@ -316,6 +317,28 @@ has saved, and `POST /api/resume/documents/<id>/exports` is its route.
   person, `Full_Name_Resume.pdf`, plus the job title for a tailored version;
   characters no filesystem accepts become `_` and the length is bounded.
 
+### The review before a file leaves the computer
+
+`resume_doc.review` (route `POST /api/resume/documents/<id>/review`) lists,
+from the copy as saved:
+
+* a line linked to confirmed evidence that its evidence does not hold as worded
+  (every grounding finding Analyze names, including who did the work, scope,
+  frequency and causality), or whose evidence was reworded since;
+* a line, a skill or an entry (role, education, project, certification) the
+  person wrote or imported, which no confirmed evidence supports.
+
+An export is refused (409, `review_required`) while any of them waits. For each,
+the person edits it, puts back its evidence's wording (when it has one), or says
+"This is my own statement". That acknowledgement is recorded apart, in
+`resume_statement_acknowledgement` (migration 0050): the line keeps its origin,
+its evidence ids and its history, and nothing calls it supported. It belongs to
+the statement (its words folded, plus its origin and evidence ids), so an
+unchanged statement is not asked about again on every export or in another
+version, and a changed word, number or citation is a new statement. Withdrawing
+keeps the row, with when it was withdrawn. The review says whose statement it
+is; it never says a statement is true.
+
 ### Named checks, never a score
 
 Every file is read back (pypdf for a PDF, python-docx for a DOCX) and the
@@ -323,7 +346,10 @@ result is a list of named checks (`resume_doc.ats`), each PASS, WARNING, FAIL
 or NOT_MEASURED. Real applicant tracking systems differ, so there is no
 percentage and no prediction. NOT_MEASURED is shown as such and never counted
 as a pass; an export is "checked" only when no check failed. A file that was
-made but failed a check is kept and says exactly what failed.
+made but failed a check is kept and says exactly what failed. These checks are
+about the FILE (that it reads back as this resume), never about whether the
+resume is true; the export result says so, and says how many statements in it
+are the person's own.
 
 | Check | What it verifies |
 |---|---|
@@ -623,6 +649,19 @@ nothing. The deterministic path stays beside it, unchanged.
   wording never turns a gap into coverage. A proposal that fails is not
   offered: the person sees only how many were left out, and the AI's one-line
   reason is dropped if it holds a link, an address or a number.
+* **Who did the work, how often, with whom** (`resume_doc.roles`, a small
+  heuristic lexicon, EN and PT). A verb is compared with the verbs its evidence
+  uses OF THE SAME OBJECT, by kind (use, support, assess, build, design,
+  operate, organize): "wrote" may become "developed", but "used" never becomes
+  "built", "reviewed" never "designed", and "built" never "designed and
+  maintained". A rewrite may not drop the words that say the person took part
+  ("helped", "contributed", "participei", "co-"), nor the agent of someone
+  else's work ("built BY the RevOps team"), nor change a frequency, an
+  audience or extent, or a limit ("a pilot of", "partially"), nor join an
+  action to a result its evidence states apart. The kinds are not
+  equivalences, and the checks can refuse a faithful line and miss an
+  unfaithful one; `scripts/rewrite_corpus.py` measures both on a synthetic
+  corpus with a frozen evaluation split (tests/fixtures/rewrite_corpus).
 * **Reviewed, one by one.** Each change shows Before, After, Why, its source
   and the job's ask, with Accept, Edit and Reject. An edit is held to the same
   checks; wording Career Agent cannot verify is refused, and can still be

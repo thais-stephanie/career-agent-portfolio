@@ -162,9 +162,30 @@ The benchmark used a fixed, non-cherry-picked sample of 230 stored postings: the
 - The whole benchmark used 503 answered DeepSeek calls (959,319 input and 147,272 output tokens), about $0.46 at peak. With the probes and the truncated thinking attempts that were billed, it stayed under about $0.52.
 - Evaluating all 8,236 candidates would cost about $6.80 at peak, in runs capped by the budget.
 
+## Whose choice it is
+
+Using an external AI provider is each profile's own decision, made in
+Settings, AI & Semantic Matching, and written in that profile's
+`semantic.local.yaml`.
+
+- A new profile is created with `mode: deterministic` written down: it uses
+  no provider until it chooses one.
+- A profile with no settings file at all has not chosen, and uses none. The
+  screen says so ("This profile has not chosen an AI provider").
+- One exception keeps an existing installation as it was: a profile whose own
+  database shows AI already used (a semantic run that reached a provider, or
+  a resume drafted with AI) before choosing existed keeps Auto until it
+  chooses. Reading this writes nothing; saving any AI setting writes the kept
+  Auto down.
+- A DeepSeek key on the computer, or a signed-in Claude Code or Codex, is not a
+  choice: it is what a profile that chose Auto, or that provider, may use. The
+  key is installation-wide; the screen says it is shared by every profile and
+  that removing it removes it for all of them.
+
 ## Routing decision (Auto)
 
-Auto uses the first available provider in this order:
+When a profile has chosen Auto, it uses the first available provider in this
+order:
 1. DeepSeek, when a key is configured;
 2. Claude Code, when signed in with a Claude subscription;
 3. Codex, when signed in with ChatGPT;
