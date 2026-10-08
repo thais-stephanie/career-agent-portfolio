@@ -1681,7 +1681,10 @@ sources:
       Comeet original. Provenance only. Reviewed again 2026-10-08 for
       python-jobspy: see `policy_review`.
     search_url: https://www.glassdoor.com.br/Vaga/index.htm
-    unblocked_by: A documented public feed.
+    unblocked_by: >-
+      REEVALUABLE: a new review on new first-party evidence (for example the
+      terms becoming readable, or `/graph` no longer disallowed), a documented
+      public feed, or written permission from Glassdoor.
     policy_review:
       reviewed: 2026-10-08
       provider: glassdoor
@@ -1753,7 +1756,10 @@ sources:
       route also in robots.txt. Not a technical difficulty; nothing to
       engineer around.
     search_url: https://www.indeed.com/jobs
-    unblocked_by: Written permission from Indeed, or a documented feed for job seekers.
+    unblocked_by: >-
+      REEVALUABLE: a new review on new first-party evidence (terms or
+      robots.txt changing), written permission from Indeed, or a documented
+      feed for job seekers.
     policy_review:
       reviewed: 2026-10-08
       provider: indeed
@@ -1849,7 +1855,10 @@ sources:
       each card comes from an employer or a board, which is where a
       permitted source is.
     search_url: https://www.google.com/search?q=jobs&udm=8
-    unblocked_by: Never by scraping; the original boards it shows are the route.
+    unblocked_by: >-
+      REEVALUABLE: a new review on new first-party evidence (terms or
+      robots.txt changing) or an applicable authorization from Google. Until
+      then, the original boards its jobs come from are the route.
     policy_review:
       reviewed: 2026-10-08
       provider: google

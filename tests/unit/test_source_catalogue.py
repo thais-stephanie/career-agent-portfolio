@@ -910,3 +910,9 @@ def test_a_route_without_an_explicit_prohibition_may_be_collected() -> None:
     assert any("yet the row is BLOCKED" in p for p in policy_problems(lifted, set()))
     lifted["coverage"] = "PLANNED"
     assert policy_problems(lifted, {"example-provider"}) == []
+
+
+def test_the_jobspy_reviews_say_how_they_can_be_reopened() -> None:
+    rows = {row["id"]: row for row in load_catalogue()}
+    for source_id in ("indeed", "glassdoor", "google_jobs"):
+        assert str(rows[source_id].get("unblocked_by", "")).startswith("REEVALUABLE"), source_id
