@@ -834,22 +834,79 @@ def test_content_depth_reads_the_adapter_rather_than_the_row() -> None:
         assert source.content_depth is expected
 
 
-def test_jobspy_sites_prohibited_on_their_own_route_stay_unbuilt() -> None:
-    """Indeed, Glassdoor and Google, asked for through python-jobspy on
-    2026-10-08: each forbids the exact route the library uses. They stay
-    BLOCKED, carry no experimental override (LinkedIn's is the owner's single
-    named exception, not a pattern), and no adapter exists for them."""
+# ---------------------------------------------------------------------------
+# The collection policy (ADR-0018) applied to a reviewed source. Terms and
+# robots.txt can be a basis; a technical block never is. Re-reviewing a source
+# with new, documented evidence is an edit to its row, and these tests follow.
+# ---------------------------------------------------------------------------
+
+
+def _registered() -> set[str]:
     from career_agent.providers.registry import available_providers
 
-    rows = {row["id"]: row for row in load_catalogue()}
-    for source_id in ("indeed", "indeed_br", "glassdoor", "google_jobs"):
-        row = rows[source_id]
-        assert row["coverage"] == "BLOCKED", source_id
-        assert "experimental_override" not in row, source_id
-        if row["status"] == "SEARCH_LINK":
-            assert row.get("search_url"), f"{source_id}: the person can still open it themselves"
-    assert not {"indeed", "glassdoor", "google", "google_jobs"} & set(available_providers())
-    # The LinkedIn helper asks JobSpy for LinkedIn and nothing else.
-    source = Path(__file__).resolve().parents[2] / "src/career_agent/providers/linkedin_jobspy.py"
-    sites = set(re.findall(r"Site\.([A-Z_]+)", source.read_text(encoding="utf-8")))
-    assert sites == {"LINKEDIN"}, sites
+    return set(available_providers())
+
+
+def _reviewed(**route: object) -> dict:
+    base_route = {
+        "name": "library",
+        "robots": {"url": "https://x.test/robots.txt", "read": "2026-10-08", "group": "*",
+                   "rule": "Disallow: /api"},
+        "conclusion": "EXPLICIT_PROHIBITION",
+        "basis": ["robots"],
+        "certainty": "HIGH",
+        "evidence": "the path the library calls is disallowed",
+    }  # fmt: skip
+    return {
+        "id": "example",
+        "coverage": "BLOCKED",
+        "policy_review": {
+            "provider": "example-provider",
+            "terms": {"status": "GAP", "gap": "the terms page answered 403"},
+            "routes": [{**base_route, **route}],
+        },
+    }
+
+
+def test_every_reviewed_source_agrees_with_the_collection_policy() -> None:
+    from career_agent.sources.catalogue import policy_problems
+
+    rows = load_catalogue()
+    reviewed = [row for row in rows if "policy_review" in row]
+    assert {row["id"] for row in reviewed} >= {"indeed", "glassdoor", "google_jobs"}
+    problems = [p for row in rows for p in policy_problems(row, _registered())]
+    assert problems == []
+
+
+def test_a_technical_block_is_never_a_basis() -> None:
+    from career_agent.sources.catalogue import policy_problems
+
+    row = _reviewed(basis=["technical"])
+    assert any("not terms or robots" in p for p in policy_problems(row, set()))
+
+
+def test_unread_terms_cannot_carry_a_prohibition() -> None:
+    from career_agent.sources.catalogue import policy_problems
+
+    row = _reviewed(basis=["terms"])
+    assert any("not read and quoted" in p for p in policy_problems(row, set()))
+
+
+def test_a_prohibited_source_has_no_adapter_and_no_override() -> None:
+    from career_agent.sources.catalogue import policy_problems
+
+    row = {**_reviewed(), "experimental_override": {"provider": "example-provider"}}
+    problems = policy_problems(row, {"example-provider"})
+    assert any("override" in p for p in problems)
+    assert any("adapter is registered" in p for p in problems)
+
+
+def test_a_route_without_an_explicit_prohibition_may_be_collected() -> None:
+    """A future review with new evidence (say the rule is lifted) opens the
+    source: the row may then leave BLOCKED, and must."""
+    from career_agent.sources.catalogue import policy_problems
+
+    lifted = _reviewed(conclusion="NO_EXPLICIT_PROHIBITION", basis=[])
+    assert any("yet the row is BLOCKED" in p for p in policy_problems(lifted, set()))
+    lifted["coverage"] = "PLANNED"
+    assert policy_problems(lifted, {"example-provider"}) == []

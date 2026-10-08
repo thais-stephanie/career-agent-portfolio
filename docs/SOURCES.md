@@ -36,13 +36,13 @@ Some sites forbid automated collection. LinkedIn's robots.txt prohibits automate
 - python-jobspy pins numpy 1.26.3, which ships wheels only up to Python 3.12 (the launcher's version). It is declared for Python 3.12 only; elsewhere the source says it is unavailable.
 - Upstream JobSpy sends browser-like request headers. They are not changed, and no proxy or rotation is used.
 
-### Indeed, Glassdoor and Google through JobSpy: not built (evaluated 2026-10-08)
-python-jobspy 1.1.82 can also search Indeed, Glassdoor and Google. Each was checked on the route the library actually calls, read from the host itself on 2026-10-08, and each is an explicit prohibition, so none has an adapter, an override or a collection (`config/source_catalogue.yaml`: `indeed`, `indeed_br`, `glassdoor`, `google_jobs`; guarded by `test_jobspy_sites_prohibited_on_their_own_route_stay_unbuilt`).
+### Indeed, Glassdoor and Google through JobSpy: reviewed 2026-10-08, not built
+python-jobspy 1.1.82 can also search Indeed, Glassdoor and Google. Each was reviewed under the collection policy (ADR-0018: what is not explicitly prohibited may be collected; an explicit prohibition in the terms or in robots.txt for the route used is obeyed; a technical block is never bypassed and is never a basis either way). Terms, robots.txt and technical blocks are recorded separately in each catalogue row's `policy_review`, with URLs, dates, quotes, the conclusion per route and its certainty; `policy_problems` in `sources/catalogue.py` checks every reviewed row against the policy, and a re-review with new evidence is an edit to that row.
 
-| Site | Route python-jobspy uses | What the site says | Other risk signals (recorded, not the reason) |
-|---|---|---|---|
-| Indeed | `apis.indeed.com/graphql`, the mobile app's key, country chosen by `country_indeed` | `apis.indeed.com/robots.txt`: `User-agent: *` / `Disallow: /`; Brazilian terms forbid "qualquer automacao, script ou bots" | uses an app key that is not ours; no sign-in |
-| Glassdoor | `glassdoor.com/graph` with a CSRF token from the home page | `robots.txt` disallows `/graph` for every agent and `Disallow: /` for `ClaudeBot`, `Claude-Web`, `anthropic-ai` | listings and the terms page answer 403 behind a security check |
-| Google | `google.com/search?udm=8`, then `/async/callback:550` | `robots.txt` disallows `/search` for every agent; terms (2026-07-30) forbid automated access against robots.txt | a jobs panel is itself an aggregator of other boards |
+| Source | Terms (read 2026-10-08) | robots.txt for the library's route (`*` group: every JobSpy user agent is a browser string) | Technical blocks seen | Conclusion |
+|---|---|---|---|---|
+| Indeed | indeed.com/legal (updated 2026-09-29): no "automated system (bots, scrapers, spiders, AI or Agentic AI) to access, data-mine ... without Indeed's express written permission"; "You may not crawl, scrape, extract data from ... any part of the Site". Covers reading jobs; applying is a separate clause. Same in br.indeed.com/legal | `apis.indeed.com/robots.txt`: `Disallow: /` | none tested | prohibited, HIGH (terms + robots). The site's own search pages (not the library's route) are allowed to crawl by robots.txt, but the terms forbid extraction: prohibited, MEDIUM |
+| Glassdoor | GAP: all five official URLs answered 403; not read, not used | `glassdoor.com/robots.txt`: `Disallow: /graph`, the path the library POSTs to | 403 on the terms pages (2026-10-08) and on a listing (2026-09-11) | prohibited, HIGH (robots alone) |
+| Google | policies.google.com/terms (effective 2026-07-30) forbid "using automated means to access content ... in violation of the machine-readable instructions on our web pages (for example, robots.txt files ...)" | `google.com/robots.txt`: `Disallow: /search` | none tested | prohibited, HIGH (terms + robots) |
 
-The LinkedIn override is the owner's single, named exception and is not a precedent for these. Each stays a link the person opens in a browser.
+The Indeed Brasil row used to quote "o uso de qualquer automacao, script ou bots"; that clause is about automating applications. It now quotes the clause that covers reading jobs. The LinkedIn override is the owner's single, named exception and is not a precedent for these. Each stays a link the person opens in a browser.

@@ -476,6 +476,87 @@ def _experimental(declaration: dict[str, Any], registered: set[str]) -> str | No
     return str(provider) if isinstance(provider, str) and provider in registered else None
 
 
+#: What a source's `policy_review` may conclude about one route (ADR-0018).
+EXPLICIT_PROHIBITION = "EXPLICIT_PROHIBITION"
+NO_EXPLICIT_PROHIBITION = "NO_EXPLICIT_PROHIBITION"
+#: The only things that can be the basis of a conclusion: a vendor's terms
+#: and its robots.txt. A technical block (a 403, a CAPTCHA, a rate limit) is
+#: recorded beside them and is never a basis, either to forbid or to allow:
+#: it stops a run, and nothing is done to get past it.
+POLICY_BASES = frozenset({"terms", "robots"})
+CERTAINTIES = frozenset({"HIGH", "MEDIUM", "LOW"})
+
+
+def policy_problems(row: dict[str, Any], registered: set[str]) -> list[str]:
+    """Where a row's `policy_review` disagrees with the collection policy.
+
+    The policy (ADR-0018, docs/product/collection-policy.md): what is not
+    explicitly prohibited may be collected; an explicit prohibition in the
+    terms or in robots.txt for the route used is obeyed; a technical block
+    is never bypassed and decides nothing. A review is re-done with new
+    evidence by editing the row; this checks the row stays consistent:
+
+    * every route concludes one of the two answers, on a basis drawn only
+      from terms and robots, with a certainty;
+    * a basis cites evidence that was read: terms VERIFIED with a URL, a
+      date and a quote (a GAP is never a basis); robots with URL, date,
+      group and rule;
+    * a prohibited route is not collected: when every route is prohibited
+      the row is BLOCKED, has no experimental override and no adapter is
+      registered under the review's provider;
+    * a route with no explicit prohibition must not leave the row BLOCKED
+      on permission grounds.
+    """
+    review = row.get("policy_review")
+    if review is None:
+        return []
+    where = str(row.get("id"))
+    problems: list[str] = []
+    if not isinstance(review, dict):
+        return [f"{where}: policy_review is not a mapping"]
+    terms = review.get("terms") or {}
+    terms_ok = terms.get("status") == "VERIFIED" and all(
+        terms.get(key) for key in ("url", "read", "quote")
+    )
+    if terms.get("status") == "GAP" and not terms.get("gap"):
+        problems.append(f"{where}: a terms GAP must say why")
+    routes = review.get("routes") or []
+    if not routes:
+        problems.append(f"{where}: no route reviewed")
+    conclusions = []
+    for route in routes:
+        name = f"{where}/{route.get('name')}"
+        conclusion = route.get("conclusion")
+        basis = set(route.get("basis") or [])
+        conclusions.append(conclusion)
+        if conclusion not in {EXPLICIT_PROHIBITION, NO_EXPLICIT_PROHIBITION}:
+            problems.append(f"{name}: unknown conclusion {conclusion!r}")
+        if not basis <= POLICY_BASES:
+            problems.append(f"{name}: basis {sorted(basis - POLICY_BASES)} is not terms or robots")
+        if route.get("certainty") not in CERTAINTIES:
+            problems.append(f"{name}: no certainty")
+        if not route.get("evidence"):
+            problems.append(f"{name}: no evidence stated")
+        if conclusion == EXPLICIT_PROHIBITION and not basis:
+            problems.append(f"{name}: a prohibition needs a basis")
+        if "terms" in basis and not terms_ok:
+            problems.append(f"{name}: terms are a basis but were not read and quoted")
+        robots = route.get("robots") or {}
+        if "robots" in basis and not all(robots.get(k) for k in ("url", "read", "group", "rule")):
+            problems.append(f"{name}: robots is a basis but its rule is not recorded")
+    provider = review.get("provider")
+    if conclusions and all(c == EXPLICIT_PROHIBITION for c in conclusions):
+        if row.get("coverage") != "BLOCKED":
+            problems.append(f"{where}: every route is prohibited but the row is not BLOCKED")
+        if "experimental_override" in row:
+            problems.append(f"{where}: a prohibited source carries an override")
+        if provider in registered:
+            problems.append(f"{where}: an adapter is registered for a prohibited source")
+    elif NO_EXPLICIT_PROHIBITION in conclusions and row.get("coverage") == "BLOCKED":
+        problems.append(f"{where}: a route is not prohibited, yet the row is BLOCKED")
+    return problems
+
+
 def load_catalogue(path: Path | None = None) -> list[dict[str, Any]]:
     """The raw declarations. No verification; that is :func:`resolve`."""
     source = path or DEFAULT_CATALOGUE

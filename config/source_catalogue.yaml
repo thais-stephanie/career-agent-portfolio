@@ -534,20 +534,26 @@ sources:
     region: br
     status: MANUAL_IMPORT
     authorization: >-
-      Terms prohibit "o uso de qualquer automacao, script ou bots". The Job
-      Search API is deprecated.
+      Terms forbid "Usar qualquer sistema automatizado (bots, scrapers,
+      spiders, IA ou IA agêntica) para acessar, extrair dados ou enviar
+      conteúdo para o Site [...] sem a permissão expressa por escrito do
+      Indeed" (br.indeed.com/legal, re-read 2026-10-08). The Job Search API
+      is deprecated. CORRECTED 2026-10-08: the phrase this row quoted until
+      then, "o uso de qualquer automacao, script ou bots", is real but is
+      about automating the APPLICATION process, not about reading jobs.
     coverage: BLOCKED
     #: The same answer, for the person reading the panel.
     reason_plain: >-
       Indeed's terms of use forbid collecting jobs automatically, and the official feed they
       once offered for this has been shut down. Open it yourself in a browser instead.
     reason: >-
-      Terms of use prohibit "o uso de qualquer automacao, script ou bots", and
-      the Job Search API that would have been the sanctioned route is
-      deprecated. Investigated 2026-09-04 from the terms page and the developer
-      documentation. Nothing here is a difficulty to be engineered around: it
-      is a prohibition, and manual import is the answer. See `indeed` for the
-      python-jobspy route, re-read 2026-10-08.
+      Terms of use forbid any automated system reading or extracting the
+      site's data without Indeed's written permission, and the Job Search API
+      that would have been the sanctioned route is deprecated. Investigated
+      2026-09-04, quote corrected 2026-10-08 (see `indeed` for the full
+      review, including the python-jobspy route). Nothing here is a
+      difficulty to be engineered around: it is a prohibition, and manual
+      import is the answer.
 
   - id: linkedin_br
     name: LinkedIn
@@ -1665,50 +1671,163 @@ sources:
       `glassdoor.com.br/robots.txt`, read 2026-09-11, disallows
       `/job-listing/details.htm?*`, `/job-listing/JV.htm?*`, `/partner/`,
       `/rss/*` and `/graph`; the one job listing tried answered HTTP 403
-      behind Cloudflare. An anti-bot control is obeyed. RE-READ 2026-10-08
-      for the python-jobspy question: `glassdoor.com/robots.txt` still
-      disallows `/graph` for every agent, and that GraphQL route is exactly
-      what python-jobspy 1.1.82 searches; the same file names `ClaudeBot`,
-      `Claude-Web` and `anthropic-ai` with `Disallow: /`. The terms page
-      itself answered 403 behind the vendor's security check.
+      behind Cloudflare. An anti-bot control is obeyed.
     reason_plain: >-
-      Glassdoor's listing pages and its job search refuse automated reading, so it is not
-      collected, not even through the optional LinkedIn helper's library.
+      Glassdoor asks automated tools to stay out of the part of its site that answers job
+      searches, so it is not collected. Open it yourself in a browser instead.
     reason: >-
       Access control and robots exclusions on the listing surface, read
       2026-09-11; the vacancy followed there was a syndicated copy of a
-      Comeet original. Provenance only.
+      Comeet original. Provenance only. Reviewed again 2026-10-08 for
+      python-jobspy: see `policy_review`.
     search_url: https://www.glassdoor.com.br/Vaga/index.htm
     unblocked_by: A documented public feed.
+    policy_review:
+      reviewed: 2026-10-08
+      provider: glassdoor
+      client: >-
+        python-jobspy 1.1.82: GET /Job/computer-science-jobs.htm for a CSRF
+        token, then POST /graph (GraphQL), desktop Chrome 138 user agent
+      terms:
+        status: GAP
+        urls:
+          - https://www.glassdoor.com/about/terms/
+          - https://www.glassdoor.com/about/terms.htm
+          - https://help.glassdoor.com/s/article/Terms-of-Use
+          - https://www.glassdoor.com.br/sobre/termos.htm
+          - https://www.glassdoor.co.uk/about/terms.htm
+        read: 2026-10-08
+        gap: >-
+          Every official URL answered 403 behind the vendor's security
+          check, so the terms were NOT read and are not used. A third-party
+          summary (conductatlas.com) says automated access needs Glassdoor's
+          prior written consent; it is not first-party and is not evidence.
+      technical:
+        - observed: 2026-10-08
+          what: the five terms URLs above answer 403 (security check)
+        - observed: 2026-09-11
+          what: a job listing page answered 403 behind Cloudflare
+      routes:
+        - name: python-jobspy
+          endpoint: https://www.glassdoor.com/graph
+          robots:
+            url: https://www.glassdoor.com/robots.txt
+            read: 2026-10-08
+            group: "*"
+            rule: "Disallow: /graph"
+          conclusion: EXPLICIT_PROHIBITION
+          basis: [robots]
+          certainty: HIGH
+          evidence: >-
+            The `*` group, the one python-jobspy's browser user agent falls
+            under, disallows `/graph`, the exact path the library posts its
+            searches to.
+          inference: >-
+            robots.txt is written for crawlers and the library POSTs; under
+            this product's policy a path rule is the vendor's statement about
+            that path (the Torre and SmartRecruiters precedents), so it
+            applies. The same file disallows everything to `ClaudeBot`,
+            `Claude-Web` and `anthropic-ai`, which binds this agent, not the
+            owner's collector, and is not part of the basis.
 
-  # INDEED AND GOOGLE THROUGH PYTHON-JOBSPY, asked 2026-10-08 ("search
-  # Indeed, Glassdoor and Google beside LinkedIn"). Read from each host the
-  # library calls, the same day. Both are explicit prohibitions on the exact
-  # route, so neither is built; the LinkedIn experimental override is not a
-  # precedent for them (it is the owner's single, named exception).
+  # INDEED AND GOOGLE THROUGH PYTHON-JOBSPY, reviewed 2026-10-08 ("search
+  # Indeed, Glassdoor and Google beside LinkedIn"). Terms, robots.txt and
+  # technical blocks are recorded separately in `policy_review`; only terms
+  # and robots can be a basis, and a technical block is never one, either way.
   - id: indeed
     name: Indeed
     region: global
     status: SEARCH_LINK
     coverage: BLOCKED
     authorization: >-
-      python-jobspy 1.1.82 searches Indeed through `apis.indeed.com/graphql`
-      with the mobile app's key; `apis.indeed.com/robots.txt`, read
-      2026-10-08, is `User-agent: *` / `Disallow: /`. The site's own search
-      pages are a different route that python-jobspy does not use, and the
-      Brazilian terms prohibit "o uso de qualquer automacao, script ou bots"
-      (`indeed_br`, 2026-09-04). The English legal page, last updated
-      2026-09-29, also forbids automating Indeed Apply and scraping its
-      resume database.
+      Terms (indeed.com/legal, last updated 2026-09-29) forbid using "any
+      automated system (bots, scrapers, spiders, AI or Agentic AI) to access,
+      data-mine, or submit content to the Site" without express written
+      permission. python-jobspy's route, `apis.indeed.com`, is disallowed to
+      every agent by that host's robots.txt. See `policy_review`.
     reason_plain: >-
-      Indeed asks automated tools to stay away from the service its jobs come through, and its
-      terms forbid bots. Open it yourself in a browser instead.
+      Indeed's terms forbid automated tools from reading its jobs without written permission.
+      Open it yourself in a browser instead.
     reason: >-
-      Explicit prohibition on the route the library uses (`apis.indeed.com`
-      disallows every agent), plus terms that forbid automation. Not a
-      technical difficulty; nothing to engineer around.
+      Explicit prohibition in the terms, on both routes; on the library's
+      route also in robots.txt. Not a technical difficulty; nothing to
+      engineer around.
     search_url: https://www.indeed.com/jobs
-    unblocked_by: A documented, permitted job search feed for job seekers.
+    unblocked_by: Written permission from Indeed, or a documented feed for job seekers.
+    policy_review:
+      reviewed: 2026-10-08
+      provider: indeed
+      client: >-
+        python-jobspy 1.1.82: POST https://apis.indeed.com/graphql with the
+        Indeed iPhone app's user agent and API key
+      terms:
+        status: VERIFIED
+        url: https://www.indeed.com/legal
+        read: 2026-10-08
+        updated: 2026-09-29
+        quote: >-
+          Use any automated system (bots, scrapers, spiders, AI or Agentic
+          AI) to access, data-mine, or submit content to the Site, in bulk or
+          otherwise, without Indeed’s express written permission (we
+          conditionally grant permission to crawl the Site solely as outlined
+          in our robots.txt file). You may not crawl, scrape, extract data
+          from, reproduce, duplicate, copy, sell, exploit, trade or resell any
+          part of the Site
+        also: >-
+          Same page: "Access the Site through any means other than the public
+          interfaces provided by Indeed". APPLICATIONS are a separate clause:
+          "Use of any automation, scripting, or bots to automate the Indeed
+          Apply process outside of Indeed’s official vendors and tooling is
+          prohibited." The Brazilian page (br.indeed.com/legal, shown as
+          updated 2026-04-01) carries the same two clauses in Portuguese.
+        covers: >-
+          Reading jobs: the first clause names access and data-mining by
+          automated systems, and "extract data from ... any part of the
+          Site", not only applying.
+      technical:
+        - observed: 2026-10-08
+          what: >-
+            none tested: no request was sent to apis.indeed.com or to a
+            search page. The legal pages answered 200.
+      routes:
+        - name: python-jobspy
+          endpoint: https://apis.indeed.com/graphql
+          robots:
+            url: https://apis.indeed.com/robots.txt
+            read: 2026-10-08
+            group: "*"
+            rule: "Disallow: /"
+          conclusion: EXPLICIT_PROHIBITION
+          basis: [terms, robots]
+          certainty: HIGH
+          evidence: >-
+            The host the library calls disallows everything to every agent,
+            and the terms forbid automated access and data extraction without
+            written permission.
+          inference: >-
+            That the GraphQL host is part of "the Site" and not a "public
+            interface" for job seekers: it is the mobile app's private API,
+            reached with the app's key.
+        - name: site search pages (not what python-jobspy uses)
+          endpoint: https://www.indeed.com/jobs?q=...
+          robots:
+            url: https://www.indeed.com/robots.txt
+            read: 2026-10-08
+            group: "*"
+            rule: "Allow: / (with path exclusions; /jobs?q= is not excluded)"
+          conclusion: EXPLICIT_PROHIBITION
+          basis: [terms]
+          certainty: MEDIUM
+          evidence: >-
+            The terms clause above forbids automated access and data
+            extraction without written permission.
+          inference: >-
+            The parenthetical "conditionally grant permission to crawl the
+            Site solely as outlined in our robots.txt" reads as permission to
+            crawl (index), while the next sentence forbids extracting data
+            from any part of the Site; collecting job postings is extraction.
+            A different reading of that parenthetical is possible, hence
+            MEDIUM.
 
   - id: google_jobs
     name: Google (jobs in search)
@@ -1716,21 +1835,64 @@ sources:
     status: SEARCH_LINK
     coverage: BLOCKED
     authorization: >-
-      python-jobspy 1.1.82 reads Google's jobs results from
-      `www.google.com/search?udm=8` and then `/async/callback:550`;
-      `google.com/robots.txt`, read 2026-10-08, disallows `/search` for
-      `User-agent: *`. Google's terms (effective 2026-07-30) forbid "using
-      automated means to access content from any of our services" against
-      machine-readable instructions such as robots.txt.
+      Google's terms (effective 2026-07-30) forbid "using automated means to
+      access content from any of our services in violation of the
+      machine-readable instructions on our web pages (for example, robots.txt
+      files ...)", and google.com/robots.txt disallows `/search` for every
+      agent. See `policy_review`.
     reason_plain: >-
       Google forbids automated reading of its search results, and the jobs it shows there come
       from other sites. Open it yourself in a browser instead.
     reason: >-
-      robots.txt disallows `/search` for every agent and the terms make that
-      binding. Google's jobs panel is itself an aggregator: each card comes
-      from an employer or a board, which is where a permitted source is.
+      The terms make robots.txt binding and robots.txt disallows the search
+      path the library reads. Google's jobs panel is itself an aggregator:
+      each card comes from an employer or a board, which is where a
+      permitted source is.
     search_url: https://www.google.com/search?q=jobs&udm=8
     unblocked_by: Never by scraping; the original boards it shows are the route.
+    policy_review:
+      reviewed: 2026-10-08
+      provider: google
+      client: >-
+        python-jobspy 1.1.82: GET https://www.google.com/search?q=...&udm=8,
+        then GET /async/callback:550 with the cursor from that page, desktop
+        Chrome 130 user agent
+      terms:
+        status: VERIFIED
+        url: https://policies.google.com/terms?hl=en
+        read: 2026-10-08
+        updated: 2026-07-30
+        quote: >-
+          using automated means to access content from any of our services in
+          violation of the machine-readable instructions on our web pages (for
+          example, robots.txt files that disallow crawling, training, or
+          other activities)
+        covers: >-
+          Any automated access that a robots.txt rule disallows: the terms
+          themselves make robots.txt the operative instruction (listed under
+          "Don't abuse our services").
+      technical:
+        - observed: 2026-10-08
+          what: none tested; no request was sent to /search.
+      routes:
+        - name: python-jobspy
+          endpoint: https://www.google.com/search?udm=8
+          robots:
+            url: https://www.google.com/robots.txt
+            read: 2026-10-08
+            group: "*"
+            rule: "Disallow: /search"
+          conclusion: EXPLICIT_PROHIBITION
+          basis: [terms, robots]
+          certainty: HIGH
+          evidence: >-
+            `/search` is disallowed in the `*` group (shared with Yandex),
+            which python-jobspy's browser user agent falls under, and the
+            terms forbid automated access in violation of robots.txt.
+          inference: >-
+            `/async/callback:550` is not itself listed in robots.txt, but the
+            library reaches it only with a cursor taken from a `/search`
+            page, so the route as a whole starts with a disallowed request.
 
   - id: opentalent
     name: OpenTalent
