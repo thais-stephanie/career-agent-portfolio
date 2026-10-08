@@ -832,3 +832,24 @@ def test_content_depth_reads_the_adapter_rather_than_the_row() -> None:
             else ContentDepth.EXCERPT_ONLY
         )
         assert source.content_depth is expected
+
+
+def test_jobspy_sites_prohibited_on_their_own_route_stay_unbuilt() -> None:
+    """Indeed, Glassdoor and Google, asked for through python-jobspy on
+    2026-10-08: each forbids the exact route the library uses. They stay
+    BLOCKED, carry no experimental override (LinkedIn's is the owner's single
+    named exception, not a pattern), and no adapter exists for them."""
+    from career_agent.providers.registry import available_providers
+
+    rows = {row["id"]: row for row in load_catalogue()}
+    for source_id in ("indeed", "indeed_br", "glassdoor", "google_jobs"):
+        row = rows[source_id]
+        assert row["coverage"] == "BLOCKED", source_id
+        assert "experimental_override" not in row, source_id
+        if row["status"] == "SEARCH_LINK":
+            assert row.get("search_url"), f"{source_id}: the person can still open it themselves"
+    assert not {"indeed", "glassdoor", "google", "google_jobs"} & set(available_providers())
+    # The LinkedIn helper asks JobSpy for LinkedIn and nothing else.
+    source = Path(__file__).resolve().parents[2] / "src/career_agent/providers/linkedin_jobspy.py"
+    sites = set(re.findall(r"Site\.([A-Z_]+)", source.read_text(encoding="utf-8")))
+    assert sites == {"LINKEDIN"}, sites
