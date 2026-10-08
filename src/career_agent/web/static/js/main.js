@@ -351,7 +351,10 @@ function headerAction(page) {
 const home = createHome({
   collection,
   // Unknown (null) until `/api/sources` answers; tagged with its profile.
-  sitesNeedingAttention: () => ({ failed: railStatus.failed, profile: railStatus.profile }),
+  sitesNeedingAttention: () => ({
+    failed: railStatus.failed, profile: railStatus.profile,
+    attention: railStatus.attention, states: railStatus.states,
+  }),
   onFixSites: () => {
     settingsTab = 'sites';
     goTo('settings');
@@ -613,7 +616,9 @@ document.addEventListener('keydown', (event) => {
 // The source matrix, loaded the first time somebody opens the panel. Not on
 // page load: it answers a question nobody has asked yet, and a list of jobs
 // should not wait on a catalogue read.
-const sourcesPanel = createSourcesPanel(document.getElementById('sources-host'), { collection });
+const sourcesPanel = createSourcesPanel(document.getElementById('sources-host'), {
+  collection, onStatus: (sources) => absorbSources(sources),
+});
 
 // =========================================================================
 // Header controls
@@ -2448,7 +2453,9 @@ async function showHealth() {
 //: What the rail's one status line is drawn from: sources whose last refresh
 //: failed (from `/api/sources`, the same rows Settings & Sources shows) and
 //: local conditions worth knowing (from `/api/health`).
-const railStatus = { failed: null, profile: null, degraded: 0, detail: '' };
+const railStatus = {
+  failed: null, profile: null, attention: [], states: {}, degraded: 0, detail: '',
+};
 
 /**
  * ONE status line. A source that needs attention wins, is yellow, and is a
@@ -2573,15 +2580,7 @@ async function loadRailReadouts() {
     shell.setBadges({ jobs: metric('new'), applications: metric('tracking') });
   } catch { /* the frame stays blank rather than shouting */ }
   try {
-    const sources = await api.getSources();
-    // The same rule Settings & Sources uses (`needs_attention`): stale,
-    // failed or refused. One definition, so the two can never disagree.
-    railStatus.failed = (sources.refresh || []).filter((row) => row.needs_attention).length;
-    railStatus.profile = sources.profile ?? null;
-    drawRailStatus();
-    // Home's small things to do name the same sources: redraw that card
-    // alone, from the Home read it already has.
-    home.refreshTodos();
+    absorbSources(await api.getSources());
   } catch { /* the status line keeps what it last knew */ }
 
   // The evidence review used to be fetched here as well, to fill a progress
@@ -2589,6 +2588,25 @@ async function loadRailReadouts() {
   // Evidence, where there is something to do about it -- and so is the
   // request that fed it. A call whose only reader has been deleted is a call
   // to delete, not one to leave running into a variable nobody reads.
+}
+
+/**
+ * Take in one answer from `/api/sources`, from the rail's own read or from
+ * Settings & Sources after an action there. The same rule Settings uses
+ * (`needs_attention`: stale, failed or refused), so the two never disagree;
+ * each source's state too, so Home can tell a source that RECOVERED from one
+ * that was paused or switched off.
+ */
+function absorbSources(sources) {
+  const rows = sources.refresh || [];
+  railStatus.attention = rows.filter((row) => row.needs_attention).map((row) => row.source_id);
+  railStatus.failed = railStatus.attention.length;
+  railStatus.states = Object.fromEntries(rows.map((row) => [row.source_id, row.state]));
+  railStatus.profile = sources.profile ?? null;
+  drawRailStatus();
+  // Home's small things to do name the same sources: redraw that card
+  // alone, from the Home read it already has.
+  home.refreshTodos();
 }
 
 // The status line leads to Settings & Sources when a source needs attention.

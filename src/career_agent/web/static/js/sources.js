@@ -93,7 +93,7 @@ const REFRESH_TONE = {
   PAUSED: 'quiet',
 };
 
-export function createSourcesPanel(host, { collection = null } = {}) {
+export function createSourcesPanel(host, { collection = null, onStatus = null } = {}) {
   //: Whether "Each job source" is open. The panel redraws after every refresh
   //: or timing change, and a section that snapped shut under the button just
   //: pressed would lose the person's place.
@@ -131,6 +131,10 @@ export function createSourcesPanel(host, { collection = null } = {}) {
     ]));
     try {
       const payload = await api.getSources();
+      // The sources' status, already read: anything else drawn from it (the
+      // sidebar, Home's small things to do) takes it from here rather than
+      // asking again. This read follows every confirmed action on the panel.
+      if (onStatus) onStatus(payload);
       try { payload.maintenance = await api.getSourceMaintenance(); }
       catch { payload.maintenance = null; }
       lastPayload = payload;

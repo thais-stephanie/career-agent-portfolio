@@ -29,6 +29,7 @@ from career_agent.web.api import JobsApi
 
 TOAST = "document.querySelector('.home__todofoot--ok')"
 SITES = "document.querySelector('.home__todo[data-task=\"sites\"]')"
+TIMING = "document.querySelector('select[id^=\"source-mode-\"]')"
 
 
 class Shaped:
@@ -36,6 +37,8 @@ class Shaped:
 
     def __init__(self, app: JobsApi) -> None:
         self.failing = 0
+        #: The state of every source that does NOT need attention.
+        self.others = "COMPLETE"
         self.home_profile: str | None = "one"
         self.sources_profile: str | None = "one"
         self.clear_questions = False
@@ -48,11 +51,12 @@ class Shaped:
             if method == "GET" and path == "/api/sources":
                 self.sources_gate.wait(30)
                 payload = real(method, path, query, body)
-                rows = [dict(row, needs_attention=False) for row in payload.get("refresh") or []]
+                rows = [dict(row) for row in payload.get("refresh") or []]
                 missing = max(0, self.failing - len(rows))
-                rows += [{"needs_attention": False} for _ in range(missing)]
-                for row in rows[: self.failing]:
-                    row["needs_attention"] = True
+                rows += [{"source_id": f"synthetic-{i}"} for i in range(missing)]
+                for i, row in enumerate(rows):
+                    row["needs_attention"] = i < self.failing
+                    row["state"] = "FAILED" if i < self.failing else self.others
                 return {**payload, "refresh": rows, "profile": self.sources_profile}
             payload = real(method, path, query, body)
             if method == "GET" and path == "/api/home":
@@ -91,9 +95,16 @@ def test_the_sites_row_arrives_after_home_and_redraws_the_card_alone(
     assert not page.evaluate(f"Boolean({SITES})"), "no sites row before the status is known"
     rows = int(page.evaluate("document.querySelectorAll('.home__todo').length"))
     reads = shape.home_reads
+    for _ in range(80):
+        page.press("Tab")
+        if page.evaluate("document.activeElement.dataset.task === 'rights'"):
+            break
+    else:
+        raise AssertionError("Tab never reached the rights row")
 
     shape.sources_gate.set()
     page.wait_for(f"{TODO_TEXT}.includes('Fix 2 job sites')", message="the late sites row")
+    assert page.evaluate("document.activeElement.dataset.task") == "rights", "focus was lost"
     assert shape.home_reads == reads, "the card was redrawn by reading Home again"
     count = page.evaluate("document.querySelector('.home__todocount').innerText")
     assert count == f"{rows + 1} left"
@@ -190,3 +201,55 @@ def test_a_redraw_keeps_the_recalculation_it_follows(
     finally:
         release.set()
         app.rescore.join(10)
+
+
+def _settings_at_sites(page: Chrome, base: str) -> None:
+    open_home_past_setup(page, base)
+    page.wait_for(SITES, message="the sites row")
+    page.evaluate(f"{SITES}.click()")
+    page.wait_for(TIMING, message="a source's timing")
+
+
+def _change_timing(page: Chrome, value: str) -> None:
+    """A confirmed action on Settings & Sources: one source's refresh timing."""
+    page.wait_for(TIMING, message="the panel drawn after the last action")
+    page.evaluate(
+        "(() => { const s = document.querySelector('select[id^=\"source-mode-\"]');"
+        f" s.value = {value!r}; s.dispatchEvent(new Event('change', {{bubbles: true}})); }})()"
+    )
+
+
+def test_pausing_a_failing_source_is_not_working_again(
+    page: Chrome, shaped: tuple[str, JobsApi, Shaped]
+) -> None:
+    base, _app_, shape = shaped
+    shape.failing = 1
+    _settings_at_sites(page, base)
+    reads = shape.home_reads
+    shape.failing, shape.others = 0, "PAUSED"
+    _change_timing(page, "PAUSED")
+    page.wait_for(f"!{SITES}", message="the row gone after the action")
+    assert shape.home_reads == reads, "Home was read again"
+    assert not page.evaluate(f"Boolean({TOAST})"), "a paused source is not a working one"
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"home\"]').click()")
+    page.wait_for("document.querySelector('.home[data-view=dashboard]')")
+    page.wait_for(f"{TODO_TEXT}.includes('Where can you work?')")
+    assert "working again" not in str(page.evaluate(TODO_TEXT))
+
+
+def test_a_source_fixed_from_settings_is_working_again(
+    page: Chrome, shaped: tuple[str, JobsApi, Shaped]
+) -> None:
+    base, _app_, shape = shaped
+    shape.failing = 1
+    _settings_at_sites(page, base)
+    reads = shape.home_reads
+    # Asked again first: still running, which is not an answer yet.
+    shape.failing, shape.others = 0, "RUNNING"
+    _change_timing(page, "ENABLED")
+    page.wait_for(f"!{SITES}", message="the row gone while it runs")
+    assert not page.evaluate(f"Boolean({TOAST})"), "a running source has not recovered yet"
+    shape.others = "COMPLETE"
+    _change_timing(page, "AUTO")
+    page.wait_for(f"{TODO_TEXT}.includes('✓ Job sites working again')", message="the done line")
+    assert shape.home_reads == reads, "Home was read again"

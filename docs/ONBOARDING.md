@@ -108,7 +108,7 @@ nothing.
 |---|---|---|
 | Update your match scores (amber line: N jobs are showing old scores) | the targeted rescore's own plan has N > 0 postings (stale or never scored), or a run is going | the same Recalculate flow as Jobs (`js/recalc.js`); the line shows "Updating X of Y" over a thin bar, a run already going is followed, a second start is ignored (the server answers 409), the other rows stay usable |
 | Where can you work? (N quick questions) | a question above has no answer and no "I don't know" | opens the profile at that question |
-| Fix N job sites | the sources' own status (`/api/sources`, `needs_attention`) says N > 0, for the profile Home was read for (both answers carry `profile`) | opens Settings at Job sites. The status arrives after Home; when it arrives or changes, the card alone is redrawn from the Home read already held (no second `/api/home`), and a run the recalculation row follows keeps its progress |
+| Fix N job sites | the sources' own status (`/api/sources`, `needs_attention`) says N > 0, for the profile Home was read for (both answers carry `profile`) | opens Settings at Job sites. The status arrives after Home, and Settings & Sources reads it again after each confirmed action there (timing, experimental on/off, refresh now); each time the card alone is redrawn from the Home read already held (no second `/api/home`, no polling added), and a run the recalculation row follows keeps its progress. "Job sites working again" only when the sources that needed attention are COMPLETE, PARTIAL or DUE: a paused, blocked or removed source leaves the row silently, and a running one is waited for |
 | Profile gaps | as before | as before |
 
 Preferred markets are optional and never a row: empty means search everywhere.

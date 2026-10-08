@@ -91,6 +91,15 @@ const TOAST_FOR_TASK = {
   'gap.compensation': 'home.todo.toast.compensation',
 };
 
+/**
+ * What became of a source that needed attention. RECOVERED states say it
+ * works again; IN_FLIGHT ones are not an answer yet. Anything else (paused,
+ * blocked, never started, or no longer listed) took it OUT of collection,
+ * which fixes nothing and is never announced as fixed.
+ */
+const SOURCE_RECOVERED = new Set(['COMPLETE', 'PARTIAL', 'DUE']);
+const SOURCE_IN_FLIGHT = new Set(['RUNNING', 'QUEUED']);
+
 /** Which card of the guided setup answers each gap `home.profile_gaps` names. */
 const SETUP_FOR_GAP = {
   work: 'work',
@@ -171,6 +180,9 @@ export function createHome({
   let todoCard = null;
   let recalcRow = null;
   let recalcFor = null;
+  // The sources that needed attention, per profile, and the ones whose
+  // answer is still running: what "sites working again" is checked against.
+  let sitesWatch = null;
 
   /**
    * Draw Home.
@@ -444,7 +456,12 @@ export function createHome({
     const unknown = sitesKnown ? [] : ['sites'];
     const same = Boolean(todoSeen) && todoSeen.profile === profile;
     if (!same) todoToast = null;
-    const gone = same ? [...todoSeen.ids].filter((id) => !now.has(id) && !unknown.includes(id)) : [];
+    // The sites row has its own rule: gone is not enough, the sources must
+    // have RECOVERED (a paused or switched-off source leaves the row too).
+    const gone = same
+      ? [...todoSeen.ids].filter((id) => id !== 'sites' && !now.has(id) && !unknown.includes(id))
+      : [];
+    if (sitesKnown && sitesRecovered(profile, sites)) gone.push('sites');
     const carried = same ? unknown.filter((id) => todoSeen.ids.has(id)) : [];
     todoSeen = { profile, ids: new Set([...now, ...carried]) };
     if (gone.length) {
@@ -473,6 +490,26 @@ export function createHome({
       tasks.length ? null : el('p', { className: 'home__todofoot', text: t('home.todo.none') }),
     ]);
     return todoCard;
+  }
+
+  /**
+   * Whether the sources that needed attention are now WORKING, with none
+   * still needing it and none still running. Updates the watch; another
+   * profile's status starts it afresh and announces nothing.
+   */
+  function sitesRecovered(profile, sites) {
+    const states = sites.states || {};
+    const attention = new Set(sites.attention || []);
+    const before = sitesWatch && sitesWatch.profile === profile ? sitesWatch.ids : new Set();
+    let recovered = 0;
+    const pending = [];
+    for (const id of before) {
+      if (attention.has(id)) continue;
+      if (SOURCE_RECOVERED.has(states[id])) recovered += 1;
+      else if (SOURCE_IN_FLIGHT.has(states[id])) pending.push(id);
+    }
+    sitesWatch = { profile, ids: new Set([...attention, ...pending]) };
+    return recovered > 0 && attention.size === 0 && pending.length === 0;
   }
 
   /**
