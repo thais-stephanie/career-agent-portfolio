@@ -194,9 +194,18 @@ def derive(example: dict[str, Any]) -> dict[str, Any]:
         # the loader requires the key to exist.
         eligibility["candidate_country"] = ""
         eligibility["candidate_country_label"] = ""
-        for key in ("blockers", "eligible_countries", "eligible_scopes"):
+        for key in (
+            "blockers",
+            "eligible_countries",
+            "eligible_scopes",
+            "not_eligible_countries",
+            "sponsorship_needed",
+        ):
             if key in eligibility:
                 eligibility[key] = _blank_like(eligibility[key])
+        # Not answered is an answer of its own: a stranger has said nothing.
+        if "contractor" in eligibility:
+            eligibility["contractor"] = None
         if "positive_scope_patterns" in eligibility:
             eligibility["positive_scope_patterns"] = {}
 

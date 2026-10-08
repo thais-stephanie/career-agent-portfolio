@@ -314,7 +314,10 @@ def test_the_contractor_answer_is_yes_no_or_not_answered(workspace: Path, value:
 def test_a_search_written_before_the_declarations_loads_unchanged(workspace: Path) -> None:
     from career_agent.config.search_config import load_search_config
 
-    shutil.copy(workspace / "search.worked-example.yaml", workspace / "search.local.yaml")
+    old = yaml.safe_load((workspace / "search.worked-example.yaml").read_text(encoding="utf-8"))
+    for key in ("not_eligible_countries", "sponsorship_needed", "contractor"):
+        old["eligibility"].pop(key, None)  # as every file written before them
+    (workspace / "search.local.yaml").write_text(yaml.safe_dump(old), encoding="utf-8")
     config, _ = load_search_config(workspace)
     assert config.eligibility.not_eligible_countries == []
     assert config.eligibility.sponsorship_needed == []

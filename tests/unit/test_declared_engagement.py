@@ -26,6 +26,7 @@ import pytest
 from career_agent.domain.enums import (
     EmploymentRelationship,
     EmploymentSource,
+    GateResult,
     LocalContractRegime,
 )
 from career_agent.domain.provider_values import normalise_engagement
@@ -248,7 +249,15 @@ def test_a_declared_engagement_moves_no_score_at_all() -> None:
     assert declared.match_score == silent.match_score
     assert declared.data_confidence == silent.data_confidence
     assert declared.eligibility_status == silent.eligibility_status
-    assert [g.result for g in declared.gates] == [g.result for g in silent.gates]
+    # ONE gate may move, and only through the candidate's own answer: a
+    # declared contractor engagement is a requirement `match.authorization`
+    # answers with `eligibility.contractor` (the worked example says yes).
+    moved = {
+        d.gate: (s.result, d.result)
+        for d, s in zip(declared.gates, silent.gates, strict=True)
+        if d.result != s.result
+    }
+    assert moved == {"work_authorization": (GateResult.UNRESOLVED, GateResult.PASS)}
 
 
 # -- the coarse vocabulary too -----------------------------------------------
