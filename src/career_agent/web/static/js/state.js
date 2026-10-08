@@ -219,9 +219,10 @@ export function rememberIncludeOffTarget(value) {
 
 export function storedIncludeUnresolved() {
   try {
-    return window.localStorage.getItem(UNRESOLVED_KEY) === '1';
+    // Only her stored "hide them" ('0') hides them; nothing stored shows them.
+    return window.localStorage.getItem(UNRESOLVED_KEY) !== '0';
   } catch (error) {
-    return false;
+    return true;
   }
 }
 
@@ -362,7 +363,11 @@ export const DEFAULTS = Object.freeze({
   include_ineligible: false,
   include_off_target: false,
   include_user_hidden: false,
-  include_unresolved: false,
+  // SHOWN BY DEFAULT: a posting whose eligibility is still open (it never
+  // said where it hires, or asks something she has not answered) is not a
+  // refusal, and hiding it hid most remote work open to anybody. Her own
+  // choice to hide them is remembered and wins.
+  include_unresolved: true,
   include_excluded_seniority: false,
   include_excluded_work_model: false,
   user_hidden_only: false,
@@ -556,7 +561,8 @@ export function toSearch(state) {
     if (state[key] !== null && state[key] !== undefined) params.set(key, String(state[key]));
   }
   for (const key of FLAG_KEYS) {
-    if (state[key]) params.set(key, '1');
+    // "Defaults are omitted": a flag that is ON by default is not written.
+    if (state[key] && DEFAULTS[key] !== true) params.set(key, '1');
   }
   if (state.sort !== DEFAULTS.sort) params.set('sort', state.sort);
   if (state.direction !== DEFAULTS.direction) params.set('direction', state.direction);

@@ -155,7 +155,7 @@ All three are captures of the demo, with synthetic jobs and an invented candidat
 | Area | What you get |
 |---|---|
 | Discover | Postings from 26 integrated sources, deduplicated into one list, plus manual import of any posting. Each posting keeps its source and collection history. Cards, Table and Board views; Table exports the current GOOD and STRONG results as a CSV file. |
-| Eligibility | Hiring restrictions (country, work permit, clearance) are checked separately from preferences. "Remote" is never read as worldwide; a posting that does not say where it hires stays unresolved. |
+| Eligibility | Hiring restrictions (country, work permit, clearance) are checked separately from preferences. "Remote" is never read as worldwide; a posting that does not say where it hires stays unresolved. Unresolved postings are listed by default, each saying what is left to confirm (where the employer hires, or a requirement you have not answered); one switch hides them, and that choice is remembered. The company's headquarters is never read as a hiring restriction. |
 | Search Fit | A 0 to 100 score with a band (STRONG, GOOD, MODERATE, WEAK), reasons quoted from the posting and the facts the posting left out. **Posting completeness** is shown beside it and never changes it. |
 | Career Evidence | Career Agent reads your CV on your computer and proposes statements. Each one becomes part of your Career Profile only when you confirm it. |
 | Applications | Statuses (Found, Interested, Applied, Interviewing, Offer, Rejected and others), notes and history for the postings you act on. |

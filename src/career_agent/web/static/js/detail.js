@@ -808,11 +808,14 @@ export function createDrawer({
     const gates = [...(job.gates || [])].sort((a, b) => GATE_ORDER.indexOf(a.gate) - GATE_ORDER.indexOf(b.gate));
     const cards = gates.map((gate) => {
       const result = String(gate.result || 'UNRESOLVED').toUpperCase();
-      const tone = result === 'PASS' ? 'm1' : result === 'FAIL' ? 'red' : 'chip';
+      // Left to confirm (where they hire, or a requirement she has not
+      // answered) reads differently from a gate the ad merely leaves out.
+      const pill = gate.is_pending ? 'PENDING' : result;
+      const tone = result === 'PASS' ? 'm1' : result === 'FAIL' ? 'red' : gate.is_pending ? 'blue' : 'chip';
       return el('li', { className: `gate gate--${result.toLowerCase()} d-take` }, [
         el('div', { className: 'gate__head d-take__head' }, [
           el('strong', { className: 'gate__name', text: gateName(gate.gate) }),
-          el('span', { className: `gate__result tpill tpill--${tone}`, text: t(`drawer.take.${result}`) }),
+          el('span', { className: `gate__result tpill tpill--${tone}`, text: t(`drawer.take.${pill}`) }),
         ]),
         gate.reason ? el('p', { className: 'gate__reason d-take__text', text: gate.reason }) : null,
         gate.quote ? el('blockquote', { className: 'quote', text: gate.quote }) : null,

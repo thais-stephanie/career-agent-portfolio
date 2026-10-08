@@ -179,11 +179,12 @@ def test_complete_persona_journey(page, workspace, persona):
             now=now_utc(),
         )
     open_list(page, ws.base)
-    page.wait_for("document.querySelector('#hiddennotice .hidden__show')")
-    # Manual imports have no provider-declared scope. Explicitly inspect uncertainty,
-    # never silently reclassify it as employer permission to make the journey pass.
-    page.evaluate("document.querySelector('#hiddennotice .hidden__show').click()")
+    # Manual imports have no provider-declared scope. Uncertainty is LISTED by
+    # default and names what is left to confirm; it is never silently
+    # reclassified as employer permission to make the journey pass.
     page.wait_for("document.querySelector('.card:not(.card--skeleton)')")
+    elig = str(page.evaluate("document.querySelector('.card__elig').innerText")).lower()
+    assert "rules you out" not in elig, elig
     assert title in str(page.evaluate("document.querySelector('#list').innerText"))
     page.evaluate(
         "[...document.querySelectorAll('button')]"

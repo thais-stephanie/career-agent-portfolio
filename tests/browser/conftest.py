@@ -99,39 +99,24 @@ DEMO_HIDDEN_COUNT = 3
 #: and would have put one posting inside two narrowings.
 DEMO_OFF_TARGET_COUNT = 4
 
-#: And the three that never said where the employer may hire.
+#: And the three whose eligibility is still open: they never said where the
+#: employer may hire.
 #:
-#: A THIRD default narrowing, added by the V1.5 eligibility correction, with
-#: its own control and its own disclosure: "Include jobs that never said where
-#: they hire". It hides `UNRESOLVED`, and it is what took the owner's
-#: recommended list from five figures to hundreds.
-#:
-#: **It is not a verdict, and the help text says so**: nobody can tell whether
-#: she could take these, which is a question the posting left open rather than
-#: a no. Absence is still never permission -- this narrowing says the opposite
-#: of "eligible", not the same thing.
-#:
-#: THIS FILE WENT RED WHEN THAT SHIPPED, and nothing said so until the next
-#: session ran the browser suite: six tests waited thirty seconds each for a
-#: number that had changed underneath them. The three narrowings are disjoint
-#: in this corpus, which is why the visible count subtracts all three.
+#: V1.5 hid them by default. 2026-10-08 reversed that: an open question is not
+#: a refusal, and hiding it hid most remote work that names no country. They
+#: are LISTED by default, each card saying what is left to confirm, and one
+#: switch hides them (remembered). Absence is still never permission: they
+#: read "To confirm", never "eligible".
 DEMO_UNRESOLVED_COUNT = 3
 
 #: Postings on screen by default, ungrouped. Table, or `?group_duplicates=0`.
-DEMO_VISIBLE_COUNT = (
-    DEMO_POSTING_COUNT - DEMO_HIDDEN_COUNT - DEMO_OFF_TARGET_COUNT - DEMO_UNRESOLVED_COUNT
-)
+DEMO_VISIBLE_COUNT = DEMO_POSTING_COUNT - DEMO_HIDDEN_COUNT - DEMO_OFF_TARGET_COUNT
 
-#: Roles on screen by default, grouped. Cards.
-#:
-#: 8 rather than 17: nine postings are set aside by the three defaults, and
-#: each belongs to a different company, so hiding them removes nine whole
-#: groups. Written as the subtraction rather than as `8` so a corpus change
-#: that broke the assumption fails loudly here instead of quietly agreeing
-#: with itself.
-DEMO_VISIBLE_GROUPED_COUNT = (
-    DEMO_GROUPED_COUNT - DEMO_HIDDEN_COUNT - DEMO_OFF_TARGET_COUNT - DEMO_UNRESOLVED_COUNT
-)
+#: Roles on screen by default, grouped. Cards. Each posting set aside by the
+#: two defaults belongs to a different company, so hiding them removes whole
+#: groups. Written as the subtraction so a corpus change that broke the
+#: assumption fails loudly here instead of quietly agreeing with itself.
+DEMO_VISIBLE_GROUPED_COUNT = DEMO_GROUPED_COUNT - DEMO_HIDDEN_COUNT - DEMO_OFF_TARGET_COUNT
 
 DESKTOP = (1440, 960)
 MOBILE = (390, 844)

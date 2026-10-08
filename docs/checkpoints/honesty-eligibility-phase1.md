@@ -58,3 +58,52 @@ the command prints its contents, and the manifest inside says how to restore.
 
 Never restore over a running app, and keep the backup until a week of normal
 use has passed on the new build.
+
+## Markets and geography: where a remote search was narrowed
+
+Traced 2026-10-08 from the profile to the screen, with six synthetic remote
+postings for a candidate living in Brazil (`scratchpad` probe, not
+committed; the unit test `test_what_is_left_to_confirm_...` keeps the rule).
+Four facts stay apart: where she lives (`candidate_country`), where
+employers may hire her from (`eligible_countries`, `eligible_scopes`), how
+she works (`preferences.remote`), and where the posting allows (its own
+text and fields). The company's headquarters is never read as eligibility.
+
+| Posting | Matching | Shown by default, before | After |
+|---|---|---|---|
+| Remote, no country; HQ in Berlin | UNRESOLVED: does not say where it hires (HQ ignored) | hidden | shown, "To confirm: where they hire" |
+| Remote, anywhere in the world | VERIFIED_ELIGIBLE | shown | shown |
+| Remote, Europe or Latin America | VERIFIED_ELIGIBLE (Latin America holds Brazil) | shown | shown |
+| Remote, must overlap CET hours | UNRESOLVED (a time zone is not a place) | hidden | shown, "To confirm: where they hire" |
+| Remote, EU residents only | VERIFIED_NOT_ELIGIBLE (the employer's own limit) | hidden | hidden, one switch away |
+| Remote worldwide, US work authorization stated | pending her answer (or her own blocker refuses it) | hidden, labelled "never said where it hires" | shown, "To confirm: permission to work" |
+
+What restricted what:
+
+- **Eligibility: correct, unchanged.** No improper restriction found.
+- **Visibility: restricted, fixed.** The list hid every UNRESOLVED posting by
+  default, which hid most remote work that does not name a country, and
+  since phase 1 also hid postings pending only her answer, under a sentence
+  that said the posting never said where it hires. Now shown by default; the
+  card and the drawer say what is left to confirm, by the same rule that
+  decides the status (`match.gates.pending_gates`); the drawer marks that
+  gate "Left to confirm" instead of "Not in the ad", and the status reads
+  "To confirm" (was "Did not say", untrue for a requirement she has not
+  answered). Her stored choice to hide them wins, and a flag that is on by
+  default is no longer written into the address. This reverses the V1.5
+  default; on the demo corpus a match of 55+ with an open question is now
+  listed (5 roles -> 6).
+- **Discovery: narrowed in two places, not changed here.** (1) The refresh
+  plan pauses a regional board of another market (`sources.scheduling`,
+  from where she lives): for a candidate in Brazil that is Arbeitnow, the
+  one operational European board. It is reversible per source in Settings
+  & Sources, and an explicit choice there wins. Changing the rule is an
+  architecture decision: ADR-0019's guard pins the scheduler's inputs to
+  sources, countries and overrides. (2) The two targeted search lanes
+  (Himalayas search, additive to its unrestricted walk; experimental
+  LinkedIn) search only her country and the regions in `eligible_scopes`.
+  Every other collector walks its whole feed whatever she configured.
+- **Desired markets have no reader.** `regions.target` and
+  `regions.opportunistic` are written by `setup` and read by nothing. Wiring
+  them in (as the source of market priority instead of residence) is the
+  owner decision the two discovery points above wait on.

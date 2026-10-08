@@ -276,6 +276,14 @@ function eligibilityLine(job, aside) {
   const tone = status === 'VERIFIED_ELIGIBLE' ? 'good' : status === 'VERIFIED_NOT_ELIGIBLE' ? 'bad' : 'warn';
   let text = eligibilityWords(status);
   let title = status === 'UNRESOLVED' ? t('card.unresolvedHelp') : text;
+  const gap = job.primary_gap;
+  if (status === 'UNRESOLVED' && gap && gap.kind === 'UNRESOLVED') {
+    // What is left to confirm, by name: where they hire, or a requirement
+    // she has not answered. The employer-facing reason is the tooltip.
+    const key = `gateName.${gap.label}`;
+    text = t('card.pendingOn', { what: t(key) === key ? gap.label : t(key) });
+    title = gap.reason || title;
+  }
   if (aside.gated) {
     const blocker = (job.blockers || [])[0] || {};
     // A geography gate quotes where the job is; every other gate quotes the

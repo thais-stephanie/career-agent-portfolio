@@ -1521,22 +1521,29 @@ def eligibility_status_from(gates: tuple[GateOutcome, ...]) -> EligibilityStatus
     """
     if any(gate.result is GateResult.FAIL for gate in gates):
         return EligibilityStatus.VERIFIED_NOT_ELIGIBLE
-    if any(
-        gate.gate == "worksite" and gate.result is GateResult.UNRESOLVED and gate.quote
-        for gate in gates
-    ):
-        # Evidence of a requirement is different from silence about worksite.
+    if pending_gates(gates) or not any(gate.gate in CRITICAL_GATES for gate in gates):
         return EligibilityStatus.UNRESOLVED
-    if any(
-        gate.gate == "work_authorization"
-        and gate.result is GateResult.UNRESOLVED
-        and gate.reason != UNRESOLVED_REASONS["work_authorization"]
+    return EligibilityStatus.VERIFIED_ELIGIBLE
+
+
+def pending_gates(gates: Sequence[GateOutcome]) -> tuple[GateOutcome, ...]:
+    """What is left to confirm: the unresolved gates that hold eligibility
+    open, and only those. A critical gate (where the employer hires); a
+    worksite requirement the posting states; a work authorization the posting
+    states and the candidate has not answered. Silence on an exclusionary gate
+    is not here: it is the absence of a disqualification, not a question."""
+    return tuple(
+        gate
         for gate in gates
-    ):
-        # A stated requirement the candidate has not answered is PENDING: the
-        # status may not read as verified over a question nobody answered.
-        return EligibilityStatus.UNRESOLVED
-    critical = [gate for gate in gates if gate.gate in CRITICAL_GATES]
-    if critical and all(gate.result is GateResult.PASS for gate in critical):
-        return EligibilityStatus.VERIFIED_ELIGIBLE
-    return EligibilityStatus.UNRESOLVED
+        if gate.result is GateResult.UNRESOLVED
+        and (
+            gate.gate in CRITICAL_GATES
+            # Evidence of a requirement is different from silence about worksite.
+            or (gate.gate == "worksite" and bool(gate.quote))
+            # A stated requirement the candidate has not answered is PENDING.
+            or (
+                gate.gate == "work_authorization"
+                and gate.reason != UNRESOLVED_REASONS["work_authorization"]
+            )
+        )
+    )

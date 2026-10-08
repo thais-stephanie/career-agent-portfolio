@@ -330,10 +330,11 @@ const EN = {
   'hidden.seniorityShowing': 'Showing levels you set aside.',
   'hidden.seniorityReveal': 'Show those too',
   'hidden.unresolved':
-    '{count} set aside because the posting never said where the employer hires. Nothing rules you ' +
-    'out; nothing confirms you either.',
-  'hidden.unresolvedOne': '1 set aside because the posting never said where the employer hires.',
-  'hidden.unresolvedShowing': 'Showing jobs where the posting never said where the employer hires.',
+    '{count} set aside because eligibility is not confirmed yet: the posting never said where the ' +
+    'employer hires, or asks something you have not answered. Nothing rules you out.',
+  'hidden.unresolvedOne': '1 set aside because eligibility is not confirmed yet.',
+  'hidden.unresolvedShowing': 'Including jobs whose eligibility is not confirmed yet; each says what '
+    + 'is left to confirm.',
   'hidden.unresolvedReveal': 'Show those too',
   'hidden.offTarget':
     '{count} hidden as a different kind of work from the one you described. '
@@ -364,7 +365,7 @@ const EN = {
   // would undo that quietly.
   'eligibility.VERIFIED_ELIGIBLE': 'Nothing in the way',
   'eligibility.LIKELY_ELIGIBLE': 'Probably nothing in the way',
-  'eligibility.UNRESOLVED': 'Did not say',
+  'eligibility.UNRESOLVED': 'To confirm',
   'eligibility.VERIFIED_NOT_ELIGIBLE': 'Rules you out',
   'band.STRONG': 'Strong',
   'band.GOOD': 'Good',
@@ -1231,7 +1232,8 @@ const EN = {
   'card.postedOn': 'Posted {date} · {source}',
   'drawer.postedAgo': '{age} on {source}',
   'card.postedLabel': 'Posted',
-  'card.unresolvedHelp': 'The posting never says where the employer hires.',
+  'card.unresolvedHelp': 'Eligibility is not confirmed yet. Open the job to see what is left to confirm.',
+  'card.pendingOn': 'To confirm: {what}',
   'card.you': 'You:',
   // -- the filter rail ---------------------------------------------------
   'filters.section.find': 'Find',
@@ -1320,6 +1322,7 @@ const EN = {
   'drawer.takeLede': '“Not in the ad” is normal. Most ads leave these out, and it doesn\'t mean no.',
   'drawer.take.PASS': 'Fine for you',
   'drawer.take.UNRESOLVED': 'Not in the ad',
+  'drawer.take.PENDING': 'Left to confirm',
   'drawer.take.FAIL': 'Rules you out',
   'drawer.take.CHECK': 'Check this',
   'drawer.unscoredNumber': 'This job has not been scored, so there is no number to explain.',
@@ -4659,10 +4662,11 @@ const PT_BR = {
   'hidden.seniorityShowing': 'Mostrando níveis que você deixou de lado.',
   'hidden.seniorityReveal': 'Mostrar essas também',
   'hidden.unresolved':
-    '{count} de lado porque o anúncio nunca disse onde o empregador contrata. Nada exclui você; ' +
-    'nada confirma você também.',
-  'hidden.unresolvedOne': '1 de lado porque o anúncio nunca disse onde o empregador contrata.',
-  'hidden.unresolvedShowing': 'Mostrando vagas em que o anúncio nunca disse onde o empregador contrata.',
+    '{count} de lado porque a elegibilidade ainda não está confirmada: o anúncio nunca disse onde o ' +
+    'empregador contrata, ou pergunta algo que você não respondeu. Nada exclui você.',
+  'hidden.unresolvedOne': '1 de lado porque a elegibilidade ainda não está confirmada.',
+  'hidden.unresolvedShowing': 'Incluindo vagas com elegibilidade ainda não confirmada; cada uma diz o '
+    + 'que falta confirmar.',
   'hidden.unresolvedReveal': 'Mostrar essas também',
   'hidden.offTarget':
     '{count} ocultas por serem um tipo de trabalho diferente do que você descreveu. '
@@ -4689,7 +4693,7 @@ const PT_BR = {
   // Only what a person reads changes.
   'eligibility.VERIFIED_ELIGIBLE': 'Nada no caminho',
   'eligibility.LIKELY_ELIGIBLE': 'Provavelmente nada no caminho',
-  'eligibility.UNRESOLVED': 'Não disse',
+  'eligibility.UNRESOLVED': 'A confirmar',
   'eligibility.VERIFIED_NOT_ELIGIBLE': 'Exclui você',
   'band.STRONG': 'Forte',
   'band.GOOD': 'Boa',
@@ -5455,7 +5459,8 @@ const PT_BR = {
   'card.postedOn': 'Publicada em {date} · {source}',
   'drawer.postedAgo': '{age} em {source}',
   'card.postedLabel': 'Publicada',
-  'card.unresolvedHelp': 'O anúncio não diz onde a empresa contrata.',
+  'card.unresolvedHelp': 'A elegibilidade ainda não está confirmada. Abra a vaga para ver o que falta.',
+  'card.pendingOn': 'A confirmar: {what}',
   'card.you': 'Você:',
   // -- the filter rail ---------------------------------------------------
   'filters.section.find': 'Buscar',
@@ -5540,6 +5545,7 @@ const PT_BR = {
     + 'não.',
   'drawer.take.PASS': 'Tudo certo para você',
   'drawer.take.UNRESOLVED': 'Não está no anúncio',
+  'drawer.take.PENDING': 'Falta confirmar',
   'drawer.take.FAIL': 'Descarta você',
   'drawer.take.CHECK': 'Confira',
   'drawer.unscoredNumber': 'Esta vaga não foi pontuada, então não há número para explicar.',

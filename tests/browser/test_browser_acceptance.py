@@ -51,6 +51,8 @@ RENDERED_COUNT = "document.querySelectorAll('[data-job-id]').length"
 #: time; it became a real one when switching to Cards started issuing a request
 #: (Cards groups duplicates, Table does not) instead of repainting from cache.
 A_REAL_CARD = "document.querySelector('.card:not(.card--skeleton)')"
+#: The hidden-postings notice, as lower-case text.
+NOTICE_TEXT = "document.getElementById('hiddennotice').textContent.toLowerCase()"
 
 #: Roles at or above a match of 55, as a person sees them. Numbers rather than
 #: proportions: if the corpus or the matcher moves, this must fail and be
@@ -58,11 +60,12 @@ A_REAL_CARD = "document.querySelector('.card:not(.card--skeleton)')"
 #:
 #: It moved, and this is the second time. It was nine, then eight when the
 #: eligibility default began hiding a posting that rules this candidate out.
-#: It is FIVE now because the title stopped buying compatibility points: seven
-#: postings clear 55, and three of those seven are one role.
-FILTERED_COUNT = 5
+#: It was FIVE when the title stopped buying compatibility points: seven
+#: postings clear 55, and three of those seven are one role. It is SIX since
+#: 2026-10-08: a good match whose eligibility is still open is listed.
+FILTERED_COUNT = 6
 #: The same population in Table, which does not group.
-FILTERED_UNGROUPED_COUNT = 7
+FILTERED_UNGROUPED_COUNT = 8
 
 #: The role the corpus publishes three times, and the badge Cards draws for it.
 GROUPED_TITLE = "Business Systems Engineer"
@@ -803,17 +806,18 @@ def test_applying_records_a_date_that_stepping_back_does_not_erase(
     #
     # WHERE it survives is the 2026-09-07 correction, asserted here in the
     # browser because this is the test that used to assert the opposite. This
-    # posting is one the unresolved narrowing sets aside: nothing in it says
-    # whether she could take it. Shortlisting it makes it a job she DECIDED
-    # about, and a decision is kept in the views that are about her decisions.
-    # It is not a recommendation, so the default list stays exactly as long as
-    # it was -- `DEMO_VISIBLE_COUNT`, not one more.
+    # posting is one the unresolved narrowing sets aside when she chooses to
+    # hide open questions (listed by default since 2026-10-08). Shortlisting
+    # it makes it a job she DECIDED about, and a decision is kept in the views
+    # that are about her decisions; it does not override her narrowing.
+    page.evaluate("window.localStorage.setItem('careerAgent.includeUnresolved.v1', '0')")
     open_list(page, pristine_server, "?view=table")
-    wait_for_count(page, DEMO_VISIBLE_COUNT, "after the reload")
+    wait_for_count(page, DEMO_VISIBLE_COUNT - DEMO_UNRESOLVED_COUNT, "after the reload")
     assert page.evaluate(f"{node_for(APPLIED_TITLE)} === undefined"), (
         "a posting whose eligibility nothing answered came back into the "
-        "recommendations because she shortlisted it"
+        "recommendations, past her choice to hide them, because she shortlisted it"
     )
+    page.evaluate("window.localStorage.removeItem('careerAgent.includeUnresolved.v1')")
 
     # ...and it is right there on the board, carrying the date.
     open_list(page, pristine_server, "?view=table&status=SHORTLISTED")
@@ -2734,6 +2738,7 @@ def forget_eligibility_choice(page: Chrome, server: str) -> None:
     """
     page.navigate(server)
     page.evaluate("window.localStorage.removeItem('careerAgent.includeIneligible.v1')")
+    page.evaluate("window.localStorage.removeItem('careerAgent.includeUnresolved.v1')")
 
 
 def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
@@ -2758,6 +2763,9 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
         "a posting whose gate failed is on screen by default"
     )
 
+    page.wait_for(
+        f"{NOTICE_TEXT}.includes('requirement you do not meet')", message="the notice to be drawn"
+    )
     notice = str(page.evaluate("document.getElementById('hiddennotice').textContent"))
     assert str(DEMO_HIDDEN_COUNT) in notice, f"the notice does not say how many: {notice!r}"
     # And every OTHER narrowing gets its own sentence in the same place. A
@@ -2765,8 +2773,8 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
     # requirement you do not meet", "nobody could tell" and "your search set
     # this work aside" are different facts, and merging them is a defect this
     # product already shipped once.
-    assert str(DEMO_UNRESOLVED_COUNT) in notice
-    assert "never said where the employer hires" in notice.lower(), notice
+    # Postings whose eligibility is open are LISTED, and the notice says so.
+    assert "eligibility is not confirmed yet" in notice.lower(), notice
     assert "hidden" in notice.lower()
     # **The off-target sentence is PRESENT SINCE demo-021, and its absence used
     # to be the reporting gap this suite recorded rather than papered over.**
@@ -2789,7 +2797,7 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
     assert "different kind of work" in notice.lower(), (
         "the off-target sentence vanished; demo-021 is the posting it is about"
     )
-    assert "nothing is wrong with it" in notice.lower(), notice
+    assert "nothing is wrong with" in notice.lower(), notice
     # It has to say WHY, in words a person can act on, and not in an enum.
     # "Rules you out" was the first attempt and reads as a judgement about the
     # person rather than a line in a posting; naming the KIND of requirement
@@ -2838,45 +2846,55 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
     assert not page.evaluate(f"Boolean({node_for(BLOCKED_TITLE)})")
 
 
-def test_silence_about_eligibility_is_a_narrowing_and_never_a_verdict(
+def test_an_open_eligibility_question_is_listed_and_says_what_is_left(
     page: Chrome, pristine_server: str
 ) -> None:
-    """**This test used to assert the opposite, and the reversal was
-    deliberate.**
+    """**This reverses V1.5, deliberately (2026-10-08).**
 
-    It said silence is never hidden, because hiding a missing sentence turns
-    it into a rejection. The V1.5 eligibility correction hid it anyway, and
-    the reason is a measurement: on the owner's corpus 12,634 postings never
-    say where the employer hires and 354 are known to be open to her, so a
-    list that shows silence first is a list nobody can use.
+    V1.5 hid every posting that never said where the employer hires, so a
+    remote job naming no country could not be found without knowing a
+    switch existed. An open question is not a refusal. So:
 
-    What may never happen is silence being called a REFUSAL. Three things
-    still hold, and they are what this test asserts now:
-
-      * it is set aside by a narrowing that NAMES ITSELF and offers a control,
-        in words that say nothing rules her out and nothing confirms her;
-      * asking for those postings by their own filter beats the default;
-      * once shown, each reads "Did not say" and never "rules you out".
+      * they are LISTED by default, and each card names what is left to
+        confirm ("To confirm: Where they hire"), never "rules you out";
+      * one switch in the notice hides them, and that choice is remembered;
+      * asking for them by their own filter still works either way.
     """
     forget_eligibility_choice(page, pristine_server)
     open_list(page, pristine_server)
-    wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "before reading the notice")
+    wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "with open questions listed")
+    # Wait for the EVENTS asserted about, not only for the count.
+    page.wait_for(
+        "Array.from(document.querySelectorAll('[data-job-id] .card__elig'))"
+        f".filter((n) => /to confirm/i.test(n.innerText)).length === {DEMO_UNRESOLVED_COUNT}",
+        message="the open questions to be labelled",
+    )
+    page.wait_for(f"{NOTICE_TEXT}.includes('not confirmed yet')", message="the notice")
 
-    notice = str(page.evaluate("document.getElementById('hiddennotice').textContent")).lower()
-    assert "never said where the employer hires" in notice, notice
-    assert "nothing rules you out" in notice, notice
-
-    # And they are still THERE, one click away, saying what they actually say.
-    open_list(page, pristine_server, "?include_unresolved=1")
     labels = page.evaluate(
         "Array.from(document.querySelectorAll('[data-job-id] .card__elig'))"
         ".map((n) => n.innerText.trim())"
     )
-    assert labels, "no eligibility badge was rendered at all"
-    assert any("did not say" in str(text).lower() for text in labels), labels
-    assert not any("rules you out" in str(text).lower() for text in labels), (
-        "a posting that never said anything was reported as ruling her out"
-    )
+    pending = [str(text) for text in labels if "to confirm" in str(text).lower()]
+    assert len(pending) == DEMO_UNRESOLVED_COUNT, labels
+    assert all("where they hire" in text.lower() for text in pending), pending
+
+    notice = str(page.evaluate("document.getElementById('hiddennotice').textContent")).lower()
+    assert "eligibility is not confirmed yet" in notice, notice
+
+    click(page, "document.querySelector('[data-notice=\"include_unresolved\"] .hidden__switch')")
+    hidden = DEMO_VISIBLE_GROUPED_COUNT - DEMO_UNRESOLVED_COUNT
+    wait_for_count(page, hidden, "after hiding them")
+    page.wait_for(f"{NOTICE_TEXT}.includes('nothing rules you out')", message="the hidden sentence")
+    notice = str(page.evaluate("document.getElementById('hiddennotice').textContent")).lower()
+    assert "not confirmed yet" in notice and "nothing rules you out" in notice, notice
+
+    page.evaluate("window.location.href = window.location.pathname")
+    wait_for_count(page, hidden, "after reloading: her choice to hide them is remembered")
+    assert page.evaluate(
+        "window.localStorage.getItem('careerAgent.includeUnresolved.v1') === '0'"
+    ), "the choice was not remembered"
+    page.evaluate("window.localStorage.removeItem('careerAgent.includeUnresolved.v1')")
 
 
 def test_the_choice_to_see_them_survives_a_reload(page: Chrome, pristine_server: str) -> None:
@@ -2884,7 +2902,8 @@ def test_the_choice_to_see_them_survives_a_reload(page: Chrome, pristine_server:
     forget_eligibility_choice(page, pristine_server)
     open_list(page, pristine_server)
     wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "before turning the default off")
-    click(page, "document.querySelectorAll('.hidden__show')[0]")
+    page.wait_for(f"{NOTICE_TEXT}.includes('requirement you do not meet')", message="the notice")
+    click(page, "document.querySelector('[data-notice=\"include_ineligible\"] .hidden__show')")
     revealed = DEMO_VISIBLE_GROUPED_COUNT + DEMO_HIDDEN_COUNT
     wait_for_count(page, revealed, "after asking to see them")
 

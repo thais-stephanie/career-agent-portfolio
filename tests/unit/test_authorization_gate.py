@@ -223,3 +223,22 @@ def test_a_configured_blocker_still_decides_first() -> None:
 def test_contradictory_declarations_are_refused(declared: dict) -> None:
     with pytest.raises(ValueError, match="declared both"):
         config(**declared)
+
+
+def test_what_is_left_to_confirm_is_the_open_question_never_a_silent_gate() -> None:
+    """The card and the drawer name what holds eligibility open, by the same
+    rule as the status: where they hire, or a requirement she has not
+    answered. A gate the ad merely leaves out (travel, clearance) is not it."""
+    from career_agent.match.gates import pending_gates
+
+    _, gates = gate(config(), f"We hire worldwide. {US_AUTH}", "Remote - Anywhere")
+    assert eligibility_status_from(gates) is EligibilityStatus.UNRESOLVED
+    assert [g.gate for g in pending_gates(gates)] == ["work_authorization"]
+
+    _, gates = gate(config(), "A fully remote analyst role.", "Remote")
+    assert eligibility_status_from(gates) is EligibilityStatus.UNRESOLVED
+    assert [g.gate for g in pending_gates(gates)] == ["geography"]
+
+    _, gates = gate(config(), "We hire worldwide.", "Remote - Anywhere")
+    assert eligibility_status_from(gates) is EligibilityStatus.VERIFIED_ELIGIBLE
+    assert pending_gates(gates) == ()

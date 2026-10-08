@@ -380,4 +380,4 @@ def test_the_query_string_stays_in_the_canonical_vocabulary(page: Chrome, server
 
     assert "eligibility=UNRESOLVED" in str(page.evaluate("location.search"))
     badges = texts(page, ".badge, .badge__value, .card__elig")
-    assert any("Não disse" in badge for badge in badges), badges
+    assert any("A confirmar" in badge for badge in badges), badges

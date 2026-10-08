@@ -27,6 +27,7 @@ from typing import Any
 from career_agent.domain.application import ApplicationStatus, has_applied
 from career_agent.domain.enums import EligibilityStatus, GateResult, Prominence
 from career_agent.domain.matching import MatchResult, ScoredJob
+from career_agent.match.gates import pending_gates
 from career_agent.match.lexicon import TECHNOLOGY_SIGNALS as _TECHNOLOGY_SIGNALS
 from career_agent.web.caution import caution_signals
 
@@ -141,13 +142,11 @@ def primary_gap_of(result: MatchResult | None) -> dict[str, Any] | None:
     if result.blockers:
         first = result.blockers[0]
         return {"kind": "BLOCKER", "label": first.gate, "reason": first.reason}
-    if result.eligibility_status is EligibilityStatus.UNRESOLVED and result.unresolved_gates:
-        # Geography is the gate that keeps eligibility open; prefer it over
-        # whichever happens to come first in the tuple.
-        gate = next(
-            (g for g in result.unresolved_gates if g.gate == "geography"),
-            result.unresolved_gates[0],
-        )
+    pending = pending_gates(result.gates)
+    if result.eligibility_status is EligibilityStatus.UNRESOLVED and pending:
+        # The gate the status rule says is holding eligibility open, never a
+        # silent exclusionary one; geography first when it is one of them.
+        gate = next((g for g in pending if g.gate == "geography"), pending[0])
         return {"kind": "UNRESOLVED", "label": gate.gate, "reason": gate.reason}
     if result.unknowns:
         return {"kind": "UNKNOWN", "label": "Not stated", "reason": result.unknowns[0]}
@@ -357,6 +356,7 @@ def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: li
         for p in result.penalties
     ]
     card["penalty_total"] = round(result.penalty_total, 1)
+    pending = {g.gate for g in pending_gates(result.gates)}
     card["gates"] = [
         {
             "gate": g.gate,
@@ -367,6 +367,8 @@ def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: li
             # The interface styles a FAIL differently from an UNRESOLVED, and
             # this flag saves it from re-deriving that from the string.
             "is_fail": g.result is GateResult.FAIL,
+            # Holds eligibility open: left to confirm, not merely unmentioned.
+            "is_pending": g.gate in pending,
         }
         for g in result.gates
     ]

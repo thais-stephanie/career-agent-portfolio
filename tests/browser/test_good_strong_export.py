@@ -41,7 +41,8 @@ def test_the_saved_file_holds_every_good_and_strong_posting(
     page.evaluate("document.getElementById('export-good-strong').click()")
     page.wait_for("typeof window.__saved === 'string'", message="the saved file")
     expected = page.evaluate(
-        "fetch('/api/jobs?' + new URLSearchParams([['fit_band','GOOD'],['fit_band','STRONG']]))"
+        "fetch('/api/jobs?' + new URLSearchParams([['fit_band','GOOD'],['fit_band','STRONG'],"
+        " ['include_unresolved','1']]))"
         ".then(r => r.json()).then(p => p.total)"
     )
     text = str(page.evaluate("window.__saved"))
