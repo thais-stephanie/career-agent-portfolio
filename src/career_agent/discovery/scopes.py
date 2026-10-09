@@ -58,6 +58,21 @@ COUNTRY_NAMES: dict[str, str] = {
     "FI": "Finland",
     "CH": "Switzerland",
     "AT": "Austria",
+    "LU": "Luxembourg",
+    "GR": "Greece",
+    "CZ": "Czechia",
+    "RO": "Romania",
+    "HU": "Hungary",
+    "SK": "Slovakia",
+    "SI": "Slovenia",
+    "HR": "Croatia",
+    "BG": "Bulgaria",
+    "EE": "Estonia",
+    "LV": "Latvia",
+    "LT": "Lithuania",
+    "CY": "Cyprus",
+    "MT": "Malta",
+    "IS": "Iceland",
     "IN": "India",
     "AU": "Australia",
     "NZ": "New Zealand",
@@ -94,17 +109,68 @@ class MarketScope:
         return self.label
 
 
-#: Region markets as search scopes: (key, label). EU and EUROPE are EMEA here.
+#: Region markets as search scopes: (key, label). EMEA, EUROPE and EU are three
+#: questions (2026-10-09): a board files "open in the EU" and "open in EMEA"
+#: under different words, and asking one never returns the other.
 _REGION_SCOPES: dict[str, tuple[str, str]] = {
     "LATAM": ("region:LATAM", "Latin America"),
     "SOUTH_AMERICA": ("region:SOUTH_AMERICA", "South America"),
     "AMERICAS": ("region:AMERICAS", "Americas"),
     "NORTH_AMERICA": ("region:NORTH_AMERICA", "North America"),
-    "EMEA": ("region:EMEA", "Europe"),
-    "EU": ("region:EMEA", "Europe"),
-    "EUROPE": ("region:EMEA", "Europe"),
+    "EMEA": ("region:EMEA", "EMEA"),
+    "EU": ("region:EU", "European Union"),
+    "EUROPE": ("region:EUROPE", "Europe"),
     "APAC": ("region:APAC", "Asia Pacific"),
 }
+
+
+def region_countries(region: str) -> tuple[str, ...]:
+    """The countries a named REGION market holds, sorted, for a source that can
+    only be asked about countries. EU and EUROPE by membership, the rest by
+    the gazetteer's one-bucket-per-country table; WORLDWIDE and an unknown
+    region hold none (the source's own unfiltered walk is the global answer).
+    """
+    from career_agent.match.places import load_gazetteer
+
+    gaz = load_gazetteer()
+    region = region.strip().upper()
+    if region in gaz.region_members:
+        return tuple(sorted(gaz.region_members[region]))
+    buckets = {
+        "AMERICAS": {"LATAM", "NORTH_AMERICA"},
+        "SOUTH_AMERICA": {"LATAM"},
+    }.get(region, {region})
+    return tuple(sorted(c for c, home in gaz.country_regions.items() if home in buckets))
+
+
+def _rotated(items: tuple[str, ...], rotation: int) -> tuple[str, ...]:
+    if not items:
+        return items
+    shift = rotation % len(items)
+    return items[shift:] + items[:shift]
+
+
+def country_scopes(config: SearchConfig, *, rotation: int = 0) -> tuple[MarketScope, ...]:
+    """The markets she named, for a source that can only ask COUNTRIES.
+
+    A named country is itself. A named region becomes its member countries,
+    after every named country, ROTATED by `rotation` (the caller passes how
+    many runs the source has made): the query budget cuts the plan, and a
+    fixed alphabetical order would leave the same countries unasked forever.
+    Rotating by one per run brings every member into the asked part within
+    as many runs as the region has countries. No markets, or only WORLDWIDE:
+    none, so the source's unfiltered walk stays the global search (ADR-0032).
+    """
+    markets = [str(m).strip().upper() for m in config.regions.target if str(m).strip()]
+    named = [m for m in markets if len(m) == 2 and m.isalpha() and m not in _REGION_SCOPES]
+    codes = list(named)
+    for market in markets:
+        if market in _REGION_SCOPES:
+            codes.extend(_rotated(region_countries(market), rotation))
+    return tuple(
+        MarketScope(f"country:{code}", COUNTRY_NAMES.get(code, code), code)
+        for code in dict.fromkeys(codes)
+    )
 
 
 def market_scopes(config: SearchConfig) -> tuple[MarketScope, ...]:

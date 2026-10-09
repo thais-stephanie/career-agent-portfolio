@@ -159,7 +159,14 @@ FIELDS: dict[str, dict[str, Any]] = {
         # gate could read it; since 2026-10-09 EU, EUROPE and EMEA are three
         # scopes the gate reads apart, so both are offered again.
         "choices": (
-            "WORLDWIDE", "AMERICAS", "LATAM", "EMEA", "EUROPE", "EU", "APAC", "NORTH_AMERICA",
+            "WORLDWIDE",
+            "AMERICAS",
+            "LATAM",
+            "EMEA",
+            "EUROPE",
+            "EU",
+            "APAC",
+            "NORTH_AMERICA",
         ),  # fmt: skip
         "label": "Hiring scopes that include you",
     },
@@ -171,7 +178,14 @@ FIELDS: dict[str, dict[str, Any]] = {
         "path": ("regions", "target"),
         "kind": "enum_list",
         "choices": (
-            "WORLDWIDE", "AMERICAS", "LATAM", "NORTH_AMERICA", "EMEA", "EUROPE", "EU", "APAC",
+            "WORLDWIDE",
+            "AMERICAS",
+            "LATAM",
+            "NORTH_AMERICA",
+            "EMEA",
+            "EUROPE",
+            "EU",
+            "APAC",
         ),  # fmt: skip
         "label": "Markets you want to search first",
         "allow_empty": True,

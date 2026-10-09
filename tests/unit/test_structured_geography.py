@@ -746,13 +746,15 @@ def test_a_selected_scope_that_cannot_hold_her_admits_nothing(brazil) -> None:
     assert gate.result is GateResult.FAIL, gate.reason
 
 
-@pytest.mark.parametrize("country", ["MK", "XK"])
+@pytest.mark.parametrize("country", ["DZ", "OM"])
 @pytest.mark.parametrize("location", ["Remote - EMEA", "Remote - Europe"])
 def test_a_country_the_gazetteer_cannot_place_stays_unresolved(
     brazil, country: str, location: str
 ) -> None:
-    """North Macedonia and Kosovo are not in `places.yaml`, so `region_contains`
-    answers None -- "nobody here knows" -- and that must not become a refusal."""
+    """Algeria and Oman are not in `places.yaml`, so `region_contains` answers
+    None -- "nobody here knows" -- and that must not become a refusal. (North
+    Macedonia and Kosovo were the fixture until 2026-10-09, when both joined
+    the gazetteer.)"""
     from career_agent.match.places import region_contains
 
     assert region_contains("EMEA", country) is None, "the fixture needs an unplaced country"
@@ -762,15 +764,15 @@ def test_a_country_the_gazetteer_cannot_place_stays_unresolved(
 
 
 def test_one_unknown_country_keeps_a_region_unknown_when_the_other_is_excluded(brazil) -> None:
-    """BR is provably outside EMEA; MK is unknown. `any()` over a list holding
+    """BR is provably outside EMEA; DZ is unknown. `any()` over a list holding
     False and None is falsy, and that is exactly how None used to be read as
     "no". Refusal needs EVERY known country provably excluded."""
     from career_agent.match.gates import _region_verdict
     from career_agent.match.places import region_contains
 
     assert region_contains("EMEA", "BR") is False
-    assert region_contains("EMEA", "MK") is None
-    config = _with_geography(brazil, residence="BR", countries=["BR", "MK"], scopes=[])
+    assert region_contains("EMEA", "DZ") is None
+    config = _with_geography(brazil, residence="BR", countries=["BR", "DZ"], scopes=[])
     assert _region_verdict(config, "EMEA") is None
     _, gate = _geography(config, location="Remote - EMEA")
     assert gate.result is GateResult.UNRESOLVED, gate.reason

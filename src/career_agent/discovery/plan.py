@@ -19,7 +19,7 @@ from pathlib import Path
 
 from career_agent.config.search_config import SearchConfig
 from career_agent.discovery.anchors import RoleAnchors, folded, load_anchors
-from career_agent.discovery.scopes import MarketScope, market_scopes
+from career_agent.discovery.scopes import MarketScope, country_scopes, market_scopes
 
 #: At most this many work phrases join the plan when no anchor exists, and
 #: this many when anchors do: the anchors already say what to search for.
@@ -106,10 +106,14 @@ def targeted_plan(
     *,
     max_queries: int,
     scope_filter: object = None,
+    countries_only: bool = False,
+    rotation: int = 0,
 ) -> tuple[Query, ...]:
     """The plan for one source. `scope_filter(scope) -> bool` keeps only the
-    scopes that source can express."""
-    scopes = market_scopes(config)
+    scopes that source can express. `countries_only` is for a source that can
+    only be asked about a country: named regions become their countries,
+    rotated by `rotation` (see `scopes.country_scopes`)."""
+    scopes = country_scopes(config, rotation=rotation) if countries_only else market_scopes(config)
     if callable(scope_filter):
         scopes = tuple(s for s in scopes if scope_filter(s))
     return plan_queries(

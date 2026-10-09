@@ -151,7 +151,12 @@ def regions_for(markets: Iterable[str]) -> frozenset[str]:
     out = {GLOBAL}
     for market in markets:
         key = str(market).strip().upper()
-        out.update(_MARKET_REGIONS.get(key, _COUNTRY_REGIONS.get(key, ())))
+        if key in _MARKET_REGIONS or key in _COUNTRY_REGIONS:
+            out.update(_MARKET_REGIONS.get(key, _COUNTRY_REGIONS.get(key, ())))
+        elif len(key) == 2 and _european(key):
+            # Any European country, not only the twenty typed above: Greece
+            # or Luxembourg named as a market puts the European boards first.
+            out.add("eu")
     return frozenset(out)
 
 
@@ -228,11 +233,50 @@ _MARKET_SLICE_ORDER: Mapping[str, tuple[str, ...]] = {
     "SOUTH_AMERICA": ("south-america", "latam"),
     "AMERICAS": ("north-america", "latam", "south-america", "central-america"),
     "NORTH_AMERICA": ("north-america",),
-    "EMEA": ("europe",),
-    "EU": ("europe",),
+    # Three scopes, each asked under its own word first (2026-10-09). A
+    # board's "EMEA" and "European Union" filters return different postings
+    # from its "Europe" one, so none of them stands in for another.
+    "EMEA": ("emea", "europe", "middle-east", "africa"),
     "EUROPE": ("europe",),
+    "EU": ("european-union", "europe"),
     "APAC": ("asia", "oceania"),
 }
+
+
+def _country_slug(code: str) -> str | None:
+    """A country's English name as a location slug (`Czechia` -> `czechia`),
+    from the gazetteer's display names; None for a code nobody named."""
+    from career_agent.match.places import display_names
+
+    name = display_names()[0].get(code)
+    return "-".join(name.lower().split()) if name else None
+
+
+def _european(code: str) -> bool:
+    from career_agent.match.places import load_gazetteer
+
+    return code in load_gazetteer().region_members.get("EUROPE", frozenset())
+
+
+def _market_slices(key: str) -> tuple[str, ...]:
+    """The slices a named market asks first. A region: its words, then -- for
+    EUROPE and EU -- its member countries by name. A country nobody mapped by
+    hand: worldwide, its continent when it is European, then itself."""
+    if key in _MARKET_SLICE_ORDER:
+        words = _MARKET_SLICE_ORDER[key]
+        if key in ("EUROPE", "EU"):
+            from career_agent.match.places import load_gazetteer
+
+            members = sorted(load_gazetteer().region_members.get(key, frozenset()))
+            words = words + tuple(s for s in map(_country_slug, members) if s)
+        return words
+    if key in _COUNTRY_SLICE_ORDER:
+        return _COUNTRY_SLICE_ORDER[key]
+    if len(key) == 2 and key.isalpha():
+        slug = _country_slug(key)
+        continent = ("europe",) if _european(key) else ()
+        return ("anywhere", *continent, *((slug,) if slug else ()))
+    return ()
 
 
 def slice_order(available: Iterable[str], *, markets: Iterable[str]) -> tuple[str, ...]:
@@ -247,7 +291,7 @@ def slice_order(available: Iterable[str], *, markets: Iterable[str]) -> tuple[st
     preferred: list[str] = []
     for market in markets:
         key = str(market).strip().upper()
-        for name in _MARKET_SLICE_ORDER.get(key, _COUNTRY_SLICE_ORDER.get(key, ())):
+        for name in _market_slices(key):
             if name in offered and name not in preferred:
                 preferred.append(name)
     return tuple(preferred + [name for name in offered if name not in preferred])

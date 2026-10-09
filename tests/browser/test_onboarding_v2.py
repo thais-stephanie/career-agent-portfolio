@@ -523,11 +523,14 @@ def test_a_new_country_asks_the_hiring_question_again(page: Chrome, install: Ins
     )
     next_card(page)
     # Living in Portugal, with Brazil still confirmed: Worldwide already admits
-    # through Brazil, so only EMEA could add something.
+    # through Brazil, so only the three scopes holding Portugal (EMEA, Europe
+    # and the EU, separate since 2026-10-09) could add something.
     wait_card(page, "regions")
     assert page.evaluate(
         "[...document.querySelectorAll('[id^=setup-eligible_scopes-]')].map(n => n.value)"
-    ) == ["EMEA"]
+    ) == ["EMEA", "EUROPE", "EU"]
+    labels = text(page, ".setup__card")
+    assert "The European Union" in labels and "Europe (including" in labels
     config = install.config()
     assert config.eligibility.candidate_country == "PT"
     assert config.eligibility.eligible_countries == ["BR"]

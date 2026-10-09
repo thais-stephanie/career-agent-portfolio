@@ -74,8 +74,11 @@ def test_without_markets_nothing_is_paused_and_worldwide_boards_go_first(api: Jo
     assert max(worldwide) < min(regional)
 
 
-def test_a_chosen_market_goes_first_and_the_rest_still_run(api: JobsApi, monkeypatch) -> None:
-    _markets(api, ["EMEA"])
+@pytest.mark.parametrize("market", ["EMEA", "EU"])
+def test_a_chosen_market_goes_first_and_the_rest_still_run(
+    api: JobsApi, monkeypatch, market: str
+) -> None:
+    _markets(api, [market])
     regions = _regions(api)
     order = api.source_priority(_entries(api))
     european = [s for s, r in regions.items() if r == "eu"]
@@ -94,11 +97,14 @@ def test_a_chosen_market_goes_first_and_the_rest_still_run(api: JobsApi, monkeyp
     assert max(ran.index(k) for k in feeds) < first_other
 
 
-def test_an_explicit_pause_survives_any_market(api: JobsApi, monkeypatch) -> None:
+@pytest.mark.parametrize("market", ["EMEA", "EU", "EUROPE"])
+def test_an_explicit_pause_survives_any_market(api: JobsApi, monkeypatch, market: str) -> None:
+    """The European feed (Arbeitnow in the committed catalogue) stays paused
+    whichever European scope she names: only she can un-pause it."""
     regions = _regions(api)
     european = next(s for s, r in regions.items() if r == "eu")
     api.handle_api("PATCH", "/api/sources/schedule", {}, {"source_id": european, "mode": "PAUSED"})
-    _markets(api, ["EMEA"])
+    _markets(api, [market])
     assert _rows(api)[european]["state"] == "PAUSED"
     recorder = Recorder(api, monkeypatch)
     _run(api, "refresh-all")

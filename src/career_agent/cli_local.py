@@ -1329,6 +1329,24 @@ def prepare_command(
 # =====================================================================
 # backup
 # =====================================================================
+def _runs_so_far(db: Path, stage: str) -> int:
+    """How many runs of `stage` the ledger holds, read-only; 0 when it cannot
+    say (no database yet). Used as a rotation counter, never as a budget."""
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return 0
+    try:
+        row = conn.execute("SELECT COUNT(*) FROM pipeline_run WHERE stage = ?", (stage,)).fetchone()
+        return int(row[0]) if row else 0
+    except sqlite3.Error:
+        return 0
+    finally:
+        conn.close()
+
+
 def _check_profile_pair(db: Path, config_dir: Path) -> None:
     """Refuse one local profile's database with another profile's settings.
 
@@ -4015,8 +4033,10 @@ def collect_himalayas_command(
                 config_dir,
                 max_queries=max_queries,
                 # Himalayas' country filter already includes worldwide-friendly
-                # postings, so the country scopes cover the region ones here.
-                scope_filter=lambda scope: scope.country is not None,
+                # postings, so a named region is asked as its countries, rotated
+                # by how many runs came before so the budget reaches them all.
+                countries_only=True,
+                rotation=_runs_so_far(db, "collect-himalayas"),
             )
         except SearchConfigError:
             searches = ()
@@ -4900,6 +4920,7 @@ def collect_jobgether_command(
     from career_agent.providers.jobgether import (
         LOCATION_SLUGS,
         MIN_SECONDS_BETWEEN_REQUESTS,
+        UNCUT_LOCATION_SLUGS,
         Slice,
         default_slices,
     )
@@ -4908,7 +4929,7 @@ def collect_jobgether_command(
     if max_requests < 1:
         raise typer.BadParameter("--max-requests must be at least 1")
 
-    universe: tuple[str, ...] = LOCATION_SLUGS
+    universe: tuple[str, ...] = LOCATION_SLUGS + UNCUT_LOCATION_SLUGS
     if only:
         universe = tuple(part.strip() for part in only.split(",") if part.strip())
     if locations:

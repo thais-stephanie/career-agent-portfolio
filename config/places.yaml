@@ -367,6 +367,11 @@ countries:
   holy see: VA
   iraq: IQ
   bahrain: BH
+  # The official long names: they make LB, JO and SM known as codes
+  # (`Beirut, LB`, `... / JO / ...`) without the short names' collisions.
+  lebanese republic: LB
+  hashemite kingdom of jordan: JO
+  republic of san marino: SM
   nederland: NL
   belgie: BE
   belgique: BE

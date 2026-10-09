@@ -79,8 +79,10 @@ def test_no_market_named_is_one_global_search_whatever_she_lives_or_may_be_hired
 def test_chosen_markets_are_searched_in_her_order_one_scope_each() -> None:
     cfg = config("BR", ["LATAM"], ["BR"], markets=["EMEA", "LATAM", "BR", "WORLDWIDE", "EU"])
     keys = [s.key for s in market_scopes(cfg)]
-    assert keys == ["region:EMEA", "region:LATAM", "country:BR", "remote_worldwide"]
-    assert market_scopes(cfg)[0].location_text == "Europe"
+    # EMEA and EU are two questions (2026-10-09): each its own scope and words.
+    assert keys == ["region:EMEA", "region:LATAM", "country:BR", "remote_worldwide", "region:EU"]
+    assert market_scopes(cfg)[0].location_text == "EMEA"
+    assert market_scopes(cfg)[-1].location_text == "European Union"
 
 
 def test_the_query_budget_still_bounds_many_markets() -> None:

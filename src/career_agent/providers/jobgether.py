@@ -138,6 +138,10 @@ LOCATION_SLUGS: tuple[str, ...] = (
     "central-america",
     "north-america",
     "europe",
+    # Measured VALID 2026-10-09, one request each: the vendor's own EMEA and
+    # European Union filters, which return postings filed under those words.
+    "emea",
+    "european-union",
     "asia",
     "africa",
     "oceania",
@@ -157,6 +161,38 @@ LOCATION_SLUGS: tuple[str, ...] = (
     "germany",
     "india",
     "australia",
+)
+
+#: Locations asked WHOLE, without the contract-type and experience cuts:
+#: single countries and a sub-region, each small enough that cutting it 25
+#: ways would mostly ask empty questions. Measured VALID 2026-10-09 (one
+#: request each; `czech-republic` answered 400, `czechia` 200). A slice that
+#: still hits the vendor's page cap is recorded as provider-limited by the
+#: slice ledger, never rounded away. Kept apart from `LOCATION_SLUGS` so the
+#: universe grows by 22 slices, not 550: the ledger walks fewest-walked
+#: first, and 550 new unwalked slices would have pushed the worldwide and
+#: home-market slices back for several runs.
+UNCUT_LOCATION_SLUGS: tuple[str, ...] = (
+    "middle-east",
+    "france",
+    "netherlands",
+    "italy",
+    "belgium",
+    "ireland",
+    "poland",
+    "luxembourg",
+    "switzerland",
+    "austria",
+    "sweden",
+    "greece",
+    "romania",
+    "czechia",
+    "denmark",
+    "finland",
+    "norway",
+    "hungary",
+    "croatia",
+    "bulgaria",
 )
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -238,20 +274,28 @@ class Slice:
         )
 
 
-def default_slices(locations: tuple[str, ...] = LOCATION_SLUGS) -> tuple[Slice, ...]:
-    """Every geography, each cut by contract type and experience band.
+def default_slices(
+    locations: tuple[str, ...] = LOCATION_SLUGS + UNCUT_LOCATION_SLUGS,
+) -> tuple[Slice, ...]:
+    """Every geography, each cut by contract type and experience band, except
+    the `UNCUT_LOCATION_SLUGS`, which are asked whole.
 
     The order of `locations` is the caller's: scheduling may put a
     candidate's markets first, and that is a decision about WHEN, not about
     WHAT (ADR-0019). The cuts inside a geography are the vendor's closed
     vocabularies in the vendor's order.
     """
-    return tuple(
-        Slice(location, contract, band)
-        for location in locations
-        for contract in CONTRACT_TYPES
-        for band in EXPERIENCE_BANDS
-    )
+    out: list[Slice] = []
+    for location in locations:
+        if location in UNCUT_LOCATION_SLUGS:
+            out.append(Slice(location))
+            continue
+        out.extend(
+            Slice(location, contract, band)
+            for contract in CONTRACT_TYPES
+            for band in EXPERIENCE_BANDS
+        )
+    return tuple(out)
 
 
 def canonical_url(job: Any) -> str | None:

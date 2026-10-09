@@ -68,7 +68,13 @@ def test_the_words_given_to_the_setup_come_back(api: JobsApi) -> None:
         # Nothing confirmed: every region containing where she lives can add
         # evidence, through her residence.
         ("BR", [], ["WORLDWIDE", "AMERICAS", "LATAM"], ["WORLDWIDE", "AMERICAS", "LATAM"]),
-        ("PT", [], ["WORLDWIDE", "EMEA"], ["WORLDWIDE", "EMEA"]),
+        # Portugal is in EMEA, Europe and the EU: three scopes since 2026-10-09.
+        (
+            "PT",
+            [],
+            ["WORLDWIDE", "EMEA", "EUROPE", "EU"],
+            ["WORLDWIDE", "EMEA", "EUROPE", "EU"],
+        ),
         # A: Brazil confirmed. Every region containing Brazil already admits
         # through it, so there is nothing left to ask.
         ("BR", ["BR"], [], ["WORLDWIDE", "AMERICAS", "LATAM"]),
