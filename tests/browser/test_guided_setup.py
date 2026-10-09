@@ -188,28 +188,30 @@ def test_where_you_live_is_never_turned_into_where_you_can_be_hired(
     assert not page.evaluate("document.querySelector('#setup-hire-yes').checked")
     _click(page, "#setup-hire-unsure")
     _click(page, "#setup-next")
-    _wait_card(page, "regions")
+    _wait_card(page, "workmodel")
     config, _ = load_search_config(fresh.config_dir)
     assert config.eligibility.candidate_country == "BR"
-    assert config.eligibility.eligible_countries == [], "residence was promoted to eligibility"
+    assert config.eligibility.authorized_countries == [], (
+        "residence was promoted to an authorization"
+    )
+    assert config.eligibility.eligible_countries == []
 
     _click(page, "#setup-back")
     _wait_card(page, "hire")
     _click(page, "#setup-hire-yes")
     _click(page, "#setup-next")
-    # Brazil confirmed: every region containing it already admits, so the
-    # regions card has nothing to ask and is not shown.
     _wait_card(page, "workmodel")
     config, _ = load_search_config(fresh.config_dir)
-    assert config.eligibility.eligible_countries == ["BR"]
+    assert config.eligibility.authorized_countries == ["BR"]
 
 
-def test_where_employers_may_hire_from_is_never_an_authorization(
+def test_the_hire_card_records_an_authorization_and_never_the_retired_question(
     page: Chrome, fresh: Fresh
 ) -> None:
-    """ "Yes, I can work for employers in Brazil" says where employers may hire
-    from, as it always has. It declares no legal authorization: that question
-    is the profile's, and a job requiring it waits for an answer."""
+    """Since 2026-10-09 (ADR-0034) the card asks "Can you be employed in
+    Brazil?" and its yes is an authorization she declared. The retired "which
+    countries can employ you directly?" is never written, and no "no" is
+    offered: not knowing is the other answer."""
     _open(page, fresh.base)
     _click(page, "#setup-next")
     _wait_card(page, "work")
@@ -225,8 +227,8 @@ def test_where_employers_may_hire_from_is_never_an_authorization(
     _click(page, "#setup-next")
     _wait_card(page, "workmodel")
     config, _ = load_search_config(fresh.config_dir)
-    assert config.eligibility.eligible_countries == ["BR"]
-    assert config.eligibility.authorized_countries == []
+    assert config.eligibility.authorized_countries == ["BR"]
+    assert config.eligibility.eligible_countries == []
     assert config.eligibility.not_authorized_countries == []
 
 
@@ -326,7 +328,8 @@ def test_changing_where_you_live_does_not_carry_the_hiring_answer_over(
     assert "Portugal" in str(page.evaluate("document.querySelector('.setup__legend').innerText"))
     assert not page.evaluate("document.querySelector('#setup-hire-yes').checked")
     _click(page, "#setup-next")
-    _wait_card(page, "regions")
+    _wait_card(page, "workmodel")
     config, _ = load_search_config(fresh.config_dir)
     assert config.eligibility.candidate_country == "PT"
-    assert config.eligibility.eligible_countries == ["BR"]
+    # The yes given about Brazil is kept; nothing was said about Portugal.
+    assert config.eligibility.authorized_countries == ["BR"]

@@ -23,16 +23,15 @@ Settings means Career Profile to Preferences unless stated otherwise.
 | Kinds of work | Kinds of work, one per line | Setup, Home | `lexicon` + `scoring.components.responsibilities.weights` | `score._weighted_component` | Search Fit | Yes | none | Yes | Main scoring input |
 | Tools and skills | Tools or skills you use | Setup, Home | `lexicon` + `technologies.weights` | same | Search Fit | Yes | none | Yes, same card | Main scoring input |
 | Career stage | Where are you in your career? | Setup, Home step 1 | `candidate_state.career_stage` | nothing except echoing the answer | Inert | No | none | **No (B)** | Copy claimed it changed explanations and filters; nothing reads it |
-| Where you live | Where do you currently live? | Setup, Settings | `eligibility.candidate_country` | gates (residence as a place an employer can name), `plan_refresh` | Eligibility + retrieval | Yes | none | Yes | Decides the gate and which regional sources run |
-| Can be hired where you live | Can companies hire you in {country}? | Setup, Settings | `eligibility.eligible_countries` | gates, `plan_refresh` | Eligibility + retrieval | Yes | where you live | Yes | Explicit yes or not sure; residence is never copied |
-| Other hiring countries | Countries that can employ you directly | Setup, Settings | `eligibility.eligible_countries` | gates | Eligibility | Yes | none | Yes, same card | none |
-| Authorized to be employed | Where are you legally authorized to be employed? | Settings | `eligibility.authorized_countries` | `match.authorization` | Eligibility | Yes | none | No | Never read from `eligible_countries` (where employers may hire you from), nor from residence or nationality |
-| Not authorized to be employed | Where are you NOT authorized to be employed? | Settings | `eligibility.not_authorized_countries` | `match.authorization` | Eligibility | Yes | none | No | An explicit no; left out means not said |
-| Visa sponsorship | Where would an employer need to sponsor a visa for you? | Settings | `eligibility.sponsorship_needed` | `match.authorization` | Eligibility | Yes | none | No | Never answered from residence or nationality |
-| Markets to search first | Which markets do you want to search first? | Settings | `regions.target` | `discovery.scopes`, `sources.scheduling` | Discovery order | Yes | none (search everywhere) | Yes | Orders sources and targeted searches; never excludes a posting or pauses a source; changes no match and asks for no recalculation (ADR-0032) |
-| Contractor at home | Can you work as an independent contractor for a client in the country you live in? | Settings | `eligibility.contractor` | `match.authorization` | Eligibility | Yes | none | No | Yes, no or not answered; not answered is never "no" |
-| Contractor for a client abroad | Can you provide services to a client abroad? | Settings | `eligibility.contractor_abroad` | `match.authorization` | Eligibility | Yes | none | No | Answered on its own: a no at home is not a no abroad, and being available at home does not answer it |
-| Hiring regions | Which regions can you work in? | Setup, Settings | `eligibility.eligible_scopes` | `gates._region_verdict` | Eligibility | Only for a region containing where you live | where you live | Yes, only regions that contain the home country and none of the confirmed countries | A region holding a confirmed country already admits through it, so asking would change nothing; a scope without a home country fails every on-site and hybrid posting |
+| Where you live | Where do you live? | Setup, Settings | `eligibility.candidate_country` | gates (residence and attendance requirements) | Eligibility | Yes | none | Yes | Never a work authorization and never narrows the search (ADR-0034) |
+| Where you can be employed | In which countries do you know you can be employed? | Setup (card "hire"), Settings | `eligibility.authorized_countries` | `match.authorization`; with residence, `gates._hireable_countries` | Eligibility | Yes | none | Yes | Only what she knows; "I don't know" is an answer. Where she lives AND is authorized counts as a place an employer can hire her; nothing is read from residence, nationality or a market alone (ADR-0034) |
+| Retired: countries that can employ you directly | (no longer asked) | Settings, shown back only when answered | `eligibility.eligible_countries` | gates (admits only) | Eligibility | Yes, as given | none | No | Kept as given, never copied into `authorized_countries`, removable by her (ADR-0034) |
+| Not authorized to be employed | Countries where you know you cannot be employed | Settings, folded | `eligibility.not_authorized_countries` | `match.authorization` | Eligibility | Yes | none | No | An explicit no; left out means not said |
+| Visa sponsorship | Where would an employer need to sponsor a visa for you? | Settings, folded | `eligibility.sponsorship_needed` | `match.authorization` | Eligibility | Yes | none | No | Never answered from residence or nationality |
+| Markets to search first | Which markets do you want to prioritize? | Setup, Settings | `regions.target` | `discovery.scopes`, `sources.scheduling` | Discovery order | Yes | none (search everywhere) | Yes | Orders sources and targeted searches; never excludes a posting, pauses a source or stands for an authorization; asks for no recalculation (ADR-0032) |
+| Contractor at home | Can you provide services as a contractor to a client in the country where you live? | Settings, folded | `eligibility.contractor` | `match.authorization` | Eligibility | Yes | none | No | Separate from employment and visas; not answered is never "no" |
+| Contractor for a client abroad | Can you provide services to a client in another country? | Settings, folded | `eligibility.contractor_abroad` | `match.authorization` | Eligibility | Yes | none | No | Answered on its own: a no at home is not a no abroad |
+| Hiring regions | Regions named in job ads that include you | Settings, folded | `eligibility.eligible_scopes` | `gates._region_verdict` | Eligibility | Only for a region containing where you live | where you live | No (2026-10-09) | Optional: a region admits only through her residence |
 | Ways of working you prefer | How do you prefer to work? | Settings only | `preferences.remote.accepted_work_models` | display only (before V2) | Inert before V2, now **Search Fit (A)** | Now yes | none | Yes | Wired: a posting whose stated work model you prefer earns the component maximum |
 | Ways of working you would rather avoid | (new) | none | `preferences.remote.avoided_work_models` | score | **Search Fit (A)** | Yes | none | Yes, same card | Soft: earns nothing on that component. Never eligibility |
 | Ways of working never to show | (new) | none | `preferences.remote.excluded_work_models` | score + Discover narrowing | **Search Fit + Narrowing (A)** | Yes | none | Yes, same card | Same safe home as excluded levels: hidden by default, revealable, tracked jobs exempt. Never eligibility |
@@ -74,10 +73,11 @@ by what the candidate DECLARED:
 | No visa sponsorship in X | You declared you are authorized in X | You need sponsorship in X | Neither was said, or no country is named |
 | A contractor engagement | You said yes at home AND for clients abroad | You said no at home AND for clients abroad | Any other answer: where the contracting party is decides, and no reader identifies it (a posting's location is where the work is, never where the client is) |
 
-`eligible_countries` ("Countries that can employ you directly", the onboarding
-hire card) answers none of these: it says where employers may hire you FROM,
-and only the geography gate reads it. Discovery follows the markets you chose
-(ADR-0032).
+`eligible_countries` (the retired "Countries that can employ you directly")
+answers none of these: it only ever admits, in the geography gate, and is no
+longer asked (ADR-0034). Discovery follows the markets you chose (ADR-0032).
+A job that states a requirement nobody answered offers "Answer this in your
+profile", which opens the question it needs.
 
 Any incompatible answer fails the work-authorization gate; otherwise any
 pending one leaves it UNRESOLVED, quoted, and the eligibility status cannot be

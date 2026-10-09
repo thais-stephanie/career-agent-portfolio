@@ -96,7 +96,7 @@ function rememberPosition(key) {
 const STAGES = ['work', 'where', 'kind', 'pay', 'cv'];
 const STAGE_OF = {
   work: 'work', roles: 'work',
-  home: 'where', hire: 'where', regions: 'where', workmodel: 'where',
+  home: 'where', hire: 'where', workmodel: 'where', markets: 'where',
   stage: 'kind', arrangement: 'kind', level: 'kind',
   pay: 'pay', cv: 'cv',
 };
@@ -110,10 +110,16 @@ const STEPS = [
   { key: 'welcome' },
   { key: 'work', optional: true },
   { key: 'roles', optional: true },
+  // WHERE YOU CAN WORK, four short cards (2026-10-09): where you live, where
+  // you know you can be employed (asked first about that same country), how
+  // you want to work, and which markets to look at first. The retired "which
+  // countries can employ you directly?" and the hiring-regions card are no
+  // longer asked here; both are on the profile, the second folded under
+  // information some jobs ask for.
   { key: 'home', optional: true },
   { key: 'hire', optional: true },
-  { key: 'regions', optional: true, when: (setup) => setup.homeRegions().length > 0 },
   { key: 'workmodel', optional: true },
+  { key: 'markets', optional: true },
   { key: 'stage', optional: true },
   { key: 'arrangement', optional: true },
   { key: 'level', optional: true },
@@ -274,10 +280,6 @@ export function createSetup({
     return stepState('where').regions || [];
   }
 
-  /** Every hiring region containing where she lives, for showing answers back. */
-  function regionsAroundHome() {
-    return stepState('where').home_regions || [];
-  }
 
   function visibleSteps() {
     const self = { homeRegions };
@@ -809,9 +811,13 @@ export function createSetup({
       };
     },
 
+    // WHERE YOU KNOW YOU CAN BE EMPLOYED: a legal authorization, as she knows
+    // it (`authorized_countries`). Nothing is read from where she lives or a
+    // nationality; "I don't know" is recorded as an answer and keeps every
+    // job that asks at "Left to confirm".
     hire: () => {
       const home = value('candidate_country') || '';
-      const saved = Array.isArray(value('eligible_countries')) ? value('eligible_countries') : [];
+      const saved = Array.isArray(value('authorized_countries')) ? value('authorized_countries') : [];
       // The draft answers a question ABOUT ONE COUNTRY. When where-you-live
       // changes, the old "Yes" was about somewhere else: start again from what
       // is saved, or a Continue would record an eligibility nobody gave.
@@ -824,9 +830,6 @@ export function createSetup({
       const nodes = [];
       if (home) {
         const homeName = countryName(home);
-        // WHERE AN EMPLOYER MAY HIRE YOU FROM, as it has always meant: a
-        // location answer. A legal authorization to be employed is a separate
-        // question, asked on the profile and never answered by this one.
         const answers = [
           ['yes', t('setup.hire.yes', { country: homeName })],
           ['unsure', t('setup.hire.unsure')],
@@ -887,29 +890,35 @@ export function createSetup({
       );
       return {
         nodes,
-        submit: (error) => {
+        submit: async (error) => {
           const next = [...(draft.homeAnswer === 'yes' && home ? [home] : []), ...draft.others];
+          // "I don't know" with nothing listed is an answer: Home stops asking,
+          // and every job that needs it stays "Left to confirm".
+          const unsure = draft.homeAnswer === 'unsure' && !next.length;
+          try {
+            await api.setUnsure('authorization', unsure);
+          } catch {
+            // Remembering "I don't know" is a convenience; the answer below is not.
+          }
           if (sameList(next, saved)) {
             advance();
             return;
           }
-          // Read back afterwards: which regions are worth asking about
-          // depends on the countries just confirmed.
-          save({ eligible_countries: next }, error, { refresh: true });
+          save({ authorized_countries: next }, error, { refresh: true });
         },
       };
     },
 
-    // Only the regions that CONTAIN where she lives: a scope admits a posting
-    // only through her residence (`gates._region_verdict`), so any other region
-    // would be a box that does nothing.
-    regions: () => multiChoice({
-      field: 'eligible_scopes',
-      choices: homeRegions(),
+    // WHICH MARKETS TO LOOK AT FIRST (ADR-0032). An order for discovery, never
+    // a permission and never a filter: nothing is left out, and an empty
+    // answer searches everywhere.
+    markets: () => multiChoice({
+      field: 'target_markets',
+      choices: (fields.get('target_markets') || {}).choices || [],
       labelOf: (code) => t(`setup.region.${code}`),
-      legend: t('setup.regions.legend', { country: countryName(value('candidate_country') || '') }),
-      note: t('setup.regions.note'),
-      allowEmpty: false,
+      legend: t('setup.markets.legend'),
+      note: t('setup.markets.note'),
+      allowEmpty: true,
     }),
 
     workmodel: () => {
@@ -1229,12 +1238,13 @@ export function createSetup({
     return [figure, value('compensation_currency') || ''].join(' ').trim();
   }
 
+  /** Where she said she can be employed, by name. */
   function hiringCoverage() {
-    const countries = (value('eligible_countries') || []).map(countryName);
-    const regions = (value('eligible_scopes') || [])
-      .filter((code) => regionsAroundHome().includes(code))
-      .map((code) => t(`setup.region.${code}`));
-    return [...countries, ...regions].join(', ') || null;
+    return (value('authorized_countries') || []).map(countryName).join(', ') || null;
+  }
+
+  function marketsChosen() {
+    return (value('target_markets') || []).map((code) => t(`setup.region.${code}`)).join(', ') || null;
   }
 
   function reviewRows() {
@@ -1247,8 +1257,9 @@ export function createSetup({
         || t('setup.review.noPreference')],
       ['home', value('candidate_country') ? countryName(value('candidate_country')) : null],
       // Unknown stays unknown, and says so: an empty answer here is not "no".
-      ['hire', hiringCoverage() || (value('candidate_country') ? t('setup.review.hireUnknown') : null)],
+      ['hire', hiringCoverage() || t('setup.review.hireUnknown')],
       ['workmodel', workModelSummary(values(WORK_MODEL_FIELDS)) || t('setup.review.noPreference')],
+      ['markets', marketsChosen() || t('setup.review.everywhere')],
       ['stage', firstRun && firstRun.career_stage
         ? t(`setup.stage.choice.${firstRun.career_stage}`) : t('setup.review.noPreference')],
       ['arrangement', arrangementSummary(values(ARRANGEMENT_FIELDS)) || t('setup.review.noPreference')],

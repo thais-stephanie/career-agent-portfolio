@@ -773,12 +773,18 @@ function valueOf(row) {
  * this only decides company.
  */
 const CHOICE_GROUPS = [
-  { key: 'where', fields: ['work_models', 'candidate_country', 'target_markets',
-    'eligible_countries', 'eligible_scopes', 'authorized_countries', 'not_authorized_countries',
-    'sponsorship_needed', 'contractor', 'contractor_abroad'] },
+  // Four short questions anyone can answer: where you live, how you want to
+  // work, which markets to look at first, and where you KNOW you may be
+  // employed. Everything else a job may ask is in `more`, folded.
+  { key: 'where', fields: ['candidate_country', 'work_models', 'target_markets',
+    'authorized_countries'] },
   { key: 'what', fields: ['contract_preferred', 'contract_unwanted',
     'seniority_preferred', 'seniority_excluded', 'travel_max_pct'] },
   { key: 'pay', fields: ['compensation_target'] },
+  // INFORMATION SOME JOBS ASK FOR, closed by default. Answering none of it is
+  // normal; a job that needs one of these says so and links here.
+  { key: 'more', folded: true, fields: ['not_authorized_countries', 'sponsorship_needed',
+    'contractor', 'contractor_abroad', 'eligible_scopes', 'eligible_countries'] },
 ];
 
 /**
@@ -873,13 +879,17 @@ function groupedControls(fields, change, currentValue, names, prefix) {
       && !ABSORBED.has(row.field)
       && (group.fields.includes(row.field)
         || (group.key === 'where' && !placed.has(row.field)
-          && !Object.values(PAIRED).includes(row.field))));
+          && !Object.values(PAIRED).includes(row.field))))
+      // The group's own order (where you live comes first), then any field
+      // the group does not name, in the server's order.
+      .map((row, index) => [group.fields.includes(row.field) ? group.fields.indexOf(row.field) : 1000 + index, row])
+      .sort((a, b) => a[0] - b[0])
+      .map(([, row]) => row);
     if (!rows.length) continue;
-    out.push(el('section', { className: 'choicegroup' }, [
-      el('h4', { className: 'choicegroup__head', text: t(`choiceGroup.${group.key}`) }),
-      el('p', { className: 'choicegroup__lede', text: t(`choiceGroup.${group.key}Lede`) }),
-      el('div', { className: 'choicegroup__body' },
-        rows.map((row) => (COMPOSITES[row.field]
+    const body = el('div', { className: 'choicegroup__body' },
+      rows.map((row) => (row.legacy
+        ? legacyControl(row, change, currentValue, names)
+        : COMPOSITES[row.field]
           ? compositeControl(row, COMPOSITES[row.field], byField, change, currentValue, prefix)
           : control(row, change, currentValue, {
             names,
@@ -888,10 +898,56 @@ function groupedControls(fields, change, currentValue, names, prefix) {
             against: EXCLUSIVE[row.field]
               ? currentValue(byField.get(EXCLUSIVE[row.field]))
               : null,
-          }))).filter(Boolean)),
+          }))).filter(Boolean));
+    if (group.folded) {
+      // Opened by `focusProfileField` when a link from a job or from Home
+      // points at a question inside it.
+      out.push(el('details', { className: 'choicegroup choicegroup--more' }, [
+        el('summary', {
+          className: 'choicegroup__head choicegroup__summary', text: t(`choiceGroup.${group.key}`),
+        }),
+        el('p', { className: 'choicegroup__lede', text: t(`choiceGroup.${group.key}Lede`) }),
+        body,
+      ]));
+      continue;
+    }
+    out.push(el('section', { className: 'choicegroup' }, [
+      el('h4', { className: 'choicegroup__head', text: t(`choiceGroup.${group.key}`) }),
+      el('p', { className: 'choicegroup__lede', text: t(`choiceGroup.${group.key}Lede`) }),
+      body,
     ]));
   }
   return out;
+}
+
+/**
+ * AN ANSWER TO A QUESTION THAT IS NO LONGER ASKED.
+ *
+ * "Which countries can employ you directly?" mixed where an employer may hire
+ * her from with a legal authorization. It is not asked any more, and an
+ * answer already given is neither rewritten into another field nor deleted:
+ * it is shown back, with what it still does, and she may remove it. Nothing
+ * is drawn when there is no answer.
+ */
+function legacyControl(row, change, currentValue, names) {
+  const value = currentValue(row);
+  const codes = Array.isArray(value) ? value : [];
+  if (!codes.length) return null;
+  const listed = el('p', {
+    className: 'choice__legacyvalue', text: codes.map((code) => namedChoice(code, names)).join(', '),
+  });
+  const remove = button(t('legacy.eligibleCountries.remove'), () => {
+    change(row, []);
+    listed.textContent = t('legacy.eligibleCountries.removed');
+    remove.disabled = true;
+  }, { className: 'btn btn--ghost' });
+  remove.id = 'profile-legacy-eligible_countries-remove';
+  return el('div', { className: 'choice choice--legacy' }, [
+    el('p', { className: 'choice__q field__label', text: t('legacy.eligibleCountries.q') }),
+    listed,
+    el('p', { className: 'choice__help', text: t('legacy.eligibleCountries.help') }),
+    el('div', {}, [remove]),
+  ]);
 }
 
 export function editableBlock(fields, source, names, prefix = 'profile-field-') {
@@ -1056,6 +1112,20 @@ function currencySegments(row, change, currentValue) {
  */
 function namedChoice(code, names) {
   const all = names || {};
+  // In the reader's language first: the server's names are English, and a
+  // Portuguese page offered "North America" and "Brazil" among Portuguese
+  // questions. Regions have their own catalogue entries; countries are named
+  // by the browser, and the server's name stays the fallback.
+  const region = t(`setup.region.${code}`);
+  if (region !== `setup.region.${code}`) return region;
+  if (all.countries && all.countries[code]) {
+    try {
+      const local = new Intl.DisplayNames([getLocale()], { type: 'region' }).of(code);
+      if (local && local !== code) return local;
+    } catch {
+      // A code the browser cannot name keeps the server's name.
+    }
+  }
   return (all.countries && all.countries[code])
     || (all.regions && all.regions[code])
     || choiceLabel(code);
@@ -1342,10 +1412,11 @@ function controlBody(row, change, currentValue, options = {}) {
       normalise: (part) => codeForCountry(part, names),
       display: (code) => namedChoice(code, names),
       onChange: (values) => change(row, values),
-      hint: '',
+      hint: null,
+      labelHidden: true,
     });
     return el('div', { className: 'choice' }, [
-      el('p', { className: 'choice__q field__label', text: labelOf(row) }),
+      el('p', { className: 'choice__q field__label', attrs: { 'aria-hidden': 'true' }, text: labelOf(row) }),
       helpFor(row),
       tags.root,
     ].filter(Boolean));

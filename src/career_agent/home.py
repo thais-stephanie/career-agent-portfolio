@@ -257,15 +257,11 @@ def profile_gaps(conn: sqlite3.Connection, config: Any) -> list[str]:
         missing.append("evidence")
 
     eligibility = getattr(config, "eligibility", None)
-    if eligibility is not None:
-        if not getattr(eligibility, "candidate_country", ""):
-            missing.append("residence")
-        if not getattr(eligibility, "eligible_scopes", ()) and not getattr(
-            eligibility, "eligible_countries", ()
-        ):
-            # Without this the geography gate can never PASS: nothing is an
-            # acceptable hiring scope, so every posting stays unresolved.
-            missing.append("hiring_scopes")
+    # `hiring_scopes` is no longer a gap (2026-10-09). It asked the retired
+    # "which countries can employ you directly?"; the right-to-work questions
+    # are asked once, by `declarations_pending`, and "I don't know" answers them.
+    if eligibility is not None and not getattr(eligibility, "candidate_country", ""):
+        missing.append("residence")
 
     preferences = getattr(config, "preferences", None)
     if preferences is not None:

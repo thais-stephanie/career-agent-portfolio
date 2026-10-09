@@ -45,7 +45,7 @@ import { t } from './i18n.js';
  * a decision about somebody's data on its own.
  */
 export function tagInput({
-  id, label, values, placeholder, normalise, onChange, hint = '',
+  id, label, values, placeholder, normalise, onChange, hint = '', labelHidden = false,
   // How a stored value is SHOWN. `BR` is what belongs in the file and
   // `Brazil` is what belongs on a chip, and the two were the same string
   // until countries got their names.
@@ -143,14 +143,20 @@ export function tagInput({
   draw();
 
   const root = el('div', { className: 'tags' }, [
-    el('label', { className: 'field__label', text: label, attrs: { for: id } }),
+    // `labelHidden`: the caller already shows the question above the
+    // control, so the label stays for screen readers and is not drawn twice.
+    el('label', {
+      className: labelHidden ? 'field__label sr-only' : 'field__label', text: label, attrs: { for: id },
+    }),
     box,
     pills,
     // Said on the control itself, not only in a docstring. This is the
     // sentence that stops an open list from being mistaken for a way to
-    // teach the matcher a new word.
-    el('p', { className: 'field__hint', text: hint || t('tags.noWeight') }),
-  ]);
+    // teach the matcher a new word. `hint: null` draws none: a list whose
+    // caller explains what it does (an authorization, which DOES change
+    // eligibility) must not carry this sentence.
+    hint === null ? null : el('p', { className: 'field__hint', text: hint || t('tags.noWeight') }),
+  ].filter(Boolean));
 
   return {
     root,

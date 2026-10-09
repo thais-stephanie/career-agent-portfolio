@@ -40,7 +40,7 @@ place was not a country, so the gate read no requirement.
    `EMEA`) PASSES a candidate inside that region and refuses nobody outside
    it: the gate stays UNRESOLVED. This narrows ADR-0023 for labels only: a
    location field that lists COUNTRIES (`Remote U.S.`, `Remote - India`)
-   still refuses, and so do a description ("must reside in the EU", "work
+   still refuses (widened to every published location by ADR-0034), and so do a description ("must reside in the EU", "work
    from anywhere in Europe") and a source's declared hiring-scope field,
    which are statements about who may apply. An ONSITE or HYBRID posting
    naming only a region refuses nobody, as before. A requirement the

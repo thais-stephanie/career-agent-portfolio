@@ -111,9 +111,9 @@ def test_complete_persona_journey(page, workspace, persona):
     page.wait_for("document.querySelector('[data-step=work]').classList.contains('is-done')")
     open_profile(page, ws.base)
     input_value(page, "#profile-field-candidate_country", country, "change")
-    input_value(page, "#profile-field-eligible_countries", country)
+    input_value(page, "#profile-field-authorized_countries", country)
     page.evaluate(
-        "document.querySelector('#profile-field-eligible_countries')"
+        "document.querySelector('#profile-field-authorized_countries')"
         ".dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', bubbles:true}))"
     )
     page.evaluate(f"document.querySelector('#profile-field-work_models-{model}-prefer').click()")
@@ -122,7 +122,9 @@ def test_complete_persona_journey(page, workspace, persona):
     page.wait_for("document.querySelector('.profile__save-status').classList.contains('is-ok')")
     config, _ = load_search_config(ws.config)
     assert config.eligibility.candidate_country == country
-    assert country in config.eligibility.eligible_countries
+    # Where she can be employed (ADR-0034); the retired question is not asked.
+    assert country in config.eligibility.authorized_countries
+    assert config.eligibility.eligible_countries == []
     text = (ws.config / "search.local.yaml").read_text(encoding="utf-8").lower()
     assert not any(word in text for word in ("hubspot", "salesforce", "revops", "thais"))
 

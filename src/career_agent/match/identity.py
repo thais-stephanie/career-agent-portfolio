@@ -123,7 +123,13 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              used to be dropped. A remote posting located only by a
 #:              region label refuses nobody outside it (UNRESOLVED, was
 #:              FAIL). Countries, regions and both gates move.
-READER_IDENTITY = "readers-6"
+#:   readers-7  The eligibility form (2026-10-09, ADR-0034): a remote
+#:              posting's published location never refuses by itself; an
+#:              on-site or hybrid job in a country she declared she is
+#:              authorized to work in is not refused; and "where she lives +
+#:              authorized there" counts as a country an employer can hire
+#:              her in. The geography gate moves.
+READER_IDENTITY = "readers-7"
 
 
 def guarded_sections(config: Any) -> list[str]:

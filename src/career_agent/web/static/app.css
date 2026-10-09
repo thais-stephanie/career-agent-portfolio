@@ -6684,6 +6684,14 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   color: var(--ink);
 }
 .choicegroup__lede { margin: 0 0 8px; font-size: var(--t-micro); color: var(--muted); }
+/* Information some jobs ask for: folded, and the summary is the heading. */
+.choicegroup__summary { cursor: pointer; list-style: none; }
+.choicegroup__summary::-webkit-details-marker { display: none; }
+.choicegroup__summary::before { content: "+ "; color: var(--ink-soft); }
+.choicegroup--more[open] > .choicegroup__summary::before { content: "- "; }
+.choicegroup--more:not([open]) > :not(summary) { display: none; }
+/* An answer to a question that is no longer asked, shown back as it was given. */
+.choice__legacyvalue { margin: 0; font-size: var(--t-body); color: var(--ink); }
 .choicegroup__body { display: grid; gap: 18px; }
 
 .choice { display: grid; gap: 6px; }

@@ -1265,6 +1265,14 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                     "value": eligibility.candidate_country_label or eligibility.candidate_country,
                 }
             )
+        if eligibility.authorized_countries:
+            place.append(
+                {
+                    "label": "Authorized to work in",
+                    "label_key": "profileRow.authorizedIn",
+                    "value": ", ".join(eligibility.authorized_countries),
+                }
+            )
         if eligibility.eligible_scopes or eligibility.eligible_countries:
             place.append(
                 {
@@ -1590,6 +1598,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 "choices": list(spec.get("choices", ())),
                 "value": current.get(name),
                 "allow_empty": bool(spec.get("allow_empty")),
+                "legacy": bool(spec.get("legacy")),
                 **(
                     {"question": asks[name], "unsure": asks[name] in unsure} if name in asks else {}
                 ),

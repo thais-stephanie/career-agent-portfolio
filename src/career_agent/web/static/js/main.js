@@ -212,6 +212,12 @@ const drawer = createDrawer({
   // gives it something.
   careerContext: () => careerContext(),
   onAddCareer: () => afterDrawerCloses(() => goTo('documents')),
+  // A requirement she has not answered, from the job that asks it: open her
+  // profile at that question.
+  onAnswer: (field) => afterDrawerCloses(() => {
+    goTo('profile');
+    void focusProfileField(field);
+  }),
   // Step 3 of Before you apply: this job's resume versions. A new one is a
   // copy of the Master made by hand, opened in the Editor; nothing is tailored.
   resumeFor: (jobId) => api.getJobResumes(jobId),

@@ -1150,6 +1150,9 @@ class WorkspaceRoutes(_MixinBase):
             # down: it neither waits here nor keeps the setup unfinished.
             counts = review_counts(conn, candidate_id)
             scored = int(conn.execute("SELECT COUNT(*) FROM job_match").fetchone()[0])
+            from career_agent.home import read_unsure
+
+            unsure = read_unsure(conn)
 
         # The three configuration facts, read from the SAME config object the
         # matcher uses. `home.profile_gaps` asks the same questions for the Home
@@ -1158,8 +1161,15 @@ class WorkspaceRoutes(_MixinBase):
         # "you said BR" is an answer and "residence: not missing" is not.
         eligibility = getattr(config, "eligibility", None)
         lives_somewhere = bool(getattr(eligibility, "candidate_country", "") or "")
-        scopes_named = bool(getattr(eligibility, "eligible_scopes", ()) or ()) or bool(
-            getattr(eligibility, "eligible_countries", ()) or ()
+        # Where she can work is ANSWERED once she said where she lives and
+        # answered the authorization question, "I don't know" included. The
+        # retired "countries that can employ you" and the hiring regions count
+        # too, so a setup finished before 2026-10-09 stays finished.
+        scopes_named = (
+            bool(getattr(eligibility, "authorized_countries", ()) or ())
+            or bool(getattr(eligibility, "eligible_scopes", ()) or ())
+            or bool(getattr(eligibility, "eligible_countries", ()) or ())
+            or "authorization" in unsure
         )
         work_described = bool(getattr(config, "lexicon", {}) or {})
         roles, skills = _first_search_phrases(config)

@@ -130,7 +130,11 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Install
 
 
 #: The question cards from the last back to the first.
-BACKWARDS = ("pay", "level", "arrangement", "stage", "workmodel", "hire", "home", "roles", "work")
+BACKWARDS = (
+    "pay", "level", "arrangement", "stage", "markets", "workmodel", "hire", "home", "roles", "work",
+)  # fmt: skip
+#: Optional context cards a journey that is not about them passes with Skip.
+PASSABLE = ("stage", "markets")
 
 
 def card(page: Chrome) -> str:
@@ -140,13 +144,31 @@ def card(page: Chrome) -> str:
 def wait_card(page: Chrome, key: str) -> None:
     # The career-stage card is optional context; a journey that is not about
     # it passes it the way a person would, with Skip.
-    page.wait_for(
-        f"['stage', {json.dumps(key)}]"
-        ".includes(document.querySelector('.setup__card')?.dataset.step)",
-        message=f"the {key} card",
-    )
-    if key != "stage" and card(page) == "stage":
+    # The card this was called from is never one to skip: it was just
+    # submitted, and its save may still be in flight. Skipping it as well
+    # would advance twice and lose the next card.
+    start = card(page)
+    passable = [name for name in PASSABLE if name != start]
+    for _ in range(len(PASSABLE) + 1):
+        try:
+            page.wait_for(
+                f"[...{json.dumps(passable)}, {json.dumps(key)}]"
+                ".includes(document.querySelector('.setup__card')?.dataset.step)",
+                message=f"the {key} card",
+            )
+        except AssertionError as failure:
+            # Which card it stopped on, and what that card said, rather than
+            # only that the expected one never came.
+            shown = page.evaluate("document.querySelector('#setup-error')?.textContent || ''")
+            raise AssertionError(f"{failure}; still on {card(page)!r}: {shown!r}") from None
+        now = card(page)
+        if now == key or now not in passable:
+            break
         skip(page)
+        page.wait_for(
+            f"document.querySelector('.setup__card')?.dataset.step !== {json.dumps(now)}",
+            message=f"leaving the {now} card",
+        )
     page.wait_for(
         f"document.querySelector('.setup__card')?.dataset.step === {json.dumps(key)}",
         message=f"the {key} card",
@@ -235,6 +257,10 @@ def answer_everything(page: Chrome, live: Install) -> None:
     click(page, "#setup-workmodel-HYBRID-fine")
     click(page, "#setup-workmodel-ONSITE-avoid")
     next_card(page)
+    wait_card(page, "markets")
+    click(page, "#setup-target_markets-NORTH_AMERICA")
+    click(page, "#setup-target_markets-EUROPE")
+    next_card(page)
     wait_card(page, "arrangement")
     click(page, "#setup-arrangement-CONTRACTOR_B2B-yes")
     click(page, "#setup-arrangement-FULL_TIME_EMPLOYEE-yes")
@@ -296,6 +322,7 @@ def test_a_new_person_answers_everything_and_the_configuration_says_so(
         "Lead",
         "9,000 BRL",
         "CV added",
+        "North America",
     ):
         assert expected in review, (expected, review)
     for internal in (
@@ -309,8 +336,11 @@ def test_a_new_person_answers_everything_and_the_configuration_says_so(
 
     config = install.config()
     assert config.eligibility.candidate_country == "BR"
-    assert config.eligibility.eligible_countries == ["BR"]
+    # The card asks where she can be EMPLOYED; the retired question is never written.
+    assert config.eligibility.authorized_countries == ["BR"]
+    assert config.eligibility.eligible_countries == []
     assert config.eligibility.eligible_scopes == []
+    assert config.regions.target == ["NORTH_AMERICA", "EUROPE"]
     remote = config.preferences.remote
     assert remote.accepted_work_models == ["REMOTE"]
     assert remote.avoided_work_models == ["ONSITE"]
@@ -392,7 +422,10 @@ def test_every_question_can_be_skipped_and_nothing_is_invented(
 ) -> None:
     begin(page, install)
     next_card(page)
-    walk = ("work", "roles", "home", "hire", "workmodel", "stage", "arrangement", "level", "pay")
+    walk = (
+        "work", "roles", "home", "hire", "workmodel", "markets",
+        "stage", "arrangement", "level", "pay",
+    )  # fmt: skip
     for key in walk:
         wait_card(page, key)
         skip(page)
@@ -465,6 +498,8 @@ def test_a_restart_halfway_comes_back_to_the_same_card(page: Chrome, install: In
     click(page, "#setup-back")
     wait_card(page, "stage")
     click(page, "#setup-back")
+    wait_card(page, "markets")
+    click(page, "#setup-back")
     wait_card(page, "workmodel")
     assert page.evaluate("document.querySelector('#setup-workmodel-REMOTE-prefer').checked")
 
@@ -476,6 +511,7 @@ def test_back_all_the_way_shows_every_answer(page: Chrome, install: Install) -> 
         "pay": "document.querySelector('#setup-pay').value === '9000'",
         "level": "document.querySelector('#setup-seniority_excluded-LEAD').checked",
         "arrangement": "document.querySelector('#setup-arrangement-EOR-no').checked",
+        "markets": "document.querySelector('#setup-target_markets-EUROPE').checked",
         "workmodel": "document.querySelector('#setup-workmodel-ONSITE-avoid').checked",
         "hire": "document.querySelector('#setup-hire-yes').checked",
         "home": "document.querySelector('#setup-country').dataset.code === 'BR'",
@@ -507,7 +543,6 @@ def test_a_new_country_asks_the_hiring_question_again(page: Chrome, install: Ins
     wait_card(page, "hire")
     click(page, "#setup-hire-yes")
     next_card(page)
-    # A: Brazil confirmed, so no redundant regions card.
     wait_card(page, "workmodel")
 
     click(page, "#setup-back")
@@ -522,18 +557,13 @@ def test_a_new_country_asks_the_hiring_question_again(page: Chrome, install: Ins
         "Brazil's answer was carried over to Portugal"
     )
     next_card(page)
-    # Living in Portugal, with Brazil still confirmed: Worldwide already admits
-    # through Brazil, so only the three scopes holding Portugal (EMEA, Europe
-    # and the EU, separate since 2026-10-09) could add something.
-    wait_card(page, "regions")
-    assert page.evaluate(
-        "[...document.querySelectorAll('[id^=setup-eligible_scopes-]')].map(n => n.value)"
-    ) == ["EMEA", "EUROPE", "EU"]
-    labels = text(page, ".setup__card")
-    assert "The European Union" in labels and "Europe (including" in labels
+    # No hiring-regions card any more (2026-10-09): straight to how you work.
+    wait_card(page, "workmodel")
     config = install.config()
     assert config.eligibility.candidate_country == "PT"
-    assert config.eligibility.eligible_countries == ["BR"]
+    # Brazil, said about Brazil, is kept; nothing was said about Portugal.
+    assert config.eligibility.authorized_countries == ["BR"]
+    assert config.eligibility.eligible_countries == []
 
 
 def test_not_sure_stays_unknown(page: Chrome, install: Install) -> None:
@@ -549,11 +579,17 @@ def test_not_sure_stays_unknown(page: Chrome, install: Install) -> None:
     wait_card(page, "hire")
     click(page, "#setup-hire-unsure")
     next_card(page)
-    wait_card(page, "regions")
-    skip(page)
+    wait_card(page, "workmodel")
     config = install.config()
     assert config.eligibility.candidate_country == "BR"
-    assert config.eligibility.eligible_countries == [], "residence became eligibility"
+    assert config.eligibility.authorized_countries == [], "residence became an authorization"
+    assert config.eligibility.eligible_countries == []
+    # "I don't know" is recorded as an answer, per profile.
+    unsure = page.evaluate(
+        "fetch('/api/profile').then(r => r.json())"
+        ".then(d => d.editable.find(f => f.field === 'authorized_countries').unsure)"
+    )
+    assert unsure is True
     page.evaluate("localStorage.setItem('careerAgent.setup.at.v1', 'review')")
     page.reload()
     wait_card(page, "review")
@@ -576,11 +612,12 @@ def test_preferring_remote_is_not_being_hireable_anywhere(page: Chrome, install:
     wait_card(page, "workmodel")
     click(page, "#setup-workmodel-REMOTE-prefer")
     click(page, "#setup-workmodel-ONSITE-never")
-    assert "not where companies can hire you" in text(page, ".setup__card")
+    assert "where you can be employed is a separate question" in text(page, ".setup__card")
     next_card(page)
     wait_card(page, "arrangement")
     config = install.config()
-    assert config.eligibility.eligible_countries == ["BR"]
+    assert config.eligibility.authorized_countries == ["BR"]
+    assert config.regions.target == [], "preferring remote chose no market"
     assert "WORLDWIDE" not in config.eligibility.eligible_scopes
     assert config.preferences.remote.accepted_work_models == ["REMOTE"]
     assert config.preferences.remote.excluded_work_models == ["ONSITE"]
@@ -636,7 +673,7 @@ def test_the_whole_setup_is_portuguese_from_the_start(page: Chrome, install: Ins
             f"document.querySelector('.setup__card')?.dataset.step !== {json.dumps(step)}"
         )
     assert seen[-1] == "ready", seen
-    assert "regions" in seen, "the regions card was not offered for Brazil"
+    assert "markets" in seen and "regions" not in seen, seen
 
 
 def test_switching_language_halfway_keeps_answers_and_unsaved_text(
@@ -726,7 +763,7 @@ def test_the_setup_can_be_completed_with_a_keyboard(page: Chrome, install: Insta
     wait_card(page, "arrangement")
     config = install.config()
     assert config.eligibility.candidate_country == "BR"
-    assert config.eligibility.eligible_countries == ["BR"]
+    assert config.eligibility.authorized_countries == ["BR"]
     assert config.preferences.remote.accepted_work_models == ["REMOTE"]
     # Every field on the way was named for a screen reader.
     for selector in ("#setup-arrangement", "#setup-arrangement-EOR-no"):
@@ -933,7 +970,14 @@ def test_the_stepper_names_every_step_and_shows_done_current_and_upcoming(
     steps = zip(numbers, numbers[1:], strict=False)
     assert numbers[0] == 1 and all(b - a in (0, 1) for a, b in steps), seen
     assert [done for _, _, done in seen] == sorted(done for _, _, done in seen), seen
-    assert "regions" in [key for key, _, _ in seen], "the conditional card was not in this walk"
+    # No card is conditional since the hiring-regions card left (2026-10-09);
+    # every card of the "where" stage is in the walk, under one stage number.
+    keys = [key for key, _, _ in seen]
+    assert {"home", "hire", "workmodel", "markets"} <= set(keys), keys
+    assert (
+        len({number for key, number, _ in seen if key in ("home", "hire", "workmodel", "markets")})
+        == 1
+    )
 
 
 def test_an_error_clears_as_soon_as_its_field_is_valid(page: Chrome, install: Install) -> None:

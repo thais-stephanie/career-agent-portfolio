@@ -615,6 +615,28 @@ def _candidate_geography_known(config: SearchConfig) -> bool:
     return bool(_candidate_countries(config) or config.eligibility.eligible_scopes)
 
 
+def _hireable_countries(config: SearchConfig) -> set[str]:
+    """Countries where she has SAID an employer can hire her, from her own
+    answers and nothing else (2026-10-09, the eligibility form):
+
+    * where she lives, when she also said she is authorized to be employed
+      there -- two declarations, no inference from either alone;
+    * `eligible_countries`, the answer to the retired question "which
+      countries can employ you directly?", kept as she gave it and shown to
+      her on the profile with a way to remove it. Only ever admits.
+
+    Being authorized somewhere she does not live is not on this list: a
+    remote role open in that country may still require living there, and
+    that is the relocation question this product does not ask yet.
+    """
+    eligibility = config.eligibility
+    out = {c.upper() for c in eligibility.eligible_countries}
+    residence = (eligibility.candidate_country or "").strip().upper()
+    if residence and residence in {c.upper() for c in eligibility.authorized_countries}:
+        out.add(residence)
+    return out
+
+
 def _region_verdict(config: SearchConfig, region: str) -> bool | None:
     """Does a region the employer NAMED admit this candidate? True, False or None.
 
@@ -639,8 +661,8 @@ def _region_verdict(config: SearchConfig, region: str) -> bool | None:
       which is "nobody here knows", never "no".
     """
     region = region.strip().upper()
-    confirmed = {c.upper() for c in config.eligibility.eligible_countries}
     residence = (config.eligibility.candidate_country or "").strip().upper()
+    confirmed = _hireable_countries(config)
     selected = {s.upper() for s in config.eligibility.eligible_scopes}
 
     if any(region_contains(region, country) is True for country in confirmed):
@@ -1194,14 +1216,14 @@ def structured_geography(
         verdict = _scope_verdict(config, place, exhaustive=True)
         if verdict is None:
             return None
-        if not verdict and not countries:
-            # A REGION LABEL ALONE IS NOT A RESIDENCE REQUIREMENT (ADR-0033).
-            # `Remote - EU` or `Remote (Europe)` printed in the location field
-            # says where the board files the role, not that she must live
-            # there; a description that says so ("must reside in the EU") is
-            # read by the prose gate and refuses on its own words. A list of
-            # COUNTRIES in the field still refuses: that is the employer
-            # answering the question (ADR-0023).
+        if not verdict:
+            # A PUBLISHED LOCATION ALONE IS NOT A HIRING RESTRICTION (ADR-0034,
+            # widening ADR-0033). `Remote - EU`, `Remote U.S.` or `Remote -
+            # India` in the location field says where the board files the
+            # role; it can admit her when it names where she is, and it never
+            # refuses her by itself. A restriction the employer WROTE ("must
+            # reside in the EU", "US only") or a declared hiring-scope field
+            # still refuses, through the prose and declared-scope readers.
             return None
         if verdict:
             return StructuredGeography(
@@ -1220,7 +1242,13 @@ def structured_geography(
         )
 
     if workplace_type in ("ONSITE", "HYBRID"):
-        if countries & eligible_countries:
+        # Where she could be at the desk: where she lives, the countries she
+        # said can hire her, and the ones she said she is authorized to be
+        # employed in (moving there is hers to decide, not ours to refuse).
+        reachable = eligible_countries | {
+            c.upper() for c in config.eligibility.authorized_countries
+        }
+        if countries & reachable:
             # She could attend. Not a PASS on its own: being able to reach the
             # office says nothing about whether the employer may hire her, and
             # only a stated scope answers that.
@@ -1341,6 +1369,7 @@ def evaluate_gates(
 
     for gate in GATE_ORDER:
         outcome: GateOutcome | None = None
+        published_excludes = False
 
         for blocker in config.eligibility.blockers:
             if blocker.gate != gate:
@@ -1376,6 +1405,15 @@ def evaluate_gates(
             # blocker above still decides first, as it always has.
             outcome = authorization_gate(config, description_field, place, employment)
 
+        if gate == "geography" and place is not None and workplace_type == "REMOTE":
+            # The published location of a remote role that does NOT include
+            # her (ADR-0034): never a refusal on its own, and never something
+            # vague prose may overrule into a PASS either. Read once here.
+            published_excludes = (
+                _candidate_geography_known(config)
+                and bool(place.countries or place.regions)
+                and _scope_verdict(config, place, exhaustive=True) is False
+            )
         if outcome is None and gate == "geography" and place is not None:
             # **THE BOARD'S OWN FIELDS, BEFORE ANY PROSE.** A structured
             # location is the employer answering a form, and a sentence in the
@@ -1472,6 +1510,24 @@ def evaluate_gates(
             # prose certify worldwide hiring against that unresolved restriction.
             # This guard only withdraws a PASS; it never turns an office address
             # or the word "remote" into permission or a definitive refusal.
+            if (
+                published_excludes
+                and not declared_scope
+                and outcome is not None
+                and outcome.result is GateResult.PASS
+            ):
+                # Prose cannot open what the published location leaves out:
+                # "we work remotely across the US, Europe, LatAm" beside a
+                # `Remote U.S.` field is a team description, not a promise.
+                outcome = GateOutcome(
+                    gate="geography",
+                    result=GateResult.UNRESOLVED,
+                    reason=(
+                        f"This posting is remote and says {location_raw or 'another place'}. "
+                        f"It does not say whether it hires in "
+                        f"{config.eligibility.candidate_country_label}; confirm before applying."
+                    ),
+                )
             if outcome is not None and outcome.result is GateResult.PASS and location_raw:
                 remote_places = re.findall(
                     r"(?:^|;)\s*remote\s*[-\u2013\u2014:]\s*([^;]+)",

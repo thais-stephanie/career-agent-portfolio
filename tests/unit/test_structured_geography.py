@@ -116,17 +116,25 @@ def _verdict(config, location: str | None, workplace: str | None, body: str = NE
 # =========================================================================
 
 
-def test_remote_us_is_refused_for_a_candidate_in_brazil(brazil) -> None:
-    """The posting that sat at the top of the real list, scoring 85."""
+def test_remote_us_alone_neither_admits_nor_refuses_a_candidate_in_brazil(brazil) -> None:
+    """ADR-0034 (2026-10-09): the published location of a remote role is where
+    the board files it, not a restriction. It used to refuse here (the posting
+    that sat at the top of the real list, scoring 85, ADR-0023); it is now
+    "to confirm", and never eligible."""
     status, gate = _verdict(brazil, "Remote U.S.", "REMOTE")
 
+    assert status is not EligibilityStatus.VERIFIED_ELIGIBLE
+    assert status is not EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+    assert gate.result is GateResult.UNRESOLVED
+
+
+def test_remote_us_with_a_written_restriction_refuses_her(brazil) -> None:
+    """The employer's own sentence is the restriction, and it is quoted."""
+    body = NEUTRAL_BODY + " This role is open to US residents only."
+    status, gate = _verdict(brazil, "Remote U.S.", "REMOTE", body=body)
     assert status is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
     assert gate.result is GateResult.FAIL
-    # The employer's own words, in the REASON. Never in `quote`: ADR-0002
-    # makes that a contiguous substring of the posting text, and a form field
-    # beside the posting is not one. See `StructuredGeography`.
-    assert "Remote U.S." in gate.reason
-    assert gate.quote is None
+    assert gate.quote and "US residents only" in gate.quote
 
 
 def test_remote_us_is_accepted_for_a_candidate_in_the_united_states(american) -> None:
@@ -141,10 +149,8 @@ def test_remote_us_is_accepted_for_a_candidate_in_the_united_states(american) ->
     assert gate.result is GateResult.PASS
 
 
-def test_remote_india_is_refused(brazil) -> None:
-    assert _verdict(brazil, "Remote - India", "REMOTE")[0] is (
-        EligibilityStatus.VERIFIED_NOT_ELIGIBLE
-    )
+def test_remote_india_alone_is_to_confirm(brazil) -> None:
+    assert _verdict(brazil, "Remote - India", "REMOTE")[1].result is GateResult.UNRESOLVED
 
 
 def test_remote_eu_alone_does_not_refuse_a_candidate_outside_it(brazil) -> None:
@@ -255,8 +261,10 @@ def test_a_cultural_paragraph_does_not_overrule_a_structured_restriction(brazil)
     """
     status, gate = _verdict(brazil, "Remote U.S.", "REMOTE", body=CULTURAL_BODY)
 
-    assert status is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
-    assert gate.result is GateResult.FAIL
+    # The field no longer refuses on its own (ADR-0034); a cultural paragraph
+    # still cannot make the role open to her.
+    assert status is not EligibilityStatus.VERIFIED_ELIGIBLE
+    assert gate.result is not GateResult.PASS
 
 
 def test_a_location_that_resolves_to_nothing_stays_unresolved(brazil) -> None:
@@ -757,7 +765,7 @@ def test_a_selected_scope_that_cannot_hold_her_admits_nothing(brazil) -> None:
         brazil, residence="BR", countries=["BR"], scopes=["NORTH_AMERICA", "WORLDWIDE"]
     )
     _, gate = _geography(config, location="Remote (United States | Canada)")
-    assert gate.result is GateResult.FAIL, gate.reason
+    assert gate.result is not GateResult.PASS, gate.reason
 
 
 @pytest.mark.parametrize("country", ["DZ", "OM"])
@@ -796,15 +804,17 @@ def test_an_unplaced_country_is_still_refused_by_a_list_that_omits_it(brazil) ->
     """Control: an exhaustive country list is an answer without the gazetteer."""
     config = _with_geography(brazil, residence="MK", countries=["MK"], scopes=["EMEA"])
     _, gate = _geography(config, location="Remote (Germany, France)")
-    assert gate.result is GateResult.FAIL, gate.reason
+    assert gate.result is GateResult.UNRESOLVED, gate.reason
 
 
 def test_an_incompatible_country_list_still_refuses_a_confirmed_candidate(
     confirmed_latam_only,
 ) -> None:
-    """Control: `Remote (United States | Canada)` names two countries, not her."""
+    """`Remote (United States | Canada)` names two countries, not her: it does
+    not admit her, and as a published location it does not refuse her either
+    (ADR-0034)."""
     _, gate = _geography(confirmed_latam_only, location="Remote (United States | Canada)")
-    assert gate.result is GateResult.FAIL, gate.reason
+    assert gate.result is GateResult.UNRESOLVED, gate.reason
 
 
 def test_a_missing_hiring_scope_is_still_unresolved(confirmed_latam_only) -> None:
@@ -834,9 +844,6 @@ def test_explicit_incompatible_restrictions_are_still_refused_with_only_a_countr
     """Knowing only that she is in Brazil is enough to refuse a posting that
     names another country and no region containing hers."""
     for location, workplace in (
-        ("Remote U.S.", "REMOTE"),
-        ("Remote (United States | Canada)", "REMOTE"),
-        ("Remote - India", "REMOTE"),
         ("Gurugram, India", "ONSITE"),
         ("New York, NY", "HYBRID"),
     ):
@@ -844,6 +851,10 @@ def test_explicit_incompatible_restrictions_are_still_refused_with_only_a_countr
         assert status is EligibilityStatus.VERIFIED_NOT_ELIGIBLE, location
         assert gate.result is GateResult.FAIL, location
         assert "Brazil" in gate.reason
+    # A remote role's published location is not a restriction (ADR-0034).
+    for location in ("Remote U.S.", "Remote (United States | Canada)", "Remote - India"):
+        _, gate = _verdict(brazil_bare, location, "REMOTE")
+        assert gate.result is GateResult.UNRESOLVED, location
 
 
 def test_the_configured_candidate_is_unchanged(brazil) -> None:
@@ -852,7 +863,8 @@ def test_the_configured_candidate_is_unchanged(brazil) -> None:
         ("Remote - Brazil", "REMOTE"): EligibilityStatus.VERIFIED_ELIGIBLE,
         ("Remote - LATAM", "REMOTE"): EligibilityStatus.VERIFIED_ELIGIBLE,
         ("Anywhere in the World", "REMOTE"): EligibilityStatus.VERIFIED_ELIGIBLE,
-        ("Remote U.S.", "REMOTE"): EligibilityStatus.VERIFIED_NOT_ELIGIBLE,
+        # A published remote location alone stopped refusing (ADR-0034).
+        ("Remote U.S.", "REMOTE"): EligibilityStatus.UNRESOLVED,
         # A region label alone stopped refusing on 2026-10-09 (ADR-0033).
         ("Remote EU", "REMOTE"): EligibilityStatus.UNRESOLVED,
         ("Gurugram, India", "ONSITE"): EligibilityStatus.VERIFIED_NOT_ELIGIBLE,

@@ -50,6 +50,7 @@ export function createDrawer({
   careerContext = null, onAddCareer = null,
   onResume = null,
   resumeFor = null,
+  onAnswer = null,
   onHide = null,
   debug = false,
 }) {
@@ -819,6 +820,7 @@ export function createDrawer({
         ]),
         gate.reason ? el('p', { className: 'gate__reason d-take__text', text: gate.reason }) : null,
         gate.quote ? el('blockquote', { className: 'quote', text: gate.quote }) : null,
+        answerLink(gate),
       ]);
     });
     const experience = experienceCard(job);
@@ -833,6 +835,20 @@ export function createDrawer({
 
   function gateName(gate) {
     return named(`gateName.${gate}`, gate);
+  }
+
+  /**
+   * A requirement this job states and she has not answered: the question,
+   * asked here, where it matters, and answered on her profile (the same
+   * place Home's task opens). Only for the right-to-work gate, whose answer
+   * is hers to give; nothing is offered for a gate the ad merely leaves out.
+   */
+  function answerLink(gate) {
+    if (!onAnswer || !gate.is_pending || gate.gate !== 'work_authorization') return null;
+    const field = /contractor/i.test(gate.reason || '') ? 'contractor' : 'authorized_countries';
+    return button(t('drawer.take.answer'), () => onAnswer(field), {
+      className: 'btn btn--link', attrs: { 'data-answer-field': field },
+    });
   }
 
   /**

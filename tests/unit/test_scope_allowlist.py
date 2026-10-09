@@ -117,8 +117,10 @@ def test_declared_scope_is_read_as_a_list(declared: str, expected: str) -> None:
 @pytest.mark.parametrize(
     ("location_raw", "expected"),
     [
-        ("Remote (United States | Canada)", "VERIFIED_NOT_ELIGIBLE"),
-        ("Argentina, Colombia", "VERIFIED_NOT_ELIGIBLE"),
+        # A published location that does not name her is "to confirm", never
+        # eligible and, alone, never a refusal (ADR-0034, 2026-10-09).
+        ("Remote (United States | Canada)", "UNRESOLVED"),
+        ("Argentina, Colombia", "UNRESOLVED"),
         ("Brazil", "VERIFIED_ELIGIBLE"),
         ("LATAM", "VERIFIED_ELIGIBLE"),
         ("Fully remote", "UNRESOLVED"),

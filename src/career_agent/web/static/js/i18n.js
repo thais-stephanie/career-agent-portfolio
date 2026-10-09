@@ -1324,6 +1324,7 @@ const EN = {
   'drawer.take.UNRESOLVED': 'Not in the ad',
   'drawer.take.PENDING': 'Left to confirm',
   'drawer.take.FAIL': 'Rules you out',
+  'drawer.take.answer': 'Answer this in your profile',
   'drawer.take.CHECK': 'Check this',
   'drawer.unscoredNumber': 'This job has not been scored, so there is no number to explain.',
   'drawer.matchedNoQuote': 'Matched, but the posting had no single line worth quoting.',
@@ -3257,6 +3258,7 @@ const EN = {
   'profileRow.searchName': 'You call this search',
   'profileRow.youAreIn': 'You are in',
   'profileRow.hiredFrom': 'You can be hired from',
+  'profileRow.authorizedIn': 'Can be employed in',
   'profileRow.workModels': 'Ways of working you accept',
   'profileRow.contractsPreferred': 'Contracts you prefer',
   'profileRow.contractsUnwanted': 'Contracts you do not want',
@@ -3269,7 +3271,7 @@ const EN = {
   // loud, and each has a `fieldHelp.*` sentence under it saying what the
   // answer is USED FOR -- because "Most travel you would accept" above the
   // number 15 was a label with no unit and no consequence attached to it.
-  'field.work_models': 'How do you feel about each way of working?',
+  'field.work_models': 'What kind of work are you looking for?',
   'field.require_remote': 'Only show me fully remote roles',
   'field.contract_preferred': 'Which working arrangements work for you?',
   'field.contract_unwanted': 'Any of those you would prefer less?',
@@ -3278,16 +3280,16 @@ const EN = {
   'field.travel_max_pct': 'How much work travel would you be comfortable with?',
   'field.compensation_target': 'How much would you like to earn each month?',
   'field.compensation_currency': 'In which currency?',
-  'field.candidate_country': 'Where do you currently live?',
-  'field.eligible_scopes': 'Which regions can you work in?',
-  'field.target_markets': 'Which markets do you want to search first?',
+  'field.candidate_country': 'Where do you live?',
+  'field.eligible_scopes': 'Regions named in job ads that include you',
+  'field.target_markets': 'Which markets do you want to prioritize?',
   'field.eligible_countries': 'Which countries can employ you directly?',
-  'field.authorized_countries': 'Where are you legally authorized to be employed?',
-  'field.not_authorized_countries': 'Where are you NOT authorized to be employed?',
+  'field.authorized_countries': 'In which countries do you know you can be employed?',
+  'field.not_authorized_countries': 'Countries where you know you cannot be employed',
   'field.sponsorship_needed': 'Where would an employer need to sponsor a visa for you?',
-  'field.contractor': 'Can you work as an independent contractor (invoice, PJ or B2B) for a client '
-    + 'in the country you live in?',
-  'field.contractor_abroad': 'Can you provide services to a client abroad (invoicing across a border)?',
+  'field.contractor': 'Can you provide services as a contractor (with an invoice, PJ or B2B) to a client in '
+    + 'the country where you live?',
+  'field.contractor_abroad': 'Can you provide services to a client in another country (sending the invoice abroad)?',
   'profile.answer.yes': 'Yes',
   'profile.answer.no': 'No',
   'profile.answer.unsure': 'I don’t know',
@@ -3312,26 +3314,26 @@ const EN = {
     'Use whatever you are aiming for today. Jobs that do not say what they pay still '
     + 'show up as normal.',
   'fieldHelp.compensation_currency': 'Currency',
-  'fieldHelp.candidate_country':
-    'This helps us check which jobs can hire someone where you are.',
-  'fieldHelp.eligible_scopes':
-    'We use this to check whether the region a job hires in includes you.',
-  'fieldHelp.target_markets': 'Sources and searches for these markets run first. Nothing else is '
-    + 'left out, and where you live does not narrow the search. Leave it empty to search everywhere.',
+  'fieldHelp.candidate_country': 'Used when a job says you must live in a specific country. It does not '
+    + 'narrow your search and is not a work authorization.',
+  'fieldHelp.eligible_scopes': 'Some jobs say only “Latin America” or “Europe”. Tick a region only if you '
+    + 'know employers hiring there can hire you where you live.',
+  'fieldHelp.target_markets': 'Jobs from these markets are looked for first. Nothing else is left out, and '
+    + 'choosing a market does not mean you can work there. Leave it empty to search everywhere.',
   'fieldHelp.eligible_countries':
     'Countries where a company could put you on their payroll without going '
     + 'through anyone else. Leave it empty if there are none.',
-  'fieldHelp.authorized_countries': 'A legal right to be employed there, as you know it. "Countries that '
-    + 'can employ you directly" is about where employers may hire you from and is never read as this.',
-  'fieldHelp.not_authorized_countries': 'Only what you know: a country you leave out of both lists stays '
-    + '"not said", and a job that requires it is shown as waiting for your answer, never as a match.',
-  'fieldHelp.sponsorship_needed': 'Countries where you could only be employed if the employer arranged '
-    + 'your visa. Where you live and your nationality are never used to answer this for you.',
-  'fieldHelp.contractor': 'Some jobs are offered only as a contract for services. Leave it unanswered if '
-    + 'you do not know yet.',
-  'fieldHelp.contractor_abroad': 'Answered on its own: a no at home is not a no abroad. Jobs rarely say '
-    + 'where the contracting party is, so a contractor job is a match only when you answer yes to both '
-    + 'questions, and ruled out only when you answer no to both.',
+  'fieldHelp.authorized_countries': 'Only what you know, such as citizenship or a work permit. A job that '
+    + 'asks for authorization in a country you did not list shows as “Left to confirm”, never as ruled out. If '
+    + 'you live in one of these countries, remote jobs that hire there can show as open to you.',
+  'fieldHelp.not_authorized_countries': 'A job that requires authorization in one of these shows as not '
+    + 'compatible, with the employer’s sentence. Leave it empty if you are not sure.',
+  'fieldHelp.sponsorship_needed': 'Used only when a job says it does not sponsor visas. Where you live and '
+    + 'your nationality are never used to answer this for you.',
+  'fieldHelp.contractor': 'Some jobs are offered as a service contract instead of employment. This is not '
+    + 'about visas or employment. Answer only if you know.',
+  'fieldHelp.contractor_abroad': 'Asked separately: a no at home is not a no abroad. Jobs rarely say where '
+    + 'the client is, so a contractor job is a match only when both answers are yes.',
 
   // The travel readout. A percentage with a word beside it, because 15 on its
   // own answers "fifteen what".
@@ -3344,11 +3346,21 @@ const EN = {
 
   // The groups the questions are asked in.
   'choiceGroup.where': 'Where and how you want to work',
-  'choiceGroup.whereLede': 'Where you are, and where a job can reach you.',
+  'choiceGroup.whereLede': 'Where you live, how you want to work, which markets to look at first and where '
+    + 'you know you can be employed.',
   'choiceGroup.what': 'The work you are looking for',
   'choiceGroup.whatLede': 'Level, contract and how much travel you would take on.',
   'choiceGroup.pay': 'Pay',
   'choiceGroup.payLede': 'What you are aiming for each month.',
+  'choiceGroup.more': 'Additional information for some jobs',
+  'choiceGroup.moreLede': 'Optional. Only some jobs ask about these. Leave them empty if they do not apply '
+    + 'or you do not know; a job that needs one tells you.',
+  'legacy.eligibleCountries.q': 'From an earlier version: “Which countries can employ you directly?”',
+  'legacy.eligibleCountries.help': 'This question is no longer asked because it mixed two things. Your '
+    + 'answer is kept as you gave it and still counts as a place where employers can hire you, so jobs that '
+    + 'hire there can show as open to you. Remove it if it no longer applies.',
+  'legacy.eligibleCountries.remove': 'Remove this answer',
+  'legacy.eligibleCountries.removed': 'Removed. Save to keep the change.',
   'region.EUROPE': 'Europe',
   // The Save button says how much is pending, so pressing it is not a guess
   // about what it will write.
@@ -3631,17 +3643,23 @@ const EN = {
   'setup.home.title': 'Where do you live?',
   'setup.home.why': 'Jobs are compared with where you are. Only the country is saved, and only on this computer.',
   'setup.home.label': 'Country',
-  'setup.hire.title': 'Where can companies hire you?',
-  'setup.hire.why': 'Many remote jobs only hire people in certain countries. Tell Career Agent where an employer '
-    + 'could put you on their payroll directly, so it can tell which jobs are open to you.',
-  'setup.hire.homeQuestion': 'Can a company hire you directly in {country}?',
-  'setup.hire.yes': 'Yes, I can work for employers in {country}',
-  'setup.hire.unsure': 'I am not sure yet',
-  'setup.hire.othersLabel': 'Other countries where you can be hired (optional)',
-  'setup.hire.countriesLabel': 'Countries where you can be hired',
+  'setup.hire.title': 'Where do you know you can be employed?',
+  'setup.hire.why': 'Some jobs ask for the right to work in a country. Say only what you know, such as '
+    + 'citizenship or a work permit. Nothing is guessed from where you live or your nationality.',
+  'setup.hire.homeQuestion': 'Can you be employed in {country}?',
+  'setup.hire.yes': 'Yes, I can be employed in {country}',
+  'setup.hire.unsure': 'I don’t know',
+  'setup.hire.othersLabel': 'Other countries where you know you can be employed (optional)',
+  'setup.hire.countriesLabel': 'Countries where you know you can be employed',
   'setup.hire.add': 'Add',
   'setup.hire.remove': 'Remove {country}',
-  'setup.hire.note': 'Not sure? Leave it. Jobs will say “not known yet” rather than guess.',
+  'setup.hire.note': 'Not sure? That is fine. Jobs that ask will show as “Left to confirm”, never as ruling '
+    + 'you out.',
+  'setup.markets.title': 'Which markets do you want to prioritize?',
+  'setup.markets.why': 'Jobs from these markets are looked for first. Nothing else is left out, and '
+    + 'choosing a market does not mean you can work there.',
+  'setup.markets.legend': 'Markets to look at first',
+  'setup.markets.note': 'Leave it empty to search everywhere equally.',
   'setup.regions.title': 'Any hiring regions that include you?',
   'setup.regions.why': 'Some jobs name a region instead of countries, such as “Latin America”. Tick a region only '
     + 'if employers hiring there can hire someone living where you do.',
@@ -3766,9 +3784,8 @@ const EN = {
     'Jobs in a way of working you prefer rank a little higher, and ones you would rather avoid a little lower.',
   'setup.workmodel.legend':
     'Your answer for each way of working',
-  'setup.workmodel.note':
-    'Never show hides those jobs from Find jobs, with one click to see them again. Remote is about how '
-    + 'you work, not where companies can hire you: that is the hiring question you already answered.',
+  'setup.workmodel.note': 'Never show hides those jobs from Find jobs, with one click to see them again. '
+    + 'Remote is about how you work; where you can be employed is a separate question.',
   'setup.arrangement.title':
     'Which working arrangements work for you?',
   'setup.arrangement.why':
@@ -3807,8 +3824,9 @@ const EN = {
     'Kinds of work',
   'setup.review.home':
     'Based in',
-  'setup.review.hire':
-    'Can be hired in',
+  'setup.review.hire': 'Can be employed in',
+  'setup.review.markets': 'Markets first',
+  'setup.review.everywhere': 'Everywhere',
   'setup.review.workmodel':
     'Ways of working',
   'setup.review.stage': 'Career stage',
@@ -5574,6 +5592,7 @@ const PT_BR = {
   'drawer.take.UNRESOLVED': 'Não está no anúncio',
   'drawer.take.PENDING': 'Falta confirmar',
   'drawer.take.FAIL': 'Descarta você',
+  'drawer.take.answer': 'Responder no seu perfil',
   'drawer.take.CHECK': 'Confira',
   'drawer.unscoredNumber': 'Esta vaga não foi pontuada, então não há número para explicar.',
   'drawer.matchedNoQuote': 'Correspondeu, mas o anúncio não tinha uma única linha que valesse citar. ',
@@ -7516,6 +7535,7 @@ const PT_BR = {
   'profileRow.searchName': 'Você chama esta busca de',
   'profileRow.youAreIn': 'Você está em',
   'profileRow.hiredFrom': 'Você pode ser contratada de',
+  'profileRow.authorizedIn': 'Pode trabalhar com vínculo em',
   'profileRow.workModels': 'Formas de trabalho que você aceita',
   'profileRow.contractsPreferred': 'Contratos que você prefere',
   'profileRow.contractsUnwanted': 'Contratos que você não quer',
@@ -7524,7 +7544,7 @@ const PT_BR = {
   'profileRow.aimingFor': 'Você tem como alvo',
   'profileRow.crossCurrency': 'Comparação entre moedas',
   'profileValue.travelUpTo': 'até {pct}% do tempo',
-  'field.work_models': 'Como você se sente sobre cada formato de trabalho?',
+  'field.work_models': 'Que tipo de trabalho você procura?',
   'field.require_remote': 'Mostrar apenas vagas totalmente remotas',
   'field.contract_preferred': 'Quais formatos de contratação funcionam para você?',
   'field.contract_unwanted': 'Entre eles, existe algum que você prefere menos?',
@@ -7533,17 +7553,17 @@ const PT_BR = {
   'field.travel_max_pct': 'Quanto você se sentiria confortável viajando a trabalho?',
   'field.compensation_target': 'Quanto você gostaria de ganhar por mês?',
   'field.compensation_currency': 'Em qual moeda?',
-  'field.candidate_country': 'Onde você mora atualmente?',
-  'field.eligible_scopes': 'Em quais regiões você pode trabalhar?',
-  'field.target_markets': 'Quais mercados você quer buscar primeiro?',
+  'field.candidate_country': 'Onde você mora?',
+  'field.eligible_scopes': 'Regiões citadas em vagas que incluem você',
+  'field.target_markets': 'Quais mercados você quer priorizar?',
   'field.eligible_countries': 'Em quais países você pode ser contratado diretamente?',
-  'field.authorized_countries': 'Onde você tem autorização legal para ser empregado?',
-  'field.not_authorized_countries': 'Onde você NÃO tem autorização para ser empregado?',
+  'field.authorized_countries': 'Em quais países você sabe que pode trabalhar com vínculo de emprego?',
+  'field.not_authorized_countries': 'Países onde você sabe que não pode trabalhar com vínculo de emprego',
   'field.sponsorship_needed': 'Onde um empregador precisaria patrocinar um visto para você?',
-  'field.contractor': 'Você pode trabalhar como prestador de serviço (nota fiscal, PJ ou B2B) para um '
-    + 'cliente do país onde mora?',
-  'field.contractor_abroad': 'Você pode prestar serviço para um cliente no exterior (faturar para fora do '
-    + 'país)?',
+  'field.contractor': 'Você pode prestar serviços como pessoa jurídica ou autônoma (com nota fiscal, PJ ou '
+    + 'B2B) para um cliente do país onde você mora?',
+  'field.contractor_abroad': 'Você pode prestar serviços para um cliente de outro país (emitindo a nota '
+    + 'para o exterior)?',
   'profile.answer.yes': 'Sim',
   'profile.answer.no': 'Não',
   'profile.answer.unsure': 'Não sei',
@@ -7568,26 +7588,28 @@ const PT_BR = {
   'fieldHelp.compensation_target':
     'Use sua meta atual. Vagas que não informam salário continuam aparecendo normalmente.',
   'fieldHelp.compensation_currency': 'Moeda',
-  'fieldHelp.candidate_country':
-    'Isso nos ajuda a verificar quais vagas podem contratar pessoas de onde você está.',
-  'fieldHelp.eligible_scopes':
-    'Usamos isso para verificar se a região em que a vaga contrata inclui você.',
-  'fieldHelp.target_markets': 'As fontes e buscas desses mercados rodam primeiro. Nada mais fica '
-    + 'de fora, e onde você mora não restringe a busca. Deixe vazio para buscar em todo lugar.',
+  'fieldHelp.candidate_country': 'Usado quando uma vaga exige morar em um país específico. Não limita a sua '
+    + 'busca e não é uma autorização de trabalho.',
+  'fieldHelp.eligible_scopes': 'Algumas vagas dizem só “América Latina” ou “Europa”. Marque uma região só '
+    + 'se você sabe que empregadores que contratam ali podem contratar você onde você mora.',
+  'fieldHelp.target_markets': 'As vagas desses mercados são buscadas primeiro. Nada fica de fora, e '
+    + 'escolher um mercado não significa que você pode trabalhar lá. Deixe vazio para buscar em todo lugar.',
   'fieldHelp.eligible_countries':
     'Países onde uma empresa poderia colocar você na folha sem passar por mais '
     + 'ninguém. Deixe vazio se não houver nenhum.',
-  'fieldHelp.authorized_countries': 'O direito legal de ser empregado ali, como você sabe. "Países que '
-    + 'podem te contratar diretamente" diz de onde empregadores podem te contratar e nunca é lido como isto.',
-  'fieldHelp.not_authorized_countries': 'Só o que você sabe: um país que fica fora das duas listas continua '
-    + '"não informado", e uma vaga que o exige aparece aguardando sua resposta, nunca como compatível.',
-  'fieldHelp.sponsorship_needed': 'Países onde você só poderia ser contratado se o empregador providenciasse '
-    + 'seu visto. Onde você mora e sua nacionalidade nunca são usados para responder por você.',
-  'fieldHelp.contractor': 'Algumas vagas são oferecidas só como prestação de serviço. Deixe sem resposta se '
-    + 'ainda não souber.',
-  'fieldHelp.contractor_abroad': 'Respondida à parte: um não no Brasil não é um não no exterior. As vagas '
-    + 'raramente dizem onde está o contratante, então uma vaga de prestador só é compatível quando você '
-    + 'responde sim às duas perguntas, e só é descartada quando responde não às duas.',
+  'fieldHelp.authorized_countries': 'Só o que você sabe, como cidadania ou permissão de trabalho. Uma vaga '
+    + 'que exige autorização num país que você não listou aparece como “Falta confirmar”, nunca como '
+    + 'incompatível. Se você mora num desses países, vagas remotas que contratam lá podem aparecer como abertas '
+    + 'para você.',
+  'fieldHelp.not_authorized_countries': 'Uma vaga que exige autorização num desses países aparece como '
+    + 'incompatível, com a frase do empregador. Deixe vazio se não tiver certeza.',
+  'fieldHelp.sponsorship_needed': 'Usado só quando uma vaga diz que não patrocina vistos. Onde você mora e '
+    + 'sua nacionalidade nunca são usadas para responder isso por você.',
+  'fieldHelp.contractor': 'Algumas vagas são oferecidas como contrato de prestação de serviços, e não como '
+    + 'emprego. Isso não tem a ver com visto nem com vínculo de emprego. Responda só se souber.',
+  'fieldHelp.contractor_abroad': 'Perguntado à parte: um não no Brasil não é um não no exterior. As vagas '
+    + 'raramente dizem onde está o cliente, então uma vaga de prestação de serviços só combina quando as duas '
+    + 'respostas são sim.',
 
   'travel.none': 'Sem viagens',
   'travel.occasional': 'Viagens ocasionais',
@@ -7597,11 +7619,21 @@ const PT_BR = {
   'travel.readout': '{pct}% do seu tempo de trabalho · {band}',
 
   'choiceGroup.where': 'Onde e como você quer trabalhar',
-  'choiceGroup.whereLede': 'Onde você está, e até onde uma vaga consegue chegar.',
+  'choiceGroup.whereLede': 'Onde você mora, como quer trabalhar, quais mercados olhar primeiro e onde você '
+    + 'sabe que pode trabalhar.',
   'choiceGroup.what': 'O trabalho que você procura',
   'choiceGroup.whatLede': 'Nível, contrato e quanta viagem você toparia.',
   'choiceGroup.pay': 'Remuneração',
   'choiceGroup.payLede': 'Quanto você quer ganhar por mês.',
+  'choiceGroup.more': 'Informações adicionais para algumas vagas',
+  'choiceGroup.moreLede': 'Opcional. Só algumas vagas perguntam sobre isso. Deixe vazio se não se aplica ou '
+    + 'se você não sabe; a vaga que precisar avisa.',
+  'legacy.eligibleCountries.q': 'De uma versão anterior: “Quais países podem te contratar diretamente?”',
+  'legacy.eligibleCountries.help': 'Essa pergunta não é mais feita porque misturava duas coisas. Sua '
+    + 'resposta foi mantida como você deu e ainda conta como um lugar onde empregadores podem te contratar, '
+    + 'então vagas que contratam lá podem aparecer como abertas para você. Remova se não se aplica mais.',
+  'legacy.eligibleCountries.remove': 'Remover esta resposta',
+  'legacy.eligibleCountries.removed': 'Removida. Salve para manter a mudança.',
   'region.EUROPE': 'Europa',
   // The Save button says how much is pending, so pressing it is not a guess
   // about what it will write.
@@ -7857,17 +7889,23 @@ const PT_BR = {
   'setup.home.title': 'Onde você mora?',
   'setup.home.why': 'As vagas são comparadas com o lugar onde você está. Só o país é salvo, e só neste computador.',
   'setup.home.label': 'País',
-  'setup.hire.title': 'Onde empresas podem te contratar?',
-  'setup.hire.why': 'Muitas vagas remotas só contratam pessoas em certos países. Diga onde um empregador poderia te '
-    + 'colocar na folha de pagamento diretamente, para o Career Agent saber quais vagas estão abertas para você.',
-  'setup.hire.homeQuestion': 'Uma empresa pode te contratar diretamente em {country}?',
-  'setup.hire.yes': 'Sim, posso trabalhar para empregadores em {country}',
-  'setup.hire.unsure': 'Ainda não tenho certeza',
-  'setup.hire.othersLabel': 'Outros países onde você pode ser contratado (opcional)',
-  'setup.hire.countriesLabel': 'Países onde você pode ser contratado',
+  'setup.hire.title': 'Onde você sabe que pode trabalhar com vínculo de emprego?',
+  'setup.hire.why': 'Algumas vagas pedem o direito de trabalhar num país. Diga só o que você sabe, como '
+    + 'cidadania ou permissão de trabalho. Nada é deduzido de onde você mora ou da sua nacionalidade.',
+  'setup.hire.homeQuestion': 'Você pode trabalhar com vínculo de emprego em {country}?',
+  'setup.hire.yes': 'Sim, posso trabalhar com vínculo em {country}',
+  'setup.hire.unsure': 'Não sei',
+  'setup.hire.othersLabel': 'Outros países onde você sabe que pode trabalhar com vínculo (opcional)',
+  'setup.hire.countriesLabel': 'Países onde você sabe que pode trabalhar com vínculo',
   'setup.hire.add': 'Adicionar',
   'setup.hire.remove': 'Remover {country}',
-  'setup.hire.note': 'Não tem certeza? Deixe assim. As vagas vão dizer “ainda não se sabe” em vez de adivinhar.',
+  'setup.hire.note': 'Não tem certeza? Tudo bem. As vagas que perguntarem vão aparecer como “Falta '
+    + 'confirmar”, nunca como descartando você.',
+  'setup.markets.title': 'Quais mercados você quer priorizar?',
+  'setup.markets.why': 'As vagas desses mercados são buscadas primeiro. Nada fica de fora, e escolher um '
+    + 'mercado não significa que você pode trabalhar lá.',
+  'setup.markets.legend': 'Mercados para olhar primeiro',
+  'setup.markets.note': 'Deixe vazio para buscar em todo lugar por igual.',
   'setup.regions.title': 'Alguma região de contratação inclui você?',
   'setup.regions.why': 'Algumas vagas citam uma região em vez de países, como “América Latina”. Marque uma região só '
     + 'se empresas que contratam nela podem contratar alguém que mora onde você mora.',
@@ -7992,10 +8030,8 @@ const PT_BR = {
     'Vagas num formato que você prefere sobem um pouco, e as que você prefere evitar descem um pouco.',
   'setup.workmodel.legend':
     'Sua resposta para cada formato de trabalho',
-  'setup.workmodel.note':
-    'Nunca mostrar esconde essas vagas em Encontrar vagas, com um clique para vê-las de novo. Remoto é sobre '
-    + 'como você trabalha, não sobre onde as empresas podem te contratar: isso é a pergunta de contratação '
-    + 'que você já respondeu.',
+  'setup.workmodel.note': 'Nunca mostrar esconde essas vagas em Encontrar vagas, com um clique para vê-las '
+    + 'de novo. Remoto é sobre como você trabalha; onde você pode trabalhar com vínculo é outra pergunta.',
   'setup.arrangement.title':
     'Quais formatos de contratação funcionam para você?',
   'setup.arrangement.why':
@@ -8035,8 +8071,9 @@ const PT_BR = {
     'Tipos de trabalho',
   'setup.review.home':
     'Mora em',
-  'setup.review.hire':
-    'Pode ser contratado em',
+  'setup.review.hire': 'Pode trabalhar com vínculo em',
+  'setup.review.markets': 'Mercados primeiro',
+  'setup.review.everywhere': 'Todo lugar',
   'setup.review.workmodel':
     'Formatos de trabalho',
   'setup.review.stage': 'Momento da carreira',

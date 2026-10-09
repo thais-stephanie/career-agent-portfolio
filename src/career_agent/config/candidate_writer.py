@@ -200,6 +200,12 @@ FIELDS: dict[str, dict[str, Any]] = {
         "kind": "country_list",
         "label": "Countries that may hire you directly",
         "allow_empty": True,
+        # RETIRED AS A QUESTION (2026-10-09): it mixed where an employer may
+        # hire her from with a legal authorization. An answer already given is
+        # kept as she gave it, shown back on the profile with what it still
+        # does, and removable; it is never asked again and never rewritten
+        # into another field.
+        "legacy": True,
     },
     # EXPLICIT DECLARATIONS (`match.authorization`). Each answers a posting's
     # requirement about the right to work; an empty one leaves it PENDING.
