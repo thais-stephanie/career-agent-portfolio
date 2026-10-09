@@ -228,3 +228,23 @@ def test_home_no_longer_asks_the_retired_question(base) -> None:
 
     config = person(base, lives="BR")
     assert "hiring_scopes" not in profile_gaps(NoConn(), config)  # type: ignore[arg-type]
+
+
+def test_an_aggregators_worldwide_does_not_open_what_the_published_location_leaves_out(
+    owner_example,
+) -> None:
+    """The TripleTen shape: the employer publishes `Remote U.S.`; an aggregator
+    republishes the vacancy as Worldwide. To confirm, never a pass."""
+    result = match_job(
+        owner_example,
+        JobFacts(
+            title="Integration Engineer",
+            description=BODY,
+            location_raw="Remote U.S.",
+            workplace_type="REMOTE",
+            declared_hiring_scope="Worldwide",
+        ),
+        computed_at="2026-10-09T00:00:00Z",
+    )
+    gate = next(g for g in result.gates if g.gate == "geography")
+    assert gate.result is GateResult.UNRESOLVED, gate.reason

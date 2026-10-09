@@ -223,8 +223,9 @@ def test_a_registered_board_is_collected_by_the_normal_runner(conn: Any) -> None
 def test_the_employers_own_list_outranks_an_aggregators_worldwide(conn: Any) -> None:
     """THE TRIPLETEN CASE. Comeet publishes four countries with `is_remote`;
     Remotive republishes the same vacancy with `Worldwide`. One posting, one
-    aggregator sighting, and the candidate in Brazil is refused by the
-    employer's own list -- the sighting's scope never becomes the answer.
+    aggregator sighting, and the sighting's scope never becomes the answer:
+    the candidate in Brazil is never eligible through it. Since ADR-0034 the
+    employer's published list, alone, is "to confirm" rather than a refusal.
     The vacancy that lists Brazil on the same board is eligible."""
     _register(conn)
     with _fetcher() as fetcher:
@@ -256,7 +257,7 @@ def test_the_employers_own_list_outranks_an_aggregators_worldwide(conn: Any) -> 
             "SELECT eligibility_status FROM job_match WHERE job_id = ?", (job_id,)
         ).fetchone()["eligibility_status"]
 
-    assert status(crm_id) == "VERIFIED_NOT_ELIGIBLE"
+    assert status(crm_id) == "UNRESOLVED"
     assert status(teaching_id) == "VERIFIED_ELIGIBLE"
     # Still ONE job with ONE sighting; the aggregator never became a row.
     assert conn.execute("SELECT COUNT(*) FROM job WHERE external_id = ?", (CRM,)).fetchone()[0] == 1

@@ -1512,13 +1512,15 @@ def evaluate_gates(
             # or the word "remote" into permission or a definitive refusal.
             if (
                 published_excludes
-                and not declared_scope
                 and outcome is not None
                 and outcome.result is GateResult.PASS
             ):
-                # Prose cannot open what the published location leaves out:
-                # "we work remotely across the US, Europe, LatAm" beside a
-                # `Remote U.S.` field is a team description, not a promise.
+                # Nothing else opens what the employer's published location
+                # leaves out: not prose ("we work remotely across the US,
+                # Europe, LatAm" beside `Remote U.S.` is a team description),
+                # and not an aggregator's `Worldwide` sighting of the same
+                # vacancy (the TripleTen case). Since ADR-0034 that conflict is
+                # "to confirm", never a pass and, alone, never a refusal.
                 outcome = GateOutcome(
                     gate="geography",
                     result=GateResult.UNRESOLVED,
