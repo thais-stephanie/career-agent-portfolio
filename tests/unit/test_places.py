@@ -289,3 +289,118 @@ def test_a_city_and_code_per_place_is_the_same_list_written_longer() -> None:
     assert resolve_place("Boston, US / Remote, BR").countries == ("BR", "US")
     assert resolve_place("Denver, CO / Austin, TX").countries == ("US",)
     assert resolve_place("San Francisco, CA / New York, NY").countries == ("US",)
+
+
+# =========================================================================
+# A single place ending in its country's code (2026-10-09)
+# =========================================================================
+
+
+@pytest.mark.parametrize(
+    ("location", "country"),
+    [
+        # Workable writes city, subdivision, code; only a city the gazetteer
+        # knew used to carry its country (Toronto did, Mississauga did not).
+        ("Mississauga, ON, CA", "CA"),
+        ("Marousi, Attica, GR", "GR"),
+        ("Riyadh, Riyadh Province, SA", "SA"),
+        ("Cairo, Cairo Governorate, EG", "EG"),
+        ("Noida, UP, IN", "IN"),
+        ("Munich, BY, DE", "DE"),
+        ("Tel Aviv, Tel Aviv District, IL", "IL"),
+        # A worksite phrase and a code: Programathor's remote shape.
+        ("Home Office, BR", "BR"),
+        ("Remote, PT", "PT"),
+    ],
+)
+def test_a_single_place_ending_in_its_code_is_that_country(
+    location: str, country: str, gaz: Gazetteer
+) -> None:
+    assert resolve_place(location, gaz).countries == (country,)
+
+
+@pytest.mark.parametrize(
+    ("location", "countries"),
+    [
+        # A US city with its state: CA and IN are California and Indiana here.
+        ("San Francisco, CA", ("US",)),
+        ("Albany, CA", ()),
+        ("Indianapolis, IN", ()),
+        ("Bowling Green, KY", ()),
+        # A city of another country contradicts the code.
+        ("Remote, San Francisco, CA", ("US",)),
+        ("Chicago, Cook County, IL", ("US",)),
+        # Several US places, or a list of US states: never Canada, never Panama.
+        ("New York, NY; San Francisco, CA", ("US",)),
+        ("Remote - Located in CA, CO, NY, TX, FL, GA, MA, NJ, PA", ("US",)),
+        ("New Jersey, NB, CA", ("US",)),
+        # Two parts with a real first part: a city and its state, not a country.
+        ("Adelaide, SA", ()),
+        ("Pune, MH", ("IN",)),
+        # A colliding code beside only a worksite word, or alone, stays nothing.
+        ("Remote, IN", ()),
+        ("Remote, CA", ()),
+        ("CA", ()),
+        ("Mississauga, ON", ()),
+    ],
+)
+def test_ambiguous_codes_keep_their_old_reading(
+    location: str, countries: tuple[str, ...], gaz: Gazetteer
+) -> None:
+    assert resolve_place(location, gaz).countries == countries
+
+
+def test_home_office_is_a_worksite_phrase_not_a_place(gaz: Gazetteer) -> None:
+    assert resolve_place("Home Office", gaz) == resolve_place(None, gaz)
+
+
+@pytest.mark.parametrize(
+    ("location", "countries"),
+    [
+        # A list written in US state codes: IN, IL and CA are states.
+        ("San Francisco, CA / Chicago, IL / Indianapolis, IN / Los Angeles, CA", ("US",)),
+        ("Chicago, IL / Dallas, TX / Indianapolis, IN / Denver, CO", ("US",)),
+        ("Remote, US / San Francisco, CA", ("US",)),
+        # A list written in country codes keeps every country.
+        ("US / CA", ("CA", "US")),
+        ("IN / US", ("IN", "US")),
+        ("CO / AR", ("AR", "CO")),
+        ("Baku, AZ / Yerevan, AM", ("AM",)),
+        ("Remote, BR / San Juan, PR", ("BR", "PR")),
+        # Canadian provinces confirm their country's colliding code.
+        ("BC, CA / ON, CA / MB, CA / SK, CA", ("CA",)),
+        ("Toronto, ON, CA / Mississauga, ON, CA", ("CA",)),
+        # Ashby's primary place joined with its secondary places.
+        ("EMEA / Brazil / Canada / Mexico", ("BR", "CA", "MX")),
+    ],
+)
+def test_lists_read_codes_in_the_vocabulary_they_are_written_in(
+    location: str, countries: tuple[str, ...], gaz: Gazetteer
+) -> None:
+    assert resolve_place(location, gaz).countries == countries
+
+
+def test_worksite_stripping_does_not_depend_on_set_order() -> None:
+    """`home office` and `office` are both worksite words; which one a
+    frozenset yields first changed per process. Asked in fresh interpreters
+    with different hash seeds, the answer must be the same."""
+    import os
+    import subprocess
+    import sys
+
+    probe = (
+        "from career_agent.match.places import resolve_place as r;"
+        "print(r('Home Office, BR').countries, r('Home Office').countries,"
+        " r('Berlin Office').countries)"
+    )
+    answers = {
+        subprocess.run(
+            [sys.executable, "-c", probe],
+            capture_output=True,
+            text=True,
+            check=True,
+            env={**os.environ, "PYTHONHASHSEED": str(seed)},
+        ).stdout
+        for seed in range(6)
+    }
+    assert answers == {"('BR',) () ('DE',)\n"}

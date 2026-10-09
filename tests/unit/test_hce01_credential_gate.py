@@ -364,5 +364,5 @@ def test_the_schema_and_the_reader_identity_moved_together() -> None:
     # work_authorization gate answering requirements with declarations: what
     # the gates produce moved, the stored shape did not, so the schema stays.
     assert MATCH_SCHEMA_VERSION == 12
-    assert READER_IDENTITY == "readers-4"
+    assert READER_IDENTITY == "readers-5"
     assert len(GATE_NAMES) == 7 and GATE_ORDER is GATE_NAMES

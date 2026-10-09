@@ -109,7 +109,12 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              the candidate declared, and a stated requirement nobody
 #:              answered holds the status UNRESOLVED. A readers-3 reading
 #:              carries none of that.
-READER_IDENTITY = "readers-4"
+#:   readers-5  `resolve_place` reads a single place that ends in its ISO
+#:              country code (`Mississauga, ON, CA`, `Riyadh, Riyadh
+#:              Province, SA`, `Home Office, BR`). The countries it produces
+#:              move for every such posting, and `structured_geography` and
+#:              the gates read them.
+READER_IDENTITY = "readers-5"
 
 
 def guarded_sections(config: Any) -> list[str]:

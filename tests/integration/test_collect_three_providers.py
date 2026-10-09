@@ -191,7 +191,11 @@ def test_stored_rows_are_indistinguishable_in_shape(conn, boards) -> None:
         assert all(values.values()), f"{column} empty for {[k for k, v in values.items() if not v]}"
 
     assert {r["department"] for r in rows(conn)} == {"Revenue Operations"}
-    assert {r["location_raw"] for r in rows(conn)} == {"Remote - United States"}
+    # Every vendor's primary place; Ashby also names its secondary places
+    # (`secondaryLocations`), joined after the primary one.
+    locations = {r["provider"]: r["location_raw"] for r in rows(conn)}
+    assert all(value.startswith("Remote - United States") for value in locations.values())
+    assert locations["ashby"] == "Remote - United States / NYC Office"
     assert {r["collection_status"] for r in rows(conn)} == {"NORMALISED"}
 
 

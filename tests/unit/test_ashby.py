@@ -528,3 +528,54 @@ def test_a_configured_board_url_overrides_the_default() -> None:
         board_url="https://careers.example.com",
     )
     assert _serving("board_empty").board_url(board) == "https://careers.example.com"
+
+
+def test_secondary_locations_join_the_place_after_the_primary() -> None:
+    """Ashby's `location` is one place; `secondaryLocations` names the rest.
+    Reading only the first lost Brazil, Canada and Mexico on a posting whose
+    primary place was `EMEA` (2,235 of 7,925 postings had secondary places)."""
+    payload = {
+        "apiVersion": "1",
+        "jobs": [
+            {
+                "id": "s" * 36,
+                "title": "Solutions Engineer",
+                "jobUrl": "https://jobs.ashbyhq.com/x/2",
+                "location": "EMEA",
+                "secondaryLocations": [
+                    {
+                        "location": "Brazil",
+                        "address": {"postalAddress": {"addressCountry": "Brazil"}},
+                    },
+                    {"location": "Canada"},
+                    {"location": "EMEA"},
+                    {"location": ""},
+                    "not an object",
+                ],
+                "publishedAt": "2026-09-18T09:00:00.000+00:00",
+                "descriptionHtml": "<p>Text</p>",
+            }
+        ],
+    }
+    stub = next(iter(_provider(lambda _r: httpx.Response(200, json=payload)).list_postings(BOARD)))
+
+    assert stub.location_raw == "EMEA / Brazil / Canada"
+    assert stub.payload["secondaryLocations"][0]["location"] == "Brazil", "archived as it came"
+
+
+def test_a_posting_without_secondary_places_keeps_its_one_place() -> None:
+    payload = {
+        "apiVersion": "1",
+        "jobs": [
+            {
+                "id": "p" * 36,
+                "title": "Analyst",
+                "jobUrl": "https://jobs.ashbyhq.com/x/3",
+                "location": "São Paulo",
+                "publishedAt": "2026-09-18T09:00:00.000+00:00",
+                "descriptionHtml": "<p>Text</p>",
+            }
+        ],
+    }
+    stub = next(iter(_provider(lambda _r: httpx.Response(200, json=payload)).list_postings(BOARD)))
+    assert stub.location_raw == "São Paulo"

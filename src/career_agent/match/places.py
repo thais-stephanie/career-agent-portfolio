@@ -231,6 +231,9 @@ WORKSITE_WORDS: frozenset[str] = frozenset(
         "on site",
         "in office",
         "presencial",
+        # Brazilian boards write remote work as "Home Office" (Programathor:
+        # `Home Office, BR`). Whole phrase only: "home" alone is not a mode.
+        "home office",
         # Not worksite MODES but the same shape of problem: a word a board
         # appends to a place name that is not part of the place. Measured over
         # the 600 highest-scoring postings, `Berlin Office`, `SF Office` and
@@ -241,6 +244,8 @@ WORKSITE_WORDS: frozenset[str] = frozenset(
         "escritorio",
     }
 )
+
+_WORKSITE_LONGEST_FIRST: tuple[str, ...] = tuple(sorted(WORKSITE_WORDS, key=lambda w: (-len(w), w)))
 
 #: Fillers a board puts between a worksite word and the place.
 #:
@@ -266,51 +271,42 @@ _ALPHA2 = re.compile(r"[A-Z]{2}")
 #: Codes that are a subdivision somewhere but NOT a country (`TX`, `NY`,
 #: `SP`, `RJ`, `ON`, `QC`) need no entry: the gazetteer does not know them as
 #: countries, so they never reach the check.
-_COLLIDING_CODES: frozenset[str] = frozenset(
-    {
-        # United States
-        "AL",
-        "AR",
-        "AZ",
-        "CA",
-        "CO",
-        "DE",
-        "GA",
-        "ID",
-        "IL",
-        "IN",
-        "KY",
-        "LA",
-        "MA",
-        "MD",
-        "ME",
-        "MN",
-        "MO",
-        "MS",
-        "MT",
-        "NE",
-        "PA",
-        "SC",
-        "SD",
-        "TN",
-        "VA",
-        # Canada
-        "NL",
-        "PE",
-        "SK",
-        # Brazil
-        "AM",
-        "BA",
-        "CE",
-        "ES",
-        "MG",
-        "PR",
-        "RO",
-        "RS",
-        "SE",
-        "TO",
-    }
-)
+#: Which country's subdivision each colliding code also is. `PE` is Prince
+#: Edward Island AND Pernambuco, so it is listed under both.
+_COLLIDES_WITH: dict[str, frozenset[str]] = {
+    "US": frozenset(
+        {
+            "AL",
+            "AR",
+            "AZ",
+            "CA",
+            "CO",
+            "DE",
+            "GA",
+            "ID",
+            "IL",
+            "IN",
+            "KY",
+            "LA",
+            "MA",
+            "MD",
+            "ME",
+            "MN",
+            "MO",
+            "MS",
+            "MT",
+            "NE",
+            "PA",
+            "SC",
+            "SD",
+            "TN",
+            "VA",
+        }
+    ),
+    "CA": frozenset({"NL", "PE", "SK"}),
+    "BR": frozenset({"AM", "BA", "CE", "ES", "MG", "PR", "RO", "RS", "SE", "TO", "PE"}),
+}
+_COLLIDING_CODES: frozenset[str] = frozenset().union(*_COLLIDES_WITH.values())
 
 
 def _lone_country_code(location_raw: str, gaz: Gazetteer) -> dict[str, str]:
@@ -364,17 +360,93 @@ def _country_codes(location_raw: str, gaz: Gazetteer) -> dict[str, str]:
         return _lone_country_code(location_raw, gaz)
     known = {code for code in gaz.countries.values() if len(code) == 2}
     found: dict[str, str] = {}
+    confirmed: set[str] = set()
+    #: Colliding codes that followed a city (`Indianapolis, IN`): two parts.
+    after_city: set[str] = set()
+    #: Countries whose states the list writes as `City, STATE`: a state code
+    #: that is no country (`Dallas, TX`), or a colliding one after a city of
+    #: that country (`San Francisco, CA`).
+    state_countries: set[str] = set()
     for item in (item.strip() for item in location_raw.split("/")):
         # The item is the code (`BR`), or ends in one after a comma
         # (`Buenos Aires, AR`, `Lima, Callao Region, PE`): a board that writes
         # `City, CC` per place writes the whole list in that vocabulary.
-        tail = item.rsplit(",", 1)[-1].strip()
+        parts = [part.strip() for part in item.split(",")]
+        tail = parts[-1]
         code = item if _ALPHA2.fullmatch(item) else tail if _ALPHA2.fullmatch(tail) else None
-        if code is not None and code in known:
-            found[code] = code
+        if len(parts) == 2 and tail not in known and _fold(tail) in gaz.subdivisions:
+            state_countries.add(gaz.subdivisions[_fold(tail)])
+        if code is None or code not in known:
+            continue
+        if len(parts) == 2 and code in _COLLIDING_CODES:
+            # `San Francisco, CA` is California even beside `Remote, US`: a
+            # colliding code after a city of the country it collides with is
+            # that country's state. `San Juan, PR` stays Puerto Rico.
+            city = gaz.cities.get(_fold(parts[0]))
+            if city is not None and code in _COLLIDES_WITH.get(city, frozenset()):
+                state_countries.add(city)
+                continue
+            after_city.add(code)
+        found[code] = code
+        # `ON, CA` or `Guelph, ON, CA`: a subdivision of that very country in
+        # the same item confirms the code, as it does for a single place.
+        if any(gaz.subdivisions.get(_fold(part)) == code for part in parts[:-1]):
+            confirmed.add(code)
+    # In a list written in state codes, a colliding code after a city is a
+    # state too: `Chicago, IL / Dallas, TX / Indianapolis, IN` is Indiana,
+    # never India (read as India and Israel until 2026-10-09).
+    for code in after_city - confirmed:
+        if any(code in _COLLIDES_WITH.get(country, frozenset()) for country in state_countries):
+            found.pop(code, None)
     if not any(_fold(code) not in gaz.subdivisions for code in found):
-        return {}
+        # Only the codes a subdivision of their own country confirmed.
+        return {code: code for code in found if code in confirmed}
     return found
+
+
+def _trailing_country_code(location_raw: str, gaz: Gazetteer) -> str | None:
+    """The country a SINGLE place ends in, written as its ISO code, or None.
+
+    `_country_codes` reads `City, CC` inside a slash LIST. A single place in
+    the same vocabulary went unread: Workable writes `Mississauga, ON, CA`,
+    `Riyadh, Riyadh Province, SA` and `Cairo, Cairo Governorate, EG` -- city,
+    subdivision, country code, assembled from its structured `city`,
+    `subregion` and `countryName` -- and only a city the gazetteer happened
+    to know (`Toronto`, `Athens`) carried its country. Measured 2026-10-09:
+    23,939 open postings in the 2026-10-02 session ended in a code that was
+    dropped, 22,961 of them Workable's.
+
+    Two shapes, and the third position is what makes a colliding code safe:
+
+    * THREE OR MORE comma parts ending in a code the gazetteer knows as a
+      country. That slot is the country even for `CA` and `IN`: in
+      `Mississauga, ON, CA` the subdivision already sits in the second slot.
+    * TWO parts whose first is only a worksite word (`Home Office, BR`,
+      `Remote, PT`), for a code that is NOT also a subdivision code.
+      `Pune, MH` and `Adelaide, SA` are a city and its state, and `MH` and
+      `SA` are also Marshall Islands and Saudi Arabia, so a two-part place
+      with a real first part is never read this way.
+
+    Refused, leaving the old reading: a string with `;` or `|` (`New York,
+    NY; San Francisco, CA` lists US states), and -- in `resolve_place` -- a
+    code another part contradicts: a city (`Remote, San Francisco, CA` is
+    California, the city already says US) or a subdivision of another
+    country (`... NJ, PA` is Pennsylvania).
+    """
+    if "/" in location_raw or ";" in location_raw or "|" in location_raw:
+        return None
+    parts = [part.strip() for part in location_raw.split(",")]
+    if len(parts) < 2 or not all(parts):
+        return None
+    code = parts[-1]
+    known = {value for value in gaz.countries.values() if len(value) == 2}
+    if not _ALPHA2.fullmatch(code) or code not in known:
+        return None
+    if len(parts) >= 3:
+        return code
+    if code in _COLLIDING_CODES:
+        return None
+    return code if _place_part(_fold(parts[0]), gaz) is None else None
 
 
 def _place_part(token: str, gaz: Gazetteer) -> str | None:
@@ -390,9 +462,12 @@ def _place_part(token: str, gaz: Gazetteer) -> str | None:
     """
     if token in gaz.regions or token in gaz.countries or token in gaz.cities:
         return token
-    for word in WORKSITE_WORDS:
-        if token == word:
-            return None
+    if token in WORKSITE_WORDS:
+        return None
+    # Longest first, in a FIXED order: a frozenset iterates in a per-process
+    # order, and `home office` read as `home` + `office` in one process and
+    # as a worksite phrase in the next (found 2026-10-09).
+    for word in _WORKSITE_LONGEST_FIRST:
         if token.startswith(f"{word} "):
             return _strip_filler(token[len(word) + 1 :].strip()) or None
         if token.endswith(f" {word}"):
@@ -471,6 +546,7 @@ def resolve_place(location_raw: str | None, gazetteer: Gazetteer | None = None) 
     # subdivision may establish a country. A posting listing Brazil by code
     # was reported as not including Brazil. See `_country_codes`.
     codes = _country_codes(location_raw, gaz)
+    trailing = _trailing_country_code(location_raw, gaz)
 
     for raw_token, part in zip(tokens, parts, strict=True):
         if part in codes:
@@ -493,6 +569,16 @@ def resolve_place(location_raw: str | None, gazetteer: Gazetteer | None = None) 
             # The TOKEN as well as the code: two independent signals means two
             # different words agreeing, and `CA, CA` is one word twice.
             weak.append((token, gaz.subdivisions[token]))
+
+    # A single place ending in its country's code: that code is the country,
+    # unless another part of the same place points elsewhere -- a city or a
+    # country name, or a subdivision of another country. `Remote - Located in
+    # CA, CO, NY, TX, FL, GA, MA, NJ, PA` is a list of US states, and its `PA`
+    # is Pennsylvania, not Panama. The code's own token is not a witness.
+    if trailing is not None:
+        others = set(countries) | {code for token, code in weak if token != _fold(trailing)}
+        if not others - {trailing}:
+            countries.append(trailing)
 
     # A subdivision confirms; on its own it never establishes. The one
     # exception is TWO DISTINCT subdivision tokens agreeing -- `Washington, DC`

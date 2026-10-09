@@ -209,8 +209,7 @@ class AshbyProvider(JobProvider):
         if not external_id or not title:
             return None
 
-        location = entry.get("location")
-        location_raw = str(location).strip() if location else None
+        location_raw = _location_raw(entry)
 
         return PostingStub(
             external_id=str(external_id),
@@ -236,6 +235,27 @@ class AshbyProvider(JobProvider):
             description_text=html_to_text(html),
             payload=stub.payload,
         )
+
+
+def _location_raw(entry: dict[str, Any]) -> str | None:
+    """Every place the posting names: `location`, then `secondaryLocations`.
+
+    Ashby shows a multi-location posting as one primary place plus others
+    (`EMEA` beside `Brazil`, `Canada`, `Mexico` on one Oyster posting), and
+    `location` alone kept only the first: 2,235 of 7,925 Ashby postings held
+    secondary places on 2026-10-09 that nothing read, although the payload
+    archived them. Joined with ` / `, the list shape `resolve_place` already
+    reads. Where the job IS, never where the employer may hire.
+    """
+    places: list[str] = []
+    for item in [
+        entry.get("location"),
+        *(s.get("location") for s in entry.get("secondaryLocations") or [] if isinstance(s, dict)),
+    ]:
+        text = str(item).strip() if item else ""
+        if text and text not in places:
+            places.append(text)
+    return " / ".join(places) or None
 
 
 def _department(entry: dict[str, Any]) -> str | None:
