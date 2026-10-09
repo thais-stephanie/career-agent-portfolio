@@ -1083,41 +1083,90 @@ sources:
     name: Hire With Near
     region: latam
     status: SEARCH_LINK
+    coverage: BLOCKED
     authorization: >-
-      Permitted. `www.hirewithnear.com/robots.txt` and
-      `jobs.hirewithnear.com/robots.txt`, both read first-party 2026-09-09, are
-      `User-agent: *` with no `Disallow` at all. No AI crawler is named.
+      FORBIDDEN by the terms. `jobs.hirewithnear.com/terms` ("Last updated:
+      September 2026"), read first-party 2026-10-09: "Do not scrape or
+      bulk-download the Service". The Service is the careers site itself, and
+      the terms bind anyone "browsing jobs". Both robots.txt files still allow
+      everything; robots is silence here and the terms are the statement. See
+      `policy_review`.
     note: >-
-      MAPPED AND NOT BUILT, and the reason is reachability rather than
-      permission. The board is a Next.js application on `jobs.hirewithnear.com`
-      whose listing is rendered server-side into an RSC payload; the only JSON
-      endpoints found are `/api/facets`, which returns the category, skill,
-      employment-type and workplace vocabularies, and `/api/search`, which is a
-      TYPEAHEAD and returns nothing for an empty query. The facets put the
-      board at roughly 75 openings -- Sales 12, Accounting and Finance 12,
-      Marketing 9, Human Resources 7 -- with `Remote`, `Hybrid` and `On-site`
-      as structured workplace values, and the site itself is offered in
-      Portuguese, which says who it is for.
-
-      Traced further in a browser on 2026-09-09 and the listing is fetched by a
-      Next.js SERVER ACTION: the streamed payload holds only interface strings,
-      and the only request the page makes for data is `/api/facets`. A server
-      action is addressed by an opaque build-specific id and is not a public
-      interface at all -- replaying one is reverse-engineering a bundle, it
-      breaks on the vendor's next deploy, and 75 postings do not justify it.
-      This is where the evaluation stops, and it stops on ENGINEERING rather
-      than on permission.
-    coverage: PLANNED
+      Re-reviewed 2026-10-09 on the owner's request to integrate it. The
+      2026-09-09 review read robots.txt only and stopped on ENGINEERING (the
+      listing came from a Next.js server action). That obstacle is gone: the
+      board now publishes `/sitemap.xml` with 214 `/jobs/<number>` URLs and
+      server-renders each posting. It no longer matters, because the terms
+      published since forbid scraping and bulk download of the same host.
+      Near is an INTERMEDIARY (it places people from Latin America at client
+      companies; "Hiring decisions belong to the client company"), so even a
+      permitted adapter would have had to keep the client employer unknown
+      where unnamed and never read "serves LATAM" as "hires in Brazil".
     reason_plain: >-
-      Remote jobs at US companies for people in Latin America. We can see the categories but not
-      yet the list itself, so nothing has been collected.
+      Near's terms forbid scraping or bulk-downloading its job board. Open it yourself in a
+      browser instead.
     reason: >-
-      No public listing endpoint found on 2026-09-09. `/api/facets` answers
-      200 with the vocabularies; `/api/search` answers 200 with an empty list
-      unless given a text query.
+      Explicit prohibition in the terms, read 2026-10-09. Not a technical
+      difficulty; nothing to engineer around.
     search_url: https://jobs.hirewithnear.com/
     unblocked_by: >-
-      Finding the listing route the browse page uses, or a sitemap of postings.
+      REEVALUABLE: written permission from Near (the terms name
+      hello@hirewithnear.com; writing is the owner's move), a documented feed
+      for job seekers, or the terms changing on a later first-party reading.
+    policy_review:
+      reviewed: 2026-10-09
+      provider: hirewithnear
+      client: >-
+        none built. The route that would have been used: GET
+        /sitemap.xml, then one GET /jobs/<number> per posting
+      terms:
+        status: VERIFIED
+        url: https://jobs.hirewithnear.com/terms
+        read: 2026-10-09
+        updated: 2026-09
+        quote: >-
+          Do not scrape or bulk-download the Service, interfere with its
+          operation, attempt to access accounts or data that are not yours,
+          impersonate another person or company, or submit fraudulent or
+          automated applications.
+        also: >-
+          Same page: the Service is "jobs.hirewithnear.com ... the careers
+          site operated by Hire With Near", and "By browsing jobs, creating an
+          account or submitting an application, you agree to them".
+          Intellectual property: content may not be copied or reused "without
+          written permission".
+        covers: >-
+          Reading jobs: scraping and bulk download of the Service are named,
+          not only applications or accounts.
+        uncertainty: >-
+          The clause does not define "scrape". A bounded personal collector
+          reading 214 public pages is still automated extraction of the
+          Service's listings, and the policy does not license reading a
+          prohibition narrowly. www.hirewithnear.com/terms and
+          /terms-of-service answered 404, so no separate main-site terms were
+          read; the main site lists no jobs.
+      technical:
+        - observed: 2026-10-09
+          what: >-
+            no block. robots.txt, the home page, /terms and /sitemap.xml each
+            answered 200 to one request; no job page was fetched.
+      routes:
+        - name: sitemap and posting pages
+          endpoint: https://jobs.hirewithnear.com/sitemap.xml and /jobs/<number>
+          robots:
+            url: https://jobs.hirewithnear.com/robots.txt
+            read: 2026-10-09
+            group: "*"
+            rule: "Allow: /"
+          conclusion: EXPLICIT_PROHIBITION
+          basis: [terms]
+          certainty: HIGH
+          evidence: >-
+            The terms of the same host forbid scraping and bulk download of
+            the Service, which is this job board.
+          inference: >-
+            That a periodic automated read of every posting is "scraping or
+            bulk-downloading". It is the plain reading.
 
   - id: avlistalent
     name: Avlis Talent

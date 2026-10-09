@@ -873,7 +873,7 @@ def test_every_reviewed_source_agrees_with_the_collection_policy() -> None:
 
     rows = load_catalogue()
     reviewed = [row for row in rows if "policy_review" in row]
-    assert {row["id"] for row in reviewed} >= {"indeed", "glassdoor", "google_jobs"}
+    assert {row["id"] for row in reviewed} >= {"indeed", "glassdoor", "google_jobs", "hirewithnear"}
     problems = [p for row in rows for p in policy_problems(row, _registered())]
     assert problems == []
 
@@ -916,3 +916,17 @@ def test_the_jobspy_reviews_say_how_they_can_be_reopened() -> None:
     rows = {row["id"]: row for row in load_catalogue()}
     for source_id in ("indeed", "glassdoor", "google_jobs"):
         assert str(rows[source_id].get("unblocked_by", "")).startswith("REEVALUABLE"), source_id
+
+
+def test_hire_with_near_is_forbidden_by_its_terms_and_not_built() -> None:
+    """Re-reviewed 2026-10-09: robots allows everything, the terms of the same
+    host forbid scraping and bulk download. The terms decide; nothing collects
+    it, and the row says how it can be reopened."""
+    row = {row["id"]: row for row in load_catalogue()}["hirewithnear"]
+    review = row["policy_review"]
+    assert row["coverage"] == "BLOCKED"
+    assert review["terms"]["status"] == "VERIFIED"
+    assert "scrape or bulk-download" in review["terms"]["quote"]
+    assert [route["basis"] for route in review["routes"]] == [["terms"]]
+    assert review["provider"] not in _registered()
+    assert str(row["unblocked_by"]).startswith("REEVALUABLE")
