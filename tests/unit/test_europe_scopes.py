@@ -140,15 +140,17 @@ def test_the_eu_is_inside_europe_and_europe_inside_emea() -> None:
 @pytest.mark.parametrize(
     ("country", "location", "result"),
     [
-        ("GB", "Remote - EU", GateResult.FAIL),
+        # Inside the scope: PASS. Outside it: the label alone refuses nobody,
+        # so the gate stays UNRESOLVED (section 5).
+        ("GB", "Remote - EU", GateResult.UNRESOLVED),
         ("GB", "Remote - Europe", GateResult.PASS),
         ("GB", "Remote - EMEA", GateResult.PASS),
         ("DE", "Remote - EU", GateResult.PASS),
-        ("NG", "Remote - Europe", GateResult.FAIL),
+        ("NG", "Remote - Europe", GateResult.UNRESOLVED),
         ("NG", "Remote - EMEA", GateResult.PASS),
-        ("BR", "Remote - EU", GateResult.FAIL),
-        ("BR", "Remote - Europe", GateResult.FAIL),
-        ("BR", "Remote - EMEA", GateResult.FAIL),
+        ("BR", "Remote - EU", GateResult.UNRESOLVED),
+        ("BR", "Remote - Europe", GateResult.UNRESOLVED),
+        ("BR", "Remote - EMEA", GateResult.UNRESOLVED),
     ],
 )
 def test_a_remote_posting_open_in_a_scope(base, country, location, result) -> None:
@@ -284,3 +286,44 @@ def test_any_european_market_puts_the_european_boards_first(market: str) -> None
     }
     assert plans["board"].priority == TARGETED
     assert set(plans) == {"board", "world"}
+
+
+# =========================================================================
+# 5. PUBLISHED LOCATION VS EXPLICIT REQUIREMENT, REMOTE, A CANDIDATE IN BRAZIL
+# =========================================================================
+
+
+@pytest.mark.parametrize("label", ["EU", "Europe", "EMEA", "Remote - EU", "Remote (Europe)"])
+def test_a_regional_label_alone_does_not_refuse_her(base, label: str) -> None:
+    """Case 1: the board printed a region and the description restricts
+    nothing. The label is not a residence requirement: no FAIL; whether the
+    employer can hire her stays open."""
+    gates = geography(candidate(base, "BR"), label)
+    assert gates["geography"].result is not GateResult.FAIL, gates["geography"].reason
+
+
+def test_must_reside_in_the_eu_refuses_her(base) -> None:
+    """Case 2: an explicit residence requirement in the description."""
+    body = "We build things. Candidates must reside in the EU."
+    gates = geography(candidate(base, "BR"), "Remote", body=body)
+    assert gates["geography"].result is GateResult.FAIL
+    assert gates["geography"].quote and "reside in the EU" in gates["geography"].quote
+
+
+def test_worldwide_at_a_european_company_is_not_restricted_by_its_seat(base) -> None:
+    """Case 3: headquarters and market are facts about the employer."""
+    body = (
+        "We are a Berlin-based company serving customers across Europe. "
+        "This role is fully remote and open worldwide."
+    )
+    gates = geography(candidate(base, "BR"), "Worldwide", body=body)
+    assert gates["geography"].result is GateResult.PASS, gates["geography"].reason
+
+
+def test_eu_work_authorization_stays_quoted_and_pending(base) -> None:
+    """Case 4: the requirement is kept, quoted, and nobody answered it."""
+    body = "We build things. You must be authorized to work in the EU."
+    gates = geography(candidate(base, "BR"), "Remote", body=body)
+    gate = gates["work_authorization"]
+    assert gate.result is GateResult.UNRESOLVED
+    assert gate.quote and "authorized to work in the EU" in gate.quote

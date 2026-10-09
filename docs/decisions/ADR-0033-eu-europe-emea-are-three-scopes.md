@@ -35,10 +35,16 @@ place was not a country, so the gate read no requirement.
    a stated one lies inside (EU in EUROPE in EMEA) and the scopes a resolved
    country belongs to. Never the other way: an EMEA posting is not filed
    under Europe, because it may be hiring in Cairo.
-4. **A regional location is not a requirement.** The gate keeps ADR-0023's
-   reading: a REMOTE posting's structured location is where the role is
-   open; an ONSITE or HYBRID posting naming only a region refuses nobody. A
-   requirement the DESCRIPTION states ("authorized to work in the EU") is a
+4. **A regional location is not a requirement.** A REMOTE posting whose
+   structured location is only a region label (`Remote - EU`, `Europe`,
+   `EMEA`) PASSES a candidate inside that region and refuses nobody outside
+   it: the gate stays UNRESOLVED. This narrows ADR-0023 for labels only: a
+   location field that lists COUNTRIES (`Remote U.S.`, `Remote - India`)
+   still refuses, and so do a description ("must reside in the EU", "work
+   from anywhere in Europe") and a source's declared hiring-scope field,
+   which are statements about who may apply. An ONSITE or HYBRID posting
+   naming only a region refuses nobody, as before. A requirement the
+   DESCRIPTION states ("authorized to work in the EU") is a
    separate, quoted `work_authorization` requirement, always PENDING: a right
    to work in one member state is not one across the Union, and Career Agent
    does not answer it from a country list.

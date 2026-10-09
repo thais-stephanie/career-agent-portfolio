@@ -15,6 +15,12 @@ ADR-0033.
   membership; `regions` adds wider and member scopes; an unambiguous
   trailing code closing a single place beats a town named like a country;
   AL, MA, MT and PA are also guarded as Brazilian states.
+- **Published location vs explicit requirement** (`match/gates.py`), for a
+  candidate in Brazil, each a test in `tests/unit/test_europe_scopes.py`:
+  a remote posting located only "EU", "Europe" or "EMEA" no longer FAILS
+  geography (it did; corrected 2026-10-09, UNRESOLVED now); "must reside in
+  the EU" FAILS, quoted; "Worldwide" at a Berlin company serving Europe
+  PASSES; "authorized to work in the EU" is a quoted PENDING requirement.
 - **Authorization** (`match/authorization.py`): "authorized to work in the
   EU" is a quoted regional requirement, always PENDING.
 - **Settings and interface**: EUROPE and EU are offered as hiring scopes and

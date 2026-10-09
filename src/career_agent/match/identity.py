@@ -120,7 +120,9 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              join the gazetteer; an unambiguous trailing code beats a town
 #:              named like a country (`Dublin, OH, US`); and "authorized to
 #:              work in the EU" is a stated requirement (PENDING), where it
-#:              used to be dropped. Countries, regions and both gates move.
+#:              used to be dropped. A remote posting located only by a
+#:              region label refuses nobody outside it (UNRESOLVED, was
+#:              FAIL). Countries, regions and both gates move.
 READER_IDENTITY = "readers-6"
 
 

@@ -147,8 +147,13 @@ def test_remote_india_is_refused(brazil) -> None:
     )
 
 
-def test_remote_eu_is_refused_for_a_candidate_with_no_eu_permission(brazil) -> None:
-    assert _verdict(brazil, "Remote EU", "REMOTE")[0] is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+def test_remote_eu_alone_does_not_refuse_a_candidate_outside_it(brazil) -> None:
+    """A region label in the location field is not a residence requirement
+    (ADR-0033, 2026-10-09; it refused until then). A country is: `Remote -
+    India` above still refuses."""
+    status, gate = _verdict(brazil, "Remote EU", "REMOTE")
+    assert status is not EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+    assert gate.result is not GateResult.FAIL
 
 
 def test_remote_worldwide_is_accepted(brazil) -> None:
@@ -663,10 +668,8 @@ def test_a_region_holding_a_confirmed_country_admits_in_every_representation(
 @pytest.mark.parametrize(
     ("kind", "statement"),
     [
-        ("structured", {"location": "Remote - Europe"}),
         ("prose", {"body": "You can work from anywhere in Europe."}),
         ("declared", {"declared": "Europe"}),
-        ("structured", {"location": "Remote - EMEA"}),
     ],
 )
 def test_a_european_only_scope_refuses_a_confirmed_brazil_candidate(
@@ -677,6 +680,17 @@ def test_a_european_only_scope_refuses_a_confirmed_brazil_candidate(
     assert gate.result is GateResult.FAIL, (kind, gate.reason)
     assert result.eligibility_status is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
     assert "does not include" in (gate.reason or "")
+
+
+@pytest.mark.parametrize("location", ["Remote - Europe", "Remote - EMEA", "Remote - EU"])
+def test_a_european_label_in_the_location_field_alone_refuses_nobody(
+    confirmed_latam_only, location: str
+) -> None:
+    """The same region printed only as the board's location is where the role
+    is filed, not a requirement about where she lives (ADR-0033). The
+    description and a declared hiring-scope field above are statements."""
+    _, gate = _geography(confirmed_latam_only, location=location)
+    assert gate.result is not GateResult.FAIL, (location, gate.reason)
 
 
 @pytest.mark.parametrize("region", sorted(_BROAD_REGIONS_HOLDING_BRAZIL))
@@ -839,7 +853,8 @@ def test_the_configured_candidate_is_unchanged(brazil) -> None:
         ("Remote - LATAM", "REMOTE"): EligibilityStatus.VERIFIED_ELIGIBLE,
         ("Anywhere in the World", "REMOTE"): EligibilityStatus.VERIFIED_ELIGIBLE,
         ("Remote U.S.", "REMOTE"): EligibilityStatus.VERIFIED_NOT_ELIGIBLE,
-        ("Remote EU", "REMOTE"): EligibilityStatus.VERIFIED_NOT_ELIGIBLE,
+        # A region label alone stopped refusing on 2026-10-09 (ADR-0033).
+        ("Remote EU", "REMOTE"): EligibilityStatus.UNRESOLVED,
         ("Gurugram, India", "ONSITE"): EligibilityStatus.VERIFIED_NOT_ELIGIBLE,
         ("Sao Paulo, Brazil", "ONSITE"): EligibilityStatus.UNRESOLVED,
         ("Remote", "REMOTE"): EligibilityStatus.UNRESOLVED,

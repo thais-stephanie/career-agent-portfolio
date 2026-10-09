@@ -1194,6 +1194,15 @@ def structured_geography(
         verdict = _scope_verdict(config, place, exhaustive=True)
         if verdict is None:
             return None
+        if not verdict and not countries:
+            # A REGION LABEL ALONE IS NOT A RESIDENCE REQUIREMENT (ADR-0033).
+            # `Remote - EU` or `Remote (Europe)` printed in the location field
+            # says where the board files the role, not that she must live
+            # there; a description that says so ("must reside in the EU") is
+            # read by the prose gate and refuses on its own words. A list of
+            # COUNTRIES in the field still refuses: that is the employer
+            # answering the question (ADR-0023).
+            return None
         if verdict:
             return StructuredGeography(
                 GateResult.PASS,
