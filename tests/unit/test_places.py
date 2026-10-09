@@ -68,7 +68,7 @@ def test_a_city_says_nothing_about_hiring_scope(gaz: Gazetteer) -> None:
         ("São Paulo, Brasil", ("BR",), ("LATAM",)),
         ("Sao Paulo", ("BR",), ("LATAM",)),
         ("Toronto, Ontario, Canada", ("CA",), ("NORTH_AMERICA",)),
-        ("London, UK", ("GB",), ("EMEA",)),
+        ("London, UK", ("GB",), ("EMEA", "EUROPE")),
         ("Bengaluru, India", ("IN",), ("APAC",)),
         ("Home based - Worldwide", (), ("WORLDWIDE",)),
         ("Washington, DC", ("US",), ("NORTH_AMERICA",)),
@@ -89,7 +89,7 @@ def test_accents_do_not_change_the_answer(gaz: Gazetteer) -> None:
 def test_a_posting_in_two_places_carries_both(gaz: Gazetteer) -> None:
     resolved = resolve_place("San Francisco, CA | London, UK", gaz)
     assert resolved.countries == ("GB", "US")
-    assert set(resolved.regions) == {"EMEA", "NORTH_AMERICA"}
+    assert set(resolved.regions) == {"EMEA", "EUROPE", "NORTH_AMERICA"}
 
 
 # =========================================================================
@@ -179,7 +179,7 @@ def test_norway_resolves_to_norway() -> None:
     """The regression itself, in the shipped gazetteer rather than a fixture."""
     resolved = resolve_place("Oslo, Norway")
     assert resolved.countries == ("NO",)
-    assert resolved.regions == ("EMEA",)
+    assert resolved.regions == ("EMEA", "EUROPE")
 
 
 def test_no_code_the_gazetteer_produces_is_a_python_bool_word() -> None:

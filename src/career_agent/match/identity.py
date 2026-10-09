@@ -114,7 +114,14 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              Province, SA`, `Home Office, BR`). The countries it produces
 #:              move for every such posting, and `structured_geography` and
 #:              the gates read them.
-READER_IDENTITY = "readers-5"
+#:   readers-6  EU, EUROPE and EMEA are three scopes (2026-10-09). A posting
+#:              saying "EU" no longer admits a candidate in the United
+#:              Kingdom, "Europe" no longer one in Nigeria; sixteen countries
+#:              join the gazetteer; an unambiguous trailing code beats a town
+#:              named like a country (`Dublin, OH, US`); and "authorized to
+#:              work in the EU" is a stated requirement (PENDING), where it
+#:              used to be dropped. Countries, regions and both gates move.
+READER_IDENTITY = "readers-6"
 
 
 def guarded_sections(config: Any) -> list[str]:

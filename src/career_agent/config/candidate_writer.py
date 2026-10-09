@@ -154,11 +154,13 @@ FIELDS: dict[str, dict[str, Any]] = {
     "eligible_scopes": {
         "path": ("eligibility", "eligible_scopes"),
         "kind": "enum_list",
-        # The six region ids `match.places.REGIONS` knows. `EUROPE` used to be
-        # offered here and is not a region id anywhere else in the product:
-        # `places.yaml` files `europe` under EMEA, so choosing it recorded a
-        # scope no gate could ever read. Removed 2026-09-11.
-        "choices": ("WORLDWIDE", "AMERICAS", "LATAM", "EMEA", "APAC", "NORTH_AMERICA"),
+        # The region ids `match.places.REGIONS` knows. `EUROPE` was removed
+        # on 2026-09-11, when `places.yaml` filed `europe` under EMEA and no
+        # gate could read it; since 2026-10-09 EU, EUROPE and EMEA are three
+        # scopes the gate reads apart, so both are offered again.
+        "choices": (
+            "WORLDWIDE", "AMERICAS", "LATAM", "EMEA", "EUROPE", "EU", "APAC", "NORTH_AMERICA",
+        ),  # fmt: skip
         "label": "Hiring scopes that include you",
     },
     # WHERE SHE WANTS TO WORK, a third question beside where she lives and
@@ -168,7 +170,9 @@ FIELDS: dict[str, dict[str, Any]] = {
     "target_markets": {
         "path": ("regions", "target"),
         "kind": "enum_list",
-        "choices": ("WORLDWIDE", "AMERICAS", "LATAM", "NORTH_AMERICA", "EMEA", "APAC"),
+        "choices": (
+            "WORLDWIDE", "AMERICAS", "LATAM", "NORTH_AMERICA", "EMEA", "EUROPE", "EU", "APAC",
+        ),  # fmt: skip
         "label": "Markets you want to search first",
         "allow_empty": True,
     },

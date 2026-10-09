@@ -3137,6 +3137,7 @@ const EN = {
   'period.NOT_STATED': 'Not stated',
   'region.LATAM': 'LatAm',
   'region.EMEA': 'EMEA',
+  'region.EU': 'European Union',
   'region.APAC': 'APAC',
   'region.AMERICAS': 'Americas',
   'region.NORTH_AMERICA': 'North America',
@@ -3652,6 +3653,8 @@ const EN = {
   'setup.region.LATAM': 'Latin America',
   'setup.region.NORTH_AMERICA': 'North America (United States and Canada)',
   'setup.region.EMEA': 'Europe, the Middle East and Africa',
+  'setup.region.EUROPE': 'Europe (including countries outside the EU)',
+  'setup.region.EU': 'The European Union',
   'setup.region.APAC': 'Asia and the Pacific',
   'setup.level.title': 'Any levels you want to keep off your list?',
   'setup.level.why': 'Jobs at the levels you tick are hidden from Find jobs. One click shows them again, and '
@@ -7391,6 +7394,7 @@ const PT_BR = {
   'period.NOT_STATED': 'Não informado',
   'region.LATAM': 'América Latina',
   'region.EMEA': 'EMEA',
+  'region.EU': 'União Europeia',
   'region.APAC': 'APAC',
   'region.AMERICAS': 'Américas',
   'region.NORTH_AMERICA': 'América do Norte',
@@ -7875,6 +7879,8 @@ const PT_BR = {
   'setup.region.LATAM': 'América Latina',
   'setup.region.NORTH_AMERICA': 'América do Norte (Estados Unidos e Canadá)',
   'setup.region.EMEA': 'Europa, Oriente Médio e África',
+  'setup.region.EUROPE': 'Europa (inclusive países fora da UE)',
+  'setup.region.EU': 'União Europeia',
   'setup.region.APAC': 'Ásia e Pacífico',
   'setup.level.title': 'Algum nível que você quer tirar da sua lista?',
   'setup.level.why': 'Vagas nos níveis que você marcar ficam escondidas em Encontrar vagas. Um clique mostra de '

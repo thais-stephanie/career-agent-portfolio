@@ -3074,7 +3074,7 @@ def _interactive_answers():
     )
     regions = _ask_list(
         "Which parts of the world would you work for?",
-        "LATAM, AMERICAS, EMEA, EU, WORLDWIDE.",
+        "LATAM, AMERICAS, EMEA, EUROPE, EU, WORLDWIDE.",
     )
     models = _ask_choice(
         "Office, hybrid or remote?",

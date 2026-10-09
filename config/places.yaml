@@ -58,10 +58,18 @@ regions:
   # 2026-09-11: they answer the WORKSITE question, and a remote role is not
   # thereby a worldwide one. Reading them as WORLDWIDE let a location field
   # saying only that the job is remote open the geography gate.
+  # THREE SCOPES, NOT ONE (2026-10-09). `EU` is the 27 member states,
+  # `EUROPE` the continent (the United Kingdom, Switzerland, Norway and the
+  # Western Balkans included), `EMEA` Europe, the Middle East and Africa.
+  # Until this date all four words below filed under EMEA, so "Remote - EU"
+  # admitted a candidate in London and "Europe" one in Lagos.
   emea: EMEA
-  europe: EMEA
-  european union: EMEA
-  eu: EMEA
+  europe: EUROPE
+  europa: EUROPE
+  european union: EU
+  eu: EU
+  uniao europeia: EU
+  union europea: EU
   apac: APAC
   asia pacific: APAC
   amer: AMERICAS
@@ -163,6 +171,25 @@ country_regions:
   UG: EMEA
   RW: EMEA
   ET: EMEA
+  # -- added 2026-10-09: the European countries the gazetteer did not know
+  # (a posting naming Slovenia or North Macedonia resolved to nothing), and
+  # four Middle Eastern ones EMEA lists name.
+  AL: EMEA
+  AD: EMEA
+  XK: EMEA
+  LI: EMEA
+  MD: EMEA
+  MC: EMEA
+  ME: EMEA
+  MK: EMEA
+  RU: EMEA
+  SM: EMEA
+  SI: EMEA
+  VA: EMEA
+  IQ: EMEA
+  JO: EMEA
+  LB: EMEA
+  BH: EMEA
   PA: LATAM
   GT: LATAM
   HN: LATAM
@@ -318,6 +345,44 @@ countries:
   uruguay: UY
   costa rica: CR
   ecuador: EC
+  # -- 2026-10-09: European countries and the names boards write in their
+  # own language. Not added, on purpose: `lebanon`, `jordan` and `san
+  # marino`, which are also United States towns (`Lebanon, NH`, `San
+  # Marino, CA`) and would turn them into a foreign country; their codes
+  # and capitals resolve instead.
+  albania: AL
+  andorra: AD
+  kosovo: XK
+  liechtenstein: LI
+  moldova: MD
+  republic of moldova: MD
+  monaco: MC
+  montenegro: ME
+  north macedonia: MK
+  russia: RU
+  russian federation: RU
+  slovenia: SI
+  vatican: VA
+  vatican city: VA
+  holy see: VA
+  iraq: IQ
+  bahrain: BH
+  nederland: NL
+  belgie: BE
+  belgique: BE
+  osterreich: AT
+  schweiz: CH
+  suisse: CH
+  svizzera: CH
+  polska: PL
+  sverige: SE
+  norge: "NO"
+  danmark: DK
+  suomi: FI
+  cesko: CZ
+  hellas: GR
+  republic of ireland: IE
+  eire: IE
 
 #: Cities, and the country each is in. Chosen from what the corpus actually
 #: contains rather than from a world gazetteer: `location_raw` is overwhelmingly
@@ -505,6 +570,20 @@ cities:
   lima: PE
   montevideo: UY
   san jose costa rica: CR
+  # -- 2026-10-09, capitals of the countries added the same day. Not
+  # `Moscow`: it is also a town in Idaho, and `Moscow, ID` would read Russia.
+  beirut: LB
+  amman: JO
+  baghdad: IQ
+  erbil: IQ
+  manama: BH
+  ljubljana: SI
+  tirana: AL
+  skopje: MK
+  podgorica: ME
+  chisinau: MD
+  pristina: XK
+  vaduz: LI
 
 #: Subdivision codes and names. These CONFIRM a country another token already
 #: established; on their own they resolve nothing. See the header for why.
@@ -576,6 +655,22 @@ subdivisions:
 # =====================================================================
 
 country_names:
+  AL: Albania
+  AD: Andorra
+  XK: Kosovo
+  LI: Liechtenstein
+  MD: Moldova
+  MC: Monaco
+  ME: Montenegro
+  MK: North Macedonia
+  RU: Russia
+  SM: San Marino
+  SI: Slovenia
+  VA: Vatican City
+  IQ: Iraq
+  JO: Jordan
+  LB: Lebanon
+  BH: Bahrain
   LU: Luxembourg
   SK: Slovakia
   CY: Cyprus
@@ -677,5 +772,33 @@ region_names:
   NORTH_AMERICA: North America
   LATAM: Latin America
   EMEA: Europe, Middle East and Africa
+  EUROPE: Europe
+  EU: European Union
   APAC: Asia Pacific
+
+#: Which countries a NAMED scope holds, for the scopes a single bucket in
+#: `country_regions` cannot express (2026-10-09). `country_regions` stays one
+#: bucket per country, so Germany is filed under EMEA there; these say that
+#: Germany is ALSO in the European Union and in Europe, and that the United
+#: Kingdom is in Europe and not in the European Union.
+#:
+#: `members` answer yes. `partial` answers "nobody here knows": a country
+#: that lies partly in Europe (Russia, Turkey, the Caucasus, Kazakhstan) is
+#: neither admitted nor refused by a posting that says only "Europe", which
+#: leaves the geography gate UNRESOLVED rather than guessing. Every other
+#: country the gazetteer places answers no.
+#:
+#: `within` names the wider scopes a stated one always lies inside, so a
+#: posting saying "EU" is found by the Europe and EMEA filters too, while a
+#: posting saying "EMEA" is NOT found by the Europe filter: it may be hiring
+#: in Cairo.
+region_members:
+  EU:
+    within: [EUROPE, EMEA]
+    members: [AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE]
+  EUROPE:
+    within: [EMEA]
+    members: [AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE,
+              GB, CH, "NO", IS, LI, AD, MC, SM, VA, AL, BA, ME, MK, RS, XK, MD, UA, BY]
+    partial: [RU, TR, GE, AM, AZ, KZ]
 

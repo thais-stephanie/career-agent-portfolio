@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -58,6 +58,8 @@ REGIONS: tuple[str, ...] = (
     "NORTH_AMERICA",
     "LATAM",
     "EMEA",
+    "EUROPE",
+    "EU",
     "APAC",
     "AMERICAS",
 )
@@ -87,6 +89,12 @@ class Gazetteer:
     cities: dict[str, str]
     subdivisions: dict[str, str]
     country_regions: dict[str, str]
+    #: Named scopes a single `country_regions` bucket cannot express (EU,
+    #: EUROPE): the countries each holds, the ones it holds only partly, and
+    #: the wider scopes it always lies inside. Upper-case codes and ids.
+    region_members: dict[str, frozenset[str]] = field(default_factory=dict)
+    region_partial: dict[str, frozenset[str]] = field(default_factory=dict)
+    region_within: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> Gazetteer:
@@ -119,12 +127,22 @@ class Gazetteer:
                 table[_fold(raw_key)] = value.strip().upper()
             return table
 
+        def codes(values: Any) -> tuple[str, ...]:
+            return tuple(str(value).strip().upper() for value in values or ())
+
+        scopes = {
+            str(region).strip().upper(): spec or {}
+            for region, spec in (data.get("region_members") or {}).items()
+        }
         return cls(
             regions=folded("regions"),
             countries=folded("countries"),
             cities=folded("cities"),
             subdivisions=folded("subdivisions"),
             country_regions=folded("country_regions"),
+            region_members={r: frozenset(codes(s.get("members"))) for r, s in scopes.items()},
+            region_partial={r: frozenset(codes(s.get("partial"))) for r, s in scopes.items()},
+            region_within={r: codes(s.get("within")) for r, s in scopes.items()},
         )
 
 
@@ -207,6 +225,16 @@ def region_contains(region: str, country: str, gazetteer: Gazetteer | None = Non
     if region == "WORLDWIDE":
         return True
     home = gaz.country_regions.get(_fold(country))
+    if region in gaz.region_members:
+        # EU and EUROPE: membership, not the bucket. The United Kingdom is in
+        # Europe and not in the European Union; Turkey is partly in Europe,
+        # and a posting saying only "Europe" neither admits nor refuses it.
+        code = country.strip().upper()
+        if code in gaz.region_members[region]:
+            return True
+        if code in gaz.region_partial[region] or home is None:
+            return None
+        return False
     if home is None:
         return None
     if region == "AMERICAS":
@@ -304,7 +332,11 @@ _COLLIDES_WITH: dict[str, frozenset[str]] = {
         }
     ),
     "CA": frozenset({"NL", "PE", "SK"}),
-    "BR": frozenset({"AM", "BA", "CE", "ES", "MG", "PR", "RO", "RS", "SE", "TO", "PE"}),
+    # AL (Alagoas), MA, MT and PA too: since 2026-10-09 `AL` is Albania, and
+    # `Maceio, AL / Recife, PE` must stay two Brazilian states.
+    "BR": frozenset(
+        {"AL", "AM", "BA", "CE", "ES", "MA", "MG", "MT", "PA", "PR", "RO", "RS", "SE", "TO", "PE"}
+    ),
 }
 _COLLIDING_CODES: frozenset[str] = frozenset().union(*_COLLIDES_WITH.values())
 
@@ -575,7 +607,15 @@ def resolve_place(location_raw: str | None, gazetteer: Gazetteer | None = None) 
     # country name, or a subdivision of another country. `Remote - Located in
     # CA, CO, NY, TX, FL, GA, MA, NJ, PA` is a list of US states, and its `PA`
     # is Pennsylvania, not Panama. The code's own token is not a witness.
-    if trailing is not None:
+    if trailing is not None and trailing not in _COLLIDING_CODES:
+        # An UNAMBIGUOUS code closing a single place is the country, and a
+        # place name in front of it is a town: `Nederland, TX, US`, `Bahrain,
+        # Khyber Pakhtunkhwa, PK` and `Dublin, Ohio, US` are not the
+        # Netherlands, Bahrain or Ireland (measured 2026-10-09, when native
+        # country names and Bahrain joined the gazetteer).
+        countries = [trailing]
+        weak = []
+    elif trailing is not None:
         others = set(countries) | {code for token, code in weak if token != _fold(trailing)}
         if not others - {trailing}:
             countries.append(trailing)
@@ -605,6 +645,12 @@ def resolve_place(location_raw: str | None, gazetteer: Gazetteer | None = None) 
         implied = gaz.country_regions.get(_fold(code))
         if implied:
             regions.append(implied)
+        regions.extend(scope for scope, members in gaz.region_members.items() if code in members)
+    # A stated scope lies inside its wider ones: "EU" is found under Europe
+    # and EMEA. Never the other way: "EMEA" may be hiring in Cairo, so it is
+    # not filed under Europe. `stated_regions` keeps only what was written.
+    for scope in stated:
+        regions.extend(gaz.region_within.get(scope, ()))
 
     return ResolvedPlace(
         countries=tuple(sorted(set(countries))),

@@ -46,7 +46,7 @@ from career_agent.config.search_config import Eligibility, SearchConfig
 from career_agent.domain.enums import EmploymentRelationship, EmploymentSource, GateResult
 from career_agent.domain.matching import EmploymentReading, GateOutcome
 from career_agent.match.lexicon import is_negated_before
-from career_agent.match.places import ResolvedPlace, resolve_place
+from career_agent.match.places import ResolvedPlace, display_names, resolve_place
 from career_agent.match.text import FoldedText, sentence_at
 
 AUTHORIZATION, CITIZENSHIP, NO_SPONSORSHIP, CONTRACTOR = (
@@ -107,6 +107,10 @@ class Requirement:
     quote: str
     char_start: int
     char_end: int
+    #: A REGION the posting names instead of a country ("authorized to work in
+    #: the EU"). Never turned into a country and never answered from one: a
+    #: right to work in Portugal is not a right to work across the EU.
+    region: str | None = None
 
 
 def _country(text: str | None) -> str | None:
@@ -131,12 +135,15 @@ def read_requirements(
     """Every explicit requirement about the right to work, in text order."""
     out: list[Requirement] = []
 
-    def add(kind: str, country: str | None, match: re.Match[str]) -> None:
+    def add(
+        kind: str, country: str | None, match: re.Match[str], region: str | None = None
+    ) -> None:
         if is_negated_before(field, match.start(), config.negation):
             return
         start = field.offsets[match.start()]
         end = field.offsets[match.end() - 1] + 1
-        out.append(Requirement(kind, country, sentence_at(field.original, start, end), start, end))
+        quote = sentence_at(field.original, start, end)
+        out.append(Requirement(kind, country, quote, start, end, region))
 
     text = field.folded
     claimed: list[tuple[int, int]] = []
@@ -144,6 +151,12 @@ def read_requirements(
         country = _country(match.group("place"))
         if country:  # an unresolvable place is not a country requirement
             add(AUTHORIZATION, country, match)
+        else:
+            # "authorized to work in the EU": a named scope, kept as one. It
+            # used to be dropped, so the gate read no requirement at all.
+            named = resolve_place(match.group("place").strip(" .")).stated_regions
+            if len(named) == 1 and named[0] != "WORLDWIDE":
+                add(AUTHORIZATION, None, match, named[0])
         claimed.append(match.span())
     for match in _AUTHORIZED.finditer(text):
         # The same sentence read with its country already: not a second one.
@@ -191,6 +204,10 @@ _WHY = {
     ),
     (AUTHORIZATION, COMPATIBLE): (
         "The posting requires authorization to work in {c}; you said you have it."
+    ),
+    (AUTHORIZATION, "REGION"): (
+        "The posting requires authorization to work in {r}. Career Agent does not answer a "
+        "requirement about a whole region from the countries you named; check it yourself."
     ),
     (AUTHORIZATION, PENDING): (
         "The posting requires authorization to work in {c}; you have not said whether you have it."
@@ -246,6 +263,10 @@ def answer(requirement: Requirement, eligibility: Eligibility) -> tuple[str, str
     yes = {x.upper() for x in eligibility.authorized_countries}
     no = {x.upper() for x in eligibility.not_authorized_countries}
     sponsor = {x.upper() for x in eligibility.sponsorship_needed}
+    if requirement.region is not None:
+        name = display_names()[1].get(requirement.region, requirement.region)
+        name = f"the {name}" if requirement.region == "EU" else name
+        return PENDING, _WHY[(requirement.kind, "REGION")].format(r=name)
     if c is None:
         state = "NO_COUNTRY" if requirement.kind != CITIZENSHIP else PENDING
     elif requirement.kind == AUTHORIZATION:
