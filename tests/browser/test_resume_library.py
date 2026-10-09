@@ -480,3 +480,56 @@ def test_only_unmatched_downloads_offer_no_retry(
         "[...document.querySelectorAll('.rvl__legacy button')].map((b) => b.textContent)"
     )
     assert "Try again" not in buttons and "Keep original files" in buttons, buttons
+
+
+#: Every paragraph and the list in the message, as [tag, height]; the panel's
+#: height; and where the resume cards start.
+LEGACY_GEOMETRY = (
+    "(() => { const b = document.querySelector('.rvl__legacy');"
+    " const parts = [...b.querySelectorAll(':scope > p, :scope > ul')]"
+    ".map((n) => [n.tagName, Math.round(n.getBoundingClientRect().height)]);"
+    " const cards = document.querySelector('.rvw__cards');"
+    " return {parts, panel: Math.round(b.getBoundingClientRect().height),"
+    " cards: Math.round(cards.getBoundingClientRect().top)}; })()"
+)
+
+
+@pytest.mark.parametrize(("width", "height", "mobile"), [(1366, 768, False), (390, 844, True)])
+def test_the_old_resumes_message_is_as_tall_as_what_it_says(
+    page: Chrome, library_server: dict[str, Any], width: int, height: int, mobile: bool
+) -> None:
+    """2026-10-09: `.rve__notice p { flex: 1 1 260px }` fills a one-line
+    notice's ROW; in this message, turned into a column, it became each
+    paragraph's HEIGHT, and the panel pushed the resume cards off the screen."""
+    page.set_viewport(width, height, mobile=mobile)
+    page.navigate(f"{library_server['url']}/#jobs")
+    page.wait_for("document.querySelector('.topnav__link[data-page=\"resume\"]')")
+    page.evaluate(FOUND)
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"resume\"]').click()")
+    page.wait_for("document.querySelector('.rvl__legacy') !== null", message="the message")
+    for state in ("ask", "review", "cancelled"):
+        if state == "review":
+            page.evaluate(
+                "[...document.querySelectorAll('.rvl__legacy button')]"
+                ".find((b) => b.textContent === 'Review and move them').click()"
+            )
+        if state == "cancelled":
+            page.evaluate(
+                "[...document.querySelectorAll('.rvl__legacy button')]"
+                ".find((b) => b.textContent === 'Cancel').click()"
+            )
+        geometry = page.evaluate(LEGACY_GEOMETRY)
+        tallest_line = 120 if mobile else 60
+        assert all(h <= tallest_line for tag, h in geometry["parts"] if tag == "P"), (
+            state,
+            geometry,
+        )
+        # The cards begin within the first screen on a desktop.
+        if not mobile:
+            assert geometry["cards"] < height, (state, geometry)
+    # The actions keep their own width.
+    stretched = page.evaluate(
+        "[...document.querySelectorAll('.rvl__legacy button')]"
+        ".filter((b) => b.getBoundingClientRect().width > 400).length"
+    )
+    assert stretched == 0

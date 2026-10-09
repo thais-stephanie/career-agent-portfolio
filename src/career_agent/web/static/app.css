@@ -10808,8 +10808,15 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rvl__change[data-change="REMOVED"] { border-left-color: var(--yellow); }
 .rvl__change p { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
 .rvl__before, .rvl__after { color: var(--body2); }
-.rvl__legacy { flex-direction: column; align-items: stretch; }
-.rvl__legacy p, .rvl__what { margin: 0; }
+/* A column, sized by its content. `.rve__notice p` sets `flex: 1 1 260px` so a
+   one-line notice's sentence fills the ROW; turned into a column here, the
+   same 260px became each paragraph's HEIGHT, and the panel grew several
+   hundred pixels of empty space between its lines (2026-10-09). */
+.rvl__legacy { flex-direction: column; align-items: stretch; gap: 8px; }
+.rvl__legacy > *, .rvl__legacy p, .rvl__what { margin: 0; flex: 0 0 auto; }
+.rvl__what { padding-left: 20px; }
+/* A button straight inside the column ("See My resumes") keeps its own width. */
+.rvl__legacy > button { align-self: flex-start; }
 .rvl__backup { font-weight: 700; }
 .rvw__choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .rvw__masterbox:empty { display: none; }
