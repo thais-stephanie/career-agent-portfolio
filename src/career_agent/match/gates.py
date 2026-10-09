@@ -1510,11 +1510,7 @@ def evaluate_gates(
             # prose certify worldwide hiring against that unresolved restriction.
             # This guard only withdraws a PASS; it never turns an office address
             # or the word "remote" into permission or a definitive refusal.
-            if (
-                published_excludes
-                and outcome is not None
-                and outcome.result is GateResult.PASS
-            ):
+            if published_excludes and outcome is not None and outcome.result is GateResult.PASS:
                 # Nothing else opens what the employer's published location
                 # leaves out: not prose ("we work remotely across the US,
                 # Europe, LatAm" beside `Remote U.S.` is a team description),
