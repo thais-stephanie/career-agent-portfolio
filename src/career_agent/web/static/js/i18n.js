@@ -3285,8 +3285,8 @@ const EN = {
   'field.target_markets': 'Which markets do you want to prioritize?',
   'field.eligible_countries': 'Which countries can employ you directly?',
   'field.authorized_countries': 'In which countries do you know you can be employed?',
-  'field.not_authorized_countries': 'Countries where you know you cannot be employed',
-  'field.sponsorship_needed': 'Where would an employer need to sponsor a visa for you?',
+  'field.not_authorized_countries': 'Countries where you know you are not currently authorized to work',
+  'field.sponsorship_needed': 'Countries where you would need visa sponsorship to work on site',
   'field.contractor': 'Can you provide services as a contractor (with an invoice, PJ or B2B) to a client in '
     + 'the country where you live?',
   'field.contractor_abroad': 'Can you provide services to a client in another country (sending the invoice abroad)?',
@@ -3326,10 +3326,13 @@ const EN = {
   'fieldHelp.authorized_countries': 'Only what you know, such as citizenship or a work permit. A job that '
     + 'asks for authorization in a country you did not list shows as “Left to confirm”, never as ruled out. If '
     + 'you live in one of these countries, remote jobs that hire there can show as open to you.',
-  'fieldHelp.not_authorized_countries': 'A job that requires authorization in one of these shows as not '
-    + 'compatible, with the employer’s sentence. Leave it empty if you are not sure.',
-  'fieldHelp.sponsorship_needed': 'Used only when a job says it does not sponsor visas. Where you live and '
-    + 'your nationality are never used to answer this for you.',
+  'fieldHelp.not_authorized_countries': 'Used only when a job says in so many words that it requires '
+    + 'authorization to work in one of these countries: that job shows as not compatible, with the employer’s '
+    + 'sentence. The company’s country and the published location are never read as that requirement, so '
+    + 'remote work you do from where you live is not affected. Leave it empty if you are not sure.',
+  'fieldHelp.sponsorship_needed': 'Used only for an on-site or hybrid job in one of these countries that says '
+    + 'it does not sponsor visas. Remote work done from where you live needs no visa. Where you live and your '
+    + 'nationality are never used to answer this for you.',
   'fieldHelp.contractor': 'Some jobs are offered as a service contract instead of employment. This is not '
     + 'about visas or employment. Answer only if you know.',
   'fieldHelp.contractor_abroad': 'Asked separately: a no at home is not a no abroad. Jobs rarely say where '
@@ -7558,8 +7561,8 @@ const PT_BR = {
   'field.target_markets': 'Quais mercados você quer priorizar?',
   'field.eligible_countries': 'Em quais países você pode ser contratado diretamente?',
   'field.authorized_countries': 'Em quais países você sabe que pode trabalhar com vínculo de emprego?',
-  'field.not_authorized_countries': 'Países onde você sabe que não pode trabalhar com vínculo de emprego',
-  'field.sponsorship_needed': 'Onde um empregador precisaria patrocinar um visto para você?',
+  'field.not_authorized_countries': 'Países onde você sabe que não tem autorização de trabalho atualmente',
+  'field.sponsorship_needed': 'Países onde você precisaria de patrocínio de visto para trabalhar presencialmente',
   'field.contractor': 'Você pode prestar serviços como pessoa jurídica ou autônoma (com nota fiscal, PJ ou '
     + 'B2B) para um cliente do país onde você mora?',
   'field.contractor_abroad': 'Você pode prestar serviços para um cliente de outro país (emitindo a nota '
@@ -7601,10 +7604,13 @@ const PT_BR = {
     + 'que exige autorização num país que você não listou aparece como “Falta confirmar”, nunca como '
     + 'incompatível. Se você mora num desses países, vagas remotas que contratam lá podem aparecer como abertas '
     + 'para você.',
-  'fieldHelp.not_authorized_countries': 'Uma vaga que exige autorização num desses países aparece como '
-    + 'incompatível, com a frase do empregador. Deixe vazio se não tiver certeza.',
-  'fieldHelp.sponsorship_needed': 'Usado só quando uma vaga diz que não patrocina vistos. Onde você mora e '
-    + 'sua nacionalidade nunca são usadas para responder isso por você.',
+  'fieldHelp.not_authorized_countries': 'Usado só quando a vaga diz com todas as letras que exige autorização '
+    + 'para trabalhar num desses países: ela aparece como incompatível, com a frase do empregador. O país da '
+    + 'empresa e a localização publicada nunca contam como essa exigência, então trabalho remoto feito de onde '
+    + 'você mora não é afetado. Deixe vazio se não tiver certeza.',
+  'fieldHelp.sponsorship_needed': 'Usado só para uma vaga presencial ou híbrida num desses países que diz não '
+    + 'patrocinar vistos. Trabalho remoto feito de onde você mora não precisa de visto. Onde você mora e sua '
+    + 'nacionalidade nunca são usadas para responder isso por você.',
   'fieldHelp.contractor': 'Algumas vagas são oferecidas como contrato de prestação de serviços, e não como '
     + 'emprego. Isso não tem a ver com visto nem com vínculo de emprego. Responda só se souber.',
   'fieldHelp.contractor_abroad': 'Perguntado à parte: um não no Brasil não é um não no exterior. As vagas '

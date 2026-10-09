@@ -248,3 +248,123 @@ def test_an_aggregators_worldwide_does_not_open_what_the_published_location_leav
     )
     gate = next(g for g in result.gates if g.gate == "geography")
     assert gate.result is GateResult.UNRESOLVED, gate.reason
+
+
+# =========================================================================
+# 4. NOT AUTHORIZED IN THE US: COMPANY COUNTRY, WHERE THE WORK IS, AND WHAT
+#    THE POSTING EXPLICITLY REQUIRES ARE THREE DIFFERENT FACTS
+# =========================================================================
+
+US_COMPANY = "We are a US company headquartered in San Francisco."
+
+
+@pytest.fixture(scope="module")
+def no_us(base):
+    """Lives in Brazil, authorized there, knows she is not authorized in the US."""
+    return person(base, lives="BR", authorized=["BR"], not_authorized_countries=["US"])
+
+
+@pytest.fixture(scope="module")
+def no_us_needs_visa(base):
+    return person(
+        base, lives="BR", authorized=["BR"],
+        not_authorized_countries=["US"], sponsorship_needed=["US"],
+    )  # fmt: skip
+
+
+@pytest.mark.parametrize("location", ["Remote - Brazil", "Worldwide", "Remote - LATAM"])
+@pytest.mark.parametrize(
+    "body",
+    [
+        US_COMPANY,
+        f"{US_COMPANY} We do not sponsor visas.",
+        f"{US_COMPANY} Candidates must be legally authorized to work.",
+    ],
+)
+def test_a_us_company_hiring_work_done_from_brazil_is_not_refused(
+    no_us_needs_visa, location, body
+) -> None:
+    """The company's country is not where the work is, and a sentence that
+    names no country takes none from a remote posting."""
+    status, found = gates(no_us_needs_visa, location=location, body=body)
+    assert found["geography"].result is GateResult.PASS, found["geography"].reason
+    assert "work_authorization" not in found or (
+        found["work_authorization"].result is not GateResult.FAIL
+    ), found["work_authorization"].reason
+    assert status is not EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+
+
+def test_a_remote_role_whose_published_location_is_the_us_office_is_to_confirm(
+    no_us_needs_visa,
+) -> None:
+    """`San Francisco` on a remote role may be the office. Neither it nor a
+    no-sponsorship sentence about the US refuses work done from Brazil."""
+    status, found = gates(
+        no_us_needs_visa,
+        location="San Francisco, CA",
+        body="We do not sponsor visas in the United States. Candidates must be authorized to work.",
+    )
+    assert found["work_authorization"].result is GateResult.UNRESOLVED
+    assert "does not say it must" in found["work_authorization"].reason
+    assert status is not EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+
+
+def test_remote_restricted_to_the_us_refuses_only_on_the_explicit_requirement(no_us) -> None:
+    status, found = gates(no_us, location="Remote U.S.")
+    assert found["geography"].result is GateResult.UNRESOLVED
+    assert status is not EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+    status, found = gates(
+        no_us, location="Remote U.S.", body="You must be authorized to work in the United States."
+    )
+    gate = found["work_authorization"]
+    assert gate.result is GateResult.FAIL
+    assert "authorized to work in the United States" in (gate.quote or "")
+    assert status is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+
+
+def test_onsite_in_the_us_without_sponsorship_refuses_who_needs_a_visa(
+    no_us, no_us_needs_visa
+) -> None:
+    body = "We do not sponsor visas."
+    _, found = gates(no_us_needs_visa, location="New York, NY", workplace="ONSITE", body=body)
+    assert found["work_authorization"].result is GateResult.FAIL
+    assert "sponsor" in found["work_authorization"].reason
+    # Sponsorship need not answered: to confirm, never a refusal on that gate.
+    _, found = gates(no_us, location="New York, NY", workplace="ONSITE", body=body)
+    assert found["work_authorization"].result is GateResult.UNRESOLVED
+
+
+def test_onsite_in_the_us_with_sponsorship_is_not_refused_for_sponsorship(
+    no_us_needs_visa,
+) -> None:
+    """The work_authorization gate has nothing to refuse. The geography gate
+    still reads an on-site job in a country she is not authorized in as out
+    of reach (moving countries is not a question this form asks yet)."""
+    _, found = gates(
+        no_us_needs_visa,
+        location="New York, NY",
+        workplace="ONSITE",
+        body="Visa sponsorship is available for this role.",
+    )
+    assert "work_authorization" not in found or (
+        found["work_authorization"].result is not GateResult.FAIL
+    )
+    assert found["geography"].result is GateResult.FAIL
+
+
+def test_an_onsite_requirement_that_names_no_country_takes_the_jobs_country(no_us) -> None:
+    _, found = gates(
+        no_us,
+        location="New York, NY",
+        workplace="ONSITE",
+        body="Candidates must be legally authorized to work.",
+    )
+    assert found["work_authorization"].result is GateResult.FAIL
+
+
+def test_nothing_declared_leaves_the_explicit_us_requirement_pending(base) -> None:
+    config = person(base, lives="BR", authorized=["BR"])
+    _, found = gates(
+        config, location="Remote", body="You must be authorized to work in the United States."
+    )
+    assert found["work_authorization"].result is GateResult.UNRESOLVED

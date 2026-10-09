@@ -44,9 +44,16 @@ def config(**declared: Any) -> SearchConfig:
     return SearchConfig.model_validate(data)
 
 
-def gate(cfg: SearchConfig, text: str, location: str | None = None, employment=None):
+def gate(
+    cfg: SearchConfig,
+    text: str,
+    location: str | None = None,
+    employment=None,
+    workplace: str | None = None,
+):
     gates = evaluate_gates(cfg, {}, "Analyst", text, place=resolve_place(location),
-                           location_raw=location, employment=employment)  # fmt: skip
+                           location_raw=location, employment=employment,
+                           workplace_type=workplace)  # fmt: skip
     return next(g for g in gates if g.gate == "work_authorization"), gates
 
 
@@ -103,14 +110,18 @@ def test_a_declared_authorization_answers_it(declared: dict, result: GateResult)
 
 
 def test_no_sponsorship_against_a_declared_need_in_the_postings_country() -> None:
+    """On site in New York: the board says the work is there."""
+    ny = "New York, NY, United States"
     needs = config(sponsorship_needed=["US"])
-    outcome, _ = gate(needs, NO_SPONSOR, location="New York, NY, United States")
+    outcome, _ = gate(needs, NO_SPONSOR, location=ny, workplace="ONSITE")
     assert outcome.result is GateResult.FAIL and "sponsorship" in outcome.reason
     authorized = config(authorized_countries=["US"])
-    assert gate(authorized, NO_SPONSOR, "New York, NY, United States")[0].result is GateResult.PASS
-    assert gate(config(), NO_SPONSOR, "New York, NY, United States")[0].result is (
-        GateResult.UNRESOLVED
-    )
+    assert gate(authorized, NO_SPONSOR, ny, workplace="ONSITE")[0].result is GateResult.PASS
+    assert gate(config(), NO_SPONSOR, ny, workplace="ONSITE")[0].result is GateResult.UNRESOLVED
+    # Work model not stated: New York may be the company's office, not where
+    # the work is. The country is not filled in; the sentence stays to confirm.
+    unstated, _ = gate(needs, NO_SPONSOR, location=ny)
+    assert unstated.result is GateResult.UNRESOLVED
 
 
 def test_a_sponsorship_sentence_with_no_country_stays_pending() -> None:

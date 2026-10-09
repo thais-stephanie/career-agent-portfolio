@@ -219,13 +219,13 @@ FIELDS: dict[str, dict[str, Any]] = {
     "not_authorized_countries": {
         "path": ("eligibility", "not_authorized_countries"),
         "kind": "country_list",
-        "label": "Countries where you are not authorized to be employed",
+        "label": "Countries where you are not currently authorized to work",
         "allow_empty": True,
     },
     "sponsorship_needed": {
         "path": ("eligibility", "sponsorship_needed"),
         "kind": "country_list",
-        "label": "Countries where you would need visa sponsorship",
+        "label": "Countries where you would need visa sponsorship to work on site",
         "allow_empty": True,
     },
     "contractor": {

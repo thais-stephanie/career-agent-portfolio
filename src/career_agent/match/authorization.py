@@ -280,23 +280,50 @@ def answer(requirement: Requirement, eligibility: Eligibility) -> tuple[str, str
     return (PENDING if state == "NO_COUNTRY" else state), why
 
 
+def _where_the_work_is(
+    requirement: Requirement, state: str, why: str, on_site: bool
+) -> tuple[str, str]:
+    """A visa is needed to work IN a country. "We do not sponsor visas in the
+    US" refuses nobody whose work is done from somewhere else, so outside an
+    on-site or hybrid job it is left to confirm, never a refusal. A stated
+    AUTHORIZATION or CITIZENSHIP requirement is different: the employer asked
+    for it in so many words, wherever the work is."""
+    if requirement.kind == NO_SPONSORSHIP and state == INCOMPATIBLE and not on_site:
+        c = requirement.country
+        return PENDING, (
+            f"The posting does not sponsor visas in {c}. That matters only if the work must be "
+            f"done in {c}, and this posting does not say it must; confirm before applying."
+        )
+    return state, why
+
+
 def authorization_gate(
     config: SearchConfig,
     field: FoldedText,
     place: ResolvedPlace | None = None,
     employment: EmploymentReading | None = None,
+    workplace_type: str | None = None,
 ) -> GateOutcome | None:
     """The work_authorization gate from requirements and declarations, or None
     when the posting states no requirement. Any INCOMPATIBLE answer decides
     (FAIL); else any PENDING one (UNRESOLVED, quoted, so the eligibility
-    status cannot read as verified); else COMPATIBLE (PASS)."""
-    found = read_requirements(config, field, place)
+    status cannot read as verified); else COMPATIBLE (PASS).
+
+    The posting's location names the country of a requirement that names none
+    only when the board's own field says the work is done there (on site or
+    hybrid). A remote role's published location, or one whose work model is
+    not stated, may be the company's office (invariant 3), and the company's
+    country is not where she would work."""
+    on_site = workplace_type in ("ONSITE", "HYBRID")
+    found = read_requirements(config, field, place if on_site else None)
     contractor = contractor_requirement(employment, place)
     if contractor is not None:
         found.append(contractor)
     if not found:
         return None
-    answered = [(r, *answer(r, config.eligibility)) for r in found]
+    answered = [
+        (r, *_where_the_work_is(r, *answer(r, config.eligibility), on_site=on_site)) for r in found
+    ]
     for state, result in ((INCOMPATIBLE, GateResult.FAIL), (PENDING, GateResult.UNRESOLVED),
                           (COMPATIBLE, GateResult.PASS)):  # fmt: skip
         hit = next(((r, why) for r, s, why in answered if s == state), None)

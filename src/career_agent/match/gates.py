@@ -1403,7 +1403,9 @@ def evaluate_gates(
             # What the posting REQUIRES about the right to work, read against
             # what the candidate DECLARED (`match.authorization`). A configured
             # blocker above still decides first, as it always has.
-            outcome = authorization_gate(config, description_field, place, employment)
+            outcome = authorization_gate(
+                config, description_field, place, employment, workplace_type
+            )
 
         if gate == "geography" and place is not None and workplace_type == "REMOTE":
             # The published location of a remote role that does NOT include

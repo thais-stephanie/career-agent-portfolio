@@ -57,3 +57,30 @@ on-site jobs in a country she is authorized in stop failing). A full rescore
 applies it. Saving an authorization bumps the configuration version through
 the existing mechanism and asks for a recalculation; choosing markets does
 not.
+
+## Addendum (2026-10-09): where the work is
+
+"Not authorized in the US" read as a filter on American employers would hide
+remote work done from Brazil for a US company, which needs no US
+authorization. Three facts stay apart: the company's country (never read),
+the country where the work is done (the board's workplace field plus the
+location), and what the posting explicitly requires.
+
+* A requirement that names no country ("must be legally authorized to
+  work", "we do not sponsor visas") takes the posting's country only when
+  the board says the role is ON SITE or HYBRID. On a remote role, or one
+  whose work model is not stated, the location may be the office; the
+  requirement stays to confirm.
+* "We do not sponsor visas" refuses only on-site or hybrid work in that
+  country. On a remote role it is to confirm: a visa is needed to work in a
+  country, not to work for a company there.
+* An explicit "authorized to work in the United States" or "US citizenship
+  required" still refuses whoever declared she is not authorized there,
+  remote or not: the employer asked for it in so many words.
+* The field labels say so: "Countries where you know you are not currently
+  authorized to work" and "Countries where you would need visa sponsorship
+  to work on site". Both stay optional; an empty answer leaves every such
+  requirement pending.
+
+`READER_IDENTITY` `readers-8`; the work_authorization gate moves on the
+next full rescore.
