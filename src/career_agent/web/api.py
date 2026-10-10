@@ -506,7 +506,6 @@ def _source_summary(observed: list, refresh: list[dict], opted: frozenset[str]) 
     }
 
 
-
 def _wanted_tools(config: object) -> list[str]:
     """The tools phrases of the search, as she typed them (setup's own split)."""
     from career_agent.web.workspace_api import _first_search_phrases

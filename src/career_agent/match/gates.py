@@ -585,7 +585,9 @@ def _resolve_list(text: str) -> ResolvedPlace:
         # "the LATAM region", "a regiao da America Latina": the article and the
         # word REGION name nothing; the place between them does.
         bare = re.sub(r"^\s*(?:the|a|o|os|as)\s+", "", part, flags=re.IGNORECASE)
-        bare = re.sub(r"\s+(?:region|regions|area|countries|regi[a\u00e3]o)\s*$", "", bare, flags=re.I)
+        bare = re.sub(
+            r"\s+(?:region|regions|area|countries|regi[a\u00e3]o)\s*$", "", bare, flags=re.I
+        )
         place = resolve_place(bare)
         countries.update(place.countries)
         stated.update(place.stated_regions)
@@ -802,8 +804,7 @@ def _outcome_for(
     reason = f"The hiring statement is limited to {stated}. " + (
         "That scope could not be resolved."
         if verdict is None
-        else f"It {'includes' if verdict else 'does not include'} "
-        f"{country_label(config)}."
+        else f"It {'includes' if verdict else 'does not include'} {country_label(config)}."
     )
     return GateOutcome(
         gate="geography",
@@ -997,10 +998,7 @@ def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_Sco
                 GateOutcome(
                     gate="geography",
                     result=GateResult.FAIL,
-                    reason=(
-                        f"The posting excludes {listed}, which names "
-                        f"{country_label(config)}."
-                    ),
+                    reason=(f"The posting excludes {listed}, which names {country_label(config)}."),
                     quote=text[start:end],
                     char_start=start,
                     char_end=end,

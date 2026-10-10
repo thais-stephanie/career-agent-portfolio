@@ -50,8 +50,10 @@ def test_a_coordination_is_read_the_way_people_mean_it() -> None:
 
 def test_inflection_and_order_inside_one_sentence() -> None:
     field = fold_field(FULL_STACK)
-    found = [field.original[field.offsets[a] : field.offsets[b - 1] + 1]
-             for a, b in find_forms(field, "Workflow automation")]
+    found = [
+        field.original[field.offsets[a] : field.offsets[b - 1] + 1]
+        for a, b in find_forms(field, "Workflow automation")
+    ]
     assert "Workflow automation" in found
     assert "automation workflows" in found
     assert "automating complex workflows" in found
@@ -68,12 +70,18 @@ def test_every_hit_quotes_text_the_posting_contains() -> None:
     assert hits
     for hit in hits:
         assert hit.quote in FULL_STACK
-        assert FULL_STACK[hit.char_start : hit.char_end].lower().startswith(("system", "integrat", "api"))
+        assert (
+            FULL_STACK[hit.char_start : hit.char_end]
+            .lower()
+            .startswith(("system", "integrat", "api"))
+        )
 
 
 def test_a_curated_entry_is_matched_exactly_as_written() -> None:
     """Several explicit patterns, or one that is not the label: not expanded."""
-    curated = LexiconSignal(label="Workflow automation", patterns=["workflow automation", "zapier flows"])
+    curated = LexiconSignal(
+        label="Workflow automation", patterns=["workflow automation", "zapier flows"]
+    )
     assert not is_wizard_shaped(curated.label, tuple(curated.patterns))
     hits = find_hits("w", curated, "description", "We are automating complex workflows.")
     assert hits == []
@@ -164,17 +172,19 @@ def test_the_employers_own_latam_statement_admits_her_beside_an_office(brazil) -
     assert status is EligibilityStatus.VERIFIED_ELIGIBLE
 
 
-@pytest.mark.parametrize(
-    "location", ["London, UK (Remote)", "United States", "Remote U.S."]
-)
+@pytest.mark.parametrize("location", ["London, UK (Remote)", "United States", "Remote U.S."])
 def test_a_published_location_elsewhere_is_to_confirm_not_a_refusal(brazil, location) -> None:
-    status, gates = judged(brazil, location=location, body="Work from anywhere, our team is global.")
+    status, gates = judged(
+        brazil, location=location, body="Work from anywhere, our team is global."
+    )
     assert gates["geography"].result is GateResult.UNRESOLVED
     assert status is EligibilityStatus.UNRESOLVED
 
 
 def test_an_explicit_restriction_still_refuses(brazil) -> None:
-    status, gates = judged(brazil, location="Remote", body="This role is open to US residents only.")
+    status, gates = judged(
+        brazil, location="Remote", body="This role is open to US residents only."
+    )
     assert status is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
     assert gates["geography"].quote
 

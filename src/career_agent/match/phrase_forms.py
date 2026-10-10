@@ -36,8 +36,38 @@ from career_agent.match.text import SENTENCE_BREAKS, FoldedText, fold
 
 #: Words that carry no activity. Structural, in both languages.
 STOPWORDS = frozenset(
-    "a an and the of for to in on with or by at as & e de da do das dos em no na nos nas "
-    "para com ou por".split()
+    {
+        "a",
+        "an",
+        "and",
+        "the",
+        "of",
+        "for",
+        "to",
+        "in",
+        "on",
+        "with",
+        "or",
+        "by",
+        "at",
+        "as",
+        "&",
+        "e",
+        "de",
+        "da",
+        "do",
+        "das",
+        "dos",
+        "em",
+        "no",
+        "na",
+        "nos",
+        "nas",
+        "para",
+        "com",
+        "ou",
+        "por",
+    }
 )
 _COORDINATORS = frozenset({"and", "&", "e"})
 
@@ -116,7 +146,7 @@ def is_wizard_shaped(label: str, patterns: tuple[str, ...]) -> bool:
 @lru_cache(maxsize=8)
 def _indexed(
     original: str, folded: str, offsets: tuple[int, ...]
-) -> tuple[tuple[tuple[int, int, str, int], ...], ...]:
+) -> tuple[tuple[int, int, str, int], ...]:
     """Every token as (folded start, folded end, root, sentence number).
 
     Sentences are cut on the ORIGINAL text, where line breaks still exist:

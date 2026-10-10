@@ -327,11 +327,12 @@ def read_employment(
             evidence=_quote(field, clt),
         )
 
-    for patterns, relationship in (
+    labelled: tuple[tuple[tuple[str, ...], EmploymentRelationship], ...] = (
         (_LABELLED_CONTRACTOR, EmploymentRelationship.CONTRACTOR_B2B),
         (_LABELLED_EMPLOYEE, EmploymentRelationship.EMPLOYEE),
-    ):
-        found = _first(field, patterns)
+    )
+    for line_patterns, relationship in labelled:
+        found = _first(field, line_patterns)
         if found is not None:
             return EmploymentReading(
                 relationship=relationship,

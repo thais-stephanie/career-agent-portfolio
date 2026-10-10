@@ -38,8 +38,16 @@ SHOW_UNCERTAIN = "localStorage.setItem('careerAgent.includeUnresolved.v2', '1')"
 def app(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, Any]]:
     conn = profile(tmp_path, "p")
     with transaction(conn):
-        role = experience(conn, "Invented Works", "Operations Analyst", "2022-01", None, current=True)
-        claim(conn, "k-routing", ClaimType.EMPLOYMENT, "Built lead routing for invented teams.", experience=role)
+        role = experience(
+            conn, "Invented Works", "Operations Analyst", "2022-01", None, current=True
+        )
+        claim(
+            conn,
+            "k-routing",
+            ClaimType.EMPLOYMENT,
+            "Built lead routing for invented teams.",
+            experience=role,
+        )
         claim(conn, "k-hubspot", ClaimType.TOOL, "HubSpot")
         claim(conn, "k-mapping", ClaimType.SKILL, "Process mapping")
         claim(conn, "k-cert", ClaimType.CERTIFICATION, "Invented Analytics Certificate")
@@ -124,14 +132,19 @@ def test_silence_on_pay_is_left_open_never_ticked(page: Chrome, app: dict) -> No
     )
     page.evaluate(f"document.querySelector('#list [data-job-id=\"{silent}\"]').click()")
     page.wait_for("document.querySelector('[data-assessment=\"not_stated\"]')", timeout=30)
-    fits = str(page.evaluate(
-        "[...document.querySelectorAll('.d-row')].filter(r => r.querySelector('.d-row__mark--yes'))"
-        ".map(r => r.innerText).join('|')"
-    ))
+    fits = str(
+        page.evaluate(
+            "[...document.querySelectorAll('.d-row')]"
+            ".filter(r => r.querySelector('.d-row__mark--yes'))"
+            ".map(r => r.innerText).join('|')"
+        )
+    )
     assert "Pay" not in fits and "Compensation" not in fits
-    open_rows = str(page.evaluate(
-        "[...document.querySelectorAll('[data-assessment]')].map(r => r.innerText).join('|')"
-    ))
+    open_rows = str(
+        page.evaluate(
+            "[...document.querySelectorAll('[data-assessment]')].map(r => r.innerText).join('|')"
+        )
+    )
     assert "Pay" in open_rows and "Not stated in the posting." in open_rows
 
 
@@ -151,7 +164,9 @@ def test_the_english_half_of_a_title_is_a_display_choice(page: Chrome, app: dict
     page.navigate(app["url"] + "/?search=Invented%20Marketplace")
     page.wait_for(NAV.format("jobs"))
     listed(page)
-    title = "[...document.querySelectorAll('#list .card__title')].map(n => [n.textContent, n.title])"
+    title = (
+        "[...document.querySelectorAll('#list .card__title')].map(n => [n.textContent, n.title])"
+    )
     rows = page.evaluate(title)
     assert [BILINGUAL, BILINGUAL] in rows  # as the employer wrote it, by default
     go(page, "settings")
@@ -176,12 +191,16 @@ def open_skills(page: Chrome) -> None:
 
 
 def chips(page: Chrome) -> list[str]:
-    return list(page.evaluate(
-        "[...document.querySelectorAll('.profile__glance .evchip')].map(n => n.textContent)"
-    ))
+    return list(
+        page.evaluate(
+            "[...document.querySelectorAll('.profile__glance .evchip')].map(n => n.textContent)"
+        )
+    )
 
 
-def test_skills_are_added_renamed_removed_and_cancel_changes_nothing(page: Chrome, app: dict) -> None:
+def test_skills_are_added_renamed_removed_and_cancel_changes_nothing(
+    page: Chrome, app: dict
+) -> None:
     boot(page, app["url"])
     open_skills(page)
     before = chips(page)
