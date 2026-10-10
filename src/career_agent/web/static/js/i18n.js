@@ -1191,6 +1191,8 @@ const EN = {
   'deep.last': 'Last run: {published} of {candidates} read, {failed} failed, {rejected} answers refused.',
   'deep.stop.LIMIT_REACHED': 'Paused: your subscription limit was reached. Start again later to continue; nothing was '
     + 'sent elsewhere.',
+  'deep.stop.SIGN_IN': 'Paused: Claude Code could not use your sign-in. '
+    + 'Wait a minute or sign in again, then start again.',
   'deep.stop.CANCELLED': 'Cancelled. Postings already read are kept.',
   'deep.stop.PROVIDER_STOPPED': 'Stopped after three failures in a row.',
   'deep.stop.NOTHING_NEW': 'Nothing new to read.',
@@ -5701,6 +5703,8 @@ const PT_BR = {
   'deep.last': 'Última execução: {published} de {candidates} lidas, {failed} falhas, {rejected} respostas recusadas.',
   'deep.stop.LIMIT_REACHED': 'Pausada: o limite da sua assinatura foi atingido. Inicie de novo mais tarde para '
     + 'continuar; nada foi enviado a outro serviço.',
+  'deep.stop.SIGN_IN': 'Pausada: o Claude Code não conseguiu usar seu login. '
+    + 'Aguarde um minuto ou entre de novo e inicie outra vez.',
   'deep.stop.CANCELLED': 'Cancelada. As vagas já lidas foram mantidas.',
   'deep.stop.PROVIDER_STOPPED': 'Parou depois de três falhas seguidas.',
   'deep.stop.NOTHING_NEW': 'Nada novo para ler.',

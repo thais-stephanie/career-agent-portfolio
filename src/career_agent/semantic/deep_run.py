@@ -50,7 +50,12 @@ from career_agent.domain.enums import ClaimType
 from career_agent.match.phrase_forms import STOPWORDS, root
 from career_agent.semantic import deep
 from career_agent.semantic.intent import Aspect, SearchIntent, search_intent
-from career_agent.semantic.providers import Billing, ProviderFailed, SemanticProvider
+from career_agent.semantic.providers import (
+    Availability,
+    Billing,
+    ProviderFailed,
+    SemanticProvider,
+)
 from career_agent.semantic.runner import intent_match_query
 from career_agent.semantic.store import RunStats, SemanticRepo
 from career_agent.storage.db import transaction
@@ -75,6 +80,10 @@ CHARS_PER_TOKEN = 3.0
 
 STOP_NOT_SUBSCRIPTION = "DEEP_NEEDS_SUBSCRIPTION"
 STOP_LIMIT = "LIMIT_REACHED"
+#: The command line could not use the sign-in (logged out, or its token being
+#: refreshed by another Claude Code process). Pause: retrying spends nothing
+#: useful, and nothing may move to another way of paying.
+STOP_SIGN_IN = "SIGN_IN"
 STOP_CANCELLED = "CANCELLED"
 STOP_PROVIDER = "PROVIDER_STOPPED"
 STOP_NOTHING_NEW = "NOTHING_NEW"
@@ -562,6 +571,9 @@ def run_deep(
                 if exc.limit:
                     stats.stop_reason = STOP_LIMIT
                     break
+                if exc.state is Availability.SIGN_IN_REQUIRED:
+                    stats.stop_reason = STOP_SIGN_IN
+                    break
                 stats.failed += 1
                 failures += 1
                 if failures >= CONSECUTIVE_FAILURES_STOP:
@@ -623,7 +635,8 @@ def run_deep(
         raise
     finally:
         if stats.status == "RUNNING":
-            stats.status = "PAUSED" if stats.stop_reason == STOP_LIMIT else "DONE"
+            paused = stats.stop_reason in (STOP_LIMIT, STOP_SIGN_IN)
+            stats.status = "PAUSED" if paused else "DONE"
         if not stats.candidates and not stats.stop_reason:
             stats.stop_reason = STOP_NOTHING_NEW
         with transaction(conn):

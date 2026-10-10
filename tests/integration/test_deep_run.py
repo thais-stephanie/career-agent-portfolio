@@ -306,3 +306,20 @@ def test_coverage_counts_the_main_list_and_what_is_too_short(corpus):  # noqa: F
     reach, readable = coverage(conn, config, include_unresolved=True)
     assert reach.readable == len(readable) and reach.roles >= reach.readable
     assert reach.too_short == reach.roles - reach.readable
+
+
+def test_a_sign_in_problem_pauses_at_once(corpus):  # noqa: F811
+    conn, config = corpus
+
+    class Refreshing(FakeCli):
+        def complete(self, system, user, schema):
+            self.messages.append({})
+            raise ProviderFailed(
+                "Failed to refresh OAuth token: sign in again",
+                state=Availability.SIGN_IN_REQUIRED,
+            )
+
+    provider = Refreshing()
+    stats = run_deep(conn, config, provider, share=False, limit=5, include_unresolved=True)
+    assert stats.status == "PAUSED" and stats.stop_reason == "SIGN_IN"
+    assert len(provider.messages) == 1
