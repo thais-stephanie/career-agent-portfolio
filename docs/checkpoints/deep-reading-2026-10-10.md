@@ -151,3 +151,28 @@ The owner checks claude.ai, Settings, Usage, before any run.
 3. Open through the shortcut; Find Jobs, Deep reading.
 
 Verification on the branch: see the commit message for the suite counts.
+
+## 8. Supply and scoring diagnosis (read-only, on the copy)
+
+* Unique roles (company and title) by local score. Main list: 3,386 roles,
+  0 at 90+, 3 at 80+, 5 at 70+, 15 at 60+, top 83. Every open scored role:
+  97,849, 0 / 10 / 25 / 160, top 85.
+* Why 90+ is near unreachable, by design and not by defect: responsibilities
+  pay at most 4 matched work items (6.25 points each of 25) and tools 3 (of
+  20), with the tools guard; an unstated level earns 9 of 10. A role centrally
+  doing three of the seven listed kinds of work tops out near 83. No weight
+  was changed.
+* Recognition limits seen in strong candidates: an "AI agents" duty not read
+  as AI implementation; a bold duty heading read as incidental; a company
+  name ("AI at Zapier") read as the tool; business-systems integration read
+  as secondary.
+* Target work described in other words (four regex families over the text):
+  188 main-list roles carry at least two families, 130 of them scoring under
+  40; among location-to-confirm roles, 3,317 do, 120 at 60+.
+* Short texts are coverage, not extraction: every one of the 2,242 eligible
+  postings under 200 characters is a Jobgether lead whose stored payload is
+  short too (233 have target-like titles); of 4,460 mid-length postings with
+  a long payload, one (Dynamite Jobs) lost text after markup was removed.
+* First pilot step: both calls refused before any answer with "Failed to
+  refresh OAuth token: another Claude Code process is refreshing it"; the
+  run now pauses on the first sign-in problem (79c74d0).
