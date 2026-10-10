@@ -947,6 +947,11 @@ def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_Sco
                 continue  # the same words, already read by a stricter form
             if _clause_hit(field, start, end, config) is None:
                 continue
+            if text[match.end("list") : match.end("list") + 2].lstrip()[:1] in (":", "("):
+                # "We hire in Latin America: Argentina, Colombia" -- the place
+                # is a LABEL for the list after it, which the region reader
+                # settles. Read alone it would contradict its own definition.
+                continue
             listed = _ONLY_SUFFIX.sub("", match.group("list").strip())
             place = _resolve_list(listed)
             if not place.countries and not place.stated_regions:
