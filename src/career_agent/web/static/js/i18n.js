@@ -1166,7 +1166,8 @@ const EN = {
   'deep.includeUnresolved': 'Include postings whose location is still to confirm',
   'deep.previewButton': 'Show what would be sent',
   'deep.nothing': 'Every posting in your main list already has a deep reading from this provider.',
-  'deep.sample': '{count} postings from your main list of {population} ({reviewed} already read).',
+  'deep.sample': '{count} postings from {population} readable roles in your main list ({reviewed} already read; '
+    + '{short} roles have too little text).',
   'deep.stratum.top_local': 'Top local scores',
   'deep.stratum.lexical': 'Closest wording',
   'deep.stratum.control': 'Control sample from the rest',
@@ -1277,6 +1278,16 @@ const EN = {
   'deep.prov.profile': 'Profile version: {digest}',
   'deep.prov.stratum': 'Chosen as: {stratum}',
   'deep.prov.dropped': 'Claims removed because the posting or your evidence did not hold them: {count}',
+  'deep.coverage': 'Your main list (not the whole catalogue) holds {roles} roles: {readable} have enough text to '
+    + 'read, {short} do not and keep only the local reading.',
+  'deep.level.STALE': 'Out of date',
+  'deep.levelMeans.STALE': 'Read before something changed. The level it had then is shown for reference only, not as '
+    + 'a current priority.',
+  'deep.levelThen': 'Level when read: {level} (not current)',
+  'deep.compare.stale': 'Out of date',
+  'deep.staleReason.posting': 'The posting text changed.',
+  'deep.staleReason.instructions': 'The reading instructions changed.',
+  'deep.staleReason.profile': 'Your search or confirmed evidence changed.',
   'daily.title': 'Worth looking at today',
   'daily.close': 'Close',
   'daily.retry': 'Try again',
@@ -5665,7 +5676,8 @@ const PT_BR = {
   'deep.includeUnresolved': 'Incluir vagas com localização a confirmar',
   'deep.previewButton': 'Mostrar o que seria enviado',
   'deep.nothing': 'Todas as vagas da sua lista principal já têm leitura aprofundada deste provedor.',
-  'deep.sample': '{count} vagas da sua lista principal de {population} ({reviewed} já lidas).',
+  'deep.sample': '{count} vagas entre {population} funções legíveis da sua lista principal ({reviewed} já lidas; '
+    + '{short} funções têm texto insuficiente).',
   'deep.stratum.top_local': 'Maiores notas locais',
   'deep.stratum.lexical': 'Redação mais próxima',
   'deep.stratum.control': 'Amostra de controle do restante',
@@ -5776,6 +5788,16 @@ const PT_BR = {
   'deep.prov.profile': 'Versão do perfil: {digest}',
   'deep.prov.stratum': 'Escolhida como: {stratum}',
   'deep.prov.dropped': 'Afirmações removidas porque a vaga ou suas evidências não as sustentavam: {count}',
+  'deep.coverage': 'Sua lista principal (não o catálogo inteiro) tem {roles} funções: {readable} têm texto suficiente '
+    + 'para leitura, {short} não têm e ficam só com a leitura local.',
+  'deep.level.STALE': 'Desatualizadas',
+  'deep.levelMeans.STALE': 'Lidas antes de alguma mudança. O nível que tinham aparece só como referência, não como '
+    + 'prioridade atual.',
+  'deep.levelThen': 'Nível quando lida: {level} (não é atual)',
+  'deep.compare.stale': 'Desatualizada',
+  'deep.staleReason.posting': 'O texto da vaga mudou.',
+  'deep.staleReason.instructions': 'As instruções da leitura mudaram.',
+  'deep.staleReason.profile': 'Sua busca ou suas evidências confirmadas mudaram.',
   'daily.title': 'Vale olhar hoje',
   'daily.close': 'Fechar',
   'daily.retry': 'Tentar de novo',

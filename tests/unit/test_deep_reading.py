@@ -14,7 +14,7 @@ import pytest
 
 from career_agent.domain.claims import VerifiedClaim
 from career_agent.domain.enums import ClaimSource, ClaimType
-from career_agent.semantic import deep
+from career_agent.semantic import deep, deep_run
 from career_agent.semantic.deep_run import evidence_packet, redact
 from career_agent.semantic.providers import local_cli
 from career_agent.semantic.settings import SemanticSettings
@@ -206,7 +206,7 @@ def claim(key, kind, text, **extra) -> VerifiedClaim:
     )
 
 
-def test_the_packet_sends_skills_and_only_relevant_experience_without_identity():
+def test_the_packet_puts_matched_experience_first_and_carries_no_identity():
     claims = [
         claim("s1", ClaimType.SKILL, "Workflow automation"),
         claim(
@@ -221,11 +221,48 @@ def test_the_packet_sends_skills_and_only_relevant_experience_without_identity()
         claim("e2", ClaimType.EMPLOYMENT, "Taught swimming to children", employer="Pool"),
     ]
     items, sent = evidence_packet(claims, POSTING, ["Ana"])
-    assert [i["id"] for i in items] == ["E1", "E2"]
-    assert sent == {"E1": ["s1", 1], "E2": ["e1", 1]}
+    assert sent == {"E1": ["s1", 1], "E2": ["e1", 1], "E3": ["e2", 1]}
+    assert "summary" not in items[1] and items[2]["summary"] is True
     text = json.dumps(items)
-    assert "example.com" not in text and "Example Ltd" not in text and "2020" not in text
-    assert items[1]["years"] == 2.5
+    assert "example.com" not in text and "Example Ltd" not in text and "Pool" not in text
+    assert "2020" not in text and items[1]["years"] == 2.5
+
+
+def test_experience_in_other_words_still_reaches_the_reader():
+    """No word in common with the posting: sent through the summary, shortened."""
+    told_differently = claim(
+        "e9",
+        ClaimType.EMPLOYMENT,
+        "Connected the sales platform to finance so invoices left by themselves. " * 4,
+    )
+    posting = "Duties: design workflow automation between our CRM and billing systems."
+    items, sent = evidence_packet([told_differently], posting, [])
+    assert list(sent.values()) == [["e9", 1]]
+    assert items[0]["summary"] is True and len(items[0]["text"]) <= deep_run.SUMMARY_CHARS
+
+
+def test_the_packet_has_explicit_ceilings():
+    skills = [claim(f"s{i:03}", ClaimType.SKILL, f"Skill {i}") for i in range(100)]
+    jobs = [
+        claim(f"e{i:03}", ClaimType.EMPLOYMENT, f"Design workflow automation for CRM team {i}")
+        for i in range(30)
+    ]
+    items, _ = evidence_packet(skills + jobs, POSTING, [])
+    kinds = [i["type"] for i in items]
+    assert kinds.count("SKILL") == deep_run.MAX_SKILLS
+    full = [i for i in items if i["type"] == "EMPLOYMENT" and "summary" not in i]
+    short = [i for i in items if i.get("summary")]
+    assert len(full) == deep_run.MAX_MATCHED_EXPERIENCE
+    assert len(short) == deep_run.MAX_SUMMARY_EXPERIENCE
+
+
+def test_the_instructions_say_an_unsent_experience_is_not_a_missing_one():
+    assert "never evidence that the person lacks it" in deep.SYSTEM_PROMPT
+
+
+def test_redaction_removes_years_from_free_text():
+    out = redact("Bachelor of Business Administration, 2018 - 2023; April 2020", [])
+    assert "2018" not in out and "2020" not in out and out.count("[year]") == 3
 
 
 def test_redaction_removes_contacts_links_and_the_name():

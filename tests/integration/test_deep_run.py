@@ -131,7 +131,7 @@ def test_a_run_stores_reviews_and_moves_no_score_and_no_evidence(corpus):  # noq
     stats = run_deep(conn, config, provider, share=True, limit=10, include_unresolved=True)
     assert stats.status == "DONE" and stats.published == stats.candidates > 0
     assert (snapshot(conn, "job_match"), snapshot(conn, "verified_claim")) == before
-    rows = DeepRepo(conn).all_latest()
+    rows = DeepRepo(conn).newest_per_job()
     assert {r["stratum"] for r in rows} <= {"top_local", "lexical", "control"}
     review = json.loads(rows[0]["review_json"])
     assert review["requirements"][0]["evidence_ids"] in ([], ["E1"])
@@ -226,3 +226,83 @@ def test_a_named_set_narrows_the_main_list_and_never_widens_it(corpus):  # noqa:
         conn, config, provider_id="x", limit=25, include_unresolved=True, only={first, outside}
     )
     assert [c.job_id for c in named.candidates] == [first]
+
+
+class _App:
+    def __init__(self, config):
+        self._config = config
+
+    def search_config(self):
+        return self._config
+
+
+def _review_rows(config, conn):
+    from career_agent.web.deep_api import _review_rows as rows
+
+    return {r["job_id"]: r for r in rows(_App(config), conn)}
+
+
+def test_a_changed_posting_makes_its_reading_out_of_date_not_current(corpus):  # noqa: F811
+    conn, config = corpus
+    run_deep(conn, config, FakeCli(), share=False, limit=3, include_unresolved=True)
+    before = _review_rows(config, conn)
+    assert before and not any(r["stale"] for r in before.values())
+    job = next(iter(before))
+    with transaction(conn):
+        # The reading was made for an earlier text of this posting.
+        conn.execute(
+            "UPDATE deep_review SET content_hash = 'earlier-text' WHERE job_id = ?", (job,)
+        )
+    after = _review_rows(config, conn)[job]
+    assert after["stale"] and after["stale_reasons"] == ["posting"]
+    assert after["level"] == "STALE" and after["level_then"] == before[job]["level"]
+    assert after["comparison"] == "stale"
+
+
+def test_changed_evidence_makes_a_reading_that_used_it_out_of_date(corpus):  # noqa: F811
+    conn, config = corpus
+    add_claims(conn)
+    run_deep(conn, config, FakeCli(), share=True, limit=2, include_unresolved=True)
+    assert not any(r["stale"] for r in _review_rows(config, conn).values())
+    with transaction(conn):
+        ClaimRepo(conn).supersede(
+            "c1",
+            VerifiedClaim(
+                claim_key="s1",
+                revision=2,
+                claim_type=ClaimType.SKILL,
+                text="CRM and billing integrations",
+                source=ClaimSource.SELF_ATTESTED,
+                verified=True,
+            ),
+        )
+    rows = _review_rows(config, conn).values()
+    assert rows and all(r["stale_reasons"] == ["profile"] for r in rows)
+
+
+def test_a_reading_without_evidence_ignores_evidence_edits(corpus):  # noqa: F811
+    conn, config = corpus
+    add_claims(conn)
+    run_deep(conn, config, FakeCli(), share=False, limit=2, include_unresolved=True)
+    with transaction(conn):
+        ClaimRepo(conn).supersede(
+            "c1",
+            VerifiedClaim(
+                claim_key="s1",
+                revision=2,
+                claim_type=ClaimType.SKILL,
+                text="Edited",
+                source=ClaimSource.SELF_ATTESTED,
+                verified=True,
+            ),
+        )
+    assert not any(r["stale"] for r in _review_rows(config, conn).values())
+
+
+def test_coverage_counts_the_main_list_and_what_is_too_short(corpus):  # noqa: F811
+    from career_agent.semantic.deep_run import coverage
+
+    conn, config = corpus
+    reach, readable = coverage(conn, config, include_unresolved=True)
+    assert reach.readable == len(readable) and reach.roles >= reach.readable
+    assert reach.too_short == reach.roles - reach.readable

@@ -83,6 +83,9 @@ Report, from the posting text alone:
   "not_shown" when nothing in the evidence list shows it, "unclear" when you
   cannot tell. Never assume experience that is not in the list, and never use
   an id that is not in the list. If no evidence was shared, use "unclear".
+  The evidence list is a SELECTION from the person's history (items marked
+  "summary" are shortened): an experience missing from it was not sent, which
+  is never evidence that the person lacks it. Say "not_shown", not more.
 - conditions: quotes that state where the person must live, be authorised to
   work, how or when they must work, languages or travel. Quote only; never
   judge whether the person meets them.

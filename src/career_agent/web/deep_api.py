@@ -57,7 +57,7 @@ def register_deep(app: JobsApi) -> None:
         return limit, _bool(body.get("include_unresolved", False))
 
     def status(*, query: dict, body: dict) -> dict:
-        from career_agent.semantic.deep_run import DeepRepo, _population
+        from career_agent.semantic.deep_run import coverage
         from career_agent.semantic.store import SemanticRepo
 
         if query:
@@ -69,10 +69,12 @@ def register_deep(app: JobsApi) -> None:
             checked = provider.availability()  # local: `claude auth status`, sends nothing
             state, auth = checked.state.value, checked.facts.get("auth")
         with closing(app.connect()) as conn:
-            reviewed_hashes = {str(r["content_hash"]) for r in DeepRepo(conn).all_latest()}
             last_run = SemanticRepo(conn).last_run(deep=True)
-            main_list = _population(conn, app.search_config(), False)
-        waiting = sum(1 for r in main_list if str(r["content_hash"]) not in reviewed_hashes)
+            reach, main_list = coverage(conn, app.search_config(), False)
+            rows = _review_rows(app, conn)
+        current = {r["job_id"] for r in rows if not r["stale"]}
+        stale = sum(1 for r in rows if r["stale"])
+        waiting = sum(1 for r in main_list if str(r["id"]) not in current)
         return {
             "demo": not _is_personal(app),
             "provider": provider.id if provider else None,
@@ -81,9 +83,15 @@ def register_deep(app: JobsApi) -> None:
             "auth": auth,
             "share_evidence": bool(provider and provider.id in settings.share_evidence_with),
             "cap": settings.max_jobs_per_subscription_run,
-            "reviewed": len(reviewed_hashes),
-            # Main-list postings with no deep reading yet: still in the list,
-            # in the local order, never ranked below the ones that have one.
+            # The MAIN LIST only, never the catalogue: roles in it, roles with
+            # enough text to read, and roles whose advert is too short.
+            "main_list_roles": reach.roles,
+            "readable": reach.readable,
+            "too_short": reach.too_short,
+            "reviewed": len(current),
+            "stale": stale,
+            # Readable roles with no CURRENT reading: still in the list, in
+            # the local order, never ranked below the ones that have one.
             "not_reviewed": waiting,
             "last_run": last_run,
             "run": runner.snapshot(),
@@ -92,7 +100,13 @@ def register_deep(app: JobsApi) -> None:
     def preview(*, query: dict, body: dict) -> dict:
         """What a run WOULD send, computed locally. Nothing leaves."""
         from career_agent.semantic import deep
-        from career_agent.semantic.deep_run import context, estimate_tokens, request_for, select
+        from career_agent.semantic.deep_run import (
+            context,
+            coverage,
+            estimate_tokens,
+            request_for,
+            select,
+        )
 
         if query or set(body) - {"limit", "include_unresolved"}:
             raise ApiError(400, "unexpected parameters", for_reader=True)
@@ -116,6 +130,7 @@ def register_deep(app: JobsApi) -> None:
                 current_digest=ctx.digest,
             )
             names = _companies(conn, [c.job_id for c in chosen.candidates])
+            reach, _rows = coverage(conn, config, include_unresolved)
         tokens = 0
         example: list[dict[str, Any]] = []
         evidence_counts: list[int] = []
@@ -134,6 +149,8 @@ def register_deep(app: JobsApi) -> None:
             "evidence_per_posting": evidence_counts,
             "confirmed_evidence": len(ctx.claims),
             "population": chosen.population,
+            "main_list_roles": reach.roles,
+            "too_short": reach.too_short,
             "already_reviewed": chosen.reviewed,
             "estimated_input_tokens": tokens,
             "postings": [
@@ -205,10 +222,7 @@ def register_deep(app: JobsApi) -> None:
         if query:
             raise ApiError(400, "unknown parameter", for_reader=True)
         with closing(app.connect()) as conn:
-            row = conn.execute("SELECT content_hash FROM job WHERE id = ?", (job_id,)).fetchone()
-            if row is None:
-                raise ApiError(404, "no such job", for_reader=True)
-            found = _review_rows(app, conn, [str(row[0])], detail=True)
+            found = _review_rows(app, conn, [job_id], detail=True)
         return {"job_id": job_id, "review": found[0] if found else None}
 
     def consent(*, query: dict, body: dict) -> dict:
@@ -256,59 +270,74 @@ def _companies(conn: Any, job_ids: list[str]) -> dict[str, str]:
 
 
 def _review_rows(
-    app: Any, conn: Any, hashes: list[str] | None = None, *, detail: bool = False
+    app: Any, conn: Any, job_ids: list[str] | None = None, *, detail: bool = False
 ) -> list[dict[str, Any]]:
-    """Each review with its priority, read against the CURRENT profile.
+    """Each posting's newest review, read against what is CURRENT now.
 
-    A review written for an earlier profile is `stale`, never silently
-    current. A cited evidence id is resolved in THIS profile's ledger; one
-    that is no longer confirmed here is reported as changed, not shown as
-    support.
+    A review is out of date when the posting's text changed, when the reading
+    instructions changed, or when the profile it was asked against changed
+    (search phrases, preferred levels, or, if evidence was sent, the confirmed
+    evidence). An out-of-date review keeps its findings for reference but no
+    level: `level` is STALE and the level it had is `level_then`, so it is
+    never presented as the current priority. A cited evidence id is resolved
+    in THIS profile's ledger; one no longer confirmed as it was is "changed".
     """
     from career_agent.semantic import deep
     from career_agent.semantic.deep_run import DeepRepo, confirmed_claims, context
 
-    repo = DeepRepo(conn)
-    rows = repo.all_latest() if hashes is None else list(repo.latest(hashes).values())
+    rows = DeepRepo(conn).newest_per_job(job_ids)
     if not rows:
         return []
     config = app.search_config()
+    contract_now = deep.contract_identity()
     digest_now = {shared: context(conn, config, shared).digest for shared in (True, False)}
     ledger = {c.claim_key: c for c in confirmed_claims(conn)} if detail else {}
     jobs = [str(r["job_id"]) for r in rows]
     marks = ",".join("?" for _ in jobs)
-    local = {
-        str(r[0]): (int(r[1]), str(r[2]), str(r[3] or ""), str(r[4] or ""))
-        for r in conn.execute(
-            "SELECT j.id, jm.match_score, jm.fit_band, j.title, c.name FROM job j"
-            " JOIN job_match jm ON jm.job_id = j.id AND jm.config_id = ? AND jm.config_version = ?"
-            " LEFT JOIN company c ON c.id = j.company_id"
-            f" WHERE j.id IN ({marks})",
-            (str(config.config_id), int(config.config_version), *jobs),
-        )
-    }
+    local: dict[str, tuple[Any, ...]] = {}
+    for r in conn.execute(
+        "SELECT j.id, jm.match_score, jm.fit_band, j.title, c.name, j.content_hash FROM job j"
+        " LEFT JOIN job_match jm ON jm.job_id = j.id AND jm.config_id = ?"
+        "  AND jm.config_version = ?"
+        " LEFT JOIN company c ON c.id = j.company_id"
+        f" WHERE j.id IN ({marks})",
+        (str(config.config_id), int(config.config_version), *jobs),
+    ):
+        local[str(r[0])] = (r[1], r[2], str(r[3] or ""), str(r[4] or ""), r[5])
     out = []
     for row in rows:
         review = json.loads(row["review_json"])
         sent = json.loads(row["sent_json"])
         shared = bool(sent.get("shared"))
         level = deep.priority(review, shared)
-        score, band, title, company = local.get(str(row["job_id"]), (0, "", "", ""))
+        score, band, title, company, hash_now = local.get(
+            str(row["job_id"]), (None, None, "", "", None)
+        )
+        reasons = []
+        if row["content_hash"] != hash_now:
+            reasons.append("posting")
+        if row["contract"] != contract_now:
+            reasons.append("instructions")
+        if row["profile_digest"] != digest_now[shared]:
+            reasons.append("profile")
+        stale = bool(reasons)
         item: dict[str, Any] = {
             "job_id": row["job_id"],
             "title": title,
             "company": company,
-            "level": level.level,
+            "level": "STALE" if stale else level.level,
+            "level_then": level.level,
+            "stale": stale,
+            "stale_reasons": reasons,
             "reasons": [{"code": code, **values} for code, values in level.reasons],
-            "comparison": deep.comparison(level.level, band or None),
-            "local_score": score,
-            "band": band,
+            "comparison": "stale" if stale else deep.comparison(level.level, band),
+            "local_score": int(score) if score is not None else 0,
+            "band": band or "",
             "stratum": row["stratum"],
             "provider": row["provider"],
             "model": row["model"],
             "contract": row["contract"],
             "created_at": row["created_at"],
-            "stale": row["profile_digest"] != digest_now[shared],
             "evidence_shared": shared,
         }
         if detail:
@@ -327,7 +356,7 @@ def _review_rows(
                 profile_digest=row["profile_digest"],
             )
         out.append(item)
-    order = {name: index for index, name in enumerate(deep.LEVELS)}
+    order = {name: index for index, name in enumerate((*deep.LEVELS, "STALE"))}
     out.sort(key=lambda r: (order[r["level"]], -r["local_score"], r["job_id"]))
     return out
 

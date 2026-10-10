@@ -68,10 +68,12 @@ Privacy and billing:
 
 * Evidence leaves only when the profile names the provider in
   `share_evidence_with` (`semantic.local.yaml`), which accepts only
-  `claude_code` and `codex`. Only confirmed claims; skills and tools, plus
-  experience lines sharing at least two content-word roots with the
-  posting, at most ten; local ids (E1...), no employer, no dates (a duration
-  in years), contacts, links and the candidate's display name redacted.
+  `claude_code` and `codex`. Only confirmed claims: every skill and tool
+  (at most 80), up to 10 experience lines sharing words with the posting,
+  and a summary of up to 10 others (120 characters each, most recent first),
+  so work described in other words still reaches the reader; local ids
+  (E1...), no employer field, no dates (a duration in years; years in free
+  text become `[year]`), contacts, links and the display name redacted.
   `sent_json` keeps the alias map (keys and revisions, never text) so a
   cited id is resolved later in THIS profile's ledger; one that changed is
   shown as changed.
@@ -93,6 +95,9 @@ Privacy and billing:
   for both contracts; a limit pauses the findings runner at once too.
 * The findings path (`semantic-3`) is untouched and still only raises. The
   owner's profile has never run it (0 evaluations on 2026-10-10).
+* A review is out of date when the posting text, the instructions or the
+  profile it was asked against changed; it then shows the level it had
+  "when read", never a current priority.
 * Not built: a deep reading through a metered API; a list filter for "read /
   not read"; re-reading stale reviews from the interface (`reread_stale`
   exists in `select`, unexposed).

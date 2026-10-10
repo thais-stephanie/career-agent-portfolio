@@ -80,8 +80,7 @@ https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html (2026-02-10
 
 60 postings from the relevance COPY (read-only), main list representatives
 with readable text (1,526 after removing the 120 development postings and
-their groups; 2,242 of the copy's 4,198 eligible postings have under 200
-characters of text and cannot be read deeply), 15 per stratum: top local
+their groups), 15 per stratum: top local
 score, closest wording, local score 35 to 54, under 35. Written to
 `data/evaluation/deep-reading-v1/` in the live install (gitignored): the
 labelling page `rotular.html` (no score, no stratum, order by hash), the
@@ -89,28 +88,61 @@ postings, and `key.private.json` with each posting's stratum and local
 score. The agent did NOT pre-label: the pilot's reader is the same model
 family, so its labels would not be independent.
 
-## 5. Pilot proposal (not run)
+## 5. Review before the first pilot (second commit)
 
-* Provider: Claude Code, Claude subscription, sign-in checked `claude.ai`.
-* Sample: the 60 labelled postings, read in runs of 25, 25 and 10, with and
-  without evidence (`share_evidence_with: [claude_code]` toggled), so the
-  two readings are compared on the same postings and the same profile.
-* Sent: the search phrases, preferred levels, title and text of each
-  posting; with consent, up to 40 skills and tools and up to 10 relevant
-  experience lines per posting, redacted, under local ids. The preview shows
-  exactly this before Start.
-* Cost: no API charge when "extra usage" is off (the owner checks claude.ai,
-  Settings, Usage; the app cannot). Quota use is unknown until measured; a
-  hypothesis from the 2026-09 benchmark of the findings contract is about
-  7,500 input and 1,000 output tokens and 12 s per posting, to be replaced by
-  the pilot's own `input_tokens`, `output_tokens` and `latency_ms`.
-* Measured against the owner's labels: relevant postings in the first 10
-  and 20 under each ordering (local; deep level then local); relevant
-  postings the reading raised from the control and middle strata; irrelevant
-  postings it placed HIGH; claims removed by verification; tokens and time
-  per posting.
+* **Evidence in other words.** Requiring two shared word roots kept an
+  experience described differently out of the packet. The packet now holds
+  every confirmed skill and tool (ceiling 80; the owner has 74, the old
+  ceiling of 40 dropped 34 silently), up to 10 experience lines that share
+  words with the posting, in full, and a SUMMARY of up to 10 other
+  experience lines, most recent first, cut to 120 characters. Tested with a
+  line sharing no word with the posting. Years inside free text are replaced
+  by `[year]`. The instructions say an unsent experience is never evidence
+  of a missing one.
+* **Coverage, the main list only.** On the copy: 3,386 roles in the main
+  list, 1,605 with enough text to read, 1,781 too short (mostly
+  metadata-only leads). The panel and the preview say so; nothing calls this
+  a survey of the catalogue.
+* **Out of date, never current.** A review is shown as out of date, with its
+  reason, when the posting's text, the reading instructions, or the profile
+  it was asked against (search phrases, preferred levels and, if evidence was
+  sent, the confirmed evidence) changed. Its level then is shown as "level
+  when read (not current)", in its own group, never as a priority; reviews
+  are read per posting, so a review of an earlier text no longer passes as
+  the current one. Tested for each reason.
 
-## 6. Integration
+## 6. First pilot: 10 postings, prepared and NOT run
+
+`scripts/deep_pilot.py` previews by default; `--execute` additionally needs
+`--max-calls` covering the set, the profile's `mode: claude_code`, consent
+in `share_evidence_with`, and a `claude.ai` sign-in. Postings (from the
+copy; `data/evaluation/deep-pilot-1/pilot.json`, gitignored):
+
+| Group | Local | Posting |
+|---|---:|---|
+| top of the local ranking | 83 | Marketing Automation Specialist (Pavago) |
+| | 81 | AI Solutions Architect (HireHawk) |
+| | 79 | Remote AI Engineer, LLM Systems & Automation (HireLatam) |
+| likely relevant, ranked low (agent's provisional judgement) | 49 | GTM Engineer, Clay & Claude (Hire Overseas) |
+| | 39 | Head of AI Native Operations (Supabase) |
+| | 37 | Partner Operations & Systems Lead (Supabase) |
+| other work sharing tools | 62 | AI Product Engineer, Finance Systems (Koin) |
+| | 54 | WordPress Developer, UX & Automation (Uptalent.io) |
+| | 44 | Senior Software Engineer (Sur) |
+| control | 69 | Full Stack Engineer (Pavago) |
+
+None is in the 60-posting labelling set. The exact messages are in
+`preview.json` and a readable summary in `preview.md`: 115 distinct
+evidence items across the 10 messages, about 204,000 characters in all
+(roughly 68,000 input tokens at three characters a token, a guess); no
+e-mail, link or year in what would leave. Known limit: company or school
+names written INSIDE an evidence line are not removed.
+
+Billing: the subscription is not a promise of zero cost. Claude's "extra
+usage" lets use past the plan limit be charged; the CLI cannot report it.
+The owner checks claude.ai, Settings, Usage, before any run.
+
+## 7. Integration
 
 1. Close the app; back up as before (`pre-deep-matching-*`).
 2. Fast-forward main to this branch (it contains `claude/brazil-relevance`,

@@ -60,9 +60,16 @@ MIN_DESCRIPTION_CHARS = 200
 CONSECUTIVE_FAILURES_STOP = 3
 #: Share of a batch per stratum; `control` takes what is left.
 SHARES = {"top_local": 0.4, "lexical": 0.25}
-MAX_SKILLS = 40
-MAX_EXPERIENCE = 10
-#: Content words an experience line must share with the posting to be sent.
+#: Explicit ceilings on what one posting's packet may carry. Skills and tools
+#: are a few words each, so all of a typical profile fits; experience is
+#: chosen in two parts (`evidence_packet`).
+MAX_SKILLS = 80
+MAX_MATCHED_EXPERIENCE = 10
+MAX_SUMMARY_EXPERIENCE = 10
+SUMMARY_CHARS = 120
+#: Content words an experience line must share with the posting to count as
+#: matched. It only ORDERS the packet: lines that share none still reach it
+#: through the summary, because the same work is often described in other words.
 MIN_SHARED_ROOTS = 2
 CHARS_PER_TOKEN = 3.0
 
@@ -84,6 +91,9 @@ _EXPERIENCE = (
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _URL = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
 _PHONE = re.compile(r"\+?\d[\d\s().-]{7,}\d")
+#: A year inside free text ("2018 - 2023", "April 2020"). Dates never leave;
+#: a duration in years is sent beside the line instead.
+_YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
 _WORD = re.compile(r"[^\W\d_]+")
 
 
@@ -104,7 +114,10 @@ class DeepCandidate:
 
 
 def _population(
-    conn: sqlite3.Connection, config: SearchConfig, include_unresolved: bool
+    conn: sqlite3.Connection,
+    config: SearchConfig,
+    include_unresolved: bool,
+    min_chars: int = MIN_DESCRIPTION_CHARS,
 ) -> list[sqlite3.Row]:
     """The main list's representatives, the way the list elects them."""
     statuses = ["VERIFIED_ELIGIBLE", "LIKELY_ELIGIBLE"] + (
@@ -133,7 +146,7 @@ def _population(
             int(config.config_version),
             *statuses,
             *hidden,
-            MIN_DESCRIPTION_CHARS,
+            min_chars,
         ),
     ).fetchall()
     rank = {"VERIFIED_ELIGIBLE": 0, "LIKELY_ELIGIBLE": 1, "UNRESOLVED": 2}
@@ -149,6 +162,27 @@ def _population(
         ):
             elected[key] = row
     return list(elected.values())
+
+
+@dataclass(frozen=True)
+class Coverage:
+    """How much of the MAIN LIST a deep reading can reach. Never the catalogue."""
+
+    roles: int
+    readable: int
+
+    @property
+    def too_short(self) -> int:
+        """Roles with no copy whose advert has enough text to read."""
+        return self.roles - self.readable
+
+
+def coverage(
+    conn: sqlite3.Connection, config: SearchConfig, include_unresolved: bool = False
+) -> tuple[Coverage, list[sqlite3.Row]]:
+    readable = _population(conn, config, include_unresolved)
+    everything = _population(conn, config, include_unresolved, min_chars=0)
+    return Coverage(len(everything), len(readable)), readable
 
 
 def _lexical_order(conn: sqlite3.Connection, intent: SearchIntent, ids: set[str]) -> list[str]:
@@ -276,6 +310,7 @@ def person_names(conn: sqlite3.Connection) -> list[str]:
 def redact(text: str, names: list[str]) -> str:
     out = _URL.sub("[link removed]", text)
     out = _EMAIL.sub("[contact removed]", out)
+    out = _YEAR.sub("[year]", out)
     out = _PHONE.sub("[contact removed]", out)
     for name in names:
         out = re.sub(rf"\b{re.escape(name)}\b", "[name removed]", out, flags=re.IGNORECASE)
@@ -299,30 +334,46 @@ def evidence_packet(
 ) -> tuple[list[dict[str, Any]], dict[str, list[Any]]]:
     """What is sent for ONE posting, and the alias map kept at home.
 
-    Skills and tools always (they are short and they are what requirements
-    name); experience lines only when they share content words with the
-    posting, most shared first. "Not sent" is never read as "not true".
+    * every confirmed skill and tool, up to MAX_SKILLS (they are short and
+      they are what requirements name);
+    * up to MAX_MATCHED_EXPERIENCE experience lines sharing words with the
+      posting, most shared first, in full;
+    * a SUMMARY of up to MAX_SUMMARY_EXPERIENCE other experience lines, most
+      recent first, each cut to SUMMARY_CHARS: a line that describes the same
+      work in other words still reaches the reader.
+
+    What is not in the packet was not sent; it is never read as "not true".
     """
     posting_roots = _roots(posting)
     skills = [c for c in claims if c.claim_type in (ClaimType.SKILL, ClaimType.TOOL)][:MAX_SKILLS]
-    ranked = sorted(
-        (
-            (len(_roots(c.text + " " + " ".join(c.tools)) & posting_roots), c.claim_key, c)
-            for c in claims
-            if c.claim_type in _EXPERIENCE
-        ),
-        key=lambda row: (-row[0], row[1]),
-    )
-    experience = [c for shared, _, c in ranked if shared >= MIN_SHARED_ROOTS][:MAX_EXPERIENCE]
+    experience = [c for c in claims if c.claim_type in _EXPERIENCE]
+    shared = {
+        c.claim_key: len(_roots(c.text + " " + " ".join(c.tools)) & posting_roots)
+        for c in experience
+    }
+    matched = sorted(
+        (c for c in experience if shared[c.claim_key] >= MIN_SHARED_ROOTS),
+        key=lambda c: (-shared[c.claim_key], c.claim_key),
+    )[:MAX_MATCHED_EXPERIENCE]
+    chosen = {c.claim_key for c in matched}
+    summary = sorted(
+        (c for c in experience if c.claim_key not in chosen),
+        key=lambda c: (c.period_end or "9999", c.period_start or "", c.claim_key),
+        reverse=True,
+    )[:MAX_SUMMARY_EXPERIENCE]
     items: list[dict[str, Any]] = []
     sent: dict[str, list[Any]] = {}
-    for index, claim in enumerate(skills + experience, start=1):
+    rows = [(c, False) for c in skills + matched] + [(c, True) for c in summary]
+    for index, (claim, short) in enumerate(rows, start=1):
         alias = f"E{index}"
+        text = redact(claim.text, names)
         item: dict[str, Any] = {
             "id": alias,
             "type": claim.claim_type.value,
-            "text": redact(claim.text, names),
+            "text": text[:SUMMARY_CHARS] if short else text,
         }
+        if short:
+            item["summary"] = True
         if claim.tools:
             item["tools"] = [redact(t, names) for t in claim.tools[:8]]
         years = _years(claim)
@@ -381,28 +432,28 @@ class DeepRepo:
             [row[k] for k in keys],
         )
 
-    def latest(self, content_hashes: list[str]) -> dict[str, sqlite3.Row]:
-        """The newest review per posting text, any provider."""
-        found: dict[str, sqlite3.Row] = {}
-        hashes = [h for h in dict.fromkeys(content_hashes) if h]
-        for start in range(0, len(hashes), 500):
-            chunk = hashes[start : start + 500]
-            marks = ",".join("?" for _ in chunk)
-            for row in self.conn.execute(
-                "SELECT * FROM deep_review"
-                f" WHERE content_hash IN ({marks}) ORDER BY created_at ASC, id ASC",
-                chunk,
-            ):
-                found[str(row["content_hash"])] = row
-        return found
-
-    def all_latest(self) -> list[sqlite3.Row]:
-        rows = self.conn.execute(
-            "SELECT * FROM deep_review ORDER BY created_at ASC, id ASC"
-        ).fetchall()
+    def newest_per_job(self, job_ids: list[str] | None = None) -> list[sqlite3.Row]:
+        """The newest review of each posting, whatever text it was made for:
+        a review of an EARLIER text is returned too, so it can be shown as
+        out of date instead of disappearing or passing as current."""
+        if job_ids is None:
+            rows = self.conn.execute(
+                "SELECT * FROM deep_review ORDER BY created_at ASC, id ASC"
+            ).fetchall()
+        else:
+            rows = []
+            for start in range(0, len(job_ids), 500):
+                chunk = job_ids[start : start + 500]
+                marks = ",".join("?" for _ in chunk)
+                rows += self.conn.execute(
+                    f"SELECT * FROM deep_review WHERE job_id IN ({marks})"
+                    " ORDER BY created_at ASC, id ASC",
+                    chunk,
+                ).fetchall()
+            rows.sort(key=lambda r: (str(r["created_at"]), str(r["id"])))
         newest: dict[str, sqlite3.Row] = {}
         for row in rows:
-            newest[str(row["content_hash"])] = row
+            newest[str(row["job_id"])] = row
         return list(newest.values())
 
 

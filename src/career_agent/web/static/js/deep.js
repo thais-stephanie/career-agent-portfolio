@@ -21,7 +21,7 @@ import { t } from './i18n.js';
 import * as api from './api.js';
 
 const POLL_MS = 1500;
-const LEVELS = ['HIGH', 'MEDIUM', 'TO_CONFIRM', 'LOW', 'OTHER_WORK'];
+const LEVELS = ['HIGH', 'MEDIUM', 'TO_CONFIRM', 'LOW', 'OTHER_WORK', 'STALE'];
 const STOPS = new Set([
   'LIMIT_REACHED', 'CANCELLED', 'PROVIDER_STOPPED', 'NOTHING_NEW', 'NO_INTENT',
   'DEEP_NEEDS_SUBSCRIPTION', 'ERROR',
@@ -267,6 +267,7 @@ export function createDeep({ onOpenJob = null } = {}) {
       el('p', {
         text: t('deep.sample', {
           count: plan.postings.length, population: plan.population, reviewed: plan.already_reviewed,
+          short: plan.too_short || 0,
         }),
       }),
       el('p', {
@@ -322,6 +323,12 @@ export function createDeep({ onOpenJob = null } = {}) {
     const children = [
       el('h3', { className: 'deep__subhead', text: t('deep.resultsHead') }),
       el('p', { className: 'deep__note', text: t('deep.resultsLede') }),
+      el('p', {
+        className: 'deep__note',
+        text: t('deep.coverage', {
+          roles: status.main_list_roles || 0, readable: status.readable || 0, short: status.too_short || 0,
+        }),
+      }),
       el('p', { className: 'deep__note', text: t('deep.notReviewed', { count: status.not_reviewed || 0 }) }),
     ];
     if (!reviews.length) {
@@ -357,9 +364,11 @@ export function createDeep({ onOpenJob = null } = {}) {
         el('span', { className: 'deep__why', text: reasons }),
         el('span', {
           className: 'deep__compare',
-          text: t(`deep.compare.${row.comparison}`, { score: row.local_score }),
+          text: row.stale
+            ? t('deep.levelThen', { level: t(`deep.level.${row.level_then}`) })
+            : t(`deep.compare.${row.comparison}`, { score: row.local_score }),
         }),
-        row.stale ? el('span', { className: 'deep__stale', text: t('deep.stale') }) : null,
+        row.stale ? el('span', { className: 'deep__stale', text: staleText(row) }) : null,
       ].filter(Boolean)),
     ]);
   }
@@ -382,10 +391,13 @@ export function deepSection(review, section) {
   rows.push(make('p', { className: 'deep__levelline' }, [
     make('strong', { text: t(`deep.level.${review.level}`) }),
     make('span', {
-      className: 'deep__compare', text: t(`deep.compare.${review.comparison}`, { score: review.local_score }),
+      className: 'deep__compare',
+      text: review.stale
+        ? t('deep.levelThen', { level: t(`deep.level.${review.level_then}`) })
+        : t(`deep.compare.${review.comparison}`, { score: review.local_score }),
     }),
   ]));
-  if (review.stale) rows.push(make('p', { className: 'deep__stale', text: t('deep.staleLong') }));
+  if (review.stale) rows.push(make('p', { className: 'deep__stale', text: staleText(review) }));
   rows.push(make('p', { className: 'deep__minor', text: t('deep.drawer.primary') }));
   if (r.primary_activity.summary) {
     rows.push(make('p', {
@@ -449,6 +461,12 @@ export function deepSection(review, section) {
     ].map((text) => make('li', { text }))),
   ]));
   return section(t('deep.drawer.head'), rows, { lede: t('deep.drawer.lede') });
+}
+
+/** Why a reading is out of date, in words: the posting, the instructions or the profile changed. */
+function staleText(row) {
+  const why = (row.stale_reasons || []).map((code) => t(`deep.staleReason.${code}`)).join(' ');
+  return `${t('deep.staleLong')} ${why}`.trim();
 }
 
 function quoteList(make, quotes) {

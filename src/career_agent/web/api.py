@@ -3056,10 +3056,7 @@ def _deep_review(app: Any, conn: Any, job_id: str) -> dict | None:
     from career_agent.web.deep_api import _review_rows
 
     try:
-        found_hash = conn.execute("SELECT content_hash FROM job WHERE id = ?", (job_id,)).fetchone()
-        if found_hash is None:
-            return None
-        found = _review_rows(app, conn, [str(found_hash[0])], detail=True)
+        found = _review_rows(app, conn, [job_id], detail=True)
     except sqlite3.Error:
         return None
     return found[0] if found else None
