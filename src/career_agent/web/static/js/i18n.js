@@ -3326,13 +3326,13 @@ const EN = {
   'fieldHelp.authorized_countries': 'Only what you know, such as citizenship or a work permit. A job that '
     + 'asks for authorization in a country you did not list shows as “Left to confirm”, never as ruled out. If '
     + 'you live in one of these countries, remote jobs that hire there can show as open to you.',
-  'fieldHelp.not_authorized_countries': 'Used only when a job says in so many words that it requires '
-    + 'authorization to work in one of these countries: that job shows as not compatible, with the employer’s '
-    + 'sentence. The company’s country and the published location are never read as that requirement, so '
-    + 'remote work you do from where you live is not affected. Leave it empty if you are not sure.',
-  'fieldHelp.sponsorship_needed': 'Used only for an on-site or hybrid job in one of these countries that says '
-    + 'it does not sponsor visas. Remote work done from where you live needs no visa. Where you live and your '
-    + 'nationality are never used to answer this for you.',
+  'fieldHelp.not_authorized_countries': 'Used when a job says in so many words that it requires authorization '
+    + 'to work in one of these countries: that job shows as not compatible, with the employer’s sentence, '
+    + 'remote or not. The company’s country alone, or a published location that may be its office, is not '
+    + 'read as that requirement. Leave it empty if you are not sure.',
+  'fieldHelp.sponsorship_needed': 'Used for an on-site or hybrid job in one of these countries that says it '
+    + 'does not sponsor visas. For a remote job, what counts is what the employer writes about where you may '
+    + 'live or be authorized. Where you live and your nationality are never used to answer this for you.',
   'fieldHelp.contractor': 'Some jobs are offered as a service contract instead of employment. This is not '
     + 'about visas or employment. Answer only if you know.',
   'fieldHelp.contractor_abroad': 'Asked separately: a no at home is not a no abroad. Jobs rarely say where '
@@ -7604,13 +7604,13 @@ const PT_BR = {
     + 'que exige autorização num país que você não listou aparece como “Falta confirmar”, nunca como '
     + 'incompatível. Se você mora num desses países, vagas remotas que contratam lá podem aparecer como abertas '
     + 'para você.',
-  'fieldHelp.not_authorized_countries': 'Usado só quando a vaga diz com todas as letras que exige autorização '
-    + 'para trabalhar num desses países: ela aparece como incompatível, com a frase do empregador. O país da '
-    + 'empresa e a localização publicada nunca contam como essa exigência, então trabalho remoto feito de onde '
-    + 'você mora não é afetado. Deixe vazio se não tiver certeza.',
-  'fieldHelp.sponsorship_needed': 'Usado só para uma vaga presencial ou híbrida num desses países que diz não '
-    + 'patrocinar vistos. Trabalho remoto feito de onde você mora não precisa de visto. Onde você mora e sua '
-    + 'nacionalidade nunca são usadas para responder isso por você.',
+  'fieldHelp.not_authorized_countries': 'Usado quando a vaga diz com todas as letras que exige autorização para '
+    + 'trabalhar num desses países: ela aparece como incompatível, com a frase do empregador, sendo remota ou '
+    + 'não. Só o país da empresa, ou uma localização publicada que pode ser o escritório, não conta como essa '
+    + 'exigência. Deixe vazio se não tiver certeza.',
+  'fieldHelp.sponsorship_needed': 'Usado para uma vaga presencial ou híbrida num desses países que diz não '
+    + 'patrocinar vistos. Numa vaga remota, vale o que o empregador escreve sobre onde você pode morar ou ter '
+    + 'autorização. Onde você mora e sua nacionalidade nunca são usadas para responder isso por você.',
   'fieldHelp.contractor': 'Algumas vagas são oferecidas como contrato de prestação de serviços, e não como '
     + 'emprego. Isso não tem a ver com visto nem com vínculo de emprego. Responda só se souber.',
   'fieldHelp.contractor_abroad': 'Perguntado à parte: um não no Brasil não é um não no exterior. As vagas '

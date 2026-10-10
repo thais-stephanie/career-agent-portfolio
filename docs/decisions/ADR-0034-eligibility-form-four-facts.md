@@ -72,15 +72,22 @@ location), and what the posting explicitly requires.
   whose work model is not stated, the location may be the office; the
   requirement stays to confirm.
 * "We do not sponsor visas" refuses only on-site or hybrid work in that
-  country. On a remote role it is to confirm: a visa is needed to work in a
-  country, not to work for a company there.
-* An explicit "authorized to work in the United States" or "US citizenship
-  required" still refuses whoever declared she is not authorized there,
-  remote or not: the employer asked for it in so many words.
+  country. On a remote role it is to confirm, because the sentence alone
+  does not say where the work must be done.
+* An EXPLICIT restriction still refuses on a remote role: "authorized to
+  work in the United States" or "US citizenship required" for whoever
+  declared she is not authorized there, and a written territory or
+  residence limit ("must reside in the United States", "open to US
+  residents only", a declared scope field `USA Only`) for whoever does not
+  live there. Only a published location that may be an office ("San
+  Francisco, CA", "Remote U.S.") is to confirm on its own. Two forms were
+  added so this holds without configured blocker phrases: `US residents
+  only` in prose, and a trailing `Only` on a declared scope field.
 * The field labels say so: "Countries where you know you are not currently
   authorized to work" and "Countries where you would need visa sponsorship
-  to work on site". Both stay optional; an empty answer leaves every such
+  to work on site". Neither help text claims remote work needs no visa or
+  authorization. Both stay optional; an empty answer leaves every such
   requirement pending.
 
-`READER_IDENTITY` `readers-8`; the work_authorization gate moves on the
-next full rescore.
+`READER_IDENTITY` `readers-8`; the work_authorization and geography gates
+move on the next full rescore.

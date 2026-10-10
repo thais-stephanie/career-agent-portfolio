@@ -521,12 +521,16 @@ _REGION_LIST = re.compile(
 _REGION_ONLY = re.compile(
     r"\b(?:(?:the\s+)?(?P<label>europe|eu|emea|apac|asia\s+pacific|north\s+america|latam|"
     r"latin\s+america|south\s+america|the\s+americas|americas|uk|usa|us|canada)"
-    r"(?:\s+based|\s+timezones?)?\s+only\b"
+    r"(?:\s+based|\s+timezones?|\s+residents)?\s+only\b"
     r"|\b(?:only|exclusively|solely)\s+(?:in|from|within|across|to)\s+(?:the\s+)?"
     r"(?P<label2>europe|eu|emea|apac|asia\s+pacific|north\s+america|latam|latin\s+america|"
     r"south\s+america|the\s+americas|americas|uk|usa|us|canada|united\s+states)\b)",
     re.IGNORECASE,
 )
+
+#: A trailing `only` on a declared scope field (`USA Only`): it says the list
+#: is exhaustive, which a declared field already is; it is not a place.
+_ONLY_SUFFIX = re.compile(r"[\s\-]*\bonly\s*$", re.IGNORECASE)
 
 #: AN EXCLUSION: `except Brazil`, `we cannot hire in Argentina`. Read for the
 #: one thing it can settle -- the candidate's own country named as excluded --
@@ -1485,7 +1489,8 @@ def evaluate_gates(
                 # the structured restriction decides. `Anywhere` resolves to
                 # WORLDWIDE and admits; `Jabalpur` resolves to nothing and
                 # stays unresolved.
-                verdict = _scope_verdict(config, _resolve_list(declared_scope), exhaustive=True)
+                listed = _ONLY_SUFFIX.sub("", declared_scope)
+                verdict = _scope_verdict(config, _resolve_list(listed), exhaustive=True)
                 if verdict is None:
                     outcome = GateOutcome(
                         gate=gate,

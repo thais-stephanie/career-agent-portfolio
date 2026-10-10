@@ -368,3 +368,54 @@ def test_nothing_declared_leaves_the_explicit_us_requirement_pending(base) -> No
         config, location="Remote", body="You must be authorized to work in the United States."
     )
     assert found["work_authorization"].result is GateResult.UNRESOLVED
+
+
+# An EXPLICIT territory, residence or authorization restriction still refuses
+# on a remote role; only a published location that may be an office does not.
+US_RESTRICTIONS = [
+    "This role is open to US residents only.",
+    "Candidates must reside in the United States.",
+    "You must be authorized to work in the United States.",
+]
+
+
+@pytest.mark.parametrize("sentence", US_RESTRICTIONS)
+@pytest.mark.parametrize("location", ["Remote", "San Francisco, CA", "Remote U.S."])
+def test_an_explicit_us_restriction_refuses_a_remote_role(no_us, sentence, location) -> None:
+    status, found = gates(no_us, location=location, body=f"{US_COMPANY} {sentence}")
+    failed = [g for g in found.values() if g.result is GateResult.FAIL]
+    assert failed, {k: (g.result, g.reason) for k, g in found.items()}
+    # Quoted from the employer's own sentence, never composed.
+    assert any(
+        g.quote and (g.quote.strip(" .") in sentence or sentence.rstrip(".") in g.quote)
+        for g in failed
+    ), [g.quote for g in failed]
+    assert status is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+
+
+def test_a_declared_us_only_hiring_scope_refuses_a_remote_role(no_us) -> None:
+    """The employer's own scope field: the WWR `USA Only` shape."""
+    result = match_job(
+        no_us,
+        JobFacts(
+            title="Integration Engineer",
+            description=f"{BODY} {US_COMPANY}",
+            location_raw="San Francisco, CA",
+            workplace_type="REMOTE",
+            declared_hiring_scope="USA Only",
+        ),
+        computed_at="2026-10-09T00:00:00Z",
+    )
+    gate = next(g for g in result.gates if g.gate == "geography")
+    assert gate.result is GateResult.FAIL, gate.reason
+    assert result.eligibility_status is EligibilityStatus.VERIFIED_NOT_ELIGIBLE
+
+
+@pytest.mark.parametrize("location", ["San Francisco, CA", "Remote U.S."])
+def test_an_ambiguous_published_location_alone_is_to_confirm(no_us, location) -> None:
+    """The same remote role with no restriction written: the location may be
+    the office. To confirm, never a refusal."""
+    status, found = gates(no_us, location=location, body=US_COMPANY)
+    assert found["geography"].result is GateResult.UNRESOLVED, found["geography"].reason
+    assert not any(g.result is GateResult.FAIL for g in found.values())
+    assert status is not EligibilityStatus.VERIFIED_NOT_ELIGIBLE

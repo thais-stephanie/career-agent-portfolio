@@ -132,8 +132,9 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:   readers-8  Where the work is (2026-10-09, ADR-0034 addendum): a
 #:              requirement that names no country takes the posting's
 #:              location only for an on-site or hybrid role, and "we do not
-#:              sponsor visas" refuses only on-site or hybrid work. The
-#:              work_authorization gate moves.
+#:              sponsor visas" refuses only on-site or hybrid work; "US
+#:              residents only" and a declared "USA Only" refuse. The
+#:              work_authorization and geography gates move.
 READER_IDENTITY = "readers-8"
 
 
