@@ -9965,6 +9965,8 @@ table.jobs .row--blocked .cell__title-btn, table.jobs .row--offtarget .cell__tit
 }
 .d-row__mark--yes { background: var(--m1-bg); color: var(--m1-fg); }
 .d-row__mark--part { background: var(--m2-bg); color: var(--m2-fg); }
+/* Not stated, or no conflict: an outline, never the tick of a match. */
+.d-row__mark--open { border: 1.5px solid var(--divider); color: var(--muted); background: transparent; }
 .d-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .drawer__panel .d-row__title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
 .drawer__panel .d-row__text { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
@@ -10937,3 +10939,16 @@ table.jobs .cell__title-btn { max-width: 100%; }
 }
 .profile__evnotetext { margin: 0; flex: 1 1 320px; min-width: 0; font-size: var(--t-body); color: var(--body); }
 .profile__evnote > .btn { flex: none; }
+
+/* My Profile: skills, edited in their own card (2026-10-10). */
+.profile__skillshead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.profile__skillshead .profile__heading { margin: 0; }
+.skilledit__list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.skilledit__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.skilledit__row .skilledit__name { flex: 1 1 220px; min-width: 0; }
+.skilledit__row.is-removed .skilledit__name { text-decoration: line-through; opacity: .6; }
+.skilledit__note { font-size: 13px; color: var(--muted); }
+.skilledit__addrow { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.skilledit__addrow .skilledit__add { flex: 1 1 220px; min-width: 0; }
+.skilledit__status { min-height: 1.2em; margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.skilledit__actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

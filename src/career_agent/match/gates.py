@@ -1532,16 +1532,29 @@ def evaluate_gates(
                             f"{country_label(config)}."
                         ),
                     )
-            outcome = _reconcile_scope_clauses(
-                _scope_clause_readings(config, description_field),
-                outcome,
+            clause_readings = _scope_clause_readings(config, description_field)
+            outcome = _reconcile_scope_clauses(clause_readings, outcome)
+            # THE EMPLOYER'S OWN EXPLICIT STATEMENT ADMITS HER (2026-10-10).
+            # "Candidates must be based in Latin America" beside a published
+            # `Buenos Aires, AR` is where the board files the role and where
+            # the employer hires, two facts that do not conflict; only prose,
+            # a declared field or an aggregator's sighting is withdrawn below.
+            stated_by_employer = (
+                outcome is not None
+                and outcome.result is GateResult.PASS
+                and any(r.explicit and r.outcome is outcome for r in clause_readings)
             )
             # A location may explicitly qualify remote work even when the ATS
             # has no separate workplace-type field. Do not let generic benefits
             # prose certify worldwide hiring against that unresolved restriction.
             # This guard only withdraws a PASS; it never turns an office address
             # or the word "remote" into permission or a definitive refusal.
-            if published_excludes and outcome is not None and outcome.result is GateResult.PASS:
+            if (
+                published_excludes
+                and not stated_by_employer
+                and outcome is not None
+                and outcome.result is GateResult.PASS
+            ):
                 # Nothing else opens what the employer's published location
                 # leaves out: not prose ("we work remotely across the US,
                 # Europe, LatAm" beside `Remote U.S.` is a team description),

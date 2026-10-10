@@ -26,6 +26,7 @@ import { t } from './i18n.js';
 import {
   compactPlace, dateInputValue, formatDate, formatSalary, freshness, parseDate,
   relativeAge, statusLabel, statusOptions, vocabLabel,
+  displayTitle,
 } from './format.js';
 import { eligibilityWords, scoreCell, searchFitIsReady } from './badges.js';
 import { matchTone } from './cards.js';
@@ -453,7 +454,7 @@ function cell(column, job, ctx, aside) {
                   },
                 })
                 : null,
-            button(job.title || t('absent.untitled'), () => ctx.onOpen(job.job_id), {
+            button(displayTitle(job.title) || t('absent.untitled'), () => ctx.onOpen(job.job_id), {
               className: 'cell__title-btn',
               ariaLabel: t('table.openDetails', { title: job.title, company: job.company_name }),
               attrs: { title: job.title || '' },

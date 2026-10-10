@@ -675,6 +675,7 @@ export function createDrawer({
       fitSummary(job),
       whatFits(job),
       whatDoesNotFit(job),
+      leftOpen(job),
       canYouTake(job),
       fitFeedbackSection(job),
       debug ? scoreBreakdown(job) : null,
@@ -746,11 +747,27 @@ export function createDrawer({
     ]);
   }
 
+  /**
+   * THREE ANSWERS, NOT ONE TICK (2026-10-10). A preference the posting MET,
+   * a stated fact that is in NO CONFLICT with what she asked, and something
+   * the posting NEVER STATED. Unknown pay and contract used to earn points and
+   * sit under "What fits" with a tick, as if silence were a match.
+   */
+  const NOT_STATED = new Set(['salary_unknown', 'contract_unknown', 'work_model_unknown']);
+  const NO_CONFLICT = new Set(['contract_neutral', 'work_model_neutral']);
+  function assessment(component, contrib, job) {
+    if (NOT_STATED.has(contrib.signal_id)) return 'not_stated';
+    if (component.component_id === 'seniority' && !job.seniority_stated) return 'not_stated';
+    if (NO_CONFLICT.has(contrib.signal_id)) return 'no_conflict';
+    return 'met';
+  }
+
   /** The rows the score earned, strongest first, each with the ad's line. */
   function strengthRows(job) {
     const rows = [];
     for (const component of job.components || []) {
       for (const contrib of component.contributions || []) {
+        if (assessment(component, contrib, job) !== 'met') continue;
         if (Number(contrib.points) > 0 && contrib.counted !== false) {
           // The level row's server label names the enum ("a MID role"); the
           // reader gets the level in words, from the same reading.
@@ -780,6 +797,46 @@ export function createDrawer({
         ]),
       ]))),
     ], { lede: t('drawer.fitsLede') });
+  }
+
+  /** What the posting leaves open: never a match, never a mismatch. */
+  function leftOpen(job) {
+    const topic = {
+      salary_unknown: 'drawer.open.pay',
+      contract_unknown: 'drawer.open.contract',
+      contract_neutral: 'drawer.open.contract',
+      work_model_unknown: 'drawer.open.workModel',
+      work_model_neutral: 'drawer.open.workModel',
+    };
+    const rows = [];
+    for (const component of job.components || []) {
+      for (const contrib of component.contributions || []) {
+        const kind = assessment(component, contrib, job);
+        if (kind === 'met') continue;
+        const titleKey = component.component_id === 'seniority' ? 'drawer.open.level' : topic[contrib.signal_id];
+        if (!titleKey) continue;
+        const textKey = kind === 'no_conflict' ? 'drawer.open.noConflict'
+          : component.component_id === 'seniority' ? 'drawer.open.levelUnstated' : 'drawer.open.notStated';
+        rows.push({ kind, title: t(titleKey), text: t(textKey) });
+      }
+    }
+    if (!rows.length) return null;
+    return section(t('drawer.open.head'), [
+      el('ul', { className: 'reasons d-list-card' }, rows.map((row) => el('li', {
+        className: `reason d-row d-row--${row.kind === 'no_conflict' ? 'neutral' : 'unknown'}`,
+        attrs: { 'data-assessment': row.kind },
+      }, [
+        el('span', {
+          className: 'd-row__mark d-row__mark--open',
+          text: row.kind === 'no_conflict' ? '○' : '?',
+          attrs: { 'aria-hidden': 'true' },
+        }),
+        el('div', { className: 'd-row__body' }, [
+          el('p', { className: 'd-row__title', text: row.title }),
+          el('p', { className: 'd-row__text', text: row.text }),
+        ]),
+      ]))),
+    ], { lede: t('drawer.open.lede') });
   }
 
   function whatDoesNotFit(job) {

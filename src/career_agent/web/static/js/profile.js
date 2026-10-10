@@ -15,7 +15,7 @@
  * the reader that the panel is unreliable.
  */
 
-import { patchProfile, setUnsure } from './api.js';
+import { createClaim, editClaim, patchProfile, retireClaim, setUnsure } from './api.js';
 import { button, clear, el, field, replace } from './dom.js';
 import { getLocale, t, tVocab } from './i18n.js';
 import { tagInput } from './tags.js';
@@ -118,9 +118,10 @@ function foldOf(section) {
  * candidate tabs simply do not appear.
  */
 export function renderProfile(mount, data, ledger = null, {
-  experience = null, tab = null, who = null, onGo = null,
+  experience = null, tab = null, who = null, onGo = null, onSkillsSaved = null,
 } = {}) {
   clear(mount);
+  skillsSaved = onSkillsSaved;
 
   // NO PROVENANCE ABOVE THE ANSWERS. Two sentences used to open this page:
   // which YAML file the answers were read from, and that there is no candidate
@@ -162,9 +163,9 @@ export function renderProfile(mount, data, ledger = null, {
   // claim-grouped panel below is the fallback for a caller that has none.
   if (experience) panels.experience.push(experience);
   else if (roles.length) panels.experience.push(experiencePanel(roles));
-  if (skills.length || qualifications(confirmed).length) {
-    panels.skills.push(skillsPanel(skills, confirmed));
-  }
+  // Drawn whenever there is a ledger, empty or not: it is where a skill is
+  // added now, and an absent tab offers nothing to add to.
+  if (ledger) panels.skills.push(skillsPanel(skills, confirmed, data.wanted_tools || []));
 
   // -- and what she is looking for ---------------------------------------
   const folds = { answers: [], reading: [], phrases: [] };
@@ -344,7 +345,7 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
   const proof = confirmed.some((claim) => claim.claim_type === 'PROJECT' || claim.claim_type === 'ACHIEVEMENT');
   const facts = [
     { key: 'work', has: work.length > 0, go: 'experience' },
-    { key: 'skills', has: skills.length > 0, go: 'experience' },
+    { key: 'skills', has: skills.length > 0, go: 'skills' },
     { key: 'proof', has: proof, go: 'evidence' },
     { key: 'quals', has: quals.length > 0, go: 'evidence' },
   ];
@@ -356,18 +357,10 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
       roleBody(roles[0], { lines: 2, more: false }),
     ])
     : null;
-  const shownSkills = unique.slice(0, SKILL_GLANCE);
   const glance = skills.length
-    ? el('section', { className: 'card card--static profile__glance' }, [
-      el('h3', { className: 'profile__heading', text: t('profile.yourSkills') }),
-      el('div', { className: 'evchips profile__chips' }, shownSkills.map(skillChip)),
-      unique.length > shownSkills.length
-        ? el('p', {
-          className: 'profile__lead',
-          text: t('profile.andMoreSkills', { n: unique.length - shownSkills.length }),
-        })
-        : null,
-    ].filter(Boolean))
+    ? skillsCard(skills, {
+      className: 'profile__glance', headingKey: 'profile.yourSkills', limit: SKILL_GLANCE, tab: 'overview',
+    })
     : null;
   let glanceShown = false;
   // NOTHING TO DO IS ONE LINE, NOT A CARD. A card holding only "nothing
@@ -488,13 +481,155 @@ function uniqueSkills(skills) {
   });
 }
 
-/** A confirmed skill, as a word. Its provenance is the title, not a badge. */
-function skillChip(claim) {
-  return el('span', {
-    className: 'evchip evchip--static',
-    text: claim.text,
-    attrs: { title: t(`ledger.source.${claim.source}`) },
-  });
+//: Called after a skills edit is saved, with the tab it was made on.
+let skillsSaved = null;
+
+/** One entry per name, carrying every claim behind it (CV, LinkedIn, typed). */
+function skillGroups(skills) {
+  const groups = new Map();
+  for (const claim of skills) {
+    const name = claim.text.trim().toLowerCase();
+    if (!groups.has(name)) groups.set(name, { text: claim.text.trim(), keys: [], sources: new Set() });
+    groups.get(name).keys.push(claim.claim_key);
+    groups.get(name).sources.add(claim.source);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Her skills as chips, with an editor in the same card (2026-10-10).
+ *
+ * It edits the EVIDENCE LEDGER through the ledger's own routes, so this is
+ * not a second store over the same facts: a rename is a new revision that
+ * keeps the line it was read from, a removal is a retirement (a revision,
+ * never a delete, undone from Proof of my work), and a skill typed here is
+ * SELF_ATTESTED, citing nothing. Nothing here creates an experience, a
+ * certificate or a proof of work, and no claim of another kind is touched.
+ */
+function skillsCard(skills, { className = '', headingKey, leadKey = '', limit = 0, tab = 'skills' }) {
+  const host = el('section', { className: `card card--static profile__skills ${className}`.trim() });
+  const groups = skillGroups(skills);
+  let edit = null;
+  const view = () => {
+    const shown = limit ? groups.slice(0, limit) : groups;
+    replace(host, [
+      el('div', { className: 'profile__skillshead' }, [
+        el('h3', { className: 'profile__heading', text: t(headingKey) }),
+        button(t('profile.skills.edit'), () => edit(), { className: 'btn btn--small profile__skillsedit' }),
+      ]),
+      leadKey ? el('p', { className: 'profile__lead', text: t(leadKey) }) : null,
+      shown.length
+        ? el('div', { className: 'evchips profile__chips' }, shown.map((group) => el('span', {
+          className: 'evchip evchip--static',
+          text: group.text,
+          attrs: { title: [...group.sources].map((src) => t(`ledger.source.${src}`)).join(' / ') },
+        })))
+        : el('p', { className: 'profile__lead', text: t('profile.skills.empty') }),
+      groups.length > shown.length
+        ? el('p', {
+          className: 'profile__lead',
+          text: t('profile.andMoreSkills', { n: groups.length - shown.length }),
+        })
+        : null,
+    ].filter(Boolean));
+  };
+  edit = () => {
+    const rows = groups.map((group) => ({ ...group, original: group.text, removed: false }));
+    const list = el('ul', { className: 'skilledit__list' });
+    const status = el('p', { className: 'skilledit__status', attrs: { 'aria-live': 'polite' } });
+    const save = button(t('profile.skills.save'), () => { void commit(); }, { className: 'btn btn--primary' });
+    const draw = () => replace(list, rows.map((row, index) => el('li', {
+      className: `skilledit__row${row.removed ? ' is-removed' : ''}`,
+    }, [
+      el('input', {
+        className: 'input skilledit__name',
+        attrs: {
+          type: 'text',
+          value: row.text,
+          maxlength: '100',
+          'aria-label': t('profile.skills.nameLabel', { n: index + 1 }),
+          ...(row.removed ? { disabled: '' } : {}),
+        },
+        on: { input: (event) => { row.text = event.target.value; } },
+      }),
+      row.removed ? el('span', { className: 'skilledit__note', text: t('profile.skills.removed') }) : null,
+      button(t(row.removed ? 'profile.skills.undoRemove' : 'profile.skills.remove'), () => {
+        if (!row.keys.length) rows.splice(index, 1);
+        else row.removed = !row.removed;
+        draw();
+      }, { className: 'btn btn--small' }),
+    ].filter(Boolean))));
+    const adder = el('input', {
+      className: 'input skilledit__add',
+      attrs: {
+        type: 'text',
+        maxlength: '100',
+        placeholder: t('profile.skills.addPlaceholder'),
+        'aria-label': t('profile.skills.addPlaceholder'),
+      },
+    });
+    const add = () => {
+      const text = adder.value.trim();
+      if (!text) return;
+      const name = text.toLowerCase();
+      if (!rows.some((row) => row.text.trim().toLowerCase() === name && !row.removed)) {
+        rows.push({ text, original: '', keys: [], sources: new Set(), removed: false });
+      }
+      adder.value = '';
+      draw();
+      adder.focus();
+    };
+    adder.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        add();
+      }
+    });
+    async function commit() {
+      if (rows.some((row) => !row.removed && !row.text.trim())) {
+        status.textContent = t('profile.skills.blank');
+        return;
+      }
+      save.disabled = true;
+      status.textContent = t('profile.skills.saving');
+      try {
+        for (const row of rows) {
+          const text = row.text.trim();
+          if (!row.keys.length) {
+            if (!row.removed) await createClaim({ claim_type: 'SKILL', text });
+          } else if (row.removed) {
+            for (const key of row.keys) await retireClaim(key);
+          } else if (text !== row.original) {
+            for (const key of row.keys) await editClaim(key, { text });
+          }
+        }
+        if (skillsSaved) await skillsSaved(tab);
+        else view();
+      } catch (error) {
+        save.disabled = false;
+        status.textContent = error.userMessage || error.message;
+      }
+    }
+    draw();
+    replace(host, [
+      el('h3', { className: 'profile__heading', text: t(headingKey) }),
+      el('p', { className: 'profile__lead', text: t('profile.skills.editNote') }),
+      list,
+      el('div', { className: 'skilledit__addrow' }, [
+        adder,
+        button(t('profile.skills.add'), add, { className: 'btn' }),
+      ]),
+      status,
+      el('div', { className: 'skilledit__actions' }, [
+        save,
+        button(t('profile.skills.cancel'), view, { className: 'btn' }),
+      ]),
+    ]);
+    const first = host.querySelector('.skilledit__name, .skilledit__add');
+    if (first) first.focus();
+  };
+  view();
+  return host;
 }
 
 /** The lines under one role, with the rest behind a disclosure. */
@@ -560,16 +695,22 @@ function experiencePanel(roles) {
  * clearest possible case of manufacturing fit. What it does hold is WHERE
  * each skill came from, which is on the chip.
  */
-function skillsPanel(skills, confirmed) {
+function skillsPanel(skills, confirmed, wanted = []) {
   const certificates = confirmed.filter((claim) => claim.claim_type === 'CERTIFICATION');
   const education = confirmed.filter((claim) => claim.claim_type === 'EDUCATION');
-  const chips = uniqueSkills(skills);
-  const out = [];
-  if (chips.length) {
-    out.push(el('section', { className: 'card card--static' }, [
-      el('h3', { className: 'profile__heading', text: t('profile.skillsHeading') }),
-      el('p', { className: 'profile__lead', text: t('profile.skillsLead') }),
-      el('div', { className: 'evchips profile__chips' }, chips.map(skillChip)),
+  const out = [skillsCard(skills, {
+    headingKey: 'profile.skillsHeading', leadKey: 'profile.skillsLead', tab: 'skills',
+  })];
+  // SKILLS SHE HAS AND TOOLS SHE WANTS ARE TWO LISTS IN TWO PLACES. The
+  // first is the evidence ledger; the second is her search, which scores
+  // postings. Editing one never touches the other.
+  if (wanted.length) {
+    out.push(el('section', { className: 'card card--static profile__wanted' }, [
+      el('h3', { className: 'profile__heading', text: t('profile.wanted.heading') }),
+      el('p', { className: 'profile__lead', text: t('profile.wanted.lead') }),
+      el('div', { className: 'evchips profile__chips' }, wanted.map((name) => el('span', {
+        className: 'evchip evchip--static', text: name,
+      }))),
     ]));
   }
   if (certificates.length) {

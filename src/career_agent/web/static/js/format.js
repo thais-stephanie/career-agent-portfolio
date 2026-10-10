@@ -413,3 +413,80 @@ export function phraseProblem(lines) {
   const long = lines.findIndex((line) => line.length > MAX_SEARCH_PHRASE_LENGTH);
   return long >= 0 ? t('setup.work.tooLong', { line: long + 1 }) : '';
 }
+
+// ---------------------------------------------------------------------------
+// Titles written twice, once in English (2026-10-10)
+// ---------------------------------------------------------------------------
+
+/** Off unless she chose it in Settings > Look; remembered in this browser. */
+export const ENGLISH_TITLES_KEY = 'careerAgent.englishTitles.v1';
+
+export function prefersEnglishTitles() {
+  try {
+    return window.localStorage.getItem(ENGLISH_TITLES_KEY) === '1';
+  } catch (error) {
+    return false;
+  }
+}
+
+export function rememberEnglishTitles(on) {
+  try {
+    window.localStorage.setItem(ENGLISH_TITLES_KEY, on ? '1' : '0');
+  } catch (error) {
+    /* Applies for this visit either way. */
+  }
+}
+
+const LETTER = /\p{L}/u;
+const LATIN = /\p{Script=Latin}/u;
+const UNSPACED = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}]/u;
+const isForeign = (ch) => LETTER.test(ch) && !LATIN.test(ch);
+
+/**
+ * The English half of a title that repeats itself in another script, or the
+ * title unchanged. Display only: the stored title and the drawer keep the
+ * original, and nothing is translated.
+ *
+ * Conservative on purpose, because a non-Latin run can be the only place a
+ * name or a town is written:
+ * - the title must START with a readable Latin part (three letters or more);
+ * - Greek, Cyrillic and the like are dropped only after an explicit separator
+ *   (`/`, `|`, `(`, ` - `), so "To Oxygen Plus ..." or "Supervisor ... Rodos"
+ *   stay whole; Chinese, Japanese, Korean and Thai may follow a plain space;
+ * - a Latin part AFTER the other script survives: "(Customer Experience)",
+ *   "- Chios", "Hanam Starfield (25h)".
+ */
+export function englishTitle(title) {
+  if (!title) return title;
+  const chars = [...title];
+  const first = chars.findIndex(isForeign);
+  if (first < 0) return title;
+  let last = chars.length - 1;
+  while (last >= 0 && !isForeign(chars[last])) last -= 1;
+  const lead = chars.slice(0, first).join('');
+  const gap = lead.match(/[\s/|\uFF0F\uFF5C(\uFF08\-\u2013\u2014:,]*$/)[0];
+  const head = lead.slice(0, lead.length - gap.length).trim();
+  if ([...head].filter((ch) => LETTER.test(ch)).length < 3) return title;
+  const middle = chars.slice(first, last + 1).join('');
+  const explicit = /[/|\uFF0F\uFF5C(\uFF08]|\s[-\u2013\u2014]/.test(gap);
+  // Without a separator: an unspaced script after a space, and two words of
+  // Latin before it ("MYP" + Chinese is one title, not two).
+  if (!explicit && !(UNSPACED.test(middle) && /\s/.test(gap) && head.split(/\s+/).length >= 2)) {
+    return title;
+  }
+  // Mostly the other script, or it is a mixed phrase (a brand inside Greek).
+  const letters = [...middle].filter((ch) => LETTER.test(ch));
+  if (letters.filter(isForeign).length * 2 <= letters.length) return title;
+  let tail = chars.slice(last + 1).join('');
+  const dashed = /^[\s)\uFF09\]]*[-\u2013\u2014]/.test(tail);
+  tail = tail.replace(/^[\s)\uFF09\]/|\uFF0F\uFF5C,:\-\u2013\u2014]+/, '').trim();
+  if (!tail || !LETTER.test(tail)) return head;
+  if (tail.startsWith('(')) return `${head} ${tail}`;
+  if (dashed || tail.split(/\s+/).length >= 2) return `${head} - ${tail}`;
+  return head;
+}
+
+/** What a card or a row shows as the title, under her display choice. */
+export function displayTitle(title) {
+  return prefersEnglishTitles() ? englishTitle(title) : title;
+}

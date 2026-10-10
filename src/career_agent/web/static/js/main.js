@@ -49,7 +49,7 @@ import { recalcButton } from './recalc.js';
 import { createSourcesPanel } from './sources.js';
 import { createShell } from './shell.js';
 import { createLocalProfiles } from './local-profiles.js';
-import { humanLabel, statusLabel } from './format.js';
+import { humanLabel, prefersEnglishTitles, rememberEnglishTitles, statusLabel } from './format.js';
 
 const store = createStore();
 
@@ -2792,6 +2792,17 @@ function paintLook() {
     settingsCard(t('look.language'), t('look.languageSub'), [el('div', { className: 'look__grid' },
       LOCALES.map((locale) => choice(getLocale() === locale, t(`locale.name.${locale}`), t(`look.region.${locale}`),
         () => choose('locale-host', 'data-locale', locale))))]),
+    // Display only: the stored title and the job's details keep the original.
+    settingsCard(t('look.titles'), t('look.titlesSub'), [el('div', { className: 'look__grid' },
+      [false, true].map((english) => choice(prefersEnglishTitles() === english,
+        t(english ? 'look.titlesEnglish' : 'look.titlesOriginal'),
+        t(english ? 'look.titlesEnglishSub' : 'look.titlesOriginalSub'),
+        () => {
+          rememberEnglishTitles(english);
+          // Repaint what is held: no question moved, so nothing is asked again.
+          paint(store.get());
+          keepFocus(document.getElementById('settings-look-host'), paintLook);
+        })))]),
   ]);
 }
 
@@ -2904,9 +2915,15 @@ function drawProfile(host, tab = null) {
     experience: experienceNode,
     tab,
     who: localProfiles.activeLabel(),
+    // A skills edit is written through the evidence routes; read the ledger
+    // again and stay on the tab it was made on.
+    onSkillsSaved: async (savedTab) => {
+      lastLedger = await api.getEvidence();
+      drawProfile(host, savedTab);
+    },
     onGo: (target) => {
-      if (target === 'experience') {
-        if (profileTabs) profileTabs.show('experience');
+      if (target === 'experience' || target === 'skills') {
+        if (profileTabs) profileTabs.show(target);
       } else if (target === 'answers') {
         home.openSetup('welcome');
         goTo('home');

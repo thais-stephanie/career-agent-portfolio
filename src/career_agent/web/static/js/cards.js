@@ -28,6 +28,7 @@ import { el, button, extLink, replace } from './dom.js';
 import {
   compactPlace, formatDate, formatSalary, parseDate, relativeAge, scoreDisplay, statusLabel,
   vocabLabel,
+  displayTitle,
 } from './format.js';
 import { eligibilityWords, searchFitIsReady } from './badges.js';
 import { t } from './i18n.js';
@@ -116,7 +117,8 @@ function card(job, handlers) {
     el('p', { className: 'card__company', text: job.company_name || t('absent.companyStated') }),
     el('h3', {
       className: 'card__title',
-      text: job.title || t('absent.untitled'),
+      // The English half when she chose it; the original always on hover.
+      text: displayTitle(job.title) || t('absent.untitled'),
       attrs: { title: job.title || '' },
     }),
   ]));

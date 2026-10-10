@@ -506,6 +506,14 @@ def _source_summary(observed: list, refresh: list[dict], opted: frozenset[str]) 
     }
 
 
+
+def _wanted_tools(config: object) -> list[str]:
+    """The tools phrases of the search, as she typed them (setup's own split)."""
+    from career_agent.web.workspace_api import _first_search_phrases
+
+    return _first_search_phrases(config)[1]
+
+
 class JobsApi(WorkspaceRoutes, LocalApp):
     """`LocalApp` with the routes bound. Constructed by the `serve` command."""
 
@@ -1456,6 +1464,10 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 "config_version": config.config_version,
             },
             "sections": sections,
+            # THE TOOLS SHE WANTS TO USE NEXT, kept apart from the skills she
+            # HAS (claims in the evidence ledger). These are search phrases:
+            # they score postings, and changing them means recalculating.
+            "wanted_tools": _wanted_tools(config),
             # What a person may change here, described by the same table that
             # validates the write. A control the backend would refuse is worse
             # than no control at all.
