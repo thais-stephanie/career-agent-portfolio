@@ -44,6 +44,7 @@ import { documentsPage } from './documents.js';
 import { evidencePage } from './evidence_page.js';
 import { experienceView } from './experience.js';
 import { createDaily } from './daily.js';
+import { createDeep } from './deep.js';
 import { createHome } from './home.js';
 import { recalcButton } from './recalc.js';
 import { createSourcesPanel } from './sources.js';
@@ -248,6 +249,16 @@ const daily = createDaily({
 document.getElementById('daily-host').appendChild(daily.root);
 document.getElementById('daily-open')
   .addEventListener('click', (event) => daily.open(event.currentTarget));
+
+const deepReading = createDeep({
+  onOpenJob: (jobId) => {
+    store.set({ openJobId: jobId });
+    drawer.open(jobId, document.getElementById('deep-open'));
+  },
+});
+document.getElementById('deep-host').appendChild(deepReading.root);
+document.getElementById('deep-open')
+  .addEventListener('click', (event) => deepReading.open(event.currentTarget));
 
 // =========================================================================
 // The five destinations
@@ -3348,6 +3359,7 @@ function relabelStaticText() {
   // nobody would ever see it.
   swap('#resultsheading', 'rail.resultsHeading');
   swap('#daily-open', 'daily.open');
+  swap('#deep-open', 'deep.open');
   // The rail's status line and the site alert are drawn from state, so they
   // are redrawn rather than swapped.
   drawRailStatus();

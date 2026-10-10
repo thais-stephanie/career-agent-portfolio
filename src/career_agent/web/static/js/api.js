@@ -916,6 +916,35 @@ export async function cancelSemantic() {
   return request('/semantic/run/cancel', { method: 'POST', body: {} });
 }
 
+// The deep reading (deep_api.py). Nothing runs without `confirm: true`.
+export async function getDeep() {
+  return request('/deep');
+}
+
+export async function setDeepConsent(shareEvidence) {
+  return request('/deep/consent', { method: 'POST', body: { share_evidence: shareEvidence } });
+}
+
+export async function previewDeep(options = {}) {
+  return request('/deep/preview', { method: 'POST', body: options });
+}
+
+export async function startDeep(options = {}) {
+  return request('/deep/run', { method: 'POST', body: { ...options, confirm: true } });
+}
+
+export async function getDeepRun() {
+  return request('/deep/run');
+}
+
+export async function cancelDeep() {
+  return request('/deep/run/cancel', { method: 'POST', body: {} });
+}
+
+export async function getDeepReviews() {
+  return request('/deep/reviews');
+}
+
 export async function getSearchFitReadiness() {
   return request('/search-fit/readiness');
 }

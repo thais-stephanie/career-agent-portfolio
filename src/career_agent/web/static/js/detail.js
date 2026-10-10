@@ -38,6 +38,7 @@ import { t, tState } from './i18n.js';
 import { cautionOf, markChecked } from './caution.js';
 import * as api from './api.js';
 import { versionLabel } from './resume_library.js';
+import { deepSection } from './deep.js';
 
 //: The gates, in the order "Can you take this job?" shows them.
 const GATE_ORDER = ['geography', 'work_authorization', 'worksite', 'travel', 'clearance', 'credential', 'requirement'];
@@ -677,6 +678,7 @@ export function createDrawer({
       whatDoesNotFit(job),
       leftOpen(job),
       canYouTake(job),
+      deepSection(job.deep_review || null, section),
       fitFeedbackSection(job),
       debug ? scoreBreakdown(job) : null,
     ].filter(Boolean);

@@ -142,6 +142,9 @@ STOP_PROVIDER = "PROVIDER_STOPPED"
 STOP_CANCELLED = "CANCELLED"
 STOP_PRICE_UNKNOWN = "PRICE_UNKNOWN"
 STOP_ERROR = "ERROR"
+#: The provider said a plan limit was reached. The run pauses at once; the
+#: next run resumes with what was not read, on the same provider only.
+STOP_LIMIT = "LIMIT_REACHED"
 
 
 @dataclass
@@ -439,15 +442,23 @@ def _evaluate(
         return provider.estimate_cost(ceiling_tokens(text), ceiling) or 0.0
 
     def ask(candidate: Candidate) -> tuple[Candidate, ProviderAnswer | None, str | None]:
+        if stop.is_set() or (cancel is not None and cancel.is_set()):
+            return candidate, None, None
         try:
             answer = provider.evaluate(intent, candidate.title, posting_text(candidate.description))
             return candidate, answer, None
         except ProviderFailed as exc:
+            if exc.limit:
+                stats.stop_reason = STOP_LIMIT
+                stop.set()
+                return candidate, None, None
             return candidate, None, f"{exc.state.value}: {exc}"
         except Exception as exc:  # noqa: BLE001 - one posting never aborts a run
             return candidate, None, f"ERROR: {type(exc).__name__}"
 
     def record(candidate: Candidate, answer: ProviderAnswer | None, error: str | None) -> None:
+        if answer is None and error is None:
+            return  # not asked: the run had already stopped or was cancelled
         if answer is None:
             stats.failed += 1
             failures[0] += 1

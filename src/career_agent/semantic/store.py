@@ -219,11 +219,13 @@ class SemanticRepo:
             ),
         )
 
-    def last_run(self) -> dict[str, object] | None:
+    def last_run(self, deep: bool = False) -> dict[str, object] | None:
+        """The newest run of the semantic findings, or of the deep reading."""
         row = self.conn.execute(
             "SELECT id, started_at, finished_at, mode, provider, status, stop_reason, candidates,"
             " budget_usd, estimated_usd, spent_usd, calls, cached, failed, rejected, published,"
             " input_tokens, output_tokens, fallback_json FROM semantic_run"
+            f" WHERE mode {'=' if deep else '<>'} 'deep'"
             " ORDER BY started_at DESC LIMIT 1"
         ).fetchone()
         if row is None:

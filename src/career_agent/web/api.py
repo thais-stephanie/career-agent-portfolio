@@ -539,6 +539,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.rescore = RetrievalRunner()
         #: Set by `register_semantic`; read by `start_rescore`.
         self.semantic_runner: RetrievalRunner | None = None
+        #: Set by `register_deep`; the deep reading's own runner.
+        self.deep_runner: RetrievalRunner | None = None
 
         self.register("GET", r"/api/health", self.health)
         self.register("GET", r"/api/app", self.app_identity)
@@ -568,6 +570,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.web.semantic_api import register_semantic
 
         register_semantic(self)
+        from career_agent.web.deep_api import register_deep
+
+        register_deep(self)
         self._active_source_refresh: str | None = None
         self.register("GET", r"/api/preferences", self.preferences)
         self.register("GET", r"/api/profile", self.profile)
@@ -2453,10 +2458,13 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 raise ApiError(404, "no such job")
             history = ApplicationRepo(conn).history(job_id)
             feedback = FitFeedbackRepo(conn).current(job_id, config_id, config_version)
+            deep = _deep_review(self, conn, job_id)
         detail = job_detail(
             row, bands=self._bands, today=utc_today(), recency=self._recency, history=history
         )
         detail["fit_feedback"] = feedback
+        # The deep reading sits BESIDE the score, never inside it.
+        detail["deep_review"] = deep
         return detail
 
     # -- mutations -------------------------------------------------------
@@ -3038,3 +3046,20 @@ def _as_dict(obj: Any, name: str) -> dict:
 
 def _get(obj: Any, name: str, default: Any = None) -> Any:
     return _attr(obj, name, default)
+
+
+def _deep_review(app: Any, conn: Any, job_id: str) -> dict | None:
+    """This posting's newest deep review, or None. A demo or an older
+    database without the table has none."""
+    import sqlite3
+
+    from career_agent.web.deep_api import _review_rows
+
+    try:
+        found_hash = conn.execute("SELECT content_hash FROM job WHERE id = ?", (job_id,)).fetchone()
+        if found_hash is None:
+            return None
+        found = _review_rows(app, conn, [str(found_hash[0])], detail=True)
+    except sqlite3.Error:
+        return None
+    return found[0] if found else None

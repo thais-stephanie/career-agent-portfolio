@@ -88,9 +88,19 @@ class ProviderAnswer:
 class ProviderFailed(RuntimeError):
     """No answer. Never a finding, never fit."""
 
-    def __init__(self, message: str, *, state: Availability = Availability.LIMIT_OR_ERROR):
+    def __init__(
+        self,
+        message: str,
+        *,
+        state: Availability = Availability.LIMIT_OR_ERROR,
+        limit: bool = False,
+    ):
         super().__init__(message)
         self.state = state
+        #: The provider said a plan limit or quota was reached. A run PAUSES on
+        #: the first one: retrying spends nothing useful, and nothing may move
+        #: the work onto another provider or onto paid usage.
+        self.limit = limit
 
 
 @runtime_checkable

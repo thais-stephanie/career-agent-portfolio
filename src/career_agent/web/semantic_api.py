@@ -233,7 +233,7 @@ def register_semantic(app: JobsApi) -> None:
         if not _is_personal(app):
             raise ApiError(409, "Demo mode never uses AI.", for_reader=True)
         with lock:
-            if runner.running:
+            if runner.running or (app.deep_runner is not None and app.deep_runner.running):
                 raise ApiError(409, "A semantic run is already in progress.", for_reader=True)
             if app.rescore.running:
                 raise ApiError(409, "Search Fit is being recalculated.", for_reader=True)
@@ -242,7 +242,12 @@ def register_semantic(app: JobsApi) -> None:
     def cancel_run(*, query: dict, body: dict) -> dict:
         if query or body:
             raise ApiError(400, "unexpected parameters", for_reader=True)
-        return {"cancelled": runner.cancel()}
+        from career_agent.semantic.providers.local_cli import terminate_running
+
+        cancelled = runner.cancel()
+        if cancelled:
+            terminate_running()  # the call in flight, not only the next one
+        return {"cancelled": cancelled}
 
     def run_status(*, query: dict, body: dict) -> dict:
         if query:

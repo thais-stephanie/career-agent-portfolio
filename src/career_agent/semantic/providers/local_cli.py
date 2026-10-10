@@ -32,6 +32,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -133,21 +134,52 @@ def _child_env() -> dict[str, str]:
     return {k: v for k, v in os.environ.items() if k.upper() in CHILD_ENVIRONMENT}
 
 
+#: Children answering right now, so a cancel can end them instead of waiting
+#: up to TIMEOUT_SECONDS for an answer nobody will read.
+_LIVE: set[subprocess.Popen[str]] = set()
+_LIVE_LOCK = threading.Lock()
+
+
+def terminate_running() -> int:
+    """End every child CLI call in flight. Returns how many were ended."""
+    with _LIVE_LOCK:
+        live = list(_LIVE)
+    for child in live:
+        child.kill()
+    return len(live)
+
+
 def _run(
     argv: list[str], stdin: str, timeout: float, cwd: str | None = None
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 - argv is built here, never from input
+    child = subprocess.Popen(  # noqa: S603 - argv is built here, never from input
         argv,
-        input=stdin,
-        capture_output=True,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
         errors="replace",
-        timeout=timeout,
         cwd=cwd,
         env=_child_env(),
-        check=False,
     )
+    with _LIVE_LOCK:
+        _LIVE.add(child)
+    try:
+        out, err = child.communicate(stdin, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        child.kill()
+        child.communicate()
+        raise
+    finally:
+        with _LIVE_LOCK:
+            _LIVE.discard(child)
+    return subprocess.CompletedProcess(argv, child.returncode, out, err)
+
+
+def _is_limit(text: str) -> bool:
+    folded = text.casefold()
+    return not any(w in folded for w in _AUTH_WORDS) and any(w in folded for w in _LIMIT_WORDS)
 
 
 def _failure_state(text: str) -> Availability:
@@ -273,7 +305,11 @@ class ClaudeCodeProvider:
             raise ProviderFailed("Claude Code returned unreadable output.") from exc
         if done.returncode != 0 or body.get("is_error"):
             reason = str(body.get("result") or done.stderr or "error")[:300]
-            raise ProviderFailed(f"Claude Code refused: {reason}", state=_failure_state(reason))
+            raise ProviderFailed(
+                f"Claude Code refused: {reason}",
+                state=_failure_state(reason),
+                limit=_is_limit(reason),
+            )
         answer = body.get("structured_output")
         raw = json.dumps(answer) if isinstance(answer, dict) else str(body.get("result") or "")
         usage = body.get("usage") or {}
@@ -439,7 +475,9 @@ class CodexProvider:
                 failure = json.dumps(event)[:300]
         if done.returncode != 0 or failure or not raw.strip():
             reason = failure or (done.stderr or "no answer")[-300:]
-            raise ProviderFailed(f"Codex refused: {reason}", state=_failure_state(reason))
+            raise ProviderFailed(
+                f"Codex refused: {reason}", state=_failure_state(reason), limit=_is_limit(reason)
+            )
         return ProviderAnswer(
             raw_text=raw,
             provider=self.id,

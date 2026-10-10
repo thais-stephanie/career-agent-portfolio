@@ -19,6 +19,7 @@ whether one is configured.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
@@ -26,6 +27,7 @@ import tempfile
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -61,6 +63,11 @@ class SemanticSettings(BaseModel):
     max_jobs_per_run: int = Field(default=300, ge=1, le=5000)
     #: Subscription providers spend the person's plan limits; a smaller cap.
     max_jobs_per_subscription_run: int = Field(default=25, ge=1, le=500)
+    #: The providers this profile allowed to receive its CONFIRMED evidence for
+    #: the deep reading (ADR-0035). Consent per profile and per
+    #: provider: empty by default, and only a signed-in subscription CLI can be
+    #: named, so no API key and no fallback ever receives a person's history.
+    share_evidence_with: list[Literal["claude_code", "codex"]] = Field(default_factory=list)
 
     @property
     def uses_findings(self) -> bool:
@@ -144,6 +151,8 @@ def save_settings(
 def _yaml_value(value: object) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
+    if isinstance(value, list):
+        return json.dumps(value)
     return str(value)
 
 
