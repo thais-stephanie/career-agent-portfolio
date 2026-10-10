@@ -61,11 +61,12 @@ NOTICE_TEXT = "document.getElementById('hiddennotice').textContent.toLowerCase()
 #: It moved, and this is the second time. It was nine, then eight when the
 #: eligibility default began hiding a posting that rules this candidate out.
 #: It was FIVE when the title stopped buying compatibility points: seven
-#: postings clear 55, and three of those seven are one role. It is SIX since
-#: 2026-10-08: a good match whose eligibility is still open is listed.
-FILTERED_COUNT = 6
+#: postings clear 55, and three of those seven are one role. It was SIX from
+#: 2026-10-08, a good match whose eligibility is still open being listed, and
+#: is FIVE again since 2026-10-10, when "to confirm" went back behind a switch.
+FILTERED_COUNT = 5
 #: The same population in Table, which does not group.
-FILTERED_UNGROUPED_COUNT = 8
+FILTERED_UNGROUPED_COUNT = 7  # 8 while "to confirm" was listed (2026-10-08 to 10)
 
 #: The role the corpus publishes three times, and the badge Cards draws for it.
 GROUPED_TITLE = "Business Systems Engineer"
@@ -806,18 +807,17 @@ def test_applying_records_a_date_that_stepping_back_does_not_erase(
     #
     # WHERE it survives is the 2026-09-07 correction, asserted here in the
     # browser because this is the test that used to assert the opposite. This
-    # posting is one the unresolved narrowing sets aside when she chooses to
-    # hide open questions (listed by default since 2026-10-08). Shortlisting
-    # it makes it a job she DECIDED about, and a decision is kept in the views
-    # that are about her decisions; it does not override her narrowing.
-    page.evaluate("window.localStorage.setItem('careerAgent.includeUnresolved.v1', '0')")
+    # posting is one the unresolved narrowing sets aside (hidden by default
+    # again since 2026-10-10). Shortlisting it makes it a job she DECIDED
+    # about, and a decision is kept in the views that are about her
+    # decisions; it does not override the narrowing.
+    page.evaluate("window.localStorage.removeItem('careerAgent.includeUnresolved.v2')")
     open_list(page, pristine_server, "?view=table")
-    wait_for_count(page, DEMO_VISIBLE_COUNT - DEMO_UNRESOLVED_COUNT, "after the reload")
+    wait_for_count(page, DEMO_VISIBLE_COUNT, "after the reload")
     assert page.evaluate(f"{node_for(APPLIED_TITLE)} === undefined"), (
         "a posting whose eligibility nothing answered came back into the "
-        "recommendations, past her choice to hide them, because she shortlisted it"
+        "recommendations, past the narrowing, because she shortlisted it"
     )
-    page.evaluate("window.localStorage.removeItem('careerAgent.includeUnresolved.v1')")
 
     # ...and it is right there on the board, carrying the date.
     open_list(page, pristine_server, "?view=table&status=SHORTLISTED")
@@ -2773,8 +2773,9 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
     # requirement you do not meet", "nobody could tell" and "your search set
     # this work aside" are different facts, and merging them is a defect this
     # product already shipped once.
-    # Postings whose eligibility is open are LISTED, and the notice says so.
-    assert "eligibility is not confirmed yet" in notice.lower(), notice
+    # Postings whose location is still to confirm are set aside, and the
+    # notice says so (2026-10-10).
+    assert "location is still to confirm" in notice.lower(), notice
     assert "hidden" in notice.lower()
     # **The off-target sentence is PRESENT SINCE demo-021, and its absence used
     # to be the reporting gap this suite recorded rather than papered over.**
@@ -2846,31 +2847,36 @@ def test_a_posting_that_rules_you_out_is_hidden_until_you_ask_for_it(
     assert not page.evaluate(f"Boolean({node_for(BLOCKED_TITLE)})")
 
 
-def test_an_open_eligibility_question_is_listed_and_says_what_is_left(
+def test_an_open_eligibility_question_is_one_switch_away_and_says_what_is_left(
     page: Chrome, pristine_server: str
 ) -> None:
-    """**This reverses V1.5, deliberately (2026-10-08).**
+    """**The main list is work she can do from where she lives (2026-10-10).**
 
-    V1.5 hid every posting that never said where the employer hires, so a
-    remote job naming no country could not be found without knowing a
-    switch existed. An open question is not a refusal. So:
+    V1.5 hid postings that never said where the employer hires; 2026-10-08
+    listed them; the owner moved them back behind a switch. Still never a
+    refusal:
 
-      * they are LISTED by default, and each card names what is left to
-        confirm ("To confirm: Where they hire"), never "rules you out";
-      * one switch in the notice hides them, and that choice is remembered;
+      * hidden by default, and the notice says why ("still to confirm");
+      * one switch lists them, each card naming what is left to confirm
+        ("To confirm: Where they hire"), and that choice is remembered;
       * asking for them by their own filter still works either way.
     """
     forget_eligibility_choice(page, pristine_server)
+    page.evaluate("window.localStorage.removeItem('careerAgent.includeUnresolved.v2')")
     open_list(page, pristine_server)
-    wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "with open questions listed")
-    # Wait for the EVENTS asserted about, not only for the count.
+    wait_for_count(page, DEMO_VISIBLE_GROUPED_COUNT, "with open questions set aside")
+    page.wait_for(f"{NOTICE_TEXT}.includes('still to confirm')", message="the notice")
+    notice = str(page.evaluate("document.getElementById('hiddennotice').textContent")).lower()
+    assert "nothing rules you out" in notice, notice
+
+    click(page, "document.querySelector('[data-notice=\"include_unresolved\"] .hidden__show')")
+    shown = DEMO_VISIBLE_GROUPED_COUNT + DEMO_UNRESOLVED_COUNT
+    wait_for_count(page, shown, "after asking to see them")
     page.wait_for(
         "Array.from(document.querySelectorAll('[data-job-id] .card__elig'))"
         f".filter((n) => /to confirm/i.test(n.innerText)).length === {DEMO_UNRESOLVED_COUNT}",
         message="the open questions to be labelled",
     )
-    page.wait_for(f"{NOTICE_TEXT}.includes('not confirmed yet')", message="the notice")
-
     labels = page.evaluate(
         "Array.from(document.querySelectorAll('[data-job-id] .card__elig'))"
         ".map((n) => n.innerText.trim())"
@@ -2879,22 +2885,12 @@ def test_an_open_eligibility_question_is_listed_and_says_what_is_left(
     assert len(pending) == DEMO_UNRESOLVED_COUNT, labels
     assert all("where they hire" in text.lower() for text in pending), pending
 
-    notice = str(page.evaluate("document.getElementById('hiddennotice').textContent")).lower()
-    assert "eligibility is not confirmed yet" in notice, notice
-
-    click(page, "document.querySelector('[data-notice=\"include_unresolved\"] .hidden__switch')")
-    hidden = DEMO_VISIBLE_GROUPED_COUNT - DEMO_UNRESOLVED_COUNT
-    wait_for_count(page, hidden, "after hiding them")
-    page.wait_for(f"{NOTICE_TEXT}.includes('nothing rules you out')", message="the hidden sentence")
-    notice = str(page.evaluate("document.getElementById('hiddennotice').textContent")).lower()
-    assert "not confirmed yet" in notice and "nothing rules you out" in notice, notice
-
     page.evaluate("window.location.href = window.location.pathname")
-    wait_for_count(page, hidden, "after reloading: her choice to hide them is remembered")
+    wait_for_count(page, shown, "after reloading: her choice to see them is remembered")
     assert page.evaluate(
-        "window.localStorage.getItem('careerAgent.includeUnresolved.v1') === '0'"
+        "window.localStorage.getItem('careerAgent.includeUnresolved.v2') === '1'"
     ), "the choice was not remembered"
-    page.evaluate("window.localStorage.removeItem('careerAgent.includeUnresolved.v1')")
+    page.evaluate("window.localStorage.removeItem('careerAgent.includeUnresolved.v2')")
 
 
 def test_the_choice_to_see_them_survives_a_reload(page: Chrome, pristine_server: str) -> None:

@@ -506,6 +506,26 @@ _ALLOWLIST_CLAUSES: tuple[re.Pattern[str], ...] = (
     ),
 )
 
+#: THE PLAIN FORMS (2026-10-10). "We hire candidates in Brazil only", "Open to
+#: candidates in Brazil": hiring statements
+#: in the employer's words, with neither a modal ("we can hire in") nor
+#: "based in". Read only when the list names a real place, so "we hire talent
+#: in over 40 countries" settles nothing and unsettles nothing.
+_PLAIN_ALLOWLIST: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(?:we|the\s+company)\s+(?:only\s+)?(?:hire|employ|recruit)\s+"
+        r"(?:candidates\s+|applicants\s+|people\s+|talent\s+|team\s+members\s+|remotely\s+)?"
+        r"(?:only\s+)?(?:in|from|within)\s+" + _LIST,
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:open|available)\s+(?:only\s+)?to\s+"
+        r"(?:candidates|applicants|people|talent|individuals|anyone)\s+(?:only\s+)?(?:in|from)\s+"
+        + _LIST,
+        re.IGNORECASE,
+    ),
+)
+
 #: A REGION LABEL WITH ITS OWN LIST: `LATAM (Argentina, Colombia, Mexico)`,
 #: `Latin America: Brazil, Argentina`, `Europe - Germany, France`. The label
 #: alone is regional hiring language; the list after it is the employer saying
@@ -905,6 +925,37 @@ def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_Sco
                 # Examples that happen not to name the candidate's country.
                 # They narrow nothing; whatever region they illustrate decides.
                 continue
+            readings.append(
+                _ScopeReading(
+                    _outcome_for(
+                        config,
+                        verdict=verdict,
+                        stated=listed,
+                        quote=text[start:end],
+                        start=start,
+                        end=end,
+                    ),
+                    explicit=True,
+                )
+            )
+
+    claimed = [(r.outcome.char_start, r.outcome.char_end) for r in readings]
+    for pattern in _PLAIN_ALLOWLIST:
+        for match in pattern.finditer(text):
+            start, end = match.span()
+            if any(a is not None and b is not None and start < b and end > a for a, b in claimed):
+                continue  # the same words, already read by a stricter form
+            if _clause_hit(field, start, end, config) is None:
+                continue
+            listed = _ONLY_SUFFIX.sub("", match.group("list").strip())
+            place = _resolve_list(listed)
+            if not place.countries and not place.stated_regions:
+                continue
+            exhaustive = _is_exhaustive(field, match.start("list"), listed)
+            verdict = _scope_verdict(config, place, exhaustive=exhaustive)
+            if verdict is None:
+                continue
+            claimed.append((start, end))
             readings.append(
                 _ScopeReading(
                     _outcome_for(

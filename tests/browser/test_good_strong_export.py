@@ -41,8 +41,9 @@ def test_the_saved_file_holds_every_good_and_strong_posting(
     page.evaluate("document.getElementById('export-good-strong').click()")
     page.wait_for("typeof window.__saved === 'string'", message="the saved file")
     expected = page.evaluate(
-        "fetch('/api/jobs?' + new URLSearchParams([['fit_band','GOOD'],['fit_band','STRONG'],"
-        " ['include_unresolved','1']]))"
+        # The default view since 2026-10-10: "to confirm" is not in it, so the
+        # saved file holds what the screen holds.
+        "fetch('/api/jobs?' + new URLSearchParams([['fit_band','GOOD'],['fit_band','STRONG']]))"
         ".then(r => r.json()).then(p => p.total)"
     )
     text = str(page.evaluate("window.__saved"))

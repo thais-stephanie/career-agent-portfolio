@@ -222,3 +222,19 @@ def test_unknown_pay_and_an_unasked_contract_leave_the_score(brazil) -> None:
     pay = next(c for c in result.components if c.component_id == "compensation_contract")
     assert pay.points == 0 and pay.max_points == 0
     assert [c.signal_id for c in pay.contributions] == ["salary_unknown"]
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        ("We hire candidates in Brazil only.", EligibilityStatus.VERIFIED_ELIGIBLE),
+        ("Open to candidates in Brazil.", EligibilityStatus.VERIFIED_ELIGIBLE),
+        ("We hire remotely from Latin America.", EligibilityStatus.VERIFIED_ELIGIBLE),
+        ("We hire candidates in United States only.", EligibilityStatus.VERIFIED_NOT_ELIGIBLE),
+        # Names no place: settles nothing, and does not unsettle anything.
+        ("We hire talent in over 40 countries.", EligibilityStatus.UNRESOLVED),
+    ],
+)
+def test_a_plain_hiring_statement_is_read_without_based_in(brazil, body, status) -> None:
+    got, gates = judged(brazil, location="Remote", body=body, workplace=None)
+    assert got is status, gates["geography"].reason

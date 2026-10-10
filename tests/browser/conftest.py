@@ -102,21 +102,24 @@ DEMO_OFF_TARGET_COUNT = 4
 #: And the three whose eligibility is still open: they never said where the
 #: employer may hire.
 #:
-#: V1.5 hid them by default. 2026-10-08 reversed that: an open question is not
-#: a refusal, and hiding it hid most remote work that names no country. They
-#: are LISTED by default, each card saying what is left to confirm, and one
-#: switch hides them (remembered). Absence is still never permission: they
-#: read "To confirm", never "eligible".
+#: V1.5 hid them by default; 2026-10-08 listed them; 2026-10-10 (the owner:
+#: the main list is work she can do from where she lives) hides them again,
+#: one switch away ("Include jobs whose location is still to confirm"),
+#: remembered under a new key. Never a refusal: they read "To confirm".
 DEMO_UNRESOLVED_COUNT = 3
 
 #: Postings on screen by default, ungrouped. Table, or `?group_duplicates=0`.
-DEMO_VISIBLE_COUNT = DEMO_POSTING_COUNT - DEMO_HIDDEN_COUNT - DEMO_OFF_TARGET_COUNT
+DEMO_VISIBLE_COUNT = (
+    DEMO_POSTING_COUNT - DEMO_HIDDEN_COUNT - DEMO_OFF_TARGET_COUNT - DEMO_UNRESOLVED_COUNT
+)
 
 #: Roles on screen by default, grouped. Cards. Each posting set aside by the
 #: two defaults belongs to a different company, so hiding them removes whole
 #: groups. Written as the subtraction so a corpus change that broke the
 #: assumption fails loudly here instead of quietly agreeing with itself.
-DEMO_VISIBLE_GROUPED_COUNT = DEMO_GROUPED_COUNT - DEMO_HIDDEN_COUNT - DEMO_OFF_TARGET_COUNT
+DEMO_VISIBLE_GROUPED_COUNT = (
+    DEMO_GROUPED_COUNT - DEMO_HIDDEN_COUNT - DEMO_OFF_TARGET_COUNT - DEMO_UNRESOLVED_COUNT
+)
 
 DESKTOP = (1440, 960)
 MOBILE = (390, 844)

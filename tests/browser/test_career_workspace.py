@@ -644,7 +644,7 @@ def test_the_skills_tab_separates_skills_certificates_and_education(
     )
     page.wait_for("document.querySelector('.profile__certs')", message="the certificates")
     chips = page.evaluate(
-        "[...document.querySelectorAll('#page-profile .profile__chips .evchip')]"
+        "[...document.querySelectorAll('#page-profile .profile__skills .profile__chips .evchip')]"
         ".map((n) => n.textContent)"
     )
     assert sorted(chips) == ["HubSpot", "Python"], chips
