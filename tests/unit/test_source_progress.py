@@ -487,3 +487,64 @@ def test_a_recent_partial_is_fresh_and_only_age_makes_it_due_or_stale(
     assert row.state is RefreshState.DUE and row.due
     (row,) = read_progress(ledger, stage_for={"x": "collect-x"}, now=NOW + timedelta(hours=80))
     assert row.state is RefreshState.STALE
+
+
+# =========================================================================
+# A FAILURE THAT KEPT POSTINGS, AND WHAT IS NOT HERS TO FIX (2026-10-10)
+# =========================================================================
+
+
+def test_a_failed_run_that_stored_postings_is_partial_and_counts_as_read(
+    ledger: sqlite3.Connection,
+) -> None:
+    """Workable, the first run of a new installation: 71,777 complete records
+    kept, then the 550 MB transfer did not finish. Not "Last check failed",
+    and not a task for her: part of the source was read."""
+    _run(
+        ledger,
+        "collect-src",
+        finished=NOW,
+        status="FAILED",
+        stats={"jobs_new": 71777, "failures": ["Partial XML: transfer did not finish"]},
+    )
+    row = _one(ledger)
+    assert row.state is RefreshState.PARTIAL
+    assert row.reason == "SOME_FAILED"
+    assert row.last_success is not None
+    assert not row.needs_attention
+
+
+def test_a_failed_run_that_stored_nothing_still_needs_attention(
+    ledger: sqlite3.Connection,
+) -> None:
+    _run(ledger, "collect-src", finished=NOW, status="FAILED", stats={"jobs_new": 0})
+    row = _one(ledger)
+    assert row.state is RefreshState.FAILED
+    assert row.last_success is None
+    assert row.needs_attention
+
+
+def test_a_site_that_refused_is_a_state_not_a_task(ledger: sqlite3.Connection) -> None:
+    """A refusal waits out the site's own cooldown; nothing is hers to fix."""
+    row = SourceProgress(source_id="src", provider="src", state=RefreshState.RATE_LIMITED)
+    assert not row.needs_attention
+
+
+def test_four_states_never_collapse_into_one() -> None:
+    """Never run, waiting in this check, unavailable and failed are different
+    sentences, and only the last asks her to act."""
+    attention = {
+        state: SourceProgress(source_id="src", provider="src", state=state).needs_attention
+        for state in (
+            RefreshState.NOT_STARTED,
+            RefreshState.QUEUED,
+            RefreshState.BLOCKED,
+            RefreshState.FAILED,
+        )
+    }
+    assert attention == {
+        RefreshState.NOT_STARTED: False,
+        RefreshState.QUEUED: False,
+        RefreshState.BLOCKED: False,
+        RefreshState.FAILED: True,
+    }

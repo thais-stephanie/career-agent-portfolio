@@ -359,12 +359,9 @@ const home = createHome({
   // Unknown (null) until `/api/sources` answers; tagged with its profile.
   sitesNeedingAttention: () => ({
     failed: railStatus.failed, profile: railStatus.profile,
-    attention: railStatus.attention, states: railStatus.states,
+    attention: railStatus.attention, states: railStatus.states, names: railStatus.names,
   }),
-  onFixSites: () => {
-    settingsTab = 'sites';
-    goTo('settings');
-  },
+  onFixSites: (id) => openSiteDetail(id),
   onOpenJob: (jobId) => {
     store.set({ openJobId: jobId });
     drawer.open(jobId, document.querySelector('.topnav__link[data-page="home"]'));
@@ -868,6 +865,24 @@ async function refreshReadiness() {
   }
 }
 
+//: A list read that takes longer than this says so; one that takes longer
+//: than the deadline is shown as a failure with a retry, never as loading.
+const LIST_SLOW_MS = 8000;
+const LIST_DEADLINE_MS = 90000;
+
+function withDeadline(promise, ms) {
+  let timer = null;
+  const deadline = new Promise((_, reject) => {
+    timer = window.setTimeout(() => {
+      const error = new Error(t('app.listTimeout'));
+      error.userMessage = t('app.listTimeout');
+      error.detail = t('app.listTimeoutDetail', { s: Math.round(ms / 1000) });
+      reject(error);
+    }, ms);
+  });
+  return Promise.race([promise, deadline]).finally(() => window.clearTimeout(timer));
+}
+
 async function load(queryString, state, { quiet = false } = {}) {
   lastQueryString = queryString;
   const token = ++inFlight;
@@ -876,6 +891,11 @@ async function load(queryString, state, { quiet = false } = {}) {
     showSkeleton(state);
     dom.count.textContent = t('app.loading');
   }
+  const slow = window.setTimeout(() => {
+    if (token === inFlight && loading && (!quiet || !lastResponse)) {
+      dom.count.textContent = t('app.loadingSlow');
+    }
+  }, LIST_SLOW_MS);
 
   try {
     // A LIST NEVER OVERTAKES A SAVE. Changing a status and opening Applications
@@ -889,7 +909,11 @@ async function load(queryString, state, { quiet = false } = {}) {
     const params = new URLSearchParams(queryString);
     params.set('narrowings', 'later');
     const writes = localWrites;
-    const [response] = await Promise.all([api.listJobs(params), refreshReadiness()]);
+    // The list does not wait on the readiness read beyond a moment: a slow
+    // secondary answer must never hold the jobs off the screen.
+    const readiness = refreshReadiness();
+    const response = await withDeadline(api.listJobs(params), LIST_DEADLINE_MS);
+    await Promise.race([readiness, new Promise((resolve) => { window.setTimeout(resolve, 2000); })]);
     response.writes = writes;
     if (token !== inFlight) return;
     loading = false;
@@ -903,6 +927,8 @@ async function load(queryString, state, { quiet = false } = {}) {
     loading = false;
     lastResponse = null;
     showError(error, queryString);
+  } finally {
+    window.clearTimeout(slow);
   }
 }
 
@@ -1129,9 +1155,20 @@ function announce(state, shown, total) {
     }),
     ` ${t(`count.${filters ? 'matchSearch' : 'pickedForYou'}${total === 1 ? 'One' : ''}`)}`,
     quiet.length ? el('span', { className: 'resultcount__quiet', text: ` · ${quiet.join(' · ')}` }) : null,
+    basisLine(lastResponse && lastResponse.scoring_basis),
   ].filter(Boolean));
   renderRevisionNotice();
   renderHiddenNotice(state);
+}
+
+/** What the scores on screen are made of: always the person's phrases, and an
+ *  AI evaluation only where one ran. Never left to be guessed from Settings. */
+function basisLine(basis) {
+  if (!basis) return null;
+  const text = basis.ai
+    ? tCount('count.basisAi', { n: basis.evaluated.toLocaleString() })
+    : t('count.basisKeywords');
+  return el('span', { className: 'resultcount__quiet resultcount__basis', text: ` · ${text}` });
 }
 
 //: The handle of the poll that watches a recalculation to its end. One at a
@@ -1903,17 +1940,33 @@ function showEmpty(state) {
   dom.pager.hidden = true;
 }
 
+/** The words a program wrote about a failure, for the folded details: an
+ *  API error's own detail, or an exception's message when it is not already
+ *  the sentence shown above it. */
+function technical(error) {
+  if (error && error.detail) return String(error.detail);
+  return error && error.message && error.message !== error.userMessage ? String(error.message) : '';
+}
+
 function showError(error, queryString) {
   dom.list.className = 'state state--error';
   replace(dom.list, [
     el('h2', { className: 'state__head', text: t('app.listFailed') }),
-    el('p', { className: 'state__msg', text: error.userMessage || error.message }),
+    // A plain sentence. A program's own words ("a.label.localeCompare is not
+    // a function") were the message once; they are kept, folded, below.
+    el('p', { className: 'state__msg', text: error.userMessage || t('app.listFailedHelp') }),
     // NO STATUS NUMBER. `HTTP 500` under the sentence told a person nothing
     // she could act on. `api.js` writes it to the console instead, with the
     // route and the server's own words beside it, which is where somebody
     // debugging this would look anyway.
     button(t('action.retry'), () => load(queryString, store.get()), { className: 'btn btn--primary' }),
-  ]);
+    technical(error)
+      ? el('details', { className: 'src__tech' }, [
+        el('summary', { className: 'src__techhead', text: t('collect.technical') }),
+        el('p', { className: 'src__techbody', text: technical(error) }),
+      ])
+      : null,
+  ].filter(Boolean));
   dom.count.textContent = t('app.listFailedShort');
   clear(dom.pager);
   dom.pager.hidden = true;
@@ -2460,8 +2513,23 @@ async function showHealth() {
 //: failed (from `/api/sources`, the same rows Settings & Sources shows) and
 //: local conditions worth knowing (from `/api/health`).
 const railStatus = {
-  failed: null, profile: null, attention: [], states: {}, degraded: 0, detail: '',
+  failed: null, profile: null, attention: [], states: {}, names: {}, degraded: 0, detail: '',
 };
+
+/** The one source needing attention, named, or null when there are several. */
+function siteNeedingYou() {
+  if (railStatus.attention.length !== 1) return null;
+  const id = railStatus.attention[0];
+  return { id, name: railStatus.names[id] || id, state: railStatus.states[id] };
+}
+
+/** Settings > Job sites, opened at that source's card and its own action. */
+function openSiteDetail(id = siteNeedingYou()?.id) {
+  shell.closeDrawer({ restore: false });
+  settingsTab = 'sites';
+  goTo('settings');
+  sourcesPanel.focusSource(id || null);
+}
 
 /**
  * ONE status line. A source that needs attention wins, is yellow, and is a
@@ -2497,19 +2565,17 @@ function drawSiteAlert(failed) {
   if (failed < dismissedAt()) rememberDismissed(failed);
   box.hidden = !(failed > 0 && failed > dismissedAt());
   if (box.hidden) return;
-  document.getElementById('site-alert-title').textContent = failed === 1
-    ? t('sidenav.alertTitleOne')
+  // One source: named, with what happened and what checking again does.
+  const one = siteNeedingYou();
+  document.getElementById('site-alert-title').textContent = one
+    ? t('sidenav.alertTitleNamed', { name: one.name })
     : t('sidenav.alertTitle', { n: failed });
-  document.getElementById('site-alert-text').textContent = failed === 1
-    ? t('sidenav.alertTextOne')
+  document.getElementById('site-alert-text').textContent = one
+    ? t(one.state === 'STALE' ? 'sidenav.alertTextStale' : 'sidenav.alertTextFailed')
     : t('sidenav.alertText');
 }
 
-document.getElementById('site-alert-fix')?.addEventListener('click', () => {
-  shell.closeDrawer({ restore: false });
-  settingsTab = 'sites';
-  goTo('settings');
-});
+document.getElementById('site-alert-fix')?.addEventListener('click', () => openSiteDetail());
 document.getElementById('site-alert-close')?.addEventListener('click', () => {
   const failed = Number(railStatus.failed) || 0;
   const before = dismissedAt();
@@ -2608,6 +2674,7 @@ function absorbSources(sources) {
   railStatus.attention = rows.filter((row) => row.needs_attention).map((row) => row.source_id);
   railStatus.failed = railStatus.attention.length;
   railStatus.states = Object.fromEntries(rows.map((row) => [row.source_id, row.state]));
+  railStatus.names = Object.fromEntries(rows.map((row) => [row.source_id, row.name || row.source_id]));
   railStatus.profile = sources.profile ?? null;
   drawRailStatus();
   // Home's small things to do name the same sources: redraw that card
@@ -3067,7 +3134,10 @@ collection.onProgress(() => {
 // once.
 collection.onFinish(() => {
   refreshAfterCollection();
+  // Elsewhere, Settings reads again when it is next opened: it used to keep
+  // the reading taken while the run was going ("Never run", "never").
   if (currentPage === 'settings') sourcesPanel.load(true);
+  else sourcesPanel.invalidate();
   // Home's counts moved -- unless Home is the setup's last card, which is
   // already saying "Done" and offering the jobs.
   if (currentPage === 'home' && !home.inSetup()) home.load();

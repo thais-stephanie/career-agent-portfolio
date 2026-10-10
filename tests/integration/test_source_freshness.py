@@ -179,7 +179,8 @@ def test_due_after_a_day_stale_after_three(tmp_path, hours, state, due, attentio
 
 def test_a_refusal_waits_out_its_cooldown(tmp_path) -> None:
     recent = _with_public(tmp_path / "a", outcome="RATE_LIMITED", hours_ago=2, success=False)
-    assert recent.state is RefreshState.RATE_LIMITED and recent.needs_attention
+    # A state, not a task (2026-10-10): the site decides when it answers again.
+    assert recent.state is RefreshState.RATE_LIMITED and not recent.needs_attention
     assert recent.due is False and recent.cooldown_until is not None
     older = _with_public(tmp_path / "b", outcome="RATE_LIMITED", hours_ago=30, success=False)
     assert older.due is True and older.cooldown_until is None
@@ -457,3 +458,32 @@ def test_find_jobs_says_when_everything_is_cooling_down(api, monkeypatch) -> Non
     with pytest.raises(ApiError) as refused:
         api.handle_api("POST", "/api/sources/refresh-all", {}, {})
     assert "cooling down" in refused.value.message
+
+
+# ---------------------------------------------- the first run, as it runs
+
+
+def _states(api) -> dict[str, str]:
+    rows = api.handle_api("GET", "/api/sources", {}, {})["refresh"]
+    return {r["source_id"]: r["state"] for r in rows}
+
+
+def test_a_source_a_whole_check_has_not_reached_is_waiting_not_never_run(api) -> None:
+    """The first run of a new installation: every source but the one being
+    read said "Never run" in Settings, while the check would reach it."""
+    import threading
+
+    release = threading.Event()
+    never = {sid for sid, state in _states(api).items() if state == "NOT_STARTED"}
+    assert never, "the fixture has sources nobody has run"
+    api.retrieval.start(lambda state, cancel: release.wait(10), "run-waiting")
+    try:
+        during = _states(api)
+        assert {during[sid] for sid in never} == {"QUEUED"}
+        rows = api.handle_api("GET", "/api/sources", {}, {})["refresh"]
+        assert [r for r in rows if r["needs_attention"]] == [], "waiting is nothing to fix"
+    finally:
+        release.set()
+        api.retrieval.join(10)
+    after = _states(api)
+    assert {after[sid] for sid in never} == {"NOT_STARTED"}, "nothing ran: never run again"

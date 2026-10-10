@@ -65,6 +65,9 @@ export function createCollection(api, { disabled = false } = {}) {
   //: Whether the watched run's end has been reported to `onFinish` listeners.
   let finishedReported = false;
   let lastDone = -1;
+  //: The run whose scoring this page saw, so a scoring failure afterwards is
+  //: reported as that run's ending rather than lost.
+  let scoredFor = null;
   const listeners = new Set();
   const finishListeners = new Set();
   const progressListeners = new Set();
@@ -84,11 +87,16 @@ export function createCollection(api, { disabled = false } = {}) {
   function phase() {
     if (starting) return 'starting';
     if (collecting()) return 'collecting';
-    if (scoringAfterRun()) return 'scoring';
+    // After the last posting is scored the same pass prepares the list (the
+    // search index): named, so "N of N" never sits there unexplained.
+    if (scoringAfterRun()) return data.scoring.step === 'preparing' ? 'preparing' : 'scoring';
     const run = data && data.run;
     if (run && watched && run.run_id === watched) {
       if (run.status === 'cancelled') return 'cancelled';
       if (run.status === 'failed') return 'failed';
+      if (run.status === 'done' && scoredFor === watched && data.scoring && data.scoring.failed) {
+        return 'scoringFailed';
+      }
       if (run.status === 'done') return 'finished';
     }
     return 'idle';
@@ -96,7 +104,7 @@ export function createCollection(api, { disabled = false } = {}) {
 
   function active() {
     const now = phase();
-    return now === 'starting' || now === 'collecting' || now === 'scoring';
+    return now === 'starting' || now === 'collecting' || now === 'scoring' || now === 'preparing';
   }
 
   function serverNow() {
@@ -133,7 +141,7 @@ export function createCollection(api, { disabled = false } = {}) {
   }
 
   function syncTicker() {
-    const moving = phase() === 'collecting' || phase() === 'scoring';
+    const moving = phase() === 'collecting' || phase() === 'scoring' || phase() === 'preparing';
     if (moving && !ticker) {
       ticker = window.setInterval(() => emit('tick'), 1000);
     } else if (!moving && ticker) {
@@ -163,6 +171,7 @@ export function createCollection(api, { disabled = false } = {}) {
       lastDone = -1;
     }
     if (!payload || !payload.running) stopping = false;
+    if (scoringAfterRun()) scoredFor = watched;
     const done = run && run.run_id === watched ? Number(run.boards_done) || 0 : -1;
     if (done !== lastDone && done >= 0) {
       lastDone = done;
@@ -171,7 +180,8 @@ export function createCollection(api, { disabled = false } = {}) {
       }
     }
     const now = phase();
-    if (!finishedReported && watched && (now === 'finished' || now === 'cancelled' || now === 'failed')) {
+    const ended = ['finished', 'cancelled', 'failed', 'scoringFailed'].includes(now);
+    if (!finishedReported && watched && ended) {
       finishedReported = true;
       for (const listener of finishListeners) {
         try { listener(state()); } catch (error) { console.error(error); }
@@ -343,8 +353,17 @@ export function createProgressView(collection, { compact = false, stopId = null 
   const root = el('div', { className: `collect${compact ? ' collect--compact' : ''}` },
     compact ? [line, meta] : [line, meter, meta, slow, noEta, stop]);
 
-  function setBar(done, total, label) {
-    meter.hidden = compact || !total;
+  function setBar(done, total, label, busy = false) {
+    // Busy: work whose size is not known (preparing the list) -- the whole
+    // bar breathes instead of claiming a percentage nobody measured.
+    meter.classList.toggle('is-busy', busy);
+    if (busy) meter.removeAttribute('aria-valuenow');
+    meter.hidden = compact || (!total && !busy);
+    if (busy) {
+      meter.setAttribute('aria-label', label);
+      fill.style.width = '100%';
+      return;
+    }
     meter.setAttribute('aria-valuemax', String(total || 1));
     meter.setAttribute('aria-valuenow', String(done));
     meter.setAttribute('aria-label', label);
@@ -367,6 +386,14 @@ export function createProgressView(collection, { compact = false, stopId = null 
       setText(line, t('setup.ready.starting'));
       setBar(0, 0, t('setup.ready.progressLabel'));
       setText(meta, '');
+      setText(slow, '');
+      setText(noEta, '');
+      return;
+    }
+    if (snapshot.phase === 'preparing') {
+      setText(line, t('collect.preparing'));
+      setBar(0, 0, t('collect.preparingLabel'), true);
+      setText(meta, compact ? '' : t('collect.preparingNote'));
       setText(slow, '');
       setText(noEta, '');
       return;
@@ -418,6 +445,7 @@ export function outcomeText(snapshot) {
   const ok = sources.filter((row) => row.status === 'ok').length;
   if (snapshot.phase === 'cancelled') return t('setup.ready.cancelled', { ok });
   if (snapshot.phase === 'failed') return t('setup.ready.failed');
+  if (snapshot.phase === 'scoringFailed') return t('collect.scoringFailed');
   if (snapshot.phase === 'finished') {
     const parts = [t('collect.finished', { ok, total: sources.length, time: duration(snapshot.elapsed) })];
     if (typeof run.jobs_new === 'number') {

@@ -1,4 +1,4 @@
-"""Home's "Fix job sites" task follows the sources' status, which arrives on
+"""Home's job-sites task follows the sources' status, which arrives on
 its own after Home: the card alone is redrawn, never Home's read, and a task
 that appears late, or leaves because another profile answered, is not said to
 be done. Synthetic profile; the sources' answer is shaped by the test.
@@ -77,6 +77,10 @@ def shaped(tmp_path: Path) -> Iterator[tuple[str, JobsApi, Shaped]]:
         yield base, app, shape
 
 
+#: One source needing her: the task names it ("Check Remotive again"), never a count.
+ONE_NAMED = r"/Check (?!\d+ job sites).+ again/"
+
+
 def _hold_collection(app: JobsApi) -> threading.Event:
     """A collection run that collects nothing and ends when released."""
     release = threading.Event()
@@ -103,7 +107,7 @@ def test_the_sites_row_arrives_after_home_and_redraws_the_card_alone(
         raise AssertionError("Tab never reached the rights row")
 
     shape.sources_gate.set()
-    page.wait_for(f"{TODO_TEXT}.includes('Fix 2 job sites')", message="the late sites row")
+    page.wait_for(f"{TODO_TEXT}.includes('Check 2 job sites again')", message="the late sites row")
     assert page.evaluate("document.activeElement.dataset.task") == "rights", "focus was lost"
     assert shape.home_reads == reads, "the card was redrawn by reading Home again"
     count = page.evaluate("document.querySelector('.home__todocount').innerText")
@@ -126,12 +130,12 @@ def test_a_new_count_updates_the_row_without_calling_it_done(
     release = _hold_collection(app)
     try:
         open_home_past_setup(page, base)
-        page.wait_for(f"{TODO_TEXT}.includes('Fix 2 job sites')")
+        page.wait_for(f"{TODO_TEXT}.includes('Check 2 job sites again')")
         shape.failing = 1
     finally:
         release.set()
         app.retrieval.join(10)
-    page.wait_for(f"{TODO_TEXT}.includes('Fix a job site')", message="the new count")
+    page.wait_for(f"{ONE_NAMED}.test({TODO_TEXT})", message="the new count")
     assert not page.evaluate(f"Boolean({TOAST})")
 
 
@@ -143,7 +147,7 @@ def test_sites_working_again_is_said_once_confirmed(
     release = _hold_collection(app)
     try:
         open_home_past_setup(page, base)
-        page.wait_for(f"{TODO_TEXT}.includes('Fix a job site')")
+        page.wait_for(f"{ONE_NAMED}.test({TODO_TEXT})")
         shape.failing = 0
     finally:
         release.set()
@@ -194,7 +198,7 @@ def test_a_redraw_keeps_the_recalculation_it_follows(
         page.wait_for(f"{RECALC_HELP}.includes('Updating 5 of 20')", message="the progress")
         page.evaluate(f"{RECALC}.dataset.mark = 'kept'")
         shape.sources_gate.set()
-        page.wait_for(f"{TODO_TEXT}.includes('Fix a job site')", message="the late sites row")
+        page.wait_for(f"{ONE_NAMED}.test({TODO_TEXT})", message="the late sites row")
         assert page.evaluate(f"{RECALC}.dataset.mark") == "kept", "the running row was rebuilt"
         assert "Updating 5 of 20" in str(page.evaluate(RECALC_HELP))
         assert page.evaluate(f"{RECALC}.getAttribute('aria-busy')") == "true"

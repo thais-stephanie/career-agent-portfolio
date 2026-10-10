@@ -235,7 +235,10 @@ def test_the_progress_poll_can_leave_the_funnel_out(personal):
     assert light["funnel"] is None
     for payload in (full, light):
         assert payload["now"].endswith("Z")
-        assert set(payload["scoring"]) == {"running", "done", "total"}
+        # The step and how the last pass ended travel with it (2026-10-10).
+        assert set(payload["scoring"]) == {
+            "running", "done", "total", "step", "run_id", "failed", "error",
+        }  # fmt: skip
     with pytest.raises(ApiError) as caught:
         personal.handle_api("GET", "/api/retrieval", {"funnel": ["sometimes"]}, {})
     assert caught.value.status == 400

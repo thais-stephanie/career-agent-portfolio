@@ -177,8 +177,13 @@ class SourceProgress:
 
     @property
     def needs_attention(self) -> bool:
-        """One rule, read by Settings & Sources and by the sidebar alike."""
-        return self.state in (RefreshState.STALE, RefreshState.FAILED, RefreshState.RATE_LIMITED)
+        """One rule, read by Settings & Sources and by the sidebar alike.
+
+        Only what the person can act on: a check that failed and read nothing,
+        or one that is out of date, both answered by checking again. A site
+        that refused (RATE_LIMITED) waits out its own cooldown; nothing is hers
+        to fix, so it is shown as a state, never as a task."""
+        return self.state in (RefreshState.STALE, RefreshState.FAILED)
 
     @property
     def due(self) -> bool:
@@ -324,7 +329,12 @@ def _state_of(row: sqlite3.Row, stats: Mapping[str, Any]) -> RefreshState:
     if rate_limited(stats):
         return RefreshState.RATE_LIMITED
     if status not in {"OK", "SUCCESS", "COMPLETE"}:
-        return RefreshState.FAILED
+        # A run that ended in an error AFTER storing postings read part of the
+        # source (Workable, 2026-10-10: 71,777 complete records kept, then the
+        # 550 MB transfer did not finish). "Last check failed" told the person
+        # to fix something; nothing was hers to fix, and most of her jobs came
+        # from that run. Nothing stored is still a failure.
+        return RefreshState.PARTIAL if stored(stats) else RefreshState.FAILED
     # One rule with `partial_reason`, so the app and `source-coverage` can
     # never disagree about the same run.
     if partial_reason(stats) is not None:
@@ -368,10 +378,30 @@ def _latest_runs(conn: sqlite3.Connection) -> dict[str, sqlite3.Row]:
     return latest
 
 
+#: Postings a run wrote, from the counters every feed collector records.
+_STORED_KEYS = ("jobs_new", "jobs_changed", "jobs_seen_again")
+_STORED_SQL = " + ".join(
+    f"COALESCE(json_extract(stats_json, '$.{key}'), 0)" for key in _STORED_KEYS
+)
+
+
+def stored(stats: Mapping[str, Any]) -> int:
+    """How many postings a run wrote (new, changed or seen again)."""
+    total = 0
+    for key in _STORED_KEYS:
+        value = stats.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            total += value
+    return total
+
+
 def _last_success(conn: sqlite3.Connection) -> dict[str, str]:
+    # A run that stored postings and then ended in an error read the source
+    # too (see `_state_of`): its finish is when jobs last came from it.
     rows = conn.execute(
         "SELECT stage, MAX(finished_at) FROM pipeline_run"
-        " WHERE stage LIKE 'collect%' AND status = 'OK' AND finished_at IS NOT NULL"
+        " WHERE stage LIKE 'collect%' AND finished_at IS NOT NULL"
+        f" AND (status = 'OK' OR (status = 'FAILED' AND {_STORED_SQL} > 0))"
         " AND json_extract(stats_json, '$.deferred_reason') IS NULL"
         " GROUP BY stage"
     ).fetchall()

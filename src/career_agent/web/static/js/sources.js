@@ -139,11 +139,16 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
       catch { payload.maintenance = null; }
       lastPayload = payload;
       render(payload);
+      applyFocus();
       clearTimeout(refreshTimer);
       if (payload.maintenance?.maintenance_running || payload.maintenance?.app_refresh_running
           || (payload.refresh || []).some(row => row.state === 'RUNNING')) {
         refreshTimer = setTimeout(() => {
-          if (!host.closest('[hidden]')) void load(true);
+          // Hidden: read again on the next visit instead of keeping what a
+          // run in progress looked like. Returning early here used to leave
+          // "Never run" on screen for the rest of the session.
+          if (host.closest('[hidden]')) invalidate();
+          else void load(true);
         }, 5000);
       }
     } catch (error) {
@@ -723,7 +728,37 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
     ]);
   }
 
-  return { load, retranslate };
+  //: A source somebody was sent to ("Workable needs a new check"), opened
+  //: and focused once the panel is drawn.
+  let pendingFocus = null;
+
+  function applyFocus() {
+    if (!pendingFocus) return;
+    const card = host.querySelector(`article[data-source="${CSS.escape(pendingFocus)}"]`);
+    pendingFocus = null;
+    if (!card) return;
+    eachOpen = true;
+    const each = card.closest('details');
+    if (each) each.open = true;
+    card.classList.add('is-focus');
+    card.scrollIntoView({ block: 'center' });
+    const action = card.querySelector('button:not([disabled])');
+    (action || card).focus({ preventScroll: true });
+  }
+
+  /** Open one source's card, with its own action, on the next draw. */
+  function focusSource(id) {
+    pendingFocus = id || null;
+    if (loaded && lastPayload) applyFocus();
+  }
+
+  /** What is on screen is out of date: the next `load()` asks the server. */
+  function invalidate() {
+    clearTimeout(refreshTimer);
+    loaded = false;
+  }
+
+  return { load, retranslate, invalidate, focusSource };
 }
 
 function shortDate(iso) {

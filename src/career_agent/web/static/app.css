@@ -8251,6 +8251,8 @@ body { font-synthesis-weight: none; }
 .topnav__badge {
   min-width: 20px;
   box-sizing: border-box;
+  /* A six-digit count stays whole: the label beside it gives way instead. */
+  flex: none; white-space: nowrap;
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--nav-green);
@@ -10340,7 +10342,10 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .home__side .step:first-child::before { top: 50%; }
 .home__side .step:last-child::before { bottom: 50%; }
 .home__side .step__value {
-  position: relative; grid-row: 1 / span 2; width: 30px; height: 30px; border-radius: 50%;
+  /* A circle for one to three digits; a pill, never an overflow, for more
+     ("1,234", "125K"). Centred on the same line the circles sit on. */
+  position: relative; grid-row: 1 / span 2; min-width: 30px; height: 30px; border-radius: 999px;
+  box-sizing: border-box; padding: 0 6px; justify-self: center; white-space: nowrap;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--sans); font-size: 13px; font-weight: 700;
 }
@@ -10893,3 +10898,42 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rvan__req[data-state="SUPPORTED_IN_RESUME"] { border-left-color: var(--mint); }
 .rvan__req summary { cursor: pointer; }
 .rvan__result { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+/* Preparing the list after scoring: work whose size nobody measured. The
+   whole bar breathes (the skeleton cards' pulse) instead of a percentage. */
+.setup__bar.is-busy .setup__barfill { width: 100%; }
+@media (prefers-reduced-motion: no-preference) {
+  .setup__bar.is-busy .setup__barfill { animation: pulse 1.4s ease-in-out infinite; }
+}
+
+/* The matching card: a name and what it costs or sends, under each option. */
+.setup__optiontext { display: grid; gap: 2px; }
+.setup__optionnote { font-size: var(--t-small, 13px); color: var(--body); line-height: 1.45; }
+.setup__matching { display: grid; gap: 12px; }
+.setup__matchingwarn {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--butter-wash);
+  border: var(--edge) solid var(--line);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+}
+.setup__matchingwarn p { margin: 0; }
+
+/* The complete overview: the counts and the skills share one column, beside
+   the latest role (the approved composition), so no hole opens under the
+   counts while the role's bullets run on. */
+.profile__overmain { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.profile__overmain .profile__metrics { margin: 0; }
+.profile__overmain .profile__glance { margin: 0; }
+
+/* What confirming is for, beside its action. The text takes the card's width
+   (no 60ch cap: it is one short sentence pair), the button keeps its own, and
+   the two wrap onto two lines with the same gap on a narrow screen. */
+.profile__evnote {
+  display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 12px 24px;
+}
+.profile__evnotetext { margin: 0; flex: 1 1 320px; min-width: 0; font-size: var(--t-body); color: var(--body); }
+.profile__evnote > .btn { flex: none; }

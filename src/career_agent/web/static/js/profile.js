@@ -356,6 +356,20 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
       roleBody(roles[0], { lines: 2, more: false }),
     ])
     : null;
+  const shownSkills = unique.slice(0, SKILL_GLANCE);
+  const glance = skills.length
+    ? el('section', { className: 'card card--static profile__glance' }, [
+      el('h3', { className: 'profile__heading', text: t('profile.yourSkills') }),
+      el('div', { className: 'evchips profile__chips' }, shownSkills.map(skillChip)),
+      unique.length > shownSkills.length
+        ? el('p', {
+          className: 'profile__lead',
+          text: t('profile.andMoreSkills', { n: unique.length - shownSkills.length }),
+        })
+        : null,
+    ].filter(Boolean))
+    : null;
+  let glanceShown = false;
   // NOTHING TO DO IS ONE LINE, NOT A CARD. A card holding only "nothing
   // missing" left a small box beside a tall column and a hole under it; the
   // counts and the latest role take the whole row instead.
@@ -364,8 +378,14 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
       el('span', { className: 'profile__donetick', text: '\u2713', attrs: { 'aria-hidden': 'true' } }),
       t('profile.complete'),
     ]));
-    out.push(el('div', { className: 'profile__overview profile__overview--complete' },
-      [counts, latest].filter(Boolean)));
+    // The skills sit UNDER the three counts, beside the latest role, as the
+    // approved composition has them; below the whole row they left a hole
+    // the height of the role's bullets under the counts.
+    out.push(el('div', { className: 'profile__overview profile__overview--complete' }, [
+      el('div', { className: 'profile__overmain' }, [counts, glance].filter(Boolean)),
+      latest,
+    ].filter(Boolean)));
+    glanceShown = Boolean(glance);
   }
   const stronger = missing.length ? el('section', { className: 'card card--static profile__stronger' }, [
     el('div', { className: 'profile__cardhead' }, [
@@ -400,23 +420,13 @@ function overviewPanel(roles, skills, confirmed, onGo = null) {
     ]));
   }
 
-  if (skills.length) {
-    const shown = unique.slice(0, SKILL_GLANCE);
-    out.push(el('section', { className: 'card card--static profile__glance' }, [
-      el('h3', { className: 'profile__heading', text: t('profile.yourSkills') }),
-      el('div', { className: 'evchips profile__chips' }, shown.map(skillChip)),
-      unique.length > shown.length
-        ? el('p', {
-          className: 'profile__lead',
-          text: t('profile.andMoreSkills', { n: unique.length - shown.length }),
-        })
-        : null,
-    ].filter(Boolean)));
-  }
+  if (glance && !glanceShown) out.push(glance);
 
-  out.push(el('section', { className: 'card card--static card--flat profile__glance' }, [
-    el('p', { className: 'profile__lead', text: t('profile.confirmedNote') }),
-    linkToEvidence(),
+  // What confirming is for, in one line beside its action: a row on a wide
+  // screen, stacked on a narrow one (`.profile__evnote`).
+  out.push(el('section', { className: 'card card--static card--flat profile__evnote' }, [
+    el('p', { className: 'profile__evnotetext', text: t('profile.confirmedNote') }),
+    linkToEvidence('profile.reviewEvidence'),
   ]));
   return out;
 }
@@ -460,8 +470,8 @@ function headerCard(data, confirmed, who, onGo) {
 }
 
 /** The one route off these three tabs, and it goes where editing lives. */
-function linkToEvidence() {
-  return button(t('profile.openEvidence'), () => {
+function linkToEvidence(labelKey = 'profile.openEvidence') {
+  return button(t(labelKey), () => {
     const nav = document.querySelector('.topnav__link[data-page="evidence"]');
     if (nav) nav.click();
   }, { className: 'btn btn--primary' });

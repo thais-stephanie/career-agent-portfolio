@@ -134,7 +134,7 @@ BACKWARDS = (
     "pay", "level", "arrangement", "stage", "markets", "workmodel", "hire", "home", "roles", "work",
 )  # fmt: skip
 #: Optional context cards a journey that is not about them passes with Skip.
-PASSABLE = ("stage", "markets")
+PASSABLE = ("stage", "markets", "matching")
 
 
 def card(page: Chrome) -> str:
@@ -232,6 +232,14 @@ def skip(page: Chrome) -> None:
     click(page, "#setup-skip")
 
 
+def through_matching(page: Chrome) -> None:
+    """From the CV card to the review: the matching card (2026-10-10) is
+    passed the way a person keeping keywords only would, with Skip."""
+    wait_card(page, "matching")
+    skip(page)
+    wait_card(page, "review")
+
+
 def no_overflow(page: Chrome) -> bool:
     return bool(page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"))
 
@@ -309,7 +317,7 @@ def test_a_new_person_answers_everything_and_the_configuration_says_so(
         page, "#setup-cv-status"
     )
     next_card(page)
-    wait_card(page, "review")
+    through_matching(page)
 
     review = text(page, ".setup__summary")
     for expected in (
@@ -433,7 +441,7 @@ def test_every_question_can_be_skipped_and_nothing_is_invented(
     # N: no CV, and the page says the search works without one.
     assert "without adding a CV" in text(page, ".setup__card")
     next_card(page)
-    wait_card(page, "review")
+    through_matching(page)
     review = text(page, ".setup__summary")
     assert "Not answered" in review and "No preference" in review and "Not added yet" in review
     next_card(page)
@@ -651,7 +659,7 @@ def test_the_whole_setup_is_portuguese_from_the_start(page: Chrome, install: Ins
     english = english_only_strings(page)
     assert english
     seen = []
-    for _ in range(14):
+    for _ in range(16):
         step = card(page)
         seen.append(step)
         body = text(page, ".setup")
@@ -705,7 +713,7 @@ def test_every_card_fits_a_phone(page: Chrome, install: Install) -> None:
     begin(page, install, width=390, height=844, mobile=True)
     answer_everything(page, install)
     assert no_overflow(page), "cv"
-    for key in ("review", "ready"):
+    for key in ("matching", "review", "ready"):
         next_card(page)
         wait_card(page, key)
         assert no_overflow(page), key
@@ -896,7 +904,7 @@ def test_the_same_answers_in_another_order_are_not_a_change(page: Chrome, instal
 
 def skip_to(page: Chrome, target: str) -> None:
     """Skip forward in this page (so any stub installed on it stays in place)."""
-    for _ in range(12):
+    for _ in range(16):
         if card(page) == target:
             return
         step = card(page)
@@ -1194,3 +1202,50 @@ def test_a_long_role_never_widens_the_card_on_a_phone(page: Chrome, install: Ins
         "(() => { const f = document.querySelector('.roles__field');"
         " return f.scrollWidth <= f.clientWidth + 1; })()"
     ), "the role chip overflows its field"
+
+
+# =========================================================================
+# HOW JOBS ARE MATCHED, before the first search (2026-10-10)
+# =========================================================================
+
+#: A fixed provider list, so the card does not depend on what this machine is
+#: signed in to.
+SEMANTIC_STUB = (
+    "(() => { const real = window.fetch; window.fetch = async (url, opts) => {"
+    " const answer = await real(url, opts);"
+    " const read = !(opts && opts.method === 'PATCH');"
+    " if (!String(url).endsWith('/api/semantic') || !read) return answer;"
+    " const body = await answer.json();"
+    " body.providers = [{ id: 'deepseek', name: 'DeepSeek Flash', usable: true,"
+    "   billing: 'METERED_API', state: 'AVAILABLE' }];"
+    " return new Response(JSON.stringify(body),"
+    "   { status: 200, headers: { 'Content-Type': 'application/json' } });"
+    " }; })()"
+)
+
+
+def test_matching_is_keywords_unless_an_ai_provider_is_chosen_and_understood(
+    page: Chrome, install: Install
+) -> None:
+    begin(page, install)
+    page.evaluate(SEMANTIC_STUB)
+    skip_to(page, "matching")
+    page.wait_for("document.querySelector('#setup-matching-deterministic')", message="the modes")
+    assert page.evaluate("document.querySelector('#setup-matching-deterministic').checked")
+    shown = text(page, ".setup__card")
+    assert "Keywords only (no AI)" in shown and "nothing is sent" in shown
+    assert "Paid per use" in shown, "what each mode costs is said before choosing"
+    # An AI provider needs her to say she understands what it receives.
+    click(page, "#setup-matching-deepseek")
+    page.wait_for("document.querySelector('#setup-matching-ack')", message="the notice")
+    assert "never receives your profile" in text(page, ".setup__matchingwarn")
+    next_card(page)
+    page.wait_for("document.querySelector('#setup-error')?.textContent.length > 0")
+    assert card(page) == "matching"
+    assert not (install.config_dir / "semantic.local.yaml").exists(), "nothing saved yet"
+    click(page, "#setup-matching-ack")
+    next_card(page)
+    wait_card(page, "review")
+    saved = (install.config_dir / "semantic.local.yaml").read_text(encoding="utf-8")
+    assert "mode: deepseek" in saved
+    assert "DeepSeek Flash" in text(page, ".setup__summary")

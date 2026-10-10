@@ -400,6 +400,12 @@ export async function jobNarrowings(query) {
  */
 const FACET_ALIASES = { title_class: 'role_class', eligibility_status: 'eligibility' };
 
+// A bucket key is DATA (a company slug, a signal id), and a plain object
+// answers inherited names too: an employer whose slug is `constructor` read
+// back JavaScript's own Object function as its label, and sorting the facet
+// threw. Only a key the server actually sent is an answer.
+const own = (map, key) => (map && Object.hasOwn(map, key) ? map[key] : undefined);
+
 export function normaliseFacets(raw, items = [], labels = {}) {
   const names = new Map();
   for (const item of items || []) {
@@ -413,8 +419,8 @@ export function normaliseFacets(raw, items = [], labels = {}) {
 
   const out = {};
   for (const [rawName, value] of Object.entries(raw || {})) {
-    const name = FACET_ALIASES[rawName] || rawName;
-    const given = supplied[rawName] || supplied[name] || {};
+    const name = own(FACET_ALIASES, rawName) || rawName;
+    const given = own(supplied, rawName) || own(supplied, name) || {};
     let rows;
     if (Array.isArray(value)) {
       rows = value.map((row) => ({
@@ -425,7 +431,7 @@ export function normaliseFacets(raw, items = [], labels = {}) {
     } else if (value && typeof value === 'object') {
       rows = Object.entries(value).map(([key, count]) => ({
         key: String(key),
-        label: given[key] || names.get(String(key)) || String(key),
+        label: own(given, key) || names.get(String(key)) || String(key),
         count: Number(count) || 0,
       }));
     } else {

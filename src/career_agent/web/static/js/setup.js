@@ -41,6 +41,7 @@ import { el, button, replace } from './dom.js';
 import { LOCALES, t, tVocab, getLocale } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
+import { recalcButton } from './recalc.js';
 import { phraseProblem } from './format.js';
 import {
   arrangementMatrix, arrangementSummary, workModelMatrix, workModelSummary,
@@ -92,13 +93,14 @@ function rememberPosition(key) {
   }
 }
 
-//: V3: the five named stages the stepper shows, and which cards each holds.
-const STAGES = ['work', 'where', 'kind', 'pay', 'cv'];
+//: The named stages the stepper shows, and which cards each holds: V3's five,
+//: and how jobs are matched (2026-10-10), chosen before the first search.
+const STAGES = ['work', 'where', 'kind', 'pay', 'cv', 'matching'];
 const STAGE_OF = {
   work: 'work', roles: 'work',
   home: 'where', hire: 'where', workmodel: 'where', markets: 'where',
   stage: 'kind', arrangement: 'kind', level: 'kind',
-  pay: 'pay', cv: 'cv',
+  pay: 'pay', cv: 'cv', matching: 'matching',
 };
 
 /**
@@ -125,6 +127,10 @@ const STEPS = [
   { key: 'level', optional: true },
   { key: 'pay', optional: true },
   { key: 'cv', optional: true },
+  // How jobs are matched, before the first search: keywords only unless she
+  // explicitly chooses an AI provider (and nothing runs by choosing it).
+  // Skipping keeps keywords only.
+  { key: 'matching', optional: true },
   { key: 'review' },
   { key: 'ready' },
 ];
@@ -227,6 +233,8 @@ export function createSetup({
   //: Unsaved input, per card, so Back, Continue and a language switch never
   //: lose what was typed.
   const drafts = {};
+  //: The matching mode as the review card names it; null until known.
+  let matchingLabel = null;
   //: The last card's subscription to the app's one collection watcher. The
   //: card only draws what the watcher says; it never asks the server itself.
   let watching = null;
@@ -973,6 +981,93 @@ export function createSetup({
       };
     },
 
+    // HOW JOBS ARE MATCHED, chosen before the first (long) search. Keywords
+    // only is the default and stays chosen unless she picks a provider AND
+    // says she understands what it sends; nothing is evaluated by choosing --
+    // an AI evaluation is a run she starts later, from Settings.
+    matching: () => {
+      const draft = drafts.matching || { mode: null, ack: false };
+      drafts.matching = draft;
+      const box = el('div', { className: 'setup__matching' }, [
+        el('p', { className: 'setup__hint', text: t('setup.matching.loading') }),
+      ]);
+      let status = null;
+      const paintModes = () => {
+        const saved = (status && status.settings && status.settings.mode) || 'deterministic';
+        if (!draft.mode) draft.mode = saved;
+        const usable = ((status && status.providers) || []).filter((p) => p.usable);
+        const options = [{ id: 'deterministic' }, ...usable];
+        const picked = options.some((o) => o.id === draft.mode) ? draft.mode : 'deterministic';
+        draft.mode = picked;
+        const chosen = usable.find((p) => p.id === picked) || null;
+        const savedOption = usable.find((p) => p.id === saved);
+        matchingLabel = savedOption ? savedOption.name : t('setup.matching.keywords');
+        const ackId = 'setup-matching-ack';
+        replace(box, [
+          el('fieldset', { className: 'setup__options', attrs: { 'aria-describedby': 'setup-why' } }, [
+            el('legend', { className: 'setup__legend', text: t('setup.matching.legend') }),
+            ...options.map((option) => el('label', {
+              className: 'setup__option', attrs: { for: `setup-matching-${option.id}` },
+            }, [
+              el('input', {
+                className: 'setup__radio',
+                attrs: { type: 'radio', name: 'setup-matching', id: `setup-matching-${option.id}`, value: option.id },
+                props: { checked: picked === option.id },
+                on: { change: () => { draft.mode = option.id; draft.ack = false; paintModes(); } },
+              }),
+              el('span', { className: 'setup__optiontext' }, [
+                el('strong', { text: option.id === 'deterministic' ? t('setup.matching.keywords') : option.name }),
+                el('span', { className: 'setup__optionnote', text: option.id === 'deterministic'
+                  ? t('setup.matching.keywordsNote')
+                  : t(`setup.matching.billing.${option.billing}`, { name: option.name }) }),
+              ]),
+            ])),
+          ]),
+          chosen
+            ? el('div', { className: 'setup__matchingwarn' }, [
+              el('p', { text: t('setup.matching.sends', { name: chosen.name }) }),
+              el('p', { text: t('setup.matching.manual') }),
+              el('label', { className: 'setup__option', attrs: { for: ackId } }, [
+                el('input', {
+                  attrs: { type: 'checkbox', id: ackId },
+                  props: { checked: draft.ack },
+                  on: { change: (event) => { draft.ack = event.target.checked; } },
+                }),
+                el('span', { text: t('setup.matching.ack', { name: chosen.name }) }),
+              ]),
+            ])
+            : hint(t('setup.matching.default')),
+        ]);
+      };
+      api.getSemantic().then((payload) => { status = payload; paintModes(); })
+        .catch(() => { status = null; paintModes(); });
+      return {
+        nodes: [box],
+        submit: async (error) => {
+          const saved = (status && status.settings && status.settings.mode) || 'deterministic';
+          const mode = draft.mode || 'deterministic';
+          if (mode !== 'deterministic' && !draft.ack) {
+            error.textContent = t('setup.matching.needAck');
+            return;
+          }
+          if (mode === saved) {
+            delete drafts.matching;
+            advance();
+            return;
+          }
+          try {
+            await api.patchSemantic({ mode });
+            const named = ((status && status.providers) || []).find((p) => p.id === mode);
+            matchingLabel = named ? named.name : t('setup.matching.keywords');
+            delete drafts.matching;
+            advance();
+          } catch (problem) {
+            error.textContent = problem.userMessage || problem.message;
+          }
+        },
+      };
+    },
+
     // WHERE YOU ARE IN YOUR CAREER: context for what the product explains.
     // It changes no score, no gate and no collection (candidate_state).
     stage: () => {
@@ -1267,6 +1362,7 @@ export function createSetup({
       ['level', (value('seniority_excluded') || []).map(vocab).join(', ') || t('setup.ready.none')],
       ['pay', payTarget()],
       ['cv', cvAdded() ? t('setup.review.cvAdded') : t('setup.review.cvNotAdded')],
+      ['matching', matchingLabel || t('setup.matching.keywords')],
     ];
   }
 
@@ -1389,13 +1485,32 @@ export function createSetup({
       const phase = snapshot.phase;
       if (snapshot.active) {
         find.disabled = true;
-        find.textContent = phase === 'starting' ? t('setup.ready.starting') : t('setup.ready.finding');
+        find.textContent = phase === 'starting' ? t('setup.ready.starting')
+          : phase === 'preparing' ? t('collect.preparingShort') : t('setup.ready.finding');
         view.update(snapshot);
         if (view.root.parentNode !== status) replace(status, [view.root, keepUsing]);
         return;
       }
       if (reason === 'tick') return;
       find.disabled = false;
+      if (phase === 'scoringFailed') {
+        // The jobs were found and kept; scoring them did not finish. Said
+        // plainly, with the one action that helps -- scoring again, which
+        // collects nothing -- and the server's words folded underneath.
+        find.textContent = t('setup.ready.findAgain');
+        const error = (snapshot.scoring && snapshot.scoring.error) || '';
+        replace(status, [
+          el('p', { className: 'setup__error', text: t('collect.scoringFailed') }),
+          recalcButton({ labelKey: 'collect.scoreAgain', onDone: () => collection.refresh() }),
+          error
+            ? el('details', { className: 'src__tech' }, [
+              el('summary', { className: 'src__techhead', text: t('collect.technical') }),
+              el('p', { className: 'src__techbody', text: error }),
+            ])
+            : null,
+        ].filter(Boolean));
+        return;
+      }
       if (snapshot.error) {
         find.textContent = t('setup.ready.find');
         replace(status, [el('p', { className: 'setup__error', text: snapshot.error })]);

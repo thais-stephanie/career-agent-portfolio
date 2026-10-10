@@ -1361,6 +1361,7 @@ const EN = {
   'drawer.whySection': 'Why this fits your search',
   // -- the rest of the interface -----------------------------------------
   'app.loading': 'Loading...',
+  'app.loadingSlow': 'Still loading: a large list can take a little longer…',
   'profiles.menuLabel': 'Local profiles',
   'profiles.onThisComputer': 'Profiles on this computer',
   'profiles.listLabel': 'Profiles on this computer',
@@ -1403,6 +1404,9 @@ const EN = {
   'app.starting': 'Starting...',
   'app.listFailed': 'The list of jobs could not be loaded.',
   'app.listFailedShort': 'Could not load the list.',
+  'app.listTimeout': 'The list did not arrive in time. Your jobs are saved; try again.',
+  'app.listTimeoutDetail': 'GET /api/jobs gave no answer within {s} s.',
+  'app.listFailedHelp': 'Something went wrong while showing your jobs. They are saved; try again.',
   'health.noLocalModel': 'no local model set up',
   'health.localModelSilent': 'local model is not answering',
   'health.localModelUntried': 'local model not contacted yet',
@@ -1769,9 +1773,14 @@ const EN = {
   'sidenav.look': 'Look',
   'sidenav.alertTitleOne': 'A job site needs you',
   'sidenav.alertTitle': '{n} job sites need you',
+  'sidenav.alertTitleNamed': '{name} needs a new check',
+  'sidenav.alertTextFailed': 'Its last check failed and read nothing, so you may miss jobs from it. '
+    + 'Checking again is in its details.',
+  'sidenav.alertTextStale': 'It has not been checked for a while, so newer jobs may be missing. Checking '
+    + 'again is in its details.',
   'sidenav.alertTextOne': 'We can\'t check one of your job sites right now, so you may miss some jobs.',
   'sidenav.alertText': 'We can\'t check some of your job sites right now, so you may miss some jobs.',
-  'sidenav.alertFix': 'Fix it',
+  'sidenav.alertFix': 'See details',
   'sidenav.alertDismiss': 'Dismiss',
   'sidenav.alertHidden': 'Hidden. We\'ll tell you again if something new breaks.',
   'toast.undone': 'Undone.',
@@ -2645,8 +2654,11 @@ const EN = {
   'home.todo.toast.evidence': 'Experience confirmed',
   'home.todo.toast.compensation': 'Pay added',
   'home.todo.toast.saved': 'Saved',
-  'home.todo.sites': 'Fix {n} job sites',
-  'home.todo.sitesOne': 'Fix a job site',
+  'home.todo.sites': 'Check {n} job sites again',
+  'home.todo.sitesOne': 'Check a job site again',
+  'home.todo.siteNamed': 'Check {name} again',
+  'home.todo.siteFailedHelp': 'Its last check failed and read nothing.',
+  'home.todo.siteStaleHelp': 'Not checked for a while; newer jobs may be missing.',
   'home.todo.sitesHelp': 'You may miss some jobs until it works again.',
   'home.todo.gap.evidence': 'Confirm your experience',
   'home.todo.gapHelp.evidence': 'So each job shows what you already meet.',
@@ -2831,6 +2843,9 @@ const EN = {
     + 'it is. It cannot be undone.',
   'count.oneJob': '1 job',
   'count.jobs': '{n} jobs',
+  'count.basisKeywords': 'scores from your phrases (no AI)',
+  'count.basisAi': 'scores from your phrases, plus an AI evaluation for {n} jobs',
+  'count.basisAiOne': 'scores from your phrases, plus an AI evaluation for 1 job',
   'count.oneRepostFolded': '1 repost folded in',
   'count.repostsFolded': '{n} reposts folded in',
   'count.showingRange': 'showing {from}-{to}',
@@ -3447,9 +3462,10 @@ const EN = {
   // the reasonable thing to expect afterwards is that the job list changes.
   // It will not: no scoring module can read a claim, and a test fails if one
   // ever learns to.
-  'profile.confirmedNote': 'Confirming something does not move a recommendation. What you confirm is read when you '
-    + 'prepare an application, and it is where the words in that application come from.',
+  'profile.confirmedNote': 'Confirmed evidence supports the claims in your tailored resume. Confirming it '
+    + 'does not change your match score.',
   'profile.openEvidence': 'Open Proof of my work',
+  'profile.reviewEvidence': 'Review my evidence',
   'profile.nothingConfirmed': 'Nothing confirmed yet',
   'profile.nothingConfirmedLead': 'This is where the work you have done appears, once you have '
     + 'said which parts of it are true. Nothing is confirmed on your behalf.',
@@ -3612,6 +3628,7 @@ const EN = {
   'setup.stage.kind': 'Kind of job',
   'setup.stage.pay': 'Pay',
   'setup.stage.cv': 'Your resume',
+  'setup.stage.matching': 'Matching',
   'setup.langQuestion': 'Which language do you prefer? · Qual idioma você prefere?',
   'setup.langSub.en': 'I want to use the app in English',
   'setup.langSub.pt-BR': 'Quero usar o app em português',
@@ -3829,6 +3846,26 @@ const EN = {
     'Based in',
   'setup.review.hire': 'Can be employed in',
   'setup.review.markets': 'Markets first',
+  'setup.review.matching': 'Matching',
+  'setup.matching.title': 'How should jobs be matched to you?',
+  'setup.matching.why': 'Choose before the first search. You can change it later in Settings.',
+  'setup.matching.loading': 'Checking which options this computer has…',
+  'setup.matching.legend': 'Matching',
+  'setup.matching.keywords': 'Keywords only (no AI)',
+  'setup.matching.keywordsNote': 'Compares your phrases with each job, on this computer. Free, and nothing '
+    + 'is sent. It can miss jobs that describe the same work in other words.',
+  'setup.matching.billing.METERED_API': 'AI evaluation with {name}. Paid per use with your API key, up to '
+    + 'the limit per run set in Settings.',
+  'setup.matching.billing.SUBSCRIPTION': 'AI evaluation with {name}. Uses your own {name} plan limits; '
+    + 'nothing extra is charged here.',
+  'setup.matching.billing.LOCAL': 'AI evaluation on this computer with {name}. Nothing is sent; it is slower.',
+  'setup.matching.sends': '{name} receives your search phrases and the text of each job it evaluates. It '
+    + 'never receives your profile, evidence, CV files or applications.',
+  'setup.matching.manual': 'Choosing it evaluates nothing yet: scores use keywords until you start an '
+    + 'evaluation in Settings, and only the jobs it evaluates change.',
+  'setup.matching.ack': 'I understand what {name} receives and what it may cost.',
+  'setup.matching.needAck': 'To use AI, confirm that you understand what is sent, or choose Keywords only.',
+  'setup.matching.default': 'A good start. You can add an AI evaluation later.',
   'setup.review.everywhere': 'Everywhere',
   'setup.review.workmodel':
     'Ways of working',
@@ -3903,6 +3940,15 @@ const EN = {
     + 'would be a guess.',
   'collect.scoring': 'Scoring new and changed jobs: {done} of {total}',
   'collect.scoringStart': 'Scoring new and changed jobs…',
+  'collect.preparing': 'Preparing your job list…',
+  'collect.preparingLabel': 'Preparing your job list',
+  'collect.preparingNote': 'Every job has its score. The list is being made searchable; on a first search '
+    + 'this takes a few minutes.',
+  'collect.preparingShort': 'Preparing your list…',
+  'collect.scoringFailed': 'Your jobs were found and kept, but scoring them did not finish. Score them '
+    + 'again: nothing is collected again.',
+  'collect.scoreAgain': 'Score my jobs again',
+  'collect.technical': 'Technical details',
   'collect.scoringLabel': 'Jobs scored',
   'collect.took': 'Reading sources finished in {time}.',
   'collect.stopping': 'Stopping after this source…',
@@ -5632,6 +5678,7 @@ const PT_BR = {
   'drawer.whySection': 'Por que se alinha à busca',
   // -- the rest of the interface -----------------------------------------
   'app.loading': 'Carregando...',
+  'app.loadingSlow': 'Ainda carregando: uma lista grande pode levar um pouco mais…',
   'profiles.menuLabel': 'Perfis locais',
   'profiles.onThisComputer': 'Perfis neste computador',
   'profiles.listLabel': 'Perfis neste computador',
@@ -5674,6 +5721,9 @@ const PT_BR = {
   'app.starting': 'Começando...',
   'app.listFailed': 'Não foi possível carregar a lista de vagas.',
   'app.listFailedShort': 'Não foi possível carregar a lista.',
+  'app.listTimeout': 'A lista não chegou a tempo. Suas vagas estão guardadas; tente de novo.',
+  'app.listTimeoutDetail': 'GET /api/jobs não respondeu em {s} s.',
+  'app.listFailedHelp': 'Algo deu errado ao mostrar suas vagas. Elas estão guardadas; tente de novo.',
   'health.noLocalModel': 'nenhum modelo local configurado',
   'health.localModelSilent': 'o modelo local não está respondendo',
   'health.localModelUntried': 'o modelo local ainda não foi contatado',
@@ -6030,11 +6080,16 @@ const PT_BR = {
   'sidenav.look': 'Aparência',
   'sidenav.alertTitleOne': 'Um site de vagas precisa de você',
   'sidenav.alertTitle': '{n} sites de vagas precisam de você',
+  'sidenav.alertTitleNamed': '{name} precisa de uma nova verificação',
+  'sidenav.alertTextFailed': 'A última verificação falhou e não leu nada, então você pode perder vagas '
+    + 'dele. Verificar de novo está nos detalhes.',
+  'sidenav.alertTextStale': 'Faz tempo que ele não é verificado, então vagas novas podem estar faltando. '
+    + 'Verificar de novo está nos detalhes.',
   'sidenav.alertTextOne': 'Não conseguimos verificar um dos seus sites de vagas agora, então algumas vagas podem '
     + 'ficar de fora.',
   'sidenav.alertText': 'Não conseguimos verificar alguns dos seus sites de vagas agora, então algumas vagas podem '
     + 'ficar de fora.',
-  'sidenav.alertFix': 'Resolver',
+  'sidenav.alertFix': 'Ver detalhes',
   'sidenav.alertDismiss': 'Dispensar',
   'sidenav.alertHidden': 'Escondido. Avisamos de novo se algo novo quebrar.',
   'toast.undone': 'Desfeito.',
@@ -6915,8 +6970,11 @@ const PT_BR = {
   'home.todo.toast.evidence': 'Experiência confirmada',
   'home.todo.toast.compensation': 'Salário adicionado',
   'home.todo.toast.saved': 'Salvo',
-  'home.todo.sites': 'Corrigir {n} sites de vagas',
-  'home.todo.sitesOne': 'Corrigir um site de vagas',
+  'home.todo.sites': 'Verificar {n} sites de vagas de novo',
+  'home.todo.sitesOne': 'Verificar um site de vagas de novo',
+  'home.todo.siteNamed': 'Verificar {name} de novo',
+  'home.todo.siteFailedHelp': 'A última verificação falhou e não leu nada.',
+  'home.todo.siteStaleHelp': 'Faz tempo que não é verificado; vagas novas podem estar faltando.',
   'home.todo.sitesHelp': 'Você pode perder algumas vagas até ele voltar a funcionar.',
   'home.todo.gap.evidence': 'Confirme sua experiência',
   'home.todo.gapHelp.evidence': 'Para cada vaga mostrar o que você já tem.',
@@ -7102,6 +7160,9 @@ const PT_BR = {
     + 'continua como está. Não dá para desfazer.',
   'count.oneJob': '1 vaga',
   'count.jobs': '{n} vagas',
+  'count.basisKeywords': 'notas pelas suas frases (sem IA)',
+  'count.basisAi': 'notas pelas suas frases, mais avaliação por IA de {n} vagas',
+  'count.basisAiOne': 'notas pelas suas frases, mais avaliação por IA de 1 vaga',
   'count.oneRepostFolded': '1 republicação agrupada',
   'count.repostsFolded': '{n} republicações agrupadas',
   'count.showingRange': 'mostrando {from}-{to}',
@@ -7717,9 +7778,10 @@ const PT_BR = {
   'profile.done.proof': 'seus projetos',
   'profile.done.quals': 'seus certificados',
   'profile.andMoreSkills': 'E mais {n}, em Habilidades.',
-  'profile.confirmedNote': 'Confirmar algo não muda uma recomendação. O que você confirma é lido quando você '
-    + 'prepara uma candidatura, e é de lá que vêm as palavras dessa candidatura.',
+  'profile.confirmedNote': 'As evidências confirmadas dão suporte às afirmações do seu currículo adaptado. '
+    + 'Confirmá-las não altera seu match.',
   'profile.openEvidence': 'Abrir Provas do meu trabalho',
+  'profile.reviewEvidence': 'Revisar minhas evidências',
   'profile.nothingConfirmed': 'Nada confirmado ainda',
   'profile.nothingConfirmedLead': 'É aqui que aparece o trabalho que você já fez, depois que '
     + 'você disser quais partes dele são verdadeiras. Nada é confirmado no seu lugar.',
@@ -7861,6 +7923,7 @@ const PT_BR = {
   'setup.stage.kind': 'Tipo de vaga',
   'setup.stage.pay': 'Salário',
   'setup.stage.cv': 'Seu currículo',
+  'setup.stage.matching': 'Comparação',
   'setup.langQuestion': 'Which language do you prefer? · Qual idioma você prefere?',
   'setup.langSub.en': 'I want to use the app in English',
   'setup.langSub.pt-BR': 'Quero usar o app em português',
@@ -8079,6 +8142,26 @@ const PT_BR = {
     'Mora em',
   'setup.review.hire': 'Pode trabalhar com vínculo em',
   'setup.review.markets': 'Mercados primeiro',
+  'setup.review.matching': 'Comparação',
+  'setup.matching.title': 'Como as vagas devem ser comparadas com você?',
+  'setup.matching.why': 'Escolha antes da primeira busca. Você pode mudar depois em Configurações.',
+  'setup.matching.loading': 'Verificando as opções deste computador…',
+  'setup.matching.legend': 'Comparação',
+  'setup.matching.keywords': 'Só palavras-chave (sem IA)',
+  'setup.matching.keywordsNote': 'Compara suas frases com cada vaga, neste computador. Gratuito, e nada é '
+    + 'enviado. Pode deixar passar vagas que descrevem o mesmo trabalho com outras palavras.',
+  'setup.matching.billing.METERED_API': 'Avaliação por IA com {name}. Paga por uso com sua chave de API, '
+    + 'até o limite por execução definido em Configurações.',
+  'setup.matching.billing.SUBSCRIPTION': 'Avaliação por IA com {name}. Usa os limites do seu próprio plano '
+    + '{name}; nada extra é cobrado aqui.',
+  'setup.matching.billing.LOCAL': 'Avaliação por IA neste computador com {name}. Nada é enviado; é mais lenta.',
+  'setup.matching.sends': '{name} recebe suas frases de busca e o texto de cada vaga que avaliar. Nunca '
+    + 'recebe seu perfil, evidências, arquivos de currículo ou candidaturas.',
+  'setup.matching.manual': 'Escolher não avalia nada ainda: as notas usam palavras-chave até você iniciar '
+    + 'uma avaliação em Configurações, e só as vagas avaliadas mudam.',
+  'setup.matching.ack': 'Entendo o que {name} recebe e quanto pode custar.',
+  'setup.matching.needAck': 'Para usar IA, confirme que entende o que é enviado, ou escolha Só palavras-chave.',
+  'setup.matching.default': 'Um bom começo. Você pode acrescentar uma avaliação por IA depois.',
   'setup.review.everywhere': 'Todo lugar',
   'setup.review.workmodel':
     'Formatos de trabalho',
@@ -8153,6 +8236,15 @@ const PT_BR = {
     + 'seria um palpite.',
   'collect.scoring': 'Avaliando vagas novas e alteradas: {done} de {total}',
   'collect.scoringStart': 'Avaliando vagas novas e alteradas…',
+  'collect.preparing': 'Preparando sua lista de vagas…',
+  'collect.preparingLabel': 'Preparando sua lista de vagas',
+  'collect.preparingNote': 'Todas as vagas já têm nota. A lista está sendo preparada para busca; na '
+    + 'primeira vez isso leva alguns minutos.',
+  'collect.preparingShort': 'Preparando sua lista…',
+  'collect.scoringFailed': 'Suas vagas foram encontradas e guardadas, mas a pontuação não terminou. Pontue '
+    + 'de novo: nada é coletado outra vez.',
+  'collect.scoreAgain': 'Pontuar minhas vagas de novo',
+  'collect.technical': 'Detalhes técnicos',
   'collect.scoringLabel': 'Vagas avaliadas',
   'collect.took': 'A leitura das fontes terminou em {time}.',
   'collect.stopping': 'Parando depois desta fonte…',

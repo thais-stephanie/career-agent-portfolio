@@ -405,6 +405,30 @@ def _stage_for_source_provider(provider: str) -> str:
     return _stage_for(provider)
 
 
+def _scoring_view(running: bool, scoring: dict | None) -> dict:
+    """Scoring after a collection, as one poll reports it.
+
+    `step` names what the pass is doing. After the last posting is scored the
+    same pass refreshes the search index -- on a first run, a full rebuild of
+    every posting, minutes long -- and the screen used to sit on "124,233 of
+    124,233" with nothing saying why the list was not ready. `failed` and
+    `error` say how the last pass ended, so a failure is never silent.
+    """
+    snap = scoring or {}
+    done = int(snap.get("boards_done") or 0)
+    total = int(snap.get("boards_total") or 0)
+    status = snap.get("status")
+    return {
+        "running": running,
+        "done": done,
+        "total": total,
+        "step": "preparing" if running and total and done >= total else "scoring",
+        "run_id": snap.get("run_id"),
+        "failed": status == "failed",
+        "error": snap.get("error") if status == "failed" else None,
+    }
+
+
 def _progress_dict(p, name: str = "") -> dict:
     """One source's refresh, as JSON a screen can draw without arithmetic.
 
@@ -1034,6 +1058,14 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 blocked=blocked,
                 public=public_health.read(conn),
             )
+        if self.retrieval.running and not self._active_source_refresh:
+            # A whole check is under way: a source it has not reached yet is
+            # waiting in it, not "never run" (what the first run of a new
+            # installation showed for every source but the one being read).
+            return [
+                replace(p, state=RefreshState.QUEUED) if p.state is RefreshState.NOT_STARTED else p
+                for p in progress
+            ]
         if self._active_source_refresh and self.retrieval.running:
             return [
                 replace(p, state=RefreshState.RUNNING, blocker=None)
@@ -1878,11 +1910,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # Scoring follows a collection on its own runner. Reported here so
             # one poll can say "reading sources" and then "scoring what came
             # in" without the page watching two endpoints.
-            "scoring": {
-                "running": self.rescore.running,
-                "done": int(scoring["boards_done"]) if scoring else 0,
-                "total": int(scoring["boards_total"]) if scoring else 0,
-            },
+            "scoring": _scoring_view(self.rescore.running, scoring),
             # The server's clock, so elapsed time is measured against the
             # clock that stamped `started_at` rather than the browser's.
             "now": now_iso(),
@@ -2219,7 +2247,30 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 "country": self._country_labels(),
                 "region": self._region_labels(),
             },
+            # WHAT THESE SCORES ARE MADE OF. Every score counts the person's
+            # own phrases; an AI evaluation adds to it only for postings a run
+            # evaluated, and only while the settings use them. Choosing a
+            # provider evaluates nothing by itself, so "Claude Code" in
+            # Settings beside keyword-only scores was a question nobody could
+            # answer from the screen.
+            "scoring_basis": self._scoring_basis(),
         }
+
+    def _scoring_basis(self) -> dict:
+        from career_agent.semantic.settings import load_settings
+
+        with _closing(self.connect()) as conn:
+            settings = load_settings(self.config.config_dir, conn)
+            evaluated = (
+                int(
+                    conn.execute(
+                        "SELECT COUNT(DISTINCT job_id) FROM semantic_evaluation"
+                    ).fetchone()[0]
+                )
+                if settings.uses_findings
+                else 0
+            )
+        return {"ai": evaluated > 0, "evaluated": evaluated, "mode": settings.mode.value}
 
     def jobs_freshness(self, *, query: dict, body: dict) -> dict:
         """A token that moves whenever any `/api/jobs` answer could move.

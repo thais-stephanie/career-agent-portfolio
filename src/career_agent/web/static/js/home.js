@@ -365,6 +365,20 @@ export function createHome({
    * "Nothing to do right now" means exactly that. Preferred markets are
    * optional and never a row: empty means search everywhere.
    */
+  /** The job-site task: the source by name, what happened, and its detail. */
+  function sitesTask(task, sites, failed) {
+    const ids = sites.attention || [];
+    if (failed === 1 && ids.length === 1) {
+      const id = ids[0];
+      const name = (sites.names && sites.names[id]) || id;
+      const stale = (sites.states || {})[id] === 'STALE';
+      return task('sites', t('home.todo.siteNamed', { name }),
+        t(stale ? 'home.todo.siteStaleHelp' : 'home.todo.siteFailedHelp'), () => onFixSites(id));
+    }
+    return task('sites', tCount('home.todo.sites', { n: failed }), t('home.todo.sitesHelp'),
+      () => onFixSites(null));
+  }
+
   function todos(payload) {
     // The sources' status arrives on its own, usually after Home. It counts
     // only when it is known and belongs to the profile this read is for.
@@ -440,9 +454,7 @@ export function createHome({
     const tasks = [
       recalc,
       rights,
-      failed && onFixSites
-        ? task('sites', tCount('home.todo.sites', { n: failed }), t('home.todo.sitesHelp'), onFixSites)
-        : null,
+      failed && onFixSites ? sitesTask(task, sites, failed) : null,
       ...(payload.profile_gaps || []).map((gap) => task(`gap.${gap}`, t(`home.todo.gap.${gap}`),
         t(`home.todo.gapHelp.${gap}`),
         () => (SETUP_FOR_GAP[gap] ? openSetup(SETUP_FOR_GAP[gap]) : onGoTo && onGoTo('profile')))),
@@ -623,6 +635,15 @@ export function createHome({
    * button that opens exactly the population it counted, so a number can be
    * checked rather than believed.
    */
+  /** A count that fits the step's circle: whole up to 9,999, then the
+   *  locale's own short form ("125K", "125 mil"). A first search makes New
+   *  six digits, and "124528" spilled out of a 30px circle. */
+  function shortCount(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || Math.abs(n) < 10000) return n.toLocaleString(getLocale());
+    return new Intl.NumberFormat(getLocale(), { notation: 'compact', maximumFractionDigits: 0 }).format(n);
+  }
+
   function progress(payload) {
     const byKey = new Map(payload.metrics.map((metric) => [metric.key, metric]));
     const moved = byKey.get('progressed') ? byKey.get('progressed').value : 0;
@@ -635,7 +656,12 @@ export function createHome({
       const unknown = metric.value === null || metric.value === undefined;
       const label = t(`home.metric.${step.key}`);
       const inner = [
-        el('span', { className: 'step__value num', text: unknown ? '-' : String(metric.value) }),
+        el('span', {
+          className: 'step__value num',
+          text: unknown ? '-' : shortCount(metric.value),
+          // The exact number, wherever the circle shows the short form.
+          attrs: unknown ? {} : { title: Number(metric.value).toLocaleString(getLocale()) },
+        }),
         el('span', { className: 'step__label', text: label }),
         el('span', {
           className: 'step__help',
