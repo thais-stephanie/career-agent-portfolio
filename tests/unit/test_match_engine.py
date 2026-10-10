@@ -477,9 +477,9 @@ def test_only_seniority_may_move_when_the_title_changes() -> None:
 
     assert senior.seniority.value is Seniority.SENIOR
     assert senior.seniority.source is SenioritySource.TITLE_GRADE
-    # This body states a required minimum, so the plain title falls through to
-    # the years band rather than to DEFAULT. Either way it is not the title.
-    assert plain.seniority.source is SenioritySource.REQUIRED_YEARS
+    # This body states a required minimum of years, and years name no level
+    # (2026-10-10): the plain title reads DEFAULT. Either way not the title.
+    assert plain.seniority.source is SenioritySource.DEFAULT
 
     # Seniority is a scored dimension, so the totals may differ -- but only by
     # the seniority component, and never by the title's resemblance to a

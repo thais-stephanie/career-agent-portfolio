@@ -82,7 +82,16 @@ __all__ = ["YEARS", "career_years"]
 #: `anos?` and not `anos`: `1 ano na area` matched nothing while the `?` was
 #: missing, so a Brazilian posting asking for a single year read as one that had
 #: never mentioned years at all.
-YEARS = re.compile(r"\b(\d{1,2})\s*(?:\+|plus)?\s*(?:years?|yrs?|anos?)\b", re.IGNORECASE)
+#:
+#: A RANGE IS READ BY ITS LOWER BOUND. `4-6+ years` used to match only `6+
+#: years`, so a posting open to four years of experience was stored as asking
+#: for six. Group 1 is always the first figure written: the minimum of a range
+#: (`4-6`, `3 to 5`, `de 3 a 5 anos`, `entre 2 e 4 anos`) or the only figure.
+YEARS = re.compile(
+    r"\b(\d{1,2})(?:\s*(?:-|\u2013|\u2014|to|and|a|e|at[e\u00e9])\s*\d{1,2})?"
+    r"\s*(?:\+|plus)?\s*(?:years?|yrs?|anos?)\b",
+    re.IGNORECASE,
+)
 
 
 #: How far around a figure to look for a statement that it is an age. Wider than

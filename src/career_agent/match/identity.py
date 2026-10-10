@@ -135,7 +135,15 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              sponsor visas" refuses only on-site or hybrid work; "US
 #:              residents only" and a declared "USA Only" refuse. The
 #:              work_authorization and geography gates move.
-READER_IDENTITY = "readers-8"
+#:   readers-9  Brazil relevance (2026-10-10): a wizard-shaped phrase is read in
+#:              its other inflections, orders and coordinations
+#:              (`phrase_forms`); a range of years is read by its lower bound
+#:              and years no longer name a level; a labelled contract line in
+#:              the body is a contract statement; "the LATAM region" resolves;
+#:              "we do not sponsor visas" on a remote role is answered for a
+#:              candidate authorized where she lives. Signals, seniority,
+#:              employment and both gates move.
+READER_IDENTITY = "readers-9"
 
 
 def guarded_sections(config: Any) -> list[str]:

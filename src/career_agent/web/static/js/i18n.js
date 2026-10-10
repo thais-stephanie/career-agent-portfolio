@@ -330,9 +330,9 @@ const EN = {
   'hidden.seniorityShowing': 'Showing levels you set aside.',
   'hidden.seniorityReveal': 'Show those too',
   'hidden.unresolved':
-    '{count} set aside because eligibility is not confirmed yet: the posting never said where the ' +
-    'employer hires, or asks something you have not answered. Nothing rules you out.',
-  'hidden.unresolvedOne': '1 set aside because eligibility is not confirmed yet.',
+    '{count} set aside because the location is still to confirm: the posting does not say whether the ' +
+    'work can be done from where you live, or asks something you have not answered. Nothing rules you out.',
+  'hidden.unresolvedOne': '1 set aside because the location is still to confirm.',
   'hidden.unresolvedShowing': 'Including jobs whose eligibility is not confirmed yet; each says what '
     + 'is left to confirm.',
   'hidden.unresolvedReveal': 'Show those too',
@@ -1740,10 +1740,10 @@ const EN = {
   'filters.section.progress': 'Where you are with it',
   'filters.section.advanced': 'Advanced',
   'filters.toggle.includeIneligible': 'Include jobs with eligibility conflicts',
-  'filters.toggle.includeUnresolved': 'Include jobs that never said where they hire',
+  'filters.toggle.includeUnresolved': 'Include jobs whose location is still to confirm',
   'filters.includeUnresolvedHelp':
-    'Off by default. These are jobs where the posting never said where the employer can hire, so nobody ' +
-    'can tell whether you could take them. That is not a no -- it is a question the posting left open.',
+    'Off by default. The posting does not say whether the work can be done from where you live, or it ' +
+    'asks something you have not answered yet. That is not a no: each one says what is left to confirm.',
   'jobs.hiddenUnresolved':
     '{n} hidden because the posting never said where the employer hires. Nothing rules you out; nothing ' +
     'confirms you either.',
@@ -4756,9 +4756,9 @@ const PT_BR = {
   'hidden.seniorityShowing': 'Mostrando níveis que você deixou de lado.',
   'hidden.seniorityReveal': 'Mostrar essas também',
   'hidden.unresolved':
-    '{count} de lado porque a elegibilidade ainda não está confirmada: o anúncio nunca disse onde o ' +
-    'empregador contrata, ou pergunta algo que você não respondeu. Nada exclui você.',
-  'hidden.unresolvedOne': '1 de lado porque a elegibilidade ainda não está confirmada.',
+    '{count} de lado porque a localização está a confirmar: o anúncio não diz se o trabalho pode ser ' +
+    'feito de onde você mora, ou pergunta algo que você não respondeu. Nada exclui você.',
+  'hidden.unresolvedOne': '1 de lado porque a localização está a confirmar.',
   'hidden.unresolvedShowing': 'Incluindo vagas com elegibilidade ainda não confirmada; cada uma diz o '
     + 'que falta confirmar.',
   'hidden.unresolvedReveal': 'Mostrar essas também',
@@ -6053,11 +6053,10 @@ const PT_BR = {
   'filters.section.progress': 'Em que ponto você está',
   'filters.section.advanced': 'Avançado',
   'filters.toggle.includeIneligible': 'Incluir vagas com conflito de elegibilidade',
-  'filters.toggle.includeUnresolved': 'Incluir vagas que não disseram onde contratam',
+  'filters.toggle.includeUnresolved': 'Incluir vagas com localização a confirmar',
   'filters.includeUnresolvedHelp':
-    'Desligado por padrão. São vagas em que o anúncio nunca disse onde o empregador pode contratar, ' +
-    'então ninguém consegue dizer se você poderia aceitá-las. Isso não é um não -- é uma pergunta que o ' +
-    'anúncio deixou aberta.',
+    'Desligado por padrão. O anúncio não diz se o trabalho pode ser feito de onde você mora, ou pergunta ' +
+    'algo que você ainda não respondeu. Isso não é um não: cada vaga diz o que falta confirmar.',
   'jobs.hiddenUnresolved':
     '{n} ocultas porque o anúncio nunca disse onde o empregador contrata. Nada exclui você; nada ' +
     'confirma você também.',

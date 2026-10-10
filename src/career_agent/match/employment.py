@@ -97,6 +97,23 @@ _EXPLICIT_TEMPORARY = (
     r"\bcontrato\s+tempor[áa]rio\b",
 )
 
+#: A LABELLED declaration in the body: the employer filled in its own "type"
+#: line the way a board form would have been filled in. Only the `label: value`
+#: shape counts; `full-time` loose in a sentence ("our full-time team") says
+#: nothing about this role. A schedule word maps the way the board fields
+#: already do (`FullTime` -> EMPLOYEE, `_CONTRACT_ALIASES` in match/score.py).
+_TYPE_LABEL = (
+    r"(?:position|employment|job|contract|engagement|role)\s+type"
+    r"|tipo\s+de\s+(?:contrata[çc][ãa]o|contrato|vaga|v[íi]nculo)"
+    r"|regime\s+de\s+contrata[çc][ãa]o"
+)
+_LABELLED_EMPLOYEE = (
+    rf"(?:{_TYPE_LABEL})\s*[:\-]\s*(?:full[\s-]?time|permanent|efetivo|tempo\s+integral)\b",
+)
+_LABELLED_CONTRACTOR = (
+    rf"(?:{_TYPE_LABEL})\s*[:\-]\s*(?:contract(?:or)?|freelance(?:r)?|b2b|prestador|pj)\b",
+)
+
 
 # =========================================================================
 # Benefit context -- a likelihood, never a statement
@@ -309,6 +326,24 @@ def read_employment(
             confidence=AnalysisConfidence.HIGH,
             evidence=_quote(field, clt),
         )
+
+    for patterns, relationship in (
+        (_LABELLED_CONTRACTOR, EmploymentRelationship.CONTRACTOR_B2B),
+        (_LABELLED_EMPLOYEE, EmploymentRelationship.EMPLOYEE),
+    ):
+        found = _first(field, patterns)
+        if found is not None:
+            return EmploymentReading(
+                relationship=relationship,
+                regime=(
+                    LocalContractRegime.PJ
+                    if found.group(0).endswith("pj")
+                    else LocalContractRegime.UNRESOLVED
+                ),
+                source=EmploymentSource.EXPLICIT_STATEMENT,
+                confidence=AnalysisConfidence.HIGH,
+                evidence=_quote(field, found),
+            )
 
     benefit = _first_labelled(field, _BR_EMPLOYEE_BENEFITS)
     if benefit is not None:

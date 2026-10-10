@@ -443,13 +443,22 @@ def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
     positives had only such evidence, mostly generic lines, and it unlocked
     the full tools component for common languages and API mentions.
     """
-    ceiling = tools.max_points * TOOLS_WITHOUT_WORK_SHARE
+    if not work.configured or not tools.configured:
+        return tools
     central = any(
         row.counted and row.prominence is not Prominence.INCIDENTAL for row in work.contributions
     )
-    if not work.configured or not tools.configured or central:
-        return tools
-    if tools.points <= ceiling:
+    # THE REST OF THE TOOLS PAY AS FAR AS THE WORK WAS FOUND (2026-10-10). The
+    # guard used to be all or nothing: one bullet reading "Workflow automation"
+    # under a full-stack engineering advert lifted it, and three tool names
+    # then paid 20 of 20. Now the second half of the component opens in
+    # proportion to the work component's own fill: one of four activities
+    # found opens a quarter of it.
+    fill = (work.points / work.max_points) if central and work.max_points > 0 else 0.0
+    ceiling = tools.max_points * (
+        TOOLS_WITHOUT_WORK_SHARE + (1.0 - TOOLS_WITHOUT_WORK_SHARE) * min(1.0, fill)
+    )
+    if tools.points <= ceiling + 1e-9:
         return tools
     # The rows are scaled with the component, so what the drawer lists adds up
     # to what the component actually scored.
@@ -466,6 +475,9 @@ def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
         capped=False,
         note=(
             "Capped at half: none of the work you want was found as a central duty of this posting."
+            if not central
+            else "Capped: the tools you named count in full only as far as the work you want "
+            "was found in this posting."
         ),
         configured=tools.configured,
         guarded=True,
@@ -600,8 +612,17 @@ def _compensation_component(
     band = _select_band(job_facts, preference.currency.upper())
     offered = band.max_value if band.max_value is not None else band.min_value
 
+    # SILENCE LEAVES THE SCORE (2026-10-10, owner). A posting that states no
+    # pay, or no engagement the person has an opinion about, earns nothing
+    # AND is not measured on it: that part leaves this component's maximum, so
+    # it neither pays nor costs. It used to earn `salary_unknown` (2 of 3) and
+    # `contract_unknown` (1 of 2), and the drawer listed both under "what fits"
+    # with a tick. The two configuration keys are still read by the loader and
+    # no longer score anything.
+    measured_max = 0.0
+
     if offered is None:
-        salary_id, salary_points = "salary_unknown", component.salary_unknown
+        salary_id, salary_points = "salary_unknown", 0.0
     else:
         # Period first, then currency: restating a yearly figure as a monthly
         # one is exact and free, and doing it before the rate keeps the note
@@ -621,8 +642,9 @@ def _compensation_component(
                 notes.append(currency_note)
 
         if converted is None:
-            salary_id, salary_points = "salary_unknown", component.salary_unknown
+            salary_id, salary_points = "salary_unknown", 0.0
         else:
+            measured_max += component.salary_meets_target
             meets = converted >= preference.target_monthly_amount
             salary_id = "salary_meets_target" if meets else "salary_below_target"
             salary_points = (
@@ -653,38 +675,48 @@ def _compensation_component(
         )
 
     engaged = employment.relationship
-    if engaged is EmploymentRelationship.UNRESOLVED:
-        contract_id, contract_points = "contract_unknown", component.contract_unknown
+    contract_id: str | None
+    if not preferred and not unwanted:
+        # Nothing asked, so nothing to measure and no row to show.
+        contract_id, contract_points = None, 0.0
+    elif engaged is EmploymentRelationship.UNRESOLVED:
+        contract_id, contract_points = "contract_unknown", 0.0
     elif engaged in preferred:
         contract_id, contract_points = "contract_preferred", component.contract_preferred
     elif engaged in unwanted:
         contract_id, contract_points = "contract_unwanted", component.contract_unwanted
     else:
-        contract_id, contract_points = "contract_unknown", component.contract_unknown
+        # Stated, and neither wanted nor unwanted: no conflict was found, which
+        # is measured, and is not the preference being met.
+        contract_id, contract_points = "contract_neutral", component.contract_unknown
+    if contract_id not in (None, "contract_unknown"):
+        measured_max += component.contract_preferred
 
-    contributions.append(
-        ScoreContribution(
-            signal_id=contract_id,
-            label="Contract preference",
-            prominence=Prominence.INCIDENTAL,
-            weight=contract_points,
-            points=contract_points,
-            # The quote when the posting SAID it in words, and None when the
-            # employer picked it from the board's dropdown. A structured
-            # reading is explicit and has nothing to quote; ADR-0002 means an
-            # invented quote would not be evidence, it would be a fabrication.
-            quote=employment.evidence,
+    if contract_id is not None:
+        contributions.append(
+            ScoreContribution(
+                signal_id=contract_id,
+                label="Contract preference",
+                prominence=Prominence.INCIDENTAL,
+                weight=contract_points,
+                points=contract_points,
+                # The quote when the posting SAID it in words, and None when the
+                # employer picked it from the board's dropdown. A structured
+                # reading is explicit and has nothing to quote; ADR-0002 means an
+                # invented quote would not be evidence, it would be a fabrication.
+                quote=employment.evidence,
+            )
         )
-    )
 
     total = salary_points + contract_points
+    ceiling = min(measured_max, component.max)
     return ScoreComponent(
         component_id="compensation_contract",
         label=component.label,
-        points=min(total, component.max),
-        max_points=component.max,
+        points=min(total, ceiling),
+        max_points=ceiling,
         contributions=tuple(contributions),
-        capped=total > component.max,
+        capped=total > ceiling,
         note=" ".join(notes) or None,
     )
 

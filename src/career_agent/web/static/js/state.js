@@ -90,7 +90,9 @@ export const FLAG_KEYS = [
 /** Where each reveal choice is remembered between visits. */
 export const ELIGIBILITY_KEY = 'careerAgent.includeIneligible.v1';
 export const OFF_TARGET_KEY = 'careerAgent.includeOffTarget.v1';
-export const UNRESOLVED_KEY = 'careerAgent.includeUnresolved.v1';
+// v2 (2026-10-10): the default moved back to HIDDEN, and a value stored while
+// "shown" was the default must not keep the old behaviour alive.
+export const UNRESOLVED_KEY = 'careerAgent.includeUnresolved.v2';
 export const EXCLUDED_SENIORITY_KEY = 'careerAgent.includeExcludedSeniority.v1';
 export const EXCLUDED_WORK_MODEL_KEY = 'careerAgent.includeExcludedWorkModel.v1';
 
@@ -219,10 +221,10 @@ export function rememberIncludeOffTarget(value) {
 
 export function storedIncludeUnresolved() {
   try {
-    // Only her stored "hide them" ('0') hides them; nothing stored shows them.
-    return window.localStorage.getItem(UNRESOLVED_KEY) !== '0';
+    // Only her stored "show them" ('1') shows them; nothing stored hides them.
+    return window.localStorage.getItem(UNRESOLVED_KEY) === '1';
   } catch (error) {
-    return true;
+    return false;
   }
 }
 
@@ -363,11 +365,11 @@ export const DEFAULTS = Object.freeze({
   include_ineligible: false,
   include_off_target: false,
   include_user_hidden: false,
-  // SHOWN BY DEFAULT: a posting whose eligibility is still open (it never
-  // said where it hires, or asks something she has not answered) is not a
-  // refusal, and hiding it hid most remote work open to anybody. Her own
-  // choice to hide them is remembered and wins.
-  include_unresolved: true,
+  // HIDDEN BY DEFAULT (2026-10-10, owner): the main list is work she can do
+  // from where she lives. A posting that never said where it hires is not a
+  // refusal either -- it is one switch away ("Include jobs whose location is
+  // still to confirm"), and her choice to show them is remembered.
+  include_unresolved: false,
   include_excluded_seniority: false,
   include_excluded_work_model: false,
   user_hidden_only: false,

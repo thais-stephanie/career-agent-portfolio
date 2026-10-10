@@ -2027,10 +2027,18 @@ MAX_SIBLING_LOCATIONS = 12
 #: fits in a single round trip.
 _PAIR_CHUNK = 100
 
+#: The order in which a group's copies are preferred as its representative:
+#: confirmed open to her, then likely, then to confirm, then ruled out.
+_ELIGIBILITY_RANK = (
+    "CASE {a}.eligibility_status WHEN 'VERIFIED_ELIGIBLE' THEN 0"
+    " WHEN 'LIKELY_ELIGIBLE' THEN 1 WHEN 'UNRESOLVED' THEN 2 ELSE 3 END"
+)
+
 #: The one extra clause that turns the population into one representative row
 #: per `(company_id, title)`: the ids elected to stand for their group.
 #:
-#: The rule is "highest `match_score`, ties broken by the lowest `j.id`", and
+#: The rule is "the copy she can take, then highest `match_score`, ties broken
+#: by the lowest `j.id`" (`_ELIGIBILITY_RANK`, 2026-10-10), and
 #: the two halves are the two aggregates. `g` finds each group's best score;
 #: `MIN(j3.id)` picks among the rows that tie on it. ULIDs are time-sortable,
 #: so the lowest id is the posting collected first. The ordering is TOTAL on
@@ -2768,12 +2776,20 @@ class ScoredJobQuery(_Repo):
         needed = self._joins_needed(inner)
         # One election over the filtered population. The former MAX + MIN
         # join read it twice, then grouped again to break score ties. Ranking
-        # by the same two keys elects exactly the same id in one pass.
+        # by the same keys elects exactly the same id in one pass.
+        #
+        # THE VERSION SHE CAN TAKE STANDS FOR THE GROUP (2026-10-10). Pavago
+        # posted one Full Stack Engineer four times: India 68, Pakistan 66,
+        # LATAM-including-Brazil 57, US 42. Electing by score alone put the
+        # India copy on the card ("to confirm where they hire") and hid the one
+        # that confirms her. Eligibility first, then score. Nothing moves
+        # between the copies: each keeps its own status and its own reasons.
         clause = (
             "j.id IN (SELECT elected_id FROM ("
             " SELECT j3.id AS elected_id, ROW_NUMBER() OVER ("
             " PARTITION BY j3.company_id, j3.title"
-            " ORDER BY jm3.match_score DESC, j3.id ASC) AS election_rank"
+            f" ORDER BY {_ELIGIBILITY_RANK.format(a='jm3')},"
+            " jm3.match_score DESC, j3.id ASC) AS election_rank"
             + self._from_for(needed, "3", inner)
             + where3
             + ") WHERE election_rank = 1)"

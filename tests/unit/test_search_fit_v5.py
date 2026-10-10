@@ -230,6 +230,13 @@ def test_repeating_a_phrase_buys_nothing() -> None:
     assert scored(config, once)[2] == scored(config, many)[2]
 
 
+def opened(components) -> float:
+    """What the tools guard allows (2026-10-10): half, plus the other half in
+    proportion to the work component's fill when that work is central."""
+    work = components["responsibilities"]
+    return 20.0 * (0.5 + 0.5 * work.points / work.max_points)
+
+
 # =========================================================================
 # the tools guard
 # =========================================================================
@@ -253,6 +260,23 @@ def test_one_piece_of_desired_work_lifts_the_tools_guard() -> None:
         "Use bankfeed",
     )
     components, _, _ = scored(config, body)
+    # One piece of the work opens the guard in proportion, no longer in full:
+    # one bullet under another job used to unlock 20 of 20.
+    tools = components["technologies"].points
+    assert 10.0 < tools < 20.0
+    assert tools == pytest.approx(opened(components))
+
+
+def test_all_the_desired_work_opens_the_tools_in_full() -> None:
+    config = config_with()
+    body = responsibilities(
+        *(f"You will {phrase}" for phrase in WORK.values()),
+        "Use ledgerbook",
+        "Use gridsheet",
+        "Use bankfeed",
+    )
+    components, _, _ = scored(config, body)
+    assert components["responsibilities"].points == pytest.approx(25.0)
     assert components["technologies"].points == pytest.approx(20.0)
 
 
@@ -305,7 +329,8 @@ def test_a_strong_finding_in_other_words_lifts_it() -> None:
     components, _, _ = scored(
         config, responsibilities(quote, GENERIC, "Use taxpal"), semantic=evidence(strong)
     )
-    assert components["technologies"].points == pytest.approx(20.0)
+    assert components["technologies"].points == pytest.approx(opened(components))
+    assert components["technologies"].points > 10.0
 
 
 def test_a_literal_phrase_in_a_requirements_section_lifts_it() -> None:
@@ -314,7 +339,8 @@ def test_a_literal_phrase_in_a_requirements_section_lifts_it() -> None:
     body = "Requirements\n- Experience to reconcile invoices\n" + TOOLS_ONLY_BODY
     components, _, _ = scored(config, body)
     assert components["responsibilities"].contributions[0].prominence.value == "SECONDARY"
-    assert components["technologies"].points == pytest.approx(20.0)
+    assert components["technologies"].points == pytest.approx(opened(components))
+    assert components["technologies"].points > 10.0
 
 
 def test_an_incidental_literal_mention_does_not_lift_it() -> None:
@@ -342,9 +368,11 @@ def test_the_title_plays_no_part_in_lifting_it() -> None:
     only in the title lifts nothing."""
     config = config_with()
     central = responsibilities("You will reconcile invoices", GENERIC)
-    assert not _tools_for(config, "Ledger Wizard", central).guarded
-    assert not _tools_for(config, "Senior Software Engineer", central).guarded
-    assert _tools_for(config, "Reconcile Invoices Lead", TOOLS_ONLY_BODY).guarded
+    wizard = _tools_for(config, "Ledger Wizard", central)
+    engineer = _tools_for(config, "Senior Software Engineer", central)
+    assert wizard.points == pytest.approx(engineer.points) and wizard.points > 10.0
+    titled = _tools_for(config, "Reconcile Invoices Lead", TOOLS_ONLY_BODY)
+    assert titled.guarded and titled.points == pytest.approx(10.0)
 
 
 def test_no_work_evidence_stays_unknown_not_a_mismatch() -> None:

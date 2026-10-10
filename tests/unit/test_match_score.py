@@ -107,22 +107,17 @@ def test_seniority_reads_a_role_level_statement_from_the_body() -> None:
     assert reading.source is SenioritySource.DESCRIPTION_STATEMENT
 
 
-def test_seniority_falls_back_to_an_unambiguous_required_minimum() -> None:
-    """SUPERSEDES `test_read_seniority_falls_back_to_years_of_experience`.
-
-    The old test asserted a band off ANY years figure it could find, so
-    "preferably 8+ years" and "you bring 6+ years" were the same input. Only a
-    figure marked as REQUIRED bands now, and the bands themselves moved: 3-5 is
-    mid rather than 3+, and nothing reaches LEAD at any number.
-    """
-    senior = read_seniority("Analyst", "Required: at least 6 years of operations work.")
-    assert (senior.value, senior.source) == (Seniority.SENIOR, SenioritySource.REQUIRED_YEARS)
-
-    mid = read_seniority("Analyst", "Minimum of 3 years of operations work is required.")
-    assert mid.value is Seniority.MID
-
-    junior = read_seniority("Analyst", "We require at least 2 years of operations work.")
-    assert junior.value is Seniority.JUNIOR
+def test_a_required_minimum_of_years_is_not_a_level() -> None:
+    """SUPERSEDES the years band (2026-10-10, owner): years are their own fact
+    (`experience`), and "4-6+ years" made SENIOR of a posting that never said
+    senior. Nothing bands any more; the reading is DEFAULT."""
+    for body in (
+        "Required: at least 6 years of operations work.",
+        "Minimum of 3 years of operations work is required.",
+        "We require at least 2 years of operations work.",
+    ):
+        reading = read_seniority("Analyst", body)
+        assert (reading.value, reading.source) == (Seniority.MID, SenioritySource.DEFAULT)
 
 
 def test_a_preferred_years_figure_is_never_a_minimum() -> None:
@@ -201,11 +196,12 @@ def test_a_posting_with_no_salary_scores_salary_unknown_and_is_not_rejected() ->
     components, _ = _scored("Business Systems Analyst", TOOLS_BODY)
     compensation = _component(components, "compensation_contract")
 
-    assert compensation.points > 0
-    assert [c.signal_id for c in compensation.contributions] == [
-        "salary_unknown",
-        "contract_unknown",
-    ]
+    # SILENCE LEAVES THE SCORE (2026-10-10): no pay stated earns nothing and is
+    # not measured; it used to pay 2 of 3 and be listed under "what fits".
+    assert compensation.points == 0
+    salary = compensation.contributions[0]
+    assert (salary.signal_id, salary.points) == ("salary_unknown", 0.0)
+    assert all(c.points == 0 for c in compensation.contributions)
 
 
 def test_a_salary_in_an_unpriced_currency_is_unknown_not_converted() -> None:
@@ -436,7 +432,15 @@ def test_the_missing_signal_note_names_signals_the_way_the_configuration_does() 
     """
     components, _ = _scored("Business Systems Engineer", TOOLS_BODY)
 
-    notes = [c.note for c in components if c.note]
+    # The tools guard writes a note of its own kind; this test is about the
+    # missing-phrase notes.
+    notes = [
+        c.note
+        for c in components
+        if c.note
+        and c.component_id in ("responsibilities", "technologies", "automation_integration")
+        and not c.guarded
+    ]
     assert notes, "no component reported a missing signal, so this proves nothing"
 
     for note in notes:

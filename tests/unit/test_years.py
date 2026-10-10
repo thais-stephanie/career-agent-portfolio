@@ -42,7 +42,11 @@ def _values(description: str) -> list[int]:
         ("3 anos de experiencia", [3]),
         # `ano`, singular, and the missing `?` that made both readers blind to it.
         ("1 ano na area", [1]),
-        ("2 to 4 years in a similar role", [4]),
+        # A range is read by its LOWER bound (2026-10-10): "4-6+ years" used
+        # to be stored as a six-year minimum.
+        ("2 to 4 years in a similar role", [2]),
+        ("4\u20136+ years of hands-on software engineering", [4]),
+        ("de 3 a 5 anos de experiencia", [3]),
         ("no figure at all", []),
     ],
 )

@@ -126,7 +126,11 @@ from career_agent.domain.enums import (
 #: (a counted work contribution at PRIMARY or SECONDARY prominence), not by an
 #: incidental mention or a partial semantic finding. Readings and stored
 #: semantic findings are unchanged, so older rows replay.
-MATCH_SCHEMA_VERSION = 12
+#: 13: arithmetic (2026-10-10) -- unknown pay and an unstated or unasked-for
+#: contract leave the compensation component's maximum instead of paying
+#: 2 + 1; the tools guard opens in proportion to the work found. Moves with
+#: readers-9, so every row is read again on the first pass.
+MATCH_SCHEMA_VERSION = 13
 
 #: The oldest result schema whose stored READINGS a replay may reuse. Separate
 #: from MATCH_SCHEMA_VERSION on purpose: 10 changed arithmetic and provenance,

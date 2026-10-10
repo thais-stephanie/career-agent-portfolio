@@ -210,103 +210,29 @@ def test_a_masked_phrase_does_not_swallow_a_real_grade_beside_it() -> None:
 
 
 @pytest.mark.parametrize(
-    ("body", "level"),
+    ("body", "minimum"),
     [
-        ("This is a senior individual contributor role.", Seniority.SENIOR),
-        ("We are looking for a senior engineer to own this.", Seniority.SENIOR),
-        ("This is a mid-level position.", Seniority.MID),
-        ("We are looking for a Lead Engineer.", Seniority.LEAD),
-        ("This is a lead role on the platform team.", Seniority.LEAD),
-        ("An entry-level opportunity for recent graduates.", Seniority.JUNIOR),
-        ("A summer internship in our São Paulo office.", Seniority.INTERN),
-        ("Vaga sênior para o time de dados.", Seniority.SENIOR),
-        ("Posição pleno na equipe de integrações.", Seniority.MID),
-        ("Vaga júnior para quem está começando.", Seniority.JUNIOR),
+        ("We require at least 1 year of experience.", 1),
+        ("Minimum of 2 years of experience required.", 2),
+        ("Required: at least 3 years of operations work.", 3),
+        ("You must have 5 years of experience.", 5),
+        ("Required: 6+ years of experience.", 6),
+        ("Required: 15 years of experience.", 15),
     ],
 )
-def test_a_role_level_statement_in_the_body_is_read(body: str, level: Seniority) -> None:
-    reading = read_seniority("Operations Wizard", body)
-    assert reading.value is level
-    assert reading.source is SenioritySource.DESCRIPTION_STATEMENT
-    assert reading.evidence is not None
+def test_a_required_minimum_of_years_names_no_level(body: str, minimum: int) -> None:
+    """Years are a fact of their own, never a level (2026-10-10, owner).
 
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        # The measured defect, and its whole family.
-        "You will own lead routing between marketing and sales.",
-        "You will build our lead generation engine.",
-        "Own lead scoring and lead qualification in HubSpot.",
-        "You will enrich sales leads before they reach an AE.",
-        "Keep the lead data clean across both systems.",
-        # Verbs. A person who leads something is not a person at the lead grade.
-        "You will lead the implementation across three teams.",
-        "You will lead a project end to end.",
-        "You will lead the workstream and report weekly.",
-        "You will lead the team of five engineers.",
-        # Other people's levels.
-        "You will collaborate with senior management.",
-        "You will work with senior leadership on the roadmap.",
-        "You will support senior managers across the business.",
-        "Mentor junior colleagues across the org.",
-        "We care deeply about our staff and our culture.",
-        "You will report to the Head of Product.",
-        # A grade word inside a term of art.
-        "Experience with principal component analysis is welcome.",
-        # A grade word about something that is not the role.
-        "We expect a senior level of commitment.",
-    ],
-)
-def test_incidental_prose_never_establishes_a_grade(body: str) -> None:
-    reading = read_seniority("Operations Wizard", body)
-    assert reading.source is SenioritySource.DEFAULT, reading
-
-
-def test_the_title_outranks_the_body() -> None:
-    """Precedence is by evidence quality, never by position in the text.
-
-    The old reader took the earliest word anywhere, so a `Senior Engineer`
-    posting mentioning `junior colleagues` in its second sentence read JUNIOR.
+    `required_years` still reads the figure; `read_seniority` no longer turns
+    it into JUNIOR, MID or SENIOR. "4-6+ years" made a SENIOR role out of a
+    posting that never said senior.
     """
-    reading = read_seniority(
-        "Senior Systems Engineer", "You will mentor junior colleagues. This is a lead role."
-    )
-    assert reading.value is Seniority.SENIOR
-    assert reading.source is SenioritySource.TITLE_GRADE
-
-
-# =========================================================================
-# 4. REQUIRED YEARS
-# =========================================================================
-
-
-@pytest.mark.parametrize(
-    ("body", "level"),
-    [
-        ("We require at least 1 year of experience.", Seniority.JUNIOR),
-        ("Minimum of 2 years of experience required.", Seniority.JUNIOR),
-        ("Required: at least 3 years of operations work.", Seniority.MID),
-        ("You must have 5 years of experience.", Seniority.MID),
-        ("Required: 6+ years of experience.", Seniority.SENIOR),
-        ("No mínimo 8 anos de experiência é obrigatório.", Seniority.SENIOR),
-        ("No prior experience is required.", Seniority.JUNIOR),
-    ],
-)
-def test_an_unambiguous_required_minimum_bands(body: str, level: Seniority) -> None:
+    found = required_years(body)
+    assert found is not None and found[0] == minimum
     reading = read_seniority("Analyst", body)
-    assert reading.value is level
-    assert reading.source is SenioritySource.REQUIRED_YEARS
-    assert reading.confidence is AnalysisConfidence.MEDIUM
-    assert reading.evidence is not None
-
-
-def test_years_never_reach_lead_at_any_figure() -> None:
-    """A decade of experience says how long somebody worked. It says nothing
-    about whether the job runs a team."""
-    for count in (6, 10, 15, 20):
-        reading = read_seniority("Analyst", f"Required: at least {count} years of experience.")
-        assert reading.value is Seniority.SENIOR
+    assert reading.source is SenioritySource.DEFAULT
+    assert reading.value is Seniority.MID
+    assert reading.evidence is None
 
 
 @pytest.mark.parametrize(
@@ -370,7 +296,6 @@ def test_every_reading_quotes_text_the_posting_actually_contains() -> None:
     cases = [
         ("Senior Systems Engineer", "You will own tools."),
         ("Analyst", "This is a mid-level position."),
-        ("Analyst", "Required: at least 7 years of experience."),
         ("Head of Data", "You will own tools."),
     ]
     for title, body in cases:

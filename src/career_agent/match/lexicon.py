@@ -33,6 +33,7 @@ from functools import lru_cache
 from career_agent.config.search_config import LexiconSignal, Negation, SearchConfig
 from career_agent.domain.enums import Prominence
 from career_agent.domain.matching import ObservedSignal, SignalHit
+from career_agent.match.phrase_forms import find_forms, is_wizard_shaped
 from career_agent.match.text import (
     PRIMARY_SECTION,
     SECONDARY_SECTION,
@@ -256,9 +257,19 @@ def find_hits(
     if not field.original:
         return []
 
-    compiled = compile_patterns(tuple(signal_cfg.patterns))
-    found_matches = compiled.matches_in(field)
-    if not found_matches:
+    patterns = tuple(signal_cfg.patterns)
+    compiled = compile_patterns(patterns)
+    found: list[tuple[int, int, str]] = [
+        (m.start(), m.end(), compiled.configured(m.group(0))) for m in compiled.matches_in(field)
+    ]
+    if is_wizard_shaped(signal_cfg.label, patterns):
+        # The same words written another way (`match/phrase_forms.py`), never
+        # where the literal phrase already matched.
+        for start, end in find_forms(field, signal_cfg.label):
+            if not any(start < b and end > a for a, b, _ in found):
+                found.append((start, end, patterns[0]))
+        found.sort()
+    if not found:
         return []
 
     original = field.original
@@ -267,17 +278,16 @@ def find_hits(
     reads_negation = signal_cfg.negation_sensitive and negation is not None
 
     hits: list[SignalHit] = []
-    for match in found_matches:
-        char_start = offsets[match.start()]
-        char_end = offsets[match.end() - 1] + 1
-        pattern = compiled.configured(match.group(0))
+    for folded_start, folded_end, pattern in found:
+        char_start = offsets[folded_start]
+        char_end = offsets[folded_end - 1] + 1
         context_rule = context_rule_for(signal_cfg, pattern)
         quote = sentence_at(original, char_start, char_end)
         if context_rule and not context_allows(context_rule, quote, original[char_start:char_end]):
             continue
         negated = False
         if reads_negation and negation is not None:
-            negated = is_negated_before(field, match.start(), negation)
+            negated = is_negated_before(field, folded_start, negation)
         hits.append(
             SignalHit(
                 signal_id=signal_id,

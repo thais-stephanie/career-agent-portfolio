@@ -580,14 +580,18 @@ def read_seniority(
 ) -> SeniorityReading:
     """The level of the advertised role, and where that came from.
 
-    Five rules in descending order of evidence quality. The first that answers
+    Four rules in descending order of evidence quality. The first that answers
     wins; nothing below it is consulted.
 
     1. an organisational role in the TITLE          -> LEAD
     2. an explicit grade in the TITLE
     3. a role-level statement in the DESCRIPTION
-    4. an unambiguous required minimum of YEARS     -> never LEAD
-    5. nothing                                      -> MID, source DEFAULT
+    4. nothing                                      -> MID, source DEFAULT
+
+    YEARS NO LONGER NAME A LEVEL (2026-10-10, owner). A required minimum of
+    years is its own fact (`experience.read_experience`) and its own filter;
+    turning "4-6+ years" into SENIOR was a level nobody wrote. `required_years`
+    and `REQUIRED_YEARS` stay so stored readings remain readable.
 
     Pure, and cheap enough to run over the whole corpus: the two fields are
     folded once by the caller in the ordinary path.
@@ -632,16 +636,5 @@ def read_seniority(
                     evidence=_quote(body, found),
                 )
 
-    # --- 4: arithmetic over a stated requirement --------------------------
-    years = required_years(body.original)
-    if years is not None:
-        count, quote = years
-        return SeniorityReading(
-            value=_band_for_years(count),
-            source=SenioritySource.REQUIRED_YEARS,
-            confidence=AnalysisConfidence.MEDIUM,
-            evidence=quote,
-        )
-
-    # --- 5: the posting did not say ---------------------------------------
+    # --- 4: the posting did not say ---------------------------------------
     return DEFAULT_SENIORITY

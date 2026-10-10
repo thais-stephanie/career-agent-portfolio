@@ -325,7 +325,8 @@ const TOGGLES = [
   // your search ruled the work out; and this one is neither -- the posting
   // simply never said where it hires.
   //
-  // Off by default since 2026-09-07, and that was the release-blocking half of
+  // Off by default again since 2026-10-10 (the owner: the main list is work
+  // she can do from where she lives). First off on 2026-09-07, the release-blocking half of
   // a correction. 12,574 of 19,469 open postings are unresolved on geography,
   // and mixed into best matches they buried the ones she can actually take:
   // the twenty highest-scoring were a hybrid role in Gurugram, offices in

@@ -324,6 +324,26 @@ def authorization_gate(
     answered = [
         (r, *_where_the_work_is(r, *answer(r, config.eligibility), on_site=on_site)) for r in found
     ]
+    home = config.eligibility.candidate_country.strip().upper()
+    if workplace_type == "REMOTE" and home in {
+        x.upper() for x in config.eligibility.authorized_countries
+    }:
+        # "We do not sponsor visas", no country named, on a REMOTE role: a visa
+        # is needed to work IN a country, and she declared she may work where
+        # she lives. Whether the role may be done from there is the geography
+        # gate's question, which still decides the status; this one has no
+        # question left to ask her.
+        answered = [
+            (
+                r,
+                COMPATIBLE,
+                "The posting does not sponsor visas. The role is remote and you said you "
+                "are authorized to work where you live, so no visa is needed to do it from there.",
+            )
+            if r.kind == NO_SPONSORSHIP and r.country is None and s == PENDING
+            else (r, s, why)
+            for r, s, why in answered
+        ]
     for state, result in ((INCOMPATIBLE, GateResult.FAIL), (PENDING, GateResult.UNRESOLVED),
                           (COMPATIBLE, GateResult.PASS)):  # fmt: skip
         hit = next(((r, why) for r, s, why in answered if s == state), None)

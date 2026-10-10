@@ -35,7 +35,12 @@ from career_agent.domain.matching import (
 )
 from career_agent.match.authorization import authorization_gate
 from career_agent.match.lexicon import compile_patterns, is_negated_before
-from career_agent.match.places import ResolvedPlace, region_contains, resolve_place
+from career_agent.match.places import (
+    ResolvedPlace,
+    display_names,
+    region_contains,
+    resolve_place,
+)
 from career_agent.match.text import (
     FoldedText,
     Section,
@@ -577,7 +582,11 @@ def _resolve_list(text: str) -> ResolvedPlace:
     stated: set[str] = set()
     parts = [part for part in _LIST_SPLIT.split(text) if part and part.strip()]
     for part in [text, *parts]:
-        place = resolve_place(re.sub(r"^\s*(?:the|a|o|os|as)\s+", "", part, flags=re.IGNORECASE))
+        # "the LATAM region", "a regiao da America Latina": the article and the
+        # word REGION name nothing; the place between them does.
+        bare = re.sub(r"^\s*(?:the|a|o|os|as)\s+", "", part, flags=re.IGNORECASE)
+        bare = re.sub(r"\s+(?:region|regions|area|countries|regi[a\u00e3]o)\s*$", "", bare, flags=re.I)
+        place = resolve_place(bare)
         countries.update(place.countries)
         stated.update(place.stated_regions)
     return ResolvedPlace(
@@ -585,6 +594,21 @@ def _resolve_list(text: str) -> ResolvedPlace:
         regions=tuple(sorted(stated)),
         stated_regions=tuple(sorted(stated)),
     )
+
+
+def country_label(config: SearchConfig) -> str:
+    """The candidate's country as a reason names it.
+
+    The stored label is what the person typed and may be empty (the first-run
+    form writes the code and leaves the label blank), which printed reasons
+    ending "which includes ." Then the gazetteer's display name, then the code.
+    """
+    eligibility = config.eligibility
+    label = eligibility.candidate_country_label.strip()
+    if label:
+        return label
+    code = eligibility.candidate_country.strip().upper()
+    return display_names()[0].get(code, code) or "your country"
 
 
 def _candidate_countries(config: SearchConfig) -> set[str]:
@@ -779,7 +803,7 @@ def _outcome_for(
         "That scope could not be resolved."
         if verdict is None
         else f"It {'includes' if verdict else 'does not include'} "
-        f"{config.eligibility.candidate_country_label}."
+        f"{country_label(config)}."
     )
     return GateOutcome(
         gate="geography",
@@ -975,7 +999,7 @@ def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_Sco
                     result=GateResult.FAIL,
                     reason=(
                         f"The posting excludes {listed}, which names "
-                        f"{config.eligibility.candidate_country_label}."
+                        f"{country_label(config)}."
                     ),
                     quote=text[start:end],
                     char_start=start,
@@ -1234,14 +1258,14 @@ def structured_geography(
                 GateResult.PASS,
                 (
                     f"This posting is remote and says {stated}, which includes "
-                    f"{config.eligibility.candidate_country_label}."
+                    f"{country_label(config)}."
                 ),
             )
         return StructuredGeography(
             GateResult.FAIL,
             (
                 f"This posting is remote and says {stated}. That does not include "
-                f"{config.eligibility.candidate_country_label}."
+                f"{country_label(config)}."
             ),
         )
 
@@ -1266,7 +1290,7 @@ def structured_geography(
             GateResult.FAIL,
             (
                 f"This posting is worked {word}, in {stated}, and you are in "
-                f"{config.eligibility.candidate_country_label}."
+                f"{country_label(config)}."
             ),
         )
 
@@ -1473,7 +1497,7 @@ def evaluate_gates(
                     result=GateResult.PASS,
                     reason=(
                         f"The posting states a hiring scope of {scope}, which includes "
-                        f"{config.eligibility.candidate_country_label}."
+                        f"{country_label(config)}."
                     ),
                     quote=hit.quote,
                     char_start=hit.char_start,
@@ -1505,7 +1529,7 @@ def evaluate_gates(
                         reason=(
                             f"The provider states a hiring scope of {declared_scope.strip()}, "
                             f"which {'includes' if verdict else 'does not include'} "
-                            f"{config.eligibility.candidate_country_label}."
+                            f"{country_label(config)}."
                         ),
                     )
             outcome = _reconcile_scope_clauses(
@@ -1530,7 +1554,7 @@ def evaluate_gates(
                     reason=(
                         f"This posting is remote and says {location_raw or 'another place'}. "
                         f"It does not say whether it hires in "
-                        f"{config.eligibility.candidate_country_label}; confirm before applying."
+                        f"{country_label(config)}; confirm before applying."
                     ),
                 )
             if outcome is not None and outcome.result is GateResult.PASS and location_raw:
