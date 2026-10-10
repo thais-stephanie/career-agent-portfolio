@@ -1290,6 +1290,43 @@ const EN = {
   'deep.staleReason.posting': 'The posting text changed.',
   'deep.staleReason.instructions': 'The reading instructions changed.',
   'deep.staleReason.profile': 'Your search or confirmed evidence changed.',
+  'evalMode.summary': 'Local evaluation · how the % works',
+  'evalMode.measures.head': 'What it measures:',
+  'evalMode.measures.text': 'how much of the posting\'s text matches the work, tools, level and way of working you '
+    + 'set in your search, from phrases found in the posting itself.',
+  'evalMode.uses.head': 'What takes part:',
+  'evalMode.uses.text': 'your search answers and the posting (its text and the fields its job board publishes). '
+    + 'Eligibility is shown apart from the %.',
+  'evalMode.notUsed.head': 'What does not:',
+  'evalMode.notUsed.text': 'your history, confirmed evidence and CV, and the job title on its own. Confirming '
+    + 'evidence does not change the %. It is not a chance of being hired.',
+  'evalMode.notAnalysed.head': 'Not analysed:',
+  'evalMode.notAnalysed.text': 'work described in words unlike yours, and postings published with little text, which '
+    + 'are scored on what little they say.',
+  'evalMode.focused.head': 'Why few jobs reach 90%:',
+  'evalMode.focused.text': 'the % pays for up to {slots} of the kinds of work you listed. A role that does one or two '
+    + 'of them very well can fit you and still score lower; read its details.',
+  'evalMode.improve.head': 'What helps:',
+  'evalMode.improve.text': 'phrases that name your work as postings describe it (Settings, Search), answers to the '
+    + 'questions a job marks as unanswered, and a Deep reading, which reads the work and your evidence and may '
+    + 'raise or lower a priority.',
+  'limits.head': 'What limits this score',
+  'limits.lede': 'Whose gap each one is: yours to answer, the posting\'s, or the reading\'s.',
+  'limits.unanswered': 'A question you have not answered',
+  'limits.ask.responsibilities': 'What work do you want to do next? (Settings, Search)',
+  'limits.ask.technologies': 'Which tools do you want to use? (Settings, Search)',
+  'limits.ask.seniority': 'Which levels are you looking for? (Settings, Search)',
+  'limits.ask.compensation': 'What minimum pay and which kind of contract do you accept? (Settings, Search)',
+  'limits.ask.workModel': 'How do you want to work: remote, hybrid or on site? (Settings, Search)',
+  'limits.focused.title': '{n} of your kinds of work read as central here; the % pays for up to {slots}',
+  'limits.focused.text': 'A role focused on one or two of them can suit you and still stay below 70. Work described '
+    + 'in other words may not be recognised: that is a limit of this reading, not of your profile.',
+  'limits.thin.title': 'The posting has little text',
+  'limits.thin.text': 'Its job board published only a short summary, so the % rests on very little. Open the original '
+    + 'advert before deciding.',
+  'limits.history': 'Your history and evidence are not part of this %. A Deep reading compares them with the '
+    + 'requirements, separately.',
+  'limits.deep': 'Read it in depth',
   'daily.title': 'Worth looking at today',
   'daily.close': 'Close',
   'daily.retry': 'Try again',
@@ -3045,8 +3082,8 @@ const EN = {
   'count.matchSearch': 'match your search',
   'count.matchSearchOne': 'matches your search',
   'jobsTip.title': 'What does the percentage mean?',
-  'jobsTip.text': 'We compare each job with what you told us you want. 100% means it has everything you asked for. '
-    + 'Tap the percentage on any job to see why it fits you.',
+  'jobsTip.text': 'It shows how much of a job matches the work, tools and conditions you set. It does not read your '
+    + 'history and is not a chance of being hired. Open "how the % works" under the count for the details.',
   'jobsTip.ok': 'Got it',
   'advice.matchBelow': 'asking for a Match below {n}',
   'advice.detailBelow': 'asking for completeness below {n}',
@@ -4040,6 +4077,8 @@ const EN = {
   'setup.review.matching': 'Matching',
   'setup.matching.title': 'How should jobs be matched to you?',
   'setup.matching.why': 'Choose before the first search. You can change it later in Settings.',
+  'setup.matching.whatScore': 'Either way, the % compares each job with the work, tools and conditions '
+    + 'you set. It does not read your history and is not a chance of being hired.',
   'setup.matching.loading': 'Checking which options this computer has…',
   'setup.matching.legend': 'Matching',
   'setup.matching.keywords': 'Keywords only (no AI)',
@@ -4047,13 +4086,13 @@ const EN = {
     + 'is sent. It can miss jobs that describe the same work in other words.',
   'setup.matching.billing.METERED_API': 'AI evaluation with {name}. Paid per use with your API key, up to '
     + 'the limit per run set in Settings.',
-  'setup.matching.billing.SUBSCRIPTION': 'AI evaluation with {name}. Uses your own {name} plan limits; '
-    + 'nothing extra is charged here.',
+  'setup.matching.billing.SUBSCRIPTION': 'AI evaluation with {name}. Uses your own {name} plan limits; if '
+    + 'extra usage is on in that account, use past the limit can be charged.',
   'setup.matching.billing.LOCAL': 'AI evaluation on this computer with {name}. Nothing is sent; it is slower.',
-  'setup.matching.sends': '{name} receives your search phrases and the text of each job it evaluates. It '
-    + 'never receives your profile, evidence, CV files or applications.',
-  'setup.matching.manual': 'Choosing it evaluates nothing yet: scores use keywords until you start an '
-    + 'evaluation in Settings, and only the jobs it evaluates change.',
+  'setup.matching.sends': '{name} receives your search phrases and the text of each job it evaluates. Your '
+    + 'confirmed evidence is sent only for a Deep reading you allow; never CV files or applications.',
+  'setup.matching.manual': 'Choosing it evaluates nothing yet: a reading starts only when you ask for one. '
+    + 'AI can change how a job reads, up or down; it is no promise of a higher %.',
   'setup.matching.ack': 'I understand what {name} receives and what it may cost.',
   'setup.matching.needAck': 'To use AI, confirm that you understand what is sent, or choose Keywords only.',
   'setup.matching.default': 'A good start. You can add an AI evaluation later.',
@@ -5802,6 +5841,43 @@ const PT_BR = {
   'deep.staleReason.posting': 'O texto da vaga mudou.',
   'deep.staleReason.instructions': 'As instruções da leitura mudaram.',
   'deep.staleReason.profile': 'Sua busca ou suas evidências confirmadas mudaram.',
+  'evalMode.summary': 'Avaliação local · como funciona a %',
+  'evalMode.measures.head': 'O que mede:',
+  'evalMode.measures.text': 'quanto do texto da vaga corresponde ao trabalho, às ferramentas, ao nível e ao modelo de '
+    + 'trabalho da sua busca, a partir de frases encontradas no próprio anúncio.',
+  'evalMode.uses.head': 'O que entra:',
+  'evalMode.uses.text': 'suas respostas da busca e a vaga (o texto e os campos que o site de vagas publica). A '
+    + 'elegibilidade aparece separada da %.',
+  'evalMode.notUsed.head': 'O que não entra:',
+  'evalMode.notUsed.text': 'seu histórico, suas evidências confirmadas e seu currículo, e o título da vaga sozinho. '
+    + 'Confirmar evidências não muda a %. Não é chance de contratação.',
+  'evalMode.notAnalysed.head': 'O que não é analisado:',
+  'evalMode.notAnalysed.text': 'trabalho descrito com palavras diferentes das suas, e vagas publicadas com pouco '
+    + 'texto, que são avaliadas pelo pouco que dizem.',
+  'evalMode.focused.head': 'Por que poucas vagas chegam a 90%:',
+  'evalMode.focused.text': 'a % paga até {slots} dos tipos de trabalho que você listou. Uma vaga que faz muito bem um '
+    + 'ou dois deles pode combinar com você e ter nota menor; veja os detalhes.',
+  'evalMode.improve.head': 'O que ajuda:',
+  'evalMode.improve.text': 'frases que nomeiam seu trabalho como os anúncios o descrevem (Configurações, Busca), '
+    + 'responder às perguntas que uma vaga marca como sem resposta, e a Leitura aprofundada, que lê o trabalho e '
+    + 'suas evidências e pode subir ou baixar uma prioridade.',
+  'limits.head': 'O que limita esta nota',
+  'limits.lede': 'De quem é cada lacuna: uma resposta sua, o anúncio, ou a leitura.',
+  'limits.unanswered': 'Uma pergunta sem resposta sua',
+  'limits.ask.responsibilities': 'Que trabalho você quer fazer a seguir? (Configurações, Busca)',
+  'limits.ask.technologies': 'Quais ferramentas você quer usar? (Configurações, Busca)',
+  'limits.ask.seniority': 'Quais níveis você procura? (Configurações, Busca)',
+  'limits.ask.compensation': 'Qual remuneração mínima e que tipo de contrato você aceita? (Configurações, Busca)',
+  'limits.ask.workModel': 'Como você quer trabalhar: remoto, híbrido ou presencial? (Configurações, Busca)',
+  'limits.focused.title': '{n} dos seus tipos de trabalho aparecem como centrais aqui; a % paga até {slots}',
+  'limits.focused.text': 'Uma vaga focada em um ou dois deles pode combinar com você e ficar abaixo de 70. Trabalho '
+    + 'descrito com outras palavras pode não ser reconhecido: é um limite desta leitura, não do seu perfil.',
+  'limits.thin.title': 'O anúncio tem pouco texto',
+  'limits.thin.text': 'O site de vagas publicou só um resumo curto, então a % se apoia em muito pouco. Abra o anúncio '
+    + 'original antes de decidir.',
+  'limits.history': 'Seu histórico e suas evidências não entram nesta %. A Leitura aprofundada os compara com os '
+    + 'requisitos, separadamente.',
+  'limits.deep': 'Ler em profundidade',
   'daily.title': 'Vale olhar hoje',
   'daily.close': 'Fechar',
   'daily.retry': 'Tentar de novo',
@@ -7553,8 +7629,9 @@ const PT_BR = {
   'count.matchSearch': 'combinam com a sua busca',
   'count.matchSearchOne': 'combina com a sua busca',
   'jobsTip.title': 'O que significa a porcentagem?',
-  'jobsTip.text': 'Comparamos cada vaga com o que você disse que quer. 100% quer dizer que ela tem tudo o que você '
-    + 'pediu. Toque na porcentagem de qualquer vaga para ver por que ela combina com você.',
+  'jobsTip.text': 'Mostra quanto de uma vaga corresponde ao trabalho, às ferramentas e às condições que você definiu. '
+    + 'Não lê seu histórico e não é chance de contratação. Abra "como funciona a %" abaixo da contagem para ver os '
+    + 'detalhes.',
   'jobsTip.ok': 'Entendi',
   'advice.matchBelow': 'pedir correspondência abaixo de {n}',
   'advice.detailBelow': 'pedir completude abaixo de {n}',
@@ -8527,6 +8604,8 @@ const PT_BR = {
   'setup.review.matching': 'Comparação',
   'setup.matching.title': 'Como as vagas devem ser comparadas com você?',
   'setup.matching.why': 'Escolha antes da primeira busca. Você pode mudar depois em Configurações.',
+  'setup.matching.whatScore': 'Em qualquer opção, a % compara cada vaga com o trabalho, as ferramentas '
+    + 'e as condições que você definiu. Não lê seu histórico e não é chance de contratação.',
   'setup.matching.loading': 'Verificando as opções deste computador…',
   'setup.matching.legend': 'Comparação',
   'setup.matching.keywords': 'Só palavras-chave (sem IA)',
@@ -8535,12 +8614,12 @@ const PT_BR = {
   'setup.matching.billing.METERED_API': 'Avaliação por IA com {name}. Paga por uso com sua chave de API, '
     + 'até o limite por execução definido em Configurações.',
   'setup.matching.billing.SUBSCRIPTION': 'Avaliação por IA com {name}. Usa os limites do seu próprio plano '
-    + '{name}; nada extra é cobrado aqui.',
+    + '{name}; se o uso extra estiver ligado nessa conta, o que passar do limite pode ser cobrado.',
   'setup.matching.billing.LOCAL': 'Avaliação por IA neste computador com {name}. Nada é enviado; é mais lenta.',
-  'setup.matching.sends': '{name} recebe suas frases de busca e o texto de cada vaga que avaliar. Nunca '
-    + 'recebe seu perfil, evidências, arquivos de currículo ou candidaturas.',
-  'setup.matching.manual': 'Escolher não avalia nada ainda: as notas usam palavras-chave até você iniciar '
-    + 'uma avaliação em Configurações, e só as vagas avaliadas mudam.',
+  'setup.matching.sends': '{name} recebe suas frases de busca e o texto de cada vaga que avaliar. Suas '
+    + 'evidências confirmadas só vão numa Leitura aprofundada que você permitir; nunca currículos ou candidaturas.',
+  'setup.matching.manual': 'Escolher não avalia nada ainda: uma leitura só começa quando você pede. '
+    + 'A IA pode mudar a leitura de uma vaga para cima ou para baixo; não promete uma % maior.',
   'setup.matching.ack': 'Entendo o que {name} recebe e quanto pode custar.',
   'setup.matching.needAck': 'Para usar IA, confirme que entende o que é enviado, ou escolha Só palavras-chave.',
   'setup.matching.default': 'Um bom começo. Você pode acrescentar uma avaliação por IA depois.',

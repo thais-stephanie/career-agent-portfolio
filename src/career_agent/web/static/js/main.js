@@ -45,6 +45,7 @@ import { evidencePage } from './evidence_page.js';
 import { experienceView } from './experience.js';
 import { createDaily } from './daily.js';
 import { createDeep } from './deep.js';
+import { WORK_SLOTS } from './detail.js';
 import { createHome } from './home.js';
 import { recalcButton } from './recalc.js';
 import { createSourcesPanel } from './sources.js';
@@ -232,6 +233,8 @@ const drawer = createDrawer({
   },
   // "Hide this job" from the scam warning: the ordinary hide, with its Undo.
   onHide: (jobId) => afterDrawerCloses(() => changeHidden(jobId, true)),
+  // "Read it in depth" from the drawer's limits: the drawer closes first.
+  onDeepReading: () => afterDrawerCloses(() => deepReading.open(document.getElementById('deep-open'))),
   // The arithmetic and the raw local reading, for `?debug=1` only.
   debug: DEV_SCORING,
 });
@@ -249,6 +252,23 @@ const daily = createDaily({
 document.getElementById('daily-host').appendChild(daily.root);
 document.getElementById('daily-open')
   .addEventListener('click', (event) => daily.open(event.currentTarget));
+
+/**
+ * What the percentage measures, what takes part in it, what does not, and
+ * what can improve the reading. Words only from the catalogue; the numbers
+ * in it are facts of the formula (`match/score.py`), not promises.
+ */
+function paintEvalMode() {
+  const summary = document.getElementById('eval-mode-summary');
+  const body = document.getElementById('eval-mode-body');
+  if (!summary || !body) return;
+  summary.textContent = t('evalMode.summary');
+  const rows = ['measures', 'uses', 'notUsed', 'notAnalysed', 'focused', 'improve'];
+  body.replaceChildren(...rows.map((key) => el('p', { className: 'evalmode__row' }, [
+    el('strong', { text: `${t(`evalMode.${key}.head`)} ` }),
+    el('span', { text: t(`evalMode.${key}.text`, { slots: WORK_SLOTS }) }),
+  ])));
+}
 
 const deepReading = createDeep({
   onOpenJob: (jobId) => {
@@ -1097,6 +1117,7 @@ function renderJobsTip(state) {
   document.getElementById('jobs-tip-title').textContent = t('jobsTip.title');
   document.getElementById('jobs-tip-text').textContent = t('jobsTip.text');
   document.getElementById('jobs-tip-ok').textContent = t('jobsTip.ok');
+  paintEvalMode();
 }
 document.getElementById('jobs-tip-ok').addEventListener('click', () => {
   try { window.localStorage.setItem(JOBS_TIP_KEY, '1'); } catch { /* a nicety */ }

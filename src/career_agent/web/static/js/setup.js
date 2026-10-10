@@ -1037,6 +1037,8 @@ export function createSetup({
               ]),
             ])
             : hint(t('setup.matching.default')),
+          // What the % is, whichever option is chosen: never a hiring chance.
+          hint(t('setup.matching.whatScore')),
         ]);
       };
       api.getSemantic().then((payload) => { status = payload; paintModes(); })

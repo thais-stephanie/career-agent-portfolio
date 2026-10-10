@@ -44,6 +44,19 @@ import { deepSection } from './deep.js';
 const GATE_ORDER = ['geography', 'work_authorization', 'worksite', 'travel', 'clearance', 'credential', 'requirement'];
 const PREP_STORE = 'careerAgent.prep.read.v1';
 
+/** Work items the score pays at most: COUNTED_SIGNALS["responsibilities"]
+ * in match/score.py (a unit test keeps the two equal). */
+export const WORK_SLOTS = 4;
+
+/** The exact question behind a component the person has not answered. */
+const ASK = {
+  responsibilities: 'limits.ask.responsibilities',
+  technologies: 'limits.ask.technologies',
+  seniority: 'limits.ask.seniority',
+  compensation_contract: 'limits.ask.compensation',
+  work_model: 'limits.ask.workModel',
+};
+
 export function createDrawer({
   onStatus, onSave, onNotes, onClearAppliedAt, onClosed, onChanged,
   onApplied = null,
@@ -53,6 +66,7 @@ export function createDrawer({
   resumeFor = null,
   onAnswer = null,
   onHide = null,
+  onDeepReading = null,
   debug = false,
 }) {
   let invoker = null;
@@ -677,6 +691,7 @@ export function createDrawer({
       whatFits(job),
       whatDoesNotFit(job),
       leftOpen(job),
+      scoreLimits(job),
       canYouTake(job),
       deepSection(job.deep_review || null, section),
       fitFeedbackSection(job),
@@ -839,6 +854,56 @@ export function createDrawer({
         ]),
       ]))),
     ], { lede: t('drawer.open.lede') });
+  }
+
+  /**
+   * What limits THIS score, said by whose it is (2026-10-10): a question the
+   * person has not answered (the exact question), the posting's own thin
+   * text (the posting's), and the formula's reach (the reader's, never the
+   * person's). Nothing here promises a higher %: confirmed evidence does not
+   * take part in it, and a deep reading may raise OR lower a priority.
+   */
+  function scoreLimits(job) {
+    const components = job.components || [];
+    const rows = [];
+    for (const component of components) {
+      if (component.configured === false && ASK[component.component_id]) {
+        rows.push({ kind: 'yours', title: t('limits.unanswered'), text: t(ASK[component.component_id]) });
+      }
+    }
+    const work = components.find((c) => c.component_id === 'responsibilities' && c.configured !== false);
+    if (work) {
+      const central = (work.contributions || [])
+        .filter((c) => c.prominence === 'PRIMARY' && Number(c.points) > 0).length;
+      if (central < WORK_SLOTS) {
+        rows.push({
+          kind: 'reader',
+          title: t('limits.focused.title', { n: central, slots: WORK_SLOTS }),
+          text: t('limits.focused.text', { slots: WORK_SLOTS }),
+        });
+      }
+    }
+    if (job.content_completeness && job.content_completeness !== 'FULL_CONTENT') {
+      rows.push({ kind: 'posting', title: t('limits.thin.title'), text: t('limits.thin.text') });
+    }
+    if (!rows.length) return null;
+    const actions = [];
+    if (onDeepReading) {
+      actions.push(button(t('limits.deep'), () => onDeepReading(), { className: 'btn btn--quiet' }));
+    }
+    return section(t('limits.head'), [
+      el('ul', { className: 'reasons d-list-card' }, rows.map((row) => el('li', {
+        className: 'reason d-row d-row--neutral', attrs: { 'data-limit': row.kind },
+      }, [
+        el('span', { className: 'd-row__mark d-row__mark--open', text: 'i', attrs: { 'aria-hidden': 'true' } }),
+        el('div', { className: 'd-row__body' }, [
+          el('p', { className: 'd-row__title', text: row.title }),
+          el('p', { className: 'd-row__text', text: row.text }),
+        ]),
+      ]))),
+      el('p', { className: 'd-note', text: t('limits.history') }),
+      actions.length ? el('div', { className: 'd-actions' }, actions) : null,
+    ].filter(Boolean), { lede: t('limits.lede') });
   }
 
   function whatDoesNotFit(job) {

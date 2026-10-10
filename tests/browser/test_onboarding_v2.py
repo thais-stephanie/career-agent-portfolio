@@ -1238,7 +1238,10 @@ def test_matching_is_keywords_unless_an_ai_provider_is_chosen_and_understood(
     # An AI provider needs her to say she understands what it receives.
     click(page, "#setup-matching-deepseek")
     page.wait_for("document.querySelector('#setup-matching-ack')", message="the notice")
-    assert "never receives your profile" in text(page, ".setup__matchingwarn")
+    warn = text(page, ".setup__matchingwarn")
+    assert "only for a Deep reading you allow" in warn and "never CV files" in warn
+    assert "no promise of a higher %" in warn
+    assert "not a chance of being hired" in text(page, ".setup__card")
     next_card(page)
     page.wait_for("document.querySelector('#setup-error')?.textContent.length > 0")
     assert card(page) == "matching"

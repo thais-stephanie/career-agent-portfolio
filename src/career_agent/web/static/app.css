@@ -9573,6 +9573,14 @@ body:not([data-page="home"]) .pagehead:not(:has(.pagehead__actions > *)) { margi
   border-radius: 14px;
 }
 .jobstip[hidden] { display: none; }
+/* How the % is made: a quiet line under the count, open on request. */
+.evalmode { margin: -6px 0 12px; font-size: 12px; color: var(--ink-soft); }
+.evalmode__summary { cursor: pointer; width: fit-content; padding: 3px 0; }
+.evalmode__summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.evalmode__body { display: grid; gap: 6px; max-width: 72ch; margin-top: 8px; padding: 10px 12px;
+  border: var(--rule-w) solid var(--line); border-radius: 8px; background: var(--surface); }
+.evalmode__row { margin: 0; line-height: 1.5; }
+.evalmode__row strong { color: var(--ink); }
 .jobstip__icon {
   flex: none;
   width: 28px; height: 28px;

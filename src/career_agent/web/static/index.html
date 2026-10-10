@@ -353,6 +353,12 @@
 
     <div class="chipbar" id="chipbar" hidden></div>
     <p class="resultcount num" id="resultcount" role="status" aria-live="polite">Loading…</p>
+    <!-- How the % is made: one discreet, permanent way in (2026-10-10).
+         Closed by default, so it never repeats itself above the list. -->
+    <details class="evalmode" id="eval-mode">
+      <summary class="evalmode__summary" id="eval-mode-summary">Local evaluation · how it works</summary>
+      <div class="evalmode__body" id="eval-mode-body"></div>
+    </details>
     <!-- The legend used to live here, permanently, above the first job.
          It is contextual help now: a small info control beside the two
          numbers it explains, built in `badges.js`. An explanation nobody

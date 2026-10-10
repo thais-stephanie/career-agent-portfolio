@@ -176,3 +176,46 @@ Verification on the branch: see the commit message for the suite counts.
 * First pilot step: both calls refused before any answer with "Failed to
   refresh OAuth token: another Claude Code process is refreshing it"; the
   run now pauses on the first sign-in problem (79c74d0).
+
+## 9. First pilot, run (10 postings, Claude Code subscription, on the copy)
+
+After the sign-in conflict cleared, the approved messages (identical to the
+preview, checked) were sent one posting at a time: 10 published, 0 failed,
+0 rejected, 3 quotes removed by verification (none invented evidence ids),
+140,216 input and 33,026 output tokens as the CLI reported them, 13.5 s to
+42 s per posting (185 s in all). Every unsent experience was described as
+"not shown in the evidence", never as missing.
+
+Levels: HIGH 3 (local 81, 79, 62), MEDIUM 5 (69, 49, 39, 37, 54), LOW 1
+(local 83), OTHER_WORK 1 (44). The reading lowered the top local posting
+(marketing automation centred on email campaigns, which shares the person's
+words) and raised four lower ones.
+
+Problems the pilot confirmed:
+
+* `partial` counts as support in `priority`: two postings reached MEDIUM
+  with ZERO requirements supported (4 partial of 7 and of 8), one of them a
+  WordPress developer role.
+* Dispositions and soft skills ("comfortable being graded publicly",
+  "strong English") are classified as mandatory requirements and enter the
+  support ratio.
+* Local scoring pays shared vocabulary inside a different main activity
+  (the 83 above), the case the deep reading exists to catch.
+* The 4-slot ceiling is arithmetic (one central kind of work tops out near
+  54, two near 69, three near 83); the pilot held no posting excellent in one
+  or two kinds of work that the reading rated HIGH, so its cost is not yet
+  measured on real readings.
+* A Claude Code token refresh in another process refused the first calls;
+  the run now pauses on it (79c74d0).
+
+No rule was changed after the pilot.
+
+## 10. Guidance on what the % measures
+
+A quiet "Local evaluation, how the % works" disclosure under the list count
+(closed by default); a "What limits this score" section in the drawer that
+names whose gap each limit is (an unanswered question, with the exact
+question; the posting's thin text; the reading's reach, never the person);
+the onboarding matching step says what the % is, no longer claims that a
+subscription cannot charge or that evidence is never sent. `WORK_SLOTS` in
+the interface is tested equal to `COUNTED_SIGNALS["responsibilities"]`.
