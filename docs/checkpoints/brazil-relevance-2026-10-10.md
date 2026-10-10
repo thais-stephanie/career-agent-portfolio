@@ -7,7 +7,7 @@ the activity rather than three tool names, an explanation that never ticks a
 silence, an optional English title, and her skills editable on My Profile.
 
 Measured on a read-only COPY of her databases (124,528 postings, config v7),
-rescored there with `--force`; nothing of hers was written, collected,
+rescored there with `--force` (33 min, 0 errors); nothing of hers was written, collected,
 rescored or sent anywhere.
 
 ## What changed
@@ -22,6 +22,7 @@ rescored or sent anywhere.
 | 3 | A wizard-shaped phrase is read in its inflections, word orders and coordinations within one sentence; no synonyms, no model, no new intent | `match/phrase_forms.py`, `match/lexicon.py` |
 | 3 | The tools guard opens in proportion to the work found (one activity of four opens a quarter of the second half), not on one bullet | `match/score.py` |
 | 4 | Unknown pay, and a contract when none was asked for or stated, leave the score instead of paying 2 + 1 | `match/score.py` |
+| 1 | Plain hiring statements ("We hire candidates in Brazil only", "Open to candidates in Brazil") name a scope when the list names a real place; "We hire candidates in United States only" refuses | `match/gates.py` |
 | 4 | A labelled contract line in the body ("Position Type: Full-Time", "Tipo de contratação: PJ") is a contract statement | `match/employment.py` |
 | 4 | A range of years is read by its lower bound ("4-6+ years" is 4); years no longer name a level | `match/years.py`, `match/seniority.py` |
 | 4 | Drawer: "What fits" (met), and "What the posting leaves open" (not stated, or no conflict) with no tick | `detail.js` |
@@ -34,11 +35,11 @@ rescored or sent anywhere.
 
 | | Before (main) | After |
 |---|---|---|
-| Main list (groups), "to confirm" shown (old default) | 67,029 | 70,640 |
-| Main list (groups), "to confirm" hidden (new default) | 3,152 | 3,336 |
-| "To confirm" groups hidden by the new default | 63,877 | 67,304 |
-| Confirmed eligible postings | 4,089 | 4,195 |
-| Explicitly not eligible | 30,771 | 30,773 |
+| Main list (groups), "to confirm" shown (old default) | 67,029 | 70,618 |
+| Main list (groups), "to confirm" hidden (new default) | 3,152 | 3,338 |
+| "To confirm" groups hidden by the new default | 63,877 | 67,280 |
+| Confirmed eligible postings | 4,089 | 4,198 |
+| Explicitly not eligible | 30,771 | 30,797 |
 | Geography confirmed, an authorization question pending | 819 | 784 |
 | Pavago Full Stack group's card | India copy, 68, to confirm | LATAM copy incl. Brazil, 69, eligible |
 
@@ -91,7 +92,7 @@ top 20 of the new default list, 14 or 15 are her work, against 10 before.
 2. Fast-forward `main` to this branch.
 3. Open the app through the shortcut, then press **Recalculate** (or run
    `career-agent rescore`). The reader identity moved, so every posting is
-   read again: about 30 minutes on the copy with another job running beside
+   read again: 30 to 33 minutes on the copy with another job running beside
    it, zero network, zero inference. Until it finishes the previous scores
    stay on screen.
 4. Her list then opens on work confirmed open to her; the switch brings back
