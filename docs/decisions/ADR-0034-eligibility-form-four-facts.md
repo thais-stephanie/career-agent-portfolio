@@ -91,3 +91,44 @@ location), and what the posting explicitly requires.
 
 `READER_IDENTITY` `readers-8`; the work_authorization and geography gates
 move on the next full rescore.
+
+## Addendum (2026-10-10): the main list is work she can do from where she lives
+
+The owner asked for a list she does not have to wade through. Three answers
+stay apart, as before; what moves is what the list shows by default and what
+counts as a confirmed territory.
+
+* **Compatible, confirmed**: her country; a region that contains it
+  (LATAM, Latin America, South America, the Americas); explicit worldwide
+  hiring; any scope that includes where she lives. On the main list.
+* **Explicitly incompatible**: a written restriction that leaves her out.
+  Refused, with the sentence that says so.
+* **To confirm**: everything else, including a remote role published at an
+  office elsewhere ("London, UK (Remote)", "Remote U.S."). Hidden by
+  default, never refused; one switch shows it ("Include jobs whose location
+  is still to confirm"). The browser remembers that switch under a new key
+  (`careerAgent.includeUnresolved.v2`), so a choice stored while "shown" was
+  the default does not carry over.
+
+Two readings change:
+
+* An EXPLICIT hiring statement written by the employer ("candidates must be
+  based in Latin America", "open to candidates based in the United States,
+  Argentina, and Brazil") admits her even when the published location is an
+  office elsewhere: where a board files a role and where an employer hires
+  are two facts that do not conflict. Prose that only describes a team, a
+  declared scope field and an aggregator's sighting ("Worldwide" on a
+  re-post) are still withdrawn by a published location that leaves her out.
+  "The LATAM region" now resolves as LATAM.
+* "We do not sponsor visas", no country named, on a REMOTE role, is answered
+  for a candidate who declared she is authorized where she lives: no visa is
+  needed to do that work from home. The status still waits on the geography
+  gate.
+
+A posting re-published once per territory is ONE card. The copy she can take
+stands for the group (confirmed, then likely, then to confirm, then ruled
+out), and only then the score; each copy keeps its own status and reasons.
+
+`READER_IDENTITY` `readers-9`, `MATCH_SCHEMA_VERSION` 13 (with the scoring
+changes in `docs/checkpoints/brazil-relevance-2026-10-10.md`); a full
+recalculation applies them.

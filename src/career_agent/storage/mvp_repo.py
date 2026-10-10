@@ -2099,17 +2099,27 @@ _ELIGIBILITY_RANK = (
 #: Built by `ScoredJobQuery._representative_clause`, which reuses the same
 #: clause builder the outer query uses under the aliases `3` and `4`. It cannot
 #: drift from the outer filter, because it IS the outer filter.
+#: The election key in one number, smallest wins: the eligibility rank first
+#: (`_ELIGIBILITY_RANK`), then the higher score. Scores are 0..100.
+_ELECTION_KEY = "(" + _ELIGIBILITY_RANK + ") * 1000 - {a}.match_score"
 _REPRESENTATIVE_TEMPLATE = (
-    "j.id IN ("
-    " SELECT MIN(j3.id){from3}"
-    " JOIN ("
-    "   SELECT j4.company_id AS cid, j4.title AS t, MAX(jm4.match_score) AS best"
-    "   {from4}{where4}"
-    "   GROUP BY j4.company_id, j4.title"
-    " ) g ON g.cid = j3.company_id AND g.t = j3.title AND g.best = jm3.match_score"
-    "{where3}"
-    " GROUP BY j3.company_id, j3.title"
-    ")"
+    (
+        "j.id IN ("
+        " SELECT MIN(j3.id){{from3}}"
+        " JOIN ("
+        "   SELECT j4.company_id AS cid, j4.title AS t, MIN("
+        + _ELECTION_KEY.format(a="jm4")
+        + ") AS best"
+        "   {{from4}}{{where4}}"
+        "   GROUP BY j4.company_id, j4.title"
+        " ) g ON g.cid = j3.company_id AND g.t = j3.title AND g.best = "
+        + _ELECTION_KEY.format(a="jm3")
+        + "{{where3}}"
+        " GROUP BY j3.company_id, j3.title"
+        ")"
+    )
+    .replace("{{", "{")
+    .replace("}}", "}")
 )
 
 
