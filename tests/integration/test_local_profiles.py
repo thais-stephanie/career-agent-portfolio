@@ -123,6 +123,8 @@ def fill_profile_a(host: ProfileHost) -> dict:
         {},
         {"source_id": "linkedin_br", "opted_in": True, "acknowledged": True},
     )
+    api.handle_api("POST", "/api/deep/provider", {}, {"provider": "claude_code"})
+    api.handle_api("POST", "/api/deep/consent", {}, {"share_evidence": True})
     master(host, "Synthetic A")
     return {"job": job}
 
@@ -151,7 +153,15 @@ def snapshot(host: ProfileHost) -> dict:
     anchors = api.handle_api("GET", "/api/role-anchors", {}, {})
     jobs = api.handle_api("GET", "/api/jobs", {"limit": ["200"]}, {})["items"]
     sources = api.handle_api("GET", "/api/sources", {}, {})["sources"]
+    deep = api.handle_api("GET", "/api/deep", {}, {})
     return {
+        # The deep reading's choice, consent and readings are the person's own.
+        "deep": {
+            "provider": deep["provider"],
+            "share_evidence": deep["share_evidence"],
+            "consents": sorted(p["id"] for p in deep["providers"] if p["consent"]),
+            "reviewed": deep["reviewed"],
+        },
         "confirmed": evidence["confirmed"],
         "claims": sorted(c["text"] for c in evidence["claims"]),
         "anchors": [a["text"] for a in anchors["anchors"]],
@@ -177,6 +187,9 @@ def test_profile_b_sees_nothing_of_a_and_a_nothing_of_b(install: ProfileHost) ->
     )
     assert a_before["resumes"] == ["Synthetic A"] and a_before["search_file"]
     assert a_before["linkedin"] is True
+    assert a_before["deep"]["provider"] == "claude_code" and a_before["deep"]["consents"] == [
+        "claude_code"
+    ]
 
     created = app(host).handle_api("POST", "/api/profiles", {}, {"label": "Synthetic B"})
     second = created["created"]["id"]
@@ -186,6 +199,7 @@ def test_profile_b_sees_nothing_of_a_and_a_nothing_of_b(install: ProfileHost) ->
 
     b = snapshot(host)
     assert b == {
+        "deep": {"provider": None, "share_evidence": False, "consents": [], "reviewed": 0},
         "confirmed": 0,
         "claims": [],
         "anchors": [],

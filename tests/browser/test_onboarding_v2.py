@@ -1233,7 +1233,7 @@ def test_matching_is_keywords_unless_an_ai_provider_is_chosen_and_understood(
     page.wait_for("document.querySelector('#setup-matching-deterministic')", message="the modes")
     assert page.evaluate("document.querySelector('#setup-matching-deterministic').checked")
     shown = text(page, ".setup__card")
-    assert "Keywords only (no AI)" in shown and "nothing is sent" in shown
+    assert "Keywords only (no AI)" in shown and "nothing sent to an AI" in shown
     assert "Paid per use" in shown, "what each mode costs is said before choosing"
     # An AI provider needs her to say she understands what it receives.
     click(page, "#setup-matching-deepseek")

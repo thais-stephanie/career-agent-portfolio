@@ -2051,28 +2051,28 @@ const EN = {
     + 'after any one of them -- each says what it lets Career Agent work out.',
   'firstrun.privacy':
     'Everything below happens on this computer. Your documents are read by '
-    + 'Career Agent itself, they are never uploaded anywhere, no AI sees them, '
-    + 'and the files are not kept -- only the lines you confirm.',
+    + 'Career Agent itself and the files are not kept, only the lines you confirm. '
+    + 'Nothing is shared with an AI unless you choose that later, one provider at a time.',
   'firstrun.step.documents': 'Import your career information',
   'firstrun.why.documents':
     'A CV is enough to start. A LinkedIn export adds dates, and any other '
     + 'document you have can go in too.',
   'firstrun.step.evidence': 'Say which of it is true',
   'firstrun.why.evidence':
-    'Nothing read from a document counts until you confirm it. Until something '
-    + 'is confirmed, every requirement on every job reads as a gap.',
+    'Nothing read from a document counts until you confirm it. Until then, requirements '
+    + 'show as “not compared yet”, which does not mean you lack the experience.',
   'firstrun.step.where': 'Where you live, and who may hire you',
   'firstrun.why.where':
-    'The one answer that can empty the whole list. Without it no job can be '
-    + 'shown as open to you, because nothing counts as a place you may work.',
+    'Without this answer jobs show as “to confirm” instead of “open to you”. '
+    + 'You can answer later; nothing is hidden because of it.',
   'firstrun.step.work': 'What kind of work you are looking for',
   'firstrun.why.work':
     'Described in your own words, and matched against the whole posting rather '
     + 'than the job title -- so a job with an odd name still reaches you.',
   'firstrun.step.jobs': 'Find jobs',
   'firstrun.why.jobs':
-    'Collect postings and score them against everything above. Offline, and '
-    + 'nothing about you is sent anywhere.',
+    'Collect postings and compare them with the answers above. Reading job sites does '
+    + 'not send them your CV or your answers.',
   'firstrun.go.evidence': 'Open the review',
   'firstrun.go.where': 'Answer this',
   'firstrun.go.work': 'Describe the work',
@@ -2950,6 +2950,9 @@ const EN = {
   'locale.name.en': 'English',
   'locale.name.pt-BR': 'Português (Brasil)',
   'pagehead.title.home': 'Welcome back',
+  'pagehead.title.homeNew': 'Welcome',
+  'pagehead.sub.homeNew': 'Answer a few questions and Career Agent will look for jobs that fit you. '
+    + 'You can stop and continue later.',
   'pagehead.sub.home': 'You\'re on a good path. Here\'s what\'s happening with your job search.',
   'pagehead.title.jobs': 'Find jobs',
   'pagehead.sub.jobs': 'Jobs that fit you best are shown first.',
@@ -3021,12 +3024,12 @@ const EN = {
   'home.complete': 'Finish your Career Profile',
   'home.completeLede': 'Each of these makes one part of the product able to answer. There is no '
     + 'completion score, because there is no honest denominator for a career.',
-  'home.gap.evidence': 'Nothing is confirmed about you, so every requirement on every posting '
-    + 'reads as a gap.',
+  'home.gap.evidence': 'Nothing is confirmed about you yet, so requirements show as “not compared yet”. '
+    + 'That does not mean you lack the experience.',
   'home.gap.residence': 'Where you live is not set, so nothing can tell whether a posting hires '
     + 'there.',
-  'home.gap.hiring_scopes': 'No hiring scope is accepted, so the geography gate can never pass and '
-    + 'every posting stays unresolved.',
+  'home.gap.hiring_scopes': 'You have not said where you can be employed, so jobs stay marked “to confirm” '
+    + 'until you do. This is not a refusal.',
   'home.gap.compensation': 'No pay target is set, so the compensation part of the match scores '
     + 'nothing either way.',
   'home.gap.work': 'No phrases describe the work you want, so there is nothing for a posting '
@@ -4016,8 +4019,9 @@ const EN = {
   'setup.welcome.point2': 'Say where you live and where companies can hire you, so Career Agent can tell which jobs '
     + 'are open to you.',
   'setup.welcome.point3': 'Then find your first jobs from public job boards.',
-  'setup.welcome.privacy': 'Your answers stay on this computer. Nothing about you is sent to job sites, and Career '
-    + 'Agent never applies to a job for you.',
+  'setup.welcome.privacy': 'Your answers and documents are read and kept on this computer. Job sites receive only '
+    + 'the words of a search, never your name or CV. Sending anything to an AI is a separate choice you make '
+    + 'later, one provider at a time. Career Agent never applies to a job for you.',
   'setup.welcome.start': 'Start',
   'setup.work.title': 'What work do you want to do next?',
   'setup.work.why': 'Career Agent reads the whole job description, not only the job title, so describe the work '
@@ -4082,7 +4086,8 @@ const EN = {
   'setup.work.already': 'Your search already describes the work you want ({n} phrases). You can change them later in '
     + 'Settings.',
   'setup.home.title': 'Where do you live?',
-  'setup.home.why': 'Jobs are compared with where you are. Only the country is saved, and only on this computer.',
+  'setup.home.why': 'Jobs are compared with where you are. Only the country is saved, and only on this '
+    + 'computer. Where you live is not the same as where you may work; the next question is about that.',
   'setup.home.label': 'Country',
   'setup.hire.title': 'Where do you know you can be employed?',
   'setup.hire.why': 'Some jobs ask for the right to work in a country. Say only what you know, such as '
@@ -4136,8 +4141,8 @@ const EN = {
   'setup.ready.notAnswered': 'Not answered',
   'setup.ready.change': 'Change',
   'setup.ready.changeLabel': 'Change {what}',
-  'setup.ready.note': 'Finding jobs checks public job boards for new postings and can take several minutes. Nothing '
-    + 'about you is sent, and nothing is applied to.',
+  'setup.ready.note': 'Finding jobs checks public job boards for new postings and can take several minutes. '
+    + 'Your CV and answers are not sent to them, and nothing is applied to.',
   'setup.ready.find': 'Find jobs now',
   'setup.ready.starting': 'Starting…',
   'setup.ready.finding': 'Finding jobs…',
@@ -4196,9 +4201,11 @@ const EN = {
   'backup.private': 'That copy has your personal details. Keep it in a private folder.',
   'privacy.head': 'Your privacy',
   'privacy.local': 'Your files stay on this computer.',
-  'privacy.noAccount': 'No account, no sign-in, no tracking.',
-  'privacy.sites': 'Job sites are only read. Nothing about you is sent to them.',
-  'privacy.ai': 'Text goes to an online AI only if you choose one in Smart matching.',
+  'privacy.noAccount': 'No account and no sign-in. Nothing is sent to us.',
+  'privacy.sites': 'Job sites are only read. Your name, CV and answers are not sent to them; some receive the '
+    + 'words of the search you asked for.',
+  'privacy.ai': 'Text goes to an online AI only if you choose one, and each use is separate: Smart matching '
+    + 'and Deep reading. Your confirmed evidence goes only with your consent for that provider.',
   'settings.setupLede': 'Where you live, where you can be hired, the work you want and your pay target. Go through '
     + 'them again one at a time, starting from what is saved.',
   'settings.setupOpen': 'Change my answers',
@@ -4256,7 +4263,8 @@ const EN = {
   'setup.cv.found':
     '{n} statements found. None of them counts until you confirm it in Proof of my work.',
   'setup.cv.privacy':
-    'Reads {kinds}. The file is not kept, and nothing is sent anywhere.',
+    'Reads {kinds} on this computer. The file is not kept. Sending anything to an AI '
+    + 'later needs its own consent.',
   'setup.review.title':
     'Here is what you told Career Agent',
   'setup.review.why':
@@ -4275,8 +4283,8 @@ const EN = {
   'setup.matching.loading': 'Checking which options this computer has…',
   'setup.matching.legend': 'Matching',
   'setup.matching.keywords': 'Keywords only (no AI)',
-  'setup.matching.keywordsNote': 'Compares your phrases with each job, on this computer. Free, and nothing '
-    + 'is sent. It can miss jobs that describe the same work in other words.',
+  'setup.matching.keywordsNote': 'Compares your phrases with each job, on this computer. Free, with nothing '
+    + 'sent to an AI. It can miss jobs that describe the same work in other words.',
   'setup.matching.billing.METERED_API': 'AI evaluation with {name}. Paid per use with your API key, up to '
     + 'the limit per run set in Settings.',
   'setup.matching.billing.SUBSCRIPTION': 'AI evaluation with {name}. Uses your own {name} plan limits; if '
@@ -6791,29 +6799,29 @@ const PT_BR = {
     + 'de qualquer uma -- cada uma diz o que permite ao Career Agent concluir.',
   'firstrun.privacy':
     'Tudo abaixo acontece neste computador. Seus documentos são lidos pelo '
-    + 'próprio Career Agent, nunca são enviados a lugar nenhum, nenhuma IA os '
-    + 'vê, e os arquivos não são guardados -- só as linhas que você confirmar.',
+    + 'próprio Career Agent e os arquivos não são guardados, só as linhas que você '
+    + 'confirmar. Nada é compartilhado com uma IA a menos que você escolha isso '
+    + 'depois, um provedor por vez.',
   'firstrun.step.documents': 'Importe suas informações de carreira',
   'firstrun.why.documents':
     'Um currículo já basta para começar. Uma exportação do LinkedIn acrescenta '
     + 'datas, e qualquer outro documento que você tenha também pode entrar.',
   'firstrun.step.evidence': 'Diga o que disso é verdade',
   'firstrun.why.evidence':
-    'Nada lido de um documento vale até você confirmar. Enquanto nada estiver '
-    + 'confirmado, todo requisito de toda vaga aparece como lacuna.',
+    'Nada lido de um documento vale até você confirmar. Até lá, os requisitos aparecem '
+    + 'como “ainda não comparados”, o que não significa que você não tenha a experiência.',
   'firstrun.step.where': 'Onde você mora, e quem pode contratar você',
   'firstrun.why.where':
-    'A única resposta que pode deixar a lista inteira vazia. Sem ela nenhuma '
-    + 'vaga pode ser mostrada como aberta a você, porque nada conta como um '
-    + 'lugar onde você pode trabalhar.',
+    'Sem esta resposta as vagas aparecem como “a confirmar” em vez de “abertas a '
+    + 'você”. Você pode responder depois; nada é escondido por causa disso.',
   'firstrun.step.work': 'Que tipo de trabalho você procura',
   'firstrun.why.work':
     'Descrito com suas próprias palavras, e comparado com a vaga inteira em vez '
     + 'do título -- então uma vaga com nome estranho ainda chega até você.',
   'firstrun.step.jobs': 'Encontrar vagas',
   'firstrun.why.jobs':
-    'Coletar vagas e pontuá-las contra tudo acima. Offline, e nada sobre você '
-    + 'é enviado a lugar nenhum.',
+    'Coletar vagas e compará-las com as respostas acima. Ler os sites de vagas '
+    + 'não envia a eles seu currículo nem suas respostas.',
   'firstrun.go.evidence': 'Abrir a revisão',
   'firstrun.go.where': 'Responder isto',
   'firstrun.go.work': 'Descrever o trabalho',
@@ -7691,6 +7699,9 @@ const PT_BR = {
   'locale.name.en': 'English',
   'locale.name.pt-BR': 'Português (Brasil)',
   'pagehead.title.home': 'Que bom te ver',
+  'pagehead.title.homeNew': 'Boas-vindas',
+  'pagehead.sub.homeNew': 'Responda algumas perguntas e o Career Agent procura vagas que combinam com '
+    + 'você. Você pode parar e continuar depois.',
   'pagehead.sub.home': 'Você está no caminho certo. Veja como anda sua busca por vagas.',
   'pagehead.title.jobs': 'Encontrar vagas',
   'pagehead.sub.jobs': 'As vagas que mais combinam com você aparecem primeiro.',
@@ -7763,12 +7774,12 @@ const PT_BR = {
   'home.complete': 'Complete seu perfil de carreira',
   'home.completeLede': 'Cada um destes faz uma parte do produto conseguir responder. Não há nota '
     + 'de conclusão, porque não existe denominador honesto para uma carreira.',
-  'home.gap.evidence': 'Nada foi confirmado sobre você, então todo requisito de todo anúncio '
-    + 'aparece como lacuna.',
+  'home.gap.evidence': 'Nada foi confirmado sobre você ainda, então os requisitos aparecem como “ainda não '
+    + 'comparados”. Isso não significa que você não tenha a experiência.',
   'home.gap.residence': 'Onde você mora não está definido, então nada consegue dizer se um '
     + 'anúncio contrata lá.',
-  'home.gap.hiring_scopes': 'Nenhum alcance de contratação é aceito, então o portão de geografia '
-    + 'nunca pode passar e todo anúncio fica sem resposta.',
+  'home.gap.hiring_scopes': 'Você ainda não disse onde pode ser contratado, então as vagas ficam “a '
+    + 'confirmar” até você dizer. Isso não é uma recusa.',
   'home.gap.compensation': 'Nenhuma meta de remuneração está definida, então a parte de remuneração '
     + 'da correspondência não pontua nada.',
   'home.gap.work': 'Nenhuma expressão descreve o trabalho que você quer, então não há o que '
@@ -8739,8 +8750,9 @@ const PT_BR = {
   'setup.welcome.point2': 'Diga onde você mora e onde empresas podem te contratar, para o Career Agent saber quais '
     + 'vagas estão abertas para você.',
   'setup.welcome.point3': 'Depois, encontre suas primeiras vagas em sites de emprego públicos.',
-  'setup.welcome.privacy': 'Suas respostas ficam neste computador. Nada sobre você é enviado aos sites de vagas, '
-    + 'e o Career Agent nunca se candidata a uma vaga por você.',
+  'setup.welcome.privacy': 'Suas respostas e documentos são lidos e guardados neste computador. Os sites de '
+    + 'vagas recebem só as palavras de uma busca, nunca seu nome ou currículo. Enviar algo a uma IA é uma '
+    + 'escolha separada, que você faz depois, um provedor por vez. O Career Agent nunca se candidata por você.',
   'setup.welcome.start': 'Começar',
   'setup.work.title': 'Que trabalho você quer fazer a seguir?',
   'setup.work.why': 'O Career Agent lê a descrição inteira da vaga, não só o título, então descreva o trabalho em si.',
@@ -8805,7 +8817,8 @@ const PT_BR = {
   'setup.work.already': 'Sua busca já descreve o trabalho que você quer ({n} frases). Você pode mudá-las depois em '
     + 'Configurações e fontes.',
   'setup.home.title': 'Onde você mora?',
-  'setup.home.why': 'As vagas são comparadas com o lugar onde você está. Só o país é salvo, e só neste computador.',
+  'setup.home.why': 'As vagas são comparadas com o lugar onde você está. Só o país é salvo, e só neste '
+    + 'computador. Morar num lugar não é o mesmo que poder trabalhar lá; a próxima pergunta trata disso.',
   'setup.home.label': 'País',
   'setup.hire.title': 'Onde você sabe que pode trabalhar com vínculo de emprego?',
   'setup.hire.why': 'Algumas vagas pedem o direito de trabalhar num país. Diga só o que você sabe, como '
@@ -8860,7 +8873,7 @@ const PT_BR = {
   'setup.ready.change': 'Mudar',
   'setup.ready.changeLabel': 'Mudar {what}',
   'setup.ready.note': 'Encontrar vagas consulta sites de emprego públicos em busca de anúncios novos e pode levar '
-    + 'alguns minutos. Nada sobre você é enviado, e nenhuma candidatura é feita.',
+    + 'alguns minutos. Seu currículo e suas respostas não são enviados a eles, e nenhuma candidatura é feita.',
   'setup.ready.find': 'Encontrar vagas agora',
   'setup.ready.starting': 'Começando…',
   'setup.ready.finding': 'Encontrando vagas…',
@@ -8919,9 +8932,12 @@ const PT_BR = {
   'backup.private': 'Essa cópia tem seus dados pessoais. Guarde em uma pasta particular.',
   'privacy.head': 'Sua privacidade',
   'privacy.local': 'Seus arquivos ficam neste computador.',
-  'privacy.noAccount': 'Sem conta, sem login, sem rastreamento.',
-  'privacy.sites': 'Os sites de vagas só são lidos. Nada sobre você é enviado a eles.',
-  'privacy.ai': 'Texto só vai para uma IA online se você escolher uma em Compatibilidade inteligente.',
+  'privacy.noAccount': 'Sem conta e sem login. Nada é enviado para nós.',
+  'privacy.sites': 'Os sites de vagas só são lidos. Seu nome, currículo e respostas não são enviados a eles; '
+    + 'alguns recebem as palavras da busca que você pediu.',
+  'privacy.ai': 'O texto só vai para uma IA online se você escolher uma, e cada uso é separado: '
+    + 'Compatibilidade inteligente e Leitura aprofundada. Suas evidências confirmadas só vão com o seu '
+    + 'consentimento para aquele provedor.',
   'settings.setupLede': 'Onde você mora, onde pode ser contratado, o trabalho que quer e o salário alvo. Revise uma '
     + 'de cada vez, a partir do que já está salvo.',
   'settings.setupOpen': 'Mudar minhas respostas',
@@ -8980,7 +8996,8 @@ const PT_BR = {
   'setup.cv.found':
     '{n} afirmações encontradas. Nenhuma conta até você confirmar em Provas do meu trabalho.',
   'setup.cv.privacy':
-    'Lê {kinds}. O arquivo não é guardado, e nada é enviado para lugar nenhum.',
+    'Lê {kinds} neste computador. O arquivo não é guardado. Enviar algo a uma IA '
+    + 'depois exige um consentimento próprio.',
   'setup.review.title':
     'Isto é o que você contou ao Career Agent',
   'setup.review.why':
@@ -8999,8 +9016,8 @@ const PT_BR = {
   'setup.matching.loading': 'Verificando as opções deste computador…',
   'setup.matching.legend': 'Comparação',
   'setup.matching.keywords': 'Só palavras-chave (sem IA)',
-  'setup.matching.keywordsNote': 'Compara suas frases com cada vaga, neste computador. Gratuito, e nada é '
-    + 'enviado. Pode deixar passar vagas que descrevem o mesmo trabalho com outras palavras.',
+  'setup.matching.keywordsNote': 'Compara suas frases com cada vaga, neste computador. Gratuito, sem enviar '
+    + 'nada a uma IA. Pode deixar passar vagas que descrevem o mesmo trabalho com outras palavras.',
   'setup.matching.billing.METERED_API': 'Avaliação por IA com {name}. Paga por uso com sua chave de API, '
     + 'até o limite por execução definido em Configurações.',
   'setup.matching.billing.SUBSCRIPTION': 'Avaliação por IA com {name}. Usa os limites do seu próprio plano '

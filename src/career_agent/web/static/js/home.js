@@ -23,6 +23,7 @@
  * a decoration that reads as a measurement.
  */
 
+import { scopedKey } from './profile-scope.js';
 import { el, button, replace } from './dom.js';
 import { toast } from './ui.js';
 import { matchTone } from './cards.js';
@@ -57,7 +58,7 @@ const SEEN_KEY = 'careerAgent.homeNewSeen.v1';
 /** localStorage can throw; a remembered tip is a nicety, never a fault. */
 function stored(key) {
   try {
-    return window.localStorage.getItem(key);
+    return window.localStorage.getItem(scopedKey(key));
   } catch {
     return null;
   }
@@ -65,8 +66,8 @@ function stored(key) {
 
 function store(key, value) {
   try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
+    if (value === null) window.localStorage.removeItem(scopedKey(key));
+    else window.localStorage.setItem(scopedKey(key), value);
   } catch {
     /* nothing to do */
   }
@@ -234,7 +235,7 @@ export function createHome({
         return;
       }
       showingSetup = false;
-      if (onSetupShown) onSetupShown(false);
+      if (onSetupShown) onSetupShown(false, firstRun.isFresh());
       // Which of its two faces Home is showing, for anything that waits on it.
       root.dataset.view = 'dashboard';
       replace(root, render(payload));

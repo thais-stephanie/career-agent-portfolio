@@ -36,6 +36,7 @@
  * finding jobs through the app's one collection watcher.
  */
 
+import { scopedKey } from './profile-scope.js';
 import { roleAnchorsEditor } from './roles.js';
 import { el, button, replace } from './dom.js';
 import { LOCALES, t, tVocab, getLocale } from './i18n.js';
@@ -55,7 +56,7 @@ const POSITION_KEY = 'careerAgent.setup.at.v1';
 
 export function setupPostponed() {
   try {
-    return window.localStorage.getItem(LATER_KEY) === '1';
+    return window.localStorage.getItem(scopedKey(LATER_KEY)) === '1';
   } catch {
     return false;
   }
@@ -63,8 +64,8 @@ export function setupPostponed() {
 
 function rememberPostponed(value) {
   try {
-    if (value) window.localStorage.setItem(LATER_KEY, '1');
-    else window.localStorage.removeItem(LATER_KEY);
+    if (value) window.localStorage.setItem(scopedKey(LATER_KEY), '1');
+    else window.localStorage.removeItem(scopedKey(LATER_KEY));
   } catch {
     // Private windows may refuse storage. The flow still works; it simply
     // offers itself again next time.
@@ -77,7 +78,7 @@ function rememberPostponed(value) {
  */
 export function setupResumeStep() {
   try {
-    const key = window.localStorage.getItem(POSITION_KEY);
+    const key = window.localStorage.getItem(scopedKey(POSITION_KEY));
     return STEPS.some((step) => step.key === key) ? key : null;
   } catch {
     return null;
@@ -86,8 +87,8 @@ export function setupResumeStep() {
 
 function rememberPosition(key) {
   try {
-    if (key) window.localStorage.setItem(POSITION_KEY, key);
-    else window.localStorage.removeItem(POSITION_KEY);
+    if (key) window.localStorage.setItem(scopedKey(POSITION_KEY), key);
+    else window.localStorage.removeItem(scopedKey(POSITION_KEY));
   } catch {
     // Without storage a reload starts again from Home; nothing answered is lost.
   }

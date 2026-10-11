@@ -51,7 +51,11 @@ import { recalcButton } from './recalc.js';
 import { createSourcesPanel } from './sources.js';
 import { createShell } from './shell.js';
 import { createLocalProfiles } from './local-profiles.js';
+import { scopedKey } from './profile-scope.js';
 import { humanLabel, prefersEnglishTitles, rememberEnglishTitles, statusLabel } from './format.js';
+
+// Which profile this page is for, before any storage is read (profile-scope.js).
+await api.bootProfile();
 
 const store = createStore();
 
@@ -405,8 +409,9 @@ const home = createHome({
   },
   // "How is your search going?" is the wrong heading above "Let's set up your
   // job search", so Home says which of the two it is showing.
-  onSetupShown: (shown) => {
-    homeHeader = shown ? 'setup' : 'home';
+  onSetupShown: (shown, fresh = false) => {
+    // A profile nobody has answered for yet is welcomed, not welcomed back.
+    homeHeader = shown ? 'setup' : (fresh ? 'homeNew' : 'home');
     if (currentPage === 'home') shell.setPage(homeHeader, { action: headerAction('home') });
   },
 });
@@ -1112,7 +1117,7 @@ const JOBS_TIP_KEY = 'careerAgent.tip.jobs';
 function renderJobsTip(state) {
   const tip = document.getElementById('jobs-tip');
   let dismissed = false;
-  try { dismissed = window.localStorage.getItem(JOBS_TIP_KEY) === '1'; } catch { /* a nicety */ }
+  try { dismissed = window.localStorage.getItem(scopedKey(JOBS_TIP_KEY)) === '1'; } catch { /* a nicety */ }
   tip.hidden = dismissed || state.view === 'kanban' || !searchFitIsReady();
   document.getElementById('jobs-tip-title').textContent = t('jobsTip.title');
   document.getElementById('jobs-tip-text').textContent = t('jobsTip.text');
@@ -1120,7 +1125,7 @@ function renderJobsTip(state) {
   paintEvalMode();
 }
 document.getElementById('jobs-tip-ok').addEventListener('click', () => {
-  try { window.localStorage.setItem(JOBS_TIP_KEY, '1'); } catch { /* a nicety */ }
+  try { window.localStorage.setItem(scopedKey(JOBS_TIP_KEY), '1'); } catch { /* a nicety */ }
   document.getElementById('jobs-tip').hidden = true;
 });
 
@@ -1643,7 +1648,7 @@ const NOTICES_KEY = 'careerAgent.notices.v1';
 
 function dismissedSet() {
   try {
-    const raw = window.localStorage.getItem(NOTICES_KEY);
+    const raw = window.localStorage.getItem(scopedKey(NOTICES_KEY));
     return new Set(raw ? JSON.parse(raw) : []);
   } catch {
     // A private window refuses storage, and a parse can fail on a key an
@@ -1655,7 +1660,7 @@ function dismissedSet() {
 
 function writeDismissed(set) {
   try {
-    window.localStorage.setItem(NOTICES_KEY, JSON.stringify([...set]));
+    window.localStorage.setItem(scopedKey(NOTICES_KEY), JSON.stringify([...set]));
   } catch { /* not remembered, still dismissed for this visit */ }
 }
 
@@ -2575,7 +2580,7 @@ const SITE_ALERT_KEY = 'careerAgent.siteAlert.v1';
 
 function dismissedAt() {
   try {
-    return Number(localStorage.getItem(SITE_ALERT_KEY)) || 0;
+    return Number(localStorage.getItem(scopedKey(SITE_ALERT_KEY))) || 0;
   } catch {
     return 0;
   }
@@ -2583,8 +2588,8 @@ function dismissedAt() {
 
 function rememberDismissed(count) {
   try {
-    if (count) localStorage.setItem(SITE_ALERT_KEY, String(count));
-    else localStorage.removeItem(SITE_ALERT_KEY);
+    if (count) localStorage.setItem(scopedKey(SITE_ALERT_KEY), String(count));
+    else localStorage.removeItem(scopedKey(SITE_ALERT_KEY));
   } catch { /* the alert simply returns next time */ }
 }
 

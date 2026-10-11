@@ -211,6 +211,19 @@ let localProfile = null;
 export function setLocalProfile(id) { localProfile = id || null; }
 /** The active local profile's id, or null when profiles are off. */
 export function getLocalProfile() { return localProfile; }
+/**
+ * Learn the active profile BEFORE the page reads anything that belongs to it.
+ * A failure or a profile-less run (demo, `serve`) leaves it null, and the page
+ * works as it always did.
+ */
+export async function bootProfile() {
+  try {
+    const data = await getLocalProfiles();
+    setLocalProfile(data && data.enabled && data.active ? data.active.id : null);
+  } catch {
+    setLocalProfile(null);
+  }
+}
 
 async function request(path, { method = 'GET', body = null, signal = null } = {}) {
   let response;

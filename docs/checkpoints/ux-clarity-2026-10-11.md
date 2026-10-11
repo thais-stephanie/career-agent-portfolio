@@ -7,7 +7,7 @@ Not merged, not pushed. Synthetic data only.
       CURRENT config version only and answered 404 where the list served the
       previous revision). Detail, preparation and application now open with the
       newest stored score labelled stale, or with no score at all.
-- [ ] 1. Onboarding for every new profile (browser keys not scoped by profile)
+- [x] 1. Onboarding for every new profile (finishing or postponing the setup wrote one browser flag for everybody; storage about a person is now scoped by profile id; welcome header; honest privacy and unknown-vs-unmet copy)
 - [ ] 2. Orientation after editing the profile (effects classifier)
 - [ ] 4. Job site alerts and per-source actions
 - [ ] 5. Optional update on open, bounded, off by default

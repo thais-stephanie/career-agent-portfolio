@@ -15,6 +15,8 @@
  * yourself.
  */
 
+import { scopedKey } from './profile-scope.js';
+
 /** Multi-value filters. Repeatable in the query string, per the API contract. */
 export const LIST_KEYS = [
   'company', 'provider', 'role_class', 'status', 'eligibility', 'fit_band', 'signal',
@@ -123,7 +125,7 @@ export const EXCLUDE_KEYWORD_KEY = 'careerAgent.excludeKeyword.v1';
 /** One remembered phrase list, or an empty one. */
 function storedPhrases(key) {
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = window.localStorage.getItem(scopedKey(key));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     // Shape-checked rather than trusted. `localStorage` is per-origin and this
@@ -138,8 +140,8 @@ function storedPhrases(key) {
 
 function rememberPhrases(key, values) {
   try {
-    if (values && values.length) window.localStorage.setItem(key, JSON.stringify(values));
-    else window.localStorage.removeItem(key);
+    if (values && values.length) window.localStorage.setItem(scopedKey(key), JSON.stringify(values));
+    else window.localStorage.removeItem(scopedKey(key));
   } catch (error) {
     /* Applies for this visit either way. */
   }
@@ -189,7 +191,7 @@ export function rememberExcludedKeywords(values) {
  */
 export function storedIncludeIneligible() {
   try {
-    return window.localStorage.getItem(ELIGIBILITY_KEY) === '1';
+    return window.localStorage.getItem(scopedKey(ELIGIBILITY_KEY)) === '1';
   } catch (error) {
     return false;
   }
@@ -197,7 +199,7 @@ export function storedIncludeIneligible() {
 
 export function rememberIncludeIneligible(value) {
   try {
-    window.localStorage.setItem(ELIGIBILITY_KEY, value ? '1' : '0');
+    window.localStorage.setItem(scopedKey(ELIGIBILITY_KEY), value ? '1' : '0');
   } catch (error) {
     /* Applies for this visit either way. */
   }
@@ -205,7 +207,7 @@ export function rememberIncludeIneligible(value) {
 
 export function storedIncludeOffTarget() {
   try {
-    return window.localStorage.getItem(OFF_TARGET_KEY) === '1';
+    return window.localStorage.getItem(scopedKey(OFF_TARGET_KEY)) === '1';
   } catch (error) {
     return false;
   }
@@ -213,7 +215,7 @@ export function storedIncludeOffTarget() {
 
 export function rememberIncludeOffTarget(value) {
   try {
-    window.localStorage.setItem(OFF_TARGET_KEY, value ? '1' : '0');
+    window.localStorage.setItem(scopedKey(OFF_TARGET_KEY), value ? '1' : '0');
   } catch (error) {
     /* Applies for this visit either way. */
   }
@@ -222,7 +224,7 @@ export function rememberIncludeOffTarget(value) {
 export function storedIncludeUnresolved() {
   try {
     // Only her stored "show them" ('1') shows them; nothing stored hides them.
-    return window.localStorage.getItem(UNRESOLVED_KEY) === '1';
+    return window.localStorage.getItem(scopedKey(UNRESOLVED_KEY)) === '1';
   } catch (error) {
     return false;
   }
@@ -230,7 +232,7 @@ export function storedIncludeUnresolved() {
 
 export function rememberIncludeUnresolved(value) {
   try {
-    window.localStorage.setItem(UNRESOLVED_KEY, value ? '1' : '0');
+    window.localStorage.setItem(scopedKey(UNRESOLVED_KEY), value ? '1' : '0');
   } catch (error) {
     /* Applies for this visit either way. */
   }
@@ -238,7 +240,7 @@ export function rememberIncludeUnresolved(value) {
 
 export function storedIncludeExcludedSeniority() {
   try {
-    return window.localStorage.getItem(EXCLUDED_SENIORITY_KEY) === '1';
+    return window.localStorage.getItem(scopedKey(EXCLUDED_SENIORITY_KEY)) === '1';
   } catch (error) {
     return false;
   }
@@ -246,7 +248,7 @@ export function storedIncludeExcludedSeniority() {
 
 export function rememberIncludeExcludedSeniority(value) {
   try {
-    window.localStorage.setItem(EXCLUDED_SENIORITY_KEY, value ? '1' : '0');
+    window.localStorage.setItem(scopedKey(EXCLUDED_SENIORITY_KEY), value ? '1' : '0');
   } catch (error) {
     /* Applies for this visit either way. */
   }
@@ -254,7 +256,7 @@ export function rememberIncludeExcludedSeniority(value) {
 
 export function storedIncludeExcludedWorkModel() {
   try {
-    return window.localStorage.getItem(EXCLUDED_WORK_MODEL_KEY) === '1';
+    return window.localStorage.getItem(scopedKey(EXCLUDED_WORK_MODEL_KEY)) === '1';
   } catch (error) {
     return false;
   }
@@ -262,7 +264,7 @@ export function storedIncludeExcludedWorkModel() {
 
 export function rememberIncludeExcludedWorkModel(value) {
   try {
-    window.localStorage.setItem(EXCLUDED_WORK_MODEL_KEY, value ? '1' : '0');
+    window.localStorage.setItem(scopedKey(EXCLUDED_WORK_MODEL_KEY), value ? '1' : '0');
   } catch (error) {
     /* Applies for this visit either way. */
   }
