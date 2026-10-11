@@ -254,6 +254,7 @@ STATES = {
         "reviews": [],
     },
     "deepseek_choose": {"status": DEEPSEEK, "reviews": []},
+    "deepseek_rejected": {"status": {**DEEPSEEK, "rejected": 2}, "reviews": []},
     "deepseek_check": {"status": DEEPSEEK, "reviews": [], "click": True},
     "deepseek_reading": {
         "status": {
@@ -587,3 +588,26 @@ def test_a_reading_paused_by_the_budget_says_so_and_offers_to_resume(
     assert page.evaluate(LAYOUT) == []
     if SHOTS:
         page.screenshot(Path(SHOTS) / f"panel-deepseek-budget-{locale}.png")
+
+
+@pytest.mark.parametrize(
+    ("locale", "label"),
+    [
+        ("en", "Ask again for 2 answers that were rejected"),
+        ("pt-BR", "Pedir de novo 2 respostas recusadas"),
+    ],
+)
+def test_a_rejected_answer_is_retried_only_when_asked(
+    page: Chrome, deep_server: dict, locale: str, label: str
+) -> None:  # noqa: F811
+    _open(page, deep_server["url"], "deepseek_rejected", locale)
+    text = str(page.evaluate("document.querySelector('.dr-body').innerText"))
+    assert label in text
+    switch = page.evaluate(
+        "Array.from(document.querySelectorAll('[role=switch]'))"
+        ".filter((n) => n.closest('.dr-card')?.querySelector('#deep-count'))"
+        ".map((n) => n.getAttribute('aria-checked'))"
+    )
+    assert switch == ["false"], "a retry is never on by default"
+    _open(page, deep_server["url"], "deepseek_choose", locale)
+    assert label not in str(page.evaluate("document.querySelector('.dr-body').innerText"))

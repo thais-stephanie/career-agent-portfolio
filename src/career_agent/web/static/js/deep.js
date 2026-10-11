@@ -49,6 +49,7 @@ export function createDeep({ onOpenJob = null } = {}) {
   let token = 0;
   let poller = null;
   let includeUnresolved = false;
+  let retryRejected = false;
   let preview = null;
   let checked = false;
   let message = '';
@@ -255,8 +256,9 @@ export function createDeep({ onOpenJob = null } = {}) {
         click: async (event) => {
           const asked = chosenCount(status);
           const money = Number(budget ?? status.budget_default);
-          if (!Number.isInteger(asked) || asked < 1 || (!includeUnresolved && asked > (status.available || 0))) {
-            message = t('deep.count.invalid', { max: status.available || 0 });
+          const most = (status.available || 0) + (retryRejected ? status.rejected || 0 : 0);
+          if (!Number.isInteger(asked) || asked < 1 || (!includeUnresolved && asked > most)) {
+            message = t('deep.count.invalid', { max: most });
             paint();
             return;
           }
@@ -268,6 +270,7 @@ export function createDeep({ onOpenJob = null } = {}) {
           event.currentTarget.disabled = true;
           const options = { include_unresolved: includeUnresolved, limit: asked };
           if (metered) options.budget_usd = money;
+          if (retryRejected) options.retry_rejected = true;
           try {
             preview = await api.previewDeep(options);
             message = '';
@@ -431,6 +434,17 @@ export function createDeep({ onOpenJob = null } = {}) {
       });
       fields.push(field('deep-budget', t('deep.budget.label'), budgetInput, t('deep.budget.help')));
     }
+    // A rejected answer was paid for: asking again is the person's explicit
+    // choice, never a default, and it is paid again.
+    const retry = status.rejected ? switchControl(
+      retryRejected, t('deep.retry.label', { count: status.rejected }), t('deep.retry.help'),
+      (node) => {
+        retryRejected = node.getAttribute('aria-checked') !== 'true';
+        preview = null;
+        checked = false;
+        paint();
+      },
+    ) : null;
     return el('section', { className: 'dr-card' }, [
       el('h3', { className: 'dr-card-title', text: t('deep.which.head') }),
       el('div', { className: 'dr-strip' }, [
@@ -439,6 +453,7 @@ export function createDeep({ onOpenJob = null } = {}) {
         strip('plain', BATCH, t('deep.which.batch')),
       ]),
       el('div', { className: 'dr-fields' }, fields),
+      retry,
       el('p', { className: 'dr-help', text: t('deep.previewLede.batches') }),
       el('p', {
         className: 'dr-help',
@@ -522,6 +537,7 @@ export function createDeep({ onOpenJob = null } = {}) {
       try {
         const options = { include_unresolved: includeUnresolved, limit: plan.requested };
         if (isSet(plan.budget_usd)) options.budget_usd = plan.budget_usd;
+        if (plan.retry_rejected) options.retry_rejected = true;
         await api.startDeep(options);
         message = '';
       } catch {

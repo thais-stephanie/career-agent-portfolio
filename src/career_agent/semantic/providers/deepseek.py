@@ -124,16 +124,19 @@ class DeepSeekProvider:
                 if exc.status in (401, 403)
                 else Availability.LIMIT_OR_ERROR
             )
-            raise ProviderFailed(f"DeepSeek answered HTTP {exc.status}.", state=state) from exc
+            # 402 is an exhausted balance and 429 a rate limit: pause, never retry.
+            raise ProviderFailed(
+                f"DeepSeek answered HTTP {exc.status}.", state=state, limit=exc.status in (402, 429)
+            ) from exc
         except LLMError as exc:
             raise ProviderFailed(
                 "DeepSeek could not be reached.", state=Availability.CONNECTION_FAILED
             ) from exc
         latency = int((time.monotonic() - started) * 1000)
         if response.refusal:
-            raise ProviderFailed(f"DeepSeek returned no answer: {response.refusal}")
+            raise ProviderFailed(f"DeepSeek returned no answer: {response.refusal}", billed=True)
         if not response.raw_text.strip():
-            raise ProviderFailed("DeepSeek returned empty content.")
+            raise ProviderFailed("DeepSeek returned empty content.", billed=True)
         cost = None
         if response.input_tokens is not None and response.output_tokens is not None:
             cost = self.estimate_cost(response.input_tokens, response.output_tokens)

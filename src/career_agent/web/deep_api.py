@@ -63,7 +63,14 @@ def register_deep(app: JobsApi) -> None:
             return None, "CHOOSE_PROVIDER"
         return _instance(provider_id), ""
 
-    def available_for(provider: Any, settings: Any, include_unresolved: bool) -> int:
+    def available_for(
+        provider: Any, settings: Any, include_unresolved: bool, retry_rejected: bool = False
+    ) -> int:
+        return selection_for(provider, settings, include_unresolved, retry_rejected).available
+
+    def selection_for(
+        provider: Any, settings: Any, include_unresolved: bool, retry_rejected: bool = False
+    ) -> Any:
         from career_agent.semantic.deep_run import context, select
 
         share = provider.id in settings.share_evidence_with
@@ -76,11 +83,14 @@ def register_deep(app: JobsApi) -> None:
                 limit=0,
                 include_unresolved=include_unresolved,
                 current_digest=ctx.digest,
-            ).available
+                model=_model(provider),
+                retry_rejected=retry_rejected,
+            )
 
-    def limits(body: dict, provider: Any, settings: Any) -> tuple[int, bool, int]:
+    def limits(body: dict, provider: Any, settings: Any) -> tuple[int, bool, int, bool]:
         include_unresolved = _bool(body.get("include_unresolved", False))
-        available = available_for(provider, settings, include_unresolved)
+        retry = _bool(body.get("retry_rejected", False))
+        available = available_for(provider, settings, include_unresolved, retry)
         limit = body.get("limit", min(DEFAULT_LIMIT, max(available, 1)))
         if (
             not isinstance(limit, int)
@@ -88,7 +98,7 @@ def register_deep(app: JobsApi) -> None:
             or not 1 <= limit <= max(available, 1)
         ):
             raise ApiError(400, "limit out of range", for_reader=True)
-        return limit, include_unresolved, available
+        return limit, include_unresolved, available, retry
 
     def budget_of(body: dict, provider: Any) -> float | None:
         """The approved most-to-spend for a metered provider, in USD."""
@@ -147,7 +157,7 @@ def register_deep(app: JobsApi) -> None:
             "run": runner.snapshot(),
             "providers": _providers(settings, chosen_id(settings)) if _is_personal(app) else [],
             "budget_default": settings.deep_budget_usd,
-            "available": (available_for(provider, settings, False) if provider is not None else 0),
+            **(_counts(selection_for(provider, settings, False)) if provider is not None else {}),
             "job": job,
             "live": dict(live),
         }
@@ -183,7 +193,7 @@ def register_deep(app: JobsApi) -> None:
             select,
         )
 
-        if query or set(body) - {"limit", "include_unresolved", "budget_usd"}:
+        if query or set(body) - {"limit", "include_unresolved", "budget_usd", "retry_rejected"}:
             raise ApiError(400, "unexpected parameters", for_reader=True)
         if not _is_personal(app):
             raise ApiError(409, "Demo mode never uses AI.", for_reader=True)
@@ -191,7 +201,7 @@ def register_deep(app: JobsApi) -> None:
         provider, reason = chosen_provider(settings)
         if provider is None:
             return {"provider": None, "reason": reason}
-        limit, include_unresolved, available = limits(body, provider, settings)
+        limit, include_unresolved, available, retry = limits(body, provider, settings)
         budget = budget_of(body, provider)
         share = provider.id in settings.share_evidence_with
         config = app.search_config()
@@ -204,6 +214,8 @@ def register_deep(app: JobsApi) -> None:
                 limit=limit,
                 include_unresolved=include_unresolved,
                 current_digest=ctx.digest,
+                model=_model(provider),
+                retry_rejected=retry,
             )
             names = _companies(conn, [c.job_id for c in chosen.candidates])
             reach, _rows = coverage(conn, config, include_unresolved)
@@ -237,6 +249,10 @@ def register_deep(app: JobsApi) -> None:
             "model": str(getattr(provider, "model", "") or ""),
             "billing": provider.capabilities().billing.value,
             "available": available,
+            # Answers paid for and rejected: asked again only on request,
+            # and each retry is paid again.
+            "rejected": chosen.rejected,
+            "retry_rejected": retry,
             "requested": limit,
             "batch_size": BATCH_SIZE,
             "budget_usd": budget,
@@ -301,7 +317,14 @@ def register_deep(app: JobsApi) -> None:
     def start(*, query: dict, body: dict) -> dict:
         from career_agent.clock import new_id
 
-        if query or set(body) - {"limit", "include_unresolved", "confirm", "budget_usd", "resume"}:
+        if query or set(body) - {
+            "limit",
+            "include_unresolved",
+            "confirm",
+            "budget_usd",
+            "resume",
+            "retry_rejected",
+        }:
             raise ApiError(400, "unexpected parameters", for_reader=True)
         if body.get("confirm") is not True:
             raise ApiError(
@@ -322,9 +345,9 @@ def register_deep(app: JobsApi) -> None:
             if not isinstance(resume, str):
                 raise ApiError(400, "resume must be a job id", for_reader=True)
             budget = budget_of(body, provider) if "budget_usd" in body else None
-            limit, include_unresolved = 0, False
+            limit, include_unresolved, retry = 0, False, False
         else:
-            limit, include_unresolved, _available = limits(body, provider, settings)
+            limit, include_unresolved, _available, retry = limits(body, provider, settings)
             budget = budget_of(body, provider)
             if budget is not None:
                 from career_agent.semantic.settings import save_settings
@@ -344,6 +367,7 @@ def register_deep(app: JobsApi) -> None:
                     share,
                     limit,
                     include_unresolved,
+                    retry,
                     budget,
                     resume,
                     last,
@@ -548,6 +572,7 @@ def _work(
     share: bool,
     limit: int,
     include_unresolved: bool,
+    retry_rejected: bool,
     budget: float | None,
     resume: str | None,
     last: dict,
@@ -580,6 +605,7 @@ def _work(
                 share=share,
                 limit=limit,
                 include_unresolved=include_unresolved,
+                retry_rejected=retry_rejected,
                 budget_usd=budget,
                 resume_job=resume,
                 job_progress=job_progress,
@@ -591,6 +617,15 @@ def _work(
         state.funnel = dict(last)
 
     return work
+
+
+def _counts(selection: Any) -> dict[str, int]:
+    # `rejected`: answers paid for and rejected, offered for an explicit retry.
+    return {"available": selection.available, "rejected": selection.rejected}
+
+
+def _model(provider: Any) -> str:
+    return str(getattr(provider, "model", "") or "")
 
 
 def _instance(provider_id: str) -> Any:
@@ -658,9 +693,9 @@ def _job_summary(app: Any, conn: Any, chosen: str | None) -> dict[str, Any] | No
     share = bool(job["share_evidence"])
     digest_now = context(conn, app.search_config(), share).digest
     plan = json.loads(str(job["plan_json"]))
-    finished = repo.finished_hashes(
-        str(job["provider"]), str(job["contract"]), str(job["profile_digest"])
-    )
+    finished = repo.reviewed(
+        str(job["provider"]), str(job["contract"]), str(job["profile_digest"]), str(job["model"])
+    ) | repo.answered_in(str(job["id"]))
     done = sum(1 for _job, content_hash, _s in plan if content_hash in finished)
     same = (
         str(job["profile_digest"]) == digest_now

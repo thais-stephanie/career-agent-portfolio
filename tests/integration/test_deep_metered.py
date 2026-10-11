@@ -7,7 +7,10 @@ exceeded and the job pauses instead; a call that cannot be accounted for
 pauses the job and is counted at its whole reservation; a provider failure
 pauses after three in a row and the resume retries what had no answer; an
 answer from another model is not published; an answer paid for and
-rejected is not asked for again; the plan takes the strata in turn.
+rejected is asked again only on explicit request; an answer that breaks the
+schema is rejected whole, never filled in; a reading stops a repeat only
+while it is current for the posting, profile, model and instructions; the
+plan takes the strata in turn.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ from career_agent.semantic.deep_run import (
     BATCH_SIZE,
     DeepRepo,
     accounted_usd,
+    context,
     reservation_usd,
     run_deep,
     select,
@@ -108,6 +112,8 @@ class FakeDeepSeek:
     no_usage_at: set[int] = field(default_factory=set)
     other_model_at: set[int] = field(default_factory=set)
     reject_at: set[int] = field(default_factory=set)
+    billed_at: set[int] = field(default_factory=set)
+    answers: dict[int, str] = field(default_factory=dict)
     on_call: object = None
     messages: list[dict] = field(default_factory=list)
 
@@ -137,13 +143,15 @@ class FakeDeepSeek:
             self.on_call(n)
         if n in self.fail_at:
             raise ProviderFailed("DeepSeek answered HTTP 500.")
+        if n in self.billed_at:
+            raise ProviderFailed("DeepSeek returned empty content.", billed=True)
         if n in self.timeout_at:
             raise ProviderFailed(
                 "DeepSeek could not be reached.", state=Availability.CONNECTION_FAILED
             )
         usage = n not in self.no_usage_at
         return ProviderAnswer(
-            raw_text=answer_for(message, valid=n not in self.reject_at),
+            raw_text=self.answers.get(n) or answer_for(message, valid=n not in self.reject_at),
             provider=self.id,
             model="deepseek-other" if n in self.other_model_at else self.model,
             latency_ms=1,
@@ -284,14 +292,74 @@ def test_a_resume_on_another_model_is_refused(big_corpus):
     assert stats.stop_reason == "MODEL_CHANGED" and other.messages == []
 
 
-def test_an_answer_paid_for_and_rejected_is_not_asked_again(big_corpus):
+def test_an_answer_paid_for_and_rejected_is_asked_again_only_on_request(big_corpus):
     conn, config = big_corpus
     provider = FakeDeepSeek(reject_at={0})
     first = run_deep(conn, config, provider, share=False, limit=3, budget_usd=5.0)
     assert first.rejected == 1 and first.published == 2
     rejected_title = postings_asked(provider)[0]
-    run_deep(conn, config, provider, share=False, limit=POSTINGS, budget_usd=5.0)
+    digest = context(conn, config, False).digest
+    plain = select(
+        conn, config, provider_id="deepseek", limit=0, current_digest=digest, model="deepseek-flash"
+    )
+    assert plain.rejected == 1 and plain.available == POSTINGS - 3
+    run_deep(conn, config, provider, share=False, limit=POSTINGS - 3, budget_usd=5.0)
     assert postings_asked(provider).count(rejected_title) == 1
+    # Asked for by name: the rejected answer is read again, and paid again.
+    retry = run_deep(
+        conn, config, provider, share=False, limit=1, budget_usd=5.0, retry_rejected=True
+    )
+    assert retry.published == 1 and postings_asked(provider).count(rejected_title) == 2
+    assert DeepRepo(conn).spent(str(job_row(conn)["id"])) > 0
+
+
+@pytest.mark.parametrize(
+    ("broken", "problem"),
+    [
+        (lambda a: a.pop("insufficient"), "answer.insufficient: missing"),
+        (lambda a: a["work_relation"].pop("reason"), "answer.work_relation.reason: missing"),
+        (lambda a: a["work_relation"].update(value="perfect"), "not one of the allowed values"),
+        (lambda a: a.update(score=90), "answer.score: not in the contract"),
+        (lambda a: a.update(tools=[{"name": "n8n", "quotes": ["n8n"]}]), "importance: missing"),
+    ],
+)
+def test_an_answer_that_breaks_the_schema_is_rejected_whole(big_corpus, broken, problem):
+    conn, config = big_corpus
+    probe = FakeDeepSeek()
+    run_deep(conn, config, probe, share=False, limit=1, budget_usd=5.0)
+    good = json.loads(answer_for(probe.messages[0]))
+    broken(good)
+    assert problem in (deep.shape_error(good, deep.answer_schema()) or "")
+    provider = FakeDeepSeek(answers={0: json.dumps(good)})
+    stats = run_deep(conn, config, provider, share=False, limit=1, budget_usd=5.0)
+    assert stats.rejected == 1 and stats.published == 0
+    job = str(job_row(conn)["id"])
+    assert DeepRepo(conn).attempts(job) == {"REJECTED": 1}
+    assert DeepRepo(conn).spent(job) > 0, "a rejected answer was still paid for"
+
+
+def test_a_reading_stops_a_repeat_only_while_it_is_current(big_corpus, monkeypatch):
+    conn, config = big_corpus
+    run_deep(conn, config, FakeDeepSeek(), share=False, limit=2, budget_usd=5.0)
+    digest = context(conn, config, False).digest
+
+    def available(**kw) -> int:
+        args = {"current_digest": digest, "model": "deepseek-flash", **kw}
+        return select(conn, config, provider_id="deepseek", limit=0, **args).available
+
+    assert available() == POSTINGS - 2
+    assert available(current_digest="another profile") == POSTINGS
+    assert available(model="deepseek-v4-pro") == POSTINGS
+    monkeypatch.setattr(deep, "contract_identity", lambda: "deep-1+other-instructions")
+    assert available() == POSTINGS
+
+
+def test_an_answer_that_was_billed_and_empty_pauses_at_the_reservation(big_corpus):
+    conn, config = big_corpus
+    provider = FakeDeepSeek(billed_at={0})
+    stats = run_deep(conn, config, provider, share=False, limit=5, budget_usd=5.0)
+    assert stats.stop_reason == "UNACCOUNTED" and stats.spent_usd > 0
+    assert DeepRepo(conn).attempts(str(job_row(conn)["id"])) == {"UNKNOWN": 1}
 
 
 def test_a_metered_job_needs_an_approved_budget(big_corpus):

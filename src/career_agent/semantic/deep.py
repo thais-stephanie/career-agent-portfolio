@@ -264,6 +264,52 @@ def _choice(value: Any, allowed: tuple[str, ...], default: str) -> str:
     return value if isinstance(value, str) and value in allowed else default
 
 
+def shape_error(value: Any, schema: dict[str, Any], path: str = "answer") -> str | None:
+    """The first way `value` breaks the answer schema, or None.
+
+    The schema is this module's own (objects, arrays, strings, enums,
+    booleans), so this checks exactly what it declares: every required field
+    present, no field it does not name, every enum value one of its values.
+    An answer that fails is REJECTED whole; nothing is defaulted to make it
+    fit."""
+    kind = schema.get("type")
+    if kind == "object":
+        if not isinstance(value, dict):
+            return f"{path}: not an object"
+        for name in schema.get("required", []):
+            if name not in value:
+                return f"{path}.{name}: missing"
+        if schema.get("additionalProperties") is False:
+            extra = sorted(set(value) - set(schema.get("properties", {})))
+            if extra:
+                return f"{path}.{extra[0]}: not in the contract"
+        for name, sub in schema.get("properties", {}).items():
+            if name in value:
+                problem = shape_error(value[name], sub, f"{path}.{name}")
+                if problem:
+                    return problem
+        return None
+    if kind == "array":
+        if not isinstance(value, list):
+            return f"{path}: not a list"
+        if "maxItems" in schema and len(value) > schema["maxItems"]:
+            return f"{path}: more than {schema['maxItems']} items"
+        for index, item in enumerate(value):
+            problem = shape_error(item, schema["items"], f"{path}[{index}]")
+            if problem:
+                return problem
+        return None
+    if kind == "string":
+        if not isinstance(value, str):
+            return f"{path}: not a string"
+        if "enum" in schema and value not in schema["enum"]:
+            return f"{path}: not one of the allowed values"
+        return None
+    if kind == "boolean":
+        return None if isinstance(value, bool) else f"{path}: not true or false"
+    return f"{path}: unknown schema type"
+
+
 def verify(
     raw: str,
     posting: str,
@@ -279,8 +325,9 @@ def verify(
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ReviewRejected(f"not json: {exc.msg}") from exc
-    if not isinstance(data, dict):
-        raise ReviewRejected("not an object")
+    problem = shape_error(data, answer_schema())
+    if problem:
+        raise ReviewRejected(problem)
     out = Verified(review={})
 
     def quotes(items: Any, min_words: int, reason: str) -> list[str]:
@@ -321,7 +368,10 @@ def verify(
 
     def quoted_items(name: str, limit: int, build) -> list[dict[str, Any]]:
         kept = []
-        for item in _list(data.get(name))[:limit]:
+        items = _list(data.get(name))
+        for _extra in items[limit:]:
+            out.drop("over_display_limit")
+        for item in items[:limit]:
             if not isinstance(item, dict):
                 out.drop("malformed_item")
                 continue

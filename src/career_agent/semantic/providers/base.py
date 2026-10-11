@@ -97,9 +97,12 @@ class ProviderFailed(RuntimeError):
         *,
         state: Availability = Availability.LIMIT_OR_ERROR,
         limit: bool = False,
+        billed: bool = False,
     ):
         super().__init__(message)
         self.state = state
+        #: The provider answered (and may have billed) but gave nothing usable.
+        self.billed = billed
         #: The provider said a plan limit or quota was reached. A run PAUSES on
         #: the first one: retrying spends nothing useful, and nothing may move
         #: the work onto another provider or onto paid usage.

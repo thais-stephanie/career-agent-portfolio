@@ -1224,6 +1224,9 @@ const EN = {
   'deep.state.OTHER': 'Status unknown',
   'deep.which.available': 'not yet read by this provider',
   'deep.which.batch': 'per batch',
+  'deep.retry.label': 'Ask again for {count} answers that were rejected',
+  'deep.retry.help': 'Each one was already paid for and was not usable. Asking again is paid again, '
+    + 'and the new answer goes through the same checks.',
   'deep.count.label': 'How many postings to read',
   'deep.count.help': '{max} readable postings in your main list have no reading from this provider yet. Any number '
     + 'up to that; they are read in batches of {size}.',
@@ -5952,6 +5955,9 @@ const PT_BR = {
   'deep.state.OTHER': 'Situação desconhecida',
   'deep.which.available': 'ainda não lidas por este provedor',
   'deep.which.batch': 'por lote',
+  'deep.retry.label': 'Pedir de novo {count} respostas recusadas',
+  'deep.retry.help': 'Cada uma já foi cobrada e não pôde ser usada. Pedir de novo é cobrado de novo, '
+    + 'e a nova resposta passa pelas mesmas verificações.',
   'deep.count.label': 'Quantas vagas ler',
   'deep.count.help': '{max} vagas legíveis da sua lista principal ainda não têm leitura deste provedor. Qualquer '
     + 'número até isso; elas são lidas em lotes de {size}.',

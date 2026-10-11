@@ -13,8 +13,12 @@ first stage cannot decide alone what the model ever sees:
 * `control`: a fixed sample of the REST, ordered by a hash of the job id.
   What the reading raises there is what the local ranking was missing.
 
-Nothing is read twice for the same provider and contract; a review written
-for an earlier profile is shown as such and read again only on request.
+A posting is not read again while its reading is CURRENT: the same advert
+(content hash), the same profile digest, the same instructions (contract), the
+same provider and, when one was named, the same model. A reading for an
+earlier profile or another model is shown as such and the posting can be read
+again. An answer that was paid for and rejected is not asked again unless the
+person asks for exactly that (`retry_rejected`), because a retry is paid.
 
 WHAT LEAVES THE COMPUTER
 ------------------------
@@ -31,8 +35,8 @@ A JOB, IN BATCHES
 The preview is approved as a JOB (migration 0052): the provider and its exact
 model, how many postings, the plan in strata taken in turn, and for a
 metered API the most it may spend. It is read in batches of BATCH_SIZE
-without asking again; a posting already read, or answered and rejected, is
-never asked for again, and a resume continues the same plan.
+without asking again; a resume continues the same plan and never asks again
+for a posting this job already answered.
 
 SPENDING
 --------
@@ -279,9 +283,12 @@ class Selection:
     candidates: list[DeepCandidate]
     population: int
     reviewed: int
-    #: Readable postings of the main list not yet read (nor answered and
-    #: rejected) by this provider: how many a job could ask for.
+    #: Readable postings of the main list without a CURRENT reading by this
+    #: provider (nor a rejected answer, unless retrying): how many a job
+    #: could ask for.
     available: int = 0
+    #: Postings whose current answer was paid for and rejected.
+    rejected: int = 0
 
 
 def interleave(picked: list[tuple[sqlite3.Row, str]]) -> list[tuple[sqlite3.Row, str]]:
@@ -306,8 +313,9 @@ def select(
     provider_id: str,
     limit: int,
     include_unresolved: bool = False,
-    reread_stale: bool = False,
     current_digest: str = "",
+    model: str = "",
+    retry_rejected: bool = False,
     only: set[str] | None = None,
 ) -> Selection:
     """`only` narrows the main list to named postings (a labelled pilot set);
@@ -317,18 +325,13 @@ def select(
     if only is not None:
         population = [row for row in population if str(row["id"]) in only]
     repo = DeepRepo(conn)
-    done = repo.reviewed(provider_id, deep.contract_identity())
-    # An answer that was paid for and rejected is not asked for again.
-    refused = repo.rejected(provider_id, deep.contract_identity(), current_digest)
-    fresh = [
-        row
-        for row in population
-        if str(row["content_hash"]) not in refused
-        and (
-            str(row["content_hash"]) not in done
-            or (reread_stale and current_digest not in done[str(row["content_hash"])])
-        )
-    ]
+    key = (provider_id, deep.contract_identity(), current_digest, model)
+    done = repo.reviewed(*key)
+    # An answer that was paid for and rejected is asked again only on request.
+    refused = repo.rejected(*key)
+    hashes = {str(row["content_hash"]) for row in population}
+    skip = done | (set() if retry_rejected else refused)
+    fresh = [row for row in population if str(row["content_hash"]) not in skip]
     by_id = {str(row["id"]): row for row in fresh}
     seen_hashes: set[str] = set()
     picked: list[tuple[sqlite3.Row, str]] = []
@@ -368,6 +371,7 @@ def select(
         len(population),
         len(population) - len(fresh),
         len(fresh),
+        len(refused & hashes),
     )
 
 
@@ -511,33 +515,45 @@ class DeepRepo:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
 
-    def reviewed(self, provider: str, contract: str) -> dict[str, set[str]]:
-        """Content hash -> the profile digests it was reviewed under."""
-        found: dict[str, set[str]] = {}
-        for content_hash, digest in self.conn.execute(
-            "SELECT content_hash, profile_digest FROM deep_review"
-            " WHERE provider = ? AND contract = ?",
-            (provider, contract),
-        ):
-            found.setdefault(str(content_hash), set()).add(str(digest))
-        return found
+    @staticmethod
+    def _current(model: str) -> str:
+        # A provider without a named model (a subscription CLI) matches any
+        # model it answered with; a named model matches only itself.
+        return " AND model = ?" if model else ""
 
-    def rejected(self, provider: str, contract: str, digest: str) -> set[str]:
-        """Content hashes whose answer was paid for and rejected, for this
-        profile: not asked for again."""
+    def reviewed(self, provider: str, contract: str, digest: str, model: str = "") -> set[str]:
+        """Content hashes with a CURRENT reading: this provider, contract,
+        profile digest and (when named) model."""
+        return {
+            str(r[0])
+            for r in self.conn.execute(
+                "SELECT content_hash FROM deep_review WHERE provider = ? AND contract = ?"
+                " AND profile_digest = ?" + self._current(model),
+                (provider, contract, digest, *([model] if model else [])),
+            )
+        }
+
+    def rejected(self, provider: str, contract: str, digest: str, model: str = "") -> set[str]:
+        """Content hashes whose current answer was paid for and rejected."""
         return {
             str(r[0])
             for r in self.conn.execute(
                 "SELECT content_hash FROM deep_attempt WHERE provider = ? AND contract = ?"
-                " AND profile_digest = ? AND outcome = 'REJECTED'",
-                (provider, contract, digest),
+                " AND profile_digest = ? AND outcome = 'REJECTED'" + self._current(model),
+                (provider, contract, digest, *([model] if model else [])),
             )
         }
 
-    def finished_hashes(self, provider: str, contract: str, digest: str) -> set[str]:
-        """What a job no longer needs to ask: a reading already stored for
-        this provider and contract, or an answer paid for and rejected."""
-        return set(self.reviewed(provider, contract)) | self.rejected(provider, contract, digest)
+    def answered_in(self, deep_job_id: str) -> set[str]:
+        """Content hashes this job already has an answer for, kept or not."""
+        return {
+            str(r[0])
+            for r in self.conn.execute(
+                "SELECT content_hash FROM deep_attempt WHERE deep_job_id = ?"
+                " AND outcome IN ('PUBLISHED', 'REJECTED')",
+                (deep_job_id,),
+            )
+        }
 
     def job(self, deep_job_id: str) -> sqlite3.Row | None:
         row: sqlite3.Row | None = self.conn.execute(
@@ -852,7 +868,7 @@ def run_deep(
     share: bool,
     limit: int,
     include_unresolved: bool = False,
-    reread_stale: bool = False,
+    retry_rejected: bool = False,
     only: set[str] | None = None,
     budget_usd: float | None = None,
     resume_job: str | None = None,
@@ -920,8 +936,9 @@ def run_deep(
             provider_id=provider.id,
             limit=limit,
             include_unresolved=include_unresolved,
-            reread_stale=reread_stale,
             current_digest=ctx.digest,
+            model=model,
+            retry_rejected=retry_rejected,
             only=only,
         )
         candidates = selection.candidates
@@ -948,7 +965,11 @@ def run_deep(
                     "updated_at": now_utc(),
                 }
             )
-    finished = deep_repo.finished_hashes(provider.id, contract, ctx.digest)
+    # The plan already left out what the person did not ask to retry; a
+    # resume skips what is current now and what this job already answered.
+    finished = deep_repo.reviewed(provider.id, contract, ctx.digest, model) | (
+        deep_repo.answered_in(deep_job_id)
+    )
     pending = [c for c in _candidates_from_plan(conn, plan) if c.content_hash not in finished]
     stats.candidates = len(pending)
     stats.budget_usd = budget_usd if metered else None
@@ -1029,7 +1050,7 @@ def run_deep(
                 if exc.state is Availability.SIGN_IN_REQUIRED:
                     stats.stop_reason = STOP_SIGN_IN
                     break
-                if metered and exc.state is Availability.CONNECTION_FAILED:
+                if metered and (exc.state is Availability.CONNECTION_FAILED or exc.billed):
                     # The request may have reached the provider and been
                     # billed: count the whole reservation and stop.
                     spent += reserve
