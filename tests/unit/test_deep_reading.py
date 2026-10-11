@@ -1,4 +1,4 @@
-"""The deep reading's pure half: verification, priority, the evidence packet.
+"""The deep reading's pure half: verification, the evidence packet.
 
 Every answer here is invented. Nothing is sent anywhere.
 """
@@ -152,47 +152,6 @@ def test_the_instruction_inside_the_posting_is_named_as_data():
     assert "ignore them" in deep.SYSTEM_PROMPT
     message = json.loads(deep.user_message({"work": []}, [], [], "T", POSTING))
     assert message["posting"] == POSTING and message["evidence_shared"] is False
-
-
-@pytest.mark.parametrize(
-    ("relation", "supports", "shared", "level"),
-    [
-        ("central", ["supported", "partial"], True, "HIGH"),
-        ("central", ["supported", "not_shown", "not_shown"], True, "MEDIUM"),
-        ("central", ["not_shown"], False, "HIGH"),
-        ("secondary", ["supported"], True, "MEDIUM"),
-        ("neighbour", ["not_shown", "not_shown"], True, "LOW"),
-        ("neighbour", [], False, "LOW"),
-        ("secondary", [], False, "MEDIUM"),
-        ("unrelated", ["supported"], True, "OTHER_WORK"),
-        ("unclear", ["supported"], True, "TO_CONFIRM"),
-    ],
-)
-def test_priority_rules(relation, supports, shared, level):
-    review = {
-        "work_relation": {"value": relation},
-        "requirements": [{"kind": "mandatory", "support": s} for s in supports],
-        "conditions": [{"quote": "x", "topic": "place"}] * 3,
-        "insufficient": False,
-    }
-    assert deep.priority(review, shared).level == level
-
-
-def test_insufficient_text_is_to_confirm_whatever_else_was_said():
-    review = {
-        "work_relation": {"value": "central"},
-        "requirements": [],
-        "conditions": [],
-        "insufficient": True,
-    }
-    assert deep.priority(review, True).level == "TO_CONFIRM"
-
-
-def test_comparison_names_disagreement_with_the_local_band():
-    assert deep.comparison("HIGH", "WEAK") == "raises"
-    assert deep.comparison("OTHER_WORK", "STRONG") == "lowers"
-    assert deep.comparison("HIGH", "STRONG") == "agrees"
-    assert deep.comparison("TO_CONFIRM", "GOOD") == "open"
 
 
 def claim(key, kind, text, **extra) -> VerifiedClaim:

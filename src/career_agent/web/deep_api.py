@@ -279,10 +279,13 @@ def _review_rows(
     (search phrases, preferred levels, or, if evidence was sent, the confirmed
     evidence). An out-of-date review keeps its findings for reference but no
     level: `level` is STALE and the level it had is `level_then`, so it is
-    never presented as the current priority. A cited evidence id is resolved
-    in THIS profile's ledger; one no longer confirmed as it was is "changed".
+    never presented as the current recommendation. A cited evidence id is
+    resolved in THIS profile's ledger; one no longer confirmed as it was is
+    "changed". The three answers (`deep_assess`) are derived here from the
+    stored observations every time, so a rule change re-reads every stored
+    review without asking anybody anything.
     """
-    from career_agent.semantic import deep
+    from career_agent.semantic import deep, deep_assess
     from career_agent.semantic.deep_run import DeepRepo, confirmed_claims, context
 
     rows = DeepRepo(conn).newest_per_job(job_ids)
@@ -291,7 +294,7 @@ def _review_rows(
     config = app.search_config()
     contract_now = deep.contract_identity()
     digest_now = {shared: context(conn, config, shared).digest for shared in (True, False)}
-    ledger = {c.claim_key: c for c in confirmed_claims(conn)} if detail else {}
+    ledger = {c.claim_key: c for c in confirmed_claims(conn)}
     jobs = [str(r["job_id"]) for r in rows]
     marks = ",".join("?" for _ in jobs)
     local: dict[str, tuple[Any, ...]] = {}
@@ -309,7 +312,22 @@ def _review_rows(
         review = json.loads(row["review_json"])
         sent = json.loads(row["sent_json"])
         shared = bool(sent.get("shared"))
-        level = deep.priority(review, shared)
+        evidence: dict[str, dict[str, Any]] = {}
+        for alias, (key, revision) in (sent.get("evidence") or {}).items():
+            claim = ledger.get(key)
+            evidence[alias] = (
+                {
+                    "text": claim.text,
+                    "type": claim.claim_type.value,
+                    "tools": " ".join(claim.tools),
+                    "changed": False,
+                }
+                if claim is not None and claim.revision == revision
+                else {"text": "", "type": "", "tools": "", "changed": True}
+            )
+        current = {a: e for a, e in evidence.items() if not e["changed"]}
+        assessment = deep_assess.assess(review, current if shared else None)
+        recommendation = assessment.recommendation
         score, band, title, company, hash_now = local.get(
             str(row["job_id"]), (None, None, "", "", None)
         )
@@ -325,12 +343,12 @@ def _review_rows(
             "job_id": row["job_id"],
             "title": title,
             "company": company,
-            "level": "STALE" if stale else level.level,
-            "level_then": level.level,
+            "level": "STALE" if stale else recommendation,
+            "level_then": recommendation,
             "stale": stale,
             "stale_reasons": reasons,
-            "reasons": [{"code": code, **values} for code, values in level.reasons],
-            "comparison": "stale" if stale else deep.comparison(level.level, band),
+            "assessment": assessment.as_dict(),
+            "comparison": "stale" if stale else deep_assess.comparison(recommendation, band),
             "local_score": int(score) if score is not None else 0,
             "band": band or "",
             "stratum": row["stratum"],
@@ -341,14 +359,6 @@ def _review_rows(
             "evidence_shared": shared,
         }
         if detail:
-            evidence = {}
-            for alias, (key, revision) in (sent.get("evidence") or {}).items():
-                claim = ledger.get(key)
-                evidence[alias] = (
-                    {"text": claim.text, "type": claim.claim_type.value, "changed": False}
-                    if claim is not None and claim.revision == revision
-                    else {"text": "", "type": "", "changed": True}
-                )
             item.update(
                 review=review,
                 evidence=evidence,
@@ -356,7 +366,7 @@ def _review_rows(
                 profile_digest=row["profile_digest"],
             )
         out.append(item)
-    order = {name: index for index, name in enumerate((*deep.LEVELS, "STALE"))}
+    order = {name: index for index, name in enumerate((*deep_assess.RECOMMENDATIONS, "STALE"))}
     out.sort(key=lambda r: (order[r["level"]], -r["local_score"], r["job_id"]))
     return out
 

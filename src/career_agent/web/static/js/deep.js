@@ -10,10 +10,12 @@
  * Nothing starts on opening, on a setting or on a preview. Only the Start
  * button sends anything, and only after the preview it confirms.
  *
- * Results are grouped by level with the reasons the CODE derived from what the
- * model observed. They sit beside the local score; postings without a reading
- * stay in the main list in the local order and are counted here, never
- * ranked below the read ones.
+ * Results are grouped by the recommendation the CODE derived from what the
+ * model observed, and every row carries the three answers it came from: how
+ * the work aligns, how far the history sent shows the requirements, and what
+ * is left to confirm. They sit beside the local score; postings without a
+ * reading stay in the main list in the local order and are counted here,
+ * never ranked below the read ones.
  */
 
 import { el, button, replace, focusables } from './dom.js';
@@ -21,7 +23,11 @@ import { t } from './i18n.js';
 import * as api from './api.js';
 
 const POLL_MS = 1500;
-const LEVELS = ['HIGH', 'MEDIUM', 'TO_CONFIRM', 'LOW', 'OTHER_WORK', 'STALE'];
+const LEVELS = [
+  'STRONG', 'PREPARE', 'CHECK_FIRST', 'NOT_COMPARED', 'TO_CONFIRM', 'LOW', 'OTHER_WORK', 'STALE',
+];
+// Gaps first: what would stop an application reads before what supports it.
+const STATUS_ORDER = ['not_shown', 'review', 'declared', 'partial', 'unknown', 'shown'];
 const STOPS = new Set([
   'LIMIT_REACHED', 'SIGN_IN', 'CANCELLED', 'PROVIDER_STOPPED', 'NOTHING_NEW', 'NO_INTENT',
   'DEEP_NEEDS_SUBSCRIPTION', 'ERROR',
@@ -349,7 +355,6 @@ export function createDeep({ onOpenJob = null } = {}) {
   }
 
   function resultRow(row) {
-    const reasons = row.reasons.map((r) => t(`deep.reason.${r.code}`, r)).join(' · ');
     return el('li', { className: 'deep__row', dataset: { level: row.level } }, [
       el('button', {
         className: 'deep__open',
@@ -361,7 +366,7 @@ export function createDeep({ onOpenJob = null } = {}) {
           el('span', { className: 'deep__jobtitle', text: row.title }),
           el('span', { className: 'deep__company', text: row.company }),
         ]),
-        el('span', { className: 'deep__why', text: reasons }),
+        ...axisLines(el, row.assessment),
         el('span', {
           className: 'deep__compare',
           text: row.stale
@@ -388,6 +393,7 @@ export function deepSection(review, section) {
   }
   const r = review.review;
   const rows = [];
+  const a = review.assessment;
   rows.push(make('p', { className: 'deep__levelline' }, [
     make('strong', { text: t(`deep.level.${review.level}`) }),
     make('span', {
@@ -398,6 +404,7 @@ export function deepSection(review, section) {
     }),
   ]));
   if (review.stale) rows.push(make('p', { className: 'deep__stale', text: staleText(review) }));
+  rows.push(make('div', { className: 'deep__axes' }, axisLines(make, a)));
   rows.push(make('p', { className: 'deep__minor', text: t('deep.drawer.primary') }));
   if (r.primary_activity.summary) {
     rows.push(make('p', {
@@ -410,30 +417,30 @@ export function deepSection(review, section) {
       + (r.work_relation.reason ? ` ${t('deep.inference')}: ${r.work_relation.reason}` : ''),
   }));
   rows.push(quoteList(make, r.work_relation.quotes));
-  if (r.requirements.length) {
-    rows.push(make('p', { className: 'deep__minor', text: t('deep.drawer.requirements') }));
+  const reqs = a.requirements.map((req, index) => ({ ...req, index }));
+  const technical = (req) => req.category === 'technical' || req.category === 'credential';
+  const byStatus = (x, y) => (a.central_gaps.includes(y.index) - a.central_gaps.includes(x.index))
+    || (STATUS_ORDER.indexOf(x.status) - STATUS_ORDER.indexOf(y.status)) || (x.index - y.index);
+  const groups = [
+    ['deep.drawer.mandatory', reqs.filter((q) => q.kind === 'mandatory' && technical(q)).sort(byStatus)],
+    ['deep.drawer.desirable', reqs.filter((q) => q.kind !== 'mandatory' && technical(q)).sort(byStatus)],
+  ];
+  for (const [head, items] of groups) {
+    if (!items.length) continue;
+    rows.push(make('p', { className: 'deep__minor', text: t(head) }));
     if (!review.evidence_shared) rows.push(make('p', { className: 'deep__note', text: t('deep.drawer.notShared') }));
-    rows.push(make('ul', { className: 'deep__reqs' }, r.requirements.map((req) => make('li', {
-      className: `deep__req deep__req--${req.support}`, dataset: { support: req.support },
-    }, [
-      make('q', { className: 'deep__quote', text: req.quote }),
-      make('span', {
-        className: 'deep__tag', text: `${t(`deep.kind.${req.kind}`)} · ${t(`deep.support.${req.support}`)}`,
-      }),
-      ...req.evidence_ids.map((id) => {
-        const ev = (review.evidence || {})[id];
-        return make('span', {
-          className: 'deep__evidence',
-          text: ev && !ev.changed ? `${id}: ${ev.text}` : t('deep.evidenceChanged', { id }),
-        });
-      }),
-    ]))));
+    rows.push(make('ul', { className: 'deep__reqs' }, items.map((req) => requirementItem(make, review, a, req))));
   }
-  if (r.conditions.length) {
-    rows.push(make('p', { className: 'deep__minor', text: t('deep.drawer.conditions') }));
-    rows.push(make('ul', { className: 'deep__reqs' }, r.conditions.map((c) => make('li', {}, [
-      make('q', { className: 'deep__quote', text: c.quote }),
-      make('span', { className: 'deep__tag', text: t(`deep.topic.${c.topic}`) }),
+  const confirm = [
+    ...a.conditions.map((c) => [c.quote, t(`deep.topic.${c.topic}`)]),
+    ...a.languages.map((quote) => [quote, t('deep.topic.language')]),
+    ...a.questions.map((quote) => [quote, t('deep.question')]),
+  ];
+  if (confirm.length) {
+    rows.push(make('p', { className: 'deep__minor', text: t('deep.drawer.toConfirm') }));
+    rows.push(make('ul', { className: 'deep__reqs' }, confirm.map(([quote, tag]) => make('li', {}, [
+      make('q', { className: 'deep__quote', text: quote }),
+      make('span', { className: 'deep__tag', text: tag }),
     ]))));
   }
   if (r.divergences.length) {
@@ -461,6 +468,78 @@ export function deepSection(review, section) {
     ].map((text) => make('li', { text }))),
   ]));
   return section(t('deep.drawer.head'), rows, { lede: t('deep.drawer.lede') });
+}
+
+/**
+ * The three answers, one line each, never folded into one word: how the work
+ * aligns, how far the history SENT shows the requirements, what is left to
+ * confirm. Central requirements not shown come after, quoted.
+ */
+function axisLines(make, a) {
+  // "label: n" pairs, zeros left out, so no sentence has to agree with a number.
+  const counted = (pairs) => pairs.filter(([, n]) => n)
+    .map(([key, n]) => `${t(`deep.count.${key}`)}: ${n}`).join(' · ');
+  const c = a.counts;
+  const history = counted(['mandatory', 'shown', 'partial', 'declared', 'not_shown', 'review'].map((k) => [k, c[k]]));
+  const confirm = counted([
+    ['conditions', a.conditions.length + a.languages.length], ['questions', a.questions.length],
+  ]);
+  const lines = [
+    [t('deep.axis.alignment'), t(`deep.alignment.${a.alignment}`)],
+    [t('deep.axis.history'), a.history === 'NOT_SENT' || a.history === 'NONE_STATED'
+      ? t(`deep.history.${a.history}`)
+      : `${t(`deep.history.${a.history}`)} (${history})`],
+    [t('deep.axis.confirm'), confirm || t('deep.confirmNone')],
+  ];
+  const out = lines.map(([label, text]) => make('span', { className: 'deep__axis' }, [
+    make('span', { className: 'deep__axislabel', text: `${label}: ` }), text,
+  ]));
+  for (const index of a.central_gaps) {
+    out.push(make('span', {
+      className: 'deep__gap', text: t('deep.centralGap', { quote: a.requirements[index].quote }),
+    }));
+  }
+  if (a.to_review) {
+    out.push(make('span', { className: 'deep__note', text: t('deep.toReview', { count: a.to_review }) }));
+  }
+  return out;
+}
+
+function requirementItem(make, review, a, req) {
+  const gap = a.central_gaps.includes(req.index);
+  const tags = [t(`deep.kind.${req.kind}`), t(`deep.status.${req.status}`)];
+  if (gap) tags.push(t('deep.centralTag'));
+  else if (req.central) tags.push(t('deep.centralCore'));
+  const children = [
+    make('q', { className: 'deep__quote', text: req.quote }),
+    make('span', { className: 'deep__tag', text: tags.join(' · ') }),
+  ];
+  if (req.parts.length) {
+    children.push(make('span', {
+      className: 'deep__parts',
+      text: req.parts.map((p) => `${p.linked ? t('deep.part.linked') : t('deep.part.unknown')}: ${p.text}`).join(' · '),
+    }));
+  }
+  for (const note of req.notes) {
+    children.push(make('span', { className: 'deep__note', text: t(`deep.reqNote.${note}`) }));
+  }
+  const said = { supported: 'shown', partial: 'partial', not_shown: 'not_shown', unclear: 'unknown' }[req.reading_said];
+  if (said !== req.status) {
+    const text = t('deep.readingSaid', { said: t(`deep.status.${said}`) });
+    children.push(make('span', { className: 'deep__note', text }));
+  }
+  for (const id of req.evidence_ids) {
+    const ev = (review.evidence || {})[id];
+    children.push(make('span', {
+      className: 'deep__evidence',
+      text: ev && !ev.changed
+        ? `${t(`deep.claimType.${ev.type}`)}: ${ev.text}` : t('deep.evidenceChanged', { id }),
+    }));
+  }
+  return make('li', {
+    className: `deep__req deep__req--${req.status}${gap ? ' deep__req--gap' : ''}`,
+    dataset: { status: req.status },
+  }, children);
 }
 
 /** Why a reading is out of date, in words: the posting, the instructions or the profile changed. */

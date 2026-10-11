@@ -42,10 +42,10 @@ The model observes; the code decides (ADR-0001):
   positive claim whose support did not survive becomes `unclear`, never a
   weaker positive and never a negative. Free-text summaries are shown as
   "AI reading", never as evidence.
-* `priority` maps what survived to an ABSOLUTE level with reason codes:
-  HIGH, MEDIUM, TO_CONFIRM, LOW, OTHER_WORK. The rules are in the function's
-  docstring and in the interface. A level is never a probability of being
-  hired and never a comparison with the local score.
+* `deep_assess.assess` turns what survived into three separate answers and
+  one recommendation (addendum 1 below; the first rule, `priority` with
+  HIGH/MEDIUM/LOW, is replaced). A recommendation is never a probability of
+  being hired and never a comparison with the local score.
 * The level is stored nowhere and blended into nothing: it is recomputed
   from the verified observations on read, so a rule change needs no
   migration. `job_match` is never written by a deep run.
@@ -101,3 +101,50 @@ Privacy and billing:
 * Not built: a deep reading through a metered API; a list filter for "read /
   not read"; re-reading stale reviews from the interface (`reread_stale`
   exists in `select`, unexposed).
+
+## Addendum 1 (2026-10-10): three answers, not one level
+
+The first pilot showed the single level over-read the stored observations:
+`partial` counted as support (MEDIUM with nothing supported), a listed skill
+("Claude Code") counted as "deep experience", a list of four technologies
+counted as shown because two were, and dispositions and English sat in the
+technical ratio. `semantic/deep_assess.py` (`assess-1`) re-reads the SAME
+stored reading, with no new call, and answers:
+
+1. Work: the reading's `work_relation` (central, secondary, neighbour,
+   unrelated, unclear), unchanged.
+2. History: each MANDATORY technical requirement or credential gets a
+   status from the reading's verdict, the KIND of evidence it cited and what
+   the requirement asks:
+   * a listed SKILL or TOOL states familiarity; it meets "familiarity with"
+     and nothing stronger (`declared`); it never shows experience, a level,
+     years, authorship or production use;
+   * a described experience (employment, project) shows practice; a level
+     word (deep, strong, expert, advanced) or a number of years is never
+     confirmed by a line (`partial`, with the note);
+   * a conjunctive list ("A, B, and C"; alternatives with "or", "such as",
+     "equivalent" are one requirement) is split into parts, and each part is
+     marked as named or not by the cited evidence's words; the unnamed ones
+     stay unknown;
+   * where the stored reading cannot be checked (a heading whose list was not
+     quoted, a list none of whose parts the cited evidence names), the
+     requirement is `review`, never reinterpreted;
+   * `not_shown` stays "not in what was sent", never absent; nothing is
+     compared when evidence was not sent.
+   The summary (well / partly / little shown) weighs shown 1, partly,
+   declared and review 0.5, not in what was sent 0, at 0.75 and 0.4, and is
+   always printed beside the counts it came from.
+3. To confirm: conditions verbatim, languages (from conditions and from
+   requirements naming a language) and dispositions turned into questions,
+   none of them in the technical ratio.
+
+A CENTRAL requirement is a mandatory credential, or a mandatory requirement
+naming a tool the reading marked `core`. One not in what was sent is shown
+first and moves the recommendation: STRONG, PREPARE, CHECK_FIRST,
+NOT_COMPARED, TO_CONFIRM, LOW, OTHER_WORK, derived from work first, then
+central gaps, then history. Neighbouring work is LOW whatever the history.
+
+The contract (`deep-1`) did not change, so no stored reading went stale. A
+reading that separates parts itself would be a contract change (`deep-2`)
+and needs a pilot of its own.
+

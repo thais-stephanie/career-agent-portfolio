@@ -26,7 +26,8 @@ On the owner's machine (presence only, no values read): `ANTHROPIC_API_KEY`,
 
 ## 2. What was built
 
-* `semantic/deep.py`: contract `deep-1`, verification, priority (ADR-0035).
+* `semantic/deep.py`: contract `deep-1`, verification (ADR-0035);
+  `semantic/deep_assess.py`: the three answers (ADR-0035 addendum 1).
 * `semantic/deep_run.py`: main-list population, three strata, the evidence
   packet with redaction, storage, a sequential run with cancel, pause on a
   limit and resume by skipping what was read.
@@ -219,3 +220,27 @@ question; the posting's thin text; the reading's reach, never the person);
 the onboarding matching step says what the % is, no longer claims that a
 subscription cannot charge or that evidence is never sent. `WORK_SLOTS` in
 the interface is tested equal to `COUNTED_SIGNALS["responsibilities"]`.
+
+## 11. Three answers instead of one level (assess-1, no new calls)
+
+The 10 stored readings re-read under ADR-0035 addendum 1, on the copy. The
+before/after with every requirement is in the private
+`data/evaluation/deep-pilot-1/assess-1-before-after.md`.
+
+| Before | After | Work | History (required: shown / partly / declared / not sent / review) | Central gaps |
+|---|---|---|---|---|
+| HIGH | PREPARE | central | partly (8: 1/1/4/0/2) | 0 |
+| HIGH | PREPARE | central | partly (7: 3/2/2/0/0) | 0 |
+| HIGH | CHECK_FIRST | central | partly (9: 1/2/3/2/1) | 1 (Vercel with Next.js) |
+| MEDIUM x4 | LOW | neighbour | little or partly | 0 to 3 (Clay certification, WordPress years, Next.js, Meta Pixel) |
+| MEDIUM | LOW | secondary | partly (6: 1/2/0/2/1) | 0 |
+| LOW | LOW | neighbour | little (7: 1/1/0/4/1) | 0 |
+| OTHER_WORK | OTHER_WORK | other | partly (10: 1/1/5/3/0) | 1 |
+
+No posting keeps a "high" word: the three that had one are aligned work with
+history partly shown, and one of them needs a central requirement confirmed.
+Eight requirement conclusions are marked to review (four lists none of
+whose parts the cited evidence names, four headings whose list was not
+quoted). Not fixed: a lexical part match can miss a synonym (GitHub vs Git),
+which leaves the part unknown, never shown.
+
