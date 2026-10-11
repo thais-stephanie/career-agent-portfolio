@@ -85,13 +85,13 @@ def outcome_of(status: str, stats: Mapping[str, Any]) -> tuple[str, str | None]:
         return FAILED, "ERROR"
     reason = partial_reason(stats)
     if reason is not None:
-        from career_agent.sources.progress import obtained_data
+        from career_agent.sources.progress import unproven_partial
 
-        # Updated "in part" only when this run read valid postings; one that read
-        # none failed, whatever older runs left in the corpus.
-        if obtained_data(stats):
-            return PARTIAL, reason
-        return FAILED, "ERROR"
+        # Updated "in part" only when this run read valid postings; one whose only
+        # evidence is failures read none, whatever older runs left in the corpus.
+        if unproven_partial(stats):
+            return FAILED, "ERROR"
+        return PARTIAL, reason
     return COMPLETE, None
 
 

@@ -487,9 +487,19 @@ def test_an_old_success_is_stale_and_a_partial_run_says_why(conn) -> None:
     assert rows["a"].state is RefreshState.STALE
     assert rows["b"].state is RefreshState.PARTIAL and rows["b"].reason == "PAGE_LIMIT"
     assert rows["c"].state is RefreshState.NOT_STARTED
-    _run(conn, "collect-gamma2", now - timedelta(hours=1), {"failures": ["search failed"]})
+    # Partly failed AND read something this time: partial. Failed and read nothing:
+    # failed, whatever older runs left in the corpus.
+    _run(
+        conn,
+        "collect-gamma2",
+        now - timedelta(hours=1),
+        {"failures": ["search failed"], "postings_seen": 4},
+    )
     listed = read_progress(conn, stage_for={"g": "collect-gamma2"}, now=now)[0]
     assert listed.state is RefreshState.PARTIAL and listed.reason == "SOME_FAILED"
+    _run(conn, "collect-gamma3", now - timedelta(minutes=30), {"failures": ["search failed"]})
+    nothing = read_progress(conn, stage_for={"g": "collect-gamma3"}, now=now)[0]
+    assert nothing.state is RefreshState.FAILED
     assert partial_reason({"slices_capped": 3}) == "REQUEST_BUDGET"
     assert partial_reason({"boards_attempted": 139, "boards_failed": 6}) == "SOME_FAILED"
     assert partial_reason({"ceiling_hit": True}) == "SOURCE_CEILING"

@@ -341,7 +341,7 @@ def _state_of(row: sqlite3.Row, stats: Mapping[str, Any]) -> RefreshState:
         # "Updated in part" is a claim about THIS run: it must have read valid
         # postings. Jobs kept from earlier runs stay available but are not what
         # an update that read none obtained.
-        return RefreshState.PARTIAL if obtained_data(stats) else RefreshState.FAILED
+        return RefreshState.FAILED if unproven_partial(stats) else RefreshState.PARTIAL
     return RefreshState.COMPLETE
 
 
@@ -433,10 +433,21 @@ def obtained_data(stats: Mapping[str, Any]) -> bool:
     return isinstance(succeeded, int) and not isinstance(succeeded, bool) and succeeded > 0
 
 
+def unproven_partial(stats: Mapping[str, Any]) -> bool:
+    """A "partly done" verdict that rests on failures or deferrals alone.
+
+    A walk that stopped at its page limit, a ceiling or a request budget read
+    pages by construction, and boards left for later say nothing about the rest.
+    "Some requests failed" proves nothing was read unless a counter says so; with
+    none, the run failed.
+    """
+    reason = partial_reason(stats)
+    return reason == REASON_SOME_FAILED and not obtained_data(stats)
+
+
 def non_event(stats: Mapping[str, Any]) -> bool:
     """A run that was deferred (budget, Stop, disk) before reading anything."""
-    deferred = bool(stats.get("deferred_reason") or stats.get("boards_deferred"))
-    return deferred and not obtained_data(stats)
+    return bool(stats.get("deferred_reason")) and not obtained_data(stats)
 
 
 def stored(stats: Mapping[str, Any]) -> int:

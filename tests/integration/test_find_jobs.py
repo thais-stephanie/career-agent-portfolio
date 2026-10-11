@@ -53,6 +53,12 @@ class Recorder:
 
         monkeypatch.setattr(api, "_collect_work", collect_work)
         monkeypatch.setattr("career_agent.web.source_refresh.feed_work", feed)
+        # Workable is read in this process (a shared, resumable, stoppable read),
+        # not by a `collect-workable` subprocess; it keeps its place in the turn.
+        monkeypatch.setattr(
+            "career_agent.web.auto_update.workable_work",
+            lambda app: self._work("collect-workable"),
+        )
         monkeypatch.setattr(
             "career_agent.web.source_refresh.employer_board_work",
             lambda app, families: self._work("employer-boards"),
