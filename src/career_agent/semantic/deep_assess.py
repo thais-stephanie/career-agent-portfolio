@@ -71,7 +71,7 @@ _DISPOSITION = (
     r"|works? independently|trabalh\w+ de forma autonoma|autonom\w*|writer"
     r"|(written|verbal) communication|communication skills|comunicacao)\b"
 )
-_YEARS = r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs|anos?)\b"
+_YEARS = r"\d+\s*(?:[-\u2013]\s*\d+\s*)?\+?\s*(?:years?|yrs|anos?)\b"
 _LEVEL = (
     r"\b(deep|deeply|strong|expert\w*|advanced|extensive|mastery|excellent|exceptional"
     r"|in-depth|profund\w*|avancad\w*|solid|solida|forte|senior)\b"
@@ -140,7 +140,7 @@ def _parts(quote: str) -> list[str]:
         return []
     if not (folded.count(",") >= 2 or _has(r",\s*(and|e)\s", folded)):
         return []
-    pieces = [p.strip(" .:-–") for p in re.split(r",|;|\band\b|\be\b|&", text)]
+    pieces = [p.strip(" .:-\u2013") for p in re.split(r",|;|\band\b|\be\b|&", text)]
     # A piece that is only verbs ("debugging") describes the doing, not an item.
     items = [p for p in pieces if any(not t.endswith("ing") for t in _tokens(p))]
     return items if len(items) >= 2 else []
