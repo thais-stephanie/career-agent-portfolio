@@ -1688,6 +1688,10 @@ const EN = {
   'drawer.unscored': 'This job has not been checked against your preferences yet, so there is no score '
     + 'to explain. Its description, link and your notes work as usual.',
   'assess.old': 'earlier score',
+  'assess.prepare.stale': 'This comparison uses this job\'s earlier score, from before your latest changes or '
+    + 'the posting\'s latest text. It still helps you prepare; recalculate to refresh it.',
+  'assess.prepare.missing': 'This job has not been checked against your preferences yet, so there is nothing '
+    + 'to compare. Its text, link and your resume for it work as usual.',
   'assess.stale.preferences': 'This score is from before your latest changes to your preferences. It is '
     + 'shown for reference and may not match what you ask for now. Recalculate to update it; everything '
     + 'else on this job works as usual.',
@@ -1884,7 +1888,7 @@ const EN = {
     + 'The list still answers your previous preferences.',
   'revision.resume': 'Continue recalculating',
   'revision.lost': 'Lost contact with Career Agent while recalculating. It may have stopped.',
-  'revision.checkAgain': 'Check again',
+  'revision.checkAgain': 'Reload this screen',
   'app.rescoreLost': 'Lost contact while recalculating. Try again',
   'prefs.reach': 'Lexical reach: {n} of {total} scored open postings ({pct}%). Title or body.',
   'prefs.reachNone':
@@ -4496,7 +4500,7 @@ const EN = {
   'collect.preparingShort': 'Preparing your list…',
   'collect.scoringFailed': 'Your jobs were found and kept, but scoring them did not finish. Score them '
     + 'again: nothing is collected again.',
-  'collect.scoreAgain': 'Score my jobs again',
+  'collect.scoreAgain': 'Recalculate my match scores',
   'collect.technical': 'Technical details',
   'collect.scoringLabel': 'Jobs scored',
   'collect.took': 'Reading sources finished in {time}.',
@@ -6582,6 +6586,10 @@ const PT_BR = {
   'drawer.unscored': 'Esta vaga ainda não foi conferida com as suas preferências, então não há nota para '
     + 'explicar. A descrição, o link e as suas anotações funcionam normalmente.',
   'assess.old': 'nota anterior',
+  'assess.prepare.stale': 'Esta comparação usa a nota anterior desta vaga, de antes das suas últimas mudanças '
+    + 'ou do último texto do anúncio. Ainda ajuda a se preparar; recalcule para atualizar.',
+  'assess.prepare.missing': 'Esta vaga ainda não foi conferida com as suas preferências, então não há o que '
+    + 'comparar. O texto, o link e o seu currículo para ela funcionam normalmente.',
   'assess.stale.preferences': 'Esta nota é de antes das suas últimas mudanças nas preferências. Ela aparece '
     + 'só como referência e pode não refletir o que você pede agora. Recalcule para atualizar; o resto '
     + 'desta vaga funciona normalmente.',
@@ -6780,7 +6788,7 @@ const PT_BR = {
     + 'A lista ainda responde às suas preferências anteriores.',
   'revision.resume': 'Continuar o recálculo',
   'revision.lost': 'O contato com o Career Agent foi perdido durante o recálculo. Ele pode ter parado.',
-  'revision.checkAgain': 'Verificar de novo',
+  'revision.checkAgain': 'Recarregar esta tela',
   'app.rescoreLost': 'Contato perdido durante o recálculo. Tente de novo',
   'prefs.reach': 'Alcance lexical: {n} de {total} vagas abertas pontuadas ({pct}%). Título ou descrição.',
   'prefs.reachNone':
@@ -9374,7 +9382,7 @@ const PT_BR = {
   'collect.preparingShort': 'Preparando sua lista…',
   'collect.scoringFailed': 'Suas vagas foram encontradas e guardadas, mas a pontuação não terminou. Pontue '
     + 'de novo: nada é coletado outra vez.',
-  'collect.scoreAgain': 'Pontuar minhas vagas de novo',
+  'collect.scoreAgain': 'Recalcular minhas notas de compatibilidade',
   'collect.technical': 'Detalhes técnicos',
   'collect.scoringLabel': 'Vagas avaliadas',
   'collect.took': 'A leitura das fontes terminou em {time}.',

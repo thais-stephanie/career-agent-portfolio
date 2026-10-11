@@ -82,3 +82,37 @@ def test_a_new_profile_gets_the_setup_whatever_the_first_person_did(
     keys = page.evaluate("Object.keys(localStorage).filter(k => k.includes('setup.at'))")
     assert f"careerAgent.setup.at.v1@{second}" in keys and "careerAgent.setup.at.v1" not in keys
     assert all(k.endswith((f"@{first}", f"@{second}")) for k in keys), "every key names its profile"
+
+
+def _step(page: Chrome) -> str:
+    return str(page.evaluate("document.querySelector('.setup__card')?.dataset.step || ''"))
+
+
+def test_an_interrupted_setup_resumes_for_its_own_person_only(
+    page: Chrome, live: tuple[str, Path]
+) -> None:
+    base, _root = live
+    page.navigate(base)
+    page.wait_for("document.querySelector('.setup__card')", message="the first card")
+    assert _step(page) == "welcome"
+    page.evaluate("document.getElementById('setup-next').click()")
+    page.wait_for(
+        "document.querySelector('.setup__card')?.dataset.step !== 'welcome'", message="next"
+    )
+    left_at = _step(page)
+    page.navigate(base)
+    page.wait_for(
+        f"document.querySelector('.setup__card')?.dataset.step === {left_at!r}", message="resumed"
+    )
+    _create(page, "Synthetic B")
+    page.wait_for("document.querySelector('.setup__card')", message="B's first card")
+    assert _step(page) == "welcome", "the second person starts at the beginning"
+    page.evaluate("document.getElementById('lprof-trigger').click()")
+    page.wait_for("document.querySelector('.lprof__switch')", message="the other profile")
+    page.evaluate("document.querySelector('.lprof__switch').click()")
+    page.wait_for(
+        "document.querySelector('.lprof__name')?.innerText !== 'Synthetic B'", message="back to A"
+    )
+    page.wait_for(
+        f"document.querySelector('.setup__card')?.dataset.step === {left_at!r}", message="A resumed"
+    )

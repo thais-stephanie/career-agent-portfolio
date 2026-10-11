@@ -100,8 +100,19 @@ export function createPrepare({ onEvidence = null, onLoaded = null } = {}) {
     replace(host, []);
   }
 
+  /** The comparison below was made from an older score, or from none. Said, never hidden. */
+  function assessmentNote(payload) {
+    const state = payload.assessment && payload.assessment.state;
+    if (!state || state === 'current') return null;
+    return el('p', {
+      className: 'd-note d-stale', attrs: { role: 'status' },
+      text: t(state === 'missing' ? 'assess.prepare.missing' : 'assess.prepare.stale'),
+    });
+  }
+
   function sections(payload) {
     return [
+      assessmentNote(payload),
       summary(payload),
       concerns(payload),
       requirements(payload),
