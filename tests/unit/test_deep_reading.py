@@ -274,3 +274,50 @@ def test_the_child_environment_still_drops_billing_variables(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://example.invalid")
     child = local_cli._child_env()
     assert "ANTHROPIC_API_KEY" not in child and "ANTHROPIC_BASE_URL" not in child
+
+
+def short_requirement(quote: str, support: str = "not_shown", ids=()) -> str:
+    return answer(
+        requirements=[
+            {
+                "quote": quote,
+                "kind": "mandatory",
+                "support": support,
+                "evidence_ids": list(ids),
+                "reason": "",
+            }
+        ],
+        conditions=[],
+    )
+
+
+def test_a_one_word_requirement_keeps_its_line_and_is_marked_to_check():
+    item = check(short_requirement("Portugal")).review["requirements"][0]
+    assert item["quote"] == "You must be based in Portugal."
+    assert item["quote"] in POSTING
+    assert item["check"] == "short_quote" and item["support"] == "not_shown"
+
+
+def test_a_one_word_requirement_that_repeats_stays_the_bare_word_to_check():
+    posting = "Use React daily.\nReact is core to the team."
+    verified = deep.verify(short_requirement("React"), posting, {"W1"}, {"E1"})
+    item = verified.review["requirements"][0]
+    assert item["quote"] == "React" and item["check"] == "short_quote"
+
+
+def test_a_one_word_requirement_the_posting_does_not_contain_is_still_dropped():
+    verified = check(short_requirement("Kubernetes"))
+    assert verified.review["requirements"] == []
+    assert verified.dropped["quote_not_in_posting"] == 1
+
+
+def test_a_word_inside_another_word_or_a_function_word_is_not_accepted():
+    assert check(short_requirement("Portug")).review["requirements"] == []
+    assert check(short_requirement("the")).review["requirements"] == []
+
+
+def test_a_one_word_citation_does_not_improve_the_support_it_claims():
+    # "supported" by a one-word quote stays what the reading said, but carries
+    # the mark that assess turns into "to review" with no credit.
+    item = check(short_requirement("Portugal", "supported", ["E1"])).review["requirements"][0]
+    assert item["check"] == "short_quote"

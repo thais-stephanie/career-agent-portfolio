@@ -7,6 +7,8 @@ half of which the evidence names, a required certification nobody sent.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from career_agent.semantic.deep_assess import assess, comparison
@@ -201,3 +203,59 @@ def test_comparison_names_disagreement_with_the_local_band():
     assert comparison("OTHER_WORK", "STRONG") == "lowers"
     assert comparison("CHECK_FIRST", "STRONG") == "agrees"
     assert comparison("TO_CONFIRM", "GOOD") == "open"
+
+
+def test_a_requirement_cited_by_one_word_is_to_review_and_credits_nothing():
+    checked = {**req("React", support="not_shown", ids=()), "check": "short_quote"}
+    base = assess(review(req("Python")), EVIDENCE)
+    a = assess(review(req("Python"), checked, tools=("React",)), EVIDENCE)
+    item = a.requirements[1]
+    assert item["status"] == "review" and item["notes"] == ["short_quote"]
+    assert a.counts["review"] == 1 and a.counts["mandatory"] == 2
+    assert base.history == "SHOWN" and a.history == "PARTLY"
+    # The central tool is open: the recommendation cannot read STRONG.
+    assert base.recommendation == "STRONG" and a.recommendation == "CHECK_FIRST"
+
+
+def test_a_supported_claim_made_by_one_word_gets_no_credit():
+    claimed = {**req("Python", support="supported", ids=("E1",)), "check": "short_quote"}
+    a = assess(review(claimed), EVIDENCE)
+    assert a.requirements[0]["status"] == "review"
+    assert a.history == "PARTLY"
+    assert a.recommendation != "STRONG"
+
+
+def test_one_agent_does_not_show_sub_agents():
+    evidence = {
+        "E1": {"type": "PROJECT", "text": "Built a tool-calling agent in Python", "tools": ""}
+    }
+    asked = "Experience building agent-based workflows, including sub-agents and orchestration"
+    a = assess(review(req(asked, "supported", ("E1",))), evidence)
+    item = a.requirements[0]
+    assert item["status"] == "partial" and "specific_not_shown" in item["notes"]
+    named = {
+        "E1": {"type": "PROJECT", "text": "Ran sub-agents under one orchestrator", "tools": ""}
+    }
+    again = assess(review(req(asked, "supported", ("E1",))), named)
+    assert again.requirements[0]["status"] == "shown"
+
+
+def test_english_and_a_workspace_are_to_confirm_never_missing():
+    english = req("Advanced English: high-level written and verbal English", "not_shown", ())
+    setup = req("Dedicated quiet workspace with a high-performance computer", "not_shown", ())
+    a = assess(review(english, setup), EVIDENCE)
+    assert [r["status"] for r in a.requirements] == ["unknown", "unknown"]
+    assert a.counts["not_shown"] == 0 and a.central_gaps == ()
+    assert a.languages == (english["quote"],)
+    assert [c["quote"] for c in a.conditions] == [setup["quote"]]
+
+
+def test_an_empty_comparison_is_the_readings_not_the_postings():
+    # The sentence shown for "no technical requirement" must not claim the
+    # posting has none: the reading may simply not have listed any.
+    text = (Path(__file__).parents[2] / "src/career_agent/web/static/js/i18n.js").read_text(
+        encoding="utf-8"
+    )
+    for line in text.splitlines():
+        if "'deep.history.NONE_STATED'" in line:
+            assert "reading" in line or "leitura" in line

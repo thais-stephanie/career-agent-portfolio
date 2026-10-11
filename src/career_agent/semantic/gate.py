@@ -182,6 +182,47 @@ def locate(quote: str, posting: str, min_words: int = 1) -> str | None:
     return posting[span[0] : span[1]] if span else None
 
 
+def locate_context(quote: str, posting: str) -> tuple[str, str] | None:
+    """For a ONE-WORD quote that `locate` refused for being too short: the
+    posting's own text around it, as (verbatim span, how), or None.
+
+    * "line": the word occurs once, bounded, and the whole line (bullet or
+      sentence) around it is returned, cut to the quote limit;
+    * "word": it occurs several times, so no context can be chosen without
+      guessing; the bare word is returned, as it stands in the posting.
+
+    A word the posting does not contain, or only inside another word, is
+    None. Nothing here is a verdict: the caller marks the item to check."""
+    word = quote.strip()
+    if len(word) < MIN_QUOTE_CHARS or len(_WORD.findall(word)) != 1:
+        return None
+    if word.casefold() in _FUNCTION_WORDS:
+        return None
+    spans = []
+    at = posting.find(word)
+    while at >= 0:
+        if _bounded(posting, at, at + len(word)):
+            spans.append(at)
+        at = posting.find(word, at + 1)
+    if not spans:
+        return None
+    if len(spans) > 1:
+        return word, "word"
+    at = spans[0]
+    start = posting.rfind("\n", 0, at) + 1
+    end = posting.find("\n", at)
+    end = len(posting) if end < 0 else end
+    line = posting[start:end]
+    # A bullet marker is formatting, not the employer's sentence.
+    stripped = line.lstrip(" \t-*\u2022")
+    start += len(line) - len(stripped)
+    text = posting[start:end].rstrip()
+    if len(text) > MAX_QUOTE_CHARS:
+        cut = text.rfind(" ", 0, MAX_QUOTE_CHARS)
+        text = text[: cut if cut > 0 else MAX_QUOTE_CHARS].rstrip()
+    return (text, "line") if word in text else (word, "word")
+
+
 def _span(quote: str, posting: str, min_words: int) -> tuple[int, int] | None:
     quote = quote.strip()
     if len(quote) < MIN_QUOTE_CHARS or len(quote) > MAX_QUOTE_CHARS:

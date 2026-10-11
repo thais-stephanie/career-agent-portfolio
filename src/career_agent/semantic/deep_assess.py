@@ -156,7 +156,22 @@ def _demand(folded: str) -> str:
     return "familiarity"
 
 
+#: How the work is set up at the person's end (a workspace, a computer, a
+#: connection, a backup): a condition to confirm, not a technical skill.
+_SETUP = (
+    r"\b(quiet (work)?space|dedicated (work)?space|home office|workspace equipped"
+    r"|high[- ]performance computer|reliable (backup|internet|connection)"
+    r"|backup (power|internet|system)s?|stable (internet|connection)|headset|webcam)\b"
+)
+
+#: A qualifier that makes a requirement MORE specific than its general topic:
+#: an agent is not a sub-agent, and one agent is not a multi-agent system.
+_SPECIFIC = r"\b(sub-?agents?|multi-?agents?)\b"
+
+
 def _category(folded: str) -> str:
+    if _has(_SETUP, folded):
+        return "setup"
     if _has(_LANGUAGE, folded):
         return "language"
     if _has(_CREDENTIAL, folded):
@@ -224,7 +239,15 @@ def _requirement(
     notes: list[str] = []
     parts: list[dict[str, Any]] = []
     support = req["support"]
-    if evidence is None or support == "unclear":
+    if category in ("language", "setup"):
+        # Confirmed with the employer or by the person, never compared with
+        # the evidence sent: what the reading said about it is not a verdict.
+        status = "unknown"
+    elif req.get("check"):
+        # The reading cited this by one word. The posting's own line is kept
+        # and nothing is credited or counted against the person.
+        status, notes = "review", ["short_quote"]
+    elif evidence is None or support == "unclear":
         status = "unknown"
     elif support == "not_shown":
         status = "not_shown"
@@ -247,6 +270,16 @@ def _requirement(
                 status, notes = "review", ["parts_not_named"]
             elif linked < len(parts):
                 status, notes = "partial", ["some_parts_unknown"]
+        if status in ("shown", "partial") and _has(_SPECIFIC, folded):
+            cited_text = _fold(
+                " ".join(
+                    f"{evidence[i].get('text', '')} {evidence[i].get('tools', '')}" for i in cited
+                )
+            )
+            if not _has(_SPECIFIC, cited_text):
+                # One agent does not show sub-agents or a multi-agent system.
+                status = "partial"
+                notes.append("specific_not_shown")
         if status in ("shown", "partial"):
             if declared_only and not (status == "shown" and demand == "familiarity"):
                 # A listed skill states familiarity; it does not show
@@ -291,7 +324,8 @@ def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -
         for i, r in enumerate(reqs)
         if r in counted and r["central"] and r["status"] == "not_shown"
     )
-    judged = [r for r in counted if r["status"] in CREDIT]
+    to_check = [r for r in counted if "short_quote" in r["notes"]]
+    judged = [r for r in counted if r["status"] in CREDIT and "short_quote" not in r["notes"]]
     if evidence is None:
         history = "NOT_SENT"
     elif not judged:
@@ -305,6 +339,10 @@ def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -
             if ratio >= PARTLY_AT
             else "LITTLE"
         )
+    if to_check and history in ("SHOWN", "NONE_STATED"):
+        # An item cited by one word is open: history cannot read better than
+        # it would have with the item answered.
+        history = "PARTLY"
     alignment = "UNCLEAR" if review["insufficient"] else relation.upper()
     if alignment == "UNCLEAR":
         rec = "TO_CONFIRM"
@@ -314,7 +352,7 @@ def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -
         rec = "LOW"
     elif history == "NOT_SENT":
         rec = "NOT_COMPARED"
-    elif gaps:
+    elif gaps or any(r["central"] for r in to_check):
         rec = "CHECK_FIRST"
     elif alignment == "CENTRAL":
         rec = {"SHOWN": "STRONG", "NONE_STATED": "STRONG", "PARTLY": "PREPARE"}.get(
@@ -322,7 +360,9 @@ def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -
         )
     else:  # SECONDARY
         rec = "PREPARE" if history in ("SHOWN", "NONE_STATED") else "LOW"
+    setup = [{"quote": r["quote"], "topic": "work_model"} for r in reqs if r["category"] == "setup"]
     seen = {c["quote"] for c in review["conditions"]}
+    setup = [c for c in setup if c["quote"] not in seen]
     languages = [c["quote"] for c in review["conditions"] if c["topic"] == "language"]
     languages += [
         r["quote"] for r in reqs if r["category"] == "language" and r["quote"] not in seen
@@ -334,7 +374,8 @@ def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -
         requirements=reqs,
         counts=counts,
         central_gaps=gaps,
-        conditions=tuple(c for c in review["conditions"] if c["topic"] != "language"),
+        conditions=tuple(c for c in review["conditions"] if c["topic"] != "language")
+        + tuple(setup),
         languages=tuple(languages),
         questions=tuple(r["quote"] for r in reqs if r["category"] == "disposition"),
         to_review=sum(1 for r in reqs if r["status"] == "review"),

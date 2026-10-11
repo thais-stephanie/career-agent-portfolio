@@ -1375,7 +1375,8 @@ const EN = {
   'deep.history.PARTLY': 'partly shown',
   'deep.history.LITTLE': 'little shown',
   'deep.history.NOT_SENT': 'not compared (your evidence was not sent)',
-  'deep.history.NONE_STATED': 'the posting states no technical requirement',
+  'deep.history.NONE_STATED': 'the reading found no technical requirement to compare '
+    + '(not a statement that the posting has none)',
   'deep.count.mandatory': 'required',
   'deep.count.shown': 'shown',
   'deep.count.partial': 'partly',
@@ -1406,6 +1407,10 @@ const EN = {
   'deep.reqNote.parts_not_named': 'The cited evidence names none of the parts. Review it yourself.',
   'deep.reqNote.list_not_quoted': 'The list under this heading was not quoted with it, so what was shown cannot be '
     + 'checked. Review it yourself.',
+  'deep.reqNote.short_quote': 'The reading cited this by a single word. The line of the posting around it is '
+    + 'shown, and nothing is counted for or against you until you check it.',
+  'deep.reqNote.specific_not_shown': 'The posting asks for something more specific (sub-agents, several agents '
+    + 'working together). A single agent in your evidence does not show it.',
   'deep.readingSaid': 'The AI reading said: {said}.',
   'deep.question': 'Question for you',
   'deep.drawer.mandatory': 'Required, against your evidence',
@@ -6109,7 +6114,8 @@ const PT_BR = {
   'deep.history.PARTLY': 'demonstrado em parte',
   'deep.history.LITTLE': 'pouco demonstrado',
   'deep.history.NOT_SENT': 'não comparado (suas evidências não foram enviadas)',
-  'deep.history.NONE_STATED': 'a vaga não lista requisitos técnicos',
+  'deep.history.NONE_STATED': 'a leitura não encontrou requisito técnico para comparar '
+    + '(não afirma que a vaga não tenha)',
   'deep.count.mandatory': 'obrigatórios',
   'deep.count.shown': 'demonstrados',
   'deep.count.partial': 'em parte',
@@ -6141,6 +6147,10 @@ const PT_BR = {
   'deep.reqNote.parts_not_named': 'As evidências citadas não nomeiam nenhuma das partes. Vale revisar.',
   'deep.reqNote.list_not_quoted': 'A lista sob este título não foi citada junto, então o que foi mostrado não pode '
     + 'ser conferido. Vale revisar.',
+  'deep.reqNote.short_quote': 'A leitura citou isto com uma só palavra. Mostramos a linha do anúncio em volta '
+    + 'dela, e nada conta a favor ou contra você até conferir.',
+  'deep.reqNote.specific_not_shown': 'O anúncio pede algo mais específico (subagentes, vários agentes '
+    + 'trabalhando juntos). Um único agente nas suas evidências não mostra isso.',
   'deep.readingSaid': 'A leitura de IA disse: {said}.',
   'deep.question': 'Pergunta para você',
   'deep.drawer.mandatory': 'Obrigatórios, comparados às suas evidências',

@@ -30,7 +30,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from career_agent.semantic.gate import locate
+from career_agent.semantic.gate import locate, locate_context
 
 DEEP_CONTRACT_VERSION = "deep-1"
 MAX_POSTING_CHARS = 12_000
@@ -396,11 +396,23 @@ def verify(
         importance = _choice(item.get("importance"), TOOL_IMPORTANCE, "mentioned")
         return {"name": _str(item.get("name")), "importance": importance, "quotes": found}
 
-    def requirement(item: dict[str, Any]) -> dict[str, Any] | None:
-        quote = item.get("quote")
-        found = locate(quote, posting, 2) if isinstance(quote, str) else None
-        if found is None:
+    def short_quote(quote: Any) -> tuple[str, bool] | None:
+        """A requirement or condition cited by one word is not erased and not
+        believed: it keeps the posting's own line around that word (or the
+        word, when it occurs several times) and is marked to check."""
+        if not isinstance(quote, str):
             return None
+        found = locate(quote, posting, 2)
+        if found is not None:
+            return found, False
+        rescued = locate_context(quote, posting)
+        return (rescued[0], True) if rescued else None
+
+    def requirement(item: dict[str, Any]) -> dict[str, Any] | None:
+        located = short_quote(item.get("quote"))
+        if located is None:
+            return None
+        found, short = located
         support = _choice(item.get("support"), SUPPORT, "unclear")
         cited = [i for i in _list(item.get("evidence_ids")) if isinstance(i, str)]
         valid = [i for i in dict.fromkeys(cited) if i in evidence_ids]
@@ -411,20 +423,28 @@ def verify(
             support = "unclear"
         if not evidence_ids and support != "unclear":
             support = "unclear"
-        return {
+        built = {
             "quote": found,
             "kind": _choice(item.get("kind"), REQUIREMENT_KINDS, "unclear"),
             "support": support,
             "evidence_ids": valid if support in ("supported", "partial") else [],
             "reason": _str(item.get("reason")),
         }
+        if short:
+            built["check"] = "short_quote"
+        return built
 
     def condition(item: dict[str, Any]) -> dict[str, Any] | None:
-        quote = item.get("quote")
-        found = locate(quote, posting, 2) if isinstance(quote, str) else None
-        if found is None:
+        located = short_quote(item.get("quote"))
+        if located is None:
             return None
-        return {"quote": found, "topic": _choice(item.get("topic"), CONDITION_TOPICS, "other")}
+        built = {
+            "quote": located[0],
+            "topic": _choice(item.get("topic"), CONDITION_TOPICS, "other"),
+        }
+        if located[1]:
+            built["check"] = "short_quote"
+        return built
 
     def divergence(item: dict[str, Any]) -> dict[str, Any] | None:
         found = quotes(item.get("quotes"), 2, "quote_not_in_posting")
