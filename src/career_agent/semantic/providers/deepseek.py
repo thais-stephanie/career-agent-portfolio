@@ -54,10 +54,22 @@ def key_configured() -> bool:
 class DeepSeekProvider:
     id = "deepseek"
     display_name = "DeepSeek Flash"
+    #: JSON mode makes the answer an object but does not hold it to a schema;
+    #: a caller that needs a shape has to write the shape into the prompt.
+    enforces_schema = False
 
-    def __init__(self, model: str = MODEL, reasoning: str | None = None) -> None:
+    def __init__(
+        self,
+        model: str = MODEL,
+        reasoning: str | None = None,
+        max_output_tokens: int | None = None,
+    ) -> None:
         self.model = model
         self.reasoning = reasoning
+        #: A task whose answers are longer than the findings contract's (the
+        #: deep reading) sets its own ceiling; a truncated answer is paid for
+        #: and rejected, so the ceiling is generous rather than tight.
+        self._max_output_tokens = max_output_tokens
 
     def _config(self, max_output_tokens: int = MAX_OUTPUT_TOKENS) -> ModelConfig:
         return ModelConfig(
@@ -125,6 +137,8 @@ class DeepSeekProvider:
         cost = None
         if response.input_tokens is not None and response.output_tokens is not None:
             cost = self.estimate_cost(response.input_tokens, response.output_tokens)
+        usage = (response.envelope or {}).get("usage") or {}
+        hit = usage.get("prompt_cache_hit_tokens")
         return ProviderAnswer(
             raw_text=response.raw_text,
             provider=self.id,
@@ -133,6 +147,7 @@ class DeepSeekProvider:
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
             cost_usd=cost,
+            cached_input_tokens=hit if isinstance(hit, int) else None,
         )
 
     def evaluate(self, intent: SearchIntent, title: str, posting: str) -> ProviderAnswer:
@@ -144,6 +159,8 @@ class DeepSeekProvider:
 
     @property
     def max_output_tokens(self) -> int:
+        if self._max_output_tokens is not None:
+            return self._max_output_tokens
         if self.reasoning in (None, "none"):
             return MAX_OUTPUT_TOKENS
         return MAX_OUTPUT_TOKENS_THINKING

@@ -11113,6 +11113,29 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .dr-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--ink); cursor: pointer; }
 .dr-check input { margin-top: 3px; width: 18px; height: 18px; flex: none; accent-color: var(--lav); }
 
+/* Provider choice: one radio card per provider, the chosen one outlined. */
+.dr-choices { display: grid; gap: 8px; margin-top: 4px; }
+.dr-choice {
+  width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; background: var(--surface);
+  border: 1px solid var(--divider); border-radius: 12px; padding: 12px 14px; display: grid; gap: 2px;
+  min-height: 44px; overflow-wrap: anywhere;
+}
+.dr-choice:hover { background: var(--surface-hover); }
+.dr-choice[aria-checked="true"] { border: 2px solid var(--link); padding: 11px 13px; }
+.dr-choice__top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dr-choice__name { font-weight: 600; color: var(--ink); }
+
+/* Count and budget fields. */
+.dr-fields { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.dr-field { display: grid; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.dr-field label { font-size: 14px; font-weight: 600; color: var(--ink); }
+.dr-input {
+  min-height: 44px; width: 160px; max-width: 100%; padding: 8px 12px; border-radius: 10px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: inherit;
+}
+.dr-input--sm { min-height: 36px; width: 110px; }
+.dr-facts { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+
 /* Strip of three counts. */
 .dr-strip { display: flex; flex-wrap: wrap; gap: 8px; }
 .dr-strip > span { padding: 6px 12px; border-radius: 10px; font-size: 13px; }
@@ -11163,7 +11186,7 @@ table.jobs .cell__title-btn { max-width: 100%; }
   border: 0; background: none; padding: 4px 0; font: inherit; font-size: 13px; font-weight: 600;
   color: var(--link); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 24px;
 }
-.dr-panel :is(.dr-btn, .dr-btn2, .dr-x, .dr-quiet, .dr-switch, .dr-job):focus-visible,
+.dr-panel :is(.dr-btn, .dr-btn2, .dr-x, .dr-quiet, .dr-switch, .dr-job, .dr-choice, .dr-input):focus-visible,
 .dr-panel summary:focus-visible, .dr-check input:focus-visible {
   outline: 2px solid var(--focus); outline-offset: 2px;
 }

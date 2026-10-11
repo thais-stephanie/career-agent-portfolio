@@ -148,3 +148,48 @@ The contract (`deep-1`) did not change, so no stored reading went stale. A
 reading that separates parts itself would be a contract change (`deep-2`)
 and needs a pilot of its own.
 
+## Addendum 2 (2026-10-11): DeepSeek through its API, with a budget the person sets
+
+The owner corrected the first reading of this ADR: preferring a subscription
+was a cost preference, not a ban on paid APIs. What replaces "subscription
+only":
+
+* The panel offers the providers measured on this contract (Claude Code,
+  Codex, DeepSeek), each with its model, its connection (subscription or API
+  key), whether this computer is ready for it (a local check) and what it
+  costs. The choice is saved per profile (`deep_provider` in
+  `semantic.local.yaml`) and kept until changed. Nothing ever falls back to
+  another provider or to another model of the same one: an answer reporting
+  another model is not published and pauses the job; a resume on another
+  model is refused.
+* Consent stays per profile AND per provider (`share_evidence_with` now
+  accepts `deepseek`); consent for Claude is not consent for DeepSeek, and a
+  configured key is not consent.
+* A metered provider runs only at a recorded price for its exact model
+  (`llm/pricing.py`: deepseek-flash, re-read 2026-10-10 at
+  api-docs.deepseek.com/quick_start/pricing: 0.30 / 0.006 cached / 1.20 USD
+  per million tokens at peak, half off-peak) and inside a budget the person
+  approves in the preview. The server enforces it: before each call the worst
+  case is reserved (every UTF-8 byte a token, no cache, the whole 8,000-token
+  answer ceiling, peak rate); after it, the cost is accounted from the usage
+  DeepSeek reports (cache hits at the cache rate, still peak). The job pauses
+  when the next worst case does not fit, and when a call's usage cannot be
+  accounted for (no usage reported, or a timeout that may have been billed),
+  counting the whole reservation.
+* No total cap: the person chooses how many postings, up to the readable
+  postings of the main list not yet read by that provider. A job (migration
+  0052: `deep_job`, `deep_attempt`) holds the approved plan, read in batches
+  of 25 without asking again; pause, cancel and resume continue the same
+  plan; a posting already read, or answered and rejected, is never asked
+  again. The plan takes the three strata in turn, so a job stopped halfway
+  is still diverse.
+* DeepSeek's JSON mode does not hold an answer to a schema, so the answer's
+  JSON Schema is written into its instructions (same schema the contract
+  identity hashes). The message is sent without spaces after separators
+  (about 4% fewer characters) with what every posting shares first, so the
+  provider's prefix cache can serve it. What is cut or left out of a packet
+  is counted in the preview.
+* The estimate is labelled as one: input tokens are characters / 3, output
+  assumes 3,300 tokens per posting (the Claude Code pilot's mean; DeepSeek's
+  own length is not measured yet), the rate depends on the hour of each call.
+

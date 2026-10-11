@@ -941,6 +941,16 @@ export async function cancelDeep() {
   return request('/deep/run/cancel', { method: 'POST', body: {} });
 }
 
+/** Stop before the next posting; the job resumes where it stopped. */
+export async function pauseDeep() {
+  return request('/deep/run/pause', { method: 'POST', body: {} });
+}
+
+/** Name the provider this profile's deep reading uses. Sends nothing. */
+export async function setDeepProvider(provider) {
+  return request('/deep/provider', { method: 'POST', body: { provider } });
+}
+
 export async function getDeepReviews() {
   return request('/deep/reviews');
 }

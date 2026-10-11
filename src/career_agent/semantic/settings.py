@@ -64,10 +64,20 @@ class SemanticSettings(BaseModel):
     #: Subscription providers spend the person's plan limits; a smaller cap.
     max_jobs_per_subscription_run: int = Field(default=25, ge=1, le=500)
     #: The providers this profile allowed to receive its CONFIRMED evidence for
-    #: the deep reading (ADR-0035). Consent per profile and per
-    #: provider: empty by default, and only a signed-in subscription CLI can be
-    #: named, so no API key and no fallback ever receives a person's history.
-    share_evidence_with: list[Literal["claude_code", "codex"]] = Field(default_factory=list)
+    #: the deep reading (ADR-0035). Consent per profile and per provider:
+    #: empty by default, and consent given to one provider is never read as
+    #: consent for another. A configured key authorises nothing.
+    share_evidence_with: list[Literal["claude_code", "codex", "deepseek"]] = Field(
+        default_factory=list
+    )
+    #: The provider the deep reading uses, chosen BY NAME in its panel and kept
+    #: until changed (ADR-0035 addendum 2). None: the AI & Semantic Matching
+    #: choice when that is a subscription command line, otherwise none.
+    deep_provider: Literal["claude_code", "codex", "deepseek"] | None = None
+    #: The last most-to-spend the person set for a metered deep reading, in
+    #: USD: only what the panel offers next time. Each run is approved with
+    #: its own budget and the server enforces that one.
+    deep_budget_usd: float = Field(default=1.0, gt=0.0, le=100.0)
 
     @property
     def uses_findings(self) -> bool:
@@ -149,6 +159,10 @@ def save_settings(
 
 
 def _yaml_value(value: object) -> str:
+    if value is None:
+        # Never the word "None": YAML reads it as a string, the whole file
+        # fails validation and the profile silently falls back to no AI.
+        return "null"
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, list):

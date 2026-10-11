@@ -26,10 +26,29 @@ shares, each under a local id (E1, E2, ...) with contact details, links and
 the person's name removed. Never an employer field, never dates (a duration
 in years instead), never a CV, never another profile.
 
+A JOB, IN BATCHES
+-----------------
+The preview is approved as a JOB (migration 0052): the provider and its exact
+model, how many postings, the plan in strata taken in turn, and for a
+metered API the most it may spend. It is read in batches of BATCH_SIZE
+without asking again; a posting already read, or answered and rejected, is
+never asked for again, and a resume continues the same plan.
+
+SPENDING
+--------
+A subscription spends plan limits Career Agent cannot price; a plan limit
+pauses the job. A metered API runs only at a recorded price for its exact
+model and inside the approved budget: before each call the worst case is
+reserved against what is left (every byte a token, no cache, the whole
+output ceiling, peak rate) and replaced by the cost accounted from the usage
+the provider reports. When the next worst case does not fit, or a call's
+usage cannot be accounted for, the job pauses.
+
 STOPPING
 --------
-A cancel ends the call in flight. A plan limit pauses the run at once. Three
-failures in a row stop it. Nothing ever moves to another provider.
+A cancel ends the call in flight. A pause stops before the next posting.
+Three failures in a row pause the job. Nothing ever moves to another
+provider or another model.
 """
 
 from __future__ import annotations
@@ -47,16 +66,18 @@ from career_agent.clock import new_id, now_utc
 from career_agent.config.search_config import SearchConfig
 from career_agent.domain.claims import VerifiedClaim
 from career_agent.domain.enums import ClaimType
+from career_agent.llm.pricing import ModelPrice, observed_price
 from career_agent.match.phrase_forms import STOPWORDS, root
 from career_agent.semantic import deep
 from career_agent.semantic.intent import Aspect, SearchIntent, search_intent
 from career_agent.semantic.providers import (
     Availability,
     Billing,
+    ProviderAnswer,
     ProviderFailed,
     SemanticProvider,
 )
-from career_agent.semantic.runner import intent_match_query
+from career_agent.semantic.runner import ceiling_tokens, intent_match_query
 from career_agent.semantic.store import RunStats, SemanticRepo
 from career_agent.storage.db import transaction
 
@@ -78,7 +99,36 @@ SUMMARY_CHARS = 120
 MIN_SHARED_ROOTS = 2
 CHARS_PER_TOKEN = 3.0
 
-STOP_NOT_SUBSCRIPTION = "DEEP_NEEDS_SUBSCRIPTION"
+#: The postings one batch holds. A job reads batch after batch without asking
+#: again; the count the person approved is the only limit on how many.
+BATCH_SIZE = 25
+#: The answer ceiling for a metered provider. The pilot's answers averaged
+#: about 3,300 output tokens; a truncated answer is paid for and rejected, so
+#: the ceiling is generous and the budget reserves all of it per call.
+DEEP_MAX_OUTPUT_TOKENS = 8_000
+#: The output an ESTIMATE assumes per posting: the pilot's mean (Claude Code,
+#: 33,026 tokens for 10 postings). Another model's tokenizer and verbosity
+#: differ; the measured usage of each call replaces it.
+TYPICAL_OUTPUT_TOKENS = 3_300
+UNIT_SEPARATOR = chr(31)
+
+#: Neither a subscription nor a metered API (a local model, or nothing).
+STOP_UNSUPPORTED = "DEEP_UNSUPPORTED"
+#: A metered provider asked to run without a budget the person approved.
+STOP_NO_BUDGET = "NO_BUDGET"
+#: A metered provider whose exact model has no recorded price.
+STOP_NO_PRICE = "NO_PRICE"
+#: The next call's worst case does not fit in what is left of the budget.
+STOP_BUDGET = "BUDGET_REACHED"
+#: A call came back (or may have been billed) without usage that can be
+#: accounted for: its whole reservation is counted and the job pauses.
+STOP_UNACCOUNTED = "UNACCOUNTED"
+#: The provider answered with another model than the one approved.
+STOP_MODEL = "MODEL_CHANGED"
+#: The profile (search, levels, evidence or consent) changed since approval.
+STOP_PROFILE_CHANGED = "PROFILE_CHANGED"
+#: The person paused the job; it resumes where it stopped.
+STOP_PAUSED = "PAUSED"
 STOP_LIMIT = "LIMIT_REACHED"
 #: The command line could not use the sign-in (logged out, or its token being
 #: refreshed by another Claude Code process). Pause: retrying spends nothing
@@ -88,6 +138,18 @@ STOP_CANCELLED = "CANCELLED"
 STOP_PROVIDER = "PROVIDER_STOPPED"
 STOP_NOTHING_NEW = "NOTHING_NEW"
 STOP_NO_INTENT = "NO_INTENT"
+#: Stops a job can be resumed from.
+PAUSING = frozenset(
+    {
+        "LIMIT_REACHED",
+        "SIGN_IN",
+        "BUDGET_REACHED",
+        "UNACCOUNTED",
+        "MODEL_CHANGED",
+        "PAUSED",
+        "PROVIDER_STOPPED",
+    }
+)
 
 _EXPERIENCE = (
     ClaimType.EMPLOYMENT,
@@ -217,6 +279,24 @@ class Selection:
     candidates: list[DeepCandidate]
     population: int
     reviewed: int
+    #: Readable postings of the main list not yet read (nor answered and
+    #: rejected) by this provider: how many a job could ask for.
+    available: int = 0
+
+
+def interleave(picked: list[tuple[sqlite3.Row, str]]) -> list[tuple[sqlite3.Row, str]]:
+    """The plan's order: one of each stratum in turn, so a job paused halfway
+    has read a little of every stratum, never only the top local scores."""
+    by_stratum: dict[str, list[tuple[sqlite3.Row, str]]] = {}
+    for item in picked:
+        by_stratum.setdefault(item[1], []).append(item)
+    queues = [by_stratum.get(s, []) for s in ("top_local", "lexical", "control")]
+    out: list[tuple[sqlite3.Row, str]] = []
+    while any(queues):
+        for queue in queues:
+            if queue:
+                out.append(queue.pop(0))
+    return out
 
 
 def select(
@@ -236,12 +316,18 @@ def select(
     population = _population(conn, config, include_unresolved)
     if only is not None:
         population = [row for row in population if str(row["id"]) in only]
-    done = DeepRepo(conn).reviewed(provider_id, deep.contract_identity())
+    repo = DeepRepo(conn)
+    done = repo.reviewed(provider_id, deep.contract_identity())
+    # An answer that was paid for and rejected is not asked for again.
+    refused = repo.rejected(provider_id, deep.contract_identity(), current_digest)
     fresh = [
         row
         for row in population
-        if str(row["content_hash"]) not in done
-        or (reread_stale and current_digest not in done[str(row["content_hash"])])
+        if str(row["content_hash"]) not in refused
+        and (
+            str(row["content_hash"]) not in done
+            or (reread_stale and current_digest not in done[str(row["content_hash"])])
+        )
     ]
     by_id = {str(row["id"]): row for row in fresh}
     seen_hashes: set[str] = set()
@@ -263,6 +349,7 @@ def select(
     take(lexical, "lexical", round(limit * SHARES["lexical"]))
     rest = sorted(fresh, key=lambda r: _control_key(str(r["id"])))
     take(rest, "control", limit - len(picked))
+    picked = interleave(picked)
     texts = _descriptions(conn, [str(row["content_hash"]) for row, _ in picked])
     chosen = [
         DeepCandidate(
@@ -277,7 +364,10 @@ def select(
         for row, stratum in picked
     ]
     return Selection(
-        [c for c in chosen if c.description], len(population), len(population) - len(fresh)
+        [c for c in chosen if c.description],
+        len(population),
+        len(population) - len(fresh),
+        len(fresh),
     )
 
 
@@ -432,6 +522,78 @@ class DeepRepo:
             found.setdefault(str(content_hash), set()).add(str(digest))
         return found
 
+    def rejected(self, provider: str, contract: str, digest: str) -> set[str]:
+        """Content hashes whose answer was paid for and rejected, for this
+        profile: not asked for again."""
+        return {
+            str(r[0])
+            for r in self.conn.execute(
+                "SELECT content_hash FROM deep_attempt WHERE provider = ? AND contract = ?"
+                " AND profile_digest = ? AND outcome = 'REJECTED'",
+                (provider, contract, digest),
+            )
+        }
+
+    def finished_hashes(self, provider: str, contract: str, digest: str) -> set[str]:
+        """What a job no longer needs to ask: a reading already stored for
+        this provider and contract, or an answer paid for and rejected."""
+        return set(self.reviewed(provider, contract)) | self.rejected(provider, contract, digest)
+
+    def job(self, deep_job_id: str) -> sqlite3.Row | None:
+        row: sqlite3.Row | None = self.conn.execute(
+            "SELECT * FROM deep_job WHERE id = ?", (deep_job_id,)
+        ).fetchone()
+        return row
+
+    def last_job(self) -> sqlite3.Row | None:
+        row: sqlite3.Row | None = self.conn.execute(
+            "SELECT * FROM deep_job ORDER BY created_at DESC, id DESC LIMIT 1"
+        ).fetchone()
+        return row
+
+    def create_job(self, row: dict[str, Any]) -> None:
+        keys = list(row)
+        self.conn.execute(
+            f"INSERT INTO deep_job ({', '.join(keys)}) VALUES ({', '.join('?' for _ in keys)})",
+            [row[k] for k in keys],
+        )
+
+    def update_job(self, deep_job_id: str, status: str, stop_reason: str | None) -> None:
+        self.conn.execute(
+            "UPDATE deep_job SET status = ?, stop_reason = ?, updated_at = ? WHERE id = ?",
+            (status, stop_reason, now_utc(), deep_job_id),
+        )
+
+    def set_budget(self, deep_job_id: str, budget_usd: float) -> None:
+        with transaction(self.conn):
+            self.conn.execute(
+                "UPDATE deep_job SET budget_usd = ?, updated_at = ? WHERE id = ?",
+                (budget_usd, now_utc(), deep_job_id),
+            )
+
+    def spent(self, deep_job_id: str) -> float:
+        row = self.conn.execute(
+            "SELECT coalesce(sum(cost_usd), 0) FROM deep_attempt WHERE deep_job_id = ?",
+            (deep_job_id,),
+        ).fetchone()
+        return float(row[0])
+
+    def attempts(self, deep_job_id: str) -> dict[str, int]:
+        return {
+            str(outcome): int(count)
+            for outcome, count in self.conn.execute(
+                "SELECT outcome, count(*) FROM deep_attempt WHERE deep_job_id = ? GROUP BY outcome",
+                (deep_job_id,),
+            )
+        }
+
+    def save_attempt(self, row: dict[str, Any]) -> None:
+        keys = list(row)
+        self.conn.execute(
+            f"INSERT INTO deep_attempt ({', '.join(keys)}) VALUES ({', '.join('?' for _ in keys)})",
+            [row[k] for k in keys],
+        )
+
     def save(self, row: dict[str, Any]) -> None:
         keys = list(row)
         self.conn.execute(
@@ -499,15 +661,187 @@ def context(conn: sqlite3.Connection, config: SearchConfig, share: bool) -> Cont
     )
 
 
-def request_for(ctx: Context, candidate: DeepCandidate) -> tuple[str, list[dict[str, Any]], dict]:
+@dataclass(frozen=True)
+class PacketNotes:
+    """What did NOT reach the reader for one posting, so it is said, never
+    silent: characters of the advert past MAX_POSTING_CHARS, confirmed skills
+    past MAX_SKILLS, experience lines in neither the matched nor the summary
+    part, and summary lines cut to SUMMARY_CHARS."""
+
+    posting_chars_cut: int = 0
+    skills_left_out: int = 0
+    experience_left_out: int = 0
+    experience_shortened: int = 0
+
+
+def request_for(
+    ctx: Context, candidate: DeepCandidate
+) -> tuple[str, list[dict[str, Any]], dict, PacketNotes]:
     posting = deep.posting_text(candidate.description)
     items, sent = evidence_packet(ctx.claims, posting, ctx.names) if ctx.shared else ([], {})
+    skill_types = {ClaimType.SKILL.value, ClaimType.TOOL.value}
+    skills_sent = sum(1 for i in items if i["type"] in skill_types)
+    skills_all = sum(1 for c in ctx.claims if c.claim_type in (ClaimType.SKILL, ClaimType.TOOL))
+    experience_all = sum(1 for c in ctx.claims if c.claim_type in _EXPERIENCE)
+    notes = PacketNotes(
+        posting_chars_cut=max(0, len(candidate.description) - len(posting)),
+        skills_left_out=max(0, skills_all - skills_sent) if ctx.shared else 0,
+        experience_left_out=max(0, experience_all - (len(items) - skills_sent))
+        if ctx.shared
+        else 0,
+        experience_shortened=sum(1 for i in items if i.get("summary")),
+    )
     message = deep.user_message(ctx.intent_payload, ctx.levels, items, candidate.title, posting)
-    return message, items, sent
+    return message, items, sent, notes
 
 
 def estimate_tokens(text: str) -> int:
     return int(len(text) / CHARS_PER_TOKEN) + 1
+
+
+def system_for(provider: SemanticProvider) -> str:
+    """The instructions this provider is sent: with the schema written in when
+    it does not hold its answer to one."""
+    return deep.system_prompt(with_schema=not getattr(provider, "enforces_schema", True))
+
+
+# ---------------------------------------------------------------------------
+# spending: a metered provider is held to a budget the person approved
+# ---------------------------------------------------------------------------
+
+
+def price_for(provider: SemanticProvider) -> ModelPrice | None:
+    """The recorded price of this provider's EXACT model, or nothing. Never a
+    neighbour's price and never a guess."""
+    model = getattr(provider, "model", None)
+    return observed_price(provider.id, model) if isinstance(model, str) else None
+
+
+def max_output_for(provider: SemanticProvider) -> int:
+    return int(getattr(provider, "max_output_tokens", DEEP_MAX_OUTPUT_TOKENS))
+
+
+def reservation_usd(price: ModelPrice, system: str, message: str, max_output: int) -> float:
+    """The WORST case of one call, held before it is sent: every UTF-8 byte of
+    the prompt as a token (no tokenizer emits more), none of it from cache,
+    and the whole output ceiling, all at the peak rate."""
+    tokens_in = ceiling_tokens(system + message)
+    return (tokens_in * price.input_per_mtok + max_output * price.output_per_mtok) / 1_000_000
+
+
+def accounted_usd(price: ModelPrice, answer: ProviderAnswer) -> float | None:
+    """What one answered call cost, from the usage the provider REPORTED, at
+    the peak rate (off-peak is half, so this can only over-count). None when
+    the usage was not reported: that call cannot be accounted for."""
+    if answer.input_tokens is None or answer.output_tokens is None:
+        return None
+    hit = min(max(int(answer.cached_input_tokens or 0), 0), int(answer.input_tokens))
+    cached = price.cached_input_per_mtok
+    cached = price.input_per_mtok if cached is None else cached
+    return (
+        hit * cached
+        + (int(answer.input_tokens) - hit) * price.input_per_mtok
+        + int(answer.output_tokens) * price.output_per_mtok
+    ) / 1_000_000
+
+
+@dataclass(frozen=True)
+class Estimate:
+    """What a plan would cost, before anything is sent. An ESTIMATE: the
+    measured cost of each call is what the provider later reports."""
+
+    postings: int
+    input_tokens: int
+    input_tokens_ceiling: int
+    output_tokens_typical: int
+    output_tokens_ceiling: int
+    #: USD at the peak rate with no cache, at the typical output length.
+    typical_usd: float | None
+    #: Half of it: every call off-peak (the cache would lower both).
+    off_peak_usd: float | None
+    #: Every byte a token and every answer at its ceiling: what the budget
+    #: reserves call by call.
+    worst_usd: float | None
+
+
+def estimate(
+    provider: SemanticProvider, system: str, messages: list[str], max_output: int
+) -> Estimate:
+    price = price_for(provider)
+    inputs = [estimate_tokens(system + m) for m in messages]
+    ceilings = [ceiling_tokens(system + m) for m in messages]
+    typical = TYPICAL_OUTPUT_TOKENS * len(messages)
+    ceiling_out = max_output * len(messages)
+    if price is None:
+        return Estimate(
+            len(messages), sum(inputs), sum(ceilings), typical, ceiling_out, None, None, None
+        )
+    typical_usd = (sum(inputs) * price.input_per_mtok + typical * price.output_per_mtok) / 1_000_000
+    worst = (sum(ceilings) * price.input_per_mtok + ceiling_out * price.output_per_mtok) / 1_000_000
+    return Estimate(
+        postings=len(messages),
+        input_tokens=sum(inputs),
+        input_tokens_ceiling=sum(ceilings),
+        output_tokens_typical=typical,
+        output_tokens_ceiling=ceiling_out,
+        typical_usd=round(typical_usd, 4),
+        off_peak_usd=round(typical_usd / 2, 4),
+        worst_usd=round(worst, 4),
+    )
+
+
+# ---------------------------------------------------------------------------
+# the job: an approved plan, read in batches, paused and resumed
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class JobProgress:
+    deep_job_id: str
+    requested: int
+    done: int
+    spent_usd: float
+    budget_usd: float | None
+    batch: int
+    batches: int
+
+
+def _plan(candidates: list[DeepCandidate]) -> str:
+    return json.dumps(
+        [[c.job_id, c.content_hash, c.stratum] for c in candidates], separators=(",", ":")
+    )
+
+
+def _candidates_from_plan(conn: sqlite3.Connection, plan: list[list[str]]) -> list[DeepCandidate]:
+    texts = _descriptions(conn, [h for _job, h, _s in plan])
+    rows = (
+        {
+            str(r["id"]): r
+            for r in conn.execute(
+                f"SELECT j.id, j.title FROM job j WHERE j.id IN ({','.join('?' for _ in plan)})",
+                [job for job, _h, _s in plan],
+            )
+        }
+        if plan
+        else {}
+    )
+    out = []
+    for job, content_hash, stratum in plan:
+        row = rows.get(job)
+        if row is None or not texts.get(content_hash):
+            continue
+        out.append(
+            DeepCandidate(
+                job_id=job,
+                content_hash=content_hash,
+                title=str(row["title"] or ""),
+                description=texts[content_hash],
+                stratum=stratum,
+                local_score=0,
+                band="",
+            )
+        )
+    return out
 
 
 def run_deep(
@@ -520,50 +854,171 @@ def run_deep(
     include_unresolved: bool = False,
     reread_stale: bool = False,
     only: set[str] | None = None,
+    budget_usd: float | None = None,
+    resume_job: str | None = None,
     progress: Callable[[RunStats], None] | None = None,
+    job_progress: Callable[[JobProgress], None] | None = None,
     cancel: threading.Event | None = None,
+    pause: threading.Event | None = None,
 ) -> RunStats:
-    """Read a bounded batch, one posting at a time. Never raises for a provider
-    failure; never touches `job_match`, evidence or resumes."""
+    """Read an approved plan in batches, one posting at a time, until it is
+    done, paused or cancelled. Never raises for a provider failure; never
+    touches `job_match`, evidence or resumes.
+
+    A metered provider runs only with a budget, at a recorded price for its
+    exact model; before each call the worst case of that call is reserved
+    against what is left, and the run PAUSES rather than overspend, or when
+    a call's usage cannot be accounted for. `resume_job` continues a paused
+    job with the same provider and model, from where it stopped."""
     stats = RunStats(id=new_id(), mode=MODE, provider=provider.id)
     repo = SemanticRepo(conn)
-    if provider.capabilities().billing is not Billing.SUBSCRIPTION:
-        stats.status, stats.stop_reason = "SKIPPED", STOP_NOT_SUBSCRIPTION
+    deep_repo = DeepRepo(conn)
+    billing = provider.capabilities().billing
+    metered = billing is Billing.METERED_API
+    price = price_for(provider) if metered else None
+
+    def skipped(reason: str) -> RunStats:
+        stats.status, stats.stop_reason = "SKIPPED", reason
         with transaction(conn):
             repo.start_run(stats)
             repo.finish_run(stats)
         return stats
+
+    if billing not in (Billing.SUBSCRIPTION, Billing.METERED_API):
+        return skipped(STOP_UNSUPPORTED)
     ctx = context(conn, config, share)
     if not ctx.intent.of(Aspect.WORK):
-        stats.status, stats.stop_reason = "SKIPPED", STOP_NO_INTENT
+        return skipped(STOP_NO_INTENT)
+    contract = deep.contract_identity()
+    model = str(getattr(provider, "model", "") or "")
+    if resume_job is not None:
+        job = deep_repo.job(resume_job)
+        if job is None:
+            return skipped(STOP_NOTHING_NEW)
+        if (str(job["provider"]), str(job["model"])) != (provider.id, model):
+            # Never another provider and never another model of the same one.
+            return skipped(STOP_MODEL)
+        if str(job["profile_digest"]) != ctx.digest or bool(job["share_evidence"]) != share:
+            return skipped(STOP_PROFILE_CHANGED)
+        deep_job_id = str(job["id"])
+        if budget_usd is None:
+            budget_usd = job["budget_usd"]
+        elif metered:
+            deep_repo.set_budget(deep_job_id, budget_usd)
+        plan = json.loads(str(job["plan_json"]))
+        requested = int(job["requested"])
+        if metered and price is None:
+            return skipped(STOP_NO_PRICE)
+    else:
+        if metered and price is None:
+            return skipped(STOP_NO_PRICE)
+        if metered and (budget_usd is None or budget_usd <= 0):
+            return skipped(STOP_NO_BUDGET)
+        selection = select(
+            conn,
+            config,
+            provider_id=provider.id,
+            limit=limit,
+            include_unresolved=include_unresolved,
+            reread_stale=reread_stale,
+            current_digest=ctx.digest,
+            only=only,
+        )
+        candidates = selection.candidates
+        deep_job_id = "djob_" + new_id()
+        requested = len(candidates)
+        plan = json.loads(_plan(candidates))
         with transaction(conn):
-            repo.start_run(stats)
-            repo.finish_run(stats)
-        return stats
-    selection = select(
-        conn,
-        config,
-        provider_id=provider.id,
-        limit=limit,
-        include_unresolved=include_unresolved,
-        reread_stale=reread_stale,
-        current_digest=ctx.digest,
-        only=only,
-    )
-    stats.candidates = len(selection.candidates)
+            deep_repo.create_job(
+                {
+                    "id": deep_job_id,
+                    "provider": provider.id,
+                    "model": model,
+                    "billing": billing.value,
+                    "contract": contract,
+                    "profile_digest": ctx.digest,
+                    "share_evidence": int(share),
+                    "include_unresolved": int(include_unresolved),
+                    "requested": requested,
+                    "budget_usd": budget_usd if metered else None,
+                    "plan_json": _plan(candidates),
+                    "status": "RUNNING",
+                    "stop_reason": None,
+                    "created_at": now_utc(),
+                    "updated_at": now_utc(),
+                }
+            )
+    finished = deep_repo.finished_hashes(provider.id, contract, ctx.digest)
+    pending = [c for c in _candidates_from_plan(conn, plan) if c.content_hash not in finished]
+    stats.candidates = len(pending)
+    stats.budget_usd = budget_usd if metered else None
+    spent = deep_repo.spent(deep_job_id)
+    stats.spent_usd = spent
+    done = requested - len(pending)
+    batches = max(1, -(-requested // BATCH_SIZE))
     with transaction(conn):
         repo.start_run(stats)
-    contract = deep.contract_identity()
+        deep_repo.update_job(deep_job_id, "RUNNING", None)
     work_ids = {item.intent_id for item in ctx.intent.of(Aspect.WORK)}
+    system = system_for(provider)
+    max_output = max_output_for(provider)
+
+    def report() -> None:
+        if job_progress is not None:
+            job_progress(
+                JobProgress(
+                    deep_job_id,
+                    requested,
+                    done,
+                    round(spent, 6),
+                    budget_usd if metered else None,
+                    min(batches, done // BATCH_SIZE + 1),
+                    batches,
+                )
+            )
+
+    def attempt(
+        candidate: DeepCandidate, outcome: str, answer: ProviderAnswer | None, cost: float
+    ) -> None:
+        deep_repo.save_attempt(
+            {
+                "id": "datt_" + new_id(),
+                "deep_job_id": deep_job_id,
+                "job_id": candidate.job_id,
+                "content_hash": candidate.content_hash,
+                "provider": provider.id,
+                "model": answer.model if answer is not None else model,
+                "contract": contract,
+                "profile_digest": ctx.digest,
+                "outcome": outcome,
+                "input_tokens": answer.input_tokens if answer is not None else None,
+                "cached_input_tokens": answer.cached_input_tokens if answer is not None else None,
+                "output_tokens": answer.output_tokens if answer is not None else None,
+                "cost_usd": cost,
+                "run_id": stats.id,
+                "created_at": now_utc(),
+            }
+        )
+
     failures = 0
+    report()
     try:
-        for candidate in selection.candidates:
+        for candidate in pending:
             if cancel is not None and cancel.is_set():
                 stats.stop_reason = STOP_CANCELLED
                 break
-            message, items, sent = request_for(ctx, candidate)
+            if pause is not None and pause.is_set():
+                stats.stop_reason = STOP_PAUSED
+                break
+            message, items, sent, _notes = request_for(ctx, candidate)
+            reserve = 0.0
+            if metered and price is not None:
+                reserve = reservation_usd(price, system, message, max_output)
+                if spent + reserve > float(budget_usd or 0.0):
+                    stats.stop_reason = STOP_BUDGET
+                    break
             try:
-                answer = provider.complete(deep.SYSTEM_PROMPT, message, deep.answer_schema())
+                answer = provider.complete(system, message, deep.answer_schema())
             except ProviderFailed as exc:
                 if cancel is not None and cancel.is_set():
                     stats.stop_reason = STOP_CANCELLED
@@ -573,6 +1028,15 @@ def run_deep(
                     break
                 if exc.state is Availability.SIGN_IN_REQUIRED:
                     stats.stop_reason = STOP_SIGN_IN
+                    break
+                if metered and exc.state is Availability.CONNECTION_FAILED:
+                    # The request may have reached the provider and been
+                    # billed: count the whole reservation and stop.
+                    spent += reserve
+                    with transaction(conn):
+                        attempt(candidate, "UNKNOWN", None, reserve)
+                    stats.spent_usd = spent
+                    stats.stop_reason = STOP_UNACCOUNTED
                     break
                 stats.failed += 1
                 failures += 1
@@ -584,18 +1048,38 @@ def run_deep(
             stats.calls += 1
             stats.input_tokens += int(answer.input_tokens or 0)
             stats.output_tokens += int(answer.output_tokens or 0)
+            cost = 0.0
+            unaccounted = False
+            if metered and price is not None:
+                measured = accounted_usd(price, answer)
+                unaccounted = measured is None
+                cost = reserve if measured is None else measured
+                spent += cost
+                stats.spent_usd = spent
+            if metered and model and answer.model != model:
+                with transaction(conn):
+                    attempt(candidate, "MODEL_MISMATCH", answer, cost)
+                stats.stop_reason = STOP_MODEL
+                break
             posting = deep.posting_text(candidate.description)
             try:
                 verified = deep.verify(answer.raw_text, posting, work_ids, {i["id"] for i in items})
             except deep.ReviewRejected:
                 stats.rejected += 1
+                with transaction(conn):
+                    attempt(candidate, "REJECTED", answer, cost)
+                done += 1
+                report()
+                if unaccounted:
+                    stats.stop_reason = STOP_UNACCOUNTED
+                    break
                 continue
             with transaction(conn):
-                DeepRepo(conn).save(
+                deep_repo.save(
                     {
                         "id": "deep_"
                         + hashlib.sha256(
-                            "\x1f".join(
+                            UNIT_SEPARATOR.join(
                                 (
                                     candidate.content_hash,
                                     ctx.digest,
@@ -627,20 +1111,43 @@ def run_deep(
                         "created_at": now_utc(),
                     }
                 )
+                attempt(candidate, "PUBLISHED", answer, cost)
             stats.published += 1
+            done += 1
+            if done % BATCH_SIZE == 0:
+                # A batch ends: the job is checkpointed and the next batch
+                # starts at once, within the approved count and budget.
+                with transaction(conn):
+                    deep_repo.update_job(deep_job_id, "RUNNING", None)
+            report()
             if progress is not None:
                 progress(stats)
+            if unaccounted:
+                stats.stop_reason = STOP_UNACCOUNTED
+                break
     except BaseException:
         stats.status, stats.stop_reason = "FAILED", stats.stop_reason or "ERROR"
+        with transaction(conn):
+            deep_repo.update_job(deep_job_id, "PAUSED", stats.stop_reason)
         raise
     finally:
         if stats.status == "RUNNING":
-            paused = stats.stop_reason in (STOP_LIMIT, STOP_SIGN_IN)
-            stats.status = "PAUSED" if paused else "DONE"
+            stats.status = "PAUSED" if stats.stop_reason in PAUSING else "DONE"
         if not stats.candidates and not stats.stop_reason:
             stats.stop_reason = STOP_NOTHING_NEW
+        if stats.status != "FAILED":
+            job_status = (
+                "CANCELLED"
+                if stats.stop_reason == STOP_CANCELLED
+                else "PAUSED"
+                if stats.status == "PAUSED"
+                else "DONE"
+            )
+            with transaction(conn):
+                deep_repo.update_job(deep_job_id, job_status, stats.stop_reason)
         with transaction(conn):
             repo.finish_run(stats)
+        report()
         if progress is not None:
             progress(stats)
     return stats

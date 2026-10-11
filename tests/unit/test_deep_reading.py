@@ -229,13 +229,20 @@ def test_redaction_removes_contacts_links_and_the_name():
     assert "Ana" not in out and "91234" not in out and "ana.dev" not in out and "@" not in out
 
 
-def test_consent_names_only_subscription_command_line_tools():
+def test_consent_names_only_the_deep_reading_providers_one_by_one():
     assert SemanticSettings(share_evidence_with=["claude_code"]).share_evidence_with == [
         "claude_code"
     ]
-    with pytest.raises(ValueError):
-        SemanticSettings(share_evidence_with=["deepseek"])
+    # Consent is per provider: naming one never names another.
+    assert (
+        "deepseek" not in SemanticSettings(share_evidence_with=["claude_code"]).share_evidence_with
+    )
+    assert SemanticSettings(share_evidence_with=["deepseek"]).share_evidence_with == ["deepseek"]
+    for unknown in ("laya", "auto", "openai"):
+        with pytest.raises(ValueError):
+            SemanticSettings(share_evidence_with=[unknown])
     assert SemanticSettings().share_evidence_with == []
+    assert SemanticSettings().deep_provider is None
 
 
 def test_a_plan_limit_is_recognised_and_a_sign_in_problem_is_not():

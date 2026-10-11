@@ -30,8 +30,19 @@ const LEVELS = [
 const STATUS_ORDER = ['not_shown', 'review', 'declared', 'partial', 'unknown', 'shown'];
 const STOPS = new Set([
   'LIMIT_REACHED', 'SIGN_IN', 'CANCELLED', 'PROVIDER_STOPPED', 'NOTHING_NEW', 'NO_INTENT',
-  'DEEP_NEEDS_SUBSCRIPTION', 'ERROR',
+  'DEEP_UNSUPPORTED', 'NO_BUDGET', 'NO_PRICE', 'BUDGET_REACHED', 'UNACCOUNTED', 'MODEL_CHANGED',
+  'PROFILE_CHANGED', 'PAUSED', 'ERROR',
 ]);
+// Stops a job can be resumed from, said in yellow with the reason.
+const WARN_STOPS = new Set([
+  'LIMIT_REACHED', 'SIGN_IN', 'ERROR', 'PROVIDER_STOPPED', 'BUDGET_REACHED', 'UNACCOUNTED',
+  'MODEL_CHANGED', 'PROFILE_CHANGED', 'NO_BUDGET', 'NO_PRICE', 'DEEP_UNSUPPORTED',
+]);
+const STATES = new Set([
+  'AVAILABLE', 'CONNECTED', 'NOT_INSTALLED', 'SIGN_IN_REQUIRED', 'KEY_MISSING', 'CONNECTION_FAILED',
+  'LIMIT_OR_ERROR', 'UNSUPPORTED',
+]);
+const BATCH = 25;
 
 export function createDeep({ onOpenJob = null } = {}) {
   let invoker = null;
@@ -46,6 +57,9 @@ export function createDeep({ onOpenJob = null } = {}) {
   // the results when there are any, on the first step when there are none.
   let view = null;
   let showAll = false;
+  // The count and the budget the person typed, kept while the panel is open.
+  let count = null;
+  let budget = null;
   let last = { status: null, reviews: [] };
 
   const titleNode = el('h2', { className: 'dr-title', attrs: { id: 'deep-title', tabindex: '-1' }, text: '' });
@@ -174,7 +188,7 @@ export function createDeep({ onOpenJob = null } = {}) {
           await refresh();
           return;
         }
-        paintProgress(status.run.boards_done || 0, status.run.boards_total || 0);
+        paintProgress(status.run.boards_done || 0, status.run.boards_total || 0, status.live || {});
       } catch {
         stopPolling();
       }
@@ -234,13 +248,28 @@ export function createDeep({ onOpenJob = null } = {}) {
       body.push(providerCard(status), shareCard(status));
     }
     body.push(jobsCard(status));
+    const metered = isMetered(status);
     const next = el('button', {
       className: 'dr-btn', attrs: { type: 'button' }, text: t('deep.checkAndStart'),
       on: {
         click: async (event) => {
+          const asked = chosenCount(status);
+          const money = Number(budget ?? status.budget_default);
+          if (!Number.isInteger(asked) || asked < 1 || (!includeUnresolved && asked > (status.available || 0))) {
+            message = t('deep.count.invalid', { max: status.available || 0 });
+            paint();
+            return;
+          }
+          if (metered && !(money > 0 && money <= 100)) {
+            message = t('deep.budget.invalid');
+            paint();
+            return;
+          }
           event.currentTarget.disabled = true;
+          const options = { include_unresolved: includeUnresolved, limit: asked };
+          if (metered) options.budget_usd = money;
           try {
-            preview = await api.previewDeep({ include_unresolved: includeUnresolved });
+            preview = await api.previewDeep(options);
             message = '';
           } catch {
             message = t('deep.error');
@@ -252,37 +281,102 @@ export function createDeep({ onOpenJob = null } = {}) {
         },
       },
     });
-    next.disabled = !status.provider;
+    next.disabled = !status.provider || !(status.available > 0 || includeUnresolved);
     return [body, [el('span', { className: 'dr-foot__note', text: t('deep.nothingUntilStart') }), next]];
   }
 
+  function chosenCount(status) {
+    const max = status.available || 0;
+    return count ?? Math.min(BATCH, max);
+  }
+
   function providerCard(status) {
-    const signedIn = status.auth === 'subscription';
+    const providers = status.providers || [];
+    const chosen = providers.find((p) => p.chosen);
     return el('section', { className: 'dr-card' }, [
       el('div', { className: 'dr-card__row' }, [
         el('span', {
-          className: 'dr-glyph dr-glyph--lg', dataset: { tone: 'lilac' }, attrs: { 'aria-hidden': 'true' }, text: '✦',
+          className: 'dr-glyph dr-glyph--lg', dataset: { tone: 'lilac' },
+          attrs: { 'aria-hidden': 'true' }, text: '\u2726',
         }),
         el('div', { className: 'dr-card__main' }, [
-          el('div', { className: 'dr-card__titleline' }, [
-            el('h3', { className: 'dr-card-title', text: t('deep.who.head') }),
-            el('span', {
-              className: 'dr-pill dr-pill--wrap', dataset: { tone: signedIn ? 'mint' : 'pink' },
-              text: signedIn ? `✓ ${t('deep.auth.subscription')}` : t('deep.auth.missing'),
-            }),
-          ]),
-          el('p', { className: 'dr-text' }, [
-            el('strong', { text: t(`deep.access.${status.provider}`) }), ' ', t('deep.quota'),
-          ]),
-        ]),
+          el('h3', { className: 'dr-card-title', attrs: { id: 'deep-who' }, text: t('deep.who.head') }),
+          el('p', { className: 'dr-help', text: t('deep.who.choose') }),
+          el('div', {
+            className: 'dr-choices', attrs: { role: 'radiogroup', 'aria-labelledby': 'deep-who' },
+          }, providers.map(providerOption)),
+          chosen ? el('p', { className: 'dr-text' }, [
+            el('strong', { text: t(`deep.access.${chosen.id}`) }), ' ',
+            t(chosen.connection === 'api' ? 'deep.quota.api' : 'deep.quota'),
+          ]) : null,
+        ].filter(Boolean)),
       ]),
     ]);
+  }
+
+  /** A subscription says how it is signed in, as it always did; an API says whether its key is set. */
+  function pillText(p, state, ready) {
+    if (p.connection === 'subscription' && p.usable && p.auth) {
+      return p.auth === 'subscription' ? `\u2713 ${t('deep.auth.subscription')}` : t('deep.auth.missing');
+    }
+    return ready ? `\u2713 ${t(`deep.state.${state}`)}` : t(`deep.state.${state}`);
+  }
+
+  function providerOption(p) {
+    const state = STATES.has(p.state) ? p.state : 'OTHER';
+    const ready = p.usable && !(p.connection === 'subscription' && p.auth && p.auth !== 'subscription');
+    const price = p.price
+      ? t('deep.choice.price', {
+        input: p.price.input_per_mtok, cached: p.price.cached_input_per_mtok,
+        output: p.price.output_per_mtok, date: p.price.observed_at,
+      })
+      : t('deep.choice.subscription');
+    const node = el('button', {
+      className: 'dr-choice',
+      attrs: { type: 'button', role: 'radio', 'aria-checked': p.chosen ? 'true' : 'false' },
+      dataset: { provider: p.id },
+      on: {
+        click: async () => {
+          if (p.chosen) return;
+          node.disabled = true;
+          try {
+            await api.setDeepProvider(p.id);
+            message = '';
+          } catch {
+            message = t('deep.error');
+          }
+          preview = null;
+          checked = false;
+          count = null;
+          budget = null;
+          await refresh();
+        },
+      },
+    }, [
+      el('span', { className: 'dr-choice__top' }, [
+        el('span', { className: 'dr-choice__name', text: t(`deep.name.${p.id}`) }),
+        el('span', {
+          className: 'dr-pill dr-pill--wrap', dataset: { tone: ready ? 'mint' : 'stone' },
+          text: pillText(p, state, ready),
+        }),
+      ]),
+      el('span', {
+        className: 'dr-row__meta',
+        text: [
+          p.model ? t('deep.choice.model', { model: p.model }) : t('deep.choice.modelCli'),
+          t(`deep.connection.${p.connection}`),
+        ].join(' \u00b7 '),
+      }),
+      el('span', { className: 'dr-row__meta', text: price }),
+    ]);
+    return node;
   }
 
   function shareCard(status) {
     const name = providerName(status);
     const consent = switchControl(
-      Boolean(status.share_evidence), t(`deep.consent.label.${status.provider}`), t('deep.consent.scope'),
+      Boolean(status.share_evidence), t(`deep.consent.label.${status.provider}`),
+      `${t('deep.consent.scope')} ${t('deep.consent.perProvider', { name })}`,
       async (node) => {
         node.disabled = true;
         const next = node.getAttribute('aria-checked') !== 'true';
@@ -318,14 +412,34 @@ export function createDeep({ onOpenJob = null } = {}) {
   }
 
   function jobsCard(status) {
+    const max = status.available || 0;
+    const countInput = el('input', {
+      className: 'dr-input',
+      attrs: {
+        id: 'deep-count', type: 'number', min: '1', max: String(Math.max(max, 1)), step: '1', inputmode: 'numeric',
+      },
+      props: { value: String(chosenCount(status) || 0) },
+      on: { input: () => { count = Number(countInput.value); preview = null; checked = false; } },
+    });
+    const fields = [field('deep-count', t('deep.count.label'), countInput, t('deep.count.help', { max, size: BATCH }))];
+    if (isMetered(status)) {
+      const budgetInput = el('input', {
+        className: 'dr-input',
+        attrs: { id: 'deep-budget', type: 'number', min: '0.01', max: '100', step: '0.01', inputmode: 'decimal' },
+        props: { value: String(budget ?? status.budget_default ?? 1) },
+        on: { input: () => { budget = budgetInput.value; preview = null; checked = false; } },
+      });
+      fields.push(field('deep-budget', t('deep.budget.label'), budgetInput, t('deep.budget.help')));
+    }
     return el('section', { className: 'dr-card' }, [
       el('h3', { className: 'dr-card-title', text: t('deep.which.head') }),
       el('div', { className: 'dr-strip' }, [
-        strip('lilac', status.readable || 0, t('deep.which.readable')),
+        strip('lilac', max, t('deep.which.available')),
         strip('stone', status.reviewed || 0, t('deep.which.reviewed')),
-        strip('plain', status.cap || 0, t('deep.which.cap')),
+        strip('plain', BATCH, t('deep.which.batch')),
       ]),
-      el('p', { className: 'dr-help', text: t('deep.previewLede', { cap: status.cap }) }),
+      el('div', { className: 'dr-fields' }, fields),
+      el('p', { className: 'dr-help', text: t('deep.previewLede.batches') }),
       el('p', {
         className: 'dr-help',
         text: t('deep.coverage', {
@@ -406,7 +520,9 @@ export function createDeep({ onOpenJob = null } = {}) {
     const start = button(t('deep.start', { count: plan.postings.length }), async (event) => {
       event.currentTarget.disabled = true;
       try {
-        await api.startDeep({ include_unresolved: includeUnresolved, limit: plan.postings.length });
+        const options = { include_unresolved: includeUnresolved, limit: plan.requested };
+        if (isSet(plan.budget_usd)) options.budget_usd = plan.budget_usd;
+        await api.startDeep(options);
         message = '';
       } catch {
         message = t('deep.error');
@@ -428,10 +544,8 @@ export function createDeep({ onOpenJob = null } = {}) {
         el('div', { className: 'dr-rows__foot', text: t('deep.neverSent') }),
       ].filter(Boolean)),
       jobs,
-      el('section', { className: 'dr-card', dataset: { tone: 'yellow' } }, [
-        el('span', { className: 'dr-strong', text: t('deep.tokens', { tokens: plan.estimated_input_tokens }) }),
-        el('p', { className: 'dr-help', text: t('deep.extraUsage') }),
-      ]),
+      costCard(plan),
+      packetCard(plan),
       el('label', { className: 'dr-check' }, [confirm, el('span', { text: t('deep.confirm') })]),
     ];
     return [body, [
@@ -440,6 +554,65 @@ export function createDeep({ onOpenJob = null } = {}) {
         el('span', { className: 'dr-foot__note', text: t('deep.canStop') }), start,
       ]),
     ]];
+  }
+
+  function costCard(plan) {
+    const e = plan.estimate || {};
+    if (plan.billing !== 'METERED_API') {
+      return el('section', { className: 'dr-card', dataset: { tone: 'yellow' } }, [
+        el('span', { className: 'dr-strong', text: t('deep.tokens', { tokens: plan.estimated_input_tokens }) }),
+        el('p', { className: 'dr-help', text: t('deep.batches', { count: plan.requested, size: plan.batch_size }) }),
+        el('p', { className: 'dr-help', text: t('deep.extraUsage') }),
+      ]);
+    }
+    const facts = [
+      t('deep.cost.tokens', {
+        input: e.input_tokens, output: e.output_tokens_typical, ceiling: e.output_tokens_ceiling,
+      }),
+      t('deep.cost.range', { typical: usd(e.typical_usd), offpeak: usd(e.off_peak_usd) }),
+      t('deep.cost.worst', { worst: usd(e.worst_usd) }),
+      t('deep.cost.covers', {
+        budget: usd(plan.budget_usd), typical: e.covers_typical ?? 0, worst: e.covers_worst ?? 0,
+      }),
+      t('deep.batches', { count: plan.requested, size: plan.batch_size }),
+    ];
+    return el('section', { className: 'dr-card dr-cost', dataset: { tone: 'yellow' } }, [
+      el('span', {
+        className: 'dr-strong',
+        text: t('deep.cost.head', { count: plan.requested, typical: usd(e.typical_usd), budget: usd(plan.budget_usd) }),
+      }),
+      el('ul', { className: 'dr-facts' }, facts.map((text) => el('li', { text }))),
+      el('details', { className: 'dr-disc' }, [
+        el('summary', { text: t('deep.cost.howHead') }),
+        el('div', { className: 'dr-disc__inner' }, [
+          el('p', {
+            text: t('deep.cost.price', {
+              input: plan.price?.input_per_mtok, cached: plan.price?.cached_input_per_mtok,
+              output: plan.price?.output_per_mtok, date: plan.price?.observed_at, model: plan.model,
+            }),
+          }),
+          el('p', { text: t('deep.cost.assumptions') }),
+          el('p', { text: t('deep.cost.enforced') }),
+        ]),
+      ]),
+    ]);
+  }
+
+  function packetCard(plan) {
+    const p = plan.packet || {};
+    const notes = [];
+    if (p.postings_cut) {
+      notes.push(t('deep.packet.cut', { count: p.postings_cut, chars: p.posting_chars_cut, max: p.max_posting_chars }));
+    }
+    if (p.skills_left_out) notes.push(t('deep.packet.skills', { count: p.skills_left_out }));
+    if (p.experience_left_out_max) notes.push(t('deep.packet.experience', { count: p.experience_left_out_max }));
+    if (p.experience_shortened_max) notes.push(t('deep.packet.shortened', { count: p.experience_shortened_max }));
+    if (p.schema_in_prompt) notes.push(t('deep.packet.schema'));
+    if (!notes.length) return null;
+    return el('section', { className: 'dr-card' }, [
+      el('span', { className: 'dr-strong', text: t('deep.packet.head') }),
+      el('ul', { className: 'dr-facts' }, notes.map((text) => el('li', { text }))),
+    ]);
   }
 
   // ---- 3 · reading ------------------------------------------------------------
@@ -451,6 +624,10 @@ export function createDeep({ onOpenJob = null } = {}) {
       await api.cancelDeep();
       view = 'results';
       await refresh();
+    }, { className: 'dr-btn2' });
+    const pauseButton = button(t('deep.pause'), async (event) => {
+      event.currentTarget.disabled = true;
+      await api.pauseDeep();
     }, { className: 'dr-btn2' });
     const body = [
       el('section', { className: 'dr-card' }, [
@@ -471,14 +648,19 @@ export function createDeep({ onOpenJob = null } = {}) {
           className: 'deep__progress dr-help', attrs: { role: 'status' },
           text: t('deep.running', { done: run.boards_done || 0, total: run.boards_total || 0 }),
         }),
+        el('p', { className: 'deep__spent dr-help', text: '' }),
       ]),
       banner('plain', t('deep.readingKeeps')),
     ];
-    queueMicrotask(() => paintProgress(run.boards_done || 0, run.boards_total || 0));
-    return [body, [el('span', { className: 'dr-foot__note', text: t('deep.quota') }), stop]];
+    queueMicrotask(() => paintProgress(run.boards_done || 0, run.boards_total || 0, status.live || {}));
+    const note = isMetered(status) ? t('deep.quota.api') : t('deep.quota');
+    return [body, [
+      el('span', { className: 'dr-foot__note', text: note }),
+      el('div', { className: 'dr-foot__end' }, [pauseButton, stop]),
+    ]];
   }
 
-  function paintProgress(done, total) {
+  function paintProgress(done, total, live = {}) {
     const bar = bodyHost.querySelector('.dr-progress');
     if (!bar) return;
     bar.setAttribute('aria-valuenow', String(done));
@@ -487,6 +669,15 @@ export function createDeep({ onOpenJob = null } = {}) {
     bodyHost.querySelector('.deep__done').textContent = String(done);
     bodyHost.querySelector('.deep__of').textContent = t('deep.ofRead', { total });
     bodyHost.querySelector('.deep__progress').textContent = t('deep.running', { done, total });
+    const spent = bodyHost.querySelector('.deep__spent');
+    if (spent) {
+      const parts = [];
+      if (live.batches) parts.push(t('deep.batchOf', { batch: live.batch, batches: live.batches }));
+      if (isSet(live.budget_usd)) {
+        parts.push(t('deep.spent', { spent: usd(live.spent_usd), budget: usd(live.budget_usd) }));
+      }
+      spent.textContent = parts.join(' \u00b7 ');
+    }
   }
 
   // ---- 4 · results --------------------------------------------------------------
@@ -494,6 +685,7 @@ export function createDeep({ onOpenJob = null } = {}) {
   function resultsState(status, reviews) {
     const body = [];
     if (status.last_run) body.push(lastRun(status.last_run));
+    if (status.job) body.push(jobBanner(status, status.job));
     if (!status.share_evidence && status.provider && reviews.length) {
       body.push(banner('yellow', t('deep.notSharedNudge'), [
         button(t('deep.shareAndReadAgain'), () => go('choose'), { className: 'dr-btn2 dr-btn--sm' }),
@@ -535,6 +727,46 @@ export function createDeep({ onOpenJob = null } = {}) {
     return [body, [again, button(t('deep.backToJobs'), () => close(), { className: 'dr-btn' })]];
   }
 
+  function jobBanner(status, job) {
+    const parts = [t('deep.job.summary', {
+      done: job.done, requested: job.requested, name: t(`deep.name.${job.provider}`),
+      model: job.model ? ` (${job.model})` : '',
+    })];
+    if (isSet(job.budget_usd)) parts.push(t('deep.spent', { spent: usd(job.spent_usd), budget: usd(job.budget_usd) }));
+    const actions = [];
+    if (job.resumable) {
+      let raise = null;
+      if (job.billing === 'METERED_API') {
+        raise = el('input', {
+          className: 'dr-input dr-input--sm',
+          attrs: {
+            id: 'deep-resume-budget', type: 'number', min: '0.01', max: '100', step: '0.01',
+            'aria-label': t('deep.budget.label'),
+          },
+          props: { value: String(job.budget_usd ?? status.budget_default ?? 1) },
+        });
+        actions.push(raise);
+      }
+      actions.push(button(t('deep.resume'), async (event) => {
+        event.currentTarget.disabled = true;
+        const options = { resume: job.id };
+        if (raise) options.budget_usd = Number(raise.value);
+        try {
+          await api.startDeep(options);
+          message = '';
+          view = 'reading';
+        } catch {
+          message = t('deep.error');
+        }
+        await refresh();
+        poll();
+      }, { className: 'dr-btn2 dr-btn--sm' }));
+    } else if (job.status === 'PAUSED') {
+      parts.push(t('deep.job.notResumable'));
+    }
+    return banner(job.status === 'DONE' ? 'plain' : 'yellow', parts.join(' \u00b7 '), actions);
+  }
+
   function lastRun(run) {
     const code = String(run.stop_reason || '');
     const text = [t('deep.last', {
@@ -543,7 +775,7 @@ export function createDeep({ onOpenJob = null } = {}) {
     })];
     if (STOPS.has(code)) text.push(t(`deep.stop.${code}`));
     // A pause, a failure or a refused answer is said in yellow; a clean run in mint.
-    const warn = run.failed || run.rejected || ['LIMIT_REACHED', 'SIGN_IN', 'ERROR', 'PROVIDER_STOPPED'].includes(code);
+    const warn = run.failed || run.rejected || WARN_STOPS.has(code);
     return banner(warn ? 'yellow' : 'mint', text.join(' '));
   }
 
@@ -579,6 +811,30 @@ export function createDeep({ onOpenJob = null } = {}) {
   }
 
   return { root, open, close };
+}
+
+function isSet(value) {
+  return value !== null && value !== undefined;
+}
+
+function isMetered(status) {
+  const chosen = (status.providers || []).find((p) => p.chosen);
+  return Boolean(chosen && chosen.connection === 'api');
+}
+
+/** US dollars, to the cent below a dollar's tenth and to the dollar above. */
+function usd(value) {
+  if (!isSet(value) || Number.isNaN(Number(value))) return '\u2013';
+  const n = Number(value);
+  return `US$ ${n < 0.1 ? n.toFixed(4) : n.toFixed(2)}`;
+}
+
+function field(id, label, input, help) {
+  return el('div', { className: 'dr-field' }, [
+    el('label', { attrs: { for: id }, text: label }),
+    input,
+    el('span', { className: 'dr-help', text: help }),
+  ]);
 }
 
 function providerName(status) {

@@ -188,11 +188,20 @@ def test_a_cancel_stops_before_the_next_posting(corpus):  # noqa: F811
     assert stats.stop_reason == "CANCELLED" and len(provider.messages) == 1
 
 
-def test_a_metered_provider_is_refused_before_anything_is_sent(corpus):  # noqa: F811
+def test_a_metered_provider_without_a_price_or_a_budget_sends_nothing(corpus):  # noqa: F811
     conn, config = corpus
-    provider = FakeCli(billing=Billing.METERED_API)
-    stats = run_deep(conn, config, provider, share=True, limit=10, include_unresolved=True)
-    assert stats.stop_reason == "DEEP_NEEDS_SUBSCRIPTION" and provider.messages == []
+    unpriced = FakeCli(billing=Billing.METERED_API)
+    stats = run_deep(
+        conn, config, unpriced, share=True, limit=10, include_unresolved=True, budget_usd=1.0
+    )
+    assert stats.stop_reason == "NO_PRICE" and unpriced.messages == []
+
+
+def test_a_local_model_is_not_offered_for_the_deep_reading(corpus):  # noqa: F811
+    conn, config = corpus
+    local = FakeCli(billing=Billing.LOCAL)
+    stats = run_deep(conn, config, local, share=False, limit=10, include_unresolved=True)
+    assert stats.stop_reason == "DEEP_UNSUPPORTED" and local.messages == []
 
 
 def test_by_default_only_the_main_list_is_read(corpus):  # noqa: F811

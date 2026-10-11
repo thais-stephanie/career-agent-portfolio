@@ -231,8 +231,11 @@ OBSERVED_PRICES: dict[tuple[str, str], ModelPrice] = {
         input_per_mtok=0.30,
         output_per_mtok=1.20,
         cached_input_per_mtok=0.006,
-        source="DeepSeek API pricing, deepseek-flash (DeepSeek-V4.1-Flash), peak rate",
-        observed_at="2026-09-25",
+        source="DeepSeek API pricing, deepseek-flash (DeepSeek-V4.1-Flash), peak rate"
+        " (api-docs.deepseek.com/quick_start/pricing; first read 2026-09-25, unchanged"
+        " when re-read 2026-10-10: cache hit 0.006, cache miss 0.30, output 1.20 per"
+        " million tokens at peak, half off-peak)",
+        observed_at="2026-10-10",
     ),
 }
 

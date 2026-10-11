@@ -291,3 +291,13 @@ def test_no_file_means_no_key(config_dir) -> None:
 
     assert load_stored_key(config_dir) is False
     assert not key_state(config_dir).configured
+
+
+def test_an_unset_deep_provider_round_trips_and_keeps_the_file_readable(config_dir) -> None:
+    save_settings(config_dir, {"mode": "claude_code"})
+    loaded = load_settings(config_dir)
+    assert loaded.enabled and loaded.mode is Mode.CLAUDE_CODE and loaded.deep_provider is None
+    save_settings(config_dir, {"deep_provider": "deepseek", "share_evidence_with": ["claude_code"]})
+    again = load_settings(config_dir)
+    assert again.deep_provider == "deepseek" and again.share_evidence_with == ["claude_code"]
+    assert again.mode is Mode.CLAUDE_CODE, "choosing for the deep reading changes nothing else"

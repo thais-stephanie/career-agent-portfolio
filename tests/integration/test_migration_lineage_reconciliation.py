@@ -134,6 +134,7 @@ def test_the_production_path(production_shaped) -> None:
         (49, "application_resume"),
         (50, "resume_statement_acknowledgement"),
         (51, "deep_review"),
+        (52, "deep_job"),
     ]
     after = _ledger_rows(conn)
     assert after[:37] == before

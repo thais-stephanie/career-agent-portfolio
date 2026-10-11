@@ -83,6 +83,9 @@ class ProviderAnswer:
     #: USD, only for metered providers with a recorded price. None is unknown,
     #: never free.
     cost_usd: float | None = None
+    #: Input tokens the provider said it served from its own cache, when it
+    #: reports them (DeepSeek's `prompt_cache_hit_tokens`). None: not reported.
+    cached_input_tokens: int | None = None
 
 
 class ProviderFailed(RuntimeError):

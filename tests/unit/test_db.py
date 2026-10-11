@@ -117,6 +117,8 @@ EXPECTED_TABLES = {
     "semantic_evaluation",
     "semantic_run",
     "deep_review",
+    "deep_job",
+    "deep_attempt",
     # 0042: which retrieval lane and query found a posting. Provenance only.
     "job_retrieval_lane",
     # 0046: what the person thought of a Search Fit score. Observation only.

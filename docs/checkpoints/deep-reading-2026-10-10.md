@@ -270,3 +270,31 @@ at 1440, 390 and 360 px in both themes: no sideways overflow, no clipped
 list, the foot inside the window, ink at 4.5:1 on every toned ground, no
 catalogue key on screen, focus on the title and back on the button.
 
+## 13. DeepSeek through its API, with a budget (ADR-0035 addendum 2)
+
+Built with a fake provider only; DeepSeek was never called. Tested: a job
+of 40 postings in two batches with no second confirmation; a pause after 30
+and a resume that asked none again; a budget that pauses before the next
+worst case, never over, and a raised budget that resumes; three failures
+that pause and a resume that retries only what had no answer; usage not
+reported, and a timeout that may have been billed, both counted at the
+whole reservation and pausing; an answer from another model not published;
+a resume on another model refused; a rejected answer never asked again;
+consent for Claude never read as consent for DeepSeek; a key that authorises
+nothing and never appears in a response; no total cap of 25.
+
+Packet, measured on the copy (5 postings, the panel's own selection): about
+6,900 input tokens per posting with evidence shared (characters / 3,
+including about 1,760 of instructions with the schema), about 4,100
+without. The pilot's 14,000 per posting through Claude Code included that
+command line's own instructions, which an API call does not carry. Of each
+packet, the instructions, the search and the 74 skills (about 3,500 tokens)
+are the same for every posting and come first. Per posting, 54 of the 74
+experience lines are not sent (10 matched and 10 summarised go), as before;
+the preview now says so.
+
+A small real test proposed for the owner's approval, on the COPY: 5
+postings, evidence shared with DeepSeek, budget US$ 0.25. Estimate US$ 0.030
+at the peak rate with no cache (US$ 0.015 off-peak), worst case reserved
+US$ 0.079.
+

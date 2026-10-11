@@ -208,7 +208,24 @@ def user_message(
             "posting": posting,
         },
         ensure_ascii=False,
+        # No spaces after separators: the same content, about 4% fewer
+        # characters on every call. The order puts what every posting shares
+        # (the intent, the levels, the skills) before what changes, so a
+        # provider that caches a repeated prefix can serve it from cache.
+        separators=(",", ":"),
     )
+
+
+def system_prompt(*, with_schema: bool) -> str:
+    """The instructions, with the answer's JSON Schema appended for a provider
+    that does not hold its answer to one (DeepSeek's JSON mode). The schema is
+    the same `answer_schema` the contract identity hashes, so nothing new is
+    asked; it is only written where that provider can read it."""
+    if not with_schema:
+        return SYSTEM_PROMPT
+    schema = json.dumps(answer_schema(), separators=(",", ":"), sort_keys=True)
+    lead = "The json object must validate against this JSON Schema:"
+    return "\n\n".join((SYSTEM_PROMPT, lead + "\n" + schema))
 
 
 # ---------------------------------------------------------------------------

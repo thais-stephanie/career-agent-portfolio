@@ -155,6 +155,8 @@ PRIVATE_TABLES: frozenset[str] = frozenset(
         "semantic_run",
         "semantic_evaluation",
         "deep_review",
+        "deep_job",
+        "deep_attempt",
         "pipeline_run",
     }
 )

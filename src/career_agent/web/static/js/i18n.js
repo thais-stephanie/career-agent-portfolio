@@ -1187,10 +1187,8 @@ const EN = {
   'deep.stop.SIGN_IN': 'Paused: Claude Code could not use your sign-in. '
     + 'Wait a minute or sign in again, then start again.',
   'deep.stop.CANCELLED': 'Cancelled. Postings already read are kept.',
-  'deep.stop.PROVIDER_STOPPED': 'Stopped after three failures in a row.',
   'deep.stop.NOTHING_NEW': 'Nothing new to read.',
   'deep.stop.NO_INTENT': 'Add the work you want in your search first.',
-  'deep.stop.DEEP_NEEDS_SUBSCRIPTION': 'Only a subscription command line can run this.',
   'deep.stop.ERROR': 'The run ended with an error. Postings already read are kept.',
   'deep.resultsHead': 'Results',
   'deep.resultsLede': 'Grouped by recommendation. Each posting keeps three separate answers: whether the main '
@@ -1199,6 +1197,91 @@ const EN = {
   'deep.notReviewed': '{count} postings in your main list have no deep reading yet. They stay in the list in the '
     + 'local order.',
   'deep.noResults': 'No posting has a deep reading yet.',
+  'deep.name.deepseek': 'DeepSeek',
+  'deep.access.deepseek': 'DeepSeek · your API key',
+  'deep.consent.label.deepseek': 'Send my confirmed skills and experience to DeepSeek for these readings',
+  'deep.consent.perProvider': 'This consent is for {name} only: consent given to another provider does not count '
+    + 'here, and an API key is not consent.',
+  'deep.who.choose': 'Choose who reads. The choice is kept for this profile until you change it; choosing sends '
+    + 'nothing.',
+  'deep.quota.api': 'Each posting read is billed to your DeepSeek account per token. A reading runs only inside the '
+    + 'budget you approve, pauses before it would go over, and never moves to another service or model.',
+  'deep.choice.model': 'Model {model}',
+  'deep.choice.modelCli': 'Model chosen by the command line',
+  'deep.choice.subscription': 'Uses your plan limits; no price per posting.',
+  'deep.choice.price': 'Pay per use: US$ {input} per million input tokens (US$ {cached} from cache), US$ {output} '
+    + 'per million output tokens, peak rate; read {date}',
+  'deep.connection.subscription': 'Subscription',
+  'deep.connection.api': 'API key',
+  'deep.state.AVAILABLE': 'Ready',
+  'deep.state.CONNECTED': 'Connected',
+  'deep.state.NOT_INSTALLED': 'Not installed on this computer',
+  'deep.state.SIGN_IN_REQUIRED': 'Sign-in needed',
+  'deep.state.KEY_MISSING': 'API key not configured (Settings, AI & Semantic Matching)',
+  'deep.state.CONNECTION_FAILED': 'Could not connect',
+  'deep.state.LIMIT_OR_ERROR': 'Limit reached or error',
+  'deep.state.UNSUPPORTED': 'Not supported here',
+  'deep.state.OTHER': 'Status unknown',
+  'deep.which.available': 'not yet read by this provider',
+  'deep.which.batch': 'per batch',
+  'deep.count.label': 'How many postings to read',
+  'deep.count.help': '{max} readable postings in your main list have no reading from this provider yet. Any number '
+    + 'up to that; they are read in batches of {size}.',
+  'deep.count.invalid': 'Choose a whole number between 1 and {max}.',
+  'deep.budget.label': 'Most to spend (US$)',
+  'deep.budget.help': 'Enforced call by call on this computer: the reading pauses rather than go over it. Up to US$ '
+    + '100.',
+  'deep.budget.invalid': 'Choose a budget above 0 and at most US$ 100.',
+  'deep.previewLede.batches': 'Postings are picked in three groups taken in turn: the highest local %, the closest '
+    + 'to your search words, and a sample of the rest. A reading stopped halfway still covers all three.',
+  'deep.batches': 'Read in batches of {size}, one after another, without asking again: {count} postings in all.',
+  'deep.batchOf': 'Batch {batch} of {batches}',
+  'deep.spent': 'Spent {spent} of {budget} (counted at the peak rate)',
+  'deep.cost.head': 'About {typical} for {count} postings, never more than your budget of {budget}',
+  'deep.cost.tokens': 'Estimated tokens: about {input} in and about {output} out (at most {ceiling} out).',
+  'deep.cost.range': 'Estimate at the peak rate with no cache: {typical}. If every call ran off-peak: {offpeak}. '
+    + 'Cache hits would lower both.',
+  'deep.cost.worst': 'Worst case reserved, if every answer reached its ceiling: {worst}.',
+  'deep.cost.covers': 'Your budget of {budget} covers about {typical} postings at the estimate and at least {worst} '
+    + 'at the worst case. If it runs out, the reading pauses and keeps what was read.',
+  'deep.cost.howHead': 'How this is estimated',
+  'deep.cost.price': 'Price of {model}: US$ {input} per million input tokens (US$ {cached} when served from cache) '
+    + 'and US$ {output} per million output tokens at the peak rate; off-peak is half. Read on the DeepSeek '
+    + 'pricing page on {date}.',
+  'deep.cost.assumptions': 'Input tokens are the characters sent divided by 3, which usually over-counts. Output '
+    + 'assumes about 3,300 tokens per posting, the average of the Claude Code pilot; the length of DeepSeek '
+    + 'answers is not measured yet. Which rate applies depends on the hour DeepSeek receives each call. This is '
+    + 'an estimate, not a quote: the cost of each call is measured from the usage DeepSeek reports.',
+  'deep.cost.enforced': 'Before each call, its worst case (every byte a token, no cache, the whole answer ceiling, '
+    + 'peak rate) is reserved against what is left; the reading pauses before overspending, or when a call\'s '
+    + 'usage cannot be counted. DeepSeek bills your account: its console is the only authority on your balance.',
+  'deep.packet.head': 'What is shortened or left out',
+  'deep.packet.cut': '{count} postings are longer than {max} characters: the {chars} characters past that are not '
+    + 'sent.',
+  'deep.packet.skills': '{count} confirmed skills past the first 80 are not sent.',
+  'deep.packet.experience': 'Up to {count} experience lines per posting are not sent (10 matched and 10 summarised '
+    + 'go). Not sent is never read as missing.',
+  'deep.packet.shortened': 'Up to {count} experience lines per posting go as summaries of 120 characters.',
+  'deep.packet.schema': 'DeepSeek does not hold its answer to a shape, so the JSON Schema of the answer is added to '
+    + 'the instructions: about 850 tokens, the same for every posting.',
+  'deep.pause': 'Pause',
+  'deep.resume': 'Resume',
+  'deep.job.summary': 'Reading with {name}{model}: {done} of {requested} postings done',
+  'deep.job.notResumable': 'It cannot be resumed as it is: the provider, the profile or the instructions changed. '
+    + 'Start a new reading.',
+  'deep.stop.DEEP_UNSUPPORTED': 'This provider cannot run the deep reading. Nothing was sent.',
+  'deep.stop.NO_BUDGET': 'A pay-per-use provider needs an approved budget. Nothing was sent.',
+  'deep.stop.NO_PRICE': 'There is no recorded price for this exact model. Nothing was sent.',
+  'deep.stop.BUDGET_REACHED': 'Paused: the next posting\'s worst case does not fit in what is left of the budget. '
+    + 'Raise it to resume.',
+  'deep.stop.UNACCOUNTED': 'Paused: a call\'s usage could not be counted safely, so its whole reservation was '
+    + 'counted. Check your DeepSeek usage before resuming.',
+  'deep.stop.MODEL_CHANGED': 'Paused: the provider answered with another model than the one approved. That answer '
+    + 'was not used.',
+  'deep.stop.PROFILE_CHANGED': 'Your search, levels, evidence or consent changed since this reading was approved. '
+    + 'Start a new reading.',
+  'deep.stop.PAUSED': 'Paused by you. Postings already read are kept.',
+  'deep.stop.PROVIDER_STOPPED': 'Paused after three failures in a row. Resume to try the rest again.',
   'deep.cancel': 'Stop reading',
   'deep.consent.scope': 'For this profile and this provider only, applied at once. Only confirmed items that matter '
     + 'to each posting are sent, under local ids. Your name, contact details and links are removed, years '
@@ -5833,10 +5916,8 @@ const PT_BR = {
   'deep.stop.SIGN_IN': 'Pausada: o Claude Code não conseguiu usar seu login. '
     + 'Aguarde um minuto ou entre de novo e inicie outra vez.',
   'deep.stop.CANCELLED': 'Cancelada. As vagas já lidas foram mantidas.',
-  'deep.stop.PROVIDER_STOPPED': 'Parou depois de três falhas seguidas.',
   'deep.stop.NOTHING_NEW': 'Nada novo para ler.',
   'deep.stop.NO_INTENT': 'Primeiro informe na sua busca o trabalho que você quer.',
-  'deep.stop.DEEP_NEEDS_SUBSCRIPTION': 'Só uma linha de comando de assinatura pode executar isto.',
   'deep.stop.ERROR': 'A execução terminou com um erro. As vagas já lidas foram mantidas.',
   'deep.resultsHead': 'Resultados',
   'deep.resultsLede': 'Agrupados por recomendação. Cada vaga mantém três respostas separadas: se a atividade '
@@ -5845,6 +5926,92 @@ const PT_BR = {
   'deep.notReviewed': '{count} vagas da sua lista principal ainda não têm leitura aprofundada. Elas continuam na '
     + 'lista, na ordem local.',
   'deep.noResults': 'Nenhuma vaga tem leitura aprofundada ainda.',
+  'deep.name.deepseek': 'DeepSeek',
+  'deep.access.deepseek': 'DeepSeek · sua chave de API',
+  'deep.consent.label.deepseek': 'Enviar minhas habilidades e experiências confirmadas ao DeepSeek nessas leituras',
+  'deep.consent.perProvider': 'Este consentimento vale só para {name}: o que você autorizou para outro provedor não '
+    + 'conta aqui, e uma chave de API não é consentimento.',
+  'deep.who.choose': 'Escolha quem lê. A escolha fica guardada neste perfil até você mudar; escolher não envia nada.',
+  'deep.quota.api': 'Cada vaga lida é cobrada por token na sua conta DeepSeek. A leitura só roda dentro do orçamento '
+    + 'que você aprovar, pausa antes de ultrapassá-lo e nunca passa para outro serviço ou modelo.',
+  'deep.choice.model': 'Modelo {model}',
+  'deep.choice.modelCli': 'Modelo escolhido pela linha de comando',
+  'deep.choice.subscription': 'Usa os limites do seu plano; sem preço por vaga.',
+  'deep.choice.price': 'Pago por uso: US$ {input} por milhão de tokens de entrada (US$ {cached} do cache), US$ '
+    + '{output} por milhão de tokens de saída, tarifa de pico; lido em {date}',
+  'deep.connection.subscription': 'Assinatura',
+  'deep.connection.api': 'Chave de API',
+  'deep.state.AVAILABLE': 'Pronto',
+  'deep.state.CONNECTED': 'Conectado',
+  'deep.state.NOT_INSTALLED': 'Não instalado neste computador',
+  'deep.state.SIGN_IN_REQUIRED': 'Precisa entrar na conta',
+  'deep.state.KEY_MISSING': 'Chave de API não configurada (Configurações, IA e correspondência semântica)',
+  'deep.state.CONNECTION_FAILED': 'Não foi possível conectar',
+  'deep.state.LIMIT_OR_ERROR': 'Limite atingido ou erro',
+  'deep.state.UNSUPPORTED': 'Não suportado aqui',
+  'deep.state.OTHER': 'Situação desconhecida',
+  'deep.which.available': 'ainda não lidas por este provedor',
+  'deep.which.batch': 'por lote',
+  'deep.count.label': 'Quantas vagas ler',
+  'deep.count.help': '{max} vagas legíveis da sua lista principal ainda não têm leitura deste provedor. Qualquer '
+    + 'número até isso; elas são lidas em lotes de {size}.',
+  'deep.count.invalid': 'Escolha um número inteiro entre 1 e {max}.',
+  'deep.budget.label': 'Gasto máximo (US$)',
+  'deep.budget.help': 'Imposto chamada a chamada neste computador: a leitura pausa em vez de ultrapassá-lo. Até US$ '
+    + '100.',
+  'deep.budget.invalid': 'Escolha um orçamento acima de 0 e de no máximo US$ 100.',
+  'deep.previewLede.batches': 'As vagas são escolhidas em três grupos, alternados: maior % local, mais perto das '
+    + 'suas palavras de busca e uma amostra das demais. Uma leitura interrompida no meio ainda cobre os três.',
+  'deep.batches': 'Lidas em lotes de {size}, um após o outro, sem pedir confirmação de novo: {count} vagas no total.',
+  'deep.batchOf': 'Lote {batch} de {batches}',
+  'deep.spent': 'Gasto {spent} de {budget} (contado pela tarifa de pico)',
+  'deep.cost.head': 'Cerca de {typical} para {count} vagas, nunca mais que o seu orçamento de {budget}',
+  'deep.cost.tokens': 'Tokens estimados: cerca de {input} de entrada e cerca de {output} de saída (no máximo '
+    + '{ceiling} de saída).',
+  'deep.cost.range': 'Estimativa pela tarifa de pico, sem cache: {typical}. Se todas as chamadas fossem fora do '
+    + 'pico: {offpeak}. Acertos de cache baixariam as duas.',
+  'deep.cost.worst': 'Pior caso reservado, se toda resposta chegasse ao limite: {worst}.',
+  'deep.cost.covers': 'Seu orçamento de {budget} cobre cerca de {typical} vagas pela estimativa e pelo menos {worst} '
+    + 'no pior caso. Se acabar, a leitura pausa e mantém o que foi lido.',
+  'deep.cost.howHead': 'Como isto é estimado',
+  'deep.cost.price': 'Preço de {model}: US$ {input} por milhão de tokens de entrada (US$ {cached} quando vem do '
+    + 'cache) e US$ {output} por milhão de tokens de saída na tarifa de pico; fora do pico é a metade. Lido na '
+    + 'página de preços do DeepSeek em {date}.',
+  'deep.cost.assumptions': 'Os tokens de entrada são os caracteres enviados divididos por 3, o que costuma contar a '
+    + 'mais. A saída supõe cerca de 3.300 tokens por vaga, a média do piloto com Claude Code; o tamanho das '
+    + 'respostas do DeepSeek ainda não foi medido. A tarifa depende da hora em que o DeepSeek recebe cada '
+    + 'chamada. É uma estimativa, não um preço fechado: o custo de cada chamada é medido pelo uso que o '
+    + 'DeepSeek informa.',
+  'deep.cost.enforced': 'Antes de cada chamada, o pior caso dela (cada byte um token, sem cache, o limite inteiro da '
+    + 'resposta, tarifa de pico) é reservado contra o que resta; a leitura pausa antes de gastar demais, ou '
+    + 'quando o uso de uma chamada não pode ser contado. Quem cobra é o DeepSeek, na sua conta: o painel dele é '
+    + 'a única fonte do seu saldo.',
+  'deep.packet.head': 'O que é encurtado ou fica de fora',
+  'deep.packet.cut': '{count} vagas passam de {max} caracteres: os {chars} caracteres além disso não são enviados.',
+  'deep.packet.skills': '{count} habilidades confirmadas além das 80 primeiras não são enviadas.',
+  'deep.packet.experience': 'Até {count} linhas de experiência por vaga não são enviadas (vão 10 relacionadas e 10 '
+    + 'resumidas). Não enviado nunca é lido como ausente.',
+  'deep.packet.shortened': 'Até {count} linhas de experiência por vaga vão como resumos de 120 caracteres.',
+  'deep.packet.schema': 'O DeepSeek não prende a resposta a um formato, então o esquema JSON da resposta é '
+    + 'acrescentado às instruções: cerca de 850 tokens, iguais em todas as vagas.',
+  'deep.pause': 'Pausar',
+  'deep.resume': 'Retomar',
+  'deep.job.summary': 'Leitura com {name}{model}: {done} de {requested} vagas concluídas',
+  'deep.job.notResumable': 'Não dá para retomar como está: o provedor, o perfil ou as instruções mudaram. Comece uma '
+    + 'nova leitura.',
+  'deep.stop.DEEP_UNSUPPORTED': 'Este provedor não faz a leitura aprofundada. Nada foi enviado.',
+  'deep.stop.NO_BUDGET': 'Um provedor pago por uso precisa de um orçamento aprovado. Nada foi enviado.',
+  'deep.stop.NO_PRICE': 'Não há preço registrado para este modelo exato. Nada foi enviado.',
+  'deep.stop.BUDGET_REACHED': 'Pausada: o pior caso da próxima vaga não cabe no que resta do orçamento. Aumente-o '
+    + 'para retomar.',
+  'deep.stop.UNACCOUNTED': 'Pausada: o uso de uma chamada não pôde ser contado com segurança, então a reserva '
+    + 'inteira dela foi contada. Confira seu uso no DeepSeek antes de retomar.',
+  'deep.stop.MODEL_CHANGED': 'Pausada: o provedor respondeu com outro modelo, diferente do aprovado. Essa resposta '
+    + 'não foi usada.',
+  'deep.stop.PROFILE_CHANGED': 'Sua busca, níveis, evidências ou consentimento mudaram desde a aprovação desta '
+    + 'leitura. Comece uma nova leitura.',
+  'deep.stop.PAUSED': 'Pausada por você. As vagas já lidas são mantidas.',
+  'deep.stop.PROVIDER_STOPPED': 'Pausada depois de três falhas seguidas. Retome para tentar o restante de novo.',
   'deep.cancel': 'Parar leitura',
   'deep.consent.scope': 'Só para este perfil e este provedor, aplicado na hora. Só itens confirmados que importam '
     + 'para cada vaga são enviados, com ids locais. Seu nome, contatos e links são removidos, anos viram [ano] '
