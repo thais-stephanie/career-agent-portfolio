@@ -7,6 +7,7 @@ stacked forms and "Welcome back" instead of their own onboarding. Browser
 memory about a person is now scoped to the profile.
 """
 
+# ruff: noqa: F811  (the `live` fixture is imported, then used as an argument)
 from __future__ import annotations
 
 from pathlib import Path

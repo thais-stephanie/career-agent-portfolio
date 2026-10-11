@@ -202,8 +202,14 @@ class HttpFetcher:
         client: httpx.Client | None = None,
         sleep=time.sleep,
         deadline: Deadline | None = None,
+        request_cap: int | None = None,
     ) -> None:
         self.cache = cache
+        #: A ceiling on requests for the WHOLE life of this fetcher (a stats
+        #: reset between sources does not reset it). Reaching it ends work like
+        #: an expired deadline: pending work resumes later, nothing failed.
+        self.request_cap = request_cap
+        self.requests_spent = 0
         self.stats = stats or FetchStats()
         self.max_attempts = max_attempts
         self.backoff_seconds = backoff_seconds
@@ -225,6 +231,10 @@ class HttpFetcher:
     def check_budget(self) -> None:
         if self.deadline is not None:
             self.deadline.check()
+        if self.request_cap is not None and self.requests_spent >= self.request_cap:
+            from career_agent.net.deadline import BudgetExpired
+
+            raise BudgetExpired("REQUEST_BUDGET")
 
     def _budget_sleep(self, seconds: float) -> None:
         if self.deadline is None:
@@ -246,6 +256,7 @@ class HttpFetcher:
         """
         self._limiter.wait(httpx.URL(url).host, sleep=self._sleep)
         self.stats.requests += 1
+        self.requests_spent += 1
         size = 0
         try:
             with self._client.stream("GET", url, headers={"Accept": TEXT_ACCEPT}) as response:
@@ -415,6 +426,7 @@ class HttpFetcher:
             self._limiter.wait(host, sleep=self._sleep)
             self.check_budget()
             self.stats.requests += 1
+            self.requests_spent += 1
 
             try:
                 headers = {"Accept": accept} if accept else None

@@ -18,6 +18,7 @@ import { el, clear, button, select, field } from './dom.js';
 import { t } from './i18n.js';
 import { MISSING } from './format.js';
 import * as api from './api.js';
+import { autoUpdateCard } from './autoupdate.js';
 
 /**
  * The five words a person who is not debugging a connector actually wants,
@@ -271,6 +272,7 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
       el('summary', { text: t('settings.sourceDetails') }),
     ]);
     host.appendChild(healthTable(payload.refresh || [], sources, payload.summary));
+    host.appendChild(autoUpdateCard());
     host.appendChild(maintenanceSummary(payload.maintenance));
     host.appendChild(el('p', { text: t('settings.sourceHelp') }));
     // EXPERIMENTAL SOURCES, IN THE OPEN. A source the site itself restricts

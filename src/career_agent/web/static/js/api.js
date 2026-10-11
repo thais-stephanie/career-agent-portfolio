@@ -1413,6 +1413,14 @@ function base64Of(bytes) {
 /** Read-only maintenance status; never starts collection. */
 export async function getSourceMaintenance() { return request('/source-maintenance'); }
 
+/** The optional update of overdue job sites when the app opens (off by default). */
+export async function getAutoUpdate() {
+  if (MOCK) return { enabled: false, available: false, limits: {}, last_result: null };
+  return request('/auto-update');
+}
+export const setAutoUpdate = (enabled) => request('/auto-update', { method: 'PATCH', body: { enabled } });
+export const runAutoUpdate = () => request('/auto-update/run', { method: 'POST', body: {} });
+
 /** Local profiles: listing, creating, renaming, switching, deleting. */
 export async function getLocalProfiles() {
   if (MOCK) return { enabled: false, active: null, profiles: [] };

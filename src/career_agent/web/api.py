@@ -550,6 +550,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.web.source_refresh import register_source_refresh
 
         register_source_refresh(self)
+        from career_agent.web.auto_update import register_auto_update
+
+        register_auto_update(self)
         from career_agent.web.first_search import register_first_search
 
         register_first_search(self)
@@ -1978,8 +1981,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             raise ApiError(409, "Semantic matching is still running.", for_reader=True)
         return self.rescore.start(self._rescore_work(), new_id())
 
-    def _rescore_work(self):
-        """The unit the runner executes on its thread.
+    def _rescore_work(self, limit: int | None = None):
+        """The unit the runner executes on its thread. `limit` caps the
+        postings it will attempt (an automatic update uses it; the button never).
 
         Its own connection, opened inside the thread: the sqlite3 objects this
         module hands around are not shared across threads, and a request
@@ -2012,7 +2016,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 from career_agent.semantic.settings import load_settings
 
                 semantic = load_settings(self.config.config_dir, conn).uses_findings
-                stats = run_rescore(conn, config, progress=progress, semantic=semantic)
+                stats = run_rescore(conn, config, progress=progress, semantic=semantic, limit=limit)
 
             state.funnel = {
                 "considered": stats.jobs_considered,

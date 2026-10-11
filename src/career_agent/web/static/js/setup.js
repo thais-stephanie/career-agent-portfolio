@@ -43,6 +43,7 @@ import { LOCALES, t, tVocab, getLocale } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
 import { recalcButton } from './recalc.js';
+import { autoUpdateCard } from './autoupdate.js';
 import { phraseProblem } from './format.js';
 import {
   arrangementMatrix, arrangementSummary, workModelMatrix, workModelSummary,
@@ -1430,6 +1431,8 @@ export function createSetup({
       nodes: [
         readiness,
         hint(t('setup.ready.note')),
+        // Off until chosen, here or later in Settings (web/auto_update.py).
+        autoUpdateCard(),
         // Without career data the search still works; this says what adding
         // it would change, and nothing louder. Tailoring a resume is not the
         // next step until there is something for it to work from.

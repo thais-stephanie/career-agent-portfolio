@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -37,10 +39,27 @@ def execute(
     clock=time.monotonic,
     fetcher_factory=HttpFetcher,
     on_progress=None,
+    profile_blocks: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
+    """`profile_blocks` maps a provider to why THIS profile does not want it
+    asked (a pause it chose). The inventory knows the catalogue's blocks, not
+    the person's; an item blocked here is never selected and never rechecked
+    into the plan."""
     started = clock()
     deadline = Deadline(started + budget_seconds, clock)
-    items = inventory(conn, catalogue)
+
+    def inventory_now() -> list:
+        found = inventory(conn, catalogue)
+        if not profile_blocks:
+            return found
+        return [
+            replace(i, blocked=i.blocked or profile_blocks[i.provider])
+            if i.provider in profile_blocks
+            else i
+            for i in found
+        ]
+
+    items = inventory_now()
     if provider:
         items = [i for i in items if i.provider == provider]
     admitted = plan(
@@ -91,7 +110,7 @@ def execute(
                     )
                     continue
                 # Recheck successful stamps and policy; a plan is not permission.
-                current = next((i for i in inventory(conn, catalogue) if i.key == key), None)
+                current = next((i for i in inventory_now() if i.key == key), None)
                 if current is None or current.blocked or current.last_success != item.last_success:
                     receipt["results"].append(
                         {

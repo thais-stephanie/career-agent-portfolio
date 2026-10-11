@@ -53,6 +53,7 @@ import { createShell } from './shell.js';
 import { createLocalProfiles } from './local-profiles.js';
 import { scopedKey } from './profile-scope.js';
 import { watchEdits } from './edit-notice.js';
+import { announceNewJobs } from './autoupdate-notice.js';
 import { humanLabel, prefersEnglishTitles, rememberEnglishTitles, statusLabel } from './format.js';
 
 // Which profile this page is for, before any storage is read (profile-scope.js).
@@ -2909,7 +2910,15 @@ loadRailReadouts();
 // One question at boot: is a run already going (started before a reload, or
 // in another tab)? If so every page shows it; if not, nothing polls.
 collection.refresh();
-
+// The optional update of overdue sites: asked ONCE when the app opens, only when
+// the person chose it; the server decides whether anything is due, and never
+// starts it twice (web/auto_update.py). Switching pages asks nothing.
+void (async () => {
+  try {
+    const state = await api.getAutoUpdate();
+    if (state.enabled && (await api.runAutoUpdate()).started) void collection.refresh();
+  } catch { /* the update is a courtesy; the app works without it */ }
+})();
 // First paint. `history: 'none'` so the initial URL is not pushed onto itself.
 const initial = store.get();
 panel.syncState(initial);
@@ -3163,7 +3172,10 @@ function paintCollectBar(snapshot, reason) {
     if (collectBarShape !== 'active') {
       collectBarShape = 'active';
       replace(collectBar, [
-        el('strong', { className: 'collectbar__head', text: t('setup.ready.finding') }),
+        el('strong', {
+          className: 'collectbar__head',
+          text: t(snapshot.run && snapshot.run.kind === 'auto' ? 'auto.bar' : 'setup.ready.finding'),
+        }),
         collectBarView.root,
         button(t('collect.show'), () => goTo('home'), {
           className: 'btn btn--link', attrs: { id: 'collectbar-show' },
@@ -3200,7 +3212,18 @@ collection.onProgress(() => {
 
 // A finished run changed the corpus. Everything that counted it asks again,
 // once.
-collection.onFinish(() => {
+collection.onFinish((snapshot) => {
+  // A run the app started by itself (the choice "update when I open") must not
+  // replace a list or a posting being read: say what arrived, and let the
+  // person update the list when they want to.
+  if (snapshot && snapshot.run && snapshot.run.kind === 'auto') {
+    void showHealth();
+    refreshRail();
+    announceNewJobs(snapshot.run.jobs_new, () => load(store.apiQueryString(), store.get(), { quiet: true }));
+    if (currentPage === 'settings') sourcesPanel.load(true);
+    else sourcesPanel.invalidate();
+    return;
+  }
   refreshAfterCollection();
   // Elsewhere, Settings reads again when it is next opened: it used to keep
   // the reading taken while the run was going ("Never run", "never").

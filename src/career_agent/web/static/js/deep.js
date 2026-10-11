@@ -21,6 +21,7 @@
 import { el, button, replace, focusables } from './dom.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
+import { switchControl } from './switch.js';
 
 const POLL_MS = 1500;
 const LEVELS = [
@@ -880,23 +881,6 @@ function scorePill(score) {
     className: 'dr-pill', dataset: { tone: Number(score) >= 80 ? 'mint' : 'yellow' },
     text: t('deep.localPill', { score: Number(score) || 0 }),
   });
-}
-
-/** A role=switch button: the label, what it does, and the track. */
-function switchControl(on, label, hint, onToggle) {
-  const node = el('button', {
-    className: 'dr-switch', attrs: { type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false' },
-    on: { click: () => onToggle(node) },
-  }, [
-    el('span', { className: 'dr-switch__text' }, [
-      el('span', { className: 'dr-switch__label', text: label }),
-      el('span', { className: 'dr-switch__hint', text: hint }),
-    ]),
-    el('span', { className: 'dr-switch__track', attrs: { 'aria-hidden': 'true' } }, [
-      el('span', { className: 'dr-switch__knob' }),
-    ]),
-  ]);
-  return node;
 }
 
 /**

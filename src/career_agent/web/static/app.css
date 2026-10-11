@@ -11250,3 +11250,15 @@ table.jobs .cell__title-btn { max-width: 100%; }
   .dr-row { flex-wrap: wrap; }
   .dr-row__main { flex-basis: calc(100% - 42px); }
 }
+
+/* "Keep my jobs up to date": one card with one switch (autoupdate.js). Used in
+   Settings > Job sites and in the setup's last card. */
+.au {
+  display: grid; gap: 10px; padding: 20px; max-width: 640px;
+  background: var(--surface); border: 1px solid var(--divider); border-radius: 16px;
+}
+.au__head { margin: 0; font-size: 17px; font-weight: 600; color: var(--ink); }
+.au__more summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--link); }
+.au__more ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+.au__last, .au__status { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.au :is(.dr-switch, summary):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

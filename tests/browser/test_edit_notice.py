@@ -6,6 +6,7 @@ action, that a second notice replaces the first, and that nothing starts until
 the person presses the button.
 """
 
+# ruff: noqa: F811  (the `live` fixture is imported, then used as an argument)
 from __future__ import annotations
 
 from pathlib import Path

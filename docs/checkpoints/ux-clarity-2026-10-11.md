@@ -10,7 +10,7 @@ Not merged, not pushed. Synthetic data only.
 - [x] 1. Onboarding for every new profile (finishing or postponing the setup wrote one browser flag for everybody; storage about a person is now scoped by profile id; welcome header; honest privacy and unknown-vs-unmet copy)
 - [x] 2. Orientation after editing the profile (server `effects` from the digests the stale checks already use: needs_rescore, offer_discovery, deep_stale; one notice, one action, nothing started)
 - [x] 4. Job site alerts and per-source actions (one truth for Home, sidebar and Settings: shared postings count as run; a failure after storing postings is partial for everyone; plain-language card per site with its one action and collapsed technical details; "Workable" not "Jobs by Workable XML")
-- [ ] 5. Optional update on open, bounded, off by default
+- [x] 5. Optional update on open (off by default; maintenance engine reused; 10 min, 60 sites, 1000 requests, 6 h gap; scoring capped at 5000 postings; docs/AUTO_UPDATE.md)
 - [ ] 6. Score explanation
 - [ ] 7. Providers and privacy panel
 - [ ] 8. Resume Tailor in the sidebar
