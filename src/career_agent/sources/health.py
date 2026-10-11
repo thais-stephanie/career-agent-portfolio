@@ -88,7 +88,7 @@ class SourceHealth:
             return "They allow us, and they publish no open jobs. There is nothing to collect."
         if self.quota_remaining == 0:
             return "Out of quota. No further requests will be made."
-        if not self.attempted:
+        if not self.attempted and self.postings == 0:
             return "Never collected. Nothing has failed; nothing has run."
         if self.postings == 0 and self.last_error:
             return f"It ran and stored nothing. The error recorded was: {self.last_error}"
@@ -141,7 +141,10 @@ class SourceHealth:
             return "WAITING"
         if self.quota_remaining == 0:
             return "NEEDS_SETUP"
-        if not self.attempted:
+        # Postings in the shared corpus were collected by SOME profile's run: this
+        # profile's own ledger (the only one `attempted` reads) being empty does
+        # not make the source "never run" (sources/matrix.py holds the same rule).
+        if not self.attempted and self.postings == 0:
             return "NOT_RUN"
         if self.postings == 0:
             return "ATTENTION"

@@ -184,9 +184,9 @@ def test_a_site_that_needs_her_is_named_and_opens_at_its_own_action(
     alert = "document.querySelector('#site-alert')"
     page.wait_for(f"{alert} && !{alert}.hidden", timeout=30, message="the alert")
     assert page.evaluate("document.getElementById('site-alert-title').textContent") == (
-        "Remotive needs a new check"
+        "We couldn't update Remotive"
     )
-    assert "failed and read nothing" in str(
+    assert "jobs already found are still here" in str(
         page.evaluate("document.getElementById('site-alert-text').textContent")
     )
     # ... and opens that source's own card, at its own action.

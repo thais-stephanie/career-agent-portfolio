@@ -77,8 +77,8 @@ def shaped(tmp_path: Path) -> Iterator[tuple[str, JobsApi, Shaped]]:
         yield base, app, shape
 
 
-#: One source needing her: the task names it ("Check Remotive again"), never a count.
-ONE_NAMED = r"/Check (?!\d+ job sites).+ again/"
+#: One source needing her: the task names it ("Update Remotive"), never a count.
+ONE_NAMED = r"/Update (?!\d+ job sites).+/"
 
 
 def _hold_collection(app: JobsApi) -> threading.Event:
@@ -107,7 +107,7 @@ def test_the_sites_row_arrives_after_home_and_redraws_the_card_alone(
         raise AssertionError("Tab never reached the rights row")
 
     shape.sources_gate.set()
-    page.wait_for(f"{TODO_TEXT}.includes('Check 2 job sites again')", message="the late sites row")
+    page.wait_for(f"{TODO_TEXT}.includes('Update 2 job sites')", message="the late sites row")
     assert page.evaluate("document.activeElement.dataset.task") == "rights", "focus was lost"
     assert shape.home_reads == reads, "the card was redrawn by reading Home again"
     count = page.evaluate("document.querySelector('.home__todocount').innerText")
@@ -130,7 +130,7 @@ def test_a_new_count_updates_the_row_without_calling_it_done(
     release = _hold_collection(app)
     try:
         open_home_past_setup(page, base)
-        page.wait_for(f"{TODO_TEXT}.includes('Check 2 job sites again')")
+        page.wait_for(f"{TODO_TEXT}.includes('Update 2 job sites')")
         shape.failing = 1
     finally:
         release.set()

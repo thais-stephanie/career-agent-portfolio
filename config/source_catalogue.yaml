@@ -1003,7 +1003,7 @@ sources:
       can prove it.
 
   - id: workable
-    name: Jobs by Workable XML
+    name: Workable
     region: global
     status: LIVE_INTEGRATION
     provider: workable

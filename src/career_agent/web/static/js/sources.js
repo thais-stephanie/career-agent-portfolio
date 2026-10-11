@@ -297,27 +297,9 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
       }),
     ]);
     host.appendChild(each);
-    each.appendChild(el('div', { className: 'career__cards' }, refreshRows.map(row => {
-      const source = sources.find(entry => entry.id === row.source_id) || {};
-      return el('article', { className: 'career__card', dataset: { source: row.source_id } }, [
-        el('h3', { text: row.name || source.name }),
-        el('p', { text: t('settings.sourceMarket', { market: source.region
-          ? t(`settings.market.${source.region}`) : t('value.notStated') }) }),
-        el('strong', { text: t(`sources.state.${row.state}`) }),
-        row.state === 'PAUSED' ? el('p', { text: t(source.refresh_mode === 'PAUSED'
-          ? 'settings.sourcePausedByYou' : 'settings.sourcePaused') }) : null,
-        row.state === 'FAILED' ? el('p', { text: t('settings.sourceFailure') }) : null,
-        reasonText(row) ? el('p', { className: 'src__reason', text: reasonText(row) }) : null,
-        coverageText(row, source) ? el('p', { text: coverageText(row, source) }) : null,
-        row.state === 'STALE' ? el('p', { className: 'src__reason', text: t('sources.staleHelp') }) : null,
-        row.state === 'BLOCKED' ? el('p', { text: row.blocker || source.reason_plain }) : null,
-        el('p', { text: progressText(row) }),
-        el('p', { text: t('settings.sourceUpdated', {
-          date: row.last_success ? shortDate(row.last_success) : t('sources.neverFresh'),
-        }) }),
-        source.can_refresh ? sourceControls(source, row) : null,
-      ]);
-    })));
+    each.appendChild(el('div', { className: 'career__cards' }, refreshRows.map((row) => siteCard(
+      row, sources.find((entry) => entry.id === row.source_id) || {},
+    ))));
     host.appendChild(body);
 
     // IS ANYTHING WRONG. First, and in five words, because the matrix below
@@ -388,6 +370,89 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
     body.appendChild(el('p', { className: 'src__note', text: payload.note || '' }));
   }
 
+  /**
+   * WHAT IS HAPPENING TO ONE JOB SITE, in one word the sentence below it
+   * explains. Six situations a person can act on differently, and none asks a
+   * layperson to repair anything: a temporary failure, a partial read whose
+   * results are kept, a pause, a site that cannot be updated from here, an
+   * update in progress, and a site not yet asked.
+   */
+  function situationOf(row, source) {
+    if (row.state === 'RUNNING') return 'running';
+    if (row.state === 'QUEUED') return 'waiting';
+    if (row.state === 'PAUSED') return 'paused';
+    if (row.state === 'BLOCKED' || source.can_refresh === false) return 'unavailable';
+    if (row.state === 'RATE_LIMITED') return 'refused';
+    if (row.state === 'FAILED') return row.cooldown_until ? 'failedWait' : 'failed';
+    if (row.state === 'PARTIAL') return 'partial';
+    if (row.state === 'NOT_STARTED' && !(source.postings > 0)) return 'never';
+    if (row.state === 'STALE' || row.state === 'DUE') return 'stale';
+    return 'ok';
+  }
+
+  /** One card per job site: who, what happened, what you can do, how it went. */
+  function siteCard(row, source) {
+    const name = row.name || source.name || row.source_id;
+    const situation = situationOf(row, source);
+    const date = row.cooldown_until ? shortDate(row.cooldown_until) : '';
+    const kept = typeof source.postings === 'number' && source.postings > 0
+      ? t(source.postings === 1 ? 'sites.kept.one' : 'sites.kept.many', { n: source.postings.toLocaleString() })
+      : '';
+    const status = el('p', { className: 'src__status', attrs: { role: 'status' } });
+    const act = source.can_refresh && !['unavailable', 'running', 'waiting', 'refused'].includes(situation)
+      ? button(t(`sites.act.${situation}`), async () => {
+        act.disabled = true;
+        try {
+          await api.refreshSource(source.id);
+          status.textContent = t('sites.started');
+          // The run is the app's one run: the bar at the top follows it.
+          if (collection) void collection.refresh();
+          await load(true);
+        } catch (error) {
+          status.textContent = error.userMessage || error.message;
+          act.disabled = false;
+        }
+      }, { className: 'btn btn--primary', attrs: { id: `site-act-${source.id}` } })
+      : null;
+    const progress = situation === 'running' ? progressText(row) : '';
+    const technical = [
+      el('li', { text: `${t('sites.tech.state')}: ${t(`sources.state.${row.state}`)}` }),
+      reasonText(row) ? el('li', { text: reasonText(row) }) : null,
+      coverageText(row, source) ? el('li', { text: coverageText(row, source) }) : null,
+      !['running'].includes(situation) && progressText(row) !== t('sources.notMeasured')
+        ? el('li', { text: progressText(row) }) : null,
+      source.last_error ? el('li', { text: t('sources.lastError', { error: source.last_error }) }) : null,
+      row.blocker ? el('li', { text: row.blocker }) : null,
+      el('li', { text: t('sites.tech.id', { id: row.source_id }) }),
+    ].filter(Boolean);
+    return el('article', {
+      className: `career__card src__site src__site--${situation}`,
+      dataset: { source: row.source_id, situation },
+    }, [
+      el('div', { className: 'src__sitehead' }, [
+        el('h3', { text: name }),
+        el('strong', {
+          className: `src__pill src__pill--${REFRESH_TONE[row.state] || 'quiet'}`,
+          text: t(`sites.pill.${situation}`),
+        }),
+      ]),
+      el('p', { className: 'src__sentence', text: t(`sites.card.${situation}`, { name, date }) }),
+      situation === 'unavailable' && (row.blocker || source.reason_plain)
+        ? el('p', { className: 'src__why', text: row.blocker || source.reason_plain }) : null,
+      kept && situation !== 'never' ? el('p', { className: 'src__kept', text: kept }) : null,
+      el('p', { className: 'src__updated', text: t('settings.sourceUpdated', {
+        date: row.last_success ? shortDate(row.last_success) : t('sources.neverFresh'),
+      }) }),
+      progress ? el('p', { className: 'src__progress', text: progress }) : null,
+      source.can_refresh ? sourceControls(source, row, act) : null,
+      status,
+      el('details', { className: 'src__tech' }, [
+        el('summary', { className: 'src__techhead', text: t('sites.tech.head') }),
+        el('ul', {}, technical),
+      ]),
+    ].filter(Boolean));
+  }
+
   function experimentalCard(source) {
     const on = Boolean(source.experimental.opted_in);
     const usable = source.experimental.available !== false;
@@ -439,7 +504,7 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
     ].filter(Boolean));
   }
 
-  function sourceControls(source, progress) {
+  function sourceControls(source, progress, act = null) {
     const status = el('p', { attrs: { role: 'status' } });
     const mode = select(['AUTO', 'ENABLED', 'PAUSED'].map(value => ({
       value, label: t(`settings.refreshMode.${value}`),
@@ -447,19 +512,11 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
       try { await api.setSourceSchedule(source.id, value); await load(true); }
       catch (error) { status.textContent = error.userMessage || error.message; }
     });
-    const refresh = button(t(progress.state === 'PAUSED' ? 'settings.refreshAnyway' : 'settings.refreshNow'),
-      async () => {
-        refresh.disabled = true;
-        try {
-          await api.refreshSource(source.id);
-          // The run is the app's one run: the bar at the top follows it.
-          if (collection) void collection.refresh();
-          await load(true);
-        }
-        catch (error) { status.textContent = error.userMessage || error.message; refresh.disabled = false; }
-      });
-    refresh.disabled = progress.state === 'RUNNING';
-    return el('div', {}, [field(`source-mode-${source.id}`, t('settings.refreshTiming'), mode), refresh, status]);
+    return el('div', { className: 'src__controls' }, [
+      act,
+      field(`source-mode-${source.id}`, t('settings.refreshTiming'), mode),
+      status,
+    ].filter(Boolean));
   }
 
   /**

@@ -74,6 +74,14 @@ def outcome_of(status: str, stats: Mapping[str, Any]) -> tuple[str, str | None]:
     if rate_limited(stats):
         return RATE_LIMITED, "REFUSED"
     if str(status).upper() not in {"OK", "SUCCESS", "COMPLETE"}:
+        # A run that ended in an error AFTER storing postings read part of the
+        # source (progress._state_of says the same for the profile's own ledger).
+        # Recording it as FAILED let another profile's sidebar report "read
+        # nothing" for a source whose postings are in the shared corpus.
+        from career_agent.sources.progress import REASON_SOME_FAILED, stored
+
+        if stored(stats) > 0:
+            return PARTIAL, REASON_SOME_FAILED
         return FAILED, "ERROR"
     reason = partial_reason(stats)
     if reason is not None:
