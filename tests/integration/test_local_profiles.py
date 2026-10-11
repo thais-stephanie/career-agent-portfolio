@@ -451,3 +451,34 @@ def test_search_fit_feedback_stays_in_its_profile(install: ProfileHost) -> None:
         finally:
             conn.close()
         assert "search_fit_feedback" not in names, "feedback reached the shared catalogue"
+
+
+def test_an_upgrade_makes_one_verified_backup_and_an_ordinary_opening_none(
+    install: ProfileHost, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import types
+
+    from career_agent.storage import auto_backup
+    from career_agent.storage.db import connect
+
+    host = install
+    profile = load_registry(host.root).current
+    db, config_dir, _ = profile.paths(host.root)
+    folder = auto_backup.folder(host.root / "data")
+    conn = connect(db)
+    try:
+        # An ordinary opening: nothing pending, nothing copied.
+        host._backup_before_upgrade(conn, profile, db, config_dir)
+        assert not folder.exists() or auto_backup.listing(host.root / "data")["count"] == 0
+        # An upgrade about to change a profile that holds data.
+        monkeypatch.setattr(
+            "career_agent.storage.db.pending_migrations",
+            lambda c: [types.SimpleNamespace(version=9999)],
+        )
+        host._backup_before_upgrade(conn, profile, db, config_dir)
+        host._backup_before_upgrade(conn, profile, db, config_dir)
+    finally:
+        conn.close()
+    shown = auto_backup.listing(host.root / "data")
+    assert shown["count"] == 1 and shown["entries"][0]["verified"]
+    assert shown["entries"][0]["profile_id"] == profile.id

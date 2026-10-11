@@ -4268,6 +4268,19 @@ const EN = {
   'look.languageSub': 'Changes the words in the app. Job ads stay in the language they were written in.',
   'look.region.en': 'United States',
   'look.region.pt-BR': 'Brasil',
+  'backup.auto.head': 'Automatic copies',
+  'backup.auto.sub': 'Career Agent copies your profile only before an upgrade changes it, once per upgrade, '
+    + 'and keeps the newest {keep} per profile (at most {gb} GB in total). Opening the app, collecting jobs '
+    + 'and editing skills or preferences copy nothing.',
+  'backup.auto.none': 'No automatic copy has been needed yet.',
+  'backup.auto.summary': '{n} automatic copies, {size} in total.',
+  'backup.auto.row': '{date}: {profile}, before upgrade {from} to {to} ({size})',
+  'backup.auto.skipped': 'The last upgrade was not copied first: {why}.',
+  'backup.auto.why.TOO_LARGE': 'the copies would not fit in the limit',
+  'backup.auto.why.NOT_VERIFIED': 'the copy could not be checked',
+  'backup.auto.why.ERROR': 'a copy could not be written',
+  'backup.auto.others': 'Copies you make yourself and older files are never touched or listed here. '
+    + 'The job catalogue is public data and is not copied automatically.',
   'backup.head': 'Backup',
   'backup.sub': 'Saving or opening a backup from this screen is not available yet. Everything Career Agent keeps is '
     + 'in its folder on this computer, so a copy of that folder, made while Career Agent is closed, is a full '
@@ -9075,6 +9088,19 @@ const PT_BR = {
   'look.languageSub': 'Muda as palavras do app. Os anúncios de vaga ficam no idioma em que foram escritos.',
   'look.region.en': 'Estados Unidos',
   'look.region.pt-BR': 'Brasil',
+  'backup.auto.head': 'Cópias automáticas',
+  'backup.auto.sub': 'O Career Agent copia o seu perfil apenas antes de uma atualização mudá-lo, uma vez por '
+    + 'atualização, e guarda as {keep} mais recentes por perfil (no máximo {gb} GB no total). Abrir o app, '
+    + 'coletar vagas e editar habilidades ou preferências não copiam nada.',
+  'backup.auto.none': 'Ainda não foi preciso fazer nenhuma cópia automática.',
+  'backup.auto.summary': '{n} cópias automáticas, {size} no total.',
+  'backup.auto.row': '{date}: {profile}, antes da atualização {from} para {to} ({size})',
+  'backup.auto.skipped': 'A última atualização não foi copiada antes: {why}.',
+  'backup.auto.why.TOO_LARGE': 'as cópias não caberiam no limite',
+  'backup.auto.why.NOT_VERIFIED': 'a cópia não pôde ser conferida',
+  'backup.auto.why.ERROR': 'não foi possível gravar uma cópia',
+  'backup.auto.others': 'Cópias que você faz por conta própria e arquivos antigos nunca são tocados nem '
+    + 'listados aqui. O catálogo de vagas é dado público e não é copiado automaticamente.',
   'backup.head': 'Cópia de segurança',
   'backup.sub': 'Ainda não dá para salvar ou abrir uma cópia de segurança por esta tela. Tudo o que o Career Agent '
     + 'guarda fica na pasta dele neste computador, então uma cópia dessa pasta, feita com o Career Agent fechado, é '

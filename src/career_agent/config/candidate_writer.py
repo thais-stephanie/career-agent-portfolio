@@ -393,7 +393,10 @@ def _write_atomically(target: Path, text: str) -> None:
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
-        shutil.copy2(target, target.with_suffix(target.suffix + ".backup"))
+        previous = target.with_suffix(target.suffix + ".backup")
+        # An equivalent copy is not made again (a save that changes nothing).
+        if not (previous.exists() and previous.read_bytes() == target.read_bytes()):
+            shutil.copy2(target, previous)
 
     descriptor, name = tempfile.mkstemp(dir=target.parent, prefix=".tmp-", suffix=".yaml")
     try:

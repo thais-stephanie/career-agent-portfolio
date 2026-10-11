@@ -553,6 +553,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.web.auto_update import register_auto_update
 
         register_auto_update(self)
+        from career_agent.web.backups_api import register_backups
+
+        register_backups(self)
         from career_agent.web.first_search import register_first_search
 
         register_first_search(self)

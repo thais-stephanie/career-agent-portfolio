@@ -1413,6 +1413,12 @@ function base64Of(bytes) {
 /** Read-only maintenance status; never starts collection. */
 export async function getSourceMaintenance() { return request('/source-maintenance'); }
 
+/** The automatic backups the app keeps (read only). */
+export async function getBackups() {
+  if (MOCK) return { count: 0, total_bytes: 0, entries: [], skipped: [], policy: {} };
+  return request('/backups');
+}
+
 /** The optional update of overdue job sites when the app opens (off by default). */
 export async function getAutoUpdate() {
   if (MOCK) return { enabled: false, available: false, limits: {}, last_result: null };

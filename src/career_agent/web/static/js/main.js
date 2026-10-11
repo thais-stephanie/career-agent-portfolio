@@ -2870,6 +2870,44 @@ function paintBackup() {
     settingsCard(t('privacy.head'), '', [el('ul', { className: 'privacy' },
       ['privacy.local', 'privacy.noAccount', 'privacy.sites', 'privacy.ai'].map(tick))]),
   ]);
+  void paintAutomaticCopies();
+}
+
+function megabytes(bytes) {
+  const mb = Number(bytes) / (1024 * 1024);
+  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.max(1, Math.round(mb))} MB`;
+}
+
+/** The copies the app itself made: how many, how big, when, and the policy. */
+async function paintAutomaticCopies() {
+  const host = document.getElementById('settings-backup-host');
+  let data;
+  try {
+    data = await api.getBackups();
+  } catch {
+    return;
+  }
+  const rows = data.entries.map((entry) => el('li', {
+    text: t('backup.auto.row', {
+      date: String(entry.created_at).slice(0, 10), profile: entry.profile_label || entry.profile_id,
+      from: entry.schema_before, to: entry.schema_after, size: megabytes(entry.bytes),
+    }),
+  }));
+  const skipped = (data.skipped || []).slice(-1).map((item) => el('p', {
+    className: 'setcard__warn',
+    text: t('backup.auto.skipped', { why: t(`backup.auto.why.${String(item.why).split(':')[0]}`) }),
+  }));
+  const card = settingsCard(t('backup.auto.head'), t('backup.auto.sub', {
+    keep: data.policy.keep_per_profile, gb: Math.round(Number(data.policy.max_total_bytes) / 1024 ** 3),
+  }), [
+    data.count
+      ? el('p', { text: t('backup.auto.summary', { n: data.count, size: megabytes(data.total_bytes) }) })
+      : el('p', { text: t('backup.auto.none') }),
+    rows.length ? el('ul', { className: 'backup__list' }, rows) : null,
+    ...skipped,
+    el('p', { className: 'setcard__hint', text: t('backup.auto.others') }),
+  ].filter(Boolean));
+  if (settingsTab === 'backup' && host.isConnected) host.appendChild(card);
 }
 
 // Smart matching's On / Off follows the AI block, which says so whenever it

@@ -16,4 +16,4 @@ Not merged, not pushed. Synthetic data only.
 - [ ] 8. Resume Tailor in the sidebar
 - [x] 9. Settings, People on this computer (every profile listed, current marked, rename in place, switch, delete only when applicable; text at reading width)
 - [ ] 10. Text wrapping across the app
-- [ ] 11. Backups and disk use
+- [x] 11. Backups and disk use (app makes no database copy on edits or openings; one verified automatic backup before an upgrade, newest 3 per profile, 2 GiB cap, listed in Settings; docs/BACKUPS.md; inventory delivered separately)

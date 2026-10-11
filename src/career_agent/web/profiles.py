@@ -104,6 +104,7 @@ class ProfileHost:
         sync_shipped_config(self.root, profile)
         conn = connect(db)
         try:
+            self._backup_before_upgrade(conn, profile, db, config_dir)
             migrate(conn)
             identity_of(conn, RuntimeMode.PERSONAL)
             bind_database(conn, profile.id)
@@ -124,6 +125,32 @@ class ProfileHost:
             if runner is not None:
                 self.gate(api, runner)
         return api
+
+    def _backup_before_upgrade(
+        self, conn: Any, profile: Profile, db: Path, config_dir: Path
+    ) -> None:
+        """The one automatic database copy (storage/auto_backup.py): only when an
+        upgrade is about to change a profile that already holds data, once per
+        schema step, never on an ordinary opening."""
+        from career_agent.storage.auto_backup import backup_before_upgrade
+        from career_agent.storage.db import applied_ledger, pending_migrations
+
+        try:
+            ledger = applied_ledger(conn)
+            pending = pending_migrations(conn) if ledger else []
+        except Exception:  # noqa: BLE001 - migrate() reports its own refusals
+            return
+        if not ledger or not pending:
+            return
+        backup_before_upgrade(
+            self.root / "data",
+            profile_id=profile.id,
+            profile_label=profile.label,
+            db=db,
+            config_dir=config_dir,
+            pending=[str(m.version) for m in pending],
+            schema_now=max(ledger),
+        )
 
     def serve(self, profile: Profile, api: JobsApi) -> None:
         """Record that `profile` is what this process now serves."""
