@@ -9,12 +9,14 @@ The legacy search API is retained only as an offline protocol regression fixture
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from career_agent.domain.enums import CollectionStatus, PipelineRunStatus
+from career_agent.net.deadline import BudgetExpired
 from career_agent.net.fetcher import FetchError, HttpFetcher
 from career_agent.providers.base import canonical_url as canonical_posting_url
 from career_agent.providers.base import resolve_metadata
@@ -24,6 +26,7 @@ from career_agent.providers.workable import (
     company_website,
     to_stub,
 )
+from career_agent.providers.workable_feed import FeedInterrupted
 from career_agent.providers.workable_xml import WorkableXmlProvider as WorkableProvider
 from career_agent.storage.db import transaction
 from career_agent.storage.records import (
@@ -40,6 +43,7 @@ from career_agent.storage.repositories import (
     PipelineRunRepo,
     ProviderPayloadRepo,
     SourceBoardRepo,
+    sha256_text,
 )
 
 PROVIDER = "workable"
@@ -72,6 +76,17 @@ class WorkableStats:
     jobs_new: int = 0
     jobs_seen_again: int = 0
     jobs_changed: int = 0
+    #: Postings the feed repeated exactly as already held; an update leaves them
+    #: alone (nothing written, nothing queued for a new score).
+    jobs_unchanged: int = 0
+    #: Why the read stopped before the end of the feed ("TIME_BUDGET",
+    #: "REQUEST_BUDGET", "CANCELLED"), or None when it reached the end. A
+    #: stopped read is a pending update, never a finished one.
+    deferred_reason: str | None = None
+    #: The server answered 304: the feed is the one already read in full.
+    feed_not_modified: bool = False
+    resumed: bool = False
+    feed_last_modified: str | None = None
     employer_identities_corrected: int = 0
     descriptions_non_empty: int = 0
     descriptions_empty: int = 0
@@ -115,6 +130,13 @@ class WorkableStats:
             "jobs_new": self.jobs_new,
             "jobs_seen_again": self.jobs_seen_again,
             "jobs_changed": self.jobs_changed,
+            "jobs_unchanged": self.jobs_unchanged,
+            "deferred_reason": self.deferred_reason,
+            # A read cut short after it read something carries on at the next one.
+            "continues": bool(self.deferred_reason and self.postings_seen > 0),
+            "feed_not_modified": self.feed_not_modified,
+            "resumed": self.resumed,
+            "feed_last_modified": self.feed_last_modified,
             "employer_identities_corrected": self.employer_identities_corrected,
             "descriptions_non_empty": self.descriptions_non_empty,
             "descriptions_empty": self.descriptions_empty,
@@ -149,9 +171,20 @@ class WorkableCollector:
         query: str | None = None,
         day_range: int | None = None,
         xml_path: Path | None = None,
+        session: Any = None,
+        skip_unchanged: bool = False,
+        stop_reason: Any = None,
+        progress: Any = None,
     ) -> None:
         self.conn = conn
         self.fetcher = fetcher
+        #: An UPDATE (see `pipeline.workable_update`) skips what the feed repeats
+        #: unchanged, stops when asked, and keeps a cursor so the next run
+        #: continues. The command line keeps the full pass.
+        self.skip_unchanged = skip_unchanged
+        self._stop_reason = stop_reason or (lambda: None)
+        self._progress = progress
+        self._last_tick = 0.0
         #: Both default to None, and both are recorded in the stats when they
         #: are not. A narrowing nobody can see afterwards is a narrowing that
         #: turns into an unexplained gap in the corpus.
@@ -167,6 +200,10 @@ class WorkableCollector:
         )
         if xml_path is not None:
             self.provider = WorkableProvider(fetcher, xml_path=xml_path)
+        if session is not None:
+            self.provider = WorkableProvider(
+                fetcher, session=session, check=self._check, on_phase=self._phase
+            )
         self._canonical_jobs: dict[str, str] = {}
         self.companies = CompanyRepo(conn)
         self.boards = SourceBoardRepo(conn)
@@ -206,6 +243,7 @@ class WorkableCollector:
         #
         # A failure now ends the WALK and keeps everything already written.
         stopped = False
+        own = self._own_rows() if self.skip_unchanged else {}
         try:
             for page in self.provider.walk(query=self.query, day_range=self.day_range):
                 stats.claimed_total = stats.claimed_total or page.claimed_total
@@ -213,8 +251,17 @@ class WorkableCollector:
                     if should_stop is not None and should_stop():
                         stopped = True
                         break
+                    reason = self._stop_reason()
+                    if reason:
+                        stats.deferred_reason = reason
+                        stopped = True
+                        break
                     stats.postings_seen += 1
-                    self._handle(job, held_external_ids, stats)
+                    if self.skip_unchanged and self._unchanged(job, own, held_external_ids):
+                        stats.jobs_unchanged += 1
+                    else:
+                        self._handle(job, held_external_ids, stats)
+                    self._tick("reading", stats.postings_seen, stats.claimed_total)
                 for key in ("xml_jobs", "xml_bytes", "filtered_out", "feed_duplicates"):
                     setattr(stats, key, getattr(self.provider, key, 0))
                 stats.pages_read = self.provider.pages_read
@@ -224,6 +271,22 @@ class WorkableCollector:
                     on_progress(stats.postings_seen, stats.claimed_total)
                 if stopped:
                     break
+                # Only a fully handled page moves the cursor.
+                getattr(self.provider, "page_done", lambda: None)()
+            if not stopped:
+                # The feed was read to its end (or confirmed unchanged by a
+                # 304): the only moment it counts as an update.
+                getattr(self.provider, "finish", lambda: None)()
+        except (BudgetExpired, FeedInterrupted) as exc:
+            # A budget or a Stop is a pending update, not a failure: what was
+            # handled is kept, the cursor says where to continue, and nothing is
+            # recorded as processed.
+            # A Stop pressed while the fetcher was mid-transfer reaches here as
+            # its budget error; the person's reason is the one to report.
+            stats.deferred_reason = (
+                self._stop_reason() or getattr(exc, "reason", None) or str(exc) or "TIME_BUDGET"
+            )
+            stopped = True
         except (FetchError, ValueError) as exc:
             # STILL A FAILURE, and still not an empty feed -- conflating those
             # is how a network blip closes a company's whole posting history.
@@ -244,12 +307,86 @@ class WorkableCollector:
         stats.pages_read = self.provider.pages_read
         stats.stopped_early = self.provider.stopped_early
         stats.repeated_itself = self.provider.repeated_itself
+        stats.feed_not_modified = bool(getattr(self.provider, "not_modified", False))
+        stats.resumed = bool(getattr(self.provider, "resumed", False))
+        stats.feed_last_modified = getattr(self.provider, "feed_last_modified", None)
+        for key in ("xml_jobs", "xml_bytes", "filtered_out", "feed_duplicates"):
+            setattr(stats, key, getattr(self.provider, key, 0))
 
-        stats.elapsed_ms = int((time.monotonic() - started) * 1000)
+        stats.elapsed_ms = max(1, int((time.monotonic() - started) * 1000))
         stats.http = self.fetcher.stats.as_dict()
         with transaction(self.conn):
             self.runs.finish(run_id, PipelineRunStatus.OK, stats=stats.as_dict(), error=None)
         return stats
+
+    # -- an update: what to leave alone, when to stop ----------------------
+
+    def _check(self) -> None:
+        reason = self._stop_reason()
+        if reason:
+            raise FeedInterrupted(reason)
+
+    def _phase(self, phase: str, done: int, total: int | None) -> None:
+        self._tick(phase, done, total, unit="bytes")
+
+    def _tick(self, phase: str, done: int, total: int | None, unit: str = "jobs") -> None:
+        """Progress for a person, at most once a second."""
+        if self._progress is None:
+            return
+        now = time.monotonic()
+        if now - self._last_tick < 1.0 and phase == getattr(self, "_last_phase", phase):
+            return
+        self._last_tick, self._last_phase = now, phase
+        self._progress({"phase": phase, "done": done, "total": total, "unit": unit})
+
+    def _own_rows(self) -> dict[str, tuple[Any, ...]]:
+        """What this source already holds, one tuple per posting."""
+        return {
+            str(r[0]): tuple(r[1:])
+            for r in self.conn.execute(
+                "SELECT external_id, content_hash, title, url, location_raw, department,"
+                " posted_at FROM job WHERE provider = ? AND external_id IS NOT NULL",
+                (PROVIDER,),
+            )
+        }
+
+    def _unchanged(
+        self, job: dict[str, Any], own: dict[str, tuple[Any, ...]], held_elsewhere: dict[str, str]
+    ) -> bool:
+        """True when the feed repeats a posting exactly as it is already held.
+
+        Own postings are compared on the hash of their description and the
+        fields the corpus shows. A posting another source holds is compared on
+        the sighting already recorded: writing the same sighting again would
+        queue the posting for a new score for nothing.
+        """
+        stub = to_stub(job)
+        if stub is None:
+            return False
+        if stub.external_id in held_elsewhere:
+            row = self.conn.execute(
+                "SELECT url, payload_json FROM job_discovery_source"
+                " WHERE source = ? AND external_id = ?",
+                (PROVIDER, stub.external_id),
+            ).fetchone()
+            return bool(
+                row
+                and row[0] == stub.url
+                and row[1] == json.dumps(job, sort_keys=True, ensure_ascii=False)
+            )
+        held = own.get(stub.external_id)
+        if held is None:
+            return False
+        posting = self.provider.fetch_posting(None, stub)  # type: ignore[arg-type]
+        text_hash = sha256_text(posting.description_text) if posting.description_text else None
+        return held == (
+            text_hash,
+            stub.title,
+            stub.url,
+            stub.location_raw,
+            stub.department,
+            stub.posted_at,
+        )
 
     # -- one posting -------------------------------------------------------
 

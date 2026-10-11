@@ -78,14 +78,20 @@ def outcome_of(status: str, stats: Mapping[str, Any]) -> tuple[str, str | None]:
         # source (progress._state_of says the same for the profile's own ledger).
         # Recording it as FAILED let another profile's sidebar report "read
         # nothing" for a source whose postings are in the shared corpus.
-        from career_agent.sources.progress import REASON_SOME_FAILED, stored
+        from career_agent.sources.progress import REASON_SOME_FAILED, obtained_data
 
-        if stored(stats) > 0:
+        if obtained_data(stats):
             return PARTIAL, REASON_SOME_FAILED
         return FAILED, "ERROR"
     reason = partial_reason(stats)
     if reason is not None:
-        return PARTIAL, reason
+        from career_agent.sources.progress import obtained_data
+
+        # Updated "in part" only when this run read valid postings; one that read
+        # none failed, whatever older runs left in the corpus.
+        if obtained_data(stats):
+            return PARTIAL, reason
+        return FAILED, "ERROR"
     return COMPLETE, None
 
 
@@ -142,7 +148,12 @@ def record(
     table = _table(conn)
     if table is None:
         return
+    from career_agent.sources.progress import non_event
+
     for key, own_status, part in _slices(stage, status, stats):
+        if non_event(part):
+            # Told to wait before reading anything: no news about the source.
+            continue
         outcome, reason = outcome_of(own_status, part)
         shared_counts = True
         if query_driven(part):

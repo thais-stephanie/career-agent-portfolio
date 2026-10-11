@@ -1968,6 +1968,8 @@ const EN = {
     + 'available.',
   'sites.card.partial': '{name} was updated in part. What was read is kept, and the rest is picked '
     + 'up in a later update.',
+  'sites.card.partialContinues': '{name} was read in part. What was read is kept, and the next update '
+    + 'continues from where it stopped, without downloading the file again.',
   'sites.card.never': '{name} has not been asked for jobs yet.',
   'sites.card.stale': 'The last update of {name} was more than 3 days ago, so newer jobs may be missing.',
   'sites.card.ok': '{name} is up to date.',
@@ -1976,6 +1978,7 @@ const EN = {
   'sites.act.failed': 'Try updating again',
   'sites.act.failedWait': 'Try updating anyway',
   'sites.act.partial': 'Update again',
+  'sites.act.partialContinues': 'Continue updating',
   'sites.act.paused': 'Update anyway',
   'sites.act.never': 'Update now',
   'sites.act.stale': 'Update now',
@@ -2269,6 +2272,14 @@ const EN = {
   'auto.pointNever': 'Never runs an AI reading, never recalculates your whole list, and sends nothing about you.',
   'auto.pointLimit': 'Only runs while the app is open. A limited update is not a full search: '
     + 'use the update buttons for a complete one.',
+  'auto.pointWorkable': 'Workable publishes one very large public file. It is read in a step of its own, up to '
+    + '{minutes} minutes: the server is asked first whether anything changed, and only new or changed jobs are '
+    + 'saved. If time runs out, what was read is kept and the next update continues from there.',
+  'auto.workableDone': 'Workable: {new} new and {changed} changed jobs saved.',
+  'auto.workableSame': 'Workable: nothing had changed since the last read.',
+  'auto.workablePartial': 'Workable: read in part ({new} new and {changed} changed so far). The next update '
+    + 'continues from there.',
+  'auto.workableNone': 'Workable could not be read this time. The jobs already found stay available.',
   'auto.neverRan': 'No automatic update has run yet.',
   'auto.last': 'Last automatic update: {date}. {updated} of {asked} sites updated, {later} left for later, '
     + '{jobs} new jobs.',
@@ -4486,6 +4497,11 @@ const EN = {
   // Finding jobs: one drawing for every screen that shows a run.
   'collect.now': 'Now reading {source} ({time})',
   'collect.nowBoards': 'Now reading {source}: {done} of {total} employer boards ({time})',
+  'collect.feed.downloading': 'Downloading {source}: {done} of {total} MB ({time})',
+  'collect.feed.downloadingOpen': 'Downloading {source}: {done} MB so far ({time})',
+  'collect.feed.staging': 'Preparing {source} to be read. This can take a few minutes ({time})',
+  'collect.feed.reading': 'Reading {source}: {done} of {total} jobs ({time})',
+  'collect.feed.readingOpen': 'Reading {source}: {done} jobs so far ({time})',
   'collect.elapsed': '{time} so far',
   'collect.deferred': '{n} sources are not being refreshed in this run',
   'collect.slow': 'Some sources take a few minutes to read. It is still working.',
@@ -6862,6 +6878,8 @@ const PT_BR = {
     + 'continuam disponíveis.',
   'sites.card.partial': '{name} foi atualizado em parte. O que foi lido fica guardado, e o resto entra numa próxima '
     + 'atualização.',
+  'sites.card.partialContinues': '{name} foi lido em parte. O que foi lido fica guardado, e a próxima atualização '
+    + 'continua de onde parou, sem baixar o arquivo de novo.',
   'sites.card.never': '{name} ainda não foi consultado.',
   'sites.card.stale': 'A última atualização de {name} foi há mais de 3 dias, então vagas mais novas podem estar '
     + 'faltando.',
@@ -6871,6 +6889,7 @@ const PT_BR = {
   'sites.act.failed': 'Tentar atualizar de novo',
   'sites.act.failedWait': 'Tentar atualizar mesmo assim',
   'sites.act.partial': 'Atualizar de novo',
+  'sites.act.partialContinues': 'Continuar atualizando',
   'sites.act.paused': 'Atualizar mesmo assim',
   'sites.act.never': 'Atualizar agora',
   'sites.act.stale': 'Atualizar agora',
@@ -7161,6 +7180,14 @@ const PT_BR = {
   'auto.pointNever': 'Nunca faz leitura com IA, nunca recalcula toda a sua lista e não envia nada sobre você.',
   'auto.pointLimit': 'Só roda com o app aberto. Uma atualização limitada não é uma busca completa: '
     + 'use os botões de atualizar para uma completa.',
+  'auto.pointWorkable': 'A Workable publica um único arquivo público muito grande. Ele é lido num passo à parte, '
+    + 'por até {minutes} minutos: primeiro se pergunta ao servidor se algo mudou, e só as vagas novas ou alteradas '
+    + 'são guardadas. Se o tempo acabar, o que foi lido fica guardado e a próxima atualização continua dali.',
+  'auto.workableDone': 'Workable: {new} vagas novas e {changed} alteradas guardadas.',
+  'auto.workableSame': 'Workable: nada tinha mudado desde a última leitura.',
+  'auto.workablePartial': 'Workable: lido em parte ({new} novas e {changed} alteradas até agora). A próxima '
+    + 'atualização continua dali.',
+  'auto.workableNone': 'Não foi possível ler a Workable desta vez. As vagas já encontradas continuam disponíveis.',
   'auto.neverRan': 'Nenhuma atualização automática rodou ainda.',
   'auto.last': 'Última atualização automática: {date}. {updated} de {asked} sites atualizados, {later} '
     + 'ficaram para depois, {jobs} vagas novas.',
@@ -9368,6 +9395,11 @@ const PT_BR = {
   'profileRow.workModelsExcluded': 'Formatos de trabalho que nunca aparecem em Encontrar vagas',
   'collect.now': 'Lendo agora {source} ({time})',
   'collect.nowBoards': 'Lendo agora {source}: {done} de {total} páginas de empregadores ({time})',
+  'collect.feed.downloading': 'Baixando {source}: {done} de {total} MB ({time})',
+  'collect.feed.downloadingOpen': 'Baixando {source}: {done} MB até agora ({time})',
+  'collect.feed.staging': 'Preparando {source} para a leitura. Isso pode levar alguns minutos ({time})',
+  'collect.feed.reading': 'Lendo {source}: {done} de {total} vagas ({time})',
+  'collect.feed.readingOpen': 'Lendo {source}: {done} vagas até agora ({time})',
   'collect.elapsed': '{time} até agora',
   'collect.deferred': '{n} fontes não estão sendo atualizadas nesta execução',
   'collect.slow': 'Algumas fontes levam alguns minutos para ler. Continua funcionando.',

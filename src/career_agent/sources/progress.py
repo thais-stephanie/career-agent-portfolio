@@ -334,11 +334,14 @@ def _state_of(row: sqlite3.Row, stats: Mapping[str, Any]) -> RefreshState:
         # 550 MB transfer did not finish). "Last check failed" told the person
         # to fix something; nothing was hers to fix, and most of her jobs came
         # from that run. Nothing stored is still a failure.
-        return RefreshState.PARTIAL if stored(stats) else RefreshState.FAILED
+        return RefreshState.PARTIAL if obtained_data(stats) else RefreshState.FAILED
     # One rule with `partial_reason`, so the app and `source-coverage` can
     # never disagree about the same run.
     if partial_reason(stats) is not None:
-        return RefreshState.PARTIAL
+        # "Updated in part" is a claim about THIS run: it must have read valid
+        # postings. Jobs kept from earlier runs stay available but are not what
+        # an update that read none obtained.
+        return RefreshState.PARTIAL if obtained_data(stats) else RefreshState.FAILED
     return RefreshState.COMPLETE
 
 
@@ -374,8 +377,26 @@ def _latest_runs(conn: sqlite3.Connection) -> dict[str, sqlite3.Row]:
     ).fetchall()
     latest: dict[str, sqlite3.Row] = {}
     for row in rows:
+        if _non_event(row):
+            continue
         latest.setdefault(str(row["stage"]), row)
     return latest
+
+
+def _non_event(row: sqlite3.Row) -> bool:
+    """A finished run that was told to wait and read nothing is not an update.
+
+    The time budget, a Stop or a full disk ended it before a single valid
+    posting arrived (`deferred_reason`). It stays in the ledger as a receipt but
+    must not change what the site card says: the earlier verdict still stands.
+    """
+    if row["finished_at"] is None:
+        return False
+    try:
+        stats = json.loads(row["stats_json"] or "{}")
+    except (ValueError, TypeError):
+        return False
+    return isinstance(stats, dict) and non_event(stats)
 
 
 #: Postings a run wrote, from the counters every feed collector records.
@@ -383,6 +404,39 @@ _STORED_KEYS = ("jobs_new", "jobs_changed", "jobs_seen_again")
 _STORED_SQL = " + ".join(
     f"COALESCE(json_extract(stats_json, '$.{key}'), 0)" for key in _STORED_KEYS
 )
+
+
+#: Counters that say a run READ valid postings, whatever it did with them.
+_OBSERVED_KEYS = (
+    "postings_seen",
+    "postings_observed",
+    "raw_results",
+    "retrieved",
+    "jobs_unchanged",
+)
+
+
+def obtained_data(stats: Mapping[str, Any]) -> bool:
+    """Did THIS run obtain at least one valid posting?
+
+    Only its own counters answer: written (new, changed, seen again), read, or a
+    board that answered. The corpus is never asked, because jobs held from older
+    runs would make a run that read nothing look partly successful.
+    """
+    if stored(stats) > 0:
+        return True
+    for key in _OBSERVED_KEYS:
+        value = stats.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return True
+    succeeded = stats.get("boards_succeeded")
+    return isinstance(succeeded, int) and not isinstance(succeeded, bool) and succeeded > 0
+
+
+def non_event(stats: Mapping[str, Any]) -> bool:
+    """A run that was deferred (budget, Stop, disk) before reading anything."""
+    deferred = bool(stats.get("deferred_reason") or stats.get("boards_deferred"))
+    return deferred and not obtained_data(stats)
 
 
 def stored(stats: Mapping[str, Any]) -> int:

@@ -7,6 +7,7 @@ recorder, so these tests are about WHEN and WITHIN WHAT it runs.
 
 from __future__ import annotations
 
+import json
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -60,6 +61,23 @@ def recorded(monkeypatch):
 
     def fake(conn, **kwargs):
         calls.append(kwargs)
+        if kwargs.get("provider") == "workable":
+            # Workable is its own step, with its own allowance.
+            return {
+                "selected": ["feed:workable"],
+                "results": [
+                    {
+                        "key": "feed:workable",
+                        "outcome": "DEFERRED",
+                        "reason": "TIME_BUDGET",
+                        "attempted": True,
+                        "jobs_new": 3,
+                        "jobs_changed": 1,
+                        "jobs_unchanged": 40,
+                    }
+                ],
+                "status": "FINISHED",
+            }
         return {
             "selected": ["greenhouse:stale", "greenhouse:never"],
             "results": [
@@ -88,6 +106,7 @@ def test_it_is_off_until_the_person_chooses_and_then_it_says_what_it_will_do(app
         "max_requests": 1000,
         "min_gap_hours": 6,
         "score_limit": 5000,
+        "workable_minutes": 15,
     }
     assert call(app, "POST", "/api/auto-update/run") == {"started": False, "reason": "DISABLED"}
     assert recorded == [], "nothing runs until it is chosen"
@@ -122,13 +141,23 @@ def test_opening_starts_one_bounded_run_and_reopening_does_not_start_another(app
     app.retrieval.join(30)
     second = call(app, "POST", "/api/auto-update/run")
     assert second == {"started": False, "reason": "RECENT"}
-    assert len(recorded) == 1
-    asked = recorded[0]
+    assert len(recorded) == 2, "the quick run, then Workable as a step of its own"
+    asked, workable = recorded
     assert asked["budget_seconds"] == 600 and asked["max_items"] == 60
-    assert asked["stale_hours"] == 72 and "profile_blocks" in asked
+    assert asked["stale_hours"] == 72 and "provider" not in asked
+    assert asked["profile_blocks"]["workable"] == "RUNS_SEPARATELY"
+    assert workable["provider"] == "workable" and workable["budget_seconds"] == 900
+    assert workable["max_items"] == 1 and workable["stale_hours"] == 72
     status = call(app, "GET", "/api/auto-update")
     result = status["last_result"]
-    assert result["asked"] == 1 and result["updated"] == 1 and result["left_for_later"] == 1
+    assert result["asked"] == 2 and result["updated"] == 1 and result["left_for_later"] == 1
+    assert result["workable"] == {
+        "outcome": "DEFERRED",
+        "reason": "TIME_BUDGET",
+        "jobs_new": 3,
+        "jobs_changed": 1,
+        "jobs_unchanged": 40,
+    }
     assert result["stopped"] == "BUDGET" and status["last_run_at"]
 
 
@@ -199,3 +228,82 @@ def test_only_what_arrived_is_scored_and_a_whole_recalculation_is_left_to_the_pe
     monkeypatch.setattr(app.rescore, "start", lambda work, run_id: started.append(work))
     assert auto_update._score(app) == expected
     assert bool(started) == (expected == "STARTED")
+
+
+# -- Workable: the per-site update and the progress a person sees ----------------
+
+
+def _workable_feed(count: int):
+    from tests.integration.test_workable_update import Server, feed_xml
+
+    return Server(feed_xml(count))
+
+
+def _use_feed(monkeypatch, server, gate=None):
+    """Point the app's fetcher at an in-memory Workable (nothing leaves the machine)."""
+    import httpx
+
+    def handler(request):
+        if gate is not None:
+            gate.wait(20)
+        return server.handler(request)
+
+    class Local(auto_update._StoppableFetcher):
+        def __init__(self, **kwargs):
+            client = httpx.Client(transport=httpx.MockTransport(handler))
+            super().__init__(client=client, request_delay_seconds=0, **kwargs)
+
+    monkeypatch.setattr(auto_update, "_StoppableFetcher", Local)
+
+
+def test_updating_workable_by_hand_reads_the_shared_feed_and_shows_where_it_is(app, monkeypatch):
+    import threading
+
+    gate = threading.Event()
+    server = _workable_feed(30)
+    _use_feed(monkeypatch, server, gate)
+    started = call(app, "POST", "/api/sources/refresh", {"source_id": "workable"})
+    assert started["status"] == "running"
+    deadline = time.monotonic() + 10
+    detail = None
+    while time.monotonic() < deadline and detail is None:
+        snap = app.retrieval.snapshot() or {}
+        detail = snap.get("current_detail")
+        time.sleep(0.02)
+    assert detail and detail["phase"] == "downloading", "the bar can say what it is doing"
+    gate.set()
+    app.retrieval.join(30)
+    assert app.retrieval.snapshot()["current_detail"] is None
+    conn = connect(app.config.db_path)
+    try:
+        assert (
+            conn.execute("SELECT COUNT(*) FROM job WHERE provider = 'workable'").fetchone()[0] == 30
+        )
+    finally:
+        conn.close()
+
+
+def test_stop_ends_a_workable_update_and_keeps_what_was_read(app, monkeypatch):
+    import threading
+
+    gate = threading.Event()
+    _use_feed(monkeypatch, _workable_feed(30), gate)
+    call(app, "POST", "/api/sources/refresh", {"source_id": "workable"})
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline and not (app.retrieval.snapshot() or {}).get(
+        "current_detail"
+    ):
+        time.sleep(0.02)
+    assert call(app, "POST", "/api/retrieval/cancel") == {"cancelled": True}
+    gate.set()
+    app.retrieval.join(30)
+    snapshot = app.retrieval.snapshot()
+    assert snapshot["status"] == "cancelled"
+    conn = connect(app.config.db_path)
+    try:
+        run = conn.execute(
+            "SELECT status, stats_json FROM pipeline_run WHERE stage = 'collect-workable'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert run[0] == "OK" and json.loads(run[1])["deferred_reason"] == "CANCELLED"

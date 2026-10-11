@@ -104,6 +104,9 @@ class RetrievalState:
     #: The source being read reports its own progress here, so an employer
     #: board family can say "121 of 124 boards" beside "5 of 16 sources".
     inner: Any = None
+    #: What the source being read is doing inside itself, for a source that is one
+    #: long transfer rather than many boards: {"phase", "done", "total", "unit"}.
+    detail: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         # Read once: the run's thread sets it to None when a source ends.
@@ -124,6 +127,7 @@ class RetrievalState:
             "plan": list(self.plan),
             "not_refreshed": list(self.not_refreshed),
             "jobs_new": self.jobs_new,
+            "current_detail": (inner.detail if inner is not None else None) or self.detail,
             "current_boards": (
                 {"done": int(inner.boards_done), "total": int(inner.boards_total)}
                 if inner is not None and inner.boards_total

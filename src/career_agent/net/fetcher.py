@@ -183,6 +183,16 @@ class ResponseCache:
             path.write_text(json.dumps(envelope), encoding="utf-8")
 
 
+@dataclass(frozen=True)
+class FeedDownload:
+    """What a conditional feed download answered: 200 with a file, or 304."""
+
+    status: int
+    size: int
+    last_modified: str | None
+    total: int | None
+
+
 class HttpFetcher:
     """Fetch JSON with retry, rate limiting and caching.
 
@@ -282,6 +292,77 @@ class HttpFetcher:
                     f"feed transfer interrupted after {size} bytes ({type(exc).__name__})",
                 )
             ) from exc
+
+    def download_feed(
+        self,
+        url: str,
+        destination: Path,
+        *,
+        if_modified_since: str | None = None,
+        on_bytes: Any = None,
+    ) -> FeedDownload:
+        """Stream a public feed to disk, conditionally, and stop when asked.
+
+        Sends `If-Modified-Since` only when the caller holds a validator that
+        the server itself issued (Workable publishes `Last-Modified` and no
+        ETag, measured 2026-10-11). A 304 returns without a body. The budget is
+        checked on every chunk so a Stop or an expired deadline ends a download
+        of hundreds of megabytes within a fraction of a second. A body shorter
+        than the server's `Content-Length` is a failure and the partial file is
+        removed: a truncated feed is never offered as a feed.
+        """
+        self.check_budget()
+        self._limiter.wait(httpx.URL(url).host, sleep=self._sleep)
+        self.stats.requests += 1
+        self.requests_spent += 1
+        headers = {"Accept": TEXT_ACCEPT}
+        if if_modified_since:
+            headers["If-Modified-Since"] = if_modified_since
+        size = 0
+        try:
+            with self._client.stream("GET", url, headers=headers) as response:
+                modified = response.headers.get("last-modified")
+                if response.status_code == 304:
+                    return FeedDownload(304, 0, modified or if_modified_since, None)
+                if response.status_code >= 400:
+                    raise self._record(
+                        FetchError(
+                            FetchErrorCategory.HTTP_STATUS,
+                            url,
+                            f"HTTP {response.status_code}",
+                            status_code=response.status_code,
+                        )
+                    )
+                declared = response.headers.get("content-length")
+                total = int(declared) if declared and declared.isdigit() else None
+                with destination.open("wb") as output:
+                    for chunk in response.iter_bytes(chunk_size=65536):
+                        self.check_budget()
+                        output.write(chunk)
+                        size += len(chunk)
+                        if on_bytes is not None:
+                            on_bytes(size, total)
+            if total is not None and size != total:
+                raise self._record(
+                    FetchError(
+                        FetchErrorCategory.CONNECTION,
+                        url,
+                        f"feed ended after {size} of {total} bytes",
+                    )
+                )
+            return FeedDownload(200, size, modified, total)
+        except httpx.HTTPError as exc:
+            destination.unlink(missing_ok=True)
+            raise self._record(
+                FetchError(
+                    FetchErrorCategory.CONNECTION,
+                    url,
+                    f"feed transfer interrupted after {size} bytes ({type(exc).__name__})",
+                )
+            ) from exc
+        except BaseException:
+            destination.unlink(missing_ok=True)
+            raise
 
     def get_json(
         self,

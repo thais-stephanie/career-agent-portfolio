@@ -417,7 +417,9 @@ export function createProgressView(collection, { compact = false, stopId = null 
     setText(line, total ? t('setup.ready.progress', { done, total }) : t('setup.ready.starting'));
     setBar(done, total, t('setup.ready.progressLabel'));
     const parts = [t('collect.elapsed', { time: duration(snapshot.elapsed) })];
-    if (!compact && run.current) {
+    if (!compact && run.current && run.current_detail) {
+      parts.unshift(feedLine(run.current, run.current_detail, duration(snapshot.currentFor)));
+    } else if (!compact && run.current) {
       const boards = run.current_boards;
       parts.unshift(boards && boards.total
         ? t('collect.nowBoards', {
@@ -436,6 +438,26 @@ export function createProgressView(collection, { compact = false, stopId = null 
   }
 
   return { root, update };
+}
+
+/**
+ * One long transfer rather than many boards (Workable's single public file):
+ * what it is doing inside itself, in the person's units. Bytes become
+ * megabytes; a total the server did not publish is left out, never guessed.
+ */
+function feedLine(source, detail, time) {
+  const mb = (bytes) => Math.round(bytes / 1048576).toLocaleString();
+  const total = Number(detail.total) || 0;
+  const done = Number(detail.done) || 0;
+  if (detail.phase === 'staging') return t('collect.feed.staging', { source, time });
+  if (detail.phase === 'downloading') {
+    return total
+      ? t('collect.feed.downloading', { source, done: mb(done), total: mb(total), time })
+      : t('collect.feed.downloadingOpen', { source, done: mb(done), time });
+  }
+  return total
+    ? t('collect.feed.reading', { source, done: done.toLocaleString(), total: total.toLocaleString(), time })
+    : t('collect.feed.readingOpen', { source, done: done.toLocaleString(), time });
 }
 
 /** The sentence for a run that has ended, or '' while it has not. */

@@ -161,6 +161,12 @@ def register_source_refresh(app: JobsApi) -> None:
         """One source as one step: (source id, name, work, is a board family)."""
         provider = effective_provider(entry, opted) or ""
         stage = _stage_for(provider)
+        if provider == "workable":
+            # One 800 MiB file for every profile: read in this process, shared,
+            # resumable and stoppable, not as a subprocess that can only be killed.
+            from career_agent.web.auto_update import workable_work
+
+            return entry.source.id, entry.source.name, workable_work(app), False
         if stage == "collect":
             return entry.source.id, entry.source.name, app._collect_work(provider=provider), True
         work = feed_work(app.config.db_path, stage, config_dir=app.config.config_dir)

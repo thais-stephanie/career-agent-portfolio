@@ -21,7 +21,12 @@ from typing import Any
 from career_agent.providers.registry import board_providers, poll_interval_seconds
 from career_agent.sources.catalogue import resolve
 
-FEED_EXECUTORS = frozenset({"avlis", "remotive", "jobicy", "workingnomads"})
+FEED_EXECUTORS = frozenset({"avlis", "remotive", "jobicy", "workingnomads", "workable"})
+#: Feeds too large for one budgeted pass, read in slices that keep their place
+#: (providers/workable_feed.py). Their allowance in a plan is one slice, not the
+#: whole feed, so a plan can admit them and the next run continues.
+RESUMABLE = frozenset({"workable"})
+RESUMABLE_ALLOWANCE = 600
 OWNER_RUN = frozenset({"remoteok", "getonbrd"})
 
 
@@ -191,6 +196,8 @@ def inventory(conn: sqlite3.Connection, catalogue: Path | None = None) -> list[I
             evidence = "UNKNOWN_FAMILY_ALLOWANCE"
         else:
             seconds, evidence = 120.0, "UNKNOWN_EXPLORATION_ALLOWANCE"
+        if provider in RESUMABLE:
+            seconds, evidence = float(RESUMABLE_ALLOWANCE), "RESUMABLE_SLICE_ALLOWANCE"
         source = policy.get(provider)
         blocked = None
         if provider in OWNER_RUN:

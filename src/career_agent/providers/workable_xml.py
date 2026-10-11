@@ -74,7 +74,9 @@ def from_xml(fields: dict[str, str]) -> dict[str, Any]:
     }
 
 
-def stage_records(path: Path, conn: sqlite3.Connection) -> tuple[int, int, Exception | None]:
+def stage_records(
+    path: Path, conn: sqlite3.Connection, check: Any = None
+) -> tuple[int, int, Exception | None]:
     """Dedupe on disk while preserving each repeated reference's changed fields.
 
     A repeated reference can name another country, not just repeat a record.
@@ -90,6 +92,8 @@ def stage_records(path: Path, conn: sqlite3.Connection) -> tuple[int, int, Excep
     try:
         for fields in xml_records(path):
             count += 1
+            if check is not None and count % 500 == 0:
+                check()
             identity = fields.get("referencenumber") or f"missing-reference:{count}"
             existing = conn.execute(
                 "SELECT fields,variants FROM records WHERE identity=?", (identity,)
@@ -135,9 +139,27 @@ class WorkableXmlProvider(WorkableProvider):
 
     retrieval_mode = RetrievalMode.AGGREGATOR_FEED
 
-    def __init__(self, fetcher: Any, max_pages: int | None = None, xml_path: Path | None = None):
+    def __init__(
+        self,
+        fetcher: Any,
+        max_pages: int | None = None,
+        xml_path: Path | None = None,
+        session: Any = None,
+        check: Any = None,
+        on_phase: Any = None,
+    ):
         super().__init__(fetcher, max_pages=max_pages)
         self.xml_path = xml_path
+        #: A `FeedSession` makes the read shared and resumable (see
+        #: providers/workable_feed.py); without one the walk is the one-shot
+        #: download the tests and the command line use.
+        self.session = session
+        self.check = check or (lambda: None)
+        self.on_phase = on_phase or (lambda *_: None)
+        self.not_modified = False
+        self.resumed = False
+        self.feed_last_modified: str | None = None
+        self.page_last_seq = 0
         self.xml_jobs = 0
         self.xml_bytes = 0
         self.filtered_out = 0
@@ -147,6 +169,9 @@ class WorkableXmlProvider(WorkableProvider):
         del use_cache
         if day_range is not None and day_range < 1:
             raise WorkableError("day_range must be positive")
+        if self.session is not None:
+            yield from self._walk_shared(query=query, day_range=day_range)
+            return
         with tempfile.TemporaryDirectory(prefix="career-workable-") as directory:
             path = self.xml_path or Path(directory) / "workable.xml"
             transfer_error: Exception | None = None
@@ -172,15 +197,98 @@ class WorkableXmlProvider(WorkableProvider):
                     f"{self.xml_bytes} bytes; transfer or XML did not finish"
                 ) from transfer_error
 
-    def _staged_pages(self, staged, *, query, day_range, total):
+    def _walk_shared(self, *, query, day_range) -> Iterator[FeedPage]:
+        session = self.session
+        pending = session.pending()
+        cursor = 0
+        if pending and pending.get("staged") and session.stage_path.exists():
+            self.resumed = True
+            self.feed_last_modified = pending.get("last_modified")
+            self.xml_bytes = int(pending.get("bytes") or 0)
+            cursor = int(pending.get("cursor") or 0)
+        else:
+            have_file = bool(
+                pending
+                and session.xml_path.exists()
+                and session.xml_path.stat().st_size == pending.get("bytes")
+            )
+            if have_file:
+                self.resumed = True
+                self.feed_last_modified = pending.get("last_modified")
+                self.xml_bytes = int(pending["bytes"])
+            else:
+                session.abandon()
+                self.on_phase("downloading", 0, None)
+                got = self._fetcher.download_feed(
+                    XML_URL,
+                    session.xml_path,
+                    if_modified_since=session.processed_last_modified(),
+                    on_bytes=lambda done, total: self.on_phase("downloading", done, total),
+                )
+                self.feed_last_modified = got.last_modified
+                if got.status == 304:
+                    self.not_modified = True
+                    return
+                self.xml_bytes = got.size
+                session.start_pending(last_modified=got.last_modified, bytes=got.size)
+            self.on_phase("staging", 0, None)
+            session.stage_path.unlink(missing_ok=True)
+            staged = sqlite3.connect(session.stage_path)
+            try:
+                count, duplicates, parse_error = stage_records(
+                    session.xml_path, staged, check=self.check
+                )
+            finally:
+                staged.close()
+            # A faulty feed is not resumable: what was read (complete records
+            # only) is handled below, the run fails, nothing is recorded as done.
+            session.update_pending(
+                staged=True, records=count, duplicates=duplicates, malformed=bool(parse_error)
+            )
+            session.xml_path.unlink(missing_ok=True)
+        pending = session.pending() or {}
+        self.xml_jobs = int(pending.get("records") or 0)
+        self.feed_duplicates = int(pending.get("duplicates") or 0)
+        malformed = bool(pending.get("malformed"))
+        total = None if malformed else self.xml_jobs - self.feed_duplicates
+        staged = sqlite3.connect(session.stage_path)
+        try:
+            yield from self._staged_pages(
+                staged, query=query, day_range=day_range, total=total, after_seq=cursor
+            )
+        finally:
+            staged.close()
+        if malformed:
+            session.abandon()
+            raise WorkableError(
+                f"Partial XML: {self.xml_jobs} complete records retained; "
+                f"{self.xml_bytes} bytes; the feed did not parse to its end"
+            )
+
+    def page_done(self) -> None:
+        """The records of the page just yielded are all handled: move the cursor."""
+        if self.session is not None:
+            self.session.update_pending(cursor=self.page_last_seq)
+
+    def finish(self) -> None:
+        """The feed was read to its end, or a 304 confirmed it unchanged."""
+        if self.session is None:
+            return
+        if self.not_modified:
+            self.session.confirm_unchanged()
+        else:
+            self.session.finish(self.feed_last_modified)
+
+    def _staged_pages(self, staged, *, query, day_range, total, after_seq=0):
         cutoff = datetime.now(UTC) - timedelta(days=day_range) if day_range else None
         batch = []
         self.pages_read = 0
         self.filtered_out = 0
         self.stopped_early = self.repeated_itself = False
-        for encoded_fields, encoded_variants in staged.execute(
-            "SELECT fields,variants FROM records ORDER BY seq"
+        for seq, encoded_fields, encoded_variants in staged.execute(
+            "SELECT seq,fields,variants FROM records WHERE seq > ? ORDER BY seq", (after_seq,)
         ):
+            self.page_last_seq = seq
             fields, variants = json.loads(encoded_fields), json.loads(encoded_variants)
             row = staged_payload(fields, variants)
             searchable = " ".join(

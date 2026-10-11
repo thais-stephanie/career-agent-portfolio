@@ -38,9 +38,19 @@ WHAT IT NEVER DOES
 ------------------
 It starts no model call, no Deep reading and no full recalculation. It does not
 ask a site the person paused, one whose terms forbid it, or one that must be run
-by the owner by hand. Heavy feeds that cannot honour a budget yet (Workable's
-whole-catalogue download, Gupy) are updated only by hand. It does nothing when
-the app is closed: there is no service.
+by the owner by hand. It does nothing when the app is closed: there is no service.
+
+WORKABLE
+--------
+Workable's public feed is one file of about 800 MiB, so it does not fit the
+quick budget and is not one site among sixty. It is read as its own step after
+the quick one, once for the whole installation (pipeline/workable_update.py):
+asked first with `If-Modified-Since` (a 304 ends it), then read progressively,
+writing and scoring only the postings that are new or changed, stoppable, and
+with `WORKABLE_BUDGET_SECONDS` of its own. A read the budget cuts short keeps its
+place, says so, and continues at the next run without downloading again. It never
+closes a posting the feed no longer lists. Gupy stays manual: its feed host
+answers 404 (docs/AUTO_UPDATE.md).
 """
 
 from __future__ import annotations
@@ -73,6 +83,10 @@ MAX_ITEMS = 60
 MAX_REQUESTS = 1000
 MIN_GAP_HOURS = 6
 SCORE_LIMIT = 5000
+#: Workable's own allowance: the feed is read in slices of this length.
+WORKABLE_BUDGET_SECONDS = 900
+#: Why the quick run leaves Workable to its own step.
+SEPARATE = "RUNS_SEPARATELY"
 
 KEY_ENABLED = "auto_update.on_open"
 KEY_LAST = "auto_update.last_run_at"
@@ -101,6 +115,7 @@ def limits() -> dict[str, int]:
         "max_requests": MAX_REQUESTS,
         "min_gap_hours": MIN_GAP_HOURS,
         "score_limit": SCORE_LIMIT,
+        "workable_minutes": WORKABLE_BUDGET_SECONDS // 60,
     }
 
 
@@ -132,22 +147,42 @@ def plan_now(conn: Any) -> dict[str, Any]:
     from career_agent.sources.maintenance import inventory, plan, round_number
 
     blocks = profile_blocks(conn)
+    found = inventory(conn)
     items = [
-        replace(i, blocked=i.blocked or blocks[i.provider]) if i.provider in blocks else i
-        for i in inventory(conn)
+        replace(
+            i,
+            blocked=i.blocked
+            or blocks.get(i.provider)
+            or (SEPARATE if i.provider == "workable" else None),
+        )
+        for i in found
     ]
-    return plan(
+    result = plan(
         items,
         BUDGET_SECONDS,
         stale_hours=STALE_HOURS,
         max_items=MAX_ITEMS,
         round_number=round_number(conn),
     )
+    own = [
+        replace(i, blocked=i.blocked or blocks.get(i.provider))
+        for i in found
+        if i.provider == "workable"
+    ]
+    result["workable"] = plan(
+        own,
+        WORKABLE_BUDGET_SECONDS,
+        stale_hours=STALE_HOURS,
+        max_items=1,
+        round_number=round_number(conn),
+    )
+    return result
 
 
 def overdue(conn: Any) -> list[str]:
-    """The inventory keys a run would ask now."""
-    return list(plan_now(conn)["selected"])
+    """The inventory keys a run would ask now: the quick plan, then Workable."""
+    result = plan_now(conn)
+    return [*result["selected"], *result["workable"]["selected"]]
 
 
 def register_auto_update(app: JobsApi) -> None:
@@ -269,36 +304,67 @@ def _work(app: JobsApi, write: Any):
             fetcher.cancel = cancel
             return fetcher
 
-        def progress(receipt: dict) -> None:
-            # Raised between sites, so the one in flight is never cut mid-board.
-            if cancel.is_set():
-                raise KeyboardInterrupt
-            state.plan = list(receipt["selected"])
-            state.boards_total = len(receipt["selected"])
-            state.boards_done = len(receipt["results"])
-            state.current = receipt.get("active")
-            state.current_started_at = now_iso()
+        def make_progress(prefix_plan: list, prefix_done: int):
+            def progress(receipt: dict) -> None:
+                # Raised between sites, so the one in flight is never cut mid-board.
+                if cancel.is_set():
+                    raise KeyboardInterrupt
+                state.plan = [*prefix_plan, *receipt["selected"]]
+                state.boards_total = len(state.plan)
+                state.boards_done = prefix_done + len(receipt["results"])
+                state.current = receipt.get("active")
+                state.current_started_at = now_iso()
+
+            return progress
+
+        def detail(value: dict | None) -> None:
+            state.detail = value
 
         receipt: dict = {}
+        wk: dict = {}
         error = False
         try:
             with closing(app.connect()) as conn:
                 blocks = profile_blocks(conn)
             with maintenance_lock(app.config.db_path), closing(app.connect()) as conn:
+                # The quick run: boards and light feeds, ten minutes at most.
                 receipt = execute(
                     conn,
                     budget_seconds=BUDGET_SECONDS,
                     stale_hours=STALE_HOURS,
                     max_items=MAX_ITEMS,
                     fetcher_factory=factory,
-                    on_progress=progress,
-                    profile_blocks=blocks,
+                    on_progress=make_progress([], 0),
+                    profile_blocks={**blocks, "workable": SEPARATE},
                 )
+                # Then Workable's feed, a step of its own (see the module notes).
+                due = plan_now(conn)["workable"]["selected"]
+                if not cancel.is_set() and due:
+                    wk = execute(
+                        conn,
+                        budget_seconds=WORKABLE_BUDGET_SECONDS,
+                        stale_hours=STALE_HOURS,
+                        max_items=1,
+                        provider="workable",
+                        fetcher_factory=factory,
+                        on_progress=make_progress(
+                            list(receipt.get("selected", [])), len(receipt.get("results", []))
+                        ),
+                        on_detail=detail,
+                        profile_blocks=blocks,
+                    )
         except Exception:  # noqa: BLE001 - reported as a result, never as a path
             error = True
         finally:
             state.current = None
             state.current_started_at = None
+            state.detail = None
+
+        receipt = {
+            **receipt,
+            "selected": [*receipt.get("selected", []), *wk.get("selected", [])],
+            "results": [*receipt.get("results", []), *wk.get("results", [])],
+        }
 
         results = receipt.get("results", [])
         done = [r for r in results if r.get("attempted")]
@@ -324,6 +390,7 @@ def _work(app: JobsApi, write: Any):
                 else "DONE"
             ),
             "scoring": "NONE",
+            "workable": _workable_result(wk),
         }
         if error:
             state.error = "The update could not finish."
@@ -334,6 +401,55 @@ def _work(app: JobsApi, write: Any):
             write(conn, KEY_RESULT, json.dumps(summary))
 
     return work
+
+
+def workable_work(app: JobsApi):
+    """ "Update" pressed on Workable's card: the same shared, resumable read, with
+    no clock of its own (the person can press Stop), in this process.
+
+    It is asked about the feed even when another profile confirmed it a moment
+    ago, because the person asked; a 304 still costs no download."""
+
+    def work(state: Any, cancel: threading.Event) -> None:
+        from career_agent.pipeline.workable_update import WorkableUpdate
+
+        fetcher = _StoppableFetcher()
+        fetcher.cancel = cancel
+
+        def stop() -> str | None:
+            return "CANCELLED" if cancel.is_set() else None
+
+        def tick(detail: dict) -> None:
+            state.detail = {"key": "workable", **detail}
+
+        try:
+            with fetcher, closing(app.connect()) as conn:
+                stats = WorkableUpdate(
+                    conn, fetcher, stop_reason=stop, progress=tick, force=True
+                ).collect()
+        finally:
+            state.detail = None
+        if stats.failures:
+            raise RuntimeError("The feed could not be read.")
+        if stats.deferred_reason in {"ALREADY_RUNNING", "NOT_ENOUGH_DISK"}:
+            raise RuntimeError(stats.deferred_reason)
+
+    return work
+
+
+def _workable_result(receipt: dict) -> dict | None:
+    """What Workable's step did, for the screen: None when it did not run."""
+    results = receipt.get("results") or []
+    if not results:
+        return None
+    row = results[0]
+    return {
+        "outcome": row.get("outcome"),
+        "reason": row.get("reason"),
+        "jobs_new": row.get("jobs_new") or 0,
+        "jobs_changed": row.get("jobs_changed") or 0,
+        "jobs_unchanged": row.get("jobs_unchanged") or 0,
+    }
 
 
 def _score(app: JobsApi) -> str:

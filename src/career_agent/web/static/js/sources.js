@@ -403,8 +403,10 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
       ? t(source.postings === 1 ? 'sites.kept.one' : 'sites.kept.many', { n: source.postings.toLocaleString() })
       : '';
     const status = el('p', { className: 'src__status', attrs: { role: 'status' } });
+    // A read cut short that keeps its place (Workable) continues rather than starts over.
+    const cardKey = situation === 'partial' && row.reason === 'PROGRESSIVE' ? 'partialContinues' : situation;
     const act = source.can_refresh && !['unavailable', 'running', 'waiting', 'refused'].includes(situation)
-      ? button(t(`sites.act.${situation}`), async () => {
+      ? button(t(`sites.act.${cardKey}`), async () => {
         act.disabled = true;
         try {
           await api.refreshSource(source.id);
@@ -440,7 +442,7 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
           text: t(`sites.pill.${situation}`),
         }),
       ]),
-      el('p', { className: 'src__sentence', text: t(`sites.card.${situation}`, { name, date }) }),
+      el('p', { className: 'src__sentence', text: t(`sites.card.${cardKey}`, { name, date }) }),
       situation === 'unavailable' && (row.blocker || source.reason_plain)
         ? el('p', { className: 'src__why', text: row.blocker || source.reason_plain }) : null,
       kept && situation !== 'never' ? el('p', { className: 'src__kept', text: kept }) : null,

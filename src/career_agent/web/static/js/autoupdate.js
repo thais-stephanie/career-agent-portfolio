@@ -22,6 +22,18 @@ function lastLine(state) {
   const parts = [t('auto.last', {
     date: when(r.at), updated: r.updated, asked: r.asked, later: r.left_for_later, jobs: r.jobs_new,
   })];
+  const w = r.workable;
+  if (w) {
+    const n = { new: w.jobs_new, changed: w.jobs_changed };
+    if (w.outcome === 'DEFERRED' && w.reason !== 'ALREADY_RUNNING') {
+      parts.push(w.jobs_new + w.jobs_changed + w.jobs_unchanged ? t('auto.workablePartial', n)
+        : t('auto.workableNone'));
+    } else if (w.outcome === 'FAILED') {
+      parts.push(t('auto.workableNone'));
+    } else if (w.outcome === 'OK') {
+      parts.push(w.jobs_new + w.jobs_changed ? t('auto.workableDone', n) : t('auto.workableSame'));
+    }
+  }
   if (r.scoring === 'PENDING_LARGE') parts.push(t('auto.scoringLarge'));
   if (r.stopped === 'ERROR') parts.push(t('auto.stoppedError'));
   return parts.join(' ');
@@ -68,6 +80,7 @@ export function autoUpdateCard({ onChange = null } = {}) {
         el('ul', {}, [
           t('auto.pointWhat', { days: lim.stale_days }),
           t('auto.pointBudget', { minutes: lim.minutes, sites: lim.max_sites, requests: lim.max_requests }),
+          t('auto.pointWorkable', { minutes: lim.workable_minutes }),
           t('auto.pointStop'),
           t('auto.pointNever'),
           t('auto.pointLimit'),

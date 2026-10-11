@@ -100,3 +100,97 @@ def test_off_by_default_then_asked_once_when_the_app_opens_and_it_never_replaces
         f"window.__calls.filter((c) => c.includes('/api/jobs?')).length > {before}",
         message="list updated on request",
     )
+
+
+def _put_run(root: Path, stage: str, stats: dict, finished: str = "now") -> None:
+    import json
+    from datetime import UTC, datetime, timedelta
+
+    from career_agent.clock import new_id
+    from career_agent.storage.db import connect, transaction
+
+    moment = datetime.now(UTC) if finished == "now" else datetime.now(UTC) - timedelta(days=4)
+    stamp = moment.isoformat(timespec="seconds").replace("+00:00", "Z")
+    conn = connect(root / "data" / "personal.db")
+    try:
+        with transaction(conn):
+            conn.execute(
+                "INSERT INTO pipeline_run (id, stage, started_at, finished_at, status, stats_json)"
+                " VALUES (?, ?, ?, ?, 'OK', ?)",
+                (new_id(), stage, stamp, stamp, json.dumps(stats)),
+            )
+    finally:
+        conn.close()
+
+
+def test_a_workable_read_that_keeps_its_place_says_so_and_offers_to_continue(
+    page: Chrome, live: tuple[str, Path]
+) -> None:
+    base, root = live
+    _put_run(
+        root,
+        "collect-workable",
+        {
+            "deferred_reason": "TIME_BUDGET",
+            "continues": True,
+            "postings_seen": 50,
+            "jobs_new": 10,
+            "jobs_unchanged": 40,
+        },
+    )
+    page.navigate(f"{base}/#settings")
+    page.wait_for("document.querySelector('#settab-sites')", message="Settings tabs")
+    page.evaluate("document.querySelector('#settab-sites').click()")
+    page.wait_for("document.querySelector('.src__site[data-source=workable]')", message="the card")
+    card = str(
+        page.evaluate("document.querySelector('.src__site[data-source=workable]').textContent")
+    )
+    assert "read in part" in card and "without downloading the file again" in card
+    assert "Continue updating" in card
+    assert "Partly updated" in card
+    assert "deferred_reason" not in card and "TIME_BUDGET" not in card, "no codes as words"
+
+
+def test_the_summary_of_an_automatic_update_names_what_workable_did(
+    page: Chrome, live: tuple[str, Path], monkeypatch
+) -> None:
+    base, _root = live
+
+    def stub(conn, *, provider=None, **kwargs):
+        if provider == "workable":
+            return {
+                "selected": ["feed:workable"],
+                "results": [
+                    {
+                        "key": "feed:workable",
+                        "outcome": "DEFERRED",
+                        "reason": "TIME_BUDGET",
+                        "attempted": True,
+                        "jobs_new": 7,
+                        "jobs_changed": 2,
+                        "jobs_unchanged": 90,
+                    }
+                ],
+            }
+        return {"selected": [], "results": []}
+
+    monkeypatch.setattr("career_agent.pipeline.maintenance.execute", stub)
+    page.navigate(f"{base}/#settings")
+    page.wait_for("document.querySelector('#settab-sites')", message="Settings tabs")
+    page.evaluate("document.querySelector('#settab-sites').click()")
+    page.wait_for("document.querySelector('.au .dr-switch')", message="the choice")
+    page.evaluate("document.querySelector('.au .dr-switch').click()")
+    page.wait_for(
+        "document.querySelector('.au .dr-switch').getAttribute('aria-checked') === 'true'",
+        message="switched on",
+    )
+    page.evaluate("location.reload()")
+    page.wait_for("document.querySelector('#settab-sites')", message="Settings tabs")
+    deadline = time.monotonic() + 40
+    text = ""
+    while time.monotonic() < deadline and "Workable" not in text:
+        time.sleep(1)
+        page.evaluate("document.querySelector('#settab-search').click()")
+        page.evaluate("document.querySelector('#settab-sites').click()")
+        text = str(page.evaluate("document.querySelector('.au__last')?.textContent || ''"))
+    assert "Workable: read in part (7 new and 2 changed so far)" in text, text

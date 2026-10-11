@@ -40,6 +40,8 @@ def execute(
     fetcher_factory=HttpFetcher,
     on_progress=None,
     profile_blocks: Mapping[str, str] | None = None,
+    on_detail=None,
+    force: bool = False,
 ) -> dict[str, Any]:
     """`profile_blocks` maps a provider to why THIS profile does not want it
     asked (a pause it chose). The inventory knows the catalogue's blocks, not
@@ -141,6 +143,10 @@ def execute(
                     stats: Any = Collector(conn, fetcher).collect_all(
                         use_cache=False, board_ids={item.board_id}
                     )
+                elif item.provider == "workable":
+                    stats = _workable(
+                        conn, fetcher, key, receipt, on_detail, stale_hours, force, clock
+                    )
                 else:
                     stats = FEEDS[item.provider](conn, fetcher).collect()
                 data = stats.as_dict()
@@ -160,6 +166,9 @@ def execute(
                         "attempted": True,
                         "elapsed_ms": int((clock() - unit_started) * 1000),
                         "postings": data.get("postings_observed", data.get("postings_seen", 0)),
+                        "jobs_new": data.get("jobs_new"),
+                        "jobs_changed": data.get("jobs_changed"),
+                        "jobs_unchanged": data.get("jobs_unchanged"),
                     }
                 )
                 receipt["active"] = None
@@ -183,3 +192,36 @@ def execute(
                 stats=receipt,
             )
     return receipt
+
+
+def _workable(conn, fetcher, key, receipt, on_detail, stale_hours, force, clock):
+    """The Workable feed as one stoppable, resumable unit (pipeline.workable_update)."""
+    from career_agent.pipeline.workable_update import WorkableUpdate
+
+    def stop_reason():
+        cancel = getattr(fetcher, "cancel", None)
+        if cancel is not None and cancel.is_set():
+            return "CANCELLED"
+        deadline = fetcher.deadline
+        if deadline is not None and clock() >= deadline.ends_at:
+            return "TIME_BUDGET"
+        return None
+
+    def tick(detail):
+        receipt["detail"] = {"key": key, **detail}
+        if on_detail is not None:
+            on_detail(receipt["detail"])
+
+    try:
+        return WorkableUpdate(
+            conn,
+            fetcher,
+            stop_reason=stop_reason,
+            progress=tick,
+            fresh_hours=stale_hours,
+            force=force,
+        ).collect()
+    finally:
+        receipt.pop("detail", None)
+        if on_detail is not None:
+            on_detail(None)
