@@ -2446,6 +2446,32 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
         return display_names()[1]
 
+    def handle_api(self, method: str, path: str, query: dict, body: dict) -> Any:
+        """Dispatch, and for a write that can change what the profile means, say
+        what it changed (`web/edit_effects.py`). Observation only: the answer
+        gains an `effects` object, and nothing is started."""
+        from career_agent.web import edit_effects
+
+        if not edit_effects.is_edit(method, path):
+            return super().handle_api(method, path, query, body)
+        before = self._effects_snapshot()
+        result = super().handle_api(method, path, query, body)
+        if before is not None and isinstance(result, dict):
+            # The cached configuration is rebuilt by the handler that wrote it.
+            after = self._effects_snapshot()
+            if after is not None:
+                result["effects"] = edit_effects.effects(before, after)
+        return result
+
+    def _effects_snapshot(self) -> Any:
+        from career_agent.web import edit_effects
+
+        try:
+            return edit_effects.snapshot(self)
+        except Exception as exc:  # noqa: BLE001 - a save must not fail on its own report
+            self.log(f"edit effects unavailable: {type(exc).__name__}: {exc}")
+            return None
+
     def assessment_of(self, conn: Any, job_id: str) -> dict[str, Any]:
         """Which stored score a posting can show, and how it relates to now.
 

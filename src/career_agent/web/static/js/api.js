@@ -280,6 +280,11 @@ async function request(path, { method = 'GET', body = null, signal = null } = {}
       detail: payload,
     });
   }
+  // A save that changed what the profile means says so (`effects`); one
+  // listener turns it into one short notice (edit-notice.js).
+  if (method !== 'GET' && payload && typeof payload === 'object' && payload.effects) {
+    window.dispatchEvent(new CustomEvent('ca:effects', { detail: payload.effects }));
+  }
   return payload;
 }
 

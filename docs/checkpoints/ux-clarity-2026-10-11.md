@@ -8,7 +8,7 @@ Not merged, not pushed. Synthetic data only.
       previous revision). Detail, preparation and application now open with the
       newest stored score labelled stale, or with no score at all.
 - [x] 1. Onboarding for every new profile (finishing or postponing the setup wrote one browser flag for everybody; storage about a person is now scoped by profile id; welcome header; honest privacy and unknown-vs-unmet copy)
-- [ ] 2. Orientation after editing the profile (effects classifier)
+- [x] 2. Orientation after editing the profile (server `effects` from the digests the stale checks already use: needs_rescore, offer_discovery, deep_stale; one notice, one action, nothing started)
 - [ ] 4. Job site alerts and per-source actions
 - [ ] 5. Optional update on open, bounded, off by default
 - [ ] 6. Score explanation

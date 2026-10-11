@@ -52,6 +52,7 @@ import { createSourcesPanel } from './sources.js';
 import { createShell } from './shell.js';
 import { createLocalProfiles } from './local-profiles.js';
 import { scopedKey } from './profile-scope.js';
+import { watchEdits } from './edit-notice.js';
 import { humanLabel, prefersEnglishTitles, rememberEnglishTitles, statusLabel } from './format.js';
 
 // Which profile this page is for, before any storage is read (profile-scope.js).
@@ -283,6 +284,19 @@ const deepReading = createDeep({
 document.getElementById('deep-host').appendChild(deepReading.root);
 document.getElementById('deep-open')
   .addEventListener('click', (event) => deepReading.open(event.currentTarget));
+
+// After a save, the one action that fits what it changed (edit-notice.js). The
+// notice only offers; each action is a button the person presses.
+watchEdits({
+  rescore: () => {
+    api.startRescore().then(() => {
+      watchRecalculation();
+      return load(store.apiQueryString(), store.get(), { quiet: true });
+    }).catch(() => {});
+  },
+  search: () => { goTo('home'); void collection.start('due'); },
+  deep: () => deepReading.open(document.getElementById('deep-open')),
+});
 
 // =========================================================================
 // The five destinations

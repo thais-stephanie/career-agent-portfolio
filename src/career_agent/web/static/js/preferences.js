@@ -219,7 +219,7 @@ function signalEditor(signal, save, reach, population) {
       });
       signal.patterns = [...patterns];
       phraseState.textContent = t('prefs.savedPhrases');
-      status.textContent = result.rescore_required
+      status.textContent = result.rescore_required && !result.effects
         ? t('prefs.savedRescore')
         : t('prefs.saved');
       status.className = 'prefs__status prefs__status--ok';
