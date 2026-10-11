@@ -26,8 +26,8 @@ def _fire(page: Chrome, effects: str) -> str:
 @pytest.mark.parametrize("locale", ["en", "pt-BR"])
 def test_each_kind_of_edit_gets_its_own_sentence_and_action(
     page: Chrome,
-    live: tuple[str, Path],
-    locale: str,  # noqa: F811
+    live: tuple[str, Path],  # noqa: F811
+    locale: str,
 ) -> None:
     base, _ = live
     page.navigate(base)
