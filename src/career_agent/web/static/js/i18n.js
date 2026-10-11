@@ -1475,26 +1475,31 @@ const EN = {
   'deep.staleReason.posting': 'The posting text changed.',
   'deep.staleReason.instructions': 'The reading instructions changed.',
   'deep.staleReason.profile': 'Your search or confirmed evidence changed.',
-  'evalMode.summary': 'Local evaluation · how the % works',
+  'evalMode.summary': 'How this score works',
   'evalMode.measures.head': 'What it measures:',
-  'evalMode.measures.text': 'how much of the posting\'s text matches the work, tools, level and way of working you '
-    + 'set in your search, from phrases found in the posting itself.',
+  'evalMode.measures.text': 'how well the posting\'s text matches the work, tools, level, pay and way of '
+    + 'working you set in your search. It counts phrases found in the posting; if you turned on Smart '
+    + 'matching and ran it, findings it quoted from the posting count too.',
   'evalMode.uses.head': 'What takes part:',
-  'evalMode.uses.text': 'your search answers and the posting (its text and the fields its job board publishes). '
-    + 'Eligibility is shown apart from the %.',
+  'evalMode.uses.text': 'your search answers, and the posting\'s text and the fields its job site publishes. '
+    + 'The title alone adds no points, though it can show the level.',
   'evalMode.notUsed.head': 'What does not:',
-  'evalMode.notUsed.text': 'your history, confirmed evidence and CV, and the job title on its own. Confirming '
-    + 'evidence does not change the %. It is not a chance of being hired.',
-  'evalMode.notAnalysed.head': 'Not analysed:',
-  'evalMode.notAnalysed.text': 'work described in words unlike yours, and postings published with little text, which '
-    + 'are scored on what little they say.',
+  'evalMode.notUsed.text': 'your confirmed history, evidence and CV, and any Deep reading. Those are used when '
+    + 'you prepare an application. Adding or confirming them does not change this score, and it is not a '
+    + 'chance of being hired.',
+  'evalMode.kinds.head': 'Three different answers:',
+  'evalMode.kinds.text': 'compatibility is this %; eligibility says whether you can work there and is shown '
+    + 'apart; a Deep reading is an optional reading of the job against your confirmed evidence, shown beside '
+    + 'the score and never inside it.',
+  'evalMode.limits.head': 'Limits:',
+  'evalMode.limits.text': 'work described in words unlike yours can be missed unless Smart matching was run, '
+    + 'and postings with little text are scored on what little they say.',
   'evalMode.focused.head': 'Why few jobs reach 90%:',
-  'evalMode.focused.text': 'the % pays for up to {slots} of the kinds of work you listed. A role that does one or two '
-    + 'of them very well can fit you and still score lower; read its details.',
-  'evalMode.improve.head': 'What helps:',
-  'evalMode.improve.text': 'phrases that name your work as postings describe it (Settings, Search), answers to the '
-    + 'questions a job marks as unanswered, and a Deep reading, which reads the work and your evidence and may '
-    + 'raise or lower a priority.',
+  'evalMode.focused.text': 'the % pays for up to {slots} of the kinds of work you listed. A role that does one '
+    + 'or two of them very well can fit you and still score lower; read its details.',
+  'evalMode.stale.head': 'When a score is out of date:',
+  'evalMode.stale.text': 'after you change a preference this % reads, or when a posting\'s text changes, '
+    + 'the job keeps its earlier score, marked as earlier, until you recalculate.',
   'limits.head': 'What limits this score',
   'limits.lede': 'Whose gap each one is: yours to answer, the posting\'s, or the reading\'s.',
   'limits.unanswered': 'A question you have not answered',
@@ -6344,26 +6349,32 @@ const PT_BR = {
   'deep.staleReason.posting': 'O texto da vaga mudou.',
   'deep.staleReason.instructions': 'As instruções da leitura mudaram.',
   'deep.staleReason.profile': 'Sua busca ou suas evidências confirmadas mudaram.',
-  'evalMode.summary': 'Avaliação local · como funciona a %',
+  'evalMode.summary': 'Como esta nota funciona',
   'evalMode.measures.head': 'O que mede:',
-  'evalMode.measures.text': 'quanto do texto da vaga corresponde ao trabalho, às ferramentas, ao nível e ao modelo de '
-    + 'trabalho da sua busca, a partir de frases encontradas no próprio anúncio.',
+  'evalMode.measures.text': 'o quanto o texto da vaga combina com o trabalho, as ferramentas, o nível, o '
+    + 'salário e o modelo de trabalho que você definiu na busca. Conta frases encontradas na vaga; se você '
+    + 'ligou a Compatibilidade inteligente e a executou, o que ela citou da vaga também conta.',
   'evalMode.uses.head': 'O que entra:',
-  'evalMode.uses.text': 'suas respostas da busca e a vaga (o texto e os campos que o site de vagas publica). A '
-    + 'elegibilidade aparece separada da %.',
+  'evalMode.uses.text': 'suas respostas da busca, e o texto da vaga e os campos que o site de vagas publica. '
+    + 'O título sozinho não dá pontos, embora possa indicar o nível.',
   'evalMode.notUsed.head': 'O que não entra:',
-  'evalMode.notUsed.text': 'seu histórico, suas evidências confirmadas e seu currículo, e o título da vaga sozinho. '
-    + 'Confirmar evidências não muda a %. Não é chance de contratação.',
-  'evalMode.notAnalysed.head': 'O que não é analisado:',
-  'evalMode.notAnalysed.text': 'trabalho descrito com palavras diferentes das suas, e vagas publicadas com pouco '
-    + 'texto, que são avaliadas pelo pouco que dizem.',
+  'evalMode.notUsed.text': 'seu histórico confirmado, suas evidências, seu currículo e qualquer Leitura '
+    + 'aprofundada. Eles são usados quando você prepara uma candidatura. Adicioná-los ou confirmá-los não '
+    + 'muda esta nota, e ela não é uma chance de ser contratada.',
+  'evalMode.kinds.head': 'Três respostas diferentes:',
+  'evalMode.kinds.text': 'compatibilidade é esta %; elegibilidade diz se você pode trabalhar lá e aparece '
+    + 'separada; a Leitura aprofundada é uma leitura opcional da vaga contra suas evidências confirmadas, '
+    + 'mostrada ao lado da nota e nunca dentro dela.',
+  'evalMode.limits.head': 'Limites:',
+  'evalMode.limits.text': 'trabalho descrito com palavras diferentes das suas pode passar despercebido se a '
+    + 'Compatibilidade inteligente não tiver sido executada, e vagas com pouco texto são pontuadas pelo '
+    + 'pouco que dizem.',
   'evalMode.focused.head': 'Por que poucas vagas chegam a 90%:',
-  'evalMode.focused.text': 'a % paga até {slots} dos tipos de trabalho que você listou. Uma vaga que faz muito bem um '
-    + 'ou dois deles pode combinar com você e ter nota menor; veja os detalhes.',
-  'evalMode.improve.head': 'O que ajuda:',
-  'evalMode.improve.text': 'frases que nomeiam seu trabalho como os anúncios o descrevem (Configurações, Busca), '
-    + 'responder às perguntas que uma vaga marca como sem resposta, e a Leitura aprofundada, que lê o trabalho e '
-    + 'suas evidências e pode subir ou baixar uma prioridade.',
+  'evalMode.focused.text': 'a % paga até {slots} dos tipos de trabalho que você listou. Uma vaga que faz muito '
+    + 'bem um ou dois deles pode combinar com você e ainda assim pontuar menos; leia os detalhes.',
+  'evalMode.stale.head': 'Quando uma nota fica desatualizada:',
+  'evalMode.stale.text': 'depois que você muda uma preferência que esta % lê, ou quando o texto da vaga muda, '
+    + 'a vaga mantém a nota anterior, marcada como anterior, até você recalcular.',
   'limits.head': 'O que limita esta nota',
   'limits.lede': 'De quem é cada lacuna: uma resposta sua, o anúncio, ou a leitura.',
   'limits.unanswered': 'Uma pergunta sem resposta sua',

@@ -170,3 +170,22 @@ def test_scores_from_an_earlier_version_offer_the_recalculation(
     ).fetchone()[0]
     conn.close()
     assert older == 0
+
+
+def test_an_empty_applications_board_shows_neither_the_notice_nor_the_score_guide(
+    page: Chrome, edited
+) -> None:
+    """The board's task is the applications. With none tracked, a recalculation
+    warning about "these jobs" and a guide to the % are noise above an empty
+    page; a tracked job says when its own score is older, in its drawer."""
+    assert page.evaluate(NOTICE_SHOWN), "Find jobs still carries the notice"
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"applications\"]').click()")
+    page.wait_for(
+        "!document.getElementById('boardempty')?.hidden",
+        message="the applications page",
+    )
+    assert not page.evaluate(NOTICE_SHOWN)
+    assert page.evaluate("document.getElementById('eval-mode').hidden") is True
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"jobs\"]').click()")
+    page.wait_for(NOTICE_SHOWN, message="the notice comes back on Find jobs")
+    assert page.evaluate("document.getElementById('eval-mode').hidden") is False

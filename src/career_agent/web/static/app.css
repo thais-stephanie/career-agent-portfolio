@@ -11313,3 +11313,14 @@ table.jobs .cell__title-btn { max-width: 100%; }
 }
 .tp-return[hidden] { display: none; }
 .tp-return__text { flex: 1 1 280px; font-size: 14px; line-height: 1.5; color: var(--ink); }
+
+/* How this score works: closed by default; open, short rows at reading width. */
+.evalmode { margin: 0 0 12px; font-size: 14px; }
+.evalmode__summary { width: fit-content; font-size: 14px; color: var(--link); cursor: pointer; }
+.evalmode__body {
+  display: grid; gap: 10px; max-width: 640px; padding: 14px 16px; margin-top: 8px;
+  font-size: 14px; line-height: 1.55; background: var(--surface);
+  border: 1px solid var(--divider); border-radius: 12px;
+}
+.evalmode__row { margin: 0; }
+.evalmode__summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

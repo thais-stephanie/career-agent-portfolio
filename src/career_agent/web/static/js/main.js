@@ -273,7 +273,7 @@ function paintEvalMode() {
   const body = document.getElementById('eval-mode-body');
   if (!summary || !body) return;
   summary.textContent = t('evalMode.summary');
-  const rows = ['measures', 'uses', 'notUsed', 'notAnalysed', 'focused', 'improve'];
+  const rows = ['measures', 'uses', 'notUsed', 'kinds', 'limits', 'focused', 'stale'];
   body.replaceChildren(...rows.map((key) => el('p', { className: 'evalmode__row' }, [
     el('strong', { text: `${t(`evalMode.${key}.head`)} ` }),
     el('span', { text: t(`evalMode.${key}.text`, { slots: WORK_SLOTS }) }),
@@ -518,6 +518,9 @@ function goTo(page, { push = true, job = null } = {}) {
   // container and repaints only when its list arrives; clearing it here keeps
   // "No applications tracked yet" from lingering over Discover meanwhile.
   if (page !== 'applications') paintBoardEmpty(false);
+  // How the % works belongs to the list of jobs, not to the board of applications.
+  const evalMode = document.getElementById('eval-mode');
+  if (evalMode) evalMode.hidden = page === 'applications';
   // The hidden-jobs notices belong to Discover alone. Applications shares the
   // container, and "Show them too" over a board of tracked jobs would widen a
   // search nobody is looking at.
@@ -1089,6 +1092,8 @@ async function afterList(queryString, response) {
 function paintBoardEmpty(show) {
   if (!dom.boardEmpty) return;
   dom.boardEmpty.hidden = !show;
+  // The recalculation notice is not the task of an empty board (see there).
+  if (currentPage === 'applications') renderRevisionNotice();
   if (!show) {
     replace(dom.boardEmpty, []);
     return;
@@ -1360,6 +1365,14 @@ function showRecalculationLost() {
 function renderRevisionNotice() {
   const node = dom.revision;
   if (!node) return;
+  // On the applications board the notice is not the task. An empty board has no
+  // job it could be about; with applications, each job's drawer says when ITS
+  // score is older than the preferences. Home and Find jobs keep the notice.
+  if (currentPage === 'applications' && dom.boardEmpty && !dom.boardEmpty.hidden) {
+    clear(node);
+    node.hidden = true;
+    return;
+  }
   const revision = lastResponse && lastResponse.revision;
   // No payload, or the answer matches the question: nothing to say. Silence
   // here is the ordinary case and it should look like nothing at all.

@@ -30,14 +30,20 @@ def test_the_list_names_its_mode_and_explains_it_on_request(
 ) -> None:
     _jobs(page, deep_server["url"])
     summary = str(page.evaluate("document.getElementById('eval-mode-summary').textContent"))
-    assert summary == "Local evaluation · how the % works"
+    assert summary == "How this score works"
     assert not page.evaluate("document.getElementById('eval-mode').open"), "closed by default"
     page.evaluate("document.getElementById('eval-mode-summary').click()")
     body = str(page.evaluate("document.getElementById('eval-mode-body').innerText"))
     assert "not a chance of being hired" in body
-    assert "Confirming evidence does not change the %" in body
+    assert "does not change this score" in body
     assert "up to 4 of the kinds of work" in body
-    assert "may raise or lower a priority" in body
+    # Three different answers, kept apart; and when a score is out of date.
+    assert "never inside it" in body and "marked as earlier" in body
+    # It promises no improvement it cannot deliver.
+    assert "raise" not in body and "improve" not in body.lower()
+    # Short rows at reading width, not a narrow column.
+    width = page.evaluate("document.getElementById('eval-mode-body').getBoundingClientRect().width")
+    assert 560 <= width <= 700
     if SHOTS:
         page.screenshot(Path(SHOTS) / "guidance-list.png")
     assert deep_server["fake"].messages == [], "the guidance sent something"
@@ -98,8 +104,8 @@ def test_the_guidance_reads_in_portuguese(
     _jobs(page, deep_server["url"])
     assert (
         str(page.evaluate("document.getElementById('eval-mode-summary').textContent"))
-        == "Avaliação local · como funciona a %"
+        == "Como esta nota funciona"
     )
     page.evaluate("document.getElementById('eval-mode-summary').click()")
     body = str(page.evaluate("document.getElementById('eval-mode-body').innerText"))
-    assert "Não é chance de contratação" in body and "evalMode." not in body
+    assert "não é uma chance de ser contratada" in body and "evalMode." not in body
