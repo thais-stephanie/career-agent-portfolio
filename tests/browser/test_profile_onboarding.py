@@ -79,6 +79,10 @@ def test_a_new_profile_gets_the_setup_whatever_the_first_person_did(
     page.navigate(base)
     page.wait_for(SETUP_OR_HOME, message="Home on profile B again")
     assert _view(page) == "setup"
+    page.wait_for(
+        f"Object.keys(localStorage).includes('careerAgent.setup.at.v1@{second}')",
+        message="the card B is on is remembered",
+    )
     keys = page.evaluate("Object.keys(localStorage).filter(k => k.includes('setup.at'))")
     assert f"careerAgent.setup.at.v1@{second}" in keys and "careerAgent.setup.at.v1" not in keys
     assert all(k.endswith((f"@{first}", f"@{second}")) for k in keys), "every key names its profile"
