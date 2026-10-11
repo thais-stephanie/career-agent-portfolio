@@ -206,7 +206,8 @@ def test_a_truncated_download_is_a_failure_and_changes_nothing(conn, folder):
     assert FeedSession(folder).read()["processed_last_modified"] == MODIFIED
     assert (
         conn.execute(
-            "SELECT status FROM pipeline_run WHERE stage='collect-workable' ORDER BY started_at DESC"
+            "SELECT status FROM pipeline_run WHERE stage='collect-workable'"
+            " ORDER BY started_at DESC"
         ).fetchone()[0]
         == "FAILED"
     )

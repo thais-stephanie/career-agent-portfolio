@@ -183,6 +183,9 @@ def test_the_file_is_sent_as_an_attachment(api: JobsApi) -> None:
 
     from career_agent.web.server import build_server
 
+    # An ephemeral port: the default (8765) belongs to the person's own running
+    # app, and a test must neither depend on it being free nor close it.
+    api.config = dataclasses.replace(api.config, port=0)
     httpd = build_server(api)
     port = int(httpd.server_address[1])
     api.config = dataclasses.replace(api.config, port=port)

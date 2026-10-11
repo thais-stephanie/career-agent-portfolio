@@ -3630,3 +3630,10 @@ relabelStaticText();
 if (document.readyState !== 'complete') {
   document.addEventListener('DOMContentLoaded', relabelTheme);
 }
+
+// The app is wired: handlers are bound and the first page is drawn. `load` does
+// NOT mean this (the profile is awaited at the top of the module, and a module's
+// top-level await does not hold the load event), so tests and any caller that
+// needs the app to answer a click wait for this, never for `readyState`.
+document.documentElement.dataset.appReady = 'true';
+performance.mark('app-ready');

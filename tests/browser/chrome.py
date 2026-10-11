@@ -317,6 +317,23 @@ class Chrome:
         if result.get("errorText"):
             raise RuntimeError(f"navigation to {url} failed: {result['errorText']}")
         self.wait_for("document.readyState === 'complete'", message=f"{url} to finish loading")
+        self.wait_for_app()
+
+    #: `load` is not "the app answers clicks": main.js awaits the profile at the
+    #: top of the module (a top-level await does not hold the load event), so
+    #: handlers are bound a few milliseconds to a second AFTER it, depending on
+    #: the machine's load. A click sent in that gap does nothing and the test
+    #: then times out waiting for a page that was never asked for. Measured
+    #: 2026-10-11 under full CPU load: the app's `app-ready` mark came 13 to 91 ms
+    #: after `loadEventEnd`. Pages that are not the app (previews, exports) carry
+    #: no `#page-settings` and are not waited for.
+    APP_READY = (
+        "!document.getElementById('page-settings')"
+        " || document.documentElement.dataset.appReady === 'true'"
+    )
+
+    def wait_for_app(self) -> None:
+        self.wait_for(self.APP_READY, message="the app to finish starting")
 
     def reload(self) -> None:
         """A real `location.reload()`, started from a task so this call's own
@@ -328,6 +345,7 @@ class Chrome:
             "document.readyState === 'complete' && window.__reloaded === undefined",
             message="the page to come back from location.reload()",
         )
+        self.wait_for_app()
 
     def evaluate(self, expression: str) -> Any:
         result = self._cdp.call(

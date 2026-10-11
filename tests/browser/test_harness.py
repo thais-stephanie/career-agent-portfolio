@@ -80,3 +80,15 @@ def test_clearing_the_colour_scheme_is_not_the_same_as_choosing_one(
         "either the light override survived being cleared, or headless Chrome "
         "no longer answers dark by default"
     )
+
+
+def test_navigation_returns_only_once_the_app_answers_clicks(page: Chrome, server: str) -> None:
+    """`load` fires before main.js has bound its handlers (the profile is awaited
+    at the top of the module), so a click sent right after `navigate` could do
+    nothing and the test timed out 30 s later under load. `navigate` waits for
+    the app's own signal, and the signal is set after the first page is drawn."""
+    page.navigate(server)
+    assert page.evaluate("document.documentElement.dataset.appReady") == "true"
+    assert page.evaluate("performance.getEntriesByName('app-ready').length") == 1
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"settings\"]')?.click()")
+    page.wait_for("location.hash === '#settings'", message="the first click to be heard")
