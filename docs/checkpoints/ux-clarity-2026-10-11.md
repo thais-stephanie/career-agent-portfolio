@@ -1,0 +1,19 @@
+# UX clarity pass (2026-10-11), branch claude/ux-clarity, base main 334aeb5
+
+Scope checklist. `[x]` = implemented and tested, `[ ]` = pending.
+Not merged, not pushed. Synthetic data only.
+
+- [x] 3. Job detail opens with an old score (root cause: `get_job` asked for the
+      CURRENT config version only and answered 404 where the list served the
+      previous revision). Detail, preparation and application now open with the
+      newest stored score labelled stale, or with no score at all.
+- [ ] 1. Onboarding for every new profile (browser keys not scoped by profile)
+- [ ] 2. Orientation after editing the profile (effects classifier)
+- [ ] 4. Job site alerts and per-source actions
+- [ ] 5. Optional update on open, bounded, off by default
+- [ ] 6. Score explanation
+- [ ] 7. Providers and privacy panel
+- [ ] 8. Resume Tailor in the sidebar
+- [ ] 9. Settings, People on this computer
+- [ ] 10. Text wrapping across the app
+- [ ] 11. Backups and disk use

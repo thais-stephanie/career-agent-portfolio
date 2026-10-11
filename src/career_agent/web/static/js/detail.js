@@ -362,6 +362,20 @@ export function createDrawer({
   //: The drawer's own "Did you send your application?", like the card's.
   let askingFor = null;
 
+  /** Which stored score is on screen: this one, an older one, or none. */
+  function assessmentState(job) {
+    return (job.assessment && job.assessment.state) || 'current';
+  }
+
+  /** The note that says a score is older than the preferences or the text. */
+  function staleNote(job) {
+    if (assessmentState(job) !== 'stale') return null;
+    const reasons = (job.assessment.reasons || []).slice().sort().join('+');
+    const key = reasons === 'posting' ? 'assess.stale.posting'
+      : reasons === 'posting+preferences' ? 'assess.stale.both' : 'assess.stale.preferences';
+    return el('p', { className: 'd-note d-stale', attrs: { role: 'status' }, text: t(key) });
+  }
+
   /** The match, the heart, the job ad, Apply, and the question after it. */
   function headActions(job) {
     const score = scoreDisplay(job.match_score);
@@ -375,7 +389,10 @@ export function createDrawer({
     if (match) {
       match.append(
         el('span', { className: 'card__pct num', text: `${score.text}%` }),
-        el('span', { className: 'card__matchtext', text: t(tone.key) }),
+        el('span', {
+          className: 'card__matchtext',
+          text: assessmentState(job) === 'stale' ? `${t(tone.key)} · ${t('assess.old')}` : t(tone.key),
+        }),
       );
     }
     const heart = button(job.saved ? '♥' : '♡', () => refreshWith(onSave(job.job_id, !job.saved)), {
@@ -737,6 +754,7 @@ export function createDrawer({
         el('p', { className: 'd-note', text: t('drawer.unscored') }),
       ]);
     }
+    const stale = staleNote(job);
     const score = Math.round(job.match_score);
     const tone = matchTone(job.match_score);
     const { fits, parts, gaps } = askedFor(job);
@@ -750,6 +768,7 @@ export function createDrawer({
         className: `d-fit__bar${index < fits.length ? ' is-on' : index < fits.length + parts.length ? ' is-part' : ''}`,
       })));
     return el('section', { className: 'd-card d-fit' }, [
+      stale,
       el('div', { className: 'd-fit__head' }, [
         el('span', { className: `d-fit__pct card__match--${tone.tone}` }, [
           el('span', { className: 'card__pct num', text: `${score}%` }),
@@ -1016,6 +1035,9 @@ export function createDrawer({
    */
   function fitFeedbackSection(job) {
     if (job.match_score === null || job.match_score === undefined) return null;
+    // An answer about a score is kept beside THAT score; an older one is not
+    // the score the person is being asked about.
+    if (assessmentState(job) !== 'current') return null;
     const given = job.fit_feedback || null;
     const verdict = given ? given.verdict : null;
     const status = el('p', {

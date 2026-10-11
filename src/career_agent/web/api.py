@@ -2446,6 +2446,43 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
         return display_names()[1]
 
+    def assessment_of(self, conn: Any, job_id: str) -> dict[str, Any]:
+        """Which stored score a posting can show, and how it relates to now.
+
+        `current`: scored under the preferences in force, from this text of
+        the posting. `stale`: the newest score is older (other preferences or
+        an earlier text of the posting) and is shown as the older one it is.
+        `missing`: the posting has never been scored. Never raises; a posting
+        that exists always has an answer here, because the description, the
+        link, the application and the resume need no score."""
+        from career_agent.storage.mvp_repo import MatchRepo
+
+        config_id, config_version = self._identity()
+        found = MatchRepo(conn).newest(job_id, config_id)
+        row = conn.execute("SELECT content_hash FROM job WHERE id = ?", (job_id,)).fetchone()
+        text_now = str(row["content_hash"]) if row is not None else ""
+        if found is None:
+            return {
+                "state": "missing",
+                "shown_version": None,
+                "current_version": config_version,
+                "reasons": [],
+            }
+        version, scored_hash, result = found
+        reasons = []
+        if result.config_id != config_id or version != config_version:
+            reasons.append("preferences")
+        if scored_hash != text_now:
+            reasons.append("posting")
+        return {
+            "state": "stale" if reasons else "current",
+            "shown_version": version,
+            "shown_config_id": result.config_id,
+            "current_version": config_version,
+            "reasons": reasons,
+            "computed_at": result.computed_at,
+        }
+
     def get_job(self, *, job_id: str, query: dict, body: dict) -> dict:
         from career_agent.storage.fit_feedback import FitFeedbackRepo
         from career_agent.storage.mvp_repo import ApplicationRepo, ScoredJobQuery
@@ -2453,15 +2490,29 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         validate_job_id(job_id)
         config_id, config_version = self._identity()
         with _closing(self.connect()) as conn:
-            row = ScoredJobQuery(conn).get_one(job_id, config_id, config_version)
+            assessment = self.assessment_of(conn, job_id)
+            repo = ScoredJobQuery(conn)
+            if assessment["state"] == "missing":
+                row = repo.get_unscored(job_id)
+            else:
+                # The newest stored score, labelled; never "no such job" just
+                # because the preferences moved after it was computed.
+                row = repo.get_one(
+                    job_id, assessment["shown_config_id"], int(assessment["shown_version"])
+                )
             if row is None:
                 raise ApiError(404, "no such job")
             history = ApplicationRepo(conn).history(job_id)
-            feedback = FitFeedbackRepo(conn).current(job_id, config_id, config_version)
+            feedback = (
+                FitFeedbackRepo(conn).current(job_id, config_id, config_version)
+                if assessment["state"] == "current"
+                else None
+            )
             deep = _deep_review(self, conn, job_id)
         detail = job_detail(
             row, bands=self._bands, today=utc_today(), recency=self._recency, history=history
         )
+        detail["assessment"] = assessment
         detail["fit_feedback"] = feedback
         # The deep reading sits BESIDE the score, never inside it.
         detail["deep_review"] = deep

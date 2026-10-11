@@ -1186,6 +1186,26 @@ class MatchRepo(_Repo):
             return None
         return deserialise_match(str(row["result_json"]))
 
+    def newest(self, job_id: str, config_id: str) -> tuple[int, str, MatchResult] | None:
+        """The newest stored score of this posting under ANY configuration
+        version, as (version, content hash scored, result), or None.
+
+        A posting opened after a preference edit may have no score at the
+        version now in force. This is what it was last scored with; callers
+        must label it as the older answer it is."""
+        row = self.conn.execute(
+            "SELECT config_version, content_hash, result_json FROM job_match"
+            " WHERE job_id = ? ORDER BY (config_id = ?) DESC, config_version DESC LIMIT 1",
+            (job_id, config_id),
+        ).fetchone()
+        if row is None:
+            return None
+        return (
+            int(row["config_version"]),
+            str(row["content_hash"]),
+            deserialise_match(str(row["result_json"])),
+        )
+
     def count_for(self, config_id: str, config_version: int) -> int:
         row = self.conn.execute(
             "SELECT COUNT(*) AS n FROM job_match WHERE config_id = ? AND config_version = ?",
@@ -3119,6 +3139,24 @@ class ScoredJobQuery(_Repo):
         )
         return self._to_scored_job(row, groups=groups)
 
+    def get_unscored(self, job_id: str) -> ScoredJob | None:
+        """A posting with NO stored score at all (collected, not yet read by the
+        matcher): what the detail can still show, with `result` empty."""
+        select = (
+            self._select("jr.description_text")
+            .replace("jm.content_hash", "j.content_hash")
+            .replace("jm.result_json", "NULL AS result_json")
+        )
+        row = self.conn.execute(
+            select + " FROM job j JOIN job_raw jr ON jr.content_hash = j.content_hash"
+            " JOIN company c ON c.id = j.company_id"
+            " LEFT JOIN job_application ja ON ja.job_id = j.id"
+            " LEFT JOIN job_enrichment je ON je.job_id = j.id"
+            " WHERE j.id = ?",
+            (job_id,),
+        ).fetchone()
+        return None if row is None else self._to_scored_job(row)
+
     def _siblings_for(
         self,
         config_id: str,
@@ -3470,7 +3508,9 @@ class ScoredJobQuery(_Repo):
             closed_at=row["closed_at"],
             content_hash=str(row["content_hash"]),
             description_text=str(row["description_text"]),
-            result=deserialise_match(str(row["result_json"])),
+            result=(
+                None if row["result_json"] is None else deserialise_match(str(row["result_json"]))
+            ),
             application_status=str(row["application_status"] or DEFAULT_APPLICATION_STATUS.value),
             applied_at=row["applied_at"],
             saved=bool(row["saved"]),

@@ -1680,8 +1680,16 @@ const EN = {
   'drawer.close': 'Close details',
   'drawer.loading': 'Loading...',
   'drawer.loadFailed': 'Could not load this posting',
-  'drawer.unscored': 'This job has not been scored yet, so there is nothing to explain. '
-    + 'Scores are recalculated when your preferences change.',
+  'drawer.unscored': 'This job has not been checked against your preferences yet, so there is no score '
+    + 'to explain. Its description, link and your notes work as usual.',
+  'assess.old': 'earlier score',
+  'assess.stale.preferences': 'This score is from before your latest changes to your preferences. It is '
+    + 'shown for reference and may not match what you ask for now. Recalculate to update it; everything '
+    + 'else on this job works as usual.',
+  'assess.stale.posting': 'The text of this job changed after this score was calculated. The score is '
+    + 'shown for reference. Recalculate to update it; everything else on this job works as usual.',
+  'assess.stale.both': 'This score is older than your latest preferences and than the current text of '
+    + 'this job. It is shown for reference. Recalculate to update it.',
   'drawer.fitAll': 'This job has everything you asked for.',
   'drawer.fitSome': 'This job has {n} of the {total} things you asked for.',
   'drawer.fitSomePart': 'This job has {n} of the {total} things you asked for, and part of {part} more.',
@@ -6416,8 +6424,16 @@ const PT_BR = {
   'drawer.close': 'Fechar detalhes',
   'drawer.loading': 'Carregando...',
   'drawer.loadFailed': 'Não foi possível carregar este anúncio',
-  'drawer.unscored': 'Esta vaga ainda não foi pontuada, então não há o que explicar. '
-    + 'As notas são recalculadas quando suas preferências mudam.',
+  'drawer.unscored': 'Esta vaga ainda não foi conferida com as suas preferências, então não há nota para '
+    + 'explicar. A descrição, o link e as suas anotações funcionam normalmente.',
+  'assess.old': 'nota anterior',
+  'assess.stale.preferences': 'Esta nota é de antes das suas últimas mudanças nas preferências. Ela aparece '
+    + 'só como referência e pode não refletir o que você pede agora. Recalcule para atualizar; o resto '
+    + 'desta vaga funciona normalmente.',
+  'assess.stale.posting': 'O texto desta vaga mudou depois que a nota foi calculada. A nota aparece só '
+    + 'como referência. Recalcule para atualizar; o resto desta vaga funciona normalmente.',
+  'assess.stale.both': 'Esta nota é mais antiga que as suas últimas preferências e que o texto atual da '
+    + 'vaga. Ela aparece só como referência. Recalcule para atualizar.',
   'drawer.fitAll': 'Esta vaga tem tudo o que você pediu.',
   'drawer.fitSome': 'Esta vaga tem {n} das {total} coisas que você pediu.',
   'drawer.fitSomePart': 'Esta vaga tem {n} das {total} coisas que você pediu, e parte de mais {part}.',

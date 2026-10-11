@@ -498,6 +498,8 @@ class WorkspaceRoutes(_MixinBase):
 
         def _identity(self) -> tuple[str, int]: ...
 
+        def assessment_of(self, conn: Any, job_id: str) -> dict[str, Any]: ...
+
         #: The band edges and the recency window, read once from the loaded
         #: configuration and cached on `JobsApi`. The digest renders cards, so
         #: it needs both.
@@ -2096,22 +2098,31 @@ class WorkspaceRoutes(_MixinBase):
 
         validate_job_id(job_id)
         config = self.search_config()
-        config_id, config_version = self._identity()
 
         with _closing(self.connect()) as conn:
-            result = MatchRepo(conn).get(job_id, config_id, config_version)
-            if result is None:
-                raise ApiError(
-                    409,
-                    "This posting has no score under the settings in force. "
-                    "Recalculate matches and try again.",
-                    for_reader=True,
-                )
+            assessment = self.assessment_of(conn, job_id)
+            found = MatchRepo(conn).newest(job_id, str(config.config_id))
             candidate_id = candidate_id_of(conn)
             claims = ClaimRepo(conn).current(candidate_id) if candidate_id else []
             reviews = (
                 RequirementReviewRepo(conn).for_job(candidate_id, job_id) if candidate_id else {}
             )
+        if found is None:
+            # Never scored: nothing to compare yet, and no recalculation is
+            # needed to open the posting, its link or a resume for it.
+            return {
+                "job_id": job_id,
+                "assessment": assessment,
+                "requirements": [],
+                "counts": {readiness.value: 0 for readiness in Readiness},
+                "total": 0,
+                "concerns": [],
+                "evidence_available": len([c for c in claims if c.verified]),
+                "has_candidate": candidate_id is not None,
+                "readiness_meaning": READINESS_MEANING,
+                "verdict_meaning": VERDICT_MEANING,
+            }
+        result = found[2]
 
         plan = prepare(config, result, claims)
         confirmed = [claim for claim in claims if claim.verified]
@@ -2157,6 +2168,7 @@ class WorkspaceRoutes(_MixinBase):
         counts = {readiness.value: len(plan.of(readiness)) for readiness in Readiness}
         return {
             "job_id": job_id,
+            "assessment": assessment,
             "requirements": requirements,
             "counts": counts,
             "total": len(plan.requirements),
@@ -2197,17 +2209,17 @@ class WorkspaceRoutes(_MixinBase):
 
         validate_job_id(job_id)
         config = self.search_config()
-        config_id, config_version = self._identity()
 
         with _closing(self.connect()) as conn:
-            result = MatchRepo(conn).get(job_id, config_id, config_version)
-            if result is None:
+            found = MatchRepo(conn).newest(job_id, str(config.config_id))
+            if found is None:
                 raise ApiError(
                     409,
-                    "This posting has no score under the settings in force. "
-                    "Recalculate matches and try again.",
+                    "This posting has not been read by the matcher yet, so there is "
+                    "nothing to compare. Its text and link are still available.",
                     for_reader=True,
                 )
+            result = found[2]
             candidate_id = candidate_id_of(conn)
             claims = ClaimRepo(conn).current(candidate_id) if candidate_id else []
             # The employer's own words, for the file's heading. Read here
