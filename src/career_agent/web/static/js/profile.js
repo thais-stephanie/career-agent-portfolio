@@ -1170,9 +1170,7 @@ export function editableBlock(fields, source, names, prefix = 'profile-field-') 
       // The server's sentence, not ours. It is the one that says the existing
       // matches now need recalculating, and rewriting it here would be this
       // file deciding how important that is.
-      // With `effects` the one notice after a save carries the consequence and
-      // its action (edit-notice.js); the line here only confirms.
-      status.textContent = result.effects ? t('prefs.saved') : (result.note || t('prefs.saved'));
+      status.textContent = result.note || t('prefs.saved');
       draw();
     } catch (error) {
       status.className = 'profile__save-status is-error';
