@@ -11262,3 +11262,28 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .au__more ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
 .au__last, .au__status { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
 .au :is(.dr-switch, summary):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Settings, People on this computer: everyone listed, text at reading width. */
+.lprof__explain { margin: 0 0 16px; max-width: 640px; font-size: 14px; line-height: 1.55; color: var(--muted); }
+.lprof__explain--quiet { margin: 16px 0 0; }
+.lprof__slist { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 12px; max-width: 640px; }
+.lprof__srow {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px;
+  background: var(--surface); border: 1px solid var(--divider); border-radius: 16px;
+}
+.lprof__srow.is-current { background: var(--lilac-wash); }
+.lprof__srow .lprof__rowtext { flex: 1 1 180px; min-width: 0; }
+.lprof__srow .lprof__rowname { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.lprof__srow .input { flex: 1 1 200px; min-width: 0; }
+.lprof__pill {
+  padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--lav); color: var(--on-lav);
+}
+.lprof__pill--quiet { background: var(--chip-bg); color: var(--muted); }
+.lprof__sbtn {
+  min-height: 36px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--divider);
+  background: var(--chip-bg); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer;
+}
+.lprof__sbtn--primary { background: var(--lav); border-color: var(--lav); color: var(--on-lav); }
+.lprof__sbtn:hover { background: var(--surface-hover, var(--chip-bg)); }
+.lprof__sbtn:focus-visible, .lprof__srow .input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

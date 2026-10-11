@@ -14,6 +14,6 @@ Not merged, not pushed. Synthetic data only.
 - [ ] 6. Score explanation
 - [ ] 7. Providers and privacy panel
 - [ ] 8. Resume Tailor in the sidebar
-- [ ] 9. Settings, People on this computer
+- [x] 9. Settings, People on this computer (every profile listed, current marked, rename in place, switch, delete only when applicable; text at reading width)
 - [ ] 10. Text wrapping across the app
 - [ ] 11. Backups and disk use

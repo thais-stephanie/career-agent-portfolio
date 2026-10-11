@@ -444,11 +444,99 @@ export function createLocalProfiles(host) {
       replace(settingsHost, []);
       return;
     }
+    const note = el('p', { className: 'lprof__explain', text: t('profiles.explain') });
+    const line = el('p', { className: 'lprof__settingsstatus', attrs: { role: 'status', 'aria-live': 'polite' } });
+    // EVERYONE on this computer is listed, the open profile first and marked.
+    // Which actions a row offers is decided per row: a person alone on the
+    // computer still sees themselves, and "nobody else to delete" only removes
+    // the delete form, never the list.
+    const list = el('ul', { className: 'lprof__slist', attrs: { 'aria-label': t('profiles.listLabel') } },
+      data.profiles.map((profile) => settingsRow(profile, line)));
+    replace(settingsHost, [note, list, line, deleteSection()]);
+  }
+
+  let renamingId = null;
+
+  function settingsRow(profile, line) {
+    const current = Boolean(profile.active);
+    const name = profile.label || t('profiles.unnamed');
+    if (current && renamingId === profile.id) return renameRow(profile, line);
+    return el('li', {
+      className: `lprof__srow${current ? ' is-current' : ''}`,
+      dataset: { profile: profile.id },
+      attrs: current ? { 'aria-current': 'true' } : {},
+    }, [
+      tile(profile, 'small'),
+      el('span', { className: 'lprof__rowtext' }, [
+        el('span', { className: 'lprof__rowname', text: name }),
+        el('span', { className: 'lprof__meta', text: createdOn(profile) }),
+      ]),
+      current ? el('span', { className: 'lprof__pill', text: t('profiles.current') }) : null,
+      profile.original
+        ? el('span', { className: 'lprof__pill lprof__pill--quiet', text: t('profiles.original') })
+        : null,
+      current
+        ? button(t('profiles.renameShort'), () => {
+          renamingId = profile.id;
+          drawSettings();
+          const box = settingsHost.querySelector('#lprof-srename');
+          if (box) { box.focus(); box.select(); }
+        }, { className: 'lprof__sbtn', attrs: { 'aria-label': t('profiles.renameThis') } })
+        : button(t('profiles.switch'), async (event) => {
+          const target = event.currentTarget;
+          target.disabled = true;
+          line.textContent = t('profiles.switching');
+          try {
+            await api.switchLocalProfile(profile.id);
+            if (channel) channel.postMessage('switched');
+            window.location.assign(window.location.pathname);
+          } catch (error) {
+            line.textContent = error.userMessage || error.message;
+            target.disabled = false;
+          }
+        }, { className: 'lprof__sbtn', attrs: { 'aria-label': t('profiles.switchTo', { name }) } }),
+    ].filter(Boolean));
+  }
+
+  function renameRow(profile, line) {
+    const box = el('input', {
+      className: 'input',
+      attrs: { id: 'lprof-srename', type: 'text', maxlength: '40', autocomplete: 'off',
+        'aria-label': t('profiles.renameThis') },
+      props: { value: profile.label || '' },
+    });
+    const done = () => { renamingId = null; drawSettings(); };
+    const save = async () => {
+      const name = box.value.trim();
+      if (!name || name === profile.label) { done(); return; }
+      try {
+        data = await api.renameLocalProfile(profile.id, name);
+        renamingId = null;
+        draw();
+        drawSettings();
+        const after = settingsHost.querySelector('.lprof__settingsstatus');
+        if (after) after.textContent = t('profiles.renamed');
+      } catch (error) {
+        line.textContent = error.userMessage || error.message;
+      }
+    };
+    box.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); save(); }
+      if (event.key === 'Escape') done();
+    });
+    return el('li', { className: 'lprof__srow is-current is-renaming', dataset: { profile: profile.id } }, [
+      tile(profile, 'small'),
+      box,
+      button(t('profiles.cancel'), done, { className: 'lprof__sbtn' }),
+      button(t('profiles.save'), save, { className: 'lprof__sbtn lprof__sbtn--primary' }),
+    ]);
+  }
+
+  /** Deleting: only profiles that may be deleted, by typing the name. */
+  function deleteSection() {
     const deletable = data.profiles.filter((p) => !p.active && !p.original);
-    const note = el('p', { className: 'field__hint', text: t('profiles.explain') });
     if (!deletable.length) {
-      replace(settingsHost, [note, el('p', { className: 'field__hint', text: t('profiles.nothingToDelete') })]);
-      return;
+      return el('p', { className: 'lprof__explain lprof__explain--quiet', text: t('profiles.nothingToDelete') });
     }
     const which = el('select', { className: 'input', attrs: { id: 'lprof-delete-which' } },
       deletable.map((p) => el('option', { attrs: { value: p.id }, text: p.label })));
@@ -462,7 +550,7 @@ export function createLocalProfiles(host) {
       },
     });
     const line = el('p', { className: 'lprof__settingsstatus', attrs: { role: 'status', 'aria-live': 'polite' } });
-    const form = el('form', {
+    return el('form', {
       className: 'lprof__delete',
       on: {
         submit: async (event) => {
@@ -495,7 +583,6 @@ export function createLocalProfiles(host) {
       el('button', { className: 'btn lprof__danger', attrs: { type: 'submit' }, text: t('profiles.delete') }),
       line,
     ]);
-    replace(settingsHost, [note, form]);
   }
 
   function mountSettings(node) {
