@@ -83,7 +83,7 @@ def test_the_drawer_says_what_limits_this_score_and_whose_gap_it_is(
         ".find((b) => /in depth/.test(b.textContent)).click()"
     )
     page.wait_for(
-        "document.querySelector('.deep .deep__access')", message="the deep reading panel opened"
+        "document.querySelector('.dr-panel .dr-card')", message="the deep reading panel opened"
     )
     assert deep_server["fake"].messages == [], "opening the panel sent something"
 

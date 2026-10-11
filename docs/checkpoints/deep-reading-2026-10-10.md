@@ -244,3 +244,29 @@ whose parts the cited evidence names, four headings whose list was not
 quoted). Not fixed: a lexical part match can miss a synonym (GitHub vs Git),
 which leaves the part unknown, never shown.
 
+## 12. The panel, redrawn after the approved reference (presentation only)
+
+The Deep reading panel follows `deep-reading-panel.zip` (SPEC.md, panel.css):
+a fixed head (eyebrow, serif title, sub, three steps), a scrolling body whose
+children never shrink, a fixed foot with 44px actions; four states (choose,
+check, reading, results) plus the load error, a missing provider, a paused
+run and out-of-date readings. Styles are scoped to `.dr-panel` and its own
+classes and use the app's existing tokens; nothing global, no new font, no
+bundler. The background behind the panel is no longer dimmed (that drawer
+only); every other overlay keeps its backdrop.
+
+Kept, although the reference differs: the selection (strata, cap, unresolved
+toggle for this reading only), the explicit "I checked" confirmation before
+Start, consent applied and stored as before, no provider other than the
+subscription CLIs, no "Change in Settings" link, the recommendation groups
+(not High/Medium/Low tabs), the three answers on every card, the coverage
+and not-yet-read counts, and the run's own counters (no per-posting queue:
+the server reports done and total only). The privacy line now says what is
+true: the employer and date FIELDS are never sent, and a confirmed line can
+still name an employer in its own words.
+
+`tests/browser/test_deep_panel.py` draws every state over a patched `fetch`
+at 1440, 390 and 360 px in both themes: no sideways overflow, no clipped
+list, the foot inside the window, ink at 4.5:1 on every toned ground, no
+catalogue key on screen, focus on the title and back on the button.
+

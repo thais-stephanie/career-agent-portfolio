@@ -1156,9 +1156,6 @@ const EN = {
     + 'the run pauses; it never moves to paid use or to another service.',
   'deep.consent.label.claude_code': 'Send my confirmed skills and experience to Claude Code for these readings',
   'deep.consent.label.codex': 'Send my confirmed skills and experience to Codex for these readings',
-  'deep.consent.scope': 'For this profile and this provider only. Only confirmed items that matter to each posting '
-    + 'are sent, under local ids, without your name, contact details, employers or dates. Nothing is sent until '
-    + 'you start a run.',
   'deep.consent.on': 'Your confirmed evidence will be included in the next runs.',
   'deep.consent.off': 'Your evidence will not be sent.',
   'deep.previewHead': 'Before a run',
@@ -1168,9 +1165,6 @@ const EN = {
   'deep.nothing': 'Every posting in your main list already has a deep reading from this provider.',
   'deep.sample': '{count} postings from {population} readable roles in your main list ({reviewed} already read; '
     + '{short} roles have too little text).',
-  'deep.stratum.top_local': 'Top local scores',
-  'deep.stratum.lexical': 'Closest wording',
-  'deep.stratum.control': 'Control sample from the rest',
   'deep.sendsHead': 'What would be sent',
   'deep.sends.intent': 'The {count} work, tool and other phrases of your search.',
   'deep.sends.levels': 'Your preferred levels: {levels}.',
@@ -1187,8 +1181,7 @@ const EN = {
   'deep.confirm': 'I checked the postings, the data and the provider above',
   'deep.start': 'Start reading {count} postings',
   'deep.running': 'Reading {done} of {total}...',
-  'deep.cancel': 'Cancel',
-  'deep.last': 'Last run: {published} of {candidates} read, {failed} failed, {rejected} answers refused.',
+  'deep.last': 'Last run: read {published} of {candidates} · failed: {failed} · answers refused: {rejected}.',
   'deep.stop.LIMIT_REACHED': 'Paused: your subscription limit was reached. Start again later to continue; nothing was '
     + 'sent elsewhere.',
   'deep.stop.SIGN_IN': 'Paused: Claude Code could not use your sign-in. '
@@ -1206,6 +1199,67 @@ const EN = {
   'deep.notReviewed': '{count} postings in your main list have no deep reading yet. They stay in the list in the '
     + 'local order.',
   'deep.noResults': 'No posting has a deep reading yet.',
+  'deep.cancel': 'Stop reading',
+  'deep.consent.scope': 'For this profile and this provider only, applied at once. Only confirmed items that matter '
+    + 'to each posting are sent, under local ids. Your name, contact details and links are removed, years '
+    + 'become [year], and no employer or date field is sent; a line you confirmed can still name an employer in '
+    + 'its own words.',
+  'deep.stratum.top_local': 'highest local %',
+  'deep.stratum.lexical': 'closest to your search words',
+  'deep.stratum.control': 'picked from the rest, to see what the % misses',
+  'deep.head.choose.title': 'Read my jobs closely',
+  'deep.head.choose.sub': '{name} reads each posting and notes what it really asks for. Career Agent checks the '
+    + 'quotes and sorts by fixed rules. Your match % stays the same.',
+  'deep.head.check.title': 'Check before you start',
+  'deep.head.check.sub': 'This is everything {name} will get. Nothing is sent until you press Start.',
+  'deep.head.reading.title': 'Reading your jobs',
+  'deep.head.reading.sub': '{name} reads one posting at a time. If you stop, the postings already read keep their '
+    + 'results.',
+  'deep.head.results.title': 'Your jobs, read closely',
+  'deep.head.results.sub': 'Each posting keeps three answers: the work, your history and what to confirm. Your match '
+    + '% did not change.',
+  'deep.step.label': 'Steps',
+  'deep.step.choose': 'Choose what to share',
+  'deep.step.check': 'Check and start',
+  'deep.step.results': 'See results',
+  'deep.step.done': 'done',
+  'deep.name.claude_code': 'Claude Code',
+  'deep.name.codex': 'Codex',
+  'deep.name.none': 'The AI',
+  'deep.checkAndStart': 'Check and start →',
+  'deep.nothingUntilStart': 'Nothing is sent until you start.',
+  'deep.who.head': 'Who reads your jobs',
+  'deep.see.head': 'What {name} can see',
+  'deep.see.always': 'Always included: the postings, your search words and your levels.',
+  'deep.see.recommended': 'Recommended. Without your evidence, nothing is compared with your history: every '
+    + 'requirement shows as not compared, and only the type of work is read.',
+  'deep.includeUnresolvedHint': 'These may not match where you can work. Off keeps the reading on postings open to '
+    + 'where you live. Applies to this reading only.',
+  'deep.which.head': 'Which jobs',
+  'deep.which.readable': 'readable in your main list',
+  'deep.which.reviewed': 'read before',
+  'deep.which.cap': 'most per reading',
+  'deep.back': '← Back',
+  'deep.notShared': 'Not shared',
+  'deep.change': 'Change',
+  'deep.willRead': 'What {name} will read',
+  'deep.neverSent': 'Your name, contact details, links and the employer and date fields are never sent.',
+  'deep.jobsHead': 'The {count} postings',
+  'deep.showAll': 'Show all {count} postings',
+  'deep.showFewer': 'Show fewer',
+  'deep.canStop': 'You can stop at any time.',
+  'deep.ofRead': 'of {total} postings read',
+  'deep.progressLabel': 'Postings read',
+  'deep.readingKeeps': 'You can close this panel: the reading goes on, and postings already read keep their results.',
+  'deep.notSharedNudge': 'Your evidence was not shared, so these readings do not compare the requirements with your '
+    + 'history.',
+  'deep.shareAndReadAgain': 'Share and read again',
+  'deep.howWeSort': 'How we sort',
+  'deep.emptyHead': 'No readings yet',
+  'deep.readAgain': 'Read again',
+  'deep.backToJobs': 'Back to my jobs',
+  'deep.seeJob': 'See job →',
+  'deep.localPill': '{score}% local',
   'deep.level.STRONG': 'Apply: aligned and history well shown',
   'deep.level.PREPARE': 'Apply, preparing the partly shown points',
   'deep.level.CHECK_FIRST': 'Check a central requirement first',
@@ -5747,9 +5801,6 @@ const PT_BR = {
   'deep.consent.label.claude_code': 'Enviar minhas habilidades e experiências confirmadas ao Claude Code nessas '
     + 'leituras',
   'deep.consent.label.codex': 'Enviar minhas habilidades e experiências confirmadas ao Codex nessas leituras',
-  'deep.consent.scope': 'Só para este perfil e este provedor. Vão apenas itens confirmados que importam para cada '
-    + 'vaga, com identificadores locais, sem seu nome, contatos, empregadores ou datas. Nada é enviado até você '
-    + 'iniciar uma execução.',
   'deep.consent.on': 'Suas evidências confirmadas entrarão nas próximas execuções.',
   'deep.consent.off': 'Suas evidências não serão enviadas.',
   'deep.previewHead': 'Antes de executar',
@@ -5759,9 +5810,6 @@ const PT_BR = {
   'deep.nothing': 'Todas as vagas da sua lista principal já têm leitura aprofundada deste provedor.',
   'deep.sample': '{count} vagas entre {population} funções legíveis da sua lista principal ({reviewed} já lidas; '
     + '{short} funções têm texto insuficiente).',
-  'deep.stratum.top_local': 'Maiores notas locais',
-  'deep.stratum.lexical': 'Redação mais próxima',
-  'deep.stratum.control': 'Amostra de controle do restante',
   'deep.sendsHead': 'O que seria enviado',
   'deep.sends.intent': 'As {count} frases de trabalho, ferramentas e outros sinais da sua busca.',
   'deep.sends.levels': 'Seus níveis preferidos: {levels}.',
@@ -5778,8 +5826,8 @@ const PT_BR = {
   'deep.confirm': 'Conferi as vagas, os dados e o provedor acima',
   'deep.start': 'Iniciar a leitura de {count} vagas',
   'deep.running': 'Lendo {done} de {total}...',
-  'deep.cancel': 'Cancelar',
-  'deep.last': 'Última execução: {published} de {candidates} lidas, {failed} falhas, {rejected} respostas recusadas.',
+  'deep.last': 'Última execução: lidas {published} de {candidates} · falhas: {failed} · '
+    + 'respostas recusadas: {rejected}.',
   'deep.stop.LIMIT_REACHED': 'Pausada: o limite da sua assinatura foi atingido. Inicie de novo mais tarde para '
     + 'continuar; nada foi enviado a outro serviço.',
   'deep.stop.SIGN_IN': 'Pausada: o Claude Code não conseguiu usar seu login. '
@@ -5797,6 +5845,66 @@ const PT_BR = {
   'deep.notReviewed': '{count} vagas da sua lista principal ainda não têm leitura aprofundada. Elas continuam na '
     + 'lista, na ordem local.',
   'deep.noResults': 'Nenhuma vaga tem leitura aprofundada ainda.',
+  'deep.cancel': 'Parar leitura',
+  'deep.consent.scope': 'Só para este perfil e este provedor, aplicado na hora. Só itens confirmados que importam '
+    + 'para cada vaga são enviados, com ids locais. Seu nome, contatos e links são removidos, anos viram [ano] '
+    + 'e nenhum campo de empregador ou de data é enviado; uma linha que você confirmou ainda pode citar um '
+    + 'empregador com as próprias palavras.',
+  'deep.stratum.top_local': 'maior % local',
+  'deep.stratum.lexical': 'mais perto das suas palavras de busca',
+  'deep.stratum.control': 'escolhidas entre as demais, para ver o que a % deixa passar',
+  'deep.head.choose.title': 'Ler minhas vagas com atenção',
+  'deep.head.choose.sub': '{name} lê cada vaga e anota o que ela realmente pede. O Career Agent confere as citações '
+    + 'e ordena por regras fixas. Sua % de compatibilidade não muda.',
+  'deep.head.check.title': 'Confira antes de começar',
+  'deep.head.check.sub': 'Isto é tudo o que {name} vai receber. Nada é enviado até você apertar Começar.',
+  'deep.head.reading.title': 'Lendo suas vagas',
+  'deep.head.reading.sub': '{name} lê uma vaga por vez. Se você parar, as vagas já lidas mantêm o resultado.',
+  'deep.head.results.title': 'Suas vagas, lidas com atenção',
+  'deep.head.results.sub': 'Cada vaga mantém três respostas: o trabalho, seu histórico e o que confirmar. Sua % de '
+    + 'compatibilidade não mudou.',
+  'deep.step.label': 'Etapas',
+  'deep.step.choose': 'Escolher o que compartilhar',
+  'deep.step.check': 'Conferir e começar',
+  'deep.step.results': 'Ver resultados',
+  'deep.step.done': 'concluída',
+  'deep.name.claude_code': 'Claude Code',
+  'deep.name.codex': 'Codex',
+  'deep.name.none': 'A IA',
+  'deep.checkAndStart': 'Conferir e começar →',
+  'deep.nothingUntilStart': 'Nada é enviado até você começar.',
+  'deep.who.head': 'Quem lê suas vagas',
+  'deep.see.head': 'O que {name} pode ver',
+  'deep.see.always': 'Sempre incluído: as vagas, suas palavras de busca e seus níveis.',
+  'deep.see.recommended': 'Recomendado. Sem suas evidências, nada é comparado com seu histórico: todo requisito '
+    + 'aparece como não comparado, e só o tipo de trabalho é lido.',
+  'deep.includeUnresolvedHint': 'Elas podem não valer para onde você pode trabalhar. Desligado, a leitura fica nas '
+    + 'vagas abertas para onde você mora. Vale só para esta leitura.',
+  'deep.which.head': 'Quais vagas',
+  'deep.which.readable': 'legíveis na sua lista principal',
+  'deep.which.reviewed': 'já lidas',
+  'deep.which.cap': 'no máximo por leitura',
+  'deep.back': '← Voltar',
+  'deep.notShared': 'Não compartilhado',
+  'deep.change': 'Alterar',
+  'deep.willRead': 'O que {name} vai ler',
+  'deep.neverSent': 'Seu nome, contatos, links e os campos de empregador e de data nunca são enviados.',
+  'deep.jobsHead': 'As {count} vagas',
+  'deep.showAll': 'Mostrar as {count} vagas',
+  'deep.showFewer': 'Mostrar menos',
+  'deep.canStop': 'Você pode parar a qualquer momento.',
+  'deep.ofRead': 'de {total} vagas lidas',
+  'deep.progressLabel': 'Vagas lidas',
+  'deep.readingKeeps': 'Você pode fechar este painel: a leitura continua, e as vagas já lidas mantêm o resultado.',
+  'deep.notSharedNudge': 'Suas evidências não foram compartilhadas, então estas leituras não comparam os requisitos '
+    + 'com seu histórico.',
+  'deep.shareAndReadAgain': 'Compartilhar e ler de novo',
+  'deep.howWeSort': 'Como ordenamos',
+  'deep.emptyHead': 'Nenhuma leitura ainda',
+  'deep.readAgain': 'Ler de novo',
+  'deep.backToJobs': 'Voltar às minhas vagas',
+  'deep.seeJob': 'Ver vaga →',
+  'deep.localPill': '{score}% local',
   'deep.level.STRONG': 'Candidatar: alinhada e histórico bem demonstrado',
   'deep.level.PREPARE': 'Candidatar, preparando os pontos parciais',
   'deep.level.CHECK_FIRST': 'Confirmar um requisito central antes',

@@ -90,7 +90,7 @@ def _open_panel(page: Chrome, url: str) -> None:
     page.evaluate("document.querySelector('.topnav__link[data-page=\"jobs\"]').click()")
     page.wait_for("document.getElementById('deep-open')", message="the Deep reading button")
     page.evaluate("document.getElementById('deep-open').click()")
-    page.wait_for(f"{PANEL} && {PANEL}.querySelector('.deep__access')", message="the panel")
+    page.wait_for(f"{PANEL} && {PANEL}.querySelector('.dr-card')", message="the panel")
 
 
 def _click_text(page: Chrome, selector: str, pattern: str) -> None:
@@ -107,16 +107,16 @@ def test_preview_sends_nothing_and_a_confirmed_run_reaches_the_drawer(
     _open_panel(page, deep_server["url"])
     text = str(page.evaluate(f"{PANEL}.innerText"))
     assert "Claude Code · Claude subscription" in text and "Signed in with a subscription" in text
-    _click_text(page, ".deep button", "what would be sent")
-    page.wait_for(f"/What would be sent/.test({PANEL}.innerText)", message="the preview")
+    _click_text(page, ".dr-panel button", "Check and start")
+    page.wait_for(f"/What Claude Code will read/.test({PANEL}.innerText)", message="the preview")
     assert fake.messages == [], "a preview sent something"
     start = (
-        "Array.from(document.querySelectorAll('.deep button'))"
+        "Array.from(document.querySelectorAll('.dr-panel button'))"
         ".find((n) => /Start reading/.test(n.textContent))"
     )
     assert page.evaluate(f"{start}.disabled"), "Start is enabled before the preview is confirmed"
     page.evaluate(
-        "Array.from(document.querySelectorAll('.deep__consent input'))"
+        "Array.from(document.querySelectorAll('.dr-check input'))"
         ".find((n) => /checked the postings/.test(n.parentNode.textContent)).click()"
     )
     if SHOTS:

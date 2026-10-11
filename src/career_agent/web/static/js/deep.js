@@ -41,16 +41,39 @@ export function createDeep({ onOpenJob = null } = {}) {
   let preview = null;
   let checked = false;
   let message = '';
+  // Which of the four states is on screen. A running reading always wins;
+  // otherwise the person moves between them, and opening the panel lands on
+  // the results when there are any, on the first step when there are none.
+  let view = null;
+  let showAll = false;
+  let last = { status: null, reviews: [] };
 
-  const bodyHost = el('div', { className: 'drawer__body deep' });
-  const titleNode = el('h2', { className: 'drawer__title', attrs: { id: 'deep-title' }, text: '' });
-  const closeButton = button(t('deep.close'), () => close(), { className: 'btn btn--close' });
+  const titleNode = el('h2', { className: 'dr-title', attrs: { id: 'deep-title', tabindex: '-1' }, text: '' });
+  const subNode = el('p', { className: 'dr-sub', text: '' });
+  const eyebrow = el('span', { className: 'dr-eyebrow', text: '' });
+  const closeButton = el('button', {
+    className: 'dr-x', attrs: { type: 'button', 'aria-label': t('deep.close') }, text: '✕',
+    on: { click: () => close() },
+  });
+  const stepsHost = el('ol', { className: 'dr-steps' });
+  const bodyHost = el('div', { className: 'dr-body deep' });
+  const footHost = el('footer', { className: 'dr-foot' });
   const panel = el('div', {
-    className: 'drawer__panel drawer__panel--wide',
+    className: 'drawer__panel drawer__panel--wide dr-panel',
     attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'deep-title', tabindex: '-1' },
-  }, [el('div', { className: 'drawer__head' }, [titleNode, closeButton]), bodyHost]);
+  }, [
+    el('header', { className: 'dr-head' }, [
+      el('div', { className: 'dr-head__top' }, [
+        el('div', { className: 'dr-head__text' }, [eyebrow, titleNode, subNode]),
+        closeButton,
+      ]),
+      stepsHost,
+    ]),
+    bodyHost,
+    footHost,
+  ]);
   const scrim = el('div', { className: 'drawer__scrim', on: { click: () => close() } });
-  const root = el('div', { className: 'drawer', attrs: { hidden: true } }, [scrim, panel]);
+  const root = el('div', { className: 'drawer drawer--deep', attrs: { hidden: true } }, [scrim, panel]);
 
   root.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
@@ -61,11 +84,11 @@ export function createDeep({ onOpenJob = null } = {}) {
     if (event.key !== 'Tab') return;
     const nodes = focusables(panel);
     if (!nodes.length) return;
-    const [first, last] = [nodes[0], nodes[nodes.length - 1]];
+    const [first, lastNode] = [nodes[0], nodes[nodes.length - 1]];
     if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
+      lastNode.focus();
+    } else if (!event.shiftKey && document.activeElement === lastNode) {
       event.preventDefault();
       first.focus();
     }
@@ -75,9 +98,11 @@ export function createDeep({ onOpenJob = null } = {}) {
     invoker = invokedBy || document.activeElement;
     root.hidden = false;
     document.body.classList.add('has-drawer');
-    titleNode.textContent = t('deep.title');
-    closeButton.textContent = t('deep.close');
-    panel.focus();
+    view = null;
+    showAll = false;
+    closeButton.setAttribute('aria-label', t('deep.close'));
+    head('choose');
+    titleNode.focus();
     await refresh();
   }
 
@@ -90,7 +115,9 @@ export function createDeep({ onOpenJob = null } = {}) {
     preview = null;
     checked = false;
     message = '';
+    view = null;
     replace(bodyHost, []);
+    replace(footHost, []);
     if (invoker && document.contains(invoker)) invoker.focus();
     invoker = null;
   }
@@ -100,20 +127,35 @@ export function createDeep({ onOpenJob = null } = {}) {
     poller = null;
   }
 
+  /** Move to another state without asking the server again. */
+  function go(next) {
+    view = next;
+    paint();
+    bodyHost.scrollTop = 0;
+    titleNode.focus();
+  }
+
   async function refresh() {
     const mine = ++token;
     replace(bodyHost, [el('div', { className: 'sk sk--block' })]);
+    replace(footHost, []);
     try {
       const [status, results] = await Promise.all([api.getDeep(), api.getDeepReviews()]);
       if (mine !== token) return;
-      replace(bodyHost, render(status, results.reviews || []));
-      if (status.run && status.run.status === 'running') poll();
+      last = { status, reviews: results.reviews || [] };
+      const running = status.run && status.run.status === 'running';
+      if (running) view = 'reading';
+      else if (view === 'reading' || view === null) {
+        view = last.reviews.length || status.last_run ? 'results' : 'choose';
+      }
+      paint();
+      if (running) poll();
     } catch (error) {
       if (mine !== token) return;
-      replace(bodyHost, [
-        el('p', { className: 'state__msg', text: t('deep.error') }),
-        button(t('deep.retry'), () => refresh(), { className: 'btn' }),
-      ]);
+      head(view || 'choose');
+      replace(bodyHost, [banner('pink', t('deep.error'), [
+        button(t('deep.retry'), () => refresh(), { className: 'dr-btn2 dr-btn--sm' }),
+      ])]);
     }
   }
 
@@ -126,116 +168,236 @@ export function createDeep({ onOpenJob = null } = {}) {
       }
       try {
         const status = await api.getDeepRun();
-        const node = bodyHost.querySelector('.deep__progress');
         if (!status.run || status.run.status !== 'running') {
           stopPolling();
+          view = 'results';
           await refresh();
           return;
         }
-        if (node) {
-          node.textContent = t('deep.running', {
-            done: status.run.boards_done || 0, total: status.run.boards_total || 0,
-          });
-        }
+        paintProgress(status.run.boards_done || 0, status.run.boards_total || 0);
       } catch {
         stopPolling();
       }
     }, POLL_MS);
   }
 
-  function render(status, reviews) {
-    const children = [el('p', { className: 'deep__intro', text: t('deep.intro') })];
-    if (status.demo) return [...children, el('p', { text: t('deep.demo') })];
-    children.push(providerBlock(status));
-    if (status.provider) {
-      const running = status.run && status.run.status === 'running';
-      children.push(running ? runningBlock() : runBlock(status));
-      if (status.last_run) children.push(lastRun(status.last_run));
-    }
-    if (message) children.push(el('p', { className: 'deep__message', text: message, attrs: { role: 'status' } }));
-    children.push(resultsBlock(status, reviews));
-    return children;
+  // ---- frame: eyebrow, title, sub and the three steps --------------------
+
+  const STEP_OF = { choose: 1, check: 2, reading: 3, results: 3 };
+
+  function head(state) {
+    const name = providerName(last.status);
+    eyebrow.textContent = t('deep.title');
+    titleNode.textContent = t(`deep.head.${state}.title`);
+    subNode.textContent = t(`deep.head.${state}.sub`, { name });
+    const current = STEP_OF[state];
+    const items = [];
+    ['choose', 'check', 'results'].forEach((key, index) => {
+      const n = index + 1;
+      const done = n < current || (state === 'results' && n === 3);
+      if (index) items.push(el('li', { className: 'dr-step__line', attrs: { 'aria-hidden': 'true' } }));
+      items.push(el('li', {
+        className: `dr-step${done ? ' is-done' : ''}`,
+        attrs: n === current && !done ? { 'aria-current': 'step' } : {},
+      }, [
+        el('span', { className: 'dr-step__n', attrs: { 'aria-hidden': 'true' }, text: done ? '✓' : String(n) }),
+        el('span', { className: 'dr-step__label', text: t(`deep.step.${key}`) }),
+        done ? el('span', { className: 'sr-only', text: ` (${t('deep.step.done')})` }) : null,
+      ].filter(Boolean)));
+    });
+    stepsHost.setAttribute('aria-label', t('deep.step.label'));
+    replace(stepsHost, items);
   }
 
-  function providerBlock(status) {
-    if (!status.provider) {
-      return el('div', { className: 'deep__box' }, [
-        el('p', { text: t(`deep.provider.${status.provider_reason || 'CHOOSE_PROVIDER'}`) }),
-      ]);
+  function paint() {
+    const { status, reviews } = last;
+    head(view);
+    if (status.demo) {
+      replace(bodyHost, [banner('plain', t('deep.demo'))]);
+      replace(footHost, []);
+      return;
     }
-    const signedIn = status.auth === 'subscription';
-    const consent = el('input', {
-      attrs: { type: 'checkbox' },
-      props: { checked: Boolean(status.share_evidence) },
+    const draw = { choose: chooseState, check: checkState, reading: readingState, results: resultsState }[view];
+    const [body, foot] = draw(status, reviews);
+    const note = message ? el('p', { className: 'dr-banner', text: message, attrs: { role: 'status' } }) : null;
+    replace(bodyHost, [note, ...body].filter(Boolean));
+    replace(footHost, foot);
+  }
+
+  // ---- 1 · choose what to share ---------------------------------------------
+
+  function chooseState(status) {
+    const body = [];
+    if (!status.provider) {
+      body.push(banner('pink', t(`deep.provider.${status.provider_reason || 'CHOOSE_PROVIDER'}`)));
+    } else {
+      body.push(providerCard(status), shareCard(status));
+    }
+    body.push(jobsCard(status));
+    const next = el('button', {
+      className: 'dr-btn', attrs: { type: 'button' }, text: t('deep.checkAndStart'),
       on: {
-        change: async () => {
-          consent.disabled = true;
+        click: async (event) => {
+          event.currentTarget.disabled = true;
           try {
-            await api.setDeepConsent(consent.checked);
-            message = t(consent.checked ? 'deep.consent.on' : 'deep.consent.off');
+            preview = await api.previewDeep({ include_unresolved: includeUnresolved });
+            message = '';
           } catch {
             message = t('deep.error');
           }
-          preview = null;
           checked = false;
-          await refresh();
+          showAll = false;
+          if (preview) go('check');
+          else paint();
         },
       },
     });
-    return el('div', { className: 'deep__box' }, [
-      el('p', { className: 'deep__access' }, [
-        el('strong', { text: t(`deep.access.${status.provider}`) }),
+    next.disabled = !status.provider;
+    return [body, [el('span', { className: 'dr-foot__note', text: t('deep.nothingUntilStart') }), next]];
+  }
+
+  function providerCard(status) {
+    const signedIn = status.auth === 'subscription';
+    return el('section', { className: 'dr-card' }, [
+      el('div', { className: 'dr-card__row' }, [
         el('span', {
-          className: `deep__auth deep__auth--${signedIn ? 'ok' : 'off'}`,
-          text: t(signedIn ? 'deep.auth.subscription' : 'deep.auth.missing'),
+          className: 'dr-glyph dr-glyph--lg', dataset: { tone: 'lilac' }, attrs: { 'aria-hidden': 'true' }, text: '✦',
         }),
+        el('div', { className: 'dr-card__main' }, [
+          el('div', { className: 'dr-card__titleline' }, [
+            el('h3', { className: 'dr-card-title', text: t('deep.who.head') }),
+            el('span', {
+              className: 'dr-pill dr-pill--wrap', dataset: { tone: signedIn ? 'mint' : 'pink' },
+              text: signedIn ? `✓ ${t('deep.auth.subscription')}` : t('deep.auth.missing'),
+            }),
+          ]),
+          el('p', { className: 'dr-text' }, [
+            el('strong', { text: t(`deep.access.${status.provider}`) }), ' ', t('deep.quota'),
+          ]),
+        ]),
       ]),
-      el('p', { className: 'deep__note', text: t('deep.quota') }),
-      el('label', { className: 'deep__consent' }, [
-        consent,
-        el('span', { text: t(`deep.consent.label.${status.provider}`) }),
-      ]),
-      el('p', { className: 'deep__note', text: t('deep.consent.scope') }),
     ]);
   }
 
-  function runBlock(status) {
-    const unresolved = el('input', {
-      attrs: { type: 'checkbox' },
-      props: { checked: includeUnresolved },
-      on: {
-        change: () => {
-          includeUnresolved = unresolved.checked;
-          preview = null;
-          checked = false;
-          void refresh();
-        },
-      },
-    });
-    const children = [
-      el('h3', { className: 'deep__subhead', text: t('deep.previewHead') }),
-      el('p', { className: 'deep__note', text: t('deep.previewLede', { cap: status.cap }) }),
-      el('label', { className: 'deep__consent' }, [unresolved, el('span', { text: t('deep.includeUnresolved') })]),
-      button(t('deep.previewButton'), async (event) => {
-        event.currentTarget.disabled = true;
+  function shareCard(status) {
+    const name = providerName(status);
+    const consent = switchControl(
+      Boolean(status.share_evidence), t(`deep.consent.label.${status.provider}`), t('deep.consent.scope'),
+      async (node) => {
+        node.disabled = true;
+        const next = node.getAttribute('aria-checked') !== 'true';
         try {
-          preview = await api.previewDeep({ include_unresolved: includeUnresolved });
+          await api.setDeepConsent(next);
+          message = t(next ? 'deep.consent.on' : 'deep.consent.off');
         } catch {
           message = t('deep.error');
         }
+        preview = null;
         checked = false;
         await refresh();
-      }, { className: 'btn' }),
-    ];
-    if (preview) children.push(...previewRows(preview));
-    return el('section', { className: 'deep__box' }, children);
+      },
+    );
+    const unresolved = switchControl(
+      includeUnresolved, t('deep.includeUnresolved'), t('deep.includeUnresolvedHint'),
+      (node) => {
+        includeUnresolved = node.getAttribute('aria-checked') !== 'true';
+        preview = null;
+        checked = false;
+        paint();
+      },
+    );
+    return el('section', { className: 'dr-card' }, [
+      el('h3', { className: 'dr-card-title', text: t('deep.see.head', { name }) }),
+      el('p', { className: 'dr-help', text: t('deep.see.always') }),
+      el('hr', { className: 'dr-hair' }),
+      consent,
+      status.share_evidence ? null : banner('yellow', t('deep.see.recommended')),
+      el('hr', { className: 'dr-hair' }),
+      unresolved,
+    ].filter(Boolean));
   }
 
-  function previewRows(plan) {
-    if (!plan.provider) return [el('p', { text: t(`deep.provider.${plan.reason}`) })];
-    if (!plan.postings.length) return [el('p', { text: t('deep.nothing') })];
+  function jobsCard(status) {
+    return el('section', { className: 'dr-card' }, [
+      el('h3', { className: 'dr-card-title', text: t('deep.which.head') }),
+      el('div', { className: 'dr-strip' }, [
+        strip('lilac', status.readable || 0, t('deep.which.readable')),
+        strip('stone', status.reviewed || 0, t('deep.which.reviewed')),
+        strip('plain', status.cap || 0, t('deep.which.cap')),
+      ]),
+      el('p', { className: 'dr-help', text: t('deep.previewLede', { cap: status.cap }) }),
+      el('p', {
+        className: 'dr-help',
+        text: t('deep.coverage', {
+          roles: status.main_list_roles || 0, readable: status.readable || 0, short: status.too_short || 0,
+        }),
+      }),
+    ]);
+  }
+
+  // ---- 2 · check and start -------------------------------------------------
+
+  function checkState(status) {
+    const back = button(t('deep.back'), () => go('choose'), { className: 'dr-btn2' });
+    const plan = preview;
+    if (!plan || !plan.provider || !plan.postings.length) {
+      const text = !plan ? t('deep.error') : !plan.provider ? t(`deep.provider.${plan.reason}`) : t('deep.nothing');
+      return [[banner('plain', text)], [back]];
+    }
+    const name = providerName(status);
     const strata = {};
     for (const row of plan.postings) strata[row.stratum] = (strata[row.stratum] || 0) + 1;
+    const sent = [
+      sendRow(t('deep.sends.postings', { count: plan.postings.length })),
+      sendRow(t('deep.sends.intent', { count: Object.values(plan.intent).flat().length })),
+      sendRow(t('deep.sends.levels', {
+        levels: plan.levels.map((level) => t(`seniority.${level}`)).join(', ') || t('deep.none'),
+      })),
+      plan.share_evidence
+        ? sendRow(t('deep.sends.evidence', {
+          max: Math.max(0, ...plan.evidence_per_posting), confirmed: plan.confirmed_evidence,
+        }))
+        : el('div', { className: 'dr-row' }, [
+          glyph('stone', '\u2013'),
+          el('span', { className: 'dr-row__main dr-row__meta', text: t('deep.sends.noEvidence') }),
+          el('span', { className: 'dr-pill', dataset: { tone: 'stone' }, text: t('deep.notShared') }),
+          button(t('deep.change'), () => go('choose'), { className: 'dr-quiet' }),
+        ]),
+    ];
+    const example = plan.share_evidence && plan.evidence_example.length ? el('details', {}, [
+      el('summary', { text: t('deep.exampleHead') }),
+      ...plan.evidence_example.map((item) => el('div', { className: 'dr-row' }, [
+        el('span', { className: 'dr-row__main' }, [
+          el('span', { className: 'dr-row__meta', text: `${item.id} · ${t(`deep.claimType.${item.type}`)}` }),
+          el('span', { text: item.text }),
+        ]),
+      ])),
+    ]) : null;
+    const shown = showAll ? plan.postings : plan.postings.slice(0, 4);
+    const jobs = el('section', { className: 'dr-rows' }, [
+      el('h3', { className: 'dr-rows__head', text: t('deep.jobsHead', { count: plan.postings.length }) }),
+      el('p', {
+        className: 'dr-rows__lede',
+        text: `${t('deep.sample', {
+          count: plan.postings.length, population: plan.population, reviewed: plan.already_reviewed,
+          short: plan.too_short || 0,
+        })} ${['top_local', 'lexical', 'control'].map((s) => `${t(`deep.stratum.${s}`)}: ${strata[s] || 0}`)
+          .join(' · ')}`,
+      }),
+      ...shown.map((row) => el('div', { className: 'dr-row' }, [
+        el('span', { className: 'dr-row__main' }, [
+          el('span', { className: 'dr-row__title', text: row.title }),
+          el('span', { className: 'dr-row__meta', text: `${row.company} · ${t(`deep.stratum.${row.stratum}`)}` }),
+        ]),
+        scorePill(row.local_score),
+      ])),
+      plan.postings.length > 4 ? el('div', { className: 'dr-rows__foot' }, [
+        button(showAll ? t('deep.showFewer') : t('deep.showAll', { count: plan.postings.length }), () => {
+          showAll = !showAll;
+          paint();
+        }, { className: 'dr-quiet' }),
+      ]) : null,
+    ].filter(Boolean));
     const confirm = el('input', {
       attrs: { type: 'checkbox' },
       props: { checked },
@@ -251,134 +413,218 @@ export function createDeep({ onOpenJob = null } = {}) {
       }
       preview = null;
       checked = false;
+      view = 'reading';
       await refresh();
       // A short run can end between the two reads of `refresh`: follow it to
       // its end either way, and draw the results it stored.
       poll();
-    }, { className: 'btn btn--primary' });
+    }, { className: 'dr-btn' });
     start.disabled = !checked;
-    const sends = [
-      t('deep.sends.intent', { count: Object.values(plan.intent).flat().length }),
-      t('deep.sends.levels', {
-        levels: plan.levels.map((level) => t(`seniority.${level}`)).join(', ') || t('deep.none'),
-      }),
-      t('deep.sends.postings', { count: plan.postings.length }),
-      plan.share_evidence
-        ? t('deep.sends.evidence', {
-          max: Math.max(0, ...plan.evidence_per_posting), confirmed: plan.confirmed_evidence,
-        })
-        : t('deep.sends.noEvidence'),
-    ];
-    return [
-      el('p', {
-        text: t('deep.sample', {
-          count: plan.postings.length, population: plan.population, reviewed: plan.already_reviewed,
-          short: plan.too_short || 0,
-        }),
-      }),
-      el('p', {
-        className: 'deep__note',
-        text: ['top_local', 'lexical', 'control']
-          .map((s) => t(`deep.stratum.${s}`) + `: ${strata[s] || 0}`).join(' · '),
-      }),
-      el('h4', { className: 'deep__minor', text: t('deep.sendsHead') }),
-      el('ul', { className: 'deep__list' }, sends.map((line) => el('li', { text: line }))),
-      plan.share_evidence && plan.evidence_example.length ? el('details', { className: 'deep__details' }, [
-        el('summary', { text: t('deep.exampleHead') }),
-        el('ul', { className: 'deep__list' }, plan.evidence_example.map((item) => el('li', {
-          text: `${item.id} · ${t(`deep.claimType.${item.type}`)} · ${item.text}`,
-        }))),
-      ]) : null,
-      el('details', { className: 'deep__details' }, [
-        el('summary', { text: t('deep.postingsHead') }),
-        el('ol', { className: 'deep__list' }, plan.postings.map((row) => el('li', {
-          text: `${row.title} · ${row.company} · ${t(`deep.stratum.${row.stratum}`)} · ${row.local_score}`,
-        }))),
+    const body = [
+      el('section', { className: 'dr-rows' }, [
+        el('h3', { className: 'dr-rows__head', text: t('deep.willRead', { name }) }),
+        ...sent,
+        example,
+        el('div', { className: 'dr-rows__foot', text: t('deep.neverSent') }),
+      ].filter(Boolean)),
+      jobs,
+      el('section', { className: 'dr-card', dataset: { tone: 'yellow' } }, [
+        el('span', { className: 'dr-strong', text: t('deep.tokens', { tokens: plan.estimated_input_tokens }) }),
+        el('p', { className: 'dr-help', text: t('deep.extraUsage') }),
       ]),
-      el('p', { className: 'deep__note', text: t('deep.tokens', { tokens: plan.estimated_input_tokens }) }),
-      el('p', { className: 'deep__note deep__warn', text: t('deep.extraUsage') }),
-      el('label', { className: 'deep__consent' }, [confirm, el('span', { text: t('deep.confirm') })]),
-      start,
-    ].filter(Boolean);
-  }
-
-  function runningBlock() {
-    return el('section', { className: 'deep__box' }, [
-      el('p', {
-        className: 'deep__progress', attrs: { role: 'status' }, text: t('deep.running', { done: 0, total: 0 }),
-      }),
-      button(t('deep.cancel'), async (event) => {
-        event.currentTarget.disabled = true;
-        await api.cancelDeep();
-        await refresh();
-      }, { className: 'btn btn--quiet' }),
-    ]);
-  }
-
-  function lastRun(run) {
-    const lines = [t('deep.last', {
-      published: run.published || 0, failed: run.failed || 0, rejected: run.rejected || 0,
-      candidates: run.candidates || 0,
-    })];
-    const code = String(run.stop_reason || '');
-    if (STOPS.has(code)) lines.push(t(`deep.stop.${code}`));
-    return el('div', { className: 'deep__last' }, lines.map((text) => el('p', { text })));
-  }
-
-  function resultsBlock(status, reviews) {
-    const children = [
-      el('h3', { className: 'deep__subhead', text: t('deep.resultsHead') }),
-      el('p', { className: 'deep__note', text: t('deep.resultsLede') }),
-      el('p', {
-        className: 'deep__note',
-        text: t('deep.coverage', {
-          roles: status.main_list_roles || 0, readable: status.readable || 0, short: status.too_short || 0,
-        }),
-      }),
-      el('p', { className: 'deep__note', text: t('deep.notReviewed', { count: status.not_reviewed || 0 }) }),
+      el('label', { className: 'dr-check' }, [confirm, el('span', { text: t('deep.confirm') })]),
     ];
+    return [body, [
+      back,
+      el('div', { className: 'dr-foot__end' }, [
+        el('span', { className: 'dr-foot__note', text: t('deep.canStop') }), start,
+      ]),
+    ]];
+  }
+
+  // ---- 3 · reading ------------------------------------------------------------
+
+  function readingState(status) {
+    const run = status.run || {};
+    const stop = button(t('deep.cancel'), async (event) => {
+      event.currentTarget.disabled = true;
+      await api.cancelDeep();
+      view = 'results';
+      await refresh();
+    }, { className: 'dr-btn2' });
+    const body = [
+      el('section', { className: 'dr-card' }, [
+        el('div', { className: 'dr-card__titleline', style: { 'justify-content': 'space-between' } }, [
+          el('span', { className: 'dr-bignum' }, [
+            el('span', { className: 'deep__done', text: String(run.boards_done || 0) }), ' ',
+            el('small', { className: 'deep__of', text: t('deep.ofRead', { total: run.boards_total || 0 }) }),
+          ]),
+        ]),
+        el('div', {
+          className: 'dr-progress',
+          attrs: {
+            role: 'progressbar', 'aria-label': t('deep.progressLabel'), 'aria-valuemin': '0',
+            'aria-valuemax': String(run.boards_total || 0), 'aria-valuenow': String(run.boards_done || 0),
+          },
+        }, [el('span', { style: { width: '0%' } })]),
+        el('p', {
+          className: 'deep__progress dr-help', attrs: { role: 'status' },
+          text: t('deep.running', { done: run.boards_done || 0, total: run.boards_total || 0 }),
+        }),
+      ]),
+      banner('plain', t('deep.readingKeeps')),
+    ];
+    queueMicrotask(() => paintProgress(run.boards_done || 0, run.boards_total || 0));
+    return [body, [el('span', { className: 'dr-foot__note', text: t('deep.quota') }), stop]];
+  }
+
+  function paintProgress(done, total) {
+    const bar = bodyHost.querySelector('.dr-progress');
+    if (!bar) return;
+    bar.setAttribute('aria-valuenow', String(done));
+    bar.setAttribute('aria-valuemax', String(total));
+    bar.firstChild.style.width = `${total ? Math.round((done / total) * 100) : 0}%`;
+    bodyHost.querySelector('.deep__done').textContent = String(done);
+    bodyHost.querySelector('.deep__of').textContent = t('deep.ofRead', { total });
+    bodyHost.querySelector('.deep__progress').textContent = t('deep.running', { done, total });
+  }
+
+  // ---- 4 · results --------------------------------------------------------------
+
+  function resultsState(status, reviews) {
+    const body = [];
+    if (status.last_run) body.push(lastRun(status.last_run));
+    if (!status.share_evidence && status.provider && reviews.length) {
+      body.push(banner('yellow', t('deep.notSharedNudge'), [
+        button(t('deep.shareAndReadAgain'), () => go('choose'), { className: 'dr-btn2 dr-btn--sm' }),
+      ]));
+    }
+    body.push(el('details', { className: 'dr-disc' }, [
+      el('summary', { text: t('deep.howWeSort') }),
+      el('div', { className: 'dr-disc__inner' }, [
+        el('p', { text: t('deep.resultsLede') }),
+        el('p', {
+          text: t('deep.coverage', {
+            roles: status.main_list_roles || 0, readable: status.readable || 0, short: status.too_short || 0,
+          }),
+        }),
+      ]),
+    ]));
+    body.push(el('p', { className: 'dr-help', text: t('deep.notReviewed', { count: status.not_reviewed || 0 }) }));
     if (!reviews.length) {
-      children.push(el('p', { text: t('deep.noResults') }));
-      return el('section', { className: 'deep__results' }, children);
+      body.push(el('div', { className: 'dr-empty' }, [
+        el('b', { text: t('deep.emptyHead') }), el('span', { text: t('deep.noResults') }),
+      ]));
     }
     for (const level of LEVELS) {
       const rows = reviews.filter((r) => r.level === level);
       if (!rows.length) continue;
-      children.push(el('h4', {
-        className: `deep__level deep__level--${level.toLowerCase()}`,
-        text: `${t(`deep.level.${level}`)} (${rows.length})`,
-      }));
-      children.push(el('p', { className: 'deep__note', text: t(`deep.levelMeans.${level}`) }));
-      children.push(el('ul', { className: 'deep__rows' }, rows.map(resultRow)));
+      body.push(el('section', { className: 'dr-group deep__results', dataset: { level } }, [
+        el('div', { className: 'dr-group__head' }, [
+          el('h3', {
+            className: 'dr-card-title dr-card-title--sm',
+            text: `${t(`deep.level.${level}`)} (${rows.length})`,
+          }),
+        ]),
+        el('p', { className: 'dr-help', text: t(`deep.levelMeans.${level}`) }),
+        ...rows.map(resultRow),
+      ]));
     }
-    return el('section', { className: 'deep__results' }, children);
+    const again = button(t('deep.readAgain'), () => go('choose'), { className: 'dr-btn2' });
+    again.disabled = !status.provider;
+    return [body, [again, button(t('deep.backToJobs'), () => close(), { className: 'dr-btn' })]];
+  }
+
+  function lastRun(run) {
+    const code = String(run.stop_reason || '');
+    const text = [t('deep.last', {
+      published: run.published || 0, failed: run.failed || 0, rejected: run.rejected || 0,
+      candidates: run.candidates || 0,
+    })];
+    if (STOPS.has(code)) text.push(t(`deep.stop.${code}`));
+    // A pause, a failure or a refused answer is said in yellow; a clean run in mint.
+    const warn = run.failed || run.rejected || ['LIMIT_REACHED', 'SIGN_IN', 'ERROR', 'PROVIDER_STOPPED'].includes(code);
+    return banner(warn ? 'yellow' : 'mint', text.join(' '));
   }
 
   function resultRow(row) {
-    return el('li', { className: 'deep__row', dataset: { level: row.level } }, [
-      el('button', {
-        className: 'deep__open',
-        attrs: { type: 'button' },
-        // The job drawer replaces this panel: two overlays never stack.
-        on: { click: () => { close(); if (onOpenJob) onOpenJob(row.job_id); } },
-      }, [
-        el('span', { className: 'deep__what' }, [
-          el('span', { className: 'deep__jobtitle', text: row.title }),
-          el('span', { className: 'deep__company', text: row.company }),
+    return el('button', {
+      className: 'dr-job deep__open deep__row',
+      dataset: { level: row.level },
+      attrs: { type: 'button' },
+      // The job drawer replaces this panel: two overlays never stack.
+      on: { click: () => { close(); if (onOpenJob) onOpenJob(row.job_id); } },
+    }, [
+      el('span', { className: 'dr-job__top' }, [
+        el('span', { className: 'dr-job__who deep__what' }, [
+          el('span', { className: 'dr-job__title deep__jobtitle', text: row.title }),
+          el('span', { className: 'dr-row__meta deep__company', text: row.company }),
         ]),
-        ...axisLines(el, row.assessment),
+        scorePill(row.local_score),
+      ]),
+      el('span', { className: 'dr-job__axes' }, axisLines(el, row.assessment)),
+      row.stale ? el('span', {
+        className: 'dr-pill dr-pill--wrap deep__stale', dataset: { tone: 'stone' }, text: staleText(row),
+      }) : null,
+      el('span', { className: 'dr-job__foot' }, [
         el('span', {
           className: 'deep__compare',
           text: row.stale
             ? t('deep.levelThen', { level: t(`deep.level.${row.level_then}`) })
             : t(`deep.compare.${row.comparison}`, { score: row.local_score }),
         }),
-        row.stale ? el('span', { className: 'deep__stale', text: staleText(row) }) : null,
-      ].filter(Boolean)),
-    ]);
+        el('span', { className: 'dr-job__see', text: t('deep.seeJob') }),
+      ]),
+    ].filter(Boolean));
   }
 
   return { root, open, close };
+}
+
+function providerName(status) {
+  return status && status.provider ? t(`deep.name.${status.provider}`) : t('deep.name.none');
+}
+
+function banner(tone, text, actions = []) {
+  return el('div', { className: 'dr-banner', dataset: { tone }, attrs: { role: 'status' } }, [
+    el('span', { className: 'dr-banner__text', text }), ...actions,
+  ]);
+}
+
+function glyph(tone, mark) {
+  return el('span', { className: 'dr-glyph', dataset: { tone }, attrs: { 'aria-hidden': 'true' }, text: mark });
+}
+
+function sendRow(text) {
+  return el('div', { className: 'dr-row' }, [glyph('mint', '✓'), el('span', { className: 'dr-row__main', text })]);
+}
+
+function strip(tone, count, label) {
+  return el('span', { dataset: { tone } }, [el('b', { text: String(count) }), ` ${label}`]);
+}
+
+function scorePill(score) {
+  return el('span', {
+    className: 'dr-pill', dataset: { tone: Number(score) >= 80 ? 'mint' : 'yellow' },
+    text: t('deep.localPill', { score: Number(score) || 0 }),
+  });
+}
+
+/** A role=switch button: the label, what it does, and the track. */
+function switchControl(on, label, hint, onToggle) {
+  const node = el('button', {
+    className: 'dr-switch', attrs: { type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false' },
+    on: { click: () => onToggle(node) },
+  }, [
+    el('span', { className: 'dr-switch__text' }, [
+      el('span', { className: 'dr-switch__label', text: label }),
+      el('span', { className: 'dr-switch__hint', text: hint }),
+    ]),
+    el('span', { className: 'dr-switch__track', attrs: { 'aria-hidden': 'true' } }, [
+      el('span', { className: 'dr-switch__knob' }),
+    ]),
+  ]);
+  return node;
 }
 
 /**
