@@ -2295,7 +2295,7 @@ const EN = {
   'modeTag.DEMO': 'Demo',
   'modeTag.UNKNOWN': 'Unknown',
   'nav.tailor': 'Resumes',
-  'nav.tailorPage': 'Resume Tailor',
+  'nav.tailorpage': 'Resume Tailor',
   'pagehead.sub.tailor': 'Pick a job, and Career Agent adapts your Master resume to it. Nothing is made until '
     + 'you press a button.',
   'tp.match': '{n}% match',
@@ -3059,8 +3059,8 @@ const EN = {
   'locale.name.en': 'English',
   'locale.name.pt-BR': 'Português (Brasil)',
   'pagehead.title.home': 'Welcome back',
-  'pagehead.title.homeNew': 'Welcome',
-  'pagehead.sub.homeNew': 'Answer a few questions and Career Agent will look for jobs that fit you. '
+  'pagehead.title.homenew': 'Welcome',
+  'pagehead.sub.homenew': 'Answer a few questions and Career Agent will look for jobs that fit you. '
     + 'You can stop and continue later.',
   'pagehead.sub.home': 'You\'re on a good path. Here\'s what\'s happening with your job search.',
   'pagehead.title.jobs': 'Find jobs',
@@ -7187,7 +7187,7 @@ const PT_BR = {
   'modeTag.DEMO': 'Demo',
   'modeTag.UNKNOWN': 'Desconhecido',
   'nav.tailor': 'Currículos',
-  'nav.tailorPage': 'Adaptar currículo',
+  'nav.tailorpage': 'Adaptar currículo',
   'pagehead.sub.tailor': 'Escolha uma vaga, e o Career Agent adapta seu currículo mestre a ela. Nada é feito '
     + 'até você apertar um botão.',
   'tp.match': '{n}% de compatibilidade',
@@ -7957,8 +7957,8 @@ const PT_BR = {
   'locale.name.en': 'English',
   'locale.name.pt-BR': 'Português (Brasil)',
   'pagehead.title.home': 'Que bom te ver',
-  'pagehead.title.homeNew': 'Boas-vindas',
-  'pagehead.sub.homeNew': 'Responda algumas perguntas e o Career Agent procura vagas que combinam com '
+  'pagehead.title.homenew': 'Boas-vindas',
+  'pagehead.sub.homenew': 'Responda algumas perguntas e o Career Agent procura vagas que combinam com '
     + 'você. Você pode parar e continuar depois.',
   'pagehead.sub.home': 'Você está no caminho certo. Veja como anda sua busca por vagas.',
   'pagehead.title.jobs': 'Encontrar vagas',

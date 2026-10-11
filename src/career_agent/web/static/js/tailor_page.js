@@ -100,7 +100,7 @@ export function createTailorPage({ host, onAdapt, onAdaptAi, onMakeMaster, onOpe
       versions.length ? el('div', {}, [
         el('h3', { className: 'tp__h3', text: t('tp.versions') }),
         el('ul', { className: 'tp__jobs' }, versions.map((v) => el('li', {}, [
-          button(`V${v.version_number}${v.title ? `: ${v.title}` : ''}`, () => onOpenVersion(v.id), {
+          button(['V' + v.version_number, v.title].filter(Boolean).join(': '), () => onOpenVersion(v.id), {
             className: 'tp__job',
           }),
         ]))),
