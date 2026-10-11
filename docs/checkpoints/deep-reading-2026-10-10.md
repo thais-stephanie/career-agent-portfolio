@@ -298,3 +298,39 @@ postings, evidence shared with DeepSeek, budget US$ 0.25. Estimate US$ 0.030
 at the peak rate with no cache (US$ 0.015 off-peak), worst case reserved
 US$ 0.079.
 
+
+## 14. The first real DeepSeek pilot (2026-10-11, the COPY only)
+
+Before it, three corrections (commit 5a53080): an answer that breaks the
+answer schema is rejected whole instead of defaulted; a reading stops a
+repeat only while it is current (content hash, profile digest, contract,
+provider, named model); a rejected answer is asked again only through an
+explicit, priced switch. A DeepSeek answer that arrives empty or refused
+pauses at its whole reservation; HTTP 402/429 pause as limits.
+
+Authorised by the owner: 5 named postings already read by Claude, her
+confirmed evidence shared with DeepSeek, US$ 0.25 in total, no fallback.
+Consent recorded on the copy only; the copy was backed up first.
+
+| | Claude (subscription) | DeepSeek `deepseek-flash` |
+|---|---|---|
+| answers kept | 5 of 5 | 5 of 5, 0 rejected, 0 failed |
+| input tokens | 9,145 to 11,499 (CLI overhead included) | 4,892 to 6,045 (2,816 from cache on calls 2 to 5) |
+| output tokens | 2,224 to 2,694 | 1,701 to 2,327 |
+| time per posting | 13.5 to 15.4 s | 6.8 to 11.6 s |
+| cost | not priced (plan limits) | US$ 0.0176 accounted at the PEAK rate; the calls ran Sunday 03:37 UTC, off-peak, so the bill should be about half |
+| quotes discarded | 2 (one-word requirements) | 7 (one-word requirements and a divergence) |
+| strict schema, re-checked | 5 of 5 pass | 5 of 5 pass |
+
+Estimate against measure: input 38,018 estimated vs 27,613 reported
+(characters / 3 overestimates by about a third); output 16,500 vs 10,540.
+
+Same recommendation and alignment on all five. Divergences for the owner's
+judgement: Pavago (history LITTLE vs PARTLY, on "Active use of AI tools");
+GTM Engineer (a fourth central gap from DeepSeek, Clay-powered RevOps
+support); Koin and HireHawk (DeepSeek credits experience lines where Claude
+reads only a listed skill); HireLatam (DeepSeek turns English and the
+workspace into unmet requirements, misses the recorded video); HireHawk
+(a company description filed as a place condition, and a one-word "React"
+gap discarded by the verifier). Agreement between two models is not
+evidence that either is right.
