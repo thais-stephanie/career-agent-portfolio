@@ -251,7 +251,10 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
       notice,
       summary ? el('p', { className: 'src__population', text: populationText(summary) }) : null,
       el('p', { className: 'src__note', text: t('sources.refreshHelp') }),
-      table,
+      // Above the long table: the choice about updating on opening is not buried under it.
+      autoUpdateCard(),
+      // A table that cannot shrink scrolls inside its own box instead of widening the page.
+      el('div', { className: 'src__tablewrap' }, [table]),
     ].filter(Boolean));
   }
 
@@ -272,7 +275,6 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
       el('summary', { text: t('settings.sourceDetails') }),
     ]);
     host.appendChild(healthTable(payload.refresh || [], sources, payload.summary));
-    host.appendChild(autoUpdateCard());
     host.appendChild(maintenanceSummary(payload.maintenance));
     host.appendChild(el('p', { text: t('settings.sourceHelp') }));
     // EXPERIMENTAL SOURCES, IN THE OPEN. A source the site itself restricts

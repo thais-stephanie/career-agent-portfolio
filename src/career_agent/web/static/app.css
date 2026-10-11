@@ -9980,7 +9980,7 @@ table.jobs .row--blocked .cell__title-btn, table.jobs .row--offtarget .cell__tit
 .drawer__panel .d-row__text { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
 .drawer__panel .quote--inline { font-style: normal; background: transparent; border: 0; padding: 0; color: var(--muted); }
 .d-takes {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;
   margin: 0; padding: 0; list-style: none;
 }
 .drawer__panel .d-take {
@@ -11351,3 +11351,34 @@ table.jobs .cell__title-btn { max-width: 100%; }
 #ai-settings-host .ai__intro, #ai-settings-host .ai__fallback, #ai-settings-host .ai__note,
 #ai-settings-host .ai__billing, #ai-settings-host .ai__sends, #ai-settings-host .ai__last { max-width: 640px; }
 .ai__details p { max-width: 640px; font-size: 14px; line-height: 1.55; }
+
+/* Settings: a grid item sized by its widest unbreakable child widened the whole
+   page past the window (1118px at 1024). Grid items may shrink; a wide table
+   scrolls inside its own box. */
+.setmain > *, .settings__block { min-width: 0; max-width: 100%; }
+.setmain, .settings__block { grid-template-columns: minmax(0, 1fr); }
+
+/* One reading width for explanatory text. Character caps (52 to 72ch) at 11 to
+   12px left columns of 400 to 450px inside pages 820 to 1080px wide. The text
+   keeps its place and now runs to 640px (the design's reading width, and no
+   wider than its box); the smallest sizes go up one step so the longer line
+   still reads comfortably. Tables, cards and descriptions are not touched. */
+:is(
+  .field__hint, .d-sec__lede, .d-tailor__note, .prep__lede, .prep__empty, .prep__prompt,
+  .prep__meaning, .ev__lede, .ev__note, .ev__privacy, .ev__hint, .ev__uses, .evp-lede,
+  .evp-empty, .evp-note, .evp-card__text, .evp-drawer__text, .profile__lead, .src__lede,
+  .setup__why, .choice__help, .help__body, .xp-empty, .state__msg, .state__aside
+) { max-width: min(640px, 100%); }
+:is(
+  .field__hint, .d-sec__lede, .d-tailor__note, .prep__lede, .prep__empty, .prep__prompt,
+  .ev__lede, .ev__note, .ev__privacy, .ev__hint, .evp-lede, .evp-empty, .evp-note
+) { font-size: 13px; line-height: 1.55; }
+
+/* Smart matching: the cards ARE the section, so the section's own box and its
+   repeated heading step aside (the menu and the first card already say it). */
+.settings__block--ai { background: transparent; border: 0; padding: 0; box-shadow: none; }
+#settings-ai-head {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.ai-card .btn { justify-self: start; }
