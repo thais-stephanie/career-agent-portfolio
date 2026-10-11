@@ -54,6 +54,7 @@ import { createLocalProfiles } from './local-profiles.js';
 import { scopedKey } from './profile-scope.js';
 import { watchEdits } from './edit-notice.js';
 import { announceNewJobs } from './autoupdate-notice.js';
+import { createTailorPage } from './tailor_page.js';
 import { humanLabel, prefersEnglishTitles, rememberEnglishTitles, statusLabel } from './format.js';
 
 // Which profile this page is for, before any storage is read (profile-scope.js).
@@ -235,7 +236,10 @@ const drawer = createDrawer({
     tailorAi: (job) => toResumes(() => resumeWorkspace.tailorWithAi(job.job_id)),
     analyze: (job, v) => toResumes(() => resumeWorkspace.analyzeForJob(v.id, job.job_id, v.tailored)),
     open: (id) => toResumes(() => resumeWorkspace.openDocument(id)),
-    home: () => toResumes(() => null),
+    // Without a Master: make it in Resumes, and come back to THIS job.
+    home: (job) => makeMasterFor(job),
+    // The Prepare step's own way into the Resume Tailor page, job chosen.
+    adapt: (job) => afterDrawerCloses(() => goTo('tailor', { job })),
   },
   // "Hide this job" from the scam warning: the ordinary hide, with its Undo.
   onHide: (jobId) => afterDrawerCloses(() => changeHidden(jobId, true)),
@@ -325,6 +329,8 @@ const PAGES = {
   settings: document.getElementById('page-settings'),
   // Resumes: Home, My resumes, the Editor and Analyze, a page of this app.
   resume: document.getElementById('page-resume'),
+  // Resume Tailor: choose a job and adapt the Master resume to it.
+  tailor: document.getElementById('page-tailor'),
 };
 
 // The rail, the page header and the mobile drawer. See `shell.js` for why the
@@ -332,6 +338,37 @@ const PAGES = {
 const shell = createShell();
 
 /** From the job drawer to Resumes, then `step` there; a failure is said, not lost. */
+//: The job a person is making a Master resume FOR, so they can come back to it.
+let tailorReturn = null;
+
+function makeMasterFor(job) {
+  tailorReturn = job ? { job } : null;
+  toResumes(() => null);
+}
+
+const returnBar = el('div', {
+  className: 'tp-return', attrs: { id: 'tailor-return', role: 'note' }, props: { hidden: true },
+});
+
+function paintReturnBar() {
+  if (!tailorReturn || currentPage !== 'resume') {
+    returnBar.hidden = true;
+    return;
+  }
+  returnBar.hidden = false;
+  replace(returnBar, [
+    el('span', { className: 'tp-return__text', text: t('tp.return.text', { job: tailorReturn.job.title }) }),
+    button(t('tp.return.go'), () => {
+      const job = tailorReturn.job;
+      tailorReturn = null;
+      goTo('tailor', { job });
+    }, { className: 'btn btn--primary', attrs: { id: 'tailor-return-go' } }),
+    button(t('tp.return.drop'), () => { tailorReturn = null; paintReturnBar(); }, {
+      className: 'btn btn--quiet', attrs: { id: 'tailor-return-drop' },
+    }),
+  ]);
+}
+
 function toResumes(step) {
   afterDrawerCloses(() => {
     goTo('resume');
@@ -348,6 +385,16 @@ const resumeWorkspace = createResumeWorkspace({
     goTo('evidence');
     evidenceView.add({ requirement: ask });
   },
+});
+PAGES.resume.prepend(returnBar);
+
+const tailorPage = createTailorPage({
+  host: PAGES.tailor,
+  onAdapt: (job) => toResumes(() => resumeWorkspace.tailorForJob(job.job_id)),
+  onAdaptAi: (job) => toResumes(() => resumeWorkspace.tailorWithAi(job.job_id)),
+  onMakeMaster: (job) => makeMasterFor(job),
+  onOpenJob: (job) => drawer.open(job.job_id, document.querySelector('.topnav__link[data-page="tailor"]')),
+  onOpenVersion: (id) => toResumes(() => resumeWorkspace.openDocument(id)),
 });
 
 // Settings: the retired Resume helper's resumes, only while some are left to
@@ -436,12 +483,13 @@ let homeHeader = 'home';
 
 let currentPage = 'home';
 
-function goTo(page, { push = true } = {}) {
+function goTo(page, { push = true, job = null } = {}) {
   if (!PAGES[page]) return;
   // Leaving Resumes finishes its saving first (and marks the visit).
   if (currentPage === 'resume' && page !== 'resume') void resumeWorkspace.leave();
   currentPage = page;
   if (page === 'resume') resumeWorkspace.show();
+  if (page === 'tailor') void tailorPage.show(job);
 
   for (const [name, node] of Object.entries(PAGES)) {
     if (name === 'applications') continue;   // shares the Jobs container
@@ -493,6 +541,7 @@ function goTo(page, { push = true } = {}) {
   // before.
   careerContextCache = null;
   paintCollectBar(collection.state(), 'update');
+  paintReturnBar();
   if (page === 'profile') loadProfile();
   if (page === 'evidence') void evidenceView.load().catch(() => {});
   if (page === 'documents') void documentsView.load().catch(() => {});
@@ -3443,6 +3492,8 @@ function relabelStaticText() {
   swap('#export-good-strong', 'export.goodStrong');
   if (currentPage === 'settings') void paintSettingsLegacy();
   resumeWorkspace.relabel();
+  tailorPage.relabel();
+  paintReturnBar();
   // The two toolbar controls whose words depend on STATE rather than only
   // on the catalogue: which way the sort runs, and whether duplicates are
   // folded. `syncHeader` already knows how to label both from the state,

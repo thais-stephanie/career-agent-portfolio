@@ -75,7 +75,7 @@ def test_tailor_from_the_drawer_opens_the_version_and_says_why(
 ) -> None:
     open_drawer(page, tailor_server["url"])
     step = page.evaluate("document.querySelector('.d-tailor').innerText")
-    assert "Tailor from Master" in step and "Create a version for this job" in step
+    assert "Adapt resume for this job" in step and "Create a version for this job" in step
     assert "Built from your confirmed experience without AI." in step
     page.evaluate("document.getElementById('drawer-tailor').click()")
     page.wait_for("document.querySelector('.rvw')?.dataset.view === 'editor'", message="editor")

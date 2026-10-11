@@ -11287,3 +11287,29 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .lprof__sbtn--primary { background: var(--lav); border-color: var(--lav); color: var(--on-lav); }
 .lprof__sbtn:hover { background: var(--surface-hover, var(--chip-bg)); }
 .lprof__sbtn:focus-visible, .lprof__srow .input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Resume Tailor: choose a job, adapt the Master resume (tailor_page.js). */
+.tp { display: grid; gap: 16px; max-width: 820px; }
+.tp__card { display: grid; gap: 12px; padding: 20px; background: var(--surface); border: 1px solid var(--divider); border-radius: 16px; }
+.tp__h2 { margin: 0; font-size: 19px; font-weight: 600; color: var(--ink); }
+.tp__h3 { margin: 4px 0 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.tp__lede, .tp__note { margin: 0; max-width: 640px; font-size: 14px; line-height: 1.55; color: var(--muted); }
+.tp__jobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tp__job {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left;
+  padding: 12px 14px; background: var(--paper); color: var(--ink); font: inherit; cursor: pointer;
+  border: 1px solid var(--divider); border-radius: 12px; min-height: 44px;
+}
+.tp__job:hover { background: var(--surface-hover); }
+.tp__job:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.tp__jobmain { display: grid; gap: 2px; min-width: 0; }
+.tp__jobtitle { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.tp__jobmeta { margin: 0; font-size: 13px; color: var(--muted); }
+.tp__pill { flex: none; padding: 3px 10px; border-radius: 999px; background: var(--chip-bg); font-size: 12px; font-weight: 600; }
+.tp__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tp-return {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; padding: 12px 16px;
+  background: var(--lilac-wash); border: 1px solid var(--divider); border-radius: 12px;
+}
+.tp-return[hidden] { display: none; }
+.tp-return__text { flex: 1 1 280px; font-size: 14px; line-height: 1.5; color: var(--ink); }

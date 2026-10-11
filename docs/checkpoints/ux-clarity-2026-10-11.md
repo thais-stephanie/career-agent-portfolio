@@ -13,7 +13,7 @@ Not merged, not pushed. Synthetic data only.
 - [x] 5. Optional update on open (off by default; maintenance engine reused; 10 min, 60 sites, 1000 requests, 6 h gap; scoring capped at 5000 postings; docs/AUTO_UPDATE.md)
 - [ ] 6. Score explanation
 - [ ] 7. Providers and privacy panel
-- [ ] 8. Resume Tailor in the sidebar
+- [x] 8. Resume Tailor in the sidebar (page + job picker + make-Master-and-return bar; drawer wording; history recorded in docs/RESUME_WORKSPACE.md)
 - [x] 9. Settings, People on this computer (every profile listed, current marked, rename in place, switch, delete only when applicable; text at reading width)
 - [ ] 10. Text wrapping across the app
 - [x] 11. Backups and disk use (app makes no database copy on edits or openings; one verified automatic backup before an upgrade, newest 3 per profile, 2 GiB cap, listed in Settings; docs/BACKUPS.md; inventory delivered separately)

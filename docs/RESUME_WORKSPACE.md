@@ -815,3 +815,21 @@ Only named findings and counts. It needs no AI.
 Measured on synthetic profiles: about 1 to 3 ms for a sparse or normal
 resume and 50 ms for a large one; with a job, 2 to 10 ms, and about 180 ms
 for a large resume against a long ad.
+
+## Resume Tailor in the sidebar (restored 2026-10-11)
+
+A direct "Resume Tailor" item sits beside "Resumes". History, from the repository:
+the first sidebar (f2021c0) had "Resume Tailor" as a link to the companion app;
+1d82077 made it the in-app "Resume helper" page, e355231 made that page the
+Resume Workspace and 5f84821 retired the companion and renamed the item
+"Resumes". No ADR or commit message records a decision that adapting a resume
+should have no entry of its own; it was lost with the companion. The adaptation
+itself stayed reachable only from a job's drawer and from pasting an ad.
+
+The page adds no engine. With a Master it lists saved jobs and best matches, and
+the chosen job gets the same two actions as the drawer: the deterministic
+"Adapt resume for this job" (no AI) and "Adapt with AI", which still says what it
+would send before it sends anything. Without a Master it explains why one is
+needed and opens Resumes with a bar that brings the person back to the same job
+once the Master exists. Opening the page generates nothing and calls no AI.
+Resumes still manages resumes and versions.

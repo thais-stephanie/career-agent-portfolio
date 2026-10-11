@@ -1423,7 +1423,7 @@ export function createDrawer({
     const needsMaster = () => {
       replace(host, [
         el('p', { className: 'd-step__text', text: t('rv.job.needMaster') }),
-        button(t('rv.job.toResumes'), () => onResume.home(), {
+        button(t('rv.job.toResumes'), () => onResume.home(job), {
           className: 'btn btn--primary d-tailor__btn', attrs: { id: 'drawer-to-resumes' },
         }),
       ]);

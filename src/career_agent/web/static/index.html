@@ -82,6 +82,11 @@
         <span class="topnav__icon" aria-hidden="true">&#10022;</span>
         <span class="topnav__label">Proof of my work</span>
       </button>
+      <!-- RESUME TAILOR: pick a job and adapt the Master resume to it (js/tailor_page.js). -->
+      <button type="button" class="topnav__link" data-page="tailor">
+        <span class="topnav__icon" aria-hidden="true">&#10022;&#65038;</span>
+        <span class="topnav__label" id="nav-tailorpage-label">Resume Tailor</span>
+      </button>
       <!-- RESUMES: a page of this app, in this window (js/resume_v2.js). -->
       <button type="button" class="topnav__link topnav__link--tailor" data-page="resume">
         <span class="topnav__icon" aria-hidden="true">&#9998;&#65038;</span>
@@ -245,6 +250,8 @@
      panels move; the code behind them does not. -->
 <!-- RESUMES, a page of this app (js/resume_v2.js): Home, My resumes, Editor, Analyze. -->
 <main class="page page--resume" id="page-resume" hidden></main>
+<!-- RESUME TAILOR (js/tailor_page.js): choose a job, adapt the Master resume to it. -->
+<main class="page page--tailor" id="page-tailor" hidden></main>
 
 <main class="page page--settings" id="page-settings" data-tab="search" hidden>
   <!-- SIX SECTIONS over the same blocks (V3). The nav (drawn by main.js,
