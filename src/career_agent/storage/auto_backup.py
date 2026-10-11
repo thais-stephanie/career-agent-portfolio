@@ -29,9 +29,18 @@ THE POLICY
   megabytes, and `career-agent backup --catalogue` makes one on request.
 * NO EQUIVALENT COPIES: one backup per profile per schema step (from version X
   to version Y). Opening again, or a failed upgrade retried, makes no second.
-* HOW MANY: the newest 3 per profile. How big: the total of automatic backups
-  stays under 2 GiB; if a new one would not fit after pruning, none is written
-  and the manifest says why. The upgrade itself is never blocked by this.
+* HOW MANY: the newest 3 per profile. How big: older copies are pruned until the
+  automatic folder is under 2 GiB, oldest first. The cap never justifies deleting
+  the newest verified copy of any profile, and never justifies skipping the copy:
+  if ONE protected copy is itself larger than 2 GiB it is kept anyway, the folder
+  is reported as over its limit, and nothing else of the app's own is removed
+  beyond what the per-profile count already prunes. The number is a ceiling for
+  accumulation, not a refusal to protect.
+* A FAILED COPY STOPS THE UPGRADE. If the copy cannot be written or does not
+  verify, the migration is NOT applied: opening the profile is refused with a
+  sentence that says what to do (free disk space, or make a copy yourself with
+  `career-agent backup`). The only way past it is the explicit, recorded
+  override `CAREER_AGENT_ALLOW_UPGRADE_WITHOUT_BACKUP=1`.
 * PROOF: the archive is read back (zip test) and the snapshot inside is
   integrity-checked BEFORE the manifest lists it; older ones are pruned only
   after the new one is verified, and the newest verified copy is never deleted.
@@ -59,6 +68,22 @@ MANIFEST = "manifest.json"
 KEEP_PER_PROFILE = 3
 MAX_TOTAL_BYTES = 2 * 1024**3
 KIND = "before-upgrade"
+OVERRIDE = "CAREER_AGENT_ALLOW_UPGRADE_WITHOUT_BACKUP"
+
+
+class UpgradeBackupFailed(Exception):  # noqa: N818 -- a refusal with a reason, not a malfunction
+    """The safety copy before an upgrade could not be made and verified.
+
+    `why` is a code ("NOT_VERIFIED", "ERROR:<type>"); `str()` is the sentence a
+    person reads."""
+
+    def __init__(self, why: str) -> None:
+        super().__init__(
+            "Career Agent could not make a safety copy of this profile before upgrading it, so "
+            "nothing was changed. Free some disk space and open the app again, or make a copy "
+            "yourself with `career-agent backup` first."
+        )
+        self.why = why
 
 
 def folder(data_dir: Path) -> Path:
@@ -122,6 +147,7 @@ def listing(data_dir: Path) -> dict[str, Any]:
         "total_bytes": sum(int(r["bytes"]) for r in rows),
         "entries": rows,
         "skipped": manifest.get("skipped", [])[-3:],
+        "over_limit": sum(int(r["bytes"]) for r in rows) > MAX_TOTAL_BYTES,
         "policy": {
             "keep_per_profile": KEEP_PER_PROFILE,
             "max_total_bytes": MAX_TOTAL_BYTES,
@@ -143,9 +169,10 @@ def backup_before_upgrade(
 ) -> dict[str, Any] | None:
     """Back the profile database up before `pending` migrations are applied.
 
-    Returns the manifest entry written, or None when nothing was needed or none
-    could be made (the reason is recorded in the manifest). Never raises: the
-    upgrade must not depend on this."""
+    Returns the manifest entry written, or None when nothing was needed (no
+    migration pending, an equivalent copy already exists). When a copy was needed
+    and could not be made and verified, it raises `UpgradeBackupFailed` and the
+    caller must not migrate; the reason is recorded in the manifest too."""
     from career_agent.storage.backup import create_backup
 
     if not pending or not db.exists() or schema_now <= 0:
@@ -175,12 +202,7 @@ def backup_before_upgrade(
             size = make.total_bytes
             if not _verified(partial, staging / db.name):
                 partial.unlink(missing_ok=True)
-                _skip(data_dir, manifest, key, "NOT_VERIFIED", moment)
-                return None
-            kept = _after_pruning(data_dir, manifest, profile_id, size, dry=True)
-            if kept is None:
-                partial.unlink(missing_ok=True)
-                _skip(data_dir, manifest, key, "TOO_LARGE", moment)
+                _failed(data_dir, manifest, key, "NOT_VERIFIED", moment)
                 return None
             os.replace(partial, final)
         entry = {
@@ -198,12 +220,25 @@ def backup_before_upgrade(
         }
         manifest["entries"].append(entry)
         # The new copy is verified and listed; only now may older ones go.
-        _after_pruning(data_dir, manifest, profile_id, 0, dry=False)
+        _after_pruning(data_dir, manifest, profile_id, dry=False)
         _write_manifest(data_dir, manifest)
         return entry
-    except Exception as exc:  # noqa: BLE001 - an upgrade does not depend on its backup
-        _skip(data_dir, manifest, key, f"ERROR:{type(exc).__name__}", moment)
+    except UpgradeBackupFailed:
+        raise
+    except Exception as exc:  # noqa: BLE001 - any failure to protect stops the upgrade
+        for leftover in root.glob(f"auto-{KIND}-{profile_id}-*.partial"):
+            leftover.unlink(missing_ok=True)
+        _failed(data_dir, manifest, key, f"ERROR:{type(exc).__name__}", moment)
         return None
+
+
+def _failed(data_dir: Path, manifest: dict[str, Any], key: str, why: str, moment: datetime) -> None:
+    """Record the failure, then refuse - unless the person overrode it on purpose."""
+    if os.environ.get(OVERRIDE) == "1":
+        _skip(data_dir, manifest, key, "OVERRIDDEN:" + why, moment)
+        return None
+    _skip(data_dir, manifest, key, why, moment)
+    raise UpgradeBackupFailed(why)
 
 
 def _skip(data_dir: Path, manifest: dict[str, Any], key: str, why: str, moment: datetime) -> None:
@@ -216,13 +251,14 @@ def _skip(data_dir: Path, manifest: dict[str, Any], key: str, why: str, moment: 
 
 
 def _after_pruning(
-    data_dir: Path, manifest: dict[str, Any], profile_id: str, incoming: int, *, dry: bool
-) -> list[dict[str, Any]] | None:
-    """Which entries would remain (and with `dry=False`, delete the rest).
+    data_dir: Path, manifest: dict[str, Any], profile_id: str, *, dry: bool
+) -> list[dict[str, Any]]:
+    """Which entries remain (and with `dry=False`, delete the rest).
 
     Only files named in the manifest and sitting in `auto/` are ever removed,
-    oldest first, never the newest verified copy of any profile. Returns None
-    when `incoming` bytes cannot fit even then."""
+    oldest first, never the newest verified copy of any profile. The size cap
+    stops pruning when only protected copies are left: it may then be exceeded,
+    and `listing` reports that."""
     root = folder(data_dir)
     entries = sorted(
         (e for e in manifest["entries"] if (root / str(e.get("file", ""))).is_file()),
@@ -231,14 +267,10 @@ def _after_pruning(
     mine = [e for e in entries if e.get("profile_id") == profile_id]
     newest = {e["file"] for e in (mine[-1:] if mine else [])}
     doomed: list[dict[str, Any]] = [
-        e
-        for e in mine[
-            : max(0, len(mine) - (KEEP_PER_PROFILE if dry is False else KEEP_PER_PROFILE - 1))
-        ]
-        if e["file"] not in newest
+        e for e in mine[: max(0, len(mine) - KEEP_PER_PROFILE)] if e["file"] not in newest
     ]
     remaining = [e for e in entries if e not in doomed]
-    total = sum((root / e["file"]).stat().st_size for e in remaining) + incoming
+    total = sum((root / e["file"]).stat().st_size for e in remaining)
     # Still over the cap: older copies of ANY profile go first, but the newest
     # verified copy of each profile is always kept.
     protected = {
@@ -255,8 +287,6 @@ def _after_pruning(
         doomed.append(entry)
         remaining.remove(entry)
         total -= (root / entry["file"]).stat().st_size
-    if total > MAX_TOTAL_BYTES:
-        return None
     if not dry:
         for entry in doomed:
             (root / entry["file"]).unlink(missing_ok=True)

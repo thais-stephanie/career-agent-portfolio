@@ -131,8 +131,9 @@ class ProfileHost:
     ) -> None:
         """The one automatic database copy (storage/auto_backup.py): only when an
         upgrade is about to change a profile that already holds data, once per
-        schema step, never on an ordinary opening."""
-        from career_agent.storage.auto_backup import backup_before_upgrade
+        schema step, never on an ordinary opening. If it cannot be made and
+        verified the upgrade does not happen."""
+        from career_agent.storage.auto_backup import UpgradeBackupFailed, backup_before_upgrade
         from career_agent.storage.db import applied_ledger, pending_migrations
 
         try:
@@ -142,15 +143,19 @@ class ProfileHost:
             return
         if not ledger or not pending:
             return
-        backup_before_upgrade(
-            self.root / "data",
-            profile_id=profile.id,
-            profile_label=profile.label,
-            db=db,
-            config_dir=config_dir,
-            pending=[str(m.version) for m in pending],
-            schema_now=max(ledger),
-        )
+        try:
+            backup_before_upgrade(
+                self.root / "data",
+                profile_id=profile.id,
+                profile_label=profile.label,
+                db=db,
+                config_dir=config_dir,
+                pending=[str(m.version) for m in pending],
+                schema_now=max(ledger),
+            )
+        except UpgradeBackupFailed as exc:
+            # No safety copy, no upgrade: the database is left exactly as it was.
+            raise ProfileError(str(exc)) from exc
 
     def serve(self, profile: Profile, api: JobsApi) -> None:
         """Record that `profile` is what this process now serves."""

@@ -95,7 +95,10 @@ def test_first_read_stores_everything_and_keeps_every_apply_url_whole(conn, fold
     server = Server(feed_xml(5))
     stats = run(conn, server, folder)
     assert stats.jobs_new == 5 and not stats.failures and stats.deferred_reason is None
-    assert jobs(conn)["workable-R2"] == "https://apply.workable.com/j/R2?utm_source=x&amp;token=a%2Fb+z"
+    assert (
+        jobs(conn)["workable-R2"]
+        == "https://apply.workable.com/j/R2?utm_source=x&amp;token=a%2Fb+z"
+    )
     state = FeedSession(folder).read()
     assert state["processed_last_modified"] == MODIFIED and "pending" not in state
     assert not (folder / "feed.xml").exists() and not (folder / "stage.sqlite").exists()
@@ -124,9 +127,7 @@ def test_only_new_and_changed_postings_are_written_and_queued_for_a_score(conn, 
     assert (stats.jobs_new, stats.jobs_changed, stats.jobs_unchanged) == (1, 1, 5)
     queued = {
         r[0]
-        for r in conn.execute(
-            "SELECT j.external_id FROM job_dirty d JOIN job j ON j.id = d.job_id"
-        )
+        for r in conn.execute("SELECT j.external_id FROM job_dirty d JOIN job j ON j.id = d.job_id")
     }
     assert queued == {"workable-R2", "workable-R6"}
     # What did not change was not touched at all.
@@ -203,9 +204,12 @@ def test_a_truncated_download_is_a_failure_and_changes_nothing(conn, folder):
     assert stats.failures and stats.deferred_reason is None
     assert conn.execute("SELECT COUNT(*) FROM job").fetchone()[0] == 3
     assert FeedSession(folder).read()["processed_last_modified"] == MODIFIED
-    assert conn.execute(
-        "SELECT status FROM pipeline_run WHERE stage='collect-workable' ORDER BY started_at DESC"
-    ).fetchone()[0] == "FAILED"
+    assert (
+        conn.execute(
+            "SELECT status FROM pipeline_run WHERE stage='collect-workable' ORDER BY started_at DESC"
+        ).fetchone()[0]
+        == "FAILED"
+    )
 
 
 def test_one_read_for_the_whole_installation(conn, folder, tmp_path):
@@ -252,9 +256,7 @@ def test_progress_names_each_phase(conn, folder):
 
 def test_the_engine_runs_it_as_one_unit_and_respects_the_profile_pause(conn, folder, monkeypatch):
     server = Server(feed_xml(4))
-    monkeypatch.setattr(
-        "career_agent.pipeline.workable_update.feed_directory", lambda _c: folder
-    )
+    monkeypatch.setattr("career_agent.pipeline.workable_update.feed_directory", lambda _c: folder)
 
     def factory(*, deadline):
         return server.fetcher(deadline=deadline)

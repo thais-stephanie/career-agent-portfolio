@@ -124,9 +124,58 @@ def test_profiles_are_counted_apart(world):
     assert ab.listing(world[0])["count"] == 2
 
 
-def test_a_copy_that_does_not_fit_is_not_made_and_the_reason_is_recorded(world, monkeypatch):
+def test_one_copy_larger_than_the_limit_is_still_made_and_kept(world, monkeypatch):
     monkeypatch.setattr(ab, "MAX_TOTAL_BYTES", 1)
-    assert make(world) is None
-    manifest = ab.read_manifest(world[0])
-    assert manifest["skipped"] and manifest["skipped"][-1]["why"] == "TOO_LARGE"
+    first = make(world, step="52", when=datetime(2026, 10, 1, tzinfo=UTC))
+    assert first, "the limit never justifies skipping the protection"
+    shown = ab.listing(world[0])
+    assert shown["count"] == 1 and shown["over_limit"] is True
+    second = make(world, step="53", when=datetime(2026, 10, 2, tzinfo=UTC))
+    assert second
+    shown = ab.listing(world[0])
+    # The older one may go to make room; the newest verified one is never deleted.
+    assert [e["schema_after"] for e in shown["entries"]] == ["53"]
+    assert (ab.folder(world[0]) / second["file"]).is_file() and shown["over_limit"] is True
+
+
+def test_the_limit_never_deletes_the_newest_verified_copy_of_any_profile(world, monkeypatch):
+    start = datetime(2026, 10, 1, tzinfo=UTC)
+    assert make(world, profile="prof-a", when=start)
+    monkeypatch.setattr(ab, "MAX_TOTAL_BYTES", 1)
+    assert make(world, profile="prof-b", when=start + timedelta(days=1))
+    shown = ab.listing(world[0])
+    assert {e["profile_id"] for e in shown["entries"]} == {"prof-a", "prof-b"}
+
+
+def test_a_copy_that_does_not_verify_stops_the_upgrade_and_removes_nothing(world, monkeypatch):
+    kept = make(world, step="52", when=datetime(2026, 10, 1, tzinfo=UTC))
+    assert kept
+    monkeypatch.setattr(ab, "_verified", lambda *_: False)
+    with pytest.raises(ab.UpgradeBackupFailed) as stopped:
+        make(world, step="53", when=datetime(2026, 10, 2, tzinfo=UTC))
+    assert "nothing was changed" in str(stopped.value) and stopped.value.why == "NOT_VERIFIED"
+    assert ab.read_manifest(world[0])["skipped"][-1]["why"] == "NOT_VERIFIED"
+    assert (ab.folder(world[0]) / kept["file"]).is_file(), "the last valid copy is untouched"
+    assert not list(ab.folder(world[0]).glob("*.partial")), "no half-written file is left"
+
+
+def test_a_copy_that_cannot_be_written_stops_the_upgrade(world, monkeypatch):
+    def full_disk(**_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("career_agent.storage.backup.create_backup", full_disk)
+    with pytest.raises(ab.UpgradeBackupFailed) as stopped:
+        make(world)
+    assert stopped.value.why == "ERROR:OSError"
     assert ab.listing(world[0])["count"] == 0
+    assert ab.read_manifest(world[0])["skipped"][-1]["why"] == "ERROR:OSError"
+
+
+def test_only_the_explicit_recorded_override_lets_an_upgrade_go_without_a_copy(world, monkeypatch):
+    monkeypatch.setattr(ab, "_verified", lambda *_: False)
+    monkeypatch.setenv(ab.OVERRIDE, "1")
+    assert make(world) is None
+    assert ab.read_manifest(world[0])["skipped"][-1]["why"] == "OVERRIDDEN:NOT_VERIFIED"
+    monkeypatch.setenv(ab.OVERRIDE, "yes")
+    with pytest.raises(ab.UpgradeBackupFailed):
+        make(world, step="54")

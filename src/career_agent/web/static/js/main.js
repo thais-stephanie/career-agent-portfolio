@@ -2969,6 +2969,10 @@ async function paintAutomaticCopies() {
       : el('p', { text: t('backup.auto.none') }),
     rows.length ? el('ul', { className: 'backup__list' }, rows) : null,
     ...skipped,
+    data.over_limit ? el('p', {
+      className: 'setcard__warn',
+      text: t('backup.auto.over', { gb: Math.round(Number(data.policy.max_total_bytes) / 1024 ** 3) }),
+    }) : null,
     el('p', { className: 'setcard__hint', text: t('backup.auto.others') }),
   ].filter(Boolean));
   if (settingsTab === 'backup' && host.isConnected) host.appendChild(card);

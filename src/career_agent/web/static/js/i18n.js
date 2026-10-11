@@ -4316,15 +4316,18 @@ const EN = {
   'look.region.pt-BR': 'Brasil',
   'backup.auto.head': 'Automatic copies',
   'backup.auto.sub': 'Career Agent copies your profile only before an upgrade changes it, once per upgrade, '
-    + 'and keeps the newest {keep} per profile (at most {gb} GB in total). Opening the app, collecting jobs '
-    + 'and editing skills or preferences copy nothing.',
+    + 'and keeps the newest {keep} per profile, removing older ones to stay near {gb} GB in total. The newest '
+    + 'copy of each profile is never removed. If a copy cannot be made, the upgrade waits. Opening the app, '
+    + 'collecting jobs and editing skills or preferences copy nothing.',
   'backup.auto.none': 'No automatic copy has been needed yet.',
   'backup.auto.summary': '{n} automatic copies, {size} in total.',
   'backup.auto.row': '{date}: {profile}, before upgrade {from} to {to} ({size})',
-  'backup.auto.skipped': 'The last upgrade was not copied first: {why}.',
-  'backup.auto.why.TOO_LARGE': 'the copies would not fit in the limit',
-  'backup.auto.why.NOT_VERIFIED': 'the copy could not be checked',
-  'backup.auto.why.ERROR': 'a copy could not be written',
+  'backup.auto.skipped': 'The last safety copy before an upgrade failed: {why}.',
+  'backup.auto.over': 'These copies take more space than the {gb} GB limit because a single copy is larger than '
+    + 'it. The newest copy of each profile is kept anyway, and nothing else is removed.',
+  'backup.auto.why.NOT_VERIFIED': 'the copy could not be checked, so the upgrade was not applied',
+  'backup.auto.why.ERROR': 'a copy could not be written, so the upgrade was not applied',
+  'backup.auto.why.OVERRIDDEN': 'you allowed the upgrade to go ahead without a copy',
   'backup.auto.others': 'Copies you make yourself and older files are never touched or listed here. '
     + 'The job catalogue is public data and is not copied automatically.',
   'backup.head': 'Backup',
@@ -9212,15 +9215,18 @@ const PT_BR = {
   'look.region.pt-BR': 'Brasil',
   'backup.auto.head': 'Cópias automáticas',
   'backup.auto.sub': 'O Career Agent copia o seu perfil apenas antes de uma atualização mudá-lo, uma vez por '
-    + 'atualização, e guarda as {keep} mais recentes por perfil (no máximo {gb} GB no total). Abrir o app, '
-    + 'coletar vagas e editar habilidades ou preferências não copiam nada.',
+    + 'atualização, e guarda as {keep} mais recentes por perfil, removendo as mais antigas para ficar perto de '
+    + '{gb} GB no total. A cópia mais recente de cada perfil nunca é removida. Se uma cópia não puder ser feita, '
+    + 'a atualização espera. Abrir o app, coletar vagas e editar habilidades ou preferências não copiam nada.',
   'backup.auto.none': 'Ainda não foi preciso fazer nenhuma cópia automática.',
   'backup.auto.summary': '{n} cópias automáticas, {size} no total.',
   'backup.auto.row': '{date}: {profile}, antes da atualização {from} para {to} ({size})',
-  'backup.auto.skipped': 'A última atualização não foi copiada antes: {why}.',
-  'backup.auto.why.TOO_LARGE': 'as cópias não caberiam no limite',
-  'backup.auto.why.NOT_VERIFIED': 'a cópia não pôde ser conferida',
-  'backup.auto.why.ERROR': 'não foi possível gravar uma cópia',
+  'backup.auto.skipped': 'A última cópia de segurança antes de uma atualização falhou: {why}.',
+  'backup.auto.over': 'Estas cópias ocupam mais espaço que o limite de {gb} GB porque uma única cópia é maior que '
+    + 'ele. A cópia mais recente de cada perfil é mantida mesmo assim, e nada mais é removido.',
+  'backup.auto.why.NOT_VERIFIED': 'a cópia não pôde ser conferida, então a atualização não foi aplicada',
+  'backup.auto.why.ERROR': 'não foi possível gravar uma cópia, então a atualização não foi aplicada',
+  'backup.auto.why.OVERRIDDEN': 'você permitiu que a atualização prosseguisse sem cópia',
   'backup.auto.others': 'Cópias que você faz por conta própria e arquivos antigos nunca são tocados nem '
     + 'listados aqui. O catálogo de vagas é dado público e não é copiado automaticamente.',
   'backup.head': 'Cópia de segurança',

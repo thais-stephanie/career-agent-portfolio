@@ -140,8 +140,11 @@ def test_what_an_update_publishes_stays_in_the_profile_that_ran_it(install, held
     # And the first profile's record is intact where it was written.
     conn = connect(first.config.db_path)
     try:
-        assert conn.execute(
-            "SELECT COUNT(*) FROM candidate_state WHERE key = 'auto_update.last_result'"
-        ).fetchone()[0] == 1
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM candidate_state WHERE key = 'auto_update.last_result'"
+            ).fetchone()[0]
+            == 1
+        )
     finally:
         conn.close()

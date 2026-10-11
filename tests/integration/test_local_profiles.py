@@ -482,3 +482,29 @@ def test_an_upgrade_makes_one_verified_backup_and_an_ordinary_opening_none(
     shown = auto_backup.listing(host.root / "data")
     assert shown["count"] == 1 and shown["entries"][0]["verified"]
     assert shown["entries"][0]["profile_id"] == profile.id
+
+
+def test_without_a_safety_copy_the_upgrade_does_not_happen(
+    install: ProfileHost, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import types
+
+    from career_agent.runtime.profiles import ProfileError
+
+    host = install
+    profile = load_registry(host.root).current
+    migrated: list[int] = []
+    monkeypatch.setattr("career_agent.storage.db.migrate", lambda conn: migrated.append(1))
+    monkeypatch.setattr(
+        "career_agent.storage.db.pending_migrations",
+        lambda c: [types.SimpleNamespace(version=9999)],
+    )
+
+    def full_disk(**_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("career_agent.storage.backup.create_backup", full_disk)
+    with pytest.raises(ProfileError) as refused:
+        host.open(profile)
+    assert "nothing was changed" in str(refused.value) and "backup" in str(refused.value)
+    assert migrated == [], "the migration was not applied"
