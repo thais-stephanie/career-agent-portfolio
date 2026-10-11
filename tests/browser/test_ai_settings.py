@@ -52,11 +52,9 @@ def _settings(page: Chrome, fresh: Fresh) -> None:  # noqa: F811
 
 
 def _choose(page: Chrome, mode: str, summary: str) -> None:
-    page.evaluate(
-        "(() => { const s = document.querySelector('#ai-mode');"
-        f" s.value = {json.dumps(mode)};"
-        " s.dispatchEvent(new Event('change', {bubbles: true})); })()"
-    )
+    # The provider is a group of radio chips (a switch decides whether findings
+    # count at all); choosing one is one click, and it sends nothing.
+    page.evaluate(f"document.getElementById('ai-mode-{mode}').click()")
     page.wait_for(
         f"document.querySelector('.ai__summary')?.textContent.includes({json.dumps(summary)})",
         message=f"mode {mode}",
@@ -180,3 +178,44 @@ def test_readiness_is_said_in_words_before_any_work_is_described(
     text = str(page.evaluate("document.querySelector('.settings__readiness').textContent"))
     assert state == "NOT_READY"
     assert "what work you want next" in text
+
+
+def test_a_switch_on_with_no_provider_says_so_and_changes_nothing_on_its_own(
+    page: Chrome,
+    fresh: Fresh,  # noqa: F811
+    offline_providers,
+) -> None:
+    _settings(page, fresh)
+    assert (
+        page.evaluate("document.getElementById('ai-enabled').getAttribute('aria-checked')")
+        == "true"
+    )
+    assert (
+        page.evaluate(
+            "document.getElementById('ai-mode-deterministic').getAttribute('aria-checked')"
+        )
+        == "true"
+    )
+    note = str(page.evaluate("document.querySelector('[data-why=\"no-provider\"]').textContent"))
+    assert "no provider is chosen" in note and "no AI reads anything" in note
+    assert str(page.evaluate("document.querySelector('.ai__summary').dataset.effective")) == "none"
+    assert not (fresh.config_dir / "semantic.local.yaml").exists(), "explaining it wrote nothing"
+
+
+def test_the_deep_reading_is_shown_apart_and_choosing_smart_matching_does_not_move_it(
+    page: Chrome,
+    fresh: Fresh,  # noqa: F811
+    offline_providers,
+) -> None:
+    _settings(page, fresh)
+    before = str(page.evaluate("document.getElementById('ai-deep-summary').innerText"))
+    assert "No provider is chosen for Deep reading yet" in before
+    text = str(page.evaluate("document.getElementById('ai-settings-host').innerText"))
+    assert "Smart matching" in text and "Deep reading" in text
+    assert "A key being available is not consent" in text
+    _choose(page, "claude_code", "Claude Code")
+    after = str(page.evaluate("document.getElementById('ai-deep-summary').innerText"))
+    assert after == before, "choosing a provider for one function moved the other"
+    assert page.evaluate("document.getElementById('ai-open-deep') !== null")
+    page.evaluate("document.getElementById('ai-open-deep').click()")
+    page.wait_for("document.querySelector('.dr-panel')", message="the Deep reading panel")

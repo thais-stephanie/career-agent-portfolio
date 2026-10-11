@@ -1144,10 +1144,10 @@ const EN = {
   'deep.intro': 'An optional, slower reading of postings you already have. AI reports what each posting asks for, '
     + 'with quotes; Career Agent checks the quotes and decides the priority by fixed rules. Your local score does '
     + 'not change.',
-  'deep.provider.CHOOSE_PROVIDER': 'Choose Claude Code or Codex by name in Settings, AI & Semantic Matching. Auto is '
-    + 'not used here, so nothing can move to another service.',
-  'deep.provider.DEEP_NEEDS_SUBSCRIPTION': 'The deep reading runs only through a subscription command line (Claude '
-    + 'Code or Codex). A paid API is not used.',
+  'deep.provider.CHOOSE_PROVIDER': 'Choose who reads your jobs in depth. This is separate from Smart matching, so '
+    + 'choosing here changes nothing there, and nothing is sent until you start a reading.',
+  'deep.provider.DEEP_NEEDS_SUBSCRIPTION': 'This provider cannot run the Deep reading on this computer. Choose '
+    + 'another one.',
   'deep.access.claude_code': 'Claude Code · Claude subscription',
   'deep.access.codex': 'Codex · ChatGPT subscription',
   'deep.auth.subscription': 'Signed in with a subscription',
@@ -4847,6 +4847,29 @@ const EN = {
   'ai.intro': 'Career Agent can ask an AI to recognise the work you want in postings that describe it in other '
     + 'words. The AI only interprets: Career Agent checks every quote against the posting and does all of the '
     + 'scoring itself.',
+  'ai.smart.head': 'Smart matching',
+  'ai.enabledLabel': 'Count Smart matching findings in the match %',
+  'ai.enabledHint': 'When off, findings are ignored even if a provider is chosen. This switch sends nothing: '
+    + 'only the Evaluate button below does, after an estimate.',
+  'ai.switchOnNoProvider': 'This switch is on, but no provider is chosen, so no AI reads anything. Pick a '
+    + 'provider below to use it.',
+  'ai.pickProvider': 'Which provider reads postings',
+  'ai.pickDisabled': 'Turn the switch on to choose a provider.',
+  'ai.deep.head': 'Deep reading',
+  'ai.deep.lede': 'A separate, optional reading of a job against your confirmed evidence. It has its own '
+    + 'provider and its own consent, chosen in its own panel. Changing one never changes the other.',
+  'ai.deep.provider': 'Provider: {name}',
+  'ai.deep.consentOn': 'Your confirmed evidence may go to this provider in a Deep reading you start.',
+  'ai.deep.consentOff': 'Your confirmed evidence is not shared with it. Nothing is sent until you start one.',
+  'ai.deep.none': 'No provider is chosen for Deep reading yet.',
+  'ai.deep.open': 'Open Deep reading',
+  'ai.leaves.smart': 'Smart matching, when you press Evaluate:',
+  'ai.leaves.deep': 'Deep reading, when you start one: your search phrases, preferred levels and the posting; '
+    + 'your confirmed evidence only if you allowed it for that provider.',
+  'ai.leaves.local': 'Stays on this computer: your answers, documents, evidence, scores, notes and '
+    + 'applications. Choosing a provider, or having a key, sends nothing: only an action you start does.',
+  'ai.leaves.consent': 'A key being available is not consent. Consent to share your evidence is asked '
+    + 'separately for each provider.',
   'ai.enabled': 'Use AI semantic matching',
   'ai.provider': 'Provider',
   'ai.mode.auto': 'Auto',
@@ -6013,10 +6036,10 @@ const PT_BR = {
   'deep.demo': 'A demonstração nunca usa IA.',
   'deep.intro': 'Uma leitura opcional e mais lenta das vagas que você já tem. A IA relata o que cada vaga pede, com '
     + 'trechos; o Career Agent confere os trechos e decide a prioridade por regras fixas. Sua nota local não muda.',
-  'deep.provider.CHOOSE_PROVIDER': 'Escolha Claude Code ou Codex pelo nome em Configurações, IA e correspondência '
-    + 'semântica. O modo Automático não é usado aqui, para que nada passe a outro serviço.',
-  'deep.provider.DEEP_NEEDS_SUBSCRIPTION': 'A leitura aprofundada só roda por uma linha de comando de assinatura '
-    + '(Claude Code ou Codex). Nenhuma API paga é usada.',
+  'deep.provider.CHOOSE_PROVIDER': 'Escolha quem lê suas vagas em profundidade. Isto é separado da '
+    + 'Compatibilidade inteligente: escolher aqui não muda nada lá, e nada é enviado até você iniciar uma leitura.',
+  'deep.provider.DEEP_NEEDS_SUBSCRIPTION': 'Este provedor não consegue fazer a Leitura aprofundada neste '
+    + 'computador. Escolha outro.',
   'deep.access.claude_code': 'Claude Code · assinatura Claude',
   'deep.access.codex': 'Codex · assinatura ChatGPT',
   'deep.auth.subscription': 'Conectado com assinatura',
@@ -9708,6 +9731,31 @@ const PT_BR = {
   'ai.intro': 'O Career Agent pode pedir a uma IA que reconheça o trabalho que você quer em vagas que o descrevem '
     + 'com outras palavras. A IA só interpreta: o Career Agent confere cada citação com a vaga e faz todo o '
     + 'cálculo da pontuação.',
+  'ai.smart.head': 'Compatibilidade inteligente',
+  'ai.enabledLabel': 'Contar os achados da Compatibilidade inteligente na nota',
+  'ai.enabledHint': 'Desligado, os achados são ignorados mesmo com um provedor escolhido. Esta chave não envia '
+    + 'nada: só o botão Avaliar abaixo envia, depois de uma estimativa.',
+  'ai.switchOnNoProvider': 'Esta chave está ligada, mas nenhum provedor foi escolhido, então nenhuma IA lê '
+    + 'nada. Escolha um provedor abaixo para usá-la.',
+  'ai.pickProvider': 'Qual provedor lê as vagas',
+  'ai.pickDisabled': 'Ligue a chave para escolher um provedor.',
+  'ai.deep.head': 'Leitura aprofundada',
+  'ai.deep.lede': 'Uma leitura separada e opcional de uma vaga contra as suas evidências confirmadas. Tem '
+    + 'provedor e consentimento próprios, escolhidos no painel dela. Mudar um nunca muda o outro.',
+  'ai.deep.provider': 'Provedor: {name}',
+  'ai.deep.consentOn': 'Suas evidências confirmadas podem ir a este provedor numa Leitura aprofundada que '
+    + 'você iniciar.',
+  'ai.deep.consentOff': 'Suas evidências confirmadas não são compartilhadas com ele. Nada é enviado até você '
+    + 'iniciar uma.',
+  'ai.deep.none': 'Nenhum provedor foi escolhido para a Leitura aprofundada ainda.',
+  'ai.deep.open': 'Abrir a Leitura aprofundada',
+  'ai.leaves.smart': 'Compatibilidade inteligente, quando você aperta Avaliar:',
+  'ai.leaves.deep': 'Leitura aprofundada, quando você inicia uma: suas frases de busca, os níveis preferidos '
+    + 'e a vaga; suas evidências confirmadas só se você permitiu para aquele provedor.',
+  'ai.leaves.local': 'Fica neste computador: suas respostas, documentos, evidências, notas e candidaturas. '
+    + 'Escolher um provedor, ou ter uma chave, não envia nada: só uma ação que você inicia envia.',
+  'ai.leaves.consent': 'Ter uma chave disponível não é consentimento. O consentimento para compartilhar '
+    + 'suas evidências é pedido separadamente para cada provedor.',
   'ai.enabled': 'Usar correspondência semântica com IA',
   'ai.provider': 'Provedor',
   'ai.mode.auto': 'Automático',

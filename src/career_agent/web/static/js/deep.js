@@ -245,7 +245,10 @@ export function createDeep({ onOpenJob = null } = {}) {
   function chooseState(status) {
     const body = [];
     if (!status.provider) {
+      // Nothing chosen yet: say so, and show the choice right here. Nothing is
+      // sent or assumed until one is picked.
       body.push(banner('pink', t(`deep.provider.${status.provider_reason || 'CHOOSE_PROVIDER'}`)));
+      if ((status.providers || []).length) body.push(providerCard(status));
     } else {
       body.push(providerCard(status), shareCard(status));
     }

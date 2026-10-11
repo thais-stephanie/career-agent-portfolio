@@ -557,7 +557,9 @@ function goTo(page, { push = true, job = null } = {}) {
     renderSetupEntry(document.getElementById('settings-setup-host'));
     renderSearchSettings(document.getElementById('search-settings-host'), store);
     sourcesPanel.load();
-    renderAiSettings(document.getElementById('ai-settings-host'));
+    renderAiSettings(document.getElementById('ai-settings-host'), {
+      onOpenDeep: () => deepReading.open(document.getElementById('deep-open')),
+    });
     const model = document.getElementById('settings-model');
     if (DEV_SCORING && model) {
       model.ontoggle = () => { if (model.open) loadPreferences(); };

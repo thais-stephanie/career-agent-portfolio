@@ -121,3 +121,14 @@ def test_a_run_without_a_key_is_refused_before_anything_starts(api) -> None:
         )
     assert "PROVIDER_NOT_READY" in str(refused.value)
     assert call(api, "GET", "/api/deep")["job"] is None
+
+
+def test_the_deep_provider_is_never_derived_from_the_smart_matching_choice(api) -> None:
+    """Each function has its own provider; configuring one moves nothing in the other."""
+    assert call(api, "GET", "/api/deep")["provider"] is None
+    call(api, "PATCH", "/api/semantic", {"enabled": True, "mode": "claude_code"})
+    assert call(api, "GET", "/api/deep")["provider"] is None
+    call(api, "POST", "/api/deep/provider", {"provider": "codex"})
+    call(api, "PATCH", "/api/semantic", {"mode": "deterministic"})
+    assert call(api, "GET", "/api/deep")["provider"] == "codex"
+    assert call(api, "GET", "/api/semantic")["settings"]["mode"] == "deterministic"

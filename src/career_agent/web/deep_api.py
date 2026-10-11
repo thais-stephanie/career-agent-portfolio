@@ -48,13 +48,10 @@ def register_deep(app: JobsApi) -> None:
     pause = threading.Event()
 
     def chosen_id(settings: Any) -> str | None:
-        """The provider this profile chose for the deep reading, by name. Until
-        it chooses in the panel, its AI & Semantic Matching choice when that is
-        a subscription command line (what this panel used before), else none."""
-        if settings.deep_provider:
-            return str(settings.deep_provider)
-        mode = settings.mode.value
-        return mode if settings.enabled and mode in ("claude_code", "codex") else None
+        """The provider this profile chose for the deep reading, by name, or
+        none. Never derived from the Smart matching choice: each function has
+        its own provider, and configuring one must not move the other."""
+        return str(settings.deep_provider) if settings.deep_provider else None
 
     def chosen_provider(settings: Any) -> tuple[Any, str]:
         """The profile's NAMED provider, or why there is none to use."""

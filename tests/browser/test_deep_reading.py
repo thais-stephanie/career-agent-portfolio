@@ -55,7 +55,9 @@ def deep_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dic
     config = tmp_path / "config"
     shutil.copytree(committed_config_dir(), config, ignore=shutil.ignore_patterns("*.local.*"))
     shutil.copyfile(config / "search.worked-example.yaml", config / "search.local.yaml")
-    (config / "semantic.local.yaml").write_text("enabled: true\nmode: claude_code\n", "utf-8")
+    (config / "semantic.local.yaml").write_text(
+        "enabled: true\nmode: claude_code\ndeep_provider: claude_code\n", "utf-8"
+    )
     db = tmp_path / "personal.db"
     conn = connect(db)
     try:

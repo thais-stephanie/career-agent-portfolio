@@ -9,10 +9,11 @@
  * provider id, an availability state, a billing kind), never from prose the
  * server wrote: that prose is English, and a Portuguese screen must not show it.
  */
-import { el, button, replace, select, field } from './dom.js';
+import { el, button, replace, field } from './dom.js';
 import { t } from './i18n.js';
+import { switchControl } from './switch.js';
 import {
-  getSemantic, patchSemantic, saveDeepseekKey, removeDeepseekKey,
+  getSemantic, getDeep, patchSemantic, saveDeepseekKey, removeDeepseekKey,
   checkSemanticProvider, planSemantic, startSemantic, getSemanticRun, cancelSemantic,
 } from './api.js';
 
@@ -76,14 +77,21 @@ function stateText(row) {
   return t(`ai.state.${row.state}`);
 }
 
-export function renderAiSettings(host) {
+export function renderAiSettings(host, { onOpenDeep = null } = {}) {
   let data = null;
+  //: The Deep reading's own choice (its panel owns it); read here only to SHOW it.
+  let deep = null;
   let message = '';
   stopPolling();
 
   async function load(refresh = false) {
     try {
       data = await getSemantic(refresh);
+      try {
+        deep = await getDeep();
+      } catch {
+        deep = null;
+      }
       draw();
       // Settings' nav shows On / Off from the same answer.
       host.dispatchEvent(new CustomEvent('ai-settings-loaded', { bubbles: true, detail: data }));
@@ -130,6 +138,11 @@ export function renderAiSettings(host) {
   }
 
   function providerRow(row) {
+    const known = deep && (deep.providers || []).find((p) => p.id === row.id);
+    const facts = [
+      known && known.model ? t('deep.choice.model', { model: known.model }) : null,
+      known ? t(`deep.connection.${known.connection}`) : null,
+    ].filter(Boolean);
     const children = [
       el('div', { className: 'ai__provider-head' }, [
         el('strong', { text: providerName(row.id) }),
@@ -139,6 +152,7 @@ export function renderAiSettings(host) {
           dataset: { state: row.state },
         }),
       ]),
+      facts.length ? el('p', { className: 'ai__facts', text: facts.join(' · ') }) : null,
       el('p', { className: 'ai__billing', text: t(`ai.billing.${row.billing}`) }),
       el('p', { className: 'ai__sends', text: t(`ai.sends.${row.id}`) }),
     ];
@@ -284,45 +298,95 @@ export function renderAiSettings(host) {
     return el('div', {}, lines);
   }
 
-  function draw() {
+  /** What actually happens, from the stored switch AND the provider, never from one alone. */
+  function effective() {
     const settings = data.settings;
-    const enabled = el('input', {
-      attrs: { type: 'checkbox' },
-      props: { checked: Boolean(settings.enabled), disabled: data.demo },
-      on: { change: () => { void save({ enabled: enabled.checked }); } },
-    });
-    const mode = select(
-      MODES.map((value) => ({ value, label: providerName(value) })),
-      settings.mode,
-      (value) => { void save({ mode: value }); },
-      { ariaLabel: t('ai.provider') },
-    );
-    mode.disabled = data.demo || !settings.enabled;
-    const providers = el('details', { className: 'ai__details' }, [
-      el('summary', { text: t('ai.providersHead') }),
-      el('ul', { className: 'ai__providers' }, data.providers.map(providerRow)),
-      el('h3', { className: 'ai__subhead', text: t('ai.privacyHead') }),
-      el('p', { text: t('ai.privacy.sends') }),
-      el('p', { text: t('ai.privacy.never') }),
-    ]);
-    const children = [
+    if (data.demo) return 'demo';
+    if (!settings.enabled) return 'off';
+    if (settings.mode === 'deterministic') return 'none';
+    if (!data.active_provider) return 'unavailable';
+    return 'ready';
+  }
+
+  function smartCard() {
+    const settings = data.settings;
+    const state = effective();
+    const toggle = switchControl(Boolean(settings.enabled), t('ai.enabledLabel'), t('ai.enabledHint'),
+      (node) => { if (!node.disabled) void save({ enabled: node.getAttribute('aria-checked') !== 'true' }); });
+    toggle.disabled = Boolean(data.demo);
+    toggle.id = 'ai-enabled';
+    const chips = el('div', {
+      className: 'ai-chips', attrs: { role: 'radiogroup', 'aria-label': t('ai.provider'), id: 'ai-mode' },
+    }, MODES.map((value) => button(providerName(value), () => { void save({ mode: value }); }, {
+      className: `ai-chip${settings.mode === value ? ' is-on' : ''}`,
+      attrs: {
+        role: 'radio', 'aria-checked': String(settings.mode === value), id: `ai-mode-${value}`,
+        'data-mode': value, ...(data.demo || !settings.enabled ? { disabled: '' } : {}),
+      },
+    })));
+    return el('section', { className: 'ai-card', attrs: { 'aria-labelledby': 'ai-smart-head' } }, [
+      el('h3', { className: 'ai-card__head', attrs: { id: 'ai-smart-head' }, text: t('ai.smart.head') }),
       el('p', { className: 'ai__intro', text: t('ai.intro') }),
       el('p', {
         className: `ai__summary ai__summary--${data.active_provider ? 'ready' : 'fallback'}`,
         text: summaryLine(data),
+        dataset: { effective: state },
         attrs: { role: 'status' },
       }),
+      // The stored switch and the stored provider can disagree; the screen says
+      // what that means rather than changing either.
+      settings.enabled && settings.mode === 'deterministic' && !data.demo
+        ? el('p', { className: 'ai__note', dataset: { why: 'no-provider' }, text: t('ai.switchOnNoProvider') })
+        : null,
       ...fallbackLines(data),
-      // Whose decision this is: this profile's, made or not made yet.
       data.demo ? null : el('p', {
         className: 'ai__choice',
         dataset: { choice: data.choice || 'chosen' },
         text: t(`ai.choice.${data.choice || 'chosen'}`),
       }),
-      el('label', { className: 'ai__toggle' }, [enabled, el('span', { text: t('ai.enabled') })]),
-      field('ai-mode', t('ai.provider'), mode),
-      providers,
-    ];
+      toggle,
+      el('p', { className: 'ai-card__label', text: t('ai.pickProvider') }),
+      chips,
+      !settings.enabled && !data.demo ? el('p', { className: 'ai__note', text: t('ai.pickDisabled') }) : null,
+    ].filter(Boolean));
+  }
+
+  /** The Deep reading's choice, shown and linked; it is chosen in its own panel. */
+  function deepCard() {
+    const chosen = deep && (deep.providers || []).find((p) => p.chosen);
+    const lines = chosen
+      ? [
+        t('ai.deep.provider', { name: providerName(chosen.id) }),
+        chosen.model ? t('deep.choice.model', { model: chosen.model }) : t('deep.choice.modelCli'),
+        t(`deep.connection.${chosen.connection}`),
+        chosen.consent ? t('ai.deep.consentOn') : t('ai.deep.consentOff'),
+      ]
+      : [t('ai.deep.none')];
+    return el('section', { className: 'ai-card', attrs: { 'aria-labelledby': 'ai-deep-head' } }, [
+      el('h3', { className: 'ai-card__head', attrs: { id: 'ai-deep-head' }, text: t('ai.deep.head') }),
+      el('p', { className: 'ai__intro', text: t('ai.deep.lede') }),
+      el('ul', { className: 'ai-card__list', attrs: { id: 'ai-deep-summary' } },
+        lines.map((text) => el('li', { text }))),
+      onOpenDeep && !data.demo
+        ? button(t('ai.deep.open'), () => onOpenDeep(), { className: 'btn', attrs: { id: 'ai-open-deep' } })
+        : null,
+    ].filter(Boolean));
+  }
+
+  function draw() {
+    const settings = data.settings;
+    const providers = el('details', { className: 'ai__details' }, [
+      el('summary', { text: t('ai.providersHead') }),
+      el('ul', { className: 'ai__providers' }, data.providers.map(providerRow)),
+      el('h3', { className: 'ai__subhead', text: t('ai.privacyHead') }),
+      el('p', { text: t('ai.leaves.smart') }),
+      el('p', { text: t('ai.privacy.sends') }),
+      el('p', { text: t('ai.privacy.never') }),
+      el('p', { text: t('ai.leaves.deep') }),
+      el('p', { text: t('ai.leaves.local') }),
+      el('p', { text: t('ai.leaves.consent') }),
+    ]);
+    const children = [smartCard(), deepCard(), providers];
     if (!data.demo && settings.enabled && settings.mode !== 'deterministic') {
       children.push(el('details', { className: 'ai__details' }, [
         el('summary', { text: t('ai.runHead') }),

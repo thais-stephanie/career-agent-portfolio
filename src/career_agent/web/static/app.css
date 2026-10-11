@@ -11324,3 +11324,30 @@ table.jobs .cell__title-btn { max-width: 100%; }
 }
 .evalmode__row { margin: 0; }
 .evalmode__summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Settings, Smart matching: cards, a radio group of chips, one switch (ai-settings.js). */
+#ai-settings-host { display: grid; gap: 16px; max-width: 820px; }
+.ai-card {
+  display: grid; gap: 12px; padding: 20px; background: var(--surface);
+  border: 1px solid var(--divider); border-radius: 16px;
+}
+.ai-card__head { margin: 0; font-size: 19px; font-weight: 600; color: var(--ink); }
+.ai-card__label { margin: 4px 0 0; font-size: 14px; font-weight: 600; color: var(--ink); }
+.ai-card__list { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; color: var(--ink); }
+.ai-card .ai__intro, .ai-card .ai__note, .ai-card .ai__summary { max-width: 640px; font-size: 14px; line-height: 1.55; }
+.ai-card .ai__intro, .ai-card .ai__note { color: var(--muted); margin: 0; }
+.ai-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-chip {
+  min-height: 40px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--divider);
+  background: var(--chip-bg); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer;
+}
+.ai-chip:hover:not(:disabled) { background: var(--surface-hover); }
+.ai-chip.is-on { background: var(--lav); border-color: var(--lav); color: var(--on-lav); font-weight: 600; }
+.ai-chip:disabled { cursor: not-allowed; opacity: 0.6; }
+.ai-chip:focus-visible, .ai-card .dr-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ai__facts { margin: 0; font-size: 14px; color: var(--muted); }
+#ai-settings-host .ai__details { background: var(--surface); border: 1px solid var(--divider); border-radius: 16px; padding: 14px 20px; }
+#ai-settings-host .ai__details > summary { font-size: 15px; }
+#ai-settings-host .ai__intro, #ai-settings-host .ai__fallback, #ai-settings-host .ai__note,
+#ai-settings-host .ai__billing, #ai-settings-host .ai__sends, #ai-settings-host .ai__last { max-width: 640px; }
+.ai__details p { max-width: 640px; font-size: 14px; line-height: 1.55; }
