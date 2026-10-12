@@ -32,6 +32,7 @@ from career_agent.config.search_config import load_search_config
 from career_agent.pipeline.demo_seed import load_demo_postings, seed_demo
 from career_agent.runtime import RuntimeMode, stamp_identity
 from career_agent.storage.db import connect, migrate, transaction
+from career_agent.web import view_prefs
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ServerConfig, build_server
 
@@ -189,6 +190,9 @@ def demo_db(tmp_path_factory: pytest.TempPathFactory, committed_config: Path) ->
             stamp_identity(conn, RuntimeMode.DEMO, "demo")
         config, _ = load_search_config(committed_config)
         stats = seed_demo(conn, config, source=DEMO_FILE)
+        # The one invented undated posting is a real undated posting; these tests count
+        # the whole corpus, so the profile asks to include undated postings.
+        view_prefs.write(conn, {"include_undated": True})
     finally:
         conn.close()
     assert stats["postings"] == DEMO_POSTING_COUNT
@@ -283,6 +287,9 @@ def pristine_server(tmp_path: Path, committed_config: Path) -> Iterator[str]:
             stamp_identity(conn, RuntimeMode.DEMO, "demo")
         config, _ = load_search_config(committed_config)
         stats = seed_demo(conn, config, source=DEMO_FILE)
+        # The one invented undated posting is a real undated posting; these tests count
+        # the whole corpus, so the profile asks to include undated postings.
+        view_prefs.write(conn, {"include_undated": True})
     finally:
         conn.close()
     assert stats["postings"] == DEMO_POSTING_COUNT
