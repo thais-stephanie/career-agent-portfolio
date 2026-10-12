@@ -53,8 +53,12 @@ export const createJobResume = (jobId, from = null) =>
 export const markResumeUsed = (jobId, documentId) =>
   request(jobResumePath(jobId, '/used'), { method: 'POST', body: { document_id: documentId } });
 /** Tailor from the Master for a job, or for a pasted ad (`{title, company, text}`). No AI. */
-export const tailorForJob = (jobId) => request(jobResumePath(jobId, '/tailor'), { method: 'POST', body: {} });
+export const tailorForJob = (jobId, baseId = null) => request(jobResumePath(jobId, '/tailor'), {
+  method: 'POST', body: baseId ? { base_id: baseId } : {},
+});
 export const tailorPasted = (body) => request('/resume/tailor', { method: 'POST', body });
+/** What a version would take from the person's confirmed experience. Reads only: nothing is saved. */
+export const previewTailor = (body) => request('/resume/tailor/preview', { method: 'POST', body });
 /** Tailor with AI: which provider would be used; one request that drafts; each decision. */
 export const getResumeAi = () => request('/resume/ai');
 export const startResumeDraft = (jobId, runId, signal) =>

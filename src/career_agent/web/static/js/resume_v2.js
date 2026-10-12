@@ -395,6 +395,13 @@ export function createResumeWorkspace({
     openDocument: (id) => open(id),
     /** Tailor from the Master for a job (no AI), then the Editor. */
     tailorForJob: (jobId) => runTailor(() => tailorForJob(jobId)),
+    /**
+     * The Resume Tailor page's way in: a job or a pasted ad, from the Master or
+     * another resume of the person's own. Deterministic, no AI; then the Editor.
+     */
+    tailor: ({ jobId = null, ad = null, baseId = null }) => runTailor(
+      () => (jobId ? tailorForJob(jobId, baseId) : tailorPasted({ ...ad, ...(baseId ? { base_id: baseId } : {}) })),
+    ),
     /** Tailor with AI: say what is sent, ask once, review each change, then the Editor. */
     tailorWithAi: (jobId) => aiDraft.start(jobId),
     /** Analyze one resume for a job (from the drawer): its own ad for a job version. */

@@ -32,7 +32,7 @@ __all__ = [
     "read_timezone",
 ]
 
-_DASH = "-–—"
+_DASH = "-" + chr(0x2013) + chr(0x2014)
 _PART_TIME = re.compile(r"\b(?:part[- ]?time|meio[- ]per[ií]odo|tempo parcial)\b", re.IGNORECASE)
 _FULL_TIME = re.compile(r"\b(?:full[- ]?time|tempo integral)\b", re.IGNORECASE)
 _WEEK = r"(?:per|a|each|every|/|por)\s*(?:week|wk|semana)"

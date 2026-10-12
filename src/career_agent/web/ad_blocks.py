@@ -57,7 +57,7 @@ _BLOCK = {
 }  # fmt: skip
 _HEADINGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 _META_LINE = re.compile(r"^([A-Za-zÀ-ÿ][^:\n]{1,40}):\s*(\S.*)$")
-_BULLET = re.compile(r"^\s*(?:[-*•·▪●–]|\d{1,2}[.)])\s+(\S.*)$")
+_BULLET = re.compile(r"^\s*(?:[-*•·▪●\u2013]|\d{1,2}[.)])\s+(\S.*)$")
 _END_PUNCT = ".!?;,"
 
 

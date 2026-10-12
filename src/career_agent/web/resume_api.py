@@ -166,6 +166,8 @@ def _library(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 {
                     "key": row["version_group"],
                     "job_id": row["job_id"],
+                    # An ad pasted by hand has no Career Agent job behind it.
+                    "manual": row["job_id"] is None,
                     "title": row["job_title"],
                     "company": row["job_company"],
                     "versions": [],
@@ -769,12 +771,15 @@ def register_resume_routes(app: LocalApp) -> None:
             except EvidenceNotConfirmed as exc:
                 raise _unconfirmed(exc.lines) from exc
 
-    def run_tailor(ad: dict[str, Any]) -> dict[str, Any]:
-        """Tailor from the Master for one ad; nothing is saved unless every check passes."""
+    def run_tailor(ad: dict[str, Any], base_id: str | None = None) -> dict[str, Any]:
+        """Tailor from the Master (or another resume of the person's) for one ad;
+        nothing is saved unless every check passes."""
         with closing(app.connect()) as conn:
             try:
-                stored, _ = tailor(conn, ad=ad)
+                stored, _ = tailor(conn, ad=ad, base_id=base_id)
             except NotFound as exc:
+                if base_id is not None:
+                    raise ApiError(404, "No such resume to start from.") from exc
                 raise ApiError(
                     409, "Make your Master resume first.", for_reader=True, code="no_master"
                 ) from exc
@@ -788,21 +793,58 @@ def register_resume_routes(app: LocalApp) -> None:
                     code="tailor_failed",
                     data={"checks": sorted({f["check"] for f in exc.findings})},
                 ) from exc
+            except ResumeStoreError as exc:
+                raise ApiError(400, str(exc), for_reader=True) from exc
             return _detail(stored)
 
     def job_tailor(*, query: dict, body: dict, job_id: str) -> dict[str, Any]:
         """Tailor from the Master for a Career Agent job, from a snapshot of its ad."""
-        if body:
-            raise ApiError(400, "Nothing is sent to tailor for a job.")
+        if set(body) - {"base_id"}:
+            raise ApiError(400, "Only the resume to start from is sent to tailor for a job.")
+        base_id = _base_id(body)
         with closing(app.connect()) as conn:
             ad = job_ad(conn, job_id)
         if ad is None:
             raise ApiError(404, "This job is not in this profile.")
-        return run_tailor(ad)
+        return run_tailor(ad, base_id)
+
+    def _base_id(body: dict) -> str | None:
+        base_id = body.get("base_id")
+        if base_id is not None and (not isinstance(base_id, str) or not 1 <= len(base_id) <= 64):
+            raise ApiError(400, "Say which resume to start from.")
+        return base_id
 
     def pasted_tailor(*, query: dict, body: dict) -> dict[str, Any]:
-        """Tailor from the Master for an ad the person pasted."""
-        return run_tailor(_pasted_ad(body))
+        """Tailor for an ad the person pasted. Nothing is collected and no model
+        is asked; the ad is kept as typed, marked as pasted by hand."""
+        return run_tailor(
+            _pasted_ad({k: v for k, v in body.items() if k != "base_id"}), _base_id(body)
+        )
+
+    def tailor_preview(*, query: dict, body: dict) -> dict[str, Any]:
+        """What a version would take from the person's confirmed experience, for a
+        job or a pasted ad. Reads only: nothing is saved and no model is asked."""
+        from career_agent.resume_doc import tailor as tailoring
+
+        base_id = _base_id(body)
+        rest = {k: v for k, v in body.items() if k != "base_id"}
+        with closing(app.connect()) as conn:
+            if set(rest) == {"job_id"} and isinstance(rest["job_id"], str):
+                ad = job_ad(conn, rest["job_id"])
+                if ad is None:
+                    raise ApiError(404, "This job is not in this profile.")
+            else:
+                ad = _pasted_ad(rest)
+            try:
+                return tailoring.preview(conn, ad=ad, base_id=base_id)
+            except NotFound as exc:
+                if base_id is not None:
+                    raise ApiError(404, "No such resume to start from.") from exc
+                raise ApiError(
+                    409, "Make your Master resume first.", for_reader=True, code="no_master"
+                ) from exc
+            except ResumeStoreError as exc:
+                raise ApiError(400, str(exc), for_reader=True) from exc
 
     def _snapshot(conn: Any, stored: StoredDocument, body: dict) -> str | None:
         """Which job ad Analyze reads: none, the version's own, a Career Agent
@@ -1057,6 +1099,7 @@ def register_resume_routes(app: LocalApp) -> None:
     app.register("POST", job + "/versions", job_version)
     app.register("POST", job + "/used", job_used)
     app.register("POST", job + "/tailor", job_tailor)
+    app.register("POST", r"/api/resume/tailor/preview", tailor_preview)
     app.register("POST", r"/api/resume/tailor", pasted_tailor)
     app.register("GET", one + "/job", job_view)
     app.register("POST", one + "/analyze", analyze_view)

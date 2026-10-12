@@ -390,11 +390,12 @@ PAGES.resume.prepend(returnBar);
 
 const tailorPage = createTailorPage({
   host: PAGES.tailor,
-  onAdapt: (job) => toResumes(() => resumeWorkspace.tailorForJob(job.job_id)),
-  onAdaptAi: (job) => toResumes(() => resumeWorkspace.tailorWithAi(job.job_id)),
+  onMake: (options) => toResumes(() => resumeWorkspace.tailor(options)),
+  onMakeAi: ({ jobId }) => toResumes(() => resumeWorkspace.tailorWithAi(jobId)),
   onMakeMaster: (job) => makeMasterFor(job),
-  onOpenJob: (job) => drawer.open(job.job_id, document.querySelector('.topnav__link[data-page="tailor"]')),
-  onOpenVersion: (id) => toResumes(() => resumeWorkspace.openDocument(id)),
+  onOpenDocument: (id) => toResumes(() => resumeWorkspace.openDocument(id)),
+  onGoJobs: () => goTo('jobs'),
+  onCareerChanged: () => careerChanged(),
 });
 
 // Settings: the retired Resume helper's resumes, only while some are left to

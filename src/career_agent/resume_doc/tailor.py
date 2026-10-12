@@ -41,6 +41,7 @@ from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.master import _career
 from career_agent.resume_doc.models import (
     EVIDENCED_ORIGINS,
+    DocumentKind,
     Origin,
     Override,
     ResumeDocument,
@@ -1038,15 +1039,82 @@ def job_ad(conn: sqlite3.Connection, job_id: str) -> dict[str, Any] | None:
     }
 
 
+def _base(store: ResumeStore, base_id: str | None) -> StoredDocument:
+    """The resume a version starts from: the Master, or another resume of the
+    person's own (imported or written by hand). Never a version for a job and
+    never an archived one."""
+    if base_id is None:
+        row = store.current_master()
+        if row is None:
+            raise NotFound("there is no Master resume yet")
+        return row
+    row = store.get_document(base_id)
+    if row.kind is DocumentKind.TAILORED or row.archived_at is not None:
+        raise ResumeStoreError("a version starts from the Master or from another resume of yours")
+    return row
+
+
+def preview(
+    conn: sqlite3.Connection, *, ad: dict[str, Any], base_id: str | None = None
+) -> dict[str, Any]:
+    """What a version WOULD take from the person's confirmed experience, before
+    anything is made. Reads only: nothing is saved, no revision is written and
+    no model is asked. Every line named here is a confirmed statement or a line
+    of the chosen resume; a requirement with no support is listed as a gap and
+    is never filled in."""
+    base = _base(ResumeStore(conn), base_id)
+    doc = base.working
+    analysis = jd.analyse(ad["text"])
+    supports = retrieve(analysis, sources(conn, doc))
+    plan = strategy(doc, supports)
+    asks = {r.id: r.source_quote for r in analysis.requirements}
+    lines = {line.id: line.text for _, line, _ in _lines(doc)}
+    counts: dict[str, int] = {}
+    for support in supports:
+        counts[support.coverage] = counts.get(support.coverage, 0) + 1
+    return {
+        "base": {"id": base.id, "title": base.title, "kind": base.kind.value},
+        "language": analysis.language,
+        "requirements": len(analysis.requirements),
+        "coverage": {
+            "covered": counts.get("COVERED", 0),
+            "partly": counts.get("PARTLY", 0),
+            "said": counts.get("SAID", 0),
+            "not_found": counts.get("NOT_FOUND", 0),
+            "eligibility": counts.get("ELIGIBILITY", 0),
+        },
+        "adds": [
+            {
+                "text": add["text"],
+                "evidence_id": add["evidence_id"],
+                "asks": [asks[r] for r in add["requirement_ids"] if r in asks],
+            }
+            for add in plan["add"]
+        ],
+        "shows": [{"line_id": lid, "text": lines.get(lid, "")} for lid in plan["show"]],
+        "skills": [
+            {
+                "label": skill["label"],
+                "evidence_id": skill["evidence_id"],
+                "asks": [asks[r] for r in skill["requirement_ids"] if r in asks],
+            }
+            for skill in plan["skills"]
+        ],
+        "gaps": [asks[rid] for rid in plan["gaps"] if rid in asks],
+    }
+
+
 def tailor(
     conn: sqlite3.Connection,
     *,
     ad: dict[str, Any],
     pause: Any = None,
+    base_id: str | None = None,
 ) -> tuple[StoredDocument, dict[str, Any]]:
     """Run every stage in ONE write transaction and store the result.
 
-    `ad` is `{job_id?, title, company?, url?, text}`. `pause(stage)` is called
+    `base_id` names another resume of the person's to start from; without it the
+    Master is the base. `ad` is `{job_id?, title, company?, url?, text}`. `pause(stage)` is called
     between stages (tests use it to change the world mid-run). Raises
     `NotFound` without a Master, `TailorFailed` on a blocking finding and
     `EvidenceNotConfirmed` when evidence was retired before saving: in each
@@ -1066,9 +1134,7 @@ def tailor(
     # Reading the ad holds no lock: it touches nothing stored.
     analysis = jd.analyse(ad["text"])
     with transaction(conn):
-        master_row = store.current_master()
-        if master_row is None:
-            raise NotFound("there is no Master resume yet")
+        master_row = _base(store, base_id)
         revision = store.checkpoint_revision(master_row.id, "MANUAL_CHECKPOINT")
         master = revision.content
         snap = store.create_jd_snapshot(
@@ -1084,8 +1150,9 @@ def tailor(
         run_id = new_id()
         target = {"jd_snapshot_id": snap.id, "job_id": snap.job_id, "title": snap.title,
                   "company": snap.company}  # fmt: skip
-        provenance = {"created_from": "TAILOR", "master_document_id": master_row.id,
-                      "master_revision_id": revision.id, "tailoring_run_id": run_id}  # fmt: skip
+        provenance = {"created_from": "TAILOR", "tailoring_run_id": run_id}
+        if master_row.kind is DocumentKind.MASTER:
+            provenance.update(master_document_id=master_row.id, master_revision_id=revision.id)
         doc, changes = draft(master, plan, target=target, provenance=provenance)
         mark("draft")
         findings = review(doc, master, pool, supports)
