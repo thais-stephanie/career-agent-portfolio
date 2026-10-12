@@ -76,6 +76,7 @@ def test_the_default_hides_postings_published_more_than_120_days_ago(aged) -> No
         "max_age_days": 120,
         "include_undated": False,
         "choices": [120, 150, None],
+        "applies": True,
     }
     assert answer["total"] == 10
     narrowings = aged.handle_api("GET", "/api/jobs/narrowings", {"include_unresolved": ["1"]}, {})
@@ -185,3 +186,13 @@ def test_the_choice_belongs_to_the_profile_that_made_it(install) -> None:  # noq
     assert theirs["max_age_days"] == 120 and theirs["include_undated"] is False
     call(second, "POST", "/api/profiles/switch", {"profile_id": first_id})
     assert call(app_of(host), "GET", "/api/view-prefs")["max_age_days"] == 150
+
+
+def test_the_demo_corpus_is_never_emptied_by_the_age_limit(tmp_path) -> None:
+    from tests.integration.test_semantic_api import build
+
+    from career_agent.runtime.mode import RuntimeMode
+
+    demo = build(tmp_path, RuntimeMode.DEMO)
+    view = call(demo, "GET", "/api/view-prefs")
+    assert view["applies"] is False and view["max_age_days"] is None

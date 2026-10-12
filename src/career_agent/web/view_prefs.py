@@ -28,8 +28,22 @@ _NONE = "none"
 
 
 def read(conn: Any) -> dict[str, Any]:
-    """This profile's choice. A profile that never chose has the default."""
+    """This profile's choice. A profile that never chose has the default.
+
+    The demo corpus is a fixed set of invented postings with fixed dates: an age
+    limit would empty it as the months pass, so it does not apply there
+    (`applies` is False and the limit reads as none)."""
+    from career_agent.runtime.mode import RuntimeMode, read_identity
     from career_agent.storage.workspace_repo import CandidateStateRepo, candidate_id_of
+
+    identity = read_identity(conn)
+    if identity is not None and identity.kind is RuntimeMode.DEMO:
+        return {
+            "max_age_days": None,
+            "include_undated": False,
+            "choices": list(CHOICES),
+            "applies": False,
+        }
 
     repo = CandidateStateRepo(conn)
     # Reading never creates the candidate: a list request writes nothing.
@@ -49,7 +63,8 @@ def read(conn: Any) -> dict[str, Any]:
     return {
         "max_age_days": age,
         "include_undated": bool(candidate and repo.get(candidate, KEY_UNDATED) == "1"),
-        "choices": [c if c is not None else None for c in CHOICES],
+        "choices": list(CHOICES),
+        "applies": True,
     }
 
 

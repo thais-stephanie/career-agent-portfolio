@@ -66,6 +66,8 @@ export function createAgeControl() {
     root,
     sync(next) {
       if (!next) return;
+      // The demo's invented postings carry fixed dates; a limit would only empty it.
+      root.hidden = next.applies === false;
       view = { max_age_days: next.max_age_days ?? null, include_undated: Boolean(next.include_undated) };
       paint();
     },

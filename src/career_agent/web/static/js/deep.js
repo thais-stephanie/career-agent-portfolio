@@ -273,7 +273,7 @@ export function createDeep({ onOpenJob = null } = {}) {
         name: providerName(status), state: t(`deep.state.${chosenState(status)}`),
       })));
     }
-    if (!status.coverage_ok) {
+    if (status.coverage_ok === false) {
       // A failed count is not a count of zero: no strip, no number.
       body.push(banner('pink', t('deep.cov.failed'), [
         button(t('deep.retry'), () => refresh(), { className: 'dr-btn2 dr-btn--sm' }),
@@ -325,11 +325,11 @@ export function createDeep({ onOpenJob = null } = {}) {
         },
       },
     });
-    next.disabled = !status.provider || !ready || !status.coverage_ok || most < 1;
+    next.disabled = !status.provider || !ready || status.coverage_ok === false || most < 1;
     // A disabled primary button says what is still needed (the design rules).
     const needed = !status.provider ? t('deep.still.provider')
       : !ready ? t('deep.still.ready')
-        : !status.coverage_ok ? t('deep.still.count')
+        : status.coverage_ok === false ? t('deep.still.count')
           : most < 1 ? t('deep.still.posting') : '';
     return [body, [
       el('span', { className: 'dr-foot__note', text: needed || t('deep.nothingUntilStart') }), next,
@@ -338,7 +338,7 @@ export function createDeep({ onOpenJob = null } = {}) {
 
   /** How many postings could be read now, with the options as they stand. */
   function availableNow(status) {
-    if (!status.coverage_ok) return 0;
+    if (status.coverage_ok === false) return 0;
     const base = includeUnresolved && isSet(status.available_unresolved)
       ? status.available_unresolved : status.available || 0;
     return base + (retryRejected ? status.rejected || 0 : 0);
@@ -460,7 +460,8 @@ export function createDeep({ onOpenJob = null } = {}) {
           }
           preview = null;
           checked = false;
-          count = null;
+          // The number the person chose stays (lowered if this provider has fewer
+          // to read); a budget belongs to the provider it was typed for.
           budget = null;
           await refresh();
         },
