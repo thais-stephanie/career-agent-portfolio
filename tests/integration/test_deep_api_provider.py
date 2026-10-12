@@ -9,6 +9,7 @@ no response carries the key.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 import pytest
 from tests.integration.test_deep_metered import WORK
@@ -42,6 +43,10 @@ def api(tmp_path, monkeypatch):
         for n in range(POSTINGS):
             text = f"Role number {n}. {WORK} Team {n}."
             _put(conn, company, board, f"p-{n}", f"Business Systems Engineer {n}", text, "Remote")
+        # Published recently: the profile's age limit (120 days by default, the
+        # same one Find jobs applies) would otherwise set these undated postings
+        # aside, and these tests are about the provider, not about age.
+        conn.execute("UPDATE job SET posted_at = ?", (datetime.now(UTC).date().isoformat(),))
     rescore(conn, app.search_config())
     conn.close()
     return app

@@ -207,6 +207,8 @@ def job_card(
         "seniority": result.seniority.value.value if result else None,
         "seniority_source": result.seniority.source.value if result else None,
         "seniority_stated": result.seniority.is_evidence if result else None,
+        # Every level the ad declared (lowest first); empty for the app default.
+        "seniority_levels": [lv.value for lv in result.seniority.levels] if result else [],
         "seniority_evidence": result.seniority.evidence if result else None,
         "seniority_sentence": result.seniority.sentence if result else None,
         # -- two readings ABOUT the posting, never about the candidate ----
@@ -249,6 +251,11 @@ def job_card(
         # Taken from the result rather than re-derived, so the salary on the
         # card is by construction the salary the score was computed from.
         "salary": facts.get("salary"),
+        # Schedule, talent pool and time zone as the score read them, each with
+        # the employer's sentence. Absent for a score made before they were read.
+        "schedule": facts.get("schedule"),
+        "talent_pool": facts.get("talent_pool"),
+        "timezone": facts.get("timezone"),
         "employment_type": facts.get("employment_type"),
         # HOW MUCH OF THE POSTING THIS IS, so a card can say when a body is an
         # excerpt. It is provenance and never a quality judgement: a source
@@ -288,11 +295,51 @@ def job_card(
     }
 
 
+def facts_now(title: str, text: str) -> dict[str, Any]:
+    """What the ad says, read with today's readers and shown beside the stored score.
+
+    A score keeps the reading it was computed from until it is recalculated, so
+    a posting scored before a reader learned something would keep saying "not
+    stated" for a fact the ad plainly states. Reading the ad again here costs
+    one posting's worth of work, changes no stored row, and moves no score; the
+    drawer labels it as read now, and the % keeps its own version."""
+    from career_agent.match.explicit import explicit_facts
+    from career_agent.match.pay import read_pay
+    from career_agent.match.seniority import read_seniority
+
+    pay = read_pay(text)
+    level = read_seniority(title, text)
+    out: dict[str, Any] = {
+        "salary": (
+            {
+                "min": pay.min_value,
+                "max": pay.max_value,
+                "currency": pay.currency,
+                "period": pay.period,
+                "raw": pay.raw,
+                "source": "TEXT",
+            }
+            if pay
+            else None
+        ),
+        "seniority": {
+            "value": level.value.value,
+            "source": level.source.value,
+            "levels": [lv.value for lv in level.levels],
+            "evidence": level.evidence,
+            "stated": level.is_evidence,
+        },
+    }
+    out.update(explicit_facts(text))
+    return out
+
+
 def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: list[dict]) -> dict:
     """The card, plus everything the drawer needs to justify every number."""
     card = job_card(job, bands=bands, today=today, recency=recency)
     result = job.result
     card["description"] = job.description_text
+    card["facts_now"] = facts_now(job.title, job.description_text)
     # Scam signs, read from the whole ad (presentation only; see web/caution.py).
     card["caution"] = caution_signals(job.description_text)
     card["history"] = history

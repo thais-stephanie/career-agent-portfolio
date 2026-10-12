@@ -190,7 +190,11 @@ def job_facts(
     # a structured field, so this is most of the market -- including every
     # `Salario: R$ 4.500` in Brazil, where the corpus held 37 salaries in reais
     # against 78,806 postings.
-    stated = read_pay(description) if pay is None else None
+    read = read_pay(description)
+    stated = read if pay is None else None
+    # The board's own field wins, and the ad's text is not thrown away: when
+    # the two disagree both are carried, so the card can say so.
+    differs = _text_differs(pay, read) if pay is not None else None
     engagement = engagement_from(provider, payload)
     return JobFacts(
         job_id=job_id,
@@ -225,6 +229,9 @@ def job_facts(
         # The other currencies the same payload stated, if any. The scorer
         # picks; the pipeline only carries.
         salary_alternates=pay.alternate_bands if pay else (),
+        salary_source="STRUCTURED" if pay else ("TEXT" if stated else None),
+        salary_raw=stated.raw if stated else None,
+        salary_text_differs=differs,
         employment_type=employment_type_from(provider, payload),
         # THE SAME FIELD READ A SECOND TIME, for the half the line above
         # cannot carry. `vacancy_legal_entity` normalises to `CONTRACT`, which
@@ -250,6 +257,32 @@ def job_facts(
             provider, has_text=bool(description.strip())
         ).value,
     )
+
+
+def _text_differs(pay: Any, read: Any) -> dict[str, Any] | None:
+    """The ad's own pay sentence when it contradicts the board's field.
+
+    Contradiction is a different currency, a different period, or ranges that
+    do not touch. A sentence that restates the same band says nothing new."""
+    if read is None:
+        return None
+    same_currency = (pay.currency or "").upper() == read.currency.upper()
+    same_period = (pay.period or "") == (read.period or "")
+    low, high = pay.min_value, pay.max_value
+    if low is None and high is None:
+        return None
+    low = low if low is not None else high
+    high = high if high is not None else low
+    touching = read.min_value <= high and read.max_value >= low
+    if same_currency and same_period and touching:
+        return None
+    return {
+        "min": read.min_value,
+        "max": read.max_value,
+        "currency": read.currency,
+        "period": read.period,
+        "raw": read.raw,
+    }
 
 
 def _sighting_scope(sightings: Sequence[tuple[str, Any]]) -> str | None:

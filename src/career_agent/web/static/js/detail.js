@@ -27,9 +27,11 @@
 
 import { el, button, extLink, select, replace, clear, focusables } from './dom.js';
 import {
-  compactPlace, formatDate, formatPoints, formatSalary, humanLabel, paragraphs, parseDate,
-  prominenceWords, relativeAge, scoreDisplay, statusLabel, statusOptions, vocabLabel,
+  compactPlace, factOf, formatDate, formatPoints, formatSalary, humanLabel, levelInfo, paragraphs,
+  parseDate, payInfo, prominenceWords, relativeAge, scheduleText, scoreDisplay, statusLabel,
+  statusOptions, vocabLabel,
 } from './format.js';
+import { renderAd } from './ad_view.js';
 import { searchFitIsReady } from './badges.js';
 import { SENT, matchTone } from './cards.js';
 import { createPrepare } from './prepare.js';
@@ -455,10 +457,15 @@ export function createDrawer({
 
   /** Pay, Job type, Where, Level: only what the posting says, never a guess. */
   function tiles(job) {
-    const salary = formatSalary(job.salary);
+    const pay = payInfo(job);
+    const salary = pay ? pay.text : null;
+    const level = levelInfo(job);
     const place = compactPlace(job.location_raw, job.work_model);
     const facts = [
-      { key: 'pay', icon: '$', value: salary || t('drawer.tile.notShown'), absent: !salary },
+      {
+        key: 'pay', icon: '$', value: salary || t('drawer.tile.notShown'), absent: !salary,
+        note: pay && pay.readNow ? t('drawer.readNow') : null, title: pay ? pay.raw : null,
+      },
       {
         key: 'type', icon: '◷',
         value: job.employment_type ? vocabLabel(job.employment_type) : t('drawer.tile.notStated'),
@@ -467,8 +474,9 @@ export function createDrawer({
       { key: 'where', icon: '\u2302', value: place.text || t('drawer.tile.notStated'), absent: !place.text },
       {
         key: 'level', icon: '▲',
-        value: job.seniority_stated ? vocabLabel(job.seniority) : t('drawer.tile.notStated'),
-        absent: !job.seniority_stated,
+        value: level ? level.text : t('drawer.tile.notStated'),
+        absent: !level || !level.stated,
+        note: level && level.readNow ? t('drawer.readNow') : null,
       },
     ];
     return el('div', { className: 'd-tiles' }, facts.map((fact) => el('div', {
@@ -478,8 +486,12 @@ export function createDrawer({
         el('span', { className: 'd-tile__icon', text: fact.icon, attrs: { 'aria-hidden': 'true' } }),
         el('span', { className: 'd-tile__label', text: t(`drawer.tile.${fact.key}`) }),
       ]),
-      el('span', { className: `d-tile__value${fact.absent ? ' is-absent' : ''}`, text: fact.value }),
-    ])));
+      el('span', {
+        className: `d-tile__value${fact.absent ? ' is-absent' : ''}`, text: fact.value,
+        attrs: { title: fact.title || null },
+      }),
+      fact.note ? el('span', { className: 'd-tile__note', text: fact.note }) : null,
+    ].filter(Boolean))));
   }
 
   /** A thin posting, or a US-domestic reading: they change how the rest reads. */
@@ -491,6 +503,14 @@ export function createDrawer({
     }
     if (job.domestic_context === 'LIKELY_US_DOMESTIC' && job.eligibility_status === 'UNRESOLVED') {
       notes.push(el('p', { className: 'd-note', text: t('domestic.LIKELY_US_DOMESTIC') }));
+    }
+    // A talent pool is said quietly, with the sentence that says it. It does
+    // not hide the posting and it is not a reason to skip it.
+    const pool = factOf(job, 'talent_pool');
+    if (pool) {
+      notes.push(el('p', { className: 'd-note d-note--pool', attrs: { 'data-fact': 'talent-pool' } }, [
+        `${t('drawer.pool')} `, pool.quote ? el('q', { className: 'quote quote--inline', text: pool.quote }) : null,
+      ].filter(Boolean)));
     }
     return notes.length ? el('section', { className: 'd-sec d-contentnotes' }, notes) : null;
   }
@@ -505,11 +525,16 @@ export function createDrawer({
   }
 
   function descriptionSection(job) {
-    const blocks = paragraphs(job.description || job.description_excerpt || '');
-    return section(t('drawer.fullAd'), blocks.length
-      ? blocks.map((block) => el('p', { className: 'desc__p', text: block }))
-      : [el('p', { className: 'd-note', text: t('drawer.noDescription') })],
-    { className: 'd-sec--desc d-desc' });
+    // Laid out from the structure the employer wrote (headings, lists, "Label:
+    // value" rows) when the server could read one. The words are the stored
+    // text's own; only spacing and grouping differ.
+    const laid = Array.isArray(job.description_blocks) && job.description_blocks.length;
+    const blocks = laid ? [] : paragraphs(job.description || job.description_excerpt || '');
+    let body;
+    if (laid) body = [renderAd(job.description_blocks)];
+    else if (blocks.length) body = blocks.map((block) => el('p', { className: 'desc__p', text: block }));
+    else body = [el('p', { className: 'd-note', text: t('drawer.noDescription') })];
+    return section(t('drawer.fullAd'), body, { className: 'd-sec--desc d-desc' });
   }
 
   /** The other postings of this same role, if there are any. */
@@ -853,18 +878,30 @@ export function createDrawer({
         if (!titleKey) continue;
         const textKey = kind === 'no_conflict' ? 'drawer.open.noConflict'
           : component.component_id === 'seniority' ? 'drawer.open.levelUnstated' : 'drawer.open.notStated';
-        rows.push({ kind, title: t(titleKey), text: t(textKey) });
+        let rowKind = kind;
+        let text = t(textKey);
+        // Pay the ad DOES state, which the % could not set beside the target
+        // (hourly against monthly, or another currency): said as that, never as
+        // "not stated".
+        if (contrib.signal_id === 'salary_unknown') {
+          const pay = payInfo(job);
+          if (pay) {
+            rowKind = 'stated';
+            text = t(pay.readNow ? 'drawer.open.payReadNow' : 'drawer.open.payNotCompared', { pay: pay.text });
+          }
+        }
+        rows.push({ kind: rowKind, title: t(titleKey), text });
       }
     }
     if (!rows.length) return null;
     return section(t('drawer.open.head'), [
       el('ul', { className: 'reasons d-list-card' }, rows.map((row) => el('li', {
-        className: `reason d-row d-row--${row.kind === 'no_conflict' ? 'neutral' : 'unknown'}`,
+        className: `reason d-row d-row--${row.kind === 'no_conflict' || row.kind === 'stated' ? 'neutral' : 'unknown'}`,
         attrs: { 'data-assessment': row.kind },
       }, [
         el('span', {
           className: 'd-row__mark d-row__mark--open',
-          text: row.kind === 'no_conflict' ? '○' : '?',
+          text: row.kind === 'no_conflict' ? '○' : row.kind === 'stated' ? 'i' : '?',
           attrs: { 'aria-hidden': 'true' },
         }),
         el('div', { className: 'd-row__body' }, [
@@ -1454,9 +1491,18 @@ export function createDrawer({
     return host;
   }
 
+  /** What the time-zone line says, with the employer's own words. */
+  function zoneText(zone) {
+    return zone.quote ? `${t('gtk.zoneValue')} \u201c${zone.quote}\u201d` : t('gtk.zoneValue');
+  }
+
   /** Contract, when it was posted, pay, where it came from. */
   function goodToKnow(job) {
-    const salary = formatSalary(job.salary);
+    const pay = payInfo(job);
+    const salary = pay ? pay.text : null;
+    const schedule = scheduleText(factOf(job, 'schedule'));
+    const zone = factOf(job, 'timezone');
+    const differs = job.salary && job.salary.text_differs ? job.salary.text_differs.raw : null;
     const posted = parseDate(job.posted_at);
     const old = posted && (Date.now() - posted.getTime()) / 86400000 > 30;
     const contract = job.employment_relationship && job.employment_relationship !== 'UNKNOWN'
@@ -1470,6 +1516,9 @@ export function createDrawer({
         })
         : t('card.noPostedDate'), !posted, old],
       [t('gtk.pay'), salary || t('drawer.tile.notShown'), !salary],
+      ...(differs ? [[t('gtk.payDiffers'), differs, false, true]] : []),
+      ...(schedule ? [[t('gtk.schedule'), schedule, false]] : []),
+      ...(zone ? [[t('gtk.zone'), zoneText(zone), false]] : []),
       [t('gtk.site'), job.provider ? vocabLabel(job.provider) : t('absent.source'), false],
       [t('gtk.firstSeen'), formatDate(job.first_seen_at), false],
     ];

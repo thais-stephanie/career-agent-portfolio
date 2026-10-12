@@ -1025,6 +1025,7 @@ async function load(queryString, state, { quiet = false } = {}) {
     lastResponse = response;
     hold(queryString, response);
     panel.syncFacets(response.facets, store.get());
+    panel.syncView(response.view);
     paint(store.get());
     afterList(queryString, response);
   } catch (error) {
@@ -1520,9 +1521,33 @@ function renderHiddenNotice(state) {
     include_excluded_work_model: lastResponse ? (lastResponse.hidden_by_work_model || 0) : 0,
     include_off_target: lastResponse ? (lastResponse.hidden_off_target || 0) : 0,
     include_user_hidden: lastResponse ? (lastResponse.hidden_by_you || 0) : 0,
+    age: lastResponse ? (lastResponse.hidden_by_age || 0) : 0,
+    undated: lastResponse ? (lastResponse.hidden_undated || 0) : 0,
   };
 
+  const days = lastResponse && lastResponse.view ? lastResponse.view.max_age_days : null;
+  const setView = (patch) => api.setViewPrefs(patch).then(() => {
+    window.dispatchEvent(new CustomEvent('ca:view-prefs'));
+  });
   const NOTICES = [
+    {
+      // The profile's AGE LIMIT, by the date the source published the posting.
+      // The way out is here and in the filter panel; saved and applied jobs
+      // are never hidden by it.
+      key: 'age',
+      act: () => setView({ max_age_days: null }),
+      hidden: (n) => (n === 1 ? t('hidden.ageOne', { days }) : t('hidden.age', { count: n, days })),
+      showing: () => '',
+      reveal: () => t('hidden.ageReveal'),
+    },
+    {
+      // Postings that state no publication date, hidden by the same limit.
+      key: 'undated',
+      act: () => setView({ include_undated: true }),
+      hidden: (n) => (n === 1 ? t('hidden.undatedOne') : t('hidden.undated', { count: n })),
+      showing: () => '',
+      reveal: () => t('hidden.undatedReveal'),
+    },
     {
       key: 'include_ineligible',
       // Not "Show them anyway". That is what you say to somebody being
@@ -1585,7 +1610,7 @@ function renderHiddenNotice(state) {
   const rows = [];
   let hiddenTotal = 0;
   for (const notice of NOTICES) {
-    const speaking = Boolean(state[notice.key] || counts[notice.key]);
+    const speaking = notice.act ? Boolean(counts[notice.key]) : Boolean(state[notice.key] || counts[notice.key]);
     if (!speaking) continue;
     // DISMISSED BY CATEGORY, NEVER BY COUNT. The stored key is the notice's
     // kind (its state key, which never changes), not the sentence it printed.
@@ -1598,7 +1623,7 @@ function renderHiddenNotice(state) {
     // filters" deliberately does not touch these. So a notice whose state is
     // IN FORCE is never suppressed, dismissed or not: hiding it would take
     // "Hide them again" with it.
-    const showing = Boolean(state[notice.key]);
+    const showing = notice.act ? false : Boolean(state[notice.key]);
     if (dismissed(notice.key) && !showing) {
       // WHAT SHE HID HERSELF HAS NO OTHER DOOR. The eligibility, place and
       // seniority narrowings all have a control in the filter panel; the
@@ -1618,13 +1643,19 @@ function renderHiddenNotice(state) {
       continue;
     }
     if (!showing) hiddenTotal += counts[notice.key];
-    const toggle = button(notice.reveal(), () => store.set({ [notice.key]: !showing }), {
-      className: 'hidden__show hidden__switch',
-      attrs: { role: 'switch', 'aria-checked': String(showing) },
-    });
-    toggle.appendChild(el('span', { className: 'hidden__track', attrs: { 'aria-hidden': 'true' } }, [
-      el('span', { className: 'hidden__knob' }),
-    ]));
+    // A notice with an action (the age limit) is a plain button: its effect is
+    // a stored profile choice and the notice goes away once it is made.
+    const toggle = notice.act
+      ? button(notice.reveal(), notice.act, { className: 'hidden__show' })
+      : button(notice.reveal(), () => store.set({ [notice.key]: !showing }), {
+        className: 'hidden__show hidden__switch',
+        attrs: { role: 'switch', 'aria-checked': String(showing) },
+      });
+    if (!notice.act) {
+      toggle.appendChild(el('span', { className: 'hidden__track', attrs: { 'aria-hidden': 'true' } }, [
+        el('span', { className: 'hidden__knob' }),
+      ]));
+    }
     rows.push(el('span', { className: 'hidden__row', dataset: { notice: notice.key } }, [
       el('span', {
         className: 'hidden__count num',
@@ -3025,6 +3056,12 @@ void (async () => {
     if (state.enabled && (await api.runAutoUpdate()).started) void collection.refresh();
   } catch { /* the update is a courtesy; the app works without it */ }
 })();
+// The profile's age limit changed: the list is read again. No score moved.
+window.addEventListener('ca:view-prefs', () => {
+  localWrites += 1;
+  heldLists.clear();
+  load(store.apiQueryString(), store.get());
+});
 // First paint. `history: 'none'` so the initial URL is not pushed onto itself.
 const initial = store.get();
 panel.syncState(initial);

@@ -305,6 +305,58 @@ export function paragraphs(text) {
     .filter(Boolean);
 }
 
+/**
+ * The level line of a posting: what the ad said, the several levels it listed,
+ * or the app's default said as a default. Never the default dressed as a fact.
+ *
+ * A score made before the readers learned something keeps its stored reading;
+ * when the ad states a level that the stored reading missed, the level read NOW
+ * is shown and marked so (`readNow`), and the match % keeps its own version.
+ */
+export function levelInfo(job) {
+  if (!job.seniority) return null;
+  const now = job.facts_now && job.facts_now.seniority;
+  const stored = Boolean(job.seniority_stated);
+  const source = stored ? job.seniority : (now && now.stated ? now.value : null);
+  const levels = stored ? (job.seniority_levels || []) : (now && now.stated ? now.levels || [] : []);
+  const range = (stored ? job.seniority_source : now && now.source) === 'DECLARED_RANGE' && levels.length > 1;
+  if (range) {
+    return { text: t('level.range', { levels: levels.map(vocabLabel).join(', ') }), stated: true, readNow: !stored };
+  }
+  if (source) return { text: vocabLabel(source), stated: true, readNow: !stored };
+  return { text: t('level.default'), stated: false, readNow: false };
+}
+
+/** The pay of a posting: the score's own figure, or the ad's, read now. */
+export function payInfo(job) {
+  const stored = formatSalary(job.salary);
+  if (stored) {
+    return { text: stored, readNow: false, raw: job.salary && job.salary.raw ? job.salary.raw : null };
+  }
+  const now = job.facts_now && job.facts_now.salary;
+  const text = now ? formatSalary(now) : null;
+  return text ? { text, readNow: true, raw: now.raw || null } : null;
+}
+
+/** Part-time and weekly hours, in words. */
+export function scheduleText(schedule) {
+  if (!schedule) return null;
+  const { part_time: part, hours_min: low, hours_max: high } = schedule;
+  const hours = low && high && low !== high ? { min: low, max: high } : { min: high || low };
+  if (part && low) return t(low !== high ? 'sched.partHours' : 'sched.partHoursOne', hours);
+  if (part) return t('sched.part');
+  if (low) return t(low !== high ? 'sched.hours' : 'sched.hoursOne', hours);
+  return null;
+}
+
+/** A fact stored with the score, or the same fact read now from the ad. */
+export function factOf(job, key) {
+  const stored = job[key];
+  if (stored) return { ...stored, readNow: false };
+  const now = job.facts_now && job.facts_now[key];
+  return now ? { ...now, readNow: true } : null;
+}
+
 /** Eligibility tone: this drives colour AND the text beside it, never colour alone. */
 export function eligibilityTone(status) {
   switch (String(status || '').toUpperCase()) {

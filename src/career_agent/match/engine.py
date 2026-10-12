@@ -29,6 +29,7 @@ from career_agent.match.employment import (
     read_employment,
 )
 from career_agent.match.experience import read_experience
+from career_agent.match.explicit import explicit_facts
 from career_agent.match.gates import eligibility_status_from, evaluate_gates
 from career_agent.match.lexicon import body_only, observe
 from career_agent.match.places import resolve_place
@@ -86,6 +87,14 @@ class JobFacts:
     #: is a preference -- so both travel and `match.score` chooses. Empty for
     #: the overwhelming majority of postings, which name one currency.
     salary_alternates: tuple[CompensationBand, ...] = ()
+    #: WHERE the pay came from and the employer's words for it. `STRUCTURED` is
+    #: a field the board filled in; `TEXT` is a sentence of the ad a reader
+    #: understood. `salary_raw` is the contiguous substring it was read from.
+    salary_source: str | None = None
+    salary_raw: str | None = None
+    #: What the ad's TEXT says about pay when it disagrees with the board's own
+    #: field, so the two are shown side by side rather than one silently winning.
+    salary_text_differs: dict[str, object] | None = None
     posted_at: str | None = None
     provider: str | None = None
     access_method: str | None = None
@@ -411,6 +420,15 @@ def posting_facts(job: JobFacts) -> dict[str, object]:
             "currency": job.salary_currency,
             "period": job.salary_period,
         }
+        # Provenance travels with the figure: where it was read and the words.
+        # A board's own field is the ordinary case and carries nothing extra;
+        # a figure read from the ad's text carries the sentence it came from.
+        if job.salary_source == "TEXT":
+            salary["source"] = "TEXT"
+            if job.salary_raw:
+                salary["raw"] = job.salary_raw
+        if job.salary_text_differs:
+            salary["text_differs"] = job.salary_text_differs
     # What the BOARD PRINTED about where this is, resolved to codes so the
     # interface can offer "postings in Brazil" without every query LIKE-ing
     # over free text. Emphatically NOT hiring scope: a posting in San Francisco
@@ -431,4 +449,7 @@ def posting_facts(job: JobFacts) -> dict[str, object]:
         # was computed from, not the provenance of whatever is in the database
         # by the time somebody looks.
         "content_completeness": job.content_completeness,
+        # Schedule, talent pool and time zone, each with the employer's own
+        # sentence; absent when the ad says nothing. Shown, never scored.
+        **explicit_facts(job.description),
     }

@@ -33,6 +33,7 @@ from career_agent.runtime import database_ref, read_identity
 from career_agent.runtime.fingerprint import runtime_fingerprint
 from career_agent.runtime.mode import indicator
 from career_agent.storage.mvp_repo import NOT_STATED
+from career_agent.web import view_prefs
 from career_agent.web.caution import caution_signals
 from career_agent.web.presenter import job_card, job_detail, utc_today
 from career_agent.web.server import ApiError, LocalApp, validate_job_id
@@ -93,6 +94,9 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
         "user_hidden_only",
         "group_duplicates",
         "posted_within_days",
+        # A counter the page bumps when the profile's age limit changes: it only
+        # makes the list ask again; the limit itself is read from the profile.
+        "view_rev",
         # -- the twelve section 16 listed as absent -----------------------
         "country",
         "region",
@@ -598,6 +602,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("GET", r"/api/jobs/export\.csv", self.export_good_strong)
         self.register("GET", r"/api/jobs/freshness", self.jobs_freshness)
         self.register("GET", r"/api/jobs/narrowings", self.job_narrowings)
+        self.register("GET", r"/api/view-prefs", self.get_view_prefs)
+        self.register("PATCH", r"/api/view-prefs", self.patch_view_prefs)
         self.register("GET", r"/api/jobs/(?P<job_id>[^/]+)", self.get_job)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/status", self.patch_status)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/applied-at", self.patch_applied_at)
@@ -2185,6 +2191,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             wrong_level = narrowings and narrowings["hidden_by_seniority"]
             wrong_work_model = narrowings and narrowings["hidden_by_work_model"]
             user_hidden = narrowings and narrowings["hidden_by_you"]
+            too_old = narrowings and narrowings["hidden_by_age"]
+            undated = narrowings and narrowings["hidden_undated"]
+            view = view_prefs.read(conn)
         today = utc_today()
         return {
             "total": total,
@@ -2228,6 +2237,11 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # above: those are things that happened to her and this is a thing
             # she did, and only she can put it back.
             "hidden_by_you": user_hidden,
+            # The profile's age limit and what it set aside, in two numbers:
+            # published too long ago (by the SOURCE's date), and no date at all.
+            "view": view,
+            "hidden_by_age": too_old,
+            "hidden_undated": undated,
             #
             # Zero when grouping is off, because then nothing was folded and a
             # line saying "0 reposts folded in" is noise.
@@ -2415,10 +2429,25 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 ("hidden_unresolved", "hidden_unresolved"),
                 ("hidden_by_seniority", "hidden_by_seniority"),
                 ("hidden_by_work_model", "hidden_by_work_model"),
+                ("hidden_by_age", "hidden_by_age"),
+                ("hidden_undated", "hidden_undated"),
                 ("hidden_by_you", "hidden_by_the_candidate"),
             )
         }
         return self._remember(("narrowings", *key), counts)
+
+    def get_view_prefs(self, *, query: dict, body: dict) -> dict:
+        """How old a posting may be and still appear (one choice per profile)."""
+        if query or body:
+            raise ApiError(400, "Reading the age limit takes no parameters.")
+        with _closing(self.connect()) as conn:
+            return view_prefs.read(conn)
+
+    def patch_view_prefs(self, *, query: dict, body: dict) -> dict:
+        if query:
+            raise ApiError(400, "unknown parameter")
+        with _closing(self.connect()) as conn:
+            return view_prefs.write(conn, body)
 
     def job_narrowings(self, *, query: dict, body: dict) -> dict:
         """The "N more if you tick this box" counts of one `/api/jobs` query.
@@ -2542,9 +2571,20 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 else None
             )
             deep = _deep_review(self, conn, job_id)
+            # The employer's own markup, when the board published it, so the
+            # drawer can lay the ad out as it was written. Presentation only:
+            # the text above stays what every reader and quote works from.
+            raw = conn.execute(
+                "SELECT description_html FROM job_raw WHERE content_hash = ?",
+                (row.content_hash,),
+            ).fetchone()
+            ad_html = raw[0] if raw else None
         detail = job_detail(
             row, bands=self._bands, today=utc_today(), recency=self._recency, history=history
         )
+        from career_agent.web.ad_blocks import ad_blocks
+
+        detail["description_blocks"] = ad_blocks(ad_html, row.description_text)
         detail["assessment"] = assessment
         detail["fit_feedback"] = feedback
         # The deep reading sits BESIDE the score, never inside it.
@@ -3007,6 +3047,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         # Everything else is discovery, and discovery is a RECOMMENDATION. See
         # `JobFilter.exempt_tracked`: shortlisting a posting an employer ruled
         # her out of must not put it back on the list of jobs to consider.
+        with _closing(self.connect()) as conn:
+            age = view_prefs.read(conn)
         statuses = _vocab(query, "status")
         saved_only = _bool(query, "saved_only")
         user_hidden_only = _bool(query, "user_hidden_only")
@@ -3046,6 +3088,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             user_hidden_only=user_hidden_only,
             group_duplicates=_bool(query, "group_duplicates"),
             posted_within_days=_int(query, "posted_within_days"),
+            max_age_days=age["max_age_days"],
+            include_undated=age["include_undated"],
             # -- the twelve ---------------------------------------------
             countries=_codes(query, "country"),
             regions=_vocab(query, "region"),

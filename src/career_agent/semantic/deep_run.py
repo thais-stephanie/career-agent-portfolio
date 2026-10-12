@@ -64,6 +64,7 @@ import sqlite3
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from career_agent.clock import new_id, now_utc
@@ -138,6 +139,9 @@ STOP_LIMIT = "LIMIT_REACHED"
 #: refreshed by another Claude Code process). Pause: retrying spends nothing
 #: useful, and nothing may move to another way of paying.
 STOP_SIGN_IN = "SIGN_IN"
+#: The provider refused the key (HTTP 401 or 403) or none is set: the request
+#: was rejected before it was processed, so it cost nothing.
+STOP_AUTH = "AUTH_FAILED"
 STOP_CANCELLED = "CANCELLED"
 STOP_PROVIDER = "PROVIDER_STOPPED"
 STOP_NOTHING_NEW = "NOTHING_NEW"
@@ -193,8 +197,28 @@ def _population(
     config: SearchConfig,
     include_unresolved: bool,
     min_chars: int = MIN_DESCRIPTION_CHARS,
+    scores: tuple[str, int] | None = None,
+    age: tuple[int | None, bool] | None = None,
 ) -> list[sqlite3.Row]:
-    """The main list's representatives, the way the list elects them."""
+    """The main list's representatives, the way the list elects them.
+
+    `scores` is the (config_id, config_version) of the revision the list is
+    SERVING (storage.revisions). Until a recalculation finishes that is the
+    previous revision, and the list on screen is built from it; reading only
+    the current revision made this panel see zero roles under a list of
+    thousands. None keeps the configuration in force (the command line).
+    """
+    config_id, config_version = scores or (str(config.config_id), int(config.config_version))
+    # The profile's age limit, the same one the Find jobs list applies: the
+    # SOURCE's publication date, undated hidden unless included. Postings it
+    # leaves out are never sent anywhere by a deep reading.
+    max_days, undated = age if age is not None else (None, False)
+    age_clause = ""
+    age_args: list[object] = []
+    if max_days is not None:
+        cutoff = (datetime.now(UTC) - timedelta(days=max_days)).date().isoformat()
+        age_clause = f" AND (j.posted_at >= ?{' OR j.posted_at IS NULL' if undated else ''})"
+        age_args = [cutoff]
     statuses = ["VERIFIED_ELIGIBLE", "LIKELY_ELIGIBLE"] + (
         ["UNRESOLVED"] if include_unresolved else []
     )
@@ -215,12 +239,14 @@ def _population(
         "   AND jm.screening_state = 'NOT_BLOCKED'"
         f"  AND jm.eligibility_status IN ({','.join('?' for _ in statuses)})"
         f"{hidden_clause}"
+        f"{age_clause}"
         "   AND length(r.description_text) >= ?",
         (
-            str(config.config_id),
-            int(config.config_version),
+            str(config_id),
+            int(config_version),
             *statuses,
             *hidden,
+            *age_args,
             min_chars,
         ),
     ).fetchall()
@@ -253,10 +279,14 @@ class Coverage:
 
 
 def coverage(
-    conn: sqlite3.Connection, config: SearchConfig, include_unresolved: bool = False
+    conn: sqlite3.Connection,
+    config: SearchConfig,
+    include_unresolved: bool = False,
+    scores: tuple[str, int] | None = None,
+    age: tuple[int | None, bool] | None = None,
 ) -> tuple[Coverage, list[sqlite3.Row]]:
-    readable = _population(conn, config, include_unresolved)
-    everything = _population(conn, config, include_unresolved, min_chars=0)
+    readable = _population(conn, config, include_unresolved, scores=scores, age=age)
+    everything = _population(conn, config, include_unresolved, min_chars=0, scores=scores, age=age)
     return Coverage(len(everything), len(readable)), readable
 
 
@@ -317,11 +347,13 @@ def select(
     model: str = "",
     retry_rejected: bool = False,
     only: set[str] | None = None,
+    scores: tuple[str, int] | None = None,
+    age: tuple[int | None, bool] | None = None,
 ) -> Selection:
     """`only` narrows the main list to named postings (a labelled pilot set);
     it never widens it past the main list."""
     intent = search_intent(config)
-    population = _population(conn, config, include_unresolved)
+    population = _population(conn, config, include_unresolved, scores=scores, age=age)
     if only is not None:
         population = [row for row in population if str(row["id"]) in only]
     repo = DeepRepo(conn)
@@ -876,6 +908,8 @@ def run_deep(
     job_progress: Callable[[JobProgress], None] | None = None,
     cancel: threading.Event | None = None,
     pause: threading.Event | None = None,
+    scores: tuple[str, int] | None = None,
+    age: tuple[int | None, bool] | None = None,
 ) -> RunStats:
     """Read an approved plan in batches, one posting at a time, until it is
     done, paused or cancelled. Never raises for a provider failure; never
@@ -940,6 +974,8 @@ def run_deep(
             model=model,
             retry_rejected=retry_rejected,
             only=only,
+            scores=scores,
+            age=age,
         )
         candidates = selection.candidates
         deep_job_id = "djob_" + new_id()
@@ -1049,6 +1085,9 @@ def run_deep(
                     break
                 if exc.state is Availability.SIGN_IN_REQUIRED:
                     stats.stop_reason = STOP_SIGN_IN
+                    break
+                if exc.state is Availability.KEY_MISSING and not exc.billed:
+                    stats.stop_reason = STOP_AUTH
                     break
                 if metered and (exc.state is Availability.CONNECTION_FAILED or exc.billed):
                     # The request may have reached the provider and been

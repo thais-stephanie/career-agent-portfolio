@@ -36,6 +36,7 @@ below is ours, and the Portuguese half has no counterpart upstream.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from career_agent.domain.enums import AnalysisConfidence, Seniority, SenioritySource
 from career_agent.domain.matching import DEFAULT_SENIORITY, SeniorityReading
@@ -567,6 +568,123 @@ def _first_match_in(field: FoldedText, phrases: tuple[str, ...]) -> re.Match[str
     return _first_match(field.folded, phrases)
 
 
+# =========================================================================
+# 5b. SEVERAL LEVELS IN ONE AD
+# =========================================================================
+
+#: The words an ad uses for each level it may list. Matched in the ORIGINAL
+#: text (the quote must be the employer's own bytes), case-blind.
+_LEVEL_WORD = {
+    Seniority.INTERN: r"intern(?:ship)?|estagi[aá]ri[oa]|est[aá]gio",
+    Seniority.JUNIOR: r"junior|j[uú]nior|jr\.?|entry[- ]level",
+    Seniority.MID: (
+        r"mid(?:[- ]?level)?(?![- ]?(?:market|atlantic|west|east|term|size|sized|career))"
+        r"|pleno|intermediate"
+    ),
+    Seniority.SENIOR: r"senior|s[eê]nior|sr\.?",
+    Seniority.STAFF: r"staff",
+    Seniority.PRINCIPAL: r"principal",
+    Seniority.LEAD: r"lead",
+}
+_ANY_LEVEL = "|".join(f"(?P<{lv.value}>{words})" for lv, words in _LEVEL_WORD.items())
+
+#: A line that OPENS with a level and is followed by what it means:
+#: `Junior (Instructor) - 1-3 years`, `Senior: 6+ years`. A level word that
+#: starts a line and is followed by more words (`Senior AI Automation
+#: Engineer`, in a list of where a role can grow) is a title, not a tier.
+_TIER_LINE = re.compile(
+    r"(?im)^[ \t]*(?:[-*\u2022][ \t]*)?(?:" + _ANY_LEVEL + r")\b[ \t]*(?:\(|:|[-\u2013\u2014])"
+)
+
+#: A sentence that says the ad hires across levels.
+_RANGE_CUE = re.compile(
+    r"(?i)\b(?:levels?|seniorit(?:y|ies)|senioridade|n[ií]veis|hiring|looking for|seeking|"
+    r"open to|recruiting|vagas? (?:para|de))\b"
+)
+#: A sentence about OTHER people: colleagues, mentees, the team around the role.
+_COLLEAGUES = re.compile(
+    r"(?i)\b(?:mentor(?:ing|s)?|coach(?:ing)?|colleagues?|peers?|team members?|work(?:ing)? with|"
+    r"alongside|report(?:s|ing)? to|manage[sd]?|supervis\w+|lead(?:ing)? (?:a|the) team)\b"
+)
+#: In a SENTENCE only the four rungs of the ladder count: `lead` and `staff`
+#: are ordinary words in a sentence about hiring ("someone to lead our staff").
+_LADDER = (Seniority.INTERN, Seniority.JUNIOR, Seniority.MID, Seniority.SENIOR)
+_LEVEL_ANYWHERE = re.compile(
+    r"(?i)\b(?:" + "|".join(f"(?P<r{lv.value}>{_LEVEL_WORD[lv]})" for lv in _LADDER) + r")\b"
+)
+_MID_SENIOR = re.compile(r"(?i)\bmid[- ]senior\b")
+
+
+def _levels_in(match: re.Match[str], prefix: str = "") -> Seniority | None:
+    for level in _LEVEL_WORD:
+        if match.group(prefix + level.value):
+            return level
+    return None
+
+
+def declared_levels(original: str) -> tuple[tuple[Seniority, ...], str] | None:
+    """The levels an ad LISTS for the role on offer, with the quote, or None.
+
+    Two shapes, both structural. A tier list: two or more lines that each open
+    with a level followed by what it means. Or one sentence that says the ad
+    hires across levels (`levels`, `hiring`, `looking for`...) and names two
+    or more of them, with no word about colleagues in it. A level mentioned in
+    a list of career growth, or of the people one will mentor, is neither.
+    """
+    tiers = [m for m in _TIER_LINE.finditer(original)]
+    found: dict[Seniority, re.Match[str]] = {}
+    for m in tiers:
+        level = _levels_in(m)
+        if level is not None:
+            found.setdefault(level, m)
+    if len(found) >= 2:
+        first = min(found.values(), key=lambda m: m.start())
+        return _ordered(found), sentence_at(original, first.start(), first.end())
+
+    for chunk in re.split(r"(?<=[.!?])\s+|\n+", original):
+        if not chunk or _COLLEAGUES.search(chunk):
+            continue
+        listed: dict[Seniority, bool] = {}
+        for m in _LEVEL_ANYWHERE.finditer(chunk):
+            level = _levels_in(m, "r")
+            if level is not None:
+                listed[level] = True
+        if _MID_SENIOR.search(chunk):
+            listed[Seniority.MID] = listed[Seniority.SENIOR] = True
+        if len(listed) >= 2 and _RANGE_CUE.search(chunk):
+            start = original.find(chunk)
+            return _ordered(listed), sentence_at(original, start, start + len(chunk))
+    return None
+
+
+_RANK = [
+    Seniority.INTERN, Seniority.JUNIOR, Seniority.MID, Seniority.SENIOR,
+    Seniority.STAFF, Seniority.PRINCIPAL, Seniority.LEAD,
+]  # fmt: skip
+
+
+def _ordered(levels: Any) -> tuple[Seniority, ...]:
+    return tuple(level for level in _RANK if level in levels)
+
+
+def adopt_level(
+    levels: tuple[Seniority, ...],
+    preferred: tuple[Seniority, ...] = (),
+    excluded: tuple[Seniority, ...] = (),
+) -> Seniority:
+    """The one level adopted for ordering and filters when an ad lists several.
+
+    A level the person asked not to see is not adopted while another is on
+    offer; among the rest, one she prefers wins, then MID, then the lowest.
+    The ad's own list is untouched: this only chooses what the list is sorted
+    and filtered by."""
+    open_to = [lv for lv in levels if lv not in excluded] or list(levels)
+    for level in preferred:
+        if level in open_to:
+            return level
+    return Seniority.MID if Seniority.MID in open_to else open_to[0]
+
+
 def _quote(field: FoldedText, match: re.Match[str]) -> str:
     """The posting's own words around a match found in the folded copy."""
     start = field.offsets[match.start()]
@@ -626,6 +744,19 @@ def read_seniority(
 
     # --- 3: the body, through role-level statements only ------------------
     if body.folded:
+        # An ad that LISTS several levels keeps all of them. It is checked
+        # before the single-level anchors so `junior role` in one tier does
+        # not turn a three-level pool into a junior job.
+        listed = declared_levels(body.original)
+        if listed is not None:
+            levels, quote = listed
+            return SeniorityReading(
+                value=adopt_level(levels),
+                source=SenioritySource.DECLARED_RANGE,
+                confidence=AnalysisConfidence.HIGH,
+                evidence=quote,
+                levels=levels,
+            )
         for level, anchors in DESCRIPTION_ANCHORS:
             found = _first_match_in(body, anchors)
             if found is not None:
@@ -634,6 +765,7 @@ def read_seniority(
                     source=SenioritySource.DESCRIPTION_STATEMENT,
                     confidence=AnalysisConfidence.HIGH,
                     evidence=_quote(body, found),
+                    levels=(level,),
                 )
 
     # --- 4: the posting did not say ---------------------------------------

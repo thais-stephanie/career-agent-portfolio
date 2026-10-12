@@ -691,6 +691,7 @@ def _seniority_to_dict(reading: SeniorityReading) -> dict[str, Any]:
         "source": reading.source.value,
         "confidence": reading.confidence.value,
         "evidence": reading.evidence,
+        "levels": [level.value for level in reading.levels],
     }
 
 
@@ -717,6 +718,7 @@ def _seniority_from_dict(data: Any) -> SeniorityReading:
         source=SenioritySource(data["source"]),
         confidence=AnalysisConfidence(data["confidence"]),
         evidence=data.get("evidence"),
+        levels=tuple(Seniority(v) for v in data.get("levels") or ()),
     )
 
 
@@ -1673,6 +1675,15 @@ class JobFilter:
     has_salary: bool | None = None
     remote_only: bool = False
     posted_within_days: int | None = None
+    #: THE PROFILE'S AGE LIMIT: postings the SOURCE published more than this
+    #: many days ago are hidden (None: no limit). `job.posted_at` is the
+    #: publication date; `first_seen_at` and `last_seen_at` are when this
+    #: machine collected it and are never used as one, so collecting a posting
+    #: again cannot make it young. A posting with no publication date is hidden
+    #: unless `include_undated`. Tracked postings are exempt when the caller
+    #: asks for the tracking exemption. Neither field touches a score.
+    max_age_days: int | None = None
+    include_undated: bool = False
     #: Postings THIS MACHINE first held STRICTLY AFTER an ISO-8601 timestamp.
     #:
     #: `first_seen_at`, deliberately, and never `posted_at`. This answers "what
@@ -2266,6 +2277,7 @@ class ScoredJobQuery(_Repo):
                     or (not f.include_unresolved and "UNRESOLVED" not in f.eligibility)
                     or (f.excluded_seniorities and not f.include_excluded_seniority)
                     or (f.excluded_work_models and not f.include_excluded_work_model)
+                    or f.max_age_days is not None
                 )
             )
         ):
@@ -2502,6 +2514,13 @@ class ScoredJobQuery(_Repo):
         if f.posted_within_days is not None:
             clauses.append(f"j{a}.posted_at IS NOT NULL AND j{a}.posted_at >= ?")
             params.append(_cutoff(self.now or now_utc(), f.posted_within_days))
+
+        # The profile's age limit, on the SOURCE's publication date. Compared as
+        # a calendar day, so a posting published on the cutoff day is kept.
+        if f.max_age_days is not None:
+            undated = f" OR j{a}.posted_at IS NULL" if f.include_undated else ""
+            clauses.append(f"(j{a}.posted_at >= ?{undated}{tracked})")
+            params.append(_cutoff(self.now or now_utc(), f.max_age_days)[:10])
 
         # `first_seen_at` is NOT NULL on every row, so this needs no null guard
         # and -- unlike the clause above -- excludes nothing for want of a date
@@ -2919,6 +2938,42 @@ class ScoredJobQuery(_Repo):
             narrow_total if narrow_total is not None else self.count(config_id, config_version, f)
         )
         return self.count(config_id, config_version, widened) - narrow
+
+    def hidden_by_age(
+        self,
+        config_id: str,
+        config_version: int,
+        f: JobFilter,
+        *,
+        narrow_total: int | None = None,
+    ) -> int:
+        """How many postings the age limit sets aside for being OLD: published
+        before the cutoff, as the source dated them. Postings with no date are
+        counted apart (`hidden_undated`)."""
+        if f.max_age_days is None:
+            return 0
+        # Everything with no limit, less everything an UNDATED-inclusive limit
+        # keeps: what is left is dated and old, and nothing else.
+        return self.count(config_id, config_version, replace(f, max_age_days=None)) - self.count(
+            config_id, config_version, replace(f, include_undated=True)
+        )
+
+    def hidden_undated(
+        self,
+        config_id: str,
+        config_version: int,
+        f: JobFilter,
+        *,
+        narrow_total: int | None = None,
+    ) -> int:
+        """How many postings the age limit sets aside for stating no
+        publication date. Zero when the person included them."""
+        if f.max_age_days is None or f.include_undated:
+            return 0
+        narrow = (
+            narrow_total if narrow_total is not None else self.count(config_id, config_version, f)
+        )
+        return self.count(config_id, config_version, replace(f, include_undated=True)) - narrow
 
     def hidden_by_seniority(
         self,

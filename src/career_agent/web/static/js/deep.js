@@ -32,12 +32,12 @@ const STATUS_ORDER = ['not_shown', 'review', 'declared', 'partial', 'unknown', '
 const STOPS = new Set([
   'LIMIT_REACHED', 'SIGN_IN', 'CANCELLED', 'PROVIDER_STOPPED', 'NOTHING_NEW', 'NO_INTENT',
   'DEEP_UNSUPPORTED', 'NO_BUDGET', 'NO_PRICE', 'BUDGET_REACHED', 'UNACCOUNTED', 'MODEL_CHANGED',
-  'PROFILE_CHANGED', 'PAUSED', 'ERROR',
+  'PROFILE_CHANGED', 'PAUSED', 'ERROR', 'AUTH_FAILED',
 ]);
 // Stops a job can be resumed from, said in yellow with the reason.
 const WARN_STOPS = new Set([
   'LIMIT_REACHED', 'SIGN_IN', 'ERROR', 'PROVIDER_STOPPED', 'BUDGET_REACHED', 'UNACCOUNTED',
-  'MODEL_CHANGED', 'PROFILE_CHANGED', 'NO_BUDGET', 'NO_PRICE', 'DEEP_UNSUPPORTED',
+  'MODEL_CHANGED', 'PROFILE_CHANGED', 'NO_BUDGET', 'NO_PRICE', 'DEEP_UNSUPPORTED', 'AUTH_FAILED',
 ]);
 const STATES = new Set([
   'AVAILABLE', 'CONNECTED', 'NOT_INSTALLED', 'SIGN_IN_REQUIRED', 'KEY_MISSING', 'CONNECTION_FAILED',
@@ -62,7 +62,21 @@ export function createDeep({ onOpenJob = null } = {}) {
   // The count and the budget the person typed, kept while the panel is open.
   let count = null;
   let budget = null;
+  // True when a number the person chose was lowered to what is available now.
+  let adjusted = false;
   let last = { status: null, reviews: [] };
+
+  /** Options belong to a profile: another profile starts from nothing. */
+  function resetOptions() {
+    includeUnresolved = false;
+    retryRejected = false;
+    preview = null;
+    checked = false;
+    message = '';
+    count = null;
+    budget = null;
+    adjusted = false;
+  }
 
   const titleNode = el('h2', { className: 'dr-title', attrs: { id: 'deep-title', tabindex: '-1' }, text: '' });
   const subNode = el('p', { className: 'dr-sub', text: '' });
@@ -158,6 +172,7 @@ export function createDeep({ onOpenJob = null } = {}) {
     try {
       const [status, results] = await Promise.all([api.getDeep(), api.getDeepReviews()]);
       if (mine !== token) return;
+      if (last.status && status.profile !== last.status.profile) resetOptions();
       last = { status, reviews: results.reviews || [] };
       const running = status.run && status.run.status === 'running';
       if (running) view = 'reading';
@@ -169,7 +184,7 @@ export function createDeep({ onOpenJob = null } = {}) {
     } catch (error) {
       if (mine !== token) return;
       head(view || 'choose');
-      replace(bodyHost, [banner('pink', t('deep.error'), [
+      replace(bodyHost, [banner('pink', fault(error, 'load'), [
         button(t('deep.retry'), () => refresh(), { className: 'dr-btn2 dr-btn--sm' }),
       ])]);
     }
@@ -252,16 +267,33 @@ export function createDeep({ onOpenJob = null } = {}) {
     } else {
       body.push(providerCard(status), shareCard(status));
     }
-    body.push(jobsCard(status));
+    const ready = providerReady(status);
+    if (status.provider && !ready) {
+      body.push(banner('yellow', t('deep.err.notReady', {
+        name: providerName(status), state: t(`deep.state.${chosenState(status)}`),
+      })));
+    }
+    if (!status.coverage_ok) {
+      // A failed count is not a count of zero: no strip, no number.
+      body.push(banner('pink', t('deep.cov.failed'), [
+        button(t('deep.retry'), () => refresh(), { className: 'dr-btn2 dr-btn--sm' }),
+      ]));
+    } else {
+      const older = scoresNotice(status);
+      if (older) body.push(older);
+      const none = noneNotice(status);
+      if (none) body.push(none);
+      body.push(jobsCard(status));
+    }
     const metered = isMetered(status);
+    const most = availableNow(status);
     const next = el('button', {
       className: 'dr-btn', attrs: { type: 'button' }, text: t('deep.checkAndStart'),
       on: {
         click: async (event) => {
           const asked = chosenCount(status);
           const money = Number(budget ?? status.budget_default);
-          const most = (status.available || 0) + (retryRejected ? status.rejected || 0 : 0);
-          if (!Number.isInteger(asked) || asked < 1 || (!includeUnresolved && asked > most)) {
+          if (!Number.isInteger(asked) || asked < 1 || asked > most) {
             message = t('deep.count.invalid', { max: most });
             paint();
             return;
@@ -278,8 +310,13 @@ export function createDeep({ onOpenJob = null } = {}) {
           try {
             preview = await api.previewDeep(options);
             message = '';
-          } catch {
-            message = t('deep.error');
+          } catch (error) {
+            message = fault(error, 'preview');
+            // The numbers changed under the page: show the true ones.
+            if (error && error.detail && error.detail.code) {
+              await refresh();
+              return;
+            }
           }
           checked = false;
           showAll = false;
@@ -288,13 +325,82 @@ export function createDeep({ onOpenJob = null } = {}) {
         },
       },
     });
-    next.disabled = !status.provider || !(status.available > 0 || includeUnresolved);
-    return [body, [el('span', { className: 'dr-foot__note', text: t('deep.nothingUntilStart') }), next]];
+    next.disabled = !status.provider || !ready || !status.coverage_ok || most < 1;
+    // A disabled primary button says what is still needed (the design rules).
+    const needed = !status.provider ? t('deep.still.provider')
+      : !ready ? t('deep.still.ready')
+        : !status.coverage_ok ? t('deep.still.count')
+          : most < 1 ? t('deep.still.posting') : '';
+    return [body, [
+      el('span', { className: 'dr-foot__note', text: needed || t('deep.nothingUntilStart') }), next,
+    ]];
   }
 
+  /** How many postings could be read now, with the options as they stand. */
+  function availableNow(status) {
+    if (!status.coverage_ok) return 0;
+    const base = includeUnresolved && isSet(status.available_unresolved)
+      ? status.available_unresolved : status.available || 0;
+    return base + (retryRejected ? status.rejected || 0 : 0);
+  }
+
+  /** The chosen number, never above what is available now. */
   function chosenCount(status) {
-    const max = status.available || 0;
-    return count ?? Math.min(BATCH, max);
+    const max = availableNow(status);
+    if (max < 1) return 0;
+    if (count === null) return Math.min(BATCH, max);
+    if (count > max) {
+      count = max;
+      adjusted = true;
+    }
+    return Math.max(1, count);
+  }
+
+  function chosenState(status) {
+    const chosen = (status.providers || []).find((p) => p.chosen);
+    return chosen && STATES.has(chosen.state) ? chosen.state : 'OTHER';
+  }
+
+  function providerReady(status) {
+    const chosen = (status.providers || []).find((p) => p.chosen);
+    return !chosen || chosen.usable;
+  }
+
+  /** Scores from earlier preferences are shown as such, never as current. */
+  function scoresNotice(status) {
+    const s = status.scores || {};
+    if (s.state !== 'older') return null;
+    return banner('yellow', t('deep.scores.older', { serving: s.serving_version, current: s.current_version }), [
+      button(t('deep.openJobs'), () => openJobs(), { className: 'dr-btn2 dr-btn--sm' }),
+    ]);
+  }
+
+  /** Why nothing can be read, in words, with the one action that helps. */
+  function noneNotice(status) {
+    if (!status.provider || !status.unavailable) return null;
+    const why = status.unavailable;
+    let action = null;
+    if (why === 'NO_SCORES') {
+      action = button(t('deep.openJobs'), () => openJobs(), { className: 'dr-btn2 dr-btn--sm' });
+    } else if (why === 'UNRESOLVED_ONLY') {
+      action = button(t('deep.none.include'), () => {
+        includeUnresolved = true;
+        preview = null;
+        checked = false;
+        paint();
+      }, { className: 'dr-btn2 dr-btn--sm' });
+    } else if (why === 'ALL_READ') {
+      action = button(t('deep.none.seeResults'), () => go('results'), { className: 'dr-btn2 dr-btn--sm' });
+    }
+    return banner('plain', t(`deep.none.${why}`, {
+      count: status.available_unresolved || 0, short: status.too_short || 0,
+    }), action ? [action] : []);
+  }
+
+  function openJobs() {
+    close();
+    const link = document.querySelector('.topnav__link[data-page="jobs"]');
+    if (link) link.click();
   }
 
   function providerCard(status) {
@@ -349,8 +455,8 @@ export function createDeep({ onOpenJob = null } = {}) {
           try {
             await api.setDeepProvider(p.id);
             message = '';
-          } catch {
-            message = t('deep.error');
+          } catch (error) {
+            message = fault(error, 'save');
           }
           preview = null;
           checked = false;
@@ -390,8 +496,8 @@ export function createDeep({ onOpenJob = null } = {}) {
         try {
           await api.setDeepConsent(next);
           message = t(next ? 'deep.consent.on' : 'deep.consent.off');
-        } catch {
-          message = t('deep.error');
+        } catch (error) {
+          message = fault(error, 'save');
         }
         preview = null;
         checked = false;
@@ -419,16 +525,21 @@ export function createDeep({ onOpenJob = null } = {}) {
   }
 
   function jobsCard(status) {
-    const max = status.available || 0;
+    const max = availableNow(status);
     const countInput = el('input', {
       className: 'dr-input',
       attrs: {
         id: 'deep-count', type: 'number', min: '1', max: String(Math.max(max, 1)), step: '1', inputmode: 'numeric',
       },
       props: { value: String(chosenCount(status) || 0) },
-      on: { input: () => { count = Number(countInput.value); preview = null; checked = false; } },
+      on: { input: () => { count = Number(countInput.value); adjusted = false; preview = null; checked = false; } },
     });
-    const fields = [field('deep-count', t('deep.count.label'), countInput, t('deep.count.help', { max, size: BATCH }))];
+    countInput.disabled = max < 1;
+    const help = t('deep.count.help', { max, size: BATCH });
+    const fields = [field(
+      'deep-count', t('deep.count.label'), countInput,
+      adjusted ? `${t('deep.count.adjusted', { count: max })} ${help}` : help,
+    )];
     if (isMetered(status)) {
       const budgetInput = el('input', {
         className: 'dr-input',
@@ -465,6 +576,7 @@ export function createDeep({ onOpenJob = null } = {}) {
           roles: status.main_list_roles || 0, readable: status.readable || 0, short: status.too_short || 0,
         }),
       }),
+      el('p', { className: 'dr-help dr-help--age', text: ageLine(status) }),
     ]);
   }
 
@@ -474,7 +586,8 @@ export function createDeep({ onOpenJob = null } = {}) {
     const back = button(t('deep.back'), () => go('choose'), { className: 'dr-btn2' });
     const plan = preview;
     if (!plan || !plan.provider || !plan.postings.length) {
-      const text = !plan ? t('deep.error') : !plan.provider ? t(`deep.provider.${plan.reason}`) : t('deep.nothing');
+      const text = !plan ? t('deep.err.preview')
+        : !plan.provider ? t(`deep.provider.${plan.reason}`) : t('deep.nothing');
       return [[banner('plain', text)], [back]];
     }
     const name = providerName(status);
@@ -544,8 +657,8 @@ export function createDeep({ onOpenJob = null } = {}) {
         if (plan.retry_rejected) options.retry_rejected = true;
         await api.startDeep(options);
         message = '';
-      } catch {
-        message = t('deep.error');
+      } catch (error) {
+        message = fault(error, 'start');
       }
       preview = null;
       checked = false;
@@ -564,6 +677,8 @@ export function createDeep({ onOpenJob = null } = {}) {
         el('div', { className: 'dr-rows__foot', text: t('deep.neverSent') }),
       ].filter(Boolean)),
       jobs,
+      el('p', { className: 'dr-help dr-help--age', text: plan.age_limit && plan.age_limit.days
+        ? t('deep.age.used', { days: plan.age_limit.days }) : t('deep.age.none') }),
       costCard(plan),
       packetCard(plan),
       el('label', { className: 'dr-check' }, [confirm, el('span', { text: t('deep.confirm') })]),
@@ -706,6 +821,8 @@ export function createDeep({ onOpenJob = null } = {}) {
     const body = [];
     if (status.last_run) body.push(lastRun(status.last_run));
     if (status.job) body.push(jobBanner(status, status.job));
+    const older = status.coverage_ok === false ? null : scoresNotice(status);
+    if (older) body.push(older);
     if (!status.share_evidence && status.provider && reviews.length) {
       body.push(banner('yellow', t('deep.notSharedNudge'), [
         button(t('deep.shareAndReadAgain'), () => go('choose'), { className: 'dr-btn2 dr-btn--sm' }),
@@ -775,8 +892,8 @@ export function createDeep({ onOpenJob = null } = {}) {
           await api.startDeep(options);
           message = '';
           view = 'reading';
-        } catch {
-          message = t('deep.error');
+        } catch (error) {
+          message = fault(error, 'start');
         }
         await refresh();
         poll();
@@ -833,8 +950,40 @@ export function createDeep({ onOpenJob = null } = {}) {
   return { root, open, close };
 }
 
+/** The age limit this reading respects (the profile's, as in Find jobs), and what it leaves out. */
+function ageLine(status) {
+  const limit = status.age_limit || {};
+  return limit.days
+    ? t('deep.age.limit', { days: limit.days, count: status.excluded_by_age || 0 })
+    : t('deep.age.none');
+}
+
 function isSet(value) {
   return value !== null && value !== undefined;
+}
+
+/**
+ * What went wrong, said for what it was. The routes that load, save a choice
+ * or prepare a preview never reach a provider, so "nothing was sent" is true
+ * of them. A start that was refused with a 4xx was refused before anything
+ * ran. A start that failed any other way (no answer, a server fault) may have
+ * reached the provider: that is said, and a repeat is not encouraged.
+ */
+function fault(error, stage) {
+  const detail = (error && error.detail) || {};
+  const code = detail.code;
+  if (code === 'LIMIT_OUT_OF_RANGE' || code === 'NO_POSTINGS') {
+    return t('deep.err.changed', { count: detail.available || 0 });
+  }
+  if (code === 'PROVIDER_NOT_READY') {
+    const state = STATES.has(detail.state) ? detail.state : 'OTHER';
+    return t('deep.err.notReady', { name: t('deep.name.this'), state: t(`deep.state.${state}`) });
+  }
+  if (code === 'RUN_ACTIVE') return t('deep.err.running');
+  const refused = Boolean(error && error.status >= 400 && error.status < 500);
+  if (stage === 'start') return refused ? t('deep.err.start') : t('deep.err.startUnknown');
+  if (!error || error.kind === 'network') return t('deep.err.network');
+  return t(`deep.err.${stage}`);
 }
 
 function isMetered(status) {

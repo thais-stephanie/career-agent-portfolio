@@ -321,6 +321,43 @@ const EN = {
   'hidden.workModelOne': '1 set aside because of a way of working you said never to show.',
   'hidden.workModelShowing': 'Showing ways of working you set aside.',
   'hidden.workModelReveal': 'Show those too',
+  'hidden.age': '{count} jobs published more than {days} days ago are hidden.',
+  'hidden.ageOne': '1 job published more than {days} days ago is hidden.',
+  'hidden.ageReveal': 'Show them',
+  'hidden.undated': '{count} jobs that state no publication date are hidden.',
+  'hidden.undatedOne': '1 job that states no publication date is hidden.',
+  'hidden.undatedReveal': 'Include them',
+  'age.title': 'Published in the last',
+  'age.days': '{n} days',
+  'age.none': 'No limit',
+  'age.undated': 'Include postings without a date',
+  'age.help': 'Uses the date the source published the posting, never the date it was collected. Saved and '
+    + 'applied jobs always stay visible. Changing it does not change any match %.',
+  'level.default': 'Mid - app default; level not stated in the ad',
+  'level.range': '{levels} - the ad lists several levels',
+  'drawer.readNow': 'Read now from the ad. The match % keeps its earlier reading until you recalculate.',
+  'drawer.open.payNotCompared': 'The ad states pay ({pay}). It was not compared with your target because '
+    + 'the period or the currency is different.',
+  'drawer.open.payReadNow': 'The ad states pay ({pay}), read now. The match % was calculated before and has '
+    + 'not counted it yet.',
+  'drawer.pool': 'This ad collects applications for a talent pool: there may be no opening right now.',
+  'gtk.schedule': 'Schedule',
+  'gtk.zone': 'Time zones',
+  'gtk.zoneValue': 'Asks to be reachable in certain time zones. That is when to work, not where to live.',
+  'gtk.payDiffers': 'Other pay in the text',
+  'sched.partHours': 'Part-time, {min} to {max} hours a week',
+  'sched.partHoursOne': 'Part-time, {min} hours a week',
+  'sched.part': 'Part-time',
+  'sched.hours': '{min} to {max} hours a week',
+  'sched.hoursOne': '{min} hours a week',
+  'card.foundOn': 'Found on {date}',
+  'card.pool': 'Talent pool: may have no opening now',
+  'card.poolLabel': 'Talent pool',
+  'deep.age.limit': 'Only jobs published in the last {days} days are considered, the same limit as Find jobs. '
+    + '{count} jobs of your main list are left out by it.',
+  'deep.age.none': 'No age limit is set for your jobs, so jobs of any age are considered.',
+  'deep.age.used': 'Age limit used for this reading: jobs published in the last {days} days. '
+    + 'Older jobs are not sent unless you change the limit in Find jobs.',
   'filters.includeExcludedSeniorityHelp':
     'Off by default, and it does nothing until you name a level in your profile. These are ' +
     'roles at a level you said you do not want to see, such as Staff or Director. Nothing is ' +
@@ -1140,6 +1177,42 @@ const EN = {
   'deep.close': 'Close',
   'deep.retry': 'Try again',
   'deep.error': 'The deep reading could not be loaded or changed. Nothing was sent. Try again.',
+  'deep.err.load': 'The deep reading page could not be loaded. Nothing was sent to any provider. Try again.',
+  'deep.err.save': 'Your choice could not be saved. Nothing was sent. Try again.',
+  'deep.err.preview': 'The preview could not be prepared. Nothing was sent. Try again.',
+  'deep.err.network': 'Career Agent did not answer. Nothing was sent. Check that the app is still open and try again.',
+  'deep.err.start': 'The reading did not start. It was refused before anything was sent. Try again.',
+  'deep.err.startUnknown': 'We could not confirm whether the reading started. Look at the progress and the '
+    + 'results before you try again: a second attempt can be charged.',
+  'deep.err.changed': 'The number of postings available changed (now {count}). Nothing was sent. '
+    + 'Choose how many to read again.',
+  'deep.err.notReady': '{name} is not ready: {state}. Nothing was sent. Check it under Providers and privacy '
+    + 'in Settings, Smart matching.',
+  'deep.err.running': 'A reading is already running. Nothing new was sent.',
+  'deep.cov.failed': 'We could not check which jobs can be read. That is not the same as having none: nothing '
+    + 'was counted. Nothing was sent. Try again.',
+  'deep.still.provider': 'Still needed: choose who reads.',
+  'deep.still.ready': 'Still needed: a provider that is ready.',
+  'deep.still.count': 'Still needed: a successful check of your jobs.',
+  'deep.still.posting': 'Still needed: at least one posting to read.',
+  'deep.name.this': 'This provider',
+  'deep.openJobs': 'Open Find jobs',
+  'deep.scores.older': 'Your list is built from match scores for earlier preferences (revision {serving}); you are now '
+    + 'on revision {current}. The deep reading uses the same list. Recalculate in Find jobs to update it.',
+  'deep.none.NO_SCORES': 'No job has a match score yet, so there is nothing to choose from. '
+    + 'Recalculate in Find jobs first.',
+  'deep.none.NO_ELIGIBLE': 'Your main list has no job to read right now. Change what you look for in Settings, or '
+    + 'look at the Find jobs list.',
+  'deep.none.UNRESOLVED_ONLY': 'Every job open to you is already read. {count} more do not say where they hire: '
+    + 'you can include them.',
+  'deep.none.TOO_SHORT': 'The jobs in your main list have too little text to read ({short}). '
+    + 'A reading needs the full ad.',
+  'deep.none.ALL_READ': 'Every job in your main list already has a current reading from this provider.',
+  'deep.none.include': 'Include them',
+  'deep.none.seeResults': 'See the results',
+  'deep.count.adjusted': 'Changed to {count}: that is how many are available now.',
+  'deep.stop.AUTH_FAILED': 'Stopped: the provider did not accept the key, or none is set. The request was refused '
+    + 'before it was read, so it was not charged. Check the key under Providers and privacy, then start again.',
   'deep.demo': 'The demo never uses AI.',
   'deep.intro': 'An optional, slower reading of postings you already have. AI reports what each posting asks for, '
     + 'with quotes; Career Agent checks the quotes and decides the priority by fixed rules. Your local score does '
@@ -5342,6 +5415,43 @@ const PT_BR = {
   'hidden.workModelOne': '1 de lado por um formato de trabalho que você disse nunca querer ver.',
   'hidden.workModelShowing': 'Mostrando formatos de trabalho que você deixou de lado.',
   'hidden.workModelReveal': 'Mostrar essas também',
+  'hidden.age': '{count} vagas publicadas há mais de {days} dias estão ocultas.',
+  'hidden.ageOne': '1 vaga publicada há mais de {days} dias está oculta.',
+  'hidden.ageReveal': 'Mostrar',
+  'hidden.undated': '{count} vagas sem data de publicação estão ocultas.',
+  'hidden.undatedOne': '1 vaga sem data de publicação está oculta.',
+  'hidden.undatedReveal': 'Incluir',
+  'age.title': 'Publicadas nos últimos',
+  'age.days': '{n} dias',
+  'age.none': 'Sem limite',
+  'age.undated': 'Incluir vagas sem data',
+  'age.help': 'Usa a data em que a fonte publicou a vaga, nunca a data em que ela foi coletada. Vagas salvas '
+    + 'e candidaturas continuam sempre visíveis. Mudar isso não muda nenhuma nota.',
+  'level.default': 'Pleno - padrão do app; anúncio sem nível informado',
+  'level.range': '{levels} - o anúncio lista vários níveis',
+  'drawer.readNow': 'Lido agora do anúncio. A nota mantém a leitura anterior até você recalcular.',
+  'drawer.open.payNotCompared': 'O anúncio informa a remuneração ({pay}). Ela não foi comparada com a sua '
+    + 'meta porque o período ou a moeda são diferentes.',
+  'drawer.open.payReadNow': 'O anúncio informa a remuneração ({pay}), lida agora. A nota foi calculada antes '
+    + 'e ainda não a considerou.',
+  'drawer.pool': 'Este anúncio reúne candidaturas para um banco de talentos: pode não haver vaga agora.',
+  'gtk.schedule': 'Jornada',
+  'gtk.zone': 'Fusos horários',
+  'gtk.zoneValue': 'Pede disponibilidade em certos fusos horários. É quando trabalhar, não onde morar.',
+  'gtk.payDiffers': 'Outra remuneração no texto',
+  'sched.partHours': 'Meio período, {min} a {max} horas por semana',
+  'sched.partHoursOne': 'Meio período, {min} horas por semana',
+  'sched.part': 'Meio período',
+  'sched.hours': '{min} a {max} horas por semana',
+  'sched.hoursOne': '{min} horas por semana',
+  'card.foundOn': 'Encontrada em {date}',
+  'card.pool': 'Banco de talentos: pode não haver vaga agora',
+  'card.poolLabel': 'Banco de talentos',
+  'deep.age.limit': 'Só vagas publicadas nos últimos {days} dias são consideradas, o mesmo limite do Buscar '
+    + 'vagas. {count} vagas da sua lista principal ficam de fora por ele.',
+  'deep.age.none': 'Não há limite de idade para as suas vagas, então vagas de qualquer idade são consideradas.',
+  'deep.age.used': 'Limite de idade usado nesta leitura: vagas publicadas nos últimos {days} dias. '
+    + 'Vagas mais antigas não são enviadas, a menos que você mude o limite em Buscar vagas.',
   'filters.includeExcludedSeniorityHelp':
     'Desligado por padrão, e não faz nada até você nomear um nível no seu perfil. São vagas em ' +
     'um nível que você disse não querer ver, como Staff ou Diretor. Nada é apagado e isto traz ' +
@@ -6056,6 +6166,44 @@ const PT_BR = {
   'deep.close': 'Fechar',
   'deep.retry': 'Tentar de novo',
   'deep.error': 'Não foi possível carregar ou alterar a leitura aprofundada. Nada foi enviado. Tente de novo.',
+  'deep.err.load': 'Não foi possível carregar a página da leitura aprofundada. Nada foi enviado a nenhum provedor. '
+    + 'Tente de novo.',
+  'deep.err.save': 'Não foi possível salvar sua escolha. Nada foi enviado. Tente de novo.',
+  'deep.err.preview': 'Não foi possível preparar a prévia. Nada foi enviado. Tente de novo.',
+  'deep.err.network': 'O Career Agent não respondeu. Nada foi enviado. Confira se o app continua aberto '
+    + 'e tente de novo.',
+  'deep.err.start': 'A leitura não começou. Ela foi recusada antes de enviar qualquer coisa. Tente de novo.',
+  'deep.err.startUnknown': 'Não conseguimos confirmar se a leitura começou. Veja o andamento e os resultados antes '
+    + 'de tentar de novo: uma segunda tentativa pode ser cobrada.',
+  'deep.err.changed': 'A quantidade de vagas disponíveis mudou (agora {count}). Nada foi enviado. '
+    + 'Escolha de novo quantas ler.',
+  'deep.err.notReady': '{name} não está pronto: {state}. Nada foi enviado. Confira em Provedores e privacidade, '
+    + 'em Configurações, Busca inteligente.',
+  'deep.err.running': 'Já há uma leitura em andamento. Nada novo foi enviado.',
+  'deep.cov.failed': 'Não foi possível verificar quais vagas podem ser lidas. Isso não é o mesmo que não ter nenhuma: '
+    + 'nada foi contado. Nada foi enviado. Tente de novo.',
+  'deep.still.provider': 'Falta: escolher quem lê.',
+  'deep.still.ready': 'Falta: um provedor pronto para uso.',
+  'deep.still.count': 'Falta: uma verificação das suas vagas que funcione.',
+  'deep.still.posting': 'Falta: pelo menos uma vaga para ler.',
+  'deep.name.this': 'Este provedor',
+  'deep.openJobs': 'Abrir Buscar vagas',
+  'deep.scores.older': 'Sua lista usa as notas de preferências anteriores (revisão {serving}); você está na revisão '
+    + '{current}. A leitura aprofundada usa a mesma lista. Recalcule em Buscar vagas para atualizá-la.',
+  'deep.none.NO_SCORES': 'Nenhuma vaga tem nota ainda, então não há o que escolher. '
+    + 'Recalcule primeiro em Buscar vagas.',
+  'deep.none.NO_ELIGIBLE': 'Sua lista principal não tem vaga para ler agora. Mude o que você procura em Configurações '
+    + 'ou veja a lista de Buscar vagas.',
+  'deep.none.UNRESOLVED_ONLY': 'Todas as vagas abertas para você já foram lidas. Outras {count} não dizem onde '
+    + 'contratam: você pode incluí-las.',
+  'deep.none.TOO_SHORT': 'As vagas da sua lista principal têm texto curto demais para ler ({short}). A leitura '
+    + 'precisa do anúncio completo.',
+  'deep.none.ALL_READ': 'Todas as vagas da sua lista principal já têm uma leitura atual deste provedor.',
+  'deep.none.include': 'Incluir',
+  'deep.none.seeResults': 'Ver resultados',
+  'deep.count.adjusted': 'Mudou para {count}: é quantas estão disponíveis agora.',
+  'deep.stop.AUTH_FAILED': 'Parada: o provedor não aceitou a chave, ou não há nenhuma. O pedido foi recusado antes '
+    + 'de ser lido, então não foi cobrado. Confira a chave em Provedores e privacidade e inicie de novo.',
   'deep.demo': 'A demonstração nunca usa IA.',
   'deep.intro': 'Uma leitura opcional e mais lenta das vagas que você já tem. A IA relata o que cada vaga pede, com '
     + 'trechos; o Career Agent confere os trechos e decide a prioridade por regras fixas. Sua nota local não muda.',

@@ -62,6 +62,7 @@ from career_agent.domain.enums import (
     FitBand,
     Prominence,
     Seniority,
+    SenioritySource,
 )
 from career_agent.domain.matching import (
     DEFAULT_SENIORITY,
@@ -500,8 +501,18 @@ def _seniority_component(config: SearchConfig, reading: SeniorityReading) -> Sco
     configuration is read and ignored.
     """
     component = config.scoring.components.seniority
-    points = _seniority_points(config, reading.value)
-    if reading.is_evidence:
+    chosen = reading.value
+    points = _seniority_points(config, chosen)
+    if reading.source is SenioritySource.DECLARED_RANGE and len(reading.levels) > 1:
+        # An ad that LISTS several levels is scored on the one that fits what
+        # the person said: the choice is made here, at scoring time, so a
+        # change of preference is a replay and never a reread of the posting.
+        chosen = max(reading.levels, key=lambda level: _seniority_points(config, level))
+        points = _seniority_points(config, chosen)
+        label = "The posting lists several levels: " + ", ".join(
+            level.value.lower() for level in reading.levels
+        )
+    elif reading.is_evidence:
         label = f"The posting states a {reading.value.value} role"
     else:
         label = "The posting did not state a level; scored as mid-level"
@@ -512,7 +523,7 @@ def _seniority_component(config: SearchConfig, reading: SeniorityReading) -> Sco
         max_points=component.max,
         contributions=(
             ScoreContribution(
-                signal_id=f"seniority:{reading.value.value}",
+                signal_id=f"seniority:{chosen.value}",
                 label=label,
                 prominence=Prominence.SECONDARY,
                 weight=points,

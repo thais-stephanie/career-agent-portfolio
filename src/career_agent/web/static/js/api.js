@@ -964,6 +964,15 @@ export async function pauseDeep() {
   return request('/deep/run/pause', { method: 'POST', body: {} });
 }
 
+/** How old a posting may be and still appear: one choice per profile. */
+export async function getViewPrefs() {
+  return request('/view-prefs');
+}
+
+export async function setViewPrefs(patch) {
+  return request('/view-prefs', { method: 'PATCH', body: patch });
+}
+
 /** Name the provider this profile's deep reading uses. Sends nothing. */
 export async function setDeepProvider(provider) {
   return request('/deep/provider', { method: 'POST', body: { provider } });

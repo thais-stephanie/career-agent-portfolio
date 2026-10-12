@@ -516,6 +516,10 @@ class SeniorityReading:
     source: SenioritySource
     confidence: AnalysisConfidence
     evidence: str | None = None
+    #: Every level the ad declared for the role, lowest first. Empty when the
+    #: ad declared none (DEFAULT). `value` is the level ADOPTED; this is what
+    #: was SAID. They differ for an ad that lists several levels.
+    levels: tuple[Seniority, ...] = ()
 
     @property
     def is_evidence(self) -> bool:
@@ -527,6 +531,9 @@ class SeniorityReading:
         """One plain line for a reader, honest about which of the two it is."""
         if not self.is_evidence:
             return "The posting does not state a level. Search Fit treats it as mid-level."
+        if self.source is SenioritySource.DECLARED_RANGE and len(self.levels) > 1:
+            words = ", ".join(LEVEL_WORDS.get(level, level.value.lower()) for level in self.levels)
+            return f"The posting lists several levels: {words}."
         # `.get`, not a subscript, and the reason is a 500 this file served.
         # Adding STAFF and PRINCIPAL to `Seniority` left this table behind, and
         # the first real Principal posting to reach a card took the whole jobs

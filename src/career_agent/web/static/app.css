@@ -11405,3 +11405,38 @@ table.jobs .cell__title-btn { max-width: 100%; }
    reference's "Make a resume that fits the job" card does. */
 .tp { margin-inline: auto; }
 .tp__h2 { font-family: var(--display); font-weight: 400; font-size: 22px; }
+
+/* ======================================================================
+   THE AD, LAID OUT FROM ITS STRUCTURE; the age limit; quiet facts
+   The words are the ad's own. Only spacing, lists, headings and the
+   "Label: value" rows are decided here, from structure the employer wrote.
+   ====================================================================== */
+.ad { max-width: 68ch; font-size: 15px; line-height: 1.6; color: var(--body); overflow-wrap: anywhere; }
+.ad > :first-child { margin-top: 0; }
+.ad__h {
+  margin: 1.5em 0 0.4em; font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--ink);
+}
+.ad__p { margin: 0 0 0.7em; }
+.ad__list { margin: 0.1em 0 0.8em; padding-left: 1.3em; }
+.ad__list--plain { list-style: none; padding-left: 0; }
+.ad__list--nested { margin: 0.15em 0 0.15em; }
+.ad__item { margin: 0.2em 0; padding-left: 0.1em; }
+.ad__item::marker { color: var(--muted); }
+.ad__meta {
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 1em;
+  padding: 10px 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface-alt);
+}
+.ad__meta dt { font-weight: 600; color: var(--muted); }
+.ad__meta dd { margin: 0; }
+.ad__link { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+.ad__link:hover { text-decoration-thickness: 2px; }
+.ad strong { color: var(--ink); font-weight: 600; }
+
+.d-tile__note { display: block; margin-top: 4px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.drawer__panel .d-note--pool { color: var(--muted); }
+.d-note--pool .quote { font-style: normal; }
+.fact--pool { font-size: 12px; color: var(--muted); }
+
+.fess__age { display: flex; flex-direction: column; gap: 10px; }
+.fess__hint { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.fswitch:disabled { opacity: 0.55; cursor: not-allowed; }

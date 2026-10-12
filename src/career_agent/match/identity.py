@@ -143,7 +143,14 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              "we do not sponsor visas" on a remote role is answered for a
 #:              candidate authorized where she lives. Signals, seniority,
 #:              employment and both gates move.
-READER_IDENTITY = "readers-9"
+#:   readers-10 Explicit facts the card used to call "not stated"
+#:              (2026-10-12): an ad that lists several levels (a talent pool
+#:              for junior, mid and senior) keeps them all and adopts one; an
+#:              hourly rate ("hourly rate of $40-$85 USD") is read as pay and
+#:              an hour count is not a pay period; part-time and the weekly
+#:              hours are read; a talent pool and a time-zone requirement are
+#:              read as what they are. Seniority, pay and employment move.
+READER_IDENTITY = "readers-10"
 
 
 def guarded_sections(config: Any) -> list[str]:

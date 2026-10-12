@@ -38,6 +38,7 @@ import { t, tState } from './i18n.js';
 import { helpNote } from './help.js';
 import { vocabLabel } from './format.js';
 import { eligibilityWords } from './badges.js';
+import { createAgeControl } from './age_control.js';
 import {
   DEFAULTS, FLAG_KEYS, LIST_KEYS, NUMBER_KEYS, SEARCH_MAX, clearedFilters, debounce, isTrackedSet,
 } from './state.js';
@@ -561,6 +562,9 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
     'posted_within_days', POSTED_WITHIN,
     (value) => (value === '' ? null : Number(value)),
   )]);
+  // The profile's age limit: kept on the server, not in the query string.
+  const ageControl = createAgeControl();
+  essential('age.title', 'age.help', [ageControl.root]);
   const wordsHost = el('div', { className: 'fess__words' });
   essential('filters.words.title', 'filters.words.help', [wordsHost]);
 
@@ -990,6 +994,7 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
    */
   function relabel() {
     root.setAttribute('aria-label', t('rail.filters'));
+    ageControl.relabel();
     // The facet chips draw their words when the facets arrive; forgetting
     // the signature makes the next arrival redraw them in this language.
     lastFacetSignature = '';
@@ -1041,6 +1046,7 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
 
   return {
     root, syncFacets, syncState, relabel, focusSearch: () => searchInput.focus(),
+    syncView: (view) => ageControl.sync(view),
   };
 }
 

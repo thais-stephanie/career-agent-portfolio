@@ -26,8 +26,8 @@
 
 import { el, button, extLink, replace } from './dom.js';
 import {
-  compactPlace, formatDate, formatSalary, parseDate, relativeAge, scoreDisplay, statusLabel,
-  vocabLabel,
+  compactPlace, formatDate, formatSalary, levelInfo, parseDate, relativeAge, scoreDisplay,
+  statusLabel, vocabLabel,
   displayTitle,
 } from './format.js';
 import { eligibilityWords, searchFitIsReady } from './badges.js';
@@ -147,6 +147,12 @@ function card(job, handlers) {
     }),
     el('dt', { className: 'sr-only', text: t('card.postedLabel') }),
     el('dd', { className: 'fact--posted', text: postedLine(job), attrs: { title: postedTitle(job) } }),
+    ...(job.talent_pool ? [
+      el('dt', { className: 'sr-only', text: t('card.poolLabel') }),
+      el('dd', {
+        className: 'fact--pool', text: t('card.pool'), attrs: { title: job.talent_pool.quote || '' },
+      }),
+    ] : []),
   ]));
 
   // WHETHER THE EMPLOYER HIRES HERE, always. V3 draws no line on a card the
@@ -311,7 +317,16 @@ function offTargetNote(job, aside) {
 function postedLine(job) {
   const source = job.provider ? vocabLabel(job.provider) : t('absent.source');
   const date = parseDate(job.posted_at) ? formatDate(job.posted_at) : null;
-  return date ? t('card.postedOn', { date, source }) : `${source} · ${t('card.noPostedDate')}`;
+  if (date) {
+    // An old posting says how old, so a saved or applied one is never taken for new.
+    const days = (Date.now() - parseDate(job.posted_at).getTime()) / 86400000;
+    const line = t('card.postedOn', { date, source });
+    return days > 120 ? `${line} · ${relativeAge(job.posted_at)}` : line;
+  }
+  // No publication date: the date this computer FOUND it is said as that, apart.
+  return job.first_seen_at
+    ? `${source} · ${t('card.foundOn', { date: formatDate(job.first_seen_at) })}`
+    : `${source} · ${t('card.noPostedDate')}`;
 }
 
 function postedTitle(job) {
@@ -329,9 +344,8 @@ function terms(job) {
   //
   // The provenance itself stays off the card. It belongs in the drawer,
   // beside the quote it came from.
-  if (job.seniority) {
-    parts.push(job.seniority_stated ? vocabLabel(job.seniority) : t('absent.level'));
-  }
+  const level = levelInfo(job);
+  if (level) parts.push(level.text);
   parts.push(job.employment_type ? vocabLabel(job.employment_type) : t('absent.contract'));
   return parts.join(' · ');
 }

@@ -91,7 +91,14 @@ class PayReading:
 #: over the bare `pay` they contain.
 _ANCHOR = re.compile(
     r"(?:"
-    r"faixa\s+salarial"
+    # A rate is pay when the ad calls it a rate of pay. `rate` alone is not an
+    # anchor: interest rates, exchange rates and growth rates are everywhere.
+    r"hourly\s+(?:rate|pay|wage|compensation)"
+    r"|(?:daily|day|pay)\s+rate"
+    r"|rate\s+per\s+hour"
+    r"|taxa\s+hor[aá]ria"
+    r"|valor\s+(?:por\s+)?hora"
+    r"|faixa\s+salarial"
     r"|annual\s+salary"
     r"|remunera[çc][ãa]o"
     r"|compensation"
@@ -171,12 +178,24 @@ _TRAILING_CODE = re.compile(r"\b(" + "|".join(_CODES) + r")\b", re.IGNORECASE)
 
 #: The period, in either language. `/ano`, `per year`, `anual`, `hora`.
 _PERIOD = (
-    (re.compile(r"(?:/|per\s+|por\s+|an?\s+)?(?:hour|hora|hr\b|/h\b)", re.IGNORECASE), "HOUR"),
+    # `hour` or `hourly`, never `hours`: "40 hours per week" is a workload, and
+    # reading it as the period of a nearby amount turned a yearly salary into
+    # an hourly rate.
+    (
+        re.compile(
+            r"(?:/|per\s+|por\s+|an?\s+)?(?:hour(?:ly)?\b|hora\b|hor[aá]ri[oa]\b|hr\b|/h\b)",
+            re.IGNORECASE,
+        ),
+        "HOUR",
+    ),
     (re.compile(r"(?:/|per\s+|por\s+)?(?:month|m[êe]s|mensal|monthly)", re.IGNORECASE), "MONTH"),
     (
         re.compile(r"(?:/|per\s+|por\s+)?(?:year|ano|annual|anual|annually|yr\b)", re.IGNORECASE),
         "YEAR",
     ),
+    # Last, so a monthly or yearly figure that mentions "daily" elsewhere keeps
+    # its own period.
+    (re.compile(r"(?:/|per\s+|por\s+)?(?:day|daily|dia|di[aá]ri[oa])\b", re.IGNORECASE), "DAY"),
 )
 
 #: WHAT THE MONEY IS NOT. Each of these appears in thousands of postings beside a
@@ -261,6 +280,13 @@ def _period(window: str, anchor: str = "") -> str | None:
     return None
 
 
+def _with_code(description: str, start: int, end: int) -> str:
+    """The quote, extended over a currency code that follows the figure
+    (`$40-$85 USD`), so the citation is the whole of what the ad wrote."""
+    tail = re.match(r"\s*(?:" + "|".join(_CODES) + r")\b", description[end:], re.IGNORECASE)
+    return description[start : end + (tail.end() if tail else 0)].strip()
+
+
 def read_pay(description: str) -> PayReading | None:
     """The pay this posting states, or None. Pure, and candidate independent.
 
@@ -293,7 +319,7 @@ def read_pay(description: str) -> PayReading | None:
                 max_value=high,
                 currency=currency,
                 period=_period(window, anchor.group(0)),
-                raw=description[anchor.start() : anchor.end() + band.end()].strip(),
+                raw=_with_code(description, anchor.start(), anchor.end() + band.end()),
                 anchor=anchor.group(0).lower(),
             )
 
@@ -313,7 +339,7 @@ def read_pay(description: str) -> PayReading | None:
                 max_value=value,
                 currency=currency,
                 period=_period(window, anchor.group(0)),
-                raw=description[anchor.start() : anchor.end() + one.end()].strip(),
+                raw=_with_code(description, anchor.start(), anchor.end() + one.end()),
                 anchor=anchor.group(0).lower(),
             )
     return None

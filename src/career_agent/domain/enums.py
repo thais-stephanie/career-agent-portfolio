@@ -487,6 +487,10 @@ class SenioritySource(StrEnum):
     TITLE_LEADERSHIP = "TITLE_LEADERSHIP"
     TITLE_GRADE = "TITLE_GRADE"
     DESCRIPTION_STATEMENT = "DESCRIPTION_STATEMENT"
+    #: The ad itself lists several levels it hires at (a talent pool for
+    #: junior, mid and senior). The levels are what the ad declared; the
+    #: reading's `value` is the one adopted for ordering and filtering.
+    DECLARED_RANGE = "DECLARED_RANGE"
     REQUIRED_YEARS = "REQUIRED_YEARS"
     DEFAULT = "DEFAULT"
 
