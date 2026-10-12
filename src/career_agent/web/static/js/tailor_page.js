@@ -132,9 +132,11 @@ export function createTailorPage({
 
   tabRow.addEventListener('keydown', (event) => {
     const moves = { ArrowLeft: -1, ArrowRight: 1 };
-    if (!(event.key in moves)) return;
+    if (!(event.key in moves) && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
-    const next = TABS[(TABS.indexOf(tab) + moves[event.key] + TABS.length) % TABS.length];
+    const next = event.key === 'Home' ? TABS[0]
+      : event.key === 'End' ? TABS[TABS.length - 1]
+        : TABS[(TABS.indexOf(tab) + moves[event.key] + TABS.length) % TABS.length];
     void show(next).then(() => document.getElementById(`tp-tab-${next}`)?.focus());
   });
 

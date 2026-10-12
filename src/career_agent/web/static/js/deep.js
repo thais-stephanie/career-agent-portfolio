@@ -533,7 +533,21 @@ export function createDeep({ onOpenJob = null } = {}) {
         id: 'deep-count', type: 'number', min: '1', max: String(Math.max(max, 1)), step: '1', inputmode: 'numeric',
       },
       props: { value: String(chosenCount(status) || 0) },
-      on: { input: () => { count = Number(countInput.value); adjusted = false; preview = null; checked = false; } },
+      on: {
+        input: () => { count = Number(countInput.value); adjusted = false; preview = null; checked = false; },
+        // Leaving the field with more than is available brings it back, in place.
+        change: () => {
+          if (Number(countInput.value) <= max) return;
+          count = max;
+          adjusted = true;
+          countInput.value = String(max);
+          const hint = countInput.parentElement.querySelector('.dr-help');
+          if (hint) {
+            hint.textContent = `${t('deep.count.adjusted', { count: max })} `
+              + t('deep.count.help', { max, size: BATCH });
+          }
+        },
+      },
     });
     countInput.disabled = max < 1;
     const help = t('deep.count.help', { max, size: BATCH });

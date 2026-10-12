@@ -1514,7 +1514,7 @@ export function createDrawer({
         ? t(old ? 'gtk.postedOld' : 'gtk.postedOn', {
           date: formatDate(job.posted_at), age: relativeAge(job.posted_at),
         })
-        : t('card.noPostedDate'), !posted, old],
+        : t(job.provider === 'manual_import' ? 'gtk.postedManual' : 'card.noPostedDate'), !posted, old],
       [t('gtk.pay'), salary || t('drawer.tile.notShown'), !salary],
       ...(differs ? [[t('gtk.payDiffers'), differs, false, true]] : []),
       ...(schedule ? [[t('gtk.schedule'), schedule, false]] : []),

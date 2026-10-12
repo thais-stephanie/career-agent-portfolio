@@ -395,3 +395,36 @@ def test_a_found_on_date_is_said_apart_when_there_is_no_publication_date(
     )
     cards = str(page.evaluate("document.body.innerText"))
     assert "Found on" in cards, "the undated posting says when it was found, not posted"
+
+
+def test_a_posting_the_person_added_says_so_and_is_never_shown_as_recent(
+    page: Chrome, facts_server: dict[str, Any]
+) -> None:
+    conn = connect(facts_server["db"])
+    try:
+        conn.execute(
+            "UPDATE job SET provider = 'manual_import' WHERE id = ?",
+            (facts_server["ids"]["undated"],),
+        )
+    finally:
+        conn.close()
+    page.set_viewport(1440, 1000)
+    page.navigate(f"{facts_server['url']}/?{ALL}#jobs")
+    page.wait_for("document.querySelector('.card:not(.card--skeleton)')", message="the list")
+    cards = str(page.evaluate("document.getElementById('list').innerText"))
+    assert "publication date not stated" in cards and "Added by you on" in cards
+    assert (
+        page.evaluate(
+            "[...document.querySelectorAll('.fact--posted')].filter(n => /Added by you/.test(n.innerText)).length"
+        )
+        == 1
+    )
+    page.navigate(f"{facts_server['url']}/?job={facts_server['ids']['undated']}#jobs")
+    page.wait_for("document.querySelector('.drawer__panel .d-tile')", message="the drawer")
+    _tab(page, "prepare")
+    assert "Publication date not stated (added by you)" in _drawer(page)
+    page.evaluate("localStorage.setItem('careerAgent.locale.v1', 'pt-BR')")
+    page.reload()
+    page.wait_for("document.querySelector('.drawer__panel .d-tile')", message="the drawer in PT")
+    _tab(page, "prepare")
+    assert "Publicação não informada (adicionada por você)" in _drawer(page)

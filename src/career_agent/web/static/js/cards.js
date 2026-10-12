@@ -323,6 +323,11 @@ function postedLine(job) {
     const line = t('card.postedOn', { date, source });
     return days > 120 ? `${line} · ${relativeAge(job.posted_at)}` : line;
   }
+  // A posting the person added herself carries no source date: say so, and say
+  // it is hers, never as if it were recent.
+  if (job.provider === 'manual_import') {
+    return t('card.manualUndated', { date: formatDate(job.first_seen_at) });
+  }
   // No publication date: the date this computer FOUND it is said as that, apart.
   return job.first_seen_at
     ? `${source} · ${t('card.foundOn', { date: formatDate(job.first_seen_at) })}`

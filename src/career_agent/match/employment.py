@@ -170,7 +170,7 @@ _INTERNATIONAL: tuple[tuple[str, str], ...] = (
     (r"\beor\b", "EOR"),
     (r"contractors?\s+outside\s+(?:the\s+)?u\.?\s?s\.?", "contractors outside the US"),
     (r"outside\s+(?:of\s+)?the\s+united\s+states", "outside the United States"),
-    (r"outside\s+(?:of\s+)?the\s+u\.?s\.?", "outside the US"),
+    (r"outside\s+(?:of\s+)?the\s+u\.?s\b\.?", "outside the US"),
     (r"any\s+country", "any country"),
 )
 

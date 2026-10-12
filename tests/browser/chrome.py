@@ -424,7 +424,11 @@ class Chrome:
         if key not in self._KEYS:
             raise ValueError(f"{key!r} is not one of {sorted(self._KEYS)}")
         modifiers = 8 if shift else 0
-        for event in ("rawKeyDown", "keyUp"):
+        # Enter and Space ACTIVATE a button on the character event, which a
+        # rawKeyDown never produces; `keyDown` with text is keydown + keypress,
+        # what a keyboard sends. Tab and the arrows act on keydown alone.
+        down = "keyDown" if key in ("Enter", "Space") else "rawKeyDown"
+        for event in (down, "keyUp"):
             payload = {"type": event, "modifiers": modifiers, **self._KEYS[key]}
             if event == "keyUp":
                 payload.pop("text", None)

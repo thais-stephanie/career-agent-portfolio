@@ -38,18 +38,36 @@ export function createAgeControl() {
   const note = el('p', { className: 'fess__hint', text: t('age.help') });
   const root = el('div', { className: 'fess__age' }, [chips, undated, note]);
 
+  let turn = 0;
+  // One request at a time, in the order the choices were made: two in flight
+  // could be handled by the server in the opposite order.
+  let queue = Promise.resolve();
   async function change(patch) {
     const before = view;
+    const mine = ++turn;
     view = { ...view, ...patch };
     paint();
+    const previous = queue;
+    let release = () => {};
+    queue = new Promise((resolve) => { release = resolve; });
+    await previous;
     try {
-      view = await api.setViewPrefs(patch);
-      paint();
+      const saved = await api.setViewPrefs(patch);
+      // Only the newest choice may repaint: an older answer arriving late
+      // would put back a limit the person has already changed.
+      if (mine === turn) {
+        view = saved;
+        paint();
+      }
       // The list is read again; the stored scores are untouched.
       window.dispatchEvent(new CustomEvent('ca:view-prefs'));
     } catch {
-      view = before;
-      paint();
+      if (mine === turn) {
+        view = before;
+        paint();
+      }
+    } finally {
+      release();
     }
   }
 
@@ -66,8 +84,6 @@ export function createAgeControl() {
     root,
     sync(next) {
       if (!next) return;
-      // The demo's invented postings carry fixed dates; a limit would only empty it.
-      root.hidden = next.applies === false;
       view = { max_age_days: next.max_age_days ?? null, include_undated: Boolean(next.include_undated) };
       paint();
     },

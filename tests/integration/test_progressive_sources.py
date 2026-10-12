@@ -38,6 +38,7 @@ from tests.support import committed_config_dir
 from career_agent.config.search_config import load_search_config
 from career_agent.pipeline.demo_seed import seed_demo
 from career_agent.storage.db import connect, migrate
+from career_agent.web import view_prefs
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ServerConfig
 
@@ -108,6 +109,9 @@ def api(tmp_path_factory: pytest.TempPathFactory) -> JobsApi:
     migrate(conn)
     config, _ = load_search_config(CONFIG_DIR)
     seed_demo(conn, config, source=DEMO_FILE)
+    # The invented undated posting is a real undated posting: the age limit sets it
+    # aside by default, and these tests count the whole corpus.
+    view_prefs.write(conn, {"include_undated": True})
     _insert_run(
         conn,
         "collect-workable",

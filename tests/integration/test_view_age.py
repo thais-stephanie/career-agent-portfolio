@@ -17,6 +17,7 @@ that this machine collected again today.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from tests.integration.test_deep_api_provider import POSTINGS, api, call  # noqa: F401 - fixture
@@ -25,6 +26,8 @@ from tests.integration.test_local_profiles import install  # noqa: F401 - fixtur
 
 from career_agent.storage.db import connect
 from career_agent.web.server import ApiError
+
+DEMO_FILE = Path(__file__).resolve().parents[2] / "evaluation" / "demo" / "demo_postings.yaml"
 
 
 def days_ago(n: int) -> str:
@@ -188,22 +191,55 @@ def test_the_choice_belongs_to_the_profile_that_made_it(install) -> None:  # noq
     assert call(app_of(host), "GET", "/api/view-prefs")["max_age_days"] == 150
 
 
-def test_the_demo_corpus_is_never_emptied_by_the_age_limit(tmp_path) -> None:
+def test_the_demo_corpus_meets_the_same_limit_with_relative_dates(tmp_path) -> None:
+    """Nothing is exempted: the invented postings keep their AGE, so the limit
+    behaves as in a real profile. Only the one invented undated posting is set
+    aside, and it is counted."""
     from tests.integration.test_semantic_api import build
 
+    from career_agent.config.search_config import load_search_config
+    from career_agent.pipeline.demo_seed import seed_demo
     from career_agent.runtime.mode import RuntimeMode
 
     demo = build(tmp_path, RuntimeMode.DEMO)
-    view = call(demo, "GET", "/api/view-prefs")
-    assert view["applies"] is False and view["max_age_days"] is None
+    conn = connect(demo.config.db_path)
+    try:
+        config, _ = load_search_config(demo.config.config_dir)
+        seed_demo(conn, config, source=DEMO_FILE)
+    finally:
+        conn.close()
+    assert call(demo, "GET", "/api/view-prefs")["applies"] is True
+    answer = jobs(demo, include_ineligible=True, include_off_target=True)
+    assert answer["hidden_by_age"] == 0, "relative dates keep every dated demo posting young"
+    assert answer["hidden_undated"] == 1
 
 
 def test_a_posting_the_person_imported_is_never_hidden_for_having_no_date(aged) -> None:
     conn = connect(aged.config.db_path)
     try:
         conn.execute("UPDATE job SET provider = 'manual_import' WHERE external_id = 'p-27'")
+        imported = conn.execute("SELECT id FROM job WHERE external_id = 'p-27'").fetchone()[0]
+        other = conn.execute("SELECT id FROM job WHERE external_id = 'p-26'").fetchone()[0]
     finally:
         conn.close()
     answer = jobs(aged)
-    assert any(item["title"] and item["job_id"] for item in answer["items"])
-    assert answer["hidden_undated"] == 4, "four undated remain hidden; the imported one is kept"
+    shown = {item["job_id"]: item for item in answer["items"]}
+    assert imported in shown and other not in shown
+    assert shown[imported]["posted_at"] is None, "kept in view, never presented as recent"
+    assert shown[imported]["provider"] == "manual_import"
+    assert answer["hidden_undated"] == 4
+
+
+def test_the_deep_selection_follows_the_same_limit_as_the_list(aged) -> None:
+    """One criterion in two places: whatever Find jobs hides for age, the deep
+    reading neither counts nor selects, and its preview names the limit."""
+    call(aged, "POST", "/api/deep/provider", {"provider": "deepseek"})
+    narrow = call(aged, "GET", "/api/deep")
+    assert narrow["age_limit"] == {"days": 120, "include_undated": False}
+    listed = jobs(aged)["total"]
+    call(aged, "PATCH", "/api/view-prefs", {"max_age_days": None, "include_undated": True})
+    wide = call(aged, "GET", "/api/deep")
+    assert wide["age_limit"] == {"days": None, "include_undated": True}
+    assert wide["available"] > narrow["available"]
+    assert narrow["excluded_by_age"] == wide["available"] - narrow["available"]
+    assert jobs(aged)["total"] > listed, "the list widened by the same choice"

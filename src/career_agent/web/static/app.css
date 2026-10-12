@@ -11585,3 +11585,6 @@ table.jobs .cell__title-btn { max-width: 100%; }
   .tp-radio { flex-wrap: wrap; }
   .tp-radio .tp__pill { flex-basis: auto; margin-left: 28px; }
 }
+
+/* Form controls take the page font, never the browser default. */
+.tp textarea, .tp input, .tp select, .tp button { font-family: inherit; }

@@ -37,6 +37,7 @@ rebuilt from the committed YAML rather than shipped as a binary.
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -99,6 +100,10 @@ def _first_registered_provider() -> str:
     return sorted(names)[0]
 
 
+#: The day the invented corpus was written; its ages are measured from here.
+DEMO_TODAY = date(2026, 9, 4)
+
+
 def seed_demo(
     conn: sqlite3.Connection,
     config: Any,
@@ -109,13 +114,17 @@ def seed_demo(
     """Populate and score. Idempotent: running twice changes nothing."""
     postings, demo_provider = load_demo_postings(source)
 
-    # An unmarked database that receives the demo corpus IS a demo database: its
-    # fixed dates must not meet the age limit of a personal one.
-    from career_agent.runtime.mode import RuntimeMode, read_identity, stamp_identity
-
-    if read_identity(conn) is None:
-        with transaction(conn):
-            stamp_identity(conn, RuntimeMode.DEMO, "demo")
+    # The invented postings keep their AGE, not their calendar date: every
+    # publication date moves by the days between the corpus's own "today" and
+    # this machine's, so the demo meets the profile's age limit exactly as real
+    # postings do (nothing is exempted). Undated stays undated.
+    shift = max((datetime.now(UTC).date() - DEMO_TODAY).days, 0)
+    for posting in postings:
+        day = posting.get("posted_at")
+        if day:
+            posting["posted_at"] = (
+                date.fromisoformat(str(day)[:10]) + timedelta(days=shift)
+            ).isoformat()
 
     companies = CompanyRepo(conn)
     boards = SourceBoardRepo(conn)

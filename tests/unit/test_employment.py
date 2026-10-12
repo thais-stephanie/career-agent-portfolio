@@ -239,3 +239,32 @@ def test_the_domestic_quote_is_the_postings_own_words() -> None:
     reading = read_domestic_context(text)
     assert reading.evidence is not None
     assert reading.evidence in text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Open to candidates outside the U.S. We offer a 401(k) to US staff.",
+        "Hiring outside of the US is possible. 401(k) for US staff.",
+        "Applicants outside the US may apply. Benefits include a 401k.",
+    ],
+)
+def test_outside_the_us_is_international_language_in_every_spelling(text: str) -> None:
+    """The pattern carried a backspace byte where a word boundary belonged, so
+    `outside the U.S.` never matched and these read as domestic."""
+    assert read_domestic_context(text).context is DomesticContext.INTERNATIONAL_STATED
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Candidates must be located within the U.S. We offer a 401(k).",
+        "Open to residents within the US only. 401(k) available.",
+        "Our usual benefits include a 401(k) for people outside the usual hours.",
+    ],
+)
+def test_within_the_us_and_unrelated_words_do_not_read_as_international(text: str) -> None:
+    """`within the U.S.` is the opposite statement, and `usual` is not `US`.
+    Nothing here states worldwide hiring, and nothing is made eligible."""
+    reading = read_domestic_context(text)
+    assert reading.context is not DomesticContext.INTERNATIONAL_STATED
