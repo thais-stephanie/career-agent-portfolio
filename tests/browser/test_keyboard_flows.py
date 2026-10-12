@@ -9,13 +9,21 @@ on the element that has focus. Nothing is clicked. Synthetic people and a patche
 from __future__ import annotations
 
 import json
+import re
+import time
+import unicodedata
+from pathlib import Path
 from typing import Any
 
 from tests.browser.chrome import Chrome
 from tests.browser.home_helpers import open_home_past_setup
-from tests.browser.test_deep_panel_faults import BASE, PATCH
 from tests.browser.test_deep_panel import PREVIEW
+from tests.browser.test_deep_panel_faults import BASE, PATCH
 from tests.browser.test_deep_reading import deep_server  # noqa: F401 - fixture
+from tests.browser.test_resume_tailor import tailor_server  # noqa: F401 - fixture
+
+from career_agent.resume_doc.ats import read_docx, read_pdf
+from career_agent.resume_doc.export import find_browser
 
 ACTIVE = "document.activeElement"
 
@@ -193,16 +201,6 @@ def test_the_age_limit_is_operated_with_the_keyboard(
 
 
 # ------------------------------------------------------------- the Resume Tailor
-
-import re  # noqa: E402
-import unicodedata  # noqa: E402
-import time  # noqa: E402
-from pathlib import Path  # noqa: E402
-
-from tests.browser.test_resume_tailor import tailor_server  # noqa: E402, F401 - fixture
-
-from career_agent.resume_doc.ats import read_docx, read_pdf  # noqa: E402
-from career_agent.resume_doc.export import find_browser  # noqa: E402
 
 
 def _squash(text: str) -> str:
