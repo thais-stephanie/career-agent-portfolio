@@ -121,7 +121,9 @@ def test_a_card_says_posted_only_beside_a_published_date(
         text = str(page.evaluate(f"({footer})({json.dumps(job_id)})"))
         assert "Posted 10 Sep 2026" in text, (job_id, text)
     assert "Posted" not in undated, undated
-    assert "Sep 2026" not in undated, "a collection date was printed as the posting date"
+    assert "Found on 01 Sep 2026" in undated, (
+        "the collection date is said as found, never as posted"
+    )
     for text in (dated, undated):
         for plumbing in ("ATS structured", "Aggregator API", "How we read it"):
             assert plumbing not in text, text

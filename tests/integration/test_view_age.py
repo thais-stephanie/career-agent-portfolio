@@ -196,3 +196,14 @@ def test_the_demo_corpus_is_never_emptied_by_the_age_limit(tmp_path) -> None:
     demo = build(tmp_path, RuntimeMode.DEMO)
     view = call(demo, "GET", "/api/view-prefs")
     assert view["applies"] is False and view["max_age_days"] is None
+
+
+def test_a_posting_the_person_imported_is_never_hidden_for_having_no_date(aged) -> None:
+    conn = connect(aged.config.db_path)
+    try:
+        conn.execute("UPDATE job SET provider = 'manual_import' WHERE external_id = 'p-27'")
+    finally:
+        conn.close()
+    answer = jobs(aged)
+    assert any(item["title"] and item["job_id"] for item in answer["items"])
+    assert answer["hidden_undated"] == 4, "four undated remain hidden; the imported one is kept"

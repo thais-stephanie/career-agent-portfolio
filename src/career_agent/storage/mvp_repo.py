@@ -2519,7 +2519,10 @@ class ScoredJobQuery(_Repo):
         # a calendar day, so a posting published on the cutoff day is kept.
         if f.max_age_days is not None:
             undated = f" OR j{a}.posted_at IS NULL" if f.include_undated else ""
-            clauses.append(f"(j{a}.posted_at >= ?{undated}{tracked})")
+            # A posting the person pasted or imported themselves is theirs to
+            # keep in view: it has no source date because they brought it.
+            brought = f" OR j{a}.provider = '{ACCESS_METHOD_MANUAL}'"
+            clauses.append(f"(j{a}.posted_at >= ?{undated}{brought}{tracked})")
             params.append(_cutoff(self.now or now_utc(), f.max_age_days)[:10])
 
         # `first_seen_at` is NOT NULL on every row, so this needs no null guard
