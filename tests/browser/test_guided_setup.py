@@ -267,6 +267,10 @@ def test_find_jobs_runs_every_source_through_its_own_work_offline(
         "career_agent.web.source_refresh.employer_board_work",
         lambda app, families: recorder("employer-boards"),
     )
+    # Workable's step is built through its own door; left alone it reads the live feed.
+    monkeypatch.setattr(
+        "career_agent.web.auto_update.workable_work", lambda app: recorder("workable")
+    )
     monkeypatch.setattr(fresh.app.rescore, "start", lambda work, run_id: None)
 
     _open(page, fresh.base)
