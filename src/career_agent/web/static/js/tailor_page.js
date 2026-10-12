@@ -559,7 +559,9 @@ export function createTailorPage({
       el('h3', { className: 'tp__h3', text: [group.title, group.company].filter(Boolean).join(' · ') }),
       group.manual ? el('span', { className: 'tp__pill', text: t('tp.pasted') }) : null,
       el('ul', { className: 'tp-reslist' }, group.versions.map((v) => resumeRow(
-        v, v.label ? t('tp.res.versionLabel', { n: v.version_number, label: v.label }) : t('tp.res.version', { n: v.version_number }),
+        v, v.label
+          ? t('tp.res.versionLabel', { n: v.version_number, label: v.label })
+          : t('tp.res.version', { n: v.version_number }),
         [formatDate(v.updated_at), v.preferred ? t('tp.res.preferred') : null].filter(Boolean).join(' · '),
       ))),
     ].filter(Boolean));
