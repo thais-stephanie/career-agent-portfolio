@@ -20,12 +20,16 @@ from pathlib import Path
 
 import pytest
 from tests.integration.test_shared_catalogue import two_profiles  # noqa: F401 -- fixture
+from tests.support import settle
 
 from career_agent.domain.enums import PipelineRunStatus
 from career_agent.sources import public_health
 from career_agent.sources.progress import RefreshState, read_progress
 from career_agent.storage.db import connect, migrate, transaction
 from career_agent.storage.repositories import PipelineRunRepo
+
+pytestmark = pytest.mark.usefixtures("no_live_workable")
+
 
 PRIVATE_QUERY = "Synthetic Private Role Phrase"
 
@@ -484,6 +488,6 @@ def test_a_source_a_whole_check_has_not_reached_is_waiting_not_never_run(api) ->
         assert [r for r in rows if r["needs_attention"]] == [], "waiting is nothing to fix"
     finally:
         release.set()
-        api.retrieval.join(10)
+        settle(api.retrieval)
     after = _states(api)
     assert {after[sid] for sid in never} == {"NOT_STARTED"}, "nothing ran: never run again"

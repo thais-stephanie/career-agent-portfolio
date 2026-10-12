@@ -18,6 +18,8 @@ from career_agent.storage.db import connect, migrate, transaction
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ServerConfig
 
+pytestmark = pytest.mark.usefixtures("no_live_workable")
+
 
 def _profile(tmp_path: Path, name: str) -> JobsApi:
     config_dir = tmp_path / name / "config"

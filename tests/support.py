@@ -119,3 +119,32 @@ def career_profile(tmp_path: Path, pid: str, label: str) -> tuple[object, object
         tailor_home=str(base / "tailor"),
     )
     return profile, JobsApi(ServerConfig(db_path=db, config_dir=config, port=0), quiet=True)
+
+
+def settle(runner: object, *, within: float = 30.0) -> dict | None:
+    """Wait until the retrieval run has ENDED, and say where it is stuck if not.
+
+    The tests used to `join(10)` and read the state afterwards. `join` returns
+    when its time is up whether or not the run ended, so a run that was still
+    working was read as a finished one. This waits for the condition itself,
+    with `within` only as the safety limit, and fails naming the step and the
+    thread's own stack instead of letting an assertion about something else
+    explain it.
+    """
+    import sys
+    import time
+    import traceback
+
+    deadline = time.monotonic() + within
+    while runner.running and time.monotonic() < deadline:  # type: ignore[attr-defined]
+        time.sleep(0.02)
+    if not runner.running:  # type: ignore[attr-defined]
+        runner.join(5)  # type: ignore[attr-defined]  # only its closing steps are left
+    thread = runner._thread  # type: ignore[attr-defined]
+    if thread is not None and thread.is_alive():
+        frame = sys._current_frames().get(thread.ident)
+        where = "".join(traceback.format_stack(frame)[-6:]) if frame else "no stack"
+        snapshot = runner.snapshot()  # type: ignore[attr-defined]
+        step = snapshot.get("current") if snapshot else None
+        raise AssertionError(f"the run did not end within {within}s; step={step!r}; {where}")
+    return runner.snapshot()  # type: ignore[attr-defined,no-any-return]

@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from tests.support import committed_config_dir
+from tests.support import committed_config_dir, settle
 
 from career_agent.clock import new_id
 from career_agent.runtime import RuntimeMode, stamp_identity
@@ -23,6 +23,8 @@ from career_agent.storage.db import connect, migrate, transaction
 from career_agent.storage.workspace_repo import LAST_REVIEWED_AT, CandidateStateRepo
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ServerConfig
+
+pytestmark = pytest.mark.usefixtures("no_live_workable")
 
 
 def _stamp(hours_ago: float) -> str:
@@ -123,8 +125,7 @@ def _run(api: JobsApi, route: str) -> dict:
     answer = api.handle_api("POST", f"/api/sources/{route}", {}, {})
     if answer.get("started") is False:
         return answer
-    api.retrieval.join(10)
-    snapshot = api.retrieval.snapshot()
+    snapshot = settle(api.retrieval)
     assert snapshot is not None
     return snapshot
 
@@ -242,7 +243,7 @@ def test_a_run_keeps_its_total_while_the_live_due_count_moves(api, seven, monkey
     assert summary["due"] == 0
     assert api.retrieval.snapshot()["boards_total"] == 2
     gate.set()
-    api.retrieval.join(10)
+    settle(api.retrieval)
     assert api.retrieval.snapshot()["boards_total"] == 2
 
 
@@ -349,7 +350,7 @@ def test_a_cancelled_run_is_not_the_latest_refresh(api, seven, monkeypatch):
     assert recorder.started.wait(5)
     api.retrieval.cancel()
     gate.set()
-    api.retrieval.join(10)
+    settle(api.retrieval)
     assert _new_card(api) == 4
 
 

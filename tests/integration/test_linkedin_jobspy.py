@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tests.support import committed_config_dir
+from tests.support import committed_config_dir, settle
 
 from career_agent.discovery.plan import Query, QueryTerm
 from career_agent.discovery.scopes import MarketScope
@@ -36,6 +36,9 @@ from career_agent.storage.db import connect, migrate, transaction
 from career_agent.storage.workspace_repo import CandidateStateRepo, ensure_candidate
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ApiError, ServerConfig
+
+pytestmark = pytest.mark.usefixtures("no_live_workable")
+
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "providers" / "linkedin"
 RECORDS = json.loads((FIXTURE / "search.json").read_text(encoding="utf-8"))
@@ -186,7 +189,7 @@ def test_find_jobs_runs_linkedin_only_after_the_opt_in(tmp_path: Path, monkeypat
     monkeypatch.setattr(api.rescore, "start", lambda work, run_id: None)
 
     api.handle_api("POST", "/api/sources/refresh-all", {}, {})
-    api.retrieval.join(10)
+    settle(api.retrieval)
     assert "collect-linkedin" not in ran
 
     api.handle_api(
@@ -197,7 +200,7 @@ def test_find_jobs_runs_linkedin_only_after_the_opt_in(tmp_path: Path, monkeypat
     )
     ran.clear()
     api.handle_api("POST", "/api/sources/refresh-all", {}, {})
-    api.retrieval.join(10)
+    settle(api.retrieval)
     assert ran.count("collect-linkedin") == 1
 
 
