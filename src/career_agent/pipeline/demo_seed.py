@@ -109,6 +109,14 @@ def seed_demo(
     """Populate and score. Idempotent: running twice changes nothing."""
     postings, demo_provider = load_demo_postings(source)
 
+    # An unmarked database that receives the demo corpus IS a demo database: its
+    # fixed dates must not meet the age limit of a personal one.
+    from career_agent.runtime.mode import RuntimeMode, read_identity, stamp_identity
+
+    if read_identity(conn) is None:
+        with transaction(conn):
+            stamp_identity(conn, RuntimeMode.DEMO, "demo")
+
     companies = CompanyRepo(conn)
     boards = SourceBoardRepo(conn)
     raws = JobRawRepo(conn)

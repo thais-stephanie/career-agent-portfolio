@@ -138,7 +138,16 @@ def test_every_accepted_parameter_is_covered_by_a_test_here() -> None:
     can stop working in silence. The presentation and paging keys are named
     explicitly rather than skipped by pattern, so adding one is a decision."""
     # `narrowings=later` only decides when the "N more" counts are sent.
-    presentation = {"sort", "direction", "limit", "offset", "group_duplicates", "narrowings"}
+    # view_rev carries no filter: it only tells the page the age limit moved.
+    presentation = {
+        "sort",
+        "direction",
+        "limit",
+        "offset",
+        "group_duplicates",
+        "narrowings",
+        "view_rev",
+    }
     # THE SOFT PAIR IS NOT A FILTER, and belongs here rather than in
     # `NARROWING` for the reason that table exists: every entry in it is
     # asserted to satisfy `0 < count < whole`, and these two are built so that

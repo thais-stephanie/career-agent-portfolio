@@ -46,6 +46,9 @@ def app(tmp_path):
                 f"{WORK} Team {n}.",
                 "Remote",
             )
+    # The default age limit hides undated postings; these are recent.
+    conn.execute("UPDATE job SET posted_at = date('now', '-3 days')")
+    conn.commit()
     rescore(conn, app.search_config())
     conn.close()
     return app

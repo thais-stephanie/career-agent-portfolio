@@ -2405,6 +2405,8 @@ const EN = {
   'tp.start.noneMade': 'You have not made a resume for a job yet.',
   'tp.versionsCount': '{n} versions',
   'tp.versionsOne': '1 version',
+  'tp.res.version': 'V{n}',
+  'tp.res.versionLabel': 'V{n}: {label}',
   'tp.pasted': 'Ad pasted by you',
   'tp.start.evidence': 'Your experience',
   'tp.start.evidenceWaiting': '{n} statements are confirmed. {waiting} more are waiting for your review, '
@@ -7529,6 +7531,8 @@ const PT_BR = {
   'tp.start.noneMade': 'Você ainda não criou um currículo para uma vaga.',
   'tp.versionsCount': '{n} versões',
   'tp.versionsOne': '1 versão',
+  'tp.res.version': 'V{n}',
+  'tp.res.versionLabel': 'V{n}: {label}',
   'tp.pasted': 'Anúncio colado por você',
   'tp.start.evidence': 'Sua experiência',
   'tp.start.evidenceWaiting': '{n} afirmações estão confirmadas. Outras {waiting} esperam a sua revisão, e só '

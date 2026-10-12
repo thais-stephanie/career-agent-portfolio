@@ -950,6 +950,8 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
         "user_hidden_only": "true",
         "group_duplicates": "true",
         "posted_within_days": "365",
+        # Only re-keys the page cache when the age limit moves; no filter.
+        "view_rev": "3",
         # -- the twelve section 16 listed as absent ---------------------
         "country": "BR",
         "region": "LATAM",
