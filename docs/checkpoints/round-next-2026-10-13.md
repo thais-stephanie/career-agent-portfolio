@@ -45,22 +45,25 @@ machine, a fresh process each time (second process, disk cache warm):
 Cold disk (the first process after building the index): Home 10.7 s, deep
 counts 21.6 s; the panel itself 0.65 s.
 
-**Optional preferences only add** (ADR-0036, readers-11, schema 14): paid by
-pieces of evidence, so a small selection fills its part when the posting shows
-enough and naming one more phrase never lowers a posting; tools read where the
-work is (held at half when the wanted work is not a central duty, nothing in a
-sentence about avoided work). On the 2026-09-27 benchmark: false positives at
-GOOD+ 19 / 10 (dev / holdout) against 18 / 9 before this round and 31 / 16 for
-the first version of this branch. **The contractor default** and **USD pay
+**Optional preferences only add** (ADR-0036, readers-11, schema 14, revised
+with the owner's decisions A1 + B1 on 2026-10-13): each preference the posting
+shows is one piece at the strength of where it shows (duty, requirement or
+passing mention), so repetition and splitting the same content into items add
+nothing; one clear central work match completes "Work you want"; once a
+component has a preference, naming more never lowers a posting, while the
+first preference of an empty component brings a new criterion into the %
+(said in "How this score works"); tools read where the work is (held at half
+when the wanted work is neither a duty nor a requirement, nothing in a
+sentence about avoided work). On the 2026-09-27 benchmark, EXPLORATORY because
+its holdout was consulted while choosing: GOOD+ false positives 22 / 10 (dev /
+holdout), valid kept 65 / 28. **The contractor default** and **USD pay
 periods** (same ADR); the Contract filter reads the engagement (stated or the
 default, `job_match.engagement`), the Hours filter only full-time and
 part-time. **Explanations**: the
 drawer lists, per kind of preference, what was marked, what the ad mentions and
 what it does not; "These lower the %" holds only what took points (a level, pay
 below target, an unwanted contract or way of working, an avoid phrase). A score
-made by earlier rules says so. These benchmark figures are EXPLORATORY: the holdout was consulted while
-the variants were being chosen, so they are not an independent final
-validation.
+made by earlier rules says so.
 
 **Find jobs**: the search sits on the list's centred column on wide screens; a
 header sorts ascending, descending, then back to best match, over the whole

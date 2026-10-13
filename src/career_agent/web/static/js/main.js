@@ -45,7 +45,6 @@ import { evidencePage } from './evidence_page.js';
 import { experienceView } from './experience.js';
 import { createDaily } from './daily.js';
 import { createDeep } from './deep.js';
-import { WORK_SLOTS } from './detail.js';
 import { createHome } from './home.js';
 import { recalcButton } from './recalc.js';
 import { createSourcesPanel } from './sources.js';
@@ -273,10 +272,10 @@ function paintEvalMode() {
   const body = document.getElementById('eval-mode-body');
   if (!summary || !body) return;
   summary.textContent = t('evalMode.summary');
-  const rows = ['measures', 'uses', 'notUsed', 'kinds', 'limits', 'focused', 'stale'];
+  const rows = ['measures', 'uses', 'notUsed', 'kinds', 'limits', 'focused', 'first', 'stale'];
   body.replaceChildren(...rows.map((key) => el('p', { className: 'evalmode__row' }, [
     el('strong', { text: `${t(`evalMode.${key}.head`)} ` }),
-    el('span', { text: t(`evalMode.${key}.text`, { slots: WORK_SLOTS }) }),
+    el('span', { text: t(`evalMode.${key}.text`) }),
   ])));
 }
 

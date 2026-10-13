@@ -27,10 +27,11 @@ Formula changes alone only redistribute evidence that was found. Semantic interp
 - **Unconfigured is not unmatched.**
   - A phrase component with no configured phrase leaves the denominator (`configured: false`, max 0).
   - A configured component that found nothing stays at 0 of its max.
+  - So naming the FIRST phrase of a component brings a new criterion into the percentage and can move a score either way (owner, 2026-10-13). From the first phrase on, naming more never lowers a score.
 - **The strongest few pay.**
-  - Work pays its 4 strongest distinct signals, tools and methods their 3 strongest, other desired signals their 3 strongest. At full strength, N central matches fill the component.
-  - N is fixed by meaning, not fitted to a corpus.
-  - N is never more than the number of phrases the person configured: an intent of one phrase is filled by that phrase. More matches add nothing, so verbosity and keyword stuffing buy nothing.
+  - Work pays its 4 strongest distinct signals, tools and methods their 3 strongest, other desired signals their 3 strongest. N is fixed by meaning, not fitted to a corpus, and does not depend on how many phrases were configured.
+  - Each phrase the posting shows is ONE piece, at the strength of where it shows best: a duty in the role's own section in full, a requirement or an incidental mention at its prominence multiplier. Repeating a phrase, or splitting the same content into more items, adds nothing (readers-11, 2026-10-13).
+  - One clear central match of the work you want (a duty in the role's own section, or a strong semantic finding) completes "Work you want" on its own (owner, 2026-10-13). Tools need 3 distinct tools, other signals 3.
 - **One sentence fills at most half a component, and only one of that through AI.**
   - Through literal phrases, one sentence pays for at most 2 of the 4 work slots or 2 of the 3 tool slots, strongest first.
   - Through a semantic finding, one sentence pays for one intent item.
@@ -38,7 +39,7 @@ Formula changes alone only redistribute evidence that was found. Semantic interp
   - The study proposed "one sentence pays once". Implemented literally, it scored the demo's canonical fit posting MODERATE: its bullets are compound ("Build workflow automation and REST API integrations"), and each states two activities.
   - Relaxing the rule for semantic findings as well had a measured cost: an AWS DevOps posting labelled a non-match rose to GOOD under both DeepSeek and Claude Code. Providers cite one sentence for several items more loosely than postings state them.
   - So the relaxation applies to the person's literal phrases only.
-- **Tools read where the work is (2026-10-13, readers-11, ADR-0036).** Where the person named work and none of it is a central duty of the posting, the tools together earn at most half their component; a tool in a sentence about work the person asked to avoid earns nothing; a person who named no work has no limit. It replaces the guard that opened in proportion to the work found. Components are paid by pieces of evidence, so a small selection can fill its part and naming one more phrase never lowers a posting.
+- **Tools read where the work is (2026-10-13, readers-11, ADR-0036).** Where the person named work and none of it is a duty or a requirement of the posting, the tools together earn at most half their component; a tool in a sentence about work the person asked to avoid earns nothing; a person who named no work has no limit (naming the first work phrase brings that criterion in, the accepted first-phrase transition). It replaces the guard that opened in proportion to the work found. Measured on the 2026-09-27 benchmark, exploratory because its holdout was consulted while choosing: GOOD+ false positives 22 / 10 (dev / holdout), valid kept 65 / 28 (ADR-0036).
 - **Seniority follows the preferred levels.**
 
   | Level in the posting | Share of the component |

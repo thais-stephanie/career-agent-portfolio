@@ -47,10 +47,6 @@ import { deepSection } from './deep.js';
 const GATE_ORDER = ['geography', 'work_authorization', 'worksite', 'travel', 'clearance', 'credential', 'requirement'];
 const PREP_STORE = 'careerAgent.prep.read.v1';
 
-/** Work items the score pays at most: COUNTED_SIGNALS["responsibilities"]
- * in match/score.py (a unit test keeps the two equal). */
-export const WORK_SLOTS = 4;
-
 /** The exact question behind a component the person has not answered. */
 const ASK = {
   responsibilities: 'limits.ask.responsibilities',
@@ -937,11 +933,11 @@ export function createDrawer({
     if (work) {
       const central = (work.contributions || [])
         .filter((c) => c.prominence === 'PRIMARY' && Number(c.points) > 0).length;
-      if (central < WORK_SLOTS) {
+      if (central === 0) {
         rows.push({
           kind: 'reader',
-          title: t('limits.focused.title', { n: central, slots: WORK_SLOTS }),
-          text: t('limits.focused.text', { slots: WORK_SLOTS }),
+          title: t('limits.focused.title'),
+          text: t('limits.focused.text'),
         });
       }
     }

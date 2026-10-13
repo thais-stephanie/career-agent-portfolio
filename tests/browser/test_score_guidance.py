@@ -36,7 +36,9 @@ def test_the_list_names_its_mode_and_explains_it_on_request(
     body = str(page.evaluate("document.getElementById('eval-mode-body').innerText"))
     assert "not a chance of being hired" in body
     assert "does not change this score" in body
-    assert "up to 4 pieces of evidence of the work" in body
+    assert "completes that part" in body and "adds nothing" in body
+    # The first choice in a part brings a new question into the % (owner, 2026-10-13).
+    assert "Your first choice in a part:" in body and "never lowers a score" in body
     # Three different answers, kept apart; and when a score is out of date.
     assert "never inside it" in body and "marked as earlier" in body
     # It promises no improvement it cannot deliver.
@@ -62,17 +64,17 @@ def test_the_drawer_says_what_limits_this_score_and_whose_gap_it_is(
     deep_server: dict,  # noqa: F811
 ) -> None:
     _jobs(page, deep_server["url"])
-    # A posting where fewer than four kinds of work read as central: the
-    # one the limits section is about. With four, it rightly says nothing.
+    # A posting where none of the work listed reads as a duty of the role:
+    # the one the limits section is about. With one, it rightly says nothing.
     focused = page.evaluate(
         "(async () => { for (const n of document.querySelectorAll('[data-job-id]')) {"
         " const j = await (await fetch('/api/jobs/' + n.dataset.jobId)).json();"
         " const w = (j.components || []).find((c) => c.component_id === 'responsibilities');"
         " const central = w ? w.contributions"
-        ".filter((c) => c.prominence === 'PRIMARY' && c.points > 0).length : 4;"
-        " if (central < 4) return n.dataset.jobId; } return null; })()"
+        ".filter((c) => c.prominence === 'PRIMARY' && c.points > 0).length : 1;"
+        " if (central === 0) return n.dataset.jobId; } return null; })()"
     )
-    assert focused, "the demo list holds a posting with fewer than four central kinds of work"
+    assert focused, "the demo list holds a posting with no central kind of work"
     page.evaluate(f"document.querySelector('[data-job-id=\"{focused}\"]').click()")
     page.wait_for(
         "Array.from(document.querySelectorAll('.d-sec__head'))"
@@ -88,7 +90,7 @@ def test_the_drawer_says_what_limits_this_score_and_whose_gap_it_is(
     )
     assert "reader" in kinds, kinds
     text = str(page.evaluate(f"{section}.innerText"))
-    assert "the % counts up to 4 pieces" in text and "not of your profile" in text
+    assert "reads as a duty of this role" in text and "not of your profile" in text
     assert "Your history and evidence are not part of this %" in text
     if SHOTS:
         page.screenshot(Path(SHOTS) / "guidance-drawer.png")

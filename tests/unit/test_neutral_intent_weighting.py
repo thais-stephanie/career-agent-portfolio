@@ -11,7 +11,7 @@ import yaml
 from career_agent.config.search_config import SearchConfig
 from career_agent.config.setup import Answers, apply_answers
 from career_agent.match.engine import JobFacts, match_job
-from career_agent.match.score import COUNTED_SIGNALS
+from career_agent.match.score import CENTRAL_PIECES, COUNTED_SIGNALS
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -48,10 +48,12 @@ def test_equal_bounded_allocation_and_real_contribution(category, field, count):
     scored = next(c for c in result.components if c.component_id == category)
     assert scored.points > 0
     assert scored.points <= scored.max_points
-    # Each phrase found adds a fixed share; COUNTED_SIGNALS of them fill the
-    # component, and fewer phrases named cannot fill it (readers-11).
+    # Each phrase found adds a fixed share and COUNTED_SIGNALS of them fill
+    # the component; one central duty completes "Work you want" on its own
+    # (CENTRAL_PIECES, owner decision 2026-10-13).
     fills = COUNTED_SIGNALS[category]
-    assert scored.points == pytest.approx(scored.max_points * min(count, fills) / fills)
+    pieces = CENTRAL_PIECES.get(category, 1)
+    assert scored.points == pytest.approx(scored.max_points * min(count * pieces, fills) / fills)
     reverse, _ = apply_answers(starter(), Answers(**{field: tuple(reversed(phrases))}))
     assert reverse == config
     again, _ = apply_answers(yaml.safe_load(yaml.safe_dump(config)), Answers(**{field: phrases}))

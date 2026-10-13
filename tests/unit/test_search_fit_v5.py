@@ -25,7 +25,7 @@ import pytest
 from tests.support import committed_config_dir
 
 from career_agent.config.search_config import SearchConfig
-from career_agent.domain.enums import AnalysisConfidence, Seniority, SenioritySource
+from career_agent.domain.enums import AnalysisConfidence, Prominence, Seniority, SenioritySource
 from career_agent.domain.matching import (
     DEFAULT_SENIORITY,
     SemanticEvidence,
@@ -171,22 +171,14 @@ def test_a_search_with_no_tools_is_not_penalised_for_having_none() -> None:
 
 def test_only_the_strongest_few_distinct_signals_pay() -> None:
     config = config_with()
-    body = responsibilities(
-        "You will reconcile invoices",
-        "You will run payroll",
-        "You will onboard vendors",
-        "You will prepare audits",
-        "You will track budgets",
-        "You will own the month end close",
-    )
-    components, _, _ = scored(config, body)
-    work = components["responsibilities"]
-    counted = [c for c in work.contributions if c.counted]
-    extra = [c for c in work.contributions if not c.counted]
-    assert len(counted) == COUNTED_SIGNALS["responsibilities"] == 4
-    assert len(extra) == 2
+    components, _, _ = scored(config, responsibilities(WORK_LINE, *TOOL_LINES))
+    tools = components["technologies"]
+    counted = [c for c in tools.contributions if c.counted]
+    extra = [c for c in tools.contributions if not c.counted]
+    assert len(counted) == COUNTED_SIGNALS["technologies"] == 3
+    assert len(extra) == 1
     assert all(c.points == 0 and c.uncounted_reason for c in extra)
-    assert work.points == pytest.approx(25.0)
+    assert tools.points == pytest.approx(20.0)
 
 
 def test_four_central_matches_fill_the_work_component() -> None:
@@ -203,25 +195,20 @@ def test_four_central_matches_fill_the_work_component() -> None:
 
 def test_a_compound_bullet_pays_for_both_of_its_activities() -> None:
     config = config_with()
-    body = responsibilities("You will reconcile invoices and run payroll every week")
-    components, _, _ = scored(config, body)
-    work = components["responsibilities"]
-    assert [c.counted for c in work.contributions] == [True, True]
-    assert work.points == pytest.approx(2 * 25.0 / 4)
+    body = responsibilities(WORK_LINE, "Use ledgerbook and gridsheet every week")
+    tools = scored(config, body)[0]["technologies"]
+    assert [c.counted for c in tools.contributions] == [True, True]
+    assert tools.points == pytest.approx(2 * 20.0 / 3)
 
 
 def test_one_sentence_never_fills_a_component_on_its_own() -> None:
-    """The stuffed line: every desired activity in one sentence."""
+    """The stuffed line: every tool in one sentence pays for half of them."""
     config = config_with()
-    body = responsibilities(
-        "You will reconcile invoices, run payroll, onboard vendors, prepare audits,"
-        " track budgets and own the month end close"
-    )
-    components, _, _ = scored(config, body)
-    work = components["responsibilities"]
-    assert [c.counted for c in work.contributions].count(True) == 2
-    assert work.points == pytest.approx(25.0 / 2)
-    assert all(c.uncounted_reason for c in work.contributions if not c.counted)
+    body = responsibilities(WORK_LINE, "Use ledgerbook, gridsheet, bankfeed and taxpal")
+    tools = scored(config, body)[0]["technologies"]
+    assert [c.counted for c in tools.contributions].count(True) == 2
+    assert tools.points == pytest.approx(2 * 20.0 / 3)
+    assert all(c.uncounted_reason for c in tools.contributions if not c.counted)
 
 
 def test_repeating_a_phrase_buys_nothing() -> None:
@@ -281,19 +268,64 @@ def test_a_heavier_preference_does_not_lower_the_others() -> None:
 
 
 def test_a_small_selection_fills_its_part_when_the_posting_shows_enough() -> None:
-    """ONE wanted activity, a duty in four bullets of the role section, fills
-    the work component; said once, it is one piece of four."""
+    """ONE wanted activity that is a clear central duty completes the work
+    component (owner, 2026-10-13); a requirement or a passing mention is one
+    piece at its own strength, so the three stay apart."""
     config = config_with(work={"w_invoices": "reconcile invoices"})
-    four = responsibilities(
+    multipliers = config.scoring.components.responsibilities.prominence_multipliers
+    piece = 25.0 / COUNTED_SIGNALS["responsibilities"]
+    central = scored(config, responsibilities(WORK_LINE))[0]["responsibilities"]
+    required = scored(config, "Requirements\n- Able to reconcile invoices\n")[0]["responsibilities"]
+    passing = scored(config, "We sometimes reconcile invoices.")[0]["responsibilities"]
+    assert central.points == pytest.approx(25.0)
+    assert required.points == pytest.approx(piece * multipliers[Prominence.SECONDARY])
+    assert passing.points == pytest.approx(piece * multipliers[Prominence.INCIDENTAL])
+    assert central.fills_at == COUNTED_SIGNALS["responsibilities"]
+
+
+def test_a_concise_posting_and_the_same_content_split_score_the_same() -> None:
+    """Splitting the same content into more items, or repeating a preference,
+    adds nothing: a clear central match is complete in one line."""
+    config = config_with(work={"w_invoices": "reconcile invoices", "w_payroll": "run payroll"})
+    concise = responsibilities("Reconcile invoices and run payroll, using ledgerbook and gridsheet")
+    split = responsibilities(
         "Reconcile invoices for the US entity",
         "Reconcile invoices for the EU entity",
-        "Reconcile invoices against bank feeds",
         "Reconcile invoices at month end",
+        "Run payroll every two weeks",
+        "Run payroll for contractors",
+        "Use ledgerbook",
+        "Use ledgerbook for the close",
+        "Use gridsheet",
     )
-    assert scored(config, four)[0]["responsibilities"].points == pytest.approx(25.0)
-    once = scored(config, responsibilities(WORK_LINE))[0]["responsibilities"]
-    assert once.points == pytest.approx(25.0 / COUNTED_SIGNALS["responsibilities"])
-    assert once.fills_at == COUNTED_SIGNALS["responsibilities"]
+    a, _, score_a = scored(config, concise)
+    b, _, score_b = scored(config, split)
+    assert score_a == score_b
+    for key in ("responsibilities", "technologies"):
+        assert a[key].points == pytest.approx(b[key].points)
+
+
+def test_a_repeated_requirement_is_still_one_requirement() -> None:
+    config = config_with(work={"w_invoices": "reconcile invoices"})
+    once = "Requirements\n- Able to reconcile invoices\n"
+    many = "Requirements\n" + "".join(f"- Able to reconcile invoices ({n})\n" for n in range(6))
+    assert scored(config, once)[0]["responsibilities"].points == pytest.approx(
+        scored(config, many)[0]["responsibilities"].points
+    )
+
+
+def test_the_first_preference_brings_a_criterion_and_more_only_add() -> None:
+    """Owner, 2026-10-13: a component with no preference stays out of the
+    percentage, so naming its FIRST preference brings a new criterion in and
+    may move the score either way. From the first on, more only add."""
+    body = responsibilities("Use ledgerbook")
+    none = scored(config_with(work={}), body)[2]
+    first = scored(config_with(work={"w_invoices": "reconcile invoices"}), body)[2]
+    more = scored(
+        config_with(work={"w_invoices": "reconcile invoices", "w_payroll": "run payroll"}), body
+    )[2]
+    assert first < none  # the new criterion, not shown by this posting
+    assert more >= first
 
 
 def test_a_passing_mention_repeated_is_still_one_piece() -> None:
@@ -538,16 +570,18 @@ def test_one_sentence_pays_for_only_one_semantic_finding() -> None:
     """Providers cite one sentence for several items far more loosely than a
     posting states them; an interpretation of a sentence pays once."""
     config = config_with()
-    body = responsibilities("Keep the books balanced and the team paid.")
     quote = "Keep the books balanced and the team paid."
     found = evidence(
-        SemanticMatch("responsibilities", "w_invoices", "W1", "strong", quote),
-        SemanticMatch("responsibilities", "w_payroll", "W2", "strong", quote),
+        SemanticMatch("responsibilities", "w_invoices", "W1", "partial", quote),
+        SemanticMatch("responsibilities", "w_payroll", "W2", "partial", quote),
     )
-    components, _, _ = scored(config, body, semantic=found)
+    components, _, _ = scored(config, "We " + quote.lower(), semantic=found)
     work = components["responsibilities"]
+    multiplier = config.scoring.components.responsibilities.prominence_multipliers[
+        Prominence.INCIDENTAL
+    ]
     assert [c.counted for c in work.contributions].count(True) == 1
-    assert work.points == pytest.approx(25.0 / 4)
+    assert work.points == pytest.approx(25.0 / 4 * multiplier)
 
 
 def test_two_fragments_of_one_sentence_are_one_sentence() -> None:
@@ -566,22 +600,23 @@ def test_two_fragments_of_one_sentence_are_one_sentence() -> None:
 def test_a_phrase_found_again_later_pays_from_its_own_sentence() -> None:
     config = config_with()
     body = responsibilities(
-        "You will reconcile invoices and run payroll and onboard vendors",
-        "Every Friday you will onboard vendors",
+        WORK_LINE,
+        "Use ledgerbook and gridsheet and bankfeed",
+        "Every Friday use bankfeed",
     )
-    components, _, _ = scored(config, body)
-    work = components["responsibilities"]
-    assert [c.counted for c in work.contributions].count(True) == 3
-    vendors = next(c for c in work.contributions if c.signal_id == "w_vendors")
-    assert vendors.counted and "Friday" in (vendors.quote or "")
+    tools = scored(config, body)[0]["technologies"]
+    assert [c.counted for c in tools.contributions].count(True) == 3
+    bank = next(c for c in tools.contributions if c.signal_id == "t_bank")
+    assert bank.counted and "Friday" in (bank.quote or "")
 
 
 def test_capped_means_the_component_overflowed_not_that_a_rule_refused() -> None:
     config = config_with()
-    body = responsibilities("You will reconcile invoices and run payroll and onboard vendors")
-    components, _, _ = scored(config, body)
-    work = components["responsibilities"]
-    assert work.points < work.max_points and work.capped is False
+    body = responsibilities(WORK_LINE, "Use ledgerbook and gridsheet and bankfeed")
+    tools = scored(config, body)[0]["technologies"]
+    assert tools.points < tools.max_points and tools.capped is False
+    work = scored(config, responsibilities(WORK_LINE, "run payroll"))[0]["responsibilities"]
+    assert work.points == pytest.approx(work.max_points) and work.capped is False
 
 
 def test_a_finding_cannot_pay_in_a_sentence_the_phrases_already_used() -> None:

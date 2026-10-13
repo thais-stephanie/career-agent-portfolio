@@ -1598,9 +1598,14 @@ const EN = {
   'evalMode.limits.text': 'work described in words unlike yours can be missed unless Smart matching was run, '
     + 'and postings with little text are scored on what little they say.',
   'evalMode.focused.head': 'Why few jobs reach 90%:',
-  'evalMode.focused.text': 'the % counts up to {slots} pieces of evidence of the work you listed: different kinds '
-    + 'of work, or one kind the ad gives as a duty in several bullets. A role that does one of them can fit you and '
-    + 'still score lower; read its details.',
+  'evalMode.focused.text': 'one clear match of the work you listed, given as a duty of the role, '
+    + 'completes that part. The same work only as a requirement, or in passing, counts less, and repeating '
+    + 'it or splitting it into more items adds nothing. Tools, level, pay and way of working make up the '
+    + 'rest, so a role can fit you and still score lower; read its details.',
+  'evalMode.first.head': 'Your first choice in a part:',
+  'evalMode.first.text': 'a part where you chose nothing (work, tools or other signals) is left out of the %. '
+    + 'Your first choice there brings a new question into the %, so scores can move either way. After that, '
+    + 'adding more choices never lowers a score.',
   'evalMode.stale.head': 'When a score is out of date:',
   'evalMode.stale.text': 'after you change a preference this % reads, or when a posting\'s text changes, '
     + 'the job keeps its earlier score, marked as earlier, until you recalculate.',
@@ -1612,9 +1617,9 @@ const EN = {
   'limits.ask.seniority': 'Which levels are you looking for? (Settings, Search)',
   'limits.ask.compensation': 'What minimum pay and which kind of contract do you accept? (Settings, Search)',
   'limits.ask.workModel': 'How do you want to work: remote, hybrid or on site? (Settings, Search)',
-  'limits.focused.title': '{n} of your kinds of work read as central here; the % counts up to {slots} pieces',
-  'limits.focused.text': 'A role focused on one or two of them can suit you and still stay below 70. Work described '
-    + 'in other words may not be recognised: that is a limit of this reading, not of your profile.',
+  'limits.focused.title': 'None of the work you listed reads as a duty of this role',
+  'limits.focused.text': 'It may show as a requirement or a passing mention, which counts less. Work '
+    + 'described in other words may not be recognised: that is a limit of this reading, not of your profile.',
   'limits.thin.title': 'The posting has little text',
   'limits.thin.text': 'Its job board published only a short summary, so the % rests on very little. Open the original '
     + 'advert before deciding.',
@@ -6792,9 +6797,14 @@ const PT_BR = {
     + 'Compatibilidade inteligente não tiver sido executada, e vagas com pouco texto são pontuadas pelo '
     + 'pouco que dizem.',
   'evalMode.focused.head': 'Por que poucas vagas chegam a 90%:',
-  'evalMode.focused.text': 'a % conta até {slots} evidências do trabalho que você listou: tipos diferentes de '
-    + 'trabalho, ou um tipo que o anúncio traz como tarefa em vários itens. Uma vaga que faz um deles pode combinar '
-    + 'com você e ainda assim pontuar menos; leia os detalhes.',
+  'evalMode.focused.text': 'uma correspondência clara com o trabalho que você listou, dada como tarefa '
+    + 'da vaga, completa essa parte. O mesmo trabalho só como requisito, ou de passagem, conta menos, e '
+    + 'repeti-lo ou dividi-lo em mais itens não acrescenta nada. Ferramentas, nível, remuneração e forma de '
+    + 'trabalho compõem o resto, então uma vaga pode combinar com você e ainda pontuar menos; leia os detalhes.',
+  'evalMode.first.head': 'Sua primeira escolha numa parte:',
+  'evalMode.first.text': 'uma parte em que você não escolheu nada (trabalho, ferramentas ou outros sinais) fica '
+    + 'fora da %. A primeira escolha ali traz uma nova pergunta para a %, então as notas podem subir ou '
+    + 'descer. Depois disso, acrescentar escolhas nunca reduz uma nota.',
   'evalMode.stale.head': 'Quando uma nota fica desatualizada:',
   'evalMode.stale.text': 'depois que você muda uma preferência que esta % lê, ou quando o texto da vaga muda, '
     + 'a vaga mantém a nota anterior, marcada como anterior, até você recalcular.',
@@ -6806,9 +6816,8 @@ const PT_BR = {
   'limits.ask.seniority': 'Quais níveis você procura? (Configurações, Busca)',
   'limits.ask.compensation': 'Qual remuneração mínima e que tipo de contrato você aceita? (Configurações, Busca)',
   'limits.ask.workModel': 'Como você quer trabalhar: remoto, híbrido ou presencial? (Configurações, Busca)',
-  'limits.focused.title': '{n} dos seus tipos de trabalho aparecem como centrais aqui; a % conta até {slots} '
-    + 'evidências',
-  'limits.focused.text': 'Uma vaga focada em um ou dois deles pode combinar com você e ficar abaixo de 70. Trabalho '
+  'limits.focused.title': 'Nenhum trabalho que você listou aparece como tarefa desta vaga',
+  'limits.focused.text': 'Ele pode aparecer como requisito ou de passagem, o que conta menos. Trabalho '
     + 'descrito com outras palavras pode não ser reconhecido: é um limite desta leitura, não do seu perfil.',
   'limits.thin.title': 'O anúncio tem pouco texto',
   'limits.thin.text': 'O site de vagas publicou só um resumo curto, então a % se apoia em muito pouco. Abra o anúncio '
