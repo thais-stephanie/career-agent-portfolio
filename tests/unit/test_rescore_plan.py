@@ -105,6 +105,7 @@ def test_the_plan_reads_nothing_about_a_person() -> None:
         "_read_ledger",
         "_ledger_reasons",
         "_missing_or_stale",
+        "_reading_moved",
         "_without_current_score",
         "_open_scoreable",
         "_open_counts",

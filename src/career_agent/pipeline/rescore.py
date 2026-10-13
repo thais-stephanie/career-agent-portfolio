@@ -220,6 +220,8 @@ def plan(
             examined, textless = _open_counts(conn)
             for job_id in missing:
                 chosen[job_id] = "MISSING_OR_STALE"
+            for job_id in _reading_moved(conn, config_id, config_version, reading_identity(config)):
+                chosen.setdefault(job_id, "READER_MOVED")
         else:
             examined = len(dirty)
         # A mark is unacknowledged work, including NEW. A stored score without
@@ -313,6 +315,28 @@ def _missing_or_stale(
         (config_id, config_version),
     ).fetchall()
     return sorted({str(r[0]) for r in rows} | {str(r[0]) for r in changed})
+
+
+def _reading_moved(
+    conn: sqlite3.Connection, config_id: str, config_version: int, reading: str
+) -> list[str]:
+    """Open postings whose score was READ by a reader this build no longer is.
+
+    A new `READER_IDENTITY` changes the reading identity and nothing the
+    covered anti-join above compares, so without this a reader update planned
+    zero postings and every score stayed the old reading. It reads rows
+    (`input_digest` is not in the covering index): about a second over 170,000
+    open scores, and only when a plan is asked for. A row with no recorded
+    identity is not counted, like the digest rule above.
+    """
+    rows = conn.execute(
+        "SELECT m.job_id FROM job_match m JOIN job j ON j.id = m.job_id"
+        " WHERE m.config_id = ? AND m.config_version = ?"
+        " AND j.closed_at IS NULL AND j.content_hash IS NOT NULL"
+        " AND m.input_digest IS NOT NULL AND m.input_digest != ?",
+        (config_id, config_version, reading),
+    ).fetchall()
+    return sorted(str(r[0]) for r in rows)
 
 
 def _open_scoreable(conn: sqlite3.Connection, job_ids: Sequence[str]) -> tuple[list[str], int, int]:

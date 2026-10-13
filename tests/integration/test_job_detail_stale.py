@@ -135,3 +135,20 @@ def test_a_changed_text_is_marked_out_of_date_even_under_the_same_preferences(ap
     detail = call(app, "GET", f"/api/jobs/{job_id}")
     assert detail["assessment"]["state"] == "stale"
     assert detail["assessment"]["reasons"] == ["posting"]
+
+
+def test_health_offers_the_recalculation_after_a_reader_update(app, monkeypatch):
+    """`readers-10` moved the reading and not the preferences. Health must
+    count those scores (the notice and its Recalculate button read this
+    number), and stop counting once a pass has read them again."""
+    from career_agent.match import identity
+
+    assert call(app, "GET", "/api/health")["stale_scores"] == 0
+    monkeypatch.setattr(identity, "READER_IDENTITY", "readers-under-test")
+    assert call(app, "GET", "/api/health")["stale_scores"] == 3
+    conn = connect(app.config.db_path)
+    try:
+        rescore(conn, app.search_config())
+    finally:
+        conn.close()
+    assert call(app, "GET", "/api/health")["stale_scores"] == 0

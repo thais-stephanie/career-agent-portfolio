@@ -633,3 +633,37 @@ def test_a_schema_10_reading_replays_into_the_mid_fallback(corpus):
             if c["component_id"] == "seniority"
         )
         assert seniority["points"] > 0, f"{job_id}: an unstated level still scores zero"
+
+
+def test_a_reader_identity_bump_alone_is_reported_and_planned(corpus, monkeypatch):
+    """The production case none of the tests above covers: the CODE moved and
+    the configuration did not. Before 2026-10-13 the notice counted only the
+    schema and the configuration digest, and the targeted plan compared only
+    those too, so after `readers-10` every score stayed the old reading, the
+    notice said nothing and "Recalculate" would have planned zero postings."""
+    from career_agent.pipeline.rescore import plan
+    from career_agent.storage.mvp_repo import MatchRepo
+
+    conn, config, _ = corpus
+    repo = MatchRepo(conn)
+    config_id, version = str(config.config_id), int(config.config_version)
+
+    def stale() -> int:
+        digest = str(config.digest)
+        return repo.stale_schema_count(config_id, version, digest) + repo.reading_moved_count(
+            config_id, version, digest, identity.input_digest(config)
+        )
+
+    assert stale() == 0
+    assert rescore(conn, config).jobs_scored == 0, "nothing moved, nothing is scored"
+
+    monkeypatch.setattr(identity, "READER_IDENTITY", "readers-under-test")
+    assert stale() == len(POSTINGS), "the notice counts readings an older reader made"
+    planned = plan(conn, config)
+    assert len(planned.targets) == len(POSTINGS)
+    assert planned.breakdown == {"READER_MOVED": len(POSTINGS)}
+
+    stats = rescore(conn, config)
+    assert stats.jobs_read_in_full == len(POSTINGS) and stats.jobs_replayed == 0
+    assert stale() == 0
+    assert rescore(conn, config).jobs_scored == 0, "once read again, it is current"

@@ -738,6 +738,30 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         threading.Timer(0.3, stop).start()
         return {"stopping": True}
 
+    def _reading_moved(self, conn, repo, config_id, config_version, digest, cfg) -> int:
+        """Scores an older reader made, remembered until a scoring pass ends.
+
+        Two seconds over a real corpus, against milliseconds for the rest of
+        this route, so the count is kept per (configuration, reading identity,
+        latest scoring pass). Only a scoring pass rewrites a reading, and every
+        one records a `rescore` run; a row written since by this build carries
+        the current identity and cannot add to the count.
+        """
+        from career_agent.match.identity import input_digest as reading_identity
+
+        reading = reading_identity(cfg)
+        last = conn.execute(
+            "SELECT started_at, finished_at FROM pipeline_run WHERE stage = 'rescore'"
+            " ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+        key = (config_id, config_version, digest, reading, tuple(last) if last else None)
+        cached = getattr(self, "_reading_moved_memo", None)
+        if cached is not None and cached[0] == key:
+            return int(cached[1])
+        count = repo.reading_moved_count(config_id, config_version, digest, reading)
+        self._reading_moved_memo = (key, count)
+        return count
+
     def health(self, *, query: dict, body: dict) -> dict:
         _reject_unknown(query, frozenset(), "health")
         cfg = self.search_config()
@@ -767,7 +791,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             # What the notice offers to recalculate: an older result schema,
             # or a reading of this same configuration version that this build
             # no longer makes (an update that reads the file differently).
-            stale_scores = repo.stale_schema_count(config_id, config_version, digest)
+            stale_scores = repo.stale_schema_count(
+                config_id, config_version, digest
+            ) + self._reading_moved(conn, repo, config_id, config_version, digest, cfg)
 
             # Which population is this, and does it say so itself? An
             # unstamped database is reported as UNKNOWN rather than assumed

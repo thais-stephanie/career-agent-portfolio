@@ -1283,6 +1283,30 @@ class MatchRepo(_Repo):
         ).fetchone()
         return int(row["n"])
 
+    def reading_moved_count(
+        self, config_id: str, config_version: int, digest: str, reading: str
+    ) -> int:
+        """Open scores that are current in every way `stale_schema_count`
+        checks but were READ by a reader this build no longer is.
+
+        A new `READER_IDENTITY` changes the reading identity (`match.identity.
+        input_digest`) and nothing else, so without this a reader update left
+        every score read the old way while the notice offering the
+        recalculation said nothing. Disjoint from `stale_schema_count`, so the
+        two add up. `input_digest` is not in a covering index: about two
+        seconds over 170,000 open scores, which is why the caller remembers it.
+        A row with no recorded identity is not counted.
+        """
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS n FROM job_match m JOIN job j ON j.id = m.job_id"
+            " WHERE m.config_id = ? AND m.config_version = ?"
+            " AND m.schema_version >= ? AND m.config_digest IN (?, 'UNRECORDED')"
+            " AND m.input_digest IS NOT NULL AND m.input_digest != ?"
+            " AND j.closed_at IS NULL",
+            (config_id, config_version, MATCH_SCHEMA_VERSION, digest, reading),
+        ).fetchone()
+        return int(row["n"])
+
     def delete_for(self, config_id: str, config_version: int) -> int:
         """Drop every score for one configuration version. Returns the count.
 
