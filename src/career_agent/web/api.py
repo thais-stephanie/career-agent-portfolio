@@ -751,8 +751,10 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
         reading = reading_identity(cfg)
         last = conn.execute(
-            "SELECT started_at, finished_at FROM pipeline_run WHERE stage = 'rescore'"
-            " ORDER BY started_at DESC LIMIT 1"
+            # The row id, not the start time: two passes can start in the same
+            # second, and a tie would keep the count from before the second.
+            "SELECT rowid, finished_at FROM pipeline_run WHERE stage = 'rescore'"
+            " ORDER BY rowid DESC LIMIT 1"
         ).fetchone()
         key = (config_id, config_version, digest, reading, tuple(last) if last else None)
         cached = getattr(self, "_reading_moved_memo", None)
