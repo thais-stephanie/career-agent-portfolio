@@ -27,6 +27,7 @@ from typing import Any
 from career_agent.domain.application import ApplicationStatus, has_applied
 from career_agent.domain.enums import EligibilityStatus, GateResult, Prominence
 from career_agent.domain.matching import MatchResult, ScoredJob
+from career_agent.match.engagement import filter_engagement
 from career_agent.match.gates import pending_gates
 from career_agent.match.lexicon import TECHNOLOGY_SIGNALS as _TECHNOLOGY_SIGNALS
 from career_agent.web.caution import caution_signals
@@ -234,6 +235,9 @@ def job_card(
             result.employment.effective_relationship.value if result else None
         ),
         "employment_default": result.employment.is_default if result else False,
+        # What the Contract filter files this posting under (stated, or the
+        # default), so a card and the filter cannot disagree.
+        "engagement": filter_engagement(result.employment) if result else None,
         "employment_default_us": result.employment.default_us_evidence if result else None,
         "employment_default_latam": (result.employment.default_latam_evidence if result else None),
         "domestic_context": result.domestic.context.value if result else None,

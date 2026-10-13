@@ -193,3 +193,41 @@ def test_an_hourly_rate_stays_hourly() -> None:
     )
     assert _pay(result)["period"] == "HOUR"
     assert "period_inferred" not in _pay(result)
+
+
+# -------------------------------------------------------------- hours apart
+
+
+def _filed(result) -> tuple[str | None, str | None]:
+    """(hours as the board gave them, engagement the Contract filter reads)."""
+    from career_agent.storage.mvp_repo import FACET_COLUMN_NAMES, facet_columns
+
+    row = facet_columns(result)
+    return (
+        row[FACET_COLUMN_NAMES.index("employment_type")],
+        row[FACET_COLUMN_NAMES.index("engagement")],
+    )
+
+
+@pytest.mark.parametrize("hours", ["FULL_TIME", "PART_TIME"])
+def test_hours_alone_leave_the_default_in_place_and_stay_hours(hours: str) -> None:
+    result = matched(AMERICAN, employment_type=hours)
+    assert result.employment.is_default
+    assert _filed(result) == (hours, "CONTRACTOR_B2B")
+
+
+def test_a_stated_employee_wins_over_the_default_in_the_filter() -> None:
+    result = matched(AMERICAN, declared_relationship="EMPLOYEE", employment_type="FULL_TIME")
+    assert not result.employment.is_default
+    assert _filed(result) == ("FULL_TIME", "EMPLOYEE")
+
+
+def test_hours_and_a_stated_contract_are_both_kept() -> None:
+    result = matched(AMERICAN, declared_relationship="CONTRACTOR_B2B", employment_type="PART_TIME")
+    assert result.employment.is_explicit and not result.employment.is_default
+    assert _filed(result) == ("PART_TIME", "CONTRACTOR_B2B")
+
+
+def test_no_default_and_no_statement_files_no_engagement() -> None:
+    result = matched("You will build reports.", employment_type="FULL_TIME")
+    assert _filed(result) == ("FULL_TIME", None)

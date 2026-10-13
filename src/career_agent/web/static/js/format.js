@@ -387,15 +387,22 @@ export function levelInfo(job) {
  * then an engagement the ad states in words, then the default.
  */
 export function contractInfo(job) {
+  // The HOURS, when the board's job type gave them, kept apart: "Full-time"
+  // is how long, never how the worker is engaged.
+  const hours = ['FULL_TIME', 'PART_TIME'].includes(job.employment_type)
+    ? vocabLabel(job.employment_type) : null;
   if (job.employment_default) {
-    return { text: t('contract.probable'), probable: true, stated: false };
+    return { text: t('contract.probable'), probable: true, stated: false, hours };
   }
-  if (job.employment_type) return { text: vocabLabel(job.employment_type), probable: false, stated: true };
-  const said = job.employment_stated && job.employment_relationship
-    && job.employment_relationship !== 'UNRESOLVED';
-  return said
-    ? { text: t(`employment.${job.employment_relationship}`), probable: false, stated: true }
-    : { text: null, probable: false, stated: false };
+  if (job.engagement) {
+    return { text: t(`employment.${job.engagement}`), probable: false, stated: true, hours };
+  }
+  // A board job type that names an engagement and was not read as one (an
+  // older score): shown as the board wrote it.
+  if (job.employment_type && !hours) {
+    return { text: vocabLabel(job.employment_type), probable: false, stated: true, hours };
+  }
+  return { text: null, probable: false, stated: false, hours };
 }
 
 /** The pay of a posting: the score's own figure, or the ad's, read now. */

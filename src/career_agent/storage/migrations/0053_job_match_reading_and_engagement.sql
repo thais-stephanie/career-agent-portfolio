@@ -1,4 +1,5 @@
--- Migration 0053: which reader made each score, answerable from an index.
+-- Migration 0053: which reader made each score, answerable from an index;
+-- and the engagement the Contract filter reads.
 -- scope: profile
 --
 -- Additive only: one index, no data moves. "Which open scores were read by a
@@ -14,3 +15,14 @@
 -- the planner moved queries off `idx_job_match_population`.
 CREATE INDEX IF NOT EXISTS idx_job_match_reading
     ON job_match (config_id, config_version, input_digest);
+
+-- THE ENGAGEMENT A POSTING OFFERS, as the Contract filter reads it: the one
+-- the advert or its board STATED, or the contractor default for an American
+-- employer hiring in Latin America that stated none (`match.engagement`).
+-- NULL when neither. Kept apart from `employment_type`, which holds what the
+-- board's own job-type field said and is often only the working pattern
+-- (full-time, part-time): the two answer different questions. Additive; rows
+-- scored before readers-11 stay NULL until their next scoring.
+ALTER TABLE job_match ADD COLUMN engagement TEXT;
+CREATE INDEX IF NOT EXISTS idx_job_match_engagement
+    ON job_match (config_id, config_version, engagement);

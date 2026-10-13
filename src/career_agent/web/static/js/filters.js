@@ -108,7 +108,7 @@ export const SECTIONS = [
   {
     key: 'role',
     labelKey: 'filters.section.role',
-    keys: ['seniority', 'employment_type', 'company'],
+    keys: ['seniority', 'engagement', 'employment_type', 'company'],
   },
   // WHAT THE POSTING ASKS OF SOMEBODY STARTING OUT. Its own section rather
   // than a row inside `role`, because the three questions here belong to
@@ -173,6 +173,10 @@ const FACET_GROUPS = [
   { key: 'region', labelKey: 'facet.region', section: 'place' },
   { key: 'country', labelKey: 'facet.country', section: 'place' },
   { key: 'seniority', labelKey: 'facet.seniority', section: 'role' },
+  // HOW the worker is engaged, then HOW MANY HOURS: two questions. A board's
+  // job type is often only the hours, and "Full-time" says nothing about
+  // whether the job is employment or a contract.
+  { key: 'engagement', labelKey: 'facet.engagement', section: 'role' },
   { key: 'employment_type', labelKey: 'facet.employment_type', section: 'role' },
   // Beside the contract TYPE rather than under it: `Full time` and `CLT`
   // answer different questions, and in Brazil a job can be full time
@@ -1098,6 +1102,7 @@ function facetValueLabel(groupKey, row) {
   // neither vocabulary has to join that search at all.
   if (groupKey === 'experience_requirement') return tState('experience', row.key);
   if (groupKey === 'entry_signal') return tState('entrySignal', row.key);
+  if (groupKey === 'engagement' && row.key !== 'NOT_STATED') return t(`employment.${row.key}`);
   const named = row.label && row.label !== row.key;
   return named ? row.label : vocabLabel(row.key);
 }

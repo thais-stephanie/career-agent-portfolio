@@ -47,8 +47,8 @@ unknown; an absent row would read as an absence of problems.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import replace
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from career_agent.config.search_config import (
@@ -76,6 +76,7 @@ from career_agent.domain.matching import (
     SemanticMatch,
     SeniorityReading,
 )
+from career_agent.match.text import PRIMARY_SECTION
 from career_agent.match.work_model import read_work_model
 from career_agent.providers.base import CompensationBand
 
@@ -238,52 +239,143 @@ def _sentence_key(quote: str | None, signal_id: str) -> str:
     return " ".join(quote.casefold().split())
 
 
+#: Where the work you want is NOT a central duty of the posting, the tools
+#: you named can earn at most this share of their component: the same tool
+#: serves many kinds of work, so naming it is weak evidence of YOUR work. A
+#: tool in a sentence about work you asked to avoid earns nothing. Measured
+#: on the 2026-09-27 benchmark (docs/SEMANTIC_MATCHING.md, ADR-0036).
+TOOLS_WITHOUT_WORK_SHARE = 0.5
+
+
+@dataclass(frozen=True, slots=True)
+class _Evidence:
+    """One sentence in which a preference shows."""
+
+    signal_id: str
+    weight: float
+    label: str
+    strength: float
+    prominence: Prominence
+    quote: str | None
+    key: str
+    source: str
+    #: True for a further sentence of a preference stated as a duty in the
+    #: role's own section: the only repeat that counts again.
+    central_repeat: bool = False
+
+
+def _evidence_for(
+    component: WeightedComponent,
+    positive: dict[str, float],
+    observed: dict[str, ObservedSignal],
+    by_signal: dict[str, SemanticMatch],
+) -> dict[str, list[_Evidence]]:
+    """Each preference's distinct sentences, strongest first.
+
+    A literal phrase brings every sentence it appeared in, the first at the
+    prominence the phrase earned; a further sentence is kept only when it
+    sits in the role's own section (a duty, not a passing mention). A
+    semantic finding brings its one sentence. The same sentence read both
+    ways counts once, at the stronger reading.
+    """
+    out: dict[str, list[_Evidence]] = {}
+    for signal_id, weight in positive.items():
+        found: dict[str, _Evidence] = {}
+        signal = observed.get(signal_id)
+        label = signal.label if signal is not None else signal_id
+        if signal is not None and signal.fired:
+            strength = component.prominence_multipliers[signal.prominence]
+            places: list[tuple[str | None, str]] = list(
+                dict.fromkeys(
+                    (hit.quote, _sentence_key(hit.quote, signal_id)) for hit in signal.hits
+                )
+            ) or [(signal.best_quote, _sentence_key(signal.best_quote, signal_id))]
+            sections: dict[str, str | None] = {}
+            for hit in signal.hits:
+                sections.setdefault(_sentence_key(hit.quote, signal_id), hit.section)
+            for index, (quote, key) in enumerate(places):
+                central = sections.get(key) == PRIMARY_SECTION
+                if index and not central:
+                    continue
+                found.setdefault(
+                    key,
+                    _Evidence(
+                        signal_id,
+                        weight,
+                        label,
+                        strength
+                        if not index
+                        else component.prominence_multipliers[Prominence.PRIMARY],
+                        signal.prominence if not index else Prominence.PRIMARY,
+                        quote,
+                        key,
+                        "lexical",
+                        central_repeat=bool(index),
+                    ),
+                )
+        semantic = by_signal.get(signal_id)
+        if semantic is not None:
+            # ONE READING OF THE SAME INTENT ITEM, never a second piece: a
+            # finding stands in for the phrase's first sentence when it reads
+            # stronger, and is the evidence when no phrase was found.
+            prominence = SEMANTIC_PROMINENCE.get(semantic.strength, Prominence.INCIDENTAL)
+            strength = component.prominence_multipliers[prominence]
+            key = _sentence_key(semantic.sentence or semantic.quote, signal_id)
+            reading = _Evidence(
+                signal_id, weight, label, strength, prominence, semantic.quote, key, "semantic"
+            )
+            first = min(found.values(), key=lambda e: e.central_repeat) if found else None
+            if first is None:
+                found[key] = reading
+            elif strength > first.strength:
+                del found[first.key]
+                found[key] = reading
+        if found:
+            out[signal_id] = sorted(found.values(), key=lambda e: -e.strength)
+    return out
+
+
 def _weighted_component(
     component_id: str,
     component: WeightedComponent,
     observed: dict[str, ObservedSignal],
     semantic: Sequence[SemanticMatch] | None = None,
+    context: Callable[[str], tuple[float, str | None]] | None = None,
+    ceiling: tuple[float, str] | None = None,
 ) -> ScoreComponent:
-    """One phrase component: the strongest few distinct signals, each once.
+    """One phrase component, paid by EVIDENCE, never by how much was asked.
 
-    AN OPTIONAL PREFERENCE ONLY ADDS (2026-10-13, readers-11). What the person
-    named here is something they would like, never something a posting must
-    have, so each preference the posting shows adds a FIXED share of the
-    component, max / `COUNTED_SIGNALS`, and one it does not mention adds
-    nothing and takes nothing away. The share depends neither on how many
-    preferences were named nor on their relative weights, so naming one more
-    can never lower a posting's points. Before, the share was max / (phrases
-    named, at most the count) and each phrase was scaled by its weight over
-    the heaviest one: adding a phrase a posting did not mention, or one
-    weighted above the rest, lowered that posting. The component's maximum
-    is the explicit limit: `COUNTED_SIGNALS` matches fill it and more add
-    nothing. How a phrase appeared still matters (a central duty pays in
-    full, an incidental mention pays its multiplier): that is how much the
-    posting shows of it. Weights keep one job, which matches count first.
+    AN OPTIONAL PREFERENCE ONLY ADDS (readers-11, ADR-0036). The component is
+    filled by sentences of the posting that show what the person would like:
+    `COUNTED_SIGNALS` full pieces of evidence fill it, each worth max / N.
+    The first sentence a preference shows in pays a piece at its strength;
+    a further distinct sentence of the SAME preference pays another full
+    piece only when it is a duty in the role's own section. At most
+    `COUNTED_SIGNALS` pieces pay. So:
+
+    * a preference the posting does not mention brings no evidence and takes
+      nothing away, and naming one more preference can never lower a posting
+      (it can only bring more evidence);
+    * a small selection can fill the component when the posting shows enough
+      of it: one wanted activity central to four bullets is strong evidence,
+      whatever else was or was not named;
+    * nothing depends on how many preferences were named, nor on their
+      weights (which only decide what counts first), and the component's
+      maximum is the limit.
+
+    How a phrase appeared still sets its strength (a central duty in full, an
+    incidental mention its multiplier). One sentence pays for at most HALF of
+    `COUNTED_SIGNALS` pieces through the person's phrases and ONE through a
+    semantic finding, so one compound line never fills a component, and a
+    sentence repeated word for word is one sentence.
+
+    `context`, given the sentence key, returns the share that evidence is
+    worth here and why; `ceiling` limits the whole component (the tools
+    read where the work is, `_tool_context`).
 
     UNCONFIGURED IS NOT UNMATCHED. A component with no positive weight is not
-    part of this search, so it leaves the denominator (max 0, `configured`
+    part of this search: it leaves the denominator (max 0, `configured`
     false). A configured component that found nothing stays 0 of its max.
-
-    Each candidate signal is a lexical hit (a configured phrase in the body,
-    scaled by where it appeared) or a published semantic finding (scaled by its
-    strength), whichever is stronger: one intent item never pays twice. Then:
-
-    * one sentence pays for at most HALF of this component's counted signals
-      (rounded up) through the person's own phrases, and for ONE semantic
-      finding, strongest first. A compound bullet ("build workflow
-      automation and REST API integrations") states two activities and pays
-      for both; one line can never fill a component on its own, which is the
-      stuffing this rule exists to stop. A literal "one sentence pays once"
-      was tried first and scored the demo's canonical fit posting MODERATE
-      because its bullets are compound (docs/SEMANTIC_MATCHING.md);
-    * only the strongest `COUNTED_SIGNALS` pay, each worth max / N at full
-      strength, so N central matches fill the component and more add nothing.
-      N is fixed per component, never the number of phrases named.
-
-    Nothing found is dropped from view: a signal that was found and not paid is
-    kept with `counted` false and the reason, so the drawer can say "already
-    counted" instead of implying the posting never said it.
     """
     positive = {sid: w for sid, w in component.weights.items() if w > 0}
     if not positive:
@@ -297,101 +389,88 @@ def _weighted_component(
         )
     counted_signals = COUNTED_SIGNALS.get(component_id, 3)
     unit = component.max / counted_signals
-
     by_signal = {m.signal_id: m for m in semantic or () if m.component_id == component_id}
-    # (strength, contribution, [(quote, sentence key), ...] it may pay through)
-    candidates: list[tuple[float, ScoreContribution, list[tuple[str | None, str]]]] = []
-    for signal_id, weight in positive.items():
-        best: tuple[float, ScoreContribution, list[tuple[str | None, str]]] | None = None
-        signal = observed.get(signal_id)
-        if signal is not None and signal.fired:
-            strength = component.prominence_multipliers[signal.prominence]
-            # Every sentence the phrase appeared in, in order: when the first
-            # already paid for another signal, a later one may still pay.
-            places: list[tuple[str | None, str]] = list(
-                dict.fromkeys(
-                    (hit.quote, _sentence_key(hit.quote, signal_id)) for hit in signal.hits
-                )
-            ) or [(signal.best_quote, _sentence_key(signal.best_quote, signal_id))]
-            best = (
-                strength,
-                ScoreContribution(
-                    signal_id=signal_id,
-                    label=signal.label,
-                    prominence=signal.prominence,
-                    weight=weight,
-                    points=unit * strength,
-                    quote=signal.best_quote,
-                ),
-                places,
-            )
-        found = by_signal.get(signal_id)
-        if found is not None:
-            prominence = SEMANTIC_PROMINENCE.get(found.strength, Prominence.INCIDENTAL)
-            strength = component.prominence_multipliers[prominence]
-            if best is None or strength > best[0]:
-                label = observed[signal_id].label if signal_id in observed else signal_id
-                best = (
-                    strength,
-                    ScoreContribution(
-                        signal_id=signal_id,
-                        label=label,
-                        prominence=prominence,
-                        weight=weight,
-                        points=unit * strength,
-                        quote=found.quote,
-                        source="semantic",
-                    ),
-                    # Keyed by the SENTENCE the gate found the quote in, so two
-                    # fragments of one bullet are one sentence.
-                    list[tuple[str | None, str]](
-                        [(found.quote, _sentence_key(found.sentence or found.quote, signal_id))]
-                    ),
-                )
-        if best is not None:
-            candidates.append(best)
+    evidence = _evidence_for(component, positive, observed, by_signal)
 
-    candidates.sort(key=lambda row: (-row[0], -row[1].weight, row[1].signal_id))
-    contributions: list[ScoreContribution] = []
+    # Strongest evidence first, wherever it comes from: a weak first mention
+    # never takes the place of a stronger duty, so naming one more phrase
+    # can only add evidence, never push better evidence out.
+    def order(item: _Evidence) -> tuple[float, float, str, bool]:
+        return (-item.strength, -item.weight, item.signal_id, item.central_repeat)
+
+    ranked = sorted((e for items in evidence.values() for e in items), key=order)
+
+    limit_points = component.max if ceiling is None else min(component.max, ceiling[0])
     per_sentence = -(-counted_signals // 2)
+    pieces = 0
     paid_sentences: dict[str, int] = {}
-    paid = 0
+    paid_points: dict[str, float] = {}
+    first_paid: dict[str, _Evidence] = {}
+    refused: dict[str, str] = {}
     total = 0.0
-    for _strength, row, where in candidates:
-        # A literal phrase is a statement the posting made; an interpretation
-        # of a sentence is one reading of it. A sentence may pay for up to half
-        # the component through phrases the person wrote, and for only one
-        # semantic finding: providers cite one sentence for several items far
-        # more loosely than postings state them (docs/SEMANTIC_MATCHING.md).
-        limit = per_sentence if row.source == "lexical" else 1
-        open_places = [(q, k) for q, k in where if paid_sentences.get(k, 0) < limit]
-        if not open_places:
-            contributions.append(
-                _uncounted(row, "This sentence already paid for as much as one sentence can.")
+    for item in ranked:
+        limit = per_sentence if item.source == "lexical" else 1
+        if paid_sentences.get(item.key, 0) >= limit:
+            refused.setdefault(
+                item.signal_id, "This sentence already paid for as much as one sentence can."
             )
             continue
-        if paid >= counted_signals:
-            contributions.append(
-                _uncounted(row, f"Already counted the {counted_signals} strongest matches here.")
+        share, why = context(item.key) if context is not None else (1.0, None)
+        if share <= 0:
+            refused.setdefault(item.signal_id, why or "This sentence is not evidence here.")
+            continue
+        if pieces >= counted_signals or total >= limit_points - 1e-9:
+            refused.setdefault(
+                item.signal_id,
+                f"Already counted the {counted_signals} strongest pieces of evidence here.",
             )
             continue
-        quote, key = open_places[0]
-        paid_sentences[key] = paid_sentences.get(key, 0) + 1
-        paid += 1
-        total += row.points
-        contributions.append(row if quote == row.quote else replace(row, quote=quote))
+        value = unit * item.strength * share
+        pieces += 1
+        paid_sentences[item.key] = paid_sentences.get(item.key, 0) + 1
+        paid_points[item.signal_id] = paid_points.get(item.signal_id, 0.0) + value
+        first_paid.setdefault(item.signal_id, item)
+        if why:
+            refused.setdefault(item.signal_id, why)
+        total += value
 
-    fired = {row.signal_id for row in contributions}
+    contributions: list[ScoreContribution] = []
+    for signal_id in sorted(evidence, key=lambda sid: order(evidence[sid][0])):
+        best = first_paid.get(signal_id) or evidence[signal_id][0]
+        row = ScoreContribution(
+            signal_id=signal_id,
+            label=best.label,
+            prominence=best.prominence,
+            weight=best.weight,
+            points=paid_points.get(signal_id, 0.0),
+            quote=best.quote,
+            source=best.source,
+        )
+        if signal_id in first_paid:
+            contributions.append(row)
+        else:
+            contributions.append(_uncounted(row, refused.get(signal_id, "Not counted here.")))
+
     # The LABEL, never the id: the drawer is read by a person. Every phrase the
     # posting did not mention, in the person's own order, so the drawer can say
     # what was asked and not shown without implying it costs anything.
     not_found = tuple(
         observed[signal_id].label if signal_id in observed else signal_id
         for signal_id in positive
-        if signal_id not in fired
+        if signal_id not in evidence
     )
     note: str | None = None
-    if not_found and paid < counted_signals:
+    held = ceiling is not None and total > limit_points + 1e-9
+    if held:
+        assert ceiling is not None
+        note = ceiling[1]
+        factor = limit_points / total
+        contributions = [
+            replace(row, points=row.points * factor) if row.counted else row
+            for row in contributions
+        ]
+        total = limit_points
+    elif not_found and total < component.max - 1e-9:
         shown = ", ".join(not_found[:MISSING_SIGNALS_SHOWN])
         suffix = (
             f" and {len(not_found) - MISSING_SIGNALS_SHOWN} more"
@@ -406,14 +485,58 @@ def _weighted_component(
         points=min(total, component.max),
         max_points=component.max,
         contributions=tuple(contributions),
-        # Capped means what the drawer says it means: what was paid exceeded
-        # the component. Signals left unpaid by the rules above are marked on
-        # themselves ("already counted"), not on the component.
-        capped=total > component.max,
+        capped=total > component.max + 1e-9,
         note=note,
         not_found=not_found,
         fills_at=counted_signals,
+        guarded=held,
     )
+
+
+def _tool_context(
+    config: SearchConfig,
+    work: ScoreComponent,
+    observed: dict[str, ObservedSignal],
+) -> tuple[Callable[[str], tuple[float, str | None]], tuple[float, str] | None]:
+    """What a tool sentence is worth, from where the work is (ADR-0036).
+
+    THREE CASES, KEPT APART. A tool in a sentence about work the person asked
+    to AVOID (a soft-penalty phrase fires in that sentence) is evidence of
+    other work and pays nothing. A tool in a posting where the work the person
+    wants is a CENTRAL duty (a counted work match at PRIMARY or SECONDARY
+    prominence) pays in full. Otherwise, when the person named work and the
+    posting shows none of it as a central duty, the tools together earn at
+    most `TOOLS_WITHOUT_WORK_SHARE` of their component: a common tool says
+    little about whose work it serves. A person who named no work at all is
+    not "the work was not found": nothing was asked, so there is no limit.
+    Returns the per-sentence share and the component's ceiling, if any.
+    """
+    avoid = {sid for sid, w in config.scoring.soft_penalties.weights.items() if w}
+    avoided = {
+        _sentence_key(hit.quote, sid)
+        for sid in avoid
+        if sid in observed
+        for hit in observed[sid].hits
+    }
+    central = work.configured is False or any(
+        row.counted and row.prominence is not Prominence.INCIDENTAL for row in work.contributions
+    )
+
+    def share(key: str) -> tuple[float, str | None]:
+        if key in avoided:
+            return 0.0, "Named for work you asked to avoid."
+        return 1.0, None
+
+    limit = (
+        None
+        if central
+        else (
+            TOOLS_WITHOUT_WORK_SHARE,
+            "Held at half: the work you want is not a central duty of this posting, and the "
+            "same tools serve other work.",
+        )
+    )
+    return share, limit
 
 
 def _uncounted(row: ScoreContribution, reason: str) -> ScoreContribution:
@@ -750,10 +873,19 @@ def score_components(
     work = _weighted_component(
         "responsibilities", components.responsibilities, observed_body, found
     )
-    # No guard on the tools any more: it held them at half when none of the
-    # wanted work was found, so naming work a posting did not mention lowered
-    # its tools. A preference only adds (readers-11).
-    tools = _weighted_component("technologies", components.technologies, observed_body, found)
+    # The tools read where the work is: a tool for the work you want pays in
+    # full, one for other work less, one for work you avoid nothing.
+    share, ceiling = _tool_context(config, work, observed_body)
+    tools = _weighted_component(
+        "technologies",
+        components.technologies,
+        observed_body,
+        found,
+        context=share,
+        ceiling=(
+            (components.technologies.max * ceiling[0], ceiling[1]) if ceiling is not None else None
+        ),
+    )
     fixed = (
         work,
         tools,

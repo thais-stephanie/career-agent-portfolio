@@ -24,6 +24,9 @@ export const LIST_KEYS = [
   // the URL round trip, the chips, the active count and `clearedFilters` all
   // pick them up without a second mechanism.
   'country', 'region', 'worksite', 'seniority', 'employment_type',
+  // HOW THE WORKER IS ENGAGED (stated, or the contractor default), apart from
+  // the hours in `employment_type` (2026-10-13).
+  'engagement',
   // ADDED HERE FIRST, on purpose. V1.5 shipped two controls that
   // rendered, stored a value and changed nothing for a whole session
   // because `apiQuery` builds the request from these lists and they had
@@ -337,6 +340,7 @@ export const DEFAULTS = Object.freeze({
   worksite: [],
   seniority: [],
   employment_type: [],
+  engagement: [],
   // Beside its neighbour, and NOT only in the key list. The check below
   // exists because a key in a list with no default is a control that
   // renders and does nothing -- and it threw on load here, which is

@@ -38,7 +38,7 @@ Formula changes alone only redistribute evidence that was found. Semantic interp
   - The study proposed "one sentence pays once". Implemented literally, it scored the demo's canonical fit posting MODERATE: its bullets are compound ("Build workflow automation and REST API integrations"), and each states two activities.
   - Relaxing the rule for semantic findings as well had a measured cost: an AWS DevOps posting labelled a non-match rose to GOOD under both DeepSeek and Claude Code. Providers cite one sentence for several items more loosely than postings state them.
   - So the relaxation applies to the person's literal phrases only.
-- **The tools guard (removed 2026-10-13, readers-11).** It held the tools at half when the work named was not found as a central duty. It made naming work a posting did not mention lower that posting, so it is gone: an optional preference only adds (ADR-0036). The measurements below record why it existed and what removing it costs.
+- **Tools read where the work is (2026-10-13, readers-11, ADR-0036).** Where the person named work and none of it is a central duty of the posting, the tools together earn at most half their component; a tool in a sentence about work the person asked to avoid earns nothing; a person who named no work has no limit. It replaces the guard that opened in proportion to the work found. Components are paid by pieces of evidence, so a small selection can fill its part and naming one more phrase never lowers a posting.
 - **Seniority follows the preferred levels.**
 
   | Level in the posting | Share of the component |

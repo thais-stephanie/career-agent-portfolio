@@ -105,6 +105,7 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
         "worksite",
         "seniority",
         "employment_type",
+        "engagement",
         "min_salary",
         "salary_currency",
         "salary_period",
@@ -174,6 +175,18 @@ _VOCABULARIES: dict[str, tuple[str, ...]] = {
     # above it. Neither value here is a verdict about whether the candidate may
     # take the job; a query for one can never return the other.
     "employment_context": ("LIKELY_US_DOMESTIC", "INTERNATIONAL_STATED", "UNRESOLVED"),
+    # HOW THE WORKER IS ENGAGED, stated or the contractor default; never the
+    # working pattern, which is `employment_type` (Hours).
+    "engagement": (
+        "EMPLOYEE",
+        "CONTRACTOR_B2B",
+        "EOR",
+        "INTERN",
+        "APPRENTICE",
+        "TEMPORARY",
+        "OTHER",
+        NOT_STATED,
+    ),
     # PROVENANCE, never quality. `PARTIAL_CONTENT` says the SOURCE returns an
     # excerpt and offers no way to fetch the rest; it is a fact about an
     # aggregator, not a verdict on an employer.
@@ -3195,6 +3208,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             worksites=_vocab(query, "worksite"),
             seniorities=_vocab(query, "seniority"),
             employment_types=_upper(query, "employment_type"),
+            engagements=_vocab(query, "engagement"),
             min_salary=min_salary,
             salary_currencies=_upper(query, "salary_currency"),
             salary_periods=_upper(query, "salary_period"),

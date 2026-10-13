@@ -232,42 +232,44 @@ def test_repeating_a_phrase_buys_nothing() -> None:
 
 
 # =========================================================================
-# an optional preference only adds (readers-11, 2026-10-13)
+# an optional preference only adds (readers-11, ADR-0036)
 # =========================================================================
 
+WORK_LINE = "You will reconcile invoices"
+TOOL_LINES = ("Use ledgerbook", "Use gridsheet", "Use bankfeed", "Use taxpal")
 
-def test_tools_pay_in_full_without_any_desired_work() -> None:
-    """No guard: naming work a posting does not mention lowers nothing else."""
+
+def test_a_preference_not_mentioned_is_listed_and_costs_nothing() -> None:
     config = config_with()
-    body = responsibilities("Use ledgerbook", "Use gridsheet", "Use bankfeed", "Use taxpal")
-    components, _, _ = scored(config, body)
-    tools = components["technologies"]
-    assert tools.points == pytest.approx(20.0)
-    assert not tools.guarded
-
-
-def test_each_found_preference_adds_a_fixed_share() -> None:
-    """max / COUNTED_SIGNALS per central match, whatever else was named."""
-    config = config_with()
-    body = responsibilities("Use ledgerbook", "Use gridsheet")
-    tools = scored(config, body)[0]["technologies"]
-    assert tools.points == pytest.approx(2 * 20.0 / COUNTED_SIGNALS["technologies"])
-    assert tools.fills_at == COUNTED_SIGNALS["technologies"]
+    tools = scored(config, responsibilities(WORK_LINE, "Use ledgerbook"))[0]["technologies"]
+    assert set(tools.not_found) == {"Gridsheet", "Bankfeed", "Taxpal"}
+    assert tools.note and "takes nothing away" in tools.note
+    assert all(c.points >= 0 for c in tools.contributions)
 
 
 def test_naming_more_preferences_never_lowers_a_posting() -> None:
-    body = responsibilities("You will reconcile invoices", "Use ledgerbook", "Use gridsheet")
-    few = config_with(work={"w_invoices": "reconcile invoices"}, tools={"t_ledger": "ledgerbook"})
-    many = config_with()
-    for component in ("responsibilities", "technologies"):
-        assert scored(many, body)[0][component].points >= scored(few, body)[0][component].points
-    assert scored(many, body)[2] >= scored(few, body)[2]
+    """Every phrase removed, one at a time, from a full search: the score of
+    each posting below never rises (removing a phrase is the reverse of
+    adding one the posting may not mention)."""
+    bodies = (
+        responsibilities(WORK_LINE, *TOOL_LINES),
+        responsibilities("You will reconcile invoices and run payroll", "Use ledgerbook"),
+        responsibilities(*TOOL_LINES),
+        "We sometimes reconcile invoices.\n" + responsibilities("Use gridsheet"),
+    )
+    full = config_with()
+    for body in bodies:
+        before = scored(full, body)[2]
+        for kind, phrases in (("work", WORK), ("tools", TOOLS)):
+            for removed in phrases:
+                fewer = {k: v for k, v in phrases.items() if k != removed}
+                config = config_with(**{kind: fewer})
+                assert scored(config, body)[2] <= before, (removed, body)
 
 
 def test_a_heavier_preference_does_not_lower_the_others() -> None:
-    """Weights order which matches count first; they no longer scale points,
-    so adding a phrase weighted above the rest cannot shrink them."""
-    body = responsibilities("Use ledgerbook")
+    """Weights order which evidence counts first; they never scale it."""
+    body = responsibilities(WORK_LINE, "Use ledgerbook")
     plain = config_with(tools={"t_ledger": "ledgerbook"})
     data = plain.model_dump()
     data["lexicon"]["t_sheet"] = {"label": "Gridsheet", "patterns": ["gridsheet"]}
@@ -278,18 +280,38 @@ def test_a_heavier_preference_does_not_lower_the_others() -> None:
     )
 
 
-def test_a_preference_not_mentioned_is_listed_and_costs_nothing() -> None:
-    config = config_with()
-    body = responsibilities("Use ledgerbook")
-    tools = scored(config, body)[0]["technologies"]
-    assert set(tools.not_found) == {"Gridsheet", "Bankfeed", "Taxpal"}
-    assert tools.note and "takes nothing away" in tools.note
-    assert all(c.points >= 0 for c in tools.contributions)
+def test_a_small_selection_fills_its_part_when_the_posting_shows_enough() -> None:
+    """ONE wanted activity, a duty in four bullets of the role section, fills
+    the work component; said once, it is one piece of four."""
+    config = config_with(work={"w_invoices": "reconcile invoices"})
+    four = responsibilities(
+        "Reconcile invoices for the US entity",
+        "Reconcile invoices for the EU entity",
+        "Reconcile invoices against bank feeds",
+        "Reconcile invoices at month end",
+    )
+    assert scored(config, four)[0]["responsibilities"].points == pytest.approx(25.0)
+    once = scored(config, responsibilities(WORK_LINE))[0]["responsibilities"]
+    assert once.points == pytest.approx(25.0 / COUNTED_SIGNALS["responsibilities"])
+    assert once.fills_at == COUNTED_SIGNALS["responsibilities"]
+
+
+def test_a_passing_mention_repeated_is_still_one_piece() -> None:
+    """Only a DUTY repeated in the role's own section counts again; the same
+    phrase scattered through company text does not."""
+    config = config_with(work={"w_invoices": "reconcile invoices"})
+    scattered = (
+        "Our teams reconcile invoices together.\n\n"
+        "Clients love how we reconcile invoices.\n\n"
+        "We reconcile invoices in many currencies."
+    )
+    work = scored(config, scattered)[0]["responsibilities"]
+    assert work.points <= 25.0 / COUNTED_SIGNALS["responsibilities"] + 1e-9
 
 
 def test_the_component_maximum_is_the_explicit_limit() -> None:
     config = config_with()
-    body = responsibilities(*(f"Use {tool}" for tool in TOOLS.values()), "Then use ledgerbook")
+    body = responsibilities(WORK_LINE, *TOOL_LINES, "Then use ledgerbook")
     components, _, score = scored(config, body)
     assert components["technologies"].points == pytest.approx(20.0)
     assert 0 <= score <= 100
@@ -297,9 +319,90 @@ def test_the_component_maximum_is_the_explicit_limit() -> None:
 
 def test_an_incidental_mention_is_a_partial_correspondence() -> None:
     config = config_with()
-    central = scored(config, responsibilities("Use ledgerbook"))[0]["technologies"].points
-    incidental = scored(config, "We sometimes use ledgerbook.")[0]["technologies"].points
-    assert 0 < incidental < central
+    central = scored(config, responsibilities(WORK_LINE, "Use ledgerbook"))[0]["technologies"]
+    incidental = scored(config, WORK_LINE + ". We sometimes use ledgerbook.")[0]["technologies"]
+    assert 0 < incidental.points < central.points
+
+
+# =========================================================================
+# tools read where the work is: the 2026-09-27 false positives
+# =========================================================================
+# Synthetic analogues of the benchmark's shapes (its postings are private):
+# the tools named for other work, a generic line read as a partial finding,
+# a passing mention of the work. Absence of a preference is not divergence.
+
+
+def test_tools_without_the_wanted_work_as_a_duty_are_held_at_half() -> None:
+    config = config_with()
+    body = responsibilities(*TOOL_LINES)
+    tools = scored(config, body)[0]["technologies"]
+    assert tools.points == pytest.approx(10.0)
+    assert tools.guarded and tools.note and "not a central duty" in tools.note
+
+
+def test_tools_beside_the_wanted_work_count_in_full() -> None:
+    config = config_with()
+    tools = scored(config, responsibilities(WORK_LINE, *TOOL_LINES))[0]["technologies"]
+    assert tools.points == pytest.approx(20.0) and not tools.guarded
+
+
+def test_no_work_named_is_not_work_missing() -> None:
+    """A person who named no work is not told the work was not found: the
+    tools count in full. Absence of a preference is not divergent work."""
+    config = config_with(work={})
+    components = scored(config, responsibilities(*TOOL_LINES))[0]
+    assert components["responsibilities"].configured is False
+    assert components["technologies"].points == pytest.approx(20.0)
+
+
+def test_a_tool_named_for_work_you_avoid_is_not_evidence() -> None:
+    """Explicit divergent work: the tool sits in a sentence about something
+    the person asked to avoid, and earns nothing there."""
+    config = config_with(penalties={"p_cold": 3.0})
+    body = responsibilities(WORK_LINE, "Make cold calls with ledgerbook", "Use gridsheet")
+    tools = scored(config, body)[0]["technologies"]
+    ledger = next(c for c in tools.contributions if c.signal_id == "t_ledger")
+    assert not ledger.counted and "avoid" in (ledger.uncounted_reason or "")
+    sheet = next(c for c in tools.contributions if c.signal_id == "t_sheet")
+    assert sheet.counted
+
+
+GENERIC = "Build scalable solutions with ledgerbook, gridsheet and bankfeed."
+TOOLS_ONLY_BODY = responsibilities(GENERIC, "Use taxpal")
+
+
+def test_a_partial_finding_on_a_generic_line_does_not_count_as_the_work() -> None:
+    config = config_with()
+    partial = SemanticMatch("responsibilities", "w_invoices", "W1", "partial", GENERIC)
+    components, _, _ = scored(config, TOOLS_ONLY_BODY, semantic=evidence(partial))
+    work, tools = components["responsibilities"], components["technologies"]
+    assert work.points > 0 and work.contributions[0].counted
+    assert tools.guarded and tools.points == pytest.approx(10.0)
+
+
+def test_a_strong_finding_in_other_words_is_the_work() -> None:
+    config = config_with()
+    quote = "Match every supplier bill against the ledger before payment."
+    strong = SemanticMatch("responsibilities", "w_invoices", "W1", "strong", quote)
+    components, _, _ = scored(
+        config, responsibilities(quote, GENERIC, "Use taxpal"), semantic=evidence(strong)
+    )
+    assert components["technologies"].points > 10.0 and not components["technologies"].guarded
+
+
+def test_an_incidental_mention_of_the_work_does_not_lift_the_hold() -> None:
+    config = config_with()
+    body = "We sometimes reconcile invoices.\n" + TOOLS_ONLY_BODY
+    components, _, _ = scored(config, body)
+    assert components["responsibilities"].contributions[0].prominence.value == "INCIDENTAL"
+    assert components["technologies"].points == pytest.approx(10.0)
+
+
+def test_the_held_rows_add_up_to_what_the_component_scored() -> None:
+    config = config_with()
+    tools = scored(config, responsibilities(*TOOL_LINES))[0]["technologies"]
+    paid = sum(c.points for c in tools.contributions if c.counted)
+    assert paid == pytest.approx(tools.points)
 
 
 def test_no_work_evidence_stays_unknown_not_a_mismatch() -> None:

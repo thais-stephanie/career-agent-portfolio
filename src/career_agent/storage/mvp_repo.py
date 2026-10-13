@@ -90,6 +90,7 @@ from career_agent.domain.matching import (
     TitleClass,
     TitleClassification,
 )
+from career_agent.match.engagement import filter_engagement
 from career_agent.match.lexicon import TECHNOLOGY_SIGNALS
 from career_agent.storage.search_index import (
     FOLD_FUNCTION,
@@ -890,7 +891,13 @@ FACET_COLUMN_NAMES: tuple[str, ...] = (
     "experience_requirement",
     "experience_min_years",
     "entry_signals",
+    "engagement",
 )
+
+#: The working patterns the Hours filter offers. A board's job-type field
+#: also carries engagements (`CONTRACT`, `TEMPORARY`), which belong to the
+#: Contract filter; under Hours they read as "not stated".
+WORKING_PATTERNS: tuple[str, ...] = ("FULL_TIME", "PART_TIME")
 
 
 def facet_columns(result: MatchResult) -> tuple[object, ...]:
@@ -937,19 +944,9 @@ def facet_columns(result: MatchResult) -> tuple[object, ...]:
     # domestic employment; that is worth telling somebody abroad and it is not
     # the employer having said no. `eligibility_status` stays the only column
     # that records a refusal.
-    employment_type = _as_text(facts.get("employment_type"))
-    if (
-        employment_type is None
-        and result.employment is not None
-        and result.employment.effective_relationship is EmploymentRelationship.CONTRACTOR_B2B
-    ):
-        # The board said nothing about the engagement and the reading (stated
-        # in words, or the contractor default) says contractor: the Contract
-        # filter finds it. A working pattern the board did state is kept.
-        employment_type = "CONTRACT"
     return (
         _as_text(facts.get("work_model")),
-        employment_type,
+        _as_text(facts.get("employment_type")),
         minimum,
         maximum,
         _as_text(salary.get("currency")),
@@ -977,6 +974,9 @@ def facet_columns(result: MatchResult) -> tuple[object, ...]:
         _fence([signal.value for signal in result.experience.entry_signals])
         if result.experience
         else "",
+        # THE ENGAGEMENT, stated or the contractor default, for the Contract
+        # filter; `employment_type` above stays what the board said.
+        filter_engagement(result.employment),
     )
 
 
@@ -1032,6 +1032,16 @@ def _fence(values: object) -> str:
 class MatchRepo(_Repo):
     """Deterministic scores, one row per (posting, configuration version)."""
 
+    def _has_engagement(self) -> bool:
+        known = getattr(self, "_engagement_column", None)
+        if known is None:
+            known = any(
+                row[1] == "engagement"
+                for row in self.conn.execute("PRAGMA table_info(job_match)").fetchall()
+            )
+            self._engagement_column = known
+        return bool(known)
+
     def store(
         self,
         job_id: str,
@@ -1051,6 +1061,15 @@ class MatchRepo(_Repo):
         """
         row_id = new_id()
         title_class = result.title.resolved_class if result.title else TitleClass.UNCLASSIFIED
+        # `engagement` arrived with migration 0053. A database still at an older
+        # schema (a test building one, a file not opened by this build yet) is
+        # written without it rather than refused.
+        facets = facet_columns(result)
+        if not self._has_engagement():
+            facets = facets[:-1]
+        engaged = " engagement," if len(facets) == len(FACET_COLUMN_NAMES) else ""
+        marks = " ?," if engaged else ""
+        updated = "   engagement          = excluded.engagement," if engaged else ""
         self.conn.execute(
             "INSERT INTO job_match"
             " (id, job_id, content_hash, config_id, config_version, config_digest,"
@@ -1061,9 +1080,9 @@ class MatchRepo(_Repo):
             "  salary_currency, salary_period, salary_annual_min, salary_annual_max,"
             "  countries, regions, employment_context, contract_regime,"
             "  content_completeness, experience_requirement, experience_min_years,"
-            "  entry_signals, computed_at)"
+            f"  entry_signals,{engaged} computed_at)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
-            "         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            f"         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,{marks} ?)"
             " ON CONFLICT (job_id, config_id, config_version) DO UPDATE SET"
             "   content_hash        = excluded.content_hash,"
             "   config_digest       = excluded.config_digest,"
@@ -1095,6 +1114,7 @@ class MatchRepo(_Repo):
             "   experience_requirement = excluded.experience_requirement,"
             "   experience_min_years = excluded.experience_min_years,"
             "   entry_signals       = excluded.entry_signals,"
+            f"{updated}"
             "   computed_at         = excluded.computed_at",
             (
                 row_id,
@@ -1115,7 +1135,7 @@ class MatchRepo(_Repo):
                 result.seniority.value.value,
                 serialise_match(result),
                 membership_of(result),
-                *facet_columns(result),
+                *facets,
                 computed_at or result.computed_at or now_utc(),
             ),
         )
@@ -1816,6 +1836,8 @@ class JobFilter:
     worksites: tuple[str, ...] = ()
     seniorities: tuple[str, ...] = ()
     employment_types: tuple[str, ...] = ()
+    #: The Contract filter: the engagement stated, or the contractor default.
+    engagements: tuple[str, ...] = ()
     #: Annualised, and compared WITHIN one currency. `salary_currencies` must
     #: name exactly one when this is set -- the API enforces it -- because
     #: nothing in this system converts between currencies and a comparison
@@ -2648,7 +2670,13 @@ class ScoredJobQuery(_Repo):
         for column, values in (
             (f"jm{a}.work_model", f.worksites),
             (f"jm{a}.seniority", f.seniorities),
-            (f"jm{a}.employment_type", f.employment_types),
+            # HOURS: the board's job type read as a working pattern only.
+            (
+                f"(CASE WHEN jm{a}.employment_type IN ('FULL_TIME', 'PART_TIME')"
+                f" THEN jm{a}.employment_type END)",
+                f.employment_types,
+            ),
+            (f"jm{a}.engagement", f.engagements),
             # MOVED HERE IN V1.7, from its own `IN (...)` clause above. It
             # gained a facet the same day, and a facet emits a `NOT_STATED`
             # bucket -- which the old clause could not match, so the one row
@@ -3392,7 +3420,16 @@ class ScoredJobQuery(_Repo):
             # as a choice rather than being an absence they have to infer.
             "worksite": (f"COALESCE(jm.work_model, '{NOT_STATED}')", None),
             "seniority": ("jm.seniority", None),
-            "employment_type": (f"COALESCE(jm.employment_type, '{NOT_STATED}')", None),
+            # HOURS, and only hours: a job type a board filled with an
+            # engagement (`CONTRACT`) is the Contract filter's question.
+            "employment_type": (
+                "CASE WHEN jm.employment_type IN ('FULL_TIME', 'PART_TIME')"
+                f" THEN jm.employment_type ELSE '{NOT_STATED}' END",
+                None,
+            ),
+            # THE ENGAGEMENT: stated by the advert or its board, or the
+            # contractor default (American employer hiring in Latin America).
+            "engagement": (f"COALESCE(jm.engagement, '{NOT_STATED}')", None),
             # WHICH NATIONAL STATUTE, when a posting named one. Added V1.7,
             # the day the column stopped being NULL on every row: Gupy
             # publishes the employer's own contract type and 37,368

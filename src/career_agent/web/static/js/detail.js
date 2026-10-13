@@ -471,7 +471,8 @@ export function createDrawer({
       },
       {
         key: 'type', icon: '◷',
-        value: contractInfo(job).text || t('drawer.tile.notStated'),
+        value: [contractInfo(job).text || t('drawer.tile.notStated'), contractInfo(job).hours]
+          .filter(Boolean).join(' · '),
         absent: !contractInfo(job).text,
         note: contractInfo(job).probable ? t('contract.probableWhy') : null,
       },
@@ -1009,6 +1010,8 @@ export function createDrawer({
         lines.push(t('pref.mentionsNone'));
       }
       if (missing.length) lines.push(t('pref.notMentioned', { list: listed(missing) }));
+      // Tools named for other work count for less: said, with why.
+      if (component.guarded) lines.push(t('pref.toolsHeld'));
       items.push({ component, lines });
     }
     if (!items.length) return null;

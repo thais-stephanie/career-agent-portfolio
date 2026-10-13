@@ -24,16 +24,39 @@ of it", which is true of almost every posting and said nothing about which.
 
 ## Decision
 
-**Optional preferences.** Each phrase the posting shows adds a fixed share of
-its component, `max / COUNTED_SIGNALS` (4 for work, 3 for tools, 3 for the
-other signals), times its prominence (a central duty pays in full, an
-incidental mention its multiplier: that is how much of it the posting shows).
-The component's maximum is the explicit limit. A phrase the posting does not
-mention adds nothing and takes nothing away, and naming one more phrase can
-never lower a posting's points. Weights only decide which matches count first.
-The tools guard is removed. A component the person never configured stays out
-of the denominator, as before; the share of one that is configured no longer
-depends on how many phrases were named.
+**Optional preferences: paid by evidence, never by how much was asked.**
+A component is filled by PIECES OF EVIDENCE: `COUNTED_SIGNALS` of them (4 for
+work, 3 for tools, 3 for the other signals) fill it, each worth
+`max / COUNTED_SIGNALS` times its strength (a central duty in full, an
+incidental mention its prominence multiplier). The first sentence a preference
+shows in is a piece; a further distinct sentence of the SAME preference is
+another full piece only when it is a duty in the role's own section. One
+sentence pays at most half the pieces through the person's phrases and one
+through a semantic finding; a semantic finding never adds a second piece to a
+phrase already found. Evidence is taken strongest first, so a weak mention
+never takes the place of a stronger duty. Hence:
+
+* a preference the posting does not mention brings no evidence and takes
+  nothing away, and naming one more preference never lowers a posting;
+* a small selection can fill its component when the posting shows enough of
+  it (one wanted activity that is a duty in four bullets fills the work
+  component);
+* nothing depends on how many phrases were named nor on their weights
+  (weights only decide which evidence counts first); the maximum is the
+  limit.
+
+**Tools read where the work is.** Three cases, kept apart. A tool in a
+sentence about work the person asked to AVOID (a soft-penalty phrase fires in
+that sentence) is evidence of other work and earns nothing. Where the work the
+person wants is a CENTRAL duty of the posting (a counted work match at PRIMARY
+or SECONDARY prominence), the tools pay in full. Where the person named work
+and the posting shows none of it as a central duty, the tools together earn at
+most half their component (`TOOLS_WITHOUT_WORK_SHARE`): a common tool says
+little about whose work it serves. A person who named NO work is not "the work
+was not found": nothing was asked, so the tools have no limit. That is the one
+place where naming a phrase can lower a posting: the FIRST work preference,
+which tells the product what work is wanted, can hold the tools of a posting
+whose duties are other work. A second, third or tenth phrase never can.
 
 What stays: gates and hard exclusions (they never were part of the %), soft
 penalties ("avoid" phrases), an unwanted contract, a level outside the
@@ -63,16 +86,24 @@ for a band of one, and a yearly figure as its monthly equivalent (divided by
 
 ## Consequences
 
-* Measured trade-off, recorded rather than hidden: on the 2026-09-27
-  development set, 21 of 29 false positives at GOOD or above had only
-  non-central work evidence, and the guard was what kept their tools at half
-  (docs/SEMANTIC_MATCHING.md, "Evidence quality"). Without it a posting that
-  names three of the person's tools and none of their work earns the whole
-  tools component. The owner chose the monotonic rule knowingly; a posting of
-  that shape is now visible in the drawer as "the ad mentions none" of the
-  work.
-* A person who names fewer phrases than `COUNTED_SIGNALS` cannot fill that
-  component any more (one phrase found is a quarter of the work component).
-  Before, one named and found filled it, and naming a second one lowered it.
+* Measured on the 2026-09-27 benchmark (175 postings, blind double-reviewed
+  labels, private; read-only replay with the search configuration of that
+  time and the stored semantic findings, no model call), GOOD or above:
+
+  | Rule | Dev false positives | Dev valid | Holdout false positives | Holdout valid |
+  |---|---:|---:|---:|---:|
+  | 858f22d (guard opening in proportion to work) | 18 | 65 | 9 | 27 |
+  | fcf80c2 (no guard, fixed shares) | 31 | 65 | 16 | 31 |
+  | **This rule** | **19** | **65** | **10** | **28** |
+
+  Four postings cross the GOOD line against 858f22d: two false positives and
+  two valid postings rise, each through a duty repeated in the role section.
+* Removing any one phrase from that search raised no posting's score in
+  7,000 checks (175 postings, every work and tool phrase).
 * Old scores keep their old explanation fields; the drawer says a score was
   made with earlier rules instead of explaining it with the new ones.
+* The Contract filter reads `job_match.engagement` (migration 0053): the
+  engagement stated, or the contractor default. `employment_type` keeps the
+  board's job type, and the Hours filter offers only full-time and
+  part-time from it. Rows scored before readers-11 have no engagement until
+  their next scoring.

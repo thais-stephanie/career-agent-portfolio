@@ -236,3 +236,30 @@ def test_the_readable_count_counts_characters_not_bytes(api) -> None:  # noqa: F
     after = call(api, "GET", "/api/deep/coverage")
     assert after["main_list_roles"] == before["main_list_roles"]
     assert after["readable"] == before["readable"] - 1
+
+
+def test_the_contract_filter_reads_the_engagement_with_the_default(api) -> None:  # noqa: F811
+    """An American employer hiring in Latin America that states no engagement
+    is filed under Contractor by the Contract filter, and counted there."""
+    from career_agent.pipeline.rescore import rescore
+
+    conn = connect(api.config.db_path)
+    with transaction(conn):
+        job_id, digest = conn.execute(
+            "SELECT id, content_hash FROM job WHERE external_id = 'p-3'"
+        ).fetchone()
+        conn.execute(
+            "UPDATE job_raw SET description_text = ? || description_text WHERE content_hash = ?",
+            (
+                "We are a US-based startup. This role is open to candidates in Latin America.\n\n",
+                digest,
+            ),
+        )
+        conn.execute("DELETE FROM job_match WHERE job_id = ?", (job_id,))
+    rescore(conn, api.search_config())
+    conn.close()
+    found = page(api, engagement="CONTRACTOR_B2B", limit=50)
+    assert [item["job_id"] for item in found["items"]] == [job_id]
+    assert found["items"][0]["employment_default"] is True
+    buckets = found["facets"]["engagement"]
+    assert buckets.get("CONTRACTOR_B2B") == 1

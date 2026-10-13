@@ -428,7 +428,9 @@ def effective_pay(job: JobFacts, gates) -> tuple[JobFacts, str | None]:
     text = read_pay(job.description) if job.salary_source != "TEXT" else None
     if text is not None and text.period and text.currency == job.salary_currency:
         return replace(job, salary_period=text.period), None
-    latam = latam_hiring_evidence(job.declared_hiring_scope, tuple(gates)) is not None
+    latam = (
+        latam_hiring_evidence(job.declared_hiring_scope, tuple(gates), job.description) is not None
+    )
     period = default_period(
         job.salary_min, job.salary_max, job.salary_currency, hires_in_latam=latam
     )

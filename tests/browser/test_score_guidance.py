@@ -36,7 +36,7 @@ def test_the_list_names_its_mode_and_explains_it_on_request(
     body = str(page.evaluate("document.getElementById('eval-mode-body').innerText"))
     assert "not a chance of being hired" in body
     assert "does not change this score" in body
-    assert "up to 4 of the kinds of work" in body
+    assert "up to 4 pieces of evidence of the work" in body
     # Three different answers, kept apart; and when a score is out of date.
     assert "never inside it" in body and "marked as earlier" in body
     # It promises no improvement it cannot deliver.
@@ -88,7 +88,7 @@ def test_the_drawer_says_what_limits_this_score_and_whose_gap_it_is(
     )
     assert "reader" in kinds, kinds
     text = str(page.evaluate(f"{section}.innerText"))
-    assert "the % pays for up to 4" in text and "not of your profile" in text
+    assert "the % counts up to 4 pieces" in text and "not of your profile" in text
     assert "Your history and evidence are not part of this %" in text
     if SHOTS:
         page.screenshot(Path(SHOTS) / "guidance-drawer.png")

@@ -1598,8 +1598,9 @@ const EN = {
   'evalMode.limits.text': 'work described in words unlike yours can be missed unless Smart matching was run, '
     + 'and postings with little text are scored on what little they say.',
   'evalMode.focused.head': 'Why few jobs reach 90%:',
-  'evalMode.focused.text': 'the % pays for up to {slots} of the kinds of work you listed. A role that does one '
-    + 'or two of them very well can fit you and still score lower; read its details.',
+  'evalMode.focused.text': 'the % counts up to {slots} pieces of evidence of the work you listed: different kinds '
+    + 'of work, or one kind the ad gives as a duty in several bullets. A role that does one of them can fit you and '
+    + 'still score lower; read its details.',
   'evalMode.stale.head': 'When a score is out of date:',
   'evalMode.stale.text': 'after you change a preference this % reads, or when a posting\'s text changes, '
     + 'the job keeps its earlier score, marked as earlier, until you recalculate.',
@@ -1611,7 +1612,7 @@ const EN = {
   'limits.ask.seniority': 'Which levels are you looking for? (Settings, Search)',
   'limits.ask.compensation': 'What minimum pay and which kind of contract do you accept? (Settings, Search)',
   'limits.ask.workModel': 'How do you want to work: remote, hybrid or on site? (Settings, Search)',
-  'limits.focused.title': '{n} of your kinds of work read as central here; the % pays for up to {slots}',
+  'limits.focused.title': '{n} of your kinds of work read as central here; the % counts up to {slots} pieces',
   'limits.focused.text': 'A role focused on one or two of them can suit you and still stay below 70. Work described '
     + 'in other words may not be recognised: that is a limit of this reading, not of your profile.',
   'limits.thin.title': 'The posting has little text',
@@ -1863,6 +1864,8 @@ const EN = {
   'pref.adds': '{n} of the {fills} matches that fill this part.',
   'pref.oldRules': 'This score was made with earlier rules. Recalculate to see which of your preferences the ad '
     + 'mentions.',
+  'pref.toolsHeld': 'Your tools count for at most half here: the work you want is not a central duty of '
+    + 'this ad, and the same tools serve other work.',
   'pref.listAnd': '{items} and {last}',
   'pref.listMore': '{items} and {n} more',
   'lower.level': 'The ad asks for {level}, which is not one of the levels you prefer.',
@@ -3702,8 +3705,9 @@ const EN = {
   'filterWord.country': 'country',
   'filterWord.region': 'region',
   'filterWord.worksite': 'office or remote',
-  'filterWord.employment_type': 'contract type',
+  'filterWord.employment_type': 'working hours',
   'filterWord.contract_regime': 'Brazilian contract',
+  'filterWord.engagement': 'contract type',
   'filterWord.salary_currency': 'currency',
   'filterWord.salary_period': 'pay period',
   'filterWord.keyword': 'must-mention word',
@@ -3894,8 +3898,9 @@ const EN = {
   'facet.region': 'Part of the world, as posted',
   'facet.country': 'Country, as posted',
   'facet.seniority': 'Level',
-  'facet.employment_type': 'Contract type',
+  'facet.employment_type': 'Working hours',
   'facet.contract_regime': 'Brazilian contract',
+  'facet.engagement': 'Contract type',
   'facet.salary_currency': 'Currency',
   'facet.salary_period': 'Paid per',
   'facet.status': 'Your progress',
@@ -6787,8 +6792,9 @@ const PT_BR = {
     + 'Compatibilidade inteligente não tiver sido executada, e vagas com pouco texto são pontuadas pelo '
     + 'pouco que dizem.',
   'evalMode.focused.head': 'Por que poucas vagas chegam a 90%:',
-  'evalMode.focused.text': 'a % paga até {slots} dos tipos de trabalho que você listou. Uma vaga que faz muito '
-    + 'bem um ou dois deles pode combinar com você e ainda assim pontuar menos; leia os detalhes.',
+  'evalMode.focused.text': 'a % conta até {slots} evidências do trabalho que você listou: tipos diferentes de '
+    + 'trabalho, ou um tipo que o anúncio traz como tarefa em vários itens. Uma vaga que faz um deles pode combinar '
+    + 'com você e ainda assim pontuar menos; leia os detalhes.',
   'evalMode.stale.head': 'Quando uma nota fica desatualizada:',
   'evalMode.stale.text': 'depois que você muda uma preferência que esta % lê, ou quando o texto da vaga muda, '
     + 'a vaga mantém a nota anterior, marcada como anterior, até você recalcular.',
@@ -6800,7 +6806,8 @@ const PT_BR = {
   'limits.ask.seniority': 'Quais níveis você procura? (Configurações, Busca)',
   'limits.ask.compensation': 'Qual remuneração mínima e que tipo de contrato você aceita? (Configurações, Busca)',
   'limits.ask.workModel': 'Como você quer trabalhar: remoto, híbrido ou presencial? (Configurações, Busca)',
-  'limits.focused.title': '{n} dos seus tipos de trabalho aparecem como centrais aqui; a % paga até {slots}',
+  'limits.focused.title': '{n} dos seus tipos de trabalho aparecem como centrais aqui; a % conta até {slots} '
+    + 'evidências',
   'limits.focused.text': 'Uma vaga focada em um ou dois deles pode combinar com você e ficar abaixo de 70. Trabalho '
     + 'descrito com outras palavras pode não ser reconhecido: é um limite desta leitura, não do seu perfil.',
   'limits.thin.title': 'O anúncio tem pouco texto',
@@ -7048,6 +7055,8 @@ const PT_BR = {
   'pref.adds': '{n} das {fills} correspondências que completam esta parte.',
   'pref.oldRules': 'Esta nota foi feita com regras anteriores. Recalcule para ver quais das suas preferências o '
     + 'anúncio menciona.',
+  'pref.toolsHeld': 'Suas ferramentas contam no máximo metade aqui: o trabalho que você quer não é uma tarefa '
+    + 'central deste anúncio, e as mesmas ferramentas servem a outros trabalhos.',
   'pref.listAnd': '{items} e {last}',
   'pref.listMore': '{items} e mais {n}',
   'lower.level': 'O anúncio pede {level}, que não está entre os níveis que você prefere.',
@@ -8896,8 +8905,9 @@ const PT_BR = {
   'filterWord.country': 'país',
   'filterWord.region': 'região',
   'filterWord.worksite': 'presencial ou remoto',
-  'filterWord.employment_type': 'tipo de contrato',
+  'filterWord.employment_type': 'jornada',
   'filterWord.contract_regime': 'regime de contratação',
+  'filterWord.engagement': 'tipo de contrato',
   'filterWord.salary_currency': 'moeda',
   'filterWord.salary_period': 'período de pagamento',
   'filterWord.keyword': 'palavra obrigatória',
@@ -9092,8 +9102,9 @@ const PT_BR = {
   'facet.region': 'Parte do mundo, como publicado',
   'facet.country': 'País, como publicado',
   'facet.seniority': 'Nível',
-  'facet.employment_type': 'Tipo de contrato',
+  'facet.employment_type': 'Jornada',
   'facet.contract_regime': 'Regime de contratação',
+  'facet.engagement': 'Tipo de contrato',
   'facet.salary_currency': 'Moeda',
   'facet.salary_period': 'Pago por',
   'facet.status': 'Seu andamento',

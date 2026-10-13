@@ -709,6 +709,8 @@ def test_facets_totals_equal_the_row_count(scored: sqlite3.Connection) -> None:
         "worksite",
         "seniority",
         "employment_type",
+        # The engagement the Contract filter reads (migration 0053).
+        "engagement",
         # Added V1.7, the day the column stopped being NULL on every row in
         # the real corpus: Gupy publishes the employer's own contract type,
         # and 37,368 postings resolved to CLT against 621 to PJ. It was an

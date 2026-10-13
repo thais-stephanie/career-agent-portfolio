@@ -328,7 +328,7 @@ export function toCsv(items, visible, descriptions = {}) {
       case 'source': return vocabLabel(job.provider);
       case 'technologies': return signalLabels(job).join('; ');
       case 'salary': return formatSalary(job.salary) || '';
-      case 'contract': return contractInfo(job).text || '';
+      case 'contract': return [contractInfo(job).text, contractInfo(job).hours].filter(Boolean).join(' · ');
       case 'posted': return job.posted_at ? formatDate(job.posted_at) : '';
       case 'freshness': return freshness(job.freshness).label;
       case 'eligibility': return eligibilityWords(job.eligibility_status);
@@ -515,7 +515,9 @@ function cell(column, job, ctx, aside) {
     }
 
     case 'contract':
-      return textCell(column, contractInfo(job).text || t('value.notStated'), {
+      return textCell(column, [
+        contractInfo(job).text || t('value.notStated'), contractInfo(job).hours,
+      ].filter(Boolean).join(' · '), {
         absent: !contractInfo(job).text,
       });
 

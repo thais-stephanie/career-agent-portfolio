@@ -351,7 +351,9 @@ function terms(job) {
   // beside the quote it came from.
   const level = levelInfo(job);
   if (level) parts.push(level.text);
-  parts.push(contractInfo(job).text || t('absent.contract'));
+  const engaged = contractInfo(job);
+  parts.push(engaged.text || t('absent.contract'));
+  if (engaged.hours) parts.push(engaged.hours);
   return parts.join(' · ');
 }
 

@@ -63,7 +63,10 @@ NARROWING: dict[str, str] = {
     "worldwide_only": "1",
     "worksite": "REMOTE",
     "seniority": "SENIOR",
-    "employment_type": "CONTRACT",
+    # HOURS since 2026-10-13: a board's job type read as a working pattern.
+    "employment_type": "FULL_TIME",
+    # The engagement, stated or the contractor default (the Contract filter).
+    "engagement": "CONTRACTOR_B2B",
     "salary_currency": "BRL",
     "salary_period": "MONTH",
     "technology": "ipaas",
@@ -515,6 +518,7 @@ SINGLE_VALUED = (
     "worksite",
     "seniority",
     "employment_type",
+    "engagement",
     "salary_currency",
     "salary_period",
 )
@@ -527,7 +531,8 @@ def test_a_single_valued_facet_sums_to_the_result_count(dimension: str, api: Job
 
 
 @pytest.mark.parametrize(
-    "dimension", ["worksite", "seniority", "employment_type", "salary_currency", "salary_period"]
+    "dimension",
+    ["worksite", "seniority", "employment_type", "engagement", "salary_currency", "salary_period"],
 )
 def test_every_new_facet_has_something_to_render(dimension: str, api: JobsApi) -> None:
     """A control with no counts is a control nobody can click.
@@ -555,6 +560,7 @@ def test_a_facet_bucket_is_a_value_its_own_filter_accepts(api: JobsApi) -> None:
         ("worksite", "worksite"),
         ("seniority", "seniority"),
         ("employment_type", "employment_type"),
+        ("engagement", "engagement"),
         ("salary_currency", "salary_currency"),
         ("salary_period", "salary_period"),
         ("country", "country"),

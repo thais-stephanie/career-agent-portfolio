@@ -91,28 +91,68 @@ def us_company_evidence(description: str, company_country: str | None) -> str | 
     return None
 
 
-def latam_hiring_evidence(declared_scope: str | None, gates: tuple[GateOutcome, ...]) -> str | None:
+def _names_latam(text: str) -> bool:
+    """Whether a scope text names Latin America or a country in it.
+
+    The whole text, then each place in it: a quoted sentence such as "we hire
+    in Brazil, Argentina and Mexico" names three places, and "Latin America
+    are welcome to apply" starts with one (its first one to four words are
+    tried).
+    """
+    pieces = [text]
+    for part in _PLACE_BREAKS.split(text):
+        words = (part or "").split()
+        pieces.extend(" ".join(words[:n]) for n in range(min(len(words), 4), 0, -1))
+    return any("LATAM" in resolve_place(piece).regions for piece in pieces if piece)
+
+
+#: One sentence of an advert: up to a full stop, a question or exclamation
+#: mark, or a line break. Spans, so a quote stays a substring of the advert.
+_SENTENCE = re.compile(r"[^.!?\n]+")
+
+
+def latam_hiring_evidence(
+    declared_scope: str | None,
+    gates: tuple[GateOutcome, ...],
+    description: str = "",
+) -> str | None:
     """The basis for "this employer hires in Latin America", or None.
 
-    Only a stated hiring scope counts: the board's own scope field, or the
-    sentence the geography gate quoted. Both are resolved through the same
+    Only a stated hiring scope counts: the board's own scope field, the
+    sentence the geography gate quoted, or a sentence of the advert about
+    hiring or where the work is done (the gate's own `HIRING_INTENT` anchor):
+    a posting may state two scopes ("we hire globally", "open to candidates
+    in Latin America") and the gate quotes one. Places resolve through the
     gazetteer the gate uses; a scope naming Latin America, or any country in
     it, is hiring there. An office location is not a hiring scope and is not
     read here (invariant 3).
     """
     for text in (declared_scope, *(g.quote for g in gates if g.gate == "geography")):
-        if not text:
-            continue
-        # The whole text, then each place in it: a quoted sentence such as
-        # "we hire in Brazil, Argentina and Mexico" names three places, and
-        # "Latin America are welcome to apply" starts with one (its first
-        # one to four words are tried).
-        pieces = [text]
-        for part in _PLACE_BREAKS.split(text):
-            words = (part or "").split()
-            pieces.extend(" ".join(words[:n]) for n in range(min(len(words), 4), 0, -1))
-        if any("LATAM" in resolve_place(piece).regions for piece in pieces if piece):
+        if text and _names_latam(text):
             return text
+    from career_agent.match.gates import HIRING_INTENT
+
+    for found in _SENTENCE.finditer(description or ""):
+        sentence = found.group(0).strip()
+        if sentence and HIRING_INTENT.search(sentence) and _names_latam(sentence):
+            return sentence
+    return None
+
+
+def filter_engagement(reading: EmploymentReading | None) -> str | None:
+    """The engagement the Contract filter files a posting under, or None.
+
+    The contractor default when it applies; otherwise an engagement the advert
+    or its board STATED. A likelihood read from benefits is not a statement
+    and files nothing. A working pattern never reaches here: full-time and
+    part-time are not engagements (`provider_values._ENGAGEMENTS`).
+    """
+    if reading is None:
+        return None
+    if reading.is_default:
+        return reading.effective_relationship.value
+    if reading.is_explicit and reading.relationship is not EmploymentRelationship.UNRESOLVED:
+        return reading.relationship.value
     return None
 
 
@@ -135,7 +175,7 @@ def with_default(
     american = us_company_evidence(description, company_country)
     if american is None:
         return reading
-    latam = latam_hiring_evidence(declared_scope, gates)
+    latam = latam_hiring_evidence(declared_scope, gates, description)
     if latam is None:
         return reading
     return replace(

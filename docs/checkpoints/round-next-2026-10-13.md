@@ -45,8 +45,16 @@ machine, a fresh process each time (second process, disk cache warm):
 Cold disk (the first process after building the index): Home 10.7 s, deep
 counts 21.6 s; the panel itself 0.65 s.
 
-**Optional preferences only add** (ADR-0036, readers-11, schema 14). **The
-contractor default** and **USD pay periods** (same ADR). **Explanations**: the
+**Optional preferences only add** (ADR-0036, readers-11, schema 14): paid by
+pieces of evidence, so a small selection fills its part when the posting shows
+enough and naming one more phrase never lowers a posting; tools read where the
+work is (held at half when the wanted work is not a central duty, nothing in a
+sentence about avoided work). On the 2026-09-27 benchmark: false positives at
+GOOD+ 19 / 10 (dev / holdout) against 18 / 9 before this round and 31 / 16 for
+the first version of this branch. **The contractor default** and **USD pay
+periods** (same ADR); the Contract filter reads the engagement (stated or the
+default, `job_match.engagement`), the Hours filter only full-time and
+part-time. **Explanations**: the
 drawer lists, per kind of preference, what was marked, what the ad mentions and
 what it does not; "These lower the %" holds only what took points (a level, pay
 below target, an unwanted contract or way of working, an avoid phrase). A score

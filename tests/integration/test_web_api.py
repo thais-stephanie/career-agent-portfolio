@@ -973,6 +973,8 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
         "worksite": "REMOTE",
         "seniority": "SENIOR",
         "employment_type": "FULL-TIME",
+        # The engagement (stated, or the contractor default), apart from hours.
+        "engagement": "CONTRACTOR_B2B",
         "min_salary": "1000",
         "salary_currency": "USD",
         "salary_period": "YEAR",
