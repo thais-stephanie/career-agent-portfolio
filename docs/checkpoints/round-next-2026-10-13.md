@@ -58,7 +58,9 @@ part-time. **Explanations**: the
 drawer lists, per kind of preference, what was marked, what the ad mentions and
 what it does not; "These lower the %" holds only what took points (a level, pay
 below target, an unwanted contract or way of working, an avoid phrase). A score
-made by earlier rules says so.
+made by earlier rules says so. These benchmark figures are EXPLORATORY: the holdout was consulted while
+the variants were being chosen, so they are not an independent final
+validation.
 
 **Find jobs**: the search sits on the list's centred column on wide screens; a
 header sorts ascending, descending, then back to best match, over the whole

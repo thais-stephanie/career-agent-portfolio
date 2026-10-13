@@ -112,6 +112,9 @@ def install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Install
         "career_agent.web.source_refresh.employer_board_work",
         lambda app, families: lambda state, cancel: None,
     )
+    monkeypatch.setattr(
+        "career_agent.web.auto_update.workable_work", lambda app: lambda state, cancel: None
+    )
     probe = socket.socket()
     probe.bind(("127.0.0.1", 0))
     port = int(probe.getsockname()[1])

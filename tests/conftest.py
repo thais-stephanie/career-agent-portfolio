@@ -11,6 +11,8 @@ of a few tens of kilobytes.
 
 from __future__ import annotations
 
+import socket
+
 import pytest
 from tests.protected_paths import changed, describe, restore, snapshot
 
@@ -77,3 +79,34 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
     terminalreporter.section("protected operational data", red=True)
     for nodeid, what in _VIOLATIONS:
         terminalreporter.line(f"  {nodeid}  ->  {what}")
+
+
+_LOOPBACK = ("127.", "::1", "localhost")
+
+
+@pytest.fixture(autouse=True)
+def _no_outgoing_connection(monkeypatch):
+    """A test never reaches a host beyond this machine; it fails and says which.
+
+    Without it a source nobody stubbed makes the test depend on the vendor's
+    answer and speed, which is how two plan tests came to hang for ten seconds
+    only on some runs, and how the browser tests of a first run came to
+    download Workable's whole feed and wait on it.
+    """
+    real_connect, real_connect_ex = socket.socket.connect, socket.socket.connect_ex
+
+    def check(address: object) -> None:
+        host = str(address[0]) if isinstance(address, tuple) else str(address)
+        if not host.startswith(_LOOPBACK):
+            raise AssertionError(f"a test tried to reach {host}: stub the source it belongs to")
+
+    def connect(self, address):  # type: ignore[no-untyped-def]
+        check(address)
+        return real_connect(self, address)
+
+    def connect_ex(self, address):  # type: ignore[no-untyped-def]
+        check(address)
+        return real_connect_ex(self, address)
+
+    monkeypatch.setattr(socket.socket, "connect", connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)

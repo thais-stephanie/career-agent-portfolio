@@ -1,7 +1,9 @@
 # ADR-0036: An optional preference only adds; a USD period and a contractor engagement have owner defaults
 
 Status: accepted (owner, 2026-10-13: the rules below were given as product
-rules, to be implemented without a further confirmation). Moves
+rules, to be implemented without a further confirmation). UNDER REVISION: the
+owner did not authorise the first-work-preference exception described under
+"Tools read where the work is"; its replacement waits on the owner's decision. Moves
 `READER_IDENTITY` to `readers-11` and `MATCH_SCHEMA_VERSION` to 14; every
 stored score is read again on the next recalculation.
 
@@ -98,8 +100,14 @@ for a band of one, and a yearly figure as its monthly equivalent (divided by
 
   Four postings cross the GOOD line against 858f22d: two false positives and
   two valid postings rise, each through a duty repeated in the role section.
+  **Exploratory, not a validation.** The holdout was consulted while the
+  variants of this round were being chosen, so these figures cannot stand as
+  an independent final check of the rule; a fresh, unseen set would be needed
+  for that.
 * Removing any one phrase from that search raised no posting's score in
   7,000 checks (175 postings, every work and tool phrase).
+  Those checks never emptied a component: the 0 -> 1 transition was not
+  covered, and it is not monotone (118 of 7,350 checks, 2026-10-13 revision).
 * Old scores keep their old explanation fields; the drawer says a score was
   made with earlier rules instead of explaining it with the new ones.
 * The Contract filter reads `job_match.engagement` (migration 0053): the

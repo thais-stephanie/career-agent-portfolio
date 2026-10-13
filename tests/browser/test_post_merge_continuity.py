@@ -162,6 +162,10 @@ def _offline_sources(
         "career_agent.web.source_refresh.employer_board_work",
         lambda app, families: work_for("employer-boards"),
     )
+    # Workable's step is built through its own door; left alone it reads the live feed.
+    monkeypatch.setattr(
+        "career_agent.web.auto_update.workable_work", lambda app: work_for("workable")
+    )
     monkeypatch.setattr(live.app.rescore, "start", lambda work, run_id: None)
 
 
