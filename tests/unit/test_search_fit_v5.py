@@ -6,7 +6,8 @@ Every rule here is one sentence of docs/SEMANTIC_MATCHING.md, asserted:
   stays 0 of its max;
 * each phrase component pays its strongest few distinct signals, once each;
 * one sentence pays for at most half of a component;
-* tools without any of the desired work earn at most half the tools bucket;
+* an optional preference only adds: a fixed share per match, capped at the
+  component's maximum, and naming more never lowers a posting;
 * seniority follows the person's preferred levels;
 * a soft penalty is a magnitude that is subtracted, even when written as -3;
 * a semantic finding and a lexical hit for the same intent item never both
@@ -230,149 +231,75 @@ def test_repeating_a_phrase_buys_nothing() -> None:
     assert scored(config, once)[2] == scored(config, many)[2]
 
 
-def opened(components) -> float:
-    """What the tools guard allows (2026-10-10): half, plus the other half in
-    proportion to the work component's fill when that work is central."""
-    work = components["responsibilities"]
-    return 20.0 * (0.5 + 0.5 * work.points / work.max_points)
-
-
 # =========================================================================
-# the tools guard
+# an optional preference only adds (readers-11, 2026-10-13)
 # =========================================================================
 
 
-def test_tools_without_any_desired_work_earn_at_most_half() -> None:
+def test_tools_pay_in_full_without_any_desired_work() -> None:
+    """No guard: naming work a posting does not mention lowers nothing else."""
     config = config_with()
     body = responsibilities("Use ledgerbook", "Use gridsheet", "Use bankfeed", "Use taxpal")
     components, _, _ = scored(config, body)
     tools = components["technologies"]
-    assert tools.points == pytest.approx(10.0)
-    assert tools.guarded and tools.note and "half" in tools.note
+    assert tools.points == pytest.approx(20.0)
+    assert not tools.guarded
 
 
-def test_one_piece_of_desired_work_lifts_the_tools_guard() -> None:
+def test_each_found_preference_adds_a_fixed_share() -> None:
+    """max / COUNTED_SIGNALS per central match, whatever else was named."""
     config = config_with()
-    body = responsibilities(
-        "You will reconcile invoices",
-        "Use ledgerbook",
-        "Use gridsheet",
-        "Use bankfeed",
+    body = responsibilities("Use ledgerbook", "Use gridsheet")
+    tools = scored(config, body)[0]["technologies"]
+    assert tools.points == pytest.approx(2 * 20.0 / COUNTED_SIGNALS["technologies"])
+    assert tools.fills_at == COUNTED_SIGNALS["technologies"]
+
+
+def test_naming_more_preferences_never_lowers_a_posting() -> None:
+    body = responsibilities("You will reconcile invoices", "Use ledgerbook", "Use gridsheet")
+    few = config_with(work={"w_invoices": "reconcile invoices"}, tools={"t_ledger": "ledgerbook"})
+    many = config_with()
+    for component in ("responsibilities", "technologies"):
+        assert scored(many, body)[0][component].points >= scored(few, body)[0][component].points
+    assert scored(many, body)[2] >= scored(few, body)[2]
+
+
+def test_a_heavier_preference_does_not_lower_the_others() -> None:
+    """Weights order which matches count first; they no longer scale points,
+    so adding a phrase weighted above the rest cannot shrink them."""
+    body = responsibilities("Use ledgerbook")
+    plain = config_with(tools={"t_ledger": "ledgerbook"})
+    data = plain.model_dump()
+    data["lexicon"]["t_sheet"] = {"label": "Gridsheet", "patterns": ["gridsheet"]}
+    data["scoring"]["components"]["technologies"]["weights"] = {"t_ledger": 1.0, "t_sheet": 9.0}
+    heavier = SearchConfig.model_validate(data)
+    assert scored(heavier, body)[0]["technologies"].points == pytest.approx(
+        scored(plain, body)[0]["technologies"].points
     )
-    components, _, _ = scored(config, body)
-    # One piece of the work opens the guard in proportion, no longer in full:
-    # one bullet under another job used to unlock 20 of 20.
-    tools = components["technologies"].points
-    assert 10.0 < tools < 20.0
-    assert tools == pytest.approx(opened(components))
 
 
-def test_all_the_desired_work_opens_the_tools_in_full() -> None:
+def test_a_preference_not_mentioned_is_listed_and_costs_nothing() -> None:
     config = config_with()
-    body = responsibilities(
-        *(f"You will {phrase}" for phrase in WORK.values()),
-        "Use ledgerbook",
-        "Use gridsheet",
-        "Use bankfeed",
-    )
-    components, _, _ = scored(config, body)
-    assert components["responsibilities"].points == pytest.approx(25.0)
+    body = responsibilities("Use ledgerbook")
+    tools = scored(config, body)[0]["technologies"]
+    assert set(tools.not_found) == {"Gridsheet", "Bankfeed", "Taxpal"}
+    assert tools.note and "takes nothing away" in tools.note
+    assert all(c.points >= 0 for c in tools.contributions)
+
+
+def test_the_component_maximum_is_the_explicit_limit() -> None:
+    config = config_with()
+    body = responsibilities(*(f"Use {tool}" for tool in TOOLS.values()), "Then use ledgerbook")
+    components, _, score = scored(config, body)
     assert components["technologies"].points == pytest.approx(20.0)
+    assert 0 <= score <= 100
 
 
-def test_the_guard_never_fires_when_no_work_was_asked_for() -> None:
-    config = config_with(work={})
-    body = responsibilities("Use ledgerbook", "Use gridsheet", "Use bankfeed")
-    components, _, _ = scored(config, body)
-    assert components["responsibilities"].configured is False
-    assert components["technologies"].points == pytest.approx(20.0)
-
-
-# Central work lifts the guard; adjacency does not (docs/SEMANTIC_MATCHING.md,
-# evidence-quality benchmark 2026-09-27). One generic line, read as a partial
-# match for a narrow work item, used to unlock the whole tools component.
-GENERIC = "Build scalable solutions with ledgerbook, gridsheet and bankfeed."
-TOOLS_ONLY_BODY = responsibilities(GENERIC, "Use taxpal")
-
-
-def test_a_partial_finding_on_a_generic_line_does_not_lift_the_tools_guard() -> None:
+def test_an_incidental_mention_is_a_partial_correspondence() -> None:
     config = config_with()
-    partial = SemanticMatch("responsibilities", "w_invoices", "W1", "partial", GENERIC)
-    components, _, _ = scored(config, TOOLS_ONLY_BODY, semantic=evidence(partial))
-    work, tools = components["responsibilities"], components["technologies"]
-    # The finding still pays its own points and stays visible: nothing is hidden.
-    assert work.points > 0 and work.contributions[0].counted
-    assert tools.guarded and tools.points == pytest.approx(10.0)
-
-
-def test_several_partial_findings_still_do_not_lift_it() -> None:
-    config = config_with()
-    lines = ("Improve processes across teams.", "Deliver results quickly.", "Work with data.")
-    found = evidence(
-        *(
-            SemanticMatch("responsibilities", signal, f"W{i}", "partial", line)
-            for i, (signal, line) in enumerate(
-                zip(("w_invoices", "w_payroll", "w_audits"), lines, strict=True)
-            )
-        )
-    )
-    components, _, _ = scored(config, responsibilities(*lines, GENERIC), semantic=found)
-    assert components["responsibilities"].points > 0
-    assert components["technologies"].points == pytest.approx(10.0)
-
-
-def test_a_strong_finding_in_other_words_lifts_it() -> None:
-    """Specific equivalent wording is central work, whatever words it uses."""
-    config = config_with()
-    quote = "Match every supplier bill against the ledger before payment."
-    strong = SemanticMatch("responsibilities", "w_invoices", "W1", "strong", quote)
-    components, _, _ = scored(
-        config, responsibilities(quote, GENERIC, "Use taxpal"), semantic=evidence(strong)
-    )
-    assert components["technologies"].points == pytest.approx(opened(components))
-    assert components["technologies"].points > 10.0
-
-
-def test_a_literal_phrase_in_a_requirements_section_lifts_it() -> None:
-    """SECONDARY prominence is central enough: the posting states the work."""
-    config = config_with()
-    body = "Requirements\n- Experience to reconcile invoices\n" + TOOLS_ONLY_BODY
-    components, _, _ = scored(config, body)
-    assert components["responsibilities"].contributions[0].prominence.value == "SECONDARY"
-    assert components["technologies"].points == pytest.approx(opened(components))
-    assert components["technologies"].points > 10.0
-
-
-def test_an_incidental_literal_mention_does_not_lift_it() -> None:
-    config = config_with()
-    body = "We sometimes reconcile invoices.\n" + TOOLS_ONLY_BODY
-    components, _, _ = scored(config, body)
-    assert components["responsibilities"].contributions[0].prominence.value == "INCIDENTAL"
-    assert components["technologies"].points == pytest.approx(10.0)
-
-
-def _tools_for(config: SearchConfig, title: str, body: str):
-    observed = body_only(config, observe(config, title, body))
-    components = score_components(
-        config,
-        observed_body=observed,
-        seniority=DEFAULT_SENIORITY,
-        employment=read_employment(body),
-        job_facts=JobFacts(title=title, description=body),
-    )
-    return next(c for c in components if c.component_id == "technologies")
-
-
-def test_the_title_plays_no_part_in_lifting_it() -> None:
-    """Central work in the body lifts the guard under any title; the work named
-    only in the title lifts nothing."""
-    config = config_with()
-    central = responsibilities("You will reconcile invoices", GENERIC)
-    wizard = _tools_for(config, "Ledger Wizard", central)
-    engineer = _tools_for(config, "Senior Software Engineer", central)
-    assert wizard.points == pytest.approx(engineer.points) and wizard.points > 10.0
-    titled = _tools_for(config, "Reconcile Invoices Lead", TOOLS_ONLY_BODY)
-    assert titled.guarded and titled.points == pytest.approx(10.0)
+    central = scored(config, responsibilities("Use ledgerbook"))[0]["technologies"].points
+    incidental = scored(config, "We sometimes use ledgerbook.")[0]["technologies"].points
+    assert 0 < incidental < central
 
 
 def test_no_work_evidence_stays_unknown_not_a_mismatch() -> None:
@@ -552,16 +479,6 @@ def test_capped_means_the_component_overflowed_not_that_a_rule_refused() -> None
     components, _, _ = scored(config, body)
     work = components["responsibilities"]
     assert work.points < work.max_points and work.capped is False
-
-
-def test_the_guarded_rows_add_up_to_what_the_component_scored() -> None:
-    config = config_with()
-    body = responsibilities("Use ledgerbook", "Use gridsheet", "Use bankfeed", "Use taxpal")
-    components, _, _ = scored(config, body)
-    tools = components["technologies"]
-    assert tools.guarded and not tools.capped
-    paid = sum(c.points for c in tools.contributions if c.counted)
-    assert paid == pytest.approx(tools.points)
 
 
 def test_a_finding_cannot_pay_in_a_sentence_the_phrases_already_used() -> None:

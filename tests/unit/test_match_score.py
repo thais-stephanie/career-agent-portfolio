@@ -432,7 +432,7 @@ def test_the_missing_signal_note_names_signals_the_way_the_configuration_does() 
     """
     components, _ = _scored("Business Systems Engineer", TOOLS_BODY)
 
-    # The tools guard writes a note of its own kind; this test is about the
+    # Scores made before readers-11 could carry the tools guard note; this test is about the
     # missing-phrase notes.
     notes = [
         c.note
@@ -445,7 +445,7 @@ def test_the_missing_signal_note_names_signals_the_way_the_configuration_does() 
 
     for note in notes:
         assert "_" not in note, f"a raw identifier reached the note: {note!r}"
-        assert note.startswith("No configured body phrase was recognized for ")
+        assert note.startswith("Not mentioned in this posting (adds nothing, takes nothing away): ")
         assert "never mentioned" not in note
         assert note.endswith(".")
 

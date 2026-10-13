@@ -130,7 +130,12 @@ from career_agent.domain.enums import (
 #: contract leave the compensation component's maximum instead of paying
 #: 2 + 1; the tools guard opens in proportion to the work found. Moves with
 #: readers-9, so every row is read again on the first pass.
-MATCH_SCHEMA_VERSION = 13
+#: 14: arithmetic (2026-10-13) -- an optional phrase found adds a fixed share
+#: of its component (max / COUNTED_SIGNALS) whatever else was named and its
+#: weight; the tools guard is gone; components carry `not_found` and
+#: `fills_at`; the contract preference reads the EFFECTIVE engagement. Moves
+#: with readers-11, so every row is read again on the first pass.
+MATCH_SCHEMA_VERSION = 14
 
 #: The oldest result schema whose stored READINGS a replay may reuse. Separate
 #: from MATCH_SCHEMA_VERSION on purpose: 10 changed arithmetic and provenance,
@@ -317,8 +322,15 @@ class ScoreComponent:
     #: configured component the posting did not match (0 of its max).
     configured: bool = True
     #: True when the tools guard held this component at half: tools were
-    #: found and none of the desired work was, as a central duty.
+    #: found and none of the desired work was, as a central duty. Only on
+    #: scores made before readers-11, which removed the guard.
     guarded: bool = False
+    #: The person's phrases the posting did not mention, by label. They add
+    #: nothing and take nothing away; the drawer lists them as not mentioned.
+    not_found: tuple[str, ...] = ()
+    #: How many matches fill this component (0: not a phrase component, or a
+    #: score made before readers-11).
+    fills_at: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -418,10 +430,27 @@ class EmploymentReading:
     source: EmploymentSource
     confidence: AnalysisConfidence
     evidence: str | None = None
+    #: The engagement the app USES when the posting stated none, with its
+    #: basis (`match.engagement`). None: the stated reading is the one used.
+    #: The stated fields above are never rewritten by it.
+    effective: EmploymentRelationship | None = None
+    #: The quote (or registry record) that the employer is American.
+    default_us_evidence: str | None = None
+    #: The quote that the employer hires in Latin America.
+    default_latam_evidence: str | None = None
 
     @property
     def is_explicit(self) -> bool:
         return self.source.is_explicit
+
+    @property
+    def effective_relationship(self) -> EmploymentRelationship:
+        """What filters and the score use: the default, else the reading."""
+        return self.effective if self.effective is not None else self.relationship
+
+    @property
+    def is_default(self) -> bool:
+        return self.effective is not None
 
 
 @dataclass(frozen=True, slots=True)

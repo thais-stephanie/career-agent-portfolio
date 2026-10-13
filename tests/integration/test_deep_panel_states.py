@@ -37,6 +37,12 @@ from career_agent.storage.db import connect
 from career_agent.web.server import ApiError
 
 
+def panel(app) -> dict:
+    """What the page holds once both answers arrived: the panel (fast) and the
+    counts of the main list, which are asked for beside it."""
+    return {**call(app, "GET", "/api/deep"), **call(app, "GET", "/api/deep/coverage")}
+
+
 def choose(api) -> None:
     call(api, "POST", "/api/deep/provider", {"provider": "deepseek"})
 
@@ -52,11 +58,11 @@ def scores_older(api) -> None:
 
 def test_the_panel_counts_the_list_that_is_on_screen_not_only_the_revision_in_force(api) -> None:
     choose(api)
-    current = call(api, "GET", "/api/deep")
+    current = panel(api)
     assert current["scores"]["state"] == "current" and current["readable"] > 0
     ready = current["available"]
     scores_older(api)
-    older = call(api, "GET", "/api/deep")
+    older = panel(api)
     assert older["scores"]["state"] == "older"
     assert older["scores"]["serving_version"] == older["scores"]["current_version"] - 1
     assert older["readable"] == current["readable"] and older["available"] == ready
@@ -72,11 +78,11 @@ def test_a_failed_coverage_count_is_a_failure_and_never_a_zero(api, monkeypatch)
         raise sqlite3.DatabaseError("database disk image is malformed")
 
     monkeypatch.setattr("career_agent.semantic.deep_run.coverage", broken)
-    status = call(api, "GET", "/api/deep")
+    status = panel(api)
     assert status["coverage_ok"] is False
     for key in ("main_list_roles", "readable", "too_short"):
-        assert status[key] is None, "not a zero: nothing was counted"
-    assert "available" not in status and status["unavailable"] is None
+        assert status.get(key) is None, "not a zero: nothing was counted"
+    assert "available" not in status and status.get("unavailable") is None
 
 
 def test_nothing_to_read_cannot_start_a_reading_and_says_why(api) -> None:
@@ -86,7 +92,7 @@ def test_nothing_to_read_cannot_start_a_reading_and_says_why(api) -> None:
         conn.execute("DELETE FROM job_match")
     finally:
         conn.close()
-    status = call(api, "GET", "/api/deep")
+    status = panel(api)
     assert status["coverage_ok"] is True and status["available"] == 0
     assert status["scores"]["state"] == "none" and status["unavailable"] == "NO_SCORES"
     for path, body in (
@@ -103,7 +109,7 @@ def test_nothing_to_read_cannot_start_a_reading_and_says_why(api) -> None:
 
 def test_availability_follows_the_switch_and_a_stale_number_is_refused_with_the_truth(api) -> None:
     choose(api)
-    status = call(api, "GET", "/api/deep")
+    status = panel(api)
     available = status["available"]
     assert status["available_unresolved"] >= available > 0
     # A number chosen earlier, above what is available now: refused, with the real figure.
@@ -161,12 +167,12 @@ def test_another_profile_does_not_see_this_profiles_counts(install) -> None:  # 
     first = app_of(host)
     created = call(first, "POST", "/api/profiles", {"label": "Other"})["created"]["id"]
     call(first, "POST", "/api/deep/provider", {"provider": "claude_code"})
-    mine = call(first, "GET", "/api/deep")
+    mine = panel(first)
     assert mine["profile"] and mine["main_list_roles"] is not None
     call(first, "POST", "/api/profiles/switch", {"profile_id": created})
     second = app_of(host)
     assert second is not first
-    theirs = call(second, "GET", "/api/deep")
+    theirs = panel(second)
     assert theirs["profile"] != mine["profile"]
     assert theirs["provider"] is None, "the choice of provider belongs to the first profile"
     assert theirs["main_list_roles"] in (0, None) or theirs["scores"]["state"] in {

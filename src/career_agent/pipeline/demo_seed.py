@@ -206,6 +206,7 @@ def seed_demo(
                 posted_at=posting.get("posted_at"),
                 provider=provider,
                 payload=payload,
+                company_country=posting["company"].get("hq_country"),
             ),
             computed_at=now,
         )

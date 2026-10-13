@@ -210,8 +210,9 @@ class Engagement:
 #:   engagement this vocabulary can state without inventing one.
 _ENGAGEMENTS: dict[str, Engagement] = {
     # -- portable spellings, relationship only ----------------------------
-    "fulltime": Engagement(EmploymentRelationship.EMPLOYEE),
-    "parttime": Engagement(EmploymentRelationship.EMPLOYEE),
+    # NOT `fulltime` / `parttime`: those are a working pattern, not how the
+    # worker is engaged; a full-time contractor is common (2026-10-13). They
+    # stay in `employment_type`, which is where a working pattern belongs.
     "permanent": Engagement(EmploymentRelationship.EMPLOYEE),
     "regular": Engagement(EmploymentRelationship.EMPLOYEE),
     "contract": Engagement(EmploymentRelationship.CONTRACTOR_B2B),

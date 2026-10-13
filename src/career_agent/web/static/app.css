@@ -11040,7 +11040,10 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .dr-head__text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .dr-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
 .dr-panel .dr-title { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.2; color: var(--ink); }
-.dr-sub { margin: 0; font-size: 14px; color: var(--muted); max-width: 520px; text-wrap: pretty; }
+/* One paragraph that wraps at the width it has, up to a reading measure
+   (640px, the design system's w-read). The old 520px cap with balanced
+   wrapping broke the three sentences after "Career Agent" on most windows. */
+.dr-sub { margin: 0; font-size: 14px; color: var(--muted); max-width: 640px; text-wrap: wrap; }
 .dr-x {
   flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--divider);
   background: var(--chip-bg); color: var(--ink); font: inherit; font-size: 16px; cursor: pointer;
@@ -11588,3 +11591,15 @@ table.jobs .cell__title-btn { max-width: 100%; }
 
 /* Form controls take the page font, never the browser default. */
 .tp textarea, .tp input, .tp select, .tp button { font-family: inherit; }
+
+/* Find jobs: the search and its controls sit on the same centred column as
+   the list below them. `.topbar { margin: 0 0 20px }` above reset the auto
+   side margins every page child gets, so on a screen wider than the column
+   the search stayed at the left edge while the list was centred. */
+.appmain > .topbar { margin-left: auto; margin-right: auto; }
+
+/* How this score works: the panel takes the list's own width, so on a wide
+   window each explanation runs across the space it has instead of breaking
+   at 640px with the rest of the row empty. One paragraph per row, the label
+   in bold on the same line, a moderate gap between rows. */
+.evalmode__body { max-width: none; }

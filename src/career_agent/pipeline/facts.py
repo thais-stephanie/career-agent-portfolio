@@ -172,6 +172,7 @@ def job_facts(
     provider: str | None,
     payload: Any,
     sightings: Sequence[tuple[str, Any]] = (),
+    company_country: str | None = None,
 ) -> JobFacts:
     """Everything the deterministic matcher is allowed to know, from what exists.
 
@@ -241,6 +242,9 @@ def job_facts(
         # since migration 0020 created it -- because the blocker was never the
         # reader, it was that no source in the corpus published the field.
         declared_relationship=engagement.relationship.value if engagement else None,
+        # The registry's curated headquarters: a basis for the contractor
+        # default (`match.engagement`), never for eligibility.
+        company_country=company_country,
         declared_contract_regime=(
             engagement.regime.value
             if engagement and engagement.regime is not LocalContractRegime.UNRESOLVED

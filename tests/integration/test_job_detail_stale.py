@@ -152,3 +152,25 @@ def test_health_offers_the_recalculation_after_a_reader_update(app, monkeypatch)
     finally:
         conn.close()
     assert call(app, "GET", "/api/health")["stale_scores"] == 0
+
+
+def test_the_explanation_belongs_to_the_rules_the_score_was_made_by(app) -> None:
+    """A fresh score lists what was marked and not mentioned, and how many
+    matches fill each part; a score made by earlier rules says so instead
+    of being explained with rules it was not made by (readers-11)."""
+    conn = connect(app.config.db_path)
+    job_id = conn.execute("SELECT id FROM job ORDER BY id LIMIT 1").fetchone()[0]
+    conn.close()
+    detail = app.handle_api("GET", f"/api/jobs/{job_id}", {}, {})
+    assert detail["assessment"]["state"] == "current"
+    work = next(c for c in detail["components"] if c["component_id"] == "responsibilities")
+    assert work["fills_at"] > 0 and isinstance(work["not_found"], list)
+    conn = connect(app.config.db_path)
+    with transaction(conn):
+        conn.execute(
+            "UPDATE job_match SET schema_version = schema_version - 1 WHERE job_id = ?", (job_id,)
+        )
+    conn.close()
+    older = app.handle_api("GET", f"/api/jobs/{job_id}", {}, {})
+    assert older["assessment"]["state"] == "stale"
+    assert older["assessment"]["reasons"] == ["rules"]

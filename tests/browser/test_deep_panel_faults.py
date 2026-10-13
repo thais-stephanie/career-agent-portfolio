@@ -35,6 +35,12 @@ PATCH = """
     const fail = (spec) => (spec.network
       ? Promise.reject(new TypeError('Failed to fetch')) : json(spec.body, spec.status));
     if (url.pathname === '/api/deep') return d.statusError ? fail(d.statusError) : json(d.status);
+    if (url.pathname === '/api/deep/coverage') {
+      // `coverageHeld`: the counts wait until the test lets them go.
+      const answer = () => (d.coverageError ? fail(d.coverageError) : json(d.coverage || d.status));
+      if (!d.coverageHeld) return answer();
+      return new Promise((resolve) => { window.__releaseCoverage = () => resolve(answer()); });
+    }
     if (url.pathname === '/api/deep/reviews') return json({ reviews: [] });
     if (url.pathname === '/api/deep/preview') return d.previewError ? fail(d.previewError) : json(d.preview);
     if (url.pathname === '/api/deep/run' && method === 'POST') {
@@ -104,6 +110,70 @@ def test_a_coverage_count_that_failed_is_not_shown_as_zero(page: Chrome, deep_se
     assert _start_disabled(page)
     assert "Still needed: a successful check of your jobs." in text
     assert deep_server["fake"].messages == []
+
+
+def test_the_panel_is_drawn_before_the_counts_and_says_it_is_counting(
+    page: Chrome, deep_server: dict
+) -> None:
+    """The provider, the share switch and the steps are there at once; the
+    counts card says it is counting, with no number; the counts land after."""
+    open_home_past_setup(page, deep_server["url"])
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"jobs\"]').click()")
+    page.wait_for("document.getElementById('deep-open')", message="the Deep reading button")
+    data = {
+        "status": {**BASE, "coverage_ok": None},
+        "coverage": BASE,
+        "coverageHeld": True,
+        "preview": PREVIEW,
+    }
+    page.evaluate(PATCH + f"window.__deep = {json.dumps(data)};")
+    page.evaluate("document.getElementById('deep-open').click()")
+    page.wait_for(
+        "document.querySelector('.dr-panel [aria-busy=\"true\"]')", message="the counting card"
+    )
+    text = _body(page)
+    assert "Counting the jobs in your main list" in text
+    assert "Who reads your jobs" in text, "the controls do not wait for the counts"
+    assert _start_disabled(page)
+    assert "Still counting the jobs in your list." in text
+    page.evaluate("window.__releaseCoverage()")
+    page.wait_for("!document.querySelector('.dr-panel [aria-busy=\"true\"]')", message="the counts")
+    assert "Counting the jobs" not in _body(page)
+    assert not _start_disabled(page)
+
+
+def test_a_late_count_from_an_earlier_open_does_not_overwrite_a_newer_one(
+    page: Chrome, deep_server: dict
+) -> None:
+    """Close and open again while the first count is still on its way: the
+    first answer, arriving last, is not drawn over the second."""
+    open_home_past_setup(page, deep_server["url"])
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"jobs\"]').click()")
+    page.wait_for("document.getElementById('deep-open')", message="the Deep reading button")
+    data = {
+        "status": {**BASE, "coverage_ok": None},
+        "coverage": {**BASE, "readable": 111},
+        "coverageHeld": True,
+        "preview": PREVIEW,
+    }
+    page.evaluate(PATCH + f"window.__deep = {json.dumps(data)};")
+    page.evaluate("document.getElementById('deep-open').click()")
+    page.wait_for("window.__releaseCoverage", message="the first count asked")
+    page.evaluate(
+        "window.__firstRelease = window.__releaseCoverage; window.__releaseCoverage = null;"
+    )
+    page.evaluate("window.__deep.coverage = {...window.__deep.coverage, readable: 222};")
+    page.evaluate("document.querySelector('.dr-panel .dr-x').click()")
+    page.evaluate("document.getElementById('deep-open').click()")
+    page.wait_for("window.__releaseCoverage", message="the second count asked")
+    page.evaluate("window.__releaseCoverage()")
+    page.wait_for(
+        "!document.querySelector('.dr-panel [aria-busy=\"true\"]')", message="the second counts"
+    )
+    page.evaluate("window.__firstRelease()")
+    page.evaluate("new Promise((r) => setTimeout(r, 300))")
+    text = _body(page)
+    assert "222" in text and "111" not in text
 
 
 def test_nothing_to_read_says_why_offers_the_action_and_cannot_start_empty(

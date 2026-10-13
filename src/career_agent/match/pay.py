@@ -59,7 +59,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-__all__ = ["PayReading", "read_pay"]
+__all__ = ["PayReading", "default_period", "read_pay"]
 
 
 @dataclass(frozen=True)
@@ -342,4 +342,42 @@ def read_pay(description: str) -> PayReading | None:
                 raw=_with_code(description, anchor.start(), anchor.end() + one.end()),
                 anchor=anchor.group(0).lower(),
             )
+    return None
+
+
+#: THE OWNER'S PERIOD DEFAULTS (2026-10-13), for USD only. A positive figure
+#: below the first is a month's pay, one above the second a year's; anything
+#: from one to the other, both included, stays unknown. Measured on postings
+#: that hire in Latin America, where a dollar figure under 7,000 is a monthly
+#: contractor rate and one over 30,000 a yearly salary. Another currency has
+#: other magnitudes and gets no default until it has its own rule.
+MONTHLY_BELOW_USD = 7_000.0
+YEARLY_ABOVE_USD = 30_000.0
+
+
+def default_period(
+    minimum: float | None,
+    maximum: float | None,
+    currency: str | None,
+    *,
+    hires_in_latam: bool,
+) -> str | None:
+    """The period the app ASSUMES for a USD figure stated without one, or None.
+
+    Only for a posting that hires in Latin America, only in USD, and only
+    when every stated figure falls on the same side: a band from 5,000 to
+    9,000 crosses the monthly limit and stays unknown, so a default can never
+    split one band into two periods. The caller keeps the stated (empty)
+    period and marks this one as inferred; a stated period always wins, and
+    this is never called when one exists.
+    """
+    if not hires_in_latam or (currency or "").upper() != "USD":
+        return None
+    figures = [value for value in (minimum, maximum) if value is not None]
+    if not figures or any(value <= 0 for value in figures):
+        return None
+    if all(value < MONTHLY_BELOW_USD for value in figures):
+        return "MONTH"
+    if all(value > YEARLY_ABOVE_USD for value in figures):
+        return "YEAR"
     return None

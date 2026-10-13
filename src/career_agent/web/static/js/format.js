@@ -1,4 +1,4 @@
-import { t, tVocab, tState } from './i18n.js';
+import { getLocale, t, tVocab, tState } from './i18n.js';
 
 /**
  * format.js -- dates, freshness, salary and the vocabulary labels.
@@ -275,24 +275,74 @@ export function formatPoints(value) {
  * say so explicitly rather than leaving a blank.
  */
 export function formatSalary(salary) {
-  if (!salary) return null;
-  if (typeof salary === 'string') return salary.trim() || null;
-  if (typeof salary !== 'object') return null;
-  if (typeof salary.raw === 'string' && salary.raw.trim() && salary.min === undefined) {
-    return salary.raw.trim();
-  }
-  const currency = salary.currency ? `${salary.currency} ` : '';
-  const period = salary.period ? ` / ${String(salary.period).toLowerCase()}` : '';
-  const min = Number.isFinite(Number(salary.min)) ? groupThousands(salary.min) : null;
-  const max = Number.isFinite(Number(salary.max)) ? groupThousands(salary.max) : null;
-  if (min && max) return `${currency}${min} to ${max}${period}`;
-  if (min) return `${currency}from ${min}${period}`;
-  if (max) return `${currency}up to ${max}${period}`;
-  return typeof salary.raw === 'string' && salary.raw.trim() ? salary.raw.trim() : null;
+  const parts = salaryParts(salary);
+  return parts ? parts.text : null;
 }
 
-function groupThousands(value) {
-  return Math.round(Number(value)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+/**
+ * Pay in words, and what each part of it is.
+ *
+ * `text` is the line a card shows: one figure when the band is one figure
+ * (`USD 3,000/mo`, never "3,000 to 3,000"), a yearly band as its MONTHLY
+ * EQUIVALENT (divided by 12, rounded only here) and said to be one, and a
+ * period the app assumed said to be assumed. `stated` is the figure as the
+ * ad gave it, for the detail view; `yearly` and `inferred` say which of the
+ * two notes applies. An hourly rate stays hourly: turning it into a month
+ * would need an assumption about hours that nobody stated.
+ */
+export function salaryParts(salary) {
+  if (!salary) return null;
+  if (typeof salary === 'string') {
+    const text = salary.trim();
+    return text ? { text, stated: text, yearly: false, inferred: false } : null;
+  }
+  if (typeof salary !== 'object') return null;
+  const raw = typeof salary.raw === 'string' && salary.raw.trim() ? salary.raw.trim() : null;
+  if (raw && salary.min === undefined) return { text: raw, stated: raw, yearly: false, inferred: false };
+  const number = (value) => (value === null || value === undefined || value === ''
+    || !Number.isFinite(Number(value)) ? null : Number(value));
+  const low = number(salary.min);
+  const high = number(salary.max);
+  if (low === null && high === null) return raw ? { text: raw, stated: raw, yearly: false, inferred: false } : null;
+  const period = salary.period ? String(salary.period).toUpperCase() : null;
+  const inferred = Boolean(salary.period_inferred);
+  const stated = payRange(salary.currency, low, high, period);
+  if (period === 'YEAR') {
+    // Rounded to whole units here only; the stored figure keeps its precision.
+    const monthly = payRange(
+      salary.currency,
+      low === null ? null : Math.round(low / 12),
+      high === null ? null : Math.round(high / 12),
+      'MONTH',
+    );
+    return {
+      text: `${monthly} ${t(inferred ? 'pay.fromYearlyAssumed' : 'pay.fromYearly')}`,
+      stated, yearly: true, inferred,
+    };
+  }
+  return {
+    text: inferred ? `${stated} ${t('pay.assumedMonthly')}` : stated, stated, yearly: false, inferred,
+  };
+}
+
+/** `USD 3,000/mo`, `USD 3,000 to 4,000/mo`, `USD from 3,000`: one currency, one period. */
+function payRange(currency, low, high, period) {
+  const prefix = currency ? `${currency} ` : '';
+  const per = period ? t(`pay.per.${period}`) : '';
+  if (low !== null && (high === null || Math.round(low) === Math.round(high))) {
+    const one = high === null ? t('pay.from', { min: amount(low) }) : amount(low);
+    return `${prefix}${one}${per}`;
+  }
+  if (low === null) return `${prefix}${t('pay.upTo', { max: amount(high) })}${per}`;
+  return `${prefix}${t('pay.range', { min: amount(low), max: amount(high) })}${per}`;
+}
+
+/** A figure in the reader's own grouping: 3,000 in English, 3.000 in Portuguese. */
+function amount(value) {
+  const whole = Math.abs(value - Math.round(value)) < 0.005;
+  return new Intl.NumberFormat(getLocale() === 'pt-BR' ? 'pt-BR' : 'en-US', {
+    minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2,
+  }).format(value);
 }
 
 /** Split server text into paragraphs. The caller renders each as textContent. */
@@ -320,22 +370,52 @@ export function levelInfo(job) {
   const source = stored ? job.seniority : (now && now.stated ? now.value : null);
   const levels = stored ? (job.seniority_levels || []) : (now && now.stated ? now.levels || [] : []);
   const range = (stored ? job.seniority_source : now && now.source) === 'DECLARED_RANGE' && levels.length > 1;
+  // `text` is the compact line (a card, a row): the level alone. `detail` is
+  // what the expanded view says, with where the level came from.
   if (range) {
-    return { text: t('level.range', { levels: levels.map(vocabLabel).join(', ') }), stated: true, readNow: !stored };
+    const listed = levels.map(vocabLabel).join(', ');
+    return { text: listed, detail: t('level.range', { levels: listed }), stated: true, readNow: !stored };
   }
-  if (source) return { text: vocabLabel(source), stated: true, readNow: !stored };
-  return { text: t('level.default'), stated: false, readNow: false };
+  if (source) return { text: vocabLabel(source), detail: vocabLabel(source), stated: true, readNow: !stored };
+  return { text: t('level.defaultShort'), detail: t('level.default'), stated: false, readNow: false };
+}
+
+/**
+ * How the worker would be engaged, in words, and whether that was STATED or
+ * is the app's default ("Probably Contractor": an American employer hiring in
+ * Latin America that stated nothing). The board's own contract type first,
+ * then an engagement the ad states in words, then the default.
+ */
+export function contractInfo(job) {
+  if (job.employment_default) {
+    return { text: t('contract.probable'), probable: true, stated: false };
+  }
+  if (job.employment_type) return { text: vocabLabel(job.employment_type), probable: false, stated: true };
+  const said = job.employment_stated && job.employment_relationship
+    && job.employment_relationship !== 'UNRESOLVED';
+  return said
+    ? { text: t(`employment.${job.employment_relationship}`), probable: false, stated: true }
+    : { text: null, probable: false, stated: false };
 }
 
 /** The pay of a posting: the score's own figure, or the ad's, read now. */
 export function payInfo(job) {
-  const stored = formatSalary(job.salary);
+  const stored = salaryParts(job.salary);
   if (stored) {
-    return { text: stored, readNow: false, raw: job.salary && job.salary.raw ? job.salary.raw : null };
+    return { ...stored, readNow: false, raw: job.salary && job.salary.raw ? job.salary.raw : null };
   }
   const now = job.facts_now && job.facts_now.salary;
-  const text = now ? formatSalary(now) : null;
-  return text ? { text, readNow: true, raw: now.raw || null } : null;
+  const parts = now ? salaryParts(now) : null;
+  return parts ? { ...parts, readNow: true, raw: now.raw || null } : null;
+}
+
+/** What the detail view says under the pay: the yearly figure, an assumed period. */
+export function payNotes(pay) {
+  if (!pay) return [];
+  const notes = [];
+  if (pay.yearly) notes.push(t('pay.yearlyNote', { pay: pay.stated }));
+  if (pay.inferred) notes.push(t(pay.yearly ? 'pay.assumedYearlyNote' : 'pay.assumedMonthlyNote'));
+  return notes;
 }
 
 /** Part-time and weekly hours, in words. */

@@ -26,7 +26,7 @@
 
 import { el, button, extLink, replace } from './dom.js';
 import {
-  compactPlace, formatDate, formatSalary, levelInfo, parseDate, relativeAge, scoreDisplay,
+  compactPlace, contractInfo, formatDate, formatSalary, levelInfo, parseDate, relativeAge, scoreDisplay,
   statusLabel, vocabLabel,
   displayTitle,
 } from './format.js';
@@ -351,7 +351,7 @@ function terms(job) {
   // beside the quote it came from.
   const level = levelInfo(job);
   if (level) parts.push(level.text);
-  parts.push(job.employment_type ? vocabLabel(job.employment_type) : t('absent.contract'));
+  parts.push(contractInfo(job).text || t('absent.contract'));
   return parts.join(' · ');
 }
 

@@ -47,6 +47,15 @@ def register_deep(app: JobsApi) -> None:
     last: dict[str, Any] = {}
     live: dict[str, Any] = {}
     pause = threading.Event()
+    #: The main list's rows (`deep_run.population_rows`), remembered with the
+    #: key they were read under. The key is everything the rows depend on: the
+    #: profile's database, the score revision the list serves, the
+    #: configuration's digest (hidden levels) and `_jobs_freshness`, which
+    #: moves with every posting or score written (by this process or another),
+    #: every hide or status change, every write this server accepted and the
+    #: day. A key that moved reads again; nothing else expires it.
+    rows_memo: dict[str, Any] = {}
+    rows_lock = threading.Lock()
 
     def chosen_id(settings: Any) -> str | None:
         """The provider this profile chose for the deep reading, by name, or
@@ -88,29 +97,55 @@ def register_deep(app: JobsApi) -> None:
         prefs = view_prefs.read(conn)
         return prefs["max_age_days"], bool(prefs["include_undated"])
 
+    def main_rows(conn: Any, scores: tuple[str, int]) -> list[Any]:
+        """The main list's rows for `scores`, read once per change of the data."""
+        from career_agent.semantic.deep_run import population_rows
+
+        config = app.search_config()
+        key = (
+            str(app.config.db_path),
+            scores,
+            str(getattr(config, "digest", "")),
+            app._jobs_freshness(conn),
+        )
+        with rows_lock:
+            if rows_memo.get("key") == key:
+                return list(rows_memo["rows"])
+        rows = population_rows(conn, config, scores)
+        with rows_lock:
+            rows_memo.update(key=key, rows=rows)
+        return list(rows)
+
     def selection_for(
-        provider: Any, settings: Any, include_unresolved: bool, retry_rejected: bool = False
+        provider: Any,
+        settings: Any,
+        include_unresolved: bool,
+        retry_rejected: bool = False,
+        conn: Any = None,
     ) -> Any:
         from career_agent.semantic.deep_run import Selection, context, select
 
+        if conn is None:
+            with closing(app.connect()) as own:
+                return selection_for(provider, settings, include_unresolved, retry_rejected, own)
         share = provider.id in settings.share_evidence_with
-        with closing(app.connect()) as conn:
-            scores, _info = scores_of(conn)
-            if scores is None:
-                return Selection([], 0, 0, 0, 0)
-            ctx = context(conn, app.search_config(), share)
-            return select(
-                conn,
-                app.search_config(),
-                provider_id=provider.id,
-                limit=0,
-                include_unresolved=include_unresolved,
-                current_digest=ctx.digest,
-                model=_model(provider),
-                retry_rejected=retry_rejected,
-                scores=scores,
-                age=age_of(conn),
-            )
+        scores, _info = scores_of(conn)
+        if scores is None:
+            return Selection([], 0, 0, 0, 0)
+        ctx = context(conn, app.search_config(), share)
+        return select(
+            conn,
+            app.search_config(),
+            provider_id=provider.id,
+            limit=0,
+            include_unresolved=include_unresolved,
+            current_digest=ctx.digest,
+            model=_model(provider),
+            retry_rejected=retry_rejected,
+            scores=scores,
+            age=age_of(conn),
+            rows=main_rows(conn, scores),
+        )
 
     def limits(body: dict, provider: Any, settings: Any) -> tuple[int, bool, int, bool]:
         include_unresolved = _bool(body.get("include_unresolved", False))
@@ -143,7 +178,13 @@ def register_deep(app: JobsApi) -> None:
         return round(float(value), 4)
 
     def status(*, query: dict, body: dict) -> dict:
-        from career_agent.semantic.deep_run import Coverage, coverage
+        """The panel itself: provider, consent, the last job and run. Fast.
+
+        The counts of the main list are `GET /api/deep/coverage`, asked for
+        beside this one, so the panel and its controls are on screen at once
+        and only the numbers wait. `coverage_ok` is None here: not counted
+        YET, which the page says, never a zero.
+        """
         from career_agent.semantic.store import SemanticRepo
         from career_agent.web.profiles import served_profile_id
 
@@ -159,52 +200,20 @@ def register_deep(app: JobsApi) -> None:
             last_run = SemanticRepo(conn).last_run(deep=True)
             rows = _review_rows(app, conn)
             job = _job_summary(app, conn, chosen_id(settings))
-            reach: Any = None
-            main_list: list[Any] | None = None
-            counted = False
             scores_info: dict[str, Any] = {}
             age: tuple[int | None, bool] = (120, False)
-            too_old = 0
             try:
-                scores, scores_info = scores_of(conn)
+                _scores, scores_info = scores_of(conn)
                 age = age_of(conn)
-                if scores is None:
-                    reach, main_list = Coverage(0, 0), []
-                else:
-                    reach, main_list = coverage(conn, app.search_config(), False, scores, age)
-                    if age[0] is not None:
-                        everything, _ = coverage(
-                            conn, app.search_config(), False, scores, (None, False)
-                        )
-                        too_old = max(0, everything.roles - reach.roles)
-                counted = True
             except sqlite3.Error as exc:
-                # A failed count is not a count of zero: the page says the
-                # check failed instead of showing an empty list as a result.
-                app.log(f"deep coverage failed: {type(exc).__name__}: {exc}")
+                app.log(f"deep status failed: {type(exc).__name__}: {exc}")
         current = {r["job_id"] for r in rows if not r["stale"]}
         stale = sum(1 for r in rows if r["stale"])
-        waiting = (
-            sum(1 for r in main_list if str(r["id"]) not in current)
-            if main_list is not None
-            else None
-        )
-        counts: dict[str, Any] = {}
-        unavailable = None
-        if provider is not None and counted:
-            counts = _counts(selection_for(provider, settings, False))
-            counts["available_unresolved"] = selection_for(provider, settings, True).available
-            if counts["available"] < 1:
-                unavailable = _why_none(scores_info, reach, counts["available_unresolved"])
         return {
             "profile": served_profile_id(app),
-            "coverage_ok": counted,
+            "coverage_ok": None,
             "scores": scores_info,
-            # The age limit this reading respects (the same as Find jobs), and
-            # how many roles of the main list it leaves out.
             "age_limit": {"days": age[0], "include_undated": age[1]},
-            "excluded_by_age": too_old,
-            "unavailable": unavailable,
             "demo": not _is_personal(app),
             "provider": provider.id if provider else None,
             "provider_reason": reason,
@@ -212,23 +221,83 @@ def register_deep(app: JobsApi) -> None:
             "auth": auth,
             "share_evidence": bool(provider and provider.id in settings.share_evidence_with),
             "cap": settings.max_jobs_per_subscription_run,
-            # The MAIN LIST only, never the catalogue: roles in it, roles with
-            # enough text to read, and roles whose advert is too short.
-            "main_list_roles": reach.roles if reach else None,
-            "readable": reach.readable if reach else None,
-            "too_short": reach.too_short if reach else None,
             "reviewed": len(current),
             "stale": stale,
-            # Readable roles with no CURRENT reading: still in the list, in
-            # the local order, never ranked below the ones that have one.
-            "not_reviewed": waiting,
             "last_run": last_run,
             "run": runner.snapshot(),
             "providers": _providers(settings, chosen_id(settings)) if _is_personal(app) else [],
             "budget_default": settings.deep_budget_usd,
-            **counts,
             "job": job,
             "live": dict(live),
+        }
+
+    def coverage_status(*, query: dict, body: dict) -> dict:
+        """How much of the MAIN LIST a reading can reach, never the catalogue.
+
+        One read of the list (`main_rows`, remembered until the data moves)
+        gives every number: roles with and without the age limit, readable
+        and too short, and what the chosen provider could still read with and
+        without unresolved postings. A failed count says so (`coverage_ok`
+        false) and carries no number, so the page never shows a zero for it.
+        """
+        from career_agent.semantic.deep_run import Coverage, coverage
+        from career_agent.web.profiles import served_profile_id
+
+        if query:
+            raise ApiError(400, "unknown parameter", for_reader=True)
+        settings = profile_settings(app)
+        provider, _reason = chosen_provider(settings)
+        profile = served_profile_id(app)
+        try:
+            with closing(app.connect()) as conn:
+                scores, scores_info = scores_of(conn)
+                age = age_of(conn)
+                too_old = 0
+                if scores is None:
+                    reach, main_list = Coverage(0, 0), list[Any]()
+                else:
+                    rows = main_rows(conn, scores)
+                    config = app.search_config()
+                    reach, main_list = coverage(conn, config, False, scores, age, rows=rows)
+                    if age[0] is not None:
+                        everything, _ = coverage(
+                            conn, config, False, scores, (None, False), rows=rows
+                        )
+                        too_old = max(0, everything.roles - reach.roles)
+                reviews = _review_rows(app, conn)
+                counts: dict[str, Any] = {}
+                unavailable = None
+                if provider is not None:
+                    counts = _counts(selection_for(provider, settings, False, conn=conn))
+                    counts["available_unresolved"] = selection_for(
+                        provider, settings, True, conn=conn
+                    ).available
+                    if counts["available"] < 1:
+                        unavailable = _why_none(scores_info, reach, counts["available_unresolved"])
+        except sqlite3.Error as exc:
+            # A failed count is not a count of zero: the page says the check
+            # failed instead of showing an empty list as a result.
+            app.log(f"deep coverage failed: {type(exc).__name__}: {exc}")
+            return {"profile": profile, "coverage_ok": False}
+        current = {r["job_id"] for r in reviews if not r["stale"]}
+        return {
+            "profile": profile,
+            "coverage_ok": True,
+            "scores": scores_info,
+            # The age limit this reading respects (the same as Find jobs), and
+            # how many roles of the main list it leaves out.
+            "age_limit": {"days": age[0], "include_undated": age[1]},
+            "excluded_by_age": too_old,
+            "unavailable": unavailable,
+            # The MAIN LIST only, never the catalogue: roles in it, roles with
+            # enough text to read, and roles whose advert is too short.
+            "main_list_roles": reach.roles,
+            "readable": reach.readable,
+            "too_short": reach.too_short,
+            # Readable roles with no CURRENT reading: still in the list, in
+            # the local order, never ranked below the ones that have one.
+            "not_reviewed": sum(1 for r in main_list if str(r["id"]) not in current),
+            **counts,
         }
 
     def choose(*, query: dict, body: dict) -> dict:
@@ -278,6 +347,7 @@ def register_deep(app: JobsApi) -> None:
             scores, scores_info = scores_of(conn)
             age = age_of(conn)
             ctx = context(conn, config, share)
+            rows = main_rows(conn, scores) if scores is not None else None
             chosen = select(
                 conn,
                 config,
@@ -289,9 +359,10 @@ def register_deep(app: JobsApi) -> None:
                 retry_rejected=retry,
                 scores=scores,
                 age=age,
+                rows=rows,
             )
             names = _companies(conn, [c.job_id for c in chosen.candidates])
-            reach, _rows = coverage(conn, config, include_unresolved, scores, age)
+            reach, _rows = coverage(conn, config, include_unresolved, scores, age, rows=rows)
         from career_agent.semantic.deep_run import (
             BATCH_SIZE,
             estimate,
@@ -520,6 +591,7 @@ def register_deep(app: JobsApi) -> None:
         return {"share_evidence": provider.id in saved.share_evidence_with}
 
     app.register("GET", r"/api/deep", status)
+    app.register("GET", r"/api/deep/coverage", coverage_status)
     app.register("POST", r"/api/deep/consent", consent)
     app.register("POST", r"/api/deep/preview", preview)
     app.register("GET", r"/api/deep/run", run_status)

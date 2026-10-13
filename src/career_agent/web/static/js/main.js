@@ -893,9 +893,23 @@ columnsPop.addEventListener('keydown', (event) => {
   setColumnsMenu(false);
   columnsMenu.focus();
 });
-document.getElementById('export-csv').addEventListener('click', () => {
+document.getElementById('export-csv').addEventListener('click', async (event) => {
   const items = (lastResponse && lastResponse.items) || [];
-  const blob = new Blob([toCsv(items, columnVisibility)], { type: 'text/csv;charset=utf-8' });
+  const trigger = event.currentTarget;
+  // The whole advert of each row, read for the file (the list holds excerpts).
+  let descriptions = {};
+  if (items.length) {
+    trigger.disabled = true;
+    try {
+      descriptions = (await api.getJobDescriptions(items.map((job) => job.job_id))).descriptions || {};
+    } catch (error) {
+      trigger.disabled = false;
+      toast(error.userMessage || t('export.failed'), { tone: 'bad' });
+      return;
+    }
+    trigger.disabled = false;
+  }
+  const blob = new Blob(['\ufeff', toCsv(items, columnVisibility, descriptions)], { type: 'text/csv;charset=utf-8' });
   const link = el('a', {
     attrs: { href: URL.createObjectURL(blob), download: 'career-agent-jobs.csv' },
   });
@@ -1111,6 +1125,9 @@ function paintBoardEmpty(show) {
   ]);
 }
 
+/** The table header a keyboard user just pressed, focused again after a redraw. */
+let sortFocus = null;
+
 function paint(state) {
   if (!lastResponse) return;
   const items = lastResponse.items || [];
@@ -1137,11 +1154,19 @@ function paint(state) {
       sort: state.sort,
       direction: state.direction,
       visible: columnVisibility,
+      // A header cycles: ascending, descending, then the list's own order
+      // (best match first). The server sorts the WHOLE filtered list before
+      // it cuts a page, so page 2 continues page 1.
       onSort: (column) => {
+        // The table is drawn again with the new order; the header pressed
+        // keeps the focus, so a keyboard user can press it again.
+        sortFocus = column;
         const current = store.get();
-        store.set(current.sort === column
-          ? { direction: current.direction === 'asc' ? 'desc' : 'asc' }
-          : { sort: column, direction: 'desc' });
+        if (current.sort !== column) store.set({ sort: column, direction: 'asc', offset: 0 });
+        else if (current.direction === 'asc') store.set({ direction: 'desc', offset: 0 });
+        // Best match first IS the default, so the match column alternates.
+        else if (column === 'score') store.set({ direction: 'asc', offset: 0 });
+        else store.set({ sort: 'score', direction: 'desc', offset: 0 });
       },
       onOpen: openJob,
       onStatus: changeStatus,
@@ -1162,6 +1187,13 @@ function paint(state) {
         return changeAppliedDate(jobId, null);
       },
     });
+    if (sortFocus) {
+      const header = dom.list.querySelector(`.th__sort[data-sort="${CSS.escape(sortFocus)}"]`);
+      if (header) {
+        header.focus();
+        sortFocus = null;
+      }
+    }
   } else if (state.view === 'kanban') {
     renderKanban(dom.list, items, {
       onOpen: openJob,

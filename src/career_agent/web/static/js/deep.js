@@ -169,11 +169,15 @@ export function createDeep({ onOpenJob = null } = {}) {
     const mine = ++token;
     replace(bodyHost, [el('div', { className: 'sk sk--block' })]);
     replace(footHost, []);
+    // The counts are their own request: the panel and its controls are drawn
+    // as soon as the fast answer arrives, and only the counts wait.
+    const counted = api.getDeepCoverage();
+    counted.catch(() => {});
     try {
       const [status, results] = await Promise.all([api.getDeep(), api.getDeepReviews()]);
       if (mine !== token) return;
       if (last.status && status.profile !== last.status.profile) resetOptions();
-      last = { status, reviews: results.reviews || [] };
+      last = { status: { ...status, coverage_ok: null }, reviews: results.reviews || [] };
       const running = status.run && status.run.status === 'running';
       if (running) view = 'reading';
       else if (view === 'reading' || view === null) {
@@ -181,12 +185,39 @@ export function createDeep({ onOpenJob = null } = {}) {
       }
       paint();
       if (running) poll();
+      settleCoverage(mine, status.profile, counted);
     } catch (error) {
       if (mine !== token) return;
       head(view || 'choose');
       replace(bodyHost, [banner('pink', fault(error, 'load'), [
         button(t('deep.retry'), () => refresh(), { className: 'dr-btn2 dr-btn--sm' }),
       ])]);
+    }
+  }
+
+  /**
+   * Merge the counts into the panel when they arrive, unless the panel moved
+   * on (another refresh, another profile) in the meantime: an older answer
+   * never overwrites a newer state. A failure is a failure, never a zero.
+   */
+  async function settleCoverage(mine, profile, counted) {
+    let coverage;
+    try {
+      coverage = await counted;
+    } catch {
+      coverage = { coverage_ok: false, profile };
+    }
+    if (mine !== token || !last.status || last.status.profile !== profile) return;
+    if (coverage.profile && coverage.profile !== profile) return;
+    last.status = { ...last.status, ...coverage };
+    if (view !== 'choose' && view !== 'results') return;
+    // Keep the person where they were: the field they were in keeps focus.
+    const focused = document.activeElement && root.contains(document.activeElement)
+      ? document.activeElement.id : '';
+    paint();
+    if (focused) {
+      const again = root.querySelector(`#${CSS.escape(focused)}`);
+      if (again) again.focus();
     }
   }
 
@@ -273,7 +304,9 @@ export function createDeep({ onOpenJob = null } = {}) {
         name: providerName(status), state: t(`deep.state.${chosenState(status)}`),
       })));
     }
-    if (status.coverage_ok === false) {
+    if (status.coverage_ok === null) {
+      body.push(countingCard());
+    } else if (status.coverage_ok === false) {
       // A failed count is not a count of zero: no strip, no number.
       body.push(banner('pink', t('deep.cov.failed'), [
         button(t('deep.retry'), () => refresh(), { className: 'dr-btn2 dr-btn--sm' }),
@@ -325,20 +358,30 @@ export function createDeep({ onOpenJob = null } = {}) {
         },
       },
     });
-    next.disabled = !status.provider || !ready || status.coverage_ok === false || most < 1;
+    next.disabled = !status.provider || !ready || status.coverage_ok !== true || most < 1;
     // A disabled primary button says what is still needed (the design rules).
     const needed = !status.provider ? t('deep.still.provider')
       : !ready ? t('deep.still.ready')
-        : status.coverage_ok === false ? t('deep.still.count')
-          : most < 1 ? t('deep.still.posting') : '';
+        : status.coverage_ok === null ? t('deep.still.counting')
+          : status.coverage_ok === false ? t('deep.still.count')
+            : most < 1 ? t('deep.still.posting') : '';
     return [body, [
       el('span', { className: 'dr-foot__note', text: needed || t('deep.nothingUntilStart') }), next,
     ]];
   }
 
+  /** The counts are on their way: the card says so, with no number in it. */
+  function countingCard() {
+    return el('section', { className: 'dr-card', attrs: { 'aria-busy': 'true' } }, [
+      el('h3', { className: 'dr-card-title', text: t('deep.which.head') }),
+      el('p', { className: 'dr-help', attrs: { role: 'status' }, text: t('deep.cov.counting') }),
+      el('div', { className: 'sk sk--line', attrs: { 'aria-hidden': 'true' } }),
+    ]);
+  }
+
   /** How many postings could be read now, with the options as they stand. */
   function availableNow(status) {
-    if (status.coverage_ok === false) return 0;
+    if (status.coverage_ok !== true) return 0;
     const base = includeUnresolved && isSet(status.available_unresolved)
       ? status.available_unresolved : status.available || 0;
     return base + (retryRejected ? status.rejected || 0 : 0);
@@ -838,6 +881,12 @@ export function createDeep({ onOpenJob = null } = {}) {
     if (status.job) body.push(jobBanner(status, status.job));
     const older = status.coverage_ok === false ? null : scoresNotice(status);
     if (older) body.push(older);
+    const counting = status.coverage_ok === null;
+    const coverageLine = counting ? t('deep.cov.counting')
+      : status.coverage_ok === false ? t('deep.cov.failed')
+        : t('deep.coverage', {
+          roles: status.main_list_roles || 0, readable: status.readable || 0, short: status.too_short || 0,
+        });
     if (!status.share_evidence && status.provider && reviews.length) {
       body.push(banner('yellow', t('deep.notSharedNudge'), [
         button(t('deep.shareAndReadAgain'), () => go('choose'), { className: 'dr-btn2 dr-btn--sm' }),
@@ -847,14 +896,16 @@ export function createDeep({ onOpenJob = null } = {}) {
       el('summary', { text: t('deep.howWeSort') }),
       el('div', { className: 'dr-disc__inner' }, [
         el('p', { text: t('deep.resultsLede') }),
-        el('p', {
-          text: t('deep.coverage', {
-            roles: status.main_list_roles || 0, readable: status.readable || 0, short: status.too_short || 0,
-          }),
-        }),
+        el('p', { text: coverageLine }),
       ]),
     ]));
-    body.push(el('p', { className: 'dr-help', text: t('deep.notReviewed', { count: status.not_reviewed || 0 }) }));
+    if (status.coverage_ok === true) {
+      body.push(el('p', { className: 'dr-help', text: t('deep.notReviewed', { count: status.not_reviewed || 0 }) }));
+    } else {
+      body.push(el('p', {
+        className: 'dr-help', text: coverageLine, attrs: counting ? { role: 'status', 'aria-busy': 'true' } : {},
+      }));
+    }
     if (!reviews.length) {
       body.push(el('div', { className: 'dr-empty' }, [
         el('b', { text: t('deep.emptyHead') }), el('span', { text: t('deep.noResults') }),

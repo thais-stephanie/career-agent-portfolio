@@ -608,6 +608,7 @@ def rescore(
                     provider=row["provider"],
                     payload=payloads.get(str(job_id)),
                     sightings=sightings.get(str(job_id), ()),
+                    company_country=row["hq_country"],
                 )
                 stored = _replay_source(
                     job_id=str(job_id),
@@ -820,9 +821,10 @@ def _rows_for(conn: sqlite3.Connection, job_ids: Sequence[str]) -> list[sqlite3.
     # `jobs_skipped_no_description`.
     return conn.execute(
         "SELECT j.id, j.title, j.location_raw, j.posted_at, j.provider, j.content_hash,"
-        "       j.closed_at, r.description_text"
+        "       j.closed_at, r.description_text, c.hq_country"
         " FROM job j"
         " LEFT JOIN job_raw r ON r.content_hash = j.content_hash"
+        " LEFT JOIN company c ON c.id = j.company_id"
         f" WHERE j.id IN ({marks})"
         " ORDER BY j.id",
         list(job_ids),

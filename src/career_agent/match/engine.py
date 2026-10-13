@@ -19,7 +19,7 @@ answer different questions and the interface shows both.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from career_agent.config.search_config import SearchConfig
 from career_agent.domain.enums import ContentCompleteness, GateResult, ScreeningState
@@ -28,10 +28,12 @@ from career_agent.match.employment import (
     read_domestic_context,
     read_employment,
 )
+from career_agent.match.engagement import latam_hiring_evidence, with_default
 from career_agent.match.experience import read_experience
 from career_agent.match.explicit import explicit_facts
 from career_agent.match.gates import eligibility_status_from, evaluate_gates
 from career_agent.match.lexicon import body_only, observe
+from career_agent.match.pay import default_period, read_pay
 from career_agent.match.places import resolve_place
 from career_agent.match.score import (
     confidence_band_for,
@@ -150,6 +152,9 @@ class JobFacts:
     #: a posting is the layer that answers.
     declared_relationship: str | None = None
     declared_contract_regime: str | None = None
+    #: The employer's headquarters country from the curated registry, when one
+    #: is recorded. Read only as a basis for the contractor default.
+    company_country: str | None = None
 
     @property
     def salary_bands(self) -> tuple[CompensationBand, ...]:
@@ -331,6 +336,16 @@ def match_job(
         employment=employment,
     )
     eligibility = eligibility_status_from(gates)
+    # The contractor default rides beside the stated reading, AFTER the gates:
+    # the contractor-authorisation gate answers only to what was stated.
+    employment = with_default(
+        employment,
+        description=job.description,
+        company_country=job.company_country,
+        declared_scope=job.declared_hiring_scope,
+        gates=gates,
+    )
+    scored, inferred_period = effective_pay(job, gates)
     screening_state, screening_reason, discovery_channel = evaluate_screening(
         config, observed, str(title.resolved_class)
     )
@@ -348,7 +363,7 @@ def match_job(
         # one is passed rather than remade: two readings of one posting
         # drifting apart is a class of bug worth designing out.
         employment=employment,
-        job_facts=job,
+        job_facts=scored,
         semantic=semantic,
     )
     penalties = soft_penalties(config, scoring_signals)
@@ -389,7 +404,7 @@ def match_job(
         employment=employment,
         domestic=domestic,
         experience=experience,
-        posting_facts=posting_facts(job),
+        posting_facts=posting_facts(scored, inferred_period=inferred_period),
         semantic=semantic,
         computed_at=computed_at,
     )
@@ -398,7 +413,31 @@ def match_job(
 _work_model = read_work_model
 
 
-def posting_facts(job: JobFacts) -> dict[str, object]:
+def effective_pay(job: JobFacts, gates) -> tuple[JobFacts, str | None]:
+    """The facts the pay is scored and filtered from, and the period assumed.
+
+    A figure stated without a period first looks for the period in the
+    advert's own text (an explicit statement, in the same currency). Failing
+    that, the owner's USD defaults apply to a posting that hires in Latin
+    America (`match.pay.default_period`). The stated facts are never changed:
+    the second value says which period was assumed, None when none was.
+    Public because `match.replay` must assume exactly the same.
+    """
+    if job.salary_period or (job.salary_min is None and job.salary_max is None):
+        return job, None
+    text = read_pay(job.description) if job.salary_source != "TEXT" else None
+    if text is not None and text.period and text.currency == job.salary_currency:
+        return replace(job, salary_period=text.period), None
+    latam = latam_hiring_evidence(job.declared_hiring_scope, tuple(gates)) is not None
+    period = default_period(
+        job.salary_min, job.salary_max, job.salary_currency, hires_in_latam=latam
+    )
+    if period is None:
+        return job, None
+    return replace(job, salary_period=period), period
+
+
+def posting_facts(job: JobFacts, *, inferred_period: str | None = None) -> dict[str, object]:
     """The metadata the matcher read, travelling with the result it produced.
 
     Public because `match.replay` assembles the same `MatchResult` from stored
@@ -429,6 +468,11 @@ def posting_facts(job: JobFacts) -> dict[str, object]:
                 salary["raw"] = job.salary_raw
         if job.salary_text_differs:
             salary["text_differs"] = job.salary_text_differs
+        if inferred_period is not None:
+            # ASSUMED, and said so: the period the app uses for this figure,
+            # with the stated one (none) kept beside it.
+            salary["period"] = inferred_period
+            salary["period_inferred"] = True
     # What the BOARD PRINTED about where this is, resolved to codes so the
     # interface can offer "postings in Brazil" without every query LIKE-ing
     # over free text. Emphatically NOT hiring scope: a posting in San Francisco

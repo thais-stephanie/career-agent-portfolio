@@ -943,6 +943,11 @@ export async function getDeep() {
   return request('/deep');
 }
 
+/** The counts of the main list, asked for beside `getDeep` (slower). */
+export async function getDeepCoverage() {
+  return request('/deep/coverage');
+}
+
 export async function setDeepConsent(shareEvidence) {
   return request('/deep/consent', { method: 'POST', body: { share_evidence: shareEvidence } });
 }
@@ -1122,6 +1127,12 @@ export async function reviewRequirement(jobId, signalId, verdict, note = null) {
  * Several server-composed queries in one response. Nothing here re-ranks
  * anything -- each section is a filter over the score the cards already show.
  */
+/** The whole stored advert of each posting named, for an export. */
+export async function getJobDescriptions(ids) {
+  const query = new URLSearchParams({ ids: ids.join(',') });
+  return request(`/jobs/descriptions?${query.toString()}`);
+}
+
 export async function getHome() {
   if (MOCK) throw noCandidateHere();
   return request('/home');

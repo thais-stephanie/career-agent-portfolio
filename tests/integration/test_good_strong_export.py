@@ -112,6 +112,7 @@ def test_only_public_facts_and_the_status_are_columns() -> None:
         "Status",
         "URL",
         "Job id",
+        "Job description",
     }
     for private in ("note", "evidence", "intent", "phrase", "anchor", "query", "lane", "cv"):
         assert not any(private in n.lower() for n in names), private

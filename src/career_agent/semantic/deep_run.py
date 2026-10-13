@@ -192,67 +192,86 @@ class DeepCandidate:
 # ---------------------------------------------------------------------------
 
 
-def _population(
+def population_rows(
     conn: sqlite3.Connection,
     config: SearchConfig,
-    include_unresolved: bool,
-    min_chars: int = MIN_DESCRIPTION_CHARS,
     scores: tuple[str, int] | None = None,
-    age: tuple[int | None, bool] | None = None,
 ) -> list[sqlite3.Row]:
-    """The main list's representatives, the way the list elects them.
+    """Every open, unblocked, unhidden posting the main list could show, once.
 
-    `scores` is the (config_id, config_version) of the revision the list is
-    SERVING (storage.revisions). Until a recalculation finishes that is the
-    previous revision, and the list on screen is built from it; reading only
-    the current revision made this panel see zero roles under a list of
-    thousands. None keeps the configuration in force (the command line).
+    The one read behind every deep-reading count. Each count used to run its
+    own copy of this join (up to six per page open, with the advert's length
+    read every time): the coverage with and without the age limit, the
+    readable and the whole list, and a selection with and without unresolved
+    postings. They all differ only by filters cheap in Python, so the rows are
+    read once, with the length of the advert and the publication date, and
+    `_elect` derives each population from them. Hidden levels are a
+    configuration fact and stay in SQL.
     """
     config_id, config_version = scores or (str(config.config_id), int(config.config_version))
-    # The profile's age limit, the same one the Find jobs list applies: the
-    # SOURCE's publication date, undated hidden unless included. Postings it
-    # leaves out are never sent anywhere by a deep reading.
-    max_days, undated = age if age is not None else (None, False)
-    age_clause = ""
-    age_args: list[object] = []
-    if max_days is not None:
-        cutoff = (datetime.now(UTC) - timedelta(days=max_days)).date().isoformat()
-        age_clause = f" AND (j.posted_at >= ?{' OR j.posted_at IS NULL' if undated else ''})"
-        age_args = [cutoff]
-    statuses = ["VERIFIED_ELIGIBLE", "LIKELY_ELIGIBLE"] + (
-        ["UNRESOLVED"] if include_unresolved else []
-    )
     hidden = [str(level.value) for level in config.preferences.seniority.excluded]
     hidden_clause = (
         f" AND coalesce(jm.seniority, '') NOT IN ({','.join('?' for _ in hidden)})"
         if hidden
         else ""
     )
-    rows = conn.execute(
+    return conn.execute(
         "SELECT j.id, j.content_hash, j.title, j.company_id, jm.match_score, jm.fit_band,"
-        "       jm.eligibility_status"
+        "       jm.eligibility_status, j.posted_at,"
+        # The advert's length WITHOUT reading the advert: `octet_length` is
+        # in the record header, while `length` counts characters and so
+        # reads every page of every description (50 s on a 172,000-posting
+        # corpus). A text of N bytes holds between N/4 and N characters, so
+        # from 800 bytes up it is certainly readable (>= 200 characters) and
+        # only shorter texts are counted exactly. `chars` is therefore exact
+        # for every threshold up to 200, which is all `_elect` asks.
+        "       CASE WHEN octet_length(r.description_text) >= 4 * ?"
+        "            THEN octet_length(r.description_text)"
+        "            ELSE length(r.description_text) END AS chars"
         "  FROM job j"
         "  JOIN job_match jm ON jm.job_id = j.id AND jm.config_id = ? AND jm.config_version = ?"
         "  JOIN job_raw r ON r.content_hash = j.content_hash"
         "  LEFT JOIN job_application ja ON ja.job_id = j.id"
         " WHERE j.closed_at IS NULL AND ja.hidden_at IS NULL"
         "   AND jm.screening_state = 'NOT_BLOCKED'"
-        f"  AND jm.eligibility_status IN ({','.join('?' for _ in statuses)})"
-        f"{hidden_clause}"
-        f"{age_clause}"
-        "   AND length(r.description_text) >= ?",
-        (
-            str(config_id),
-            int(config_version),
-            *statuses,
-            *hidden,
-            *age_args,
-            min_chars,
-        ),
+        "   AND jm.eligibility_status IN ('VERIFIED_ELIGIBLE', 'LIKELY_ELIGIBLE', 'UNRESOLVED')"
+        f"{hidden_clause}",
+        (MIN_DESCRIPTION_CHARS, str(config_id), int(config_version), *hidden),
     ).fetchall()
+
+
+def _elect(
+    rows: list[sqlite3.Row],
+    include_unresolved: bool,
+    min_chars: int,
+    age: tuple[int | None, bool] | None,
+) -> list[sqlite3.Row]:
+    """One population from `population_rows`: the filters, then the election."""
+    max_days, undated = age if age is not None else (None, False)
+    cutoff = (
+        (datetime.now(UTC) - timedelta(days=max_days)).date().isoformat()
+        if max_days is not None
+        else None
+    )
+    statuses = {"VERIFIED_ELIGIBLE", "LIKELY_ELIGIBLE"} | (
+        {"UNRESOLVED"} if include_unresolved else set()
+    )
     rank = {"VERIFIED_ELIGIBLE": 0, "LIKELY_ELIGIBLE": 1, "UNRESOLVED": 2}
     elected: dict[tuple[str, str], sqlite3.Row] = {}
     for row in rows:
+        # A missing advert is never readable, nor counted (SQL's NULL >= 0).
+        if row["eligibility_status"] not in statuses or row["chars"] is None:
+            continue
+        if int(row["chars"]) < min_chars:
+            continue
+        if cutoff is not None:
+            posted = row["posted_at"]
+            # The same comparison SQL made: the date string against the cutoff.
+            if posted is None:
+                if not undated:
+                    continue
+            elif str(posted) < cutoff:
+                continue
         key = (str(row["company_id"]), str(row["title"]))
         best = elected.get(key)
         mine = (rank[row["eligibility_status"]], -int(row["match_score"]), str(row["id"]))
@@ -263,6 +282,28 @@ def _population(
         ):
             elected[key] = row
     return list(elected.values())
+
+
+def _population(
+    conn: sqlite3.Connection,
+    config: SearchConfig,
+    include_unresolved: bool,
+    min_chars: int = MIN_DESCRIPTION_CHARS,
+    scores: tuple[str, int] | None = None,
+    age: tuple[int | None, bool] | None = None,
+    rows: list[sqlite3.Row] | None = None,
+) -> list[sqlite3.Row]:
+    """The main list's representatives, the way the list elects them.
+
+    `scores` is the (config_id, config_version) of the revision the list is
+    SERVING (storage.revisions). Until a recalculation finishes that is the
+    previous revision, and the list on screen is built from it; reading only
+    the current revision made this panel see zero roles under a list of
+    thousands. None keeps the configuration in force (the command line).
+    """
+    if rows is None:
+        rows = population_rows(conn, config, scores)
+    return _elect(rows, include_unresolved, min_chars, age)
 
 
 @dataclass(frozen=True)
@@ -284,9 +325,14 @@ def coverage(
     include_unresolved: bool = False,
     scores: tuple[str, int] | None = None,
     age: tuple[int | None, bool] | None = None,
+    rows: list[sqlite3.Row] | None = None,
 ) -> tuple[Coverage, list[sqlite3.Row]]:
-    readable = _population(conn, config, include_unresolved, scores=scores, age=age)
-    everything = _population(conn, config, include_unresolved, min_chars=0, scores=scores, age=age)
+    if rows is None:
+        rows = population_rows(conn, config, scores)
+    readable = _population(conn, config, include_unresolved, scores=scores, age=age, rows=rows)
+    everything = _population(
+        conn, config, include_unresolved, min_chars=0, scores=scores, age=age, rows=rows
+    )
     return Coverage(len(everything), len(readable)), readable
 
 
@@ -349,11 +395,13 @@ def select(
     only: set[str] | None = None,
     scores: tuple[str, int] | None = None,
     age: tuple[int | None, bool] | None = None,
+    rows: list[sqlite3.Row] | None = None,
 ) -> Selection:
     """`only` narrows the main list to named postings (a labelled pilot set);
-    it never widens it past the main list."""
+    it never widens it past the main list. `limit=0` counts and picks nothing,
+    so it reads no full-text index and no advert."""
     intent = search_intent(config)
-    population = _population(conn, config, include_unresolved, scores=scores, age=age)
+    population = _population(conn, config, include_unresolved, scores=scores, age=age, rows=rows)
     if only is not None:
         population = [row for row in population if str(row["id"]) in only]
     repo = DeepRepo(conn)
@@ -378,12 +426,13 @@ def select(
             picked.append((row, stratum))
             count -= 1
 
-    top = sorted(fresh, key=lambda r: (-int(r["match_score"]), str(r["id"])))
-    take(top, "top_local", round(limit * SHARES["top_local"]))
-    lexical = [by_id[i] for i in _lexical_order(conn, intent, set(by_id))]
-    take(lexical, "lexical", round(limit * SHARES["lexical"]))
-    rest = sorted(fresh, key=lambda r: _control_key(str(r["id"])))
-    take(rest, "control", limit - len(picked))
+    if limit > 0:
+        top = sorted(fresh, key=lambda r: (-int(r["match_score"]), str(r["id"])))
+        take(top, "top_local", round(limit * SHARES["top_local"]))
+        lexical = [by_id[i] for i in _lexical_order(conn, intent, set(by_id))]
+        take(lexical, "lexical", round(limit * SHARES["lexical"]))
+        rest = sorted(fresh, key=lambda r: _control_key(str(r["id"])))
+        take(rest, "control", limit - len(picked))
     picked = interleave(picked)
     texts = _descriptions(conn, [str(row["content_hash"]) for row, _ in picked])
     chosen = [

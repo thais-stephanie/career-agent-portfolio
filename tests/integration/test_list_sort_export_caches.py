@@ -1,0 +1,238 @@
+"""Find jobs sorting and export, and the remembered answers behind three screens.
+
+* A header sort orders the WHOLE filtered list before a page is cut, so the
+  pages of one order join up with no repeat and no gap; empty values go last
+  both ways; going back to the default restores best match first.
+* The export carries the whole stored advert, unchanged.
+* Home, the deep reading's counts and the reader count are remembered, and
+  each is read again when something it depends on moves: a score written by
+  another connection, a hidden posting, the reading identity, another profile.
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+
+import pytest
+from tests.integration.test_deep_api_provider import POSTINGS, api, call  # noqa: F401 - fixture
+
+from career_agent.storage.db import connect, transaction
+
+WIDE = {
+    "include_ineligible": ["true"],
+    "include_unresolved": ["true"],
+    "include_off_target": ["true"],
+    "group_duplicates": ["false"],
+}
+
+
+def page(app, **query) -> dict:
+    return app.handle_api(
+        "GET", "/api/jobs", {**WIDE, **{k: [str(v)] for k, v in query.items()}}, {}
+    )
+
+
+def every_page(app, sort: str, direction: str, size: int = 7) -> list[dict]:
+    seen: list[dict] = []
+    offset = 0
+    while True:
+        items = page(app, sort=sort, direction=direction, limit=size, offset=offset)["items"]
+        if not items:
+            return seen
+        seen.extend(items)
+        offset += size
+
+
+# ------------------------------------------------------------------ sorting
+
+
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_a_title_sort_orders_the_whole_list_before_the_pages(api, direction) -> None:  # noqa: F811
+    rows = every_page(api, "title", direction)
+    titles = [r["title"] for r in rows]
+    assert len(rows) == POSTINGS and len({r["job_id"] for r in rows}) == POSTINGS
+    assert titles == sorted(titles, key=str.casefold, reverse=direction == "desc")
+
+
+def test_an_empty_value_sorts_last_in_both_directions(api) -> None:  # noqa: F811
+    conn = connect(api.config.db_path)
+    with transaction(conn):
+        conn.execute("UPDATE job SET location_raw = NULL WHERE external_id IN ('p-1', 'p-2')")
+    conn.close()
+    for direction in ("asc", "desc"):
+        rows = every_page(api, "place", direction)
+        empties = [i for i, r in enumerate(rows) if not r.get("location_raw")]
+        assert empties == [len(rows) - 2, len(rows) - 1], direction
+
+
+def test_the_default_order_is_best_match_first(api) -> None:  # noqa: F811
+    rows = every_page(api, "score", "desc")
+    scores = [r["match_score"] for r in rows]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_a_sort_key_nobody_offered_is_refused(api) -> None:  # noqa: F811
+    from career_agent.web.server import ApiError
+
+    with pytest.raises(ApiError):
+        page(api, sort="salary")
+
+
+# ------------------------------------------------------------------ export
+
+
+def test_the_page_export_reads_each_whole_advert_unchanged(api) -> None:  # noqa: F811
+    conn = connect(api.config.db_path)
+    stored = dict(
+        conn.execute(
+            "SELECT j.id, r.description_text FROM job j JOIN job_raw r USING (content_hash)"
+        ).fetchall()
+    )
+    conn.close()
+    ids = list(stored)[:5]
+    got = api.handle_api("GET", "/api/jobs/descriptions", {"ids": [",".join(ids)]}, {})
+    assert got["descriptions"] == {i: stored[i] for i in ids}
+
+
+def test_the_descriptions_route_is_bounded(api) -> None:  # noqa: F811
+    from career_agent.web.server import ApiError
+
+    with pytest.raises(ApiError):
+        api.handle_api("GET", "/api/jobs/descriptions", {"ids": [""]}, {})
+    with pytest.raises(ApiError):
+        api.handle_api("GET", "/api/jobs/descriptions", {"ids": [",".join(["x"] * 501)]}, {})
+
+
+def test_the_best_fits_export_has_the_whole_job_description(api) -> None:  # noqa: F811
+    conn = connect(api.config.db_path)
+    with transaction(conn):
+        # A multi-line advert with characters a spreadsheet must keep.
+        conn.execute(
+            "UPDATE job_raw SET description_text = description_text || ?",
+            ('\n\nLinha dois: São Paulo, "aspas", vírgula.',),
+        )
+        conn.execute("UPDATE job_match SET fit_band = 'STRONG'")
+    stored = dict(
+        conn.execute(
+            "SELECT j.id, r.description_text FROM job j JOIN job_raw r USING (content_hash)"
+        ).fetchall()
+    )
+    conn.close()
+    download = api.handle_api("GET", "/api/jobs/export.csv", dict(WIDE), {})
+    text = download.body.decode("utf-8")
+    assert text.startswith("﻿")
+    rows = list(csv.DictReader(io.StringIO(text[1:])))
+    assert rows and all(row["Job description"] == stored[row["Job id"]] for row in rows)
+
+
+# ------------------------------------------------------------------ caches
+
+
+def write_score(app) -> None:
+    """Another process rescoring: a score row changes behind the server's back."""
+    conn = connect(app.config.db_path)
+    with transaction(conn):
+        conn.execute(
+            "UPDATE job_match SET eligibility_status = 'VERIFIED_NOT_ELIGIBLE'"
+            " WHERE job_id = (SELECT id FROM job WHERE external_id = 'p-0')"
+        )
+    conn.close()
+
+
+def test_the_deep_counts_are_remembered_and_read_again_when_a_score_moves(api, monkeypatch) -> None:  # noqa: F811
+    from career_agent.semantic import deep_run
+
+    reads: list[int] = []
+    real = deep_run.population_rows
+
+    def counting(*args, **kwargs):
+        reads.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(deep_run, "population_rows", counting)
+    first = call(api, "GET", "/api/deep/coverage")
+    again = call(api, "GET", "/api/deep/coverage")
+    assert len(reads) == 1 and again == first, "a return reads nothing again"
+    write_score(api)
+    after = call(api, "GET", "/api/deep/coverage")
+    assert len(reads) == 2
+    assert after["main_list_roles"] == first["main_list_roles"] - 1
+
+
+def test_the_deep_counts_are_read_again_after_a_hide(api) -> None:  # noqa: F811
+    before = call(api, "GET", "/api/deep/coverage")["main_list_roles"]
+    job_id = page(api, limit=1)["items"][0]["job_id"]
+    api.handle_api("PATCH", f"/api/jobs/{job_id}/hidden", {}, {"hidden": True})
+    assert call(api, "GET", "/api/deep/coverage")["main_list_roles"] == before - 1
+
+
+def test_home_is_remembered_and_read_again_when_a_score_moves(api, monkeypatch) -> None:  # noqa: F811
+    from career_agent.pipeline import rescore as rescore_module
+
+    plans: list[int] = []
+    real = rescore_module.plan
+
+    def counting(*args, **kwargs):
+        plans.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(rescore_module, "plan", counting)
+    first = call(api, "GET", "/api/home")
+    assert call(api, "GET", "/api/home") == first and len(plans) == 1
+    write_score(api)
+    call(api, "GET", "/api/home")
+    assert len(plans) == 2
+
+
+def test_the_reader_count_follows_the_reading_identity_and_new_scores(api, monkeypatch) -> None:  # noqa: F811
+    from career_agent.match import identity
+
+    assert call(api, "GET", "/api/health")["stale_scores"] == 0
+    monkeypatch.setattr(identity, "READER_IDENTITY", "readers-next")
+    assert call(api, "GET", "/api/health")["stale_scores"] == POSTINGS
+    # Scores rewritten by another connection under the new identity: the
+    # remembered count is not served past them.
+    from career_agent.pipeline.rescore import rescore
+
+    conn = connect(api.config.db_path)
+    rescore(conn, api.search_config())
+    conn.close()
+    assert call(api, "GET", "/api/health")["stale_scores"] == 0
+
+
+def test_a_remembered_answer_belongs_to_one_profile(tmp_path) -> None:
+    from tests.support import career_profile
+
+    _p1, first = career_profile(tmp_path, "prof-one", "One")
+    _p2, second = career_profile(tmp_path, "prof-two", "Two")
+    conn = connect(second.config.db_path)
+    with transaction(conn):
+        conn.execute("DELETE FROM job_match")
+    conn.close()
+    mine = call(first, "GET", "/api/home")
+    theirs = call(second, "GET", "/api/home")
+    assert mine["total"] > 0 and theirs["total"] == 0
+    assert call(first, "GET", "/api/home") == mine
+
+
+def test_the_readable_count_counts_characters_not_bytes(api) -> None:  # noqa: F811
+    """The length is taken from the record header where that is certain, and
+    counted exactly near the threshold: 150 two-byte characters (300 bytes)
+    are too short to read, 250 of them (500 bytes) are not."""
+    before = call(api, "GET", "/api/deep/coverage")
+    conn = connect(api.config.db_path)
+    with transaction(conn):
+        hashes = [r[0] for r in conn.execute("SELECT content_hash FROM job ORDER BY id LIMIT 2")]
+        conn.execute(
+            "UPDATE job_raw SET description_text = ? WHERE content_hash = ?", ("ç" * 150, hashes[0])
+        )
+        conn.execute(
+            "UPDATE job_raw SET description_text = ? WHERE content_hash = ?", ("ç" * 250, hashes[1])
+        )
+        # A content change the triggers do not see: say so the way a writer would.
+        conn.execute("UPDATE job SET updated_at = updated_at WHERE content_hash IN (?, ?)", hashes)
+    conn.close()
+    after = call(api, "GET", "/api/deep/coverage")
+    assert after["main_list_roles"] == before["main_list_roles"]
+    assert after["readable"] == before["readable"] - 1

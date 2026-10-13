@@ -301,6 +301,10 @@ PATCH = """
     const json = (body, status = 200) => Promise.resolve(new Response(JSON.stringify(body), {
       status, headers: { 'Content-Type': 'application/json' } }));
     if (url.pathname === '/api/deep') return d.status ? json(d.status) : json({ error: 'x' }, 500);
+    // The counts are their own request now; the fixture's status carries them.
+    if (url.pathname === '/api/deep/coverage') {
+      return d.status ? json({ coverage_ok: true, ...d.status }) : json({ error: 'x' }, 500);
+    }
     if (url.pathname === '/api/deep/reviews') return json({ reviews: d.reviews });
     if (url.pathname === '/api/deep/preview') return json(d.preview);
     if (url.pathname === '/api/deep/run') {

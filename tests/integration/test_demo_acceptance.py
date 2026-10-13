@@ -229,8 +229,12 @@ def test_declared_expectations_hold(external_id: str, posting: dict[str, Any]) -
 
     if expects.get("salary_absent_not_penalised"):
         component = next(c for c in result.components if c.component_id == "compensation_contract")
-        assert component.points > 0, (
-            f"{where}: a posting with no salary scored 0 on compensation. "
+        # Silence is not a deficit: what the ad did not state leaves the
+        # component's maximum (schema 13) instead of being scored as zero.
+        # Since readers-11 "full-time" is a working pattern, not a stated
+        # engagement, so this posting states neither pay nor engagement.
+        assert component.points >= component.max_points - 1e-9, (
+            f"{where}: a posting with no salary lost points on compensation. "
             "Silence about pay is not a reason to reject a job."
         )
 

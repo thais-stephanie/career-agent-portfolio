@@ -20,6 +20,16 @@ set below are dropped (their text kept), script and style content is dropped,
 images and other embedded resources are never represented, and a link keeps
 its address only for http, https and mailto.
 
+MARKDOWN (2026-10-13). Some boards publish the ad as Markdown text (4 Day
+Week: `### **One platform**`, `- Ranked **#10 of 250**`, `[label](https://..)`),
+and the page showed the marks. When the text carries Markdown's own marks
+(a `#` heading, a `**bold**` run or a `[label](https://...)` link), headings,
+bold, italics, links and a backslash escape are read as what they are; a
+plain ad with a stray asterisk is never reinterpreted. A link keeps its
+address only for http, https and mailto; anything else keeps its label as
+text. Nothing is fetched or embedded: an image (`![alt](src)`) is its alt
+text.
+
 NOTHING HERE CHANGES WHAT THE AD SAYS. The text stored for matching and for
 quotes is untouched; this only decides spacing, lists, headings and metadata,
 from structure the employer wrote. It does not summarise, reword or drop a
@@ -58,6 +68,19 @@ _BLOCK = {
 _HEADINGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 _META_LINE = re.compile(r"^([A-Za-zÀ-ÿ][^:\n]{1,40}):\s*(\S.*)$")
 _BULLET = re.compile(r"^\s*(?:[-*•·▪●\u2013]|\d{1,2}[.)])\s+(\S.*)$")
+#: Marks that only Markdown makes: an atx heading, a bold run, a link.
+_MD_SIGNAL = re.compile(
+    r"(?m)^\s{0,3}#{1,6}\s+\S|\*\*[^*\n]+\*\*|__[^_\n]+__|\[[^\]\n]+\]\((?:https?://|mailto:)[^)\s]+\)"
+)
+_MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)(?:\s+#+)?\s*$")
+#: One inline token: an escape, an image, a link, bold, or italics.
+_MD_INLINE = re.compile(
+    r"\\(?P<esc>[\\`*_{}\[\]()#+\-.!>~|])"
+    r"|!\[(?P<alt>[^\]\n]*)\]\([^)\n]*\)"
+    r"|\[(?P<label>[^\]\n]+)\]\((?P<href>(?:[^()\s]|\([^()\s]*\))+)(?:\s+\"[^\"\n]*\")?\)"
+    r"|\*\*(?P<b1>[^*\n]+?)\*\*|__(?P<b2>[^_\n]+?)__"
+    r"|(?<![\w*])\*(?P<i1>[^*\s][^*\n]*?)\*(?![\w*])|(?<![\w_])_(?P<i2>[^_\s][^_\n]*?)_(?![\w_])"
+)
 _END_PUNCT = ".!?;,"
 
 
@@ -292,6 +315,43 @@ def _from_html(html: str) -> list[dict[str, Any]]:
 # ------------------------------------------------------------------- text
 
 
+def _md_text(text: str) -> str:
+    """Markdown's marks removed, its words kept: for a heading's plain text."""
+    return _text_of(_md_runs(text))
+
+
+def _md_runs(text: str) -> list[Any]:
+    """Text with Markdown's inline marks as runs: bold, italics, a safe link."""
+    runs: list[Any] = []
+    at = 0
+    for found in _MD_INLINE.finditer(text):
+        if found.start() > at:
+            runs.append(text[at : found.start()])
+        at = found.end()
+        if found.group("esc") is not None:
+            runs.append(found.group("esc"))
+        elif found.group("alt") is not None:
+            if found.group("alt"):
+                runs.append(found.group("alt"))
+        elif found.group("label") is not None:
+            label = _md_text(found.group("label"))
+            href = found.group("href")
+            runs.append({"x": label, "a": href} if _SAFE_HREF.match(href) else label)
+        elif found.group("b1") or found.group("b2"):
+            runs.append({"x": _md_text(found.group("b1") or found.group("b2")), "b": 1})
+        else:
+            runs.append({"x": _md_text(found.group("i1") or found.group("i2")), "i": 1})
+    if at < len(text):
+        runs.append(text[at:])
+    merged: list[Any] = []
+    for run in runs:
+        if isinstance(run, str) and merged and isinstance(merged[-1], str):
+            merged[-1] += run
+        elif run != "":
+            merged.append(run)
+    return merged
+
+
 def _is_heading(line: str) -> bool:
     """A heading in plain text by its own marks: a trailing colon, or capitals."""
     if len(line) > 70 or line.endswith(tuple(".!?;,")):
@@ -331,19 +391,24 @@ def _is_meta_pair(lines: list[str], i: int) -> bool:
     )
 
 
-def _segments(lines: list[str]) -> list[dict[str, Any]]:
+def _segments(lines: list[str], markdown: bool = False) -> list[dict[str, Any]]:
     """One blank-line paragraph, split where its lines change kind."""
+    runs = _md_runs if markdown else (lambda text: [text])
     out: list[dict[str, Any]] = []
     i = 0
     while i < len(lines):
-        if _BULLET.match(lines[i]):
+        heading = _MD_HEADING.match(lines[i]) if markdown else None
+        if heading:
+            out.append({"t": "h", "x": _md_text(heading.group(1)).strip()})
+            i += 1
+        elif _BULLET.match(lines[i]):
             j = i
             while j < len(lines) and _BULLET.match(lines[j]):
                 j += 1
             out.append(
                 {
                     "t": "ol" if re.match(r"^\s*\d", lines[i]) else "ul",
-                    "i": [{"r": [_BULLET.match(x).group(1)]} for x in lines[i:j]],  # type: ignore[union-attr]
+                    "i": [{"r": runs(_BULLET.match(x).group(1))} for x in lines[i:j]],  # type: ignore[union-attr]
                 }
             )
             i = j
@@ -352,48 +417,83 @@ def _segments(lines: list[str]) -> list[dict[str, Any]]:
             rows = []
             while j < len(lines) and _META_LINE.match(lines[j]):
                 m = _META_LINE.match(lines[j])
-                rows.append({"k": m.group(1).strip(), "r": [m.group(2).strip()]})  # type: ignore[union-attr]
+                rows.append({"k": m.group(1).strip(), "r": runs(m.group(2).strip())})  # type: ignore[union-attr]
                 j += 1
             out.append({"t": "meta", "rows": rows})
             i = j
         else:
             j = i + 1
-            while j < len(lines) and not _BULLET.match(lines[j]) and not _is_meta_pair(lines, j):
+            while (
+                j < len(lines)
+                and not _BULLET.match(lines[j])
+                and not _is_meta_pair(lines, j)
+                and not (markdown and _MD_HEADING.match(lines[j]))
+            ):
                 j += 1
             chunk = lines[i:j]
             if _is_heading(chunk[0]):
-                out.append(_heading(chunk[0]))
+                out.append(_heading(_md_text(chunk[0]) if markdown else chunk[0]))
                 chunk = chunk[1:]
             elif _title_over_text(chunk):
-                out.append({"t": "h", "x": chunk[0]})
+                out.append({"t": "h", "x": _md_text(chunk[0]) if markdown else chunk[0]})
                 chunk = chunk[1:]
             if chunk:
-                out.append({"t": "p", "r": ["\n".join(chunk)]})
+                out.append({"t": "p", "r": runs("\n".join(chunk))})
             i = j
     return out
 
 
 def _from_text(text: str) -> list[dict[str, Any]]:
     cleaned = text.replace("\r\n", "\n").replace("\r", "\n")
+    markdown = bool(_MD_SIGNAL.search(cleaned))
     paragraphs = [p for p in re.split(r"\n\s*\n", cleaned) if p.strip()]
     blocks: list[dict[str, Any]] = []
     i = 0
     while i < len(paragraphs):
         lines = [ln.strip() for ln in paragraphs[i].split("\n") if ln.strip()]
-        if len(lines) == 1 and not _BULLET.match(lines[0]) and not _is_heading(lines[0]):
+        if (
+            len(lines) == 1
+            and not _BULLET.match(lines[0])
+            and not _is_heading(lines[0])
+            and not (markdown and _MD_HEADING.match(lines[0]))
+        ):
             j = i
             group: list[str] = []
             while j < len(paragraphs):
                 one = [ln.strip() for ln in paragraphs[j].split("\n") if ln.strip()]
-                if len(one) != 1 or _BULLET.match(one[0]) or _is_heading(one[0]):
+                if (
+                    len(one) != 1
+                    or _BULLET.match(one[0])
+                    or _is_heading(one[0])
+                    or (markdown and _MD_HEADING.match(one[0]))
+                ):
                     break
                 group.append(one[0])
                 j += 1
             if _short_stack(group):
-                blocks.append({"t": "ul", "plain": True, "i": [{"r": [g]} for g in group]})
+                blocks.append(
+                    {
+                        "t": "ul",
+                        "plain": True,
+                        "i": [{"r": _md_runs(g) if markdown else [g]} for g in group],
+                    }
+                )
                 i = j
                 continue
-        blocks.extend(_segments(lines))
+        for block in _segments(lines, markdown):
+            last = blocks[-1] if blocks else None
+            # Markdown writes a list with a blank line between items; it is
+            # still ONE list, laid out as one.
+            if (
+                markdown
+                and last is not None
+                and block["t"] in ("ul", "ol")
+                and last["t"] == block["t"]
+                and not last.get("plain")
+            ):
+                last["i"].extend(block["i"])
+            else:
+                blocks.append(block)
         i += 1
     return blocks
 

@@ -24,7 +24,7 @@
 import { el, button, extLink, replace, clear } from './dom.js';
 import { t } from './i18n.js';
 import {
-  compactPlace, dateInputValue, formatDate, formatSalary, freshness, parseDate,
+  compactPlace, contractInfo, dateInputValue, formatDate, formatSalary, freshness, parseDate,
   relativeAge, statusLabel, statusOptions, vocabLabel,
   displayTitle,
 } from './format.js';
@@ -47,8 +47,8 @@ export const COLUMNS = [
   { id: 'title', labelKey: 'column.title', sort: 'title', fixed: true, track: 'minmax(180px,2.4fr)', min: 180 },
   { id: 'confidence', labelKey: 'column.confidence', sort: 'confidence', track: 'minmax(76px,.7fr)', min: 76 },
   { id: 'company', labelKey: 'column.company', sort: 'company', track: 'minmax(110px,1fr)', min: 110 },
-  { id: 'location', labelKey: 'column.location', track: 'minmax(120px,1.1fr)', min: 120 },
-  { id: 'source', labelKey: 'column.source', track: 'minmax(92px,.8fr)', min: 92 },
+  { id: 'location', labelKey: 'column.location', sort: 'place', track: 'minmax(120px,1.1fr)', min: 120 },
+  { id: 'source', labelKey: 'column.source', sort: 'source', track: 'minmax(92px,.8fr)', min: 92 },
   { id: 'technologies', labelKey: 'column.technologies', track: 'minmax(120px,1.1fr)', min: 120 },
   { id: 'salary', labelKey: 'column.salary', track: 'minmax(120px,1.1fr)', min: 120 },
   { id: 'contract', labelKey: 'column.contract', track: 'minmax(84px,.7fr)', min: 84 },
@@ -57,7 +57,9 @@ export const COLUMNS = [
   { id: 'eligibility', labelKey: 'column.eligibility', track: 'minmax(96px,.8fr)', min: 96 },
   { id: 'status', labelKey: 'column.status', sort: 'status', track: 'minmax(112px,.85fr)', min: 112 },
   { id: 'applied', labelKey: 'column.applied', track: 'minmax(60px,.5fr)', min: 60 },
-  { id: 'applied_at', labelKey: 'column.applied_at', track: 'minmax(124px,.75fr)', min: 124 },
+  {
+    id: 'applied_at', labelKey: 'column.applied_at', sort: 'applied_at', track: 'minmax(124px,.75fr)', min: 124,
+  },
   { id: 'saved', labelKey: 'column.saved', track: '48px', min: 48 },
   { id: 'link', labelKey: 'column.link', track: '60px', min: 60 },
 ];
@@ -298,11 +300,17 @@ export function renderColumnsMenu(host, onChange) {
 }
 
 /**
- * The visible rows and columns as CSV, the way the list reads them: words,
- * not codes, and the posting's own link. Nothing beyond what is on screen.
+ * The rows of this page, in the list's order and with its visible columns, as
+ * CSV the way the list reads them: words, not codes, and the posting's own
+ * link. The last column is the WHOLE job description, as stored
+ * (`descriptions`, by job id), never the excerpt a card shows. With a
+ * byte-order mark, so a spreadsheet reads accents as accents.
  */
-export function toCsv(items, visible) {
-  const columns = orderedColumns().filter((column) => visible.has(column.id));
+export function toCsv(items, visible, descriptions = {}) {
+  const columns = [
+    ...orderedColumns().filter((column) => visible.has(column.id)),
+    { id: 'description', labelKey: 'column.description' },
+  ];
   const quote = (value) => {
     const text = String(value ?? '');
     // A cell an employer wrote may start like a formula; a spreadsheet must
@@ -320,7 +328,7 @@ export function toCsv(items, visible) {
       case 'source': return vocabLabel(job.provider);
       case 'technologies': return signalLabels(job).join('; ');
       case 'salary': return formatSalary(job.salary) || '';
-      case 'contract': return job.employment_type ? vocabLabel(job.employment_type) : '';
+      case 'contract': return contractInfo(job).text || '';
       case 'posted': return job.posted_at ? formatDate(job.posted_at) : '';
       case 'freshness': return freshness(job.freshness).label;
       case 'eligibility': return eligibilityWords(job.eligibility_status);
@@ -328,6 +336,7 @@ export function toCsv(items, visible) {
       case 'applied': return job.has_applied ? t('value.yes') : '';
       case 'applied_at': return dateInputValue(job.applied_at);
       case 'saved': return job.saved ? t('value.yes') : '';
+      case 'description': return descriptions[job.job_id] ?? '';
       case 'link': return job.url || '';
       default: return '';
     }
@@ -351,10 +360,19 @@ function head(columns, ctx) {
       },
     });
     if (column.sort) {
+      // The arrow shows the direction; the label says what a press does next
+      // (ascending, then descending, then back to the list's own order).
+      const arrow = isSorted ? (ctx.direction === 'asc' ? '\u25b4' : '\u25be') : '';
+      const next = !isSorted ? 'asc'
+        : ctx.direction === 'asc' ? 'desc' : column.sort === 'score' ? 'asc' : 'default';
       const sortButton = button(columnLabel(column), () => ctx.onSort(column.sort), {
         className: `th__sort${isSorted ? ' is-sorted' : ''}`,
-        ariaLabel: t('table.sortBy', { column: columnName(column) }),
+        ariaLabel: t(`table.sortNext.${next}`, { column: columnName(column) }),
       });
+      sortButton.dataset.sort = column.sort;
+      if (arrow) {
+        sortButton.append(el('span', { className: 'th__arrow', text: arrow, attrs: { 'aria-hidden': 'true' } }));
+      }
       th.appendChild(sortButton);
     } else {
       th.appendChild(el('span', { className: 'th__label', text: columnLabel(column) }));
@@ -497,8 +515,8 @@ function cell(column, job, ctx, aside) {
     }
 
     case 'contract':
-      return textCell(column, job.employment_type ? vocabLabel(job.employment_type) : t('value.notStated'), {
-        absent: !job.employment_type,
+      return textCell(column, contractInfo(job).text || t('value.notStated'), {
+        absent: !contractInfo(job).text,
       });
 
     case 'posted': {

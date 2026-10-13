@@ -49,6 +49,9 @@ COLUMNS = (
     ("Status", lambda j: _STATUS.get(str(j.get("application_status") or ""))),
     ("URL", lambda j: j.get("url")),
     ("Job id", lambda j: j.get("job_id")),
+    # The WHOLE advert as stored, line breaks and all: never the excerpt a
+    # card shows. The csv module quotes it; a spreadsheet keeps the breaks.
+    ("Job description", lambda j: j.get("description_full")),
 )
 
 

@@ -150,7 +150,18 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              an hour count is not a pay period; part-time and the weekly
 #:              hours are read; a talent pool and a time-zone requirement are
 #:              read as what they are. Seniority, pay and employment move.
-READER_IDENTITY = "readers-10"
+#:   readers-11 Optional preferences only add (2026-10-13): each work or tool
+#:              phrase found adds a fixed share of its component, whatever
+#:              was named beside it and whatever its weight; the tools guard
+#:              is gone. An American employer hiring in Latin America that
+#:              states no engagement is probably a contractor (the effective
+#:              engagement, beside the stated one); a working pattern
+#:              (full-time, part-time) is no longer an engagement; a USD
+#:              figure with no period takes the advert's own period, or for
+#:              a posting hiring in Latin America the owner's defaults (under
+#:              7,000 a month, over 30,000 a year). Scores, employment, pay
+#:              and the contract facet move.
+READER_IDENTITY = "readers-11"
 
 
 def guarded_sections(config: Any) -> list[str]:

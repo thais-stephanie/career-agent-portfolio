@@ -199,7 +199,18 @@ _VOCABULARIES: dict[str, tuple[str, ...]] = {
     "fit_band": ("STRONG", "GOOD", "MODERATE", "WEAK"),
     "status": tuple(str(s) for s in ApplicationStatus),
     "direction": ("asc", "desc"),
-    "sort": ("score", "confidence", "company", "title", "posted", "status", "hidden"),
+    "sort": (
+        "score",
+        "confidence",
+        "company",
+        "title",
+        "posted",
+        "status",
+        "hidden",
+        "place",
+        "source",
+        "applied_at",
+    ),
     # NOT_STATED is in the vocabulary because it is an ANSWER a person asks
     # for -- "show me the ones that never said" -- not an absence they should
     # have to notice. Stored as NULL and offered as a word; `_where` maps it
@@ -601,6 +612,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         # Before any `/api/jobs/<id>` route: "export.csv" is not a job id.
         self.register("GET", r"/api/jobs/export\.csv", self.export_good_strong)
         self.register("GET", r"/api/jobs/freshness", self.jobs_freshness)
+        self.register("GET", r"/api/jobs/descriptions", self.job_descriptions)
         self.register("GET", r"/api/jobs/narrowings", self.job_narrowings)
         self.register("GET", r"/api/view-prefs", self.get_view_prefs)
         self.register("PATCH", r"/api/view-prefs", self.patch_view_prefs)
@@ -739,24 +751,37 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         return {"stopping": True}
 
     def _reading_moved(self, conn, repo, config_id, config_version, digest, cfg) -> int:
-        """Scores an older reader made, remembered until a scoring pass ends.
+        """Scores an older reader made, remembered while nothing they count moved.
 
         Two seconds over a real corpus, against milliseconds for the rest of
-        this route, so the count is kept per (configuration, reading identity,
-        latest scoring pass). Only a scoring pass rewrites a reading, and every
-        one records a `rescore` run; a row written since by this build carries
-        the current identity and cannot add to the count.
+        this route, so the count is kept under a key holding EVERYTHING it
+        depends on, and nothing else expires it:
+
+        * the profile's database, so another profile never reads this one's;
+        * the configuration (id, version, digest) and the reading identity, so
+          an edited preference or an updated reader counts again;
+        * `population_token`: the triggers on `job` and `job_match` advance it
+          on every posting or score written, closed or reopened, by any
+          process. A scoring pass that finished, stopped or failed halfway has
+          moved it by every row it wrote; one that wrote nothing changed
+          nothing this counts.
+
+        It used to be keyed by the latest `rescore` run, which missed scores
+        written by anything else (a collection's own scoring, an import, a
+        posting closing) until the next pass.
         """
         from career_agent.match.identity import input_digest as reading_identity
+        from career_agent.storage.catalogue import population_token
 
         reading = reading_identity(cfg)
-        last = conn.execute(
-            # The row id, not the start time: two passes can start in the same
-            # second, and a tie would keep the count from before the second.
-            "SELECT rowid, finished_at FROM pipeline_run WHERE stage = 'rescore'"
-            " ORDER BY rowid DESC LIMIT 1"
-        ).fetchone()
-        key = (config_id, config_version, digest, reading, tuple(last) if last else None)
+        key = (
+            str(self.config.db_path),
+            config_id,
+            config_version,
+            digest,
+            reading,
+            population_token(conn),
+        )
         cached = getattr(self, "_reading_moved_memo", None)
         if cached is not None and cached[0] == key:
             return int(cached[1])
@@ -2142,8 +2167,12 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 today = utc_today()
                 for offset in range(0, total, job_filter.limit):
                     page = repo.page(config_id, config_version, replace(job_filter, offset=offset))
+                    whole = repo.descriptions([r.job_id for r in page])
                     rows.extend(
-                        job_card(r, bands=self._bands, today=today, recency=self._recency)
+                        {
+                            **job_card(r, bands=self._bands, today=today, recency=self._recency),
+                            "description_full": whole.get(r.job_id, ""),
+                        }
                         for r in page
                     )
         stamp = utc_today()
@@ -2152,6 +2181,27 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             content_type="text/csv; charset=utf-8",
             filename=f"career-agent-good-strong-{stamp}.csv",
         )
+
+    #: How many whole adverts one request may ask for: a page of the list.
+    MAX_DESCRIPTIONS = 500
+
+    def job_descriptions(self, *, query: dict, body: dict) -> dict:
+        """The WHOLE stored advert of each named posting, for an export.
+
+        `ids` names the postings of the page being exported (at most a page).
+        The text is the canonical one, unchanged: what matching and quotes
+        read, never the excerpt a card shows.
+        """
+        from career_agent.storage.mvp_repo import ScoredJobQuery
+
+        _reject_unknown(query, frozenset({"ids"}), "job descriptions")
+        ids = [i for raw in query.get("ids") or [] for i in str(raw).split(",") if i]
+        if not ids or len(ids) > self.MAX_DESCRIPTIONS:
+            raise ApiError(400, f"ids: between 1 and {self.MAX_DESCRIPTIONS} job ids")
+        for job_id in ids:
+            validate_job_id(job_id)
+        with _closing(self.connect()) as conn:
+            return {"descriptions": ScoredJobQuery(conn).descriptions(ids)}
 
     def list_jobs(self, *, query: dict, body: dict) -> dict:
         from career_agent.storage.mvp_repo import ScoredJobQuery
@@ -2564,6 +2614,25 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             reasons.append("preferences")
         if scored_hash != text_now:
             reasons.append("posting")
+        # Made by an earlier version of the reading or scoring rules: the
+        # explanation must not be one the current rules would give.
+        from career_agent.domain.matching import MATCH_SCHEMA_VERSION
+        from career_agent.match.identity import input_digest as reading_identity
+
+        made = conn.execute(
+            "SELECT schema_version, input_digest FROM job_match"
+            " WHERE job_id = ? AND config_id = ? AND config_version = ?",
+            (job_id, result.config_id, version),
+        ).fetchone()
+        if (
+            made is not None
+            and not reasons
+            and (
+                int(made[0] or 0) < MATCH_SCHEMA_VERSION
+                or (made[1] is not None and made[1] != reading_identity(self.search_config()))
+            )
+        ):
+            reasons.append("rules")
         return {
             "state": "stale" if reasons else "current",
             "shown_version": version,

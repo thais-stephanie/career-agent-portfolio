@@ -41,9 +41,17 @@ def test_the_list_names_its_mode_and_explains_it_on_request(
     assert "never inside it" in body and "marked as earlier" in body
     # It promises no improvement it cannot deliver.
     assert "raise" not in body and "improve" not in body.lower()
-    # Short rows at reading width, not a narrow column.
+    # The panel takes the list's width (2026-10-13): at a fixed 640px every
+    # explanation broke early beside empty space on a wide window. One
+    # paragraph per explanation, its label in bold on the same line.
     width = page.evaluate("document.getElementById('eval-mode-body').getBoundingClientRect().width")
-    assert 560 <= width <= 700
+    column = page.evaluate("document.getElementById('eval-mode').getBoundingClientRect().width")
+    assert width >= column - 1, (width, column)
+    assert page.evaluate(
+        "[...document.querySelectorAll('#eval-mode-body .evalmode__row')].every((row) =>"
+        " row.tagName === 'P'"
+        " && getComputedStyle(row.querySelector('strong')).display === 'inline')"
+    )
     if SHOTS:
         page.screenshot(Path(SHOTS) / "guidance-list.png")
     assert deep_server["fake"].messages == [], "the guidance sent something"

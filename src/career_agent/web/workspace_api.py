@@ -34,6 +34,7 @@ from __future__ import annotations
 import base64
 import binascii
 import sqlite3
+import time
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +58,10 @@ DIGEST_DAYS = 7
 #: A note on a requirement verdict. Shorter than a claim: it is a remark about
 #: a mapping, not a statement about a career.
 MAX_NOTE = 2000
+
+#: How long a remembered Home may be served at most. The key holds everything
+#: Home depends on that a write can move; this bounds anything it cannot see.
+HOME_MEMO_SECONDS = 600
 
 #: The claim types somebody may create by hand. Every one of `ClaimType`
 #: except `METRIC`, which is deliberately absent: a metric on its own is a
@@ -499,6 +504,8 @@ class WorkspaceRoutes(_MixinBase):
         def _identity(self) -> tuple[str, int]: ...
 
         def assessment_of(self, conn: Any, job_id: str) -> dict[str, Any]: ...
+
+        def _jobs_freshness(self, conn: Any) -> str: ...
 
         #: The band edges and the recency window, read once from the loaded
         #: configuration and cached on `JobsApi`. The digest renders cards, so
@@ -1926,6 +1933,38 @@ class WorkspaceRoutes(_MixinBase):
                 if candidate_id
                 else None
             )
+            # COMING BACK TO HOME READS NOTHING AGAIN unless something it shows
+            # moved. The key is what the answer depends on: this profile's
+            # database and configuration, `_jobs_freshness` (postings and
+            # scores written by any process, every hide, save or status
+            # change, every write this server accepted, the day), when the
+            # person last looked, the latest collection or scoring run, the
+            # confirmed evidence and whether a recalculation is running. The
+            # plan count alone is seconds on a real corpus.
+            running = bool(getattr(getattr(self, "rescore", None), "running", False))
+            key = (
+                str(self.config.db_path),
+                config_id,
+                config_version,
+                str(getattr(config, "digest", "")),
+                self._jobs_freshness(conn),
+                seen_at,
+                running,
+                tuple(
+                    conn.execute(
+                        "SELECT MAX(rowid), COUNT(finished_at), MAX(finished_at) FROM pipeline_run"
+                    ).fetchone()
+                ),
+                tuple(conn.execute("SELECT COUNT(*), MAX(rowid) FROM verified_claim").fetchone()),
+                served_profile_id(self),
+            )
+            memo = getattr(self, "_home_memo", None)
+            if (
+                memo is not None
+                and memo[0] == key
+                and time.monotonic() - memo[1] < HOME_MEMO_SECONDS
+            ):
+                return memo[2]
             cards = metrics(
                 conn,
                 last_reviewed_at=seen_at,
@@ -1968,7 +2007,7 @@ class WorkspaceRoutes(_MixinBase):
                     }
                 )
 
-        return {
+        answer = {
             "total": total,
             "job_count": int(open_jobs),
             "last_reviewed_at": seen_at,
@@ -1978,11 +2017,13 @@ class WorkspaceRoutes(_MixinBase):
             "declarations_pending": pending,
             "scores": {
                 "outdated": outdated,
-                "running": bool(getattr(getattr(self, "rescore", None), "running", False)),
+                "running": running,
             },
             "latest_refresh_run": refresh_run,
             "profile": served_profile_id(self),
         }
+        self._home_memo = (key, time.monotonic(), answer)
+        return answer
 
     def daily(self, *, query: dict, body: dict) -> dict:
         """What is worth looking at today. The same sections the terminal has.

@@ -99,11 +99,6 @@ COUNTED_SIGNALS: dict[str, int] = {
     "automation_integration": 3,
 }
 
-#: Tools without any of the desired work as a central duty can earn at most
-#: this share of the tools component. A posting that uses your tools for work
-#: you did not ask for is not a fit for that work.
-TOOLS_WITHOUT_WORK_SHARE = 0.5
-
 #: The seniority ladder for "one step away". LEAD sits between SENIOR and
 #: STAFF: past senior scope, short of the staff track.
 SENIORITY_LADDER: tuple[Seniority, ...] = (
@@ -251,6 +246,21 @@ def _weighted_component(
 ) -> ScoreComponent:
     """One phrase component: the strongest few distinct signals, each once.
 
+    AN OPTIONAL PREFERENCE ONLY ADDS (2026-10-13, readers-11). What the person
+    named here is something they would like, never something a posting must
+    have, so each preference the posting shows adds a FIXED share of the
+    component, max / `COUNTED_SIGNALS`, and one it does not mention adds
+    nothing and takes nothing away. The share depends neither on how many
+    preferences were named nor on their relative weights, so naming one more
+    can never lower a posting's points. Before, the share was max / (phrases
+    named, at most the count) and each phrase was scaled by its weight over
+    the heaviest one: adding a phrase a posting did not mention, or one
+    weighted above the rest, lowered that posting. The component's maximum
+    is the explicit limit: `COUNTED_SIGNALS` matches fill it and more add
+    nothing. How a phrase appeared still matters (a central duty pays in
+    full, an incidental mention pays its multiplier): that is how much the
+    posting shows of it. Weights keep one job, which matches count first.
+
     UNCONFIGURED IS NOT UNMATCHED. A component with no positive weight is not
     part of this search, so it leaves the denominator (max 0, `configured`
     false). A configured component that found nothing stays 0 of its max.
@@ -269,6 +279,7 @@ def _weighted_component(
       because its bullets are compound (docs/SEMANTIC_MATCHING.md);
     * only the strongest `COUNTED_SIGNALS` pay, each worth max / N at full
       strength, so N central matches fill the component and more add nothing.
+      N is fixed per component, never the number of phrases named.
 
     Nothing found is dropped from view: a signal that was found and not paid is
     kept with `counted` false and the reason, so the drawer can say "already
@@ -284,22 +295,17 @@ def _weighted_component(
             note="Not part of your search: no phrases are configured here.",
             configured=False,
         )
-    # Never more slots than the person has phrases: someone whose whole work
-    # intent is "patient care" fills the component by the posting showing it,
-    # instead of being capped at a quarter forever.
-    counted_signals = min(COUNTED_SIGNALS.get(component_id, 3), len(positive))
+    counted_signals = COUNTED_SIGNALS.get(component_id, 3)
     unit = component.max / counted_signals
-    heaviest = max(positive.values())
 
     by_signal = {m.signal_id: m for m in semantic or () if m.component_id == component_id}
     # (strength, contribution, [(quote, sentence key), ...] it may pay through)
     candidates: list[tuple[float, ScoreContribution, list[tuple[str | None, str]]]] = []
     for signal_id, weight in positive.items():
-        relative = weight / heaviest
         best: tuple[float, ScoreContribution, list[tuple[str | None, str]]] | None = None
         signal = observed.get(signal_id)
         if signal is not None and signal.fired:
-            strength = component.prominence_multipliers[signal.prominence] * relative
+            strength = component.prominence_multipliers[signal.prominence]
             # Every sentence the phrase appeared in, in order: when the first
             # already paid for another signal, a later one may still pay.
             places: list[tuple[str | None, str]] = list(
@@ -322,7 +328,7 @@ def _weighted_component(
         found = by_signal.get(signal_id)
         if found is not None:
             prominence = SEMANTIC_PROMINENCE.get(found.strength, Prominence.INCIDENTAL)
-            strength = component.prominence_multipliers[prominence] * relative
+            strength = component.prominence_multipliers[prominence]
             if best is None or strength > best[0]:
                 label = observed[signal_id].label if signal_id in observed else signal_id
                 best = (
@@ -345,7 +351,7 @@ def _weighted_component(
         if best is not None:
             candidates.append(best)
 
-    candidates.sort(key=lambda row: (-row[0], row[1].signal_id))
+    candidates.sort(key=lambda row: (-row[0], -row[1].weight, row[1].signal_id))
     contributions: list[ScoreContribution] = []
     per_sentence = -(-counted_signals // 2)
     paid_sentences: dict[str, int] = {}
@@ -376,25 +382,23 @@ def _weighted_component(
         contributions.append(row if quote == row.quote else replace(row, quote=quote))
 
     fired = {row.signal_id for row in contributions}
-    missing = [signal_id for signal_id in positive if signal_id not in fired]
+    # The LABEL, never the id: the drawer is read by a person. Every phrase the
+    # posting did not mention, in the person's own order, so the drawer can say
+    # what was asked and not shown without implying it costs anything.
+    not_found = tuple(
+        observed[signal_id].label if signal_id in observed else signal_id
+        for signal_id in positive
+        if signal_id not in fired
+    )
     note: str | None = None
-    if missing and paid < counted_signals:
-        # The LABEL, never the id: the drawer is read by a person.
-        named = [
-            observed[signal_id].label if signal_id in observed else signal_id
-            for signal_id in missing
-        ]
-        shown = ", ".join(named[:MISSING_SIGNALS_SHOWN])
+    if not_found and paid < counted_signals:
+        shown = ", ".join(not_found[:MISSING_SIGNALS_SHOWN])
         suffix = (
-            f" and {len(missing) - MISSING_SIGNALS_SHOWN} more"
-            if len(missing) > MISSING_SIGNALS_SHOWN
+            f" and {len(not_found) - MISSING_SIGNALS_SHOWN} more"
+            if len(not_found) > MISSING_SIGNALS_SHOWN
             else ""
         )
-        note = (
-            f"No configured body phrase was recognized for {shown}{suffix}."
-            if semantic is None
-            else f"Neither a configured phrase nor a checked finding showed {shown}{suffix}."
-        )
+        note = f"Not mentioned in this posting (adds nothing, takes nothing away): {shown}{suffix}."
 
     return ScoreComponent(
         component_id=component_id,
@@ -407,6 +411,8 @@ def _weighted_component(
         # themselves ("already counted"), not on the component.
         capped=total > component.max,
         note=note,
+        not_found=not_found,
+        fills_at=counted_signals,
     )
 
 
@@ -421,67 +427,6 @@ def _uncounted(row: ScoreContribution, reason: str) -> ScoreContribution:
         counted=False,
         source=row.source,
         uncounted_reason=reason,
-    )
-
-
-def _guard_tools(work: ScoreComponent, tools: ScoreComponent) -> ScoreComponent:
-    """Tools without the desired work earn at most half the tools component.
-
-    Applies only when the person DID say what work they want (the work
-    component is configured) and none of it was found as a CENTRAL duty. Tools
-    alone then say this role uses the person's toolset for something else,
-    which is worth knowing and is not a fit for the work. An unconfigured work
-    component never triggers the guard: nothing was asked, so nothing is
-    missing.
-
-    Central means a counted work contribution at PRIMARY or SECONDARY
-    prominence: a strong semantic finding, or a literal phrase in a role or
-    requirements section or repeated (`prominence_of`). A single incidental
-    mention, and a partial semantic finding (the
-    contract's own "secondary duty or close neighbour"), still pay their own
-    work points but do not lift the guard. Measured 2026-09-27 on 175
-    hand-labelled postings (docs/SEMANTIC_MATCHING.md): most GOOD false
-    positives had only such evidence, mostly generic lines, and it unlocked
-    the full tools component for common languages and API mentions.
-    """
-    if not work.configured or not tools.configured:
-        return tools
-    central = any(
-        row.counted and row.prominence is not Prominence.INCIDENTAL for row in work.contributions
-    )
-    # THE REST OF THE TOOLS PAY AS FAR AS THE WORK WAS FOUND (2026-10-10). The
-    # guard used to be all or nothing: one bullet reading "Workflow automation"
-    # under a full-stack engineering advert lifted it, and three tool names
-    # then paid 20 of 20. Now the second half of the component opens in
-    # proportion to the work component's own fill: one of four activities
-    # found opens a quarter of it.
-    fill = (work.points / work.max_points) if central and work.max_points > 0 else 0.0
-    ceiling = tools.max_points * (
-        TOOLS_WITHOUT_WORK_SHARE + (1.0 - TOOLS_WITHOUT_WORK_SHARE) * min(1.0, fill)
-    )
-    if tools.points <= ceiling + 1e-9:
-        return tools
-    # The rows are scaled with the component, so what the drawer lists adds up
-    # to what the component actually scored.
-    factor = ceiling / tools.points
-    return ScoreComponent(
-        component_id=tools.component_id,
-        label=tools.label,
-        points=ceiling,
-        max_points=tools.max_points,
-        contributions=tuple(
-            replace(row, points=row.points * factor) if row.counted else row
-            for row in tools.contributions
-        ),
-        capped=False,
-        note=(
-            "Capped at half: none of the work you want was found as a central duty of this posting."
-            if not central
-            else "Capped: the tools you named count in full only as far as the work you want "
-            "was found in this posting."
-        ),
-        configured=tools.configured,
-        guarded=True,
     )
 
 
@@ -685,7 +630,10 @@ def _compensation_component(
             + ", which is not an engagement this system recognises, so it was not applied."
         )
 
-    engaged = employment.relationship
+    # The EFFECTIVE engagement: the stated one, or the contractor default for
+    # an American employer hiring in Latin America (`match.engagement`), which
+    # is then not "contract not stated".
+    engaged = employment.effective_relationship
     contract_id: str | None
     if not preferred and not unwanted:
         # Nothing asked, so nothing to measure and no row to show.
@@ -802,10 +750,10 @@ def score_components(
     work = _weighted_component(
         "responsibilities", components.responsibilities, observed_body, found
     )
-    tools = _guard_tools(
-        work,
-        _weighted_component("technologies", components.technologies, observed_body, found),
-    )
+    # No guard on the tools any more: it held them at half when none of the
+    # wanted work was found, so naming work a posting did not mention lowered
+    # its tools. A preference only adds (readers-11).
+    tools = _weighted_component("technologies", components.technologies, observed_body, found)
     fixed = (
         work,
         tools,

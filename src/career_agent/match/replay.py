@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from career_agent.domain.enums import GateResult
 from career_agent.domain.matching import MatchResult, ObservedSignal, SemanticEvidence
-from career_agent.match.engine import JobFacts, posting_facts
+from career_agent.match.engine import JobFacts, effective_pay, posting_facts
 from career_agent.match.lexicon import body_only, prominence_of
 from career_agent.match.score import (
     confidence_band_for,
@@ -119,12 +119,13 @@ def replay(
     """
     observed = observed_from(config, stored)
     scoring_signals = body_only(config, observed)
+    scored, inferred_period = effective_pay(job, stored.gates)
     components = score_components(
         config,
         observed_body=scoring_signals,
         seniority=stored.seniority,
         employment=stored.employment,
-        job_facts=job,
+        job_facts=scored,
         semantic=semantic,
     )
     penalties = soft_penalties(config, scoring_signals)
@@ -168,7 +169,7 @@ def replay(
         # Recomputed from `job` rather than carried, because it is a projection
         # of the facts this call was handed and `match_job` computes it the same
         # way. If the facts had moved, the replay would have been refused.
-        posting_facts=posting_facts(job),
+        posting_facts=posting_facts(scored, inferred_period=inferred_period),
         semantic=semantic,
         computed_at=computed_at,
     )

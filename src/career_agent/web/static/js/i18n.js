@@ -278,6 +278,9 @@ const EN = {
   'sort.posted': 'Newest',
   'sort.company': 'Company name',
   'sort.title': 'Job title',
+  'sort.place': 'Location',
+  'sort.source': 'Job site',
+  'sort.applied_at': 'Date applied',
   'sort.status': 'Where I am with it',
   'sortHelp.score': 'Jobs that fit you best come first',
   'sortHelp.confidence': 'Ads that say the most come first',
@@ -333,8 +336,33 @@ const EN = {
   'age.undated': 'Include postings without a date',
   'age.help': 'Uses the date the source published the posting, never the date it was collected. Saved and '
     + 'applied jobs always stay visible. Changing it does not change any match %.',
-  'level.default': 'Mid - app default; level not stated in the ad',
+  'level.default': 'Mid - Default. Level not stated in the ad',
+  'level.defaultShort': 'Mid',
   'level.range': '{levels} - the ad lists several levels',
+  'pay.per.MONTH': '/mo',
+  'pay.per.YEAR': '/year',
+  'pay.per.HOUR': '/hour',
+  'pay.per.DAY': '/day',
+  'pay.per.WEEK': '/week',
+  'pay.range': '{min} to {max}',
+  'pay.from': 'from {min}',
+  'pay.upTo': 'up to {max}',
+  'pay.fromYearly': '(monthly equivalent)',
+  'pay.fromYearlyAssumed': '(monthly equivalent; yearly assumed)',
+  'pay.assumedMonthly': '(monthly assumed)',
+  'pay.yearlyNote': 'The ad states {pay}. Shown here divided by 12; it is not a promise of monthly pay.',
+  'pay.assumedMonthlyNote': 'The ad gives no period. For a role hiring in Latin America, Career Agent reads a USD '
+    + 'figure under 7,000 as monthly.',
+  'pay.assumedYearlyNote': 'The ad gives no period. For a role hiring in Latin America, Career Agent reads a USD '
+    + 'figure over 30,000 as yearly.',
+  'contract.probable': 'Probably Contractor',
+  'contract.probableWhy': 'The ad does not say how you would be engaged. An American company hiring in Latin America '
+    + 'usually hires contractors, so Career Agent uses Contractor.',
+  'contract.probableUs': 'American company',
+  'contract.probableUsRegistry': 'Headquarters recorded in the list of companies Career Agent knows',
+  'contract.probableLatam': 'Hires in Latin America',
+  'gtk.contractWhy': 'Why probably',
+  'gtk.payNote': 'About the pay',
   'drawer.readNow': 'Read now from the ad. The match % keeps its earlier reading until you recalculate.',
   'drawer.open.payNotCompared': 'The ad states pay ({pay}). It was not compared with your target because '
     + 'the period or the currency is different.',
@@ -1194,6 +1222,8 @@ const EN = {
   'deep.still.provider': 'Still needed: choose who reads.',
   'deep.still.ready': 'Still needed: a provider that is ready.',
   'deep.still.count': 'Still needed: a successful check of your jobs.',
+  'deep.still.counting': 'Still counting the jobs in your list.',
+  'deep.cov.counting': 'Counting the jobs in your main list. The rest of this page already works.',
   'deep.still.posting': 'Still needed: at least one posting to read.',
   'deep.name.this': 'This provider',
   'deep.openJobs': 'Open Find jobs',
@@ -1770,6 +1800,7 @@ const EN = {
   'assess.stale.preferences': 'This score is from before your latest changes to your preferences. It is '
     + 'shown for reference and may not match what you ask for now. Recalculate to update it; everything '
     + 'else on this job works as usual.',
+  'assess.stale.rules': 'This score was made with earlier rules. Recalculate to see it with the current ones.',
   'assess.stale.posting': 'The text of this job changed after this score was calculated. The score is '
     + 'shown for reference. Recalculate to update it; everything else on this job works as usual.',
   'assess.stale.both': 'This score is older than your latest preferences and than the current text of '
@@ -1820,9 +1851,26 @@ const EN = {
   'drawer.adSays': 'The ad says:',
   'drawer.levelRow': 'The level: {level}',
   'drawer.gapsHead': 'What doesn\'t fit yet',
-  'drawer.gapsLede2': 'These lower the %. Many people still apply.',
-  'drawer.gapText': 'Nothing in the ad matched what you asked for here.',
-  'drawer.partText': 'The ad has some of what you asked for here, not all of it.',
+  'drawer.gapsLede2': 'These lower the %: the ad states something different from what you asked for. Many people '
+    + 'still apply.',
+  'pref.head': 'Your preferences in this ad',
+  'pref.lede': 'Things you would like. Each one the ad mentions adds to the %. One it does not mention takes nothing '
+    + 'away.',
+  'pref.marked': 'You marked {list}.',
+  'pref.mentions': 'The ad mentions {list}.',
+  'pref.mentionsNone': 'The ad mentions none of them.',
+  'pref.notMentioned': 'Not mentioned: {list}. That is not a no; the ad just does not say.',
+  'pref.adds': '{n} of the {fills} matches that fill this part.',
+  'pref.oldRules': 'This score was made with earlier rules. Recalculate to see which of your preferences the ad '
+    + 'mentions.',
+  'pref.listAnd': '{items} and {last}',
+  'pref.listMore': '{items} and {n} more',
+  'lower.level': 'The ad asks for {level}, which is not one of the levels you prefer.',
+  'lower.pay': 'The ad pays {pay}, below the amount you asked for.',
+  'lower.contract': 'The ad offers {contract}, which you asked to avoid.',
+  'lower.workModel': 'The ad offers a way of working you asked to avoid.',
+  'lower.avoid': 'The ad mentions something you asked to avoid.',
+  'lower.avoidQuote': 'The ad says \u201c{quote}\u201d, which you asked to avoid.',
   'drawer.takeHead': 'Can you take this job?',
   'drawer.takeLede': '“Not in the ad” is normal. Most ads leave these out, and it doesn\'t mean no.',
   'drawer.take.PASS': 'Fine for you',
@@ -3586,7 +3634,9 @@ const EN = {
   // The table. Job titles, company names and tool names are substituted
   // verbatim: they are the employer's words and the configuration's, and
   // neither is ours to translate.
-  'table.sortBy': 'Sort by {column}',
+  'table.sortNext.asc': 'Sort by {column}, ascending',
+  'table.sortNext.desc': 'Sort by {column}, descending',
+  'table.sortNext.default': 'Stop sorting by {column}; back to best match first',
   'table.groupTitle': 'Published as {n} postings: {places}',
   'table.groupTitleBare': 'Published as {n} separate postings',
   'table.groupLabel': 'stands for {n} postings',
@@ -3830,6 +3880,7 @@ const EN = {
   'column.applied_at': 'Applied date',
   'column.saved': 'Saved',
   'column.link': 'Link',
+  'column.description': 'Job description',
   'kanban.emptyShortlisted': 'Nothing saved yet. Tap the heart on a job in Find jobs, or set it to '
     + 'Interested.',
   'kanban.emptyApplied': 'No applications sent yet.',
@@ -5516,6 +5567,9 @@ const PT_BR = {
   'sort.posted': 'Mais recentes',
   'sort.company': 'Nome da empresa',
   'sort.title': 'Título da vaga',
+  'sort.place': 'Local',
+  'sort.source': 'Site de vagas',
+  'sort.applied_at': 'Data da candidatura',
   'sort.status': 'Em que ponto estou',
   'sortHelp.score': 'As vagas que mais combinam com você vêm primeiro',
   'sortHelp.confidence': 'Os anúncios mais completos vêm primeiro',
@@ -5569,8 +5623,33 @@ const PT_BR = {
   'age.undated': 'Incluir vagas sem data',
   'age.help': 'Usa a data em que a fonte publicou a vaga, nunca a data em que ela foi coletada. Vagas salvas '
     + 'e candidaturas continuam sempre visíveis. Mudar isso não muda nenhuma nota.',
-  'level.default': 'Pleno - padrão do app; anúncio sem nível informado',
+  'level.default': 'Pleno - Padrão. Anúncio sem nível informado',
+  'level.defaultShort': 'Pleno',
   'level.range': '{levels} - o anúncio lista vários níveis',
+  'pay.per.MONTH': '/mês',
+  'pay.per.YEAR': '/ano',
+  'pay.per.HOUR': '/hora',
+  'pay.per.DAY': '/dia',
+  'pay.per.WEEK': '/semana',
+  'pay.range': '{min} a {max}',
+  'pay.from': 'a partir de {min}',
+  'pay.upTo': 'até {max}',
+  'pay.fromYearly': '(equivalente mensal)',
+  'pay.fromYearlyAssumed': '(equivalente mensal; anual presumido)',
+  'pay.assumedMonthly': '(mensal presumido)',
+  'pay.yearlyNote': 'O anúncio informa {pay}. Aqui aparece dividido por 12; não é promessa de pagamento mensal.',
+  'pay.assumedMonthlyNote': 'O anúncio não informa o período. Para vagas que contratam na América Latina, o Career '
+    + 'Agent lê um valor em USD abaixo de 7.000 como mensal.',
+  'pay.assumedYearlyNote': 'O anúncio não informa o período. Para vagas que contratam na América Latina, o Career '
+    + 'Agent lê um valor em USD acima de 30.000 como anual.',
+  'contract.probable': 'Provavelmente Contractor',
+  'contract.probableWhy': 'O anúncio não diz qual é o vínculo. Empresa americana contratando na América Latina '
+    + 'costuma contratar como Contractor, então o Career Agent usa Contractor.',
+  'contract.probableUs': 'Empresa americana',
+  'contract.probableUsRegistry': 'Sede registrada na lista de empresas que o Career Agent conhece',
+  'contract.probableLatam': 'Contrata na América Latina',
+  'gtk.contractWhy': 'Por que provavelmente',
+  'gtk.payNote': 'Sobre a remuneração',
   'drawer.readNow': 'Lido agora do anúncio. A nota mantém a leitura anterior até você recalcular.',
   'drawer.open.payNotCompared': 'O anúncio informa a remuneração ({pay}). Ela não foi comparada com a sua '
     + 'meta porque o período ou a moeda são diferentes.',
@@ -6327,6 +6406,8 @@ const PT_BR = {
   'deep.still.provider': 'Falta: escolher quem lê.',
   'deep.still.ready': 'Falta: um provedor pronto para uso.',
   'deep.still.count': 'Falta: uma verificação das suas vagas que funcione.',
+  'deep.still.counting': 'Ainda contando as vagas da sua lista.',
+  'deep.cov.counting': 'Contando as vagas da sua lista principal. O resto desta página já funciona.',
   'deep.still.posting': 'Falta: pelo menos uma vaga para ler.',
   'deep.name.this': 'Este provedor',
   'deep.openJobs': 'Abrir Buscar vagas',
@@ -6904,6 +6985,7 @@ const PT_BR = {
   'assess.stale.preferences': 'Esta nota é de antes das suas últimas mudanças nas preferências. Ela aparece '
     + 'só como referência e pode não refletir o que você pede agora. Recalcule para atualizar; o resto '
     + 'desta vaga funciona normalmente.',
+  'assess.stale.rules': 'Esta nota foi feita com regras anteriores. Recalcule para vê-la com as atuais.',
   'assess.stale.posting': 'O texto desta vaga mudou depois que a nota foi calculada. A nota aparece só '
     + 'como referência. Recalcule para atualizar; o resto desta vaga funciona normalmente.',
   'assess.stale.both': 'Esta nota é mais antiga que as suas últimas preferências e que o texto atual da '
@@ -6954,9 +7036,26 @@ const PT_BR = {
   'drawer.adSays': 'O anúncio diz:',
   'drawer.levelRow': 'O nível: {level}',
   'drawer.gapsHead': 'O que ainda não combina',
-  'drawer.gapsLede2': 'Estes itens baixam a %. Muita gente se candidata mesmo assim.',
-  'drawer.gapText': 'Nada no anúncio correspondeu ao que você pediu aqui.',
-  'drawer.partText': 'O anúncio tem parte do que você pediu aqui, não tudo.',
+  'drawer.gapsLede2': 'Estes itens baixam a %: o anúncio diz algo diferente do que você pediu. Muita gente se '
+    + 'candidata mesmo assim.',
+  'pref.head': 'Suas preferências neste anúncio',
+  'pref.lede': 'Coisas que você gostaria. Cada uma que o anúncio menciona soma na %. A que ele não menciona não tira '
+    + 'nada.',
+  'pref.marked': 'Você marcou {list}.',
+  'pref.mentions': 'O anúncio menciona {list}.',
+  'pref.mentionsNone': 'O anúncio não menciona nenhuma delas.',
+  'pref.notMentioned': 'Não mencionado: {list}. Isso não é um não; o anúncio só não fala disso.',
+  'pref.adds': '{n} das {fills} correspondências que completam esta parte.',
+  'pref.oldRules': 'Esta nota foi feita com regras anteriores. Recalcule para ver quais das suas preferências o '
+    + 'anúncio menciona.',
+  'pref.listAnd': '{items} e {last}',
+  'pref.listMore': '{items} e mais {n}',
+  'lower.level': 'O anúncio pede {level}, que não está entre os níveis que você prefere.',
+  'lower.pay': 'O anúncio paga {pay}, abaixo do valor que você pediu.',
+  'lower.contract': 'O anúncio oferece {contract}, que você pediu para evitar.',
+  'lower.workModel': 'O anúncio oferece um formato de trabalho que você pediu para evitar.',
+  'lower.avoid': 'O anúncio menciona algo que você pediu para evitar.',
+  'lower.avoidQuote': 'O anúncio diz \u201c{quote}\u201d, que você pediu para evitar.',
   'drawer.takeHead': 'Você pode se candidatar a esta vaga?',
   'drawer.takeLede': '“Não está no anúncio” é normal. A maioria dos anúncios não fala disso, e isso não quer dizer '
     + 'não.',
@@ -8725,7 +8824,9 @@ const PT_BR = {
   // The table. Job titles, company names and tool names are substituted
   // verbatim: they are the employer's words and the configuration's, and
   // neither is ours to translate.
-  'table.sortBy': 'Ordenar por {column}',
+  'table.sortNext.asc': 'Ordenar por {column}, em ordem crescente',
+  'table.sortNext.desc': 'Ordenar por {column}, em ordem decrescente',
+  'table.sortNext.default': 'Parar de ordenar por {column}; voltar à melhor compatibilidade primeiro',
   'table.groupTitle': 'Publicada como {n} anúncios: {places}',
   'table.groupTitleBare': 'Publicada como {n} anúncios separados',
   'table.groupLabel': 'representa {n} anúncios',
@@ -8977,6 +9078,7 @@ const PT_BR = {
   'column.applied_at': 'Data de envio',
   'column.saved': 'Salva',
   'column.link': 'Link',
+  'column.description': 'Descrição da vaga',
   'kanban.emptyShortlisted': 'Nada salvo ainda. Toque no coração de uma vaga em Encontrar vagas ou '
     + 'marque como Tenho interesse.',
   'kanban.emptyApplied': 'Nenhuma candidatura enviada ainda.',

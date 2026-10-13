@@ -64,9 +64,13 @@ NOTICE_TEXT = "document.getElementById('hiddennotice').textContent.toLowerCase()
 #: postings clear 55, and three of those seven are one role. It was SIX from
 #: 2026-10-08, a good match whose eligibility is still open being listed, and
 #: is FIVE again since 2026-10-10, when "to confirm" went back behind a switch.
-FILTERED_COUNT = 5
+#: SEVEN since 2026-10-13 (readers-11): an optional preference only adds, so
+#: demo-006 (48 -> 55) and demo-013 (47 -> 60) clear 55 beside the five.
+FILTERED_COUNT = 7
 #: The same population in Table, which does not group.
-FILTERED_UNGROUPED_COUNT = 7  # 8 while "to confirm" was listed (2026-10-08 to 10)
+FILTERED_UNGROUPED_COUNT = (
+    9  # 8 while "to confirm" was listed (2026-10-08 to 10); 7 until readers-11
+)
 
 #: The role the corpus publishes three times, and the badge Cards draws for it.
 GROUPED_TITLE = "Business Systems Engineer"

@@ -38,7 +38,7 @@ Formula changes alone only redistribute evidence that was found. Semantic interp
   - The study proposed "one sentence pays once". Implemented literally, it scored the demo's canonical fit posting MODERATE: its bullets are compound ("Build workflow automation and REST API integrations"), and each states two activities.
   - Relaxing the rule for semantic findings as well had a measured cost: an AWS DevOps posting labelled a non-match rose to GOOD under both DeepSeek and Claude Code. Providers cite one sentence for several items more loosely than postings state them.
   - So the relaxation applies to the person's literal phrases only.
-- **The tools guard.** When the person stated the work they want and none of it was found as a central duty, tools earn at most half their component. Central means a counted work match at PRIMARY or SECONDARY prominence: a strong semantic finding, or a literal phrase in a role or requirements section or repeated in the posting. A partial finding or a single incidental mention still pays its own work points, and does not lift the guard (schema 12, see "Evidence quality" below).
+- **The tools guard (removed 2026-10-13, readers-11).** It held the tools at half when the work named was not found as a central duty. It made naming work a posting did not mention lower that posting, so it is gone: an optional preference only adds (ADR-0036). The measurements below record why it existed and what removing it costs.
 - **Seniority follows the preferred levels.**
 
   | Level in the posting | Share of the component |

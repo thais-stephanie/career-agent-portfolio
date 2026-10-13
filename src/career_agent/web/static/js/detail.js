@@ -27,7 +27,8 @@
 
 import { el, button, extLink, select, replace, clear, focusables } from './dom.js';
 import {
-  compactPlace, factOf, formatDate, formatPoints, formatSalary, humanLabel, levelInfo, paragraphs,
+  compactPlace, contractInfo, factOf, formatDate, formatPoints, formatSalary, humanLabel, levelInfo, paragraphs,
+  payNotes,
   parseDate, payInfo, prominenceWords, relativeAge, scheduleText, scoreDisplay, statusLabel,
   statusOptions, vocabLabel,
 } from './format.js';
@@ -374,7 +375,8 @@ export function createDrawer({
     if (assessmentState(job) !== 'stale') return null;
     const reasons = (job.assessment.reasons || []).slice().sort().join('+');
     const key = reasons === 'posting' ? 'assess.stale.posting'
-      : reasons === 'posting+preferences' ? 'assess.stale.both' : 'assess.stale.preferences';
+      : reasons === 'rules' ? 'assess.stale.rules'
+        : reasons === 'posting+preferences' ? 'assess.stale.both' : 'assess.stale.preferences';
     return el('p', { className: 'd-note d-stale', attrs: { role: 'status' }, text: t(key) });
   }
 
@@ -464,17 +466,19 @@ export function createDrawer({
     const facts = [
       {
         key: 'pay', icon: '$', value: salary || t('drawer.tile.notShown'), absent: !salary,
-        note: pay && pay.readNow ? t('drawer.readNow') : null, title: pay ? pay.raw : null,
+        note: [pay && pay.readNow ? t('drawer.readNow') : null, ...payNotes(pay)].filter(Boolean).join(' ') || null,
+        title: pay ? pay.raw : null,
       },
       {
         key: 'type', icon: '◷',
-        value: job.employment_type ? vocabLabel(job.employment_type) : t('drawer.tile.notStated'),
-        absent: !job.employment_type,
+        value: contractInfo(job).text || t('drawer.tile.notStated'),
+        absent: !contractInfo(job).text,
+        note: contractInfo(job).probable ? t('contract.probableWhy') : null,
       },
       { key: 'where', icon: '\u2302', value: place.text || t('drawer.tile.notStated'), absent: !place.text },
       {
         key: 'level', icon: '▲',
-        value: level ? level.text : t('drawer.tile.notStated'),
+        value: level ? level.detail : t('drawer.tile.notStated'),
         absent: !level || !level.stated,
         note: level && level.readNow ? t('drawer.readNow') : null,
       },
@@ -731,6 +735,7 @@ export function createDrawer({
     return [
       fitSummary(job),
       whatFits(job),
+      yourPreferences(job),
       whatDoesNotFit(job),
       leftOpen(job),
       scoreLimits(job),
@@ -962,21 +967,111 @@ export function createDrawer({
     ].filter(Boolean), { lede: t('limits.lede') });
   }
 
+  /** The phrase components: things the person would like, never requirements. */
+  const PREFERENCES = ['responsibilities', 'technologies', 'automation_integration'];
+
+  /** `A, B and C` in the reader's language, with the rest counted. */
+  function listed(labels, most = 6) {
+    const shown = labels.slice(0, most);
+    const more = labels.length - shown.length;
+    if (more > 0) return t('pref.listMore', { items: shown.join(', '), n: more });
+    if (shown.length < 2) return shown.join('');
+    return t('pref.listAnd', { items: shown.slice(0, -1).join(', '), last: shown[shown.length - 1] });
+  }
+
+  /**
+   * YOUR PREFERENCES IN THIS AD (readers-11). For each kind of thing the
+   * person would like (work, tools, other signals): what they marked, what
+   * the ad mentions, and what it does not mention, which adds nothing and
+   * takes nothing away. Read from the stored score itself, so the words
+   * cannot explain a score with rules it was not made by: a score made
+   * before readers-11 carries no `fills_at`, and says so instead.
+   */
+  function yourPreferences(job) {
+    const items = [];
+    for (const component of job.components || []) {
+      if (!PREFERENCES.includes(component.component_id) || component.configured === false) continue;
+      const contributions = component.contributions || [];
+      const paid = contributions.filter((c) => c.counted !== false && Number(c.points) > 0);
+      const extra = contributions.filter((c) => c.counted === false);
+      const label = (c) => c.label || humanLabel(c.signal_id);
+      if (!Number(component.fills_at)) {
+        items.push({ component, lines: [t('pref.oldRules')] });
+        continue;
+      }
+      const missing = component.not_found || [];
+      const marked = [...paid.map(label), ...extra.map(label), ...missing];
+      const lines = [t('pref.marked', { list: listed(marked) })];
+      if (paid.length) {
+        lines.push(t('pref.mentions', { list: listed([...paid, ...extra].map(label)) }));
+        lines.push(t('pref.adds', { n: Math.min(paid.length, component.fills_at), fills: component.fills_at }));
+      } else {
+        lines.push(t('pref.mentionsNone'));
+      }
+      if (missing.length) lines.push(t('pref.notMentioned', { list: listed(missing) }));
+      items.push({ component, lines });
+    }
+    if (!items.length) return null;
+    return section(t('pref.head'), [
+      el('ul', { className: 'reasons d-list-card' }, items.map(({ component, lines }) => el('li', {
+        className: 'reason d-row d-row--neutral', attrs: { 'data-preference': component.component_id },
+      }, [
+        el('span', { className: 'd-row__mark d-row__mark--open', text: '\u2726', attrs: { 'aria-hidden': 'true' } }),
+        el('div', { className: 'd-row__body' }, [
+          el('p', { className: 'd-row__title', text: componentName(component) }),
+          ...lines.map((line) => el('p', { className: 'd-row__text', text: line })),
+        ]),
+      ]))),
+    ], { lede: t('pref.lede') });
+  }
+
+  /**
+   * WHAT LOWERS THE % (readers-11): only what took points from THIS score, a
+   * stated fact that differs from what the person asked for, or something
+   * they asked to avoid. An optional preference the ad does not mention is
+   * not here: it takes nothing away (`yourPreferences`).
+   */
+  const DIVERGES = {
+    salary_below_target: 'lower.pay',
+    contract_unwanted: 'lower.contract',
+    work_model_avoided: 'lower.workModel',
+  };
   function whatDoesNotFit(job) {
-    const { parts, gaps } = askedFor(job);
-    if (!gaps.length && !parts.length) return null;
-    const row = (component, text) => el('li', { className: 'gap d-row' }, [
-      el('span', { className: 'd-row__mark d-row__mark--part', text: '-', attrs: { 'aria-hidden': 'true' } }),
-      el('div', { className: 'd-row__body' }, [
-        el('p', { className: 'd-row__title', text: componentName(component) }),
-        el('p', { className: 'd-row__text', text }),
-      ]),
-    ]);
+    const rows = [];
+    for (const component of job.components || []) {
+      if (component.component_id === 'seniority' && job.seniority_stated
+        && Number(component.points) < Number(component.max_points) - 0.05) {
+        rows.push({
+          title: componentName(component),
+          text: t('lower.level', { level: vocabLabel(job.seniority) }),
+        });
+      }
+      for (const contrib of component.contributions || []) {
+        const key = DIVERGES[contrib.signal_id];
+        if (!key) continue;
+        const pay = payInfo(job);
+        rows.push({
+          title: componentName(component),
+          text: t(key, { pay: pay ? pay.text : '', contract: contractInfo(job).text || '' }),
+        });
+      }
+    }
+    for (const penalty of job.penalties || []) {
+      if (!(Number(penalty.points) > 0)) continue;
+      rows.push({
+        title: penalty.label || humanLabel(penalty.signal_id),
+        text: penalty.quote ? t('lower.avoidQuote', { quote: penalty.quote }) : t('lower.avoid'),
+      });
+    }
+    if (!rows.length) return null;
     return section(t('drawer.gapsHead'), [
-      el('ul', { className: 'gaps d-list-card' }, [
-        ...parts.map((component) => row(component, t('drawer.partText'))),
-        ...gaps.map((component) => row(component, t('drawer.gapText'))),
-      ]),
+      el('ul', { className: 'gaps d-list-card' }, rows.map((row) => el('li', { className: 'gap d-row' }, [
+        el('span', { className: 'd-row__mark d-row__mark--part', text: '-', attrs: { 'aria-hidden': 'true' } }),
+        el('div', { className: 'd-row__body' }, [
+          el('p', { className: 'd-row__title', text: row.title }),
+          el('p', { className: 'd-row__text', text: row.text }),
+        ]),
+      ]))),
     ], { lede: t('drawer.gapsLede2') });
   }
 
@@ -1505,17 +1600,26 @@ export function createDrawer({
     const differs = job.salary && job.salary.text_differs ? job.salary.text_differs.raw : null;
     const posted = parseDate(job.posted_at);
     const old = posted && (Date.now() - posted.getTime()) / 86400000 > 30;
-    const contract = job.employment_relationship && job.employment_relationship !== 'UNKNOWN'
-      ? vocabLabel(job.employment_relationship)
-      : job.employment_type ? vocabLabel(job.employment_type) : null;
+    const engaged = contractInfo(job);
+    const contract = engaged.text;
+    const quoted = (text) => `\u201c${text}\u201d`;
+    // "Probably Contractor" says why, with the two facts it rests on.
+    const probable = engaged.probable ? [
+      [t('gtk.contractWhy'), t('contract.probableWhy'), false],
+      [t('contract.probableUs'), job.employment_default_us === 'registry:hq_country=US'
+        ? t('contract.probableUsRegistry') : quoted(job.employment_default_us || ''), false],
+      [t('contract.probableLatam'), quoted(job.employment_default_latam || ''), false],
+    ] : [];
     const rows = [
       [t('gtk.contract'), contract || t('value.notStated'), !contract],
+      ...probable,
       [t('gtk.posted'), posted
         ? t(old ? 'gtk.postedOld' : 'gtk.postedOn', {
           date: formatDate(job.posted_at), age: relativeAge(job.posted_at),
         })
         : t(job.provider === 'manual_import' ? 'gtk.postedManual' : 'card.noPostedDate'), !posted, old],
       [t('gtk.pay'), salary || t('drawer.tile.notShown'), !salary],
+      ...payNotes(pay).map((note) => [t('gtk.payNote'), note, false]),
       ...(differs ? [[t('gtk.payDiffers'), differs, false, true]] : []),
       ...(schedule ? [[t('gtk.schedule'), schedule, false]] : []),
       ...(zone ? [[t('gtk.zone'), zoneText(zone), false]] : []),

@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 from tests.integration.test_deep_api_provider import POSTINGS, api, call  # noqa: F401 - fixture
+from tests.integration.test_deep_panel_states import panel
 from tests.integration.test_local_profiles import app as app_of
 from tests.integration.test_local_profiles import install  # noqa: F401 - fixture
 
@@ -234,11 +235,11 @@ def test_the_deep_selection_follows_the_same_limit_as_the_list(aged) -> None:
     """One criterion in two places: whatever Find jobs hides for age, the deep
     reading neither counts nor selects, and its preview names the limit."""
     call(aged, "POST", "/api/deep/provider", {"provider": "deepseek"})
-    narrow = call(aged, "GET", "/api/deep")
+    narrow = panel(aged)
     assert narrow["age_limit"] == {"days": 120, "include_undated": False}
     listed = jobs(aged)["total"]
     call(aged, "PATCH", "/api/view-prefs", {"max_age_days": None, "include_undated": True})
-    wide = call(aged, "GET", "/api/deep")
+    wide = panel(aged)
     assert wide["age_limit"] == {"days": None, "include_undated": True}
     assert wide["available"] > narrow["available"]
     assert narrow["excluded_by_age"] == wide["available"] - narrow["available"]

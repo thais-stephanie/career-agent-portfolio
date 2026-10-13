@@ -183,7 +183,17 @@ SORT_COLUMNS: dict[str, str] = {
     "posted": "j.posted_at",
     "company": "c.name",
     "title": "j.title",
-    "status": "COALESCE(ja.status, 'DISCOVERED')",
+    "place": "j.location_raw",
+    "source": "j.provider",
+    "applied_at": "ja.applied_at",
+    # The order the work moves in, never the alphabet of the codes: found,
+    # interested, applied, interviewing, offer, hired, then the closed ones.
+    "status": (
+        "CASE COALESCE(ja.status, 'DISCOVERED') WHEN 'DISCOVERED' THEN 0"
+        " WHEN 'SHORTLISTED' THEN 1 WHEN 'TO_APPLY' THEN 1 WHEN 'APPLIED' THEN 2"
+        " WHEN 'INTERVIEW' THEN 3 WHEN 'OFFER' THEN 4 WHEN 'HIRED' THEN 5"
+        " WHEN 'REJECTED' THEN 6 WHEN 'WITHDRAWN' THEN 7 WHEN 'ARCHIVED' THEN 8 ELSE 9 END"
+    ),
     # WHEN SHE HID IT, for the restore view and for nothing else. Forty
     # postings set aside over a month are not equally likely to be the one she
     # wants back, and score order puts the one she hid a minute ago wherever
@@ -201,6 +211,13 @@ _SORTS_ON_APPLICATION: frozenset[str] = frozenset(
     key for key, column in SORT_COLUMNS.items() if "ja." in column
 )
 SORT_DIRECTIONS: frozenset[str] = frozenset({"asc", "desc"})
+
+#: Sort keys whose column can be empty: an empty value sorts last both ways.
+SORT_MAY_BE_MISSING: frozenset[str] = frozenset(
+    {"posted", "company", "place", "source", "applied_at", "hidden"}
+)
+#: Sort keys compared as words rather than as codes: case does not matter.
+SORT_TEXT: frozenset[str] = frozenset({"company", "title", "place", "source"})
 
 #: How much description text a list row carries. Sixty full descriptions is
 #: roughly 400 KB down the wire for text no card displays.
@@ -346,6 +363,8 @@ def _component_to_dict(component: ScoreComponent) -> dict[str, Any]:
         "note": component.note,
         "configured": component.configured,
         "guarded": component.guarded,
+        "not_found": list(component.not_found),
+        "fills_at": component.fills_at,
     }
 
 
@@ -360,6 +379,8 @@ def _component_from_dict(data: dict[str, Any]) -> ScoreComponent:
         note=data.get("note"),
         configured=bool(data.get("configured", True)),
         guarded=bool(data.get("guarded", False)),
+        not_found=tuple(str(x) for x in data.get("not_found", ())),
+        fills_at=int(data.get("fills_at", 0)),
     )
 
 
@@ -643,6 +664,9 @@ def _employment_to_dict(reading: EmploymentReading) -> dict[str, Any]:
         "source": reading.source.value,
         "confidence": reading.confidence.value,
         "evidence": reading.evidence,
+        "effective": reading.effective.value if reading.effective else None,
+        "default_us_evidence": reading.default_us_evidence,
+        "default_latam_evidence": reading.default_latam_evidence,
     }
 
 
@@ -662,6 +686,9 @@ def _employment_from_dict(data: Any) -> EmploymentReading:
         source=EmploymentSource(data["source"]),
         confidence=AnalysisConfidence(data["confidence"]),
         evidence=data.get("evidence"),
+        effective=(EmploymentRelationship(data["effective"]) if data.get("effective") else None),
+        default_us_evidence=data.get("default_us_evidence"),
+        default_latam_evidence=data.get("default_latam_evidence"),
     )
 
 
@@ -910,9 +937,19 @@ def facet_columns(result: MatchResult) -> tuple[object, ...]:
     # domestic employment; that is worth telling somebody abroad and it is not
     # the employer having said no. `eligibility_status` stays the only column
     # that records a refusal.
+    employment_type = _as_text(facts.get("employment_type"))
+    if (
+        employment_type is None
+        and result.employment is not None
+        and result.employment.effective_relationship is EmploymentRelationship.CONTRACTOR_B2B
+    ):
+        # The board said nothing about the engagement and the reading (stated
+        # in words, or the contractor default) says contractor: the Contract
+        # filter finds it. A working pattern the board did state is kept.
+        employment_type = "CONTRACT"
     return (
         _as_text(facts.get("work_model")),
-        _as_text(facts.get("employment_type")),
+        employment_type,
         minimum,
         maximum,
         _as_text(salary.get("currency")),
@@ -2885,7 +2922,17 @@ class ScoredJobQuery(_Repo):
             raise SortKeyError(f"unknown sort key {f.sort!r}; expected one of {sorted(SORT_KEYS)}")
         if f.direction.lower() not in SORT_DIRECTIONS:
             raise SortKeyError(f"unknown sort direction {f.direction!r}; expected asc or desc")
-        return f" ORDER BY {SORT_COLUMNS[f.sort]} {f.direction.upper()}, j.id ASC"
+        column = SORT_COLUMNS[f.sort]
+        if f.sort not in SORT_MAY_BE_MISSING:
+            return f" ORDER BY {column} {f.direction.upper()}, j.id ASC"
+        # A missing value (no date, no company, no location) sorts LAST in
+        # both directions, never first because it is "smallest"; text sorts
+        # without regard to case. The id still breaks ties.
+        collate = " COLLATE NOCASE" if f.sort in SORT_TEXT else ""
+        return (
+            f" ORDER BY (NULLIF({column}, '') IS NULL) ASC,"
+            f" {column}{collate} {f.direction.upper()}, j.id ASC"
+        )
 
     def _soft_order(self, f: JobFilter, alias: str = "") -> tuple[str, list[Any]]:
         """The PREFER and AVOID terms, which sort and never filter.

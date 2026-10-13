@@ -56,6 +56,16 @@ def flat(blocks) -> str:
     return " ".join(out)
 
 
+def text_of(block) -> str:
+    """One block's text exactly as shown: runs joined with nothing between."""
+    join = lambda runs: "".join(r if isinstance(r, str) else r["x"] for r in runs)  # noqa: E731
+    if block["t"] == "h":
+        return block["x"]
+    if block["t"] == "p":
+        return join(block["r"])
+    return " ".join(join(item["r"]) for item in block["i"])
+
+
 def kinds(blocks) -> list[str]:
     return [b["t"] for b in blocks]
 
@@ -133,3 +143,65 @@ def test_an_empty_shell_of_markup_falls_back_to_the_text() -> None:
     blocks = ad_blocks("<div></div>", "The real text of the ad is here and is long enough to read.")
     assert flat(blocks).startswith("The real text")
     assert ad_blocks(None, "") == [] and ad_blocks("", "   ") == []
+
+
+# ------------------------------------------------------------------ markdown
+
+#: Shaped like the 4 Day Week advert that showed its marks (Oyster, 2026-10-13).
+MARKDOWN_AD = (
+    "### **One platform, a whole world of opportunity**\n\n"
+    "We are distributed across 60+ countries:\n\n"
+    "- Ranked **#10 of 250** on [a public list](https://example.test/list)\n\n"
+    "- Named one of [the best workplaces](https://example.test/award) by a magazine\n\n"
+    "Work *asynchronously* and __own__ your time."
+)
+
+
+def test_markdown_marks_become_structure_not_text() -> None:
+    blocks = ad_blocks("", MARKDOWN_AD)
+    assert blocks[0] == {"t": "h", "x": "One platform, a whole world of opportunity"}
+    lists = [b for b in blocks if b["t"] == "ul"]
+    assert len(lists) == 1 and len(lists[0]["i"]) == 2, "one list, not one per item"
+    first = lists[0]["i"][0]["r"]
+    assert {"x": "#10 of 250", "b": 1} in first
+    assert {"x": "a public list", "a": "https://example.test/list"} in first
+    last = blocks[-1]["r"]
+    assert {"x": "asynchronously", "i": 1} in last and {"x": "own", "b": 1} in last
+    shown = " ".join(text_of(b) for b in blocks)
+    assert "**" not in shown and "###" not in shown and "](" not in shown
+
+
+def test_markdown_keeps_every_word_in_order() -> None:
+    shown = " ".join(text_of(b) for b in ad_blocks("", MARKDOWN_AD))
+    source = re.sub(r"\]\([^)]*\)", "]", MARKDOWN_AD).replace("__", "")
+    assert words(shown) == words(source)
+
+
+def test_a_dangerous_markdown_link_keeps_its_label_and_loses_its_address() -> None:
+    blocks = ad_blocks(
+        "", "## Apply\n\nSee [the form](javascript:alert(1)) and ![x](https://e.test/a.png)."
+    )
+    runs = blocks[-1]["r"]
+    assert not any(isinstance(r, dict) and "a" in r for r in runs)
+    assert "javascript" not in text_of(blocks[-1]) and "e.test" not in text_of(blocks[-1])
+    assert "the form" in text_of(blocks[-1])
+
+
+def test_escaped_marks_are_the_characters_they_escape() -> None:
+    blocks = ad_blocks("", r"**Pay** is \*negotiable\* and \#1 in reviews.")
+    assert text_of(blocks[0]) == "Pay is *negotiable* and #1 in reviews."
+
+
+def test_plain_text_with_a_stray_asterisk_is_not_read_as_markdown() -> None:
+    text = "Rates from 3 * 4 hours a day.\n\nUse snake_case_names and *nix tools."
+    blocks = ad_blocks("", text)
+    assert [text_of(b) for b in blocks] == [
+        "Rates from 3 * 4 hours a day.",
+        "Use snake_case_names and *nix tools.",
+    ]
+
+
+def test_markup_still_wins_over_markdown() -> None:
+    html = "<p>Real <strong>markup</strong> from the employer, long enough to be the ad.</p>"
+    blocks = ad_blocks(html, "**not this** but the text the board also stored")
+    assert blocks[0]["t"] == "p" and {"x": "markup", "b": 1} in blocks[0]["r"]

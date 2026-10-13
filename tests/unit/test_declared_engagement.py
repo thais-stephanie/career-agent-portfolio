@@ -73,7 +73,7 @@ from career_agent.match.employment import read_employment
             LocalContractRegime.UNRESOLVED,
         ),
         # The portable spellings every ATS uses.
-        ("FullTime", EmploymentRelationship.EMPLOYEE, LocalContractRegime.UNRESOLVED),
+        ("Permanent", EmploymentRelationship.EMPLOYEE, LocalContractRegime.UNRESOLVED),
         (
             "CONTRACTOR",
             EmploymentRelationship.CONTRACTOR_B2B,
@@ -96,17 +96,25 @@ def test_a_permanent_job_in_denver_is_not_a_clt_contract() -> None:
 
     `vacancy_type_effective` means efetivo, and in Gupy's vocabulary -- which
     sits alongside jovem aprendiz and contrato intermitente -- efetivo is the
-    CLT. `FullTime` is the same idea in a vocabulary that belongs to no
+    CLT. `Permanent` is the same idea in a vocabulary that belongs to no
     country, and thousands of postings in this corpus carry it from American
     boards. Mapping the second the way the first is mapped would put a
     Brazilian statute on a Colorado job.
     """
     brazilian = normalise_engagement("vacancy_type_effective")
-    portable = normalise_engagement("FullTime")
+    portable = normalise_engagement("Permanent")
     assert brazilian is not None and portable is not None
     assert brazilian.relationship is portable.relationship
     assert brazilian.regime is LocalContractRegime.CLT
     assert portable.regime is LocalContractRegime.UNRESOLVED
+
+
+@pytest.mark.parametrize("raw", ["FullTime", "full_time", "PartTime", "Part-time"])
+def test_a_working_pattern_is_not_an_engagement(raw: str) -> None:
+    """Full-time and part-time say how many hours, not how the worker is
+    engaged: a full-time contractor is ordinary (2026-10-13). They stay in
+    `employment_type`, and the engagement is left for the advert to state."""
+    assert normalise_engagement(raw) is None
 
 
 def test_a_talent_pool_is_not_a_contract_type() -> None:

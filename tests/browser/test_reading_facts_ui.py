@@ -267,14 +267,20 @@ def test_a_level_in_a_career_growth_list_is_not_the_level_and_the_default_says_i
 ) -> None:
     _open_job(page, facts_server["url"], facts_server["ids"]["growth"])
     level = _tile(page, "level")
-    assert "Mid - app default; level not stated in the ad" in level
+    # The expanded view says where the level came from; a compact card or
+    # row says the level alone (2026-10-13).
+    assert "Mid - Default. Level not stated in the ad" in level
     assert "Senior" not in level
+    compact = page.evaluate(
+        "[...document.querySelectorAll('.fact--terms')].map((n) => n.textContent).join('|')"
+    )
+    assert "default" not in str(compact).lower() and "not stated in the ad" not in str(compact)
     page.evaluate("localStorage.setItem('careerAgent.locale.v1', 'pt-BR')")
     page.reload()
     page.wait_for(
         "document.querySelector('.drawer__panel .d-tile--level')", timeout=30, message="pt"
     )
-    assert "Pleno - padrão do app; anúncio sem nível informado" in _tile(page, "level")
+    assert "Pleno - Padrão. Anúncio sem nível informado" in _tile(page, "level")
 
 
 def test_the_ad_is_laid_out_from_its_lists_and_headings_with_moderate_spacing(

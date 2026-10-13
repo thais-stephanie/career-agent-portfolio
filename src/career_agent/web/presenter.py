@@ -227,6 +227,15 @@ def job_card(
         "employment_regime": result.employment.regime.value if result else None,
         "employment_stated": result.employment.is_explicit if result else None,
         "employment_evidence": result.employment.evidence if result else None,
+        # The engagement the app USES, and why, beside the stated one above:
+        # "Probably Contractor" for an American employer hiring in Latin
+        # America that did not state one (`match.engagement`).
+        "employment_effective": (
+            result.employment.effective_relationship.value if result else None
+        ),
+        "employment_default": result.employment.is_default if result else False,
+        "employment_default_us": result.employment.default_us_evidence if result else None,
+        "employment_default_latam": (result.employment.default_latam_evidence if result else None),
         "domestic_context": result.domestic.context.value if result else None,
         "domestic_signal": result.domestic.signal if result else None,
         "domestic_evidence": result.domestic.evidence if result else None,
@@ -361,6 +370,8 @@ def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: li
             "note": c.note,
             "configured": c.configured,
             "guarded": c.guarded,
+            "not_found": list(c.not_found),
+            "fills_at": c.fills_at,
             "contributions": [
                 {
                     "signal_id": k.signal_id,
