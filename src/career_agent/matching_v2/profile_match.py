@@ -243,6 +243,7 @@ def observe_from_features(
                         state, reason = _classify(
                             description, field_name, context, sentence_start,
                             ends.get(sentence_start, len(description)), used, gap, pattern,
+                            features.language,
                         )  # fmt: skip
                         rule = context_rule_for(signal_cfg, pattern)
                         if (
@@ -305,12 +306,13 @@ def _classify(
     used: list[Token],
     gap: int,
     pattern: str,
+    language: str,
 ) -> tuple[str, str | None]:
     """MATCH, UNCERTAIN (with its cause) or EXCLUDED_CONTEXT."""
     if context in NOT_WORK:
         return EXCLUDED_CONTEXT, None
     if field_name == "description":
-        cause = structure.check(description, used, pattern, sentence_start, sentence_end)
+        cause = structure.check(description, used, pattern, sentence_start, sentence_end, language)
         if cause is not None:
             return UNCERTAIN, cause
     if gap > 0 and context in UNCERTAIN_WHEN_APART:

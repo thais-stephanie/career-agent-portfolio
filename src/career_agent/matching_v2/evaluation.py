@@ -58,7 +58,9 @@ def load_corpus(path: Path) -> list[Case]:
     ]
 
 
-def answer(base: SearchConfig, phrase: str, text: str, heading: str) -> str:
+def answer(
+    base: SearchConfig, phrase: str, text: str, heading: str, language: str | None = None
+) -> str:
     signal = LexiconSignal(label=phrase, patterns=[phrase])
     config = base.model_copy(update={"lexicon": {"v2_phrase": signal}})
     description = f"{heading}\n{text}\n"
@@ -68,6 +70,10 @@ def answer(base: SearchConfig, phrase: str, text: str, heading: str) -> str:
         tuple(base.prominence.secondary_headings),
     )
     features = feat.extract(job, "case", headings)
+    if language is not None:
+        # One sentence is too short to tell its language by counting function
+        # words; the corpus states it.
+        features.payloads["language"] = language
     observed, evidence = observe_from_features(config, features, job)
     states = [e.state for e in evidence] or [NONE]
     if observed["v2_phrase"].fired:
@@ -80,7 +86,7 @@ def run(base: SearchConfig, cases: list[Case]) -> dict[str, Any]:
     by_lang: dict[str, Counter] = defaultdict(Counter)
     misses: list[dict[str, str]] = []
     for case in cases:
-        got = answer(base, case.phrase, case.text, case.heading)
+        got = answer(base, case.phrase, case.text, case.heading, case.lang)
         correct = got == EXPECTED[case.cat] or (EXPECTED[case.cat] == NONE and got != MATCH)
         by_cat[case.cat]["n"] += 1
         by_cat[case.cat]["correct"] += correct
