@@ -79,6 +79,13 @@ def shaped(tmp_path: Path) -> Iterator[tuple[str, JobsApi, Shaped]]:
 
 #: One source needing her: the task names it ("Update Remotive"), never a count.
 ONE_NAMED = r"/Update (?!\d+ job sites).+/"
+#: The SITES ROW's own text. Matching ONE_NAMED against the whole card also
+#: matched "Update your match scores", the recalculation row, so a test could
+#: move on before the sources had answered at all and then wait for ever for
+#: a recovery from a failure the page never saw (the flake of 2026-10-13: 4 of
+#: 12 runs, every failing run with no failed answer from `/api/sources`).
+SITES_TEXT = f"({SITES}?.innerText || '')"
+SITE_NAMED = f"{ONE_NAMED}.test({SITES_TEXT})"
 
 
 def _hold_collection(app: JobsApi) -> threading.Event:
@@ -135,7 +142,7 @@ def test_a_new_count_updates_the_row_without_calling_it_done(
     finally:
         release.set()
         app.retrieval.join(10)
-    page.wait_for(f"{ONE_NAMED}.test({TODO_TEXT})", message="the new count")
+    page.wait_for(SITE_NAMED, message="the new count")
     assert not page.evaluate(f"Boolean({TOAST})")
 
 
@@ -147,7 +154,7 @@ def test_sites_working_again_is_said_once_confirmed(
     release = _hold_collection(app)
     try:
         open_home_past_setup(page, base)
-        page.wait_for(f"{ONE_NAMED}.test({TODO_TEXT})")
+        page.wait_for(SITE_NAMED, message="the failed source named")
         shape.failing = 0
     finally:
         release.set()
@@ -198,7 +205,7 @@ def test_a_redraw_keeps_the_recalculation_it_follows(
         page.wait_for(f"{RECALC_HELP}.includes('Updating 5 of 20')", message="the progress")
         page.evaluate(f"{RECALC}.dataset.mark = 'kept'")
         shape.sources_gate.set()
-        page.wait_for(f"{ONE_NAMED}.test({TODO_TEXT})", message="the late sites row")
+        page.wait_for(SITE_NAMED, message="the late sites row")
         assert page.evaluate(f"{RECALC}.dataset.mark") == "kept", "the running row was rebuilt"
         assert "Updating 5 of 20" in str(page.evaluate(RECALC_HELP))
         assert page.evaluate(f"{RECALC}.getAttribute('aria-busy')") == "true"
@@ -257,3 +264,24 @@ def test_a_source_fixed_from_settings_is_working_again(
     _change_timing(page, "AUTO")
     page.wait_for(f"{TODO_TEXT}.includes('✓ Job sites working again')", message="the done line")
     assert shape.home_reads == reads, "Home was read again"
+
+
+def test_the_recalculation_row_is_never_taken_for_a_failed_site(
+    page: Chrome, shaped: tuple[str, JobsApi, Shaped]
+) -> None:
+    """The regression behind the flake: with no source failing and scores to
+    update, "Update your match scores" is on the card and no wait for the
+    sites row may be satisfied by it."""
+    base, _app_, shape = shaped
+    shape.failing = 0
+    open_home_past_setup(page, base)
+    page.wait_for(
+        "!document.getElementById('health-summary').hidden"
+        f" || {TODO_TEXT}.includes('Update your match scores')",
+        message="Home with its tasks",
+    )
+    page.wait_for(
+        f"{TODO_TEXT}.includes('Update your match scores')", message="the recalculation row"
+    )
+    assert page.evaluate(f"{ONE_NAMED}.test({TODO_TEXT})"), "the card-wide match the old waits used"
+    assert not page.evaluate(SITE_NAMED), "a wait for the sites row matched another row"
