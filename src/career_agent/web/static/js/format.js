@@ -391,6 +391,11 @@ export function contractInfo(job) {
   // is how long, never how the worker is engaged.
   const hours = ['FULL_TIME', 'PART_TIME'].includes(job.employment_type)
     ? vocabLabel(job.employment_type) : null;
+  if (job.engagement_read === false) {
+    // A score made before the engagement was read: nothing is claimed, and
+    // the filter files it under "Not read yet" (recalculating reads it).
+    return { text: null, probable: false, stated: false, hours, notRead: true };
+  }
   if (job.employment_default) {
     return { text: t('contract.probable'), probable: true, stated: false, hours };
   }

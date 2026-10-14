@@ -1102,6 +1102,7 @@ function facetValueLabel(groupKey, row) {
   // neither vocabulary has to join that search at all.
   if (groupKey === 'experience_requirement') return tState('experience', row.key);
   if (groupKey === 'entry_signal') return tState('entrySignal', row.key);
+  if (groupKey === 'engagement' && row.key === 'NOT_READ') return t('facet.engagementNotRead');
   if (groupKey === 'engagement' && row.key !== 'NOT_STATED') return t(`employment.${row.key}`);
   const named = row.label && row.label !== row.key;
   return named ? row.label : vocabLabel(row.key);

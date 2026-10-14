@@ -30,6 +30,7 @@ from career_agent.domain.matching import MatchResult, ScoredJob
 from career_agent.match.engagement import filter_engagement
 from career_agent.match.gates import pending_gates
 from career_agent.match.lexicon import TECHNOLOGY_SIGNALS as _TECHNOLOGY_SIGNALS
+from career_agent.storage.mvp_repo import ENGAGEMENT_SINCE_SCHEMA
 from career_agent.web.caution import caution_signals
 
 #: Signals whose presence the interface presents as "technologies", as opposed
@@ -236,8 +237,16 @@ def job_card(
         ),
         "employment_default": result.employment.is_default if result else False,
         # What the Contract filter files this posting under (stated, or the
-        # default), so a card and the filter cannot disagree.
-        "engagement": filter_engagement(result.employment) if result else None,
+        # default), so a card and the filter cannot disagree. A score made
+        # before the engagement was read (schema 14) files nothing and SAYS
+        # so: its stored reading still took "full-time" for an employee, and
+        # showing that as the engagement contradicted the filter.
+        "engagement": (
+            filter_engagement(result.employment)
+            if result and result.schema_version >= ENGAGEMENT_SINCE_SCHEMA
+            else None
+        ),
+        "engagement_read": bool(result and result.schema_version >= ENGAGEMENT_SINCE_SCHEMA),
         "employment_default_us": result.employment.default_us_evidence if result else None,
         "employment_default_latam": (result.employment.default_latam_evidence if result else None),
         "domestic_context": result.domestic.context.value if result else None,

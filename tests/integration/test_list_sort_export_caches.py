@@ -179,9 +179,13 @@ def test_home_is_remembered_and_read_again_when_a_score_moves(api, monkeypatch) 
 
     monkeypatch.setattr(rescore_module, "plan", counting)
     first = call(api, "GET", "/api/home")
-    assert call(api, "GET", "/api/home") == first and len(plans) == 1
+    assert call(api, "GET", "/api/home") == first
+    # The outdated count is asked apart (2026-10-13): Home itself plans nothing.
+    assert plans == [] and first["scores"]["outdated"] is None
+    counted = call(api, "GET", "/api/home/outdated")
+    assert call(api, "GET", "/api/home/outdated") == counted and len(plans) == 1
     write_score(api)
-    call(api, "GET", "/api/home")
+    call(api, "GET", "/api/home/outdated")
     assert len(plans) == 2
 
 
@@ -263,3 +267,63 @@ def test_the_contract_filter_reads_the_engagement_with_the_default(api) -> None:
     assert found["items"][0]["employment_default"] is True
     buckets = found["facets"]["engagement"]
     assert buckets.get("CONTRACTOR_B2B") == 1
+
+
+def _engagement_rows(app) -> dict[str, str]:
+    found = page(app, limit=50)
+    return {item["job_id"]: item for item in found["items"]}
+
+
+def test_card_table_and_filter_file_the_engagement_the_same_way(api) -> None:  # noqa: F811
+    """Old, partly updated and new scores, before and after a recalculation:
+    the Contract filter, its counts and the card agree, and a score made
+    before the engagement was read is "not read yet", never "not stated"."""
+    from career_agent.pipeline.rescore import rescore
+
+    conn = connect(api.config.db_path)
+    with transaction(conn):
+        rows = conn.execute("SELECT id, external_id FROM job ORDER BY id").fetchall()
+        explicit = next(r[0] for r in rows if r[1] == "p-1")
+        old = next(r[0] for r in rows if r[1] == "p-2")
+        digest = conn.execute("SELECT content_hash FROM job WHERE id = ?", (explicit,)).fetchone()[
+            0
+        ]
+        conn.execute(
+            "UPDATE job_raw SET description_text = ? || description_text WHERE content_hash = ?",
+            ("Employment type: full-time employee (CLT).\n\n", digest),
+        )
+        conn.execute("DELETE FROM job_match WHERE job_id = ?", (explicit,))
+    rescore(conn, api.search_config())
+    with transaction(conn):
+        # A score from before the engagement was read: schema 13, no column.
+        conn.execute(
+            "UPDATE job_match SET schema_version = 13, engagement = NULL,"
+            " result_json = json_set(result_json, '$.schema_version', 13) WHERE job_id = ?",
+            (old,),
+        )
+    conn.close()
+
+    found = page(api, limit=50)
+    buckets = found["facets"]["engagement"]
+    cards = {item["job_id"]: item for item in found["items"]}
+    assert buckets.get("NOT_READ") == 1
+    assert cards[old]["engagement"] is None and cards[old]["engagement_read"] is False
+    assert cards[explicit]["engagement"] == "EMPLOYEE" and cards[explicit]["engagement_read"]
+    # Each bucket returns exactly the cards that show it.
+    for value, count in buckets.items():
+        listed = page(api, engagement=value, limit=50)["items"]
+        assert len(listed) == count, value
+        for item in listed:
+            unread = not item["engagement_read"]
+            shown = item["engagement"] or ("NOT_READ" if unread else "NOT_STATED")
+            assert shown == value, (value, item["job_id"])
+    # Hours stay apart: full-time is never the engagement.
+    assert all(item["engagement"] != "FULL_TIME" for item in found["items"])
+
+    # After a recalculation the old score is read and leaves "not read yet".
+    conn = connect(api.config.db_path)
+    with transaction(conn):
+        conn.execute("DELETE FROM job_match WHERE job_id = ?", (old,))
+    rescore(conn, api.search_config())
+    conn.close()
+    assert "NOT_READ" not in page(api, limit=50)["facets"]["engagement"]

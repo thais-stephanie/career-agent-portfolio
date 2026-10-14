@@ -2106,6 +2106,21 @@ SET_VALUED_FACETS: frozenset[str] = frozenset(
 #: and "not stated" is a real answer a person wants to see rather than an
 #: absence they should have to infer.
 NOT_STATED = "NOT_STATED"
+#: The Contract filter's third answer: a score made before the engagement was
+#: read (result schema 14, readers-11) has no engagement to file. That is not
+#: an advert saying nothing; it is a reading not yet made, and the filter says
+#: so instead of filing it under "Not stated" (2026-10-13).
+NOT_READ = "NOT_READ"
+ENGAGEMENT_SINCE_SCHEMA = 14
+
+
+def engagement_expr(alias: str = "") -> str:
+    """The engagement a row is filed under: stated or default, NOT_STATED when
+    this reading found none, NOT_READ when the score predates the reading."""
+    return (
+        f"COALESCE(jm{alias}.engagement, CASE WHEN jm{alias}.schema_version < "
+        f"{ENGAGEMENT_SINCE_SCHEMA} THEN '{NOT_READ}' ELSE '{NOT_STATED}' END)"
+    )
 
 
 def _fenced_pattern(value: str) -> str:
@@ -2680,7 +2695,6 @@ class ScoredJobQuery(_Repo):
                 f" THEN jm{a}.employment_type END)",
                 f.employment_types,
             ),
-            (f"jm{a}.engagement", f.engagements),
             # MOVED HERE IN V1.7, from its own `IN (...)` clause above. It
             # gained a facet the same day, and a facet emits a `NOT_STATED`
             # bucket -- which the old clause could not match, so the one row
@@ -2705,6 +2719,12 @@ class ScoredJobQuery(_Repo):
             if NOT_STATED in values:
                 parts.append(f"{column} IS NULL")
             clauses.append("(" + " OR ".join(parts) + ")")
+
+        # THE ENGAGEMENT, filed as the facet files it: never NULL, so "not
+        # stated" and "not read yet" are values like any other.
+        if f.engagements:
+            clauses.append(f"{engagement_expr(a)} IN ({', '.join('?' for _ in f.engagements)})")
+            params.extend(f.engagements)
 
         # Countries and regions are pipe-fenced sets, so several values are an
         # OR: "Brazil or Argentina", never "both at once".
@@ -3433,7 +3453,7 @@ class ScoredJobQuery(_Repo):
             ),
             # THE ENGAGEMENT: stated by the advert or its board, or the
             # contractor default (American employer hiring in Latin America).
-            "engagement": (f"COALESCE(jm.engagement, '{NOT_STATED}')", None),
+            "engagement": (engagement_expr(), None),
             # WHICH NATIONAL STATUTE, when a posting named one. Added V1.7,
             # the day the column stopped being NULL on every row: Gupy
             # publishes the employer's own contract type and 37,368

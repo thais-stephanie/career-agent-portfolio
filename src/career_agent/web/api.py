@@ -186,6 +186,7 @@ _VOCABULARIES: dict[str, tuple[str, ...]] = {
         "TEMPORARY",
         "OTHER",
         NOT_STATED,
+        "NOT_READ",
     ),
     # PROVENANCE, never quality. `PARTIAL_CONTENT` says the SOURCE returns an
     # excerpt and offers no way to fetch the rest; it is a fact about an
