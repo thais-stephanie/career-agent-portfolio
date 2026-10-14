@@ -139,6 +139,9 @@ EXPECTED_TABLES = {
     "source_health",
     # 0055: whether each posting's own page was still up when last asked.
     "job_availability",
+    # 0056/0057: Matching Architecture v2 (ADR-0037), shared and private halves.
+    "job_features",
+    "profile_job_match",
     # 0033: where a board-discovery walk over an aggregator index got to,
     # employer by employer, and which boards it registered.
     "board_discovery_lead",

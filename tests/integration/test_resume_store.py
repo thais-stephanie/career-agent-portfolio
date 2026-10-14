@@ -510,6 +510,8 @@ def test_a_pre_0047_database_migrates_additively_and_once(tmp_path: Path) -> Non
         (53, "job_match_reading_and_engagement"),
         (54, "job_raw_chars"),
         (55, "job_availability"),
+        (56, "job_features"),
+        (57, "profile_job_match"),
     ]
     assert set(table_names(conn)) - before == {
         "resume_document",
@@ -525,6 +527,8 @@ def test_a_pre_0047_database_migrates_additively_and_once(tmp_path: Path) -> Non
         "deep_job",
         "deep_attempt",
         "job_availability",
+        "job_features",
+        "profile_job_match",
     }
     assert conn.execute("SELECT note FROM search_fit_feedback").fetchone()[0] == "kept"
     assert migrate(conn) == []

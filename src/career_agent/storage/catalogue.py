@@ -92,6 +92,8 @@ SHARED_TABLES: frozenset[str] = frozenset(
         "source_health",
         # whether each posting's own page was still up (0055): public, same for all
         "job_availability",
+        # the shared facts of each posting, per component (0056, ADR-0037)
+        "job_features",
         # the full-text index over them
         "job_search",
         "search_index_map",
@@ -134,6 +136,8 @@ PRIVATE_TABLES: frozenset[str] = frozenset(
         "intake_claim",
         "intake_conflict_resolution",
         "job_match",
+        # what each posting is for this person, per component (0057, ADR-0037)
+        "profile_job_match",
         "job_score_revision",
         "job_application",
         "job_application_event",

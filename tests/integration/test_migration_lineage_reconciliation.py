@@ -138,6 +138,8 @@ def test_the_production_path(production_shaped) -> None:
         (53, "job_match_reading_and_engagement"),
         (54, "job_raw_chars"),
         (55, "job_availability"),
+        (56, "job_features"),
+        (57, "profile_job_match"),
     ]
     after = _ledger_rows(conn)
     assert after[:37] == before
