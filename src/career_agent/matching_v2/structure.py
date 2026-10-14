@@ -6,9 +6,6 @@ the words in another sense still matched. The readings kept are the ones
 that held on REAL postings (a development half of 840 adverts, read by hand;
 the other half was kept for the evaluation):
 
-* INVERTED_HEAD  `Dados de migracao`, `Data on staff migration`, `dados ...
-                 para analise`: a preposition makes the OTHER word the head
-                 (data ABOUT migration, data FOR analysis);
 * THIRD_PARTY_SUBJECT `Our suppliers handle all price negotiation`: the first
                  word opens the sentence as somebody else's subject;
 * CLAUSE_BOUNDARY a `|` between the words (two labels, not one phrase);
@@ -24,6 +21,14 @@ systems`), a parenthesis or a colon (`integrations (APIs, webhooks)`,
 `Integracoes entre servicos: APIs REST`), a comma list (`automate complex,
 recurring accounting workflows`), and English compound order without a
 preposition (`automation workflows`).
+
+INVERTED_HEAD (a preposition making the other word the head: `Dados de
+migracao`, `Data on staff migration`) was kept from the first reading and
+REMOVED on 2026-10-14: on a new development set (65 sentences where it fired,
+read by hand, none from the first evaluation) it held 40 of the role's own
+work UNCERTAIN to set aside 22 others, and none of three narrower variants
+(only an adjacent preposition; only outside a duty or a requirement) did
+clearly better than no rule (estimated F1 0.8138 without, 0.8117 with).
 
 Each reads closed lists of ordinary grammar (`language_data.yaml`,
 `structure` and `other_senses`), never a profession or a phrase of the
@@ -46,9 +51,8 @@ import yaml
 
 from career_agent.match.phrase_forms import STOPWORDS
 from career_agent.match.text import fold
-from career_agent.matching_v2.language import DATA, LanguageTable, Token, load_table, tokens
+from career_agent.matching_v2.language import DATA, LanguageTable, Token
 
-INVERTED_HEAD = "INVERTED_HEAD"
 THIRD_PARTY_SUBJECT = "THIRD_PARTY_SUBJECT"
 CLAUSE_BOUNDARY = "CLAUSE_BOUNDARY"
 OTHER_SENSE = "OTHER_SENSE"
@@ -61,17 +65,12 @@ _OPENER_REACH = 2
 @dataclass(frozen=True)
 class Structure:
     prepositions: frozenset[str]
-    #: English prepositions: the head of their object comes LAST in its noun
-    #: phrase (`on staff migration`); in Portuguese and Spanish it comes first.
-    head_final_prepositions: frozenset[str]
     coordinators: frozenset[str]
     openers: frozenset[str]
     second_person: frozenset[str]
     clause_marks: tuple[str, ...]
     #: folded form -> folded cue phrases of its other sense
     senses: dict[str, tuple[str, ...]]
-    #: folded listed forms that are NOT English (for a phrase's word order)
-    non_english: frozenset[str]
     #: Units of an organisation (`team`, `equipe`) and words saying the role
     #: works with somebody (`with`, `partner`): one-word preferences only.
     team_nouns: frozenset[str] = frozenset()
@@ -105,73 +104,18 @@ def load_structure(path: Path = DATA) -> Structure:
         for form in entry["forms"]:
             key = fold(str(form))[0].strip()
             senses[key] = senses.get(key, ()) + cues
-    english = {
-        fold(str(f))[0].strip()
-        for entry in raw.get("exact_equivalent", [])
-        for f in entry.get("en", [])
-    }
-    non_english = {
-        fold(str(f))[0].strip()
-        for entry in raw.get("exact_equivalent", [])
-        for lang, forms in entry.items()
-        if lang != "en"
-        for f in forms
-    } - english
     return Structure(
         prepositions=flat(s["prepositions"]),
-        head_final_prepositions=flat(s["prepositions"]["en"]),
         coordinators=flat(s["coordinators"]),
         openers=flat(s["third_party_openers"]),
         second_person=flat(s["second_person"]),
         clause_marks=tuple(str(m) for m in s["clause_marks"]),
         senses=senses,
-        non_english=frozenset(non_english),
         team_nouns=flat(s.get("team_nouns", {})),
         collaboration=flat(s.get("collaboration_markers", {})),
         verb_openers=flat(s.get("verb_openers", [])),
         determiners=flat(s.get("determiners", [])),
     )
-
-
-def _head_initial(pattern: str, st: Structure) -> bool:
-    """Word order of a phrase without a preposition: English compounds put
-    the head last (`data migration`), Portuguese and Spanish first (`vendas
-    consultivas`). Read from the phrase's own words."""
-    return any(ord(ch) > 127 for ch in pattern if ch.isalpha()) or any(
-        w in st.non_english for w in _words(pattern)
-    )
-
-
-@lru_cache(maxsize=4096)
-def phrase_relations(pattern: str) -> frozenset[tuple[str, str]]:
-    """(governor root, dependent root) pairs a phrase states, closed.
-
-    `migracao de dados` and `data migration` both say migration governs data;
-    `user interface design` says design governs interface governs user."""
-    st = load_structure()
-    table = load_table()
-    toks = tokens(pattern, table)
-    groups: list[tuple[int, int, set[str]]] = []
-    for t in toks:
-        if groups and groups[-1][0] == t.start and groups[-1][1] == t.end:
-            groups[-1][2].add(t.root)
-        else:
-            groups.append((t.start, t.end, {t.root}))
-    initial = _head_initial(pattern, st)
-    pairs: set[tuple[str, str]] = set()
-    for (_s1, e1, a), (s2, _e2, b) in zip(groups, groups[1:], strict=False):
-        between = set(_words(pattern[e1:s2]))
-        governor, dependent = (a, b) if (between & st.prepositions or initial) else (b, a)
-        pairs |= {(g, d) for g in governor for d in dependent}
-    grew = True
-    while grew:
-        grew = False
-        for g, d in list(pairs):
-            for g2, d2 in list(pairs):
-                if d == g2 and (g, d2) not in pairs:
-                    pairs.add((g, d2))
-                    grew = True
-    return frozenset(pairs)
 
 
 def _sense_cued(word: str, sentence_folded: str, st: Structure) -> bool:
@@ -206,28 +150,6 @@ def check(
     first, last = spans[0], spans[-1]
     if any(m in text[first[1] : last[0]] for m in st.clause_marks):
         return CLAUSE_BOUNDARY
-    relations = phrase_relations(pattern)
-    for (_s1, e1, a), (s2, _e2, b) in zip(spans, spans[1:], strict=False):
-        if e1 >= s2:
-            continue  # one fixed expression
-        gap_raw = text[e1:s2]
-        gap = _words(gap_raw)
-        if any(w in st.coordinators for w in gap) or "&" in gap_raw or "/" in gap_raw:
-            continue
-        preps = [i for i, w in enumerate(gap) if w in st.prepositions]
-        if not preps:
-            continue
-        if (b, a) not in relations or (a, b) in relations:
-            continue
-        # Is `b` the object of the last preposition? In English the object's
-        # head ends its noun phrase (`on staff migration`); in Portuguese and
-        # Spanish it opens it, so a content word between the preposition and
-        # `b` is the object and `b` is something else (`processos de cobranca
-        # automatizados`: automated processes, not processes of automation).
-        last_prep = gap[preps[-1]]
-        after = [w for w in gap[preps[-1] + 1 :] if w not in STOPWORDS]
-        if last_prep in st.head_final_prepositions or not after:
-            return INVERTED_HEAD
     opening = _words(text[sentence_start : first[0]])
     if (
         opening
@@ -338,7 +260,6 @@ def one_word(text: str, start: int, end: int, sentence_start: int, sentence_end:
 
 def causes() -> Iterable[str]:
     return (
-        INVERTED_HEAD,
         THIRD_PARTY_SUBJECT,
         CLAUSE_BOUNDARY,
         OTHER_SENSE,
@@ -348,4 +269,4 @@ def causes() -> Iterable[str]:
     )
 
 
-__all__ = ["LanguageTable", "check", "one_word", "phrase_relations", "load_structure", "causes"]
+__all__ = ["LanguageTable", "check", "one_word", "load_structure", "causes"]

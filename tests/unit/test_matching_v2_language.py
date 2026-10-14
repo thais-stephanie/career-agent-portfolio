@@ -156,10 +156,13 @@ def test_translation_inflection_and_fixed_expressions_are_found(corpus_report) -
 
 def test_words_in_another_sense_are_uncertain_by_structure(corpus_report) -> None:
     """Words of a phrase present in another sense (`Data on staff migration`).
-    Six of seven matched under proximity alone (2026-10-14); the structure of
-    the sentence (`structure.py`) now makes each UNCERTAIN, never a point.
-    Pinned so a change to it is a decision, not a drift."""
-    assert corpus_report["by_cat"]["P"].get("MATCH", 0) == 0
+    Six of seven matched under proximity alone (2026-10-14). The structure of
+    the sentence holds all but one UNCERTAIN: `dados cadastrais ... para
+    analise`, which only the inverted-head reading caught, and that reading
+    was REMOVED the same day because on real adverts it held 40 duties
+    UNCERTAIN to set aside 22 (`structure.py`). Pinned so a change to it is
+    a decision, not a drift."""
+    assert corpus_report["by_cat"]["P"].get("MATCH", 0) == 1
 
 
 ADVERSARIAL_DEV = CORPUS.with_name("adversarial_dev.yaml")
@@ -168,10 +171,12 @@ ADVERSARIAL_DEV = CORPUS.with_name("adversarial_dev.yaml")
 def test_adversarial_development_half() -> None:
     """Sentences written to attack the structural reading, each beside a
     legitimate sentence of the same shape. Every legitimate one still
-    matches. Six invented other-sense sentences still do: they need a reading
-    (a colon, a comma list, a compound's order, a determiner-less subject)
-    that real postings showed costs more legitimate matches than it saves
-    (`structure.py`, measured on a development half of real adverts)."""
+    matches. Twenty invented other-sense sentences of 34 still do: they need
+    a reading (a colon, a comma list, a compound's order, a determiner-less
+    subject, an inverted head) that real postings showed costs more
+    legitimate matches than it saves (`structure.py`, measured on development
+    sets of real adverts; the inverted head, removed 2026-10-14, caught 14 of
+    these)."""
     report = ev.run(CONFIG, ev.load_corpus(ADVERSARIAL_DEV))
     by = report["by_cat"]
     for cat in ("T", "X", "F"):
@@ -179,7 +184,7 @@ def test_adversarial_development_half() -> None:
             assert by[cat]["correct"] == by[cat]["n"], (cat, report["misses"])
     for cat in ("S", "N", "C"):
         assert by[cat].get("MATCH", 0) == 0, (cat, by[cat])
-    assert by["P"].get("MATCH", 0) <= 6, report["misses"]
+    assert by["P"].get("MATCH", 0) <= 20, report["misses"]
 
 
 def test_the_engine_names_no_profession_and_no_product() -> None:

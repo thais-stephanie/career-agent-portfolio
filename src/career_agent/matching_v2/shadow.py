@@ -5,7 +5,7 @@ same posting under the same configuration and says, for every score
 component that differs, WHICH signals moved, in which direction and WHY:
 
 * a hit production made and v2 did not: v2's evidence at the same place
-  says UNCERTAIN with its structural cause (`structure.INVERTED_HEAD`, ...),
+  says UNCERTAIN with its structural cause (`structure.OTHER_SENSE`, ...),
   or EXCLUDED_CONTEXT with the context (About us, benefits), or nothing at
   all (`NOT_FOUND_BY_V2`: the words did not reach the phrase in v2);
 * a hit v2 made and production did not: the relation that made it
