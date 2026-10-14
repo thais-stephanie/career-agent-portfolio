@@ -10,92 +10,166 @@ version: 1
 headings:
   RESPONSIBILITY:
     - responsibilities
+    - responsibilities and duties
+    - key responsibilities
+    - main responsibilities
+    - your responsibilities
+    - job responsibilities
+    - duties
+    - key duties
+    - duties and responsibilities
     - what you will do
     - what you ll do
+    - what you will be doing
+    - what you ll be doing
+    - what you ll work on
+    - what you will work on
     - your role
     - the role
+    - in this role you will
+    - in this role
     - day to day
+    - your day to day
+    - a day in the life
     - your mission
-    - key duties
-    - duties
+    - your impact
     - responsabilidades
+    - principais responsabilidades
+    - responsabilidades e atribuicoes
+    - suas responsabilidades
     - atividades
+    - principais atividades
+    - suas atividades
+    - atribuicoes
+    - suas atribuicoes
+    - principais atribuicoes
     - o que voce vai fazer
     - o que voce fara
-    - suas atribuicoes
-    - atribuicoes
+    - o que voce ira fazer
+    - no dia a dia
+    - seu dia a dia
+    - desafios
+    - seus desafios
     - funciones
     - que haras
     - tus responsabilidades
   REQUIREMENT:
     - requirements
     - qualifications
+    - minimum qualifications
+    - basic qualifications
+    - preferred qualifications
+    - required qualifications
     - what you bring
+    - what you ll bring
     - what we re looking for
     - what we are looking for
+    - who you are
     - about you
     - must have
+    - must haves
     - nice to have
+    - nice to haves
+    - bonus points
     - skills
+    - skills and experience
+    - experience
     - requisitos
+    - requisitos e qualificacoes
+    - requisitos obrigatorios
+    - requisitos desejaveis
     - qualificacoes
     - o que buscamos
     - o que esperamos
+    - o que esperamos de voce
+    - quem voce e
+    - perfil
+    - perfil desejado
     - diferenciais
     - requisitos y habilidades
     - lo que buscamos
   TOOL:
     - tech stack
     - our stack
+    - our tech stack
     - tools
+    - tools we use
+    - technologies
     - ferramentas
     - stack
+    - nossa stack
+    - stack tecnologica
+    - tecnologias
     - herramientas
   BENEFIT:
     - benefits
     - perks
+    - perks and benefits
+    - benefits and perks
     - what we offer
+    - what s in it for you
     - why join us
+    - why you ll love working here
     - beneficios
     - o que oferecemos
+    - nossos beneficios
     - por que trabalhar conosco
+    - por que trabalhar na
+    - vantagens
     - que ofrecemos
   COMPANY_DESCRIPTION:
     - about us
     - about the company
+    - about the team
     - who we are
     - our company
     - our mission
+    - our story
+    - company overview
     - sobre nos
     - quem somos
     - sobre a empresa
+    - sobre o time
     - nossa missao
+    - nossa historia
     - quienes somos
     - sobre nosotros
   COMPENSATION:
     - compensation
     - salary
     - pay
+    - pay range
+    - salary range
+    - compensation and benefits
     - remuneracao
     - salario
     - faixa salarial
+    - remuneracao e beneficios
     - salario y beneficios
   LOCATION:
     - location
     - where you ll work
+    - where you will work
+    - work location
     - localizacao
     - local de trabalho
+    - local
     - ubicacion
   CONDITION:
     - hiring process
+    - our hiring process
+    - interview process
     - how to apply
     - contract
     - schedule
     - working hours
     - processo seletivo
     - etapas do processo
+    - etapas do processo seletivo
     - contrato
+    - regime de contratacao
     - jornada
+    - jornada de trabalho
     - horario
     - proceso de seleccion
 

@@ -68,9 +68,80 @@ def _cues(path: Path = DATA) -> tuple[dict[str, Context], tuple[tuple[str, Conte
     return headings, sentence
 
 
+_TAG = re.compile(r"<[^>]*>")
+_NUMBERING = re.compile(r"^\s*(?:\d{1,2}|[ivx]{1,4})[.)]\s+", re.IGNORECASE)
+_MARKS = "#*:-=\u2022\u25cf\u25aa\u2013\u2014> \t"
+#: Words a heading may carry after a known heading without being a sentence
+#: (`Requirements for this role`, `Responsabilidades da vaga`).
+_HEADING_TAIL = frozenset(
+    [
+        "for",
+        "this",
+        "the",
+        "a",
+        "an",
+        "our",
+        "your",
+        "role",
+        "position",
+        "job",
+        "team",
+        "of",
+        "and",
+        "in",
+        "at",
+        "with",
+        "you",
+        "we",
+        "ll",
+        "da",
+        "do",
+        "de",
+        "das",
+        "dos",
+        "desta",
+        "dessa",
+        "deste",
+        "desse",
+        "vaga",
+        "cargo",
+        "posicao",
+        "funcao",
+        "time",
+        "equipe",
+        "para",
+        "na",
+        "no",
+        "e",
+        "o",
+        "os",
+        "as",
+        "la",
+        "el",
+        "del",
+        "puesto",
+    ]
+)
+
+
+def _heading_text(line: str) -> str:
+    """A line without markup: HTML tags, Markdown marks, numbering, bullets."""
+    text = _TAG.sub(" ", line)
+    text = text.replace("**", " ").replace("__", " ")
+    text = _NUMBERING.sub("", text.strip())
+    return text.strip().strip(_MARKS).strip()
+
+
 def heading_context(line: str) -> Context | None:
-    """The context a heading line opens, or None when the line is not one."""
-    stripped = line.strip().strip("#*:- \t").strip()
+    """The context a heading line opens, or None when the line is not one.
+
+    A heading is a short line, with or without markup (`## Responsibilities`,
+    `**What you'll do:**`, `<h3>Requisitos</h3>`, `1. Benefits`), that is a
+    known heading, or a known heading followed only by words a heading
+    carries (`Requirements for this role`) or closed by a colon. A bullet that
+    merely starts with a heading word (`Experience with SQL`) is a sentence."""
+    raw = line.strip()
+    stripped = _heading_text(raw)
     if not stripped or len(stripped) > 60 or stripped[-1:] in ".!?;,":
         return None
     norm = _norm(stripped)
@@ -79,12 +150,29 @@ def heading_context(line: str) -> Context | None:
     headings, _ = _cues()
     if norm in headings:
         return headings[norm]
-    # "Responsibilities and duties", "Requisitos e qualificacoes": a known
-    # heading at the start of a short line.
+    ends_with_colon = _TAG.sub("", raw).rstrip("*_ \t").endswith(":")
     for cue, kind in headings.items():
-        if norm.startswith(cue + " ") and len(cue) >= 5:
-            return kind
+        if norm.startswith(cue + " "):
+            tail = norm[len(cue) + 1 :].split()
+            if ends_with_colon or all(w in _HEADING_TAIL for w in tail):
+                return kind
     return None
+
+
+def inline_heading(line: str) -> tuple[Context, int] | None:
+    """`Responsibilities: manage the warehouse.` A known heading before a
+    colon on the line's own text: its context, and where the text after the
+    colon starts (an offset into `line`)."""
+    at = line.find(":")
+    if at <= 0 or at > 60:
+        return None
+    kind = heading_context(line[: at + 1])
+    if kind is None:
+        return None
+    rest = at + 1
+    while rest < len(line) and line[rest] in " \t":
+        rest += 1
+    return (kind, rest) if line[rest:].strip() else None
 
 
 def _sentence_cue(text: str) -> Context | None:
@@ -118,6 +206,11 @@ def sentences(text: str) -> list[Sentence]:
             continue
         cursor = start
         body = line.rstrip("\n")
+        inline = inline_heading(body)
+        if inline is not None:
+            current, heading = inline[0], body[: inline[1]].strip()
+            cursor = start + inline[1]
+            body = body[inline[1] :]
         for piece in _BREAK.split(body) + [""]:
             if not piece:
                 continue

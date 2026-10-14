@@ -48,15 +48,15 @@ REGISTRY: dict[str, Component] = {
         # worked example), not a preference; they are an input all the same.
         Component("text_parser", "1", "job", inputs=("job.text", "machinery.headings")),
         Component("language", "1", "job", ("text_parser",)),
-        Component("sentence_context", "1", "job", ("text_parser",)),
+        Component("sentence_context", "2", "job", ("text_parser",)),
         Component("work_facts", "1", "job", ("language", "sentence_context")),
         Component("pay_facts", "1", "job", ("text_parser",), ("job.metadata",)),
         Component("location_facts", "1", "job", ("text_parser",), ("job.metadata",)),
         Component("seniority_facts", "1", "job", ("text_parser",)),
         Component("engagement_facts", "1", "job", ("text_parser",), ("job.metadata",)),
         # -- what a posting is for one person ------------------------------
-        Component("work_match", "1", "profile", ("work_facts",), ("profile.lexicon",)),
-        Component("tools_match", "1", "profile", ("work_facts",), ("profile.lexicon",)),
+        Component("work_match", "2", "profile", ("work_facts",), ("profile.lexicon",)),
+        Component("tools_match", "2", "profile", ("work_facts",), ("profile.lexicon",)),
         Component(
             "eligibility",
             "1",
