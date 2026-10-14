@@ -46,7 +46,7 @@ import { experienceView } from './experience.js';
 import { createDaily } from './daily.js';
 import { createDeep } from './deep.js';
 import { createHome } from './home.js';
-import { recalcButton, watchRescore } from './recalc.js';
+import { recalcButton, rescoreMarker, watchRescore } from './recalc.js';
 import { createSourcesPanel } from './sources.js';
 import { createShell } from './shell.js';
 import { createLocalProfiles } from './local-profiles.js';
@@ -1332,10 +1332,19 @@ let recalcRate = null;
  * was read when the page opened, and it is only right again once re-read.
  * A missed poll says so and keeps trying.
  */
-function watchRecalculation() {
-  if (recalcWatch) return;
+function watchRecalculation({ since } = {}) {
+  if (recalcWatch && since === undefined) return;
+  // Asked again right after a start: the watcher already going may be about
+  // to end on the previous run's answer; this one waits for the new run.
+  if (recalcWatch) {
+    const stop = recalcWatch;
+    recalcWatch = null;
+    stop();
+  }
   let listAt = Date.now();
-  let seenActive = false;
+  // A watch started by a start counts the run as seen: a short run may be
+  // over by the first answer, and its end must still be read.
+  let seenActive = since !== undefined;
   let lost = false;
   let unsubscribe = null;
   let ended = false;
@@ -1376,7 +1385,7 @@ function watchRecalculation() {
     // so a repaint would redraw the stale payload for ever.
     showHealth();
     load(store.apiQueryString(), store.get(), { quiet: true }).catch(() => {});
-  });
+  }, { since });
   if (ended) unsubscribe();
 }
 
@@ -1526,8 +1535,9 @@ function renderRevisionNotice() {
       text: t('revision.interrupted', { done: done.toLocaleString(), total: total.toLocaleString(), pct }),
     }));
     parts.push(button(t('revision.resume'), () => {
+      const since = rescoreMarker();
       api.startRescore().then(() => {
-        watchRecalculation();
+        watchRecalculation({ since });
         return load(store.apiQueryString(), store.get(), { quiet: true });
       }).catch((error) => {
         replace(node, [el('span', { className: 'revnotice__text', attrs: { role: 'alert' },
@@ -1542,8 +1552,9 @@ function renderRevisionNotice() {
       // the first seconds after the button there are no rows written yet:
       // the payload still reads "not building", the button would redraw, and
       // nothing would be watching the work that had just begun.
+      const since = rescoreMarker();
       api.startRescore().then(() => {
-        watchRecalculation();
+        watchRecalculation({ since });
         return load(store.apiQueryString(), store.get(), { quiet: true });
       }).catch(() => {});
     }, { className: 'revnotice__go' }));

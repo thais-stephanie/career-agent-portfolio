@@ -85,12 +85,37 @@ export function refreshRescore() {
   return inFlight ? inFlight.then(() => tick()) : tick();
 }
 
-/** Listen to the one watcher. Returns the way to stop listening. */
-export function watchRescore(listener) {
-  listeners.add(listener);
-  if (last) listener({ status: last, unreachable: misses > 0 });
-  if (!timer && !inFlight) refreshRescore();
-  return () => listeners.delete(listener);
+/** Which run the watcher last heard about, taken BEFORE a start so the
+ *  answers about that older run are not read as the new one ending. */
+export function rescoreMarker() {
+  return runOf(last && last.state);
+}
+
+/**
+ * Listen to the one watcher. Returns the way to stop listening.
+ *
+ * `since` (from `rescoreMarker()` before a start): answers about that earlier
+ * run, or an idle one asked before the new run began, are not delivered, and
+ * the watcher keeps asking until the new run is heard of.
+ */
+export function watchRescore(listener, { since } = {}) {
+  let waiting = since !== undefined;
+  if (waiting) awaiting += 1;
+  const settle = () => {
+    if (waiting) { waiting = false; awaiting -= 1; }
+  };
+  const deliver = (snapshot) => {
+    if (waiting && !snapshot.unreachable) {
+      const state = snapshot.status && snapshot.status.state;
+      if (!(state && (ACTIVE.has(state.phase) || runOf(state) !== since))) return;
+      settle();
+    }
+    listener(snapshot);
+  };
+  listeners.add(deliver);
+  if (last) deliver({ status: last, unreachable: misses > 0 });
+  if (since !== undefined || (!timer && !inFlight)) refreshRescore();
+  return () => { settle(); listeners.delete(deliver); };
 }
 
 /**
@@ -109,15 +134,7 @@ export function driveRescore(control, { show, onDone = () => {} }) {
   let attached = false;
   let lastDone = 0;
   let lastTotal = 0;
-  // After a start: the run that was last reported BEFORE it,
-  // so an answer about that older run, or an idle one asked before the new
-  // run began, is never read as the new run having ended.
-  let before;
-  let waitingFor = false;
   let stop = () => {};
-  const settle = () => {
-    if (waitingFor) { waitingFor = false; awaiting -= 1; }
-  };
   const draw = (phase, extra = {}) => {
     busy = phase === 'starting' || phase === 'running' || phase === 'reconnecting';
     show({ phase, busy, ...extra });
@@ -127,16 +144,12 @@ export function driveRescore(control, { show, onDone = () => {} }) {
     // A control taken off the page stops listening; one not yet placed is
     // simply not drawn into yet.
     if (control.isConnected) attached = true;
-    else if (attached) { settle(); stop(); return; }
+    else if (attached) { stop(); return; }
     if (unreachable && (watched || starting)) {
       draw('reconnecting', { done: lastDone, total: lastTotal });
       return;
     }
     const state = (status && status.state) || { phase: 'IDLE' };
-    if (waitingFor) {
-      if (!ACTIVE.has(state.phase) && runOf(state) === before) return;
-      settle();
-    }
     lastDone = Number(state.done) || 0;
     lastTotal = Number(state.total) || 0;
     const counts = { done: lastDone, total: lastTotal, message: state.error || '' };
@@ -166,7 +179,8 @@ export function driveRescore(control, { show, onDone = () => {} }) {
   control.addEventListener('click', async () => {
     if (busy) return;
     starting = true;
-    before = runOf(last && last.state);
+    // The run heard of BEFORE this start: answers about it are not this run.
+    const since = rescoreMarker();
     draw('starting');
     try {
       await api.startRescore();
@@ -176,8 +190,8 @@ export function driveRescore(control, { show, onDone = () => {} }) {
       return;
     }
     watched = true;
-    if (!waitingFor) { waitingFor = true; awaiting += 1; }
-    refreshRescore();
+    stop();
+    stop = watchRescore(listener, { since });
   });
   return stop;
 }

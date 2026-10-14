@@ -87,21 +87,25 @@ def test_the_notice_counts_what_she_hid_apart_from_what_was_hidden_for_her(
     back. One line saying "5 hidden" would be a count of things she can only
     restore three separate ways.
     """
-    rows_before = int(page.evaluate(f"{NOTICE}.querySelectorAll('.hidden__row').length"))
-
-    first_card_hide(page)
-    page.wait_for(
-        f"{NOTICE}.querySelectorAll('.hidden__row').length === {rows_before + 1}",
-        message="a third notice row",
+    # The hidden counts arrive apart from the cards, so a count of rows read
+    # before them can be short (flaky under load, 2026-10-14). Wait for THIS
+    # hide's own row: the only one carrying both ways back.
+    own_row = (
+        f"Array.from({NOTICE}.querySelectorAll('.hidden__row'))"
+        ".find((row) => row.querySelectorAll('.hidden__show').length === 2)"
     )
+    first_card_hide(page)
+    page.wait_for(f"Boolean({own_row})", message="the row for what she hid")
 
-    text = str(page.evaluate(f"{NOTICE}.textContent"))
+    text = str(page.evaluate(f"{own_row}.textContent"))
     assert "1" in text
+    # Three sentences, never one number: her row stands beside the others.
+    rows = int(page.evaluate(f"{NOTICE}.querySelectorAll('.hidden__row').length"))
+    assert rows >= 2, "what she hid was folded into another narrowing's sentence"
     # And the row carries BOTH ways back: reveal them here, or look at them
     # on their own.
-    last = f"{NOTICE}.querySelectorAll('.hidden__row')[{rows_before}]"
     buttons = page.evaluate(
-        f"Array.from({last}.querySelectorAll('button')).map((n) => n.className)"
+        f"Array.from({own_row}.querySelectorAll('button')).map((n) => n.className)"
     )
     assert sum(1 for name in buttons if "hidden__show" in str(name)) == 2, buttons
 

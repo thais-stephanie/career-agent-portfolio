@@ -25,6 +25,15 @@ committed scores; the notices read again when a run ends, well or not; no
 `jobs_scored` is counted after each page commits: a failed page used to be
 counted as saved.
 
+Found by the browser suite on the new watcher (2026-10-14): `watchRescore`
+answers a new listener at once, and Find jobs' notice subscribed before it
+held its own handle, so a notice redrawn from that answer subscribed again
+until the stack overflowed and the polling stopped. Fixed, and one listener's
+error no longer stops the others. A start now waits for an answer about its
+own run (by run id; two runs can start in the same second). `getHome` is no
+longer shared between callers on the page: a visit after a write must read
+after it, and the server already lets one Home read run at a time.
+
 ## Speed
 
 Measured on a copy of the owner's databases, base vs branch in fresh processes
