@@ -11605,3 +11605,6 @@ table.jobs .cell__title-btn { max-width: 100%; }
    at 640px with the rest of the row empty. One paragraph per row, the label
    in bold on the same line, a moderate gap between rows. */
 .evalmode__body { max-width: none; }
+
+/* Two sentences of one posting that disagree, shown together (gates). */
+.gate__conflict { display: grid; gap: 6px; }

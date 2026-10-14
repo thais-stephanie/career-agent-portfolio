@@ -468,6 +468,8 @@ def _gate_to_dict(gate: GateOutcome) -> dict[str, Any]:
         "quote": gate.quote,
         "char_start": gate.char_start,
         "char_end": gate.char_end,
+        **({"code": gate.code} if gate.code else {}),
+        **({"conflict": list(gate.conflict)} if gate.conflict else {}),
     }
 
 
@@ -480,6 +482,8 @@ def _gate_from_dict(data: dict[str, Any]) -> GateOutcome:
         quote=data.get("quote"),
         char_start=data.get("char_start"),
         char_end=data.get("char_end"),
+        code=data.get("code"),
+        conflict=tuple(data.get("conflict") or ()),
     )
 
 

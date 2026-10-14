@@ -402,6 +402,14 @@ class GateOutcome:
     quote: str | None = None
     char_start: int | None = None
     char_end: int | None = None
+    #: A stable name for WHY a gate is left to confirm, for the interface to
+    #: say in the reader's language (`CONFLICTING_LOCATIONS`,
+    #: `PUBLISHED_LOCATION_ELSEWHERE`, `US_SECURITY_REQUIREMENTS`). None for
+    #: every older reason, which keeps its English sentence.
+    code: str | None = None
+    #: The posting's own sentences that disagree, verbatim, when the reason is
+    #: a conflict: shown side by side, never one chosen in the reader's favour.
+    conflict: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

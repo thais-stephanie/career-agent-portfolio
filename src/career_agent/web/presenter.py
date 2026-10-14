@@ -426,6 +426,10 @@ def job_detail(job: ScoredJob, *, bands, today: date, recency: dict, history: li
             "reason": g.reason,
             "blocker_id": g.blocker_id,
             "quote": g.quote,
+            # Why it is left to confirm, by name (said in the reader's
+            # language), and the posting's own sentences that disagree.
+            "code": g.code,
+            "conflict": list(g.conflict),
             # The interface styles a FAIL differently from an UNRESOLVED, and
             # this flag saves it from re-deriving that from the string.
             "is_fail": g.result is GateResult.FAIL,

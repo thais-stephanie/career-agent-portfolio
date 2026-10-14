@@ -161,7 +161,15 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              a posting hiring in Latin America the owner's defaults (under
 #:              7,000 a month, over 30,000 a year). Scores, employment, pay
 #:              and the contract facet move.
-READER_IDENTITY = "readers-11"
+#:   readers-12 Eligibility to confirm (2026-10-13): two explicit location
+#:              statements of one posting that disagree are "conflicting
+#:              locations", both quoted; general remote-work prose no longer
+#:              certifies a role whose published place excludes the
+#:              candidate, whatever the board says about remote work; a
+#:              U.S. security clearance or export-control requirement is a
+#:              requirement to confirm; "can be executed from anywhere in X"
+#:              names where the work is done.
+READER_IDENTITY = "readers-12"
 
 
 def guarded_sections(config: Any) -> list[str]:

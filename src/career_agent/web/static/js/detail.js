@@ -1092,8 +1092,14 @@ export function createDrawer({
           el('strong', { className: 'gate__name', text: gateName(gate.gate) }),
           el('span', { className: `gate__result tpill tpill--${tone}`, text: t(`drawer.take.${pill}`) }),
         ]),
-        gate.reason ? el('p', { className: 'gate__reason d-take__text', text: gate.reason }) : null,
-        gate.quote ? el('blockquote', { className: 'quote', text: gate.quote }) : null,
+        gate.code
+          ? el('p', { className: 'gate__reason d-take__text', text: t(`gate.code.${gate.code}`) })
+          : gate.reason ? el('p', { className: 'gate__reason d-take__text', text: gate.reason }) : null,
+        // Conflicting sentences side by side, neither chosen for the reader.
+        (gate.conflict || []).length > 1
+          ? el('div', { className: 'gate__conflict' },
+            gate.conflict.map((line) => el('blockquote', { className: 'quote', text: line })))
+          : gate.quote ? el('blockquote', { className: 'quote', text: gate.quote }) : null,
         answerLink(gate),
       ]);
     });

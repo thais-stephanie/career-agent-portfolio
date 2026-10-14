@@ -73,6 +73,26 @@ UNRESOLVED_REASONS: dict[str, str] = {
 }
 
 
+#: Gates whose blockers a hedge in the same sentence disarms: a clearance or a
+#: citizenship the role "may require" is something to confirm, not a refusal.
+_HEDGE_SENSITIVE = frozenset({"clearance", "work_authorization"})
+_HEDGE = re.compile(
+    r"\b(?:may|might|could)\s+(?:also\s+)?(?:require|need|be\s+required)|\bpossibly\b|"
+    r"\bpreferred\b|\bnice\s+to\s+have\b|\ba\s+plus\b|\bbonus\b",
+    re.IGNORECASE,
+)
+
+
+def _hedged(text: str, at: int) -> bool:
+    """Whether the sentence holding position `at` hedges before reaching it."""
+    window = text[max(0, at - 400) : at]
+    ends = [m.end() for m in _SENTENCE_END.finditer(window)]
+    start = max(0, at - 400) + (ends[-1] if ends else 0)
+    stop = text.find("\n", at)
+    sentence = text[start : stop if stop != -1 else len(text)]
+    return bool(_HEDGE.search(sentence))
+
+
 def _find_blocker_hit(
     blocker: Blocker,
     field_name: str,
@@ -94,6 +114,12 @@ def _find_blocker_hit(
         char_start = field.offsets[match.start()]
         char_end = field.offsets[match.end() - 1] + 1
         if blocker.negation_sensitive and is_negated_before(field, match.start(), config.negation):
+            continue
+        if blocker.gate in _HEDGE_SENSITIVE and _hedged(field.original, char_start):
+            # "This role MAY require ... a security clearance" is not the
+            # employer stating the requirement in so many words; it is read as
+            # a requirement to confirm (`_security_requirements`), never as a
+            # refusal on its own (2026-10-13).
             continue
         return SignalHit(
             signal_id=blocker.id,
@@ -502,6 +528,15 @@ _ALLOWLIST_CLAUSES: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"\b(?:must|need\s+to|should|required\s+to)\s+(?:be\s+)?"
         r"(?:based|located|residing|reside|live|living|physically\s+located)\s+in\s+" + _LIST,
+        re.IGNORECASE,
+    ),
+    # Where the work itself may be done (2026-10-13, ElevenLabs): "it can be
+    # executed from anywhere in Colombia" is the employer naming the country
+    # the role is performed in, under a "Location" heading.
+    re.compile(
+        r"\b(?:can|may|must|will|is\s+to)\s+be\s+"
+        r"(?:executed|performed|done|carried\s+out|worked)\s+(?:remotely\s+)?"
+        r"from\s+(?:anywhere\s+)?(?:in|within)\s+" + _LIST,
         re.IGNORECASE,
     ),
 )
@@ -1117,7 +1152,27 @@ def _reconcile_scope_clauses(
         "Confirm the permitted work location before treating this posting as eligible.",
     )
     if explicit_fail and explicit_pass:
-        return contradiction
+        # Both sentences are the employer's, so both are shown and neither is
+        # chosen for the reader (2026-10-13: "should be based in Brazil" and
+        # "can be executed from anywhere in Colombia" in one advert).
+        admits = next(
+            r.outcome for r in readings if r.explicit and r.outcome.result is GateResult.PASS
+        )
+        refuses = next(
+            r.outcome for r in readings if r.explicit and r.outcome.result is GateResult.FAIL
+        )
+        return GateOutcome(
+            gate="geography",
+            result=GateResult.UNRESOLVED,
+            reason="The posting names conflicting locations: "
+            f'"{admits.quote}" and "{refuses.quote}". Confirm where the role may be done '
+            "before applying.",
+            quote=admits.quote,
+            char_start=admits.char_start,
+            char_end=admits.char_end,
+            code="CONFLICTING_LOCATIONS",
+            conflict=tuple(q for q in (admits.quote, refuses.quote) if q),
+        )
     if first_fail is not None:
         if structured is not None and structured.result is GateResult.PASS:
             return contradiction
@@ -1397,6 +1452,56 @@ def _required_attendance(
     return None
 
 
+#: A U.S. security clearance or export-control eligibility the posting says
+#: the role requires or MAY require. Read as something to confirm, never as a
+#: refusal: "may require a clearance" or "must be eligible for access to
+#: export-controlled information (EAR/ITAR)" depends on citizenship or U.S.
+#: status without stating either, and a configured blocker still decides an
+#: explicit requirement ("active TS/SCI clearance required"). Anchored to a
+#: requirement in the same sentence, so a product page about "secure
+#: clearance workflows" or a company serving defence customers is not one.
+_SECURITY_REQUIREMENT = re.compile(
+    r"(?:\b(?:requires?|required|must|may\s+require|eligib\w*|obtain(?:ing)?|maintain(?:ing)?|"
+    r"ability\s+to\s+(?:obtain|hold))\b(?:(?:[A-Za-z]\.){2,}|[^.\n;]){0,80}?"
+    r"\b(?:security\s+clearance|export[- ]controlled|ITAR\b|EAR\b)"
+    r"|\b(?:security\s+clearance|export[- ]controlled\s+information)\b"
+    r"(?:(?:[A-Za-z]\.){2,}|[^.\n;]){0,60}?\b(?:required|requirement|eligib\w*)\b)",
+    re.IGNORECASE,
+)
+
+#: The end of a sentence: a full stop that does not close an abbreviation
+#: such as `U.S.` or `D.C.`, or a line break.
+_SENTENCE_END = re.compile(r"(?<![A-Z])\.(?=\s|$)|\n")
+
+
+def _security_requirements(field: FoldedText) -> GateOutcome | None:
+    """The first sentence stating a security clearance or export-control
+    eligibility the role needs, as a gate left to confirm, or None."""
+    text = field.original
+    for found in _SECURITY_REQUIREMENT.finditer(text):
+        start = text.rfind("\n", 0, found.start()) + 1
+        stop = _SENTENCE_END.search(text, found.end())
+        end = (stop.start() + (stop.group() == ".")) if stop else len(text)
+        quote = text[start:end].strip(" -*\t")
+        if not quote:
+            continue
+        at = text.find(quote, start)
+        return GateOutcome(
+            gate="clearance",
+            result=GateResult.UNRESOLVED,
+            reason=(
+                "The posting says the role may need a U.S. security clearance or access to "
+                "export-controlled information. That usually depends on citizenship or U.S. "
+                "status, which the posting does not state; confirm before applying."
+            ),
+            quote=quote,
+            char_start=at,
+            char_end=at + len(quote),
+            code="US_SECURITY_REQUIREMENTS",
+        )
+    return None
+
+
 def evaluate_gates(
     config: SearchConfig,
     observed: dict[str, ObservedSignal],
@@ -1481,6 +1586,9 @@ def evaluate_gates(
         if outcome is None and gate == "worksite":
             outcome = _required_attendance(config, description_field, place)
 
+        if outcome is None and gate == "clearance":
+            outcome = _security_requirements(description_field)
+
         if outcome is None and gate == "work_authorization":
             # What the posting REQUIRES about the right to work, read against
             # what the candidate DECLARED (`match.authorization`). A configured
@@ -1489,10 +1597,14 @@ def evaluate_gates(
                 config, description_field, place, employment, workplace_type
             )
 
-        if gate == "geography" and place is not None and workplace_type == "REMOTE":
-            # The published location of a remote role that does NOT include
-            # her (ADR-0034): never a refusal on its own, and never something
+        if gate == "geography" and place is not None and workplace_type != "ONSITE":
+            # The published location of a role that does NOT include her
+            # (ADR-0034): never a refusal on its own, and never something
             # vague prose may overrule into a PASS either. Read once here.
+            # Not only for a board that says REMOTE (2026-10-13): Greenhouse
+            # publishes no workplace type, and "Work from anywhere" among a
+            # posting's perks made a role published as `United States`, with
+            # U.S. clearance and export-control requirements, read eligible.
             published_excludes = (
                 _candidate_geography_known(config)
                 and bool(place.countries or place.regions)
@@ -1615,14 +1727,19 @@ def evaluate_gates(
                 # and not an aggregator's `Worldwide` sighting of the same
                 # vacancy (the TripleTen case). Since ADR-0034 that conflict is
                 # "to confirm", never a pass and, alone, never a refusal.
+                prose = outcome
                 outcome = GateOutcome(
                     gate="geography",
                     result=GateResult.UNRESOLVED,
                     reason=(
-                        f"This posting is remote and says {location_raw or 'another place'}. "
-                        f"It does not say whether it hires in "
+                        f"This posting says {location_raw or 'another place'}. "
+                        f"General remote-work wording does not say whether it hires in "
                         f"{country_label(config)}; confirm before applying."
                     ),
+                    quote=prose.quote,
+                    char_start=prose.char_start,
+                    char_end=prose.char_end,
+                    code="PUBLISHED_LOCATION_ELSEWHERE",
                 )
             if outcome is not None and outcome.result is GateResult.PASS and location_raw:
                 remote_places = re.findall(
@@ -1701,6 +1818,8 @@ def pending_gates(gates: Sequence[GateOutcome]) -> tuple[GateOutcome, ...]:
             gate.gate in CRITICAL_GATES
             # Evidence of a requirement is different from silence about worksite.
             or (gate.gate == "worksite" and bool(gate.quote))
+            # A clearance or export-control requirement the posting states.
+            or (gate.gate == "clearance" and gate.code == "US_SECURITY_REQUIREMENTS")
             # A stated requirement the candidate has not answered is PENDING.
             or (
                 gate.gate == "work_authorization"

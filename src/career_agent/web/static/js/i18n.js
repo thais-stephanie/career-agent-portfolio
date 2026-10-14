@@ -1884,6 +1884,13 @@ const EN = {
   'drawer.take.PASS': 'Fine for you',
   'drawer.take.UNRESOLVED': 'Not in the ad',
   'drawer.take.PENDING': 'Left to confirm',
+  'gate.code.CONFLICTING_LOCATIONS': 'Eligibility to confirm: conflicting locations. The posting says both '
+    + 'lines below; confirm where the work may be done before applying.',
+  'gate.code.PUBLISHED_LOCATION_ELSEWHERE': 'Eligibility to confirm. The posting publishes another place, and '
+    + 'general remote-work wording does not say whether it hires in your country.',
+  'gate.code.US_SECURITY_REQUIREMENTS': 'Requirement to confirm. The posting says the role may need a U.S. '
+    + 'security clearance or access to export-controlled information, which usually depends on citizenship '
+    + 'or U.S. status.',
   'drawer.take.FAIL': 'Rules you out',
   'drawer.take.answer': 'Answer this in your profile',
   'drawer.take.CHECK': 'Check this',
@@ -7088,6 +7095,13 @@ const PT_BR = {
   'drawer.take.PASS': 'Tudo certo para você',
   'drawer.take.UNRESOLVED': 'Não está no anúncio',
   'drawer.take.PENDING': 'Falta confirmar',
+  'gate.code.CONFLICTING_LOCATIONS': 'Elegibilidade a confirmar: locais conflitantes. O anúncio cita os dois '
+    + 'trechos abaixo; confirme onde o trabalho pode ser feito antes de se candidatar.',
+  'gate.code.PUBLISHED_LOCATION_ELSEWHERE': 'Elegibilidade a confirmar. O anúncio publica outro local, e '
+    + 'frases gerais sobre trabalho remoto não dizem se contrata no seu país.',
+  'gate.code.US_SECURITY_REQUIREMENTS': 'Requisito a confirmar. O anúncio diz que a vaga pode exigir uma '
+    + 'habilitação de segurança dos EUA ou acesso a informações controladas por exportação, o que costuma '
+    + 'depender de cidadania ou situação nos EUA.',
   'drawer.take.FAIL': 'Descarta você',
   'drawer.take.answer': 'Responder no seu perfil',
   'drawer.take.CHECK': 'Confira',
