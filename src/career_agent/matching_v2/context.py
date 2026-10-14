@@ -55,7 +55,10 @@ class Sentence:
 _WORDS = re.compile(r"[0-9a-z]+")
 
 
+@lru_cache(maxsize=8192)
 def _norm(text: str) -> str:
+    """Folded words of `text`, joined. Pure, and asked up to three times of
+    the same sentence (notices, the role's voice, sentence cues): cached."""
     return " ".join(_WORDS.findall(fold(text)[0]))
 
 
@@ -79,9 +82,17 @@ def _voices(path: Path = DATA) -> tuple[tuple[str, ...], tuple[str, ...]]:
     )
 
 
+@lru_cache(maxsize=16)
+def _cue_pattern(cues: tuple[str, ...]) -> re.Pattern[str]:
+    """One alternation for a tuple of cues: found at some position exactly
+    when one cue, between spaces, is (the same answer as testing each)."""
+    return re.compile(" (?:" + "|".join(re.escape(c) for c in cues) + ") ")
+
+
 def _has(cues: tuple[str, ...], text: str) -> bool:
-    norm = f" {_norm(text)} "
-    return any(f" {cue} " in norm for cue in cues)
+    if not cues:
+        return False
+    return _cue_pattern(cues).search(f" {_norm(text)} ") is not None
 
 
 _BULLET = re.compile(r"^\s*(?:[-*\u2022\u25cf\u25aa>]|\d{1,2}[.)])\s")
@@ -187,12 +198,25 @@ def heading_context(line: str) -> Context | None:
     if norm in headings:
         return headings[norm]
     ends_with_colon = _TAG.sub("", raw).rstrip("*_ \t").endswith(":")
-    for cue, kind in headings.items():
-        if norm.startswith(cue + " "):
-            tail = norm[len(cue) + 1 :].split()
-            if ends_with_colon or all(w in _HEADING_TAIL for w in tail):
-                return kind
+    # A known heading that is a proper prefix of the line, by whole words,
+    # tried in the table's own order (the first that fits wins, as before):
+    # looked up per prefix instead of testing all 156 headings per line.
+    order = _heading_order()
+    words = norm.split()
+    prefixes = (" ".join(words[:k]) for k in range(1, len(words)))
+    found = sorted(
+        (order[cue][0], k, order[cue][1]) for k, cue in enumerate(prefixes, start=1) if cue in order
+    )
+    for _rank, k, kind in found:
+        if ends_with_colon or all(w in _HEADING_TAIL for w in words[k:]):
+            return kind
     return None
+
+
+@lru_cache(maxsize=2)
+def _heading_order(path: Path = DATA) -> dict[str, tuple[int, Context]]:
+    headings, _ = _cues(path)
+    return {cue: (i, kind) for i, (cue, kind) in enumerate(headings.items())}
 
 
 def inline_heading(line: str) -> tuple[Context, int] | None:

@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 
 import yaml
@@ -170,6 +170,14 @@ class LanguageTable:
     #: reaching one of them keeps its own root and matches nothing translated.
     ambiguous: tuple[str, ...] = ()
 
+    @cached_property
+    def fixed_heads(self) -> frozenset[str]:
+        """The first root of every fixed expression of two words or more: a
+        token whose root is not one can open no such expression, so
+        `tokens` skips the window search for it (same tokens, measured
+        2026-10-14: the search was a third of tokenising)."""
+        return frozenset(k[0] for k in self.fixed if len(k) > 1)
+
     def canonical(self, word_root: str, word: str | None = None) -> tuple[str, Relation]:
         """The canonical root of one word, through automatic relations only."""
         if word is not None and word in self.surface:
@@ -295,10 +303,11 @@ def tokens(text: str, table: LanguageTable | None = None) -> list[Token]:
         raw.append((root(word), start, end, bisect_right(breaks, start), word))
     out: list[Token] = []
     longest = max((len(k) for k in table.fixed), default=0)
+    heads = table.fixed_heads
     i = 0
     while i < len(raw):
         matched = False
-        for size in range(min(longest, len(raw) - i), 1, -1):
+        for size in range(min(longest, len(raw) - i) if raw[i][0] in heads else 1, 1, -1):
             window = raw[i : i + size]
             if len({w[3] for w in window}) != 1:
                 continue
