@@ -141,7 +141,10 @@ EXPECTED_TABLES = {
     "job_availability",
     # 0056/0057: Matching Architecture v2 (ADR-0037), shared and private halves.
     "job_features",
+    "job_feature_versions",
     "profile_job_match",
+    "profile_match_versions",
+    "profile_match_inputs",
     # 0033: where a board-discovery walk over an aggregator index got to,
     # employer by employer, and which boards it registered.
     "board_discovery_lead",

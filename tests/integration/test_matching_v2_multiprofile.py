@@ -157,7 +157,7 @@ def test_shared_facts_are_made_once_and_every_profile_gets_its_own_answer(world)
     # anybody's profile, and a nurse writing in Portuguese is read as well as
     # an automation specialist writing in English.
     for person in profiles:
-        scores = {job: out[person][job]["score"]["match_score"] for job in jobs}
+        scores = {job: out[person][job]["match_score"] for job in jobs}
         assert max(scores, key=scores.get) == person, (person, scores)
     # A second pass over the same postings reads nothing again.
     again, _, _ = run_all(catalogue, jobs, profiles, features)
@@ -170,13 +170,10 @@ def test_no_preference_or_evidence_crosses_between_profiles(world) -> None:
     for person, (config, conn) in profiles.items():
         own = set(config.lexicon)
         for job in jobs:
-            for part in ("work_match", "tools_match"):
-                for item in out[person][job][part]["evidence"]:
-                    assert item["signal"] in own, (person, item)
+            for item in out[person][job]["evidence"]:
+                assert item[0] in own, (person, item)
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        assert conn.execute("SELECT COUNT(*) FROM profile_job_match").fetchone()[0] == len(
-            jobs
-        ) * len(comp.PROFILE_COMPONENTS)
+        assert conn.execute("SELECT COUNT(*) FROM profile_job_match").fetchone()[0] == len(jobs)
         assert conn.execute("SELECT COUNT(*) FROM job_features").fetchone()[0] == 0, (
             "a profile database holds no shared facts"
         )

@@ -528,7 +528,10 @@ def test_a_pre_0047_database_migrates_additively_and_once(tmp_path: Path) -> Non
         "deep_attempt",
         "job_availability",
         "job_features",
+        "job_feature_versions",
         "profile_job_match",
+        "profile_match_versions",
+        "profile_match_inputs",
     }
     assert conn.execute("SELECT note FROM search_fit_feedback").fetchone()[0] == "kept"
     assert migrate(conn) == []

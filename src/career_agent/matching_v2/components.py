@@ -160,3 +160,31 @@ def digest(value: object) -> str:
     """A content address for an input section, stable across key order."""
     text = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:24]
+
+
+def stale(
+    names: Iterable[str],
+    stored_versions: Mapping[str, str],
+    stored_inputs: Mapping[str, str],
+    current_inputs: Mapping[str, str],
+    registry: Mapping[str, Component] = REGISTRY,
+) -> set[str]:
+    """Which of `names` an artefact written under `stored_versions` from
+    `stored_inputs` no longer is: a version in its lineage moved, or one of
+    the inputs it reads did. The same answer as comparing stamps, from what a
+    compact row keeps (one versions map and the input digests)."""
+    out = set()
+    for name in names:
+        moved_version = any(
+            stored_versions.get(dep) != version for dep, version in lineage(name, registry).items()
+        )
+        moved_input = any(
+            stored_inputs.get(i) != current_inputs.get(i) for i in inputs_of(name, registry)
+        )
+        if moved_version or moved_input:
+            out.add(name)
+    return out
+
+
+def versions(names: Iterable[str], registry: Mapping[str, Component] = REGISTRY) -> dict[str, str]:
+    return {n: registry[n].version for n in names}

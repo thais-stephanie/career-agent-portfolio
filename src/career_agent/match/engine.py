@@ -283,6 +283,11 @@ class SharedReading:
     domestic: DomesticReading
     experience: ExperienceReading
     place: ResolvedPlace
+    #: Two text-only readings `posting_facts` shows on the card. Read here so
+    #: a second profile does not pay for them again: the U.S.-band sentence
+    #: is the slowest reading of a posting with a salary (about 24 ms).
+    us_band: str | None = None
+    explicit: dict[str, object] | None = None
 
 
 def read_shared(
@@ -305,7 +310,14 @@ def read_shared(
         domestic=read_domestic_context(description_field),
         experience=read_experience(job.description),
         place=resolve_place(job.location_raw),
+        # Same condition as `posting_facts`: only a posting with a figure.
+        us_band=us_only_band(job.description) if _has_salary(job) else None,
+        explicit=explicit_facts(job.description),
     )
+
+
+def _has_salary(job: JobFacts) -> bool:
+    return job.salary_min is not None or job.salary_max is not None
 
 
 def match_job(
@@ -444,7 +456,12 @@ def match_job(
         employment=employment,
         domestic=domestic,
         experience=experience,
-        posting_facts=posting_facts(scored, inferred_period=inferred_period),
+        posting_facts=posting_facts(
+            scored,
+            inferred_period=inferred_period,
+            us_band=shared.us_band,
+            explicit=shared.explicit,
+        ),
         semantic=semantic,
         computed_at=computed_at,
     )
@@ -483,7 +500,16 @@ def effective_pay(job: JobFacts, gates) -> tuple[JobFacts, str | None]:
     return replace(job, salary_period=period), period
 
 
-def posting_facts(job: JobFacts, *, inferred_period: str | None = None) -> dict[str, object]:
+_READ = object()
+
+
+def posting_facts(
+    job: JobFacts,
+    *,
+    inferred_period: str | None = None,
+    us_band: str | None | object = _READ,
+    explicit: dict[str, object] | None = None,
+) -> dict[str, object]:
     """The metadata the matcher read, travelling with the result it produced.
 
     Public because `match.replay` assembles the same `MatchResult` from stored
@@ -516,7 +542,9 @@ def posting_facts(job: JobFacts, *, inferred_period: str | None = None) -> dict[
             salary["text_differs"] = job.salary_text_differs
         # A band the advert says is for candidates in the United States: kept
         # with its sentence, so it is never read as pay offered to everyone.
-        us_band = us_only_band(job.description)
+        # Handed in by `read_shared` when the caller already read it.
+        if us_band is _READ:
+            us_band = us_only_band(job.description)
         if us_band:
             salary["us_only"] = us_band
         if inferred_period is not None:
@@ -546,5 +574,5 @@ def posting_facts(job: JobFacts, *, inferred_period: str | None = None) -> dict[
         "content_completeness": job.content_completeness,
         # Schedule, talent pool and time zone, each with the employer's own
         # sentence; absent when the ad says nothing. Shown, never scored.
-        **explicit_facts(job.description),
+        **(explicit if explicit is not None else explicit_facts(job.description)),
     }

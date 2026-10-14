@@ -97,3 +97,55 @@ non_automatic:
   - {relation: BROADER, a: marketing, b: social media}
   - {relation: BROADER, a: finance, b: accounts payable}
   - {relation: NARROWER, a: payroll, b: human resources}
+
+# STRUCTURE (ADR-0037, 2026-10-14). Function words that say how the words of
+# a sentence relate, read by `matching_v2.structure`. Closed lists of ordinary
+# grammar in each language; no profession, product or employer.
+structure:
+  # "A <prep> B": B is A's complement (`migracao de dados` is migration of
+  # data; `dados de migracao` is data ABOUT migration).
+  prepositions:
+    en: [of, "on", about, for, from, into, to, with, by, regarding]
+    pt: [de, da, do, das, dos, sobre, para, pra, com, por, pelo, pela, pelos, pelas, ao, aos]
+    es: [de, del, sobre, para, con, por, al]
+  coordinators: [and, or, e, ou, "y", o, "&", "/"]
+  # Endings that make a word a noun (`management`, `gestao`, `analise`). A
+  # noun opening a list item is closed by its own complement; a verb
+  # (`manage the flow of goods and inventory`) governs every item after it.
+  nominal_endings:
+    en: [tion, sion, ment, ments, ance, ence, ity, ness, sis, ysis, ing]
+    pt: [ao, oes, mento, mentos, agem, ura, ise, ises]
+    es: [cion, ciones, miento, mientos, sis]
+  # Portuguese and Spanish verb endings (infinitive, gerund, participle): a
+  # listed Portuguese or Spanish word WITHOUT one is read as a noun
+  # (`conteudo`, `processo`), because most nouns there end in a vowel.
+  verb_endings: [ar, er, ir, ando, endo, indo, ado, ada, ados, adas, ido, ida]
+  # Opening a sentence, these make its first noun phrase somebody else's
+  # (`Our suppliers handle ...`). Second-person words cancel the reading.
+  third_party_openers:
+    en: [our, their, its, the, these, those, this, his, her]
+    pt: [nosso, nossa, nossos, nossas, os, as, o, este, esta, estes, estas, esse, essa, esses, essas]
+    es: [nuestro, nuestra, nuestros, nuestras, el, la, los, las, este, esta, estos, estas]
+  second_person: [you, your, youll, youre, voce, voces, vc, tu, usted, ustedes]
+  # A clause boundary inside one sentence: words on two sides of it are not
+  # one phrase (`Requisitos: ... Local de reuniao`).
+  clause_marks: [":", "(", ")", " - ", "|"]
+
+# OTHER SENSES. A word with a second, common meaning in job adverts, and the
+# words that show the second meaning is the one in use. Data, like the table
+# above: an entry is a dictionary fact about a word, not about a posting.
+other_senses:
+  - {lang: pt, forms: [integracao, integracoes], sense: onboarding of new staff,
+     cues: [boas vindas, novos colaboradores, recem contratados, onboarding, ambientacao]}
+  - {lang: en, forms: [integration], sense: onboarding of new staff,
+     cues: [onboarding, new joiners, welcome week]}
+  - {lang: pt, forms: [campanha, campanhas], sense: internal or charity drive,
+     cues: [vacinacao, doacao, doacoes, agasalho, sangue, beneficente, solidaria, solidario]}
+  - {lang: en, forms: [campaign, campaigns], sense: internal or charity drive,
+     cues: [vaccination, flu shot, blood drive, donation, donations, charity, fundraiser]}
+  - {lang: pt, forms: [migracao, migracoes], sense: people moving,
+     cues: [novo escritorio, nova sede, mudanca de sede, realocacao]}
+  - {lang: en, forms: [migration, migrations], sense: people moving,
+     cues: [office move, relocation, new office]}
+  - {lang: en, forms: [lead, leads], sense: to lead people,
+     cues: [lead a team, lead the team, lead our team, team lead, tech lead, lead engineer, lead by example]}

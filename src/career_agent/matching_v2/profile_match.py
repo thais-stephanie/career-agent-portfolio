@@ -21,7 +21,6 @@ import re
 from bisect import bisect_left
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any
 
 from career_agent.config.search_config import SearchConfig
 from career_agent.domain.matching import MatchResult, ObservedSignal, SignalHit
@@ -33,13 +32,20 @@ from career_agent.match.lexicon import (
     prominence_of,
 )
 from career_agent.match.phrase_forms import EXTRA_TOKENS, STOPWORDS
-from career_agent.match.text import PRIMARY_SECTION, SECONDARY_SECTION, fold, sentence_at
+from career_agent.match.text import fold, section_kind_at, sentence_at
 from career_agent.matching_v2 import components as comp
+from career_agent.matching_v2 import structure
 from career_agent.matching_v2.context import NOT_WORK, Context
-from career_agent.matching_v2.features import JobFeatures, job_inputs
+from career_agent.matching_v2.features import (
+    JobFeatures,
+    job_inputs,
+    shared_from_facts,
+    work_units,
+)
 from career_agent.matching_v2.language import (
     AUTOMATIC,
     Relation,
+    Token,
     concept_readings,
     load_table,
 )
@@ -57,11 +63,8 @@ EXCLUDED_CONTEXT = "EXCLUDED_CONTEXT"
 #: measured on the synthetic corpus and is reported, not adopted (ADR-0037).
 UNCERTAIN_WHEN_APART = frozenset({Context.OTHER})
 
-_SECTION_OF = {
-    Context.RESPONSIBILITY: PRIMARY_SECTION,
-    Context.REQUIREMENT: SECONDARY_SECTION,
-    Context.TOOL: SECONDARY_SECTION,
-}
+#: Why words present and close together were not taken as the preference.
+APART_IN_UNKNOWN_CONTEXT = "APART_IN_UNKNOWN_CONTEXT"
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +77,8 @@ class Evidence:
     quote: str
     start: int
     end: int
+    #: For UNCERTAIN: the cause (`structure` or APART_IN_UNKNOWN_CONTEXT).
+    reason: str | None = None
 
 
 @dataclass
@@ -153,22 +158,22 @@ def _single_word(pattern: str) -> str | None:
 
 
 def _find(
-    toks: list[list[Any]], reading: tuple[str, ...], single: str | None = None
-) -> list[tuple[int, int, int, Relation]]:
-    """(start, end, gap, strongest relation) where every root of `reading`
+    toks: list[Token], reading: tuple[str, ...], single: str | None = None
+) -> list[tuple[list[Token], int, Relation]]:
+    """(matched tokens, gap, strongest relation) where every root of `reading`
     sits within `len + EXTRA_TOKENS` tokens. Same rule as `phrase_forms`,
     which reads only phrases of two words or more: a ONE-word preference
     matches its own word or a listed translation, never a shared root."""
     if len(reading) == 1 and single is not None:
         surface = load_table().surface
         return [
-            (int(t[1]), int(t[2]), 0, Relation(t[3]))
+            ([t], 0, t.relation)
             for t in toks
-            if t[0] == reading[0]
+            if t.root == reading[0]
             and (
-                (len(t) > 4 and t[4] == single)
-                or (len(t) > 4 and t[4] in surface)
-                or Relation(t[3]) in (Relation.EXACT_EQUIVALENT, Relation.FIXED_EXPRESSION)
+                t.word == single
+                or t.word in surface
+                or t.relation in (Relation.EXACT_EQUIVALENT, Relation.FIXED_EXPRESSION)
             )
         ]
     needed = set(reading)
@@ -176,26 +181,27 @@ def _find(
     found = []
     i = 0
     while i < len(toks):
-        if toks[i][0] not in needed:
+        if toks[i].root not in needed:
             i += 1
             continue
         missing = set(needed)
+        used: list[Token] = []
         last = i
         rel = Relation.IDENTICAL
         for j in range(i, min(len(toks), i + width)):
-            if toks[j][0] in missing:
-                missing.discard(toks[j][0])
+            if toks[j].root in missing:
+                missing.discard(toks[j].root)
+                used.append(toks[j])
                 last = j
-                candidate = Relation(toks[j][3])
-                if candidate is not Relation.IDENTICAL:
-                    rel = candidate
+                if toks[j].relation is not Relation.IDENTICAL:
+                    rel = toks[j].relation
                 if not missing:
                     break
         if missing:
             i += 1
             continue
         gap = (last - i + 1) - len(reading)
-        found.append((int(toks[i][1]), int(toks[last][2]), gap, rel))
+        found.append((used, gap, rel))
         i = last + 1
     return found
 
@@ -203,31 +209,40 @@ def _find(
 def observe_from_features(
     config: SearchConfig, features: JobFeatures, job: JobFacts
 ) -> tuple[dict[str, ObservedSignal], list[Evidence]]:
-    """`match.lexicon.observe`, answered from shared facts."""
-    work = features.payloads["work_facts"]
+    """`match.lexicon.observe`, answered from shared facts.
+
+    The SECTION a hit carries (what makes it a core duty in the score) is the
+    one the configured headings give, exactly as in production. v2's own
+    headings and sentence cues decide only the CONTEXT: whether a phrase is
+    evidence at all, set aside (About us, benefits) or uncertain. A heading
+    is evidence of what a sentence is for; on its own it never promotes a
+    secondary activity to a core one (owner's decision, 2026-10-14)."""
+    units = work_units(job, features)
+    ends = {s.start: s.end for s in features.sentences}
     description = job.description
-    folded = features.shared.description_field if features.shared is not None else None
-    units: list[tuple[str, Context, list[list[Any]]]] = [("title", Context.TITLE, work["title"])]
-    units += [("description", Context(ctx), toks) for _s, _e, ctx, toks in work["sentences"]]
+    shared = features.shared
+    folded = shared.description_field if shared is not None else None
+    spans = shared.sections if shared is not None else ()
     observed: dict[str, ObservedSignal] = {}
     evidence: list[Evidence] = []
     for signal_id, signal_cfg in config.lexicon.items():
         live: list[SignalHit] = []
         negated: list[SignalHit] = []
         for pattern in signal_cfg.patterns:
+            single = _single_word(pattern)
             for reading in _readings(pattern):
-                for field_name, context, toks in units:
-                    for start, end, gap, relation in _find(toks, reading, _single_word(pattern)):
+                for field_name, context, sentence_start, toks in units:
+                    for used, gap, relation in _find(toks, reading, single):
                         if relation not in AUTOMATIC:
                             continue
+                        start = min(t.start for t in used)
+                        end = max(t.end for t in used)
                         text = job.title if field_name == "title" else description
                         quote = sentence_at(text, start, end)
-                        if context in NOT_WORK:
-                            state = EXCLUDED_CONTEXT
-                        elif gap > 0 and context in UNCERTAIN_WHEN_APART:
-                            state = UNCERTAIN
-                        else:
-                            state = MATCH
+                        state, reason = _classify(
+                            description, field_name, context, sentence_start,
+                            ends.get(sentence_start, len(description)), used, gap, pattern,
+                        )  # fmt: skip
                         rule = context_rule_for(signal_cfg, pattern)
                         if (
                             state == MATCH
@@ -238,7 +253,7 @@ def observe_from_features(
                         evidence.append(
                             Evidence(
                                 signal_id, pattern, state, relation.value, context.value,
-                                quote, start, end,
+                                quote, start, end, reason,
                             )
                         )  # fmt: skip
                         if state != MATCH:
@@ -260,7 +275,9 @@ def observe_from_features(
                             char_start=start,
                             char_end=end,
                             negated=is_negated,
-                            section=_SECTION_OF.get(context),
+                            section=section_kind_at(spans, start)
+                            if field_name == "description"
+                            else None,
                         )
                         (negated if is_negated else live).append(hit)
         # One hit per place: two patterns of one signal finding the same words.
@@ -278,6 +295,28 @@ def observe_from_features(
     return observed, list(unique.values())
 
 
+def _classify(
+    description: str,
+    field_name: str,
+    context: Context,
+    sentence_start: int,
+    sentence_end: int,
+    used: list[Token],
+    gap: int,
+    pattern: str,
+) -> tuple[str, str | None]:
+    """MATCH, UNCERTAIN (with its cause) or EXCLUDED_CONTEXT."""
+    if context in NOT_WORK:
+        return EXCLUDED_CONTEXT, None
+    if field_name == "description":
+        cause = structure.check(description, used, pattern, sentence_start, sentence_end)
+        if cause is not None:
+            return UNCERTAIN, cause
+    if gap > 0 and context in UNCERTAIN_WHEN_APART:
+        return UNCERTAIN, APART_IN_UNKNOWN_CONTEXT
+    return MATCH, None
+
+
 def match(
     config: SearchConfig,
     job: JobFacts,
@@ -287,13 +326,13 @@ def match(
 ) -> ProfileJobMatch:
     """One profile's answer for one posting, over its shared facts."""
     if features.shared is None:
-        shared = read_shared(
-            job, config.prominence.primary_headings, config.prominence.secondary_headings
+        features.shared = (
+            shared_from_facts(job, features)
+            if features.payloads.get("seniority_facts") is not None
+            else read_shared(
+                job, config.prominence.primary_headings, config.prominence.secondary_headings
+            )
         )
-        features = JobFeatures(
-            features.job_id, features.content_hash, features.payloads, features.stamps,
-            features.reads, shared,
-        )  # fmt: skip
     observed, evidence = observe_from_features(config, features, job)
     result = match_job(
         config, job, computed_at=computed_at, shared=features.shared, observed=observed
