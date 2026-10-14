@@ -19,7 +19,7 @@ from career_agent.match.engine import JobFacts, SharedReading, read_shared
 from career_agent.match.pay import read_pay
 from career_agent.matching_v2 import components as comp
 from career_agent.matching_v2.context import Context, sentences
-from career_agent.matching_v2.language import detect_language, load_table, tokens
+from career_agent.matching_v2.language import LanguageTable, detect_language, load_table, tokens
 
 #: The section headings of the shipped configurations (machinery: the starter
 #: and the worked example carry the same lists). Passed in by the caller from
@@ -63,8 +63,12 @@ def job_inputs(job: JobFacts, content_hash: str, headings: tuple) -> dict[str, s
     }
 
 
-def _tokens_payload(text: str, offset: int = 0) -> list[list[Any]]:
-    return [[t.root, t.start + offset, t.end + offset, t.relation.value] for t in tokens(text)]
+def _tokens_payload(
+    text: str, offset: int = 0, table: LanguageTable | None = None
+) -> list[list[Any]]:
+    return [
+        [t.root, t.start + offset, t.end + offset, t.relation.value] for t in tokens(text, table)
+    ]
 
 
 def extract(
@@ -72,6 +76,7 @@ def extract(
     content_hash: str,
     headings: tuple[tuple[str, ...], tuple[str, ...]] = DEFAULT_HEADINGS,
     only: set[str] | None = None,
+    table: LanguageTable | None = None,
 ) -> JobFeatures:
     """Read one posting into its shared components. `only` limits the work to
     the components a caller found stale; the others are not computed."""
@@ -90,15 +95,15 @@ def extract(
     if "sentence_context" in wanted:
         payloads["sentence_context"] = [[s.start, s.end, s.context.value] for s in cut]
     if "work_facts" in wanted:
-        load_table()
+        table = table or load_table()
         payloads["work_facts"] = {
-            "title": _tokens_payload(job.title),
+            "title": _tokens_payload(job.title, 0, table),
             "sentences": [
                 [
                     s.start,
                     s.end,
                     s.context.value,
-                    _tokens_payload(description[s.start : s.end], s.start),
+                    _tokens_payload(description[s.start : s.end], s.start, table),
                 ]
                 for s in cut
             ],
