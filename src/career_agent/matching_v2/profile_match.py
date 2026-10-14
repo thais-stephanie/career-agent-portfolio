@@ -17,6 +17,7 @@ the score. A1 and B1 (ADR-0036) therefore hold by construction.
 
 from __future__ import annotations
 
+import re
 from bisect import bisect_left
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -31,12 +32,19 @@ from career_agent.match.lexicon import (
     is_negated_before,
     prominence_of,
 )
-from career_agent.match.phrase_forms import EXTRA_TOKENS
-from career_agent.match.text import PRIMARY_SECTION, SECONDARY_SECTION, sentence_at
+from career_agent.match.phrase_forms import EXTRA_TOKENS, STOPWORDS
+from career_agent.match.text import PRIMARY_SECTION, SECONDARY_SECTION, fold, sentence_at
 from career_agent.matching_v2 import components as comp
 from career_agent.matching_v2.context import NOT_WORK, Context
 from career_agent.matching_v2.features import JobFeatures, job_inputs
-from career_agent.matching_v2.language import AUTOMATIC, Relation, concept_readings
+from career_agent.matching_v2.language import (
+    AUTOMATIC,
+    Relation,
+    concept_readings,
+    load_table,
+)
+
+_WORD = re.compile(r"[0-9a-z]+")
 
 MATCH = "MATCH"
 UNCERTAIN = "UNCERTAIN"
@@ -137,9 +145,32 @@ def _readings(pattern: str) -> tuple[tuple[str, ...], ...]:
     return concept_readings(pattern)
 
 
-def _find(toks: list[list[Any]], reading: tuple[str, ...]) -> list[tuple[int, int, int, Relation]]:
+@lru_cache(maxsize=8192)
+def _single_word(pattern: str) -> str | None:
+    """The one content word of a one-word preference, folded, else None."""
+    words = [w for w in _WORD.findall(fold(pattern)[0]) if w not in STOPWORDS]
+    return words[0] if len(words) == 1 else None
+
+
+def _find(
+    toks: list[list[Any]], reading: tuple[str, ...], single: str | None = None
+) -> list[tuple[int, int, int, Relation]]:
     """(start, end, gap, strongest relation) where every root of `reading`
-    sits within `len + EXTRA_TOKENS` tokens. Same rule as `phrase_forms`."""
+    sits within `len + EXTRA_TOKENS` tokens. Same rule as `phrase_forms`,
+    which reads only phrases of two words or more: a ONE-word preference
+    matches its own word or a listed translation, never a shared root."""
+    if len(reading) == 1 and single is not None:
+        surface = load_table().surface
+        return [
+            (int(t[1]), int(t[2]), 0, Relation(t[3]))
+            for t in toks
+            if t[0] == reading[0]
+            and (
+                (len(t) > 4 and t[4] == single)
+                or (len(t) > 4 and t[4] in surface)
+                or Relation(t[3]) in (Relation.EXACT_EQUIVALENT, Relation.FIXED_EXPRESSION)
+            )
+        ]
     needed = set(reading)
     width = len(reading) + EXTRA_TOKENS
     found = []
@@ -186,7 +217,7 @@ def observe_from_features(
         for pattern in signal_cfg.patterns:
             for reading in _readings(pattern):
                 for field_name, context, toks in units:
-                    for start, end, gap, relation in _find(toks, reading):
+                    for start, end, gap, relation in _find(toks, reading, _single_word(pattern)):
                         if relation not in AUTOMATIC:
                             continue
                         text = job.title if field_name == "title" else description

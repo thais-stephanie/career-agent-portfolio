@@ -170,3 +170,20 @@ def test_the_engine_names_no_profession_and_no_product() -> None:
         text = module.read_text(encoding="utf-8").lower()
         found = [w for w in forbidden if w in text]
         assert not found, f"{module.name} names {found}"
+
+
+def test_a_one_word_preference_matches_its_word_never_a_shared_root() -> None:
+    """`workato` reduces to the root `work`; on real postings it fired on 257 of
+    300 (2026-10-14 parity run). One word matches itself or a listed form."""
+    assert (
+        ev.answer(CONFIG, "Workato", "You will work closely with partners.", "Responsibilities")
+        == ev.NONE
+    )
+    assert ev.answer(CONFIG, "Workato", "Build recipes in Workato.", "Responsibilities") == "MATCH"
+    assert (
+        ev.answer(CONFIG, "payroll", "Processar a folha de pagamento.", "Responsabilidades")
+        == "MATCH"
+    )
+    assert (
+        ev.answer(CONFIG, "recruitment", "Conduzir o recrutamento.", "Responsabilidades") == "MATCH"
+    )

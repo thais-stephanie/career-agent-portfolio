@@ -13,6 +13,9 @@
 #   FIXED_EXPRESSION  a term translated as a unit; matched as a sequence
 #   MORPHOLOGICAL_VARIANT  a rule on roots, proven by its own examples
 #
+# A same-language synonym (client / customer, vendor / supplier) is NOT a
+# translation: it widens the concept, so it is never listed here.
+#
 # Spanish forms are a demonstration that the design is not bilingual by
 # construction. Spanish is NOT supported: the table holds a handful of words.
 version: 1
@@ -28,7 +31,7 @@ exact_equivalent:
   - {en: [adoption, adopt], pt: [adocao, adotar], es: [adopcion, adoptar]}
   - {en: [implementation, implement, implementing], pt: [implantacao, implantar], es: [implantacion]}
   - {en: [project, projects], pt: [projeto, projetos], es: [proyecto, proyectos]}
-  - {en: [customer, customers, client, clients], pt: [cliente, clientes], es: [cliente, clientes]}
+  - {en: [customer, customers], pt: [cliente, clientes], es: [cliente, clientes]}
   - {en: [sales, sale, selling], pt: [vendas, venda, vender], es: [ventas, venta, vender]}
   - {en: [report, reports, reporting], pt: [relatorio, relatorios], es: [informe, informes]}
   - {en: [analysis, analyse, analyze], pt: [analise, analises, analisar], es: [analisis, analizar]}
@@ -37,7 +40,7 @@ exact_equivalent:
   - {en: [hiring, hire], pt: [contratacao, contratar], es: [contratacion, contratar]}
   - {en: [budget, budgets], pt: [orcamento, orcamentos], es: [presupuesto, presupuestos]}
   - {en: [accounting], pt: [contabilidade], es: [contabilidad]}
-  - {en: [invoice, invoices, invoicing, billing], pt: [fatura, faturas, faturamento], es: [factura, facturas, facturacion]}
+  - {en: [invoice, invoices, invoicing], pt: [fatura, faturas, faturamento], es: [factura, facturas, facturacion]}
   - {en: [campaign, campaigns], pt: [campanha, campanhas], es: [campana, campanas]}
   - {en: [content], pt: [conteudo, conteudos], es: [contenido, contenidos]}
   - {en: [lesson, lessons], pt: [aula, aulas], es: [clase, clases]}
@@ -50,7 +53,7 @@ exact_equivalent:
   - {en: [interface, interfaces], pt: [interface, interfaces], es: [interfaz, interfaces]}
   - {en: [research], pt: [pesquisa, pesquisas], es: [investigacion]}
   - {en: [inventory], pt: [estoque, estoques, inventario, inventarios], es: [inventario]}
-  - {en: [supplier, suppliers, vendor, vendors], pt: [fornecedor, fornecedores], es: [proveedor, proveedores]}
+  - {en: [supplier, suppliers], pt: [fornecedor, fornecedores], es: [proveedor, proveedores]}
   - {en: [negotiation, negotiate], pt: [negociacao, negociar], es: [negociacion, negociar]}
   - {en: [schedule, scheduling], pt: [agenda, agendamento], es: [agenda, programacion]}
   - {en: [generation, generate], pt: [geracao, gerar], es: [generacion, generar]}

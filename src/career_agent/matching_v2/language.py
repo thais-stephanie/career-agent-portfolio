@@ -142,6 +142,10 @@ class Token:
     end: int
     sentence: int
     relation: Relation = Relation.IDENTICAL
+    #: The folded word as written ("" for a multi-word fixed expression).
+    #: A one-word preference matches the word itself or a listed form, never
+    #: a bare root: `workato` reduces to `work` (2026-10-14).
+    word: str = ""
 
 
 @dataclass(frozen=True)
@@ -180,9 +184,17 @@ class LanguageTable:
                 current = current[: -len(suffix)]
                 relation = Relation.MORPHOLOGICAL_VARIANT
                 break
-        mapped = self.words.get(current)
-        if mapped is not None and mapped[0] != current:
-            return mapped[0], Relation.EXACT_EQUIVALENT
+        # No translation by ROOT: a root can be shared across languages by
+        # words that are not the same concept (`cliente` is a translation of
+        # customer; `client` in English is a synonym, which would widen the
+        # preference). A word is translated only when its form is listed
+        # (`surface`, above). `words` stays as the record of which roots a
+        # listed concept claims (`ambiguous`, `invalidation.diff`), and for the
+        # one narrow case below.
+        if relation is Relation.MORPHOLOGICAL_VARIANT and current in self.words:
+            # A proven rule reached the root of a LISTED form's family
+            # (`sistematizar` -> `sistem`, the root of the listed `sistema`).
+            return self.words[current][0], relation
         return current, relation
 
 
@@ -295,7 +307,12 @@ def tokens(text: str, table: LanguageTable | None = None) -> list[Token]:
                 for r in target:
                     out.append(
                         Token(
-                            r, window[0][1], window[-1][2], window[0][3], Relation.FIXED_EXPRESSION
+                            r,
+                            window[0][1],
+                            window[-1][2],
+                            window[0][3],
+                            Relation.FIXED_EXPRESSION,
+                            window[0][4] if size == 1 else "",
                         )
                     )
                 i += size
@@ -309,10 +326,10 @@ def tokens(text: str, table: LanguageTable | None = None) -> list[Token]:
             target = table.fixed[(word_root,)]
             relation = Relation.IDENTICAL if target == (word_root,) else Relation.FIXED_EXPRESSION
             for r in target:
-                out.append(Token(r, start, end, sentence, relation))
+                out.append(Token(r, start, end, sentence, relation, word))
         else:
             canonical, relation = table.canonical(word_root, word)
-            out.append(Token(canonical, start, end, sentence, relation))
+            out.append(Token(canonical, start, end, sentence, relation, word))
         i += 1
     return out
 

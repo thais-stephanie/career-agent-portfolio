@@ -17,8 +17,9 @@ from typing import Any
 
 from career_agent.match.engine import JobFacts, SharedReading, read_shared
 from career_agent.match.pay import read_pay
+from career_agent.match.text import PRIMARY_SECTION, SECONDARY_SECTION, section_kind_at
 from career_agent.matching_v2 import components as comp
-from career_agent.matching_v2.context import Context, sentences
+from career_agent.matching_v2.context import Context, Sentence, sentences
 from career_agent.matching_v2.language import LanguageTable, detect_language, load_table, tokens
 
 #: The section headings of the shipped configurations (machinery: the starter
@@ -67,8 +68,27 @@ def _tokens_payload(
     text: str, offset: int = 0, table: LanguageTable | None = None
 ) -> list[list[Any]]:
     return [
-        [t.root, t.start + offset, t.end + offset, t.relation.value] for t in tokens(text, table)
+        [t.root, t.start + offset, t.end + offset, t.relation.value, t.word]
+        for t in tokens(text, table)
     ]
+
+
+def _with_machinery_sections(cut: list[Sentence], sections: tuple) -> list[Sentence]:
+    """A sentence of no known purpose that sits under one of the configured
+    section headings (the machinery the current reader marks PRIMARY or
+    SECONDARY by) takes that section's purpose, so the two readers agree on
+    what is a duty and what is a requirement. A purpose v2 already knew from
+    its own headings (benefits, about us, ...) is kept."""
+    out = []
+    for s in cut:
+        if s.context is Context.OTHER:
+            kind = section_kind_at(sections, s.start)
+            if kind == PRIMARY_SECTION:
+                s = Sentence(s.start, s.end, Context.RESPONSIBILITY, s.heading)
+            elif kind == SECONDARY_SECTION:
+                s = Sentence(s.start, s.end, Context.REQUIREMENT, s.heading)
+        out.append(s)
+    return out
 
 
 def extract(
@@ -89,7 +109,7 @@ def extract(
             "chars": len(description),
             "sections": [list(s) for s in shared.sections],
         }
-    cut = sentences(description)
+    cut = _with_machinery_sections(sentences(description), shared.sections)
     if "language" in wanted:
         payloads["language"] = {"language": detect_language(description)}
     if "sentence_context" in wanted:
