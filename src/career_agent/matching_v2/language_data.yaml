@@ -123,6 +123,34 @@ structure:
   # Not the colon, a parenthesis or a dash: in adverts they mostly introduce
   # the same item's detail (`integrations (APIs, webhooks)`), measured on
   # real postings.
+  # ONE-WORD PREFERENCES (2026-10-14). A unit of an organisation: a word
+  # right before one of these in English (`the sales team`), or after one
+  # and a preposition in Portuguese and Spanish (`equipe de vendas`), names
+  # a team, not the work the role does.
+  team_nouns:
+    en: ["team", "teams", "department", "departments", "org", "orgs", "organization",
+         "organisation", "function", "functions", "leaders", "leadership", "colleagues",
+         "counterparts", "partners", "stakeholders", "group", "groups", "unit", "units"]
+    pt: ["equipe", "equipes", "time", "times", "area", "areas", "departamento",
+         "departamentos", "setor", "setores", "lideranca", "liderancas", "gestores"]
+    es: ["equipo", "equipos", "area", "areas", "departamento", "departamentos", "sector",
+         "lideres"]
+  # Words saying the role works WITH somebody (`partner with the sales team`).
+  # A team named after one of these is somebody else's work.
+  collaboration_markers:
+    en: ["with", "alongside", "across", "between", "partner", "partners", "partnering",
+         "collaborate", "collaborates", "collaborating", "liaise", "liaising", "interface",
+         "closely", "cross", "assist", "assisting", "enable", "enabling", "serve",
+         "serving", "supporting"]
+    pt: ["com", "junto", "juntamente", "parceria", "colaborar", "colaborando", "interface"]
+    es: ["con", "junto", "colaborar", "colaborando"]
+  # English: a word right after these, or right before a determiner, is a
+  # verb (`to support`, `support the launch`). One-word preferences only.
+  verb_openers: ["to", "will", "can", "could", "would", "should", "may", "might", "must",
+                 "help", "helps", "helping"]
+  determiners: ["the", "a", "an", "our", "your", "their", "its", "his", "her", "this",
+                "these", "those", "them", "it", "us", "each", "every", "all", "one",
+                "another", "any", "some", "my"]
   clause_marks: ["|"]
 
 # OTHER SENSES. A word with a second, common meaning in job adverts, and the

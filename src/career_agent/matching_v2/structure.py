@@ -72,6 +72,13 @@ class Structure:
     senses: dict[str, tuple[str, ...]]
     #: folded listed forms that are NOT English (for a phrase's word order)
     non_english: frozenset[str]
+    #: Units of an organisation (`team`, `equipe`) and words saying the role
+    #: works with somebody (`with`, `partner`): one-word preferences only.
+    team_nouns: frozenset[str] = frozenset()
+    collaboration: frozenset[str] = frozenset()
+    #: English words after which, or before which, a word is a verb.
+    verb_openers: frozenset[str] = frozenset()
+    determiners: frozenset[str] = frozenset()
 
 
 def _words(text: str) -> list[str]:
@@ -119,6 +126,10 @@ def load_structure(path: Path = DATA) -> Structure:
         clause_marks=tuple(str(m) for m in s["clause_marks"]),
         senses=senses,
         non_english=frozenset(non_english),
+        team_nouns=flat(s.get("team_nouns", {})),
+        collaboration=flat(s.get("collaboration_markers", {})),
+        verb_openers=flat(s.get("verb_openers", [])),
+        determiners=flat(s.get("determiners", [])),
     )
 
 
@@ -231,13 +242,110 @@ def check(
     return None
 
 
+#: One-word preferences (2026-10-14): the word names a team the role works
+#: with, is the second half of a hyphenated compound (`pre-sales`), or is
+#: used as a verb (`support the launch`) where the person named the work.
+ONE_WORD_TEAM = "ONE_WORD_TEAM"
+ONE_WORD_COMPOUND = "ONE_WORD_COMPOUND"
+ONE_WORD_VERB = "ONE_WORD_VERB"
+
+#: How many words a list of team names may run before its unit noun
+#: (`Sales, Support, and Product teams`).
+_TEAM_LIST_REACH = 4
+
+
+def _raw_words(text: str) -> list[str]:
+    return re.findall(r"[^\W_]+|&", text)
+
+
+def one_word(text: str, start: int, end: int, sentence_start: int, sentence_end: int,
+             language: str = "und") -> str | None:  # fmt: skip
+    """Why ONE word of a one-word preference, found at `start:end`, is not
+    shown to be the work the person named, or None.
+
+    A phrase of two words carries its own evidence of meaning; one word
+    (`sales`, `support`, `data`) also names teams, compounds and actions.
+    Measured on a development set (2026-10-14, 280 labelled sentences), the
+    context of the sentence did NOT separate the work from the rest (a duty
+    heading holds `support the launch` as often as `customer support`); the
+    word's own grammar did:
+
+    * ONE_WORD_COMPOUND  the second half of a hyphenated compound: `pre-sales`
+      is another activity than `sales`;
+    * ONE_WORD_TEAM      the word, alone or in a list of names, names a unit
+      of the organisation the role works with (`partner with the Sales,
+      Support and Product teams`, `com a equipe de vendas`);
+    * ONE_WORD_VERB      English only: the word used as a verb, right after
+      `to` or a modal, or right before a determiner (`to support safe
+      delivery`, `support the wedding party`). A person who names a kind of
+      work names a noun.
+
+    Closed lists of ordinary grammar only (`language_data.yaml`), never a
+    profession."""
+    st = load_structure()
+    if start >= 2 and text[start - 1] == "-" and text[start - 2].isalnum():
+        return ONE_WORD_COMPOUND
+    before = _words(text[sentence_start:start])
+    after_raw = _raw_words(text[end:sentence_end])
+    after = [fold(w)[0] for w in after_raw]
+    team = False
+    for i, word in enumerate(after[:_TEAM_LIST_REACH]):
+        if word in st.team_nouns:
+            # Every word before the unit is another name in the list:
+            # capitalised, or a coordinator.
+            between = after_raw[:i]
+            team = all(w[:1].isupper() or fold(w)[0] in st.coordinators for w in between)
+            break
+    if len(before) >= 2 and before[-1] in st.prepositions and before[-2] in st.team_nouns:
+        team = True
+    # One name in a list of functions the role works with (`partner with
+    # Legal, Operations and Sales`): a separator touches the word.
+    gap_before = text[max(sentence_start, start - 3) : start]
+    gap_after = text[end : end + 5]
+    listed = any(m in gap_before for m in (",", "&", "/")) or any(
+        m in gap_after for m in (",", "&", "/")
+    )
+    listed = listed or bool(
+        (before and before[-1] in st.coordinators) or (after and after[0] in st.coordinators)
+    )
+    markers = set(before) & st.collaboration
+    if team and markers:
+        return ONE_WORD_TEAM
+    # In a list, a bare preposition (`experience with dados, metadados`) is
+    # not collaboration: it takes a verb of working together, or the list's
+    # names written as departments are (`with Legal, Sales`).
+    if listed and (markers - st.prepositions or (markers and text[start : start + 1].isupper())):
+        return ONE_WORD_TEAM
+    # A gerund names the activity itself (`Teaching mathematics`), never the
+    # helping verb.
+    if language == "en" and not fold(text[start:end])[0].endswith("ing"):
+        if before and before[-1] in st.verb_openers:
+            return ONE_WORD_VERB
+        if after and after[0] in st.determiners:
+            return ONE_WORD_VERB
+        # An imperative opening a duty (`Support month-end invoicing`): the
+        # first word of its sentence, followed by a lower-case word that is
+        # not a preposition or a coordinator.
+        if (
+            not before
+            and after_raw
+            and after_raw[0][:1].islower()
+            and (after[0] not in st.prepositions and after[0] not in st.coordinators)
+        ):
+            return ONE_WORD_VERB
+    return None
+
+
 def causes() -> Iterable[str]:
     return (
         INVERTED_HEAD,
         THIRD_PARTY_SUBJECT,
         CLAUSE_BOUNDARY,
         OTHER_SENSE,
+        ONE_WORD_TEAM,
+        ONE_WORD_COMPOUND,
+        ONE_WORD_VERB,
     )
 
 
-__all__ = ["LanguageTable", "check", "phrase_relations", "load_structure", "causes"]
+__all__ = ["LanguageTable", "check", "one_word", "phrase_relations", "load_structure", "causes"]

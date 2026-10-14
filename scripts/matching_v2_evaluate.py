@@ -75,6 +75,18 @@ PROFESSIONS = {
                           residence_country="ES"),
 }  # fmt: skip
 
+#: One-word preferences, the shape that matched company boilerplate in the
+#: first evaluation: ordinary professions, each written as ONE word.
+ONE_WORD = {
+    f"one_{word}": Answers(role_examples=(word,), residence_country=country)
+    for word, country in (
+        ("recruitment", "BR"), ("payroll", "MX"), ("support", "CO"), ("sales", "AR"),
+        ("design", "PT"), ("data", "US"), ("teaching", "ES"), ("operations", "BR"),
+        ("marketing", "CL"), ("vendas", "BR"), ("suporte", "BR"), ("recrutamento", "BR"),
+        ("enfermagem", "BR"), ("logistics", "PE"), ("accounting", "UY"),
+    )
+}  # fmt: skip
+
 
 def wizard(answers: Answers) -> SearchConfig:
     starter = yaml.safe_load((ROOT / "config" / "search.starter.yaml").read_text("utf-8"))
@@ -88,8 +100,11 @@ def wizard(answers: Answers) -> SearchConfig:
 
 
 def in_half(job_id: str, half: str) -> bool:
-    odd = int(hashlib.sha256(job_id.encode()).hexdigest(), 16) % 2 == 1
-    return odd if half == "eval" else not odd
+    """`eval` / `dev`: the two halves of the first evaluation (odd / even
+    hash). `dev2` / `blind`: classes 0 and 2 of four, both inside the even
+    half, so neither can hold a posting the first evaluation held out."""
+    h = int(hashlib.sha256(job_id.encode()).hexdigest(), 16)
+    return {"eval": h % 2 == 1, "dev": h % 2 == 0, "dev2": h % 4 == 0, "blind": h % 4 == 2}[half]
 
 
 def _sentence_span(cut: list, start: int, end: int) -> tuple[int, int]:
@@ -115,7 +130,12 @@ def _item(
 
 def build_items(a: argparse.Namespace) -> None:
     owner, _ = load_search_config(a.config_dir)
-    profiles = {"owner": owner, **{k: wizard(v) for k, v in PROFESSIONS.items()}}
+    chosen = (
+        {**PROFESSIONS, **ONE_WORD}
+        if a.profiles == "all"
+        else (ONE_WORD if a.profiles == "oneword" else PROFESSIONS)
+    )
+    profiles = {"owner": owner, **{k: wizard(v) for k, v in chosen.items()}}
     headings = (
         tuple(owner.prominence.primary_headings),
         tuple(owner.prominence.secondary_headings),
@@ -154,6 +174,7 @@ def build_items(a: argparse.Namespace) -> None:
                 it = _item(items, base, config, cut, e.signal_id, e.start, e.end)
                 if rank[e.state] > rank[it["v2"]]:
                     it["v2"], it["cause"], it["context"] = e.state, e.reason, e.context
+                    it["pattern"], it["m_start"], it["m_end"] = e.pattern, e.start, e.end
             # Near misses: every root of a reading in one sentence, neither
             # reader matching there.
             found = {(k[2], k[3]) for k in items if k[0] == name and k[1] == job.job_id}
@@ -204,7 +225,10 @@ def build_items(a: argparse.Namespace) -> None:
     with a.out.open("w", encoding="utf-8") as out:
         for i, it in enumerate(everything):
             it["id"] = f"i{i:05d}"
-            it["sentence"] = texts[str(it["job_id"])][it["start"] : it["end"]]
+            text = texts[str(it["job_id"])]
+            it["sentence"] = text[it["start"] : it["end"]]
+            if it.get("m_start") is not None:
+                it["matched"] = text[it["m_start"] : it["m_end"]]
             out.write(json.dumps(it, ensure_ascii=False) + "\n")
     order = list(everything)
     rng.shuffle(order)
@@ -281,7 +305,8 @@ def main() -> None:
     i.add_argument("--config-dir", type=Path, required=True)
     i.add_argument("--out", type=Path, required=True)
     i.add_argument("--to-label", type=Path, required=True)
-    i.add_argument("--half", choices=("eval", "dev"), default="eval")
+    i.add_argument("--half", choices=("eval", "dev", "dev2", "blind"), default="eval")
+    i.add_argument("--profiles", choices=("professions", "oneword", "all"), default="professions")
     i.add_argument("--near-misses", type=int, default=120)
     i.add_argument("--both", type=int, default=220)
     i.add_argument("--held", type=int, default=100)

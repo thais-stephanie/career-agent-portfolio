@@ -243,7 +243,7 @@ def observe_from_features(
                         state, reason = _classify(
                             description, field_name, context, sentence_start,
                             ends.get(sentence_start, len(description)), used, gap, pattern,
-                            features.language,
+                            features.language, one_word=single is not None,
                         )  # fmt: skip
                         rule = context_rule_for(signal_cfg, pattern)
                         if (
@@ -307,12 +307,21 @@ def _classify(
     gap: int,
     pattern: str,
     language: str,
+    *,
+    one_word: bool = False,
 ) -> tuple[str, str | None]:
-    """MATCH, UNCERTAIN (with its cause) or EXCLUDED_CONTEXT."""
+    """MATCH, UNCERTAIN (with its cause) or EXCLUDED_CONTEXT. A ONE-word
+    preference must also be the work the person named in its sentence, not
+    a team, a compound or a verb (`structure.one_word`)."""
     if context in NOT_WORK:
         return EXCLUDED_CONTEXT, None
     if field_name == "description":
         cause = structure.check(description, used, pattern, sentence_start, sentence_end, language)
+        if cause is None and one_word:
+            start, end = min(t.start for t in used), max(t.end for t in used)
+            cause = structure.one_word(
+                description, start, end, sentence_start, sentence_end, language
+            )
         if cause is not None:
             return UNCERTAIN, cause
     if gap > 0 and context in UNCERTAIN_WHEN_APART:

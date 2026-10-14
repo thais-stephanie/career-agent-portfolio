@@ -65,8 +65,8 @@ REGISTRY: dict[str, Component] = {
             ("job.metadata", "machinery.negation"),
         ),
         # -- what a posting is for one person ------------------------------
-        Component("work_match", "2", "profile", ("work_facts",), ("profile.lexicon",)),
-        Component("tools_match", "2", "profile", ("work_facts",), ("profile.lexicon",)),
+        Component("work_match", "3", "profile", ("work_facts",), ("profile.lexicon",)),
+        Component("tools_match", "3", "profile", ("work_facts",), ("profile.lexicon",)),
         Component(
             "eligibility",
             "1",
