@@ -203,3 +203,19 @@ def test_v2_really_reads_the_store_and_rollback_undoes_it(corpus, monkeypatch) -
     assert others == {k: v for k, v in legacy.items() if k != job_id}
     back, _ = _pass(conn, config, monkeypatch, None)
     assert back == legacy
+
+
+def test_materialisation_goes_eligible_first_and_resumes(corpus, monkeypatch) -> None:
+    conn, config = corpus
+    legacy, _ = _pass(conn, config, monkeypatch, None)
+    order = phase_c.priority_order(conn, config)
+    eligible = [j for j, r in legacy.items() if r["eligibility_status"] == "VERIFIED_ELIGIBLE"]
+    assert eligible and set(order[: len(eligible)]) == set(eligible)
+    jobs = {str(j.job_id): (j, h) for j, h in _jobs(conn)}
+    calls = iter(range(100))
+    first = phase_c.materialize(
+        conn, config, [jobs[j] for j in order], should_stop=lambda: next(calls) >= 3
+    )
+    assert first == {"written": 3, "stopped": 1}, "a budget stops the pass between postings"
+    second = phase_c.materialize(conn, config, [jobs[j] for j in order])
+    assert second == {"fresh": 3, "written": len(POSTINGS) - 3}, "and the next pass resumes"

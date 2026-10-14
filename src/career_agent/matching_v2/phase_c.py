@@ -152,3 +152,19 @@ def materialize(
         store.ensure(job, content_hash, headings, negation=config.negation)
         done["written" if store.tally.reads > before else "fresh"] += 1
     return done
+
+
+def priority_order(conn: sqlite3.Connection, config: SearchConfig) -> list[str]:
+    """Open postings with text, in the order their facts are worth having:
+    the ones this profile's stored score says are eligible first, then by
+    stored score, then every other posting. Postings already current are
+    kept in the order and skipped cheaply by `materialize`."""
+    rows = conn.execute(
+        "SELECT j.id FROM job j LEFT JOIN job_match m ON m.job_id = j.id"
+        " AND m.config_id = ? AND m.config_version = ?"
+        " WHERE j.closed_at IS NULL AND j.content_hash IS NOT NULL"
+        " ORDER BY (m.eligibility_status = 'VERIFIED_ELIGIBLE') DESC,"
+        " coalesce(m.match_score, -1) DESC, j.id",
+        (str(config.config_id), int(config.config_version)),
+    )
+    return [str(r[0]) for r in rows]
