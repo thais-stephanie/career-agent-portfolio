@@ -386,17 +386,40 @@ def default_period(
 #: "The provided range is the expected salary for candidates in the U.S.",
 #: "This range applies to U.S.-based candidates", "US salary range": the
 #: employer saying a band is the American one. Kept, never generalised.
-_US_ONLY_BAND = re.compile(
-    r"[^.\n]*\b(?:range|salary|compensation|pay)\b[^.\n]{0,80}?"
+#: Each alternative is a leading `[^.\n]*` (the run back to the last `.` or
+#: line break) followed by its anchored REST, which starts at a keyword.
+_US_ONLY_REST = (
+    r"\b(?:range|salary|compensation|pay)\b[^.\n]{0,80}?"
     r"\b(?:for|to|applies\s+to)\s+(?:candidates|applicants|roles|employees|people|those)\s+"
-    r"(?:(?:based|located|living|hired)\s+)?in\s+the\s+(?:U\.S\.?|US|USA|United\s+States)"
-    r"|[^.\n]*\b(?:U\.S\.|US)[- ]based\s+(?:candidates|applicants|roles|employees)\b"
+    r"(?:(?:based|located|living|hired)\s+)?in\s+the\s+(?:U\.S\.?|US|USA|United\s+States)",
+    r"\b(?:U\.S\.|US)[- ]based\s+(?:candidates|applicants|roles|employees)\b"
     r"[^.\n]{0,40}?\b(?:range|salary|compensation)\b",
-    re.IGNORECASE,
 )
+_US_ONLY_BAND = re.compile("|".join(r"[^.\n]*" + rest for rest in _US_ONLY_REST), re.IGNORECASE)
+_US_ONLY_ANCHORS = tuple(re.compile(rest, re.IGNORECASE) for rest in _US_ONLY_REST)
 
 
 def us_only_band(description: str | None) -> str | None:
-    """The advert's sentence saying its pay band is for the United States."""
-    found = _US_ONLY_BAND.search(description or "")
+    """The advert's sentence saying its pay band is for the United States.
+
+    The answer is `_US_ONLY_BAND.search(description).group(0).strip()`,
+    computed without the search. `search` tries every start position, and
+    from each one the leading `[^.\\n]*` runs to the end of the line before
+    backtracking: quadratic in a long line, about 24 ms per advert with a
+    salary (2026-10-14). But a match can only start where its run starts:
+    right after the last `.` or line break before the earliest place either
+    alternative's REST matches (no earlier start reaches a match without
+    crossing a break, and every later start in that run is beaten by it). So
+    the earliest REST is found first (linear: each is anchored at a keyword
+    and bounded), and the original pattern is matched once, there; it picks
+    the alternative and the keyword exactly as `search` did.
+    """
+    text = description or ""
+    starts = [m.start() for anchor in _US_ONLY_ANCHORS if (m := anchor.search(text))]
+    if not starts:
+        return None
+    first = min(starts)
+    run_start = max(text.rfind(".", 0, first), text.rfind("\n", 0, first)) + 1
+    # Never None by the argument above; `search` is kept as the definition.
+    found = _US_ONLY_BAND.match(text, run_start) or _US_ONLY_BAND.search(text)
     return found.group(0).strip() if found else None
