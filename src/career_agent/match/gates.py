@@ -19,12 +19,14 @@ sentence saying the candidate is admitted.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from bisect import bisect_left
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from career_agent.config.search_config import Blocker, SearchConfig
+from career_agent.config.search_config import Blocker, Negation, SearchConfig
 from career_agent.domain.enums import EligibilityStatus, GateResult
 from career_agent.domain.matching import (
     GATE_NAMES,
@@ -33,7 +35,7 @@ from career_agent.domain.matching import (
     ObservedSignal,
     SignalHit,
 )
-from career_agent.match.authorization import authorization_gate
+from career_agent.match.authorization import Requirement, authorization_gate, read_requirements
 from career_agent.match.lexicon import compile_patterns, is_negated_before
 from career_agent.match.places import (
     ResolvedPlace,
@@ -820,10 +822,10 @@ class _ScopeReading:
     explicit: bool
 
 
-def _clause_hit(field: FoldedText, start: int, end: int, config: SearchConfig) -> SignalHit | None:
+def _clause_hit(field: FoldedText, start: int, end: int, negation: Negation) -> SignalHit | None:
     """The sentence around a clause, or None when it should not be read at all."""
     folded_start = bisect_left(field.offsets, start)
-    if is_negated_before(field, folded_start, config.negation):
+    if is_negated_before(field, folded_start, negation):
         return None
     context = sentence_at(field.original, start, end, max_chars=len(field.original) + 1)
     hit = SignalHit(
@@ -876,7 +878,27 @@ def _is_exhaustive(field: FoldedText, list_start: int, list_text: str) -> bool:
     return _NON_EXHAUSTIVE.search(window) is None
 
 
-def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_ScopeReading]:
+@dataclass(frozen=True)
+class ScopeClause:
+    """One hiring-scope clause as the POSTING states it, before anybody's
+    country is compared with it (ADR-0037: the same for every profile).
+
+    `family` is the clause form: BROAD (`work from anywhere in LATAM`), LIST
+    (an allowlist), LIST_UNRESOLVED (an allowlist naming nothing resolvable),
+    PLAIN (a plain allowlist, which yields to a stricter reading of the same
+    words), REGION_LIST (`LATAM (Argentina, Colombia)`), REGION_ONLY and
+    EXCLUSION (`except Brazil`)."""
+
+    family: str
+    start: int
+    end: int
+    stated: str
+    place: ResolvedPlace
+    exhaustive: bool
+    explicit: bool
+
+
+def scope_clauses(field: FoldedText, negation: Negation) -> tuple[ScopeClause, ...]:
     """Read bounded hiring clauses without promoting a prefix to worldwide.
 
     Unknown qualifiers stay unknown. Country lists are compared as countries,
@@ -889,15 +911,16 @@ def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_Sco
     * an ALLOWLIST (`open to candidates based in Argentina and Chile`);
     * a REGION WITH ITS OWN LIST (`LATAM (Argentina, Colombia)`);
     * an EXCLUSION (`except Brazil`).
-    """
-    readings: list[_ScopeReading] = []
+
+    What they settle FOR A CANDIDATE is `_decide_clauses`; this reads only
+    the posting, so one reading serves every profile."""
+    out: list[ScopeClause] = []
     text = field.original
 
     for match in _SCOPE_CLAUSE.finditer(text):
         start, end = match.span()
-        if _clause_hit(field, start, end, config) is None:
+        if _clause_hit(field, start, end, negation) is None:
             continue
-        quote = text[start:end]
         qualifier = match.group("qualifier")
         stated = match.group("residence")
         if match.group("parenthetical"):
@@ -922,65 +945,25 @@ def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_Sco
             continue
         else:
             place = _resolve_list(stated)
-        verdict = _scope_verdict(config, place, exhaustive=True)
-        readings.append(
-            _ScopeReading(
-                _outcome_for(
-                    config, verdict=verdict, stated=stated, quote=quote, start=start, end=end
-                ),
-                explicit=explicit,
-            )
-        )
+        out.append(ScopeClause("BROAD", start, end, stated, place, True, explicit))
 
     for pattern in _ALLOWLIST_CLAUSES:
         for match in pattern.finditer(text):
             start, end = match.span()
-            if _clause_hit(field, start, end, config) is None:
+            if _clause_hit(field, start, end, negation) is None:
                 continue
             listed = match.group("list").strip()
             place = _resolve_list(listed)
             if not place.countries and not place.stated_regions:
-                readings.append(
-                    _ScopeReading(
-                        _outcome_for(
-                            config,
-                            verdict=None,
-                            stated=listed,
-                            quote=text[start:end],
-                            start=start,
-                            end=end,
-                        ),
-                        explicit=True,
-                    )
-                )
+                out.append(ScopeClause("LIST_UNRESOLVED", start, end, listed, place, True, True))
                 continue
             exhaustive = _is_exhaustive(field, match.start("list"), listed)
-            verdict = _scope_verdict(config, place, exhaustive=exhaustive)
-            if verdict is None:
-                # Examples that happen not to name the candidate's country.
-                # They narrow nothing; whatever region they illustrate decides.
-                continue
-            readings.append(
-                _ScopeReading(
-                    _outcome_for(
-                        config,
-                        verdict=verdict,
-                        stated=listed,
-                        quote=text[start:end],
-                        start=start,
-                        end=end,
-                    ),
-                    explicit=True,
-                )
-            )
+            out.append(ScopeClause("LIST", start, end, listed, place, exhaustive, True))
 
-    claimed = [(r.outcome.char_start, r.outcome.char_end) for r in readings]
     for pattern in _PLAIN_ALLOWLIST:
         for match in pattern.finditer(text):
             start, end = match.span()
-            if any(a is not None and b is not None and start < b and end > a for a, b in claimed):
-                continue  # the same words, already read by a stricter form
-            if _clause_hit(field, start, end, config) is None:
+            if _clause_hit(field, start, end, negation) is None:
                 continue
             if text[match.end("list") : match.end("list") + 2].lstrip()[:1] in (":", "("):
                 # "We hire in Latin America: Argentina, Colombia" -- the place
@@ -992,27 +975,11 @@ def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_Sco
             if not place.countries and not place.stated_regions:
                 continue
             exhaustive = _is_exhaustive(field, match.start("list"), listed)
-            verdict = _scope_verdict(config, place, exhaustive=exhaustive)
-            if verdict is None:
-                continue
-            claimed.append((start, end))
-            readings.append(
-                _ScopeReading(
-                    _outcome_for(
-                        config,
-                        verdict=verdict,
-                        stated=listed,
-                        quote=text[start:end],
-                        start=start,
-                        end=end,
-                    ),
-                    explicit=True,
-                )
-            )
+            out.append(ScopeClause("PLAIN", start, end, listed, place, exhaustive, True))
 
     for match in _REGION_LIST.finditer(text):
         start, end = match.span()
-        hit = _clause_hit(field, start, end, config)
+        hit = _clause_hit(field, start, end, negation)
         if hit is None or not _states_a_hiring_scope(hit):
             continue
         listed = (match.group("plist") or match.group("dlist") or "").strip()
@@ -1031,74 +998,103 @@ def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_Sco
             label = resolve_place(match.group("label"))
             named = tuple(sorted(set(place.stated_regions) | set(label.stated_regions)))
             place = ResolvedPlace(countries=place.countries, regions=named, stated_regions=named)
-        verdict = _scope_verdict(config, place, exhaustive=exhaustive)
-        if verdict is None:
-            continue
-        readings.append(
-            _ScopeReading(
-                _outcome_for(
-                    config,
-                    verdict=verdict,
-                    stated=text[start:end].strip(),
-                    quote=text[start:end],
-                    start=start,
-                    end=end,
-                ),
-                explicit=exhaustive,
-            )
-        )
+        stated = text[start:end].strip()
+        out.append(ScopeClause("REGION_LIST", start, end, stated, place, exhaustive, exhaustive))
 
     for match in _REGION_ONLY.finditer(text):
         start, end = match.span()
-        hit = _clause_hit(field, start, end, config)
+        hit = _clause_hit(field, start, end, negation)
         if hit is None or not _states_a_hiring_scope(hit):
             continue
         only = match.group("label") or match.group("label2") or ""
-        place = _resolve_list(only)
-        verdict = _scope_verdict(config, place, exhaustive=True)
-        if verdict is None:
-            continue
-        readings.append(
-            _ScopeReading(
-                _outcome_for(
-                    config,
-                    verdict=verdict,
-                    stated=only.strip(),
-                    quote=text[start:end],
-                    start=start,
-                    end=end,
-                ),
-                explicit=True,
-            )
+        out.append(
+            ScopeClause("REGION_ONLY", start, end, only.strip(), _resolve_list(only), True, True)
         )
 
     for match in _EXCLUSION.finditer(text):
         start, end = match.span()
-        if _clause_hit(field, start, end, config) is None:
+        if _clause_hit(field, start, end, negation) is None:
             continue
         listed = match.group("list").strip()
-        place = _resolve_list(listed)
-        excluded = {c.upper() for c in place.countries}
-        mine = {c.upper() for c in config.eligibility.eligible_countries}
-        if config.eligibility.candidate_country:
-            mine.add(config.eligibility.candidate_country.upper())
-        if not excluded & mine:
-            continue
-        readings.append(
-            _ScopeReading(
-                GateOutcome(
-                    gate="geography",
-                    result=GateResult.FAIL,
-                    reason=(f"The posting excludes {listed}, which names {country_label(config)}."),
-                    quote=text[start:end],
-                    char_start=start,
-                    char_end=end,
-                ),
-                explicit=True,
-            )
+        out.append(ScopeClause("EXCLUSION", start, end, listed, _resolve_list(listed), True, True))
+
+    return tuple(out)
+
+
+def _decide_clauses(
+    config: SearchConfig, clauses: Sequence[ScopeClause], text: str
+) -> list[_ScopeReading]:
+    """What each clause settles for THIS candidate, in the order read."""
+    readings: list[_ScopeReading] = []
+
+    def reading(c: ScopeClause, verdict: bool | None, explicit: bool) -> _ScopeReading:
+        return _ScopeReading(
+            _outcome_for(
+                config,
+                verdict=verdict,
+                stated=c.stated,
+                quote=text[c.start : c.end],
+                start=c.start,
+                end=c.end,
+            ),
+            explicit=explicit,
         )
 
+    claimed: list[tuple[int | None, int | None]] | None = None
+    for c in clauses:
+        if c.family == "PLAIN" and claimed is None:
+            claimed = [(r.outcome.char_start, r.outcome.char_end) for r in readings]
+        if c.family == "BROAD":
+            verdict = _scope_verdict(config, c.place, exhaustive=True)
+            readings.append(reading(c, verdict, c.explicit))
+        elif c.family == "LIST_UNRESOLVED":
+            readings.append(reading(c, None, True))
+        elif c.family in ("LIST", "REGION_LIST", "REGION_ONLY"):
+            verdict = _scope_verdict(config, c.place, exhaustive=c.exhaustive)
+            if verdict is None:
+                # Examples that happen not to name the candidate's country.
+                # They narrow nothing; whatever region they illustrate decides.
+                continue
+            readings.append(reading(c, verdict, c.explicit))
+        elif c.family == "PLAIN":
+            assert claimed is not None
+            if any(
+                a is not None and b is not None and c.start < b and c.end > a for a, b in claimed
+            ):
+                continue  # the same words, already read by a stricter form
+            verdict = _scope_verdict(config, c.place, exhaustive=c.exhaustive)
+            if verdict is None:
+                continue
+            claimed.append((c.start, c.end))
+            readings.append(reading(c, verdict, True))
+        elif c.family == "EXCLUSION":
+            excluded = {x.upper() for x in c.place.countries}
+            mine = {x.upper() for x in config.eligibility.eligible_countries}
+            if config.eligibility.candidate_country:
+                mine.add(config.eligibility.candidate_country.upper())
+            if not excluded & mine:
+                continue
+            readings.append(
+                _ScopeReading(
+                    GateOutcome(
+                        gate="geography",
+                        result=GateResult.FAIL,
+                        reason=(
+                            f"The posting excludes {c.stated}, which names {country_label(config)}."
+                        ),
+                        quote=text[c.start : c.end],
+                        char_start=c.start,
+                        char_end=c.end,
+                    ),
+                    explicit=True,
+                )
+            )
     return readings
+
+
+def _scope_clause_readings(config: SearchConfig, field: FoldedText) -> list[_ScopeReading]:
+    """The clauses of a posting, decided for one candidate."""
+    return _decide_clauses(config, scope_clauses(field, config.negation), field.original)
 
 
 def _scope_clause_outcomes(config: SearchConfig, field: FoldedText) -> list[GateOutcome]:
@@ -1413,8 +1409,24 @@ _REQUIRED_ATTENDANCE = re.compile(
 )
 
 
+_NOT_READ = object()
+
+
+def attendance_statement(field: FoldedText, negation: Negation) -> tuple[int, int] | None:
+    """Where the posting states, in so many words, that the office must be
+    attended: the first such statement, as a span of the original text."""
+    for match in _REQUIRED_ATTENDANCE.finditer(field.folded):
+        if "home office" in match.group() or is_negated_before(field, match.start(), negation):
+            continue
+        return field.offsets[match.start()], field.offsets[match.end() - 1] + 1
+    return None
+
+
 def _required_attendance(
-    config: SearchConfig, field: FoldedText, place: ResolvedPlace | None
+    config: SearchConfig,
+    field: FoldedText,
+    place: ResolvedPlace | None,
+    statement: tuple[int, int] | None | object = _NOT_READ,
 ) -> GateOutcome | None:
     """An explicit attendance obligation is independent of remote-work benefits.
 
@@ -1422,13 +1434,11 @@ def _required_attendance(
     cannot prove the candidate can attend this office; that needs confirmation.
     No occupation, employer, country or preferred-title exceptions are involved.
     """
-    for match in _REQUIRED_ATTENDANCE.finditer(field.folded):
-        if "home office" in match.group() or is_negated_before(
-            field, match.start(), config.negation
-        ):
-            continue
-        start = field.offsets[match.start()]
-        end = field.offsets[match.end() - 1] + 1
+    if statement is _NOT_READ:
+        statement = attendance_statement(field, config.negation)
+    if statement is not None:
+        assert isinstance(statement, tuple)
+        start, end = statement
         countries = {c.upper() for c in place.countries} if place else set()
         compatible = countries & _candidate_countries(config)
         # An office in a country she cannot work from is a proven
@@ -1486,20 +1496,66 @@ def _security_requirements(field: FoldedText) -> GateOutcome | None:
         if not quote:
             continue
         at = text.find(quote, start)
-        return GateOutcome(
-            gate="clearance",
-            result=GateResult.UNRESOLVED,
-            reason=(
-                "The posting says the role may need a U.S. security clearance or access to "
-                "export-controlled information. That usually depends on citizenship or U.S. "
-                "status, which the posting does not state; confirm before applying."
-            ),
-            quote=quote,
-            char_start=at,
-            char_end=at + len(quote),
-            code="US_SECURITY_REQUIREMENTS",
-        )
+        return security_outcome(quote, at)
     return None
+
+
+def security_outcome(quote: str, at: int) -> GateOutcome:
+    """The clearance gate left to confirm, for a requirement stated at `at`."""
+    return GateOutcome(
+        gate="clearance",
+        result=GateResult.UNRESOLVED,
+        reason=(
+            "The posting says the role may need a U.S. security clearance or access to "
+            "export-controlled information. That usually depends on citizenship or U.S. "
+            "status, which the posting does not state; confirm before applying."
+        ),
+        quote=quote,
+        char_start=at,
+        char_end=at + len(quote),
+        code="US_SECURITY_REQUIREMENTS",
+    )
+
+
+@dataclass(frozen=True)
+class EligibilityFacts:
+    """What a posting states about who may take it, read once for every
+    profile (ADR-0037). Each is a statement with its place in the text; none
+    compares anything with a candidate. `negation` names the negation lists
+    the readings were made with: a profile whose lists differ reads again."""
+
+    negation: str
+    clauses: tuple[ScopeClause, ...]
+    attendance: tuple[int, int] | None
+    security: GateOutcome | None
+    #: Explicit right-to-work requirements, read with the posting's own
+    #: country only when the board says the work is on site or hybrid.
+    requirements: tuple[Requirement, ...]
+
+
+def negation_key(negation: Negation) -> str:
+    """A short digest of the negation lists (machinery: the same in every
+    configuration the setup wizard writes)."""
+    text = json.dumps(negation.model_dump(mode="json"), sort_keys=True)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def read_eligibility_facts(
+    description_field: FoldedText,
+    negation: Negation,
+    place: ResolvedPlace | None,
+    workplace_type: str | None,
+) -> EligibilityFacts:
+    on_site = workplace_type in ("ONSITE", "HYBRID")
+    return EligibilityFacts(
+        negation=negation_key(negation),
+        clauses=scope_clauses(description_field, negation),
+        attendance=attendance_statement(description_field, negation),
+        security=_security_requirements(description_field),
+        requirements=tuple(
+            read_requirements(negation, description_field, place if on_site else None)
+        ),
+    )
 
 
 def evaluate_gates(
@@ -1513,8 +1569,13 @@ def evaluate_gates(
     place: ResolvedPlace | None = None,
     location_raw: str | None = None,
     employment: EmploymentReading | None = None,
+    facts: EligibilityFacts | None = None,
 ) -> tuple[GateOutcome, ...]:
     """Answer every configured gate from the posting text alone.
+
+    `facts` are the posting's statements about eligibility, read once for
+    every profile (`read_eligibility_facts`); read here when not given. The
+    decision below is the same code either way.
 
     `observed` is accepted and not read. The gates deliberately re-search the
     text for blocker phrases rather than reusing lexicon hits: a lexicon signal
@@ -1552,6 +1613,8 @@ def evaluate_gates(
         description if isinstance(description, FoldedText) else fold_field(description, sections)
     )
     scope_field = fold_field(declared_scope) if declared_scope else None
+    if facts is None or facts.negation != negation_key(config.negation):
+        facts = read_eligibility_facts(description_field, config.negation, place, workplace_type)
     outcomes: list[GateOutcome] = []
 
     for gate in GATE_ORDER:
@@ -1584,17 +1647,24 @@ def evaluate_gates(
                 break
 
         if outcome is None and gate == "worksite":
-            outcome = _required_attendance(config, description_field, place)
+            outcome = _required_attendance(
+                config, description_field, place, statement=facts.attendance
+            )
 
         if outcome is None and gate == "clearance":
-            outcome = _security_requirements(description_field)
+            outcome = facts.security
 
         if outcome is None and gate == "work_authorization":
             # What the posting REQUIRES about the right to work, read against
             # what the candidate DECLARED (`match.authorization`). A configured
             # blocker above still decides first, as it always has.
             outcome = authorization_gate(
-                config, description_field, place, employment, workplace_type
+                config,
+                description_field,
+                place,
+                employment,
+                workplace_type,
+                requirements=facts.requirements,
             )
 
         if gate == "geography" and place is not None and workplace_type == "REMOTE":
@@ -1698,7 +1768,7 @@ def evaluate_gates(
                             f"{country_label(config)}."
                         ),
                     )
-            clause_readings = _scope_clause_readings(config, description_field)
+            clause_readings = _decide_clauses(config, facts.clauses, description_field.original)
             outcome = _reconcile_scope_clauses(clause_readings, outcome)
             # THE EMPLOYER'S OWN EXPLICIT STATEMENT ADMITS HER (2026-10-10).
             # "Candidates must be based in Latin America" beside a published

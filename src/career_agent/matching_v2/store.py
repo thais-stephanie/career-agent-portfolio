@@ -22,15 +22,23 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from career_agent.config.search_config import SearchConfig
+from career_agent.config.search_config import Negation, SearchConfig
 from career_agent.match.engine import JobFacts
+from career_agent.match.gates import negation_key
 from career_agent.matching_v2 import components as comp
 from career_agent.matching_v2 import features as feat
 from career_agent.matching_v2 import profile_match as pm
 
 #: Stored next to each other in `job_features`; everything else of a posting
 #: is recomputed on demand (`features.work_units`, `resolve_place`).
-_FACT_COMPONENTS = ("text_parser", "language", "pay_facts", "seniority_facts", "engagement_facts")
+_FACT_COMPONENTS = (
+    "text_parser",
+    "language",
+    "pay_facts",
+    "seniority_facts",
+    "engagement_facts",
+    "eligibility_facts",
+)
 
 
 def _now() -> str:
@@ -88,12 +96,18 @@ class FeatureStore:
         payloads["sentence_context"] = row[2]
         payloads.setdefault("work_facts", None)
         payloads.setdefault("location_facts", None)
+        payloads.setdefault("eligibility_facts", None)
         return self._versions_map(row[1]), json.loads(row[0]), payloads
 
     def ensure(
-        self, job: JobFacts, content_hash: str, headings: tuple[tuple[str, ...], tuple[str, ...]]
+        self,
+        job: JobFacts,
+        content_hash: str,
+        headings: tuple[tuple[str, ...], tuple[str, ...]],
+        negation: Negation | None = None,
     ) -> feat.JobFeatures:
-        inputs = feat.job_inputs(job, content_hash, headings)
+        key = "" if negation is None else negation_key(negation)
+        inputs = feat.job_inputs(job, content_hash, headings, key)
         expected = {name: comp.stamp(name, inputs) for name in comp.JOB_COMPONENTS}
         held = self.stored(str(job.job_id))
         if held is None:
@@ -105,7 +119,7 @@ class FeatureStore:
             stale = comp.stale(comp.JOB_COMPONENTS, versions, stored_inputs, inputs)
         shared = None
         if stale:
-            fresh = feat.extract(job, content_hash, headings, only=stale)
+            fresh = feat.extract(job, content_hash, headings, only=stale, negation=negation)
             self.tally.reads += 1
             shared = fresh.shared
             payloads = {**payloads, **fresh.payloads}
@@ -228,7 +242,8 @@ class MatchStore:
             tuple(config.prominence.primary_headings),
             tuple(config.prominence.secondary_headings),
         )
-        return {**feat.job_inputs(job, content_hash, headings), **pm.profile_inputs(config)}
+        key = negation_key(config.negation)
+        return {**feat.job_inputs(job, content_hash, headings, key), **pm.profile_inputs(config)}
 
     def stale(self, config: SearchConfig, job: JobFacts, content_hash: str) -> set[str]:
         held = self._held(str(job.job_id))

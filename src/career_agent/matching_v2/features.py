@@ -35,15 +35,24 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from career_agent.config.search_config import Negation
+from career_agent.match.authorization import Requirement
 from career_agent.match.engine import JobFacts, SharedReading, read_shared
+from career_agent.match.gates import (
+    EligibilityFacts,
+    ScopeClause,
+    negation_key,
+    security_outcome,
+)
 from career_agent.match.pay import read_pay
-from career_agent.match.places import resolve_place
+from career_agent.match.places import ResolvedPlace, resolve_place
 from career_agent.match.text import (
     PRIMARY_SECTION,
     SECONDARY_SECTION,
     Section,
     fold_field,
     section_kind_at,
+    sentence_at,
 )
 from career_agent.matching_v2 import components as comp
 from career_agent.matching_v2.context import Context, Sentence, sentences
@@ -134,9 +143,13 @@ class JobFeatures:
         return str(self.payloads.get("language") or "und")
 
 
-def job_inputs(job: JobFacts, content_hash: str, headings: tuple) -> dict[str, str]:
-    """The raw inputs of a posting's components, as digests."""
+def job_inputs(
+    job: JobFacts, content_hash: str, headings: tuple, negation: str = ""
+) -> dict[str, str]:
+    """The raw inputs of a posting's components, as digests. `negation` is
+    `gates.negation_key` of the negation lists the facts are read with."""
     return {
+        "machinery.negation": negation,
         "job.text": comp.digest([content_hash, job.title]),
         "job.metadata": comp.digest(
             {
@@ -188,12 +201,15 @@ def extract(
     headings: tuple[tuple[str, ...], tuple[str, ...]] = DEFAULT_HEADINGS,
     only: set[str] | None = None,
     table: LanguageTable | None = None,
+    negation: Negation | None = None,
 ) -> JobFeatures:
     """Read one posting into its shared components. `only` limits the work to
-    the components a caller found stale; the others are not computed."""
+    the components a caller found stale; the others are not computed.
+    Without `negation` (machinery) the eligibility facts are not read here and
+    each profile reads them for itself, as production does."""
     del table  # tokens are made on demand (`work_units`)
     wanted = set(only) if only is not None else set(comp.JOB_COMPONENTS)
-    shared = read_shared(job, list(headings[0]), list(headings[1]))
+    shared = read_shared(job, list(headings[0]), list(headings[1]), negation)
     payloads: dict[str, Any] = {}
     description = job.description
     if "text_parser" in wanted:
@@ -232,7 +248,12 @@ def extract(
             "domestic": _domestic_to_dict(shared.domestic),
             "explicit": shared.explicit,
         }
-    inputs = job_inputs(job, content_hash, headings)
+    if "eligibility_facts" in wanted:
+        payloads["eligibility_facts"] = (
+            None if shared.eligibility is None else eligibility_to_dict(shared.eligibility)
+        )
+    key = "" if negation is None else negation_key(negation)
+    inputs = job_inputs(job, content_hash, headings, key)
     stamps = {name: comp.stamp(name, inputs) for name in payloads}
     return JobFeatures(
         job_id=str(job.job_id or ""),
@@ -260,6 +281,56 @@ def shared_from_facts(job: JobFacts, features: JobFeatures) -> SharedReading:
         place=resolve_place(job.location_raw),
         us_band=None if us is None else job.description[us[0] : us[1]],
         explicit=p["engagement_facts"]["explicit"],
+        eligibility=None
+        if p.get("eligibility_facts") is None
+        else eligibility_from_dict(p["eligibility_facts"], job.description),
+    )
+
+
+def eligibility_to_dict(f: EligibilityFacts) -> dict[str, Any]:
+    """Compact: every statement is a span of the advert, never a copy."""
+    return {
+        "neg": f.negation,
+        "clauses": [
+            [
+                c.family,
+                c.start,
+                c.end,
+                c.stated,
+                list(c.place.countries),
+                list(c.place.regions),
+                list(c.place.stated_regions),
+                c.exhaustive,
+                c.explicit,
+            ]
+            for c in f.clauses
+        ],
+        "attendance": None if f.attendance is None else list(f.attendance),
+        "security": None if f.security is None else [f.security.char_start, f.security.char_end],
+        "requirements": [
+            [r.kind, r.country, r.region, r.char_start, r.char_end] for r in f.requirements
+        ],
+    }
+
+
+def eligibility_from_dict(d: dict[str, Any], text: str) -> EligibilityFacts:
+    security = d["security"]
+    return EligibilityFacts(
+        negation=d["neg"],
+        clauses=tuple(
+            ScopeClause(
+                family, start, end, stated, ResolvedPlace(tuple(c), tuple(r), tuple(sr)), ex, expl
+            )
+            for family, start, end, stated, c, r, sr, ex, expl in d["clauses"]
+        ),
+        attendance=None if d["attendance"] is None else (d["attendance"][0], d["attendance"][1]),
+        security=None
+        if security is None
+        else security_outcome(text[security[0] : security[1]], security[0]),
+        requirements=tuple(
+            Requirement(kind, country, sentence_at(text, start, end), start, end, region)
+            for kind, country, region, start, end in d["requirements"]
+        ),
     )
 
 

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from career_agent.config.search_config import SearchConfig
+from career_agent.config.search_config import Negation, SearchConfig
 from career_agent.domain.enums import ContentCompleteness, GateResult, ScreeningState
 from career_agent.domain.matching import (
     DomesticReading,
@@ -43,7 +43,12 @@ from career_agent.match.engagement import (
 )
 from career_agent.match.experience import read_experience
 from career_agent.match.explicit import explicit_facts
-from career_agent.match.gates import eligibility_status_from, evaluate_gates
+from career_agent.match.gates import (
+    EligibilityFacts,
+    eligibility_status_from,
+    evaluate_gates,
+    read_eligibility_facts,
+)
 from career_agent.match.lexicon import body_only, observe
 from career_agent.match.pay import default_period, read_pay, us_only_band
 from career_agent.match.places import ResolvedPlace, resolve_place
@@ -288,15 +293,23 @@ class SharedReading:
     #: is the slowest reading of a posting with a salary (about 24 ms).
     us_band: str | None = None
     explicit: dict[str, object] | None = None
+    #: What the posting states about who may take it (`gates.EligibilityFacts`),
+    #: read once; each profile decides from it with its own answers.
+    eligibility: EligibilityFacts | None = None
 
 
 def read_shared(
-    job: JobFacts, primary_headings: list[str], secondary_headings: list[str]
+    job: JobFacts,
+    primary_headings: list[str],
+    secondary_headings: list[str],
+    negation: Negation | None = None,
 ) -> SharedReading:
-    """The profile-independent half of `match_job`, in the same order."""
+    """The profile-independent half of `match_job`, in the same order. With
+    the negation lists (machinery), the eligibility facts are read too."""
     sections = tuple(split_sections(job.description, primary_headings, secondary_headings))
     title_field = fold_field(job.title)
     description_field = fold_field(job.description, sections)
+    place = resolve_place(job.location_raw)
     return SharedReading(
         sections=sections,
         title_field=title_field,
@@ -309,10 +322,13 @@ def read_shared(
         ),
         domestic=read_domestic_context(description_field),
         experience=read_experience(job.description),
-        place=resolve_place(job.location_raw),
+        place=place,
         # Same condition as `posting_facts`: only a posting with a figure.
         us_band=us_only_band(job.description) if _has_salary(job) else None,
         explicit=explicit_facts(job.description),
+        eligibility=None
+        if negation is None
+        else read_eligibility_facts(description_field, negation, place, job.workplace_type),
     )
 
 
@@ -386,6 +402,7 @@ def match_job(
         # `Remote U.S.` rather than a sentence this product composed about it.
         location_raw=job.location_raw,
         employment=employment,
+        facts=shared.eligibility,
     )
     eligibility = eligibility_status_from(gates)
     # The contractor default rides beside the stated reading, AFTER the gates:

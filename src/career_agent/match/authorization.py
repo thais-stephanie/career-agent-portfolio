@@ -40,9 +40,10 @@ read as a requirement about any country.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-from career_agent.config.search_config import Eligibility, SearchConfig
+from career_agent.config.search_config import Eligibility, Negation, SearchConfig
 from career_agent.domain.enums import EmploymentRelationship, EmploymentSource, GateResult
 from career_agent.domain.matching import EmploymentReading, GateOutcome
 from career_agent.match.lexicon import is_negated_before
@@ -130,15 +131,18 @@ def _one(place: ResolvedPlace | None) -> str | None:
 
 
 def read_requirements(
-    config: SearchConfig, field: FoldedText, place: ResolvedPlace | None = None
+    config: SearchConfig | Negation, field: FoldedText, place: ResolvedPlace | None = None
 ) -> list[Requirement]:
-    """Every explicit requirement about the right to work, in text order."""
+    """Every explicit requirement about the right to work, in text order.
+    Reads the posting and the negation lists only (a configuration or its
+    `negation` section): the same for every candidate."""
+    negation = config.negation if isinstance(config, SearchConfig) else config
     out: list[Requirement] = []
 
     def add(
         kind: str, country: str | None, match: re.Match[str], region: str | None = None
     ) -> None:
-        if is_negated_before(field, match.start(), config.negation):
+        if is_negated_before(field, match.start(), negation):
             return
         start = field.offsets[match.start()]
         end = field.offsets[match.end() - 1] + 1
@@ -303,6 +307,7 @@ def authorization_gate(
     place: ResolvedPlace | None = None,
     employment: EmploymentReading | None = None,
     workplace_type: str | None = None,
+    requirements: Sequence[Requirement] | None = None,
 ) -> GateOutcome | None:
     """The work_authorization gate from requirements and declarations, or None
     when the posting states no requirement. Any INCOMPATIBLE answer decides
@@ -315,7 +320,11 @@ def authorization_gate(
     not stated, may be the company's office (invariant 3), and the company's
     country is not where she would work."""
     on_site = workplace_type in ("ONSITE", "HYBRID")
-    found = read_requirements(config, field, place if on_site else None)
+    found = (
+        list(requirements)
+        if requirements is not None
+        else read_requirements(config, field, place if on_site else None)
+    )
     contractor = contractor_requirement(employment, place)
     if contractor is not None:
         found.append(contractor)

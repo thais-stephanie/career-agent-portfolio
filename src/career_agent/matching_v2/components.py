@@ -54,6 +54,16 @@ REGISTRY: dict[str, Component] = {
         Component("location_facts", "1", "job", ("text_parser",), ("job.metadata",)),
         Component("seniority_facts", "1", "job", ("text_parser",)),
         Component("engagement_facts", "1", "job", ("text_parser",), ("job.metadata",)),
+        # What the posting states about who may take it (scope clauses,
+        # residence, authorization, citizenship, sponsorship, clearance,
+        # attendance), read with the negation lists, which are machinery.
+        Component(
+            "eligibility_facts",
+            "1",
+            "job",
+            ("text_parser",),
+            ("job.metadata", "machinery.negation"),
+        ),
         # -- what a posting is for one person ------------------------------
         Component("work_match", "2", "profile", ("work_facts",), ("profile.lexicon",)),
         Component("tools_match", "2", "profile", ("work_facts",), ("profile.lexicon",)),
@@ -61,9 +71,10 @@ REGISTRY: dict[str, Component] = {
             "eligibility",
             "1",
             "profile",
-            # The gates still read the advert's text for configured blocker
-            # phrases (ADR-0037, "not done"), hence `text_parser`.
-            ("location_facts", "engagement_facts", "text_parser"),
+            # The posting's statements are shared (`eligibility_facts`); a
+            # person's own blocker phrases and scope phrases are hers and are
+            # still looked for in the text, hence `text_parser`.
+            ("location_facts", "engagement_facts", "eligibility_facts", "text_parser"),
             ("profile.eligibility",),
         ),
         Component(

@@ -141,7 +141,8 @@ def run_all(catalogue, jobs, profiles, features: FeatureStore | None = None):
     out: dict[str, dict[str, dict]] = {k: {} for k in profiles}
     with transaction(catalogue):
         for job_key, (job, content_hash) in jobs.items():
-            shared = features.ensure(job, content_hash, headings(profiles["automation"][0]))
+            machinery = profiles["automation"][0]
+            shared = features.ensure(job, content_hash, headings(machinery), machinery.negation)
             for p_key, (config, conn) in profiles.items():
                 with transaction(conn):
                     out[p_key][job_key] = stores[p_key].ensure(config, job, content_hash, shared)
@@ -271,7 +272,12 @@ def test_a_location_change_leaves_the_words_alone(world) -> None:
         location_raw="Remote, Latin America",
     )  # fmt: skip
     features, stores, _ = run_all(catalogue, {"sales": (moved, content_hash)}, profiles)
-    assert set(features.tally.computed) == {"pay_facts", "location_facts", "engagement_facts"}
+    assert set(features.tally.computed) == {
+        "pay_facts",
+        "location_facts",
+        "engagement_facts",
+        "eligibility_facts",
+    }
     for store in stores.values():
         assert "work_match" not in store.tally.computed
         assert {"eligibility", "score"} <= set(store.tally.computed)

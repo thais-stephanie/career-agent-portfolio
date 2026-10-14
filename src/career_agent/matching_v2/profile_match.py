@@ -25,6 +25,7 @@ from functools import lru_cache
 from career_agent.config.search_config import SearchConfig
 from career_agent.domain.matching import MatchResult, ObservedSignal, SignalHit
 from career_agent.match.engine import JobFacts, match_job, read_shared
+from career_agent.match.gates import negation_key
 from career_agent.match.lexicon import (
     context_allows,
     context_rule_for,
@@ -330,7 +331,10 @@ def match(
             shared_from_facts(job, features)
             if features.payloads.get("seniority_facts") is not None
             else read_shared(
-                job, config.prominence.primary_headings, config.prominence.secondary_headings
+                job,
+                config.prominence.primary_headings,
+                config.prominence.secondary_headings,
+                config.negation,
             )
         )
     observed, evidence = observe_from_features(config, features, job)
@@ -341,6 +345,7 @@ def match(
         tuple(config.prominence.primary_headings),
         tuple(config.prominence.secondary_headings),
     )
-    inputs = {**job_inputs(job, features.content_hash, headings), **profile_inputs(config)}
+    key = negation_key(config.negation)
+    inputs = {**job_inputs(job, features.content_hash, headings, key), **profile_inputs(config)}
     stamps = _stamps(tuple(sorted(inputs.items())))
     return ProfileJobMatch(str(job.job_id or ""), result, evidence, stamps)
