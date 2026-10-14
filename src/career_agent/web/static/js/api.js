@@ -1133,9 +1133,23 @@ export async function getJobDescriptions(ids) {
   return request(`/jobs/descriptions?${query.toString()}`);
 }
 
+//: Home asked while an identical request is still on its way gets the same
+//: answer: the page asked twice as it opened, and on a cold disk each one was
+//: a full read on the server.
+let homeInFlight = null;
+
 export async function getHome() {
   if (MOCK) throw noCandidateHere();
-  return request('/home');
+  if (!homeInFlight) {
+    homeInFlight = request('/home').finally(() => { homeInFlight = null; });
+  }
+  return homeInFlight;
+}
+
+/** How many scores a recalculation would update now; Home asks it apart. */
+export async function getHomeOutdated() {
+  if (MOCK) throw noCandidateHere();
+  return request('/home/outdated');
 }
 
 export async function getDaily() {

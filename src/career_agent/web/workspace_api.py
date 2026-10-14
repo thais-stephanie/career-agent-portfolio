@@ -34,6 +34,7 @@ from __future__ import annotations
 import base64
 import binascii
 import sqlite3
+import threading
 import time
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
@@ -64,6 +65,9 @@ MAX_NOTE = 2000
 HOME_MEMO_SECONDS = 600
 #: While a recalculation runs, Home is read again at most once a minute.
 HOME_RUNNING_REUSE_SECONDS = 60
+#: One Home read at a time: a second request waits and reads the first's answer.
+_HOME_GATE = threading.Lock()
+_OUTDATED_GATE = threading.Lock()
 
 #: The claim types somebody may create by hand. Every one of `ClaimType`
 #: except `METRIC`, which is deliberately absent: a metric on its own is a
@@ -568,6 +572,7 @@ class WorkspaceRoutes(_MixinBase):
         self.register("POST", r"/api/intake/(?P<package_id>[^/]+)/delete", self.intake_delete)
 
         self.register("GET", r"/api/home", self.home)
+        self.register("GET", r"/api/home/outdated", self.home_outdated)
         self.register("GET", r"/api/daily", self.daily)
         self.register("POST", r"/api/daily/reviewed", self.mark_reviewed)
 
@@ -1893,6 +1898,54 @@ class WorkspaceRoutes(_MixinBase):
     # the daily digest
     # =================================================================
     def home(self, *, query: dict, body: dict) -> dict:
+        """Home, computed once for every request that asks at the same time.
+
+        The page asked for Home twice as it opened and each request did the
+        whole read (16 s and 21 s, side by side, on the real corpus after a
+        restart): the second now waits for the first and reads its answer.
+        """
+        with _HOME_GATE:
+            return self._home(query=query, body=body)
+
+    def home_outdated(self, *, query: dict, body: dict) -> dict:
+        """How many scores a recalculation would update now, asked apart.
+
+        The slowest part of Home on a cold disk (the targeted pass's own
+        plan), so Home draws without it and this fills the task row in. The
+        same plan the Recalculate button runs, so the two never disagree.
+        Remembered until a posting or a score is written. During a run it is
+        the run's total minus the scores it has COMMITTED, never a plan read
+        against the tables being written.
+        """
+        from career_agent.pipeline.rescore import plan as rescore_plan
+
+        rescore = getattr(self, "rescore", None)
+        if rescore is not None and rescore.running:
+            snap = rescore.snapshot() or {}
+            left = max(0, int(snap.get("boards_total") or 0) - int(snap.get("boards_done") or 0))
+            return {"outdated": left, "running": True}
+        with _OUTDATED_GATE, _closing(self.connect()) as conn:
+            config = self.search_config()
+            config_id, config_version = self._identity()
+            key = (
+                str(self.config.db_path),
+                config_id,
+                config_version,
+                str(getattr(config, "digest", "")),
+                self._jobs_freshness(conn),
+            )
+            memo = getattr(self, "_outdated_memo", None)
+            if (
+                memo is not None
+                and memo[0] == key
+                and time.monotonic() - memo[1] < HOME_MEMO_SECONDS
+            ):
+                return {"outdated": memo[2], "running": False}
+            outdated = len(rescore_plan(conn, config).targets)
+        self._outdated_memo = (key, time.monotonic(), outdated)
+        return {"outdated": outdated, "running": False}
+
+    def _home(self, *, query: dict, body: dict) -> dict:
         """Where the job search stands today.
 
         Counts and two short lists, and every figure declares whether it is a
@@ -1913,7 +1966,6 @@ class WorkspaceRoutes(_MixinBase):
             profile_gaps,
             read_unsure,
         )
-        from career_agent.pipeline.rescore import plan as rescore_plan
         from career_agent.storage.mvp_repo import ScoredJobQuery
         from career_agent.storage.workspace_repo import (
             LAST_REVIEWED_AT,
@@ -1985,19 +2037,17 @@ class WorkspaceRoutes(_MixinBase):
             )
             gaps = profile_gaps(conn, config)
             pending = declarations_pending(config, read_unsure(conn))
-            # What "Recalculate" would score: the targeted pass's own plan, so
-            # this count and the button can never disagree. Reads indexes only.
-            #
-            # While it runs the plan is not asked (seconds, against the tables
-            # being written): what is still to update is the run's own total
-            # minus the scores it has COMMITTED.
+            # What "Recalculate" would score is asked apart (`home_outdated`):
+            # it is the slowest read here on a cold disk, and nothing else on
+            # Home waits for it. While a run goes, the run's own committed
+            # count is already known and is given at once.
             if running:
                 snap = getattr(self, "rescore").snapshot() or {}  # noqa: B009
-                outdated = max(
+                outdated: int | None = max(
                     0, int(snap.get("boards_total") or 0) - int(snap.get("boards_done") or 0)
                 )
             else:
-                outdated = len(rescore_plan(conn, config).targets)
+                outdated = None
             refresh_run = latest_refresh_run(conn)
             total = repo.count(config_id, config_version, default_filter(show))
             open_jobs = conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NULL").fetchone()[

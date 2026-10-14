@@ -1,0 +1,13 @@
+-- Migration 0054: the length of each advert, answerable from an index.
+-- scope: catalogue
+--
+-- Additive only: one index, no data moves. The deep reading counts which
+-- roles of the main list have enough text to read, and the count joined
+-- every candidate posting (about 135,000 on the owner's corpus) to its
+-- stored advert only to learn its length: one record of the 4.6 GB catalogue
+-- per posting, 28 to 32 seconds whenever those pages were not already in
+-- memory. With the length in an index the same count reads the index alone:
+-- 2.5 to 2.9 seconds on a copy of the same corpus, with the same verdict for
+-- every posting. Building it reads every advert once (33 seconds on that
+-- copy), at the first start after the update.
+CREATE INDEX IF NOT EXISTS idx_job_raw_chars ON job_raw (content_hash, length(description_text));

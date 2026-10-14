@@ -508,6 +508,7 @@ def test_a_pre_0047_database_migrates_additively_and_once(tmp_path: Path) -> Non
         (51, "deep_review"),
         (52, "deep_job"),
         (53, "job_match_reading_and_engagement"),
+        (54, "job_raw_chars"),
     ]
     assert set(table_names(conn)) - before == {
         "resume_document",

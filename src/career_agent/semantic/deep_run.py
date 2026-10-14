@@ -218,25 +218,19 @@ def population_rows(
     return conn.execute(
         "SELECT j.id, j.content_hash, j.title, j.company_id, jm.match_score, jm.fit_band,"
         "       jm.eligibility_status, j.posted_at,"
-        # The advert's length WITHOUT reading the advert: `octet_length` is
-        # in the record header, while `length` counts characters and so
-        # reads every page of every description (50 s on a 172,000-posting
-        # corpus). A text of N bytes holds between N/4 and N characters, so
-        # from 800 bytes up it is certainly readable (>= 200 characters) and
-        # only shorter texts are counted exactly. `chars` is therefore exact
-        # for every threshold up to 200, which is all `_elect` asks.
-        "       CASE WHEN octet_length(r.description_text) >= 4 * ?"
-        "            THEN octet_length(r.description_text)"
-        "            ELSE length(r.description_text) END AS chars"
+        # The advert's length WITHOUT reading the advert: from the covering
+        # index of migration 0054, named so a missing index is an error
+        # rather than a 30-second read of every advert's record.
+        "       length(r.description_text) AS chars"
         "  FROM job j"
         "  JOIN job_match jm ON jm.job_id = j.id AND jm.config_id = ? AND jm.config_version = ?"
-        "  JOIN job_raw r ON r.content_hash = j.content_hash"
+        "  JOIN job_raw r INDEXED BY idx_job_raw_chars ON r.content_hash = j.content_hash"
         "  LEFT JOIN job_application ja ON ja.job_id = j.id"
         " WHERE j.closed_at IS NULL AND ja.hidden_at IS NULL"
         "   AND jm.screening_state = 'NOT_BLOCKED'"
         "   AND jm.eligibility_status IN ('VERIFIED_ELIGIBLE', 'LIKELY_ELIGIBLE', 'UNRESOLVED')"
         f"{hidden_clause}",
-        (MIN_DESCRIPTION_CHARS, str(config_id), int(config_version), *hidden),
+        (str(config_id), int(config_version), *hidden),
     ).fetchall()
 
 

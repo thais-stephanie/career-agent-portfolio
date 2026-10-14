@@ -239,6 +239,9 @@ export function createHome({
       // Which of its two faces Home is showing, for anything that waits on it.
       root.dataset.view = 'dashboard';
       replace(root, render(payload));
+      // The count of scores to update is asked apart: on a cold disk it is
+      // the slowest read, and nothing else here waits for it.
+      if (payload.scores && payload.scores.outdated === null) fillOutdated(payload, mine);
     } catch (error) {
       if (mine !== token) return;
       replace(root, [
@@ -246,6 +249,26 @@ export function createHome({
         button(t('action.retry'), () => load(), { className: 'btn' }),
       ]);
     }
+  }
+
+  async function fillOutdated(shown, mine) {
+    let answer;
+    try {
+      answer = await api.getHomeOutdated();
+    } catch {
+      return; // the row stays unknown rather than claiming nothing is outdated
+    }
+    if (mine !== token || payload !== shown || root.dataset.view !== 'dashboard') return;
+    payload.scores = {
+      ...payload.scores,
+      outdated: Number(answer.outdated) || 0,
+      running: Boolean(payload.scores.running || answer.running),
+    };
+    recalcFor = null;
+    const focused = root.contains(document.activeElement) ? document.activeElement : null;
+    const task = focused && focused.getAttribute('data-task');
+    replace(root, render(payload));
+    if (task) root.querySelector(`[data-task="${task}"]`)?.focus();
   }
 
   /** Open the guided setup, at one card or from the start. */
@@ -461,7 +484,8 @@ export function createHome({
     // APPEARS says nothing; and while the sources' status is not known the
     // sites row is neither there nor gone.
     const now = new Set(tasks.map((x) => x.id));
-    const unknown = sitesKnown ? [] : ['sites'];
+    const scoresKnown = scores.outdated !== null && scores.outdated !== undefined;
+    const unknown = [...(sitesKnown ? [] : ['sites']), ...(scoresKnown ? [] : ['recalc'])];
     const same = Boolean(todoSeen) && todoSeen.profile === profile;
     if (!same) todoToast = null;
     // The sites row has its own rule: gone is not enough, the sources must
