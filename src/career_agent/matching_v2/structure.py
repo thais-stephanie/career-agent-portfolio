@@ -174,6 +174,8 @@ ONE_WORD_VERB = "ONE_WORD_VERB"
 #: How many words a list of team names may run before its unit noun
 #: (`Sales, Support, and Product teams`).
 _TEAM_LIST_REACH = 4
+#: How many words before the preference a word of working together may sit.
+_MARKER_REACH = 8
 
 
 def _raw_words(text: str) -> list[str]:
@@ -230,7 +232,10 @@ def one_word(text: str, start: int, end: int, sentence_start: int, sentence_end:
     listed = listed or bool(
         (before and before[-1] in st.coordinators) or (after and after[0] in st.coordinators)
     )
-    markers = set(before) & st.collaboration
+    # The words of working together must be near (`partner closely with the
+    # sales team`), not anywhere in a long sentence (`con formacion en ...
+    # para integrarse a nuestro equipo de Soporte` JOINS that team).
+    markers = set(before[-_MARKER_REACH:]) & st.collaboration
     if team and markers:
         return ONE_WORD_TEAM
     # In a list, a bare preposition (`experience with dados, metadados`) is

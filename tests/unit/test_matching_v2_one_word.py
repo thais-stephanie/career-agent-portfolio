@@ -36,6 +36,10 @@ CASES = [
      ev.UNCERTAIN),
     ("enfermagem", "Atuar junto com a equipe de enfermagem na rotina da clinica.", "pt",
      ev.UNCERTAIN),
+    # JOINING the team is doing the work: the words of working together must
+    # be near the team, not anywhere in a long sentence.
+    ("soporte", "Buscamos un profesional con formacion en sistemas o carrera afin para "
+     "integrarse a nuestro equipo de soporte operativo.", "es", ev.MATCH),
     # a compound naming another activity
     ("sales", "Run pre-sales demonstrations for enterprise prospects.", "en", ev.UNCERTAIN),
     # an English verb
