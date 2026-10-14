@@ -258,12 +258,56 @@ def _signal_channel(config: SearchConfig, observed: dict[str, ObservedSignal]) -
     return None
 
 
+@dataclass(frozen=True)
+class SharedReading:
+    """Every reading of a posting that depends on the posting alone.
+
+    The same for every profile (ADR-0037): computing it once and handing it
+    to `match_job` for each profile is what spares a second profile from
+    reading the advert again. The headings are machinery, not a preference.
+    """
+
+    sections: tuple
+    title_field: object
+    description_field: object
+    seniority: object
+    employment_stated: object
+    domestic: object
+    experience: object
+    place: object
+
+
+def read_shared(
+    job: JobFacts, primary_headings: list[str], secondary_headings: list[str]
+) -> SharedReading:
+    """The profile-independent half of `match_job`, in the same order."""
+    sections = tuple(split_sections(job.description, primary_headings, secondary_headings))
+    title_field = fold_field(job.title)
+    description_field = fold_field(job.description, sections)
+    return SharedReading(
+        sections=sections,
+        title_field=title_field,
+        description_field=description_field,
+        seniority=read_seniority(title_field, description_field),
+        employment_stated=read_employment(
+            description_field,
+            declared_relationship=job.declared_relationship,
+            declared_regime=job.declared_contract_regime,
+        ),
+        domestic=read_domestic_context(description_field),
+        experience=read_experience(job.description),
+        place=resolve_place(job.location_raw),
+    )
+
+
 def match_job(
     config: SearchConfig,
     job: JobFacts,
     *,
     computed_at: str,
     semantic: SemanticEvidence | None = None,
+    shared: SharedReading | None = None,
+    observed: dict[str, ObservedSignal] | None = None,
 ) -> MatchResult:
     """Match one posting. Pure: same inputs, same result, every time.
 
@@ -273,47 +317,31 @@ def match_job(
     folded copy of a posting is a property of the posting, so the lexicon, the
     gates and the seniority reader are all asking for the identical string.
     """
-    sections = tuple(
-        split_sections(
-            job.description,
-            config.prominence.primary_headings,
-            config.prominence.secondary_headings,
+    # `shared` and `observed` let Matching Architecture v2 (ADR-0037) hand in
+    # readings made once per posting and signals matched from shared facts.
+    # Without them this is exactly the reading it has always been.
+    if shared is None:
+        shared = read_shared(
+            job, config.prominence.primary_headings, config.prominence.secondary_headings
         )
-    )
-    title_field = fold_field(job.title)
-    description_field = fold_field(job.description, sections)
-
-    observed = observe(config, title_field, description_field)
+    title_field = shared.title_field
+    description_field = shared.description_field
+    if observed is None:
+        observed = observe(config, title_field, description_field)
     title = classify_title(config, job.title, observed)
     # One reading, three consumers: the score, the confidence items and the
     # card. Made here so they cannot disagree about one posting.
-    seniority = read_seniority(title_field, description_field)
-    # Two readings ABOUT the posting. Whether a job reads as domestic to one
-    # country is shown and consulted by nothing. How a worker is engaged buys
-    # or costs no point either; ONE part of it reaches a gate: an EXPLICIT or
-    # declared contractor engagement is a requirement the candidate answers
-    # with her own declaration (`match.authorization`). A likely regime, or a
-    # benefit, never does.
-    employment = read_employment(
-        description_field,
-        # A DECLARED CONTRACT TYPE DECIDES, and the description is not
-        # consulted -- the rule V1.5 had to learn on hiring scope, where
-        # `declared_scope or prose` behaved as "fall back to the body whenever
-        # the field is not the answer you wanted" and produced two verdicts for
-        # one fact. A form the employer filled in outranks a word in a
-        # paragraph, including when the paragraph is louder.
-        declared_relationship=job.declared_relationship,
-        declared_regime=job.declared_contract_regime,
-    )
-    domestic = read_domestic_context(description_field)
-    # A THIRD reading about the posting, on the same terms as the two above:
-    # read on every posting, consulted by no scorer and by no gate.
-    #
-    # It is read from `job.description` -- the ORIGINAL, not the folded copy --
-    # because the reading carries a QUOTE and ADR-0002 makes a quote evidence
-    # only while it is a contiguous substring of the text the employer wrote.
-    experience = read_experience(job.description)
-    place = resolve_place(job.location_raw)
+    seniority = shared.seniority
+    # How a worker is engaged buys or costs no point; ONE part of it reaches a
+    # gate: an EXPLICIT or declared contractor engagement is a requirement the
+    # candidate answers with her own declaration (`match.authorization`). A
+    # DECLARED CONTRACT TYPE DECIDES over the description (see `read_shared`).
+    employment = shared.employment_stated
+    domestic = shared.domestic
+    # Read from `job.description`, the ORIGINAL, because the reading carries a
+    # QUOTE (ADR-0002).
+    experience = shared.experience
+    place = shared.place
     gates = evaluate_gates(
         config,
         observed,

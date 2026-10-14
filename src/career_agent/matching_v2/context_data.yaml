@@ -1,0 +1,106 @@
+# What a part of an advert is FOR, from its heading or its own words
+# (ADR-0037). Data, in three languages; no profession appears here.
+#
+# A heading is a short line with no sentence ending. Its context holds for
+# every sentence under it until the next heading. A sentence under no heading
+# takes a sentence cue when one fires, else OTHER: nothing is guessed from
+# position.
+version: 1
+
+headings:
+  RESPONSIBILITY:
+    - responsibilities
+    - what you will do
+    - what you ll do
+    - your role
+    - the role
+    - day to day
+    - your mission
+    - key duties
+    - duties
+    - responsabilidades
+    - atividades
+    - o que voce vai fazer
+    - o que voce fara
+    - suas atribuicoes
+    - atribuicoes
+    - funciones
+    - que haras
+    - tus responsabilidades
+  REQUIREMENT:
+    - requirements
+    - qualifications
+    - what you bring
+    - what we re looking for
+    - what we are looking for
+    - about you
+    - must have
+    - nice to have
+    - skills
+    - requisitos
+    - qualificacoes
+    - o que buscamos
+    - o que esperamos
+    - diferenciais
+    - requisitos y habilidades
+    - lo que buscamos
+  TOOL:
+    - tech stack
+    - our stack
+    - tools
+    - ferramentas
+    - stack
+    - herramientas
+  BENEFIT:
+    - benefits
+    - perks
+    - what we offer
+    - why join us
+    - beneficios
+    - o que oferecemos
+    - por que trabalhar conosco
+    - que ofrecemos
+  COMPANY_DESCRIPTION:
+    - about us
+    - about the company
+    - who we are
+    - our company
+    - our mission
+    - sobre nos
+    - quem somos
+    - sobre a empresa
+    - nossa missao
+    - quienes somos
+    - sobre nosotros
+  COMPENSATION:
+    - compensation
+    - salary
+    - pay
+    - remuneracao
+    - salario
+    - faixa salarial
+    - salario y beneficios
+  LOCATION:
+    - location
+    - where you ll work
+    - localizacao
+    - local de trabalho
+    - ubicacion
+  CONDITION:
+    - hiring process
+    - how to apply
+    - contract
+    - schedule
+    - working hours
+    - processo seletivo
+    - etapas do processo
+    - contrato
+    - jornada
+    - horario
+    - proceso de seleccion
+
+# A sentence under no heading takes the first cue that fires.
+sentence_cues:
+  COMPENSATION: ["salary", "per year", "per month", "per hour", "salario", "por mes", "por ano", "remuneracao"]
+  BENEFIT: ["health insurance", "paid time off", "stock options", "plano de saude", "vale refeicao", "seguro medico", "we offer", "oferecemos"]
+  COMPANY_DESCRIPTION: ["we are a", "founded in", "our mission is", "somos uma", "fundada em", "nossa missao", "somos una"]

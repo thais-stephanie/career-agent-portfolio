@@ -1,0 +1,94 @@
+# Linguistic relations between words of different languages (ADR-0037).
+#
+# DATA, NOT CODE. Nothing here is a person's preference, and no entry names a
+# profession, a product or an employer: these are ordinary words of working
+# life, the same in any field. A word belongs here only when its translation
+# is the SAME concept; a related, broader or narrower concept is recorded
+# under `non_automatic` so the reason it does not match is written down.
+#
+# Matching compares ROOTS (`match.phrase_forms.root`). An entry maps every
+# form's root to the root of its first English form.
+#
+#   EXACT_EQUIVALENT  one word, one word, the same meaning in both languages
+#   FIXED_EXPRESSION  a term translated as a unit; matched as a sequence
+#   MORPHOLOGICAL_VARIANT  a rule on roots, proven by its own examples
+#
+# Spanish forms are a demonstration that the design is not bilingual by
+# construction. Spanish is NOT supported: the table holds a handful of words.
+version: 1
+
+exact_equivalent:
+  - {en: [system, systems], pt: [sistema, sistemas], es: [sistema, sistemas]}
+  - {en: [data], pt: [dados, dado], es: [datos, dato]}
+  - {en: [business], pt: [negocio, negocios], es: [negocio, negocios]}
+  - {en: [improvement, improve, improving], pt: [melhoria, melhorias, melhorar], es: [mejora, mejoras, mejorar]}
+  - {en: [management, manage, managing], pt: [gestao, gerir, gerenciamento, gerenciar], es: [gestion, gestionar]}
+  - {en: [requirement, requirements], pt: [requisito, requisitos], es: [requisito, requisitos]}
+  - {en: [ai], pt: [ia], es: [ia]}
+  - {en: [adoption, adopt], pt: [adocao, adotar], es: [adopcion, adoptar]}
+  - {en: [implementation, implement, implementing], pt: [implantacao, implantar], es: [implantacion]}
+  - {en: [project, projects], pt: [projeto, projetos], es: [proyecto, proyectos]}
+  - {en: [customer, customers, client, clients], pt: [cliente, clientes], es: [cliente, clientes]}
+  - {en: [sales, sale, selling], pt: [vendas, venda, vender], es: [ventas, venta, vender]}
+  - {en: [report, reports, reporting], pt: [relatorio, relatorios], es: [informe, informes]}
+  - {en: [analysis, analyse, analyze], pt: [analise, analises, analisar], es: [analisis, analizar]}
+  - {en: [training, train], pt: [treinamento, treinar, capacitacao], es: [capacitacion, formacion]}
+  - {en: [recruitment, recruiting], pt: [recrutamento, recrutar], es: [reclutamiento, reclutar]}
+  - {en: [hiring, hire], pt: [contratacao, contratar], es: [contratacion, contratar]}
+  - {en: [budget, budgets], pt: [orcamento, orcamentos], es: [presupuesto, presupuestos]}
+  - {en: [accounting], pt: [contabilidade], es: [contabilidad]}
+  - {en: [invoice, invoices, invoicing, billing], pt: [fatura, faturas, faturamento], es: [factura, facturas, facturacion]}
+  - {en: [campaign, campaigns], pt: [campanha, campanhas], es: [campana, campanas]}
+  - {en: [content], pt: [conteudo, conteudos], es: [contenido, contenidos]}
+  - {en: [lesson, lessons], pt: [aula, aulas], es: [clase, clases]}
+  - {en: [student, students], pt: [aluno, alunos, estudante, estudantes], es: [alumno, alumnos, estudiante, estudiantes]}
+  - {en: [teaching, teach], pt: [ensino, ensinar], es: [ensenanza, ensenar]}
+  - {en: [support], pt: [suporte, apoio], es: [soporte]}
+  - {en: [ticket, tickets], pt: [chamado, chamados], es: [ticket, tickets]}
+  - {en: [process, processes], pt: [processo, processos], es: [proceso, procesos]}
+  - {en: [user, users], pt: [usuario, usuarios], es: [usuario, usuarios]}
+  - {en: [interface, interfaces], pt: [interface, interfaces], es: [interfaz, interfaces]}
+  - {en: [research], pt: [pesquisa, pesquisas], es: [investigacion]}
+  - {en: [inventory], pt: [estoque, estoques], es: [inventario]}
+  - {en: [supplier, suppliers, vendor, vendors], pt: [fornecedor, fornecedores], es: [proveedor, proveedores]}
+  - {en: [negotiation, negotiate], pt: [negociacao, negociar], es: [negociacion, negociar]}
+  - {en: [schedule, scheduling], pt: [agenda, agendamento], es: [agenda, programacion]}
+  - {en: [generation, generate], pt: [geracao, gerar], es: [generacion, generar]}
+  - {en: [migration, migrate], pt: [migracao, migrar], es: [migracion, migrar]}
+  - {en: [integration, integrate], pt: [integracao, integrar], es: [integracion, integrar]}
+  - {en: [automation, automate], pt: [automacao, automatizar], es: [automatizacion, automatizar]}
+
+fixed_expression:
+  - {en: [workflow, workflows], pt: [fluxo de trabalho, fluxos de trabalho], es: [flujo de trabajo, flujos de trabajo]}
+  - {en: [requirements gathering], pt: [levantamento de requisitos], es: [levantamiento de requisitos]}
+  - {en: [customer service], pt: [atendimento ao cliente, atendimento aos clientes], es: [atencion al cliente]}
+  - {en: [social media], pt: [redes sociais, midias sociais], es: [redes sociales]}
+  - {en: [payroll], pt: [folha de pagamento], es: [nomina]}
+  - {en: [accounts payable], pt: [contas a pagar], es: [cuentas por pagar]}
+  - {en: [lesson plan, lesson plans], pt: [plano de aula, planos de aula], es: [plan de clase]}
+
+# Rules on ROOTS, applied after `phrase_forms.root`. Each rule carries the
+# pairs that prove it; `tests/unit/test_matching_v2_language.py` checks every
+# pair lands on one root, and a rule without examples is refused at load.
+morphology:
+  - lang: pt
+    strip_root_suffix: atiz
+    why: "-atizar is the verb of the -acao noun: automatizar / automacao"
+    examples: [[automatizar, automacao], [automatizados, automacao], [sistematizar, sistema]]
+  - lang: pt
+    strip_root_suffix: iz
+    why: "-izar is the verb of the -izacao noun: otimizar / otimizacao"
+    examples: [[otimizar, otimizacao], [organizar, organizacao]]
+
+# Recorded so the reason they do NOT match is written down. Never used to
+# match: a related concept is another preference, and only the person may
+# add one.
+non_automatic:
+  - {relation: RELATED_CONCEPT, a: rpa, b: automation}
+  - {relation: RELATED_CONCEPT, a: middleware, b: systems integration}
+  - {relation: RELATED_CONCEPT, a: data engineering, b: data analysis}
+  - {relation: RELATED_CONCEPT, a: digital transformation, b: ai adoption}
+  - {relation: RELATED_CONCEPT, a: client relationship, b: stakeholder management}
+  - {relation: BROADER, a: marketing, b: social media}
+  - {relation: BROADER, a: finance, b: accounts payable}
+  - {relation: NARROWER, a: payroll, b: human resources}
