@@ -1,0 +1,141 @@
+# Adversarial corpus, HOLDOUT half (ADR-0037, 2026-10-14).
+#
+# Written together with `adversarial_dev.yaml`, before any rule was tuned
+# against either, and read ONCE at the end of the round: its result is the
+# honest estimate of how the structural reading generalises. Do not tune a
+# rule against this file; a later round needs a new holdout.
+#
+# Invented sentences, no real posting and no real person. Categories as in
+# `language_corpus.yaml`.
+version: 1
+concepts:
+  - phrase: data analysis
+    field: analytics
+    cases:
+      - {cat: T, lang: pt, text: "Fazer análise de dados financeiros e operacionais."}
+      - {cat: F, lang: en, text: "Analyse large data sets to find churn drivers."}
+      - {cat: F, lang: en, text: "Collection, cleaning and analysis of survey data."}
+      - {cat: T, lang: pt, text: "Analisar dados de atendimento e propor melhorias."}
+      - {cat: P, lang: en, text: "Our data team sends requests for analysis to the agency."}
+      - {cat: P, lang: pt, text: "Dados pessoais enviados para análise de antecedentes."}
+      - {cat: N, lang: en, text: "Sew and alter garments for customers."}
+  - phrase: data migration
+    field: software
+    cases:
+      - {cat: F, lang: en, text: "Plan data migrations between ERP versions."}
+      - {cat: T, lang: pt, text: "Executar a migração dos dados do sistema antigo."}
+      - {cat: P, lang: en, text: "Data about the migration of our offices is in the handbook."}
+      - {cat: P, lang: pt, text: "Dados sobre migração de pessoal: falar com o RH."}
+  - phrase: supplier negotiation
+    field: procurement
+    cases:
+      - {cat: F, lang: en, text: "Negotiate pricing and delivery terms with suppliers."}
+      - {cat: T, lang: pt, text: "Negociação com fornecedores de embalagens."}
+      - {cat: P, lang: en, text: "The suppliers conduct all negotiation with retail chains."}
+      - {cat: P, lang: pt, text: "Nossos fornecedores conduzem a negociação de fretes."}
+  - phrase: campaign management
+    field: marketing
+    cases:
+      - {cat: F, lang: en, text: "Manage email campaigns end to end."}
+      - {cat: T, lang: pt, text: "Gerenciar campanhas de e-mail e redes sociais."}
+      - {cat: F, lang: en, text: "Manage budgets, creatives and campaigns."}
+      - {cat: P, lang: en, text: "Management of people and the annual charity campaign."}
+      - {cat: P, lang: pt, text: "Gestão de frota e campanha de vacinação dos motoristas."}
+  - phrase: inventory management
+    field: operations
+    cases:
+      - {cat: F, lang: en, text: "Manage inventory across three warehouses."}
+      - {cat: T, lang: pt, text: "Gerenciar o estoque de peças de reposição."}
+      - {cat: P, lang: en, text: "Inventory of the management office furniture is done yearly."}
+      - {cat: S, lang: en, text: "Load and unload delivery trucks."}
+  - phrase: systems integration
+    field: software
+    cases:
+      - {cat: F, lang: en, text: "Integrate legacy systems with the new ERP."}
+      - {cat: T, lang: pt, text: "Integração de sistemas de RH e folha."}
+      - {cat: P, lang: pt, text: "Integração na primeira semana com tour pelos sistemas, boas-vindas e almoço."}
+      - {cat: P, lang: en, text: "Systems for integration testing are owned by QA."}
+      - {cat: C, lang: en, heading: About us, text: "We are leaders in systems integration for hospitals."}
+  - phrase: lead generation
+    field: sales
+    cases:
+      - {cat: F, lang: en, text: "Generate new leads from inbound traffic."}
+      - {cat: T, lang: pt, text: "Gerar leads para o time de vendas."}
+      - {cat: P, lang: en, text: "Lead the team that builds our next generation app."}
+  - phrase: budget analysis
+    field: finance
+    cases:
+      - {cat: T, lang: pt, text: "Análise de orçamentos de obras."}
+      - {cat: F, lang: en, text: "Budget analysis and variance reporting."}
+      - {cat: P, lang: en, text: "Budget requests for analysis tools go through IT."}
+  - phrase: customer research
+    field: product
+    cases:
+      - {cat: F, lang: en, text: "Research customer needs through interviews."}
+      - {cat: T, lang: pt, text: "Pesquisa com clientes para validar hipóteses."}
+      - {cat: P, lang: pt, text: "Nossos clientes financiam pesquisas acadêmicas."}
+  - phrase: report generation
+    field: analytics
+    cases:
+      - {cat: F, lang: en, text: "Generate monthly reports from the data warehouse."}
+      - {cat: T, lang: pt, text: "Geração de relatórios gerenciais."}
+      - {cat: P, lang: en, text: "Reports about power generation are prepared by engineering."}
+  - phrase: process improvement
+    field: operations
+    cases:
+      - {cat: F, lang: en, text: "Identify and improve inefficient processes."}
+      - {cat: T, lang: pt, text: "Melhorar processos de atendimento."}
+      - {cat: P, lang: pt, text: "Processos trabalhistas e melhoria do clima ficam com o jurídico."}
+  - phrase: sales training
+    field: sales
+    cases:
+      - {cat: F, lang: en, text: "Deliver training to the sales force."}
+      - {cat: T, lang: pt, text: "Treinar a equipe de vendas em técnicas de negociação."}
+      - {cat: P, lang: en, text: "Sales of training courses are handled by partners."}
+  - phrase: user support
+    field: support
+    cases:
+      - {cat: F, lang: en, text: "Provide first-line support to users."}
+      - {cat: T, lang: pt, text: "Prestar suporte a usuários internos."}
+      - {cat: P, lang: en, text: "Our users get support from the vendor directly."}
+  - phrase: project management
+    field: management
+    cases:
+      - {cat: F, lang: en, text: "Project management for construction sites."}
+      - {cat: T, lang: pt, text: "Gerenciar projetos de reforma residencial."}
+      - {cat: P, lang: pt, text: "Projetos de gestão de resíduos são da consultoria."}
+  - phrase: payroll
+    field: hr
+    cases:
+      - {cat: X, lang: pt, text: "Processar a folha de pagamento mensal."}
+      - {cat: S, lang: en, text: "Track employee timesheets."}
+      - {cat: C, lang: en, heading: Benefits, text: "Payroll advance available on request."}
+  - phrase: customer service
+    field: service
+    cases:
+      - {cat: X, lang: pt, text: "Atendimento ao cliente por telefone e chat."}
+      - {cat: F, lang: en, text: "Serve customers at the front desk."}
+      - {cat: P, lang: en, text: "Our customers include the national postal service."}
+  - phrase: lesson plans
+    field: education
+    cases:
+      - {cat: X, lang: pt, text: "Elaborar planos de aula semanais."}
+      - {cat: F, lang: en, text: "Plan engaging lessons for grade 5."}
+      - {cat: P, lang: en, text: "Plans for lessons learned sessions are set by the PMO."}
+  - phrase: student support
+    field: education
+    cases:
+      - {cat: T, lang: pt, text: "Suporte aos alunos durante as aulas."}
+      - {cat: F, lang: en, text: "Support students with special needs."}
+      - {cat: P, lang: pt, text: "Alunos de intercâmbio têm suporte da universidade parceira."}
+  - phrase: accounts payable
+    field: finance
+    cases:
+      - {cat: X, lang: pt, text: "Rotinas de contas a pagar e conciliação."}
+      - {cat: S, lang: en, text: "Prepare tax filings."}
+  - phrase: social media content
+    field: marketing
+    cases:
+      - {cat: T, lang: pt, text: "Criar conteúdo para redes sociais."}
+      - {cat: F, lang: en, text: "Write content for our social media channels."}
+      - {cat: C, lang: en, heading: About us, text: "We publish social media content for 300 brands."}

@@ -1,0 +1,164 @@
+# Adversarial corpus, DEVELOPMENT half (ADR-0037, 2026-10-14).
+#
+# Invented sentences, no real posting and no real person. Written to attack
+# the structural reading of `matching_v2.structure`: prepositions that invert
+# or keep the head, coordination closed by a complement or shared by a verb,
+# third-party subjects, clause marks, other senses -- each with legitimate
+# sentences of the same SHAPE, so a rule that only memorised the shape fails.
+#
+# Same categories as `language_corpus.yaml`:
+#   T translation -> MATCH        X fixed expression -> MATCH
+#   F inflection/order -> MATCH   S related concept -> never MATCH
+#   P other sense -> not MATCH    N unrelated -> never MATCH
+#   C About us / Benefits -> never MATCH
+#
+# The rules may be tuned against THIS file. `adversarial_holdout.yaml` was
+# written at the same time and is read once, at the end of the round.
+version: 1
+concepts:
+  - phrase: data analysis
+    field: analytics
+    cases:
+      - {cat: T, lang: pt, text: "Análise de dados de vendas para o time comercial."}
+      - {cat: T, lang: pt, text: "Responsável pela análise de grandes volumes de dados."}
+      - {cat: F, lang: en, text: "Perform analysis of customer data every week."}
+      - {cat: F, lang: en, text: "Data cleaning and analysis for the finance team."}
+      - {cat: F, lang: en, text: "Analyze product usage data to guide the roadmap."}
+      - {cat: T, lang: es, text: "Análisis de datos de clientes y ventas."}
+      - {cat: P, lang: en, text: "Analysis tools for data teams are provided by IT."}
+      - {cat: P, lang: pt, text: "Os dados do ponto são enviados para análise do RH."}
+      - {cat: P, lang: en, heading: Requirements, text: "Bachelor's degree; data entry experience: analysis of results is done by the manager."}
+      - {cat: S, lang: en, text: "Build dashboards and reports in Looker."}
+      - {cat: N, lang: pt, text: "Atender pacientes na recepção da clínica."}
+      - {cat: C, lang: en, heading: About us, text: "Our data analysis platform serves ten thousand stores."}
+  - phrase: data migration
+    field: software
+    cases:
+      - {cat: T, lang: pt, text: "Migração de dados entre bancos legados e a nuvem."}
+      - {cat: F, lang: en, text: "Migrate customer data to the new platform."}
+      - {cat: F, lang: en, text: "Lead the migration of legacy data to Postgres."}
+      - {cat: T, lang: pt, text: "Migrar dados de clientes para o novo CRM."}
+      - {cat: P, lang: en, text: "Migration status data is published on the intranet."}
+      - {cat: P, lang: pt, text: "Os dados da migração para a nova sede saem na sexta."}
+      - {cat: N, lang: en, text: "Prepare lunch for the kindergarten group."}
+  - phrase: supplier negotiation
+    field: procurement
+    cases:
+      - {cat: T, lang: pt, text: "Negociar prazos e preços com fornecedores."}
+      - {cat: F, lang: en, text: "Negotiate contracts with suppliers across Europe."}
+      - {cat: F, lang: en, text: "Select and negotiate with new suppliers."}
+      - {cat: T, lang: es, text: "Negociación con proveedores locales."}
+      - {cat: P, lang: en, text: "Our suppliers lead every negotiation with the carriers."}
+      - {cat: P, lang: pt, text: "Os fornecedores fazem toda a negociação com as transportadoras."}
+      - {cat: S, lang: en, text: "Manage vendor relationships and onboarding."}
+      - {cat: C, lang: en, heading: Benefits, text: "We negotiate supplier discounts for every employee."}
+  - phrase: campaign management
+    field: marketing
+    cases:
+      - {cat: T, lang: pt, text: "Gerenciar campanhas de mídia paga."}
+      - {cat: F, lang: en, text: "Management of paid media campaigns."}
+      - {cat: T, lang: pt, text: "Gestão de campanhas e orçamentos de marketing."}
+      - {cat: F, lang: en, text: "Plan, launch and manage campaigns."}
+      - {cat: F, lang: en, text: "Manage the flow of creatives and campaigns."}
+      - {cat: P, lang: en, text: "Management of payroll and the internal flu shot campaign."}
+      - {cat: P, lang: pt, text: "Campanha de doação de sangue com apoio da gestão."}
+      - {cat: N, lang: pt, text: "Dirigir caminhão em rotas interestaduais."}
+  - phrase: inventory management
+    field: operations
+    cases:
+      - {cat: T, lang: pt, text: "Gestão de estoque em centro de distribuição."}
+      - {cat: F, lang: en, text: "Manage stock levels and inventory."}
+      - {cat: F, lang: en, text: "Responsible for managing warehouse inventory."}
+      - {cat: P, lang: en, text: "Inventory of management tools and licences is kept by IT."}
+      - {cat: P, lang: pt, text: "Estoque de material de escritório: falar com a gestão."}
+      - {cat: S, lang: en, text: "Coordinate logistics and freight."}
+  - phrase: systems integration
+    field: software
+    cases:
+      - {cat: T, lang: pt, text: "Integração com sistemas de parceiros via API."}
+      - {cat: T, lang: pt, text: "Integrar sistemas de pagamento e faturamento."}
+      - {cat: F, lang: en, text: "Integrate with partner systems through webhooks."}
+      - {cat: P, lang: pt, text: "Sistemas de integração contínua são mantidos pelo time de DevOps."}
+      - {cat: P, lang: en, text: "Integration week for new joiners includes a tour of our systems."}
+      - {cat: P, lang: pt, text: "Integração dos novos colaboradores e apresentação dos sistemas."}
+      - {cat: N, lang: en, text: "Teach yoga classes twice a week."}
+  - phrase: lead generation
+    field: sales
+    cases:
+      - {cat: T, lang: pt, text: "Geração de leads qualificados para vendas."}
+      - {cat: F, lang: en, text: "Generate leads through events and webinars."}
+      - {cat: P, lang: en, text: "Lead a team responsible for next generation hardware."}
+      - {cat: P, lang: en, text: "Our generation of engineers will lead the platform rewrite."}
+      - {cat: S, lang: en, text: "Own brand awareness and demand creation."}
+  - phrase: budget analysis
+    field: finance
+    cases:
+      - {cat: T, lang: pt, text: "Análise do orçamento anual de cada área."}
+      - {cat: F, lang: en, text: "Analyze budgets and forecasts monthly."}
+      - {cat: F, lang: en, text: "Analysis of departmental budgets."}
+      - {cat: P, lang: en, text: "The budget for analysis software is approved by finance."}
+      - {cat: P, lang: pt, text: "Orçamento para a análise de crédito: aprovado pelo diretor."}
+      - {cat: N, lang: en, text: "Paint and repair the office walls."}
+  - phrase: customer research
+    field: product
+    cases:
+      - {cat: T, lang: pt, text: "Conduzir pesquisas com clientes sobre o produto."}
+      - {cat: F, lang: en, text: "Run research with customers every sprint."}
+      - {cat: P, lang: en, text: "Our customers fund research at partner universities."}
+      - {cat: P, lang: pt, text: "Os clientes participam de pesquisas de clima: consulte o RH."}
+      - {cat: S, lang: en, text: "Run usability tests and A/B experiments."}
+  - phrase: report generation
+    field: analytics
+    cases:
+      - {cat: T, lang: pt, text: "Geração de relatórios semanais para a diretoria."}
+      - {cat: F, lang: en, text: "Generate weekly reports for leadership."}
+      - {cat: T, lang: pt, text: "Gerar relatórios de desempenho."}
+      - {cat: P, lang: en, text: "Reports on the next generation of devices are written by marketing."}
+      - {cat: P, lang: pt, text: "Relatórios sobre a geração de energia da fábrica ficam com a engenharia."}
+  - phrase: process improvement
+    field: operations
+    cases:
+      - {cat: T, lang: pt, text: "Melhoria de processos operacionais."}
+      - {cat: F, lang: en, text: "Improve internal processes and documentation."}
+      - {cat: F, lang: en, text: "Drive improvement of hiring processes."}
+      - {cat: P, lang: en, text: "Improvement plans for underperformers follow the HR process."}
+      - {cat: P, lang: pt, text: "Processos seletivos: melhoria salarial após seis meses."}
+      - {cat: C, lang: en, heading: About us, text: "We help factories with process improvement."}
+  - phrase: sales training
+    field: sales
+    cases:
+      - {cat: T, lang: pt, text: "Treinamento de vendas para novos representantes."}
+      - {cat: F, lang: en, text: "Train the sales team on new products."}
+      - {cat: P, lang: en, text: "Sales of training equipment to gyms."}
+      - {cat: P, lang: pt, text: "Vendas de equipamentos de treinamento para academias."}
+      - {cat: C, lang: en, heading: Benefits, text: "Free sales training for every new joiner."}
+  - phrase: user support
+    field: support
+    cases:
+      - {cat: T, lang: pt, text: "Suporte aos usuários do sistema por chat."}
+      - {cat: F, lang: en, text: "Support end users on Windows and macOS."}
+      - {cat: P, lang: en, text: "Users of our support portal are other companies."}
+      - {cat: P, lang: pt, text: "Os usuários contam com suporte do fornecedor: não é atribuição da vaga."}
+      - {cat: S, lang: en, text: "Install and configure office networks."}
+  - phrase: project management
+    field: management
+    cases:
+      - {cat: T, lang: pt, text: "Gestão de projetos de implantação."}
+      - {cat: F, lang: en, text: "Manage projects from scoping to delivery."}
+      - {cat: F, lang: en, text: "Management of several client projects at once."}
+      - {cat: P, lang: en, text: "Projects on management training are run by the academy."}
+      - {cat: P, lang: pt, text: "Projetos de gestão ambiental: responsabilidade do consultor externo."}
+  - phrase: budget management
+    field: finance
+    cases:
+      - {cat: T, lang: pt, text: "Gestão do orçamento da área de marketing."}
+      - {cat: F, lang: en, text: "Manage the department budget."}
+      - {cat: P, lang: en, text: "Budget for management offsites is set in January."}
+      - {cat: P, lang: pt, text: "Orçamento de gestão de frota: definido pela matriz."}
+  - phrase: training content
+    field: education
+    cases:
+      - {cat: T, lang: pt, text: "Criar conteúdo de treinamento para o time de suporte."}
+      - {cat: F, lang: en, text: "Write training content for new hires."}
+      - {cat: P, lang: en, text: "Content moderators receive training in their first month."}
+      - {cat: P, lang: pt, text: "Conteúdo do contrato e treinamento obrigatório: ver anexo."}
