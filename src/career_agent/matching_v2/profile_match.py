@@ -62,7 +62,7 @@ EXCLUDED_CONTEXT = "EXCLUDED_CONTEXT"
 #: or a requirement the production reader (`phrase_forms`, readers-9) grants
 #: words up to three tokens apart, and v2 keeps that. A stricter rule was
 #: measured on the synthetic corpus and is reported, not adopted (ADR-0037).
-UNCERTAIN_WHEN_APART = frozenset({Context.OTHER})
+UNCERTAIN_WHEN_APART: frozenset[Context] = frozenset()
 
 #: Why words present and close together were not taken as the preference.
 APART_IN_UNKNOWN_CONTEXT = "APART_IN_UNKNOWN_CONTEXT"

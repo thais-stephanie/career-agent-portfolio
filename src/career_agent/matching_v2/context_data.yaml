@@ -178,3 +178,71 @@ sentence_cues:
   COMPENSATION: ["salary", "per year", "per month", "per hour", "salario", "por mes", "por ano", "remuneracao"]
   BENEFIT: ["health insurance", "paid time off", "stock options", "plano de saude", "vale refeicao", "seguro medico", "we offer", "oferecemos"]
   COMPANY_DESCRIPTION: ["we are a", "founded in", "our mission is", "somos uma", "fundada em", "nossa missao", "somos una"]
+
+# STATEMENTS ABOUT THE HIRING ITSELF, wherever they stand (2026-10-14, read on
+# real adverts): equal-opportunity, privacy, accommodation and scam notices
+# follow the last section without a heading of their own, and their words
+# (`recruiting process`, `integrate our teams`) are not the work. They take
+# CONDITION whatever heading is above them.
+hiring_notice_cues:
+  - equal opportunity
+  - equal employment opportunity
+  - reasonable accommodation
+  - accommodation during
+  - require an accommodation
+  - privacy policy
+  - privacy notice
+  - recruitment scam
+  - recruiting scam
+  - recruitment fraud
+  - unsolicited resumes
+  - unsolicited resume
+  - recruiting agencies
+  - recruitment agencies
+  - regardless of race
+  - does not discriminate
+  - do not discriminate
+  - protected veteran
+  - our recruiting process
+  - our recruitment process
+  - the recruiting process
+  - the recruitment process
+  - official email
+  - igualdade de oportunidades
+  - processo seletivo
+  - nao discrimina
+  - pessoas com deficiencia
+  - politica de privacidade
+  - igualdad de oportunidades
+
+# THE ROLE IN ITS OWN VOICE. A sentence that speaks to the candidate or names
+# the role is about the work even under a company or benefits heading the
+# advert never closed (`Who We Are` ... `We are looking for a Deployment
+# Lead`). It is read as of no known purpose, never set aside.
+role_voice_cues:
+  - you will
+  - you ll
+  - you re
+  - you are
+  - you have
+  - your role
+  - your day
+  - we are looking for
+  - we re looking for
+  - we are hiring
+  - we re hiring
+  - this role
+  - the role
+  - in this role
+  - responsible for
+  - voce vai
+  - voce ira
+  - voce sera
+  - voce tera
+  - buscamos
+  - procuramos
+  - estamos buscando
+  - estamos procurando
+  - responsavel por
+  - seras responsable
+  - buscamos a

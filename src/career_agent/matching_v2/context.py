@@ -39,8 +39,9 @@ class Context(StrEnum):
 WORK_EVIDENCE = frozenset(
     {Context.RESPONSIBILITY, Context.REQUIREMENT, Context.TOOL, Context.TITLE}
 )
-#: Contexts in which a phrase proves nothing about the work.
-NOT_WORK = frozenset({Context.BENEFIT, Context.COMPANY_DESCRIPTION})
+#: Contexts in which a phrase proves nothing about the work: the company, the
+#: benefits, and the conditions of the hiring (process, contract, notices).
+NOT_WORK = frozenset({Context.BENEFIT, Context.COMPANY_DESCRIPTION, Context.CONDITION})
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +67,41 @@ def _cues(path: Path = DATA) -> tuple[dict[str, Context], tuple[tuple[str, Conte
         (_norm(cue), Context(kind)) for kind, cues in raw["sentence_cues"].items() for cue in cues
     )
     return headings, sentence
+
+
+@lru_cache(maxsize=2)
+def _voices(path: Path = DATA) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(hiring-notice cues, role-voice cues), normalised."""
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return (
+        tuple(_norm(c) for c in raw["hiring_notice_cues"]),
+        tuple(_norm(c) for c in raw["role_voice_cues"]),
+    )
+
+
+def _has(cues: tuple[str, ...], text: str) -> bool:
+    norm = f" {_norm(text)} "
+    return any(f" {cue} " in norm for cue in cues)
+
+
+_BULLET = re.compile(r"^\s*(?:[-*\u2022\u25cf\u25aa>]|\d{1,2}[.)])\s")
+
+
+def _unknown_heading(line: str) -> bool:
+    """A line shaped like a heading that no table knows (`About the role`,
+    `The opportunity:`). It closes the section above it: what follows is of
+    no known purpose until a known heading says otherwise. A bullet or a
+    sentence is never one."""
+    raw = line.strip()
+    if not raw or _BULLET.match(raw) or len(raw) > 60:
+        return False
+    text = _heading_text(raw)
+    if not text or text[-1:] in ".!?;," or len(text.split()) > 6:
+        return False
+    marked = raw.startswith(("#", "**", "__", "<")) or raw.rstrip("*_ ").endswith(":")
+    words = [w for w in re.findall(r"[^\W\d_]+", text) if len(w) > 3]
+    titled = bool(words) and all(w[0].isupper() for w in words)
+    return marked or titled
 
 
 _TAG = re.compile(r"<[^>]*>")
@@ -204,6 +240,8 @@ def sentences(text: str) -> list[Sentence]:
             continue
         if not line.strip():
             continue
+        if _unknown_heading(line):
+            current, heading = None, None
         cursor = start
         body = line.rstrip("\n")
         inline = inline_heading(body)
@@ -223,5 +261,10 @@ def sentences(text: str) -> list[Sentence]:
                 continue
             lead = at + (len(piece) - len(piece.lstrip()))
             context = current if current is not None else (_sentence_cue(stripped) or Context.OTHER)
+            notices, voices = _voices()
+            if _has(notices, stripped):
+                context = Context.CONDITION
+            elif context in NOT_WORK and _has(voices, stripped):
+                context = Context.OTHER
             out.append(Sentence(lead, lead + len(stripped), context, heading))
     return out
