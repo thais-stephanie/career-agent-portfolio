@@ -66,13 +66,21 @@ def _todo_button(text: str) -> str:
 
 
 def _hold(
-    app: JobsApi, release: threading.Event, *, done: int, total: int, fail: bool = False
+    app: JobsApi,
+    release: threading.Event,
+    *,
+    done: int,
+    total: int,
+    fail: bool = False,
+    priority: int = 0,
 ) -> None:
     """A recalculation that reports `done` of `total` and waits, then ends
     well or badly. It scores nothing."""
 
     def work(state, cancel) -> None:
         state.boards_total, state.boards_done = total, done
+        if priority:
+            state.detail = {"priority": priority}
         release.wait(30)
         if fail:
             raise RuntimeError("held run failed on purpose")
@@ -313,3 +321,24 @@ def test_find_jobs_opened_during_a_run_follows_it_to_the_end(
         app.rescore.join(10)
     page.wait_for(f"!{shown}", message="the notice to clear once the run ended", timeout=20)
     assert not page.console_errors()
+
+
+def test_the_eligible_first_group_is_named_and_promises_nothing_more(
+    page: Chrome, pending: tuple[str, JobsApi]
+) -> None:
+    """While the jobs the search can show are re-read first, the row says that
+    and only that; past them it is the ordinary count."""
+    base, app = pending
+    release = threading.Event()
+    _hold(app, release, done=3, total=20, priority=10)
+    try:
+        open_home_past_setup(page, base)
+        page.wait_for(
+            f"{RECALC_HELP}.includes('Updating first the jobs that can appear in your search: "
+            "3 of 10')",
+            message="the eligible-first step",
+        )
+        assert "Updating 3 of 20" not in str(page.evaluate(RECALC_HELP))
+    finally:
+        release.set()
+        app.rescore.join(10)

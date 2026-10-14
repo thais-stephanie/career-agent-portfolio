@@ -2253,6 +2253,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                     # when nothing moved it is zero and the pass is seconds.
                     state.boards_total = int(stats.jobs_targeted)
                     state.boards_done = int(stats.jobs_scored)
+                    # The eligible-first group: the screen says it is updating
+                    # those first, never that every eligible job is current.
+                    state.detail = {"priority": int(stats.jobs_priority)}
 
                 # TARGETED, not forced (ADR-0025). A preference edit bumps the
                 # configuration version, so every posting is missing a current

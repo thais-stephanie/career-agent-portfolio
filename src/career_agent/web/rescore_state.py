@@ -104,10 +104,12 @@ def describe(
     """One account of the recalculation: phase, committed progress, outcome."""
     now = now or datetime.now(UTC)
     if runner_running and runner_snapshot:
+        detail = runner_snapshot.get("current_detail") or {}
         return {
             "phase": "RUNNING",
             "done": int(runner_snapshot.get("boards_done") or 0),
             "total": int(runner_snapshot.get("boards_total") or 0),
+            "priority": int(detail.get("priority") or 0) if isinstance(detail, dict) else 0,
             "started_at": runner_snapshot.get("started_at"),
             "finished_at": None,
             "error": None,
@@ -139,6 +141,7 @@ def describe(
     base = {
         "done": done,
         "total": total,
+        "priority": int(stats.get("jobs_priority") or 0),
         "started_at": record["started_at"],
         "finished_at": record["finished_at"],
         "error": record["error"],

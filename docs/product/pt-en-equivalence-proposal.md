@@ -74,6 +74,59 @@ fixed expressions): PT 7 of 9. A Portuguese advert about unrelated work
 none of the nine. That control is small; the real check is a precision
 sample on a copy of the corpus.
 
+## Wider validation (2026-10-15)
+
+A second synthetic set: 36 sentences in PT-BR and English, each with the
+answer a correct reader should give, read today and with the proposal
+simulated (ten word equivalences, three fixed expressions). The first
+measurement above is kept as it was. Three kinds of change are kept apart:
+
+* **Translation (T, X)**: the same concept in the other language, word by
+  word or as a fixed expression. This is what the proposal adds.
+* **Inflection and word order (F)**: the same language written another way.
+  `phrase_forms` already does this; one Portuguese gap is not translation.
+* **Semantic expansion (S)**: another concept. Must never match, and is not
+  part of the proposal in any form.
+
+| Category | Cases | Correct today | Correct with the proposal |
+|---|---|---|---|
+| T translation, should match | 13 | 3 | 12 |
+| X fixed expression, should match | 2 | 0 | 2 |
+| F inflection or order, should match | 4 | 3 | 3 |
+| S another concept, must not match | 5 | 5 | 5 |
+| P a word in another sense, must not match | 9 | 8 | 6 |
+| N unrelated text, must not match | 3 | 3 | 3 |
+
+What the misses say:
+
+* **F, both readers**: "Automatizar processos" and "processos ...
+  automatizados" are missed for "process automation", because the
+  Portuguese verb reduces to `automatiz` and the noun to `autom`. That is an
+  inflection gap inside Portuguese, a fix to the suffix rule, and not a
+  translation.
+* **P, the real limit**: the reader decides by words close together in one
+  sentence, not by sense. English already reads "Data on staff migration to
+  the new office" as data migration. The proposal carries the same limit into
+  Portuguese: "Dados de migração da equipe" and "Integração do sistema de
+  benefícios" (onboarding) match. The other six stay out because a word of
+  the phrase is missing or sits too far away, not because the sense was
+  understood. It adds no new kind of error;
+  it adds Portuguese text to the existing one.
+* **S**: none of the five other-concept cases matched, today or simulated
+  (RPA, middleware, digital transformation, client relationship, ETL).
+
+So the proposal recovers the translation cases measured here without
+widening the concept, and its precision cost is the reader's existing
+proximity limit, now in two languages. How often that limit fires on real
+postings is unmeasured; a precision sample on a copy is the gate before
+release.
+
+## Does it need a new reader version
+
+Yes. It changes which phrases are found in a posting, and so scores: a new
+`READER_IDENTITY` and one full recalculation. Shipped after readers-12, it
+means a second full recalculation.
+
 ## What it would cost
 
 * A reading change: `READER_IDENTITY` moves and one recalculation re-reads

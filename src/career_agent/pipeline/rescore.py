@@ -74,7 +74,9 @@ class RescorePlan:
     """What a pass will do, decided before it reads a single description."""
 
     mode: RescoreMode
-    #: Open, scoreable postings this pass will (re)compute, ordered by id.
+    #: Open, scoreable postings this pass will (re)compute: first the ones
+    #: whose stored score says eligible (`priority` of them), then the rest,
+    #: each group ordered by id. The same set either way.
     targets: list[str]
     #: Every ledger row read, `job_id -> generation`. Cleared at the end by
     #: both columns, so a mark written while the pass ran survives it.
@@ -101,6 +103,8 @@ class RescorePlan:
     #: generation`; cleared once each posting is scored (see
     #: storage/catalogue.PROFILE_REQUEST_TABLE).
     requested: dict[str, int] = field(default_factory=dict)
+    #: How many of the first `targets` are the eligible-first group.
+    priority: int = 0
 
 
 @dataclass
@@ -108,6 +112,10 @@ class RescoreStats:
     mode: str = RescoreMode.TARGETED.value
     jobs_considered: int = 0
     jobs_targeted: int = 0
+    #: The first group of the targets: postings whose stored score said
+    #: eligible, re-read first so a stale "eligible" leaves the default search
+    #: and the deep selection early (`_eligible_first`).
+    jobs_priority: int = 0
     jobs_scored: int = 0
     jobs_skipped_changed: int = 0
     jobs_skipped_already_scored: int = 0
@@ -236,6 +244,7 @@ def plan(
         targets = sorted(chosen)
         for reason in chosen.values():
             breakdown[reason] = breakdown.get(reason, 0) + 1
+    targets, priority = _eligible_first(conn, config_id, config_version, targets)
 
     return RescorePlan(
         mode=mode,
@@ -248,7 +257,37 @@ def plan(
         closed_candidates=closed,
         plan_ms=_elapsed(started),
         requested=requested,
+        priority=priority,
     )
+
+
+def _eligible_first(
+    conn: sqlite3.Connection, config_id: str, config_version: int, targets: list[str]
+) -> tuple[list[str], int]:
+    """The targets whose STORED score says eligible first, then the rest.
+
+    Those are the postings the default search and the deep selection show on
+    the strength of an old reading: a reader that now finds a conflict or a
+    restriction (readers-12) takes them out only once their new score is
+    written. Re-reading them first shrinks that window from the whole pass to
+    its first minutes. The set is unchanged and nothing is read twice; the
+    rules are the same for both groups. Reads the stored status only.
+    """
+    if not targets:
+        return targets, 0
+    stored = {
+        str(r[0])
+        for r in conn.execute(
+            "SELECT job_id FROM job_match WHERE config_id = ? AND config_version = ?"
+            " AND eligibility_status IN ('VERIFIED_ELIGIBLE', 'LIKELY_ELIGIBLE')",
+            (config_id, config_version),
+        )
+    }
+    first = [t for t in targets if t in stored]
+    if not first:
+        return targets, 0
+    rest = [t for t in targets if t not in stored]
+    return first + rest, len(first)
 
 
 def _read_ledger(conn: sqlite3.Connection) -> dict[str, int]:
@@ -494,6 +533,7 @@ def rescore(
         stats.candidates_examined = chosen.candidates_examined
         stats.dirty_marked = len(chosen.dirty)
         stats.jobs_targeted = len(chosen.targets)
+        stats.jobs_priority = chosen.priority
         # In the targeted modes the population examined and found current is
         # reported as considered-and-skipped, which is what it was: every one
         # of those index entries was looked at and none was read.

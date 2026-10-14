@@ -135,3 +135,18 @@ the two ledger rows and nothing else.
 
 PT/EN: `docs/product/pt-en-equivalence-proposal.md`. Sources:
 `docs/product/source-leads-2026-10-14.md`.
+
+## Guard A built (2026-10-15)
+
+The plan of every pass orders its targets in two groups: first the postings
+whose stored score (this configuration, this version) says eligible, then
+the rest, each by id (`rescore._eligible_first`). The set is the one the
+plan chose before; the rules are the same; nothing is planned twice. Pages
+commit as before, so a stale "eligible" leaves the default search and the
+deep selection the moment its page is written. A pass stopped after the
+first group resumes with only the rest (a collector's MARK is still retried
+after a stop, by ADR-0026, whichever group it was in). The run reports the
+group's size (`jobs_priority`, `state.priority`) and the screen says
+"Updating first the jobs that can appear in your search: N of M" while it
+runs, never that every eligible job is current. Option B was not built.
+`tests/integration/test_rescore_eligible_first.py`.

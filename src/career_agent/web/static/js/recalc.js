@@ -134,6 +134,7 @@ export function driveRescore(control, { show, onDone = () => {} }) {
   let attached = false;
   let lastDone = 0;
   let lastTotal = 0;
+  let lastPriority = 0;
   let stop = () => {};
   const draw = (phase, extra = {}) => {
     busy = phase === 'starting' || phase === 'running' || phase === 'reconnecting';
@@ -146,13 +147,16 @@ export function driveRescore(control, { show, onDone = () => {} }) {
     if (control.isConnected) attached = true;
     else if (attached) { stop(); return; }
     if (unreachable && (watched || starting)) {
-      draw('reconnecting', { done: lastDone, total: lastTotal });
+      draw('reconnecting', { done: lastDone, total: lastTotal, priority: lastPriority });
       return;
     }
     const state = (status && status.state) || { phase: 'IDLE' };
     lastDone = Number(state.done) || 0;
     lastTotal = Number(state.total) || 0;
-    const counts = { done: lastDone, total: lastTotal, message: state.error || '' };
+    lastPriority = Number(state.priority) || 0;
+    const counts = {
+      done: lastDone, total: lastTotal, priority: lastPriority, message: state.error || '',
+    };
     if (ACTIVE.has(state.phase)) {
       watched = true;
       starting = false;
@@ -205,7 +209,16 @@ export function rescoreWords(keys) {
   });
   return {
     starting: () => t(keys.starting),
-    running: (state) => (state.total ? t(keys.progress, counts(state)) : t(keys.working)),
+    // While the eligible-first group runs, say so: the jobs the search can
+    // show are being updated first, and not all of them are current yet.
+    running: (state) => {
+      if (state.priority && state.done < state.priority) {
+        return t('rescore.priorityFirst', {
+          done: state.done.toLocaleString(), priority: state.priority.toLocaleString(),
+        });
+      }
+      return state.total ? t(keys.progress, counts(state)) : t(keys.working);
+    },
     reconnecting: () => t('rescore.reconnecting'),
     done: () => t(keys.done),
     failed: (state) => t('rescore.failedAt', counts(state)),
