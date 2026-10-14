@@ -215,6 +215,47 @@ hiring_notice_cues:
   - politica de privacidade
   - igualdad de oportunidades
 
+  # The hiring of THIS posting, addressed to its candidates (2026-10-14): what
+  # the recruitment data is used for, who will write, scams, equal treatment.
+  # Measured on a new development set (147 sentences of recruitment words):
+  # 39 of 73 non-work set aside, 0 of 74 recruiting duties lost.
+  - recruitment purposes
+  - recruiting purposes
+  - hiring purposes
+  - recruitment related activities
+  - recruiting scams
+  - recruitment scams
+  - recruiting impersonations
+  - fraudulent recruitment
+  - recruitment communication
+  - recruiting communication
+  - recruiting email
+  - recruiting team will
+  - recruitment team will
+  - from our recruiting team
+  - member of our recruitment team
+  - equal treatment
+  - all aspects of employment
+  - aspects of recruitment
+  - without discrimination
+  - any stage of
+  - accommodations are available
+  - only accepts applications
+  - recruitment and selection process
+  - estamos a recrutar
+  - processo de recrutamento
+  - parceiro de recrutamento
+  - tipo de recrutamento
+  - time de recrutamento
+  - proceso de reclutamiento
+  - igualdad de trato
+  - recruiting day
+  - recruitment interview
+  - recruiting steps
+  - contact recruiting
+  - reaching out to recruiting
+  - remain responsible for all hiring decisions
+
 # THE ROLE IN ITS OWN VOICE. A sentence that speaks to the candidate or names
 # the role is about the work even under a company or benefits heading the
 # advert never closed (`Who We Are` ... `We are looking for a Deployment

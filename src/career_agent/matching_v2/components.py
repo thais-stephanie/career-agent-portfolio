@@ -47,8 +47,8 @@ REGISTRY: dict[str, Component] = {
         # Section headings are machinery (identical in the starter and the
         # worked example), not a preference; they are an input all the same.
         Component("text_parser", "1", "job", inputs=("job.text", "machinery.headings")),
-        Component("language", "1", "job", ("text_parser",)),
-        Component("sentence_context", "2", "job", ("text_parser",)),
+        Component("language", "2", "job", ("text_parser",)),
+        Component("sentence_context", "3", "job", ("text_parser",)),
         Component("work_facts", "1", "job", ("language", "sentence_context")),
         Component("pay_facts", "1", "job", ("text_parser",), ("job.metadata",)),
         Component("location_facts", "1", "job", ("text_parser",), ("job.metadata",)),

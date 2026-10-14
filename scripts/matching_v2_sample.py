@@ -97,6 +97,13 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=14)
     p.add_argument("--include", nargs="*", default=[])
     p.add_argument(
+        "--exclude",
+        nargs="*",
+        type=Path,
+        default=[],
+        help="earlier copies whose postings this sample must not contain",
+    )
+    p.add_argument(
         "--id-class",
         type=int,
         choices=(0, 1, 2, 3),
@@ -117,6 +124,11 @@ def main() -> None:
     ]
     if a.id_class is not None:
         ids = [i for i in ids if id_class(i) == a.id_class]
+    used: set[str] = set()
+    for earlier in a.exclude:
+        used |= {r[0] for r in sqlite3.connect(f"file:{earlier.as_posix()}?mode=ro", uri=True)
+                 .execute("SELECT id FROM job")}  # fmt: skip
+    ids = [i for i in ids if i not in used]
     pool = rng.sample(ids, min(a.pool, len(ids)))
     scores = dict(
         per.execute(

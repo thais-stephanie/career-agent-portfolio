@@ -133,6 +133,27 @@ _FUNCTION_WORDS = {
 }
 
 
+#: Languages v2 has NO grammar for, recognised only so that their text is
+#: never read as English, Portuguese or Spanish (2026-10-14: French and
+#: Italian adverts were detected as `es` and `pt` because they share `de`,
+#: `la`, `con`, `una`; the PT/ES grammar and cues were then applied to them).
+#: Only words those three languages do not use, folded.
+_OTHER_FUNCTION_WORDS = {
+    "fr": frozenset({"les", "des", "du", "et", "est", "pour", "avec", "dans", "vous", "nous",
+                     "aux", "sur", "ces", "leur", "une", "votre", "notre", "qui"}),
+    "it": frozenset({"di", "il", "della", "delle", "per", "che", "gli", "nel", "nella", "alla",
+                     "dei", "degli", "sono", "anche", "essere", "ed"}),
+    "de": frozenset({"und", "der", "die", "das", "mit", "fur", "ist", "wir", "sie", "ein", "eine",
+                     "zu", "auf", "den", "dem", "von", "im", "bei"}),
+    "nl": frozenset({"het", "een", "van", "je", "wij", "voor", "met", "zijn", "op", "te", "ons",
+                     "naar", "jij", "bij", "onze"}),
+    "pl": frozenset({"w", "z", "sie", "oraz", "jest", "dla", "nie", "jak", "ze", "od", "po",
+                     "przez", "lub"}),
+    "id": frozenset({"dan", "yang", "untuk", "dengan", "ini", "dalam", "pada", "atau", "dari",
+                     "akan", "kami", "anda", "di"}),
+}  # fmt: skip
+
+
 @dataclass(frozen=True, slots=True)
 class Token:
     """One canonical root, where it came from, and how it was reached."""
@@ -272,11 +293,14 @@ def morphology_examples(path: Path = DATA) -> list[tuple[str, str]]:
 
 
 def detect_language(text: str) -> str:
-    """`en`, `pt`, `es` or `und`, by function words. Never a guess past that."""
+    """`en`, `pt`, `es`, another recognised language (`fr`, `it`, `de`,
+    `nl`, `pl`, `id`: no grammar, never read as one of the three) or `und`,
+    by function words. Never a guess past that."""
     words = _TOKEN.findall(fold(text)[0])
     if len(words) < 8:
         return "und"
-    counts = {lang: sum(1 for w in words if w in fw) for lang, fw in _FUNCTION_WORDS.items()}
+    every = {**_FUNCTION_WORDS, **_OTHER_FUNCTION_WORDS}
+    counts = {lang: sum(1 for w in words if w in fw) for lang, fw in every.items()}
     best = max(counts, key=lambda k: counts[k])
     ranked = sorted(counts.values(), reverse=True)
     if ranked[0] < 3 or ranked[0] < 1.3 * ranked[1]:

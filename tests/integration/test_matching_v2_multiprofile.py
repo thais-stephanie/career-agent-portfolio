@@ -253,8 +253,9 @@ def test_new_text_invalidates_that_posting_only(world) -> None:
 def test_a_language_change_redoes_work_and_nothing_else(world, monkeypatch) -> None:
     catalogue, jobs, profiles = world
     run_all(catalogue, jobs, profiles)
+    bumped = comp.REGISTRY["language"].version + "-next"
     monkeypatch.setitem(
-        comp.REGISTRY, "language", comp.Component("language", "2", "job", ("text_parser",))
+        comp.REGISTRY, "language", comp.Component("language", bumped, "job", ("text_parser",))
     )
     features, stores, _ = run_all(catalogue, jobs, profiles)
     assert features.tally.computed == {"language": len(jobs), "work_facts": len(jobs)}
