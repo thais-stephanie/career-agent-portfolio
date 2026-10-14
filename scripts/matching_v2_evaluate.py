@@ -104,6 +104,8 @@ def in_half(job_id: str, half: str) -> bool:
     hash). `dev2` / `blind`: classes 0 and 2 of four, both inside the even
     half, so neither can hold a posting the first evaluation held out."""
     h = int(hashlib.sha256(job_id.encode()).hexdigest(), 16)
+    if half == "any":  # the copy itself was drawn for the purpose
+        return True
     return {"eval": h % 2 == 1, "dev": h % 2 == 0, "dev2": h % 4 == 0, "blind": h % 4 == 2}[half]
 
 
@@ -305,7 +307,7 @@ def main() -> None:
     i.add_argument("--config-dir", type=Path, required=True)
     i.add_argument("--out", type=Path, required=True)
     i.add_argument("--to-label", type=Path, required=True)
-    i.add_argument("--half", choices=("eval", "dev", "dev2", "blind"), default="eval")
+    i.add_argument("--half", choices=("eval", "dev", "dev2", "blind", "any"), default="eval")
     i.add_argument("--profiles", choices=("professions", "oneword", "all"), default="professions")
     i.add_argument("--near-misses", type=int, default=120)
     i.add_argument("--both", type=int, default=220)

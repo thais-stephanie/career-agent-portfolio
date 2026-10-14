@@ -169,6 +169,10 @@ def main() -> None:
     ]
     for lang in ("en", "pt", "es", "und"):
         groups.append((f"lang={lang}", [r for r in rows if r["lang"] == lang]))
+    # Recognised without grammar since 2026-10-14 (fr, it, de, nl, pl, id).
+    others = [r for r in rows if r["lang"] not in ("en", "pt", "es", "und")]
+    if others:
+        groups.append(("lang=other", others))
     for profile in sorted({r["profile"] for r in rows}):
         groups.append((f"profile={profile}", [r for r in rows if r["profile"] == profile]))
     results = [report(name, subset) for name, subset in groups]

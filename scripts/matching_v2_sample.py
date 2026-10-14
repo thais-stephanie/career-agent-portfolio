@@ -97,6 +97,11 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=14)
     p.add_argument("--include", nargs="*", default=[])
     p.add_argument(
+        "--only-language",
+        choices=("en", "pt", "other"),
+        help="the whole --size from one language (a scarce one, for a package)",
+    )
+    p.add_argument(
         "--exclude",
         nargs="*",
         type=Path,
@@ -106,6 +111,7 @@ def main() -> None:
     p.add_argument(
         "--id-class",
         type=int,
+        nargs="*",
         choices=(0, 1, 2, 3),
         help="keep only postings whose id hashes to this class mod 4 (`id_class`)",
     )
@@ -122,8 +128,8 @@ def main() -> None:
             " WHERE j.closed_at IS NULL AND length(r.description_text) > 300 ORDER BY j.id"
         )
     ]
-    if a.id_class is not None:
-        ids = [i for i in ids if id_class(i) == a.id_class]
+    if a.id_class:
+        ids = [i for i in ids if id_class(i) in a.id_class]
     used: set[str] = set()
     for earlier in a.exclude:
         used |= {r[0] for r in sqlite3.connect(f"file:{earlier.as_posix()}?mode=ro", uri=True)
@@ -149,7 +155,8 @@ def main() -> None:
             lang = lang if lang in ("en", "pt") else "other"
             strata[(lang, _band(scores.get(job_id)))].append(job_id)
     picked: list[str] = list(dict.fromkeys(a.include))
-    for lang, share in LANG_SHARE.items():
+    shares = {a.only_language: 1.0} if a.only_language else LANG_SHARE
+    for lang, share in shares.items():
         quota = int(a.size * share)
         bands = [b for b in range(len(BANDS)) if strata[(lang, b)]]
         # Equal per band where the band can fill it; the rest from the others.

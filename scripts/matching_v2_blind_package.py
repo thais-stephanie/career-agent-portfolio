@@ -70,7 +70,7 @@ def build(a: argparse.Namespace) -> None:
         evaluate.build_items(
             argparse.Namespace(
                 sample=a.sample, config_dir=a.config_dir, out=items_path,
-                to_label=Path(tmp) / "unused.tsv", half="blind", profiles="all",
+                to_label=Path(tmp) / "unused.tsv", half=a.half, profiles="all",
                 near_misses=10**6, both=10**6, held=10**6,
             )
         )  # fmt: skip
@@ -80,12 +80,29 @@ def build(a: argparse.Namespace) -> None:
     for it in items:
         lang = it["lang"] if it["lang"] in ("en", "pt", "es") else "other"
         cells[(it["profile"], lang, it["stratum"])].append(it)
+    # Per cell first; then each profile topped up to `--per-profile-min`,
+    # one more item per cell in turn, so a profession with little material is
+    # still measurable where the corpus allows. A cell's weight is its size
+    # over what was drawn from it, whichever pass drew it.
+    order = {cell: rng.sample(members, len(members)) for cell, members in sorted(cells.items())}
+    taken = {cell: min(a.per_cell, len(members)) for cell, members in order.items()}
+    for profile in sorted({cell[0] for cell in order}):
+        mine = [cell for cell in order if cell[0] == profile]
+        while sum(taken[c] for c in mine) < a.per_profile_min:
+            grew = False
+            for cell in mine:
+                if taken[cell] < len(order[cell]) and sum(taken[c] for c in mine) < (
+                    a.per_profile_min
+                ):
+                    taken[cell] += 1
+                    grew = True
+            if not grew:
+                break
     chosen: list[dict] = []
-    for (_profile, _lang, _kind), members in sorted(cells.items()):
-        take = rng.sample(members, min(a.per_cell, len(members)))
-        weight = len(members) / max(1, len(take))
+    for cell, members in order.items():
+        take = members[: taken[cell]]
         for it in take:
-            it["weight"] = weight
+            it["weight"] = len(members) / max(1, len(take))
         chosen += take
     conn = sqlite3.connect(f"file:{a.sample.as_posix()}?mode=ro", uri=True)
     titles = dict(conn.execute("SELECT id, title FROM job"))
@@ -238,6 +255,8 @@ def main() -> None:
     b.add_argument("--config-dir", type=Path, required=True)
     b.add_argument("--out", type=Path, required=True)
     b.add_argument("--per-cell", type=int, default=4)
+    b.add_argument("--per-profile-min", type=int, default=0)
+    b.add_argument("--half", choices=("blind", "any"), default="blind")
     b.add_argument("--seed", type=int, default=20261014)
     s = sub.add_parser("score")
     s.add_argument("--package", type=Path, required=True)
