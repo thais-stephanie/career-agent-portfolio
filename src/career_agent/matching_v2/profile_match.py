@@ -42,6 +42,13 @@ MATCH = "MATCH"
 UNCERTAIN = "UNCERTAIN"
 EXCLUDED_CONTEXT = "EXCLUDED_CONTEXT"
 
+#: Contexts in which a phrase whose words are present but apart is UNCERTAIN
+#: rather than a match. Only OTHER (a sentence of no known purpose): in a duty
+#: or a requirement the production reader (`phrase_forms`, readers-9) grants
+#: words up to three tokens apart, and v2 keeps that. A stricter rule was
+#: measured on the synthetic corpus and is reported, not adopted (ADR-0037).
+UNCERTAIN_WHEN_APART = frozenset({Context.OTHER})
+
 _SECTION_OF = {
     Context.RESPONSIBILITY: PRIMARY_SECTION,
     Context.REQUIREMENT: SECONDARY_SECTION,
@@ -155,7 +162,7 @@ def observe_from_features(
                         quote = sentence_at(text, start, end)
                         if context in NOT_WORK:
                             state = EXCLUDED_CONTEXT
-                        elif gap > 0 and context is Context.OTHER:
+                        elif gap > 0 and context in UNCERTAIN_WHEN_APART:
                             state = UNCERTAIN
                         else:
                             state = MATCH

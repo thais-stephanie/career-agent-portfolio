@@ -49,7 +49,12 @@ def job_inputs(job: JobFacts, content_hash: str, headings: tuple) -> dict[str, s
                 "location_raw": job.location_raw,
                 "board_work_type": job.workplace_type,
                 "declared_hiring_scope": job.declared_hiring_scope,
-                "stated_pay": [job.salary_min, job.salary_max, job.salary_currency, job.salary_period],
+                "stated_pay": [
+                    job.salary_min,
+                    job.salary_max,
+                    job.salary_currency,
+                    job.salary_period,
+                ],
                 "hours_type": job.employment_type,
                 "declared": [job.declared_relationship, job.declared_contract_regime],
             }

@@ -1,0 +1,220 @@
+# A balanced synthetic corpus for Matching Architecture v2 (ADR-0037).
+#
+# Invented sentences, no real posting and no real person. Twelve concepts from
+# different professions; each written as a person would write a preference,
+# sometimes in English, sometimes in Portuguese. Every case says what a correct
+# reader should answer and which category it tests:
+#
+#   T  translation of the same concept           -> MATCH
+#   X  fixed expression translated as a unit     -> MATCH
+#   F  inflection or word order, same language   -> MATCH
+#   S  a related, broader or narrower concept    -> never MATCH (a design rule)
+#   P  the words present in another sense        -> should not MATCH (measured)
+#   N  unrelated text                            -> never MATCH
+#   C  the concept, but in About us / Benefits   -> never MATCH (context rule)
+#
+# Unless `heading` says otherwise, a sentence sits under "Responsibilities".
+# Spanish (lang: es) only shows the design is not bilingual by construction.
+version: 1
+concepts:
+  # ---------------------------------------------------------------- software
+  - phrase: systems integration
+    field: software
+    cases:
+      - {cat: T, lang: pt, text: "Você vai cuidar da integração de sistemas entre o ERP e o CRM."}
+      - {cat: T, lang: pt, text: "Integrar sistemas legados com a nova plataforma."}
+      - {cat: T, lang: es, text: "Serás responsable de la integración de sistemas internos."}
+      - {cat: F, lang: en, text: "You will integrate internal systems with partner platforms."}
+      - {cat: F, lang: en, text: "Own the integration of our billing systems."}
+      - {cat: S, lang: en, text: "Experience with middleware and an enterprise service bus."}
+      - {cat: P, lang: pt, text: "Integração do sistema de benefícios na semana de boas-vindas."}
+      - {cat: N, lang: pt, text: "Atendimento ao cliente em loja física, com metas mensais."}
+      - {cat: C, lang: en, heading: About us, text: "We are a company that builds systems integration software."}
+  - phrase: API integration
+    field: software
+    cases:
+      - {cat: T, lang: pt, text: "Construir integrações via API com parceiros de pagamento."}
+      - {cat: F, lang: en, text: "Build and maintain API integrations with partners."}
+      - {cat: F, lang: en, text: "Integrate third-party APIs into our product."}
+      - {cat: S, lang: en, text: "Experience with webhooks and event streaming."}
+      - {cat: N, lang: en, text: "Drive deliveries across the metro area."}
+  # ------------------------------------------------------------------- sales
+  - phrase: lead generation
+    field: sales
+    cases:
+      - {cat: T, lang: pt, text: "Responsável pela geração de leads para o time comercial."}
+      - {cat: T, lang: pt, text: "Gerar leads qualificados por prospecção ativa."}
+      - {cat: T, lang: es, text: "Generación de leads para el equipo de ventas."}
+      - {cat: F, lang: en, text: "Generate qualified leads through outbound prospecting."}
+      - {cat: S, lang: en, text: "Own demand generation and brand awareness."}
+      - {cat: N, lang: pt, text: "Organizar a agenda da diretoria e reservar salas."}
+      - {cat: C, lang: en, heading: Benefits, text: "Generous bonus on every lead generation milestone the company hits."}
+  - phrase: vendas consultivas
+    field: sales
+    cases:
+      - {cat: F, lang: pt, text: "Conduzir vendas consultivas para contas de médio porte."}
+      - {cat: T, lang: en, text: "Lead consultative sales for mid-market accounts."}
+      - {cat: N, lang: en, text: "Clean and restock the kitchen every evening."}
+  # -------------------------------------------------------------- operations
+  - phrase: inventory management
+    field: operations
+    cases:
+      - {cat: T, lang: pt, text: "Fazer a gestão de estoque dos centros de distribuição."}
+      - {cat: T, lang: pt, text: "Gerenciar o estoque e os inventários mensais."}
+      - {cat: F, lang: en, text: "Manage inventory across three warehouses."}
+      - {cat: S, lang: en, text: "Coordinate logistics and last-mile delivery."}
+      - {cat: N, lang: en, text: "Write release notes for each sprint."}
+  - phrase: supplier negotiation
+    field: operations
+    cases:
+      - {cat: T, lang: pt, text: "Conduzir a negociação com fornecedores nacionais."}
+      - {cat: T, lang: pt, text: "Negociar com fornecedores prazos e preços."}
+      - {cat: F, lang: en, text: "Negotiate with suppliers on price and lead time."}
+      - {cat: S, lang: en, text: "Own procurement strategy for the region."}
+      - {cat: P, lang: en, text: "Our suppliers handle all price negotiation directly with the customer."}
+  # --------------------------------------------------------------- marketing
+  - phrase: social media content
+    field: marketing
+    cases:
+      - {cat: X, lang: pt, text: "Criar conteúdo para redes sociais da marca."}
+      - {cat: X, lang: es, text: "Crear contenido para redes sociales."}
+      - {cat: F, lang: en, text: "Produce content for our social media channels."}
+      - {cat: S, lang: en, text: "Run influencer partnerships and community events."}
+      - {cat: N, lang: pt, text: "Lecionar matemática para turmas do ensino médio."}
+  - phrase: campaign management
+    field: marketing
+    cases:
+      - {cat: T, lang: pt, text: "Fazer a gestão de campanhas pagas no Google e no Meta."}
+      - {cat: F, lang: en, text: "Manage paid campaigns on search and social."}
+      - {cat: S, lang: en, text: "Own the brand strategy and positioning."}
+      - {cat: P, lang: pt, text: "Gestão de pessoas e campanha interna de vacinação."}
+  # ----------------------------------------------------------------- finance
+  - phrase: accounts payable
+    field: finance
+    cases:
+      - {cat: X, lang: pt, text: "Responsável por contas a pagar e conciliação bancária."}
+      - {cat: X, lang: es, text: "Gestión de cuentas por pagar."}
+      - {cat: S, lang: en, text: "Lead the financial planning and analysis cycle."}
+      - {cat: N, lang: en, text: "Paint and repair the office walls."}
+  - phrase: budget analysis
+    field: finance
+    cases:
+      - {cat: T, lang: pt, text: "Fazer a análise de orçamento de cada área."}
+      - {cat: T, lang: pt, text: "Analisar o orçamento trimestral com os gestores."}
+      - {cat: F, lang: en, text: "Analyze budgets with department heads."}
+      - {cat: S, lang: en, text: "Forecast revenue and cash flow."}
+      - {cat: C, lang: pt, heading: Sobre nós, text: "Somos uma consultoria de análise de orçamento público."}
+  # ----------------------------------------------------------------------- HR
+  - phrase: recruitment
+    field: hr
+    cases:
+      - {cat: T, lang: pt, text: "Conduzir o recrutamento de perfis técnicos."}
+      - {cat: T, lang: pt, text: "Recrutar e entrevistar candidatos."}
+      - {cat: T, lang: es, text: "Reclutamiento de perfiles técnicos."}
+      - {cat: S, lang: en, text: "Own employer branding and onboarding."}
+      - {cat: N, lang: en, text: "Calibrate laboratory equipment weekly."}
+  - phrase: payroll
+    field: hr
+    cases:
+      - {cat: X, lang: pt, text: "Processar a folha de pagamento mensal."}
+      - {cat: X, lang: es, text: "Procesar la nómina mensual."}
+      - {cat: S, lang: en, text: "Administer employee benefits and leave."}
+      - {cat: C, lang: en, heading: Benefits, text: "Payroll in USD every two weeks."}
+  # ---------------------------------------------------------------- education
+  - phrase: lesson plans
+    field: education
+    cases:
+      - {cat: X, lang: pt, text: "Elaborar planos de aula para o ensino fundamental."}
+      - {cat: X, lang: es, text: "Preparar planes de clase semanales."}
+      - {cat: F, lang: en, text: "Write a lesson plan for every unit."}
+      - {cat: S, lang: en, text: "Design the curriculum for the school year."}
+      - {cat: N, lang: pt, text: "Operar empilhadeira no armazém."}
+  - phrase: student support
+    field: education
+    cases:
+      - {cat: T, lang: pt, text: "Oferecer suporte aos alunos durante as aulas."}
+      - {cat: T, lang: pt, text: "Dar apoio a estudantes com dificuldades."}
+      - {cat: F, lang: en, text: "Support students who need extra help."}
+      - {cat: S, lang: en, text: "Mentor new teachers in the department."}
+      - {cat: C, lang: en, heading: About us, text: "Our mission is student support at scale."}
+  # --------------------------------------------------------- customer service
+  - phrase: customer service
+    field: customer service
+    cases:
+      - {cat: X, lang: pt, text: "Prestar atendimento ao cliente por chat e telefone."}
+      - {cat: X, lang: es, text: "Brindar atención al cliente por chat."}
+      - {cat: F, lang: en, text: "Provide customer service by chat and phone."}
+      - {cat: S, lang: en, text: "Own customer success for enterprise accounts."}
+      - {cat: N, lang: en, text: "Weld steel frames to specification."}
+  - phrase: support tickets
+    field: customer service
+    cases:
+      - {cat: T, lang: pt, text: "Responder chamados de suporte dentro do prazo."}
+      - {cat: F, lang: en, text: "Resolve support tickets within the agreed time."}
+      - {cat: S, lang: en, text: "Write help-center articles."}
+  # ------------------------------------------------------------------ design
+  - phrase: user interface design
+    field: design
+    cases:
+      - {cat: T, lang: pt, text: "Fazer o design de interface do usuário para o aplicativo."}
+      - {cat: F, lang: en, text: "Design user interfaces for mobile apps."}
+      - {cat: S, lang: en, text: "Create the brand identity and illustrations."}
+      - {cat: N, lang: pt, text: "Dirigir o caminhão de entregas da filial."}
+  - phrase: user research
+    field: design
+    cases:
+      - {cat: T, lang: pt, text: "Conduzir pesquisas com usuários para validar hipóteses."}
+      - {cat: F, lang: en, text: "Research how users complete their tasks."}
+      - {cat: S, lang: en, text: "Run A/B tests on the checkout page."}
+  # -------------------------------------------------------------------- data
+  - phrase: data analysis
+    field: data
+    cases:
+      - {cat: T, lang: pt, text: "Fazer a análise de dados de vendas para a diretoria."}
+      - {cat: T, lang: pt, text: "Analisar dados de uso do produto."}
+      - {cat: T, lang: es, text: "Análisis de datos de ventas."}
+      - {cat: F, lang: en, text: "Analyze product usage data."}
+      - {cat: S, lang: en, text: "Build data pipelines and own data engineering."}
+      - {cat: P, lang: pt, text: "Manter dados cadastrais atualizados para análise de crédito do cliente."}
+  - phrase: data migration
+    field: data
+    cases:
+      - {cat: T, lang: pt, text: "Planejar a migração de dados da plataforma antiga."}
+      - {cat: T, lang: pt, text: "Migrar dados de clientes para o novo CRM."}
+      - {cat: F, lang: en, text: "Migrate customer data to the new platform."}
+      - {cat: S, lang: en, text: "Experience with ETL and data pipelines."}
+      - {cat: P, lang: pt, text: "Dados de migração da equipe para o novo escritório: consulte o RH."}
+      - {cat: P, lang: en, text: "Data on staff migration to the new office is handled by HR."}
+  # ------------------------------------------------------------ project work
+  - phrase: gestão de projetos
+    field: project management
+    cases:
+      - {cat: F, lang: pt, text: "Fazer a gestão de projetos de implantação."}
+      - {cat: T, lang: en, text: "Manage implementation projects end to end."}
+      - {cat: T, lang: en, text: "Own project management for client rollouts."}
+      - {cat: S, lang: en, text: "Run agile ceremonies as a scrum master."}
+      - {cat: N, lang: en, text: "Prepare meals for the evening shift."}
+  # --------------------------------------------------------------- automation
+  - phrase: workflow automation
+    field: automation
+    cases:
+      - {cat: X, lang: pt, text: "Automação de fluxos de trabalho em finanças e operações."}
+      - {cat: X, lang: es, text: "Automatización de flujos de trabajo."}
+      - {cat: F, lang: en, text: "You will be automating complex workflows for finance."}
+      - {cat: S, lang: en, text: "Experience with RPA bots (UiPath)."}
+      - {cat: C, lang: en, heading: About us, text: "We automate workflows for thousands of banks."}
+  - phrase: process automation
+    field: automation
+    cases:
+      - {cat: T, lang: pt, text: "Automação de processos de faturamento."}
+      - {cat: F, lang: pt, text: "Automatizar processos financeiros com ferramentas no-code."}
+      - {cat: F, lang: pt, text: "Processos de cobrança automatizados de ponta a ponta."}
+      - {cat: F, lang: en, text: "Automate processes across billing."}
+      - {cat: N, lang: pt, text: "Operador de máquinas em processo produtivo da fábrica."}
+  - phrase: requirements gathering
+    field: business analysis
+    cases:
+      - {cat: X, lang: pt, text: "Conduzir o levantamento de requisitos com usuários."}
+      - {cat: X, lang: es, text: "Levantamiento de requisitos con los usuarios."}
+      - {cat: F, lang: en, text: "Gather requirements with stakeholders."}
+      - {cat: P, lang: pt, text: "Requisitos: ensino médio completo. Local de reunião: matriz."}

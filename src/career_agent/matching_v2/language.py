@@ -158,9 +158,21 @@ class LanguageTable:
     fixed: dict[tuple[str, ...], tuple[str, ...]]  # root sequence -> canonical roots
     morphology: tuple[tuple[str, str], ...]  # (lang, root suffix to strip)
     non_automatic: tuple[NonAutomatic, ...] = field(default_factory=tuple)
+    #: A listed form, folded, -> canonical root. Consulted before the root,
+    #: because two concepts can share a root (`negocio` business,
+    #: `negociacao` negotiation: both `negoci`) and the form tells them apart.
+    surface: dict[str, str] = field(default_factory=dict)
+    #: Roots claimed by more than one concept. Never mapped: an unlisted form
+    #: reaching one of them keeps its own root and matches nothing translated.
+    ambiguous: tuple[str, ...] = ()
 
-    def canonical(self, word_root: str) -> tuple[str, Relation]:
+    def canonical(self, word_root: str, word: str | None = None) -> tuple[str, Relation]:
         """The canonical root of one word, through automatic relations only."""
+        if word is not None and word in self.surface:
+            target = self.surface[word]
+            return target, (
+                Relation.IDENTICAL if target == word_root else Relation.EXACT_EQUIVALENT
+            )
         relation = Relation.IDENTICAL
         current = word_root
         for _lang, suffix in self.morphology:
@@ -186,7 +198,8 @@ def _first_english(entry: dict) -> str:
 @lru_cache(maxsize=4)
 def load_table(path: Path = DATA) -> LanguageTable:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    words: dict[str, tuple[str, Relation]] = {}
+    claims: dict[str, set[str]] = {}
+    surface: dict[str, str] = {}
     for entry in raw.get("exact_equivalent", []):
         target = _content_roots(_first_english(entry))
         if len(target) != 1:
@@ -196,7 +209,15 @@ def load_table(path: Path = DATA) -> LanguageTable:
                 roots = _content_roots(str(form))
                 if len(roots) != 1:
                     raise ValueError(f"{form!r} is not one word; make it a fixed expression")
-                words.setdefault(roots[0], (target[0], Relation.EXACT_EQUIVALENT))
+                claims.setdefault(roots[0], set()).add(target[0])
+                folded = fold(str(form))[0].strip()
+                if surface.get(folded, target[0]) != target[0]:
+                    raise ValueError(f"{form!r} is listed for two concepts")
+                surface[folded] = target[0]
+    words = {
+        r: (next(iter(t)), Relation.EXACT_EQUIVALENT) for r, t in claims.items() if len(t) == 1
+    }
+    ambiguous = tuple(sorted(r for r, t in claims.items() if len(t) > 1))
     fixed: dict[tuple[str, ...], tuple[str, ...]] = {}
     for entry in raw.get("fixed_expression", []):
         target = _content_roots(_first_english(entry))
@@ -220,6 +241,8 @@ def load_table(path: Path = DATA) -> LanguageTable:
         fixed=fixed,
         morphology=tuple(morphology),
         non_automatic=non_automatic,
+        surface=surface,
+        ambiguous=ambiguous,
     )
 
 
@@ -248,7 +271,7 @@ def tokens(text: str, table: LanguageTable | None = None) -> list[Token]:
     table = table or load_table()
     folded, offsets = fold(text)
     breaks = [i for i, ch in enumerate(text) if ch in SENTENCE_BREAKS]
-    raw: list[tuple[str, int, int, int]] = []
+    raw: list[tuple[str, int, int, int, str]] = []
     from bisect import bisect_right
 
     for m in _TOKEN.finditer(folded):
@@ -257,7 +280,7 @@ def tokens(text: str, table: LanguageTable | None = None) -> list[Token]:
             continue
         start = offsets[m.start()]
         end = offsets[m.end() - 1] + 1
-        raw.append((root(word), start, end, bisect_right(breaks, start)))
+        raw.append((root(word), start, end, bisect_right(breaks, start), word))
     out: list[Token] = []
     longest = max((len(k) for k in table.fixed), default=0)
     i = 0
@@ -280,7 +303,7 @@ def tokens(text: str, table: LanguageTable | None = None) -> list[Token]:
                 break
         if matched:
             continue
-        word_root, start, end, sentence = raw[i]
+        word_root, start, end, sentence, word = raw[i]
         if (word_root,) in table.fixed:
             # A one-word form of a fixed expression (`workflow`, `nomina`).
             target = table.fixed[(word_root,)]
@@ -288,7 +311,7 @@ def tokens(text: str, table: LanguageTable | None = None) -> list[Token]:
             for r in target:
                 out.append(Token(r, start, end, sentence, relation))
         else:
-            canonical, relation = table.canonical(word_root)
+            canonical, relation = table.canonical(word_root, word)
             out.append(Token(canonical, start, end, sentence, relation))
         i += 1
     return out

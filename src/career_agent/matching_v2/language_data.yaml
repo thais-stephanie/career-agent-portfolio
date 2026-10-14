@@ -49,7 +49,7 @@ exact_equivalent:
   - {en: [user, users], pt: [usuario, usuarios], es: [usuario, usuarios]}
   - {en: [interface, interfaces], pt: [interface, interfaces], es: [interfaz, interfaces]}
   - {en: [research], pt: [pesquisa, pesquisas], es: [investigacion]}
-  - {en: [inventory], pt: [estoque, estoques], es: [inventario]}
+  - {en: [inventory], pt: [estoque, estoques, inventario, inventarios], es: [inventario]}
   - {en: [supplier, suppliers, vendor, vendors], pt: [fornecedor, fornecedores], es: [proveedor, proveedores]}
   - {en: [negotiation, negotiate], pt: [negociacao, negociar], es: [negociacion, negociar]}
   - {en: [schedule, scheduling], pt: [agenda, agendamento], es: [agenda, programacion]}
@@ -57,6 +57,8 @@ exact_equivalent:
   - {en: [migration, migrate], pt: [migracao, migrar], es: [migracion, migrar]}
   - {en: [integration, integrate], pt: [integracao, integrar], es: [integracion, integrar]}
   - {en: [automation, automate], pt: [automacao, automatizar], es: [automatizacion, automatizar]}
+
+  - {en: [consultative], pt: [consultiva, consultivas, consultivo, consultivos], es: [consultiva, consultivo]}
 
 fixed_expression:
   - {en: [workflow, workflows], pt: [fluxo de trabalho, fluxos de trabalho], es: [flujo de trabajo, flujos de trabajo]}
