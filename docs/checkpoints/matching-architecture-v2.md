@@ -100,3 +100,33 @@ headings the current reader already used.
 Moving production to v2 is therefore a scoring change in about 10% of
 postings, all of it in the direction of the principles above; it is the
 owner's decision, with its own recalculation.
+
+## Performance (`scripts/matching_v2_benchmark.py`)
+
+Ten wizard-built profiles in different fields; ms per posting.
+
+| Profiles | Current reader | v2 (facts once + each profile) |
+|---|---|---|
+| 1 | 9.6 | 17.8 |
+| 2 | 23.9 | 22.6 |
+| 10 | 109.8 | 63.7 |
+
+On 300 real postings (bounded read-only copy). Shared facts cost 12.9 ms per
+posting, once; each further profile about 5 ms where the current reader pays
+about 11. Synthetic set: 1.9 / 3.7 / 25.1 vs 4.5 / 6.1 / 17.8.
+
+Storage is the measured weak point: about 27 KB of JSON per posting on real
+adverts (4.4 GB extrapolated to 171,319), almost all of it the per-token
+lists of `work_facts`. A compact encoding (roots per sentence as one string,
+offsets recomputed on demand) is the next step before any production fill.
+Filling takes 14 ms per posting (about 40 minutes for the corpus); a pass
+over current rows reads only stamps (1.5 ms per posting).
+
+What each change makes stale, 10 profiles x 300 postings:
+
+| Change | Current: adverts re-read | v2: adverts re-read / rows rewritten |
+|---|---|---|
+| a reader or language rule | 3,000 | 300 / 9,600 (fewer with `invalidation.affected_jobs`) |
+| one profile's salary | 0 (replay rewrites 300 scores) | 0 / 600 |
+| one profile's work phrases | 300 | 0 / 900 |
+| one posting's text | 10 | 1 / 68 |
