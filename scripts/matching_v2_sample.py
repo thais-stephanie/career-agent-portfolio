@@ -20,6 +20,7 @@ Opens no socket and calls no model.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import random
 import sqlite3
 import sys
@@ -44,6 +45,47 @@ def _band(score: int | None) -> int:
     return 0
 
 
+def id_class(job_id: str) -> int:
+    """A posting's class by its id, 0-3. The first evaluation (2026-10-14)
+    used the ODD classes (1, 3) as its held-out half, so a new development
+    set (class 0) and a new blind set (class 2) can never contain one of its
+    postings."""
+    return int(hashlib.sha256(job_id.encode()).hexdigest(), 16) % 4
+
+
+def write_copy(
+    catalogue: Path, personal: Path, config_version: int, out_path: Path, picked: list[str]
+) -> sqlite3.Connection:
+    """A NEW file holding the chosen postings' rows and the profile's stored
+    answers at `config_version`; both sources are attached READ-ONLY."""
+    out = sqlite3.connect(f"file:{out_path.as_posix()}", uri=True)
+    out.execute(f"ATTACH DATABASE 'file:{catalogue.as_posix()}?mode=ro' AS src")
+    out.execute(f"ATTACH DATABASE 'file:{personal.as_posix()}?mode=ro' AS per")
+    out.execute("CREATE TEMP TABLE picked (id TEXT PRIMARY KEY)")
+    out.executemany("INSERT INTO picked VALUES (?)", [(i,) for i in picked])
+    out.execute("CREATE TABLE job AS SELECT * FROM src.job WHERE id IN (SELECT id FROM picked)")
+    out.execute(
+        "CREATE TABLE job_raw AS SELECT * FROM src.job_raw WHERE content_hash IN"
+        " (SELECT content_hash FROM job)"
+    )
+    for table in ("job_provider_payload", "job_discovery_source"):
+        out.execute(
+            f"CREATE TABLE {table} AS SELECT * FROM src.{table}"
+            " WHERE job_id IN (SELECT id FROM picked)"
+        )
+    out.execute(
+        "CREATE TABLE company AS SELECT * FROM src.company WHERE id IN (SELECT company_id FROM job)"
+    )
+    out.execute(
+        "CREATE TABLE job_match AS SELECT * FROM per.job_match"
+        f" WHERE config_version = {int(config_version)} AND job_id IN (SELECT id FROM picked)"
+    )
+    out.commit()
+    out.execute("DETACH DATABASE src")
+    out.execute("DETACH DATABASE per")
+    return out
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--catalogue", type=Path, required=True)
@@ -54,6 +96,12 @@ def main() -> None:
     p.add_argument("--pool", type=int, default=24000)
     p.add_argument("--seed", type=int, default=14)
     p.add_argument("--include", nargs="*", default=[])
+    p.add_argument(
+        "--id-class",
+        type=int,
+        choices=(0, 1, 2, 3),
+        help="keep only postings whose id hashes to this class mod 4 (`id_class`)",
+    )
     a = p.parse_args()
     if a.out.exists():
         raise SystemExit(f"{a.out} exists; give a new file")
@@ -64,9 +112,11 @@ def main() -> None:
         r[0]
         for r in cat.execute(
             "SELECT j.id FROM job j JOIN job_raw r ON r.content_hash = j.content_hash"
-            " WHERE j.closed_at IS NULL AND length(r.description_text) > 300"
+            " WHERE j.closed_at IS NULL AND length(r.description_text) > 300 ORDER BY j.id"
         )
     ]
+    if a.id_class is not None:
+        ids = [i for i in ids if id_class(i) == a.id_class]
     pool = rng.sample(ids, min(a.pool, len(ids)))
     scores = dict(
         per.execute(
@@ -102,31 +152,7 @@ def main() -> None:
     cat.close()
     per.close()
 
-    out = sqlite3.connect(f"file:{a.out.as_posix()}", uri=True)
-    out.execute(f"ATTACH DATABASE 'file:{a.catalogue.as_posix()}?mode=ro' AS src")
-    out.execute(f"ATTACH DATABASE 'file:{a.personal.as_posix()}?mode=ro' AS per")
-    out.execute("CREATE TEMP TABLE picked (id TEXT PRIMARY KEY)")
-    out.executemany("INSERT INTO picked VALUES (?)", [(i,) for i in picked])
-    out.execute("CREATE TABLE job AS SELECT * FROM src.job WHERE id IN (SELECT id FROM picked)")
-    out.execute(
-        "CREATE TABLE job_raw AS SELECT * FROM src.job_raw WHERE content_hash IN"
-        " (SELECT content_hash FROM job)"
-    )
-    for table in ("job_provider_payload", "job_discovery_source"):
-        out.execute(
-            f"CREATE TABLE {table} AS SELECT * FROM src.{table}"
-            " WHERE job_id IN (SELECT id FROM picked)"
-        )
-    out.execute(
-        "CREATE TABLE company AS SELECT * FROM src.company WHERE id IN (SELECT company_id FROM job)"
-    )
-    out.execute(
-        "CREATE TABLE job_match AS SELECT * FROM per.job_match"
-        f" WHERE config_version = {int(a.config_version)} AND job_id IN (SELECT id FROM picked)"
-    )
-    out.commit()
-    out.execute("DETACH DATABASE src")
-    out.execute("DETACH DATABASE per")
+    out = write_copy(a.catalogue, a.personal, a.config_version, a.out, picked)
     counts = Counter()
     for (lang, band), members in strata.items():
         counts[(lang, band)] = sum(1 for m in members if m in set(picked))

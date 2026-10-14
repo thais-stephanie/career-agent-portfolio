@@ -30,6 +30,7 @@ from career_agent.domain.matching import REPLAY_MIN_SCHEMA
 from career_agent.match.engine import match_job
 from career_agent.match.identity import input_digest as reading_identity
 from career_agent.match.replay import replay
+from career_agent.matching_v2 import phase_c
 from career_agent.pipeline.facts import job_facts
 from career_agent.storage import invalidation, search_index
 from career_agent.storage.db import transaction
@@ -148,6 +149,11 @@ class RescoreStats:
     #: the first -- which is the only way a reader can tell a replay that was
     #: not possible from one that was not attempted.
     jobs_replayed: int = 0
+    #: Where eligibility facts came from (Phase C, ADR-0037): `legacy` reads
+    #: them from each advert; `v2` reads the stored shared facts and counts
+    #: every posting that had to be read instead (`eligibility_reads`).
+    eligibility_source: str = "legacy"
+    eligibility_reads: dict[str, int] = field(default_factory=dict)
     jobs_read_in_full: int = 0
     replay_source_version: int | None = None
     replay_refused: dict[str, int] = field(default_factory=dict)
@@ -571,6 +577,8 @@ def rescore(
             intent_digest = search_intent(config).digest
             contract = contract_identity()
 
+        eligibility = phase_c.reader_for(conn, config)
+        stats.eligibility_source = phase_c.V2 if eligibility is not None else phase_c.LEGACY
         scoring_started = datetime.now(UTC)
         successful: dict[str, int] = {}
         targets = chosen.targets if limit is None else chosen.targets[:limit]
@@ -669,7 +677,15 @@ def rescore(
                         stats.replay_ms += _elapsed(replay_started)
                         stats.jobs_replayed += 1
                     else:
-                        result = match_job(config, facts, computed_at=_now(), semantic=evidence)
+                        result = match_job(
+                            config,
+                            facts,
+                            computed_at=_now(),
+                            semantic=evidence,
+                            shared=None
+                            if eligibility is None
+                            else eligibility.shared(facts, str(row["content_hash"])),
+                        )
                         stats.jobs_read_in_full += 1
                 except Exception as exc:  # noqa: BLE001
                     # One posting must never abort a corpus pass. The failure
@@ -717,6 +733,8 @@ def rescore(
                 progress(stats)
             _heartbeat(conn, run_id, stats)
         stats.score_ms = _elapsed(scoring_started)
+        if eligibility is not None:
+            stats.eligibility_reads = dict(eligibility.counts)
 
         # The search index and the ledger, together: a ledger row read at
         # plan time is cleared in the same transaction that brings the index
