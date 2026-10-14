@@ -168,6 +168,23 @@ export function compactPlace(locationRaw, workModel) {
   return { text: placeLabel(short, workModel), full, hidden };
 }
 
+/**
+ * Every place a posting names, in its own order, each once. Only the board's
+ * own separators split it (` / `, ` | `); a place is never widened to a
+ * region, and only exact repeats (case aside) are dropped.
+ */
+export function placeList(locationRaw) {
+  const place = (locationRaw || '').trim();
+  if (!place) return [];
+  const seen = new Set();
+  return place.split(PLACE_SEPARATOR).map((p) => p.trim()).filter((p) => {
+    const key = p.toLowerCase();
+    if (!p || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** Parse an ISO date or datetime into a Date, or null. */
 export function parseDate(value) {
   if (!value || typeof value !== 'string') return null;
@@ -319,11 +336,17 @@ export function salaryParts(salary) {
     );
     return {
       text: `${monthly} ${t(inferred ? 'pay.fromYearlyAssumed' : 'pay.fromYearly')}`,
+      // The compact look: the figure alone, and its qualifiers as words.
+      main: monthly,
+      quals: [t('pay.qual.monthlyEquivalent'), inferred ? t('pay.qual.yearlyAssumed') : null,
+        usOnly ? t('pay.usOnly') : null].filter(Boolean),
       stated, yearly: true, inferred, usOnly,
     };
   }
   return {
     text: inferred ? `${stated} ${t('pay.assumedMonthly')}` : stated, stated, yearly: false, inferred, usOnly,
+    main: stated,
+    quals: [inferred ? t('pay.qual.monthlyAssumed') : null, usOnly ? t('pay.usOnly') : null].filter(Boolean),
   };
 }
 

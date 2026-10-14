@@ -28,7 +28,7 @@
 import { el, button, extLink, select, replace, clear, focusables } from './dom.js';
 import {
   compactPlace, contractInfo, factOf, formatDate, formatPoints, formatSalary, humanLabel, levelInfo, paragraphs,
-  payNotes,
+  payNotes, placeList,
   parseDate, payInfo, prominenceWords, relativeAge, scheduleText, scoreDisplay, statusLabel,
   statusOptions, vocabLabel,
 } from './format.js';
@@ -228,7 +228,7 @@ export function createDrawer({
   /** Paint every panel. All are built; one is visible. */
   function paint(job) {
     companyNode.textContent = job.company_name || t('absent.companyStated');
-    whereNode.textContent = whereLine(job);
+    replace(whereNode, whereLine(job));
     replace(actionsHost, headActions(job));
     replace(cautionHost, cautionSection(job));
     replace(detailPanel, aboutSections(job));
@@ -349,13 +349,26 @@ export function createDrawer({
   // THE HEADER
   // ======================================================================
 
-  /** Where, and when and where it was posted: the line under the title. */
+  //: Opens the Where tile's details from the header's "+N places" (set by `tiles`).
+  let tilesOpen = () => {};
+
+  /** Where, and when and where it was posted: the line under the title. A
+   *  list cut short offers the rest, in the Where tile's details. */
   function whereLine(job) {
-    const place = compactPlace(job.location_raw, job.work_model).text;
+    const compact = compactPlace(job.location_raw, job.work_model);
     const source = job.provider ? vocabLabel(job.provider) : t('absent.source');
     const date = parseDate(job.posted_at) ? relativeAge(job.posted_at) : null;
     const posted = date ? t('drawer.postedAgo', { age: date, source }) : source;
-    return `${place} · ${posted}`;
+    if (!compact.hidden) return [`${compact.text} · ${posted}`];
+    const shown = placeList(job.location_raw).slice(0, 2).join(', ');
+    return [
+      `${shown} `,
+      button(t('drawer.tile.morePlaces', { n: placeList(job.location_raw).length - 2 }), () => {
+        selectTab('details');
+        tilesOpen('where');
+      }, { className: 'btn btn--link drawer__moreplaces' }),
+      ` · ${posted}`,
+    ];
   }
 
   //: The drawer's own "Did you send your application?", like the card's.
@@ -453,46 +466,118 @@ export function createDrawer({
     ].filter(Boolean);
   }
 
-  /** Pay, Job type, Where, Level: only what the posting says, never a guess. */
+  /**
+   * Pay, Job type, Where, Level: only what the posting says, never a guess.
+   *
+   * COMPACT (2026-10-13). Each tile holds the fact in bold and its short
+   * qualifiers in plain text ("Monthly equivalent", "Yearly assumed",
+   * "U.S. range", "Presumed", "App default"); the explanations, the stated
+   * figures and the quotes open in ONE area under the four, for the tile
+   * chosen, instead of stretching every tile to the tallest explanation.
+   */
   function tiles(job) {
     const pay = payInfo(job);
-    const salary = pay ? pay.text : null;
     const level = levelInfo(job);
-    const place = compactPlace(job.location_raw, job.work_model);
+    const engaged = contractInfo(job);
+    const places = placeList(job.location_raw);
+    const quoted = (text) => `“${text}”`;
+    const remote = job.work_model ? vocabLabel(job.work_model) : null;
     const facts = [
       {
-        key: 'pay', icon: '$', value: salary || t('drawer.tile.notShown'), absent: !salary,
-        note: [pay && pay.readNow ? t('drawer.readNow') : null, ...payNotes(pay)].filter(Boolean).join(' ') || null,
-        title: pay ? pay.raw : null,
+        key: 'pay', icon: '$',
+        value: pay ? (pay.main || pay.text) : t('drawer.tile.notShown'), absent: !pay,
+        quals: pay ? [...(pay.quals || []), pay.readNow ? t('drawer.readNow') : null].filter(Boolean) : [],
+        details: pay ? [...payNotes(pay), pay.raw ? quoted(pay.raw) : null].filter(Boolean) : [],
       },
       {
         key: 'type', icon: '◷',
-        value: [contractInfo(job).text || t('drawer.tile.notStated'), contractInfo(job).hours]
-          .filter(Boolean).join(' · '),
-        absent: !contractInfo(job).text,
-        note: contractInfo(job).probable ? t('contract.probableWhy') : null,
+        value: engaged.text || t(engaged.notRead ? 'contract.notReadShort' : 'contract.notStatedShort'),
+        absent: !engaged.text,
+        quals: [engaged.probable ? t('contract.qualPresumed') : null, engaged.hours].filter(Boolean),
+        details: [
+          engaged.probable ? t('contract.probableWhy') : null,
+          engaged.probable ? `${t('contract.probableUs')} ${job.employment_default_us === 'registry:hq_country=US'
+            ? t('contract.probableUsRegistry') : quoted(job.employment_default_us || '')}` : null,
+          engaged.probable && job.employment_default_latam
+            ? `${t('contract.probableLatam')} ${quoted(job.employment_default_latam)}` : null,
+          engaged.notRead ? t('contract.notReadWhy') : null,
+          !engaged.probable && job.employment_evidence ? quoted(job.employment_evidence) : null,
+        ].filter(Boolean),
       },
-      { key: 'where', icon: '\u2302', value: place.text || t('drawer.tile.notStated'), absent: !place.text },
+      {
+        key: 'where', icon: '⌂',
+        value: places.length ? places.slice(0, 2).join(', ') : (remote || t('drawer.tile.notStated')),
+        absent: !places.length && !remote,
+        quals: [
+          places.length > 2 ? t('drawer.tile.morePlaces', { n: places.length - 2 }) : null,
+          places.length ? remote : null,
+        ].filter(Boolean),
+        details: places.length > 2 ? [t('drawer.tile.allPlaces'), ...places] : [],
+        list: places.length > 2,
+      },
       {
         key: 'level', icon: '▲',
-        value: level ? level.detail : t('drawer.tile.notStated'),
-        absent: !level || !level.stated,
-        note: level && level.readNow ? t('drawer.readNow') : null,
+        value: level ? level.text : t('drawer.tile.notStated'),
+        absent: !level,
+        quals: [level && !level.stated ? t('level.qualDefault') : null,
+          level && level.readNow ? t('drawer.readNow') : null].filter(Boolean),
+        details: level ? [
+          level.stated ? level.detail : t('level.defaultWhy'),
+          job.seniority_evidence ? quoted(job.seniority_evidence) : null,
+        ].filter(Boolean) : [],
       },
     ];
-    return el('div', { className: 'd-tiles' }, facts.map((fact) => el('div', {
-      className: `d-tile d-tile--${fact.key}`,
-    }, [
-      el('div', { className: 'd-tile__head' }, [
-        el('span', { className: 'd-tile__icon', text: fact.icon, attrs: { 'aria-hidden': 'true' } }),
-        el('span', { className: 'd-tile__label', text: t(`drawer.tile.${fact.key}`) }),
-      ]),
-      el('span', {
-        className: `d-tile__value${fact.absent ? ' is-absent' : ''}`, text: fact.value,
-        attrs: { title: fact.title || null },
-      }),
-      fact.note ? el('span', { className: 'd-tile__note', text: fact.note }) : null,
-    ].filter(Boolean))));
+    const panelId = `d-tiledetail-${job.job_id}`;
+    const panel = el('div', {
+      className: 'd-tiledetail', attrs: { id: panelId, role: 'region', 'aria-live': 'polite' },
+    });
+    panel.hidden = true;
+    const toggles = [];
+    let openKey = null;
+    const show = (fact, toggle) => {
+      const closing = openKey === fact.key;
+      openKey = closing ? null : fact.key;
+      for (const other of toggles) {
+        other.setAttribute('aria-expanded', String(other === toggle && !closing));
+        other.textContent = t(other === toggle && !closing ? 'drawer.tile.hideDetails' : 'drawer.tile.showDetails');
+      }
+      panel.hidden = closing;
+      if (closing) return replace(panel, []);
+      panel.setAttribute('aria-label', t('drawer.tile.detailsOf', { what: t(`drawer.tile.${fact.key}`) }));
+      const [lead, ...rest] = fact.details;
+      replace(panel, [
+        el('h4', { className: 'd-tiledetail__head', text: t(`drawer.tile.${fact.key}`) }),
+        fact.list
+          ? [el('p', { className: 'd-tiledetail__text', text: lead }),
+            el('ul', { className: 'd-tiledetail__list' }, rest.map((place) => el('li', { text: place })))]
+          : fact.details.map((line) => el('p', { className: 'd-tiledetail__text', text: line })),
+      ]);
+      return null;
+    };
+    const grid = el('div', { className: 'd-tiles' }, facts.map((fact) => {
+      const toggle = fact.details.length
+        ? button(t('drawer.tile.showDetails'), () => show(fact, toggle), {
+          className: 'd-tile__more', attrs: { 'aria-expanded': 'false', 'aria-controls': panelId },
+        })
+        : null;
+      if (toggle) toggles.push(toggle);
+      return el('div', { className: `d-tile d-tile--${fact.key}`, dataset: { tile: fact.key } }, [
+        el('div', { className: 'd-tile__head' }, [
+          el('span', { className: 'd-tile__icon', text: fact.icon, attrs: { 'aria-hidden': 'true' } }),
+          el('span', { className: 'd-tile__label', text: t(`drawer.tile.${fact.key}`) }),
+        ]),
+        el('strong', { className: `d-tile__value${fact.absent ? ' is-absent' : ''}`, text: fact.value }),
+        ...fact.quals.map((qual) => el('span', { className: 'd-tile__qual', text: qual })),
+        toggle,
+      ].filter(Boolean));
+    }));
+    tilesOpen = (key) => {
+      const fact = facts.find((f) => f.key === key);
+      const toggle = toggles.find((b) => b.closest(`[data-tile="${key}"]`));
+      if (fact && toggle && openKey !== key) show(fact, toggle);
+      if (toggle) toggle.focus();
+    };
+    return el('div', { className: 'd-tileset' }, [grid, panel]);
   }
 
   /** A thin posting, or a US-domestic reading: they change how the rest reads. */
