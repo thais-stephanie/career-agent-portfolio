@@ -78,6 +78,9 @@ export const FLAG_KEYS = [
   'include_unresolved',
   'include_excluded_seniority',
   'include_excluded_work_model',
+  // WIDENS: ads whose own page said they are gone (a 404, "no longer
+  // available"). Hidden by default; a saved one stays in the saved view.
+  'include_removed',
   // NARROWS, to exactly what she hid. The restore view. A separate key from
   // the one above because "show me these as well" and "show me only these"
   // are different questions, and one flag answering both is how a widening
@@ -378,6 +381,7 @@ export const DEFAULTS = Object.freeze({
   include_unresolved: false,
   include_excluded_seniority: false,
   include_excluded_work_model: false,
+  include_removed: false,
   user_hidden_only: false,
   include_transferable: false,
   posted_within_days: null,
@@ -653,7 +657,7 @@ export function activeFilterCount(state) {
     // filters" is the counter disagreeing with the button.
     if (key === 'include_ineligible') continue;
     if (key === 'include_unresolved' || key === 'include_excluded_seniority'
-      || key === 'include_excluded_work_model') continue;
+      || key === 'include_excluded_work_model' || key === 'include_removed') continue;
     if (state[key]) count += 1;
   }
   for (const key of NUMBER_KEYS) if (state[key] !== null && state[key] !== undefined) count += 1;

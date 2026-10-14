@@ -488,6 +488,7 @@ function goTo(page, { push = true, job = null } = {}) {
   // Leaving Resumes finishes its saving first (and marks the visit).
   if (currentPage === 'resume' && page !== 'resume') void resumeWorkspace.leave();
   currentPage = page;
+  void renderAvailability();
   if (page === 'resume') resumeWorkspace.show();
   if (page === 'tailor') void tailorPage.show(job);
 
@@ -1553,6 +1554,60 @@ function renderRevisionNotice() {
  * Absent when nothing is hidden. A line saying "0 hidden" is noise, and a
  * disclosure that is always on screen stops being read.
  */
+//: The availability line's poll while a check runs.
+let availTimer = null;
+
+/**
+ * "Ads checked: 150 online, 3 removed, 10 could not be confirmed." A check
+ * starts only from this button: never when the app opens, never on the whole
+ * catalogue (`career_agent.availability`, at most 200 postings a run).
+ */
+async function renderAvailability() {
+  const node = document.getElementById('availbar');
+  if (!node) return;
+  if (currentPage !== 'jobs') {
+    node.hidden = true;
+    return;
+  }
+  let status;
+  try {
+    status = await api.getAvailability();
+  } catch {
+    node.hidden = true;
+    return;
+  }
+  const states = status.states || {};
+  const order = ['AVAILABLE', 'REMOVED', 'INCONCLUSIVE', 'EXCLUDED', 'NOT_CHECKED'];
+  const parts = order.filter((key) => states[key])
+    .map((key) => t(`avail.count.${key}`, { n: Number(states[key]).toLocaleString() }));
+  const run = status.run || {};
+  const text = status.running
+    ? t('avail.running', { done: Number(run.boards_done || 0), total: Number(run.boards_total || 0) })
+    : t('avail.summary', { counts: parts.join(', ') });
+  const go = button(t('avail.check'), async () => {
+    go.disabled = true;
+    try {
+      await api.startAvailability();
+    } catch (error) {
+      replace(node, [el('span', { className: 'availbar__text', attrs: { role: 'alert' },
+        text: (error && error.userMessage) || t('avail.couldNotStart') })]);
+      return;
+    }
+    renderAvailability();
+  }, { className: 'btn btn--quiet availbar__go' });
+  go.disabled = Boolean(status.running);
+  node.hidden = false;
+  replace(node, [el('span', { className: 'availbar__text', attrs: { role: 'status' }, text }), go]);
+  window.clearTimeout(availTimer);
+  if (status.running) {
+    availTimer = window.setTimeout(async () => {
+      await renderAvailability();
+      const after = await api.getAvailability().catch(() => null);
+      if (after && !after.running) load(store.apiQueryString(), store.get(), { quiet: true });
+    }, 3000);
+  }
+}
+
 function renderHiddenNotice(state) {
   // DISCOVER ONLY. Every narrowing below is about the discovery list; on any
   // other page (Applications shares this container) the notice is cleared

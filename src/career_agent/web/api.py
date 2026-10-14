@@ -33,7 +33,7 @@ from career_agent.match.places import REGIONS
 from career_agent.runtime import database_ref, read_identity
 from career_agent.runtime.fingerprint import runtime_fingerprint
 from career_agent.runtime.mode import indicator
-from career_agent.storage.mvp_repo import NOT_STATED
+from career_agent.storage.mvp_repo import NOT_STATED, ScoredJobQuery
 from career_agent.web import view_prefs
 from career_agent.web.caution import caution_signals
 from career_agent.web.presenter import job_card, job_detail, utc_today
@@ -88,6 +88,7 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
         "remote_only",
         "include_ineligible",
         "include_unresolved",
+        "include_removed",
         "include_excluded_seniority",
         "include_excluded_work_model",
         "include_off_target",
@@ -570,6 +571,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.rescore = RetrievalRunner()
         #: Set by `register_semantic`; read by `start_rescore`.
         self.semantic_runner: RetrievalRunner | None = None
+        #: Whether postings are still online: its own runner, so a check never
+        #: waits on, or is mistaken for, a collection.
+        self.availability = RetrievalRunner()
         #: Set by `register_deep`; the deep reading's own runner.
         self.deep_runner: RetrievalRunner | None = None
 
@@ -622,6 +626,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("POST", r"/api/profile/restore", self.restore_profile)
         self.register("GET", r"/api/retrieval", self.retrieval_status)
         self.register("POST", r"/api/retrieval/cancel", self.cancel_retrieval)
+        self.register("GET", r"/api/availability", self.availability_status)
+        self.register("POST", r"/api/availability/check", self.start_availability)
         self.register("GET", r"/api/rescore", self.rescore_status)
         self.register("POST", r"/api/rescore", self.start_rescore)
         self.register("GET", r"/api/jobs", self.list_jobs)
@@ -2025,6 +2031,101 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             preferred = ""
         return preferred.upper() if re.fullmatch(r"[A-Za-z]{3}", preferred) else "USD"
 
+    def _availability_pool(self, conn: Any) -> list[tuple[str, str | None, str | None]]:
+        """The postings a check looks at, at most `RUN_LIMIT`: saved and
+        tracked ones first, then the main list best match first. Never the
+        whole catalogue."""
+        from career_agent.availability import RUN_LIMIT
+
+        config_id, config_version = self._identity()
+        pool: dict[str, tuple[str, str | None, str | None]] = {}
+        tracked = conn.execute(
+            "SELECT j.id, j.url, j.title FROM job_application ja JOIN job j ON j.id = ja.job_id"
+            " WHERE j.closed_at IS NULL AND ja.hidden_at IS NULL"
+            " AND (COALESCE(ja.saved, 0) = 1 OR ja.status != 'DISCOVERED')"
+        ).fetchall()
+        main = ScoredJobQuery(conn).page(
+            config_id,
+            config_version,
+            replace(self._filter_from({"include_removed": ["true"]}), limit=RUN_LIMIT, offset=0),
+        )
+        for job_id, url, title in [*tracked, *((r.job_id, r.url, r.title) for r in main)]:
+            if len(pool) >= RUN_LIMIT:
+                break
+            pool.setdefault(str(job_id), (str(job_id), url, title))
+        return list(pool.values())
+
+    def _availability_candidates(self, conn: Any) -> list[tuple[str, str | None, str | None]]:
+        """The pool, minus what was asked recently enough (`availability.RECHECK`)."""
+        from career_agent.availability import due
+
+        now = datetime.now(UTC)
+        known = {
+            str(r[0]): (r[1], r[2])
+            for r in conn.execute("SELECT job_id, state, checked_at FROM job_availability")
+        }
+        return [
+            item
+            for item in self._availability_pool(conn)
+            if due(*known.get(item[0], (None, None)), now)
+        ]
+
+    def availability_status(self, *, query: dict, body: dict) -> dict:
+        """Whether a check is running, how the last one went, and how the
+        postings it looks at stand (AVAILABLE, REMOVED, INCONCLUSIVE, EXCLUDED,
+        NOT_CHECKED). Reads only rows already stored."""
+        _reject_unknown(query, frozenset(), "availability")
+        from career_agent.availability import counts
+
+        with _closing(self.connect()) as conn:
+            pool = self._availability_pool(conn)
+            tally = counts(conn, [item[0] for item in pool])
+        return {
+            "running": self.availability.running,
+            "run": self.availability.snapshot(),
+            "states": tally,
+            "of": len(pool),
+        }
+
+    def start_availability(self, *, query: dict, body: dict) -> dict:
+        """Check whether the main list's postings are still online, in the
+        background. Waits for nothing: refused while a collection or a
+        recalculation runs, and never run twice at once."""
+        _reject_unknown(query, frozenset(), "availability")
+        from career_agent.clock import new_id
+
+        if self.availability.running:
+            raise ApiError(409, "A check is already running.", for_reader=True)
+        if self.retrieval.running or self.rescore.running:
+            raise ApiError(
+                409,
+                "Job sites are being read or scores recalculated. Check the ads when that ends.",
+                for_reader=True,
+            )
+        return self.availability.start(self._availability_work(), new_id())
+
+    def _availability_work(self):
+        def work(state, cancel) -> None:
+            from career_agent import availability
+
+            def stop() -> str | None:
+                if cancel.is_set():
+                    return "cancelled"
+                if self.retrieval.running or self.rescore.running:
+                    return "paused for a collection or a recalculation"
+                return None
+
+            def progress(done: int, total: int) -> None:
+                state.boards_done, state.boards_total = done, total
+
+            with _closing(self.connect()) as conn:
+                candidates = self._availability_candidates(conn)
+                state.boards_total = len(candidates)
+                result = availability.run(conn, candidates, stop=stop, progress=progress)
+            state.funnel = result
+
+        return work
+
     def rescore_status(self, *, query: dict, body: dict) -> dict:
         """What the current or last rescore did, in one vocabulary. Safe to poll.
 
@@ -2302,6 +2403,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 rows = repo.page(config_id, config_version, job_filter)
                 # Read from the WHOLE ad: the page holds only its first characters.
                 whole = repo.descriptions([row.job_id for row in rows])
+                checked = _availability_of(conn, [row.job_id for row in rows])
                 if totals is None:
                     totals = self._remember(
                         ("totals", *key), {**counted.result(), "facets": facets_read.result()}
@@ -2344,6 +2446,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 {
                     **job_card(row, bands=self._bands, today=today, recency=self._recency),
                     "caution": caution_signals(whole.get(row.job_id)),
+                    # Whether the ad's own page was up when last asked; absent
+                    # when it never was (`career_agent.availability`).
+                    "availability": checked.get(row.job_id),
                 }
                 for row in rows
             ],
@@ -2464,12 +2569,15 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         # A local reading is written by a background thread after its request
         # returned, so the write counter cannot see it.
         readings = conn.execute("SELECT COUNT(*), MAX(created_at) FROM job_enrichment").fetchone()
+        # Availability checks write after their request returned, too.
+        checked = conn.execute("SELECT COUNT(*), MAX(checked_at) FROM job_availability").fetchone()
         parts = (
             config_id,
             config_version,
             population_token(conn),
             tuple(applications),
             tuple(readings),
+            tuple(checked),
             self.writes,
             utc_today().isoformat(),
         )
@@ -3227,6 +3335,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             remote_only=_bool(query, "remote_only"),
             include_ineligible=_bool(query, "include_ineligible"),
             include_unresolved=_bool(query, "include_unresolved"),
+            include_removed=_bool(query, "include_removed"),
             # HER OWN list, read from her configuration rather than from the
             # query. The query only says whether to override it.
             excluded_seniorities=tuple(
@@ -3291,6 +3400,26 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 # =========================================================================
 # small helpers
 # =========================================================================
+
+
+def _availability_of(conn: Any, job_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """The last availability answer of each posting on a page, by id."""
+    if not job_ids:
+        return {}
+    marks = ",".join("?" for _ in job_ids)
+    return {
+        str(row[0]): {
+            "state": row[1],
+            "checked_at": row[2],
+            "http_status": row[3],
+            "evidence": row[4],
+        }
+        for row in conn.execute(
+            "SELECT job_id, state, checked_at, http_status, evidence FROM job_availability"
+            f" WHERE job_id IN ({marks})",
+            job_ids,
+        )
+    }
 
 
 def _now() -> str:

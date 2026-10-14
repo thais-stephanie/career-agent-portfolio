@@ -1988,6 +1988,13 @@ class JobFilter:
     #: are not eligibility at all and are untouched by this.
     include_ineligible: bool = True
 
+    #: Whether to show postings whose own page said they are gone (a 404, a
+    #: 410, the source's "no longer available"): `job_availability.state ==
+    #: REMOVED`. True here, False at the web layer, like the narrowings above;
+    #: a saved or applied posting stays reachable through `exempt_tracked`.
+    #: Inconclusive and never-checked postings are never hidden by it.
+    include_removed: bool = True
+
     #: Whether to show postings this person's own SEARCH set aside as not the
     #: work they asked for. `screening_state == BLOCKED`.
     #:
@@ -2558,6 +2565,12 @@ class ScoredJobQuery(_Repo):
             # into a list of recommendations, which is what this clause used to
             # do unconditionally.
             hidden_statuses.append("VERIFIED_NOT_ELIGIBLE")
+
+        if not f.include_removed:
+            clauses.append(
+                f"(NOT EXISTS (SELECT 1 FROM job_availability av WHERE av.job_id = j{a}.id"
+                f" AND av.state = 'REMOVED'){tracked})"
+            )
 
         if f.excluded_seniorities and not f.include_excluded_seniority:
             # Levels she said not to show her. The tracking exemption applies

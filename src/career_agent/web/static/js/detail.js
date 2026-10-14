@@ -28,7 +28,7 @@
 import { el, button, extLink, select, replace, clear, focusables } from './dom.js';
 import {
   compactPlace, contractInfo, factOf, formatDate, formatPoints, formatSalary, humanLabel, levelInfo, paragraphs,
-  payNotes, placeList,
+  availabilityText, payNotes, placeList,
   parseDate, payInfo, prominenceWords, relativeAge, scheduleText, scoreDisplay, statusLabel,
   statusOptions, vocabLabel,
 } from './format.js';
@@ -1714,6 +1714,8 @@ export function createDrawer({
       ...(schedule ? [[t('gtk.schedule'), schedule, false]] : []),
       ...(zone ? [[t('gtk.zone'), zoneText(zone), false]] : []),
       [t('gtk.site'), job.provider ? vocabLabel(job.provider) : t('absent.source'), false],
+      [t('gtk.availability'), availabilityText(job.availability) || t('avail.NOT_CHECKED'),
+        !job.availability, Boolean(job.availability && job.availability.state === 'REMOVED')],
       [t('gtk.firstSeen'), formatDate(job.first_seen_at), false],
     ];
     return section(t('prep3.good'), [

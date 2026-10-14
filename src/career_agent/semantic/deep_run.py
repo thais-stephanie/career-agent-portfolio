@@ -227,6 +227,9 @@ def population_rows(
         "  JOIN job_raw r INDEXED BY idx_job_raw_chars ON r.content_hash = j.content_hash"
         "  LEFT JOIN job_application ja ON ja.job_id = j.id"
         " WHERE j.closed_at IS NULL AND ja.hidden_at IS NULL"
+        # An advert whose own page said it is gone is never read again.
+        "   AND NOT EXISTS (SELECT 1 FROM job_availability av"
+        "                   WHERE av.job_id = j.id AND av.state = 'REMOVED')"
         "   AND jm.screening_state = 'NOT_BLOCKED'"
         "   AND jm.eligibility_status IN ('VERIFIED_ELIGIBLE', 'LIKELY_ELIGIBLE', 'UNRESOLVED')"
         f"{hidden_clause}",

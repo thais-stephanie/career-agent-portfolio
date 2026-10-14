@@ -1146,6 +1146,18 @@ export async function getHome() {
   return homeInFlight;
 }
 
+/** How the best matches' ads stand, and whether a check is running. */
+export async function getAvailability() {
+  if (MOCK) throw noCandidateHere();
+  return request('/availability');
+}
+
+/** Check, in the background, whether those ads are still online. */
+export async function startAvailability() {
+  if (MOCK) throw noCandidateHere();
+  return request('/availability/check', { method: 'POST', body: {} });
+}
+
 /** How many scores a recalculation would update now; Home asks it apart. */
 export async function getHomeOutdated() {
   if (MOCK) throw noCandidateHere();

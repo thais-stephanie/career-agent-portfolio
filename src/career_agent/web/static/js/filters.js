@@ -98,7 +98,7 @@ export const SECTIONS = [
     helpKey: 'filters.section.qualityHelp',
     keys: ['min_score', 'max_score', 'min_confidence', 'eligibility',
       'include_ineligible', 'include_off_target', 'include_unresolved',
-      'include_excluded_seniority', 'include_excluded_work_model'],
+      'include_excluded_seniority', 'include_excluded_work_model', 'include_removed'],
   },
   {
     key: 'place',
@@ -342,6 +342,13 @@ const TOGGLES = [
     labelKey: 'filters.toggle.includeUnresolved',
     section: 'quality',
     helpKey: 'filters.includeUnresolvedHelp',
+  },
+  // Ads whose own page said they are gone: hidden by default, never deleted.
+  {
+    key: 'include_removed',
+    labelKey: 'filters.toggle.includeRemoved',
+    section: 'quality',
+    helpKey: 'filters.includeRemovedHelp',
   },
   // The fourth, and the only one that is a PREFERENCE rather than a fact about
   // a posting. The three above are things that happened to the search; this is
@@ -593,7 +600,7 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
         // jobs disappear, which is the opposite of what the word promises.
         if (key === 'include_ineligible' || key === 'include_off_target'
           || key === 'include_unresolved' || key === 'include_excluded_seniority'
-          || key === 'include_excluded_work_model') continue;
+          || key === 'include_excluded_work_model' || key === 'include_removed') continue;
         patch[key] = DEFAULTS[key];
       }
       store.set(patch);
@@ -1347,7 +1354,7 @@ export function renderChips(mount, state, store) {
     if (toggle.key === 'include_ineligible' || toggle.key === 'include_off_target'
       || toggle.key === 'include_unresolved'
       || toggle.key === 'include_excluded_seniority'
-      || toggle.key === 'include_excluded_work_model') continue;
+      || toggle.key === 'include_excluded_work_model' || toggle.key === 'include_removed') continue;
     if (state[toggle.key]) {
       chips.push(chip(labelOf(toggle), () => store.set({ [toggle.key]: false })));
     }

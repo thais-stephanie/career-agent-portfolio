@@ -26,9 +26,8 @@
 
 import { el, button, extLink, replace } from './dom.js';
 import {
-  compactPlace, contractInfo, formatDate, formatSalary, levelInfo, parseDate, relativeAge, scoreDisplay,
-  statusLabel, vocabLabel,
-  displayTitle,
+  availabilityText, compactPlace, contractInfo, displayTitle, formatDate, formatSalary, levelInfo, parseDate,
+  relativeAge, scoreDisplay, statusLabel, vocabLabel,
 } from './format.js';
 import { eligibilityWords, searchFitIsReady } from './badges.js';
 import { t } from './i18n.js';
@@ -315,6 +314,12 @@ function offTargetNote(job, aside) {
 }
 
 function postedLine(job) {
+  const avail = availabilityText(job.availability);
+  const line = postedOnly(job);
+  return avail ? `${line} · ${avail}` : line;
+}
+
+function postedOnly(job) {
   const source = job.provider ? vocabLabel(job.provider) : t('absent.source');
   const date = parseDate(job.posted_at) ? formatDate(job.posted_at) : null;
   if (date) {

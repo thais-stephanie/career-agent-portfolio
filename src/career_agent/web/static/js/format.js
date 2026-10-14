@@ -185,6 +185,16 @@ export function placeList(locationRaw) {
   });
 }
 
+/**
+ * Whether the ad's own page was up when last asked, in a few words, or null
+ * when it never was. Available is what the page said then, never a promise.
+ */
+export function availabilityText(availability) {
+  if (!availability || !availability.state) return null;
+  const age = availability.checked_at ? relativeAge(availability.checked_at) : '';
+  return t(`avail.${availability.state}`, { age });
+}
+
 /** Parse an ISO date or datetime into a Date, or null. */
 export function parseDate(value) {
   if (!value || typeof value !== 'string') return null;
