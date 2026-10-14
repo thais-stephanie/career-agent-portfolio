@@ -11608,3 +11608,6 @@ table.jobs .cell__title-btn { max-width: 100%; }
 
 /* Two sentences of one posting that disagree, shown together (gates). */
 .gate__conflict { display: grid; gap: 6px; }
+
+/* What a salary sort compared (Find jobs, table view). */
+.table__note { margin: 0 0 8px; font-size: 12px; color: var(--muted); }

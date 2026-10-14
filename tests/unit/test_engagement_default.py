@@ -231,3 +231,62 @@ def test_hours_and_a_stated_contract_are_both_kept() -> None:
 def test_no_default_and_no_statement_files_no_engagement() -> None:
     result = matched("You will build reports.", employment_type="FULL_TIME")
     assert _filed(result) == ("FULL_TIME", None)
+
+
+ASSEMBLY = (
+    "Our salary ranges are based on paying competitively for our size and stage. "
+    "The provided range is the expected salary for candidates in the U.S. "
+    "Salary range: $160,000 to $220,000\n\nWe are a global team spread across time zones."
+)
+
+
+def _pay_facts(**extra) -> dict:
+    facts = dict(
+        title="Senior GTM AI Engineer",
+        description=ASSEMBLY,
+        salary_min=160000,
+        salary_max=220000,
+        salary_currency="USD",
+    )
+    facts.update(extra)
+    result = match_job(CONFIG, JobFacts(**facts), computed_at="frozen")
+    return result.posting_facts["salary"]
+
+
+def test_a_stated_worldwide_hiring_scope_takes_the_usd_period_default() -> None:
+    """AssemblyAI (2026-10-13): "Anywhere in the World" in the board's scope
+    field includes Latin America, so the band takes the yearly default."""
+    salary = _pay_facts(declared_hiring_scope="Anywhere in the World")
+    assert salary["period"] == "YEAR" and salary["period_inferred"] is True
+    assert salary["min"] == 160000 and salary["max"] == 220000, "the stated figures stay"
+
+
+def test_global_culture_prose_does_not_widen_where_a_posting_hires() -> None:
+    """ "A global team" is about the company, not about hiring: no period."""
+    salary = _pay_facts()
+    assert salary.get("period") is None and not salary.get("period_inferred")
+
+
+def test_a_band_said_to_be_the_us_one_keeps_its_sentence() -> None:
+    salary = _pay_facts(declared_hiring_scope="Anywhere in the World")
+    assert salary["us_only"] == (
+        "The provided range is the expected salary for candidates in the U.S."
+    )
+    assert "us_only" not in _pay_facts(description="Salary range: $160,000 to $220,000.")
+
+
+def test_an_hourly_rate_never_becomes_monthly() -> None:
+    result = match_job(
+        CONFIG,
+        JobFacts(
+            title="Analyst",
+            description="We hire across Latin America. Pay: $40 per hour.",
+            salary_min=40,
+            salary_max=40,
+            salary_currency="USD",
+            salary_period="HOUR",
+        ),
+        computed_at="frozen",
+    )
+    salary = result.posting_facts["salary"]
+    assert salary["period"] == "HOUR" and not salary.get("period_inferred")

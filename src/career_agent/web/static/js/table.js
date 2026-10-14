@@ -50,7 +50,7 @@ export const COLUMNS = [
   { id: 'location', labelKey: 'column.location', sort: 'place', track: 'minmax(120px,1.1fr)', min: 120 },
   { id: 'source', labelKey: 'column.source', sort: 'source', track: 'minmax(92px,.8fr)', min: 92 },
   { id: 'technologies', labelKey: 'column.technologies', track: 'minmax(120px,1.1fr)', min: 120 },
-  { id: 'salary', labelKey: 'column.salary', track: 'minmax(120px,1.1fr)', min: 120 },
+  { id: 'salary', labelKey: 'column.salary', sort: 'salary', track: 'minmax(120px,1.1fr)', min: 120 },
   { id: 'contract', labelKey: 'column.contract', track: 'minmax(84px,.7fr)', min: 84 },
   { id: 'posted', labelKey: 'column.posted', sort: 'posted', track: 'minmax(84px,.6fr)', min: 84 },
   { id: 'freshness', labelKey: 'column.freshness', track: 'minmax(72px,.6fr)', min: 72 },
@@ -157,7 +157,13 @@ export function renderTable(mount, items, ctx) {
   }, [table]);
   const wrap = el('div', { className: 'tablescrollwrap' }, [scroller]);
 
-  replace(mount, [wrap]);
+  // Sorted by pay: say what was compared, so the postings at the end are
+  // read as "not comparable", never as "paid least".
+  const note = ctx.sort === 'salary' && ctx.sortCurrency
+    ? el('p', { className: 'table__note', attrs: { role: 'note' },
+      text: t('table.salarySortNote', { currency: ctx.sortCurrency }) })
+    : null;
+  replace(mount, [note, wrap]);
   watchScrollEdges(wrap, scroller);
   return mount;
 }

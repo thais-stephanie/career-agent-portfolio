@@ -306,6 +306,8 @@ export function salaryParts(salary) {
   if (low === null && high === null) return raw ? { text: raw, stated: raw, yearly: false, inferred: false } : null;
   const period = salary.period ? String(salary.period).toUpperCase() : null;
   const inferred = Boolean(salary.period_inferred);
+  // The advert's own sentence saying this band is the American one.
+  const usOnly = typeof salary.us_only === 'string' && salary.us_only ? salary.us_only : null;
   const stated = payRange(salary.currency, low, high, period);
   if (period === 'YEAR') {
     // Rounded to whole units here only; the stored figure keeps its precision.
@@ -317,11 +319,11 @@ export function salaryParts(salary) {
     );
     return {
       text: `${monthly} ${t(inferred ? 'pay.fromYearlyAssumed' : 'pay.fromYearly')}`,
-      stated, yearly: true, inferred,
+      stated, yearly: true, inferred, usOnly,
     };
   }
   return {
-    text: inferred ? `${stated} ${t('pay.assumedMonthly')}` : stated, stated, yearly: false, inferred,
+    text: inferred ? `${stated} ${t('pay.assumedMonthly')}` : stated, stated, yearly: false, inferred, usOnly,
   };
 }
 
@@ -427,6 +429,7 @@ export function payNotes(pay) {
   const notes = [];
   if (pay.yearly) notes.push(t('pay.yearlyNote', { pay: pay.stated }));
   if (pay.inferred) notes.push(t(pay.yearly ? 'pay.assumedYearlyNote' : 'pay.assumedMonthlyNote'));
+  if (pay.usOnly) notes.push(t('pay.usOnlyNote', { quote: pay.usOnly }));
   return notes;
 }
 

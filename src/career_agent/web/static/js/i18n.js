@@ -353,6 +353,9 @@ const EN = {
   'pay.yearlyNote': 'The ad states {pay}. Shown here divided by 12; it is not a promise of monthly pay.',
   'pay.assumedMonthlyNote': 'The ad gives no period. For a role hiring in Latin America, Career Agent reads a USD '
     + 'figure under 7,000 as monthly.',
+  'pay.usOnlyNote': 'The posting says this range is for candidates in the U.S. ("{quote}"). '
+    + 'Outside the U.S. it may differ; it is not a figure confirmed for you.',
+  'pay.usOnly': 'U.S. range',
   'pay.assumedYearlyNote': 'The ad gives no period. For a role hiring in Latin America, Career Agent reads a USD '
     + 'figure over 30,000 as yearly.',
   'contract.probable': 'Probably Contractor',
@@ -1991,6 +1994,9 @@ const EN = {
   'health.databaseHelp': 'The exact set of jobs this window is reading.',
   'health.unknown': 'Cannot tell how this is doing right now.',
   'app.stale': 'Your preferences changed. These matches are out of date.',
+  'table.salarySortNote': 'Sorted by pay in {currency}, yearly or monthly (a month is 1/12 of a year), '
+    + 'lowest end of the band first. Hourly pay, other currencies and no pay sit at the end: '
+    + 'they cannot be compared.',
   'table.caption': 'Job postings',
   'table.help': 'Job list. Scrolls sideways.',
   'table.visibleColumns': 'Visible columns',
@@ -5666,6 +5672,9 @@ const PT_BR = {
   'pay.yearlyNote': 'O anúncio informa {pay}. Aqui aparece dividido por 12; não é promessa de pagamento mensal.',
   'pay.assumedMonthlyNote': 'O anúncio não informa o período. Para vagas que contratam na América Latina, o Career '
     + 'Agent lê um valor em USD abaixo de 7.000 como mensal.',
+  'pay.usOnlyNote': 'O anúncio diz que esta faixa é para candidatos nos EUA ("{quote}"). '
+    + 'Fora dos EUA ela pode ser outra; não é um valor confirmado para você.',
+  'pay.usOnly': 'Faixa dos EUA',
   'pay.assumedYearlyNote': 'O anúncio não informa o período. Para vagas que contratam na América Latina, o Career '
     + 'Agent lê um valor em USD acima de 30.000 como anual.',
   'contract.probable': 'Provavelmente Contractor',
@@ -7203,6 +7212,9 @@ const PT_BR = {
   'health.databaseHelp': 'O conjunto exato de vagas que esta janela está lendo.',
   'health.unknown': 'Não dá para dizer como isto está agora.',
   'app.stale': 'Suas preferências mudaram. Estas correspondências estão desatualizadas.',
+  'table.salarySortNote': 'Ordenado pelo salário em {currency}, por ano ou por mês (um mês é 1/12 do ano), '
+    + 'pelo menor valor da faixa. Valores por hora, em outras moedas ou não informados ficam no fim: '
+    + 'não são comparáveis.',
   'table.caption': 'Anúncios de vaga',
   'table.help': 'Lista de vagas. Rola para os lados.',
   'table.visibleColumns': 'Colunas visíveis',

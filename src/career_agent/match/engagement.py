@@ -139,6 +139,26 @@ def latam_hiring_evidence(
     return None
 
 
+def worldwide_hiring_evidence(
+    declared_scope: str | None, gates: tuple[GateOutcome, ...]
+) -> str | None:
+    """A STATED worldwide hiring scope, or None.
+
+    Only the board's own hiring-scope field ("Anywhere in the World") or the
+    sentence that opened the geography gate, and only when the gate PASSED:
+    a worldwide scope includes Latin America. Never the advert's culture
+    prose ("a global team", "work from anywhere" among the perks), which says
+    nothing about where the employer hires (2026-10-13, readers-12).
+    """
+    passed = any(g.gate == "geography" and g.result.value == "PASS" for g in gates)
+    if not passed:
+        return None
+    for text in (declared_scope, *(g.quote for g in gates if g.gate == "geography")):
+        if text and "WORLDWIDE" in resolve_place(text).regions:
+            return text
+    return None
+
+
 def filter_engagement(reading: EmploymentReading | None) -> str | None:
     """The engagement the Contract filter files a posting under, or None.
 

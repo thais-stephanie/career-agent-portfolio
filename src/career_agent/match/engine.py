@@ -28,12 +28,16 @@ from career_agent.match.employment import (
     read_domestic_context,
     read_employment,
 )
-from career_agent.match.engagement import latam_hiring_evidence, with_default
+from career_agent.match.engagement import (
+    latam_hiring_evidence,
+    with_default,
+    worldwide_hiring_evidence,
+)
 from career_agent.match.experience import read_experience
 from career_agent.match.explicit import explicit_facts
 from career_agent.match.gates import eligibility_status_from, evaluate_gates
 from career_agent.match.lexicon import body_only, observe
-from career_agent.match.pay import default_period, read_pay
+from career_agent.match.pay import default_period, read_pay, us_only_band
 from career_agent.match.places import resolve_place
 from career_agent.match.score import (
     confidence_band_for,
@@ -428,8 +432,12 @@ def effective_pay(job: JobFacts, gates) -> tuple[JobFacts, str | None]:
     text = read_pay(job.description) if job.salary_source != "TEXT" else None
     if text is not None and text.period and text.currency == job.salary_currency:
         return replace(job, salary_period=text.period), None
+    # Hiring in Latin America, or a STATED worldwide hiring scope, which
+    # includes it: "Anywhere in the World" in a board's scope field left a
+    # USD 160,000 to 220,000 band with no period (2026-10-13).
     latam = (
         latam_hiring_evidence(job.declared_hiring_scope, tuple(gates), job.description) is not None
+        or worldwide_hiring_evidence(job.declared_hiring_scope, tuple(gates)) is not None
     )
     period = default_period(
         job.salary_min, job.salary_max, job.salary_currency, hires_in_latam=latam
@@ -470,6 +478,11 @@ def posting_facts(job: JobFacts, *, inferred_period: str | None = None) -> dict[
                 salary["raw"] = job.salary_raw
         if job.salary_text_differs:
             salary["text_differs"] = job.salary_text_differs
+        # A band the advert says is for candidates in the United States: kept
+        # with its sentence, so it is never read as pay offered to everyone.
+        us_band = us_only_band(job.description)
+        if us_band:
+            salary["us_only"] = us_band
         if inferred_period is not None:
             # ASSUMED, and said so: the period the app uses for this figure,
             # with the stated one (none) kept beside it.

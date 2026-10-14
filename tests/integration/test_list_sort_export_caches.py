@@ -327,3 +327,70 @@ def test_card_table_and_filter_file_the_engagement_the_same_way(api) -> None:  #
     rescore(conn, api.search_config())
     conn.close()
     assert "NOT_READ" not in page(api, limit=50)["facets"]["engagement"]
+
+
+PAY = {
+    # external id: (min, max, currency, period, annual min, annual max)
+    "p-1": (3000, 3000, "USD", "MONTH", 36000, 36000),
+    "p-2": (45000, 50000, "USD", "YEAR", 45000, 50000),
+    "p-3": (45000, 60000, "USD", "YEAR", 45000, 60000),
+    "p-4": (50, 50, "USD", "HOUR", 104000, 104000),
+    "p-5": (60000, 60000, "EUR", "YEAR", 60000, 60000),
+    "p-6": (160000, 220000, "USD", None, None, None),
+}
+
+
+def _pay(app) -> dict[str, str]:
+    conn = connect(app.config.db_path)
+    ids = {}
+    with transaction(conn):
+        conn.execute(
+            "UPDATE job_match SET salary_min = NULL, salary_max = NULL, salary_currency = NULL,"
+            " salary_period = NULL, salary_annual_min = NULL, salary_annual_max = NULL"
+        )
+        for external, values in PAY.items():
+            job_id = conn.execute(
+                "SELECT id FROM job WHERE external_id = ?", (external,)
+            ).fetchone()[0]
+            ids[job_id] = external
+            conn.execute(
+                "UPDATE job_match SET salary_min = ?, salary_max = ?, salary_currency = ?,"
+                " salary_period = ?, salary_annual_min = ?, salary_annual_max = ? WHERE job_id = ?",
+                (*values, job_id),
+            )
+    conn.close()
+    return ids
+
+
+def test_salary_sorts_comparable_pay_and_puts_the_rest_last(api) -> None:  # noqa: F811
+    ids = _pay(api)
+    up = [
+        ids.get(i["job_id"]) for i in page(api, sort="salary", direction="asc", limit=50)["items"]
+    ]
+    down = [
+        ids.get(i["job_id"]) for i in page(api, sort="salary", direction="desc", limit=50)["items"]
+    ]
+    # A month is a twelfth of a year; a band by its lower end, then its upper.
+    assert [x for x in up if x][:3] == ["p-1", "p-2", "p-3"]
+    assert [x for x in down if x][:3] == ["p-3", "p-2", "p-1"]
+    # Hourly, another currency and no period are not comparable: last both ways.
+    for order in (up, down):
+        compared = order.index("p-3") if order is up else order.index("p-1")
+        assert all(order.index(x) > compared for x in ("p-4", "p-5", "p-6"))
+    answer = page(api, sort="salary", direction="asc", limit=50)
+    assert answer["sort_currency"] == "USD"
+    # The whole filtered list is ordered before a page is cut.
+    whole = [i["job_id"] for i in answer["items"]]
+    pages = [
+        i["job_id"]
+        for off in range(0, len(whole), 4)
+        for i in page(api, sort="salary", direction="asc", limit=4, offset=off)["items"]
+    ]
+    assert pages == whole
+
+
+def test_a_single_currency_filter_is_the_currency_compared(api) -> None:  # noqa: F811
+    ids = _pay(api)
+    answer = page(api, sort="salary", direction="desc", salary_currency="EUR", limit=50)
+    assert answer["sort_currency"] == "EUR"
+    assert [ids.get(i["job_id"]) for i in answer["items"]] == ["p-5"]

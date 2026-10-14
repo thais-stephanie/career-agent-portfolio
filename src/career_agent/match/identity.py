@@ -168,7 +168,10 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              candidate, whatever the board says about remote work; a
 #:              U.S. security clearance or export-control requirement is a
 #:              requirement to confirm; "can be executed from anywhere in X"
-#:              names where the work is done.
+#:              names where the work is done. Pay: a STATED worldwide hiring
+#:              scope (the board's field or the sentence that opened the
+#:              gate) takes the USD period default like Latin America; a band
+#:              the advert says is for U.S. candidates keeps that sentence.
 READER_IDENTITY = "readers-12"
 
 

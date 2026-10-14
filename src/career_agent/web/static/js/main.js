@@ -1152,6 +1152,7 @@ function paint(state) {
     renderTable(dom.list, items, {
       sort: state.sort,
       direction: state.direction,
+      sortCurrency: lastResponse && lastResponse.sort_currency,
       visible: columnVisibility,
       // A header cycles: ascending, descending, then the list's own order
       // (best match first). The server sorts the WHOLE filtered list before

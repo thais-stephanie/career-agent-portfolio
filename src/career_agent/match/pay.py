@@ -381,3 +381,22 @@ def default_period(
     if all(value > YEARLY_ABOVE_USD for value in figures):
         return "YEAR"
     return None
+
+
+#: "The provided range is the expected salary for candidates in the U.S.",
+#: "This range applies to U.S.-based candidates", "US salary range": the
+#: employer saying a band is the American one. Kept, never generalised.
+_US_ONLY_BAND = re.compile(
+    r"[^.\n]*\b(?:range|salary|compensation|pay)\b[^.\n]{0,80}?"
+    r"\b(?:for|to|applies\s+to)\s+(?:candidates|applicants|roles|employees|people|those)\s+"
+    r"(?:(?:based|located|living|hired)\s+)?in\s+the\s+(?:U\.S\.?|US|USA|United\s+States)"
+    r"|[^.\n]*\b(?:U\.S\.|US)[- ]based\s+(?:candidates|applicants|roles|employees)\b"
+    r"[^.\n]{0,40}?\b(?:range|salary|compensation)\b",
+    re.IGNORECASE,
+)
+
+
+def us_only_band(description: str | None) -> str | None:
+    """The advert's sentence saying its pay band is for the United States."""
+    found = _US_ONLY_BAND.search(description or "")
+    return found.group(0).strip() if found else None

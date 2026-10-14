@@ -35,6 +35,7 @@ than by a SQL date function.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections import Counter
 from collections.abc import Iterator, Sequence
@@ -201,6 +202,9 @@ SORT_COLUMNS: dict[str, str] = {
     # its match happens to fall. `ja.hidden_at` is NULL on every visible row,
     # so this key is only meaningful beside `user_hidden_only`.
     "hidden": "ja.hidden_at",
+    # PAY, compared only where it can be: see `_salary_order`. The column here
+    # only names the key; the ordering is built from several.
+    "salary": "jm.salary_annual_min",
 }
 SORT_KEYS: frozenset[str] = frozenset(SORT_COLUMNS)
 
@@ -855,6 +859,35 @@ _PERIODS_PER_YEAR: dict[str, float] = {
     "YEARLY": 1.0,
     "ANNUAL": 1.0,
 }
+
+
+#: The periods a salary sort compares: a year, and a month as a twelfth of it
+#: (the definition of the two words). An hourly, daily or weekly rate needs a
+#: working pattern nobody stated, so it is not compared with them.
+_COMPARABLE_PERIODS = ("YEAR", "YEARLY", "ANNUAL", "MONTH", "MONTHLY")
+
+
+def _salary_order(f: Any) -> str:
+    """ORDER BY pay: in one currency, yearly or monthly, lower bound first.
+
+    A band sorts by its lower bound and then its upper one. A posting with no
+    pay, pay in another currency or an hourly rate is NOT COMPARABLE and sorts
+    last in both directions, never first because it is "smallest". The
+    currency is checked against three capital letters before it reaches SQL.
+    """
+    currency = str(f.sort_currency or "USD").upper()
+    if not re.fullmatch(r"[A-Z]{3}", currency):
+        currency = "USD"
+    periods = ", ".join(f"'{p}'" for p in _COMPARABLE_PERIODS)
+    comparable = (
+        f"(jm.salary_currency = '{currency}'"
+        f" AND UPPER(COALESCE(jm.salary_period, '')) IN ({periods})"
+        " AND COALESCE(jm.salary_annual_min, jm.salary_annual_max) IS NOT NULL)"
+    )
+    low = f"CASE WHEN {comparable} THEN COALESCE(jm.salary_annual_min, jm.salary_annual_max) END"
+    high = f"CASE WHEN {comparable} THEN COALESCE(jm.salary_annual_max, jm.salary_annual_min) END"
+    direction = f.direction.upper()
+    return f" ORDER BY ({low} IS NULL) ASC, {low} {direction}, {high} {direction}, j.id ASC"
 
 
 def annualise(value: float | None, period: str | None) -> float | None:
@@ -2075,6 +2108,9 @@ class JobFilter:
 
     sort: str = "score"
     direction: str = "desc"
+    #: The one currency pay is compared in when sorting by salary. Nothing is
+    #: converted: a posting paid in another currency sorts at the end.
+    sort_currency: str = "USD"
     limit: int = 60
     offset: int = 0
 
@@ -2975,6 +3011,8 @@ class ScoredJobQuery(_Repo):
         if f.direction.lower() not in SORT_DIRECTIONS:
             raise SortKeyError(f"unknown sort direction {f.direction!r}; expected asc or desc")
         column = SORT_COLUMNS[f.sort]
+        if f.sort == "salary":
+            return _salary_order(f)
         if f.sort not in SORT_MAY_BE_MISSING:
             return f" ORDER BY {column} {f.direction.upper()}, j.id ASC"
         # A missing value (no date, no company, no location) sorts LAST in

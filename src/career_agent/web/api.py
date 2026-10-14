@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import threading
 import time
 from collections import OrderedDict
@@ -224,6 +225,7 @@ _VOCABULARIES: dict[str, tuple[str, ...]] = {
         "place",
         "source",
         "applied_at",
+        "salary",
     ),
     # NOT_STATED is in the vocabulary because it is an ANSWER a person asks
     # for -- "show me the ones that never said" -- not an absence they should
@@ -2011,6 +2013,18 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             "now": now_iso(),
         }
 
+    def _sort_currency(self, query: dict) -> str:
+        """The currency a salary sort compares in: the one currency the person
+        filtered on, else the currency of their pay preference, else USD."""
+        chosen = [c for c in _upper(query, "salary_currency") if c != NOT_STATED]
+        if len(chosen) == 1 and re.fullmatch(r"[A-Z]{3}", str(chosen[0])):
+            return str(chosen[0])
+        try:
+            preferred = str(self.search_config().preferences.compensation.currency or "")
+        except Exception:  # noqa: BLE001 - a sort never fails on a preference
+            preferred = ""
+        return preferred.upper() if re.fullmatch(r"[A-Za-z]{3}", preferred) else "USD"
+
     def rescore_status(self, *, query: dict, body: dict) -> dict:
         """What the current or last rescore did, in one vocabulary. Safe to poll.
 
@@ -2323,6 +2337,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             "freshness": freshness,
             # The hidden counts below are `null` until counted; see above.
             "narrowings_pending": narrowings is None,
+            # The one currency a salary sort compared in, so the screen can
+            # say which postings were compared and why the rest sit last.
+            "sort_currency": job_filter.sort_currency if job_filter.sort == "salary" else None,
             "items": [
                 {
                     **job_card(row, bands=self._bands, today=today, recency=self._recency),
@@ -3265,6 +3282,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             ),
             sort=_single(query, "sort", "score"),
             direction=_single(query, "direction", "desc"),
+            sort_currency=self._sort_currency(query),
             limit=limit,
             offset=offset,
         )
