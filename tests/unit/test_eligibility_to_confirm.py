@@ -53,16 +53,19 @@ def gate(result, name: str):
     return next(g for g in result.gates if g.gate == name)
 
 
-def test_perks_prose_does_not_certify_a_role_published_elsewhere() -> None:
-    result = run("Build the platform in Go and React.\n\n" + PERKS, location_raw="United States")
-    geography = gate(result, "geography")
-    assert geography.result is GateResult.UNRESOLVED
-    assert geography.code == "PUBLISHED_LOCATION_ELSEWHERE"
-    assert result.eligibility_status is EligibilityStatus.UNRESOLVED
-    # Control: the same perks with no published place still admit.
-    assert run("Build the platform.\n\n" + PERKS).eligibility_status is (
-        EligibilityStatus.VERIFIED_ELIGIBLE
+def test_perks_prose_beside_an_office_address_follows_adr_0034() -> None:
+    """An office address is not a hiring scope (invariant 3): with no remote
+    workplace type, "Work from anywhere" among perks still reads as one. The
+    remote case is the one ADR-0034 restricts."""
+    office = run("Build the platform in Go and React.\n\n" + PERKS, location_raw="United States")
+    assert office.eligibility_status is EligibilityStatus.VERIFIED_ELIGIBLE
+    remote = run(
+        "Build the platform in Go and React.\n\n" + PERKS,
+        location_raw="United States",
+        workplace_type="REMOTE",
     )
+    assert gate(remote, "geography").code == "PUBLISHED_LOCATION_ELSEWHERE"
+    assert remote.eligibility_status is EligibilityStatus.UNRESOLVED
 
 
 def test_a_clearance_the_role_may_need_is_a_requirement_to_confirm_never_a_refusal() -> None:
@@ -84,7 +87,7 @@ def test_the_whole_mattermost_shape_is_to_confirm_and_keeps_its_score() -> None:
     result = run(body, location_raw="United States")
     assert result.eligibility_status is EligibilityStatus.UNRESOLVED
     codes = {g.code for g in result.gates if g.code}
-    assert codes == {"PUBLISHED_LOCATION_ELSEWHERE", "US_SECURITY_REQUIREMENTS"}
+    assert "US_SECURITY_REQUIREMENTS" in codes
 
 
 def test_security_words_without_a_requirement_say_nothing() -> None:

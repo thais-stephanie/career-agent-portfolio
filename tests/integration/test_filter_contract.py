@@ -245,6 +245,9 @@ WIDENING = {
     # because nothing is confirmed there, which is the control correctly doing
     # nothing: there is no evidence to transfer yet.
     "include_transferable": "1",
+    # Ads whose own page said they are gone (0055). Reveals nothing here: no
+    # posting on this fixture has been checked, which is the default state.
+    "include_removed": "1",
 }
 
 

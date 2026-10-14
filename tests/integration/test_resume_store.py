@@ -524,6 +524,7 @@ def test_a_pre_0047_database_migrates_additively_and_once(tmp_path: Path) -> Non
         "deep_review",
         "deep_job",
         "deep_attempt",
+        "job_availability",
     }
     assert conn.execute("SELECT note FROM search_fit_feedback").fetchone()[0] == "kept"
     assert migrate(conn) == []

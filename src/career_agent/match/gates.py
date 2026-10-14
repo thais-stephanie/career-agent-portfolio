@@ -1597,14 +1597,14 @@ def evaluate_gates(
                 config, description_field, place, employment, workplace_type
             )
 
-        if gate == "geography" and place is not None and workplace_type != "ONSITE":
-            # The published location of a role that does NOT include her
-            # (ADR-0034): never a refusal on its own, and never something
+        if gate == "geography" and place is not None and workplace_type == "REMOTE":
+            # The published location of a remote role that does NOT include
+            # her (ADR-0034): never a refusal on its own, and never something
             # vague prose may overrule into a PASS either. Read once here.
-            # Not only for a board that says REMOTE (2026-10-13): Greenhouse
-            # publishes no workplace type, and "Work from anywhere" among a
-            # posting's perks made a role published as `United States`, with
-            # U.S. clearance and export-control requirements, read eligible.
+            # Only for a role the board calls remote: an office address is not
+            # a hiring scope (invariant 3), so for a board that publishes no
+            # workplace type it restricts nothing (2026-10-13: widening this
+            # broke ADR-0034 and is the owner's decision, not a fix).
             published_excludes = (
                 _candidate_geography_known(config)
                 and bool(place.countries or place.regions)
@@ -1732,7 +1732,7 @@ def evaluate_gates(
                     gate="geography",
                     result=GateResult.UNRESOLVED,
                     reason=(
-                        f"This posting says {location_raw or 'another place'}. "
+                        f"This posting is remote and says {location_raw or 'another place'}. "
                         f"General remote-work wording does not say whether it hires in "
                         f"{country_label(config)}; confirm before applying."
                     ),

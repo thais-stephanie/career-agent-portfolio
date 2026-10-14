@@ -1,6 +1,6 @@
 """Is the posting's own page still up? Asked politely, answered carefully.
 
-A posting can stay in the catalogue after its advert was taken down (a Lever
+A posting can stay in the catalogue after its advert was taken down (a vendor
 page answering 404 "this job is no longer available" while the list still
 offered it). This module asks the posting's own page, or its ATS's official
 posting API, and files one of four answers, independent of matching and age:
@@ -9,7 +9,7 @@ posting API, and files one of four answers, independent of matching and age:
 * REMOVED      a 404 or 410, or the source's own unmistakable "closed" page;
 * INCONCLUSIVE anything else: 403, 429, 5xx, a timeout, a captcha, a generic
                page, a redirect to a careers home. Never read as removed;
-* EXCLUDED     LinkedIn, never asked (also when a redirect leads there).
+* EXCLUDED     a site whose terms forbid it, never asked (also when a redirect leads there).
 
 No row is NOT CHECKED. AVAILABLE is what the page said at `checked_at`, never
 a promise; each answer is asked again after its own interval (`RECHECK`).
@@ -42,6 +42,8 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
+from career_agent.providers.posting_check import EXCLUDED_HOSTS, api_url
+
 #: At most this many postings per run: the saved ones, then the best matches.
 RUN_LIMIT = 200
 MAX_REDIRECTS = 5
@@ -71,8 +73,6 @@ RECHECK: dict[str, timedelta] = {
     Availability.EXCLUDED: timedelta(days=30),
 }
 
-#: Hosts never asked: LinkedIn's terms forbid automated access.
-EXCLUDED_HOSTS = ("linkedin.com",)
 
 #: The source's own words for a closed posting, on a page that answers 200.
 #: Each is a whole statement about THIS posting, never a word that a live
@@ -156,21 +156,6 @@ def public_destination(url: str, resolve: Resolver) -> str | None:
     return None
 
 
-def api_url(url: str) -> str | None:
-    """The ATS's official posting endpoint for a posting page, when there is one."""
-    parts = urlsplit(url)
-    host = (parts.hostname or "").lower()
-    segments = [s for s in parts.path.split("/") if s]
-    if host in {"job-boards.greenhouse.io", "boards.greenhouse.io"} and "jobs" in segments:
-        at = segments.index("jobs")
-        if at >= 1 and len(segments) > at + 1 and segments[at + 1].isdigit():
-            board, job = segments[at - 1], segments[at + 1]
-            return f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs/{job}"
-    if host == "jobs.lever.co" and len(segments) >= 2:
-        return f"https://api.lever.co/v0/postings/{segments[0]}/{segments[1]}"
-    return None
-
-
 class _Domains:
     """One request per domain at a time, spaced; domains that asked us to wait."""
 
@@ -221,7 +206,7 @@ def check_one(
         return Check(job_id, Availability.INCONCLUSIVE, stamp, None, evidence="no address stored")
     if is_excluded(url):
         return Check(
-            job_id, Availability.EXCLUDED, stamp, url, evidence="LinkedIn is never checked"
+            job_id, Availability.EXCLUDED, stamp, url, evidence="this site is never checked"
         )
     target = api_url(url)
     method = "api" if target else "page"
@@ -245,7 +230,7 @@ def check_one(
                 stamp,
                 url,
                 current,
-                evidence="redirected to LinkedIn, which is never checked",
+                evidence="redirected to a site that is never checked",
                 method=method,
             )
         host = _host(current)
@@ -269,7 +254,9 @@ def check_one(
                         if len(body) >= MAX_BYTES:
                             break
                     status = response.status_code
-                    location = response.headers.get("location")
+                    location = response.headers.get(
+                        "Location"
+                    )  # the HTTP header (case-insensitive)
                     retry_after = response.headers.get("retry-after")
                     encoding = response.encoding or "utf-8"
             except httpx.TimeoutException:

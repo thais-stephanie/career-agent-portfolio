@@ -137,6 +137,8 @@ EXPECTED_TABLES = {
     # 0031: where a query-scoped walk got to, slice by slice, across runs.
     "source_slice_state",
     "source_health",
+    # 0055: whether each posting's own page was still up when last asked.
+    "job_availability",
     # 0033: where a board-discovery walk over an aggregator index got to,
     # employer by employer, and which boards it registered.
     "board_discovery_lead",

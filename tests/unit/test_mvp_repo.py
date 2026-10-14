@@ -758,7 +758,7 @@ def test_a_bogus_sort_key_raises_rather_than_reaching_sql(scored: sqlite3.Connec
     all -- including one shaped like an injection."""
     query = ScoredJobQuery(scored)
     with pytest.raises(SortKeyError, match="unknown sort key"):
-        query.page(CONFIG_ID, CONFIG_VERSION, JobFilter(sort="salary"))
+        query.page(CONFIG_ID, CONFIG_VERSION, JobFilter(sort="favourite_colour"))
     with pytest.raises(SortKeyError, match="unknown sort key"):
         query.page(CONFIG_ID, CONFIG_VERSION, JobFilter(sort="j.title; DROP TABLE job"))
     with pytest.raises(SortKeyError, match="unknown sort direction"):

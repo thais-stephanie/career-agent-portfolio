@@ -76,7 +76,7 @@ def test_a_sort_key_nobody_offered_is_refused(api) -> None:  # noqa: F811
     from career_agent.web.server import ApiError
 
     with pytest.raises(ApiError):
-        page(api, sort="salary")
+        page(api, sort="favourite_colour")
 
 
 # ------------------------------------------------------------------ export

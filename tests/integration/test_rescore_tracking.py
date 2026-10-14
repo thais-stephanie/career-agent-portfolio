@@ -77,7 +77,8 @@ def targets(app: JobsApi) -> int:
 
 
 def outdated_on_home(app: JobsApi) -> int:
-    return int(app.handle_api("GET", "/api/home", {}, {})["scores"]["outdated"])
+    """What Home's recalculation row says is left (asked apart from Home)."""
+    return int(app.handle_api("GET", "/api/home/outdated", {}, {})["outdated"])
 
 
 def fail_after(monkeypatch: pytest.MonkeyPatch, calls: int) -> None:

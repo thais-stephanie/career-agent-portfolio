@@ -122,18 +122,24 @@ def test_markets_are_optional_and_never_a_task(app: JobsApi) -> None:
     assert "markets" not in " ".join(payload["profile_gaps"])
 
 
+def _outdated(app: JobsApi) -> dict:
+    return app.handle_api("GET", "/api/home/outdated", {}, {})
+
+
 def test_outdated_scores_are_what_recalculate_would_score(app: JobsApi) -> None:
     # A seeded posting is work until a real pass acknowledges it (by design:
     # `MatchRepo.settle_dirty`), so the count starts at what a pass would do.
     with connect(app.config.db_path) as conn:
         seeded = len(plan(conn, app.search_config()).targets)
-        assert _home(app)["scores"] == {"outdated": seeded, "running": False}
+        # Home draws without the count and asks it apart (2026-10-13).
+        assert _home(app)["scores"] == {"outdated": None, "running": False}
+        assert _outdated(app) == {"outdated": seeded, "running": False}
         rescore(conn, app.search_config())
-    assert _home(app)["scores"] == {"outdated": 0, "running": False}
+    assert _outdated(app) == {"outdated": 0, "running": False}
 
     _bump_version(app)
 
-    outdated = _home(app)["scores"]["outdated"]
+    outdated = _outdated(app)["outdated"]
     with connect(app.config.db_path) as conn:
         expected = len(plan(conn, app.search_config()).targets)
     assert outdated == expected > 0

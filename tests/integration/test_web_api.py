@@ -948,6 +948,7 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
         "narrowings": "later",
         "enriched_only": "true",
         "has_salary": "true",
+        "include_removed": "true",
         "remote_only": "true",
         # "false", not "true": the API layer's default IS False, so sending
         # true would parse correctly and still equal the dataclass default,

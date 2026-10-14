@@ -163,9 +163,7 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              and the contract facet move.
 #:   readers-12 Eligibility to confirm (2026-10-13): two explicit location
 #:              statements of one posting that disagree are "conflicting
-#:              locations", both quoted; general remote-work prose no longer
-#:              certifies a role whose published place excludes the
-#:              candidate, whatever the board says about remote work; a
+#:              locations", both quoted; a
 #:              U.S. security clearance or export-control requirement is a
 #:              requirement to confirm; "can be executed from anywhere in X"
 #:              names where the work is done. Pay: a STATED worldwide hiring

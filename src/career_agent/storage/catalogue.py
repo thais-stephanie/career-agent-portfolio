@@ -90,6 +90,8 @@ SHARED_TABLES: frozenset[str] = frozenset(
         "source_slice_state",
         # how each collector last went; outcome and counts, never a query
         "source_health",
+        # whether each posting's own page was still up (0055): public, same for all
+        "job_availability",
         # the full-text index over them
         "job_search",
         "search_index_map",
