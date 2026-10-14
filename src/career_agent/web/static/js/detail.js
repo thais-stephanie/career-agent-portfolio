@@ -491,7 +491,9 @@ export function createDrawer({
       },
       {
         key: 'type', icon: '◷',
-        value: engaged.text || t(engaged.notRead ? 'contract.notReadShort' : 'contract.notStatedShort'),
+        // A presumed engagement is named plainly, with "presumed" beside it.
+        value: (engaged.probable && job.engagement ? t(`employment.${job.engagement}`) : engaged.text)
+          || t(engaged.notRead ? 'contract.notReadShort' : 'contract.notStatedShort'),
         absent: !engaged.text,
         quals: [engaged.probable ? t('contract.qualPresumed') : null, engaged.hours].filter(Boolean),
         details: [

@@ -438,6 +438,14 @@ export function createHome({
       working: 'home.todo.scoresWorking',
       done: 'home.todo.scoresChecking',
     });
+    // After a stop, what is LEFT is the current reading's count when Home has
+    // it, not the stopped run's own arithmetic, which later writes outdate.
+    const leftNow = (key) => (state) => t(key, {
+      done: state.done.toLocaleString(getLocale()), total: state.total.toLocaleString(getLocale()),
+      left: (outdated > 0 ? outdated : Math.max(0, state.total - state.done)).toLocaleString(getLocale()),
+    });
+    scoreWords.failed = leftNow('rescore.failedAt');
+    scoreWords.interrupted = leftNow('rescore.interruptedAt');
     // The recalculation row IS the shared Recalculate flow: a click starts the
     // targeted pass, a run already going is followed, a second start is
     // refused. It leaves the list only when a fresh read says nothing is

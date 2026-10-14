@@ -9901,7 +9901,7 @@ table.jobs .row--blocked .cell__title-btn, table.jobs .row--offtarget .cell__tit
 /* -- About: four facts on one row ---------------------------------------- */
 .d-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .d-tile {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px;
   min-width: 0; padding: 10px 12px;
   border: 1px solid var(--divider); border-radius: 14px;
   box-shadow: 0 1px 2px rgba(27, 26, 23, 0.04);
