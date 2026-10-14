@@ -40,6 +40,14 @@ CASES = [
     # be near the team, not anywhere in a long sentence.
     ("soporte", "Buscamos un profesional con formacion en sistemas o carrera afin para "
      "integrarse a nuestro equipo de soporte operativo.", "es", ev.MATCH),
+    # a TOOL is a name: listed after a preposition, or after `to`, it is
+    # still the tool (found in the owner's shadow run, 2026-10-14)
+    ("HubSpot", "Experience with CRM systems (HubSpot, Salesforce, or similar).", "en",
+     ev.MATCH),
+    ("Codex", "Experiencia com GitHub Copilot, Codex, Claude Code ou similares.", "pt",
+     ev.MATCH),
+    ("Zapier", "Build reports and connect workflows to Zapier for automation.", "en",
+     ev.MATCH),
     # a compound naming another activity
     ("sales", "Run pre-sales demonstrations for enterprise prospects.", "en", ev.UNCERTAIN),
     # an English verb

@@ -138,9 +138,9 @@ structure:
   # Words saying the role works WITH somebody (`partner with the sales team`).
   # A team named after one of these is somebody else's work.
   collaboration_markers:
-    en: ["with", "alongside", "across", "between", "partner", "partners", "partnering",
+    en: ["with", "alongside", "partner", "partners", "partnering",
          "collaborate", "collaborates", "collaborating", "liaise", "liaising", "interface",
-         "closely", "cross", "assist", "assisting", "enable", "enabling", "serve",
+         "closely", "assist", "assisting", "enable", "enabling", "serve",
          "serving", "supporting"]
     pt: ["com", "junto", "juntamente", "parceria", "colaborar", "colaborando", "interface"]
     es: ["con", "junto", "colaborar", "colaborando"]

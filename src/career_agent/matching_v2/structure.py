@@ -238,26 +238,31 @@ def one_word(text: str, start: int, end: int, sentence_start: int, sentence_end:
     markers = set(before[-_MARKER_REACH:]) & st.collaboration
     if team and markers:
         return ONE_WORD_TEAM
-    # In a list, a bare preposition (`experience with dados, metadados`) is
-    # not collaboration: it takes a verb of working together, or the list's
-    # names written as departments are (`with Legal, Sales`).
-    if listed and (markers - st.prepositions or (markers and text[start : start + 1].isupper())):
+    # In a list, a bare preposition is not collaboration (`experience with
+    # dados, metadados`; `experience with ToolA, ToolB` lists TOOLS):
+    # it takes a verb of working together (`partner with Legal, Sales`).
+    if listed and markers - st.prepositions:
         return ONE_WORD_TEAM
     # A gerund names the activity itself (`Teaching mathematics`), never the
-    # helping verb.
-    if language == "en" and not fold(text[start:end])[0].endswith("ing"):
-        if before and before[-1] in st.verb_openers:
+    # helping verb; a capitalised word mid-sentence is a name (`connect
+    # workflows to ToolA`), never a verb.
+    surface = text[start:end]
+    if language == "en" and not fold(surface)[0].endswith("ing"):
+        if surface[:1].islower() and before and before[-1] in st.verb_openers:
             return ONE_WORD_VERB
-        if after and after[0] in st.determiners:
+        if surface[:1].islower() and after and after[0] in st.determiners:
             return ONE_WORD_VERB
         # An imperative opening a duty (`Support month-end invoicing`): the
-        # first word of its sentence, followed by a lower-case word that is
-        # not a preposition or a coordinator.
+        # capitalised first word of its sentence, followed by a lower-case
+        # word that is not a preposition, a coordinator or `to`.
         if (
             not before
+            and surface[:1].isupper()
             and after_raw
             and after_raw[0][:1].islower()
-            and (after[0] not in st.prepositions and after[0] not in st.coordinators)
+            and after[0] not in st.prepositions
+            and after[0] not in st.coordinators
+            and after[0] not in st.verb_openers
         ):
             return ONE_WORD_VERB
     return None
