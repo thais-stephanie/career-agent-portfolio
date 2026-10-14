@@ -159,3 +159,14 @@ def test_the_known_limit_is_pinned_not_hidden(corpus_report) -> None:
     The reader decides by proximity, in English as in Portuguese; six of seven
     such cases match. Pinned so a change to it is a decision, not a drift."""
     assert corpus_report["by_cat"]["P"].get("MATCH", 0) == 6
+
+
+def test_the_engine_names_no_profession_and_no_product() -> None:
+    """Vocabulary of a field is data (`*_data.yaml`), never a branch in code."""
+    package = Path(__file__).resolve().parents[2] / "src" / "career_agent" / "matching_v2"
+    forbidden = ("crm", "hubspot", "salesforce", "revops", "n8n", "zapier", "nurse",
+                 "enfermag", "marketing", "teacher", "professor")  # fmt: skip
+    for module in package.glob("*.py"):
+        text = module.read_text(encoding="utf-8").lower()
+        found = [w for w in forbidden if w in text]
+        assert not found, f"{module.name} names {found}"
