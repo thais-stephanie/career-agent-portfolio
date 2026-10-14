@@ -644,11 +644,18 @@ def rescore(
             stats.scoring_only_ms += _elapsed(compute_started)
             if batch:
                 write_started = datetime.now(UTC)
+                # COUNTED AFTER THE COMMIT. A page whose write fails is rolled
+                # back, and a count taken inside it said 11 scores saved where
+                # 10 were (2026-10-13): `jobs_scored` is what a failed or
+                # interrupted run reports as kept, so it may only hold rows
+                # that exist.
+                written: list[tuple[str, Any]] = []
+                skipped = 0
                 with transaction(conn):
                     current = invalidation.input_revisions(conn, chunk)
                     for job_id, content_hash, result in batch:
                         if current[job_id] != revisions[job_id]:
-                            stats.jobs_skipped_changed += 1
+                            skipped += 1
                             continue
                         matches.store(
                             job_id,
@@ -658,9 +665,12 @@ def rescore(
                             input_digest=identity,
                         )
                         invalidation.receipt(conn, job_id, config, revisions[job_id])
-                        successful[job_id] = revisions[job_id]
-                        stats.jobs_scored += 1
-                        _tally(stats, result, shortlist_min)
+                        written.append((job_id, result))
+                stats.jobs_skipped_changed += skipped
+                for job_id, result in written:
+                    successful[job_id] = revisions[job_id]
+                    stats.jobs_scored += 1
+                    _tally(stats, result, shortlist_min)
                 stats.write_ms += _elapsed(write_started)
 
             if progress is not None:

@@ -62,6 +62,8 @@ MAX_NOTE = 2000
 #: How long a remembered Home may be served at most. The key holds everything
 #: Home depends on that a write can move; this bounds anything it cannot see.
 HOME_MEMO_SECONDS = 600
+#: While a recalculation runs, Home is read again at most once a minute.
+HOME_RUNNING_REUSE_SECONDS = 60
 
 #: The claim types somebody may create by hand. Every one of `ClaimType`
 #: except `METRIC`, which is deliberately absent: a metric on its own is a
@@ -1942,12 +1944,22 @@ class WorkspaceRoutes(_MixinBase):
             # confirmed evidence and whether a recalculation is running. The
             # plan count alone is seconds on a real corpus.
             running = bool(getattr(getattr(self, "rescore", None), "running", False))
+            # WHILE A RECALCULATION RUNS, every committed page moves
+            # `_jobs_freshness`, and each visit to Home read the whole page
+            # again against a database being written: tens of seconds a visit
+            # for 86 minutes. During a run the answer is reused for a minute
+            # at a time instead; the progress itself comes from the run.
+            freshness = (
+                ("recalculating", int(time.monotonic() // HOME_RUNNING_REUSE_SECONDS))
+                if running
+                else self._jobs_freshness(conn)
+            )
             key = (
                 str(self.config.db_path),
                 config_id,
                 config_version,
                 str(getattr(config, "digest", "")),
-                self._jobs_freshness(conn),
+                freshness,
                 seen_at,
                 running,
                 tuple(
@@ -1975,7 +1987,17 @@ class WorkspaceRoutes(_MixinBase):
             pending = declarations_pending(config, read_unsure(conn))
             # What "Recalculate" would score: the targeted pass's own plan, so
             # this count and the button can never disagree. Reads indexes only.
-            outdated = len(rescore_plan(conn, config).targets)
+            #
+            # While it runs the plan is not asked (seconds, against the tables
+            # being written): what is still to update is the run's own total
+            # minus the scores it has COMMITTED.
+            if running:
+                snap = getattr(self, "rescore").snapshot() or {}  # noqa: B009
+                outdated = max(
+                    0, int(snap.get("boards_total") or 0) - int(snap.get("boards_done") or 0)
+                )
+            else:
+                outdated = len(rescore_plan(conn, config).targets)
             refresh_run = latest_refresh_run(conn)
             total = repo.count(config_id, config_version, default_filter(show))
             open_jobs = conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NULL").fetchone()[

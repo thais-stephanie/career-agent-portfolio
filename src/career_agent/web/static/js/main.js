@@ -35,7 +35,7 @@ import { searchFitIsReady, setSearchFitReadiness } from './badges.js';
 import { renderProfile } from './profile.js';
 import { LOCALES, getLocale, initialLocale, setLocale, t, tCount, tState } from './i18n.js';
 import { createRetrievalPanel } from './retrieval.js';
-import { createCollection, createProgressView, outcomeText } from './collection.js';
+import { createCollection, createProgressView, duration, outcomeText } from './collection.js';
 import { createDrawer } from './detail.js';
 import { createResumeWorkspace } from './resume_v2.js';
 import { legacyNotice } from './resume_library.js';
@@ -46,7 +46,7 @@ import { experienceView } from './experience.js';
 import { createDaily } from './daily.js';
 import { createDeep } from './deep.js';
 import { createHome } from './home.js';
-import { recalcButton } from './recalc.js';
+import { recalcButton, watchRescore } from './recalc.js';
 import { createSourcesPanel } from './sources.js';
 import { createShell } from './shell.js';
 import { createLocalProfiles } from './local-profiles.js';
@@ -1312,53 +1312,59 @@ function basisLine(basis) {
   return el('span', { className: 'resultcount__quiet resultcount__basis', text: ` · ${text}` });
 }
 
-//: The handle of the poll that watches a recalculation to its end. One at a
-//: time: a second timer would double the request rate and race the first to
-//: refresh the list.
-let recalcTimer = null;
-//: How often the list is refreshed while a recalculation runs. Longer than
-//: the retrieval panel's two seconds on purpose: each refresh is a full list
-//: query against a database another thread is writing to, and nothing on
-//: the screen changes faster than the progress bar, which has its own poll.
-const RECALC_POLL_MS = 5000;
+//: The subscription that watches a recalculation to its end: the page's one
+//: watcher (recalc.js), never a second timer racing it to refresh the list.
+let recalcWatch = null;
+//: How often the list is asked again while a recalculation runs. Each ask is
+//: a full list query against a database another thread is writing to, and
+//: the progress itself is drawn from the watcher, so this stays slow.
+const RECALC_LIST_MS = 15000;
+//: The recalculation's account as the watcher last gave it, for the notice,
+//: and the last measured duration of a large one on this computer.
+let recalcState = null;
+let recalcRate = null;
 
 /**
- * Poll until the recalculation stops, then fetch the list once.
- *
- * Two seconds, matching the retrieval panel. `/api/rescore` reads a count
- * from the database rather than from the runner, so it is right before any
- * rescore has happened and stays right after one that was interrupted.
+ * Follow the recalculation until it ends, then ask the list and the counts
+ * again, whether it finished, failed or was interrupted: the notice's count
+ * was read when the page opened, and it is only right again once re-read.
+ * A missed poll says so and keeps trying.
  */
 function watchRecalculation() {
-  if (recalcTimer) return;
-  recalcTimer = window.setTimeout(async function tick() {
-    recalcTimer = null;
-    let status;
-    try {
-      status = await api.getRescore();
-    } catch {
-      // A failed poll is not a failed rescore, but a bar that simply stops
-      // moving is the stall the owner met at 57% (2026-09-25): the server had
-      // been stopped and nothing on screen said so. Say it, and offer to look
-      // again rather than retrying for ever.
+  if (recalcWatch) return;
+  let listAt = Date.now();
+  let seenActive = false;
+  let lost = false;
+  recalcWatch = watchRescore(({ status, unreachable }) => {
+    if (unreachable) {
+      lost = true;
       showRecalculationLost();
       return;
     }
+    recalcState = (status && status.state) || null;
+    recalcRate = (status && status.rate) || null;
+    const phase = recalcState && recalcState.phase;
+    if (phase === 'RUNNING' || phase === 'RUNNING_ELSEWHERE') {
+      // Redrawn on entering the run or after contact came back, never on
+      // every poll: a redraw replaces the button and would take its focus.
+      if (!seenActive || lost) renderRevisionNotice();
+      seenActive = true;
+      lost = false;
+      if (Date.now() - listAt >= RECALC_LIST_MS) {
+        listAt = Date.now();
+        load(store.apiQueryString(), store.get(), { quiet: true }).catch(() => {});
+      }
+      return;
+    }
+    recalcWatch();
+    recalcWatch = null;
+    if (!seenActive) return;
     // **`load`, NOT the store subscriber.** The subscriber only re-fetches
-    // when the QUERY changed and otherwise repaints from `lastResponse`; a
-    // recalculation changes nothing in the query, so a repaint would redraw
-    // the stale payload for ever -- the notice frozen on "answers your
-    // previous preferences" and, worse, the LIST still showing the previous
-    // scores after the new ones had landed.
-    //
-    // The first version of this called a `refresh()` that does not exist:
-    // the reload path here is a subscriber registered on the store, not a
-    // named function. The call rejected silently, the notice never cleared,
-    // and the network log showed the POST and the poll with no `/api/jobs`
-    // between them, which is what finally named the bug.
-    await load(store.apiQueryString(), store.get(), { quiet: true });
-    if (status && status.running) watchRecalculation();
-  }, RECALC_POLL_MS);
+    // when the QUERY changed; a recalculation changes nothing in the query,
+    // so a repaint would redraw the stale payload for ever.
+    showHealth();
+    load(store.apiQueryString(), store.get(), { quiet: true }).catch(() => {});
+  });
 }
 
 
@@ -1397,6 +1403,11 @@ function showRecalculationLost() {
   ]);
 }
 
+function recalcActive() {
+  const phase = recalcState && recalcState.phase;
+  return phase === 'RUNNING' || phase === 'RUNNING_ELSEWHERE';
+}
+
 function renderRevisionNotice() {
   const node = dom.revision;
   if (!node) return;
@@ -1417,15 +1428,28 @@ function renderRevisionNotice() {
     // so the revision is too, and nothing else would offer the recalculation.
     const older = Number(lastHealth && lastHealth.stale_scores) || 0;
     if (older > 0) {
+      watchRecalculation();
       node.hidden = false;
       replace(node, [
         el('span', {
           className: 'revnotice__text',
           attrs: { role: 'status' },
-          text: older === 1
-            ? t('revision.olderScoresOne')
-            : t('revision.olderScores', { n: older.toLocaleString() }),
+          text: recalcActive()
+            ? t('revision.olderUpdating', { n: older.toLocaleString() })
+            : older === 1
+              ? t('revision.olderScoresOne')
+              : t('revision.olderScores', { n: older.toLocaleString() }),
         }),
+        // How long it took HERE last time: measured, named as such, and
+        // absent when nothing large enough has run on this computer.
+        recalcRate && !recalcActive()
+          ? el('span', {
+            className: 'revnotice__text revnotice__quiet',
+            text: t('revision.lastTook', {
+              jobs: Number(recalcRate.jobs).toLocaleString(), time: duration(recalcRate.seconds),
+            }),
+          })
+          : null,
         rescoreButton(),
       ]);
       return;

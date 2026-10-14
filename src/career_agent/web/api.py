@@ -2011,23 +2011,40 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         }
 
     def rescore_status(self, *, query: dict, body: dict) -> dict:
-        """What the current or last rescore did. Safe to poll.
+        """What the current or last rescore did, in one vocabulary. Safe to poll.
 
-        `scored` comes from the database rather than from the run, so the
-        answer is right before any rescore has ever happened and stays right
-        after one that was interrupted.
+        `state` comes from this process's runner while it runs and otherwise
+        from the run's own row, which the pass updates after every committed
+        page, so a restart of the app reads INTERRUPTED with the count that was
+        saved rather than forgetting the run (`web/rescore_state.py`).
+
+        `scored` is counted only when nothing is running: polled every few
+        seconds during an 86-minute pass it was one more read of a table the
+        pass was writing, and the progress already says how far it got.
         """
         _reject_unknown(query, frozenset(), "rescore")
+        from career_agent.web import rescore_state
+
         config_id, config_version = self._identity()
+        running = self.rescore.running
+        snapshot = self.rescore.snapshot()
         with _closing(self.connect()) as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) FROM job_match WHERE config_id = ? AND config_version = ?",
-                (config_id, config_version),
-            ).fetchone()
+            record = rescore_state.last_run(conn)
+            rate = rescore_state.measured_rate(conn)
+            scored = None
+            if not running:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM job_match WHERE config_id = ? AND config_version = ?",
+                    (config_id, config_version),
+                ).fetchone()
+                scored = int(row[0]) if row else 0
+        state = rescore_state.describe(running, snapshot, record)
         return {
-            "running": self.rescore.running,
-            "run": self.rescore.snapshot(),
-            "scored": int(row[0]) if row else 0,
+            "running": running or state["phase"] == "RUNNING_ELSEWHERE",
+            "run": snapshot,
+            "state": state,
+            "rate": rate,
+            "scored": scored,
             "config_version": config_version,
         }
 
@@ -2050,6 +2067,16 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
         if self.rescore.running:
             raise ApiError(409, "a rescore is already running", for_reader=True)
+        from career_agent.web import rescore_state
+
+        with _closing(self.connect()) as conn:
+            record = rescore_state.last_run(conn)
+        if rescore_state.describe(False, None, record)["phase"] == "RUNNING_ELSEWHERE":
+            # Another process (the command line, a second app window on the
+            # same profile) is writing this profile's scores right now.
+            raise ApiError(
+                409, "A recalculation is already running in another window.", for_reader=True
+            )
         semantic = getattr(self, "semantic_runner", None)
         if semantic is not None and semantic.running:
             # A semantic run ends with its own rescore of what it evaluated.

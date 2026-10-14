@@ -1569,6 +1569,8 @@ body.has-drawer { overflow: hidden; }
   color: var(--lilac-ink);
 }
 .revnotice__text { flex: 1; min-width: 220px; }
+/* The measured duration of the last large recalculation: its own line. */
+.revnotice__quiet { flex-basis: 100%; order: 3; }
 .revnotice__progress { font-size: 12px; font-variant-numeric: tabular-nums; }
 /* A BAR beside the fraction, because a recalculation is the one thing in this
    product that takes minutes and the number alone does not say whether it is

@@ -32,7 +32,7 @@ import { createSetup, setupPostponed, setupResumeStep } from './setup.js';
 import { getLocale, t, tCount } from './i18n.js';
 import * as api from './api.js';
 import { createProgressView, outcomeText } from './collection.js';
-import { driveRescore } from './recalc.js';
+import { driveRescore, rescoreWords } from './recalc.js';
 
 /**
  * The cards, in reading order.
@@ -409,18 +409,12 @@ export function createHome({
     const idleScores = outdated > 0
       ? tCount('home.todo.scoresHelp', { n: outdated.toLocaleString(getLocale()) })
       : t('home.todo.scoresWorking');
-    const scoreWords = {
-      starting: () => t('home.todo.scoresStarting'),
-      running: ({ done, total }) => (total
-        ? t('home.todo.scoresProgress', {
-          done: done.toLocaleString(getLocale()), total: total.toLocaleString(getLocale()),
-        })
-        : t('home.todo.scoresWorking')),
-      done: () => t('home.todo.scoresChecking'),
-      failed: () => t('home.todo.scoresFailed'),
-      lost: () => t('app.rescoreLost'),
-      refused: ({ message }) => message,
-    };
+    const scoreWords = rescoreWords({
+      starting: 'home.todo.scoresStarting',
+      progress: 'home.todo.scoresProgress',
+      working: 'home.todo.scoresWorking',
+      done: 'home.todo.scoresChecking',
+    });
     // The recalculation row IS the shared Recalculate flow: a click starts the
     // targeted pass, a run already going is followed, a second start is
     // refused. It leaves the list only when a fresh read says nothing is
@@ -436,6 +430,7 @@ export function createHome({
           show: (state) => {
             row.button.setAttribute('aria-busy', String(state.busy));
             row.button.classList.toggle('is-running', state.busy || state.phase === 'done');
+            row.button.classList.toggle('is-stopped', state.phase === 'failed' || state.phase === 'interrupted');
             row.help.textContent = (scoreWords[state.phase] || (() => idleScores))(state);
             const pct = state.phase === 'done' ? 100
               : state.total ? Math.min(100, Math.round((state.done / state.total) * 100)) : 0;

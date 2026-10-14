@@ -8,6 +8,19 @@
  * again. `driveRescore` is the flow; `recalcButton` is the Jobs look, and
  * Home draws its own task row over the same flow.
  *
+ * ONE WATCHER FOR THE WHOLE PAGE (2026-10-13). Every control used to start its
+ * own 700 ms poll, and Home draws a new control on every redraw, so a long
+ * run was polled two to three times a second by loops nobody could see, and
+ * ten missed polls ended a loop for good. Now one loop polls every two seconds
+ * while something runs, every control subscribes to it, a control taken off
+ * the page stops listening, and a missed poll backs off and keeps trying: the
+ * screen says it is reconnecting instead of giving up.
+ *
+ * The server's `state.phase` says what happened: RUNNING, RUNNING_ELSEWHERE,
+ * DONE, FAILED, CANCELLED, INTERRUPTED or IDLE, with the scores committed
+ * so far (`done`) and planned (`total`). A failure or an interruption is shown
+ * as one, with what was saved, never as the starting notice again.
+ *
  * Opens no socket beyond this machine and asks no model of either kind.
  */
 
@@ -15,70 +28,146 @@ import { el } from './dom.js';
 import { t } from './i18n.js';
 import * as api from './api.js';
 
+const POLL_MS = 2000;
+const MAX_BACKOFF_MS = 15000;
+const ACTIVE = new Set(['RUNNING', 'RUNNING_ELSEWHERE']);
+
+const listeners = new Set();
+let timer = null;
+let last = null;
+let misses = 0;
+let inFlight = null;
+
+function isActive(status) {
+  return Boolean(status && status.state && ACTIVE.has(status.state.phase));
+}
+
+async function tick() {
+  timer = null;
+  if (!inFlight) {
+    inFlight = api.getRescore()
+      .then((status) => { last = status; misses = 0; })
+      .catch(() => { misses += 1; })
+      .finally(() => { inFlight = null; });
+  }
+  await inFlight;
+  const snapshot = { status: last, unreachable: misses > 0 };
+  for (const listener of [...listeners]) listener(snapshot);
+  if (!listeners.size || timer) return;
+  if (misses > 0) {
+    timer = window.setTimeout(tick, Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** Math.min(misses, 3)));
+  } else if (isActive(last)) {
+    timer = window.setTimeout(tick, POLL_MS);
+  }
+}
+
+/** Ask now, and keep asking while something runs. */
+export function refreshRescore() {
+  if (timer) window.clearTimeout(timer);
+  timer = null;
+  return tick();
+}
+
+/** Listen to the one watcher. Returns the way to stop listening. */
+export function watchRescore(listener) {
+  listeners.add(listener);
+  if (last) listener({ status: last, unreachable: misses > 0 });
+  if (!timer && !inFlight) refreshRescore();
+  return () => listeners.delete(listener);
+}
+
 /**
  * Wire `control` to the rescore flow. `show(state)` draws each moment:
- * `phase` is idle, starting, running, done, failed, lost or refused;
- * `busy` is true while a run is starting or going (a click then does
- * nothing); `done` and `total` count jobs while running; `message` says why
- * a start was refused. `onDone` runs once a followed run finished well.
+ * `phase` is idle, starting, running, reconnecting, done, failed,
+ * interrupted, cancelled or refused; `busy` is true while a run is starting
+ * or going (a click then does nothing); `done` and `total` count committed
+ * and planned scores; `message` says why a start was refused or a run failed.
+ * `onDone` runs once, when a run this page watched ends (well or not), so
+ * counts read when the page opened are read again.
  */
 export function driveRescore(control, { show, onDone = () => {} }) {
-  let polling = null;
   let busy = false;
+  let watched = false;
+  let starting = false;
+  let attached = false;
+  let lastDone = 0;
+  let lastTotal = 0;
+  let stop = () => {};
   const draw = (phase, extra = {}) => {
-    busy = phase === 'starting' || phase === 'running';
+    busy = phase === 'starting' || phase === 'running' || phase === 'reconnecting';
     show({ phase, busy, ...extra });
   };
 
-  async function poll() {
-    const state = await api.getRescore();
-    const run = state.run || {};
-    if (state.running) {
-      draw('running', { done: Number(run.boards_done) || 0, total: Number(run.boards_total) || 0 });
+  const listener = ({ status, unreachable }) => {
+    // A control taken off the page stops listening; one not yet placed is
+    // simply not drawn into yet.
+    if (control.isConnected) attached = true;
+    else if (attached) { stop(); return; }
+    if (unreachable && (watched || starting)) {
+      draw('reconnecting', { done: lastDone, total: lastTotal });
       return;
     }
-    window.clearInterval(polling);
-    polling = null;
-    if (run.status === 'failed') {
-      draw('failed');
+    const state = (status && status.state) || { phase: 'IDLE' };
+    lastDone = Number(state.done) || 0;
+    lastTotal = Number(state.total) || 0;
+    const counts = { done: lastDone, total: lastTotal, message: state.error || '' };
+    if (ACTIVE.has(state.phase)) {
+      watched = true;
+      starting = false;
+      draw('running', counts);
       return;
     }
-    draw('done');
-    onDone();
-  }
-
-  function follow() {
-    if (polling) return;
-    draw('running', { done: 0, total: 0 });
-    let misses = 0;
-    polling = window.setInterval(() => {
-      poll().then(() => { misses = 0; }).catch(() => {
-        // A few missed polls are a busy server; many are a stopped one.
-        misses += 1;
-        if (misses < 10) return;
-        window.clearInterval(polling);
-        polling = null;
-        draw('lost');
-      });
-    }, 700);
-  }
+    if (starting) return; // a poll answered before the run began
+    if (watched) {
+      watched = false;
+      draw(state.phase === 'DONE' ? 'done' : state.phase.toLowerCase(), counts);
+      onDone(state);
+      return;
+    }
+    // Not watched from this page: how the last run ended is said only when it
+    // did NOT end well, so a stop is never mistaken for "nothing happened".
+    if (state.phase === 'FAILED' || state.phase === 'INTERRUPTED') {
+      draw(state.phase.toLowerCase(), counts);
+      return;
+    }
+    draw('idle', counts);
+  };
+  stop = watchRescore(listener);
 
   control.addEventListener('click', async () => {
     if (busy) return;
+    starting = true;
     draw('starting');
     try {
       await api.startRescore();
     } catch (error) {
+      starting = false;
       draw('refused', { message: error.userMessage || t('rescore.couldNotStart') });
       return;
     }
-    follow();
+    watched = true;
+    refreshRescore();
   });
+  return stop;
+}
 
-  // ALREADY RUNNING? Follow it instead of offering a second one.
-  api.getRescore().then((state) => {
-    if (state && state.running) follow();
-  }).catch(() => {});
+/** Words for each phase. `keys` names the look's own catalogue entries for
+ *  starting, progress, working and done; the rest are shared. */
+export function rescoreWords(keys) {
+  const counts = ({ done, total }) => ({
+    done: done.toLocaleString(), total: total.toLocaleString(),
+    left: Math.max(0, total - done).toLocaleString(),
+  });
+  return {
+    starting: () => t(keys.starting),
+    running: (state) => (state.total ? t(keys.progress, counts(state)) : t(keys.working)),
+    reconnecting: () => t('rescore.reconnecting'),
+    done: () => t(keys.done),
+    failed: (state) => t('rescore.failedAt', counts(state)),
+    interrupted: (state) => t('rescore.interruptedAt', counts(state)),
+    cancelled: (state) => t('rescore.interruptedAt', counts(state)),
+    refused: ({ message }) => message,
+  };
 }
 
 /** The Jobs look: a button whose label carries the progress. */
@@ -87,16 +176,9 @@ export function recalcButton({
 } = {}) {
   const label = el('span', { text: t(labelKey) });
   const control = el('button', { className, attrs: { type: 'button' } }, [label]);
-  const words = {
-    starting: () => t('app.starting'),
-    running: ({ done, total }) => (total
-      ? t('rescore.progress', { done: done.toLocaleString(), total: total.toLocaleString() })
-      : t('rescore.working')),
-    done: () => t('app.rescoreDone'),
-    failed: () => t('app.rescoreFailed'),
-    lost: () => t('app.rescoreLost'),
-    refused: ({ message }) => message,
-  };
+  const words = rescoreWords({
+    starting: 'app.starting', progress: 'rescore.progress', working: 'rescore.working', done: 'app.rescoreDone',
+  });
   driveRescore(control, {
     onDone,
     show: (state) => {

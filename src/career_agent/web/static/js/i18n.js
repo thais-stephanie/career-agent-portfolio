@@ -1965,6 +1965,11 @@ const EN = {
   'app.thisPosting': 'this posting',
   'app.rescore': 'Recalculate the match %',
   'app.rescoreFailed': 'Something went wrong. Try again',
+  'rescore.reconnecting': 'Reconnecting...',
+  'rescore.failedAt': 'Stopped with an error after {done} of {total}. Those are saved; {left} still '
+    + 'show old scores. Try again.',
+  'rescore.interruptedAt': 'Stopped after {done} of {total}, when Career Agent closed. Those are saved; '
+    + '{left} still to update. Press to continue.',
   'app.rescoreDone': 'Done. Loading your matches',
   'app.starting': 'Starting...',
   'app.listFailed': 'The list of jobs could not be loaded.',
@@ -2013,12 +2018,15 @@ const EN = {
   'revision.olderScoresOne': '1 score was calculated by an earlier version of Career Agent and may '
     + 'be out of date. Recalculating runs on this computer and calls no AI provider.',
   'revision.olderScores': '{n} scores were calculated by an earlier version of Career Agent and '
-    + 'may be out of date. Recalculating runs on this computer, calls no AI provider and takes a '
-    + 'few minutes on a large list.',
+    + 'may be out of date. Recalculating runs on this computer and calls no AI provider.',
+  'revision.olderUpdating': '{n} scores needed updating when this page opened. They are being '
+    + 'recalculated now; the count is read again when it ends.',
+  'revision.lastTook': 'Last time, {jobs} scores took {time} on this computer.',
   'revision.interrupted': 'Recalculation stopped at {done} of {total} ({pct}%) before it finished. '
     + 'The list still answers your previous preferences.',
   'revision.resume': 'Continue recalculating',
-  'revision.lost': 'Lost contact with Career Agent while recalculating. It may have stopped.',
+  'revision.lost': 'Cannot reach Career Agent right now. Still trying; the recalculation keeps '
+    + 'the scores it has saved.',
   'revision.checkAgain': 'Reload this screen',
   'app.rescoreLost': 'Lost contact while recalculating. Try again',
   'prefs.reach': 'Lexical reach: {n} of {total} scored open postings ({pct}%). Title or body.',
@@ -3691,8 +3699,8 @@ const EN = {
   'empty.checking': 'Checking what is in your database...',
   'empty.unscored': 'There are {n} jobs here, but none of them have been scored against your '
     + 'current preferences. That happens when you change what you are looking '
-    + 'for: the old scores answered the old question. Recalculating happens on'
-    + 'your own computer, costs nothing and takes a few minutes.',
+    + 'for: the old scores answered the old question. Recalculating happens on '
+    + 'your own computer and costs nothing.',
   'empty.noneCollected': 'No jobs have been collected yet. Find jobs checks public job boards for you.',
   'empty.notScoredYet': 'These jobs have not been scored yet.',
   'empty.nothingYet': 'There is nothing here yet.',
@@ -7161,6 +7169,11 @@ const PT_BR = {
   'app.thisPosting': 'este anúncio',
   'app.rescore': 'Recalcular compatibilidade',
   'app.rescoreFailed': 'Algo deu errado. Tente de novo',
+  'rescore.reconnecting': 'Reconectando...',
+  'rescore.failedAt': 'Parou com um erro depois de {done} de {total}. Essas estão salvas; {left} ainda '
+    + 'mostram a nota antiga. Tente de novo.',
+  'rescore.interruptedAt': 'Parou depois de {done} de {total}, quando o Career Agent fechou. Essas estão '
+    + 'salvas; faltam {left}. Toque para continuar.',
   'app.rescoreDone': 'Pronto. Carregando suas correspondências',
   'app.starting': 'Começando...',
   'app.listFailed': 'Não foi possível carregar a lista de vagas.',
@@ -7210,12 +7223,16 @@ const PT_BR = {
   'revision.olderScoresOne': '1 pontuação foi calculada por uma versão anterior do Career Agent e '
     + 'pode estar desatualizada. O recálculo roda neste computador e não chama nenhum provedor de IA.',
   'revision.olderScores': '{n} pontuações foram calculadas por uma versão anterior do Career Agent '
-    + 'e podem estar desatualizadas. O recálculo roda neste computador, não chama nenhum provedor '
-    + 'de IA e leva alguns minutos numa lista grande.',
+    + 'e podem estar desatualizadas. O recálculo roda neste computador e não chama nenhum provedor '
+    + 'de IA.',
+  'revision.olderUpdating': '{n} pontuações precisavam de atualização quando esta página abriu. Elas '
+    + 'estão sendo recalculadas agora; a contagem é lida de novo quando terminar.',
+  'revision.lastTook': 'Da última vez, {jobs} pontuações levaram {time} neste computador.',
   'revision.interrupted': 'O recálculo parou em {done} de {total} ({pct}%) antes de terminar. '
     + 'A lista ainda responde às suas preferências anteriores.',
   'revision.resume': 'Continuar o recálculo',
-  'revision.lost': 'O contato com o Career Agent foi perdido durante o recálculo. Ele pode ter parado.',
+  'revision.lost': 'Não foi possível falar com o Career Agent agora. Tentando de novo; o recálculo '
+    + 'mantém as pontuações que já salvou.',
   'revision.checkAgain': 'Recarregar esta tela',
   'app.rescoreLost': 'Contato perdido durante o recálculo. Tente de novo',
   'prefs.reach': 'Alcance lexical: {n} de {total} vagas abertas pontuadas ({pct}%). Título ou descrição.',
@@ -8894,8 +8911,7 @@ const PT_BR = {
   'empty.unscored': 'Existem {n} vagas aqui, mas nenhuma foi pontuada com as suas '
     + 'preferências atuais. Isso acontece quando você muda o que está '
     + 'procurando: as notas antigas respondiam à pergunta antiga. O recálculo '
-    + 'acontece no seu próprio computador, não custa nada e leva alguns'
-    + 'minutos.',
+    + 'acontece no seu próprio computador e não custa nada.',
   'empty.noneCollected': 'Nenhuma vaga foi coletada ainda. Encontrar vagas consulta sites de emprego públicos para '
     + 'você.',
   'empty.notScoredYet': 'Estas vagas ainda não foram pontuadas.',
