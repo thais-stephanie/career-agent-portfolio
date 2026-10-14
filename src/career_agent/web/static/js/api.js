@@ -1133,17 +1133,12 @@ export async function getJobDescriptions(ids) {
   return request(`/jobs/descriptions?${query.toString()}`);
 }
 
-//: Home asked while an identical request is still on its way gets the same
-//: answer: the page asked twice as it opened, and on a cold disk each one was
-//: a full read on the server.
-let homeInFlight = null;
-
+// Not shared between callers on the page: a visit after a write must read
+// after it. The server lets one Home read run at a time and the second reads
+// the first's remembered answer (`WorkspaceApi.home`).
 export async function getHome() {
   if (MOCK) throw noCandidateHere();
-  if (!homeInFlight) {
-    homeInFlight = request('/home').finally(() => { homeInFlight = null; });
-  }
-  return homeInFlight;
+  return request('/home');
 }
 
 /** How the best matches' ads stand, and whether a check is running. */

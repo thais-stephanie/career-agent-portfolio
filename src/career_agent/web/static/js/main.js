@@ -1337,7 +1337,16 @@ function watchRecalculation() {
   let listAt = Date.now();
   let seenActive = false;
   let lost = false;
-  recalcWatch = watchRescore(({ status, unreachable }) => {
+  let unsubscribe = null;
+  let ended = false;
+  // Taken BEFORE subscribing: the watcher answers a new listener at once with
+  // what it last heard, and a redraw from that answer must not subscribe again.
+  recalcWatch = () => {
+    ended = true;
+    if (unsubscribe) unsubscribe();
+  };
+  unsubscribe = watchRescore(({ status, unreachable }) => {
+    if (ended) return;
     if (unreachable) {
       lost = true;
       showRecalculationLost();
@@ -1358,8 +1367,9 @@ function watchRecalculation() {
       }
       return;
     }
-    recalcWatch();
+    const stop = recalcWatch;
     recalcWatch = null;
+    stop();
     if (!seenActive) return;
     // **`load`, NOT the store subscriber.** The subscriber only re-fetches
     // when the QUERY changed; a recalculation changes nothing in the query,
@@ -1367,6 +1377,7 @@ function watchRecalculation() {
     showHealth();
     load(store.apiQueryString(), store.get(), { quiet: true }).catch(() => {});
   });
+  if (ended) unsubscribe();
 }
 
 

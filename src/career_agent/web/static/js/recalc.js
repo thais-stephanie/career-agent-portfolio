@@ -37,6 +37,14 @@ let timer = null;
 let last = null;
 let misses = 0;
 let inFlight = null;
+//: Controls that started a run and have not yet seen it answered for.
+let awaiting = 0;
+
+//: Which run an answer is about: its id, or its start (to the second) when
+//: it failed before its run row was written.
+function runOf(state) {
+  return (state && (state.run_id || state.started_at)) || null;
+}
 
 function isActive(status) {
   return Boolean(status && status.state && ACTIVE.has(status.state.phase));
@@ -52,11 +60,18 @@ async function tick() {
   }
   await inFlight;
   const snapshot = { status: last, unreachable: misses > 0 };
-  for (const listener of [...listeners]) listener(snapshot);
+  // One listener's fault never stops the others, nor the polling.
+  for (const listener of [...listeners]) {
+    try {
+      listener(snapshot);
+    } catch (error) {
+      console.error(error); // eslint-disable-line no-console
+    }
+  }
   if (!listeners.size || timer) return;
   if (misses > 0) {
     timer = window.setTimeout(tick, Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** Math.min(misses, 3)));
-  } else if (isActive(last)) {
+  } else if (isActive(last) || awaiting > 0) {
     timer = window.setTimeout(tick, POLL_MS);
   }
 }
@@ -65,7 +80,9 @@ async function tick() {
 export function refreshRescore() {
   if (timer) window.clearTimeout(timer);
   timer = null;
-  return tick();
+  // A question already on its way may have been asked before a run began;
+  // its answer is delivered, and then the question is asked again.
+  return inFlight ? inFlight.then(() => tick()) : tick();
 }
 
 /** Listen to the one watcher. Returns the way to stop listening. */
@@ -92,7 +109,15 @@ export function driveRescore(control, { show, onDone = () => {} }) {
   let attached = false;
   let lastDone = 0;
   let lastTotal = 0;
+  // After a start: the run that was last reported BEFORE it,
+  // so an answer about that older run, or an idle one asked before the new
+  // run began, is never read as the new run having ended.
+  let before;
+  let waitingFor = false;
   let stop = () => {};
+  const settle = () => {
+    if (waitingFor) { waitingFor = false; awaiting -= 1; }
+  };
   const draw = (phase, extra = {}) => {
     busy = phase === 'starting' || phase === 'running' || phase === 'reconnecting';
     show({ phase, busy, ...extra });
@@ -102,12 +127,16 @@ export function driveRescore(control, { show, onDone = () => {} }) {
     // A control taken off the page stops listening; one not yet placed is
     // simply not drawn into yet.
     if (control.isConnected) attached = true;
-    else if (attached) { stop(); return; }
+    else if (attached) { settle(); stop(); return; }
     if (unreachable && (watched || starting)) {
       draw('reconnecting', { done: lastDone, total: lastTotal });
       return;
     }
     const state = (status && status.state) || { phase: 'IDLE' };
+    if (waitingFor) {
+      if (!ACTIVE.has(state.phase) && runOf(state) === before) return;
+      settle();
+    }
     lastDone = Number(state.done) || 0;
     lastTotal = Number(state.total) || 0;
     const counts = { done: lastDone, total: lastTotal, message: state.error || '' };
@@ -137,6 +166,7 @@ export function driveRescore(control, { show, onDone = () => {} }) {
   control.addEventListener('click', async () => {
     if (busy) return;
     starting = true;
+    before = runOf(last && last.state);
     draw('starting');
     try {
       await api.startRescore();
@@ -146,6 +176,7 @@ export function driveRescore(control, { show, onDone = () => {} }) {
       return;
     }
     watched = true;
+    if (!waitingFor) { waitingFor = true; awaiting += 1; }
     refreshRescore();
   });
   return stop;

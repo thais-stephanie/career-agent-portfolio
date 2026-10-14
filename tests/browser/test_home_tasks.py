@@ -84,9 +84,10 @@ def test_tasks_are_whole_rows_with_one_amber_line(
     page: Chrome, pending: tuple[str, JobsApi]
 ) -> None:
     base, app = pending
-    payload = app.handle_api("GET", "/api/home", {}, {})
-    outdated = payload["scores"]["outdated"]
+    # Home asks the count apart (/api/home/outdated) and draws without it.
+    outdated = app.handle_api("GET", "/api/home/outdated", {}, {})["outdated"]
     assert outdated > 0
+    payload = app.handle_api("GET", "/api/home", {}, {})
 
     open_home_past_setup(page, base)
     page.wait_for(f"{TODO_TEXT}.includes('{outdated} jobs are showing old scores.')")
@@ -152,8 +153,9 @@ def test_tasks_are_whole_rows_with_one_amber_line(
 
 def test_the_tasks_read_in_portuguese(page: Chrome, pending: tuple[str, JobsApi]) -> None:
     base, app = pending
+    # Home asks the count apart (/api/home/outdated) and draws without it.
+    outdated = app.handle_api("GET", "/api/home/outdated", {}, {})["outdated"]
     payload = app.handle_api("GET", "/api/home", {}, {})
-    outdated = payload["scores"]["outdated"]
     page.navigate(base)
     page.evaluate("window.localStorage.setItem('careerAgent.locale.v1', 'pt-BR')")
     try:
@@ -220,7 +222,7 @@ def test_a_finished_recalculation_leaves_only_once_confirmed(
     rows = int(page.evaluate("document.querySelectorAll('.home__todo').length"))
     page.evaluate(f"{RECALC}.click()")  # a real pass, over this synthetic corpus only
     page.wait_for(f"!{RECALC}", timeout=60, message="the row gone after a confirmed read")
-    assert app.handle_api("GET", "/api/home", {}, {})["scores"]["outdated"] == 0
+    assert app.handle_api("GET", "/api/home/outdated", {}, {})["outdated"] == 0
     page.wait_for(f"{TODO_TEXT}.includes('✓ Match scores updated')", message="the done line")
     count = page.evaluate("document.querySelector('.home__todocount').innerText")
     assert count == f"{rows - 1} left"
@@ -240,7 +242,8 @@ def test_a_failed_recalculation_keeps_its_row(page: Chrome, pending: tuple[str, 
         release.set()
         app.rescore.join(10)
     page.wait_for(
-        f"{RECALC_HELP}.includes('The update stopped before finishing. Try again.')",
+        # The row says how far it got and that those are saved (2026-10-13).
+        f"{RECALC_HELP}.includes('Stopped with an error after 3 of 20. Those are saved;')",
         message="the failure line",
     )
     assert page.evaluate(f"{RECALC}.getAttribute('aria-busy')") == "false"
@@ -261,7 +264,8 @@ def test_all_set_only_when_nothing_is_pending(page: Chrome, tmp_path: Path) -> N
     with connect(app.config.db_path) as conn:
         rescore(conn, app.search_config())
     payload = app.handle_api("GET", "/api/home", {}, {})
-    assert payload["scores"]["outdated"] == 0 and payload["declarations_pending"] == []
+    outdated = app.handle_api("GET", "/api/home/outdated", {}, {})["outdated"]
+    assert outdated == 0 and payload["declarations_pending"] == []
     assert payload["profile_gaps"] == [], payload["profile_gaps"]
     for base in _serve(app):
         open_home_past_setup(page, base)
@@ -269,3 +273,43 @@ def test_all_set_only_when_nothing_is_pending(page: Chrome, tmp_path: Path) -> N
         assert "You’re all set." in str(page.evaluate(TODO_TEXT))
         assert not page.evaluate("Boolean(document.querySelector('.home__todo, .home__todocount'))")
         assert not page.evaluate("Boolean(document.querySelector('.home__stale'))")
+
+
+def test_find_jobs_opened_during_a_run_follows_it_to_the_end(
+    page: Chrome, pending: tuple[str, JobsApi]
+) -> None:
+    """Coming back to Find jobs while older scores are being recalculated:
+    the notice follows the run, clears when it ends, and raises nothing.
+
+    The recursion fixed on 2026-10-14 (the watcher answers a new listener at
+    once, and a notice redrawn from that answer subscribed again until the
+    stack overflowed and the polling stopped) is reproduced by
+    `test_revision_notice.py::test_scores_from_an_earlier_version_offer_the_recalculation`
+    when run after its file's other tests, which leave a status cached.
+    """
+    from career_agent.domain.matching import MATCH_SCHEMA_VERSION
+
+    base, app = pending
+    with connect(app.config.db_path) as conn:
+        rescore(conn, app.search_config())
+        conn.execute("UPDATE job_match SET schema_version = ?", (MATCH_SCHEMA_VERSION - 1,))
+        conn.commit()
+    release = threading.Event()
+    _hold(app, release, done=3, total=20)
+    notice = "document.getElementById('revnotice')"
+    shown = f"(Boolean({notice}) && !{notice}.hidden)"
+    try:
+        page.set_viewport(1440, 960)
+        page.clear_console()
+        page.navigate(base + "/#jobs")
+        page.wait_for(
+            f"{shown} && {notice}.innerText.includes('They are being recalculated now')",
+            message="the notice following the run",
+        )
+        with connect(app.config.db_path) as conn:
+            rescore(conn, app.search_config())
+    finally:
+        release.set()
+        app.rescore.join(10)
+    page.wait_for(f"!{shown}", message="the notice to clear once the run ended", timeout=20)
+    assert not page.console_errors()
