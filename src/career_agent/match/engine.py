@@ -23,7 +23,15 @@ from dataclasses import dataclass, replace
 
 from career_agent.config.search_config import SearchConfig
 from career_agent.domain.enums import ContentCompleteness, GateResult, ScreeningState
-from career_agent.domain.matching import MatchResult, ObservedSignal, SemanticEvidence
+from career_agent.domain.matching import (
+    DomesticReading,
+    EmploymentReading,
+    ExperienceReading,
+    MatchResult,
+    ObservedSignal,
+    SemanticEvidence,
+    SeniorityReading,
+)
 from career_agent.match.employment import (
     read_domestic_context,
     read_employment,
@@ -38,7 +46,7 @@ from career_agent.match.explicit import explicit_facts
 from career_agent.match.gates import eligibility_status_from, evaluate_gates
 from career_agent.match.lexicon import body_only, observe
 from career_agent.match.pay import default_period, read_pay, us_only_band
-from career_agent.match.places import resolve_place
+from career_agent.match.places import ResolvedPlace, resolve_place
 from career_agent.match.score import (
     confidence_band_for,
     data_confidence,
@@ -49,7 +57,7 @@ from career_agent.match.score import (
 )
 from career_agent.match.seniority import read_seniority
 from career_agent.match.taxonomy import classify_title
-from career_agent.match.text import fold_field, split_sections
+from career_agent.match.text import FoldedText, Section, fold_field, split_sections
 from career_agent.match.work_model import read_work_model
 from career_agent.providers.base import CompensationBand
 
@@ -267,14 +275,14 @@ class SharedReading:
     reading the advert again. The headings are machinery, not a preference.
     """
 
-    sections: tuple
-    title_field: object
-    description_field: object
-    seniority: object
-    employment_stated: object
-    domestic: object
-    experience: object
-    place: object
+    sections: tuple[Section, ...]
+    title_field: FoldedText
+    description_field: FoldedText
+    seniority: SeniorityReading
+    employment_stated: EmploymentReading
+    domestic: DomesticReading
+    experience: ExperienceReading
+    place: ResolvedPlace
 
 
 def read_shared(

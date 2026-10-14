@@ -68,7 +68,8 @@ def affected_jobs(conn: sqlite3.Connection, change: LanguageChange) -> tuple[lis
     plain = LanguageChange(
         frozenset(r for r in change.old_roots if not r.startswith("*")), change.sequence_heads
     )
-    moved, unmoved = [], []
+    moved: list[str] = []
+    unmoved: list[str] = []
     for job_id, payload in conn.execute(
         "SELECT job_id, payload_json FROM job_features WHERE component = 'work_facts'"
     ):
