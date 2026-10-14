@@ -45,9 +45,9 @@ catalogue holds no profile row (tested).
   per profile; memoising or sharing them is a small next step.
 * **Selective invalidation** scans stored payloads; an index of roots per
   posting comes when a real table change shows the scan matters.
-* **v2 normalises every lexicon entry**, curated ones included; production
-  reads curated multi-pattern entries literally. The parity run on real
-  postings below measures what that moves.
+* **v2 normalises every multi-word lexicon entry**, curated ones included;
+  production reads curated multi-pattern entries literally. A one-word entry
+  matches its own word or a listed translation only, as production does.
 
 ## Evidence
 
@@ -84,4 +84,19 @@ Selective invalidation (`tests/integration/test_matching_v2_selective_invalidati
 two entries added to the table re-read 6 of 120 postings; every posting
 called unaffected recomputes identically.
 
-Performance and parity: see the session report.
+Parity on real postings (`scripts/matching_v2_parity.py`, 300 open postings
+copied read-only into a scratch file, the owner's configuration, local, no
+model): eligibility identical 300/300; score identical 270/300. The other 30
+are the design working, each explained: a phrase only in About us / Benefits
+no longer counts (3), words apart in a sentence of no known purpose are
+UNCERTAIN (9), a sentence under a heading v2 recognises (`What you'll do`,
+`Responsabilidades` ...) counts as a duty and B1 completes the work (14), a
+phrase found through a listed form (5). The first two runs found three real
+defects, fixed before this one: a one-word product reduced to a common root
+(`workato` -> `work`, 257 of 300), translation by a root that two languages
+share for different meanings (`cliente` / `client`), and v2 not knowing the
+headings the current reader already used.
+
+Moving production to v2 is therefore a scoring change in about 10% of
+postings, all of it in the direction of the principles above; it is the
+owner's decision, with its own recalculation.

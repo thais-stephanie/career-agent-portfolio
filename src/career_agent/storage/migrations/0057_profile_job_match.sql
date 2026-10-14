@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS profile_job_match (
     component     TEXT NOT NULL,
     content_hash  TEXT NOT NULL,
     stamp         TEXT NOT NULL,
-    payload_json  TEXT NOT NULL,
+    payload_json  TEXT NOT NULL DEFAULT '{}',
     computed_at   TEXT NOT NULL,
     PRIMARY KEY (job_id, component)
 );
