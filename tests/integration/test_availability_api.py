@@ -8,6 +8,7 @@ saved list, keeps its score, and is never read again by a deep reading.
 from __future__ import annotations
 
 import shutil
+import threading
 import time
 from pathlib import Path
 
@@ -175,3 +176,83 @@ def test_nothing_is_written_until_asked(app) -> None:
     status = app.handle_api("GET", "/api/availability", {}, {})
     assert set(status["states"]) == {"NOT_CHECKED"} and not status["running"]
     assert status["states"]["NOT_CHECKED"] == status["of"] > 0
+
+
+def _slow(monkeypatch: pytest.MonkeyPatch, first_asked: threading.Event) -> None:
+    """Simulated pages that take a moment each, so a run can be overtaken."""
+    real = availability.run
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        first_asked.set()
+        time.sleep(0.2)
+        return httpx.Response(200, text="<h1>ANY</h1>")
+
+    def fake_run(conn, candidates, **kwargs):
+        http = httpx.Client(transport=httpx.MockTransport(answer), follow_redirects=False)
+        return real(
+            conn, candidates, client=http, resolve=lambda host: ["93.184.216.34"],
+            sleep=lambda s: None, **kwargs,
+        )  # fmt: skip
+
+    monkeypatch.setattr(availability, "run", fake_run)
+
+
+def test_a_running_check_stops_when_a_recalculation_starts_and_keeps_its_answers(
+    app, monkeypatch
+) -> None:
+    first = threading.Event()
+    _slow(monkeypatch, first)
+    app.handle_api("POST", "/api/availability/check", {}, {})
+    assert first.wait(30), "the check never asked a page"
+    app.rescore.start(lambda state, cancel: cancel.wait(30), "held")
+    try:
+        wait(app)
+    finally:
+        app.rescore.cancel()
+    funnel = app.availability.snapshot()["funnel"]
+    assert funnel["stopped"] == "paused for a collection or a recalculation"
+    assert 0 < funnel["checked"] < funnel["planned"]
+    conn = connect(app.config.db_path)
+    try:
+        stored = conn.execute("SELECT COUNT(*) FROM job_availability").fetchone()[0]
+    finally:
+        conn.close()
+    assert stored == funnel["checked"], "the answers received before the stop are kept"
+
+
+def test_it_waits_for_a_recalculation_in_another_process(app, monkeypatch) -> None:
+    """The command line, or a second window on the same profile."""
+    import json
+    from datetime import UTC, datetime
+
+    from career_agent.storage.repositories import PipelineRunRepo
+
+    simulate(monkeypatch, gone=set())
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conn = connect(app.config.db_path)
+    try:
+        with transaction(conn):
+            run_id = PipelineRunRepo(conn).start("rescore")
+            conn.execute(
+                "UPDATE pipeline_run SET started_at = ?, stats_json = ? WHERE id = ?",
+                (
+                    now,
+                    json.dumps({"jobs_scored": 1, "jobs_targeted": 9, "heartbeat_at": now}),
+                    run_id,
+                ),
+            )
+    finally:
+        conn.close()
+    with pytest.raises(ApiError) as refused:
+        app.handle_api("POST", "/api/availability/check", {}, {})
+    assert refused.value.status == 409
+
+
+def test_it_waits_for_a_collection_in_another_process(app, monkeypatch) -> None:
+    from career_agent.storage import catalogue
+
+    simulate(monkeypatch, gone=set())
+    monkeypatch.setattr(catalogue, "collecting_elsewhere", lambda conn: True)
+    with pytest.raises(ApiError) as refused:
+        app.handle_api("POST", "/api/availability/check", {}, {})
+    assert refused.value.status == 409

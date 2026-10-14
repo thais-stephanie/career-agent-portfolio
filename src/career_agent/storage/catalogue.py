@@ -742,6 +742,22 @@ class CatalogueWriteLock:
                 self._handle = self._take()
             self._holds[token] = threading.get_ident()
 
+    def busy_elsewhere(self) -> bool:
+        """Is ANOTHER process collecting into this catalogue right now?
+
+        Probes the lock and lets it go at once, under the same guard
+        `acquire` takes, so a collection starting in this process waits for
+        the probe instead of being refused by it."""
+        with self._guard:
+            if self._handle is not None:
+                return False  # this process holds it; its own runners say so
+            try:
+                self._handle = self._take()
+            except CatalogueBusy:
+                return True
+            self._drop()
+            return False
+
     def release(self, token: str) -> None:
         with self._guard:
             if self._holds.pop(token, None) is None:
@@ -809,6 +825,14 @@ def hold_for_run(conn: sqlite3.Connection, run_id: str, stage: str) -> None:
     if path is None:
         return
     CatalogueWriteLock.for_catalogue(path).acquire(run_id)
+
+
+def collecting_elsewhere(conn: sqlite3.Connection) -> bool:
+    """Another process is collecting into this connection's catalogue now."""
+    path = attached_path(conn)
+    if path is None:
+        return False
+    return CatalogueWriteLock.for_catalogue(path).busy_elsewhere()
 
 
 def release_for_run(conn: sqlite3.Connection, run_id: str) -> None:

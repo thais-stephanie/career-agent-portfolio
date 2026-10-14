@@ -97,3 +97,41 @@ Migrations 0054 and 0055 change the shared catalogue (an index, a table) and
 add ledger rows to every profile database. `READER_IDENTITY` moves to
 `readers-12`: one recalculation re-reads every score (the last one took 86
 minutes); until then the old scores stay, marked as made by earlier rules.
+
+## Pre-integration confirmations (2026-10-14)
+
+**Old scores keep these postings in both selections until recalculated.**
+The default search and the deep selection read the eligibility stored with
+each score. A readers-11 score says "eligible" for the Mattermost and
+ElevenLabs shapes, so both stay in the default list and the deep selection
+until the readers-12 recalculation re-reads them.
+`tests/integration/test_eligibility_old_scores.py` pins the dependency and
+what holds after the re-read: out of both selections (to confirm, or not
+eligible for an "anywhere in Mexico" restriction), the stored score
+unchanged, and still reachable from Saved and the applications board. Not
+built, proposed:
+
+* A (recommended): the readers-12 recalculation takes the postings whose
+  stored score says eligible first. About 6,400 of them on the copy measured
+  on 2026-10-13; at the measured rate (171,319 in 86 minutes) they are
+  re-read in the first few minutes instead of anywhere in 86. No schema
+  change, no cost per page view; it still needs the recalculation started.
+* B: a gates-only re-read of those postings, kept in a side table keyed by
+  posting, content hash and reading, read by both selections until the
+  recalculation catches up. No recalculation needed, but a migration and a
+  data-model decision; its cost was not measured.
+
+**The availability check pauses for work in other processes too.** It was
+refused to start, and stopped between requests, only when a collection or a
+recalculation ran in the same app. A recalculation from the command line or
+a second window (a live `rescore` run row) and a collection holding the
+catalogue's lock from another process now count as well
+(`CatalogueWriteLock.busy_elsewhere` probes and releases under the lock's
+own guard). A stopped check keeps the answers it already had.
+
+**Migrations.** 0054 and 0055 are `scope: catalogue`: the index and the
+table are created in the shared catalogue only. Each profile database gets
+the two ledger rows and nothing else.
+
+PT/EN: `docs/product/pt-en-equivalence-proposal.md`. Sources:
+`docs/product/source-leads-2026-10-14.md`.

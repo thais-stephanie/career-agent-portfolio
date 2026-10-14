@@ -2096,7 +2096,9 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
         if self.availability.running:
             raise ApiError(409, "A check is already running.", for_reader=True)
-        if self.retrieval.running or self.rescore.running:
+        with _closing(self.connect()) as conn:
+            busy = self._busy_for_availability(conn)
+        if busy:
             raise ApiError(
                 409,
                 "Job sites are being read or scores recalculated. Check the ads when that ends.",
@@ -2104,21 +2106,46 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             )
         return self.availability.start(self._availability_work(), new_id())
 
+    def _busy_for_availability(self, conn) -> bool:
+        """A collection or a recalculation, in this process or in another one
+        (the command line, a second window on the same profile)."""
+        from career_agent.storage.catalogue import collecting_elsewhere
+        from career_agent.web import rescore_state
+
+        if self.retrieval.running or self.rescore.running:
+            return True
+        record = rescore_state.last_run(conn)
+        if rescore_state.describe(False, None, record)["phase"] == "RUNNING_ELSEWHERE":
+            return True
+        return collecting_elsewhere(conn)
+
     def _availability_work(self):
         def work(state, cancel) -> None:
             from career_agent import availability
 
+            paused = "paused for a collection or a recalculation"
+            elsewhere = {"asked_at": 0.0, "busy": False}
+            guard = threading.Lock()
+
             def stop() -> str | None:
+                # Called from the checking threads, so another process is
+                # asked on a connection of its own, at most every five seconds.
                 if cancel.is_set():
                     return "cancelled"
                 if self.retrieval.running or self.rescore.running:
-                    return "paused for a collection or a recalculation"
-                return None
-
-            def progress(done: int, total: int) -> None:
-                state.boards_done, state.boards_total = done, total
+                    return paused
+                with guard:
+                    if not elsewhere["busy"] and time.monotonic() - elsewhere["asked_at"] >= 5:
+                        elsewhere["asked_at"] = time.monotonic()
+                        with _closing(self.connect()) as probe:
+                            elsewhere["busy"] = self._busy_for_availability(probe)
+                    return paused if elsewhere["busy"] else None
 
             with _closing(self.connect()) as conn:
+
+                def progress(done: int, total: int) -> None:
+                    state.boards_done, state.boards_total = done, total
+
                 candidates = self._availability_candidates(conn)
                 state.boards_total = len(candidates)
                 result = availability.run(conn, candidates, stop=stop, progress=progress)
