@@ -94,3 +94,47 @@ the line between the posting and the person.
   a language-table change invalidates work facts and work matches, never pay,
   location or engagement.
 * Multi-language support becomes data plus tests, never branches.
+
+## Addendum, 2026-10-14 (second round): toward a production candidate
+
+Owner's decisions for this round: no global stricter proximity rule;
+section headings are evidence of CONTEXT and never on their own promote a
+secondary activity to a core one; v2 does not go to production this round.
+
+* **Storage is one compact row per posting** (0056/0057 rewritten; they were
+  never applied outside tests). Canonical tokens are rebuilt from `job_raw`
+  (2 ms) instead of stored; evidence is a span of the canonical text; a row
+  keeps its input digests and the id of a versions map, and
+  `components.stale` decides per component without reading a payload.
+  Measured: 28,399 -> 1,794 bytes per posting on disk for shared facts.
+* **Ambiguity is read from the sentence's function words**
+  (`matching_v2.structure`): an inverted head through a preposition, a
+  third-party subject, a word's other sense (data), a `|`. Rules that held
+  on invented sentences and failed on real adverts (colon, parenthesis,
+  comma list, coordination, compound order, `to`) were measured and dropped.
+  A finding makes a match UNCERTAIN, never NONE.
+* **The hit's section comes from the configured headings**, exactly as in
+  production; v2's 156 headings decide context only.
+* **Hiring notices are CONDITION** wherever they stand, and CONDITION proves
+  no work; an unknown heading closes the section above it; the role's own
+  voice is never set aside as company or benefit.
+* **Eligibility is split in production code, behaviour-identical**:
+  `gates.read_eligibility_facts` reads what the posting states (scope
+  clauses, attendance, clearance, right-to-work requirements) with the
+  negation lists only; `evaluate_gates` decides with the profile's answers,
+  and always reads the facts itself when none are handed in. A profile's own
+  blocker and scope phrases stay its own and are still looked for per
+  profile. Verified: 1,680 real postings decided identically to the stored
+  readers-12 answers.
+* **Shadow mode** (`matching_v2.shadow`) explains every diverging component
+  and writes nothing.
+* **READER_IDENTITY stays readers-12.** No readers-13: the production reader's
+  output is unchanged (asserted on 1,680 stored answers). Component versions
+  live in `matching_v2.components.REGISTRY`; while v2 is in shadow,
+  `READER_IDENTITY` remains the identity of `job_match` and each v2
+  component's version is the identity of its own artefacts. When v2 controls
+  a component, a change to that component bumps its version only.
+
+The production path is switched by a later decision, in phases (shadow,
+dual read, one low-risk component, score), each with its own gate:
+`docs/checkpoints/matching-architecture-v2.md`.
