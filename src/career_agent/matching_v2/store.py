@@ -116,7 +116,7 @@ class MatchStore:
             tuple(config.prominence.secondary_headings),
         )
         inputs = {**feat.job_inputs(job, content_hash, headings), **pm.profile_inputs(config)}
-        return {name: comp.stamp(name, inputs) for name in comp.PROFILE_COMPONENTS}
+        return dict(pm._stamps(tuple(sorted(inputs.items()))))
 
     def stale(self, config: SearchConfig, job: JobFacts, content_hash: str) -> set[str]:
         expected = self.expected(config, job, content_hash)

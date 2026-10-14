@@ -81,8 +81,23 @@ class ProfileJobMatch:
         return [e for e in self.evidence if e.state == UNCERTAIN]
 
 
+#: `profile_inputs` per configuration object: a pass asks it once per
+#: posting, and a configuration does not change while it is held.
+_INPUTS: dict[int, tuple[SearchConfig, dict[str, str]]] = {}
+
+
 def profile_inputs(config: SearchConfig) -> dict[str, str]:
     """One digest per preference section, so a component reads only its own."""
+    held = _INPUTS.get(id(config))
+    if held is not None and held[0] is config:
+        return held[1]
+    if len(_INPUTS) > 64:
+        _INPUTS.clear()
+    _INPUTS[id(config)] = (config, _profile_inputs(config))
+    return _INPUTS[id(config)][1]
+
+
+def _profile_inputs(config: SearchConfig) -> dict[str, str]:
     dumped = config.model_dump(mode="json")
     prefs = dumped["preferences"]
     return {
@@ -99,6 +114,22 @@ def profile_inputs(config: SearchConfig) -> dict[str, str]:
             [dumped["scoring"], dumped["thresholds"], dumped["confidence"], prefs["recency"]]
         ),
     }
+
+
+def _stamps(inputs: tuple[tuple[str, str], ...]) -> dict[str, str]:
+    """Profile components' stamps. Cached by the inputs AND the registry's
+    versions, so a version bump is never answered from the cache."""
+    versions = tuple(sorted((n, c.version) for n, c in comp.REGISTRY.items()))
+    return _stamps_for(inputs, versions)
+
+
+@lru_cache(maxsize=4096)
+def _stamps_for(
+    inputs: tuple[tuple[str, str], ...], versions: tuple[tuple[str, str], ...]
+) -> dict[str, str]:
+    del versions  # part of the cache key only
+    given = dict(inputs)
+    return {name: comp.stamp(name, given) for name in comp.PROFILE_COMPONENTS}
 
 
 @lru_cache(maxsize=8192)
@@ -241,5 +272,5 @@ def match(
         tuple(config.prominence.secondary_headings),
     )
     inputs = {**job_inputs(job, features.content_hash, headings), **profile_inputs(config)}
-    stamps = {name: comp.stamp(name, inputs) for name in comp.PROFILE_COMPONENTS}
+    stamps = _stamps(tuple(sorted(inputs.items())))
     return ProfileJobMatch(str(job.job_id or ""), result, evidence, stamps)
