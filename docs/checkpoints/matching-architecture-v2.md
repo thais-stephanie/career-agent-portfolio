@@ -241,3 +241,217 @@ each phase is a switch in configuration reading `job_match` again. Dropping
 * Spanish is demonstrative; French and other languages get no grammar
   (proximity only);
 * ranking quality has no per-posting relevance labels yet.
+
+---
+
+# Round 3 (2026-10-14): Phase C readiness for Eligibility
+
+Branch `claude/matching-v2-phase-c-readiness`, from `21c4f11`, with the
+`_US_ONLY_BAND` fix (`ed0e38f`) cherry-picked first. Not merged; production
+unchanged (readers-12, `job_match`). Every number below is from bounded
+read-only copies of the real catalogue; no collection, no model, no real
+recalculation. Labels in this round are the agent's and are DEVELOPMENT
+labels: the gate for work matching is the blind package (section 9).
+
+## 1. The U.S.-band sentence inside v2
+
+Same 300 real postings, run back to back, before (`21c4f11`) and after, ms
+per posting, all profiles together:
+
+| profiles | shared facts | v2 total | current | before: shared / v2 / current |
+|---|---|---|---|---|
+| 1 | 23.2 | 25.2 | 14.8 | 31.7 / 33.3 / 21.5 |
+| 2 | 19.4 | 22.4 | 25.8 | 27.3 / 30.4 / 48.4 |
+| 10 | 19.6 | 34.5 | 128.2 | 28.6 / 43.7 / 241.8 |
+| 50 | 18.5 | 93.2 | 633.1 | 28.5 / 111.3 / 1,107.5 |
+
+The fix cut v2's shared reading by about 9 ms per posting (paid once), and
+the current reader by about 10 ms per posting PER PROFILE (it read the
+sentence for each profile). So the current reader gained more: with ONE
+profile v2 is now 1.7x the current reader (was 1.55x), which breaks proposed
+gate 6 (1.5x) for Phase D; from two profiles on v2 is faster (50 profiles:
+6.8x). What v2 still pays that the current reader does not: tokens (about
+9 ms) and sentence contexts (about 5 ms), both for work matching; Phase C
+needs neither.
+
+60 real postings that DO carry a U.S.-only band sentence: the reader 20.9 ->
+0.37 ms median (identical answers, same hash); shared facts 59.9 -> 30.2 ms;
+the current reader 48.1 -> 21.0 ms with one profile. The slower path of the
+isolated benchmark (the anchor at the end of a 7,000-character line) is
+synthetic; real adverts did not show it.
+
+## 2. Eligibility v2 against readers-12, widened
+
+`scripts/matching_v2_eligibility_parity.py`: 7,074 open postings drawn per
+stratum (every provider, Jobgether's textless leads included; sponsorship,
+its absence, authorization, citizenship, clearance, export control, office
+attendance, hybrid, worldwide, LATAM, Brazil, United States, Europe,
+exclusions, country lists, residence, silence, a published remote, hybrid
+or on-site location; the 181 Mattermost and ElevenLabs postings). Whole
+`GateOutcome`s are compared (result, reason, code, quote, offsets,
+conflict), with the status and the score:
+
+* owner: the stored readers-12 answer = this build's reader = v2 over the
+  stored JSON facts, on 7,074 of 7,074 (640 eligible, 2,239 not, 4,195
+  unresolved);
+* 16 synthetic profiles (BR residence only; BR authorized for BR; BR
+  authorized for BR and US; BR needing U.S. sponsorship; BR not authorized
+  for the U.S.; contractor yes and no; U.S. authorized without sponsorship;
+  CO; MX; AR; PT; DE authorized in four EU countries; IN needing U.S. and
+  U.K. sponsorship; two with their own clearance, export, credential, travel
+  and requirement blockers): legacy = v2 on 7,074 of 7,074 each; 742,770
+  gate comparisons, 0 divergences;
+* the blocker profiles exercise the gates no stored answer does: on 743
+  clearance, export and citizenship postings, 352 clearance FAILs, 12
+  requirement, 6 credential, 1 travel, identical both ways.
+
+Mattermost (14) and ElevenLabs (167, the Colombia and Mexico postings
+included): 181 of 181 identical to readers-12, 2,896 profile comparisons.
+
+## 3. Phase C, prepared and OFF
+
+`CAREER_AGENT_ELIGIBILITY_SOURCE` is `legacy` (the default) or `v2`;
+anything else is refused by name. Under `v2` a full read hands `match_job`
+the production `read_shared` with the STORED eligibility facts attached;
+every other reading stays production's. A posting without current facts (no
+row, another component version, text, metadata, headings or negation key)
+is read from its advert and counted (`eligibility_reads` in the run stats).
+Replay keeps its stored gates and is untouched. No readers-13: the same code
+over the same facts.
+
+Facts are written only by `scripts/matching_v2_materialize.py`
+(`phase_c.priority_order`: stored-eligible first, then by score, then the
+rest; `--job-id` on demand; `--max` and `--budget-seconds`; resumes).
+Rollback is the variable back to `legacy`. Tested on the real `rescore`: v2
+with no facts, with every fact and with one stale fact writes exactly the
+legacy rows; a deliberately falsified stored fact moves that one posting
+under v2 only, and switching back restores it with the row still in place.
+
+## 4. One-word preferences
+
+On a new development set (ids of class 0: never in the first evaluation),
+one-word preferences in 15 professions were right 0.376 of the time. The
+sentence's CONTEXT did not separate right from wrong (a duty holds `support
+the launch` as often as `customer support`), and v2's listed translations
+widen the problem (`suporte` reaches every English `support`). The word's
+own grammar did (`structure.one_word`, closed lists only, no profession):
+
+* `pre-sales`: the second half of a hyphenated compound;
+* a team the role works with: a unit noun after the word (`sales team`) or
+  before it (`equipe de vendas`), or one name in a list, with a word of
+  working together within eight words (a bare `with`, `com` or `across` also
+  lists tools and skills, and is not enough for a list);
+* an English verb: a lower-case word after `to` or a modal or before a
+  determiner, or a capitalised imperative opening a duty; never a gerund,
+  never a name.
+
+| set | P | R (within matches) | F1 | F1 with no rule |
+|---|---|---|---|---|
+| development, 265 labelled | 0.495 | 0.957 | 0.652 | 0.547 |
+| fresh, 89 labelled before the rules ran on them | 0.479 | 0.946 | 0.636 | 0.587 |
+
+Better, and still poor: about half of one-word matches remain wrong. One
+word is weak evidence by nature; the interface should say so, or ask for a
+phrase. The owner's shadow run caught two readings that took tools for
+teams and verbs (`experience with ToolA, ToolB`, `connect workflows to
+ToolA`); both were fixed and are tested.
+
+## 5. The inverted-head rule: removed
+
+New development set (2,249 class-0 postings, 36 profiles): the rule fired on
+65 sentences; 40 were the role's own work, 22 another sense. With a base of
+6,821 multi-word matches (precision 0.857 on 100 labelled), estimated F1: no
+rule 0.8138, the rule 0.8117, only an adjacent preposition 0.8134, only
+outside a duty or a requirement 0.8139. None is clearly better than none, so
+the rule is gone. On the invented corpora the cost is visible: other-sense
+sentences matched rise 0 -> 1 of 7 and 6 -> 20 of 34.
+
+## 6. One sentence filling a component (simulated, NOT adopted)
+
+1,595 postings, the owner and ten professions: 635 of the owner's phrase
+components were paid, 353 of them to 100% by ONE sentence (all
+`responsibilities`: one central duty counts four pieces, ADR-0036); 751 of
+1,450 across profiles. Of 30 such owner components read by the agent, 12
+were the posting's work and 18 inflated (an incidental mention, a
+collaboration, "technical fluency", integration TESTS, an AI sales role).
+
+| variant | owner scores moved | mean move | band changes, all profiles | owner top 10/20/50 kept, eligible |
+|---|---|---|---|---|
+| B: no sentence pays over 50% | 359 | -20.7 | 751 | 8/10, 20/20, 50/50 |
+| C: one sentence stops at 75% | 353 | -10.5 | 230 | 10/10, 20/20, 50/50 |
+
+Recommendation: C, after the blind labels, as its own reader identity and
+the owner's decision; it moves the middle of the list, not the top.
+
+## 7. Two shadow passes and eight changes
+
+`scripts/matching_v2_shadow_passes.py`, 1,595 postings, ten profiles in
+separate databases. Pass 1: 91 s. Pass 2 in the REVERSE order: 2.5 s, 0
+adverts read, 0 components computed, answers identical. A fresh world in a
+shuffled order: identical answers and byte-identical shared facts. Each
+profile alone = beside nine others (10 of 10); 0 evidence of another
+profile's phrase; 0 shared facts in a profile database; 0 profile rows in
+the catalogue.
+
+| change | stale | adverts read | profiles recomputed | time |
+|---|---|---|---|---|
+| salary preference | compensation_match, score | 0 | that one | 17.0 s |
+| work preference | work_match, tools_match, score | 0 | that one | 15.9 s; 38 of 1,595 can gain the phrase (index, 4 ms) |
+| residence | eligibility, compensation_match, score | 0 | that one | 17.3 s |
+| authorization | eligibility, compensation_match, score | 0 | that one | 16.6 s |
+| posting text | everything of that posting | 1 | all ten | 0.09 s |
+| language table | language, work_facts, work_match, tools_match, score | 44 of 1,595 (index, 3 ms; 300 of 300 others tokenise identically) | all ten | 4.3 s |
+| eligibility rules version | eligibility_facts, eligibility, compensation_match, score | 1,595 | all ten | 89.5 s |
+| work match version | work_match, score | 0 | all ten | 60.7 s |
+
+Nothing went stale without a dependency. Recompute granularity is one call
+per profile and posting (a salary change re-runs that profile's match from
+stored facts, about 10.6 ms per posting); staleness is per component.
+
+Shadow against the stored readers-12 answers (owner, 1,595): eligibility
+1,595 of 1,595, score 1,539 (96.5%), fit band 1,568.
+
+## 8. Storage
+
+Shared facts 1,864 B per posting on disk with indexes (1,428 B of columns);
+per profile 1,138 B (933 B). Projected for 171,628 postings: 0.30 GiB
+shared, 0.18 GiB per profile.
+
+## 9. The blind package
+
+`scripts/matching_v2_blind_package.py`: 562 sentences from postings of id
+class 2 (never in the first evaluation nor in this round's development
+sets), per profile, language and kind of item (192 disagreements, 167 both
+matched, 66 held by v2, 137 near misses); EN 207, PT 158, ES 92, undetected
+105; 24 profiles, one-word ones included. The reviewer sees the preference,
+the title, the advert's own heading and the sentence; the readers' decisions
+are in `key.jsonl`, sealed by its SHA-256. About 15 s per sentence, 2.3
+hours. Written to `out/matching_v2_blind/` (ignored: employer text, never
+committed). Profiles with too little material for 30 items: design,
+teaching, finance, operations (6 to 12 each).
+
+## 10. Migration, revised
+
+* **A, shadow**: as before; the passes above are its acceptance.
+* **B, dual read**: show v2's UNCERTAIN and excluded evidence beside the
+  current one; ordering and filters stay on `job_match`.
+* **C, Eligibility from shared facts**: run `matching_v2_materialize.py` in
+  the background (eligible first; 18 to 23 ms per posting, about an hour for
+  the corpus on one core, interruptible), then set
+  `CAREER_AGENT_ELIGIBILITY_SOURCE=v2`. Missing facts are read, never
+  guessed; no `job_match` recalculation, no readers-13; rollback is the
+  variable. The migrations 0056 and 0057 must be applied first (additive).
+* **D, work matching and the score**: only after the blind labels clear
+  gate 4, the one-profile speed gate holds again, and the one-sentence
+  decision is taken; it recomputes profile rows from stored facts, never
+  171k adverts.
+
+## 11. Verdicts
+
+* Eligibility: **READY_FOR_CONTROLLED_PHASE_C**: parity 100% on 7,074
+  postings and 17 profiles; Mattermost and ElevenLabs 181 of 181; no leak
+  between profiles; rollback tested; shadow deterministic across two passes
+  and a fresh world; migrations additive; suite green.
+* Work matching and the score: **KEEP_WORK_MATCH_IN_SHADOW**: no
+  independent labels yet; one profile at 1.7x; one-word precision about 0.5;
+  the one-sentence ceiling undecided.

@@ -138,3 +138,28 @@ secondary activity to a core one; v2 does not go to production this round.
 The production path is switched by a later decision, in phases (shadow,
 dual read, one low-risk component, score), each with its own gate:
 `docs/checkpoints/matching-architecture-v2.md`.
+
+## Addendum, 2026-10-14 (third round): Phase C prepared, two readings decided
+
+* **Eligibility may be read from shared facts, behind a switch that is off.**
+  `CAREER_AGENT_ELIGIBILITY_SOURCE=v2` hands the gates the stored
+  `eligibility_facts`; `legacy` (the default) reads the advert per profile as
+  readers-12 does. Same code, same facts: no readers-13 and no
+  recalculation; a posting without current facts is read, never guessed; a
+  rescore never writes facts (`scripts/matching_v2_materialize.py` does,
+  eligible first, bounded, resumable). Rollback is the variable. Parity on
+  7,074 stratified real postings and 17 profiles: 100%, gate by gate.
+* **One-word preferences need their word to be the work**
+  (`structure.one_word`): not the second half of a compound, not a team the
+  role works with, not an English verb. Closed grammar lists; measured on a
+  new development set and on fresh sentences. `work_match` and `tools_match`
+  are version 3.
+* **The inverted-head reading is removed.** On real adverts it held more of
+  the role's own work UNCERTAIN than it set aside, and no narrower variant
+  was clearly better than none.
+* **The one-sentence ceiling of the score is unchanged.** Simulated only;
+  the recommendation (a single sentence stops at 75% of a component) waits
+  for independent labels and the owner.
+* **Work matching stays in shadow** until a blind package
+  (`scripts/matching_v2_blind_package.py`, labels not by the agent) clears
+  the precision and recall gate.
