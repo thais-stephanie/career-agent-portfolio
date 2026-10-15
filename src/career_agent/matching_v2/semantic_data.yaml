@@ -1,0 +1,188 @@
+# THE MEANING OF A PIECE OF EVIDENCE, before it proves a preference
+# (2026-10-16, `evidence.py`). Data in English, Portuguese and Spanish,
+# folded (lower case, no accents, an apostrophe is a space). No profession,
+# employer or posting appears here: each entry is a fact about how a
+# language says WHO does something, to WHOM, and of what KIND the statement
+# is. A text in another language reads none of this (UNKNOWN, low certainty).
+version: 1
+
+# What kind of statement holds the words. A cue counts when it stands before
+# the matched words in the same clause (no `;` between them).
+evidence_cues:
+  # REQUIREMENT_EXPERIENCE
+  experience:
+    en: ["experience in", "experience with", "experience as", "experience of",
+         "years of", "years in", "years experience", "track record", "proven experience",
+         "background in", "hands on experience", "worked in", "working in"]
+    pt: ["experiencia em", "experiencia com", "experiencia na", "experiencia no",
+         "experiencia como", "experiencia de", "vivencia em", "vivencia com", "vivencia na",
+         "vivencia no", "anos de experiencia", "atuacao em", "atuacao com", "atuacao na",
+         "atuacao no", "trajetoria em"]
+    es: ["experiencia en", "experiencia con", "experiencia como", "experiencia de",
+         "anos de experiencia", "trayectoria en"]
+  # FAMILIARITY
+  familiarity:
+    en: ["familiarity with", "familiar with", "exposure to", "basic knowledge",
+         "basic understanding", "awareness of", "interest in", "nice to have"]
+    pt: ["familiaridade com", "nocoes de", "nocao de", "nocoes em", "conhecimento basico",
+         "conhecimentos basicos", "interesse em", "desejavel"]
+    es: ["familiaridad con", "nociones de", "conocimiento basico", "conocimientos basicos",
+         "interes en", "deseable"]
+  # REQUIREMENT_SKILL
+  skill:
+    en: ["knowledge of", "knowledge in", "proficiency in", "proficient in", "skills in",
+         "skilled in", "expertise in", "understanding of", "ability to"]
+    pt: ["conhecimento em", "conhecimento de", "conhecimentos em", "conhecimentos de",
+         "dominio de", "dominio em", "habilidade em", "capacidade de"]
+    es: ["conocimiento de", "conocimiento en", "conocimientos de", "conocimientos en",
+         "dominio de", "manejo de", "habilidad para", "capacidad de"]
+  # DEGREE_IN_FIELD: a qualification whose subject is the matched words.
+  degree:
+    en: ["degree in", "degree", "bachelor s in", "bachelor s degree", "bachelors in",
+         "bachelor of", "master s in", "masters in", "diploma in", "major in",
+         "graduate in", "graduated in", "certificate in", "certification in"]
+    pt: ["formacao em", "formacao superior em", "formacao", "graduacao em", "graduacao",
+         "graduado em", "graduada em", "graduando em", "superior completo em",
+         "superior completo", "ensino superior em", "curso superior em", "curso de",
+         "curso tecnico em", "tecnico em", "bacharelado em", "licenciatura em",
+         "pos graduacao em", "especializacao em", "cursando"]
+    es: ["licenciatura en", "licenciado en", "licenciada en", "titulo en", "titulo de",
+         "grado en", "carrera de", "formacion en", "egresado de", "egresada de",
+         "tecnico en", "estudiante de"]
+  # After a degree cue, a list of alternatives makes the field one option
+  # among several (`Administracao, Economia, Contabilidade ou areas
+  # correlatas`): LOW certainty.
+  alternatives: ["areas correlatas", "areas afins", "area afim", "areas relacionadas",
+                 "afines", "relacionadas", "related field", "related fields",
+                 "related discipline", "or equivalent", "or similar", "ou similares",
+                 "ou equivalente", "o equivalente", "o similar"]
+  # A word saying the role is GIVEN the thing (`com o apoio de`, `with the
+  # support of`): the direction is ROLE_RECEIVES when the cue ends at most
+  # two words before the matched words.
+  receiving:
+    en: ["with the support of", "with support from", "with the help of", "supported by",
+         "receive", "you will get", "you ll get", "access to", "you ll have",
+         "you will have", "benefit from", "we offer", "we provide"]
+    pt: ["com o apoio", "com apoio", "com o suporte", "com suporte", "contar com",
+         "contara com", "contaras com", "recebera", "receber", "recebe", "voce tera",
+         "oferecemos", "acesso a", "acesso ao"]
+    es: ["con el apoyo", "con apoyo", "con el soporte", "con soporte", "contaras con",
+         "contar con", "recibiras", "recibir", "tendras", "ofrecemos", "acceso a"]
+  # Words that make a post-sale activity commercial (owner's decision,
+  # 2026-10-16): it counts as sales only with one of these in its sentence.
+  commercial:
+    en: ["upsell", "up sell", "cross sell", "crosssell", "expansion", "renewal",
+         "renewals", "negotiate", "negotiation", "negotiations", "revenue", "quota",
+         "commercial", "close deals", "closing"]
+    pt: ["upsell", "up sell", "cross sell", "renovacao", "renovacoes", "expansao",
+         "negociacao", "negociacoes", "negociar", "receita", "comercial", "comerciais",
+         "metas", "fechamento"]
+    es: ["upsell", "cross sell", "renovacion", "renovaciones", "expansion",
+         "negociacion", "negociar", "ingresos", "comercial", "comerciales", "cierre"]
+
+# WHO OWNS THE ACTION.
+owner:
+  # A clause whose subject is the company's product (`Our platform integrates
+  # with ...`): a determiner or a possessive, then one of these, within the
+  # clause's first three words. Never when the next word names a person or a
+  # practice (`platform engineer`, `product design`).
+  product_nouns:
+    en: ["platform", "product", "products", "software", "solution", "solutions", "app",
+         "application", "tool", "system", "engine", "api", "service", "services"]
+    pt: ["plataforma", "produto", "produtos", "software", "solucao", "solucoes",
+         "aplicativo", "app", "ferramenta", "sistema", "servico", "servicos"]
+    es: ["plataforma", "producto", "productos", "software", "solucion", "soluciones",
+         "aplicacion", "app", "herramienta", "sistema", "servicio", "servicios"]
+  product_determiners: ["our", "the", "its", "this", "their", "nossa", "nosso", "nossas",
+                        "nossos", "a", "o", "as", "os", "essa", "esse", "esta", "este",
+                        "nuestra", "nuestro", "nuestras", "nuestros", "la", "el", "las",
+                        "los", "su", "sus"]
+  product_not_subject: ["engineer", "engineers", "engineering", "manager", "managers",
+                        "management", "owner", "owners", "designer", "designers", "design",
+                        "developer", "developers", "analyst", "analysts", "team", "teams",
+                        "experience", "knowledge", "lead", "leads", "specialist",
+                        "marketing", "support", "operations", "strategy", "roadmap",
+                        "vision", "launch", "launches", "release", "releases"]
+  # The sentence is about the company (`Somos referencia em vendas`, `X is a
+  # leading payroll provider`): its opening words.
+  company_openers:
+    en: ["we are a", "we are an", "we are the", "we re a", "founded in", "since",
+         "our mission", "our company", "our vision", "our purpose", "the company",
+         "for over", "for more than", "with over", "with more than"]
+    pt: ["somos", "atuamos", "fundada em", "fundado em", "desde", "nossa missao",
+         "nossa empresa", "nossa historia", "nosso proposito", "a empresa", "ha mais de",
+         "com mais de", "presente em"]
+    es: ["somos", "actuamos", "fundada en", "fundado en", "desde", "nuestra mision",
+         "nuestra empresa", "nuestro proposito", "la empresa", "con mas de",
+         "hace mas de", "presente en"]
+  # `<Name> is a`, `<Nome> e uma`, `<Nombre> es una`: a capitalised name of at
+  # most five words, then one of these.
+  company_copulas:
+    en: ["is a", "is an", "is the", "is one", "are a", "is part of"]
+    pt: ["e uma", "e um", "e a", "e o", "e referencia", "e lider", "faz parte"]
+    es: ["es una", "es un", "es la", "es el", "es lider", "forma parte"]
+  # Words that put the matched words in the company's business, not the
+  # role's work: English after (`payroll company`), Portuguese and Spanish
+  # before a link word (`consultoria de recrutamento`, `referencia em vendas`).
+  company_heads_after:
+    en: ["company", "companies", "firm", "firms", "provider", "providers", "leader",
+         "leaders", "consultancy", "industry", "sector", "business", "brand", "school",
+         "schools", "institution", "institutions", "network"]
+  company_heads_before:
+    pt: ["empresa", "empresas", "consultoria", "companhia", "lider", "referencia",
+         "setor", "segmento", "mercado", "industria", "marca", "grupo", "grupos", "rede",
+         "instituicao", "instituicoes", "escola", "escolas", "centro", "centros"]
+    es: ["empresa", "empresas", "consultora", "compania", "lider", "referente", "sector",
+         "rubro", "mercado", "industria", "marca", "grupo", "grupos", "red",
+         "institucion", "instituciones", "escuela", "escuelas", "centro", "centros"]
+  company_links: ["de", "da", "do", "das", "dos", "em", "en", "del", "na", "no"]
+  # A word between the role and its own voice cancels the company reading
+  # (`Somos uma empresa de vendas e voce vai prospectar`).
+  role_voice: ["you will", "you ll", "you are", "your role", "voce vai", "voce ira",
+               "voce sera", "voce atuara", "responsavel por", "seras responsable",
+               "vas a", "tu rol", "this role", "the role", "this position", "esta vaga",
+               "este cargo", "este puesto", "esta posicion"]
+  # Capitalised opening words that are never a company's name.
+  not_names: ["this", "that", "these", "those", "it", "there", "here", "he", "she", "we",
+              "you", "they", "our", "your", "the", "a", "an", "esta", "este", "essa", "esse",
+              "isso", "isto", "ela", "ele", "nos", "voce", "nossa", "nosso", "a", "o", "as",
+              "os", "la", "el", "los", "las", "nuestra", "nuestro", "usted", "aqui", "aca"]
+
+# Verbs whose verbal use is HELPING with something, not doing the work the
+# noun names (`support the launch`). Every other verb of a one-word
+# preference used as a verb is the work (`design the service`, `teach`).
+light_verbs: ["support", "help", "assist", "handle", "run", "lead", "drive", "manage"]
+
+# SENSES OF A WORD THAT ARE NOT THE WORK IT NAMES. `forms` are the folded
+# surface forms the entry applies to; `before` are the words right before
+# them; `after` the words right after; `clause` words anywhere in the
+# clause. Each entry is a dictionary fact about a word.
+senses:
+  # Singular only: `estrategias para vendas` is sales work, `disponivel para
+  # venda` is merchandise; not `a venda` (`realizar a venda de` is the work).
+  - {sense: MERCHANDISE, forms: [venda],
+     before: ["para", "para a", "disponivel para", "disponiveis para", "ponto de",
+              "pontos de"]}
+  - {sense: MERCHANDISE, forms: [vendas], before: ["ponto de", "pontos de"]}
+  - {sense: MERCHANDISE, forms: [venta],
+     before: ["para", "para la", "a la", "punto de", "puntos de"]}
+  - {sense: MERCHANDISE, forms: [ventas], before: ["punto de", "puntos de"]}
+  - {sense: MERCHANDISE, forms: [sale], before: ["for", "on", "point of", "points of"]}
+  - {sense: MERCHANDISE, forms: [sales], before: ["point of", "points of"]}
+  - {sense: POST_SALES, forms: [venda, vendas, venta, ventas, sale, sales],
+     before: ["pos", "post", "apos", "after", "despues de la"]}
+  - {sense: PRE_SALES, forms: [venda, vendas, venta, ventas, sale, sales],
+     before: ["pre"]}
+  - {sense: DEDUCTION, forms: [folha, nomina, nominas, payroll],
+     before: ["desconto em", "desconto na", "desconto direto na", "desconto direto em",
+              "descontado em", "descontado na", "descontados em", "descontados na",
+              "descontada em", "descontada na", "descontado da", "deducidos de la",
+              "deducido de la", "deducidos de", "descuento por", "descuento via",
+              "descuento de", "deducted from", "deduction from", "deductions", "100"],
+     clause: ["consignado", "emprestimo", "emprestimos", "prestamos", "prestamo", "loan",
+              "loans", "credito"]}
+  - {sense: PHYSICAL, forms: [suporte, suportes, soporte, soportes, apoio, support],
+     before: ["estrutura de", "estruturas de", "estructura de", "estructuras de",
+              "locais de", "local de", "base de", "pecas de", "piezas de"],
+     after: ["structure", "structures", "beam", "beams", "bracket", "brackets", "frame",
+             "frames"]}

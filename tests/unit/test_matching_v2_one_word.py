@@ -48,8 +48,8 @@ CASES = [
      ev.MATCH),
     ("Zapier", "Build reports and connect workflows to Zapier for automation.", "en",
      ev.MATCH),
-    # a compound naming another activity
-    ("sales", "Run pre-sales demonstrations for enterprise prospects.", "en", ev.UNCERTAIN),
+    # pre-sales the role performs is sales work (owner's decision, 2026-10-16)
+    ("sales", "Run pre-sales demonstrations for enterprise prospects.", "en", ev.MATCH),
     # an English verb
     ("support", "Support the launch of new regional offices.", "en", ev.UNCERTAIN),
     ("support", "Build pipelines to support safe software delivery.", "en", ev.UNCERTAIN),

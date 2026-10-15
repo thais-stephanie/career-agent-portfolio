@@ -247,6 +247,10 @@ ONE_WORD_QUALIFICATION = "ONE_WORD_QUALIFICATION"
 ONE_WORD_RECIPIENT = "ONE_WORD_RECIPIENT"
 ONE_WORD_NAME = "ONE_WORD_NAME"
 ONE_WORD_MODIFIER = "ONE_WORD_MODIFIER"
+#: A school level after the word (`ensino medio`): split from QUALIFICATION
+#: on 2026-10-16, because a degree IN the field is weak evidence of it (the
+#: owner's policy) while a school level is another sense of the word.
+ONE_WORD_LEVEL = "ONE_WORD_LEVEL"
 
 #: Words that link a qualification to its subject (`degree IN sales`).
 _LINKS = frozenset({"in", "of", "em", "en", "de", "da", "do"})
@@ -429,7 +433,7 @@ def _qualification_recipient_name_modifier(
 
     Closed lists of ordinary words (`language_data.yaml`), never a profession."""
     if after and after[0] in st.education_levels:
-        return ONE_WORD_QUALIFICATION
+        return ONE_WORD_LEVEL
     clause_start = max(
         text.rfind(";", sentence_start, start), text.rfind(".", sentence_start, start)
     )
@@ -497,6 +501,7 @@ def causes() -> Iterable[str]:
         ONE_WORD_RECIPIENT,
         ONE_WORD_NAME,
         ONE_WORD_MODIFIER,
+        ONE_WORD_LEVEL,
         UNLINKED,
     )
 

@@ -10,6 +10,7 @@ pair of offsets into the original advert.
 from __future__ import annotations
 
 import re
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import lru_cache
@@ -287,17 +288,36 @@ _NOTICE_REACH = 400
 _BREAK = re.compile(r"[.!?;]+(?=\s)|\n")
 
 
-def sentences(text: str) -> list[Sentence]:
-    """The advert cut into sentences, each with its context. Headings are not
-    sentences: they set the context of what follows them."""
-    out: list[Sentence] = []
-    current: Context | None = None
-    heading: str | None = None
+def _lines(text: str, cuts: tuple[int, ...]) -> list[tuple[int, str]]:
+    """(offset, line) for every line of `text`, a line also ending at each of
+    `cuts` (the derived structure of an advert written without breaks,
+    `text_structure`): each piece is still a substring at its own offset."""
+    out = []
+    bounds = sorted(set(cuts))
     for line_match in re.finditer(r"[^\n]*\n?", text):
         line = line_match.group(0)
         if not line:
             break
         start = line_match.start()
+        lo = bisect_right(bounds, start)
+        hi = bisect_left(bounds, start + len(line), lo)
+        inner = [c - start for c in bounds[lo:hi]]
+        last = 0
+        for c in [*inner, len(line)]:
+            if c > last:
+                out.append((start + last, line[last:c]))
+            last = c
+    return out
+
+
+def sentences(text: str, cuts: tuple[int, ...] = ()) -> list[Sentence]:
+    """The advert cut into sentences, each with its context. Headings are not
+    sentences: they set the context of what follows them. `cuts` are derived
+    line ends (`text_structure.cuts`); the text itself is never rewritten."""
+    out: list[Sentence] = []
+    current: Context | None = None
+    heading: str | None = None
+    for start, line in _lines(text, cuts):
         opened = heading_context(line)
         if opened is not None:
             current, heading = opened, line.strip()

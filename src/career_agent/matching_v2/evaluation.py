@@ -73,7 +73,7 @@ def answer(
     if language is not None:
         # One sentence is too short to tell its language by counting function
         # words; the corpus states it.
-        features.payloads["language"] = language
+        feat.set_language(job, features, language)
     observed, evidence = observe_from_features(config, features, job)
     states = [e.state for e in evidence] or [NONE]
     if observed["v2_phrase"].fired:

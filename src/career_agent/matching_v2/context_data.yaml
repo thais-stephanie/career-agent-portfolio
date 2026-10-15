@@ -53,6 +53,9 @@ headings:
     - funciones
     - que haras
     - tus responsabilidades
+    # The Gupy template in Spanish and English (2026-10-16; `text_structure`).
+    - responsabilidades y atribuciones
+    - responsibilities and assignments
   REQUIREMENT:
     - requirements
     - qualifications
@@ -88,6 +91,8 @@ headings:
     - diferenciais
     - requisitos y habilidades
     - lo que buscamos
+    - requisitos y calificaciones
+    - requirements and qualifications
   TOOL:
     - tech stack
     - our stack
@@ -171,8 +176,7 @@ headings:
     - jornada
     - jornada de trabalho
     - horario
-    - proceso de seleccion
-    - recruitment process
+      - recruitment process
     - our recruitment process
     - recruiting process
     - recruitment fraud alert
@@ -180,11 +184,20 @@ headings:
     - processo de recrutamento
     - processo de recrutamento e selecao
     - proceso de reclutamiento
+    # The Gupy template's last section holds the benefits, the contract, the
+    # schedule and the process (2026-10-16). A sentence in it that speaks as
+    # the role is still read (`role_voice_cues`).
+    - informacoes adicionais
+    - informacion adicional
+    - additional information
+    - etapas del proceso
 
 # A sentence under no heading takes the first cue that fires.
 sentence_cues:
   COMPENSATION: ["salary", "per year", "per month", "per hour", "salario", "por mes", "por ano", "remuneracao"]
-  BENEFIT: ["health insurance", "paid time off", "stock options", "plano de saude", "vale refeicao", "seguro medico", "we offer", "oferecemos"]
+  BENEFIT: ["health insurance", "paid time off", "stock options", "plano de saude", "vale refeicao", "seguro medico", "we offer", "oferecemos",
+            # 2026-10-16: the ordinary Brazilian and Spanish benefit names.
+            "vale transporte", "vale alimentacao", "plano odontologico", "seguro de vida", "auxilio creche", "day off", "gympass", "totalpass", "wellhub", "convenio farmacia", "participacao nos lucros", "desconto em folha", "seguro de gastos medicos", "vales de despensa", "prestaciones superiores", "fondo de ahorro"]
   COMPANY_DESCRIPTION: ["we are a", "founded in", "our mission is", "somos uma", "fundada em", "nossa missao", "somos una", "is a leading", "is a premier", "is a nationwide", "as a leading"]
 
 # STATEMENTS ABOUT THE HIRING ITSELF, wherever they stand (2026-10-14, read on
@@ -300,6 +313,44 @@ hiring_notice_cues:
   - etapas de recrutamento
   - pratica de recrutamento
   - plataformas parceiras de recrutamento
+  # 2026-10-16: the same notices in Portuguese and Spanish. The list above was
+  # mostly English while v2 reads both languages; each line is a translation
+  # of a notice already listed, not a sentence of a labelled package.
+  - oportunidades iguais
+  - empregador que oferece igualdade
+  - sem discriminacao
+  - nao fazemos distincao
+  - independentemente de raca
+  - acessibilidade durante o processo
+  - aviso de privacidade
+  - protecao de dados pessoais
+  - tratamento dos seus dados
+  - tratamos seus dados
+  - golpe de recrutamento
+  - fraude de recrutamento
+  - vagas falsas
+  - curriculos nao solicitados
+  - agencias de recrutamento
+  - nosso processo de selecao
+  - nosso time de recrutamento
+  - equipe de recrutamento entrara
+  - igualdad de oportunidades
+  - empleador que ofrece igualdad
+  - sin discriminacion
+  - no discrimina
+  - independientemente de su raza
+  - aviso de privacidad
+  - proteccion de datos personales
+  - tratamiento de tus datos
+  - tratamiento de sus datos
+  - fraude de reclutamiento
+  - estafas de reclutamiento
+  - ofertas de trabajo falsas
+  - agencias de reclutamiento
+  - nuestro proceso de seleccion
+  - equipo de reclutamiento realizara
+  - lleva a cabo su reclutamiento
+  - se lleva a cabo el reclutamiento
 
 # THE ROLE IN ITS OWN VOICE. A sentence that speaks to the candidate or names
 # the role is about the work even under a company or benefits heading the

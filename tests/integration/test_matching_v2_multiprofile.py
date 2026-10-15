@@ -21,6 +21,7 @@ from career_agent.config.search_config import SearchConfig, load_search_config
 from career_agent.config.setup import Answers, apply_answers
 from career_agent.match.engine import JobFacts
 from career_agent.matching_v2 import components as comp
+from career_agent.matching_v2 import evidence_policy as policy_mod
 from career_agent.matching_v2.store import FeatureStore, MatchStore
 from career_agent.pipeline.manual_import import import_posting
 from career_agent.storage.db import connect, migrate, transaction
@@ -246,8 +247,12 @@ def test_new_text_invalidates_that_posting_only(world) -> None:
     features, stores, _ = run_all(catalogue, jobs, profiles)
     assert features.tally.reads == 1
     assert features.tally.computed == {c: 1 for c in comp.JOB_COMPONENTS}
+    # Everything a profile derives from that text; its evidence policy reads
+    # no text and stays.
     for store in stores.values():
-        assert store.tally.computed == {c: 1 for c in comp.PROFILE_COMPONENTS}
+        assert store.tally.computed == {
+            c: 1 for c in comp.PROFILE_COMPONENTS if c != "evidence_policy"
+        }
 
 
 def test_a_language_change_redoes_work_and_nothing_else(world, monkeypatch) -> None:
@@ -258,8 +263,9 @@ def test_a_language_change_redoes_work_and_nothing_else(world, monkeypatch) -> N
         comp.REGISTRY, "language", comp.Component("language", bumped, "job", ("text_parser",))
     )
     features, stores, _ = run_all(catalogue, jobs, profiles)
-    assert features.tally.computed == {"language": len(jobs), "work_facts": len(jobs)}
-    assert set(features.tally.reused) == set(comp.JOB_COMPONENTS) - {"language", "work_facts"}
+    redone = {"language", "semantic_evidence_facts", "work_facts"}
+    assert features.tally.computed == {c: len(jobs) for c in redone}
+    assert set(features.tally.reused) == set(comp.JOB_COMPONENTS) - redone
     for store in stores.values():
         assert set(store.tally.computed) == {"work_match", "tools_match", "score"}
 
@@ -289,3 +295,26 @@ def test_profile_databases_are_separate_files(world, tmp_path) -> None:
     paths = {conn.execute("PRAGMA database_list").fetchone()[2] for _, conn in profiles.values()}
     assert len(paths) == len(profiles)
     assert all(isinstance(c, sqlite3.Connection) for _, c in profiles.values())
+
+
+def test_an_evidence_policy_change_rematches_and_never_rereads(world) -> None:
+    """What a kind of evidence is worth is the profile's (2026-10-16): a new
+    policy re-matches that person's postings and reads no advert again."""
+    catalogue, jobs, profiles = world
+    run_all(catalogue, jobs, profiles)
+    config, conn = profiles["teacher"]
+    policy = {**policy_mod.DEFAULT, "counted_at": 0.5}
+    changed = config.model_copy(update={"evidence_policy": policy})
+    for stale in _stale_after(profiles, "teacher", jobs, changed).values():
+        assert stale == {"evidence_policy", "work_match", "tools_match", "score"}
+    profiles["teacher"] = (changed, conn)
+    features, stores, _ = run_all(catalogue, jobs, profiles)
+    assert features.tally.reads == 0 and not features.tally.computed
+    assert set(stores["teacher"].tally.computed) == {
+        "evidence_policy",
+        "work_match",
+        "tools_match",
+        "score",
+    }
+    for other in ("nurse", "automation", "sales"):
+        assert not stores[other].tally.computed

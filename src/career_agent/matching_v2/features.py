@@ -55,6 +55,8 @@ from career_agent.match.text import (
     sentence_at,
 )
 from career_agent.matching_v2 import components as comp
+from career_agent.matching_v2 import evidence as ev
+from career_agent.matching_v2 import text_structure
 from career_agent.matching_v2.context import Context, Sentence, sentences
 from career_agent.matching_v2.language import LanguageTable, Token, detect_language, tokens
 from career_agent.storage.mvp_repo import (
@@ -133,10 +135,20 @@ class JobFeatures:
     shared: SharedReading | None = field(default=None, compare=False)
     #: The canonical tokens, per unit, made on demand (never stored).
     units: list[tuple[str, Context, int, list[Token]]] | None = field(default=None, compare=False)
+    #: The semantic notes by position, decoded on demand (never stored).
+    note_index: ev.NoteIndex | None = field(default=None, compare=False)
 
     @property
     def sentences(self) -> list[Sentence]:
         return decode_sentences(self.payloads["sentence_context"])
+
+    @property
+    def notes(self) -> ev.NoteIndex:
+        if self.note_index is None:
+            self.note_index = ev.NoteIndex(
+                ev.decode(self.payloads.get("semantic_evidence_facts") or "")
+            )
+        return self.note_index
 
     @property
     def language(self) -> str:
@@ -216,9 +228,18 @@ def extract(
         payloads["text_parser"] = encode_sections(shared.sections)
     if "language" in wanted:
         payloads["language"] = detect_language(description)
+    cuts = text_structure.cuts(description)
+    if "text_structure" in wanted:
+        payloads["text_structure"] = text_structure.encode(cuts)
+    cut = None
     if "sentence_context" in wanted:
-        cut = _with_machinery_sections(sentences(description), shared.sections)
+        cut = _with_machinery_sections(sentences(description, cuts), shared.sections)
         payloads["sentence_context"] = encode_sentences(cut)
+    if "semantic_evidence_facts" in wanted:
+        if cut is None:
+            cut = _with_machinery_sections(sentences(description, cuts), shared.sections)
+        language = payloads.get("language") or detect_language(description)
+        payloads["semantic_evidence_facts"] = ev.encode(ev.annotate(description, cut, language))
     if "work_facts" in wanted:
         payloads["work_facts"] = None
     if "pay_facts" in wanted:
@@ -352,3 +373,13 @@ def work_units(
             units.append(("description", s.context, s.start, toks))
         features.units = units
     return features.units
+
+
+def set_language(job: JobFacts, features: JobFeatures, language: str) -> None:
+    """State a posting's language (a one-sentence case is too short to tell)
+    and re-read what depends on it: the semantic notes."""
+    features.payloads["language"] = language
+    features.payloads["semantic_evidence_facts"] = ev.encode(
+        ev.annotate(job.description, features.sentences, language)
+    )
+    features.note_index = None

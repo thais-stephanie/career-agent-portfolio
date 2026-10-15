@@ -921,3 +921,124 @@ breaks; 29 of 30 Portuguese v2-only misses by context are such units, all
   removed true evidence (15 v2-only misses).
 * Composition of `lead generation`: no residue; the remaining errors are a
   negation, a measurement of leads, a passive labelled Y and paraphrases.
+
+
+## Semantic evidence prototype (2026-10-16, branch `claude/matching-v2-semantic-evidence`)
+
+Owner's decision, 2026-10-16: no package 4 and no new human labelling.
+Packages 1, 2 and 3 are spent holdouts and are reused here as REGRESSION /
+EVALUATION sets only; nothing below is a new holdout and nothing is
+promoted. Baseline A is the frozen candidate `b4eea83`; B is this branch.
+
+### What was built
+
+* `text_structure` (job, v1): where a Gupy advert written without line
+  breaks had its lines. Offsets only; the canonical text, its hash and every
+  evidence offset are unchanged. Gated on the template (two of its headings
+  present, capitalised); template headings cut on both sides; a sentence end
+  glued to a capitalised word, a glued bullet glyph, a dash bullet after a
+  sentence end and a run of emoji start a virtual line; URLs, e-mails and
+  dotted names (`Node.JS`) are protected. `sentences(text, cuts)` reads the
+  cuts as virtual line ends. The Gupy template headings (pt, es, en) joined
+  the heading table; `Informacoes adicionais` is CONDITION (benefits,
+  contract, process; the role's own voice still lifts a sentence).
+* `semantic_evidence_facts` (job, v1, `evidence.annotate`): per sentence,
+  spans of cues that say what kind of statement it is (experience,
+  familiarity, skill, degree, alternatives, receiving, commercial) and
+  whether its subject is the company or a product. Letters and offsets
+  (`E12.14 G300.10`).
+* `EvidenceFrame` (`evidence.frame`, per match): concept_id, sense, owner,
+  direction, evidence_type, section_context, certainty, plus the rule that
+  decided. The existing structural causes are no longer verdicts: each sets
+  one dimension (TEAM is an owner, a school level a sense, a qualification a
+  type). English, Portuguese and Spanish grammar only; any other language is
+  UNKNOWN owner and direction with LOW certainty, never an English rule.
+* `evidence_policy` (profile, v1): weights per type, sense, owner,
+  direction and certainty; `counted_at` 0.2; `core_at` 0.8 (a counted hit
+  below it is never a core duty: its section is read as SECONDARY, which is
+  how the weight reaches A1+B1 without rewriting them). A profile may carry
+  its own policy; changing it makes `evidence_policy`, `work_match`,
+  `tools_match` and `score` stale and nothing shared.
+* Data: `semantic_data.yaml` (cues, owner openers and heads, senses, light
+  verbs), PT/ES notice and benefit cues in `context_data.yaml` (translations
+  of notices already listed). No profession, employer or posting.
+* Owner's product decisions encoded as policy: pre-sales the role performs is
+  sales; post-sales counts only with an upsell, renewal, negotiation or
+  revenue cue in its sentence; generic vs technical support stays the
+  concept table's (both words required); user research needs both roots;
+  a degree in the field is weak evidence (0.35), one field among
+  alternatives is LOW certainty and not counted; tool experience is weak
+  (0.45); collaboration, company, product, domain and artifact contexts and
+  anything the role receives are 0.
+
+### Two builds, both reported
+
+B0 was the first build. Reading its regression results (which is tuning on
+spent sets, said here so nobody reads B1 as clean) found five generic
+defects, fixed once as B1: a company-business head across a comma
+(`automation, business data`); `This is a ...` read as a company name;
+`ponto de apoio` read as a physical structure; `para a venda` missing from
+the merchandise sense; and a verb is another sense only for a LIGHT verb
+(`support the launch`), while `design the service` is design work and
+`designing`/`designed` are inflections of `design` (never of a light verb).
+
+| package | A P/R/F1 | B0 P/R/F1 | B1 P/R/F1 |
+|---|---|---|---|
+| p1 ALL | .714/.685/.699 | .702/.661/.681 | .705/.718/.712 |
+| p2 ALL | .700/.691/.695 | .710/.639/.673 | .735/.728/.731 |
+| p3 ALL | .716/.704/.710 | .748/.727/.737 | .760/.777/.768 |
+
+Current reader on the same items: p1 .678/.606/.640, p2 .643/.602/.622,
+p3 .634/.570/.600.
+
+### Safety gates (the package 3 rule, applied to every package)
+
+| package | A blocks | B1 blocks |
+|---|---|---|
+| p1 | none | none |
+| p2 | one_design (recall), one_operations (recall), one_vendas (precision) | one_operations, one_vendas |
+| p3 | PT precision, nursing_pt, one_enfermagem, one_design, one_marketing (recall), payroll (precision) | payroll (precision) |
+
+p3 B1: PT .604/.614 -> .774/.718; nursing_pt R .18 -> .64; one_enfermagem
+R .30 -> .93; one_design R .56 -> .95; one_marketing R .66 -> .69. The
+payroll block that remains: German HR-software postings (no grammar,
+matched by the current reader too) and Y labels on statements the owner's
+2026-10-16 policy makes 0 (`We handle the hard stuff - payroll, ...`,
+`payroll platform`, `Partner with ... Payroll`).
+
+### Gupy structural recovery (package 3 copy, 891 Gupy postings)
+
+874 carry the template; no other source is cut. Units 7,376 -> 19,113;
+units over 400 characters 1,372 -> 519; characters inside them 1.44 M ->
+0.36 M. Contexts: RESPONSIBILITY 79 -> 4,405, REQUIREMENT 77 -> 3,130,
+CONDITION 109 -> 3,777. Synthetic check (300 adverts of other sources that
+kept their lines, flattened as Gupy flattens): the glue rules cut at a real
+line start 5,885 times and elsewhere 225 (precision 0.963, recall 0.490).
+On p3 the reading of sections recovered 62 true matches A had set aside and
+introduced 13 false ones (benefit lists and company sentences no heading
+names).
+
+### Cost and storage (300 postings, best of 3, ms per posting)
+
+| | A | B1 |
+|---|---|---|
+| shared facts | 6.7 | 8.8 |
+| 1 profile (ratio to current) | 9.0 (1.39x) | 11.0 (1.80x) |
+| 2 profiles | 9.5 (0.78x) | 11.5 (0.91x) |
+| 10 profiles | 12.5 (0.22x) | 14.5 (0.26x) |
+| 50 profiles | 32.3 (0.12x) | 34.2 (0.12x) |
+| per profile, at 50 | 0.51 | 0.51 |
+| shared bytes per posting | 948 | 1,186 (103 of them structure and notes) |
+| profile bytes per posting | 509 | 510 |
+
+One profile is above the old 1.5x mark; from two profiles on v2 is cheaper
+than the current reader and the marginal profile costs the same. The
+speed-ups were output-neutral (payload digest of 3,557 postings identical).
+
+### Verdict: SEMANTIC_PROTOTYPE_PROMISING
+
+Not promoted, not merged, production untouched. Remaining: the payroll
+block (policy-divergent labels and an unsupported language), p2's
+one_operations and one_vendas blocks (both already in A), collaboration
+statements the older labels count as Y (39 B errors) and benefit lists in
+other contexts (32). Next: Phase D controlled rollout plan, owner's call.

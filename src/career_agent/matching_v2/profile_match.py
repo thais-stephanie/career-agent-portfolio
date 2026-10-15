@@ -33,10 +33,18 @@ from career_agent.match.lexicon import (
     prominence_of,
 )
 from career_agent.match.phrase_forms import EXTRA_TOKENS, STOPWORDS
-from career_agent.match.text import fold, section_kind_at, sentence_at
+from career_agent.match.text import (
+    PRIMARY_SECTION,
+    SECONDARY_SECTION,
+    fold,
+    section_kind_at,
+    sentence_at,
+)
 from career_agent.matching_v2 import components as comp
+from career_agent.matching_v2 import evidence as ev
+from career_agent.matching_v2 import evidence_policy as policy_mod
 from career_agent.matching_v2 import structure
-from career_agent.matching_v2.context import NOT_WORK, Context
+from career_agent.matching_v2.context import NOT_WORK, Context, Sentence
 from career_agent.matching_v2.features import (
     JobFeatures,
     job_inputs,
@@ -80,6 +88,10 @@ class Evidence:
     end: int
     #: For UNCERTAIN: the cause (`structure` or APART_IN_UNKNOWN_CONTEXT).
     reason: str | None = None
+    #: What the evidence means (`EvidenceFrame.code()`) and what this
+    #: profile's policy makes it worth; None for the title.
+    frame: str | None = None
+    weight: float | None = None
 
 
 @dataclass
@@ -127,6 +139,9 @@ def _profile_inputs(config: SearchConfig) -> dict[str, str]:
         "profile.weights": comp.digest(
             [dumped["scoring"], dumped["thresholds"], dumped["confidence"], prefs["recency"]]
         ),
+        "profile.evidence_policy": comp.digest(
+            policy_mod.digest_view(policy_mod.policy_for(config))
+        ),
     }
 
 
@@ -158,6 +173,24 @@ def _single_word(pattern: str) -> str | None:
     return words[0] if len(words) == 1 else None
 
 
+_INFLECTIONS = ("s", "es", "d", "ed", "ing")
+
+
+def _inflection_of(word: str | None, single: str) -> bool:
+    """`designed` of `design`; not of a light verb (`supporting`)."""
+    if not word or word == single or single in ev.load().light_verbs:
+        return False
+    rest = word[len(single) :] if word.startswith(single) else None
+    if rest in _INFLECTIONS:
+        return True
+    # `designing` of `design`, `managing` of `manage`: a final `e` dropped.
+    return (
+        single.endswith("e")
+        and word.startswith(single[:-1])
+        and word[len(single) - 1 :] in ("ing", "ed")
+    )
+
+
 def _find(
     toks: list[Token], reading: tuple[str, ...], single: str | None = None
 ) -> list[tuple[list[Token], int, Relation]]:
@@ -173,6 +206,7 @@ def _find(
             if t.root == reading[0]
             and (
                 t.word == single
+                or _inflection_of(t.word, single)
                 or t.word in surface
                 or t.relation in (Relation.EXACT_EQUIVALENT, Relation.FIXED_EXPRESSION)
             )
@@ -233,6 +267,8 @@ def observe_from_features(
     spans = shared.sections if shared is not None else ()
     observed: dict[str, ObservedSignal] = {}
     evidence: list[Evidence] = []
+    policy = policy_mod.policy_for(config)
+    notes = features.notes
     for signal_id, signal_cfg in config.lexicon.items():
         live: list[SignalHit] = []
         negated: list[SignalHit] = []
@@ -252,10 +288,14 @@ def observe_from_features(
                         end = max(t.end for t in used)
                         text = job.title if field_name == "title" else description
                         quote = sentence_at(text, start, end)
-                        state, reason = _classify(
+                        sentence_end = ends.get(sentence_start, len(description))
+                        state, reason, frame, weight = _classify(
                             description, field_name, context, sentence_start,
-                            ends.get(sentence_start, len(description)), used, gap, pattern,
+                            sentence_end, used, gap, pattern,
                             features.language, one_word=single is not None,
+                            concept_id=f"{signal_id}:{pattern}", policy=policy,
+                            notes=notes.within(sentence_start, sentence_end)
+                            if field_name == "description" else [],
                         )  # fmt: skip
                         rule = context_rule_for(signal_cfg, pattern)
                         if (
@@ -268,6 +308,7 @@ def observe_from_features(
                             Evidence(
                                 signal_id, pattern, state, relation.value, context.value,
                                 quote, start, end, reason,
+                                None if frame is None else frame.code(), weight,
                             )
                         )  # fmt: skip
                         if state != MATCH:
@@ -280,6 +321,18 @@ def observe_from_features(
                         ):
                             at = bisect_left(folded.offsets, start)
                             is_negated = is_negated_before(folded, at, config.negation)
+                        section = (
+                            section_kind_at(spans, start) if field_name == "description" else None
+                        )
+                        # Weak evidence (a degree, a tool, familiarity) is never a
+                        # core duty in the score: the policy's weight reaches A1+B1
+                        # through the channel they already read.
+                        if (
+                            section == PRIMARY_SECTION
+                            and weight is not None
+                            and weight < policy["core_at"]
+                        ):
+                            section = SECONDARY_SECTION
                         hit = SignalHit(
                             signal_id=signal_id,
                             label=signal_cfg.label,
@@ -289,9 +342,7 @@ def observe_from_features(
                             char_start=start,
                             char_end=end,
                             negated=is_negated,
-                            section=section_kind_at(spans, start)
-                            if field_name == "description"
-                            else None,
+                            section=section,
                         )
                         (negated if is_negated else live).append(hit)
         # One hit per place: two patterns of one signal finding the same words.
@@ -321,24 +372,35 @@ def _classify(
     language: str,
     *,
     one_word: bool = False,
-) -> tuple[str, str | None]:
-    """MATCH, UNCERTAIN (with its cause) or EXCLUDED_CONTEXT. A ONE-word
-    preference must also be the work the person named in its sentence, not
-    a team, a compound or a verb (`structure.one_word`)."""
+    concept_id: str = "",
+    policy: dict | None = None,
+    notes: list | None = None,
+) -> tuple[str, str | None, ev.EvidenceFrame | None, float | None]:
+    """MATCH, UNCERTAIN (with its cause) or EXCLUDED_CONTEXT, the evidence
+    frame and its weight under the profile's policy (2026-10-16).
+
+    The structural rules (`structure.check`, `structure.one_word`) still find
+    their causes; a cause no longer ends the reading, it sets one dimension
+    of the frame (a team is an owner, a school level a sense, a qualification
+    a kind of evidence), and the policy decides what the frame is worth."""
+    policy = policy or policy_mod.DEFAULT
+    if field_name != "description":
+        return MATCH, None, None, None
+    start, end = min(t.start for t in used), max(t.end for t in used)
+    sentence = Sentence(sentence_start, sentence_end, context)
     if context in NOT_WORK:
-        return EXCLUDED_CONTEXT, None
-    if field_name == "description":
-        cause = structure.check(description, used, pattern, sentence_start, sentence_end, language)
-        if cause is None and one_word:
-            start, end = min(t.start for t in used), max(t.end for t in used)
-            cause = structure.one_word(
-                description, start, end, sentence_start, sentence_end, language
-            )
-        if cause is not None:
-            return UNCERTAIN, cause
-    if gap > 0 and context in UNCERTAIN_WHEN_APART:
-        return UNCERTAIN, APART_IN_UNKNOWN_CONTEXT
-    return MATCH, None
+        frame = ev.frame(description, sentence, [], start, end, concept_id, language, None)
+        return EXCLUDED_CONTEXT, None, frame, 0.0
+    cause = structure.check(description, used, pattern, sentence_start, sentence_end, language)
+    if cause is None and one_word:
+        cause = structure.one_word(description, start, end, sentence_start, sentence_end, language)
+    frame = ev.frame(description, sentence, notes or [], start, end, concept_id, language, cause)
+    weight = policy_mod.weight(frame, policy)
+    if weight >= policy["counted_at"]:
+        if gap > 0 and context in UNCERTAIN_WHEN_APART:
+            return UNCERTAIN, APART_IN_UNKNOWN_CONTEXT, frame, weight
+        return MATCH, None, frame, weight
+    return UNCERTAIN, cause or frame.because or str(frame.evidence_type), frame, weight
 
 
 def match(

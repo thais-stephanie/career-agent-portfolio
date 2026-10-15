@@ -26,6 +26,7 @@ from career_agent.config.search_config import Negation, SearchConfig
 from career_agent.match.engine import JobFacts
 from career_agent.match.gates import negation_key
 from career_agent.matching_v2 import components as comp
+from career_agent.matching_v2 import evidence as ev
 from career_agent.matching_v2 import features as feat
 from career_agent.matching_v2 import profile_match as pm
 
@@ -166,7 +167,8 @@ _STATE = {pm.MATCH: "M", pm.UNCERTAIN: "U", pm.EXCLUDED_CONTEXT: "X"}
 def compact_result(m: pm.ProfileJobMatch) -> dict[str, Any]:
     """What a profile's answer stores: points per component, gates, and the
     evidence as spans (`[signal, state, relation, context, start, end,
-    field, cause]`). Quotes are cut from the posting when shown."""
+    field, cause, frame, weight]`; the frame packed by `evidence.pack`).
+    Quotes are cut from the posting when shown."""
     r = m.result
     return {
         "components": {c.component_id: [c.points, c.max_points] for c in r.components},
@@ -182,6 +184,8 @@ def compact_result(m: pm.ProfileJobMatch) -> dict[str, Any]:
                 e.end,
                 "t" if e.context == "TITLE" else "d",
                 e.reason,
+                None if e.frame is None else ev.pack(e.frame),
+                None if e.weight is None else round(e.weight, 2),
             ]
             for e in m.evidence
         ],

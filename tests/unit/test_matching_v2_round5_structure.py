@@ -43,9 +43,8 @@ def _answer(phrase: str, sentence: str, language: str, heading: str = "Requireme
         ("teaching", "We pay for the program and support TEACH.", "en"),
         # a unit of the organisation, a tool
         ("sales", "Link customers, sales, product, and engineering teams.", "en"),
-        ("sales", "Experience with CRM and sales software.", "en"),
-        ("vendas", "Experiência com ferramentas de vendas e CRM.", "pt"),
-        ("ventas", "Experiencia con plataformas de ventas digitales.", "es"),
+        # Experience with a field's tools is TOOL_EXPERIENCE since 2026-10-16
+        # (weak, counted): `test_matching_v2_semantic_evidence.py`.
     ],
 )
 def test_one_word_that_names_something_else_is_not_the_work(

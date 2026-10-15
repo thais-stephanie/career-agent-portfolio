@@ -31,7 +31,14 @@ CONFIG, _ = load_search_config(committed_config_dir())
 
 def test_a_language_change_invalidates_work_only() -> None:
     stale = comp.affected({"language"})
-    assert stale == {"language", "work_facts", "work_match", "tools_match", "score"}
+    assert stale == {
+        "language",
+        "semantic_evidence_facts",
+        "work_facts",
+        "work_match",
+        "tools_match",
+        "score",
+    }
     for untouched in ("pay_facts", "location_facts", "seniority_facts", "engagement_facts",
                       "eligibility", "compensation_match", "seniority_match"):  # fmt: skip
         assert untouched not in stale
@@ -54,14 +61,17 @@ def test_metadata_moves_location_pay_and_engagement_not_the_words() -> None:
 
 
 def test_new_text_makes_everything_stale() -> None:
-    assert comp.affected({"job.text"}) == set(comp.REGISTRY)
+    # Everything but a profile's evidence policy, which reads no text.
+    assert comp.affected({"job.text"}) == set(comp.REGISTRY) - {"evidence_policy"}
 
 
 def test_a_stamp_reads_only_the_inputs_of_its_lineage() -> None:
     inputs = {"job.text": "t", "job.metadata": "m", "machinery.headings": "h",
-              "profile.salary": "s1", "profile.lexicon": "w"}  # fmt: skip
+              "profile.salary": "s1", "profile.lexicon": "w",
+              "profile.evidence_policy": "e"}  # fmt: skip
     a = comp.stamp("work_match", inputs)
     assert a == comp.stamp("work_match", {**inputs, "profile.salary": "s2"})
+    assert a != comp.stamp("work_match", {**inputs, "profile.evidence_policy": "e2"})
     assert a != comp.stamp("work_match", {**inputs, "profile.lexicon": "w2"})
     with pytest.raises(KeyError):
         comp.stamp("compensation_match", {"job.text": "t"})
