@@ -46,9 +46,12 @@ def main() -> None:
     p.add_argument("--sample", type=Path, required=True)
     p.add_argument("--config-dir", type=Path, required=True)
     p.add_argument("--digest", type=Path)
+    p.add_argument("--half", choices=("blind", "any"), default="blind")
     a = p.parse_args()
     key = [json.loads(x) for x in (a.package / "key.jsonl").read_text("utf-8").splitlines()]
-    review = (a.package / "REVIEW.blind.original.tsv").read_text("utf-8").splitlines()
+    original = a.package / "REVIEW.blind.original.tsv"
+    review = (original if original.exists() else a.package / "REVIEW.tsv").read_text("utf-8")
+    review = review.splitlines()
     header = review[0].split("\t")
     sentence_of = {
         r.split("\t")[0]: _norm(dict(zip(header, r.split("\t"), strict=False))["sentence"])
@@ -59,7 +62,7 @@ def main() -> None:
         evaluate.build_items(
             argparse.Namespace(
                 sample=a.sample, config_dir=a.config_dir, out=out,
-                to_label=Path(tmp) / "x.tsv", half="blind", profiles="all",
+                to_label=Path(tmp) / "x.tsv", half=a.half, profiles="all",
                 near_misses=10**6, both=10**6, held=10**6,
             )
         )  # fmt: skip

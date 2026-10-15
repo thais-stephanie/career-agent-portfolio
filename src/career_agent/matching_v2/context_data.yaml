@@ -287,3 +287,112 @@ role_voice_cues:
   - responsavel por
   - seras responsable
   - buscamos a
+
+# A BENEFIT PROVES NO WORK UNLESS THE SENTENCE ITSELF ASSIGNS SOME (owner's
+# decision, 2026-10-15). The heading says what a passage is FOR; it does not
+# overrule a sentence that says the person hired will do or must know the
+# work. Under a benefits heading a sentence is evidence only with a duty cue,
+# the role being introduced, or the candidate as the subject of a verb that is
+# not something given to them. The role's voice alone is not enough there:
+# `you will receive`, `voce vai contar com`, `vas a tener` are the benefit.
+# Doubt stays a benefit (no point). Company and condition headings keep the
+# role-voice reading above.
+benefit_duty:
+  duty_cues:
+    - responsible for
+    - in charge of
+    - accountable for
+    - you will need to
+    - you ll need to
+    - you must
+    - you are expected to
+    - you re expected to
+    - you will be expected to
+    - you ll be expected to
+    - responsavel por
+    - responsaveis por
+    - responsavel pela
+    - responsavel pelo
+    - responsaveis pela
+    - responsaveis pelo
+    - voce precisara
+    - voce devera
+    - responsable de
+    - responsables de
+    - a cargo de
+    - deberas
+    - tendras que
+  hiring_intro_cues:
+    - we are looking for
+    - we re looking for
+    - we are hiring
+    - we re hiring
+    - estamos buscando
+    - estamos procurando
+    - buscamos
+    - procuramos
+    - this role is
+    - the role is
+    - this position is
+    - esta vaga e
+    - este puesto es
+  subjects:
+    - you will
+    - you ll
+    - voce vai
+    - voce ira
+    - vas a
+    - vais a
+  adverbs:
+    - also
+    - regularly
+    - often
+    - tambem
+    - tambien
+  receiving_verbs:
+    - receive
+    - get
+    - have
+    - enjoy
+    - gain
+    - earn
+    - be
+    - become
+    - benefit
+    - access
+    - join
+    - grow
+    - learn
+    - participate
+    - take
+    - attend
+    - feel
+    - find
+    - love
+    - belong
+    - work
+    - build
+    - develop
+    - improve
+    - expand
+    - receber
+    - ter
+    - contar
+    - ganhar
+    - aproveitar
+    - participar
+    - crescer
+    - aprender
+    - fazer
+    - ser
+    - estar
+    - trabalhar
+    - desenvolver
+    - recibir
+    - tener
+    - ganar
+    - disfrutar
+    - formar
+    - crecer
+    - trabajar
+    - desarrollar

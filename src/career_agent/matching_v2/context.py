@@ -95,6 +95,41 @@ def _has(cues: tuple[str, ...], text: str) -> bool:
     return _cue_pattern(cues).search(f" {_norm(text)} ") is not None
 
 
+@dataclass(frozen=True)
+class _BenefitDuty:
+    duties: tuple[str, ...]
+    intros: tuple[str, ...]
+    subject_verb: re.Pattern[str]
+    receiving: frozenset[str]
+
+
+@lru_cache(maxsize=2)
+def _benefit_duty(path: Path = DATA) -> _BenefitDuty:
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))["benefit_duty"]
+    subjects = "|".join(re.escape(_norm(c)) for c in raw["subjects"])
+    adverbs = "|".join(re.escape(_norm(c)) for c in raw["adverbs"])
+    return _BenefitDuty(
+        tuple(_norm(c) for c in raw["duty_cues"]),
+        tuple(_norm(c) for c in raw["hiring_intro_cues"]),
+        re.compile(rf" (?:{subjects}) (?:(?:{adverbs}) )*([a-z]+)(?= )"),
+        frozenset(_norm(c) for c in raw["receiving_verbs"]),
+    )
+
+
+def benefit_states_duty(text: str) -> bool:
+    """Whether a sentence under a benefits heading says, in its own words,
+    that the person hired will do or must know some work: a duty cue
+    (`responsible for`), the role being introduced (`we are looking for`), or
+    the candidate as the subject of a verb that is not something given to
+    them (`you will teach`, never `you will receive`). Anything else under
+    that heading proves no work, the role's own voice included (`you will
+    have support from the data team`)."""
+    d = _benefit_duty()
+    if _has(d.duties, text) or _has(d.intros, text):
+        return True
+    return any(m.group(1) not in d.receiving for m in d.subject_verb.finditer(f" {_norm(text)} "))
+
+
 _BULLET = re.compile(r"^\s*(?:[-*\u2022\u25cf\u25aa>]|\d{1,2}[.)])\s")
 
 
@@ -288,6 +323,9 @@ def sentences(text: str) -> list[Sentence]:
             notices, voices = _voices()
             if _has(notices, stripped):
                 context = Context.CONDITION
+            elif context is Context.BENEFIT:
+                if benefit_states_duty(stripped):
+                    context = Context.OTHER
             elif context in NOT_WORK and _has(voices, stripped):
                 context = Context.OTHER
             out.append(Sentence(lead, lead + len(stripped), context, heading))

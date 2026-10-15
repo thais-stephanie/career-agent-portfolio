@@ -630,3 +630,63 @@ branch's code, not `d094b27`.
 
 **KEEP_WORK_MATCH_IN_SHADOW.** Next: the owner labels package 2; the gate is
 read on it with the same rule; the benefits question is decided.
+
+---
+
+# Round 4b (2026-10-15): a benefits heading versus a sentence that assigns work
+
+Owner's decision: section context is evidence about what a passage is FOR,
+not an override of what a sentence says. A benefit proves no work; a sentence
+under a benefits heading that itself gives the role a duty or a requirement
+may.
+
+## What the code did before
+
+Not an absolute block. Under BENEFIT, COMPANY_DESCRIPTION or CONDITION a
+sentence carrying any role-voice cue (`you will`, `you have`, `you are`,
+`this role`, ...) was lifted to OTHER and could match. Under a benefits
+heading that cue is mostly the benefit itself (`you will receive`, `if you
+have any doubts`), so the existing exception was too wide, not too narrow.
+
+## The rule (B), `context.benefit_states_duty`
+
+Only for BENEFIT (company and condition headings keep the role-voice reading):
+a sentence is lifted to OTHER when it has a duty cue (`responsible for`,
+`you must`, `responsavel pelo`, `seras responsable de`), introduces the role
+(`we are looking for`, `this role is`, `buscamos`), or has the candidate as
+the subject of a verb that is not something given to them (`you will teach`,
+`voce vai ministrar`, `vas a liderar`; never `you will receive`, `voce vai
+contar com`, `vas a tener`). No subject, no lift: a duty bullet left under a
+benefits heading by a malformed advert stays a benefit. Data in
+`context_data.yaml` (`benefit_duty`); `sentence_context` 3 -> 4.
+
+## Development (new set; package 1 not used)
+
+1,642 postings of id class 0 plus 170 Portuguese postings of classes 1 and 3,
+none in package 1, package 2, dev2/dev2b/dev3 or the one-sentence sets. 457
+items (181 sentences) under a benefits heading whose phrase matches when the
+heading is ignored, labelled by the agent: 23 Y, 399 N, 35 `?`.
+
+| rule | TP | FP | FN | precision | recall | F1 |
+|---|---|---|---|---|---|---|
+| A0 absolute block | 0 | 0 | 23 | - | 0.000 | 0.000 |
+| A1 code before (role voice) | 2 | 15 | 21 | 0.118 | 0.087 | 0.100 |
+| B explicit duty | 2 | 0 | 21 | 1.000 | 0.087 | 0.160 |
+
+All 15 false positives A1 admitted were recruiting-scam and privacy notices
+(`if you have any doubts`, `you also represent`); B admits none. Every
+difference is in English; the Portuguese benefit sentences of the set (40
+items) are wellness and support programmes that no rule lifts. 21 of 23 Y
+are duties or requirements under a heading the advert never closed, with no
+subject: B leaves them, by the decision. On 18 invented sentences written
+with the rule (EN 9, PT 5, ES 4, a specification rather than evidence): A1
+TP 6/7 FP 6/11, B TP 7/7 FP 0/11.
+
+## Package 2
+
+Replayed with B on its 453 postings: 760/760 key items reproduce (current
+and v2 state, cause, context). Off the package, 35 sentence contexts in 25
+postings move (33 OTHER -> BENEFIT, 2 BENEFIT -> OTHER) and 6 profile
+answers change; no labelled item does. Package 2 stays as generated (key
+SHA-256 `7e92cf93...ecbf`); its labels measure B as they would have measured
+the code before.
