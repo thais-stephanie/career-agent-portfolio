@@ -56,6 +56,10 @@ from career_agent.matching_v2.language import DATA, LanguageTable, Token
 THIRD_PARTY_SUBJECT = "THIRD_PARTY_SUBJECT"
 CLAUSE_BOUNDARY = "CLAUSE_BOUNDARY"
 OTHER_SENSE = "OTHER_SENSE"
+#: The words of a phrase are present but not linked as the phrase
+#: (2026-10-15): `lead the generation of reports`, `demand generation, lead
+#: nurturing`, `leads generated through campaigns`, `next-generation`.
+UNLINKED = "UNLINKED"
 
 _WORD = re.compile(r"[0-9a-z]+")
 #: How far into a sentence its opening noun phrase may reach.
@@ -78,6 +82,18 @@ class Structure:
     #: English words after which, or before which, a word is a verb.
     verb_openers: frozenset[str] = frozenset()
     determiners: frozenset[str] = frozenset()
+    #: One-word preferences, 2026-10-15 (see `language_data.yaml`).
+    education_levels: frozenset[str] = frozenset()
+    qualification_heads: frozenset[str] = frozenset()
+    first_person_plural: frozenset[str] = frozenset()
+    object_pronouns: frozenset[str] = frozenset()
+    artifact_heads_after: frozenset[str] = frozenset()
+    artifact_heads_before: frozenset[str] = frozenset()
+    #: Phrases of two words or more, 2026-10-15.
+    agent_prepositions: frozenset[str] = frozenset()
+    #: Units that close a list of functions (not `leadership`, `partners`).
+    unit_nouns: frozenset[str] = frozenset()
+    noun_endings: tuple[str, ...] = ()
 
 
 def _words(text: str) -> list[str]:
@@ -115,6 +131,17 @@ def load_structure(path: Path = DATA) -> Structure:
         collaboration=flat(s.get("collaboration_markers", {})),
         verb_openers=flat(s.get("verb_openers", [])),
         determiners=flat(s.get("determiners", [])),
+        education_levels=flat(s.get("education_levels", {})),
+        qualification_heads=flat(s.get("qualification_heads", {})),
+        first_person_plural=flat(s.get("first_person_plural", [])),
+        object_pronouns=flat(s.get("object_pronouns", [])),
+        artifact_heads_after=flat(s.get("artifact_heads", {}).get("en", [])),
+        artifact_heads_before=flat(
+            {k: v for k, v in s.get("artifact_heads", {}).items() if k != "en"}
+        ),
+        agent_prepositions=flat(s.get("agent_prepositions", {})),
+        unit_nouns=flat(s.get("unit_nouns", {})),
+        noun_endings=tuple(str(e) for e in s.get("noun_endings", [])),
     )
 
 
@@ -150,6 +177,8 @@ def check(
     first, last = spans[0], spans[-1]
     if any(m in text[first[1] : last[0]] for m in st.clause_marks):
         return CLAUSE_BOUNDARY
+    if _unlinked(text, spans, st):
+        return UNLINKED
     opening = _words(text[sentence_start : first[0]])
     if (
         opening
@@ -164,12 +193,69 @@ def check(
     return None
 
 
+_PARTICIPLE = ("ed", "ado", "ados", "ada", "adas", "ido", "idos", "ida", "idas")
+
+
+def _is_noun(surface: str, st: Structure) -> bool:
+    return surface.endswith(st.noun_endings)
+
+
+def _unlinked(text: str, spans: list[tuple[int, int, str]], st: Structure) -> bool:
+    """Whether a word of a phrase, found close to the others, is not the
+    phrase's word at all (2026-10-15, a new development set):
+
+    * a participle with an agent is somebody else's act (`leads generated
+      through campaigns`, `campaign-generated leads`);
+    * the second half of another hyphenated compound is another word
+      (`next-generation`: a noun or a participle after the hyphen).
+
+    Measured and NOT kept (the same set, plus a regression sample of 281
+    sentences of the other phrases of two words or more): the words' order
+    and what stands between them. Rejecting a determiner between the words in
+    the phrase's order (`lead the generation`) removed 3 false matches of
+    `lead generation` and about 48 true ones elsewhere (`processes,
+    automations, and workflows`, `dados para analises`); rejecting a noun of
+    action coordinated with a word that heads its own compound in the other
+    order (`demand generation and lead nurturing`) removed 2 and about 41.
+    Grammar only (`language_data.yaml`), never a phrase of the corpus."""
+    for i, (start, end, _root) in enumerate(spans):
+        surface = fold(text[start:end])[0].strip()
+        neighbour_ends = {e for _, e, _ in spans[:i]}
+        if (
+            start >= 2
+            and text[start - 1] == "-"
+            and text[start - 2].isalnum()
+            and start - 1 not in neighbour_ends
+            and (_is_noun(surface, st) or surface.endswith(_PARTICIPLE))
+        ):
+            return True
+        if surface.endswith(_PARTICIPLE):
+            following = _words(text[end : end + 40])[:2]
+            if set(following) & st.agent_prepositions:
+                return True
+    return False
+
+
 #: One-word preferences (2026-10-14): the word names a team the role works
 #: with, is the second half of a hyphenated compound (`pre-sales`), or is
 #: used as a verb (`support the launch`) where the person named the work.
 ONE_WORD_TEAM = "ONE_WORD_TEAM"
 ONE_WORD_COMPOUND = "ONE_WORD_COMPOUND"
 ONE_WORD_VERB = "ONE_WORD_VERB"
+#: 2026-10-15, on a new development set (none of the labelled packages).
+ONE_WORD_QUALIFICATION = "ONE_WORD_QUALIFICATION"
+ONE_WORD_RECIPIENT = "ONE_WORD_RECIPIENT"
+ONE_WORD_NAME = "ONE_WORD_NAME"
+ONE_WORD_MODIFIER = "ONE_WORD_MODIFIER"
+
+#: Words that link a qualification to its subject (`degree IN sales`).
+_LINKS = frozenset({"in", "of", "em", "en", "de", "da", "do"})
+#: How far before the word a qualification may stand (`Bachelor's degree in
+#: finance or sales`).
+_QUALIFICATION_REACH = 5
+#: How far a list of functions may run to its unit noun (`between customers,
+#: sales, product, and engineering teams`).
+_LIST_REACH_AFTER = 10
 
 #: How many words a list of team names may run before its unit noun
 #: (`Sales, Support, and Product teams`).
@@ -212,6 +298,11 @@ def one_word(text: str, start: int, end: int, sentence_start: int, sentence_end:
     before = _words(text[sentence_start:start])
     after_raw = _raw_words(text[end:sentence_end])
     after = [fold(w)[0] for w in after_raw]
+    found = _qualification_recipient_name_modifier(
+        text, start, end, sentence_start, sentence_end, before, after, st
+    )
+    if found is not None:
+        return found
     team = False
     for i, word in enumerate(after[:_TEAM_LIST_REACH]):
         if word in st.team_nouns:
@@ -237,6 +328,11 @@ def one_word(text: str, start: int, end: int, sentence_start: int, sentence_end:
     # para integrarse a nuestro equipo de Soporte` JOINS that team).
     markers = set(before[-_MARKER_REACH:]) & st.collaboration
     if team and markers:
+        return ONE_WORD_TEAM
+    # One name in a list of functions that a unit noun closes (`between
+    # customers, sales, product, and engineering teams`): every word up to the
+    # last item is a name, a coordinator or followed by a comma.
+    if listed and _closed_by_unit(text[end:sentence_end], st):
         return ONE_WORD_TEAM
     # In a list, a bare preposition is not collaboration (`experience with
     # dados, metadados`; `experience with ToolA, ToolB` lists TOOLS):
@@ -268,6 +364,127 @@ def one_word(text: str, start: int, end: int, sentence_start: int, sentence_end:
     return None
 
 
+_LIST_WORD = re.compile(r"([^\W_]+)(\s*,)?")
+
+
+def _closed_by_unit(rest: str, st: Structure) -> bool:
+    """Whether a list starting right after the word ends in a unit noun:
+    `, product, and engineering teams`, `or operations teams`, `, Value
+    Engineering, Product Management, ... and Information Security teams`.
+    The list ends at a semicolon or a full stop."""
+    rest = re.split(r"[;.]", rest, maxsplit=1)[0]
+    words = [(m.group(1), bool(m.group(2))) for m in _LIST_WORD.finditer(rest)]
+    for i, (word, _comma) in enumerate(words[:_LIST_REACH_AFTER]):
+        if fold(word)[0] in st.unit_nouns:
+            # The unit noun must END the list's noun phrase: `teams.` or
+            # `teams to`, not `Unit Administration` or `lideranca de equipes`
+            # (leadership of teams is an activity).
+            following = fold(words[i + 1][0])[0] if i + 1 < len(words) else ""
+            if following and not (comma_after(words, i) or following in _UNIT_FOLLOWERS):
+                return False
+            items = words[: max(0, i - 1)]
+            return i > 0 and all(
+                w[:1].isupper() or comma or fold(w)[0] in st.coordinators for w, comma in items
+            )
+    return False
+
+
+#: Words that may follow a unit noun closing a list (`teams to`, `teams
+#: and`, `teams in`); `of`/`de` are not among them.
+_UNIT_FOLLOWERS = frozenset(
+    {"to", "and", "or", "that", "who", "which", "in", "at", "across", "on", "with", "for",
+     "e", "ou", "y", "o", "para", "com", "con", "em", "en", "no", "na"}
+)  # fmt: skip
+
+
+def comma_after(words: list[tuple[str, bool]], i: int) -> bool:
+    return words[i][1]
+
+
+def _qualification_recipient_name_modifier(
+    text: str,
+    start: int,
+    end: int,
+    sentence_start: int,
+    sentence_end: int,
+    before: list[str],
+    after: list[str],
+    st: Structure,
+) -> str | None:
+    """Four readings of ONE word that name something other than the work
+    the person does (2026-10-15):
+
+    * ONE_WORD_QUALIFICATION  a school level after the word (`ensino medio
+      completo`), or a qualification before it with a link word between
+      (`Bachelor's degree in finance or sales`, `formacao em vendas`);
+    * ONE_WORD_RECIPIENT      the company as the subject (`we'll teach`, `What
+      we can't teach`) or the hire as the object (`teach you the rest`): what
+      is done TO the person;
+    * ONE_WORD_NAME           written in capitals in a sentence that is not
+      (`support TEACH`): a programme or a brand;
+    * ONE_WORD_MODIFIER       the word names what another noun is for: the
+      noun after it in English (`sales software`, `Sales Hub`, `teaching
+      affiliate`), before `de`/`para` in Portuguese and Spanish
+      (`instituicoes de ensino`, `herramientas de ventas`).
+
+    Closed lists of ordinary words (`language_data.yaml`), never a profession."""
+    if after and after[0] in st.education_levels:
+        return ONE_WORD_QUALIFICATION
+    clause_start = max(
+        text.rfind(";", sentence_start, start), text.rfind(".", sentence_start, start)
+    )
+    near = _words(text[max(sentence_start, clause_start + 1, start - 80) : start])
+    near = near[-_QUALIFICATION_REACH:]
+    for i, word in enumerate(near):
+        heads = st.qualification_heads | st.education_levels
+        tail = near[i + 1 :]
+        if word in heads and set(tail) & _LINKS and not any(w.isdigit() for w in tail):
+            return ONE_WORD_QUALIFICATION
+    touching_after = re.match(r"[ \t]+([^\W_]+)", text[end:sentence_end])
+    if touching_after and fold(touching_after.group(1))[0] in st.object_pronouns:
+        return ONE_WORD_RECIPIENT
+    if before and before[-1] in ("te", "lhe"):
+        return ONE_WORD_RECIPIENT
+    if before and before[-1] in st.first_person_plural:
+        return ONE_WORD_RECIPIENT
+    modal = len(before) >= 2 and (before[-1] in st.verb_openers or before[-1] == "ll")
+    if modal and before[-2] in st.first_person_plural:
+        return ONE_WORD_RECIPIENT
+    if len(before) >= 3 and before[-3] in st.first_person_plural and before[-1] == "t":
+        return ONE_WORD_RECIPIENT
+    surface = text[start:end]
+    sentence = text[sentence_start:sentence_end]
+    if len(surface) >= 3 and surface.isupper() and any(c.islower() for c in sentence):
+        prev_raw = _raw_words(text[sentence_start:start])[-1:]
+        next_raw = _raw_words(text[end:sentence_end])[:1]
+        if not any(w.isupper() and len(w) > 1 for w in prev_raw + next_raw):
+            return ONE_WORD_NAME
+    if touching_after and fold(touching_after.group(1))[0] in st.artifact_heads_after:
+        return ONE_WORD_MODIFIER
+    # Two words on (`Sales Engagement Platforms`), spaces only between.
+    two = re.match(r"\s+([^\W_]+)\s+([^\W_]+)", text[end:sentence_end])
+    if (
+        two
+        and fold(two.group(2))[0] in st.artifact_heads_after
+        and fold(two.group(1))[0] not in st.coordinators
+        and fold(two.group(1))[0] not in st.determiners
+    ):
+        return ONE_WORD_MODIFIER
+    if (
+        len(before) >= 2
+        and before[-1] in ("de", "da", "do", "del", "para")
+        and before[-2] in st.artifact_heads_before
+    ):
+        return ONE_WORD_MODIFIER
+    return None
+
+
+def after_raw_second(text: str, end: int, sentence_end: int) -> str:
+    """The second word after `end`, as written (for the punctuation test)."""
+    words = _raw_words(text[end:sentence_end])
+    return words[1] if len(words) > 1 else "\x00"
+
+
 def causes() -> Iterable[str]:
     return (
         THIRD_PARTY_SUBJECT,
@@ -276,6 +493,11 @@ def causes() -> Iterable[str]:
         ONE_WORD_TEAM,
         ONE_WORD_COMPOUND,
         ONE_WORD_VERB,
+        ONE_WORD_QUALIFICATION,
+        ONE_WORD_RECIPIENT,
+        ONE_WORD_NAME,
+        ONE_WORD_MODIFIER,
+        UNLINKED,
     )
 
 

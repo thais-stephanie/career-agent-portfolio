@@ -787,3 +787,84 @@ Fixed by the owner before package 3 is drawn; implemented as
 This round tunes only the four known defects (teaching, sales as a team,
 recruitment notices, `lead generation` composed from unrelated words), on
 NEW development material; packages 1 and 2 are a regression set only.
+
+---
+
+# Round 6 (2026-10-15): the four known defects, and the frozen candidate
+
+The last tuning round before package 3. Packages 1 and 2 are spent: they
+named the four defects and serve below as a REGRESSION set only, never as
+evidence for the gate (pre-registered above, `--gate package3`).
+
+## Portuguese, found again (read-only)
+
+The catalogue's Portuguese ran out with its Brazilian source. The older
+corpus kept on this machine (`data/m1d2/career.db`, opened IMMUTABLE) still
+holds 79,585 postings of that source that the catalogue lacks (no shared id,
+content hash or URL, so none was ever sampled or labelled).
+`scripts/matching_v2_sample_legacy.py` draws from it by id class and
+language; `scripts/matching_v2_merge_copies.py` joins copies. Its bodies
+arrive without line breaks (the source's own text; the stored HTML is the
+same), so a "sentence" can be a whole section.
+
+## New development sets (class 0 and the older corpus's class 0)
+
+Targeted copies by a regular expression per defect (`--must-match`), none of
+their postings in either package or any earlier set: A teaching (107
+sentences), B sales (240 of 1,273), C recruitment (200 of 290), D lead
+generation (288). Labelled by the agent BEFORE any variant ran, frozen with
+hashes; each split by posting into development (70%) and an internal
+holdout (30%) never looked at while tuning. Plus a regression sample of 281
+sentences of every OTHER preference whose decision the first version moved,
+and a fresh untargeted copy (342 + 200 postings).
+
+| defect | dev F1 before -> after | internal holdout F1 before -> after |
+|---|---|---|
+| A teaching | 0.347 -> 0.765 | 0.462 -> 0.667 |
+| B sales as a team or tool | 0.772 -> 0.827 | 0.762 -> 0.800 |
+| C recruitment notices | 0.563 -> 0.752 | 0.731 -> 0.776 |
+| D lead generation composed | 0.920 -> 0.939 | 0.902 -> 0.918 |
+
+Precision on development: A 0.224 -> 0.765, B 0.660 -> 0.744, C 0.409 ->
+0.623, D 0.853 -> 0.885; no development true positive lost in A, B, C (D:
+0 -> 0 FN).
+
+## What changed (structure, data, `sentence_context` 5, `work_match` and `tools_match` 4)
+
+* One word (`structure.one_word`): QUALIFICATION (a school level after the
+  word, `ensino medio`; a degree before it with a link word and no number,
+  `degree in sales`); RECIPIENT (the company as the subject or the hire as
+  the object, touching the word: `we'll teach`, `teach you`); NAME (in
+  capitals in a sentence that is not, `TEACH`); MODIFIER (the word naming
+  what a noun is for, touching it: `sales software`, `ferramentas de
+  vendas`); TEAM also when a list of names is closed by a unit noun (`product,
+  sales or operations teams`), never by `leadership`.
+* Context: notices about this hiring (`we are recruiting`, `our recruitment
+  process`, `your personal data`, `recruitment agencies`, `recrutamento
+  interno`), company openers (`is a leading`), recruitment-process headings;
+  a notice is read only in a unit of at most 400 characters (a section run
+  together is not one notice).
+* Phrases of two words or more (`UNLINKED`): a participle with an agent
+  (`leads generated through campaigns`) and the second half of another
+  hyphenated compound (`next-generation`). `_find` keeps the tightest
+  windows: a loose one no longer consumes the phrase written whole after it.
+* MEASURED AND NOT KEPT: word order and what stands between the words. On
+  the regression sample, rejecting a determiner between the words removed 3
+  false `lead generation` matches and about 48 true matches of other phrases
+  (`processes, automations, and workflows`); rejecting a coordination in the
+  other order removed 2 and about 41. The adopted part removes none.
+
+## Regression on the spent packages (NOT evidence for the gate)
+
+Package 1: 17 old errors fixed, 3 old right answers lost. Package 2: 17
+fixed, 2 lost. Mostly `teaching` (education level, `we'll teach you`) and
+recruitment notices.
+
+## Candidate checks
+
+Eligibility untouched (not in the lineage; 342/342 identical on the shadow
+copy, production reader identical to the stored answer). v2's digest over
+package 2's 453 postings deterministic (two runs, 12,231 lines). Performance,
+one profile, interleaved on the same 300 postings: before 1.47-1.48x, after
+1.40-1.43x (an output-neutral skip of `_find` where a reading's roots are
+absent, digest identical).

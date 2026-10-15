@@ -179,11 +179,13 @@ def _find(
         ]
     needed = set(reading)
     width = len(reading) + EXTRA_TOKENS
-    found = []
-    i = 0
-    while i < len(toks):
-        if toks[i].root not in needed:
-            i += 1
+    # Every window that holds the reading, then the tightest first and no two
+    # sharing a token (2026-10-15): read left to right and greedily, a loose
+    # window (`Management, Customer Experience, Inventory`) consumed the words
+    # of the phrase written whole right after it (`Inventory Management`).
+    candidates = []
+    for i, tok in enumerate(toks):
+        if tok.root not in needed:
             continue
         missing = set(needed)
         used: list[Token] = []
@@ -198,13 +200,17 @@ def _find(
                     rel = toks[j].relation
                 if not missing:
                     break
-        if missing:
-            i += 1
+        if not missing:
+            candidates.append(((last - i + 1) - len(reading), i, last, used, rel))
+    taken: set[int] = set()
+    kept = []
+    for gap, i, last, used, rel in sorted(candidates, key=lambda c: (c[0], c[1])):
+        span = set(range(i, last + 1))
+        if span & taken:
             continue
-        gap = (last - i + 1) - len(reading)
-        found.append((used, gap, rel))
-        i = last + 1
-    return found
+        taken |= span
+        kept.append((i, (used, gap, rel)))
+    return [window for _, window in sorted(kept, key=lambda k: k[0])]
 
 
 def observe_from_features(
@@ -219,6 +225,7 @@ def observe_from_features(
     is evidence of what a sentence is for; on its own it never promotes a
     secondary activity to a core one (owner's decision, 2026-10-14)."""
     units = work_units(job, features)
+    unit_roots = [frozenset(t.root for t in toks) for _, _, _, toks in units]
     ends = {s.start: s.end for s in features.sentences}
     description = job.description
     shared = features.shared
@@ -232,7 +239,12 @@ def observe_from_features(
         for pattern in signal_cfg.patterns:
             single = _single_word(pattern)
             for reading in _readings(pattern):
-                for field_name, context, sentence_start, toks in units:
+                needed = set(reading)
+                for (field_name, context, sentence_start, toks), roots in zip(
+                    units, unit_roots, strict=True
+                ):
+                    if not needed <= roots:
+                        continue  # `_find` would find nothing: skipped, same answer
                     for used, gap, relation in _find(toks, reading, single):
                         if relation not in AUTOMATIC:
                             continue

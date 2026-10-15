@@ -71,10 +71,13 @@ def main() -> None:
     for it in items:
         k = (it["profile"], it["job_id"], it["signal"], _norm(it["sentence"]))
         index.setdefault(k, []).append(it)
+        # A key written since package 3 carries the sentence's offsets.
+        index.setdefault((it["profile"], it["job_id"], it["signal"], it["start"]), []).append(it)
     same_cur = same_v2 = found = 0
     missing = []
     for k in key:
-        hits = index.get((k["profile"], k["job_id"], k["signal"], sentence_of[k["id"]]))
+        where = k["start"] if "start" in k else sentence_of[k["id"]]
+        hits = index.get((k["profile"], k["job_id"], k["signal"], where))
         if not hits:
             missing.append(k["id"])
             continue

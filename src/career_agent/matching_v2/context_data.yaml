@@ -172,12 +172,20 @@ headings:
     - jornada de trabalho
     - horario
     - proceso de seleccion
+    - recruitment process
+    - our recruitment process
+    - recruiting process
+    - recruitment fraud alert
+    - recruitment fraud awareness
+    - processo de recrutamento
+    - processo de recrutamento e selecao
+    - proceso de reclutamiento
 
 # A sentence under no heading takes the first cue that fires.
 sentence_cues:
   COMPENSATION: ["salary", "per year", "per month", "per hour", "salario", "por mes", "por ano", "remuneracao"]
   BENEFIT: ["health insurance", "paid time off", "stock options", "plano de saude", "vale refeicao", "seguro medico", "we offer", "oferecemos"]
-  COMPANY_DESCRIPTION: ["we are a", "founded in", "our mission is", "somos uma", "fundada em", "nossa missao", "somos una"]
+  COMPANY_DESCRIPTION: ["we are a", "founded in", "our mission is", "somos uma", "fundada em", "nossa missao", "somos una", "is a leading", "is a premier", "is a nationwide", "as a leading"]
 
 # STATEMENTS ABOUT THE HIRING ITSELF, wherever they stand (2026-10-14, read on
 # real adverts): equal-opportunity, privacy, accommodation and scam notices
@@ -255,6 +263,43 @@ hiring_notice_cues:
   - contact recruiting
   - reaching out to recruiting
   - remain responsible for all hiring decisions
+  # 2026-10-15, on a new development set (none of the labelled packages): the
+  # employer recruiting for THIS posting, its own process and policies, the
+  # applicant's personal data, agencies told not to apply, and an internal
+  # recruitment programme offered as a benefit.
+  - our recruitment
+  - our recruiting process
+  - our recruiting practices
+  - its recruitment
+  - this recruitment
+  - recruitment fraud
+  - recruiting fraud
+  - we are recruiting
+  - we re recruiting
+  - is recruiting a
+  - is recruiting for
+  - are recruiting for
+  - currently recruiting
+  - recruitment agencies
+  - recruitment firms
+  - headhunters
+  - recruitment privacy
+  - human recruitment team
+  - recruiting partners
+  - your personal data
+  - your personal information
+  - personal data collected
+  - seus dados pessoais
+  - sus datos personales
+  - nossa equipe de recrutamento
+  - nossos processos de recrutamento
+  - seus processos de recrutamento
+  - recrutamento interno
+  - programa de recrutamento
+  - politica de recrutamento
+  - etapas de recrutamento
+  - pratica de recrutamento
+  - plataformas parceiras de recrutamento
 
 # THE ROLE IN ITS OWN VOICE. A sentence that speaks to the candidate or names
 # the role is about the work even under a company or benefits heading the

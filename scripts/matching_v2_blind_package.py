@@ -55,6 +55,36 @@ from career_agent.matching_v2.context import sentences  # noqa: E402
 
 KINDS = ("disagree", "both_match", "v2_held", "near_miss")
 MINUTES_PER_ITEM = 0.25
+#: A "sentence" longer than this is a section an advert wrote without breaks;
+#: the reviewer sees a window around the matched words, marked `[...]`. The
+#: key keeps the sentence's offsets, so nothing is lost for the import.
+WINDOW = 500
+
+
+def _shown(text: str, start: int, end: int, anchor: int | None, phrase: str) -> str:
+    """The sentence as the reviewer sees it: whole, or a window of WINDOW
+    characters around `anchor` (the matched words; else the first word of the
+    preference found in it) when it is longer."""
+    sentence = " ".join(text[start:end].split())
+    if len(sentence) <= WINDOW:
+        return sentence
+    if anchor is None:
+        lowered = text[start:end].lower()
+        found = [lowered.find(w[:5]) for w in phrase.lower().split() if len(w) > 2]
+        found = [f for f in found if f >= 0]
+        anchor = start + min(found) if found else None
+    centre = (anchor if anchor is not None else start) - start
+    lo = max(0, centre - WINDOW // 2)
+    piece = " ".join(text[start + lo : start + lo + WINDOW].split())
+    return ("[...] " if lo > 0 else "") + piece + (" [...]" if start + lo + WINDOW < end else "")
+
+
+def _git(*args: str) -> str:
+    import subprocess
+
+    return subprocess.run(
+        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.strip()
 
 
 def _sha(path: Path) -> str:
@@ -85,7 +115,11 @@ def build(a: argparse.Namespace) -> None:
     # still measurable where the corpus allows. A cell's weight is its size
     # over what was drawn from it, whichever pass drew it.
     order = {cell: rng.sample(members, len(members)) for cell, members in sorted(cells.items())}
-    taken = {cell: min(a.per_cell, len(members)) for cell, members in order.items()}
+    boost = {b.split("=")[0]: float(b.split("=")[1]) for b in a.boost}
+    taken = {
+        cell: min(round(a.per_cell * boost.get(cell[0], 1.0)), len(members))
+        for cell, members in order.items()
+    }
     for profile in sorted({cell[0] for cell in order}):
         mine = [cell for cell in order if cell[0] == profile]
         while sum(taken[c] for c in mine) < a.per_profile_min:
@@ -122,7 +156,8 @@ def build(a: argparse.Namespace) -> None:
     for i, it in enumerate(chosen):
         item_id = f"b{i:04d}"
         heading = headings.get((it["job_id"], it["start"])) or ""
-        sentence = " ".join(it["sentence"].split())
+        text = texts[it["job_id"]] or ""
+        sentence = _shown(text, it["start"], it["end"], it.get("m_start"), it["phrase"])
         title = " ".join((titles.get(it["job_id"]) or "").split())
         review.append(
             f"{item_id}\t{it['lang']}\t{it['phrase']}\t{title}\t{heading}\t{sentence}\t\t"
@@ -134,6 +169,7 @@ def build(a: argparse.Namespace) -> None:
                 "weight": it["weight"], "current": it["current"], "v2": it["v2"],
                 "cause": it["cause"], "context": it["context"],
                 "one_word": it["profile"].startswith("one_"),
+                "start": it["start"], "end": it["end"],
             }
         )  # fmt: skip
     (a.out / "REVIEW.tsv").write_text("\n".join(review) + "\n", encoding="utf-8")
@@ -160,6 +196,10 @@ preencha a coluna `label`:
 Não há resposta "certa" esperada: o arquivo não mostra o que nenhum leitor
 decidiu. Não abra `key.jsonl` durante a revisão.
 
+Alguns anúncios chegaram sem quebras de linha e uma "frase" vira um trecho
+longo: nesses casos a frase aparece cortada em volta das palavras da
+preferência, marcada com `[...]`. Julgue o trecho mostrado.
+
 Tempo estimado: cerca de {MINUTES_PER_ITEM * 60:.0f} segundos por frase, ou
 {minutes / 60:.1f} horas no total. Pode ser feito em partes; a importação
 aceita linhas sem rótulo.
@@ -177,6 +217,35 @@ Importar os rótulos:
 """,
         encoding="utf-8",
     )
+    weights: dict[str, list[float]] = defaultdict(list)
+    for k in key:
+        weights[k["stratum"]].append(k["weight"])
+    from career_agent.matching_v2 import components as comp
+
+    manifest = {
+        "commit": _git("rev-parse", "HEAD"),
+        "worktree_clean": _git("status", "--porcelain", "--untracked-files=no") == "",
+        "component_versions": {name: c.version for name, c in comp.REGISTRY.items()},
+        "seed": a.seed,
+        "selection": {
+            "sample": a.sample.name, "half": a.half, "per_cell": a.per_cell,
+            "per_profile_min": a.per_profile_min, "boost": boost,
+            "cells": "profile x language (en, pt, es, other) x kind", "window_chars": WINDOW,
+        },
+        "exclusions": a.exclusion,
+        "items": len(key),
+        "by_language": dict(by_lang),
+        "by_kind": dict(by_kind),
+        "by_profile": dict(profs.most_common()),
+        "weights_by_kind": {
+            kind: {"n": len(ws), "min": min(ws), "max": max(ws), "sum": round(sum(ws), 1)}
+            for kind, ws in sorted(weights.items())
+        },
+        "sha256": {
+            name: _sha(a.out / name) for name in ("REVIEW.tsv", "INSTRUCOES.md", "key.jsonl")
+        },
+    }  # fmt: skip
+    (a.out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
     print(f"package: {a.out}; items {len(key)}; ~{minutes / 60:.1f} h to review")
     print(f"  by language {dict(by_lang)}")
     print(f"  by kind {dict(by_kind)}")
@@ -257,6 +326,8 @@ def main() -> None:
     b.add_argument("--per-cell", type=int, default=4)
     b.add_argument("--per-profile-min", type=int, default=0)
     b.add_argument("--half", choices=("blind", "any"), default="blind")
+    b.add_argument("--boost", nargs="*", default=[], help="PROFILE=FACTOR on --per-cell")
+    b.add_argument("--exclusion", nargs="*", default=[], help="recorded in MANIFEST.json")
     b.add_argument("--seed", type=int, default=20261014)
     s = sub.add_parser("score")
     s.add_argument("--package", type=Path, required=True)

@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import random
+import re
 import sqlite3
 import sys
 from collections import Counter, defaultdict
@@ -102,6 +103,11 @@ def main() -> None:
         help="the whole --size from one language (a scarce one, for a package)",
     )
     p.add_argument(
+        "--must-match",
+        help="keep postings whose description matches this regular expression (a targeted"
+        " development set; never for a package, whose weights assume an untargeted copy)",
+    )
+    p.add_argument(
         "--exclude",
         nargs="*",
         type=Path,
@@ -136,6 +142,7 @@ def main() -> None:
                  .execute("SELECT id FROM job")}  # fmt: skip
     ids = [i for i in ids if i not in used]
     pool = rng.sample(ids, min(a.pool, len(ids)))
+    must = re.compile(a.must_match, re.IGNORECASE) if a.must_match else None
     scores = dict(
         per.execute(
             "SELECT job_id, match_score FROM job_match WHERE config_version = ?",
@@ -147,11 +154,13 @@ def main() -> None:
         part = pool[chunk : chunk + 900]
         marks = ",".join("?" * len(part))
         for job_id, text in cat.execute(
-            f"SELECT j.id, substr(r.description_text, 1, 3000) FROM job j"
+            f"SELECT j.id, r.description_text FROM job j"
             f" JOIN job_raw r ON r.content_hash = j.content_hash WHERE j.id IN ({marks})",
             part,
         ):
-            lang = detect_language(text)
+            if must is not None and not must.search(text):
+                continue
+            lang = detect_language(text[:3000])
             lang = lang if lang in ("en", "pt") else "other"
             strata[(lang, _band(scores.get(job_id)))].append(job_id)
     picked: list[str] = list(dict.fromkeys(a.include))

@@ -142,8 +142,9 @@ structure:
          "collaborate", "collaborates", "collaborating", "liaise", "liaising", "interface",
          "closely", "assist", "assisting", "enable", "enabling", "serve",
          "serving", "supporting"]
-    pt: ["com", "junto", "juntamente", "parceria", "colaborar", "colaborando", "interface"]
-    es: ["con", "junto", "colaborar", "colaborando"]
+    pt: ["com", "junto", "juntamente", "parceria", "colaborar", "colaborando", "interface",
+         "entre"]
+    es: ["con", "junto", "colaborar", "colaborando", "entre"]
   # English: a word right after these, or right before a determiner, is a
   # verb (`to support`, `support the launch`). One-word preferences only.
   verb_openers: ["to", "will", "can", "could", "would", "should", "may", "might", "must",
@@ -152,6 +153,59 @@ structure:
                 "these", "those", "them", "it", "us", "each", "every", "all", "one",
                 "another", "any", "some", "my"]
   clause_marks: ["|"]
+  # ONE-WORD PREFERENCES, 2026-10-15 (a new development set, none of the
+  # labelled packages). A school level after the word (`ensino medio`) or a
+  # qualification before it (`degree in sales`) names an education, not the
+  # work; the company as the subject or the hire as the object (`we'll teach
+  # you`) names what is done TO the person; a word naming the thing another
+  # noun is for (`sales software`, `instituicoes de ensino`) names that thing.
+  education_levels:
+    # Not `tecnico` or `basico`: `suporte tecnico`, `suporte basico` are work.
+    pt: ["medio", "superior", "fundamental"]
+    es: ["media", "superior", "secundaria", "primaria"]
+  qualification_heads:
+    en: ["degree", "degrees", "bachelor", "bachelors", "master", "masters", "diploma",
+         "coursework", "major"]
+    pt: ["formacao", "graduacao", "licenciatura", "curso", "cursos", "bacharelado"]
+    es: ["titulo", "licenciatura", "carrera", "grado"]
+  first_person_plural: ["we", "nos", "nosotros"]
+  # Units of an organisation that may close a list of functions (`product,
+  # sales or operations teams`); not `leadership` or `partners`, which also
+  # name an activity or people.
+  unit_nouns:
+    en: ["team", "teams", "department", "departments", "org", "orgs", "organization",
+         "organizations", "organisation", "organisations", "function", "functions",
+         "group", "groups", "unit", "units"]
+    pt: ["equipe", "equipes", "time", "times", "area", "areas", "departamento",
+         "departamentos", "setor", "setores"]
+    es: ["equipo", "equipos", "area", "areas", "departamento", "departamentos", "sector"]
+  object_pronouns: ["you", "voce", "voces", "te", "lhe", "usted", "ustedes"]
+  # English: the noun right after the word (`sales software`); Portuguese and
+  # Spanish: the noun before `de`/`para` and the word (`ferramentas de vendas`).
+  artifact_heads:
+    en: ["software", "tool", "tools", "platform", "platforms", "hub", "cloud", "module",
+         "modules", "certification", "certifications", "deck", "decks", "collateral",
+         "material", "materials", "bonus", "bonuses", "commission", "commissions",
+         "kickoff", "agency", "agencies", "enablement", "incentive", "incentives",
+         "compensation", "navigator", "affiliate"]
+    pt: ["ferramenta", "ferramentas", "plataforma", "plataformas", "software", "sistema",
+         "sistemas", "crm", "crms", "instituicao", "instituicoes", "politica", "politicas",
+         "bonus", "comissao", "comissoes", "tecnologias"]
+    es: ["herramienta", "herramientas", "plataforma", "plataformas", "software", "sistema",
+         "sistemas", "crm", "crms", "institucion", "instituciones", "politica", "politicas",
+         "bono", "comision", "comisiones"]
+  # PHRASES OF TWO WORDS OR MORE, 2026-10-15. Words that put a phrase's head
+  # in the passive with somebody else as the agent (`leads generated through
+  # campaigns`).
+  agent_prepositions:
+    en: ["by", "through", "from", "via"]
+    pt: ["por", "pelo", "pela", "pelos", "pelas", "atraves", "via"]
+    es: ["por", "mediante", "via"]
+  # Endings of a noun of action (`generation`, `geracao`): a head with one of
+  # these is a noun, without one it may be the verb (`generate leads`).
+  noun_endings: ["tion", "tions", "sion", "sions", "ment", "ments", "ance", "ence", "sis",
+                 "cao", "coes", "sao", "soes", "cion", "ciones", "sion", "siones", "mento",
+                 "mentos", "agem", "ure", "ery"]
 
 # OTHER SENSES. A word with a second, common meaning in job adverts, and the
 # words that show the second meaning is the one in use. Data, like the table

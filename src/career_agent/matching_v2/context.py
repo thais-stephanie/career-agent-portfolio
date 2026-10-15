@@ -279,6 +279,11 @@ def _sentence_cue(text: str) -> Context | None:
     return None
 
 
+#: A hiring notice is a sentence. A unit longer than this is a section an
+#: advert wrote without breaks (seen on a Brazilian source, 2026-10-15), and
+#: one notice inside it must not set aside every duty around it.
+_NOTICE_REACH = 400
+
 _BREAK = re.compile(r"[.!?;]+(?=\s)|\n")
 
 
@@ -321,7 +326,7 @@ def sentences(text: str) -> list[Sentence]:
             lead = at + (len(piece) - len(piece.lstrip()))
             context = current if current is not None else (_sentence_cue(stripped) or Context.OTHER)
             notices, voices = _voices()
-            if _has(notices, stripped):
+            if len(stripped) <= _NOTICE_REACH and _has(notices, stripped):
                 context = Context.CONDITION
             elif context is Context.BENEFIT:
                 if benefit_states_duty(stripped):
