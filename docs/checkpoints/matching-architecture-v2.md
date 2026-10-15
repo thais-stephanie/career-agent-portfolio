@@ -455,3 +455,178 @@ teaching, finance, operations (6 to 12 each).
 * Work matching and the score: **KEEP_WORK_MATCH_IN_SHADOW**: no
   independent labels yet; one profile at 1.7x; one-word precision about 0.5;
   the one-sentence ceiling undecided.
+
+---
+
+# Round 4 (2026-10-14): the first human evaluation, Phase D readiness
+
+Branch `claude/matching-v2-phase-d-readiness` (worktree `ca-phased`), from
+`main` at `d094b27` (Phase C in production). Not merged. Production is
+untouched: readers-12 scores, `CAREER_AGENT_ELIGIBILITY_SOURCE=v2`.
+
+## 1. The labels, frozen
+
+The owner labelled package 1 blind (562 sentences, class 2). Verified before
+use: key SHA-256 `26b4e6e1...a94` = the seal = the expected value; 562 rows,
+288 Y, 245 N, 29 ?; no id missing, duplicated, unknown or invalid. The
+reviewed file reorders two columns, corrects 89 language cells (French and
+Italian marked `und`) and strips bullets and markup from 22 sentences; two
+sentence cells (`b0015`, `b0390`) were overwritten, both labelled `?`, so
+outside every metric. Original, reviewed file, key and instructions are
+frozen with their hashes beside the package (never committed: employer
+text). The importer ran unchanged on `d094b27`; it reproduces 562/562 key
+decisions (`scripts/matching_v2_blind_replay.py`). Package 1 is SPENT: it
+measured `d094b27` and validates nothing developed after.
+
+## 2. Official result (`matching_v2_blind_package.py score`, Kish intervals)
+
+| group | n | current P / R / F1 | v2 P / R / F1 |
+|---|---|---|---|
+| ALL | 533 | 0.678 / 0.606 / 0.640 | 0.711 / 0.722 / 0.717 |
+| one-word | 339 | 0.632 / 0.608 / 0.620 | 0.668 / 0.709 / 0.688 |
+| 2+ words | 194 | 0.872 / 0.601 / 0.712 | 0.870 / 0.763 / 0.813 |
+| EN | 191 | 0.681 / 0.639 / 0.659 | 0.723 / 0.715 / 0.719 |
+| PT (detected) | 149 | 0.714 / 0.364 / 0.482 | 0.654 / 0.729 / 0.690 |
+| ES (detected) | 88 | 0.475 / 0.253 / 0.330 | 0.547 / 0.812 / 0.654 |
+| und | 105 | 0.623 / 0.528 / 0.571 | 0.711 / 0.816 / 0.760 |
+| owner | 36 | 0.995 / 0.670 / 0.801 | 0.959 / 0.736 / 0.833 |
+
+Every other profile has fewer than 30 labelled items except automation,
+one_support and one_suporte: INSUFFICIENT_FOR_GATE.
+
+## 3. Paired (`scripts/matching_v2_blind_paired.py`)
+
+Same 533 items. Both right 212, both wrong 134, current right / v2 wrong 64,
+current wrong / v2 right 123. v2 recovers 87 true positives, loses 15,
+removes 36 false positives, introduces 49 (weighted: 1,500 / 525 / 1,104 /
+1,151). Stratified paired bootstrap (within cells, seed 20261014, 2,000):
+
+| group | delta precision | delta recall | delta F1 |
+|---|---|---|---|
+| ALL | +0.034 [-0.043, +0.112] | +0.118 [+0.044, +0.192] | +0.078 [+0.004, +0.154] |
+| one-word | +0.037 [-0.054, +0.126] | +0.102 [+0.006, +0.194] | +0.070 [-0.023, +0.157] |
+| 2+ words | -0.004 [-0.101, +0.093] | +0.162 [+0.119, +0.209] | +0.101 [+0.045, +0.149] |
+| EN | +0.039 [-0.046, +0.125] | +0.074 [-0.012, +0.157] | +0.057 [-0.028, +0.140] |
+| PT (detected) | -0.059 [-0.200, +0.074] | +0.367 [+0.227, +0.491] | +0.207 [+0.066, +0.330] |
+| ES (detected) | +0.073 [-0.072, +0.233] | +0.559 [+0.468, +0.654] | +0.324 [+0.191, +0.447] |
+| und | +0.088 [+0.035, +0.140] | +0.290 [+0.222, +0.363] | +0.189 [+0.141, +0.234] |
+
+By the reviewer's corrected language (descriptive): PT -0.011 [-0.167,
++0.144] in precision, +0.486 [+0.382, +0.568] in recall.
+
+## 4. The human gate, read literally (reading fixed before any delta)
+
+| criterion | verdict |
+|---|---|
+| new, blind set | PASS (class 2, sealed, labels before the key) |
+| owner's labels | PASS |
+| precision not lower at 95% | INSUFFICIENT_DATA (ALL interval crosses zero; und PASS) |
+| recall higher | PASS (ALL, PT, ES, und); EN INSUFFICIENT_DATA |
+| per language with 30+ items | PASS for EN, PT, ES, und |
+| per profession with 30+ items | INSUFFICIENT_DATA (3 of 23 professions plus the owner) |
+
+**HUMAN_WORK_MATCH_GATE = INCOMPLETE.** Nothing failed; precision parity is
+not demonstrated and most professions are unmeasured.
+
+## 5. v2's errors (198), by structural cause
+
+| class | n | FP / FN | current also wrong | v2 regression |
+|---|---|---|---|---|
+| word form not matched (near miss) | 49 | 0 / 49 | 49 | 0 |
+| unsupported language (FR, IT, DE, PL, NL, ID, RU) | 37 | 16 / 21 | 29 | 8 |
+| hiring or legal notice (recruit words) | 20 | 20 / 0 | 9 | 11 |
+| one word in another sense | 18 | 18 / 0 | 9 | 9 |
+| team or collaboration not caught | 16 | 16 / 0 | 10 | 6 |
+| company or product description | 11 | 11 / 0 | 6 | 5 |
+| work written in a benefits section | 11 | 0 / 11 | 5 | 6 |
+| product or system name | 8 | 8 / 0 | 1 | 7 |
+| phrase in another sense | 8 | 8 / 0 | 6 | 2 |
+| false UNCERTAIN (verb 6, team 6, compound 4, other sense 1) | 17 | 0 / 17 | 10 | 7 |
+| education level read as teaching | 3 | 3 / 0 | 0 | 3 |
+
+The language detector put French and Italian adverts in `es` and `pt` (and
+German, Polish, Indonesian in `en`), so the official PT and ES rows contain
+other languages. `cross-selling`, `upselling` and `inside-sales` are sales:
+the compound reading is wrong for prefixes that keep the activity.
+
+## 6. One-word preferences
+
+v2 vs current on one-word items: P 0.668 vs 0.632, R 0.709 vs 0.608; v2
+removes 32 false positives and introduces 38 (weighted 1,027 vs 1,020: net
+zero), recovers 43 true positives and loses 12 (1,140 vs 501). Against 2+
+words (P 0.870) one word stays weak evidence in both readers.
+**ONE_WORD_ACCEPTABLE_FOR_PHASE_D**, relative to the current reader: no more
+false positives, more right matches.
+
+## 7. One sentence filling a component (human labels)
+
+Of the 290 labelled items v2 matched, 170 pay into a phrase component: 104
+Y (mean share 0.320 of the component) and 66 N (0.230). 23 Y fill a
+component to 100% alone; 9 N do too. No component at its ceiling was held
+by two distinct labelled sentences. Under B a sentence's share drops 35% for
+Y and 30% for N; under C 18% and 15%. A cap scales right and wrong evidence
+alike: it is not a precision fix, recognition is. The labels prove what a
+sentence says; they cannot prove what a posting is worth (that needs
+posting-level relevance labels). Ranking effect on 1,595 postings (owner):
+B moves 363 scores (-20.5), owner top 10 5/10 overall, 8/10 eligible; C moves
+353 (-10.5), top 10 9/10, eligible 10/10. **Recommendation: KEEP_A.**
+
+## 8. Performance (output-neutral, proven)
+
+`tokens` skips the fixed-expression window for a root that opens none;
+`_norm` is cached; `_has` is one alternation; `heading_context` looks up word
+prefixes. v2's whole answer hashed per profile and posting on 323 postings x
+26 profiles: identical (8,721 lines); the 562 items 562/562; shadow report on
+1,595 postings identical; sentences, contexts, headings, tokens, language
+identical on 115,959 lines. One profile, interleaved, best of 3: v2 17.7-18.0
+-> 16.4-16.9 ms; ratio to current 1.56-1.61 -> 1.39-1.50 (gate 1.5: met by
+every run after the change, with a small margin on a noisy machine). Final
+code, 300 postings, ms per posting:
+
+| profiles | shared | v2 total | current |
+|---|---|---|---|
+| 1 | 13.3 | 14.6 | 9.9 |
+| 2 | 13.6 | 15.9 | 20.5 |
+| 10 | 14.3 | 25.9 | 104.3 |
+| 50 | 14.3 | 74.9 | 533.9 |
+
+## 9. Corrections, on a NEW development set
+
+dev3: 1,300 postings of class 0 in none of the earlier sets, plus the
+Portuguese postings of the earlier development sets (class 0 has no unused
+Portuguese left). The 562 labels named the classes; they tuned nothing.
+* Language identification for French, Italian, German, Dutch, Polish and
+  Indonesian (no grammar; never read as EN/PT/ES): 420 of 2,379 development
+  postings changed language, every sampled change correct.
+* Hiring notices for recruitment words: 39 of 73 non-work set aside, 0 of
+  74 recruiting duties lost; 4 other matches move, all privacy notices.
+* NOT changed: work written in a benefits section. The owner's own rule
+  (round 3) says a benefit cannot prove work; her labels said Y to 11 such
+  sentences. DECISION_REQUIRED.
+
+## 10. Package 2
+
+`out/matching_v2_blind_2` in the worktree, key SHA-256 `7e92cf93...ecbf`: 760
+sentences, about 3.2 hours, from 1,720 postings of class 2 plus 160
+Portuguese postings of classes 1 and 3, none in package 1, any development
+set or the shadow sample. 22 of 26 profiles at 32+ items. It measures this
+branch's code, not `d094b27`.
+
+## 11. Readiness
+
+| item | verdict |
+|---|---|
+| A human quality | INSUFFICIENT_DATA (gate INCOMPLETE) |
+| B one-word | PASS (relative to current) |
+| C multilingual | FAIL at `d094b27` (language misidentified); corrected, unvalidated |
+| D multi-profession | INSUFFICIENT_DATA |
+| E determinism | PASS |
+| F isolation | PASS |
+| G invalidation | PASS |
+| H storage | PASS (1.86 / 1.14 KB; +322 MB measured in production) |
+| I performance | PASS, marginal (1.39-1.50 vs 1.5) |
+| J score arithmetic | DECISION_REQUIRED (recommend KEEP_A) |
+| K rollback / migration | PASS for the pattern proven in Phase C; Phase D's own switch not built |
+
+**KEEP_WORK_MATCH_IN_SHADOW.** Next: the owner labels package 2; the gate is
+read on it with the same rule; the benefits question is decided.
