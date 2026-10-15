@@ -690,3 +690,76 @@ postings move (33 OTHER -> BENEFIT, 2 BENEFIT -> OTHER) and 6 profile
 answers change; no labelled item does. Package 2 stays as generated (key
 SHA-256 `7e92cf93...ecbf`); its labels measure B as they would have measured
 the code before.
+
+---
+
+# Round 5 (2026-10-15): package 2, the final human evaluation of the candidate
+
+Measured on `e5d5fa6`. No rule was changed in this round; package 2 labels
+are evaluation, never development. Frozen copies with hashes beside the
+package (`human_review_20261015`, never committed: employer text).
+
+## Files and reproduction
+
+Key SHA-256 `7e92cf93...ecbf` = the seal; 760 rows, 430 Y, 317 N, 13 `?`; no
+id missing, duplicated, unknown or invalid. The reviewed file corrects 22
+language cells (14 `und` -> en, 7 `und` -> fr, 1 pt -> und) and strips
+bullets and hyphens from 177 sentences (content unchanged). The branch
+reproduces 760/760 key decisions (current; v2 state, cause and context);
+v2's digest over the package's 453 postings is identical to the run that
+validated `e5d5fa6`.
+
+## Official result (Kish intervals) and paired deltas (seed 20261014)
+
+| group | n | current P / R / F1 | v2 P / R / F1 | delta P | delta R |
+|---|---|---|---|---|---|
+| ALL | 747 | .643 / .602 / .622 | .691 / .693 / .692 | +.047 [-.029, +.120] | +.090 [+.014, +.160] |
+| one-word | 448 | .612 / .598 / .605 | .654 / .677 / .665 | +.041 [-.050, +.131] | +.079 [-.017, +.167] |
+| 2+ words | 299 | .777 / .619 / .689 | .847 / .750 / .796 | +.069 [-.026, +.139] | +.131 [+.091, +.164] |
+| EN | 359 | .644 / .616 / .630 | .695 / .685 / .690 | +.052 [-.029, +.129] | +.070 [-.013, +.146] |
+| PT | 150 | .655 / .336 / .444 | .637 / .819 / .716 | -.018 [-.155, +.128] | +.482 [+.385, +.568] |
+| ES | 108 | .594 / .207 / .307 | .740 / .943 / .829 | +.146 [-.077, +.404] | +.737 [+.658, +.837] |
+| und | 74 | .576 / .710 / .636 | .496 / .663 / .567 | -.079 [-.149, -.031] | -.046 [-.123, +.005] |
+| fr/de/it/id/nl | 56 | .636 / .522 / .573 | .699 / .753 / .725 | +.063 | +.231 |
+
+ALL F1 delta +.069 [-.004, +.139]. Paired, ALL: both right 323, both wrong
+175, current right / v2 wrong 75, current wrong / v2 right 174; v2 recovers
+120 true positives, loses 24, removes 54 false positives, introduces 51.
+
+21 of 26 configurations have 30+ labelled items (design 25, one_payroll 28,
+teaching 16, one_enfermagem 2, nursing_pt 1 do not). By the fixed reading:
+precision FAIL for one_teaching (-.390), one_vendas (-.472) and one_design
+(-.004); recall FAIL for one_design, one_logistics, one_marketing (-.001) and
+one_operations. A bootstrap within cells of one or two items cannot vary, so
+the intervals of small groups (`other`, one_design, one_marketing) are too
+narrow; they are reported as computed and not used to rescue or condemn.
+
+## Gate (reading unchanged since 2026-10-14)
+
+* precision not lower: INSUFFICIENT_DATA (ALL interval crosses zero)
+* recall higher: PASS (ALL, 2+ words, PT, ES)
+* one-word: INSUFFICIENT_DATA
+* multilingual: FAIL (`und` precision interval wholly below zero)
+* multi-profession: FAIL (one_teaching, one_vendas precision)
+
+Secondary, package 1 (`d094b27`) and package 2 (this branch) combined by
+inverse variance as if one system: delta precision +.041 [-.013, +.094],
+recall +.104 [+.052, +.156]. Still crosses zero.
+
+## What the labels show (reported, not fixed)
+
+* `teaching` (one word) matches an education level (`Ensino medio completo`,
+  6 items) and the employer teaching the hire (`We'll teach you the
+  product`): the education-level class package 1 already showed, unfixed.
+* `vendas` reaches English `Sales` as a team or department name (`to Sales
+  and regional leadership`).
+* Recruitment notices: 18 of 22 N set aside; 4 remain (personal-data
+  processing, a scam warning, an agency description).
+* Benefits: 34 items under a benefits heading, none lifted by B, none by the
+  old rule; 7 labelled Y stay set aside, 4 of them `Support throughout the
+  recruitment and integration process` (support received, which the
+  decision says proves no work: a label and the rule disagree).
+* Language: one Turkish posting detected `pt`; 15 English items in postings
+  detected `und` (v2 wrong on 7, current on 5).
+
+**KEEP_WORK_MATCH_IN_SHADOW.** The Phase D mechanism was not built.
