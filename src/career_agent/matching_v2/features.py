@@ -239,7 +239,9 @@ def extract(
         if cut is None:
             cut = _with_machinery_sections(sentences(description, cuts), shared.sections)
         language = payloads.get("language") or detect_language(description)
-        payloads["semantic_evidence_facts"] = ev.encode(ev.annotate(description, cut, language))
+        payloads["semantic_evidence_facts"] = ev.encode(
+            ev.annotate(description, cut, language, shared.description_field)
+        )
     if "work_facts" in wanted:
         payloads["work_facts"] = None
     if "pay_facts" in wanted:

@@ -34,7 +34,7 @@ is UNKNOWN, never an English rule applied to German.
 from __future__ import annotations
 
 import re
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import lru_cache
@@ -42,7 +42,7 @@ from pathlib import Path
 
 import yaml
 
-from career_agent.match.text import fold
+from career_agent.match.text import FoldedText, fold
 from career_agent.matching_v2 import structure
 from career_agent.matching_v2.context import NOT_WORK, Context, Sentence
 
@@ -320,30 +320,65 @@ def _clauses(text: str, start: int, end: int) -> list[tuple[int, int]]:
     return [(a, b) for a, b in out if b > a]
 
 
-def annotate(text: str, cut: list[Sentence], language: str) -> list[Note]:
-    """The shared semantic facts of a posting: (start, end, letter) spans."""
+def _folded_words(folded: FoldedText, start: int, end: int) -> list[tuple[str, int, int]]:
+    """`_words(text[start:end], start)` read from the posting's folded field."""
+    offsets = folded.offsets
+    lo, hi = bisect_left(offsets, start), bisect_left(offsets, end)
+    return [
+        (m.group(0), offsets[m.start()], offsets[m.end() - 1] + 1)
+        for m in _WORD.finditer(folded.folded, lo, hi)
+    ]
+
+
+@lru_cache(maxsize=8)
+def _cue_index(language: str) -> dict[str, tuple[tuple[int, str, tuple[str, ...]], ...]]:
+    """Cues by their first word, each with its rank in the longest-first order."""
+    out: dict[str, list[tuple[int, str, tuple[str, ...]]]] = {}
+    for rank, (letter, seq) in enumerate(load().cues[language]):
+        out.setdefault(seq[0], []).append((rank, letter, seq))
+    return {k: tuple(v) for k, v in out.items()}
+
+
+def annotate(
+    text: str, cut: list[Sentence], language: str, folded: FoldedText | None = None
+) -> list[Note]:
+    """The shared semantic facts of a posting: (start, end, letter) spans.
+    `folded` is the posting's folded description when the caller holds it
+    (the same words, one fold per posting)."""
     if language not in GRAMMAR_LANGUAGES:
         return []
     data = load()
     notes: list[Note] = []
-    cues = data.cues[language]
+    index = _cue_index(language)
     for s in cut:
         if s.context in NOT_WORK:
             continue  # set aside whatever it says; nothing to qualify
-        words = _words(text[s.start : s.end], s.start)
+        words = (
+            _folded_words(folded, s.start, s.end)
+            if folded is not None
+            else _words(text[s.start : s.end], s.start)
+        )
         plain = [w for w, _, _ in words]
         first_note = len(notes)
         taken: set[int] = set()
         at: dict[str, list[int]] = {}
         for i, w in enumerate(plain):
             at.setdefault(w, []).append(i)
-        for letter, seq in cues:
-            for i in _find_at(plain, seq, at):
-                span = range(i, i + len(seq))
-                if taken.intersection(span):
-                    continue  # a longer cue already holds these words
-                taken.update(span)
-                notes.append((words[i][1], words[i + len(seq) - 1][2], letter))
+        # Every cue that occurs, in the longest-first order a full scan of
+        # the cue list would meet them (rank, then position).
+        found = sorted(
+            (rank, i, letter, seq)
+            for w, places in at.items()
+            for rank, letter, seq in index.get(w, ())
+            for i in places
+            if tuple(plain[i : i + len(seq)]) == seq
+        )
+        for _rank, i, letter, seq in found:
+            span = range(i, i + len(seq))
+            if taken.intersection(span):
+                continue  # a longer cue already holds these words
+            taken.update(span)
+            notes.append((words[i][1], words[i + len(seq) - 1][2], letter))
         for seq in data.alternatives:
             for i in _find_at(plain, seq, at):
                 notes.append((words[i][1], words[i + len(seq) - 1][2], ALTERNATIVES))
@@ -357,7 +392,7 @@ def annotate(text: str, cut: list[Sentence], language: str) -> list[Note]:
                     notes.append((words[j][1], words[j][2], ALTERNATIVES))
                     break
         _collaboration_objects(text, words, plain, at, language, data, notes)
-        voiced = _contains(plain, data.role_voice)
+        voiced = any(seq[0] in at and _find_at(plain, seq, at) for seq in data.role_voice)
         if not voiced and _company_subject(text, s, plain, language, data):
             notes.append((s.start, s.end, COMPANY_SUBJECT))
         if not voiced:

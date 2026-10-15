@@ -76,6 +76,11 @@ _GLUED_DASH = re.compile(r"(?<=[.!?:;])-(?=\s?[A-ZÀ-Ý])")
 _URLISH = re.compile(r"(?:https?://|www\.|@)\S*$")
 
 
+_EMOJI = "\U0001f000-\U0001faff\u2600-\u27bf\ufe0f\u200d"
+#: A run of emoji (and the spaces inside it), found in one pass.
+_EMOJI_RUN = re.compile(f"[{_EMOJI}][{_EMOJI} ]*")
+
+
 def _is_emoji(ch: str) -> bool:
     cp = ord(ch)
     return 0x1F000 <= cp <= 0x1FAFF or 0x2600 <= cp <= 0x27BF or cp in (0xFE0F, 0x200D)
@@ -113,19 +118,12 @@ def cuts(text: str, *, require_template: bool = True) -> tuple[int, ...]:
         found.add(m.start())
     for m in _GLUED_DASH.finditer(text):
         found.add(m.start())
-    i = 0
-    while i < len(text):
-        if _is_emoji(text[i]):
-            j = i
-            while j < len(text) and (_is_emoji(text[j]) or text[j] == " "):
-                j += 1
-            if i > 0 and not text[i - 1].isspace():
-                found.add(i)
-            if j < len(text) and j > i:
-                found.add(j)
-            i = j
-        else:
-            i += 1
+    for m in _EMOJI_RUN.finditer(text):
+        i, j = m.start(), m.end()
+        if i > 0 and not text[i - 1].isspace():
+            found.add(i)
+        if j < len(text):
+            found.add(j)
     return tuple(
         sorted(c for c in found if 0 < c < len(text) and text[c - 1] != "\n" and text[c] != "\n")
     )
