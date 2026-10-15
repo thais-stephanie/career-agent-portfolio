@@ -68,7 +68,12 @@ fixed_expression:
   - {en: [requirements gathering], pt: [levantamento de requisitos], es: [levantamiento de requisitos]}
   - {en: [customer service], pt: [atendimento ao cliente, atendimento aos clientes], es: [atencion al cliente]}
   - {en: [social media], pt: [redes sociais, midias sociais], es: [redes sociales]}
-  - {en: [payroll], pt: [folha de pagamento], es: [nomina]}
+  # `folha` alone is a sheet; these are payroll in Brazilian HR (2026-10-16).
+  - {en: [payroll], pt: [folha de pagamento, fechamento da folha, fechamento de folha,
+                         processamento da folha, processamento de folha,
+                         calculo da folha, calculo de folha, conciliacao da folha,
+                         conciliar folha, processar folha, rotinas de folha],
+     es: [nomina]}
   - {en: [accounts payable], pt: [contas a pagar], es: [cuentas por pagar]}
   - {en: [lesson plan, lesson plans], pt: [plano de aula, planos de aula], es: [plan de clase]}
 

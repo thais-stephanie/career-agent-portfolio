@@ -324,7 +324,7 @@ def sentences(text: str, cuts: tuple[int, ...] = ()) -> list[Sentence]:
             continue
         if not line.strip():
             continue
-        if _unknown_heading(line):
+        if _unknown_heading(line) and (start == 0 or text[start - 1] == "\n"):
             current, heading = None, None
         cursor = start
         body = line.rstrip("\n")

@@ -19,6 +19,20 @@ The defaults are the owner's decisions of 2026-10-16:
 
 Weights are not dogma: `counted` is what A1+B1 receive (a hit or not), and
 `weight` rides on the evidence for the explanation and for a future score.
+
+FROZEN as version 2 (owner's decisions of 2026-10-16, second set), with no
+weight changed:
+
+* working WITH another function proves nothing about doing it: the object of
+  `partner with`, `collaborate with`, `colaborar com`, `coordinar con` (and
+  of `work with` when it names a team) is OWNER OTHER_TEAM, COLLABORATION,
+  weight 0. Only that object: the same sentence may carry the role's own
+  evidence (`Partner with Sales and own the sales cycle`);
+* payroll, like every concept, counts only when the ROLE performs it: a
+  payroll platform, software or product, a company that provides payroll
+  services, a payroll team, a benefit or loan deducted through payroll are
+  PRODUCT, COMPANY, OTHER_TEAM or the DEDUCTION sense, weight 0. There is no
+  rule naming payroll: owner and evidence type decide, as for any concept.
 """
 
 from __future__ import annotations
@@ -34,7 +48,7 @@ from career_agent.matching_v2.evidence import (
     Sense,
 )
 
-VERSION = "1"
+VERSION = "2"
 
 DEFAULT: dict[str, Any] = {
     "type": {

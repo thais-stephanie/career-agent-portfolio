@@ -51,12 +51,12 @@ REGISTRY: dict[str, Component] = {
         # Where an advert written without line breaks had its lines (Gupy):
         # offsets only, the text is never rewritten (2026-10-16).
         Component("text_structure", "1", "job", ("text_parser",)),
-        Component("sentence_context", "6", "job", ("text_parser", "text_structure")),
+        Component("sentence_context", "7", "job", ("text_parser", "text_structure")),
         # Per sentence: what kind of statement it is and whose subject it
         # has (`evidence.annotate`); the same for every profile.
-        Component("semantic_evidence_facts", "1", "job", ("language", "sentence_context")),
+        Component("semantic_evidence_facts", "2", "job", ("language", "sentence_context")),
         Component(
-            "work_facts", "2", "job", ("language", "sentence_context", "semantic_evidence_facts")
+            "work_facts", "3", "job", ("language", "sentence_context", "semantic_evidence_facts")
         ),
         Component("pay_facts", "1", "job", ("text_parser",), ("job.metadata",)),
         Component("location_facts", "1", "job", ("text_parser",), ("job.metadata",)),
@@ -75,12 +75,13 @@ REGISTRY: dict[str, Component] = {
         # -- what a posting is for one person ------------------------------
         # What a kind of evidence is worth to this person (`evidence_policy`):
         # a change re-matches, it never re-reads an advert.
-        Component("evidence_policy", "1", "profile", (), ("profile.evidence_policy",)),
+        # The version is `evidence_policy.VERSION` (a test holds them equal).
+        Component("evidence_policy", "2", "profile", (), ("profile.evidence_policy",)),
         Component(
-            "work_match", "5", "profile", ("work_facts", "evidence_policy"), ("profile.lexicon",)
+            "work_match", "6", "profile", ("work_facts", "evidence_policy"), ("profile.lexicon",)
         ),
         Component(
-            "tools_match", "5", "profile", ("work_facts", "evidence_policy"), ("profile.lexicon",)
+            "tools_match", "6", "profile", ("work_facts", "evidence_policy"), ("profile.lexicon",)
         ),
         Component(
             "eligibility",

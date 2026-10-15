@@ -13,6 +13,7 @@ evidence_cues:
   experience:
     en: ["experience in", "experience with", "experience as", "experience of",
          "years of", "years in", "years experience", "track record", "proven experience",
+         "experience working with", "experience using", "hands on with",
          "background in", "hands on experience", "worked in", "working in"]
     pt: ["experiencia em", "experiencia com", "experiencia na", "experiencia no",
          "experiencia como", "experiencia de", "vivencia em", "vivencia com", "vivencia na",
@@ -80,6 +81,37 @@ evidence_cues:
     es: ["upsell", "cross sell", "renovacion", "renovaciones", "expansion",
          "negociacion", "negociar", "ingresos", "comercial", "comerciales", "cierre"]
 
+# WORKING WITH ANOTHER FUNCTION (owner's decision, 2026-10-16): the
+# function named after one of these is OTHER_TEAM and proves nothing about
+# the role, up to the end of its object (`partner with Sales and lead
+# discovery`: `lead discovery` is outside). `weak` markers also introduce
+# tools (`working with Salesforce`): they name a team only when the word is
+# capitalised or a unit noun follows it.
+collaboration:
+  strong:
+    en: ["partner with", "partners with", "partnering with", "partner closely with",
+         "partnering closely with", "collaborate with", "collaborates with",
+         "collaborating with", "collaborate closely with", "coordinate with",
+         "coordinates with", "coordinating with", "interface with", "interfacing with",
+         "liaise with", "liaising with", "cooperate with", "in partnership with",
+         "in collaboration with", "alongside"]
+    pt: ["colaborar com", "colabora com", "colaborando com", "em parceria com",
+         "fazer interface com", "interface com", "interagir com", "em conjunto com",
+         "junto a", "junto ao", "junto as", "junto aos", "junto com", "em articulacao com",
+         "coordenar com", "em colaboracao com"]
+    es: ["colaborar con", "colabora con", "colaborando con", "coordinar con",
+         "en conjunto con", "junto con", "junto a", "junto al", "interactuar con",
+         "en coordinacion con", "en colaboracion con"]
+  weak:
+    en: ["work with", "works with", "working with", "work closely with",
+         "working closely with", "works closely with"]
+    pt: ["trabalhar junto com", "trabalhando junto com"]
+    es: ["trabajar con", "trabajando con", "trabajar junto a"]
+  # Where the object ends: these words open something else.
+  object_ends: ["to", "for", "on", "in", "at", "by", "while", "so", "para", "em", "en", "por",
+                "sobre", "que", "which", "that", "who"]
+  object_reach: 8
+
 # WHO OWNS THE ACTION.
 owner:
   # A clause whose subject is the company's product (`Our platform integrates
@@ -136,6 +168,10 @@ owner:
          "rubro", "mercado", "industria", "marca", "grupo", "grupos", "red",
          "institucion", "instituciones", "escuela", "escuelas", "centro", "centros"]
   company_links: ["de", "da", "do", "das", "dos", "em", "en", "del", "na", "no"]
+  # `software for payroll`, `technology for payroll`, `plataforma para folha`.
+  product_links: ["for", "para", "de", "da", "do", "del"]
+  product_heads_extra: ["technology", "technologies", "tecnologia", "tecnologias",
+                        "tecnologia", "solutions", "suite"]
   # A word between the role and its own voice cancels the company reading
   # (`Somos uma empresa de vendas e voce vai prospectar`).
   role_voice: ["you will", "you ll", "you are", "your role", "voce vai", "voce ira",
@@ -174,6 +210,8 @@ senses:
   - {sense: PRE_SALES, forms: [venda, vendas, venta, ventas, sale, sales],
      before: ["pre"]}
   - {sense: DEDUCTION, forms: [folha, nomina, nominas, payroll],
+     after: ["deduction", "deductions", "deducted", "loan", "loans", "advance",
+             "advances"],
      before: ["desconto em", "desconto na", "desconto direto na", "desconto direto em",
               "descontado em", "descontado na", "descontados em", "descontados na",
               "descontada em", "descontada na", "descontado da", "deducidos de la",

@@ -71,5 +71,10 @@ def test_a_list_of_skills_after_a_preposition_is_not_a_team() -> None:
 
 
 def test_two_word_phrases_are_not_read_by_the_one_word_rules() -> None:
+    # The one-word rules leave two words alone; since 2026-10-16 the
+    # owner's policy reads working WITH that team as proving nothing
+    # (`test_matching_v2_semantic_evidence.py`), so this is no longer a match.
     sentence = "Partner closely with the customer support team on escalations."
-    assert ev.answer(BASE, "customer support", sentence, "Responsibilities", "en") == ev.MATCH
+    assert ev.answer(BASE, "customer support", sentence, "Responsibilities", "en") == ev.UNCERTAIN
+    duty = "Own customer support escalations for the region."
+    assert ev.answer(BASE, "customer support", duty, "Responsibilities", "en") == ev.MATCH

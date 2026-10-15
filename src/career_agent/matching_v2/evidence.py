@@ -149,6 +149,9 @@ def unpack(packed: str) -> str:
 #: Annotation letters (shared facts).
 EXPERIENCE, FAMILIARITY, SKILL, DEGREE, ALTERNATIVES, RECEIVING, COMMERCIAL = "EFSGARM"
 COMPANY_SUBJECT, PRODUCT_SUBJECT = "C", "P"
+#: The object of `partner with`, `colaborar com` (K), or of `work with` (W,
+#: a team only when capitalised or followed by a unit noun).
+COLLABORATION_OBJECT, WEAK_COLLABORATION_OBJECT = "K", "W"
 _CUE_KINDS = {
     "experience": EXPERIENCE,
     "familiarity": FAMILIARITY,
@@ -199,6 +202,13 @@ class _Data:
     senses: tuple[_SenseEntry, ...]
     not_names: frozenset[str] = frozenset()
     light_verbs: frozenset[str] = frozenset()
+    #: language -> (letter, marker words)
+    collaboration: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] | None = None
+    object_ends: frozenset[str] = frozenset()
+    object_reach: int = 8
+    product_links: frozenset[str] = frozenset()
+    product_heads: frozenset[str] = frozenset()
+    unit_nouns: frozenset[str] = frozenset()
 
 
 def _flat(value: dict | list) -> list[str]:
@@ -242,6 +252,25 @@ def load(path: Path = DATA) -> _Data:
         senses=senses,
         not_names=frozenset(_flat(o["not_names"])),
         light_verbs=frozenset(_flat(raw["light_verbs"])),
+        collaboration={
+            lang: tuple(
+                sorted(
+                    [(COLLABORATION_OBJECT, _seq(c)) for c in raw["collaboration"]["strong"][lang]]
+                    + [
+                        (WEAK_COLLABORATION_OBJECT, _seq(c))
+                        for c in raw["collaboration"]["weak"][lang]
+                    ],
+                    key=lambda c: -len(c[1]),
+                )
+            )
+            for lang in GRAMMAR_LANGUAGES
+        },  # fmt: skip
+        object_ends=frozenset(_seq(w)[0] for w in raw["collaboration"]["object_ends"]),
+        object_reach=int(raw["collaboration"]["object_reach"]),
+        product_links=frozenset(_flat(o["product_links"])),
+        product_heads=frozenset(_flat(o["product_nouns"]))
+        | frozenset(_flat(o["product_heads_extra"])),
+        unit_nouns=structure.load_structure().unit_nouns,
     )
 
 
@@ -327,6 +356,7 @@ def annotate(text: str, cut: list[Sentence], language: str) -> list[Note]:
                 if words[j][0] == alternative:
                     notes.append((words[j][1], words[j][2], ALTERNATIVES))
                     break
+        _collaboration_objects(text, words, plain, at, language, data, notes)
         voiced = _contains(plain, data.role_voice)
         if not voiced and _company_subject(text, s, plain, language, data):
             notes.append((s.start, s.end, COMPANY_SUBJECT))
@@ -345,6 +375,47 @@ def annotate(text: str, cut: list[Sentence], language: str) -> list[Note]:
 
 
 _NAME = re.compile(r"^(?:[A-ZÀ-Ý][\w&.'\-]*\s+){1,5}")
+
+
+_INFINITIVE = ("ar", "er", "ir")
+
+
+def _collaboration_objects(
+    text: str,
+    words: list[tuple[str, int, int]],
+    plain: list[str],
+    at: dict[str, list[int]],
+    language: str,
+    data: _Data,
+    notes: list[Note],
+) -> None:
+    """(start of the marker, end of its object, K or W): the object runs up
+    to a word that opens something else, a coordinated verb (`and lead`,
+    `e liderar`), or `object_reach` words."""
+    taken: set[int] = set()
+    for letter, seq in (data.collaboration or {}).get(language, ()):
+        for i in _find_at(plain, seq, at):
+            if i in taken:
+                continue
+            taken.update(range(i, i + len(seq)))
+            j = i + len(seq)
+            last = None
+            while j < len(words) and j < i + len(seq) + data.object_reach:
+                w = plain[j]
+                if w in data.object_ends:
+                    break
+                if w in ("and", "e", "y") and j + 1 < len(words):
+                    nxt = words[j + 1]
+                    surface = text[nxt[1] : nxt[2]]
+                    verb = (
+                        surface[:1].islower() if language == "en" else nxt[0].endswith(_INFINITIVE)
+                    )
+                    if verb:
+                        break
+                last = j
+                j += 1
+            if last is not None:
+                notes.append((words[i][1], words[last][2], letter))
 
 
 def _company_subject(text: str, s: Sentence, plain: list[str], language: str, data: _Data) -> bool:
@@ -442,6 +513,28 @@ def _company_head(text: str, start: int, end: int, s: Sentence, data: _Data) -> 
     return False
 
 
+def _in_collaboration(text: str, start: int, end: int, here: list[Note], data: _Data) -> bool:
+    for a, b, letter in here:
+        if not a < start < b:
+            continue
+        if letter == COLLABORATION_OBJECT:
+            return True
+        if letter == WEAK_COLLABORATION_OBJECT:
+            after = _seq(text[end : end + 30])[:1]
+            if text[start : start + 1].isupper() or (after and after[0] in data.unit_nouns):
+                return True
+    return False
+
+
+def _product_for(text: str, start: int, s: Sentence, data: _Data) -> bool:
+    """`HR technology for payroll`, `software de folha`: a product or a
+    technology whose purpose is the words."""
+    before = [w for w, _, _ in _words(text[max(s.start, start - 50) : start], 0)]
+    return (
+        len(before) >= 2 and before[-1] in data.product_links and before[-2] in data.product_heads
+    )
+
+
 def _prefix(text: str, start: int) -> str:
     before = _seq(text[max(0, start - 12) : start])
     return before[-1] if before else ""
@@ -517,6 +610,8 @@ def frame(
         sense = Sense.POST_SALES_COMMERCIAL
     clause = next(((a, b) for a, b in _clauses(text, sentence.start, sentence.end)
                    if a <= start < b), (sentence.start, sentence.end))  # fmt: skip
+    if supported and owner is Owner.ROLE and _in_collaboration(text, start, end, here, data):
+        owner, kind, because = Owner.OTHER_TEAM, EvidenceType.COLLABORATION, "collaboration object"
     if supported and owner is Owner.ROLE:
         if any(n[2] == COMPANY_SUBJECT for n in here):
             owner, kind, because = Owner.COMPANY, EvidenceType.COMPANY_CONTEXT, "company subject"
@@ -524,6 +619,8 @@ def frame(
             owner, kind, because = Owner.PRODUCT, EvidenceType.PRODUCT_CONTEXT, "product subject"
         elif _company_head(text, start, end, sentence, data):
             owner, kind, because = Owner.COMPANY, EvidenceType.DOMAIN_CONTEXT, "company business"
+        elif _product_for(text, start, sentence, data):
+            owner, kind, because = Owner.PRODUCT, EvidenceType.PRODUCT_CONTEXT, "product for it"
     if supported and direction is Direction.ROLE_PROVIDES:
         for a, b, letter in here:
             # Before the words (`contar com suporte`), or holding them

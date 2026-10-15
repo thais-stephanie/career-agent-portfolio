@@ -232,3 +232,89 @@ def test_shared_facts_are_identical_for_every_profile() -> None:
         )
         observe_from_features(config, f, job)
     assert f.payloads == before
+
+
+# ------------------------------------------------------------ frozen policy v2
+# The owner's decisions of 2026-10-16 (second set). Invented sentences, three
+# languages; none is taken from an advert or from a labelled package.
+
+PAYROLL_NOT = [
+    ("payroll", "Our payroll platform automates taxes for small businesses.", "en"),
+    ("payroll", "The company sells payroll software to mid-size employers.", "en"),
+    ("payroll", "The company offers payroll services to its clients.", "en"),
+    ("payroll", "Partner with Payroll to close the month.", "en"),
+    ("payroll", "Employees can request a payroll advance in the app.", "en"),
+    ("payroll", "We build HR technology for payroll and benefits.", "en"),
+    ("payroll", "Convênio farmácia com desconto em folha de pagamento.", "pt"),
+    ("payroll", "Nossa plataforma de folha de pagamento atende 5 mil empresas.", "pt"),
+    ("payroll", "Colaborar com a folha de pagamento no fechamento mensal.", "pt"),
+    ("payroll", "Préstamos personales deducidos de la nómina.", "es"),
+    ("payroll", "Nuestra plataforma de nómina simplifica la gestión de pymes.", "es"),
+    ("payroll", "Colaborar con nómina y contabilidad en el cierre.", "es"),
+]
+PAYROLL_YES = [
+    ("payroll", "Process payroll for 300 employees every month.", "en"),
+    ("payroll", "Execute payroll and reconcile payroll accounts.", "en"),
+    ("payroll", "Calculate payroll and review payroll calculations.", "en"),
+    ("payroll", "Own the payroll cycle and resolve payroll discrepancies.", "en"),
+    ("payroll", "Lead payroll operations for Brazil and Mexico.", "en"),
+    ("payroll", "Responsável pelo processamento da folha de pagamento.", "pt"),
+    ("payroll", "Realizar o fechamento da folha mensal.", "pt"),
+    ("payroll", "Conciliar a folha e os encargos.", "pt"),
+    ("payroll", "Procesar la nómina quincenal de la planta.", "es"),
+    ("payroll", "Gestionar la nómina y las incidencias del personal.", "es"),
+]
+
+
+@pytest.mark.parametrize(("phrase", "sentence", "language"), PAYROLL_NOT)
+def test_payroll_that_is_not_the_roles_work_proves_nothing(phrase, sentence, language) -> None:
+    for e in _frames(phrase, sentence, language):
+        assert e.state != "MATCH", (sentence, e.frame)
+
+
+@pytest.mark.parametrize(("phrase", "sentence", "language"), PAYROLL_YES)
+def test_payroll_the_role_performs_counts(phrase, sentence, language) -> None:
+    assert any(e.state == "MATCH" for e in _frames(phrase, sentence, language)), sentence
+
+
+@pytest.mark.parametrize(
+    ("phrase", "sentence", "language"),
+    [
+        ("sales", "Partner with Sales to plan the launch.", "en"),
+        ("accounting", "Work with Accounting on month-end accruals.", "en"),
+        ("logistics", "Coordinate with Logistics on inbound shipments.", "en"),
+        ("marketing", "Collaborate with marketing to design campaigns.", "en"),
+        ("customer support", "Interface with Customer Support on escalations.", "en"),
+        ("vendas", "Colaborar com vendas e marketing nas campanhas.", "pt"),
+        ("ventas", "Coordinar con ventas para preparar las propuestas.", "es"),
+    ],
+)
+def test_working_with_another_function_proves_nothing(phrase, sentence, language) -> None:
+    for e in _frames(phrase, sentence, language):
+        assert e.state != "MATCH", (sentence, e.frame)
+
+
+def test_the_roles_own_evidence_in_the_same_sentence_still_counts() -> None:
+    found = _frames("sales", "Partner with Sales and own the sales cycle for new accounts.", "en")
+    states = sorted(e.state for e in found)
+    assert states == ["MATCH", "UNCERTAIN"], [(e.state, e.frame) for e in found]
+
+
+def test_working_with_a_tool_is_not_working_with_a_team() -> None:
+    e = _one("marketing", "Experience working with marketing automation tools.", "en",
+             "Requirements")  # fmt: skip
+    assert e.state == "MATCH", e.frame
+
+
+def test_a_derived_line_never_closes_a_section() -> None:
+    text = (
+        "Responsabilidades e atribuiçõesVender.Requisitos e qualificaçõesInglês."
+        "Informações adicionais🎁 Kit de Natal💻 Trabalho Híbrido com Conforto"
+    )
+    cut = sentences(text, ts.cuts(text))
+    tail = [s for s in cut if any(w in text[s.start : s.end] for w in ("Natal", "Híbrido"))]
+    assert tail and all(s.context is Context.CONDITION for s in tail)
+
+
+def test_the_policy_version_is_the_components() -> None:
+    assert comp.REGISTRY["evidence_policy"].version == pol.VERSION == "2"
