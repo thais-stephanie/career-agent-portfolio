@@ -33,6 +33,27 @@ higher, ... per language and per profession with at least 30 items each"):
 * a group with fewer than 30 labelled Y/N items is INSUFFICIENT_FOR_GATE.
 
 `?` labels are counted and left out of every metric. Writes nothing.
+
+PACKAGE 3 (`--gate package3`), written 2026-10-15 BEFORE package 3 was drawn
+and before any of its labels existed, by the owner's specification; not to
+be changed after:
+
+* primary, on ALL: precision non-inferiority with margin -0.03 (PASS when
+  the lower bound of the 95% paired interval of precision v2 - current is
+  above -0.03), recall higher (lower bound of recall v2 - current above 0)
+  and F1 v2 >= F1 current at the point estimate (a confirmation, never a
+  substitute). Every one must hold.
+* safety, for each group with 30+ labelled Y/N items among one-word, 2+
+  words, EN, PT, ES, each profile and each preference of two words or more:
+  significance is not required per group. A group BLOCKS when a regression
+  is material AND consistent: precision v2 - current at or below -0.10
+  with the interval's upper bound below 0 and at least 3 false positives
+  introduced (raw); or recall v2 - current at or below -0.10 with the upper
+  bound below 0, at least 3 true positives lost (raw) and F1 v2 below F1
+  current (no compensation). A structural defect the analyst names in the
+  qualitative review (3+ v2-only errors in one group with one structural
+  cause) is reported as STRUCTURAL and blocks too. A delta of 0.001 or an
+  interval made degenerate by cells of one item blocks nothing.
 """
 
 from __future__ import annotations
@@ -140,6 +161,47 @@ def verdicts(delta: dict, n: int) -> dict[str, str]:
     return {"precision_not_lower": p, "recall_higher": r}
 
 
+MARGIN = -0.03
+MATERIAL = -0.10
+MIN_CHANGED = 3
+
+
+def primary_package3(res: dict) -> dict[str, str]:
+    """The package 3 primary gate on one group (ALL), fixed before drawing."""
+    if "delta" not in res:
+        return {"precision_noninferior": "INSUFFICIENT_FOR_GATE"}
+    _, plo, _ = res["delta"]["precision"]
+    _, rlo, _ = res["delta"]["recall"]
+    f1_cur, f1_new = res["current"][2], res["v2"][2]
+    out = {
+        "precision_noninferior": "PASS" if plo > MARGIN else "FAIL",
+        "recall_higher": "PASS" if rlo > 0 else "FAIL",
+        "f1_not_lower": "PASS" if f1_new >= f1_cur else "FAIL",
+    }
+    out["verdict"] = "PASS" if all(v == "PASS" for v in out.values()) else "FAIL"
+    return out
+
+
+def safety_package3(res: dict) -> str:
+    """OK, BLOCK_PRECISION or BLOCK_RECALL for one subgroup (see the module
+    docstring); a STRUCTURAL block is the analyst's, from the error review."""
+    if "delta" not in res:
+        return "INSUFFICIENT_FOR_GATE"
+    raw = res["paired"]["raw"]
+    p, _, phi = res["delta"]["precision"]
+    r, _, rhi = res["delta"]["recall"]
+    if p <= MATERIAL and phi < 0 and raw.get("fp_introduced", 0) >= MIN_CHANGED:
+        return "BLOCK_PRECISION"
+    if (
+        r <= MATERIAL
+        and rhi < 0
+        and raw.get("tp_lost", 0) >= MIN_CHANGED
+        and res["v2"][2] < res["current"][2]
+    ):
+        return "BLOCK_RECALL"
+    return "OK"
+
+
 def report(name: str, rows: list[dict]) -> dict:
     n = len(rows)
     out: dict = {"group": name, "n": n, "Y": sum(r["label"] == "Y" for r in rows)}
@@ -159,6 +221,7 @@ def main() -> None:
     p.add_argument("--package", type=Path, required=True)
     p.add_argument("--labels", type=Path, required=True)
     p.add_argument("--json", type=Path)
+    p.add_argument("--gate", choices=("package1", "package3"), default="package1")
     a = p.parse_args()
     rows, counts = load(a.package, a.labels)
     print(f"labels: {dict(counts)}; used in metrics: {len(rows)}")
@@ -175,6 +238,9 @@ def main() -> None:
         groups.append(("lang=other", others))
     for profile in sorted({r["profile"] for r in rows}):
         groups.append((f"profile={profile}", [r for r in rows if r["profile"] == profile]))
+    if a.gate == "package3":
+        for signal in sorted({r["signal"] for r in rows if not r["one_word"]}):
+            groups.append((f"phrase={signal}", [r for r in rows if r["signal"] == signal]))
     results = [report(name, subset) for name, subset in groups]
     for res in results:
         c, v = res["current"], res["v2"]
@@ -190,6 +256,11 @@ def main() -> None:
                 "    delta v2-current: "
                 + ", ".join(f"{k} {m:+.3f} [{lo:+.3f}, {hi:+.3f}]" for k, (m, lo, hi) in d.items())
             )
+        if a.gate == "package3":
+            if res["group"] == "ALL":
+                res["gate"] = primary_package3(res)
+            elif not res["group"].startswith("lang=und") and res["group"] != "lang=other":
+                res["gate"] = {"safety": safety_package3(res)}
         print(f"    gate: {res['gate']}")
     if a.json:
         a.json.write_text(json.dumps(results, indent=1, default=str), encoding="utf-8")

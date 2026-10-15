@@ -763,3 +763,27 @@ recall +.104 [+.052, +.156]. Still crosses zero.
   detected `und` (v2 wrong on 7, current on 5).
 
 **KEEP_WORK_MATCH_IN_SHADOW.** The Phase D mechanism was not built.
+
+---
+
+# Package 3 gate, pre-registered (2026-10-15, before any development of this round)
+
+Fixed by the owner before package 3 is drawn; implemented as
+`matching_v2_blind_paired.py --gate package3` and not to be changed after.
+
+* Primary, ALL, paired stratified bootstrap as before (seed 20261014, 2,000
+  replicates, within cells): precision non-inferiority with margin -0.03
+  (lower bound of the 95% interval of precision v2 - current above -0.03),
+  recall higher (lower bound above 0), F1 v2 >= F1 current at the point.
+* Safety, each group with 30+ labelled items among one-word, 2+ words, EN,
+  PT, ES, each profile and each preference of two words or more: BLOCK on a
+  material and consistent regression (precision delta <= -0.10 with upper
+  bound < 0 and 3+ false positives introduced; or recall delta <= -0.10 with
+  upper bound < 0, 3+ true positives lost and lower F1), or a STRUCTURAL
+  defect named in the qualitative review (3+ v2-only errors in one group
+  with one structural cause). No per-group significance is required.
+* `?` stays out of every metric.
+
+This round tunes only the four known defects (teaching, sales as a team,
+recruitment notices, `lead generation` composed from unrelated words), on
+NEW development material; packages 1 and 2 are a regression set only.
