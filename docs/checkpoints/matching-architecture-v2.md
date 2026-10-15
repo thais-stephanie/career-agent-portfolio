@@ -868,3 +868,56 @@ package 2's 453 postings deterministic (two runs, 12,231 lines). Performance,
 one profile, interleaved on the same 300 postings: before 1.47-1.48x, after
 1.40-1.43x (an output-neutral skip of `_find` where a reading's roots are
 absent, digest identical).
+
+---
+
+# Round 7 (2026-10-15): package 3, the final holdout of candidate b4eea83
+
+Labels: 1,878 items, 968 Y, 839 N, 71 `?` (1,807 used); key SHA-256
+`240a10b0...e7f` = the seal; replay 1,878/1,878 (current; v2 state, cause,
+context). Frozen copies with hashes in `human_review_20261015_final` (never
+committed: employer text). Gate run exactly as pre-registered in 8c46ff2.
+
+## Primary (ALL): PASS
+
+precision 0.634 -> 0.716, delta +0.082 [+0.034, +0.129] (> -0.03);
+recall 0.570 -> 0.704, delta +0.135 [+0.090, +0.180] (> 0);
+F1 0.600 -> 0.710. Paired: both right 744, both wrong 462, current right /
+v2 wrong 215, current wrong / v2 right 386.
+
+## Safety: six blocks by the frozen rule
+
+| group | rule | delta | v2 changes |
+|---|---|---|---|
+| PT | precision | -0.110 [-0.214, -0.002] | 48 FP introduced |
+| phrase `payroll` | precision | -0.181 [-0.276, -0.072] | 19 FP introduced |
+| `one_enfermagem` | recall | -0.703 [-0.769, -0.654] | 19 TP lost |
+| `nursing_pt` | recall | -0.473 [-0.714, -0.333] | 5 TP lost |
+| `one_design` | recall | -0.159 [-0.223, -0.085] | 11 TP lost |
+| `one_marketing` | recall | -0.115 [-0.195, -0.036] | 10 TP lost |
+
+Structural (3+ v2-only errors, one cause), named in the review: a section
+context applied to a whole run-together unit (a source that drops line
+breaks; 29 of 30 Portuguese v2-only misses by context are such units, all
+13 + 5 nursing losses among them).
+
+**PACKAGE3_GATE = FAIL. KEEP_WORK_MATCH_IN_SHADOW.**
+
+## What the errors are (analysis only; nothing tuned)
+
+* Text unit and section function: the largest source of v2-ONLY errors
+  (46 FP, 44 FN): run-together units excluded whole as benefits or company
+  text, and notices and benefit lists in Portuguese, Spanish and German that
+  the mostly English cues miss while v2, unlike the current reader, reads
+  those languages.
+* Owner (company, product, another team doing the action): 108 FP, mostly
+  shared with the current reader.
+* Sense: `para venda`, `post venta`, `puntos de venta`, data structures,
+  lessons learned, integrated management systems.
+* Evidence strength is a POLICY question the labels answer differently
+  from the round 6 development labels: a degree IN the field (nursing,
+  graphic design) and hands-on experience with a field's tools are Y for
+  the owner; a generic school level is N. QUALIFICATION and MODIFIER
+  removed true evidence (15 v2-only misses).
+* Composition of `lead generation`: no residue; the remaining errors are a
+  negation, a measurement of leads, a passive labelled Y and paraphrases.
