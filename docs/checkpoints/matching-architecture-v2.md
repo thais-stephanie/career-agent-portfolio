@@ -1042,3 +1042,117 @@ block (policy-divergent labels and an unsupported language), p2's
 one_operations and one_vendas blocks (both already in A), collaboration
 statements the older labels count as Y (39 B errors) and benefit lists in
 other contexts (32). Next: Phase D controlled rollout plan, owner's call.
+
+
+## Semantic candidate: frozen policy, speed, full-catalog shadow (2026-10-16)
+
+Methodology fixed by the owner the same day: packages 1, 2 and 3 are
+consumed; they may be replayed as history and may NOT be used to choose
+between implementations. Every change in this round is justified by a
+product decision, a synthetic test, an invariant or an objective bug.
+
+### Frozen policy (`evidence_policy` version 2)
+
+No weight changed. Two owner decisions are encoded through the frame:
+
+* Working WITH another function proves nothing about doing it. The object of
+  `partner with`, `collaborate with`, `coordinate with`, `interface with`,
+  `colaborar com`, `em parceria com`, `coordinar con`, `junto con` (and of
+  `work with` / `trabajar con` when the word is capitalised or a unit noun
+  follows) is OWNER OTHER_TEAM, COLLABORATION, weight 0. Only that object:
+  it ends at a word that opens something else (`to`, `para`, `que`, ...) or
+  at a coordinated verb (`and lead`, `e liderar`), so `Partner with Sales
+  and own the sales cycle` still counts the second `sales`.
+* Payroll, like every concept, counts only when the ROLE performs it.
+  Product (`payroll platform`, `technology for payroll`), company (`offers
+  payroll services`), another team (`partner with Payroll`) and the
+  deduction sense (`desconto em folha`, `payroll advance`, loans deducted)
+  are weight 0. No rule names payroll. Brazilian forms of payroll work
+  (`fechamento da folha`, `processamento da folha`, `conciliar a folha`)
+  joined the concept table as fixed expressions.
+
+Everything else as decided before: COMPANY / PRODUCT / DOMAIN / ARTIFACT
+contexts and anything the role receives are 0; pre-sales the role performs
+counts; post-sales counts only with a commercial cue; a degree in the field
+and tool experience are weak (0.35, 0.45).
+
+### Structure hardening (objective bug)
+
+A line DERIVED by `text_structure` never closes a section as an unknown
+heading: glued benefit items (`Kit de Natal`, `Trabalho Hibrido`) looked
+like titled headings and reset their section to OTHER. On the package 3
+copy's 891 Gupy postings, 1,418 such lines now keep their section
+(CONDITION 3,777 -> 4,742). Synthetic flatten check unchanged (precision
+0.963, recall 0.490); no source other than Gupy is cut.
+
+### Speed (output-neutral, proved)
+
+Oracle `out/sem/equiv.py`: digest of every shared payload of the 3,557
+postings of the package 3 copy and of every answer of 26 profiles on 600
+postings (score, band, evidence with frames and weights). Identical after
+each step: annotate reads the posting's folded description and finds cues by
+their first word; emoji runs by one regex; role-voice cues through the word
+index. Identical under another PYTHONHASHSEED.
+
+One profile, 300 postings, three interleaved rounds on a loaded machine:
+A 1.37-1.48x the current reader, the candidate 1.58-1.68x (B1 was 1.80x).
+From two profiles on v2 is cheaper than the current reader; the marginal
+profile is unchanged (about 0.5 ms). The remaining gap is the larger number
+of sentences after structural recovery (tokenisation per sentence); closing
+it would mean changing tokenisation, which was not done.
+
+### Full catalogue, on a copy (out/sem/catalogue_copy.db)
+
+The real catalogue was copied with SQLite's backup API from a read-only
+connection (5.3 GB, 90 s); nothing was written to it. 171,319 postings (the
+Phase C set), both builds, 26 isolated profiles (the owner's configuration
+read-only, 25 wizard profiles), 0 errors in either build. Only 5 postings of
+today's catalogue carry the Gupy template (its Gupy postings are gone), so
+the structural recovery acts on the legacy corpus, not on this one. Stored
+per posting: semantic notes 70.6 bytes on average (9.55 notes), sentence
+contexts 289.5 bytes. Frames over all matches: 2,197,969; owner ROLE 81%,
+UNKNOWN 10% (mostly set-aside sections and languages without grammar), OTHER_TEAM
+5.2%, COMPANY 3.2%, PRODUCT 0.2%; LOW certainty 1.2%.
+
+A vs the candidate, per (posting, profile, signal) with any evidence
+(760,528): A matched 566,589, the candidate 577,860; 23,387 became matches
+and 12,116 stopped matching. Losses are mostly the frozen policy
+(COLLABORATION 3,279, COMPANY 2,920, DOMAIN 1,204, PRODUCT 481) and the
+light-verb sense (636). Gains are mostly DUTY (17,814), concentrated in
+`one_design` (+16,446, +38%) and `one_teaching` (+777, +14%).
+
+**An objective bug the shadow found.** The B1 rule that admits inflections
+of a one-word preference admits the `-ed` participle, which is usually
+passive or adjectival (`is designed to empower`, `plans designed by our
+scientists`, `not designed to cover`): about 9 of 15 sampled new
+`one_design` matches. It is the principle `UNLINKED` already applies to
+phrases (a participle with an agent is somebody else's act). It was NOT
+fixed in this round: the candidate was frozen and replayed first.
+
+### Historical regression (CONSUMED REGRESSION SET - NOT INDEPENDENT EVIDENCE)
+
+| package | A | B0 | B1 | candidate |
+|---|---|---|---|---|
+| p1 ALL P/R/F1 | .714/.685/.699 | .702/.661/.681 | .705/.718/.712 | .706/.718/.712 |
+| p2 ALL P/R/F1 | .700/.691/.695 | .710/.639/.673 | .735/.728/.731 | .744/.728/.736 |
+| p3 ALL P/R/F1 | .716/.704/.710 | .748/.727/.737 | .760/.777/.768 | .761/.776/.768 |
+
+Safety blocks, package 3 rule: p1 none; p2 one_operations and one_vendas
+(both already in A); p3 one_payroll (recall) and payroll (precision). The
+payroll groups follow the frozen policy: all 16 of the candidate's payroll
+false negatives on p3 are statements the owner's decision sets to 0
+(benefit 6, collaboration 5, artifact 3, company 1, domain 1) that older
+labels marked Y; 13 of its 16
+false positives are German HR-software postings (no grammar, the current
+reader too), 3 are English. p2's one_operations and one_vendas: same frames
+as A; not changed by the architecture.
+
+### Verdict: SEMANTIC_CANDIDATE_NEEDS_ENGINEERING_WORK
+
+Policy frozen, deterministic, isolated, invalidation correct, 0 errors on
+the full catalogue, storage small. Two things block a controlled Phase D:
+the participle bug above (a one-line rule, a synthetic test, then the
+shadow again), and one profile at 1.58-1.68x the current reader (from 1.80x;
+the rest is tokenisation per sentence). The `one_teaching` growth is the
+bare verb (`Teach patients ...`): an owner question about what a one-word
+preference means, not a bug.
