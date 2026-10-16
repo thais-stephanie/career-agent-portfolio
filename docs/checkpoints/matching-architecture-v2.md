@@ -1156,3 +1156,74 @@ shadow again), and one profile at 1.58-1.68x the current reader (from 1.80x;
 the rest is tokenisation per sentence). The `one_teaching` growth is the
 bare verb (`Teach patients ...`): an owner question about what a one-word
 preference means, not a bug.
+
+
+## Semantic candidate: design participles, teaching receivers (2026-10-16, last round)
+
+The owner froze the product decisions and authorised exactly two semantic
+changes; nothing else moved and nothing was chosen on packages 1-3.
+
+* **Design (A).** Design as a verb the role performs is design work; a
+  participle it does not perform is not. A participle of a one-word
+  preference proves nothing after a passive auxiliary (`is designed`,
+  `foi projetada`), when followed by a word that makes it an adjective or a
+  passive (`designed to`, `designed by`, `disenado para`), before a noun
+  after a determiner or a preposition (`a thoughtfully designed benefits
+  package`), or as two coordinated participles with a place or a purpose
+  (`Designed and manufactured in ...`). A perfect auxiliary keeps it the
+  role's act (`has designed`, `you've designed for`); with no determiner the
+  role keeps it (`Previously designed internal tools`). Only an inflection:
+  a form the concept table lists (`dados`) is never a participle. Design's
+  verbs joined the table (`projetar`, `disenar`); the table keeps the root
+  `projet` ambiguous, so `projeto` stays a project.
+* **Teaching (B).** `teach` whose object is a machine (`teach the model`,
+  `ensinar o modelo de IA`, `ensenar al sistema`) is the MACHINE_OBJECT
+  sense, weight 0; the object is read up to a word opening something else
+  (`teach students to build AI models` teaches students). An unknown object
+  keeps the existing reading. `evidence_policy` version 3.
+
+Scope on a bounded corpus (package 3 copy, 3,557 postings x 26 profiles,
+15,541 decisions with evidence): 197 changed, all `design` (83 participles
+out, 113 Spanish and Portuguese verbs in, 1 user interface design). Two side
+effects found there were removed before freezing (`dados` read as a
+participle; `recruiting software` losing its modifier reading).
+
+### Full catalogue again (171,319 postings, copy, 0 errors)
+
+| profile | A | previous candidate | final |
+|---|---|---|---|
+| one_design | 42,044 | 58,130 (+38%) | 51,208 (+21.8%) |
+| one_teaching | 5,110 | 5,827 (+14%) | 5,711 (+11.8%) |
+
+About 7,400 participle matches left `one_design`. A sample of 20 remaining
+new matches: 16 are the role designing (`Design, develop, and integrate
+RESTful APIs`, `designing and correcting assessments`), the rest the noun
+(`reviewing designs`) or forms no rule reads. Of `one_teaching`'s new
+matches against A, 116 machine objects left; the rest teach people (`teach
+our students`, `teach non-technical employees`) or a skill or subject
+(`Teach effective study habits`). Outside design, 34 matches of `nominated`
+(`nominated customer accounts`), which A already read as payroll through the
+root it shares with `nomina`, stopped matching: correct, and small.
+
+All changes A vs final: 16,449 became matches, 12,293 stopped (of 566,589
+A matches). Largest per profile: one_design +21.8%, one_teaching +11.8%,
+one_marketing -5.0%, service_pt -3.7%, one_accounting -3.5%; every other
+profile within +-2.7%.
+
+### Cost (300 postings, interleaved, cold cache)
+
+On a random sample of the real catalogue: A 1.43x the current reader with
+one profile, the candidate 1.63x; two profiles 0.80x / 0.86-0.95x, ten
+0.25-0.27x / 0.28-0.30x, fifty 0.15-0.16x / 0.16x. A per-unit token cache
+was tried, proved output-neutral by digest, gave no gain in a cold pass, and
+was reverted.
+
+### Historical regression (CONSUMED REGRESSION SET - NOT INDEPENDENT EVIDENCE)
+
+p1 .707/.718/.712, p2 .744/.728/.736, p3 .761/.776/.768 (P/R/F1), the same as
+the previous candidate; blocks as before (p2 one_operations, one_vendas;
+p3 payroll by the frozen policy). Nothing was adjusted after.
+
+### Verdict: SEMANTIC_CANDIDATE_READY_FOR_CONTROLLED_PHASE_D
+
+Not merged, not switched on. See the round report for the reasoning on cost.
