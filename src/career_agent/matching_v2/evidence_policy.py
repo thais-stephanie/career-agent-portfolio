@@ -48,7 +48,7 @@ from career_agent.matching_v2.evidence import (
     Sense,
 )
 
-VERSION = "2"
+VERSION = "3"
 
 DEFAULT: dict[str, Any] = {
     "type": {
@@ -81,6 +81,7 @@ DEFAULT: dict[str, Any] = {
         Sense.VERB: 0.0,
         Sense.PROPER_NAME: 0.0,
         Sense.OTHER: 0.0,
+        Sense.MACHINE_OBJECT: 0.0,
     },
     "owner": {
         Owner.ROLE: 1.0,

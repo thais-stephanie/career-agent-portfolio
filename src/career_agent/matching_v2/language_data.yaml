@@ -46,6 +46,9 @@ exact_equivalent:
   - {en: [lesson, lessons], pt: [aula, aulas], es: [clase, clases]}
   - {en: [student, students], pt: [aluno, alunos, estudante, estudantes], es: [alumno, alumnos, estudiante, estudiantes]}
   - {en: [teaching, teach], pt: [ensino, ensinar], es: [ensenanza, ensenar]}
+  # The verb of design work (2026-10-16): `projetar` in Brazilian Portuguese,
+  # `disenar` in Spanish (not `projeto`, a project).
+  - {en: [design], pt: [design, projetar], es: [diseno, disenar]}
   - {en: [support], pt: [suporte, apoio], es: [soporte]}
   - {en: [ticket, tickets], pt: [chamado, chamados], es: [ticket, tickets]}
   - {en: [process, processes], pt: [processo, processos], es: [proceso, procesos]}

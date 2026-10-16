@@ -317,4 +317,65 @@ def test_a_derived_line_never_closes_a_section() -> None:
 
 
 def test_the_policy_version_is_the_components() -> None:
-    assert comp.REGISTRY["evidence_policy"].version == pol.VERSION == "2"
+    assert comp.REGISTRY["evidence_policy"].version == pol.VERSION == "3"
+
+
+# ------------------------------------------------------------ policy v3
+# The owner's decisions of 2026-10-16 (third set): design as a verb the role
+# performs is design work, a participle it does not perform is not; teach
+# counts when people are taught, not when a machine is.
+
+DESIGN_YES = [
+    ("design", "Design scalable systems.", "en"),
+    ("design", "You will design services for the payments team.", "en"),
+    ("design", "Experience designing APIs.", "en", "Requirements"),
+    ("design", "Have designed distributed systems.", "en", "Requirements"),
+    ("design", "Previously designed internal tools used by 200 people.", "en", "Requirements"),
+    ("design", "Successfully designed and launched two products.", "en", "Requirements"),
+    ("design", "You've designed for demanding users before.", "en", "Requirements"),
+    ("design", "Projetar soluções escaláveis.", "pt"),
+    ("design", "Diseñar sistemas de alta disponibilidad.", "es"),
+]
+DESIGN_NOT = [
+    ("design", "The platform is designed to scale.", "en"),
+    ("design", "Our model was designed to empower small teams.", "en"),
+    ("design", "A solution designed for customers in retail.", "en"),
+    ("design", "Plans designed by another team.", "en"),
+    ("design", "Product designed around simplicity.", "en"),
+    ("design", "A plataforma foi projetada para crescer.", "pt"),
+    ("design", "Sistema diseñado para hospitales.", "es"),
+]
+TEACH_YES = [
+    ("teaching", "Teach patients safe movement techniques.", "en"),
+    ("teaching", "Teach students the basics of algebra.", "en"),
+    ("teaching", "Teach customers how to use the product.", "en"),
+    ("teaching", "Teach students to build AI models.", "en"),
+    ("teaching", "Ensinar pacientes a usar os equipamentos.", "pt"),
+    ("teaching", "Enseñar a estudiantes de primaria.", "es"),
+]
+TEACH_NOT = [
+    ("teaching", "Teach an AI model to recognise invoices.", "en"),
+    ("teaching", "Teach the system to recognize patterns.", "en"),
+    ("teaching", "Teach the algorithm which cases matter.", "en"),
+    ("teaching", "Ensinar o modelo de IA a classificar pedidos.", "pt"),
+    ("teaching", "Enseñar al sistema a detectar fraudes.", "es"),
+]
+
+
+def _case(c):
+    phrase, sentence, language = c[:3]
+    return phrase, sentence, language, (c[3] if len(c) > 3 else "Responsibilities")
+
+
+@pytest.mark.parametrize("case", DESIGN_YES + TEACH_YES)
+def test_the_role_doing_the_work_counts(case) -> None:
+    phrase, sentence, language, heading = _case(case)
+    found = _frames(phrase, sentence, language, heading)
+    assert any(e.state == "MATCH" for e in found), (sentence, [e.frame for e in found])
+
+
+@pytest.mark.parametrize("case", DESIGN_NOT + TEACH_NOT)
+def test_a_participle_or_a_machine_proves_nothing(case) -> None:
+    phrase, sentence, language, heading = _case(case)
+    for e in _frames(phrase, sentence, language, heading):
+        assert e.state != "MATCH", (sentence, e.frame)

@@ -96,10 +96,13 @@ def test_non_automatic_relations_never_join_two_words() -> None:
 
 def test_a_root_two_concepts_share_is_never_mapped() -> None:
     table = load_table()
-    assert table.ambiguous == ("negoci",)
+    assert table.ambiguous == ("negoci", "projet")
     # The listed forms still tell the two apart.
     assert concept_readings("negociacao") == concept_readings("negotiation")
     assert concept_readings("negocio") == concept_readings("business")
+    # `projetar` is design (2026-10-16); `projeto` stays a project.
+    assert concept_readings("projetar") == concept_readings("design")
+    assert concept_readings("projeto") == concept_readings("project")
 
 
 def test_tokens_keep_offsets_into_the_original_text() -> None:

@@ -45,6 +45,7 @@ import yaml
 from career_agent.match.text import FoldedText, fold
 from career_agent.matching_v2 import structure
 from career_agent.matching_v2.context import NOT_WORK, Context, Sentence
+from career_agent.matching_v2.language import load_table
 
 DATA = Path(__file__).with_name("semantic_data.yaml")
 GRAMMAR_LANGUAGES = frozenset({"en", "pt", "es"})
@@ -104,6 +105,9 @@ class Sense(StrEnum):
     PROPER_NAME = "PROPER_NAME"
     OTHER = "OTHER"
     UNKNOWN = "UNKNOWN"
+    #: `teach the model`: the object is a machine (appended last: the packed
+    #: frames of earlier versions keep their numbers).
+    MACHINE_OBJECT = "MACHINE_OBJECT"
 
 
 class Certainty(StrEnum):
@@ -183,6 +187,7 @@ class _SenseEntry:
     before: tuple[tuple[str, ...], ...]
     after: frozenset[str]
     clause: frozenset[str]
+    object: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -209,6 +214,7 @@ class _Data:
     product_links: frozenset[str] = frozenset()
     product_heads: frozenset[str] = frozenset()
     unit_nouns: frozenset[str] = frozenset()
+    participle: dict | None = None
 
 
 def _flat(value: dict | list) -> list[str]:
@@ -234,6 +240,7 @@ def load(path: Path = DATA) -> _Data:
             tuple(sorted({_seq(b) for b in e.get("before", [])}, key=len, reverse=True)),
             frozenset(w for a in e.get("after", []) for w in _seq(a)),
             frozenset(w for c in e.get("clause", []) for w in _seq(c)),
+            frozenset(w for c in e.get("object", []) for w in _seq(c)),
         )
         for e in raw["senses"]
     )
@@ -271,6 +278,13 @@ def load(path: Path = DATA) -> _Data:
         product_heads=frozenset(_flat(o["product_nouns"]))
         | frozenset(_flat(o["product_heads_extra"])),
         unit_nouns=structure.load_structure().unit_nouns,
+        participle={
+            "endings": tuple(raw["participle"]["endings"]),
+            **{
+                k: frozenset(_seq(w)[-1] for w in raw["participle"][k])
+                for k in ("perfect", "passive", "adjectival_next", "subjects", "object_stops")
+            },
+        },  # fmt: skip
     )
 
 
@@ -528,12 +542,59 @@ def _sense_of_word(text: str, start: int, end: int, s: Sentence, data: _Data) ->
             return e.sense
         if after and after[0] in e.after:
             return e.sense
+        if e.object and _object_in(after, e.object, data):
+            return e.sense
         if e.clause:
             if clause_words is None:
                 clause_words = {w for w, _, _ in _words(text[s.start : s.end], 0)}
             if clause_words & e.clause:
                 return e.sense
     return None
+
+
+def _inflected_verb(text: str, start: int, end: int, concept_id: str) -> bool:
+    """`designed`, `designing` of the preference `design`: an inflection, not
+    the word as written in the preference."""
+    surface = fold(text[start:end])[0]
+    named = fold(concept_id.split(":", 1)[-1])[0]
+    # Not `-ing`: `recruiting software` is a gerund naming what the software
+    # is for, the modifier reading the rule exists for.
+    return surface != named and surface.endswith("ed")
+
+
+def _object_in(after: list[str], heads: frozenset[str], data: _Data) -> bool:
+    """Whether the verb's object, read up to a word opening something else
+    (at most four words), names one of `heads`."""
+    stops = (data.participle or {}).get("object_stops", frozenset())
+    for w in after[:4]:
+        if w in stops:
+            return False
+        if w in heads:
+            return True
+    return False
+
+
+def _not_performed_participle(text: str, start: int, end: int, s: Sentence, data: _Data) -> bool:
+    """`is designed to`, `plans designed by`, `a platform designed for`: a
+    participle of the words that the role does not perform. One word only."""
+    p = data.participle or {}
+    word = text[start:end]
+    folded_word = fold(word)[0]
+    if not word.isalpha() or not folded_word.endswith(p.get("endings", ())):
+        return False
+    # Only an inflection of the concept: a form the concept table lists
+    # (`dados` for data) is the word itself, never a participle.
+    if folded_word in load_table().surface:
+        return False
+    before = [w for w, _, _ in _words(text[max(s.start, start - 40) : start], 0)][-2:]
+    after = [w for w, _, _ in _words(text[end : min(s.end, end + 30)], 0)][:1]
+    if set(before) & p["perfect"]:
+        return False
+    if set(before) & p["passive"]:
+        return True
+    return bool(after and after[0] in p["adjectival_next"]) and not (
+        before and before[-1] in p["subjects"]
+    )
 
 
 def _company_head(text: str, start: int, end: int, s: Sentence, data: _Data) -> bool:
@@ -634,12 +695,20 @@ def frame(
         kind, certainty = EvidenceType.UNKNOWN, Certainty.LOW
     elif cause == structure.ONE_WORD_QUALIFICATION:
         kind = EvidenceType.DEGREE_IN_FIELD
-    elif cause == structure.ONE_WORD_MODIFIER:
+    elif cause == structure.ONE_WORD_MODIFIER and not _inflected_verb(text, start, end, concept_id):
+        # A verb form with its object (`designed internal tools`) is never a
+        # noun naming what an artefact is for (2026-10-16).
         kind = EvidenceType.ARTIFACT_ONLY
     if supported and sense is Sense.NAMED:
         found = _sense_of_word(text, start, end, sentence, data)
         if found is not None:
             sense, because = found, f"sense:{found}"
+    if (
+        supported
+        and direction is Direction.ROLE_PROVIDES
+        and _not_performed_participle(text, start, end, sentence, data)
+    ):
+        direction, because = Direction.OTHER_PROVIDES, "participle not performed"
     here = [n for n in notes if sentence.start <= n[0] < sentence.end]
     if sense is Sense.POST_SALES and any(n[2] == COMMERCIAL for n in here):
         sense = Sense.POST_SALES_COMMERCIAL

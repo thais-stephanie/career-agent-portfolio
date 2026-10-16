@@ -56,7 +56,7 @@ REGISTRY: dict[str, Component] = {
         # has (`evidence.annotate`); the same for every profile.
         Component("semantic_evidence_facts", "2", "job", ("language", "sentence_context")),
         Component(
-            "work_facts", "3", "job", ("language", "sentence_context", "semantic_evidence_facts")
+            "work_facts", "4", "job", ("language", "sentence_context", "semantic_evidence_facts")
         ),
         Component("pay_facts", "1", "job", ("text_parser",), ("job.metadata",)),
         Component("location_facts", "1", "job", ("text_parser",), ("job.metadata",)),
@@ -76,12 +76,12 @@ REGISTRY: dict[str, Component] = {
         # What a kind of evidence is worth to this person (`evidence_policy`):
         # a change re-matches, it never re-reads an advert.
         # The version is `evidence_policy.VERSION` (a test holds them equal).
-        Component("evidence_policy", "2", "profile", (), ("profile.evidence_policy",)),
+        Component("evidence_policy", "3", "profile", (), ("profile.evidence_policy",)),
         Component(
-            "work_match", "6", "profile", ("work_facts", "evidence_policy"), ("profile.lexicon",)
+            "work_match", "7", "profile", ("work_facts", "evidence_policy"), ("profile.lexicon",)
         ),
         Component(
-            "tools_match", "6", "profile", ("work_facts", "evidence_policy"), ("profile.lexicon",)
+            "tools_match", "7", "profile", ("work_facts", "evidence_policy"), ("profile.lexicon",)
         ),
         Component(
             "eligibility",

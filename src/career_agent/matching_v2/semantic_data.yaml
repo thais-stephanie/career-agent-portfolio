@@ -184,6 +184,26 @@ owner:
               "isso", "isto", "ela", "ele", "nos", "voce", "nossa", "nosso", "a", "o", "as",
               "os", "la", "el", "los", "las", "nuestra", "nuestro", "usted", "aqui", "aca"]
 
+# A participle of the matched word that the role does not perform (owner's
+# decision, 2026-10-16): after a passive auxiliary (`is designed`, `foi
+# projetada`), or followed by a word that makes it an adjective or a passive
+# (`designed to`, `designed by`, `disenado para`). A perfect auxiliary makes it
+# the role's own act (`has designed`, `you've designed for`).
+participle:
+  endings: ["ed", "ado", "ada", "ados", "adas", "ido", "ida", "idos", "idas"]
+  perfect: ["have", "has", "had", "ve", "having", "tenho", "tem", "temos", "tinha", "he", "ha",
+            "han", "hemos", "habia"]
+  passive: ["is", "are", "was", "were", "be", "been", "being", "foi", "foram", "ser", "sendo",
+            "sido", "era", "sao", "esta", "estao", "fue", "fueron", "es", "son", "siendo",
+            "estan", "sera", "seran", "will be"]
+  adjectival_next: ["to", "for", "by", "around", "specifically", "especially", "with", "into",
+                    "from", "para", "por", "pelo", "pela", "pelos", "pelas", "especialmente",
+                    "com", "con", "al"]
+  subjects: ["i", "we", "you", "they", "he", "she", "eu", "nos", "voce", "voces", "yo",
+             "nosotros", "ustedes", "ellos"]
+  object_stops: ["to", "how", "para", "como", "that", "que", "about", "sobre", "on", "in",
+                 "with", "a fim"]
+
 # Verbs whose verbal use is HELPING with something, not doing the work the
 # noun names (`support the launch`). Every other verb of a one-word
 # preference used as a verb is the work (`design the service`, `teach`).
@@ -209,6 +229,16 @@ senses:
      before: ["pos", "post", "apos", "after", "despues de la"]}
   - {sense: PRE_SALES, forms: [venda, vendas, venta, ventas, sale, sales],
      before: ["pre"]}
+  # `teach` with a machine as its object is training a model, not teaching
+  # people (owner's decision, 2026-10-16). The object is read up to a word
+  # that opens something else (`teach students to build AI` teaches people).
+  - {sense: MACHINE_OBJECT,
+     forms: [teach, teaches, teaching, ensinar, ensina, ensinam, ensinando, ensenar, ensena,
+             ensenan, ensenando],
+     object: [model, models, ai, ia, system, systems, algorithm, algorithms, machine, machines,
+              agent, agents, llm, llms, bot, bots, chatbot, chatbots, network, networks,
+              computer, computers, modelo, modelos, sistema, sistemas, algoritmo, algoritmos,
+              maquina, maquinas, agente, agentes, rede, redes, computador, computadora]}
   - {sense: DEDUCTION, forms: [folha, nomina, nominas, payroll],
      after: ["deduction", "deductions", "deducted", "loan", "loans", "advance",
              "advances"],
