@@ -24,7 +24,7 @@ from functools import lru_cache
 
 from career_agent.config.search_config import SearchConfig
 from career_agent.domain.matching import MatchResult, ObservedSignal, SignalHit
-from career_agent.match.engine import JobFacts, match_job, read_shared
+from career_agent.match.engine import JobFacts, SemanticEvidence, match_job, read_shared
 from career_agent.match.gates import negation_key
 from career_agent.match.lexicon import (
     context_allows,
@@ -409,6 +409,7 @@ def match(
     features: JobFeatures,
     *,
     computed_at: str = "frozen",
+    semantic: SemanticEvidence | None = None,
 ) -> ProfileJobMatch:
     """One profile's answer for one posting, over its shared facts."""
     if features.shared is None:
@@ -424,7 +425,12 @@ def match(
         )
     observed, evidence = observe_from_features(config, features, job)
     result = match_job(
-        config, job, computed_at=computed_at, shared=features.shared, observed=observed
+        config,
+        job,
+        computed_at=computed_at,
+        semantic=semantic,
+        shared=features.shared,
+        observed=observed,
     )
     headings = (
         tuple(config.prominence.primary_headings),

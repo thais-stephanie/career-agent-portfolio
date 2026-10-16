@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from typing import Any
 
 #: The sections `match/score.py` reads, and that nothing else reads. A change
@@ -172,6 +173,49 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              the advert says is for U.S. candidates keeps that sentence.
 READER_IDENTITY = "readers-12"
 
+#: WHICH READER DECIDES WORK MATCHING (Phase D, ADR-0037). `legacy` is the
+#: reader above, unchanged. `semantic_v2` hands `match_job` signals matched
+#: from a posting's shared semantic facts (`matching_v2.phase_d`); everything
+#: else (gates, seniority, pay, the score's arithmetic) is the same code.
+WORK_MATCH_ENV = "CAREER_AGENT_WORK_MATCH_SOURCE"
+WORK_MATCH_LEGACY = "legacy"
+WORK_MATCH_SEMANTIC = "semantic_v2"
+WORK_MATCH_SOURCES = (WORK_MATCH_LEGACY, WORK_MATCH_SEMANTIC)
+
+#:   readers-13 Semantic work matching (2026-10-16, Phase D): a phrase counts
+#:              by what the sentence that holds it is (a duty, a
+#:              requirement, about the company, a benefit), whose act it is
+#:              and what the profile's evidence policy makes that worth.
+#:              Signals, prominence, screening and the score move; the gates
+#:              do not. The identity is in force ONLY while
+#:              `CAREER_AGENT_WORK_MATCH_SOURCE=semantic_v2`, and carries the
+#:              versions of the semantic components, so a component bump
+#:              re-reads exactly as a bump of this string would.
+SEMANTIC_IDENTITY = "readers-13"
+
+
+def work_match_source(environ: dict[str, str] | None = None) -> str:
+    """The configured work-matching reader; unset is `legacy`. Any other value
+    is refused by name: a typo must not decide which reader runs."""
+    raw = (environ if environ is not None else os.environ).get(WORK_MATCH_ENV, "")
+    raw = raw.strip().lower()
+    if not raw:
+        return WORK_MATCH_LEGACY
+    if raw not in WORK_MATCH_SOURCES:
+        expected = ", ".join(WORK_MATCH_SOURCES)
+        raise ValueError(f"{WORK_MATCH_ENV}={raw!r}: expected one of {expected}")
+    return raw
+
+
+def reader_identity(environ: dict[str, str] | None = None) -> str:
+    """The identity of the reader this process scores with."""
+    if work_match_source(environ) == WORK_MATCH_LEGACY:
+        return READER_IDENTITY
+    from career_agent.matching_v2 import components as comp
+
+    versions = {**comp.lineage("work_match"), **comp.lineage("tools_match")}
+    return f"{SEMANTIC_IDENTITY}/{comp.digest(versions)[:8]}"
+
 
 def guarded_sections(config: Any) -> list[str]:
     """Every configuration field whose change must refuse a replay, sorted."""
@@ -194,7 +238,7 @@ def input_digest(config: Any) -> str:
     dumped = config.model_dump(mode="json")
     guarded = {name: dumped[name] for name in guarded_sections(config) if name in dumped}
     payload = json.dumps(
-        {"reader_identity": READER_IDENTITY, "sections": guarded},
+        {"reader_identity": reader_identity(), "sections": guarded},
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,

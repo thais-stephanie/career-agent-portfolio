@@ -29,8 +29,9 @@ from career_agent.domain.enums import PipelineRunStatus
 from career_agent.domain.matching import REPLAY_MIN_SCHEMA
 from career_agent.match.engine import match_job
 from career_agent.match.identity import input_digest as reading_identity
+from career_agent.match.identity import reader_identity
 from career_agent.match.replay import replay
-from career_agent.matching_v2 import phase_c
+from career_agent.matching_v2 import phase_c, phase_d
 from career_agent.pipeline.facts import job_facts
 from career_agent.storage import invalidation, search_index
 from career_agent.storage.db import transaction
@@ -154,6 +155,12 @@ class RescoreStats:
     #: every posting that had to be read instead (`eligibility_reads`).
     eligibility_source: str = "legacy"
     eligibility_reads: dict[str, int] = field(default_factory=dict)
+    #: Which reader decided work matching (Phase D): `legacy` or
+    #: `semantic_v2`, the identity the scores were written under, and where
+    #: the semantic facts came from (`work_match_reads`).
+    work_match_source: str = "legacy"
+    reader_identity: str = ""
+    work_match_reads: dict[str, int] = field(default_factory=dict)
     jobs_read_in_full: int = 0
     replay_source_version: int | None = None
     replay_refused: dict[str, int] = field(default_factory=dict)
@@ -579,6 +586,9 @@ def rescore(
 
         eligibility = phase_c.reader_for(conn, config)
         stats.eligibility_source = phase_c.V2 if eligibility is not None else phase_c.LEGACY
+        work = phase_d.reader_for(conn, config)
+        stats.work_match_source = phase_d.SEMANTIC_V2 if work is not None else phase_d.LEGACY
+        stats.reader_identity = reader_identity()
         scoring_started = datetime.now(UTC)
         successful: dict[str, int] = {}
         targets = chosen.targets if limit is None else chosen.targets[:limit]
@@ -676,6 +686,14 @@ def rescore(
                         )
                         stats.replay_ms += _elapsed(replay_started)
                         stats.jobs_replayed += 1
+                    elif work is not None:
+                        result = work.match(
+                            facts,
+                            str(row["content_hash"]),
+                            computed_at=_now(),
+                            semantic=evidence,
+                        )
+                        stats.jobs_read_in_full += 1
                     else:
                         result = match_job(
                             config,
@@ -735,6 +753,8 @@ def rescore(
         stats.score_ms = _elapsed(scoring_started)
         if eligibility is not None:
             stats.eligibility_reads = dict(eligibility.counts)
+        if work is not None:
+            stats.work_match_reads = dict(work.counts)
 
         # The search index and the ledger, together: a ledger row read at
         # plan time is cleared in the same transaction that brings the index

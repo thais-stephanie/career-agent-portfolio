@@ -39,6 +39,9 @@ _FACT_COMPONENTS = (
     "seniority_facts",
     "engagement_facts",
     "eligibility_facts",
+    # Phase D: the semantic work matcher reads these (`phase_d`).
+    "text_structure",
+    "semantic_evidence_facts",
 )
 
 
