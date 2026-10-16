@@ -1558,6 +1558,12 @@ def read_eligibility_facts(
     )
 
 
+#: A line of the advert that says where the remote work is: `Remote - North
+#: America`, `Remote: EMEA`. Line-anchored, and a hyphen counts only after a
+#: space, so a bullet `- Remote-first culture, enabling...` is not one.
+_REMOTE_LINE = re.compile(r"(?im)^[ \t*\u2022-]*remote(?:\s*[:\u2013\u2014]|\s+-)\s*([^\n;.()]+)")
+
+
 def evaluate_gates(
     config: SearchConfig,
     observed: dict[str, ObservedSignal],
@@ -1830,6 +1836,37 @@ def evaluate_gates(
                             "confirm the permitted work location before applying."
                         ),
                     )
+
+        # THE ADVERT'S OWN `Remote - <place>` LINE (2026-10-16). A declared
+        # scope (an aggregator's `Anywhere in the World`) beside an advert
+        # that heads itself `Remote - North America` is a generic label
+        # against the employer's narrower words. It is "to confirm":
+        # never a pass, and alone never a refusal, exactly as the same
+        # line in the location field already is (above).
+        if (
+            gate == "geography"
+            and declared_scope
+            and not stated_by_employer
+            and outcome is not None
+            and outcome.result is GateResult.PASS
+        ):
+            headed = [v.strip() for v in _REMOTE_LINE.findall(description_field.original)]
+            verdicts = [
+                _scope_verdict(config, _resolve_list(value), exhaustive=True)
+                for value in headed
+                if value
+            ]
+            if False in verdicts and True not in verdicts:
+                outcome = GateOutcome(
+                    gate="geography",
+                    result=GateResult.UNRESOLVED,
+                    reason=(
+                        f"The provider says {declared_scope.strip()}, but the advert "
+                        f"itself says remote work in {', '.join(headed)}. Confirm the "
+                        "permitted work location before applying."
+                    ),
+                    code="DESCRIPTION_LOCATION_ELSEWHERE",
+                )
 
         outcomes.append(
             outcome

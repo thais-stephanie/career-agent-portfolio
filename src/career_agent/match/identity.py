@@ -180,7 +180,13 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              a USD salary band may take a period ASSUMED from its size
 #:              (`period_basis: SALARY_HEURISTIC`). Pay, the compensation
 #:              component and the salary filters move; nothing else.
-READER_IDENTITY = "readers-14"
+#:   readers-15 Source metadata against the advert (2026-10-16): a declared
+#:              scope (an aggregator's `Anywhere in the World`) beside an
+#:              advert whose own line says `Remote - <a place that excludes
+#:              the candidate>` is to confirm, no longer a pass
+#:              (DESCRIPTION_LOCATION_ELSEWHERE). Only that geography gate
+#:              outcome moves.
+READER_IDENTITY = "readers-15"
 
 #: WHICH READER DECIDES WORK MATCHING (Phase D, ADR-0037). `legacy` is the
 #: reader above, unchanged. `semantic_v2` hands `match_job` signals matched

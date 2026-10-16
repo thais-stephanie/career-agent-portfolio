@@ -148,9 +148,9 @@ def test_default_is_legacy_a_typo_is_refused_and_legacy_identity_is_unchanged() 
     assert identity.work_match_source({phase_d.ENV: " Semantic_V2 "}) == phase_d.SEMANTIC_V2
     with pytest.raises(ValueError, match="expected one of legacy, semantic_v2"):
         identity.work_match_source({phase_d.ENV: "v2"})
-    assert identity.reader_identity({}) == identity.READER_IDENTITY == "readers-14"
+    assert identity.reader_identity({}) == identity.READER_IDENTITY == "readers-15"
     semantic = identity.reader_identity({phase_d.ENV: "semantic_v2"})
-    prefix = "readers-14+semantic/"
+    prefix = "readers-15+semantic/"
     assert semantic.startswith(prefix) and len(semantic) == len(prefix) + 8
 
 
@@ -213,7 +213,7 @@ def test_a_pay_bump_restales_only_pay_and_what_reads_it() -> None:
 def test_switch_rescore_and_roll_back(corpus, monkeypatch) -> None:
     conn, config = corpus
     legacy, stats = _pass(conn, config, monkeypatch, None)
-    assert stats.work_match_source == "legacy" and stats.reader_identity == "readers-14"
+    assert stats.work_match_source == "legacy" and stats.reader_identity == "readers-15"
     assert stats.work_match_reads == {}
     legacy_digest = _digests(conn)
 
@@ -225,7 +225,7 @@ def test_switch_rescore_and_roll_back(corpus, monkeypatch) -> None:
     # Nothing materialised: facts computed in memory, counted, never written.
     memory, stats = _pass(conn, config, monkeypatch, "semantic_v2")
     assert stats.work_match_source == "semantic_v2"
-    assert stats.reader_identity.startswith("readers-14+semantic/")
+    assert stats.reader_identity.startswith("readers-15+semantic/")
     assert stats.work_match_reads == {"read_not_materialised": len(POSTINGS)}
     assert conn.execute("SELECT count(*) FROM job_features").fetchone()[0] == 0
     semantic_digest = _digests(conn)

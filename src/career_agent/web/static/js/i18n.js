@@ -1946,6 +1946,8 @@ const EN = {
     + 'lines below; confirm where the work may be done before applying.',
   'gate.code.PUBLISHED_LOCATION_ELSEWHERE': 'Eligibility to confirm. The posting publishes another place, and '
     + 'general remote-work wording does not say whether it hires in your country.',
+  'gate.code.DESCRIPTION_LOCATION_ELSEWHERE': 'Eligibility to confirm. The job site says this role is '
+    + 'open anywhere, but the ad itself names a narrower place for the remote work.',
   'gate.code.US_SECURITY_REQUIREMENTS': 'Requirement to confirm. The posting says the role may need a U.S. '
     + 'security clearance or access to export-controlled information, which usually depends on citizenship '
     + 'or U.S. status.',
@@ -7220,6 +7222,8 @@ const PT_BR = {
     + 'trechos abaixo; confirme onde o trabalho pode ser feito antes de se candidatar.',
   'gate.code.PUBLISHED_LOCATION_ELSEWHERE': 'Elegibilidade a confirmar. O anúncio publica outro local, e '
     + 'frases gerais sobre trabalho remoto não dizem se contrata no seu país.',
+  'gate.code.DESCRIPTION_LOCATION_ELSEWHERE': 'Elegibilidade a confirmar. O site de vagas diz que a vaga '
+    + 'é aberta em qualquer lugar, mas o próprio anúncio cita um local mais restrito para o trabalho remoto.',
   'gate.code.US_SECURITY_REQUIREMENTS': 'Requisito a confirmar. O anúncio diz que a vaga pode exigir uma '
     + 'habilitação de segurança dos EUA ou acesso a informações controladas por exportação, o que costuma '
     + 'depender de cidadania ou situação nos EUA.',
