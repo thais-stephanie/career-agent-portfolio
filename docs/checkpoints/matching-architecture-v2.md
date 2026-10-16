@@ -1227,3 +1227,57 @@ p3 payroll by the frozen policy). Nothing was adjusted after.
 ### Verdict: SEMANTIC_CANDIDATE_READY_FOR_CONTROLLED_PHASE_D
 
 Not merged, not switched on. See the round report for the reasoning on cost.
+
+## Phase D: the semantic reader, integrated behind a switch (2026-10-16)
+
+Authorised by the owner as a controlled Phase D with a decision tree. The
+candidate is the frozen `6157d7f` (policy v3); the integration adds only the
+switch (`7198931`).
+
+### Backup
+
+`data/backups/pre-phase-d-20261016` (SQLite backup API): catalogue,
+`personal.db`, the second profile's `personal.db`, 18 configuration files,
+MANIFEST.json and SHA256SUMS. integrity_check ok on every copy, row counts
+equal to the originals, `job_match` digest `a79b388e...` (295,552 rows).
+
+### Rehearsal on a fresh copy of the real install
+
+* Migrations: none pending (schema 57 before and after).
+* Materialisation (6 processes): 171,319 postings in 23.2 min, 0 errors;
+  every row carries the two new facts; the eligibility, pay, seniority,
+  engagement and section facts are byte-identical to before; +44.8 MB
+  (facts 146.8 -> 167.3 MB).
+* semantic_v2 targeted pass: 171,319 READER_MOVED, 40.4 min, 0 errors, every
+  posting's facts from the store; identical to a read-only shadow computed
+  separately, and the owner's evidence identical (37,843 of 37,843 signal
+  states and frames) to the full-catalog shadow `full7` computed in memory.
+* Rollback (variable unset, one targeted pass): 59.4 min, 0 errors, every
+  `job_match` row identical in content to the backup (all columns but the
+  row id and the computation time), identity `readers-12`; the history rows
+  of configuration version 7 never touched; the next plan is empty.
+
+### Real catalogue
+
+* Materialisation: 171,319 postings in 21.5 min, 0 errors, rows byte-identical
+  to the rehearsal's; `job_match` untouched (`a79b388e...`).
+* Shadow, source still legacy, read-only: identical to the rehearsal. Against
+  readers-12 for the owner's profile: 4,986 scores move (2.9%), 1,341 bands,
+  0 eligibility statuses, 0 screening states; signals 1,914 stop firing,
+  2,895 start (34,773 -> 35,754). Mean score 21.43 -> 21.51; STRONG 520 ->
+  552, GOOD 4,439 -> 4,673, MODERATE 2,919 -> 2,866. Largest drop: a company
+  describing itself (company context); largest rises: the role's own duties.
+  English carries most of it; Spanish and Portuguese gain (167 / 33 new
+  firings) by the translated verbs.
+
+### Cost after materialisation (300 postings, best of 3, ms per posting)
+
+| profiles | legacy | semantic, not materialised | semantic, materialised |
+|---|---|---|---|
+| 1 | 15.7 | 25.4 (1.62x) | 7.1 (0.46x) |
+| 2 | 30.2 | 28.0 (0.93x) | 10.4 (0.35x) |
+| 10 | 156.6 | 40.8 (0.26x) | 21.4 (0.14x) |
+| 50 | 744.3 | 125.8 (0.17x) | 103.8 (0.14x) |
+
+Reading a stored row costs 1.6 ms against 19.5 ms to extract it. Cold start
+(import and configuration) 0.7 s.

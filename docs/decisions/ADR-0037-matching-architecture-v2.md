@@ -163,3 +163,28 @@ dual read, one low-risk component, score), each with its own gate:
 * **Work matching stays in shadow** until a blind package
   (`scripts/matching_v2_blind_package.py`, labels not by the agent) clears
   the precision and recall gate.
+
+## Addendum, 2026-10-16: Phase D, semantic work matching as a switchable source
+
+* **`CAREER_AGENT_WORK_MATCH_SOURCE` picks the reader a rescore matches work
+  with**: `legacy` (default, readers-12, unchanged) or `semantic_v2`
+  (`matching_v2.phase_d`: `profile_match` over the posting's stored semantic
+  facts, weighed by the profile's evidence policy). A value that is neither
+  is refused by name. The gates, seniority, pay, engagement and the score's
+  arithmetic are the same code under both.
+* **The reader identity follows the source**, so the switch is a reader
+  change and the existing machinery handles it: `readers-12` under legacy,
+  `readers-13/<digest of the semantic components' versions>` under
+  semantic_v2. Turning it on makes every stored score a reading this process
+  no longer makes (the notice offers the recalculation; the targeted plan
+  picks every posting up as READER_MOVED); turning it back does the same in
+  reverse. A semantic component's version bump moves the identity by itself.
+  Materialising the shared facts moves no identity.
+* **Storage**: no migration. `job_features.facts_json` also holds
+  `text_structure` and `semantic_evidence_facts`; the per-profile answer is
+  the existing `job_match` row (its `input_digest` carries the identity).
+  `profile_job_match` stays unused. A posting without current facts is read
+  in memory for the pass, counted, never written by a rescore.
+* **Rollback** is the variable back to `legacy`, a restart and one targeted
+  pass (about an hour on the full catalogue): rehearsed on a copy, the legacy
+  rows came back identical in content. `job_features` stays in place.
