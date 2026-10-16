@@ -5,7 +5,7 @@ The switch is `CAREER_AGENT_WORK_MATCH_SOURCE` (`legacy` by default,
 `rescore`:
 
 * the default is legacy, a value that is neither is refused by name, and the
-  legacy reader identity is readers-12 exactly as before;
+  legacy reader identity is `READER_IDENTITY` exactly as before;
 * semantic_v2 has its own identity, so switching makes every stored score a
   reading the other reader no longer makes (the targeted plan picks them all
   up), and switching back does the same in reverse;
@@ -148,15 +148,72 @@ def test_default_is_legacy_a_typo_is_refused_and_legacy_identity_is_unchanged() 
     assert identity.work_match_source({phase_d.ENV: " Semantic_V2 "}) == phase_d.SEMANTIC_V2
     with pytest.raises(ValueError, match="expected one of legacy, semantic_v2"):
         identity.work_match_source({phase_d.ENV: "v2"})
-    assert identity.reader_identity({}) == identity.READER_IDENTITY == "readers-12"
+    assert identity.reader_identity({}) == identity.READER_IDENTITY == "readers-14"
     semantic = identity.reader_identity({phase_d.ENV: "semantic_v2"})
-    assert semantic.startswith("readers-13/") and len(semantic) == len("readers-13/") + 8
+    prefix = "readers-14+semantic/"
+    assert semantic.startswith(prefix) and len(semantic) == len(prefix) + 8
+
+
+SEMANTIC = {phase_d.ENV: "semantic_v2"}
+
+
+def _bumped(name: str, extra=None) -> dict:
+    from dataclasses import replace
+
+    from career_agent.matching_v2 import components as comp
+
+    graph = dict(comp.REGISTRY)
+    if name in graph:
+        graph[name] = replace(graph[name], version=graph[name].version + "-next")
+    if extra is not None:
+        graph[extra.name] = extra
+    return graph
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["pay_facts", "work_match", "tools_match", "eligibility_facts", "seniority_facts",
+     "evidence_policy", "work_facts", "score"],
+)  # fmt: skip
+def test_every_component_a_score_reads_moves_the_semantic_identity(name) -> None:
+    """The semantic identity once covered work and tools only (2026-10-16):
+    a pay change moved nothing and every stored score stayed stale."""
+    before = identity.reader_identity(SEMANTIC)
+    assert identity.reader_identity(SEMANTIC, _bumped(name)) != before
+
+
+def test_a_component_no_score_reads_does_not_move_it() -> None:
+    from career_agent.matching_v2.components import Component
+
+    unused = Component("unused_facts", "1", "job", ("text_parser",))
+    before = identity.reader_identity(SEMANTIC)
+    assert identity.reader_identity(SEMANTIC, _bumped("unused_facts", unused)) == before
+    unused_next = Component("unused_facts", "2", "job", ("text_parser",))
+    assert identity.reader_identity(SEMANTIC, _bumped("x", unused_next)) == before
+
+
+def test_the_legacy_readers_are_part_of_the_semantic_identity(monkeypatch) -> None:
+    before = identity.reader_identity(SEMANTIC)
+    monkeypatch.setattr(identity, "READER_IDENTITY", "readers-99")
+    after = identity.reader_identity(SEMANTIC)
+    assert after != before and after.startswith("readers-99+semantic/")
+    assert identity.reader_identity({}) == "readers-99"
+
+
+def test_a_pay_bump_restales_only_pay_and_what_reads_it() -> None:
+    """Component-aware invalidation below the identity: a stored posting
+    row is stale for `pay_facts` and its dependents, nothing else."""
+    from career_agent.matching_v2 import components as comp
+
+    graph = _bumped("pay_facts")
+    moved = comp.affected({"pay_facts"}, graph)
+    assert moved == {"pay_facts", "compensation_match", "score"}
 
 
 def test_switch_rescore_and_roll_back(corpus, monkeypatch) -> None:
     conn, config = corpus
     legacy, stats = _pass(conn, config, monkeypatch, None)
-    assert stats.work_match_source == "legacy" and stats.reader_identity == "readers-12"
+    assert stats.work_match_source == "legacy" and stats.reader_identity == "readers-14"
     assert stats.work_match_reads == {}
     legacy_digest = _digests(conn)
 
@@ -168,7 +225,7 @@ def test_switch_rescore_and_roll_back(corpus, monkeypatch) -> None:
     # Nothing materialised: facts computed in memory, counted, never written.
     memory, stats = _pass(conn, config, monkeypatch, "semantic_v2")
     assert stats.work_match_source == "semantic_v2"
-    assert stats.reader_identity.startswith("readers-13/")
+    assert stats.reader_identity.startswith("readers-14+semantic/")
     assert stats.work_match_reads == {"read_not_materialised": len(POSTINGS)}
     assert conn.execute("SELECT count(*) FROM job_features").fetchone()[0] == 0
     semantic_digest = _digests(conn)

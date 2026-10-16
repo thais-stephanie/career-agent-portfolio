@@ -171,7 +171,16 @@ IDENTITY_FIELDS = frozenset({"config_id", "config_version", "label"})
 #:              scope (the board's field or the sentence that opened the
 #:              gate) takes the USD period default like Latin America; a band
 #:              the advert says is for U.S. candidates keeps that sentence.
-READER_IDENTITY = "readers-12"
+#:   readers-13 (the semantic work reader's first identity, below).
+#:   readers-14 Salary correctness (2026-10-16): a figure is read whole
+#:              (`$141,162` was read as 141.1 from a cut window), decimals
+#:              after a thousands group are kept, an ordinal (`15th`) is not
+#:              a number, the currency and the period come only from the
+#:              figure's own text (a payroll cadence is never a period), and
+#:              a USD salary band may take a period ASSUMED from its size
+#:              (`period_basis: SALARY_HEURISTIC`). Pay, the compensation
+#:              component and the salary filters move; nothing else.
+READER_IDENTITY = "readers-14"
 
 #: WHICH READER DECIDES WORK MATCHING (Phase D, ADR-0037). `legacy` is the
 #: reader above, unchanged. `semantic_v2` hands `match_job` signals matched
@@ -187,11 +196,19 @@ WORK_MATCH_SOURCES = (WORK_MATCH_LEGACY, WORK_MATCH_SEMANTIC)
 #:              requirement, about the company, a benefit), whose act it is
 #:              and what the profile's evidence policy makes that worth.
 #:              Signals, prominence, screening and the score move; the gates
-#:              do not. The identity is in force ONLY while
-#:              `CAREER_AGENT_WORK_MATCH_SOURCE=semantic_v2`, and carries the
-#:              versions of the semantic components, so a component bump
-#:              re-reads exactly as a bump of this string would.
-SEMANTIC_IDENTITY = "readers-13"
+#:              do not. In force ONLY while
+#:              `CAREER_AGENT_WORK_MATCH_SOURCE=semantic_v2`.
+#:
+#: THE SEMANTIC IDENTITY COVERS THE WHOLE SCORE (2026-10-16). Its first form
+#: (`readers-13/<digest>`) digested the versions of `work_match` and
+#: `tools_match` only, so a change to anything else a semantic score reads --
+#: the pay, seniority, engagement or eligibility facts, and every legacy
+#: reader the semantic path still calls -- moved no identity and left every
+#: score stale without saying so. It is now `READER_IDENTITY` (the legacy
+#: readers the semantic path reuses) plus a digest of every component in the
+#: lineage of `score` (`matching_v2.components`), so bumping ANY component a
+#: score depends on moves it, and a component outside that lineage does not.
+SEMANTIC_IDENTITY = "semantic"
 
 
 def work_match_source(environ: dict[str, str] | None = None) -> str:
@@ -207,14 +224,20 @@ def work_match_source(environ: dict[str, str] | None = None) -> str:
     return raw
 
 
-def reader_identity(environ: dict[str, str] | None = None) -> str:
-    """The identity of the reader this process scores with."""
+def reader_identity(environ: dict[str, str] | None = None, registry: Any = None) -> str:
+    """The identity of the reader this process scores with.
+
+    Legacy: `READER_IDENTITY`. Semantic: `<READER_IDENTITY>+semantic/<digest>`,
+    the digest over the versions of every component in the lineage of
+    `score` and the legacy identity it reuses. `registry` is for tests."""
     if work_match_source(environ) == WORK_MATCH_LEGACY:
         return READER_IDENTITY
     from career_agent.matching_v2 import components as comp
 
-    versions = {**comp.lineage("work_match"), **comp.lineage("tools_match")}
-    return f"{SEMANTIC_IDENTITY}/{comp.digest(versions)[:8]}"
+    graph = comp.REGISTRY if registry is None else registry
+    versions = comp.lineage("score", graph)
+    digest = comp.digest({"readers": READER_IDENTITY, "components": versions})
+    return f"{READER_IDENTITY}+{SEMANTIC_IDENTITY}/{digest[:8]}"
 
 
 def guarded_sections(config: Any) -> list[str]:

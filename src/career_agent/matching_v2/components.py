@@ -58,7 +58,10 @@ REGISTRY: dict[str, Component] = {
         Component(
             "work_facts", "4", "job", ("language", "sentence_context", "semantic_evidence_facts")
         ),
-        Component("pay_facts", "1", "job", ("text_parser",), ("job.metadata",)),
+        # 2 (2026-10-16): salary correctness (`match.pay`): figures read
+        # whole, currency and period from the figure's own text only. Feeds
+        # `compensation_match` and so `score`; nothing else re-reads.
+        Component("pay_facts", "2", "job", ("text_parser",), ("job.metadata",)),
         Component("location_facts", "1", "job", ("text_parser",), ("job.metadata",)),
         Component("seniority_facts", "1", "job", ("text_parser",)),
         Component("engagement_facts", "1", "job", ("text_parser",), ("job.metadata",)),
