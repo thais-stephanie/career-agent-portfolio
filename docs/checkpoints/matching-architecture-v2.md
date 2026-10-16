@@ -1281,3 +1281,29 @@ equal to the originals, `job_match` digest `a79b388e...` (295,552 rows).
 
 Reading a stored row costs 1.6 ms against 19.5 ms to extract it. Cold start
 (import and configuration) 0.7 s.
+
+### Switch rehearsed on the real app, then activated
+
+* Before activation (code integrated, source legacy): legacy -> semantic_v2 ->
+  legacy by restart. Under semantic_v2 with nothing recalculated the app
+  opens, serves the same list, offers the recalculation (171,319 to
+  recalculate) and marks each job's assessment `stale (rules)`; no pass
+  starts by itself. Back on legacy every answer is identical.
+* Activated 2026-10-16T13:22Z: user environment variable
+  `CAREER_AGENT_WORK_MATCH_SOURCE=semantic_v2` (beside
+  `CAREER_AGENT_ELIGIBILITY_SOURCE=v2`), restart, recalculation from the app:
+  run `01M52E1YTV3NTGFYVE0E4JARMG`, 13:22:37Z -> 13:47:08Z (24.5 min),
+  171,319 scored, 0 errors, every posting's facts from the store, identity
+  `readers-13/30b257dc`. The rows are identical in content to the rehearsal
+  and to the shadow; 0 eligibility statuses moved; the second profile has no
+  scores and was not touched; configuration version 7 history unchanged.
+* The reader identity moved at that moment and only then: `readers-12` is
+  still what legacy writes.
+* After activation, semantic_v2 -> legacy -> semantic_v2 by restart: on
+  legacy the app offers the recalculation again and starts none; back on
+  semantic_v2 every answer is identical to before.
+* Rollback: set the variable to `legacy`, restart, recalculate (about an
+  hour, rehearsed). The backup `pre-phase-d-20261016` holds the readers-12
+  state.
+
+### Verdict: PHASE_D_COMPLETE_AND_ACTIVE
