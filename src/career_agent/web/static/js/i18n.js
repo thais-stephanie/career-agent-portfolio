@@ -350,6 +350,9 @@ const EN = {
   'pay.fromYearly': '(monthly equivalent)',
   'pay.fromYearlyAssumed': '(monthly equivalent; yearly assumed)',
   'pay.assumedMonthly': '(monthly assumed)',
+  'pay.assumedHourly': '(hourly assumed)',
+  'pay.assumedBySizeNote': 'The ad gives no period. It calls this a salary or pay range, and a USD range of this '
+    + 'size is read as yearly (over 20,000) or hourly (up to 300).',
   'pay.yearlyNote': 'The ad states {pay}. Shown here divided by 12; it is not a promise of monthly pay.',
   'pay.assumedMonthlyNote': 'The ad gives no period. For a role hiring in Latin America, Career Agent reads a USD '
     + 'figure under 7,000 as monthly.',
@@ -556,6 +559,7 @@ const EN = {
   'pay.qual.monthlyEquivalent': 'Monthly equivalent',
   'pay.qual.yearlyAssumed': 'Yearly period assumed',
   'pay.qual.monthlyAssumed': 'Monthly period assumed',
+  'pay.qual.hourlyAssumed': 'Hourly period assumed',
   'contract.notStatedShort': 'Engagement not stated',
   'contract.notReadShort': 'Not read yet',
   'contract.qualPresumed': 'Presumed by the app',
@@ -5703,6 +5707,9 @@ const PT_BR = {
   'pay.fromYearly': '(equivalente mensal)',
   'pay.fromYearlyAssumed': '(equivalente mensal; anual presumido)',
   'pay.assumedMonthly': '(mensal presumido)',
+  'pay.assumedHourly': '(por hora presumido)',
+  'pay.assumedBySizeNote': 'O anúncio não informa o período. Ele chama isto de salário ou faixa de pagamento, e uma '
+    + 'faixa em USD desse tamanho é lida como anual (acima de 20.000) ou por hora (até 300).',
   'pay.yearlyNote': 'O anúncio informa {pay}. Aqui aparece dividido por 12; não é promessa de pagamento mensal.',
   'pay.assumedMonthlyNote': 'O anúncio não informa o período. Para vagas que contratam na América Latina, o Career '
     + 'Agent lê um valor em USD abaixo de 7.000 como mensal.',
@@ -5869,6 +5876,7 @@ const PT_BR = {
   'pay.qual.monthlyEquivalent': 'Equivalente mensal',
   'pay.qual.yearlyAssumed': 'Período anual presumido',
   'pay.qual.monthlyAssumed': 'Período mensal presumido',
+  'pay.qual.hourlyAssumed': 'Período por hora presumido',
   'contract.notStatedShort': 'Vínculo não informado',
   'contract.notReadShort': 'Ainda não lido',
   'contract.qualPresumed': 'Presumido pelo app',

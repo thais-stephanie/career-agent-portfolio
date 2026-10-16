@@ -333,6 +333,9 @@ export function salaryParts(salary) {
   if (low === null && high === null) return raw ? { text: raw, stated: raw, yearly: false, inferred: false } : null;
   const period = salary.period ? String(salary.period).toUpperCase() : null;
   const inferred = Boolean(salary.period_inferred);
+  // Which rule assumed the period: the size of a USD salary band, or (absent,
+  // as in every score made before 2026-10-16) the Latin America default.
+  const bySize = inferred && salary.period_basis === 'SALARY_HEURISTIC';
   // The advert's own sentence saying this band is the American one.
   const usOnly = typeof salary.us_only === 'string' && salary.us_only ? salary.us_only : null;
   const stated = payRange(salary.currency, low, high, period);
@@ -350,13 +353,18 @@ export function salaryParts(salary) {
       main: monthly,
       quals: [t('pay.qual.monthlyEquivalent'), inferred ? t('pay.qual.yearlyAssumed') : null,
         usOnly ? t('pay.usOnly') : null].filter(Boolean),
-      stated, yearly: true, inferred, usOnly,
+      stated, yearly: true, inferred, bySize, usOnly,
     };
   }
+  // An assumed period is named as the one assumed: an hourly rate is never
+  // labelled "monthly assumed".
+  const hourly = period === 'HOUR';
   return {
-    text: inferred ? `${stated} ${t('pay.assumedMonthly')}` : stated, stated, yearly: false, inferred, usOnly,
+    text: inferred ? `${stated} ${t(hourly ? 'pay.assumedHourly' : 'pay.assumedMonthly')}` : stated,
+    stated, yearly: false, inferred, bySize, usOnly,
     main: stated,
-    quals: [inferred ? t('pay.qual.monthlyAssumed') : null, usOnly ? t('pay.usOnly') : null].filter(Boolean),
+    quals: [inferred ? t(hourly ? 'pay.qual.hourlyAssumed' : 'pay.qual.monthlyAssumed') : null,
+      usOnly ? t('pay.usOnly') : null].filter(Boolean),
   };
 }
 
@@ -461,7 +469,8 @@ export function payNotes(pay) {
   if (!pay) return [];
   const notes = [];
   if (pay.yearly) notes.push(t('pay.yearlyNote', { pay: pay.stated }));
-  if (pay.inferred) notes.push(t(pay.yearly ? 'pay.assumedYearlyNote' : 'pay.assumedMonthlyNote'));
+  if (pay.inferred && pay.bySize) notes.push(t('pay.assumedBySizeNote'));
+  else if (pay.inferred) notes.push(t(pay.yearly ? 'pay.assumedYearlyNote' : 'pay.assumedMonthlyNote'));
   if (pay.usOnly) notes.push(t('pay.usOnlyNote', { quote: pay.usOnly }));
   return notes;
 }

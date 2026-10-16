@@ -59,7 +59,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-__all__ = ["PayReading", "default_period", "read_pay"]
+__all__ = ["PayReading", "default_period", "read_pay", "salary_period_hint"]
 
 
 @dataclass(frozen=True)
@@ -84,6 +84,18 @@ class PayReading:
     #: Which anchor word licensed the reading, for a details view and for
     #: diagnosing a false positive without re-running the parser.
     anchor: str
+    #: A period the text did NOT state but a salary-specific reading makes
+    #: highly likely (`salary_period_hint`), or None. Kept apart from `period`
+    #: on purpose: `period` is evidence, this is a heuristic, and a caller that
+    #: uses it must say the period was assumed.
+    period_hint: str | None = None
+
+    @property
+    def period_basis(self) -> str | None:
+        """`STATED` (the text said it), `HEURISTIC` (only `period_hint`), or None."""
+        if self.period:
+            return "STATED"
+        return "HEURISTIC" if self.period_hint else None
 
 
 #: The words that make a nearby number somebody's pay, measured from the corpus
@@ -141,8 +153,23 @@ _PREFIX = r"R\$|US\$|\$|€|£|¥|" + r"|".join(_CODES)
 
 _AMOUNT = (
     r"(?:(" + _PREFIX + r")\s*)?"
-    r"(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d{1,2})?)"
-    r"\s*([kK])?"
+    # A WHOLE NUMBER, never a piece of one (2026-10-16). Not preceded by a
+    # digit or a separator, so `$141,162` can never be read from its middle;
+    # thousands groups may END in a decimal part (`176,452.50`, `4.500,00`),
+    # which the first version dropped, reporting 176,452.
+    r"(?<![\d.,])(?<!\d[ \u00a0\u202f])"
+    # Nor the second group of a space-grouped figure (`5 300 EUR` is not 300).
+    r"(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![\d]|[.,]\d)"
+    # Thousands grouped by a SPACE (`EUR 42 400,00`) are not read here, and a
+    # figure cut from one would be wrong (42): refused, as before.
+    r"(?![ \u00a0\u202f]\d{3}(?!\d))"
+    # The space before `k` is consumed only WITH the `k`: the end of a figure
+    # is where its digits end, so what follows it (a code, a period, a bonus)
+    # is read from there and never from the next line.
+    r"(?:\s*([kK])(?![a-z]))?"
+    # Not an ordinal: `the 15th and 30th` are days of the month. Other glued
+    # words are how adverts are typed (`$18hr`, `$110,000depending`).
+    r"(?!(?:st|nd|rd|th)\b)"
 )
 
 #: WHAT SEPARATES THE TWO ENDS OF A BAND, and `and` is not optional.
@@ -165,7 +192,7 @@ _AMOUNT = (
 #: marker off the line holding the characters, at which point the gate went
 #: red for a reason no reader could see. Constructing them from code points
 #: means no formatter can separate the two again.
-_DASHES = chr(0x2D) + chr(0x2013) + chr(0x2014)
+_DASHES = chr(0x2D) + chr(0x2013) + chr(0x2014) + chr(0x2212)
 
 _RANGE = re.compile(
     _AMOUNT + r"\s*(?:[" + _DASHES + r"]|to|and|a|e|at[ée]|\.\.\.)\s*" + _AMOUNT,
@@ -181,21 +208,42 @@ _PERIOD = (
     # `hour` or `hourly`, never `hours`: "40 hours per week" is a workload, and
     # reading it as the period of a nearby amount turned a yearly salary into
     # an hourly rate.
+    #
+    # EVERY WORD STARTS A WORD (2026-10-16): `dia` inside `India` and `day`
+    # inside `Weekday` read `India/Pakistan: $15-$19 USD/hour` as a daily
+    # rate, and `ano` sits inside `Mariano`. `months` and `years` are a
+    # duration (`after 6 months`), not the period of a figure.
     (
         re.compile(
-            r"(?:/|per\s+|por\s+|an?\s+)?(?:hour(?:ly)?\b|hora\b|hor[aá]ri[oa]\b|hr\b|/h\b)",
+            r"(?:/|per\s+|por\s+|an?\s+)?"
+            r"(?:(?<![a-z])(?:hour(?:ly)?\b|hora\b|hor[aá]ri[oa]\b|hrs?\b)|/h\b|(?<=\d)ph\b)",
             re.IGNORECASE,
         ),
         "HOUR",
     ),
-    (re.compile(r"(?:/|per\s+|por\s+)?(?:month|m[êe]s|mensal|monthly)", re.IGNORECASE), "MONTH"),
     (
-        re.compile(r"(?:/|per\s+|por\s+)?(?:year|ano|annual|anual|annually|yr\b)", re.IGNORECASE),
+        re.compile(
+            r"(?:/|per\s+|por\s+)?(?<![a-z])(?:month\b|m[êe]s\b|mensal|monthly)",
+            re.IGNORECASE,
+        ),
+        "MONTH",
+    ),
+    (
+        re.compile(
+            r"(?:/|per\s+|por\s+)?"
+            r"(?:(?<![a-z])(?:year\b|yearly|ano\b|annual|anual|annually|annum|yr\b)|(?<=\d)pa\b)",
+            re.IGNORECASE,
+        ),
         "YEAR",
     ),
     # Last, so a monthly or yearly figure that mentions "daily" elsewhere keeps
     # its own period.
-    (re.compile(r"(?:/|per\s+|por\s+)?(?:day|daily|dia|di[aá]ri[oa])\b", re.IGNORECASE), "DAY"),
+    (
+        re.compile(
+            r"(?:/|per\s+|por\s+)?(?<![a-z])(?:day|daily|dia|di[aá]ri[oa])\b", re.IGNORECASE
+        ),
+        "DAY",
+    ),
 )
 
 #: WHAT THE MONEY IS NOT. Each of these appears in thousands of postings beside a
@@ -251,33 +299,136 @@ def _number(digits: str, kilo: str | None) -> float | None:
     return value
 
 
-def _currency(prefix: str | None, window: str) -> str | None:
-    """The trailing code wins over the symbol, because `$ ... CAD` means CAD.
+#: How far past the end of a figure its currency code and its period may be
+#: written (`$29 - $34.75 USD per hour`). Short on purpose: a code or a period
+#: further away belongs to another sentence.
+_TAIL = 30
 
-    A prefix that IS a code is already the answer and needs no lookup, which is
-    what `EUR 60k` and `CAD 90,000` supply.
-    """
+#: A code written right before a figure (`USD $3,000`) or right after it.
+_CODE_BEFORE = re.compile(r"\b(" + "|".join(_CODES) + r")\s*$", re.IGNORECASE)
+_CODE_AFTER = re.compile(r"\s*\(?\s*(" + "|".join(_CODES) + r")\b", re.IGNORECASE)
+
+#: Between the anchor and the figure only a short label may sit (`Salary
+#: range (USD): `). A code further back, or across a sentence, says nothing
+#: about this figure: `Compensation paid in USD` is about the currency of a
+#: payroll, and the next number in the text is a day of the month.
+_GAP = 20
+
+#: WHEN THE MONEY IS PAID IS NOT WHAT IT IS PAID FOR (2026-10-16). `Paid
+#: bi-monthly on the 15th and 30th`, `payroll runs twice monthly`, `paid on the
+#: 1st of every month`: a payroll cadence, which says nothing about whether a
+#: figure is an hourly, a monthly or a yearly amount. Blanked before the period
+#: is looked for.
+_CADENCE = re.compile(
+    r"\b(?:paid|payroll|pay\s*(?:day|date|cycle|schedule)s?)\b[^.\n]{0,40}"
+    r"|\b(?:bi|semi)-?\s*(?:monthly|weekly|annual(?:ly)?)\b"
+    r"|\btwice\s+(?:a\s+|per\s+)?(?:month|monthly|week|year)\b"
+    r"|\bevery\s+(?:other\s+)?(?:month|week)\b"
+    r"|\b(?:daily|weekly|monthly)\s+(?:payouts?|payments?|paychecks?|deposits?)\b",
+    re.IGNORECASE,
+)
+
+#: A period word just before the anchor: `monthly salary`, `annual base pay`.
+_PERIOD_BEFORE = re.compile(
+    # On the anchor's own line: `Home daily` on the line above `Pay` is not
+    # the period of the pay.
+    r"\b(hourly|monthly|annual|yearly|daily|mensal|anual)[ \t]+"
+    r"(?:(?:base|gross|starting|total|target)[ \t]+)?$",
+    re.IGNORECASE,
+)
+
+
+def _currency(prefix: str | None, code: str | None) -> str | None:
+    """A code written with the figure wins over a symbol, because `$ ... CAD`
+    means CAD. A prefix that IS a code is already the answer. Only what is
+    written WITH the figure counts (`_adjacent_code`), never a code met
+    somewhere else in the window."""
     if prefix and prefix.upper() in _CODES:
         return prefix.upper()
-    code = _TRAILING_CODE.search(window)
     if code:
-        return code.group(1).upper()
+        return code.upper()
     if prefix:
         return _SYMBOL.get(prefix)
     return None
 
 
-def _period(window: str, anchor: str = "") -> str | None:
-    """The period can be in the ANCHOR as easily as after the figure.
-
-    `Annual salary: 55,000 - 70,000` says "year" before it says any number, and
-    a reader that only looked forward reported the band with no period at all --
-    which then compares wrongly against every yearly preference.
-    """
-    for pattern, name in _PERIOD:
-        if pattern.search(window) or (anchor and pattern.search(anchor)):
-            return name
+def _adjacent_code(description: str, anchor_end: int, start: int, end: int) -> str | None:
+    """The currency code written with this figure: right after it, right
+    before it, or in a short label between the anchor and it."""
+    after = _CODE_AFTER.match(description, end)
+    if after:
+        return after.group(1)
+    before = _CODE_BEFORE.search(description[max(anchor_end, start - 6) : start])
+    if before:
+        return before.group(1)
+    gap = description[anchor_end:start]
+    if len(gap) <= _GAP and not any(ch.isdigit() for ch in gap):
+        inside = _TRAILING_CODE.search(gap)
+        if inside:
+            return inside.group(1)
+    # Last, after the figure's own period (`$20.00/hour CAD`), and only before
+    # any other number (`CAD $140k-160K or USD$ 110k-130K` is CAD).
+    tail = _tail(description, end)
+    code = _TRAILING_CODE.search(tail)
+    if code and not any(ch.isdigit() for ch in tail[: code.start()]):
+        return code.group(1)
     return None
+
+
+def _period(*regions: str) -> str | None:
+    """The period STATED for this figure, looked for in the regions in the
+    order given (the anchor, `Annual salary`; the label before the figure;
+    right after it, `/hour`, `per year`): the anchor's word beats a word met
+    later. A payroll cadence never counts (`_CADENCE`)."""
+    for region in regions:
+        if not region:
+            continue
+        cleaned = _CADENCE.sub(" ", region)
+        # The word nearest the start of the region: `$65,000 - $90,000
+        # annually, 18 to 22 per hour` is yearly.
+        hits = [(m.start(), name) for pattern, name in _PERIOD if (m := pattern.search(cleaned))]
+        if hits:
+            return min(hits)[1]
+    return None
+
+
+def _label(description: str, at: int, start: int) -> str:
+    """The text between the anchor and the figure, when it is a label
+    (`Salary range (annual): `): no other number in it."""
+    gap = description[at:start]
+    return "" if any(ch.isdigit() for ch in gap) else gap
+
+
+#: Words right before a figure that make it a benefit rather than the pay:
+#: `Tuition reimbursement (up to $5,250)`, `a $500 home office stipend`.
+_BENEFIT_BEFORE = re.compile(
+    r"\b(?:reimburse\w*|stipend|allowance|budget|credit|discount"
+    r"|(?:sign[- ]?on|signing|retention|referral|relocation)\s+bonus)\b[^.\n]{0,10}$",
+    re.IGNORECASE,
+)
+#: And right after it: `$500 sign-on bonus`, `$1,000 learning stipend`.
+_BENEFIT_AFTER = re.compile(
+    # On the figure's own line: `$650,000 - $800,000` followed by a
+    # `Sign-on Bonus:` line below is still the salary.
+    r"[ \t]*(?:(?!(?:plus|and|with|or|an?|the)\b)[A-Za-z-]+[ \t]+){0,2}"
+    r"(?:bonus|stipend|allowance|reimbursement)\b",
+    re.IGNORECASE,
+)
+
+
+def _tail(description: str, end: int) -> str:
+    """What follows a figure up to `_TAIL` characters, stopped at a blank line
+    or the end of a sentence, where the next fact begins."""
+    tail = description[end : end + _TAIL]
+    for stop in ("\n", ". "):
+        at = tail.find(stop)
+        if at >= 0:
+            tail = tail[:at]
+    # Never a word cut in half (`Monday thr` is not `hr`).
+    cut = len(tail) == _TAIL and end + _TAIL < len(description)
+    if cut and description[end + _TAIL].isalnum():
+        tail = tail[: tail.rfind(" ") + 1] if " " in tail else ""
+    return tail
 
 
 def _with_code(description: str, start: int, end: int) -> str:
@@ -287,60 +438,117 @@ def _with_code(description: str, start: int, end: int) -> str:
     return description[start : end + (tail.end() if tail else 0)].strip()
 
 
+#: Anchors that name a salary rather than mention money at all. The period
+#: heuristic needs one; `pay` alone (`we pay for your laptop`) is not enough.
+_SALARY_ANCHOR = re.compile(
+    r"salary|sal[aá]rio|pay\s+range|base\s+pay|compensation|remunera|faixa|hourly|rate|wage",
+    re.IGNORECASE,
+)
+
+
+def salary_period_hint(minimum: float, maximum: float, currency: str, anchor: str) -> str | None:
+    """The period a USD salary band almost certainly has when the ad named
+    none, from a salary anchor AND the magnitude together (2026-10-16).
+
+    `Pay Range: $141,162 - $176,452.50 USD` is a yearly salary and `Pay
+    Range: $29 - $34.75 USD` an hourly rate: no other reading of a dollar
+    salary band of that size is plausible. Not magnitude alone (the anchor
+    must name a salary) and not another currency (other markets write other
+    magnitudes). A figure between the two bands stays unknown. Always a HINT:
+    the caller marks the period as assumed."""
+    if currency.upper() != "USD" or not _SALARY_ANCHOR.search(anchor):
+        return None
+    if minimum <= 0 or maximum < minimum:
+        return None
+    if minimum >= 20_000 and maximum <= 2_000_000:
+        return "YEAR"
+    if minimum >= 7 and maximum <= 300:
+        return "HOUR"
+    return None
+
+
 def read_pay(description: str) -> PayReading | None:
     """The pay this posting states, or None. Pure, and candidate independent.
 
     None is the ordinary answer and is never a defect: most postings say nothing
     about money, and `match/score.py` scores that `salary_unknown` and rejects
     nobody. Compensation is a preference here, never a filter.
+
+    A figure must START within `_WINDOW` characters of the anchor and is read
+    WHOLE, however far it runs: the first version cut the text at seventy
+    characters and read `$141,1` from `$141,162 - $176,452.50` (2026-10-16).
     """
     if not description:
         return None
 
     for anchor in _ANCHOR.finditer(description):
-        window = description[anchor.end() : anchor.end() + _WINDOW]
+        at = anchor.end()
+        reach = at + _WINDOW
         # The sentence around the anchor, so `$400M in ARR` is refused even when
-        # the words sit before the anchor rather than after it.
-        context = description[max(0, anchor.start() - 40) : anchor.end() + _WINDOW]
-        if _NOT_PAY.search(context):
-            continue
+        # the words sit before the anchor rather than after it. Its own
+        # sentence and line: a `401K plan` bullet under `$150,000 - $200,000
+        # USD per year` is another benefit, not this figure's (2026-10-16).
+        line_start = description.rfind("\n", 0, anchor.start()) + 1
+        sentence_start = description.rfind(". ", 0, anchor.start()) + 2
+        context_start = max(anchor.start() - 40, line_start, sentence_start)
+        named = anchor.group(0)
+        before = _PERIOD_BEFORE.search(description[max(0, anchor.start() - 20) : anchor.start()])
+        if before:
+            named = before.group(1) + " " + named
 
-        band = _RANGE.search(window)
-        if band:
-            low = _number(band.group(2), band.group(3))
-            high = _number(band.group(5), band.group(6))
+        # The figure that comes FIRST is the one the anchor introduces: a single
+        # `GBP 73,964` beats a band further on, and a band with no currency
+        # falls back to the single figure rather than losing the anchor.
+        band = _RANGE.search(description, at, reach + 60)
+        one = _SINGLE.search(description, at, reach + 30)
+        found = []
+        if band and band.start() <= reach:
+            found.append((band.start(), 0, band))
+        if one and one.start() <= reach:
+            found.append((one.start(), 1, one))
+        for _, is_single, m in sorted(found, key=lambda f: (f[0], f[1])):
+            # A figure belongs to the NEAREST anchor before it: `Compensation
+            # ... Equity Grade - 6 ... base pay range per year: £120,000` is
+            # read by `base pay range per year`, which also states the period.
+            if _ANCHOR.search(description, at, m.start()):
+                break
+            line_end = description.find("\n", m.end())
+            context_end = min(m.end() + 30, len(description) if line_end < 0 else line_end)
+            if _NOT_PAY.search(description[context_start:context_end]):
+                continue
+            if _BENEFIT_BEFORE.search(_label(description, at, m.start())):
+                continue
+            if _BENEFIT_AFTER.match(description, m.end()):
+                continue
+            if is_single:
+                low = high = _number(m.group(2), m.group(3))
+                prefix = m.group(1)
+            else:
+                low = _number(m.group(2), m.group(3))
+                high = _number(m.group(5), m.group(6))
+                prefix = m.group(1) or m.group(4)
+                # `$75-95k`: the `k` written once is meant for both ends.
+                once = m.group(6) and not m.group(3)
+                if once and low is not None and high is not None and 0 < low < 1000 <= high:
+                    low *= 1000
             if low is None or high is None or low <= 0 or high < low:
                 continue
-            currency = _currency(band.group(1) or band.group(4), window)
+            code = _adjacent_code(description, at, m.start(), m.end())
+            # A BARE NUMBER AFTER "salary" IS NOT A SALARY. `Salary: competitive`
+            # followed by `2026` is a year; without a currency there is nothing
+            # to anchor the figure to and silence is the honest answer.
+            currency = _currency(prefix, code)
             if not currency:
                 continue
+            period = _period(named, _label(description, at, m.start()), _tail(description, m.end()))
             return PayReading(
                 min_value=low,
                 max_value=high,
                 currency=currency,
-                period=_period(window, anchor.group(0)),
-                raw=_with_code(description, anchor.start(), anchor.end() + band.end()),
+                period=period,
+                raw=_with_code(description, anchor.start(), m.end()),
                 anchor=anchor.group(0).lower(),
-            )
-
-        one = _SINGLE.search(window)
-        if one:
-            value = _number(one.group(2), one.group(3))
-            if value is None or value <= 0:
-                continue
-            currency = _currency(one.group(1), window)
-            # A BARE NUMBER AFTER "salary" IS NOT A SALARY. `Salary: competitive`
-            # followed by `2026` is a year; without a currency there is nothing
-            # to anchor the figure to and silence is the honest answer.
-            if not currency:
-                continue
-            return PayReading(
-                min_value=value,
-                max_value=value,
-                currency=currency,
-                period=_period(window, anchor.group(0)),
-                raw=_with_code(description, anchor.start(), anchor.end() + one.end()),
-                anchor=anchor.group(0).lower(),
+                period_hint=None if period else salary_period_hint(low, high, currency, named),
             )
     return None
 

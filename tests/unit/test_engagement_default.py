@@ -262,9 +262,14 @@ def test_a_stated_worldwide_hiring_scope_takes_the_usd_period_default() -> None:
 
 
 def test_global_culture_prose_does_not_widen_where_a_posting_hires() -> None:
-    """ "A global team" is about the company, not about hiring: no period."""
+    """ "A global team" is about the company, not about hiring: the Latin
+    America default does not apply. The band's own text calls it a salary
+    range, so its period may still be ASSUMED from its size (2026-10-16),
+    and the facts say which rule assumed it."""
     salary = _pay_facts()
-    assert salary.get("period") is None and not salary.get("period_inferred")
+    assert salary.get("period_basis") != "LATAM_DEFAULT"
+    if salary.get("period") is not None:
+        assert salary["period_inferred"] and salary["period_basis"] == "SALARY_HEURISTIC"
 
 
 def test_a_band_said_to_be_the_us_one_keeps_its_sentence() -> None:

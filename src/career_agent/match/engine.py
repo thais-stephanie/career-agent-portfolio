@@ -414,7 +414,7 @@ def match_job(
         declared_scope=job.declared_hiring_scope,
         gates=gates,
     )
-    scored, inferred_period = effective_pay(job, gates)
+    scored, inferred_period, period_basis = effective_pay(job, gates)
     screening_state, screening_reason, discovery_channel = evaluate_screening(
         config, observed, str(title.resolved_class)
     )
@@ -476,6 +476,7 @@ def match_job(
         posting_facts=posting_facts(
             scored,
             inferred_period=inferred_period,
+            period_basis=period_basis,
             us_band=shared.us_band,
             explicit=shared.explicit,
         ),
@@ -487,21 +488,30 @@ def match_job(
 _work_model = read_work_model
 
 
-def effective_pay(job: JobFacts, gates) -> tuple[JobFacts, str | None]:
-    """The facts the pay is scored and filtered from, and the period assumed.
+def effective_pay(job: JobFacts, gates) -> tuple[JobFacts, str | None, str | None]:
+    """The facts the pay is scored and filtered from, the period assumed,
+    and why it was assumed.
 
     A figure stated without a period first looks for the period in the
     advert's own text (an explicit statement, in the same currency). Failing
     that, the owner's USD defaults apply to a posting that hires in Latin
-    America (`match.pay.default_period`). The stated facts are never changed:
-    the second value says which period was assumed, None when none was.
-    Public because `match.replay` must assume exactly the same.
+    America (`match.pay.default_period`, basis `LATAM_DEFAULT`), and then a
+    USD band the advert calls a salary takes the period its size makes
+    certain (`match.pay.salary_period_hint`, basis `SALARY_HEURISTIC`). The
+    owner's rule comes first where both apply. The stated facts are never
+    changed: the second value says which period was assumed, None when none
+    was. Public because `match.replay` must assume exactly the same.
     """
     if job.salary_period or (job.salary_min is None and job.salary_max is None):
-        return job, None
-    text = read_pay(job.description) if job.salary_source != "TEXT" else None
-    if text is not None and text.period and text.currency == job.salary_currency:
-        return replace(job, salary_period=text.period), None
+        return job, None, None
+    text = read_pay(job.description)
+    if (
+        job.salary_source != "TEXT"
+        and text is not None
+        and text.period
+        and text.currency == job.salary_currency
+    ):
+        return replace(job, salary_period=text.period), None, None
     # Hiring in Latin America, or a STATED worldwide hiring scope, which
     # includes it: "Anywhere in the World" in a board's scope field left a
     # USD 160,000 to 220,000 band with no period (2026-10-13).
@@ -512,9 +522,19 @@ def effective_pay(job: JobFacts, gates) -> tuple[JobFacts, str | None]:
     period = default_period(
         job.salary_min, job.salary_max, job.salary_currency, hires_in_latam=latam
     )
-    if period is None:
-        return job, None
-    return replace(job, salary_period=period), period
+    if period is not None:
+        return replace(job, salary_period=period), period, "LATAM_DEFAULT"
+    # The heuristic is the TEXT's, so it applies only to the band the text
+    # states: the same currency and the same figures as the facts scored.
+    if (
+        text is not None
+        and text.period_hint
+        and text.currency == job.salary_currency
+        and text.min_value == job.salary_min
+        and text.max_value == job.salary_max
+    ):
+        return replace(job, salary_period=text.period_hint), text.period_hint, "SALARY_HEURISTIC"
+    return job, None, None
 
 
 _READ = object()
@@ -524,6 +544,7 @@ def posting_facts(
     job: JobFacts,
     *,
     inferred_period: str | None = None,
+    period_basis: str | None = None,
     us_band: str | None | object = _READ,
     explicit: dict[str, object] | None = None,
 ) -> dict[str, object]:
@@ -569,6 +590,10 @@ def posting_facts(
             # with the stated one (none) kept beside it.
             salary["period"] = inferred_period
             salary["period_inferred"] = True
+            # Which rule assumed it: the owner's Latin America default or the
+            # size of a USD salary band (`effective_pay`).
+            if period_basis:
+                salary["period_basis"] = period_basis
     # What the BOARD PRINTED about where this is, resolved to codes so the
     # interface can offer "postings in Brazil" without every query LIKE-ing
     # over free text. Emphatically NOT hiring scope: a posting in San Francisco

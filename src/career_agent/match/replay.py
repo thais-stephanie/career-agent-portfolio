@@ -119,7 +119,7 @@ def replay(
     """
     observed = observed_from(config, stored)
     scoring_signals = body_only(config, observed)
-    scored, inferred_period = effective_pay(job, stored.gates)
+    scored, inferred_period, period_basis = effective_pay(job, stored.gates)
     components = score_components(
         config,
         observed_body=scoring_signals,
@@ -169,7 +169,9 @@ def replay(
         # Recomputed from `job` rather than carried, because it is a projection
         # of the facts this call was handed and `match_job` computes it the same
         # way. If the facts had moved, the replay would have been refused.
-        posting_facts=posting_facts(scored, inferred_period=inferred_period),
+        posting_facts=posting_facts(
+            scored, inferred_period=inferred_period, period_basis=period_basis
+        ),
         semantic=semantic,
         computed_at=computed_at,
     )
