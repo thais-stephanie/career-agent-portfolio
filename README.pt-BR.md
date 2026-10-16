@@ -7,7 +7,7 @@
 <h1 align="center">✧ <strong>Career</strong> <em>Agent</em> ✧</h1>
 
 <p align="center">
-  Encontre vagas em <strong>26 fontes integradas</strong>, entenda por que elas combinam com a sua busca e adapte seu currículo usando experiências que você consegue comprovar.
+  Encontre vagas em <strong>27 fontes integradas</strong>, entenda por que elas combinam com a sua busca e adapte seu currículo usando experiências que você consegue comprovar.
 </p>
 
 <p align="center">
@@ -156,7 +156,7 @@ As três são capturas da demonstração, com vagas sintéticas e uma pessoa can
 
 | Área | O que você recebe |
 |---|---|
-| Descobrir | Vagas de 26 fontes integradas, sem duplicatas, em uma lista, além da importação manual de qualquer vaga. Cada vaga mantém sua fonte e o histórico de coleta. Visões Cards, Table e Board; a Table exporta os resultados GOOD e STRONG atuais em um arquivo CSV. |
+| Descobrir | Vagas de 27 fontes integradas, sem duplicatas, em uma lista, além da importação manual de qualquer vaga. Cada vaga mantém sua fonte e o histórico de coleta. Visões Cards, Table e Board; a Table exporta os resultados GOOD e STRONG atuais em um arquivo CSV. |
 | Elegibilidade | Restrições de contratação (país, autorização de trabalho, credencial de segurança) são verificadas separadamente das preferências. "Remoto" nunca é lido como "qualquer lugar do mundo"; uma vaga que não diz onde contrata fica sem resolução. |
 | Search Fit | Uma nota de 0 a 100 com uma faixa (STRONG, GOOD, MODERATE, WEAK), motivos citados da vaga e o que a vaga não informou. **Posting completeness** aparece ao lado e nunca altera a nota. |
 | Career Evidence | O Career Agent lê seu currículo no seu computador e propõe afirmações. Cada uma só entra no seu Career Profile quando você a confirma. |
@@ -167,7 +167,7 @@ As três são capturas da demonstração, com vagas sintéticas e uma pessoa can
 
 | Recurso | Situação |
 |---|---|
-| Coleta de 26 fontes, elegibilidade, Search Fit, Career Evidence, candidaturas | Parte deste Beta |
+| Coleta de 27 fontes, elegibilidade, Search Fit, Career Evidence, candidaturas | Parte deste Beta |
 | Perfis locais (várias pessoas em uma instalação) | Parte deste Beta |
 | Catálogo local compartilhado de vagas | Parte deste Beta |
 | Currículos (Resume Workspace V2) | Beta |
@@ -202,12 +202,12 @@ nenhuma nota de correspondência.
 
 ## Fontes de vagas
 
-O Career Agent possui **26 fontes de vagas integradas** com cobertura global,
+O Career Agent possui **27 fontes de vagas integradas** com cobertura global,
 dos Estados Unidos, Europa, LATAM e Brasil.
 
 | Cobertura | Fontes integradas |
 |---|---|
-| ATS e sistemas de empresas | Greenhouse, Lever, Ashby, Workday, Workable, Teamtailor, Rippling, Recruitee, Comeet, Gupy |
+| ATS e sistemas de empresas | Greenhouse, Lever, Ashby, Workday, Workable, Teamtailor, Rippling, Recruitee, Comeet, Gupy, Pinpoint |
 | Job boards remotos e globais | We Work Remotely, Remote OK, Himalayas, Jobicy, 4 Day Week, Remotive, Working Nomads, Dynamite Jobs, Arbeitnow |
 | Redes e agregadores | a16z Speedrun, Jobgether, Jooble |
 | LATAM e Brasil | Get on Board, Recruiterflow, Avlis Talent, Programathor |

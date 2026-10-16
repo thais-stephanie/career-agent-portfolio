@@ -7,7 +7,7 @@
 <h1 align="center">✧ <strong>Career</strong> <em>Agent</em> ✧</h1>
 
 <p align="center">
-  Find jobs across <strong>26 integrated sources</strong>, understand why they match your search, and tailor your resume using experience you can back up.
+  Find jobs across <strong>27 integrated sources</strong>, understand why they match your search, and tailor your resume using experience you can back up.
 </p>
 
 <p align="center">
@@ -154,7 +154,7 @@ All three are captures of the demo, with synthetic jobs and an invented candidat
 
 | Area | What you get |
 |---|---|
-| Discover | Postings from 26 integrated sources, deduplicated into one list, plus manual import of any posting. Each posting keeps its source and collection history. Cards, Table and Board views; Table exports the current GOOD and STRONG results as a CSV file. |
+| Discover | Postings from 27 integrated sources, deduplicated into one list, plus manual import of any posting. Each posting keeps its source and collection history. Cards, Table and Board views; Table exports the current GOOD and STRONG results as a CSV file. |
 | Eligibility | Hiring restrictions (country, work permit, clearance) are checked separately from preferences. "Remote" is never read as worldwide; a posting that does not say where it hires stays unresolved. Unresolved postings are listed by default, each saying what is left to confirm (where the employer hires, or a requirement you have not answered); one switch hides them, and that choice is remembered. The company's headquarters is never read as a hiring restriction. |
 | Search Fit | A 0 to 100 score with a band (STRONG, GOOD, MODERATE, WEAK), reasons quoted from the posting and the facts the posting left out. **Posting completeness** is shown beside it and never changes it. |
 | Career Evidence | Career Agent reads your CV on your computer and proposes statements. Each one becomes part of your Career Profile only when you confirm it. |
@@ -165,7 +165,7 @@ All three are captures of the demo, with synthetic jobs and an invented candidat
 
 | Feature | Status |
 |---|---|
-| Collection from 26 sources, eligibility, Search Fit, Career Evidence, applications | Part of this Beta |
+| Collection from 27 sources, eligibility, Search Fit, Career Evidence, applications | Part of this Beta |
 | Local profiles (several people on one installation) | Part of this Beta |
 | Shared local job catalogue | Part of this Beta |
 | Resumes (Resume Workspace V2) | Beta |
@@ -187,6 +187,9 @@ sentence from the posting. The title alone earns nothing.
 - A posting that does not state a level is scored as mid-level (Pleno).
 - An unstated salary or contract earns a middle value, between a mismatch and
   a match.
+- A salary is read with its currency and period. When the posting states an
+  amount but no period, the period is inferred only from the amount's size and
+  the card says so ("Read as ..."); nothing is converted between currencies.
 - **Role anchors** are the job titles you have in mind. They steer which
   searches Career Agent runs (for example on Himalayas and LinkedIn); they do
   not add points to a posting.
@@ -200,12 +203,12 @@ score at all.
 
 ## Job sources
 
-Career Agent has **26 integrated job sources** across global, U.S., European,
+Career Agent has **27 integrated job sources** across global, U.S., European,
 LATAM and Brazilian markets.
 
 | Coverage | Integrated sources |
 |---|---|
-| ATS & employer systems | Greenhouse, Lever, Ashby, Workday, Workable, Teamtailor, Rippling, Recruitee, Comeet, Gupy |
+| ATS & employer systems | Greenhouse, Lever, Ashby, Workday, Workable, Teamtailor, Rippling, Recruitee, Comeet, Gupy, Pinpoint |
 | Remote & global boards | We Work Remotely, Remote OK, Himalayas, Jobicy, 4 Day Week, Remotive, Working Nomads, Dynamite Jobs, Arbeitnow |
 | Networks & aggregators | a16z Speedrun, Jobgether, Jooble |
 | LATAM & Brazil | Get on Board, Recruiterflow, Avlis Talent, Programathor |
@@ -222,6 +225,17 @@ Neither wakes a paused source or asks a site that refused before its wait is
 over. Nothing is collected until you press a button. The markets you choose to
 search first only set the order; no source is skipped for being in another
 market, and where you live never narrows the search.
+
+Each source row says what its last refresh did, in one vocabulary: **new
+jobs**, **no new jobs**, **only duplicates**, **partial failure** (some boards
+failed, the rest were read), **failed**, **running**, **not run yet**,
+**quota exhausted** (Jooble: its key's lifetime budget is spent), **planned**
+(permitted, not built) or **disabled**. A source that refuses or changes its
+format is shown as failed, never as "0 jobs".
+
+When an aggregator saw a vacancy before the employer's own board was
+collected, its row is folded into the employer's posting once both are held;
+the aggregator stays recorded as where the posting was also seen.
 
 [Source permissions and coverage notes](docs/SOURCES.md)
 
@@ -330,7 +344,9 @@ continuous integration: the gate runs on the maintainer's Windows computer.
 - LinkedIn collection is experimental. LinkedIn may refuse or rate-limit it,
   and a refused source waits a day.
 - Source availability changes, and some sources return only recent windows or
-  metadata. A posting that does not say where it hires stays unresolved.
+  metadata. Gupy moved its public feed in 2026-10 and Career Agent follows the
+  new address; a future move shows as a failed refresh. Jooble's shipped key
+  has no requests left: it shows as quota exhausted until you add your own. A posting that does not say where it hires stays unresolved.
 - Career Agent's interface is in English and Brazilian Portuguese.
 - The local model reading takes minutes on a laptop processor.
 - PDF export needs Microsoft Edge or Chrome on the computer.

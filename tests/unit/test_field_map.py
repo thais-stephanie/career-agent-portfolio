@@ -394,6 +394,9 @@ RECORDED = {
     # Recorded from Tellent's production payload on 2026-09-10. These are
     # the adapter's archived fields, including its explicit code translations.
     "recruitee": [("board-postings", lambda d: d["postings"])],
+    # INVENTED in the shape answered on 2026-10-16 and run through the adapter,
+    # so the fixture holds its archived fields; labelled in the file itself.
+    "pinpoint": [("board-postings", lambda d: d["postings"])],
     # CAPTURED live 2026-09-11 from the public window, with bodies trimmed.
     # The vendor's own API page grants access "so that developers can share
     # our jobs further", which is what makes a capture permitted here.

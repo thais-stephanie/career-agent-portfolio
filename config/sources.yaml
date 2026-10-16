@@ -750,6 +750,16 @@ providers:
       "workplace": work_model_hint
       "employment_type": employment_type_hint
 
+  pinpoint:
+    # Tenant ATS family, added 2026-10-16. `<tenant>.pinpointhq.com/postings.json`
+    # over HTTPS; a tenant is registered only after its listing validated
+    # (real postings, not the vendor's demo board).
+    enabled: true
+    api_base: "https://{tenant}.pinpointhq.com"
+    strategy: list_with_content
+    field_map:
+      "workplace": work_model_hint
+      "employment_type": employment_type_hint
   comeet:
     # Reusable ATS family, added 2026-09-12. The Careers API 2.0 behind
     # every `www.comeet.com/jobs/{slug}/{company_uid}` hosted page, read

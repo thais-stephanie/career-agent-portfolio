@@ -63,6 +63,8 @@ def _sight_by_origin(conn: sqlite3.Connection) -> None:
         f" AND provider IN ({marks})",
         providers,
     ).fetchall()
+    if not rows:
+        return
     payloads = ProviderPayloadRepo(conn).latest_for_jobs([str(r[0]) for r in rows])
     found = []
     for job_id, provider, external_id, url in rows:

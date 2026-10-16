@@ -1,0 +1,57 @@
+{
+  "capture_note": "INVENTED, not recorded: the shape of {tenant}.pinpointhq.com/postings.json read 2026-10-16, run through the adapter. Fictional tenant and postings.",
+  "postings": [
+    {
+      "id": 1,
+      "title": "Integration Specialist 1 (fictional)",
+      "url": "https://acme-ficticia.pinpointhq.com/en/postings/00000001-aaaa-bbbb-cccc-000000000000",
+      "path": "/en/postings/00000001-aaaa-bbbb-cccc-000000000000",
+      "description": "<p>We are a fictional company.</p>",
+      "key_responsibilities": "<ul><li>Build API integrations.</li></ul>",
+      "skills_knowledge_expertise": "<ul><li>HubSpot and Zapier.</li></ul>",
+      "benefits": "<p>Remote work.</p>",
+      "workplace_type": "remote",
+      "employment_type": "Full-time",
+      "compensation_visible": false,
+      "location": {
+        "name": "Brazil",
+        "city": "Sao Paulo",
+        "province": "SP"
+      },
+      "job": {
+        "department": {
+          "name": "Operations"
+        }
+      },
+      "workplace": "remote",
+      "source_posting_url": "https://acme-ficticia.pinpointhq.com/en/postings/00000001-aaaa-bbbb-cccc-000000000000",
+      "apply_url": "https://acme-ficticia.pinpointhq.com/en/postings/00000001-aaaa-bbbb-cccc-000000000000"
+    },
+    {
+      "id": 2,
+      "title": "Integration Specialist 2 (fictional)",
+      "url": "https://acme-ficticia.pinpointhq.com/en/postings/00000002-aaaa-bbbb-cccc-000000000000",
+      "path": "/en/postings/00000002-aaaa-bbbb-cccc-000000000000",
+      "description": "<p>We are a fictional company.</p>",
+      "key_responsibilities": "<ul><li>Build API integrations.</li></ul>",
+      "skills_knowledge_expertise": "<ul><li>HubSpot and Zapier.</li></ul>",
+      "benefits": "<p>Remote work.</p>",
+      "workplace_type": "hybrid",
+      "employment_type": "Contract",
+      "compensation_visible": false,
+      "location": {
+        "name": "Brazil",
+        "city": "Sao Paulo",
+        "province": "SP"
+      },
+      "job": {
+        "department": {
+          "name": "Operations"
+        }
+      },
+      "workplace": "hybrid",
+      "source_posting_url": "https://acme-ficticia.pinpointhq.com/en/postings/00000002-aaaa-bbbb-cccc-000000000000",
+      "apply_url": "https://acme-ficticia.pinpointhq.com/en/postings/00000002-aaaa-bbbb-cccc-000000000000"
+    }
+  ]
+}

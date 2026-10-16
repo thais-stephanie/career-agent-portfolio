@@ -1,3 +1,22 @@
+# Unreleased (release hardening, 2026-10-16)
+
+- **Salary.** Amounts with no stated period are read with an inferred period
+  only from their size, and the card says it was inferred; a monthly LATAM
+  amount is no longer read as yearly. Scores are recalculated.
+- **Gupy** follows its feed's new address; a changed response is an error,
+  never "0 jobs".
+- **Pinpoint** is the 27th integrated source, for employers whose own board
+  answered with real postings.
+- **Source rows** say what the last refresh did in one vocabulary (new jobs,
+  no new jobs, only duplicates, partial failure, failed, quota exhausted,
+  planned, disabled).
+- **Employer career pages** that link an Ashby, Greenhouse, Lever, Workable,
+  Teamtailor, Recruitee, Rippling or Pinpoint board are recognised.
+- **Eligibility.** An aggregator's "Anywhere" beside an advert headed
+  "Remote - North America" is "to confirm", no longer eligible.
+- **Duplicates.** An aggregator's row folds into the employer's own posting
+  once both are held; the aggregator stays recorded as a sighting.
+
 # v0.2.0-beta.3
 
 Career Agent 0.2.0b3. It replaces v0.2.0-beta.2. Resumes replaces Resume
