@@ -44,6 +44,7 @@ from career_agent.providers import (
     jobicy,
     jooble,
     lever,
+    pinpoint,
     programathor,
     recruitee,
     remotive,
@@ -79,6 +80,7 @@ from career_agent.providers.jobicy import JobicyProvider
 from career_agent.providers.jooble import JoobleProvider
 from career_agent.providers.lever import LeverProvider
 from career_agent.providers.linkedin_jobspy import LinkedInJobSpyProvider
+from career_agent.providers.pinpoint import PinpointProvider
 from career_agent.providers.programathor import ProgramathorProvider
 from career_agent.providers.recruitee import RecruiteeProvider
 from career_agent.providers.recruiterflow import RecruiterflowProvider
@@ -154,6 +156,7 @@ _FACTORIES: dict[str, Callable[[HttpFetcher], JobProvider]] = {
     "workingnomads": WorkingNomadsProvider,
     "recruitee": RecruiteeProvider,
     "rippling": RipplingProvider,
+    "pinpoint": PinpointProvider,
     "comeet": ComeetProvider,
     "teamtailor": TeamtailorProvider,
     "workday": WorkdayProvider,
@@ -195,6 +198,7 @@ _FIELD_MAPS: dict[str, ProviderFieldMap] = {
     "workingnomads": WorkingNomadsProvider.field_map,
     "recruitee": RecruiteeProvider.field_map,
     "rippling": RipplingProvider.field_map,
+    "pinpoint": PinpointProvider.field_map,
     "comeet": ComeetProvider.field_map,
     "teamtailor": TeamtailorProvider.field_map,
     "workday": WorkdayProvider.field_map,
@@ -238,6 +242,7 @@ _CAPABILITIES: dict[str, ProviderCapabilities] = {
     "workingnomads": WorkingNomadsProvider.capabilities,
     "recruitee": RecruiteeProvider.capabilities,
     "rippling": RipplingProvider.capabilities,
+    "pinpoint": PinpointProvider.capabilities,
     "comeet": ComeetProvider.capabilities,
     "teamtailor": TeamtailorProvider.capabilities,
     "workday": WorkdayProvider.capabilities,
@@ -270,6 +275,7 @@ _KINDS: dict[str, ProviderKind] = {
     "workingnomads": WorkingNomadsProvider.kind,
     "recruitee": RecruiteeProvider.kind,
     "rippling": RipplingProvider.kind,
+    "pinpoint": PinpointProvider.kind,
     "comeet": ComeetProvider.kind,
     "teamtailor": TeamtailorProvider.kind,
     "workday": WorkdayProvider.kind,
@@ -307,6 +313,7 @@ _RETRIEVAL_MODES: dict[str, RetrievalMode] = {
     "workingnomads": WorkingNomadsProvider.retrieval_mode,
     "recruitee": RecruiteeProvider.retrieval_mode,
     "rippling": RipplingProvider.retrieval_mode,
+    "pinpoint": PinpointProvider.retrieval_mode,
     "comeet": ComeetProvider.retrieval_mode,
     "teamtailor": TeamtailorProvider.retrieval_mode,
     "workday": WorkdayProvider.retrieval_mode,
@@ -375,6 +382,7 @@ _COMPENSATION_READERS: dict[str, CompensationReader] = {
     "jobicy": jobicy.read_compensation,
     "remotive": remotive.read_compensation,
     "rippling": rippling.read_compensation,
+    "pinpoint": pinpoint.read_compensation,
     "comeet": comeet.read_compensation,
     "lever": lever.read_compensation,
     "programathor": programathor.read_compensation,
@@ -407,6 +415,7 @@ _COMPENSATION_PATHS: dict[str, tuple[str, ...]] = {
     "greenhouse": greenhouse.COMPENSATION_PATHS,
     "lever": lever.COMPENSATION_PATHS,
     "speedrun": speedrun.COMPENSATION_PATHS,
+    "pinpoint": pinpoint.COMPENSATION_PATHS,
 }
 
 
@@ -415,6 +424,7 @@ _COMPENSATION_PATHS: dict[str, tuple[str, ...]] = {
 _BY_COMPANY: dict[str, bool] = {
     "recruitee": RecruiteeProvider.addresses_boards_by_company,
     "rippling": RipplingProvider.addresses_boards_by_company,
+    "pinpoint": PinpointProvider.addresses_boards_by_company,
     "comeet": ComeetProvider.addresses_boards_by_company,
     "teamtailor": TeamtailorProvider.addresses_boards_by_company,
     "ashby": AshbyProvider.addresses_boards_by_company,
@@ -669,6 +679,7 @@ _BOARD_RECOGNISERS: dict[str, BoardUrlRecogniser] = {
     "lever": lever.recognise_board_url,
     "recruitee": recruitee.recognise_board_url,
     "rippling": rippling.recognise_board_url,
+    "pinpoint": pinpoint.recognise_board_url,
     "comeet": comeet.recognise_board_url,
     "teamtailor": teamtailor.recognise_board_url,
     "workable": workable.recognise_board_url,

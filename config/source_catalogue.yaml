@@ -1498,29 +1498,36 @@ sources:
   - id: pinpoint
     name: Pinpoint
     region: global
-    status: SEARCH_LINK
+    status: LIVE_INTEGRATION
+    provider: pinpoint
     authorization: >-
-      Permitted on the vendor host. `www.pinpointhq.com/robots.txt`, read
-      2026-09-11: `User-Agent: *` excluding only marketing utility and legal
-      paths, no AI crawler named. A tenant board is `{tenant}.pinpointhq.com`,
-      whose own robots file this product has not read because no tenant is
-      known.
+      Permitted. `www.pinpointhq.com/robots.txt`, read 2026-09-11:
+      `User-Agent: *` excluding only marketing utility and legal paths, no AI
+      crawler named. A tenant's own robots file, read on 2026-10-16 for
+      safetywing, indrive and newfireglobal, disallows only `/mydata`,
+      `/admin`, `/companies` and some posting paths, never `/postings.json`;
+      an unknown tenant answers `Disallow: /` and a 404.
     note: >-
-      A REUSABLE ATS FAMILY WITH NO VERIFIED TENANT. No Pinpoint identity
-      appears on any of the 286 registered companies, in any archived payload
-      or in any raw body of the 208,000-posting corpus (measured 2026-09-11),
-      and nothing on a vendor site names its customers. The family is
-      therefore not built: the contract (`/postings.json` on a tenant) would
-      be verified against a board nobody published, which is the guess this
-      project refuses. Site detection can be extended the day a careers page
-      names one.
-    coverage: PLANNED
+      A REUSABLE ATS FAMILY, built 2026-10-16. Tenant identities come from the
+      employer's own careers page (site detection recognises a Pinpoint link)
+      or from a public web index (Common Crawl), and an index hit is only a
+      CANDIDATE: a tenant is registered after its own `postings.json` answered
+      with real postings and without the canned demonstration postings an
+      abandoned trial tenant serves (`scripts/pinpoint_tenants.py`).
+    coverage: OPERATIONAL
     reason_plain: >-
-      Nothing forbids it and no employer board is known. The first tenant an
-      employer's own careers page names is what unblocks it.
-    reason: Family unbuilt for want of one published tenant identity.
+      Complete adverts from employers' own Pinpoint boards, with the employer's
+      remote, hybrid or on-site label and pay when the employer shows it.
+    reason: >-
+      One request per tenant: `GET {tenant}.pinpointhq.com/postings.json` answers
+      `{data: [...]}` with every open posting and the whole advert in four HTML
+      sections, a structured `workplace_type`, `employment_type`, an optional
+      visible salary and a free-text location. No published date and no
+      country code are offered. Measured 2026-10-16: inDrive 140 postings across
+      about 25 countries including Mexico, Peru, Colombia and Brazil; Newfire 16,
+      all remote.
     search_url: https://www.pinpointhq.com/
-    unblocked_by: One employer-published `{tenant}.pinpointhq.com` identity.
+    unblocked_by: Register further validated tenants.
 
   - id: personio
     name: Personio

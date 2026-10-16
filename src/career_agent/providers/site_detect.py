@@ -384,6 +384,10 @@ _BOARD_ROOTS: dict[str, re.Pattern[str]] = {
         r"^https://ats\.rippling\.com/(?P<slug>[a-z0-9][a-z0-9-]{0,62})/jobs/?(?:[?#].*)?$",
         re.IGNORECASE,
     ),
+    "pinpoint": re.compile(
+        r"^https://(?P<slug>[a-z0-9][a-z0-9-]{0,62})\.pinpointhq\.com/?(?:[a-z]{2}/?)?(?:postings/?)?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
 }
 
 #: Path segments on those hosts that are the VENDOR's, not a customer's.

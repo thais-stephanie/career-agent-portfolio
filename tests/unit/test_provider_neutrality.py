@@ -242,7 +242,10 @@ ORDINARY_WORD_USES: dict[str, frozenset[str]] = {
     # that checks it is two letters. Neither is a vendor payload path: this
     # module reads nothing a provider sent and writes only the person's own
     # answers into her own file.
-    "config/candidate_writer.py": frozenset({"country"}),
+    "config/candidate_writer.py": frozenset({"country", "compensation_currency"}),
+    # The candidate's own preferred pay currency, a key of her settings; Pinpoint
+    # (2026-10-16) happens to name a payload field the same way.
+    "config/ownership.py": frozenset({"compensation_currency"}),
     "sources/catalogue.py": frozenset({"region"}),
     # The same word, in the same sense, in the module that renders the source
     # matrix: `region` here is the catalogue's own column saying which part of

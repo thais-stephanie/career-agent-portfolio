@@ -3489,3 +3489,56 @@ companies:
         discovery_method: "careers_page_links_2026_09_11"
         verified_at: "2026-09-11T10:20:00Z"
 
+
+  # PINPOINT (2026-10-16). Tenant names came from a public web index and the
+  # provider research as CANDIDATES; each was accepted only after its own
+  # `postings.json` answered with real postings, every link on the tenant's
+  # host and none of the canned demonstration postings
+  # (`scripts/pinpoint_tenants.py`, run 2026-10-16).
+  - slug: indrive
+    name: "inDrive"
+    canonical_domain: "indrive.com"
+    website: "https://indrive.com"
+    discovery_source: "public_index_candidate_validated_on_vendor_board"
+    boards:
+      - provider: pinpoint
+        board_identifier: "indrive"
+        board_url: "https://indrive.pinpointhq.com"
+        discovery_method: "common_crawl_candidate_validated_2026_10_16"
+        verified_at: "2026-10-16T22:00:00Z"
+
+  - slug: newfire-global
+    name: "Newfire Global Partners"
+    canonical_domain: "newfireglobal.com"
+    website: "https://www.newfireglobal.com"
+    discovery_source: "public_index_candidate_validated_on_vendor_board"
+    boards:
+      - provider: pinpoint
+        board_identifier: "newfireglobal"
+        board_url: "https://newfireglobal.pinpointhq.com"
+        discovery_method: "common_crawl_candidate_validated_2026_10_16"
+        verified_at: "2026-10-16T22:00:00Z"
+
+  - slug: digital-science
+    name: "Digital Science"
+    canonical_domain: "digital-science.com"
+    website: "https://www.digital-science.com"
+    discovery_source: "public_index_candidate_validated_on_vendor_board"
+    boards:
+      - provider: pinpoint
+        board_identifier: "digitalscience"
+        board_url: "https://digitalscience.pinpointhq.com"
+        discovery_method: "common_crawl_candidate_validated_2026_10_16"
+        verified_at: "2026-10-16T22:00:00Z"
+
+  - slug: safetywing
+    name: "SafetyWing"
+    canonical_domain: "safetywing.com"
+    website: "https://safetywing.com"
+    discovery_source: "public_index_candidate_validated_on_vendor_board"
+    boards:
+      - provider: pinpoint
+        board_identifier: "safetywing"
+        board_url: "https://safetywing.pinpointhq.com"
+        discovery_method: "common_crawl_candidate_validated_2026_10_16"
+        verified_at: "2026-10-16T22:00:00Z"
