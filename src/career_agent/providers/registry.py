@@ -687,6 +687,25 @@ _BOARD_RECOGNISERS: dict[str, BoardUrlRecogniser] = {
 }
 
 
+#: Aggregators whose stored payload names the employer's own posting (the
+#: origin pointer, ADR-0013). Asked by `pipeline/fold_sighted.py`, which names
+#: no vendor.
+_ORIGIN_READERS: dict[str, Callable[[Any], str | None]] = {
+    "speedrun": speedrun.origin_url,
+}
+
+
+def origin_reader_providers() -> tuple[str, ...]:
+    """The aggregators whose payload carries an origin pointer."""
+    return tuple(sorted(_ORIGIN_READERS))
+
+
+def origin_url_of(provider: str, payload: Any) -> str | None:
+    """The employer's own posting URL an aggregator's payload names, or None."""
+    reader = _ORIGIN_READERS.get(provider)
+    return reader(payload) if reader is not None else None
+
+
 def identify_board_url(url: str) -> tuple[str, str, str | None] | None:
     """Which family's hosted board this posting URL is on, and which board.
 

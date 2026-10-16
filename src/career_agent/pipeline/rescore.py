@@ -33,6 +33,7 @@ from career_agent.match.identity import reader_identity
 from career_agent.match.replay import replay
 from career_agent.matching_v2 import phase_c, phase_d
 from career_agent.pipeline.facts import job_facts
+from career_agent.pipeline.fold_sighted import fold_sighted_duplicates
 from career_agent.storage import invalidation, search_index
 from career_agent.storage.db import transaction
 from career_agent.storage.mvp_repo import (
@@ -150,6 +151,9 @@ class RescoreStats:
     #: the first -- which is the only way a reader can tell a replay that was
     #: not possible from one that was not attempted.
     jobs_replayed: int = 0
+    #: Aggregator rows closed because their vacancy is a sighting on the
+    #: employer's own open posting (`pipeline/fold_sighted.py`).
+    duplicates_folded: int = 0
     #: Where eligibility facts came from (Phase C, ADR-0037): `legacy` reads
     #: them from each advert; `v2` reads the stored shared facts and counts
     #: every posting that had to be read instead (`eligibility_reads`).
@@ -516,6 +520,10 @@ def rescore(
     # identity. See `match/identity.py`.
     identity = reading_identity(config)
     run_id = _start_run(conn)
+    # One vacancy, one open posting: an aggregator's own row whose vacancy is
+    # now a sighting on the employer's posting closes as folded before anything
+    # is planned (`pipeline/fold_sighted.py`).
+    stats.duplicates_folded = len(fold_sighted_duplicates(conn))
 
     try:
         # Explicit/forced work must survive a crash even if the old score has
