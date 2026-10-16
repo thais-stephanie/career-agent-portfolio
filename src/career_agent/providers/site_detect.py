@@ -335,9 +335,110 @@ DETECTORS = {
 }
 
 
+# =========================================================================
+# EVERY OTHER FAMILY: the links a careers page publishes (2026-10-16)
+# =========================================================================
+#
+# A careers page that links its openings on a hosted board has published that
+# board. Rather than a pattern per vendor here, every link, script and form
+# target on the page is handed to the registry's own posting-URL recognisers
+# (`registry.identify_board_url`): the same code that names the board of a
+# posting URL collected from an aggregator, so a family gains careers-page
+# discovery the day it gains a recogniser, and nothing reads a page's prose.
+
+#: An absolute URL in an attribute a page uses to point somewhere.
+_ATTRIBUTE_URL = re.compile(
+    r"""(?:href|src|action|data-src|data-href)\s*=\s*["'](https://[^"'\s<>]{8,500})["']""",
+    re.IGNORECASE,
+)
+
+#: A link to a board's ROOT ("See our open roles"), which names the board and
+#: no posting, so the posting-URL recognisers do not read it. One pattern per
+#: family whose board is a path or a subdomain the employer published.
+_BOARD_ROOTS: dict[str, re.Pattern[str]] = {
+    "greenhouse": re.compile(
+        r"^https://(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io/(?P<slug>[a-z0-9][a-z0-9_-]{0,62})/?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
+    "lever": re.compile(
+        r"^https://jobs(?:\.eu)?\.lever\.co/(?P<slug>[a-z0-9][a-z0-9._-]{0,62})/?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
+    "ashby": re.compile(
+        r"^https://jobs\.ashbyhq\.com/(?P<slug>[a-z0-9][a-z0-9._%-]{0,62})/?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
+    "workable": re.compile(
+        r"^https://apply\.workable\.com/(?P<slug>[a-z0-9][a-z0-9-]{0,62})/?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
+    "teamtailor": re.compile(
+        r"^https://(?P<slug>[a-z0-9][a-z0-9-]{0,62})\.teamtailor\.com/(?:jobs/?)?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
+    "recruitee": re.compile(
+        r"^https://(?P<slug>[a-z0-9][a-z0-9-]{0,62})\.recruitee\.com/?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
+    "rippling": re.compile(
+        r"^https://ats\.rippling\.com/(?P<slug>[a-z0-9][a-z0-9-]{0,62})/jobs/?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
+}
+
+#: Path segments on those hosts that are the VENDOR's, not a customer's.
+_VENDOR_SLUGS = frozenset(
+    {"embed", "api", "www", "app", "careers", "jobs", "v1", "static", "assets"}
+)
+
+
+def _board_root(url: str) -> tuple[str, str] | None:
+    hits = [
+        (family, match.group("slug").lower())
+        for family, pattern in _BOARD_ROOTS.items()
+        if (match := pattern.match(url)) and match.group("slug").lower() not in _VENDOR_SLUGS
+    ]
+    return hits[0] if len(hits) == 1 else None
+
+
+#: A careers page with thousands of links is a sitemap, not a careers page;
+#: the first ones are what the employer put first.
+MAX_LINKS = 2000
+
+
+def _linked_boards(html: str) -> list[SiteSignal]:
+    from career_agent.providers.registry import identify_board_url
+
+    found: list[SiteSignal] = []
+    seen: set[tuple[str, str]] = set()
+    for count, match in enumerate(_ATTRIBUTE_URL.finditer(html)):
+        if count >= MAX_LINKS:
+            break
+        url = match.group(1)
+        board = identify_board_url(url) or _board_root(url)
+        if board is None:
+            continue
+        provider, identity = board[0], board[1]
+        if (provider, identity) in seen:
+            continue
+        seen.add((provider, identity))
+        found.append(
+            SiteSignal(
+                provider=provider,
+                kind=SignalKind.LINK,
+                evidence=url[:200],
+                identity=identity,
+            )
+        )
+    return found
+
+
 def families() -> tuple[str, ...]:
-    """The provider families site detection can recognise."""
-    return tuple(sorted(DETECTORS))
+    """The provider families site detection can recognise: the page markers
+    above, and every family the registry can name a board for from a URL."""
+    from career_agent.providers.registry import board_recogniser_families
+
+    return tuple(sorted(set(DETECTORS) | set(board_recogniser_families())))
 
 
 def detect(html: str) -> tuple[SiteSignal, ...]:
@@ -352,5 +453,9 @@ def detect(html: str) -> tuple[SiteSignal, ...]:
     signals: list[SiteSignal] = []
     for reader in DETECTORS.values():
         signals.extend(reader(html))
+    # The link reader overlaps the markers (a Recruitee link is both); the
+    # same board is reported once.
+    held = {(signal.provider, signal.identity) for signal in signals}
+    signals.extend(s for s in _linked_boards(html) if (s.provider, s.identity) not in held)
     strength = {SignalKind.LINK: 0, SignalKind.API: 1, SignalKind.EMBED: 2}
     return tuple(sorted(signals, key=lambda signal: strength[signal.kind]))

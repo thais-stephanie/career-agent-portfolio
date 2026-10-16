@@ -207,15 +207,13 @@ def test_new_candidate_has_no_occupational_defaults_and_no_market_pause(page, ne
     assert not page.evaluate(
         "document.querySelector('[data-source=programathor]').textContent.includes('Paused')"
     )
-    # An upstream that stopped serving says so, keeps no Refresh button, and is
-    # not reported as a failure to retry.
+    # Gupy's feed moved and is read at its new address (2026-10-16): a source
+    # nobody has asked yet says so and offers its button; it is not reported
+    # as a failure to retry. The unavailable-upstream mechanism keeps its own
+    # test (test_source_refresh_plan, with an injected blocker).
     gupy = page.evaluate("document.querySelector('[data-source=gupy]').textContent")
-    assert (
-        "stopped serving jobs on 2026-10-02" in gupy
-        and "Could not update" not in gupy
-        and "couldn't update" not in gupy
-    )
-    assert page.evaluate("document.querySelector('[data-source=gupy] button') === null")
+    assert "Could not update" not in gupy and "couldn't update" not in gupy
+    assert "stopped serving" not in gupy
     text = page.evaluate("document.getElementById('search-settings-host').textContent").lower()
     assert not any(
         word in text for word in ("hubspot", "crm architecture", "webhooks", "lead routing")

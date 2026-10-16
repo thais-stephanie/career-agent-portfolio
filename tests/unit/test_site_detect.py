@@ -165,8 +165,15 @@ def test_every_signal_quotes_the_text_that_produced_it() -> None:
 
 
 def test_the_recognised_families_are_named_once() -> None:
-    """A caller reporting "we can recognise these" must not keep its own list."""
-    assert families() == ("recruitee", "rippling", "teamtailor", "workday")
+    """A caller reporting "we can recognise these" must not keep its own list:
+    the page markers, and every family the registry can name a board for
+    from a URL (2026-10-16)."""
+    from career_agent.providers.registry import board_recogniser_families
+
+    assert families() == tuple(
+        sorted({"recruitee", "rippling", "teamtailor", "workday", *board_recogniser_families()})
+    )
+    assert {"greenhouse", "lever", "ashby", "workable"} <= set(families())
 
 
 def test_teamtailor_and_rippling_boards_are_read_from_links() -> None:
@@ -185,3 +192,41 @@ def test_teamtailor_and_rippling_boards_are_read_from_links() -> None:
     assert ("rippling", "rippling") in found
     assert ("teamtailor", "www") not in found
     assert all(identity is not None for _, identity in found)
+
+
+# -- every family, from the links a careers page publishes (2026-10-16) -----
+
+
+def test_a_careers_page_link_names_the_board_of_any_recognised_family() -> None:
+    """A careers page that links its board ROOT or one of its postings has
+    published the board, for every family the registry recognises. Nothing
+    reads the page's prose; a vendor path is never a tenant."""
+    from career_agent.providers.site_detect import SignalKind, detect
+
+    links = [
+        "https://boards.greenhouse.io/acme-ficticia",
+        "https://job-boards.greenhouse.io/acme-ficticia/jobs/4012345",
+        "https://jobs.lever.co/acme-ficticia",
+        "https://jobs.ashbyhq.com/acme-ficticia",
+        "https://apply.workable.com/acme-ficticia/",
+        "https://jobs.ashbyhq.com/embed",
+        "https://boards.greenhouse.io/embed/job_board?for=acme-ficticia",
+        "https://example.com/careers",
+    ]
+    html = "".join(f'<a href="{url}">x</a>' for url in links)
+    found = {(s.provider, s.identity) for s in detect(html)}
+    assert found == {
+        ("greenhouse", "acme-ficticia"),
+        ("lever", "acme-ficticia"),
+        ("ashby", "acme-ficticia"),
+        ("workable", "acme-ficticia"),
+    }
+    assert all(s.kind is SignalKind.LINK for s in detect(html))
+
+
+def test_a_page_full_of_links_is_read_only_up_to_its_limit() -> None:
+    from career_agent.providers.site_detect import MAX_LINKS, detect
+
+    filler = '<a href="https://example.com/x">x</a>' * MAX_LINKS
+    late = '<a href="https://jobs.lever.co/acme-ficticia">late</a>'
+    assert not [s for s in detect(filler + late) if s.provider == "lever"]
