@@ -92,7 +92,7 @@ def can_refresh(entry, opted: frozenset[str] = frozenset()) -> bool:
         source.provider
         and not source.collection_blocker
         and source.permission.value != "FORBIDDEN"
-        and entry.state not in {"BLOCKED_PROVIDER", "BLOCKED", "FORBIDDEN", "DISABLED_QUOTA"}
+        and entry.state not in {"BLOCKED_PROVIDER", "BLOCKED", "FORBIDDEN", "QUOTA_EXHAUSTED"}
         and (_stage_for(source.provider) == "collect" or _stage_for(source.provider) in commands())
     )
 

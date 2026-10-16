@@ -30,8 +30,10 @@ import { autoUpdateCard } from './autoupdate.js';
  * question nobody asked.
  */
 const STATES = [
-  'ATTENTION', 'NEEDS_SETUP', 'HEALTHY', 'NOT_RUN', 'WAITING',
-  'BLOCKED_PROVIDER', 'DISABLED_QUOTA', 'NOTHING_PUBLISHED', 'DISABLED',
+  'FAILED', 'PARTIAL_FAILURE', 'ATTENTION', 'NEEDS_SETUP', 'RUNNING',
+  'SUCCESS_NEW', 'SUCCESS_ZERO_NEW', 'ALL_DUPLICATES', 'HEALTHY', 'NOT_RUN', 'WAITING',
+  'BLOCKED_PROVIDER', 'QUOTA_EXHAUSTED', 'NOTHING_PUBLISHED', 'DISCOVERY_ONLY', 'EXPERIMENTAL',
+  'PLANNED', 'NOT_IMPLEMENTED', 'DISABLED',
 ];
 
 /** The existing `.tag--*` tones, not new ones: this panel is not special. */
@@ -42,7 +44,10 @@ const STATES = [
  * observation is a restatement of its reason -- in the operator's words rather
  * than the reader's.
  */
-const RUNNABLE = new Set(['HEALTHY', 'ATTENTION', 'NEEDS_SETUP', 'NOT_RUN']);
+const RUNNABLE = new Set([
+  'HEALTHY', 'ATTENTION', 'NEEDS_SETUP', 'NOT_RUN', 'RUNNING', 'SUCCESS_NEW',
+  'SUCCESS_ZERO_NEW', 'ALL_DUPLICATES', 'PARTIAL_FAILURE', 'FAILED',
+]);
 
 const STATE_TONE = {
   HEALTHY: 'good',
@@ -52,8 +57,18 @@ const STATE_TONE = {
   NOT_RUN: 'neutral',
   DISABLED: 'muted',
   BLOCKED_PROVIDER: 'warn',
-  DISABLED_QUOTA: 'muted',
+  QUOTA_EXHAUSTED: 'muted',
   NOTHING_PUBLISHED: 'neutral',
+  RUNNING: 'neutral',
+  SUCCESS_NEW: 'good',
+  SUCCESS_ZERO_NEW: 'good',
+  ALL_DUPLICATES: 'good',
+  PARTIAL_FAILURE: 'warn',
+  FAILED: 'bad',
+  EXPERIMENTAL: 'neutral',
+  PLANNED: 'muted',
+  NOT_IMPLEMENTED: 'muted',
+  DISCOVERY_ONLY: 'neutral',
 };
 
 /**
@@ -360,9 +375,13 @@ export function createSourcesPanel(host, { collection = null, onStatus = null } 
           // The plain wording, with the exact classification as the tooltip
           // so the two vocabularies stay visibly connected rather than
           // becoming two different claims.
+          // In the reader's language (the server sends English); an
+          // unknown group falls back to the server's own words.
           text: key === 'BLOCKED_PROVIDER'
             ? t('source.state.BLOCKED_PROVIDER')
-            : rows[0].coverage_plain || rows[0].coverage_label,
+            : (t(`source.coverage.${key}`) !== `source.coverage.${key}`
+              ? t(`source.coverage.${key}`)
+              : rows[0].coverage_plain || rows[0].coverage_label),
           attrs: { title: rows[0].coverage_label },
         }),
         el('span', { className: 'src__n num', text: String(rows.length) }),

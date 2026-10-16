@@ -58,7 +58,7 @@ def test_a_blocked_source_says_why_rather_than_that_it_failed(db) -> None:
 @pytest.mark.parametrize(
     ("source_id", "expected"),
     [
-        ("jooble", "DISABLED_QUOTA"),
+        ("jooble", "QUOTA_EXHAUSTED"),
         ("elite_software_automation", "BLOCKED_PROVIDER"),
         ("jobbol", "BLOCKED_PROVIDER"),
         ("lemon_io", "NOTHING_PUBLISHED"),

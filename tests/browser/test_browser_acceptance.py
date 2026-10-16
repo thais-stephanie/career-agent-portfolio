@@ -2039,7 +2039,9 @@ def test_the_source_panel_reports_coverage_and_never_on_page_load(
     assert "blocked by terms" in titles, titles
 
     for name, expected in (
-        ("Jooble", "off, quota exhausted"),
+        ("Jooble", "quota exhausted"),
+        # A source with no connector is planned, never "not run yet" (2026-10-16).
+        ("Crossover", "planned, not built yet"),
         ("Elite Software Automation", "access blocked or unavailable"),
         ("Lemon.io", "no job board published"),
     ):
