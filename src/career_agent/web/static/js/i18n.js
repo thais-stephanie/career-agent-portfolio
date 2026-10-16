@@ -354,6 +354,7 @@ const EN = {
   'pay.assumedBySizeNote': 'The ad gives no period. It calls this a salary or pay range, and a USD range of this '
     + 'size is read as yearly (over 20,000) or hourly (up to 300).',
   'pay.yearlyNote': 'The ad states {pay}. Shown here divided by 12; it is not a promise of monthly pay.',
+  'pay.yearlyNoteAssumed': 'Read as {pay}. Shown here divided by 12; it is not a promise of monthly pay.',
   'pay.assumedMonthlyNote': 'The ad gives no period. For a role hiring in Latin America, Career Agent reads a USD '
     + 'figure under 7,000 as monthly.',
   'pay.usOnlyNote': 'The posting says this range is for candidates in the U.S. ("{quote}"). '
@@ -5711,6 +5712,7 @@ const PT_BR = {
   'pay.assumedBySizeNote': 'O anúncio não informa o período. Ele chama isto de salário ou faixa de pagamento, e uma '
     + 'faixa em USD desse tamanho é lida como anual (acima de 20.000) ou por hora (até 300).',
   'pay.yearlyNote': 'O anúncio informa {pay}. Aqui aparece dividido por 12; não é promessa de pagamento mensal.',
+  'pay.yearlyNoteAssumed': 'Lido como {pay}. Aqui dividido por 12; não é uma promessa de pagamento mensal.',
   'pay.assumedMonthlyNote': 'O anúncio não informa o período. Para vagas que contratam na América Latina, o Career '
     + 'Agent lê um valor em USD abaixo de 7.000 como mensal.',
   'pay.usOnlyNote': 'O anúncio diz que esta faixa é para candidatos nos EUA ("{quote}"). '

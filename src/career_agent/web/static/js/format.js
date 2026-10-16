@@ -468,7 +468,8 @@ export function payInfo(job) {
 export function payNotes(pay) {
   if (!pay) return [];
   const notes = [];
-  if (pay.yearly) notes.push(t('pay.yearlyNote', { pay: pay.stated }));
+  // An ASSUMED yearly figure is not one the ad stated as yearly.
+  if (pay.yearly) notes.push(t(pay.inferred ? 'pay.yearlyNoteAssumed' : 'pay.yearlyNote', { pay: pay.stated }));
   if (pay.inferred && pay.bySize) notes.push(t('pay.assumedBySizeNote'));
   else if (pay.inferred) notes.push(t(pay.yearly ? 'pay.assumedYearlyNote' : 'pay.assumedMonthlyNote'));
   if (pay.usOnly) notes.push(t('pay.usOnlyNote', { quote: pay.usOnly }));
