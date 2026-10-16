@@ -442,13 +442,13 @@ providers:
     # 211 were located in Brazil and 697 anywhere in Latin America. This feed
     # answers with 81,310 postings, unauthenticated, whole advert included.
     enabled: true
-    api_base: "https://employability-portal.gupy.io/api/v1/jobs"
+    api_base: "https://portal.gupy.io/api/job-search/jobs"
     # PERMISSION IS UNDECLARED, NOT GRANTED, AND THAT IS NOW ENOUGH.
     #
-    # `employability-portal.gupy.io/robots.txt` answers 404: this host
-    # publishes no robots file. `portal.gupy.io/robots.txt` answers 200 with an
-    # empty `Disallow:`, but that is a DIFFERENT HOST and does not govern this
-    # one, so it is recorded and not leaned on. Gupy's published developer
+    # Read at `portal.gupy.io` since 2026-10-16 (the old host
+    # `employability-portal.gupy.io` stopped serving on 2026-10-02 and never
+    # published a robots file). `portal.gupy.io/robots.txt` answers 200 with an
+    # empty `Disallow:`: a first-party allow on the host now read. Gupy's published developer
     # documentation describes an employer-facing API on `api.gupy.io` behind a
     # Bearer token and says nothing about this endpoint.
     #

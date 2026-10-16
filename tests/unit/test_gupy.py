@@ -333,3 +333,92 @@ def test_list_items_survive_as_separate_lines() -> None:
 def test_the_employer_name_comes_from_the_career_page() -> None:
     assert company_of(_record())
     assert company_of({"careerPageName": "   "}) is None
+
+
+# -- the feed moved (2026-10-16) ---------------------------------------------
+
+#: An invented record in the shape `portal.gupy.io/api/job-search/jobs`
+#: answered on 2026-10-16: the old feed's fields plus `badges` and
+#: `careerPageLogo`. Fictional employer and text.
+MOVED_RECORD = {
+    "id": 9001,
+    "name": "Analista de Integracoes (ficticio)",
+    "description": "<p>Responsabilidades</p><ul><li>Integrar sistemas via API.</li></ul>",
+    "careerPageName": "Empresa Exemplo (ficticia)",
+    "careerPageUrl": "https://exemplo-ficticio.gupy.io",
+    "careerPageLogo": "https://exemplo-ficticio.gupy.io/logo.png",
+    "type": "vacancy_type_effective",
+    "publishedDate": "2026-10-16T21:13:49.108Z",
+    "applicationDeadline": "2026-11-16",
+    "workplaceType": "remote",
+    "city": "Sao Paulo",
+    "state": "Sao Paulo",
+    "jobUrl": "https://exemplo-ficticio.gupy.io/job/eyJqb2JJZCI6OTAwMX0=",
+    "disabilities": False,
+    "badges": {"friendlyBadge": False},
+}
+
+
+class _Feed:
+    """A fetcher that answers every URL with one body, and records the URLs."""
+
+    def __init__(self, body: dict[str, object]) -> None:
+        self.body = body
+        self.asked: list[str] = []
+
+    def get_json(self, url: str, use_cache: bool = True) -> object:
+        self.asked.append(url)
+        return self.body
+
+
+def test_the_feed_is_read_on_its_new_host_and_only_there() -> None:
+    feed = _Feed({"data": [], "pagination": {"total": 0, "limit": 10, "offset": 0}})
+    provider = GupyProvider(feed)  # type: ignore[arg-type]
+    url = provider.slice_url({"workplaceType": "remote"}, 0)
+    assert url.startswith("https://portal.gupy.io/api/job-search/jobs?limit=100&offset=0")
+    with pytest.raises(GupyError):
+        assert_trusted("https://employability-portal.gupy.io/api/v1/jobs")
+    with pytest.raises(GupyError):
+        assert_trusted("https://portal.gupy.io.evil.example/api/job-search/jobs")
+
+
+def test_the_moved_record_keeps_every_field_the_product_reads() -> None:
+    stub = to_stub(MOVED_RECORD)
+    assert stub is not None
+    assert stub.external_id.startswith("gupy-")
+    assert stub.title == MOVED_RECORD["name"]
+    assert stub.url == MOVED_RECORD["jobUrl"]
+    assert stub.description_html and "Integrar sistemas" in stub.description_html
+    assert company_of(MOVED_RECORD) == "Empresa Exemplo (ficticia)"
+    assert compose_location(MOVED_RECORD) and "Sao Paulo" in compose_location(MOVED_RECORD)
+    assert public_url(MOVED_RECORD) == MOVED_RECORD["jobUrl"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"jobs": [MOVED_RECORD], "pagination": {"total": 1}},
+        {"data": None, "pagination": {"total": 1}},
+        {"error": "not found"},
+    ],
+)
+def test_a_changed_contract_is_an_error_never_an_empty_page(body) -> None:
+    """The feed moved once without notice. A page without its `data` list is
+    a broken source, and must never read as a quiet day with no jobs."""
+    provider = GupyProvider(_Feed(body))  # type: ignore[arg-type]
+    from career_agent.providers.gupy import Slice
+
+    with pytest.raises(GupyError, match="contract changed"):
+        provider.read_slice(Slice(filters=(("workplaceType", "remote"),), declared_total=1))
+    with pytest.raises(GupyError, match="contract changed"):
+        provider.slice_total({"workplaceType": "remote"}, use_cache=False)
+
+
+def test_an_empty_data_list_is_still_an_honest_empty_page() -> None:
+    from career_agent.providers.gupy import Slice
+
+    feed = _Feed({"data": [], "pagination": {"total": 0, "limit": 100, "offset": 0}})
+    read = GupyProvider(feed).read_slice(  # type: ignore[arg-type]
+        Slice(filters=(("workplaceType", "remote"),), declared_total=0)
+    )
+    assert read.records == ()

@@ -392,10 +392,33 @@ def test_a_source_no_button_can_refresh_is_never_due_or_available(api):
             assert row["state"] == "BLOCKED" and not row["due"], row["source_id"]
 
 
-def test_an_unavailable_upstream_keeps_its_jobs_and_leaves_every_plan(api, monkeypatch):
-    """Gupy's feed stopped serving on 2026-10-02. The connector produced real
-    jobs and keeps them; no press may start it, and it is never due."""
+def test_an_unavailable_upstream_keeps_its_jobs_and_leaves_every_plan(api, monkeypatch, tmp_path):
+    """Gupy's feed stopped serving on 2026-10-02 (it had moved, and is read at
+    its new address since 2026-10-16). The MECHANISM stays, and this is its
+    test, with the blocker that applied then written into a copy of the
+    catalogue: the connector produced real jobs and keeps them; no press may
+    start it, and it is never due."""
+    import shutil
+
     import httpx
+
+    config = tmp_path / "config"
+    shutil.copytree(api.config.config_dir, config)
+    catalogue_file = config / "source_catalogue.yaml"
+    text = catalogue_file.read_text(encoding="utf-8")
+    start = text.index("  - id: gupy\n")
+    cut = text.index("    coverage: PARTIAL\n", start) + len("    coverage: PARTIAL\n")
+    text = (
+        text[:cut]
+        + "    collection_blocker: >-\n"
+        + "      The candidate feed used for refresh stopped serving jobs on 2026-10-02.\n"
+        + "      Previously collected jobs are still available.\n"
+        + "    unblocked_by: >-\n"
+        + "      The known endpoint answering again on a single bounded recheck.\n"
+        + text[cut:]
+    )
+    catalogue_file.write_text(text, encoding="utf-8")
+    api = JobsApi(ServerConfig(db_path=api.config.db_path, config_dir=config), quiet=True)
 
     from career_agent.net.fetcher import HttpFetcher
     from career_agent.pipeline.gupy_collect import GupyCollector

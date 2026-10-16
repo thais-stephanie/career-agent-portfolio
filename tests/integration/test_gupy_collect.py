@@ -154,7 +154,7 @@ def test_nothing_outside_the_api_host_is_requested(conn: sqlite3.Connection) -> 
     coll, asked = collector(conn)
     coll.collect()
     assert asked
-    assert all(url.startswith("https://employability-portal.gupy.io/") for url in asked)
+    assert all(url.startswith("https://portal.gupy.io/api/job-search/jobs?") for url in asked)
 
 
 # -- identity ----------------------------------------------------------------

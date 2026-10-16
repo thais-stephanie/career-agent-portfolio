@@ -118,11 +118,19 @@ PROVIDER = "gupy"
 
 #: The candidate portal. NOT `api.gupy.io`, which is the employer-facing API
 #: this product has no credential for and does not want one.
-API_HOST = "https://employability-portal.gupy.io/api/v1"
+#:
+#: MOVED 2026-10-16. The feed at `employability-portal.gupy.io/api/v1/jobs`
+#: answered a bare nginx 404 from 2026-10-02 (the host has no app behind it);
+#: the same backend answers at `portal.gupy.io/api/job-search/jobs` with the
+#: same records, the same `{data, pagination}` envelope, the same `limit=100`
+#: total quirk and the same 400 at `offset=10000`. Measured with a
+#: keyword-free query: 85,236 open, 1,922 remote. `portal.gupy.io/robots.txt`
+#: is `User-agent: *` with an empty `Disallow`, a first-party allow.
+API_HOST = "https://portal.gupy.io/api/job-search"
 
 #: The only host this adapter will fetch from. A URL that arrives in a payload
 #: is untrusted input; nothing built here is allowed to point elsewhere.
-API_HOSTNAME = "employability-portal.gupy.io"
+API_HOSTNAME = "portal.gupy.io"
 
 #: 100 works; 1000 answers 400. Measured, not chosen.
 PER_PAGE = 100
@@ -252,6 +260,17 @@ GUPY_FIELD_MAP = ProviderFieldMap(
         FieldMapping(path="type", dimension=MetadataDimension.EMPLOYMENT_TYPE_HINT),
     ),
 )
+
+
+def _entries(body: dict[str, Any], url: str) -> tuple[dict[str, Any], ...]:
+    """The records of one page, or an ERROR when the envelope is not the one
+    this adapter knows. A page without a `data` list is a changed contract
+    (the feed moved once without notice, 2026-10-02), and reading it as an
+    empty page would report a broken source as a quiet day with no jobs."""
+    data = body.get("data")
+    if not isinstance(data, list):
+        raise GupyError(f"{url} answered without a `data` list: the feed contract changed")
+    return tuple(item for item in data if isinstance(item, dict))
 
 
 def assert_trusted(url: str) -> str:
@@ -548,7 +567,9 @@ class GupyProvider(JobProvider):
         return assert_trusted(f"{self._api_host}/jobs?{query}")
 
     def slice_total(self, filters: dict[str, str], *, use_cache: bool = True) -> int | None:
-        body = self._body(self.slice_count_url(filters), use_cache=use_cache)
+        url = self.slice_count_url(filters)
+        body = self._body(url, use_cache=use_cache)
+        _entries(body, url)
         pagination = body.get("pagination")
         if isinstance(pagination, dict):
             total = pagination.get("total")
@@ -569,13 +590,7 @@ class GupyProvider(JobProvider):
                 return FeedPage(url="", entries=(), page=page)
             url = self.slice_url(filters, offset)
             body = self._body(url, use_cache=use_cache)
-            data = body.get("data")
-            entries = (
-                tuple(item for item in data if isinstance(item, dict))
-                if isinstance(data, list)
-                else ()
-            )
-            return FeedPage(url=url, entries=entries, page=page)
+            return FeedPage(url=url, entries=_entries(body, url), page=page)
 
         walk = walk_feed(scope=slice_.label, read_page=read_page, budget=self._budget, first_page=1)
         return PartitionRead(
@@ -704,13 +719,7 @@ class GupyProvider(JobProvider):
                 return FeedPage(url="", entries=(), page=page)
             url = self.feed_url(workplace_type, offset)
             body = self._body(url, use_cache=use_cache)
-            data = body.get("data")
-            entries = (
-                tuple(item for item in data if isinstance(item, dict))
-                if isinstance(data, list)
-                else ()
-            )
-            return FeedPage(url=url, entries=entries, page=page)
+            return FeedPage(url=url, entries=_entries(body, url), page=page)
 
         walk = walk_feed(
             scope=workplace_type, read_page=read_page, budget=self._budget, first_page=1
