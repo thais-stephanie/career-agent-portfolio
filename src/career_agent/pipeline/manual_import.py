@@ -28,8 +28,9 @@ from typing import Any
 
 from career_agent.domain.enums import CollectionStatus
 from career_agent.domain.normalize import collapse_whitespace, content_hash
-from career_agent.match.engine import JobFacts, match_job
+from career_agent.match.engine import match_job
 from career_agent.match.identity import input_digest as reading_identity
+from career_agent.pipeline.facts import job_facts
 from career_agent.storage.db import transaction
 from career_agent.storage.mvp_repo import ACCESS_METHOD_MANUAL, MatchRepo
 from career_agent.storage.records import CompanyRecord, JobRecord, SourceBoardRecord
@@ -132,16 +133,20 @@ def import_posting(
             status=CollectionStatus.NORMALISED,
         )
 
+    # The same derivation a rescore reads (`pipeline/facts.job_facts`), so a
+    # salary stated only in the pasted text is scored now and a later rescore
+    # moves nothing. Built by hand, the text's pay was missing from the stored
+    # score while the card showed it (2026-10-16).
     result = match_job(
         config,
-        JobFacts(
+        job_facts(
             job_id=job_id,
             title=title,
             description=description,
             location_raw=location,
             posted_at=posted_at,
             provider=MANUAL_PROVIDER,
-            access_method=MANUAL_PROVIDER,
+            payload=None,
         ),
         computed_at=now,
     )
