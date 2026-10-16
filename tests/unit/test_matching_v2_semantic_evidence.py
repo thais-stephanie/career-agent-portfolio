@@ -342,6 +342,9 @@ DESIGN_NOT = [
     ("design", "A solution designed for customers in retail.", "en"),
     ("design", "Plans designed by another team.", "en"),
     ("design", "Product designed around simplicity.", "en"),
+    ("design", "We offer a thoughtfully designed benefits package.", "en"),
+    ("design", "The power of carefully designed outdoor spaces.", "en"),
+    ("design", "Designed and manufactured in Portugal, the device is light.", "en"),
     ("design", "A plataforma foi projetada para crescer.", "pt"),
     ("design", "Sistema diseñado para hospitales.", "es"),
 ]

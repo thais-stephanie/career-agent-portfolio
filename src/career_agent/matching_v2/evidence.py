@@ -586,14 +586,35 @@ def _not_performed_participle(text: str, start: int, end: int, s: Sentence, data
     # (`dados` for data) is the word itself, never a participle.
     if folded_word in load_table().surface:
         return False
-    before = [w for w, _, _ in _words(text[max(s.start, start - 40) : start], 0)][-2:]
-    after = [w for w, _, _ in _words(text[end : min(s.end, end + 30)], 0)][:1]
+    wide = [w for w, _, _ in _words(text[max(s.start, start - 60) : start], 0)][-4:]
+    before = wide[-2:]
+    after = [w for w, _, _ in _words(text[end : min(s.end, end + 50)], 0)][:3]
     if set(before) & p["perfect"]:
         return False
     if set(before) & p["passive"]:
         return True
-    return bool(after and after[0] in p["adjectival_next"]) and not (
-        before and before[-1] in p["subjects"]
+    if before and before[-1] in p["subjects"]:
+        return False
+    if after and after[0] in p["adjectival_next"]:
+        return True
+    st = structure.load_structure()
+    # Before a noun, after a determiner or a preposition: an adjective (`a
+    # thoughtfully designed benefits package`, `of carefully designed spaces`);
+    # never with the role as the subject (`Previously designed internal tools`).
+    if (
+        after
+        and after[0] not in st.determiners
+        and after[0] not in st.prepositions
+        and (after[0] not in st.coordinators and set(wide) & (st.determiners | st.prepositions))
+    ):
+        return True
+    # Two coordinated participles and a place or a purpose (`Designed and
+    # manufactured in Egypt`).
+    return (
+        len(after) >= 3
+        and after[0] in st.coordinators
+        and after[1].endswith(p.get("endings", ()))
+        and (after[2] in p["adjectival_next"] or after[2] in ("in", "at", "em", "en"))
     )
 
 
