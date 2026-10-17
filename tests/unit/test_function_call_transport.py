@@ -335,8 +335,10 @@ def test_the_request_carries_nothing_it_must_not(family: Family) -> None:
         "description_v9",
         "strip the fence",
         "if the output is malformed",
-        "thaisholanda",
-        "contato@",
+        # Synthetic stand-ins for a person's identity: no real name or
+        # address belongs in a test (2026-10-17).
+        "private-user",
+        "private-user@example.invalid",
     ):
         assert forbidden not in raw, f"the request body contains {forbidden!r}"
 

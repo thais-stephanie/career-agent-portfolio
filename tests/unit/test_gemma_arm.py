@@ -310,7 +310,15 @@ def test_the_gemma_request_carries_no_fallback_and_no_private_data() -> None:
     built = build_description_request("sha256:a", POSTING, config)
     body = json.dumps(google_adapter.build_payload(built.request, config)).lower()
 
-    for private in ("thais", "holanda", "contato@", "profile.local", "career_intent"):
+    # Synthetic stand-ins for a person's identity (2026-10-17), beside the
+    # private file and the candidate intent the request must never carry.
+    private_markers = (
+        "private-user",
+        "private-user@example.invalid",
+        "profile.local",
+        "career_intent",
+    )
+    for private in private_markers:
         assert private not in body
 
     for fallback in (GEMMA_FALLBACK, GEMINI, "gemini-3", "models/", '"fallback"'):
