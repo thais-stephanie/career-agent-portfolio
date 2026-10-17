@@ -29,7 +29,7 @@
       alt="Beta 3"
     />
   </a>
-  <a href="#resumes">
+  <a href="#currículos">
     <img
       src="https://img.shields.io/badge/Resumes-Workspace_V2-d8c8ff"
       alt="Currículos: Resume Workspace V2"

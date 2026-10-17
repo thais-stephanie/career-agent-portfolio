@@ -13,6 +13,7 @@ browser, but the pages come from your computer, not from a website.
 - [Path A: install with Claude Code or Codex](#path-a-install-with-claude-code-or-codex)
 - [Path B on Windows: download and double-click](#path-b-on-windows-download-and-double-click)
 - [Path B on macOS or Linux: use the Terminal](#path-b-on-macos-or-linux-use-the-terminal)
+- [From a copy of the repository (git clone)](#from-a-copy-of-the-repository-git-clone)
 - [What you see the first time](#what-you-see-the-first-time)
 - [Try the demo first](#try-the-demo-first)
 - [Set up your own search](#set-up-your-own-search)
@@ -322,6 +323,30 @@ uv run --no-sync python scripts/launch.py --demo
 
 When you see `Career Agent is running: http://127.0.0.1:8765/`, your
 browser opens Career Agent. Leave the Terminal window open.
+
+## From a copy of the repository (git clone)
+
+For testers and developers. The release ZIP above is the tested version; the
+`main` branch can be newer than it, with changes listed under "Unreleased" in
+the release notes.
+
+A clone holds the same launchers as the ZIP. On Windows:
+
+```powershell
+git clone -c core.longpaths=true https://github.com/thais-stephanie/career-agent-portfolio.git career-agent
+cd career-agent
+.\Start-Demo.cmd
+```
+
+Then continue at step 3 of
+[Path B on Windows](#3-start-the-demo). On macOS and Linux, clone the same
+address and follow [Path B on macOS or Linux](#path-b-on-macos-or-linux-use-the-terminal)
+from step 3.
+
+`-c core.longpaths=true` matters on Windows: some test files have long names,
+and without it a clone into a deep folder stops with "Filename too long" and
+leaves the folder empty. It needs no administrator rights. A short folder,
+such as `C:\Users\you\career-agent`, also avoids it.
 
 ## What you see the first time
 
