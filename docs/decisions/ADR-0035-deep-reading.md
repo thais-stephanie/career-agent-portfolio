@@ -225,3 +225,36 @@ sharing one reading.
   under its current title, whichever posting it was asked for (a repost shows
   its twin's reading, as the planner skips it); else its own older reading,
   out of date. A changed title is a changed posting.
+
+## Addendum 4 (2026-10-19): the plan is read highest band first
+
+The three strata stay exactly as decided above: which postings a plan holds,
+and in which stratum, did not change (40% top local, 25% lexical, the rest a
+control sample of everything else by a hash of the job id). What changed is
+the ORDER a job reads its plan in, which is the order its calls are spent in.
+
+Until now the plan took one posting of each stratum in turn (1 : 1 : 1). That
+kept a job stopped halfway diverse, and it also spent a third of every call on
+the control sample, mostly the lowest local scores: on the owner's list a
+1,000-posting plan read postings at 89%, 14% and 94% in a row, and the first
+300 calls averaged a local score of 54 with 96 of them in the weak band.
+
+Decision: the diversity between strata is kept; the operational order now
+optimises cost against value.
+
+* Bands of the local fit first, highest first (the person's own band edges:
+  strong, good, moderate, weak).
+* Inside a band, the strata in turns of 8 : 5 : 7 (the shares above, in
+  twentieths); a stratum with nothing left in the band gives its turn to the
+  others.
+* Inside a stratum, highest local score first, then the job id.
+
+The price is stated rather than hidden: the control sample is still chosen
+from the whole rest, but its low-scoring part is read last, so what it shows
+about what the local score misses is complete only when a job is read to the
+end. On the same 1,000-posting plan (measured 2026-10-19, no model call), the
+first 300 calls average 81 and are all in the strong band; the 1,000 postings
+and their strata are the same. The Addendum 2 sentence "the plan
+takes the three strata in turn" is superseded by this one. A job already
+approved keeps the plan it stored; the order applies to plans made from now
+on (`deep_run.consumption_order`).

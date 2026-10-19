@@ -456,3 +456,20 @@ def test_a_metered_model_name_is_never_an_alias(corpus):  # noqa: F811
     assert _already_read(conn, config, "deepseek", "flash") == 0
     # The aliases belong to Claude Code: the same word means nothing elsewhere.
     assert _already_read(conn, config, "deepseek", "sonnet") == 0
+
+
+def test_a_job_spends_its_calls_in_the_plan_order_highest_band_first(corpus):  # noqa: F811
+    """The order is the real order of the calls, not a sort on the screen."""
+    conn, config = corpus
+    stats = run_deep(conn, config, FakeCli(), share=False, limit=10, include_unresolved=True)
+    assert stats.published > 1
+    plan = json.loads(DeepRepo(conn).last_job()["plan_json"])
+    asked = [r[0] for r in conn.execute("SELECT job_id FROM deep_attempt ORDER BY rowid")]
+    assert asked == [job for job, _hash, _stratum in plan][: len(asked)]
+    bands = ["STRONG", "GOOD", "MODERATE", "WEAK"]
+    marks = ",".join("?" for _ in asked)
+    band = dict(
+        conn.execute(f"SELECT job_id, fit_band FROM job_match WHERE job_id IN ({marks})", asked)
+    )
+    seen = [bands.index(band[job]) for job in asked]
+    assert seen == sorted(seen)

@@ -35,7 +35,8 @@ in years instead), never a CV, never another profile.
 A JOB, IN BATCHES
 -----------------
 The preview is approved as a JOB (migration 0052): the provider and its exact
-model, how many postings, the plan in strata taken in turn, and for a
+model, how many postings, the plan (band by band of local fit, the strata in
+turns of 8 : 5 : 7 inside each band), and for a
 metered API the most it may spend. It is read in batches of BATCH_SIZE
 without asking again; a resume continues the same plan and never asks again
 for a posting this job already answered.
@@ -72,7 +73,7 @@ from typing import Any
 from career_agent.clock import new_id, now_utc
 from career_agent.config.search_config import SearchConfig
 from career_agent.domain.claims import VerifiedClaim
-from career_agent.domain.enums import ClaimType
+from career_agent.domain.enums import ClaimType, FitBand
 from career_agent.llm.pricing import ModelPrice, observed_price
 from career_agent.match.phrase_forms import STOPWORDS, root
 from career_agent.semantic import deep
@@ -93,6 +94,13 @@ MIN_DESCRIPTION_CHARS = 200
 CONSECUTIVE_FAILURES_STOP = 3
 #: Share of a batch per stratum; `control` takes what is left.
 SHARES = {"top_local": 0.4, "lexical": 0.25}
+#: How many of each stratum a turn of the plan takes inside one band of local
+#: fit: the SHARES in twentieths, 8 : 5 : 7.
+TURN = {
+    "top_local": round(20 * SHARES["top_local"]),
+    "lexical": round(20 * SHARES["lexical"]),
+    "control": 20 - round(20 * SHARES["top_local"]) - round(20 * SHARES["lexical"]),
+}
 #: Explicit ceilings on what one posting's packet may carry. Skills and tools
 #: are a few words each, so all of a typical profile fits; experience is
 #: chosen in two parts (`evidence_packet`).
@@ -376,18 +384,39 @@ def read_key(row: sqlite3.Row) -> tuple[str, str]:
     return str(row["content_hash"]), str(row["title"] or "")
 
 
-def interleave(picked: list[tuple[sqlite3.Row, str]]) -> list[tuple[sqlite3.Row, str]]:
-    """The plan's order: one of each stratum in turn, so a job paused halfway
-    has read a little of every stratum, never only the top local scores."""
-    by_stratum: dict[str, list[tuple[sqlite3.Row, str]]] = {}
-    for item in picked:
-        by_stratum.setdefault(item[1], []).append(item)
-    queues = [by_stratum.get(s, []) for s in ("top_local", "lexical", "control")]
+def consumption_order(picked: list[tuple[sqlite3.Row, str]]) -> list[tuple[sqlite3.Row, str]]:
+    """The order a job reads its plan in. It never changes WHICH postings or
+    which stratum each one is in, only when it is read.
+
+    Bands of the local fit first, highest first (the person's own band edges,
+    `fit_band`), so a job stopped early has spent its calls where the local
+    score is highest. Inside a band, the three strata in turns of 8 : 5 : 7
+    (`TURN`, the shares of the plan); a stratum with nothing left in the band
+    gives its turn to the others. Inside a stratum, highest local score first,
+    then the job id. The control sample is still chosen from the whole rest;
+    its low-scoring part is read last, so what it shows about what the local
+    score misses is complete only when a job is read to the end (ADR-0035,
+    addendum 4).
+    """
+    bands = [band.value for band in FitBand]
+
+    def band_of(row: sqlite3.Row) -> int:
+        band = str(row["fit_band"])
+        return bands.index(band) if band in bands else len(bands)
+
     out: list[tuple[sqlite3.Row, str]] = []
-    while any(queues):
-        for queue in queues:
-            if queue:
-                out.append(queue.pop(0))
+    for band in sorted({band_of(row) for row, _ in picked}):
+        queues = {
+            stratum: sorted(
+                (item for item in picked if band_of(item[0]) == band and item[1] == stratum),
+                key=lambda item: (-int(item[0]["match_score"]), str(item[0]["id"])),
+            )
+            for stratum in TURN
+        }
+        while any(queues.values()):
+            for stratum, turn in TURN.items():
+                out += queues[stratum][:turn]
+                del queues[stratum][:turn]
     return out
 
 
@@ -442,7 +471,7 @@ def select(
         take(lexical, "lexical", round(limit * SHARES["lexical"]))
         rest = sorted(fresh, key=lambda r: _control_key(str(r["id"])))
         take(rest, "control", limit - len(picked))
-    picked = interleave(picked)
+    picked = consumption_order(picked)
     texts = _descriptions(conn, [str(row["content_hash"]) for row, _ in picked])
     chosen = [
         DeepCandidate(

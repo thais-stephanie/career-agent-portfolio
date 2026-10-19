@@ -369,11 +369,13 @@ def test_a_metered_job_needs_an_approved_budget(big_corpus):
     assert stats.stop_reason == "NO_BUDGET" and provider.messages == []
 
 
-def test_the_plan_takes_the_strata_in_turn(big_corpus):
+def test_the_plan_reads_the_highest_band_first_and_keeps_its_strata(big_corpus):
     conn, config = big_corpus
     chosen = select(conn, config, provider_id="deepseek", limit=12).candidates
-    head = [c.stratum for c in chosen[:3]]
-    assert set(head) == {"top_local", "lexical", "control"} or len(set(head)) > 1
+    bands = ["STRONG", "GOOD", "MODERATE", "WEAK"]
+    seen = [bands.index(c.band) for c in chosen]
+    assert seen == sorted(seen)
+    assert len({c.stratum for c in chosen}) > 1, "the strata are still all in the plan"
     assert select(conn, config, provider_id="deepseek", limit=0).available == POSTINGS
 
 
