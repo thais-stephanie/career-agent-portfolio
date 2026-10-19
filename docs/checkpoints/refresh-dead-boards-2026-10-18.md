@@ -117,3 +117,33 @@ happened on 2026-10-16 at 442 MB; a retry that day succeeded.
   before: a 404 is never read as "every job closed").
 * A cut Workable download costs up to three full downloads (~2.5 GB) plus
   2.5 min of waiting before the partial result is used.
+
+## Real validation (2026-10-19)
+
+`main` fast-forwarded to `6922de8` (not pushed). The app, open since the day
+before on the old code, was restarted the way the shortcut starts it, and
+"Refresh all available sources" was triggered through its own route.
+
+* **26 of 26 planned sources finished in 77.9 min** (2026-10-18: 24 planned,
+  4 not refreshed, 124.9 min). Only LinkedIn was left out, still waiting out
+  the 24-hour refusal cooldown from 2026-10-18 22:04, unrelated to this fix.
+* **Ashby, Greenhouse and Lever ran normally.** Ashby 131 of 135 boards, 300
+  new; Greenhouse 131 of 138, 1,218 new; Lever 35 of 36, 877 new. Every
+  failure was a 404: the eleven known boards plus `greenhouse:pantherlabs`,
+  newly dead. None held its family back. The extra boards are 11 registered
+  that day by employer board discovery.
+* **The eleven dead boards**: still the same eleven rows, still active, each
+  now `NOT_FOUND since 2026-10-19T14:0x (1x)`. None was re-created or
+  retired; retirement needs 3 such answers over 24 h. `cybereason` keeps its
+  2 open jobs.
+* **Workable**: one request, 849,612,138 bytes, 167,985 records, OK in
+  217 s, 2,062 new, 526 changed. No cut, so the retry and the partial path
+  were not exercised live (they are covered by tests).
+* **Closures**: 1,397 on Ashby, Greenhouse and Lever boards that were read
+  in full this run (960 of them `lever:jobgether`, an aggregator board that
+  listed 4,238 and holds 4,238 open). The mass-drop guard held
+  `greenhouse:webflow` (0 listed). No closure on a board that failed. 10
+  more (Speedrun 9, Jobicy 1) were closed by `fold_sighted` at the start of
+  the rescore: aggregator twins of an employer's open posting, by design.
+* Open jobs 198,873 -> 205,292. The targeted rescore of 18,463 postings was
+  running at the end of this check, 0 errors so far.
