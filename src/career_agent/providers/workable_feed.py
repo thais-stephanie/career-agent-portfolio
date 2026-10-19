@@ -47,6 +47,8 @@ class FeedSession:
         self.dir = Path(directory)
         self.dir.mkdir(parents=True, exist_ok=True)
         self.xml_path = self.dir / "feed.xml"
+        #: The longest cut transfer while a download is retried.
+        self.partial_path = self.dir / "feed.partial.xml"
         self.stage_path = self.dir / "stage.sqlite"
         self.state_path = self.dir / "state.json"
 
@@ -114,7 +116,7 @@ class FeedSession:
         self.discard_files()
 
     def discard_files(self) -> None:
-        for path in (self.xml_path, self.stage_path):
+        for path in (self.xml_path, self.partial_path, self.stage_path):
             with suppress(OSError):
                 path.unlink(missing_ok=True)
 

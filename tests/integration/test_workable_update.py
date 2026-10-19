@@ -60,6 +60,13 @@ class Server:
 
     def fetcher(self, **kwargs) -> HttpFetcher:
         client = httpx.Client(transport=httpx.MockTransport(self.handler))
+        #: Pauses between download attempts are counted, never slept.
+        self.slept = 0.0
+
+        def sleep(seconds: float) -> None:
+            self.slept += seconds
+
+        kwargs.setdefault("sleep", sleep)
         return HttpFetcher(client=client, request_delay_seconds=0, **kwargs)
 
     @property
@@ -322,3 +329,55 @@ def test_a_connection_dropped_before_any_byte_keeps_nothing(conn, folder):
     stats = run(conn, Refused(feed_xml(5)), folder)
     assert stats.failures and conn.execute("SELECT COUNT(*) FROM job").fetchone()[0] == 0
     assert not (folder / "feed.xml").exists()
+
+
+class Flaky(Server):
+    """Cuts the first `cuts` transfers one record short of the end, then serves."""
+
+    def __init__(self, xml: str, cuts: int, modified: str = NEWER) -> None:
+        super().__init__(xml, modified)
+        self.cuts = cuts
+
+    def handler(self, request):
+        self.requests.append(dict(request.headers))
+        body = self.xml.encode("utf-8")
+        headers = {"last-modified": self.modified, "content-length": str(len(body))}
+        if len(self.requests) > self.cuts:
+            return httpx.Response(200, content=body, headers=headers)
+
+        class Cut(httpx.SyncByteStream):
+            def __iter__(self):
+                yield body[:-40]
+                raise httpx.RemoteProtocolError("peer closed connection")
+
+        return httpx.Response(200, stream=Cut(), headers=headers)
+
+
+def test_a_cut_download_is_asked_for_again_and_a_whole_one_is_an_update(conn, folder):
+    server = Flaky(feed_xml(600), cuts=1)
+    stats = run(conn, server, folder)
+    assert not stats.failures and stats.jobs_new == 600
+    assert server.downloads == 2 and server.slept == 30
+    assert FeedSession(folder).read()["processed_last_modified"] == NEWER
+
+
+def test_three_cut_downloads_keep_the_complete_records_of_the_longest(conn, folder):
+    server = Flaky(feed_xml(600), cuts=3)
+    stats = run(conn, server, folder)
+    assert server.downloads == 3 and server.slept == 30 + 120
+    assert stats.failures and "did not finish" in stats.failures[0]
+    assert 0 < conn.execute("SELECT COUNT(*) FROM job").fetchone()[0] < 600
+    assert "processed_last_modified" not in FeedSession(folder).read()
+    assert not any(folder.glob("feed*.xml")), "no download is left on disk"
+
+
+@pytest.mark.parametrize("status", [403, 404, 429])
+def test_a_refusal_is_not_asked_for_again(conn, folder, status):
+    class Refusing(Server):
+        def handler(self, request):
+            self.requests.append(dict(request.headers))
+            return httpx.Response(status)
+
+    server = Refusing(feed_xml(5))
+    stats = run(conn, server, folder)
+    assert stats.failures and server.downloads == 1 and server.slept == 0

@@ -42,48 +42,78 @@ happened on 2026-10-16 at 442 MB; a retry that day succeeded.
   `_family_history` and `public_health._slices` skip a family slice in which
   every attempted board answered 404. Any other failure (timeout, 5xx,
   refusal) still puts the family on hold as before.
-* **A board gone for a day is switched off.** `SourceBoardRepo.mark_not_found`
-  writes `NOT_FOUND since <first 404>: ...` into `last_error` and sets
-  `active = 0` once the board has answered 404 for 24 hours
-  (`NOT_FOUND_RETIRE_HOURS`). A 404 recorded before this change (no date)
-  counts as old enough. Nothing is deleted, no job is closed, and
+* **A board persistently gone is switched off.**
+  `SourceBoardRepo.mark_not_found` keeps a streak in `last_error`:
+  `NOT_FOUND since <first 404> (<n>x): ...`. The board is set `active = 0`
+  only after at least 3 consecutive 404s (`NOT_FOUND_RETIRE_COUNT`) spanning
+  at least 24 hours (`NOT_FOUND_RETIRE_HOURS`). Any other error or any
+  success overwrites the streak. An error with no date (written before this
+  change, or unreadable) starts a new streak: the clock never starts before
+  a 404 this code saw. Nothing is deleted, no job is closed, and
   `sync_registry` is additive, so it never switches a board back on.
   `collect` stats gain `boards_retired`.
-* **A cut Workable transfer keeps its complete records.** Byte resume is not
-  possible: Workable ignores `Range` (measured 2026-10-11, and the feed sent
-  no headers within 15 s on 2026-10-18). Instead `download_feed(...,
-  keep_partial=True)` leaves the partial file on a dropped connection or a
-  short body, and the shared walk stages it exactly like a feed that did not
-  parse to its end: complete records stored, the run FAILED (shown as
-  "updated in part"), nothing closed, `processed_last_modified` untouched, the
-  file discarded. A Stop or an expired budget still leaves no file.
+* **The eleven dead boards left the shipped registry.** `config/companies.yaml`
+  drops ten companies whose only board was dead and Teach For America's
+  Greenhouse board (its two Workday boards stay): 283 companies, 285 boards.
+  A note at the top of the file records what was removed and why.
+* **A cut Workable download is retried, then kept in part.** Byte resume is
+  not possible: Workable ignores `Range` (measured 2026-10-11; on 2026-10-18
+  the feed sent no headers within 15 s). So a cut transfer is asked for again
+  from the start: 3 attempts, the second after 30 s and the third after 2 min
+  (`DOWNLOAD_ATTEMPTS`, `DOWNLOAD_BACKOFF_SECONDS`). Only a dropped or slow
+  connection or a 5xx is retried; a 4xx or a 429 refusal is not. The wait
+  checks Stop and the time budget every second. If every attempt is cut,
+  the LONGEST partial file is staged exactly like a feed that did not parse
+  to its end: complete records stored, the run FAILED (shown as "updated in
+  part"), nothing closed, `processed_last_modified` untouched, the files
+  discarded. `download_feed(..., keep_partial=True)` is what leaves a cut
+  file on disk; a Stop or an expired budget still leaves none.
+* **The feed is processed as a stream; nothing needed fixing.** The download
+  is written to disk in 64 KiB chunks; `xml_records` uses `iterparse` and
+  clears the root after every `<job>`; records are staged into an on-disk
+  SQLite file and read back 200 at a time. Memory does not grow with the
+  feed. What does grow with the CORPUS is two lookup dicts the update builds
+  once per run (`_own_rows`: 115,904 Workable rows, ~20 MB of strings;
+  `_held_external_ids`: 88,373 ids). Tens of MB, bounded by what is stored,
+  not by the 850 MB file: not worth a change now.
+* **Tests no longer read the owner's product switches.** `tests/conftest.py`
+  removes `CAREER_AGENT_ELIGIBILITY_SOURCE`, `CAREER_AGENT_WORK_MATCH_SOURCE`,
+  `CAREER_AGENT_DB` and `CAREER_AGENT_ALLOW_UPGRADE_WITHOUT_BACKUP` at import,
+  before any fixture or test server inherits the environment.
+  `tests/unit/test_env_isolation.py` fails if `src/` ever reads a
+  `CAREER_AGENT_*` name that is not on that list.
 
 ## Verified
 
-* New tests: `tests/unit/test_repositories.py` (three on retirement),
-  `tests/integration/test_collect.py` (retired through a real run, nothing
-  closed), `tests/integration/test_source_freshness.py` (404-only run does not
-  hold the family; any other failure still does),
-  `tests/integration/test_workable_update.py` (dropped connection keeps what
-  arrived; a refused connection keeps nothing). The old "truncated download
-  changes nothing" test now asserts the new behaviour, on purpose.
+* Full suite, clean environment, 2026-10-19: **13,388 passed, 6 skipped,
+  0 failed** (41 min, browser suite included).
+* The seven tests that failed on this machine on 2026-10-18 pass with both
+  switches still SET in the shell, through `tests/conftest.py` alone.
+* New or changed tests:
+  * `tests/unit/test_repositories.py`: a 404 starts a dated streak; 3 over a
+    day retire; 2 a day apart and 9 within a day do not; an undated,
+    unreadable or broken streak starts over.
+  * `tests/integration/test_collect.py`: retired through a real run, nothing
+    closed.
+  * `tests/integration/test_source_freshness.py`: a 404-only run does not
+    hold the family back; any other failure still does.
+  * `tests/integration/test_workable_update.py`: a cut download is retried
+    and a whole second attempt is a full update (30 s waited); three cuts keep
+    the longest partial's complete records and leave no file (150 s waited);
+    403, 404 and 429 are not retried; a dropped connection keeps what arrived;
+    a refused connection keeps nothing. The old "truncated download changes
+    nothing" test asserts the new behaviour, on purpose.
+  * `tests/unit/test_env_isolation.py`: every `CAREER_AGENT_*` name in `src/`
+    is cleared for the suite, and none is set while tests run.
 * ruff, ruff format, mypy, punctuation gate: clean.
-* Full suite: 7 failures, all reproduced on `main` without this change. They
-  come from two variables in the owner's Windows environment,
-  `CAREER_AGENT_ELIGIBILITY_SOURCE` and `CAREER_AGENT_WORK_MATCH_SOURCE`
-  (Phase C / Phase D switches), leaking into tests. With both unset, all 7
-  pass, including the browser persona journey.
 
 ## Not done
 
-* Not run against the real database. On the next refresh after the merge,
-  each of the eleven boards is retired on its first 404 (their old errors
-  have no date), and Ashby, Greenhouse and Lever run normally.
-* The shipped `companies.yaml` still lists the eleven boards; a fresh install
-  registers them and retires them a day later. Worth marking them inactive
-  there.
+* Not run against the real database. After the merge, each still-registered
+  dead board in an existing install starts a streak on its next 404 and is
+  retired after its third 404 at least a day after the first. Until then a
+  404-only run no longer holds its family back, so the refresh is unaffected.
 * A board that 404s while it still holds open jobs keeps those jobs open (as
   before: a 404 is never read as "every job closed").
-* Tests read the owner's environment variables. A `conftest` that clears
-  `CAREER_AGENT_*` would make the suite green on this machine.
-* No automatic retry of the Workable download in the same run.
+* A cut Workable download costs up to three full downloads (~2.5 GB) plus
+  2.5 min of waiting before the partial result is used.

@@ -7,6 +7,7 @@ This is Jobs by Workable inventory, not every customer's private board.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import tempfile
 import xml.etree.ElementTree as ET
@@ -18,12 +19,28 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from career_agent.net.fetcher import FetchError
+from career_agent.net.fetcher import FetchError, FetchErrorCategory
 from career_agent.providers.base import RetrievalMode
 from career_agent.providers.workable import FeedPage, WorkableError, WorkableProvider
 
 XML_URL = "https://www.workable.com/boards/workable.xml"
 BATCH_SIZE = 200
+#: Workable ignores Range, so a cut download is asked for again from the start:
+#: three attempts in all, the second after 30 s and the third after 2 min.
+DOWNLOAD_ATTEMPTS = 3
+DOWNLOAD_BACKOFF_SECONDS = (30, 120)
+
+
+def _worth_retrying(error: FetchError) -> bool:
+    """A dropped or slow connection, or the server failing; never a refusal."""
+    if error.category in (
+        FetchErrorCategory.CONNECTION,
+        FetchErrorCategory.TIMEOUT,
+        FetchErrorCategory.RETRY_EXHAUSTED,
+    ):
+        return True
+    status = getattr(error, "status_code", None)
+    return error.category is FetchErrorCategory.HTTP_STATUS and (status or 0) >= 500
 
 
 def xml_records(path: Path) -> Iterator[dict[str, str]]:
@@ -219,26 +236,18 @@ class WorkableXmlProvider(WorkableProvider):
                 self.xml_bytes = int(pending["bytes"])
             else:
                 session.abandon()
-                self.on_phase("downloading", 0, None)
-                try:
-                    got = self._fetcher.download_feed(
-                        XML_URL,
-                        session.xml_path,
-                        if_modified_since=session.processed_last_modified(),
-                        on_bytes=lambda done, total: self.on_phase("downloading", done, total),
-                        keep_partial=True,
-                    )
-                except FetchError as exc:
-                    # A CUT TRANSFER IS NOT NOTHING. Workable ignores Range, so
-                    # the download cannot be continued; but 2026-10-18 lost
-                    # 847 MB of an ~850 MB feed to one dropped connection. Its
-                    # complete records are read like a feed that did not parse
-                    # to its end: kept, never a finished read, closing nothing.
+                got, error = self._download(session)
+                if got is None:
+                    # A CUT TRANSFER IS NOT NOTHING. Every attempt was cut, so
+                    # the longest one is read like a feed that did not parse
+                    # to its end: complete records kept, never a finished
+                    # read, closing nothing (2026-10-18 lost 847 MB of an
+                    # ~850 MB feed to one dropped connection).
                     size = session.xml_path.stat().st_size if session.xml_path.exists() else 0
                     if not size:
-                        session.xml_path.unlink(missing_ok=True)
-                        raise
-                    transfer_error = exc
+                        assert error is not None  # every attempt failed, so one error was kept
+                        raise error
+                    transfer_error = error
                     self.xml_bytes = size
                     session.start_pending(last_modified=None, bytes=size)
                 else:
@@ -284,6 +293,50 @@ class WorkableXmlProvider(WorkableProvider):
                 f"Partial XML: {self.xml_jobs} complete records retained; "
                 f"{self.xml_bytes} bytes; the transfer or the XML did not finish"
             )
+
+    def _download(self, session) -> tuple[Any, FetchError | None]:
+        """The whole feed, retried from the start a bounded number of times.
+
+        Workable ignores Range, so a cut transfer cannot be continued, only
+        asked for again. Returns (download, None), or (None, last error) with
+        the LONGEST cut transfer left at `session.xml_path` (or nothing there
+        when no attempt delivered a byte). A refusal or a client error is not
+        retried; a Stop or the budget ends the wait between attempts.
+        """
+        best = session.partial_path
+        best.unlink(missing_ok=True)
+        error: FetchError | None = None
+        for attempt in range(DOWNLOAD_ATTEMPTS):
+            if attempt:
+                self._wait(DOWNLOAD_BACKOFF_SECONDS[attempt - 1])
+            self.on_phase("downloading", 0, None)
+            try:
+                got = self._fetcher.download_feed(
+                    XML_URL,
+                    session.xml_path,
+                    if_modified_since=session.processed_last_modified(),
+                    on_bytes=lambda done, total: self.on_phase("downloading", done, total),
+                    keep_partial=True,
+                )
+            except FetchError as exc:
+                error = exc
+                size = session.xml_path.stat().st_size if session.xml_path.exists() else 0
+                if size > (best.stat().st_size if best.exists() else 0):
+                    os.replace(session.xml_path, best)
+                session.xml_path.unlink(missing_ok=True)
+                if not _worth_retrying(exc):
+                    break
+                continue
+            best.unlink(missing_ok=True)
+            return got, None
+        if best.exists():
+            os.replace(best, session.xml_path)
+        return None, error
+
+    def _wait(self, seconds: int) -> None:
+        for _ in range(seconds):
+            self.check()
+            self._fetcher.pause(1)
 
     def page_done(self) -> None:
         """The records of the page just yielded are all handled: move the cursor."""

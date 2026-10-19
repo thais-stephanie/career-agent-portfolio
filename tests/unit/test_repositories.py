@@ -245,42 +245,70 @@ def test_board_failure_does_not_advance_last_collected_at(
     assert row["last_error"] is None
 
 
-def test_a_board_answering_404_for_a_day_is_switched_off(
+def _streak(conn: sqlite3.Connection, board_id: str, since: str, count: int) -> None:
+    conn.execute(
+        "UPDATE source_board SET last_error = ? WHERE id = ?",
+        (f"NOT_FOUND since {since} ({count}x): board or resource not found", board_id),
+    )
+
+
+def test_a_404_starts_a_dated_streak_and_keeps_the_board(
     conn: sqlite3.Connection, board_id: str
 ) -> None:
     repo = SourceBoardRepo(conn)
     assert repo.mark_not_found(board_id, "board or resource not found") is False
     first = repo.get(board_id)["last_error"]
-    assert first.startswith("NOT_FOUND since ") and repo.get(board_id)["active"] == 1
-
-    # A second 404 within the day keeps the first date and the board.
+    assert first.startswith("NOT_FOUND since ") and "(1x)" in first
     assert repo.mark_not_found(board_id, "board or resource not found") is False
-    assert repo.get(board_id)["last_error"] == first
+    second = repo.get(board_id)["last_error"]
+    assert "(2x)" in second and second.split(" (")[0] == first.split(" (")[0]
+    assert repo.get(board_id)["active"] == 1
 
-    conn.execute(
-        "UPDATE source_board SET last_error = ? WHERE id = ?",
-        ("NOT_FOUND since 2026-01-01T00:00:00Z: board or resource not found", board_id),
-    )
+
+def test_three_404s_over_a_day_switch_the_board_off(
+    conn: sqlite3.Connection, board_id: str
+) -> None:
+    repo = SourceBoardRepo(conn)
+    _streak(conn, board_id, "2026-01-01T00:00:00Z", 2)
     assert repo.mark_not_found(board_id, "board or resource not found") is True
     row = repo.get(board_id)
-    assert row["active"] == 0 and row["last_error"].startswith("NOT_FOUND since 2026-01-01")
+    assert row["active"] == 0 and row["last_error"].startswith(
+        "NOT_FOUND since 2026-01-01T00:00:00Z (3x)"
+    )
 
 
-def test_a_404_written_before_dates_were_kept_counts_as_old(
-    conn: sqlite3.Connection, board_id: str
-) -> None:
+def test_two_404s_a_day_apart_are_not_enough(conn: sqlite3.Connection, board_id: str) -> None:
     repo = SourceBoardRepo(conn)
-    repo.mark_error(board_id, "NOT_FOUND: board or resource not found")
-    assert repo.mark_not_found(board_id, "board or resource not found") is True
-
-
-def test_a_404_after_another_error_starts_the_clock(
-    conn: sqlite3.Connection, board_id: str
-) -> None:
-    repo = SourceBoardRepo(conn)
-    repo.mark_error(board_id, "TIMEOUT: read timed out")
+    _streak(conn, board_id, "2026-01-01T00:00:00Z", 1)
     assert repo.mark_not_found(board_id, "board or resource not found") is False
     assert repo.get(board_id)["active"] == 1
+
+
+def test_many_404s_within_a_day_are_not_enough(conn: sqlite3.Connection, board_id: str) -> None:
+    from career_agent.clock import now_utc
+
+    repo = SourceBoardRepo(conn)
+    _streak(conn, board_id, now_utc(), 9)
+    assert repo.mark_not_found(board_id, "board or resource not found") is False
+    assert repo.get(board_id)["active"] == 1
+
+
+@pytest.mark.parametrize(
+    "previous",
+    [
+        "NOT_FOUND: board or resource not found",  # written before streaks were dated
+        "NOT_FOUND since yesterday-ish (5x): board or resource not found",  # unreadable
+        "TIMEOUT: read timed out",  # another error breaks the streak
+    ],
+)
+def test_an_undated_or_broken_streak_starts_over(
+    conn: sqlite3.Connection, board_id: str, previous: str
+) -> None:
+    repo = SourceBoardRepo(conn)
+    repo.mark_error(board_id, previous)
+    assert repo.mark_not_found(board_id, "board or resource not found") is False
+    row = repo.get(board_id)
+    assert row["active"] == 1 and "(1x)" in row["last_error"]
 
 
 # --- job text, jobs, payloads ----------------------------------------------

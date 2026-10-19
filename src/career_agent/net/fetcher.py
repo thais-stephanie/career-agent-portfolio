@@ -246,6 +246,10 @@ class HttpFetcher:
 
             raise BudgetExpired("REQUEST_BUDGET")
 
+    def pause(self, seconds: float) -> None:
+        """Wait, inside the budget: a pause that would outlive it ends the run."""
+        self._sleep(seconds)
+
     def _budget_sleep(self, seconds: float) -> None:
         if self.deadline is None:
             self._base_sleep(seconds)

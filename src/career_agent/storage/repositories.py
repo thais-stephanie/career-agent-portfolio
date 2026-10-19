@@ -16,6 +16,7 @@ Two conventions used throughout:
 
 import hashlib
 import json
+import re
 import sqlite3
 from collections.abc import Sequence
 from datetime import datetime
@@ -31,18 +32,23 @@ from career_agent.storage.records import (
     SourceBoardRecord,
 )
 
-#: How long a board must keep answering 404 before it is switched off.
+#: A board is switched off only after answering 404 for this long...
 NOT_FOUND_RETIRE_HOURS = 24
+#: ...and at least this many times: one 404 early and one a day later could
+#: still be two blips; three in a row across a day are a board that is gone.
+NOT_FOUND_RETIRE_COUNT = 3
+
+_NOT_FOUND_STREAK = re.compile(r"^NOT_FOUND since (\S+) \((\d+)x\): ")
 
 
-def _hours_between(earlier: str, later: str) -> float:
+def _hours_between(earlier: str, later: str) -> float | None:
     def parse(stamp: str) -> datetime:
         return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
     try:
         return (parse(later) - parse(earlier)).total_seconds() / 3600
     except ValueError:
-        return float("inf")  # an unreadable date is an old one
+        return None
 
 
 def sha256_text(text: str) -> str:
@@ -389,33 +395,35 @@ class SourceBoardRepo(_Repo):
         )
 
     def mark_not_found(self, board_id: str, message: str) -> bool:
-        """Record a 404 and switch the board off once it has been gone a day.
+        """Record a 404 and switch the board off once it is persistently gone.
 
         A 404 is the employer's own answer that the board no longer exists,
-        never a broken connector. One may be a moment; two at least a day
-        apart are a board that is gone, and asking for it again on every
-        refresh only made its family look broken (2026-10-18: eleven dead
-        boards put Ashby, Greenhouse and Lever on hold for 260 live ones).
-        The first 404's date rides in `last_error`; an error written before
-        that date existed counts as old enough. Returns True when switched
+        never a broken connector, but one may be a moment. A board is switched
+        off only when it has answered 404 at least `NOT_FOUND_RETIRE_COUNT`
+        times in a row over at least `NOT_FOUND_RETIRE_HOURS` (2026-10-18:
+        eleven dead boards, asked on every refresh, put Ashby, Greenhouse and
+        Lever on hold for 260 live ones).
+
+        The streak lives in `last_error`: `NOT_FOUND since <first 404> (<n>x)`.
+        Any other error and any success overwrite it, so the streak is
+        consecutive by construction. An error without that date (written
+        before it existed, or unreadable) starts a new streak: the clock never
+        starts before the first 404 this method saw. Returns True when switched
         off. Nothing is deleted, and `sync_registry` never switches it back.
         """
         row = self.conn.execute(
             "SELECT last_error FROM source_board WHERE id = ?", (board_id,)
         ).fetchone()
-        previous = str(row[0] or "") if row is not None else ""
         now = now_utc()
-        since = now
-        if previous.startswith("NOT_FOUND since "):
-            since = previous[len("NOT_FOUND since ") :].split(": ", 1)[0]
-        elif previous.startswith("NOT_FOUND:"):
-            since = ""
-        gone = previous.startswith("NOT_FOUND") and (
-            not since or _hours_between(since, now) >= NOT_FOUND_RETIRE_HOURS
-        )
+        since, count = now, 1
+        streak = _NOT_FOUND_STREAK.match(str(row[0] or "") if row is not None else "")
+        if streak and _hours_between(streak.group(1), now) is not None:
+            since, count = streak.group(1), int(streak.group(2)) + 1
+        hours = _hours_between(since, now) or 0.0
+        gone = count >= NOT_FOUND_RETIRE_COUNT and hours >= NOT_FOUND_RETIRE_HOURS
         self.conn.execute(
             "UPDATE source_board SET last_error = ?, active = ? WHERE id = ?",
-            (f"NOT_FOUND since {since or now}: {message}"[:240], 0 if gone else 1, board_id),
+            (f"NOT_FOUND since {since} ({count}x): {message}"[:240], 0 if gone else 1, board_id),
         )
         return gone
 

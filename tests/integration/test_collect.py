@@ -379,7 +379,7 @@ def test_a_board_gone_for_a_day_is_switched_off_and_closes_nothing(conn, board) 
     assert run(conn, board).boards_retired == 0, "one 404 may be a moment"
     conn.execute(
         "UPDATE source_board SET last_error ="
-        " 'NOT_FOUND since 2026-01-01T00:00:00Z: board or resource not found'"
+        " 'NOT_FOUND since 2026-01-01T00:00:00Z (2x): board or resource not found'"
     )
     stats = run(conn, board)
     assert stats.boards_retired == 1

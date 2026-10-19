@@ -11,10 +11,29 @@ of a few tens of kilobytes.
 
 from __future__ import annotations
 
+import os
 import socket
 
 import pytest
 from tests.protected_paths import changed, describe, restore, snapshot
+
+#: THE PRODUCT'S OWN SWITCHES ARE THE OWNER'S, NEVER THE SUITE'S.
+#:
+#: Removed AT IMPORT, before any fixture runs and before any server a fixture
+#: starts inherits the environment. The owner's Windows environment sets the
+#: two matching switches (Phase C and Phase D); they leaked into seven tests
+#: that build their own expectations under the default, and those failed on
+#: this machine only (2026-10-18). A test that wants a switch sets it with
+#: `monkeypatch.setenv`. Test-harness switches (`CAREER_AGENT_REFRESH_EVIDENCE`)
+#: are deliberately not in this list.
+LOCAL_PRODUCT_SWITCHES = (
+    "CAREER_AGENT_ELIGIBILITY_SOURCE",
+    "CAREER_AGENT_WORK_MATCH_SOURCE",
+    "CAREER_AGENT_DB",
+    "CAREER_AGENT_ALLOW_UPGRADE_WITHOUT_BACKUP",
+)
+for _name in LOCAL_PRODUCT_SWITCHES:
+    os.environ.pop(_name, None)
 
 #: Taken AT IMPORT, read at every teardown.
 #:

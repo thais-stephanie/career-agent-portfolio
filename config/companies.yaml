@@ -24,6 +24,14 @@
 # The engineering validation set lives separately in companies.seed.yaml
 # so provider regression tests keep a small, deliberately awkward corpus
 # that does not move every time this registry grows.
+#
+# REMOVED 2026-10-19, each board answering HTTP 404 since at least
+# 2026-10-16 and confirmed dead by a live request on 2026-10-18: Ashby cribl,
+# kraken, marqeta, spring-health; Greenhouse bitso, cybereason, hubspot,
+# postman, sage, teach (Teach For America keeps its Workday boards); Lever
+# varomoney. A new install would register them only to retire them a day
+# later. A board that dies after this is retired by `collect` itself
+# (`SourceBoardRepo.mark_not_found`); re-adding one needs a fresh live probe.
 # =====================================================================
 
 schema_version: 1
@@ -356,17 +364,6 @@ companies:
         board_identifier: "betterment"
         discovery_method: "domain_slug"
         verified_at: "2026-09-09T18:20:55Z"
-  - slug: bitso
-    name: "Bitso"
-    canonical_domain: "bitso.com"
-    website: "https://bitso.com"
-    industry: "latam"
-    discovery_source: curated_non_technology_sourcing
-    boards:
-      - provider: greenhouse
-        board_identifier: "bitso"
-        discovery_method: "domain_slug"
-        verified_at: "2026-09-09T18:21:13Z"
   - slug: bitwarden
     name: "Bitwarden"
     canonical_domain: "bitwarden.com"
@@ -813,18 +810,6 @@ companies:
         board_identifier: "cresta"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:18:14Z"
-  - slug: cribl
-    name: "Cribl"
-    canonical_domain: "cribl.io"
-    website: "https://cribl.io"
-    hq_country: "US"
-    industry: "observability"
-    discovery_source: curated_technology_sourcing
-    boards:
-      - provider: ashby
-        board_identifier: "cribl"
-        discovery_method: "domain_slug"
-        verified_at: "2026-08-26T02:18:33Z"
   - slug: cultureamp
     name: "Culture Amp"
     canonical_domain: "cultureamp.com"
@@ -861,18 +846,6 @@ companies:
         board_identifier: "customerio"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:20:23Z"
-  - slug: cybereason
-    name: "Cybereason"
-    canonical_domain: "cybereason.com"
-    website: "https://cybereason.com"
-    hq_country: "US"
-    industry: "security"
-    discovery_source: curated_technology_sourcing
-    boards:
-      - provider: greenhouse
-        board_identifier: "cybereason"
-        discovery_method: "domain_slug"
-        verified_at: "2026-08-26T02:21:38Z"
   - slug: dagster
     name: "Dagster Labs"
     canonical_domain: "dagster.io"
@@ -1391,18 +1364,6 @@ companies:
         board_identifier: "hopper"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:22:20Z"
-  - slug: hubspot
-    name: "HubSpot"
-    canonical_domain: "hubspot.com"
-    website: "https://hubspot.com"
-    hq_country: "US"
-    industry: "saas gtm"
-    discovery_source: curated_technology_sourcing
-    boards:
-      - provider: greenhouse
-        board_identifier: "hubspot"
-        discovery_method: "domain_slug"
-        verified_at: "2026-08-26T02:19:57Z"
   - slug: impossible-foods
     name: "Impossible Foods"
     canonical_domain: "impossiblefoods.com"
@@ -1614,18 +1575,6 @@ companies:
         board_identifier: "kong"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:18:47Z"
-  - slug: kraken
-    name: "Kraken"
-    canonical_domain: "kraken.com"
-    website: "https://kraken.com"
-    hq_country: "US"
-    industry: "crypto remote-first"
-    discovery_source: curated_technology_sourcing
-    boards:
-      - provider: ashby
-        board_identifier: "kraken"
-        discovery_method: "domain_slug"
-        verified_at: "2026-08-26T02:19:50Z"
   - slug: langchain
     name: "LangChain"
     canonical_domain: "langchain.com"
@@ -1743,18 +1692,6 @@ companies:
         board_identifier: "make"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:20:27Z"
-  - slug: marqeta
-    name: "Marqeta"
-    canonical_domain: "marqeta.com"
-    website: "https://marqeta.com"
-    hq_country: "US"
-    industry: "fintech"
-    discovery_source: curated_technology_sourcing
-    boards:
-      - provider: ashby
-        board_identifier: "marqeta"
-        discovery_method: "domain_slug"
-        verified_at: "2026-08-26T02:19:47Z"
   - slug: matchgroup
     name: "Match Group"
     canonical_domain: "matchgroup.com"
@@ -2289,18 +2226,6 @@ companies:
         board_identifier: "posthog"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:19:11Z"
-  - slug: postman
-    name: "Postman"
-    canonical_domain: "postman.com"
-    website: "https://postman.com"
-    hq_country: "US"
-    industry: "api tooling"
-    discovery_source: curated_technology_sourcing
-    boards:
-      - provider: greenhouse
-        board_identifier: "postman"
-        discovery_method: "domain_slug"
-        verified_at: "2026-08-26T02:18:46Z"
   - slug: prefect
     name: "Prefect"
     canonical_domain: "prefect.io"
@@ -2474,18 +2399,6 @@ companies:
         board_identifier: "runway"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:21:22Z"
-  - slug: sage
-    name: "Sage"
-    canonical_domain: "sage.com"
-    website: "https://sage.com"
-    hq_country: "GB"
-    industry: "finance saas"
-    discovery_source: curated_technology_sourcing
-    boards:
-      - provider: greenhouse
-        board_identifier: "sage"
-        discovery_method: "domain_slug"
-        verified_at: "2026-08-26T02:21:26Z"
   - slug: salesloft
     name: "Salesloft"
     canonical_domain: "salesloft.com"
@@ -2713,18 +2626,6 @@ companies:
         board_identifier: "spotify"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:22:04Z"
-  - slug: springhealth
-    name: "Spring Health"
-    canonical_domain: "springhealth.com"
-    website: "https://springhealth.com"
-    hq_country: "US"
-    industry: "health"
-    discovery_source: curated_technology_sourcing
-    boards:
-      - provider: ashby
-        board_identifier: "spring-health"
-        discovery_method: "domain_slug"
-        verified_at: "2026-08-26T02:21:57Z"
   - slug: stability
     name: "Stability AI"
     canonical_domain: "stability.ai"
@@ -2897,10 +2798,6 @@ companies:
     industry: "education nonprofit"
     discovery_source: curated_non_technology_sourcing
     boards:
-      - provider: greenhouse
-        board_identifier: "teach"
-        discovery_method: "domain_slug"
-        verified_at: "2026-09-09T18:20:27Z"
       # TWO SITES ON ONE TENANT, and both are kept because both are real.
       # `scan-career-sites` read them off this employer's own careers page on
       # 2026-09-10. A Workday site is a separate board with separate postings,
@@ -3135,17 +3032,6 @@ companies:
         board_identifier: "vanta"
         discovery_method: "domain_slug"
         verified_at: "2026-08-26T02:20:59Z"
-  - slug: varo-bank
-    name: "Varo Bank"
-    canonical_domain: "varomoney.com"
-    website: "https://varomoney.com"
-    industry: "consumer finance services"
-    discovery_source: curated_non_technology_sourcing
-    boards:
-      - provider: lever
-        board_identifier: "varomoney"
-        discovery_method: "domain_slug"
-        verified_at: "2026-09-09T18:21:07Z"
   - slug: veeva
     name: "Veeva Systems"
     canonical_domain: "veeva.com"
