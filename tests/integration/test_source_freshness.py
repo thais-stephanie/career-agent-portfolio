@@ -491,3 +491,50 @@ def test_a_source_a_whole_check_has_not_reached_is_waiting_not_never_run(api) ->
         settle(api.retrieval)
     after = _states(api)
     assert {after[sid] for sid in never} == {"NOT_STARTED"}, "nothing ran: never run again"
+
+
+def test_a_run_that_only_met_dead_boards_does_not_hold_the_family_back(tmp_path) -> None:
+    """2026-10-18: eleven 404 boards, each in a run of its own, put Ashby,
+    Greenhouse and Lever on hold for the next refresh."""
+    conn = _db(tmp_path)
+    _finish(
+        conn,
+        "collect",
+        PipelineRunStatus.OK,
+        {"by_provider": {"greenhouse": {"boards_attempted": 9, "boards_succeeded": 9}}},
+    )
+    _finish(
+        conn,
+        "collect",
+        PipelineRunStatus.FAILED,
+        {
+            "by_provider": {"greenhouse": {"boards_attempted": 1, "boards_failed": 1}},
+            "failures": [{"provider": "greenhouse", "category": "NOT_FOUND"}],
+        },
+    )
+    public = _public(conn)
+    assert public["collect:greenhouse"].last_outcome == "COMPLETE"
+    row = read_progress(
+        conn, stage_for={"gh": "collect"}, providers={"gh": "greenhouse"}, public=public
+    )[0]
+    assert row.state is RefreshState.COMPLETE and row.cooldown_until is None
+
+
+def test_a_family_whose_boards_failed_for_another_reason_still_waits(tmp_path) -> None:
+    conn = _db(tmp_path)
+    _finish(
+        conn,
+        "collect",
+        PipelineRunStatus.FAILED,
+        {
+            "by_provider": {"greenhouse": {"boards_attempted": 2, "boards_failed": 2}},
+            "failures": [
+                {"provider": "greenhouse", "category": "NOT_FOUND"},
+                {"provider": "greenhouse", "category": "TIMEOUT"},
+            ],
+        },
+    )
+    row = read_progress(
+        conn, stage_for={"gh": "collect"}, providers={"gh": "greenhouse"}, public=_public(conn)
+    )[0]
+    assert row.state is RefreshState.FAILED and row.cooldown_until is not None

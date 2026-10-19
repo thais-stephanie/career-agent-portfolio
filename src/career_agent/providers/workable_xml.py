@@ -201,6 +201,7 @@ class WorkableXmlProvider(WorkableProvider):
         session = self.session
         pending = session.pending()
         cursor = 0
+        transfer_error: Exception | None = None
         if pending and pending.get("staged") and session.stage_path.exists():
             self.resumed = True
             self.feed_last_modified = pending.get("last_modified")
@@ -219,18 +220,34 @@ class WorkableXmlProvider(WorkableProvider):
             else:
                 session.abandon()
                 self.on_phase("downloading", 0, None)
-                got = self._fetcher.download_feed(
-                    XML_URL,
-                    session.xml_path,
-                    if_modified_since=session.processed_last_modified(),
-                    on_bytes=lambda done, total: self.on_phase("downloading", done, total),
-                )
-                self.feed_last_modified = got.last_modified
-                if got.status == 304:
-                    self.not_modified = True
-                    return
-                self.xml_bytes = got.size
-                session.start_pending(last_modified=got.last_modified, bytes=got.size)
+                try:
+                    got = self._fetcher.download_feed(
+                        XML_URL,
+                        session.xml_path,
+                        if_modified_since=session.processed_last_modified(),
+                        on_bytes=lambda done, total: self.on_phase("downloading", done, total),
+                        keep_partial=True,
+                    )
+                except FetchError as exc:
+                    # A CUT TRANSFER IS NOT NOTHING. Workable ignores Range, so
+                    # the download cannot be continued; but 2026-10-18 lost
+                    # 847 MB of an ~850 MB feed to one dropped connection. Its
+                    # complete records are read like a feed that did not parse
+                    # to its end: kept, never a finished read, closing nothing.
+                    size = session.xml_path.stat().st_size if session.xml_path.exists() else 0
+                    if not size:
+                        session.xml_path.unlink(missing_ok=True)
+                        raise
+                    transfer_error = exc
+                    self.xml_bytes = size
+                    session.start_pending(last_modified=None, bytes=size)
+                else:
+                    self.feed_last_modified = got.last_modified
+                    if got.status == 304:
+                        self.not_modified = True
+                        return
+                    self.xml_bytes = got.size
+                    session.start_pending(last_modified=got.last_modified, bytes=got.size)
             self.on_phase("staging", 0, None)
             session.stage_path.unlink(missing_ok=True)
             staged = sqlite3.connect(session.stage_path)
@@ -243,7 +260,10 @@ class WorkableXmlProvider(WorkableProvider):
             # A faulty feed is not resumable: what was read (complete records
             # only) is handled below, the run fails, nothing is recorded as done.
             session.update_pending(
-                staged=True, records=count, duplicates=duplicates, malformed=bool(parse_error)
+                staged=True,
+                records=count,
+                duplicates=duplicates,
+                malformed=bool(parse_error or transfer_error),
             )
             session.xml_path.unlink(missing_ok=True)
         pending = session.pending() or {}
@@ -262,7 +282,7 @@ class WorkableXmlProvider(WorkableProvider):
             session.abandon()
             raise WorkableError(
                 f"Partial XML: {self.xml_jobs} complete records retained; "
-                f"{self.xml_bytes} bytes; the feed did not parse to its end"
+                f"{self.xml_bytes} bytes; the transfer or the XML did not finish"
             )
 
     def page_done(self) -> None:

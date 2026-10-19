@@ -300,6 +300,7 @@ class HttpFetcher:
         *,
         if_modified_since: str | None = None,
         on_bytes: Any = None,
+        keep_partial: bool = False,
     ) -> FeedDownload:
         """Stream a public feed to disk, conditionally, and stop when asked.
 
@@ -309,7 +310,9 @@ class HttpFetcher:
         checked on every chunk so a Stop or an expired deadline ends a download
         of hundreds of megabytes within a fraction of a second. A body shorter
         than the server's `Content-Length` is a failure and the partial file is
-        removed: a truncated feed is never offered as a feed.
+        removed: a truncated feed is never offered as a feed. `keep_partial`
+        leaves a cut transfer on disk for a caller that reads only its complete
+        records and never treats it as the feed.
         """
         self.check_budget()
         self._limiter.wait(httpx.URL(url).host, sleep=self._sleep)
@@ -352,7 +355,8 @@ class HttpFetcher:
                 )
             return FeedDownload(200, size, modified, total)
         except httpx.HTTPError as exc:
-            destination.unlink(missing_ok=True)
+            if not keep_partial:
+                destination.unlink(missing_ok=True)
             raise self._record(
                 FetchError(
                     FetchErrorCategory.CONNECTION,
@@ -360,8 +364,11 @@ class HttpFetcher:
                     f"feed transfer interrupted after {size} bytes ({type(exc).__name__})",
                 )
             ) from exc
-        except BaseException:
-            destination.unlink(missing_ok=True)
+        except BaseException as exc:
+            # A short body is the same cut as a dropped connection; a Stop or
+            # an expired budget is not, and never leaves a file behind.
+            if not (keep_partial and isinstance(exc, FetchError)):
+                destination.unlink(missing_ok=True)
             raise
 
     def get_json(

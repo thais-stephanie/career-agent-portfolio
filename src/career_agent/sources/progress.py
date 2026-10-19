@@ -505,6 +505,10 @@ def _family_history(conn: sqlite3.Connection) -> tuple[dict, dict]:
             counted = json.loads(row["stats_json"] or "{}").get("by_provider", {})
         except (ValueError, TypeError):
             continue
+        try:
+            gone = gone_boards(json.loads(row["stats_json"] or "{}"))
+        except (ValueError, TypeError, AttributeError):
+            gone = {}
         for provider, stats in counted.items():
             if not isinstance(stats, dict) or not (
                 stats.get("boards_attempted", 0) > 0
@@ -512,10 +516,30 @@ def _family_history(conn: sqlite3.Connection) -> tuple[dict, dict]:
                 or stats.get("boards_deferred", 0) > 0
             ):
                 continue
+            # A RUN THAT ONLY ASKED FOR BOARDS THAT NO LONGER EXIST says nothing
+            # about the family. 2026-10-18: eleven dead boards, each in a run of
+            # its own, became the latest word on Ashby, Greenhouse and Lever,
+            # read FAILED, and held 260 live boards out of the next refresh.
+            attempted = stats.get("boards_attempted", 0)
+            if attempted and gone.get(provider, 0) >= attempted:
+                continue
             latest.setdefault(provider, row)
             if row["finished_at"] and stats.get("boards_succeeded", 0) > 0:
                 successes.setdefault(provider, str(row["finished_at"]))
     return latest, successes
+
+
+def gone_boards(stats: Mapping[str, Any]) -> dict[str, int]:
+    """Per family, how many boards in this run answered 404."""
+    failures = stats.get("failures") or []
+    if not isinstance(failures, list):
+        return {}
+    gone: dict[str, int] = {}
+    for failure in failures:
+        if isinstance(failure, dict) and failure.get("category") == "NOT_FOUND":
+            provider = str(failure.get("provider") or "")
+            gone[provider] = gone.get(provider, 0) + 1
+    return gone
 
 
 def _older_than(stamp: str | None, hours: int, now: datetime) -> bool:

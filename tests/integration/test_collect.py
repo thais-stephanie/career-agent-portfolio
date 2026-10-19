@@ -372,6 +372,21 @@ def test_board_not_found_closes_nothing(conn, board) -> None:
     assert rows(conn)[0]["closed_at"] is None
 
 
+def test_a_board_gone_for_a_day_is_switched_off_and_closes_nothing(conn, board) -> None:
+    board.set_jobs([job(1, "A")])
+    run(conn, board)
+    board.set_status(404)
+    assert run(conn, board).boards_retired == 0, "one 404 may be a moment"
+    conn.execute(
+        "UPDATE source_board SET last_error ="
+        " 'NOT_FOUND since 2026-01-01T00:00:00Z: board or resource not found'"
+    )
+    stats = run(conn, board)
+    assert stats.boards_retired == 1
+    assert conn.execute("SELECT active FROM source_board").fetchone()[0] == 0
+    assert rows(conn)[0]["closed_at"] is None
+
+
 def test_malformed_response_closes_nothing(conn, board) -> None:
     board.set_jobs([job(1, "A")])
     run(conn, board)

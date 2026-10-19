@@ -18,6 +18,7 @@ import hashlib
 import json
 import sqlite3
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 
 from career_agent.clock import new_id, now_utc
@@ -29,6 +30,19 @@ from career_agent.storage.records import (
     ProviderPayloadRecord,
     SourceBoardRecord,
 )
+
+#: How long a board must keep answering 404 before it is switched off.
+NOT_FOUND_RETIRE_HOURS = 24
+
+
+def _hours_between(earlier: str, later: str) -> float:
+    def parse(stamp: str) -> datetime:
+        return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+
+    try:
+        return (parse(later) - parse(earlier)).total_seconds() / 3600
+    except ValueError:
+        return float("inf")  # an unreadable date is an old one
 
 
 def sha256_text(text: str) -> str:
@@ -373,6 +387,37 @@ class SourceBoardRepo(_Repo):
         self.conn.execute(
             "UPDATE source_board SET last_error = ? WHERE id = ?", (message, board_id)
         )
+
+    def mark_not_found(self, board_id: str, message: str) -> bool:
+        """Record a 404 and switch the board off once it has been gone a day.
+
+        A 404 is the employer's own answer that the board no longer exists,
+        never a broken connector. One may be a moment; two at least a day
+        apart are a board that is gone, and asking for it again on every
+        refresh only made its family look broken (2026-10-18: eleven dead
+        boards put Ashby, Greenhouse and Lever on hold for 260 live ones).
+        The first 404's date rides in `last_error`; an error written before
+        that date existed counts as old enough. Returns True when switched
+        off. Nothing is deleted, and `sync_registry` never switches it back.
+        """
+        row = self.conn.execute(
+            "SELECT last_error FROM source_board WHERE id = ?", (board_id,)
+        ).fetchone()
+        previous = str(row[0] or "") if row is not None else ""
+        now = now_utc()
+        since = now
+        if previous.startswith("NOT_FOUND since "):
+            since = previous[len("NOT_FOUND since ") :].split(": ", 1)[0]
+        elif previous.startswith("NOT_FOUND:"):
+            since = ""
+        gone = previous.startswith("NOT_FOUND") and (
+            not since or _hours_between(since, now) >= NOT_FOUND_RETIRE_HOURS
+        )
+        self.conn.execute(
+            "UPDATE source_board SET last_error = ?, active = ? WHERE id = ?",
+            (f"NOT_FOUND since {since or now}: {message}"[:240], 0 if gone else 1, board_id),
+        )
+        return gone
 
     def hold_suspicious(self, board_id: str, observed: int) -> None:
         """Flag a board whose successful pass returned implausibly little.

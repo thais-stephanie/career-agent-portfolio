@@ -33,7 +33,7 @@ from career_agent.clock import now_utc
 from career_agent.domain.enums import CollectionStatus, PipelineRunStatus
 from career_agent.domain.normalize import content_hash
 from career_agent.net.deadline import BudgetExpired
-from career_agent.net.fetcher import FetchError, FetchStats, HttpFetcher
+from career_agent.net.fetcher import FetchError, FetchErrorCategory, FetchStats, HttpFetcher
 from career_agent.providers.base import BoardRef, JobProvider, RawPosting, resolve_metadata
 from career_agent.providers.registry import board_providers, get_provider
 from career_agent.storage.db import transaction
@@ -150,6 +150,8 @@ class CollectionStats:
     boards_held: int = 0
     boards_confirmed_drop: int = 0
     boards_recovered: int = 0
+    #: Boards switched off because they have answered 404 for a day.
+    boards_retired: int = 0
     #: Sources this run could not ADDRESS, refused before any request: an
     #: identifier from another provider's vocabulary, or a provider with no
     #: adapter. Separate from `boards_failed`, and deliberately NOT a failure.
@@ -227,6 +229,7 @@ class CollectionStats:
             "boards_held": self.boards_held,
             "boards_confirmed_drop": self.boards_confirmed_drop,
             "boards_recovered": self.boards_recovered,
+            "boards_retired": self.boards_retired,
             "boards_rejected": self.boards_rejected,
             "holds": [h.as_dict() for h in self.holds],
             "descriptions_non_empty": self.descriptions_non_empty,
@@ -521,7 +524,11 @@ class Collector:
                 )
             )
             with transaction(self.conn):
-                self.boards.mark_error(board_id, f"{exc.category.value}: {exc.message[:200]}")
+                if exc.category is FetchErrorCategory.NOT_FOUND:
+                    if self.boards.mark_not_found(board_id, exc.message[:200]):
+                        stats.tally(board.provider, "boards_retired")
+                else:
+                    self.boards.mark_error(board_id, f"{exc.category.value}: {exc.message[:200]}")
             return
         except Exception as exc:  # noqa: BLE001
             # **ONE BROKEN SOURCE MAY NOT END THE RUN.** `FetchError` above is

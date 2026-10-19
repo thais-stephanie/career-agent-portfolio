@@ -245,6 +245,44 @@ def test_board_failure_does_not_advance_last_collected_at(
     assert row["last_error"] is None
 
 
+def test_a_board_answering_404_for_a_day_is_switched_off(
+    conn: sqlite3.Connection, board_id: str
+) -> None:
+    repo = SourceBoardRepo(conn)
+    assert repo.mark_not_found(board_id, "board or resource not found") is False
+    first = repo.get(board_id)["last_error"]
+    assert first.startswith("NOT_FOUND since ") and repo.get(board_id)["active"] == 1
+
+    # A second 404 within the day keeps the first date and the board.
+    assert repo.mark_not_found(board_id, "board or resource not found") is False
+    assert repo.get(board_id)["last_error"] == first
+
+    conn.execute(
+        "UPDATE source_board SET last_error = ? WHERE id = ?",
+        ("NOT_FOUND since 2026-01-01T00:00:00Z: board or resource not found", board_id),
+    )
+    assert repo.mark_not_found(board_id, "board or resource not found") is True
+    row = repo.get(board_id)
+    assert row["active"] == 0 and row["last_error"].startswith("NOT_FOUND since 2026-01-01")
+
+
+def test_a_404_written_before_dates_were_kept_counts_as_old(
+    conn: sqlite3.Connection, board_id: str
+) -> None:
+    repo = SourceBoardRepo(conn)
+    repo.mark_error(board_id, "NOT_FOUND: board or resource not found")
+    assert repo.mark_not_found(board_id, "board or resource not found") is True
+
+
+def test_a_404_after_another_error_starts_the_clock(
+    conn: sqlite3.Connection, board_id: str
+) -> None:
+    repo = SourceBoardRepo(conn)
+    repo.mark_error(board_id, "TIMEOUT: read timed out")
+    assert repo.mark_not_found(board_id, "board or resource not found") is False
+    assert repo.get(board_id)["active"] == 1
+
+
 # --- job text, jobs, payloads ----------------------------------------------
 
 

@@ -116,6 +116,9 @@ def _slices(stage: str, status: str, stats: Mapping[str, Any]) -> list[tuple[str
     by_provider = stats.get("by_provider")
     if not isinstance(by_provider, dict):
         return []
+    from career_agent.sources.progress import gone_boards
+
+    gone = gone_boards(stats)
     out: list[tuple[str, str, Mapping]] = []
     for provider, part in by_provider.items():
         if not isinstance(part, dict) or not (
@@ -123,6 +126,10 @@ def _slices(stage: str, status: str, stats: Mapping[str, Any]) -> list[tuple[str
         ):
             continue
         attempted = part.get("boards_attempted", 0) or 0
+        if attempted and gone.get(provider, 0) >= attempted:
+            # Only boards that no longer exist were asked: no news about the
+            # family, and never a reason to hold it back (progress, same rule).
+            continue
         failed = part.get("boards_failed")
         if failed is None:
             failed = attempted - (part.get("boards_succeeded", attempted) or 0)

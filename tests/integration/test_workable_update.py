@@ -189,7 +189,7 @@ def test_an_expired_budget_during_the_download_leaves_no_partial_file(conn, fold
     assert FeedSession(folder).pending() is None
 
 
-def test_a_truncated_download_is_a_failure_and_changes_nothing(conn, folder):
+def test_a_truncated_download_keeps_its_complete_records_and_is_not_an_update(conn, folder):
     class Short(Server):
         def handler(self, request):
             self.requests.append(dict(request.headers))
@@ -202,7 +202,9 @@ def test_a_truncated_download_is_a_failure_and_changes_nothing(conn, folder):
     assert held.jobs_new == 3
     stats = run(conn, Short(feed_xml(5), modified=NEWER), folder)
     assert stats.failures and stats.deferred_reason is None
-    assert conn.execute("SELECT COUNT(*) FROM job").fetchone()[0] == 3
+    # R3 arrived whole; R4 was cut, so it is not read. Nothing is closed.
+    assert conn.execute("SELECT COUNT(*) FROM job").fetchone()[0] == 4
+    assert not (folder / "feed.xml").exists() and FeedSession(folder).pending() is None
     assert FeedSession(folder).read()["processed_last_modified"] == MODIFIED
     assert (
         conn.execute(
@@ -284,3 +286,39 @@ def test_the_engine_runs_it_as_one_unit_and_respects_the_profile_pause(conn, fol
     assert result["jobs_new"] == 4 and result["jobs_unchanged"] == 0
     assert seen and seen[-1] is None  # the detail is cleared when the step ends
     json.dumps(receipt)  # the receipt is a plain record
+
+
+def test_a_dropped_connection_keeps_what_arrived_and_is_not_an_update(conn, folder):
+    """2026-10-18: the server dropped the connection after 847 MB of an ~850 MB
+    feed and the whole download was thrown away. Range is ignored, so it cannot
+    be continued; its complete records can still be read."""
+
+    class Dropped(Server):
+        def handler(self, request):
+            self.requests.append(dict(request.headers))
+            body = self.xml.encode("utf-8")
+
+            class Cut(httpx.SyncByteStream):
+                def __iter__(self):
+                    yield body[:-40]
+                    raise httpx.RemoteProtocolError("peer closed connection")
+
+            return httpx.Response(200, stream=Cut(), headers={"content-length": str(len(body))})
+
+    run(conn, Server(feed_xml(3)), folder)
+    stats = run(conn, Dropped(feed_xml(600), modified=NEWER), folder)  # > one chunk
+    assert stats.failures and "did not finish" in stats.failures[0]
+    held = conn.execute("SELECT COUNT(*) FROM job").fetchone()[0]
+    assert 3 < held < 600, "what arrived whole is kept; the cut record is not"
+    assert FeedSession(folder).read()["processed_last_modified"] == MODIFIED
+    assert not (folder / "feed.xml").exists() and FeedSession(folder).pending() is None
+
+
+def test_a_connection_dropped_before_any_byte_keeps_nothing(conn, folder):
+    class Refused(Server):
+        def handler(self, request):
+            raise httpx.ConnectError("no route")
+
+    stats = run(conn, Refused(feed_xml(5)), folder)
+    assert stats.failures and conn.execute("SELECT COUNT(*) FROM job").fetchone()[0] == 0
+    assert not (folder / "feed.xml").exists()
