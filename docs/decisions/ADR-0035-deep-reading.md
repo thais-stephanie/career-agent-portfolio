@@ -193,3 +193,35 @@ only":
   assumes 3,300 tokens per posting (the Claude Code pilot's mean; DeepSeek's
   own length is not measured yet), the rate depends on the hour of each call.
 
+
+## Addendum 3 (2026-10-19): a reading is of an advert under a title
+
+A reading was identified by the advert alone (content hash, profile digest,
+contract, provider, model). The reader is sent the TITLE and the advert, never
+the employer, so the identity left out half of what it was asked. On the
+owner's list, 210 postings carried an advert another posting of the same
+employer had been read under another title ("Business Process Consultant"
+read, "AI Workflow Analyst" skipped): the planner counted them as read, Find
+jobs (which looks readings up by posting) showed them unread, and no job would
+ever have read them. Reading one would have REPLACED its sibling's reading,
+because the store upserts on that key.
+
+Decision: the identity is (content hash, title, profile digest, contract,
+provider, model), the title exactly as sent (`job.title`), never normalised:
+a normalisation would declare equivalent two questions the reader saw as
+different, which is the defect itself. Not `job_id`: a repost of the same
+vacancy (same advert, same title, new id) is the same question and keeps
+sharing one reading.
+
+* Migration 0058 rebuilds `deep_review` (the one way SQLite changes a UNIQUE
+  constraint): every row copied with its id and every value, `title` filled
+  from the posting each reading was asked for. The new key is the old key
+  plus a column, so the copy cannot collide. `deep_attempt` gains `title`
+  additively, so "rejected" and "answered in this job" ask the same pair.
+* The planner skips, dedupes a plan and resumes by (advert, title)
+  (`deep_run.read_key`). A new reading's id includes the title; stored ids do
+  not move.
+* Find jobs shows, for a posting, the newest reading of its current advert
+  under its current title, whichever posting it was asked for (a repost shows
+  its twin's reading, as the planner skips it); else its own older reading,
+  out of date. A changed title is a changed posting.

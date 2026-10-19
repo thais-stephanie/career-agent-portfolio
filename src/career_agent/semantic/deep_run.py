@@ -14,7 +14,9 @@ first stage cannot decide alone what the model ever sees:
   What the reading raises there is what the local ranking was missing.
 
 A posting is not read again while its reading is CURRENT: the same advert
-(content hash), the same profile digest, the same instructions (contract), the
+(content hash) under the same title (the reader is shown both, never the
+employer, so a repost shares a reading and another title does not; migration
+0058), the same profile digest, the same instructions (contract), the
 same provider and, when one was named, the same model. A reading for an
 earlier profile or another model is shown as such and the posting can be read
 again. An answer that was paid for and rejected is not asked again unless the
@@ -364,6 +366,16 @@ class Selection:
     rejected: int = 0
 
 
+def read_key(row: sqlite3.Row) -> tuple[str, str]:
+    """What a reading is OF: the advert and the title the reader was shown.
+
+    The employer is never sent, so two postings with the same advert and the
+    same title get the same question and share one reading (a repost does);
+    the same advert under another title is another question (migration 0058).
+    """
+    return str(row["content_hash"]), str(row["title"] or "")
+
+
 def interleave(picked: list[tuple[sqlite3.Row, str]]) -> list[tuple[sqlite3.Row, str]]:
     """The plan's order: one of each stratum in turn, so a job paused halfway
     has read a little of every stratum, never only the top local scores."""
@@ -406,20 +418,20 @@ def select(
     done = repo.reviewed(*key)
     # An answer that was paid for and rejected is asked again only on request.
     refused = repo.rejected(*key)
-    hashes = {str(row["content_hash"]) for row in population}
+    pairs = {read_key(row) for row in population}
     skip = done | (set() if retry_rejected else refused)
-    fresh = [row for row in population if str(row["content_hash"]) not in skip]
+    fresh = [row for row in population if read_key(row) not in skip]
     by_id = {str(row["id"]): row for row in fresh}
-    seen_hashes: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     picked: list[tuple[sqlite3.Row, str]] = []
 
     def take(rows: list[sqlite3.Row], stratum: str, count: int) -> None:
         for row in rows:
             if count <= 0 or len(picked) >= limit:
                 return
-            if str(row["content_hash"]) in seen_hashes:
+            if read_key(row) in seen:
                 continue
-            seen_hashes.add(str(row["content_hash"]))
+            seen.add(read_key(row))
             picked.append((row, stratum))
             count -= 1
 
@@ -449,7 +461,7 @@ def select(
         len(population),
         len(population) - len(fresh),
         len(fresh),
-        len(refused & hashes),
+        len(refused & pairs),
     )
 
 
@@ -626,38 +638,42 @@ class DeepRepo:
         ).fetchone()
         return str(row[0]) if row is not None else model
 
-    def reviewed(self, provider: str, contract: str, digest: str, model: str = "") -> set[str]:
-        """Content hashes with a CURRENT reading: this provider, contract,
+    def reviewed(
+        self, provider: str, contract: str, digest: str, model: str = ""
+    ) -> set[tuple[str, str]]:
+        """(advert, title) pairs with a CURRENT reading: this provider, contract,
         profile digest and (when named) model, an alias read as the model it
         answers with (`resolve_model`)."""
         model = self.resolve_model(provider, model)
         return {
-            str(r[0])
+            (str(r[0]), str(r[1]))
             for r in self.conn.execute(
-                "SELECT content_hash FROM deep_review WHERE provider = ? AND contract = ?"
+                "SELECT content_hash, title FROM deep_review WHERE provider = ? AND contract = ?"
                 " AND profile_digest = ?" + self._current(model),
                 (provider, contract, digest, *([model] if model else [])),
             )
         }
 
-    def rejected(self, provider: str, contract: str, digest: str, model: str = "") -> set[str]:
-        """Content hashes whose current answer was paid for and rejected."""
+    def rejected(
+        self, provider: str, contract: str, digest: str, model: str = ""
+    ) -> set[tuple[str, str]]:
+        """(advert, title) pairs whose current answer was paid for and rejected."""
         model = self.resolve_model(provider, model)
         return {
-            str(r[0])
+            (str(r[0]), str(r[1]))
             for r in self.conn.execute(
-                "SELECT content_hash FROM deep_attempt WHERE provider = ? AND contract = ?"
+                "SELECT content_hash, title FROM deep_attempt WHERE provider = ? AND contract = ?"
                 " AND profile_digest = ? AND outcome = 'REJECTED'" + self._current(model),
                 (provider, contract, digest, *([model] if model else [])),
             )
         }
 
-    def answered_in(self, deep_job_id: str) -> set[str]:
-        """Content hashes this job already has an answer for, kept or not."""
+    def answered_in(self, deep_job_id: str) -> set[tuple[str, str]]:
+        """(advert, title) pairs this job already has an answer for, kept or not."""
         return {
-            str(r[0])
+            (str(r[0]), str(r[1]))
             for r in self.conn.execute(
-                "SELECT content_hash FROM deep_attempt WHERE deep_job_id = ?"
+                "SELECT content_hash, title FROM deep_attempt WHERE deep_job_id = ?"
                 " AND outcome IN ('PUBLISHED', 'REJECTED')",
                 (deep_job_id,),
             )
@@ -722,34 +738,70 @@ class DeepRepo:
         keys = list(row)
         self.conn.execute(
             f"INSERT INTO deep_review ({', '.join(keys)}) VALUES ({', '.join('?' for _ in keys)})"
-            " ON CONFLICT (content_hash, profile_digest, contract, provider, model) DO UPDATE SET "
-            + ", ".join(f"{k} = excluded.{k}" for k in keys if k != "id"),
+            " ON CONFLICT (content_hash, title, profile_digest, contract, provider, model)"
+            " DO UPDATE SET " + ", ".join(f"{k} = excluded.{k}" for k in keys if k != "id"),
             [row[k] for k in keys],
         )
 
-    def newest_per_job(self, job_ids: list[str] | None = None) -> list[sqlite3.Row]:
-        """The newest review of each posting, whatever text it was made for:
-        a review of an EARLIER text is returned too, so it can be shown as
-        out of date instead of disappearing or passing as current."""
+    def newest_per_job(self, job_ids: list[str] | None = None) -> list[tuple[str, sqlite3.Row]]:
+        """Each posting's reading, as `(job_id, review)`.
+
+        The newest review of the posting's CURRENT advert under its CURRENT
+        title, whichever posting it was asked for: a repost of the same
+        vacancy shares it, exactly as the planner skips it (`read_key`). Else
+        the posting's own newest review of an earlier text or title, so it is
+        shown as out of date instead of disappearing or passing as current. The
+        same advert under another title shares nothing: the reader was shown
+        that other title. `None` means every posting that has one.
+        """
         if job_ids is None:
-            rows = self.conn.execute(
-                "SELECT * FROM deep_review ORDER BY created_at ASC, id ASC"
-            ).fetchall()
+            reviews = self.conn.execute("SELECT * FROM deep_review").fetchall()
+            hashes = sorted({str(r["content_hash"]) for r in reviews})
+            own = sorted({str(r["job_id"]) for r in reviews})
+            jobs = {
+                str(r[0]): (str(r[1]), str(r[2] or ""))
+                for column, values in (("id", own), ("content_hash", hashes))
+                for r in self._chunked(
+                    f"SELECT id, content_hash, title FROM job WHERE {column} IN", values
+                )
+            }
         else:
-            rows = []
-            for start in range(0, len(job_ids), 500):
-                chunk = job_ids[start : start + 500]
-                marks = ",".join("?" for _ in chunk)
-                rows += self.conn.execute(
-                    f"SELECT * FROM deep_review WHERE job_id IN ({marks})"
-                    " ORDER BY created_at ASC, id ASC",
-                    chunk,
-                ).fetchall()
-            rows.sort(key=lambda r: (str(r["created_at"]), str(r["id"])))
-        newest: dict[str, sqlite3.Row] = {}
-        for row in rows:
-            newest[str(row["job_id"])] = row
-        return list(newest.values())
+            jobs = {
+                str(r[0]): (str(r[1]), str(r[2] or ""))
+                for r in self._chunked(
+                    "SELECT id, content_hash, title FROM job WHERE id IN", job_ids
+                )
+            }
+            hashes = sorted({h for h, _ in jobs.values()})
+            reviews = list(self._chunked("SELECT * FROM deep_review WHERE job_id IN", job_ids))
+            seen = {str(r["id"]) for r in reviews}
+            reviews += [
+                r
+                for r in self._chunked("SELECT * FROM deep_review WHERE content_hash IN", hashes)
+                if str(r["id"]) not in seen
+            ]
+        reviews.sort(key=lambda r: (str(r["created_at"]), str(r["id"])))
+        by_read: dict[tuple[str, str], sqlite3.Row] = {}
+        by_job: dict[str, sqlite3.Row] = {}
+        for row in reviews:
+            by_read[(str(row["content_hash"]), str(row["title"]))] = row
+            by_job[str(row["job_id"])] = row
+        out = []
+        for job_id in job_ids if job_ids is not None else sorted(jobs):
+            found = by_read.get(jobs[job_id]) if job_id in jobs else None
+            found = found or by_job.get(job_id)
+            if found is not None:
+                out.append((job_id, found))
+        return out
+
+    def _chunked(self, select: str, values: list[str]) -> list[sqlite3.Row]:
+        rows: list[sqlite3.Row] = []
+        for start in range(0, len(values), 500):
+            chunk = values[start : start + 500]
+            rows += self.conn.execute(
+                f"{select} ({','.join('?' for _ in chunk)})", chunk
+            ).fetchall()
+        return rows
 
 
 # ---------------------------------------------------------------------------
@@ -1082,7 +1134,9 @@ def run_deep(
     finished = deep_repo.reviewed(provider.id, contract, ctx.digest, model) | (
         deep_repo.answered_in(deep_job_id)
     )
-    pending = [c for c in _candidates_from_plan(conn, plan) if c.content_hash not in finished]
+    pending = [
+        c for c in _candidates_from_plan(conn, plan) if (c.content_hash, c.title) not in finished
+    ]
     stats.candidates = len(pending)
     stats.budget_usd = budget_usd if metered else None
     spent = deep_repo.spent(deep_job_id)
@@ -1119,6 +1173,7 @@ def run_deep(
                 "deep_job_id": deep_job_id,
                 "job_id": candidate.job_id,
                 "content_hash": candidate.content_hash,
+                "title": candidate.title,
                 "provider": provider.id,
                 "model": answer.model if answer is not None else model,
                 "contract": contract,
@@ -1218,6 +1273,7 @@ def run_deep(
                             UNIT_SEPARATOR.join(
                                 (
                                     candidate.content_hash,
+                                    candidate.title,
                                     ctx.digest,
                                     contract,
                                     provider.id,
@@ -1227,6 +1283,7 @@ def run_deep(
                         ).hexdigest()[:24],
                         "job_id": candidate.job_id,
                         "content_hash": candidate.content_hash,
+                        "title": candidate.title,
                         "profile_digest": ctx.digest,
                         "contract": contract,
                         "provider": provider.id,

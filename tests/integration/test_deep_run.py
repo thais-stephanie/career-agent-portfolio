@@ -135,7 +135,7 @@ def test_a_run_stores_reviews_and_moves_no_score_and_no_evidence(corpus):  # noq
     stats = run_deep(conn, config, provider, share=True, limit=10, include_unresolved=True)
     assert stats.status == "DONE" and stats.published == stats.candidates > 0
     assert (snapshot(conn, "job_match"), snapshot(conn, "verified_claim")) == before
-    rows = DeepRepo(conn).newest_per_job()
+    rows = [row for _job, row in DeepRepo(conn).newest_per_job()]
     assert {r["stratum"] for r in rows} <= {"top_local", "lexical", "control"}
     review = json.loads(rows[0]["review_json"])
     assert review["requirements"][0]["evidence_ids"] in ([], ["E1"])

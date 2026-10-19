@@ -643,7 +643,7 @@ def _review_rows(
     contract_now = deep.contract_identity()
     digest_now = {shared: context(conn, config, shared).digest for shared in (True, False)}
     ledger = {c.claim_key: c for c in confirmed_claims(conn)}
-    jobs = [str(r["job_id"]) for r in rows]
+    jobs = [job_id for job_id, _row in rows]
     marks = ",".join("?" for _ in jobs)
     local: dict[str, tuple[Any, ...]] = {}
     for r in conn.execute(
@@ -656,7 +656,7 @@ def _review_rows(
     ):
         local[str(r[0])] = (r[1], r[2], str(r[3] or ""), str(r[4] or ""), r[5])
     out = []
-    for row in rows:
+    for job_id, row in rows:
         review = json.loads(row["review_json"])
         sent = json.loads(row["sent_json"])
         shared = bool(sent.get("shared"))
@@ -676,11 +676,10 @@ def _review_rows(
         current = {a: e for a, e in evidence.items() if not e["changed"]}
         assessment = deep_assess.assess(review, current if shared else None)
         recommendation = assessment.recommendation
-        score, band, title, company, hash_now = local.get(
-            str(row["job_id"]), (None, None, "", "", None)
-        )
+        score, band, title, company, hash_now = local.get(job_id, (None, None, "", "", None))
         reasons = []
-        if row["content_hash"] != hash_now:
+        # Another title is another question to the reader (migration 0058).
+        if row["content_hash"] != hash_now or row["title"] != title:
             reasons.append("posting")
         if row["contract"] != contract_now:
             reasons.append("instructions")
@@ -688,7 +687,7 @@ def _review_rows(
             reasons.append("profile")
         stale = bool(reasons)
         item: dict[str, Any] = {
-            "job_id": row["job_id"],
+            "job_id": job_id,
             "title": title,
             "company": company,
             "level": "STALE" if stale else recommendation,
