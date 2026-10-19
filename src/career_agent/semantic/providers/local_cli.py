@@ -217,6 +217,17 @@ def find_claude() -> str | None:
     return None
 
 
+#: The aliases Claude Code accepts for `--model`, and the prefix of the full
+#: name each answer then reports (`sonnet` -> `claude-sonnet-5-5`). A reading is
+#: stored under the full name, so "has `sonnet` read this?" has to be asked of
+#: the full name the alias answered with (`DeepRepo`). Nothing else is an alias.
+CLAUDE_MODEL_ALIASES: dict[str, str] = {
+    "sonnet": "claude-sonnet-",
+    "opus": "claude-opus-",
+    "haiku": "claude-haiku-",
+}
+
+
 class ClaudeCodeProvider:
     id = "claude_code"
     display_name = "Claude Code"

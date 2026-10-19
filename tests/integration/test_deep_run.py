@@ -19,7 +19,7 @@ from tests.integration.test_semantic_run import corpus  # noqa: F401 - fixture
 from career_agent.domain.claims import VerifiedClaim
 from career_agent.domain.enums import ClaimSource, ClaimType
 from career_agent.semantic import deep
-from career_agent.semantic.deep_run import DeepRepo, run_deep, select
+from career_agent.semantic.deep_run import DeepRepo, context, run_deep, select
 from career_agent.semantic.providers import (
     Availability,
     Billing,
@@ -37,6 +37,10 @@ class FakeCli:
     id: str = "fake_cli"
     display_name: str = "Fake CLI"
     billing: Billing = Billing.SUBSCRIPTION
+    #: What the run is configured with (an alias like `sonnet`, or a full
+    #: name), and the exact model the answer reports, as a real CLI does.
+    model: str = ""
+    answers_with: str = "fake-model"
     limit_after: int | None = None
     on_call: object = None
     messages: list[dict] = field(default_factory=list)
@@ -92,7 +96,7 @@ class FakeCli:
                 "insufficient": False,
             }
         )
-        return ProviderAnswer(raw, self.id, "fake-model", 1, 100, 20, None)
+        return ProviderAnswer(raw, self.id, self.answers_with, 1, 100, 20, None)
 
 
 def snapshot(conn, table: str) -> list[tuple]:
@@ -332,3 +336,123 @@ def test_a_sign_in_problem_pauses_at_once(corpus):  # noqa: F811
     stats = run_deep(conn, config, provider, share=False, limit=5, include_unresolved=True)
     assert stats.status == "PAUSED" and stats.stop_reason == "SIGN_IN"
     assert len(provider.messages) == 1
+
+
+# -- an alias and the model it resolved to (2026-10-19) -----------------------
+#
+# Claude Code is configured with the alias `sonnet` and every answer reports
+# the model that actually answered, `claude-sonnet-5-5`. Asking "is there a
+# reading by `sonnet`?" found none, so a new job planned all 706 postings the
+# owner had already read as unread.
+
+
+def _claude(model: str, answers_with: str, **kwargs) -> FakeCli:
+    return FakeCli(id="claude_code", model=model, answers_with=answers_with, **kwargs)
+
+
+def _already_read(conn, config, provider_id: str, model: str) -> int:
+    digest = context(conn, config, False).digest
+    return select(
+        conn,
+        config,
+        provider_id=provider_id,
+        limit=0,
+        current_digest=digest,
+        model=model,
+        include_unresolved=True,
+    ).reviewed
+
+
+def test_a_new_job_counts_what_its_alias_already_read(corpus):  # noqa: F811
+    conn, config = corpus
+    first = run_deep(
+        conn,
+        config,
+        _claude("sonnet", "claude-sonnet-5-5"),
+        share=False,
+        limit=10,
+        include_unresolved=True,
+    )
+    assert first.published > 0
+    again = run_deep(
+        conn,
+        config,
+        _claude("sonnet", "claude-sonnet-5-5"),
+        share=False,
+        limit=10,
+        include_unresolved=True,
+    )
+    assert again.candidates == 0, "nothing already read is planned again"
+
+
+def test_a_full_name_still_matches_itself_only(corpus):  # noqa: F811
+    conn, config = corpus
+    first = run_deep(
+        conn,
+        config,
+        _claude("claude-sonnet-5-5", "claude-sonnet-5-5"),
+        share=False,
+        limit=10,
+        include_unresolved=True,
+    )
+    assert _already_read(conn, config, "claude_code", "claude-sonnet-5-5") >= first.published
+    assert _already_read(conn, config, "claude_code", "claude-sonnet-4-5") == 0
+
+
+def test_another_alias_is_another_model(corpus):  # noqa: F811
+    conn, config = corpus
+    run_deep(
+        conn,
+        config,
+        _claude("sonnet", "claude-sonnet-5-5"),
+        share=False,
+        limit=10,
+        include_unresolved=True,
+    )
+    assert _already_read(conn, config, "claude_code", "opus") == 0
+    assert _already_read(conn, config, "claude_code", "haiku") == 0
+
+
+def test_an_alias_means_the_newest_model_it_answered_with(corpus):  # noqa: F811
+    """`sonnet` once answered as 4.5 and now answers as 5.5: what 4.5 read is a
+    reading by a different model and is not counted as done for 5.5."""
+    conn, config = corpus
+    old = run_deep(
+        conn,
+        config,
+        _claude("sonnet", "claude-sonnet-4-5"),
+        share=False,
+        limit=1,
+        include_unresolved=True,
+    )
+    assert _already_read(conn, config, "claude_code", "sonnet") >= old.published
+    new = run_deep(
+        conn,
+        config,
+        _claude("sonnet", "claude-sonnet-5-5"),
+        share=False,
+        limit=1,
+        include_unresolved=True,
+    )
+    assert new.published == 1, "the posting 4.5 read is not planned again"
+    assert _already_read(conn, config, "claude_code", "claude-sonnet-4-5") > 0
+    assert _already_read(conn, config, "claude_code", "sonnet") == _already_read(
+        conn, config, "claude_code", "claude-sonnet-5-5"
+    ), "only what the model the alias answers with NOW read counts as done"
+
+
+def test_a_metered_model_name_is_never_an_alias(corpus):  # noqa: F811
+    conn, config = corpus
+    run_deep(
+        conn,
+        config,
+        FakeCli(id="deepseek", model="deepseek-flash", answers_with="deepseek-flash"),
+        share=False,
+        limit=3,
+        include_unresolved=True,
+    )
+    assert _already_read(conn, config, "deepseek", "deepseek-flash") > 0
+    assert _already_read(conn, config, "deepseek", "deepseek-pro") == 0
+    assert _already_read(conn, config, "deepseek", "flash") == 0
+    # The aliases belong to Claude Code: the same word means nothing elsewhere.
+    assert _already_read(conn, config, "deepseek", "sonnet") == 0

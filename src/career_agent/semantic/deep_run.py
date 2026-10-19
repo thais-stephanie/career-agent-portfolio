@@ -599,9 +599,38 @@ class DeepRepo:
         # model it answered with; a named model matches only itself.
         return " AND model = ?" if model else ""
 
+    def resolve_model(self, provider: str, model: str) -> str:
+        """The stored model name a configured `model` stands for.
+
+        Claude Code is configured with an ALIAS (`sonnet`) and every answer is
+        stored under the full name that answered (`claude-sonnet-5-5`), so the
+        alias matched nothing and a new job planned the owner's 706 readings
+        again (2026-10-19). An alias stands for the NEWEST full name of its own
+        family this provider has answered with: what an older version of the
+        family read is a reading by a different model and stays one. A full
+        name, an unknown word, another provider's model and a family nobody has
+        answered with yet are returned unchanged and match only themselves.
+        """
+        from career_agent.semantic.providers.local_cli import (
+            CLAUDE_MODEL_ALIASES,
+            ClaudeCodeProvider,
+        )
+
+        prefix = CLAUDE_MODEL_ALIASES.get(model) if provider == ClaudeCodeProvider.id else None
+        if prefix is None:
+            return model
+        row = self.conn.execute(
+            "SELECT model FROM deep_review WHERE provider = ? AND substr(model, 1, ?) = ?"
+            " ORDER BY created_at DESC, id DESC LIMIT 1",
+            (provider, len(prefix), prefix),
+        ).fetchone()
+        return str(row[0]) if row is not None else model
+
     def reviewed(self, provider: str, contract: str, digest: str, model: str = "") -> set[str]:
         """Content hashes with a CURRENT reading: this provider, contract,
-        profile digest and (when named) model."""
+        profile digest and (when named) model, an alias read as the model it
+        answers with (`resolve_model`)."""
+        model = self.resolve_model(provider, model)
         return {
             str(r[0])
             for r in self.conn.execute(
@@ -613,6 +642,7 @@ class DeepRepo:
 
     def rejected(self, provider: str, contract: str, digest: str, model: str = "") -> set[str]:
         """Content hashes whose current answer was paid for and rejected."""
+        model = self.resolve_model(provider, model)
         return {
             str(r[0])
             for r in self.conn.execute(
