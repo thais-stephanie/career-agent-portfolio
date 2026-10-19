@@ -124,6 +124,32 @@ function chip({ kind, label, display, band, title }) {
  * those says a person was checked and failed, which is not what happened: the
  * posting stated a requirement. One vocabulary, one function, both views.
  */
+/**
+ * The deep reading's level on a list, in one place for the card, the table and
+ * the filter. `deep` is the list item's `deep`: `{ level, stale }` or null
+ * (never read). The codes are `deep_assess.RECOMMENDATIONS`, unchanged; the
+ * short words are the same codes said briefly, and the hover carries the
+ * sentence the deep reading's own panel uses. An out-of-date reading says so
+ * and names the level it HAD, never presenting it as current.
+ */
+export function deepWords(deep) {
+  if (!deep) return null;
+  const short = t(`deep.short.${deep.level}`);
+  const level = short === `deep.short.${deep.level}` ? deep.level : short;
+  if (deep.stale) {
+    return {
+      text: t('card.deepStale', { level }),
+      title: t('deep.levelMeans.STALE'),
+      tone: 'stale',
+    };
+  }
+  return {
+    text: t('card.deep', { level }),
+    title: t(`deep.level.${deep.level}`),
+    tone: String(deep.level).toLowerCase(),
+  };
+}
+
 export function eligibilityWords(status) {
   // The catalogue, so the ONE vocabulary this function exists to enforce is
   // one vocabulary in both languages too. The stored value is untouched:

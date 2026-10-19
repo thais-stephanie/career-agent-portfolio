@@ -101,6 +101,14 @@ export const SECTIONS = [
       'include_excluded_seniority', 'include_excluded_work_model', 'include_removed'],
   },
   {
+    // THE DEEP READING. Its own section because it is its own question: what
+    // a model read in the posting, beside the match % and never inside it.
+    key: 'deep',
+    labelKey: 'filters.section.deep',
+    helpKey: 'filters.section.deepHelp',
+    keys: ['deep'],
+  },
+  {
     key: 'place',
     labelKey: 'filters.section.place',
     keys: ['country', 'region', 'worksite', 'latam_only', 'worldwide_only'],
@@ -163,6 +171,7 @@ export const SECTIONS = [
  */
 const FACET_GROUPS = [
   { key: 'company', labelKey: 'facet.company', section: 'role' },
+  { key: 'deep', labelKey: 'facet.deep', section: 'deep' },
   { key: 'provider', labelKey: 'facet.provider', section: 'sources' },
   { key: 'technology', labelKey: 'facet.technology', section: 'skills' },
   // Widest question first. This used to run country, region, worksite, so
@@ -872,7 +881,8 @@ export function createFilterPanel(store, { searchHost = null } = {}) {
       // each group reads its own. This used to read a `signal` facet nobody
       // produced, so the group only appeared once a value was already chosen:
       // a control that could not be clicked.
-      const rows = (facets && facets[group.key]) || [];
+      const raw = (facets && facets[group.key]) || [];
+      const rows = group.key === 'deep' ? deepRows(raw) : raw;
       const chosen = state[group.key] || [];
       if (!rows.length && !chosen.length) continue;
       const host = sections.get(group.section).facetHost;
@@ -1107,12 +1117,38 @@ function facetValueLabel(groupKey, row) {
   // in two of them resolves by accident of ordering -- which is exactly what
   // `test_the_state_families_are_disjoint` refuses. Asking by NAME here means
   // neither vocabulary has to join that search at all.
+  if (groupKey === 'deep') return deepValueLabel(row.key);
   if (groupKey === 'experience_requirement') return tState('experience', row.key);
   if (groupKey === 'entry_signal') return tState('entrySignal', row.key);
   if (groupKey === 'engagement' && row.key === 'NOT_READ') return t('facet.engagementNotRead');
   if (groupKey === 'engagement' && row.key !== 'NOT_STATED') return t(`employment.${row.key}`);
   const named = row.label && row.label !== row.key;
   return named ? row.label : vocabLabel(row.key);
+}
+
+/** A deep-reading filter value: a state, or a level said briefly. */
+function deepValueLabel(key) {
+  if (['READ', 'STALE', 'UNREAD'].includes(key)) return t(`deep.filter.${key}`);
+  const short = t(`deep.short.${key}`);
+  return short === `deep.short.${key}` ? key : short;
+}
+
+/**
+ * The deep facet in the order a person reads it: every current reading, the
+ * levels in the reading's own order, the out-of-date ones, then never read.
+ * `READ` has no bucket of its own on the server (each posting is counted
+ * once, so the buckets sum to the list); its count is the levels' sum.
+ */
+const DEEP_ORDER = ['STRONG', 'PREPARE', 'CHECK_FIRST', 'NOT_COMPARED', 'TO_CONFIRM', 'LOW', 'OTHER_WORK'];
+function deepRows(rows) {
+  const count = new Map(rows.map((row) => [row.key, row.count]));
+  const levels = DEEP_ORDER.filter((key) => count.has(key)).map((key) => ({ key, count: count.get(key) }));
+  const read = levels.reduce((sum, row) => sum + row.count, 0);
+  return [
+    ...(read ? [{ key: 'READ', count: read }] : []),
+    ...levels,
+    ...['STALE', 'UNREAD'].filter((key) => count.has(key)).map((key) => ({ key, count: count.get(key) })),
+  ];
 }
 
 function facetGroup(group, rows, chosen, store) {

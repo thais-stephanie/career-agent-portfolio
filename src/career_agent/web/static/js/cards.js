@@ -29,7 +29,7 @@ import {
   availabilityText, compactPlace, contractInfo, displayTitle, formatDate, formatSalary, levelInfo, parseDate,
   relativeAge, scoreDisplay, statusLabel, vocabLabel,
 } from './format.js';
-import { eligibilityWords, searchFitIsReady } from './badges.js';
+import { deepWords, eligibilityWords, searchFitIsReady } from './badges.js';
 import { t } from './i18n.js';
 import { cautionOf } from './caution.js';
 
@@ -163,6 +163,16 @@ function card(job, handlers) {
   root.appendChild(elig);
   const note = offTargetNote(job, aside);
   if (note) root.appendChild(note);
+  // THE DEEP READING, beside the match % and never in it: one line, only on a
+  // posting that was read. Nothing is drawn for one that was not.
+  const deep = deepWords(job.deep);
+  if (deep) {
+    root.appendChild(el('p', {
+      className: `card__deep card__deep--${deep.tone}`,
+      text: deep.text,
+      attrs: { title: deep.title },
+    }));
+  }
 
   root.appendChild(el('div', { className: 'card__grow', attrs: { 'aria-hidden': 'true' } }));
   const actions = el('div', { className: 'card__act' });

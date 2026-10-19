@@ -28,7 +28,7 @@ import {
   relativeAge, statusLabel, statusOptions, vocabLabel,
   displayTitle,
 } from './format.js';
-import { eligibilityWords, scoreCell, searchFitIsReady } from './badges.js';
+import { deepWords, eligibilityWords, scoreCell, searchFitIsReady } from './badges.js';
 import { matchTone } from './cards.js';
 
 //: v2: the V3 defaults apply once to everybody, whatever v1 remembered.
@@ -55,6 +55,7 @@ export const COLUMNS = [
   { id: 'posted', labelKey: 'column.posted', sort: 'posted', track: 'minmax(84px,.6fr)', min: 84 },
   { id: 'freshness', labelKey: 'column.freshness', track: 'minmax(72px,.6fr)', min: 72 },
   { id: 'eligibility', labelKey: 'column.eligibility', track: 'minmax(96px,.8fr)', min: 96 },
+  { id: 'deep', labelKey: 'column.deep', sort: 'deep', track: 'minmax(120px,1fr)', min: 120 },
   { id: 'status', labelKey: 'column.status', sort: 'status', track: 'minmax(112px,.85fr)', min: 112 },
   { id: 'applied', labelKey: 'column.applied', track: 'minmax(60px,.5fr)', min: 60 },
   {
@@ -338,6 +339,7 @@ export function toCsv(items, visible, descriptions = {}) {
       case 'posted': return job.posted_at ? formatDate(job.posted_at) : '';
       case 'freshness': return freshness(job.freshness).label;
       case 'eligibility': return eligibilityWords(job.eligibility_status);
+      case 'deep': return deepWords(job.deep)?.text || '';
       case 'status': return statusLabel(job.application_status || 'DISCOVERED');
       case 'applied': return job.has_applied ? t('value.yes') : '';
       case 'applied_at': return dateInputValue(job.applied_at);
@@ -537,6 +539,14 @@ function cell(column, job, ctx, aside) {
     case 'freshness': {
       const age = freshness(job.freshness);
       return textCell(column, age.label, { absent: age.tone === 'old' });
+    }
+
+    case 'deep': {
+      const words = deepWords(job.deep);
+      if (!words) return textCell(column, t('deep.filter.UNREAD'), { absent: true });
+      const td = textCell(column, words.text, { absent: words.tone === 'stale' });
+      td.firstChild.title = words.title;
+      return td;
     }
 
     case 'eligibility': {

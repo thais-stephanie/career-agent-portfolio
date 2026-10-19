@@ -719,6 +719,54 @@ def _review_rows(
     return out
 
 
+def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool]]:
+    """Each read posting's deep level as `_review_rows` shows it NOW:
+    `job_id -> (level, stale)`, where `level` is the level the reading gives
+    (for an out-of-date reading, the level it had then). Nothing is stored:
+    the level is derived from the stored observations, as everywhere else.
+
+    Remembered while nothing it depends on moved: a new or replaced reading,
+    the profile digests (search intent, levels, evidence), the reading
+    instructions, or any posting's text (the list's own freshness token, whose
+    population part moves when the corpus does). Deriving all of them costs
+    about half a second on 710 readings; checking costs a few milliseconds.
+    A database without the table (a demo, an older build) has none.
+    """
+    from career_agent.semantic import deep
+    from career_agent.semantic.deep_run import context
+    from career_agent.storage.catalogue import population_token
+
+    try:
+        stamp = tuple(conn.execute("SELECT COUNT(*), MAX(created_at) FROM deep_review").fetchone())
+    except sqlite3.Error:
+        return {}
+    if not stamp[0]:
+        return {}
+    config = app.search_config()
+    key = (
+        stamp,
+        deep.contract_identity(),
+        tuple(context(conn, config, shared).digest for shared in (True, False)),
+        population_token(conn),
+        str(config.config_id),
+        int(config.config_version),
+    )
+    with _LEVELS_LOCK:
+        cached = getattr(app, "_deep_levels_cache", None)
+        if cached is not None and cached[0] == key:
+            return dict(cached[1])
+    levels = {
+        str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]))
+        for item in _review_rows(app, conn)
+    }
+    with _LEVELS_LOCK:
+        app._deep_levels_cache = (key, levels)
+    return dict(levels)
+
+
+_LEVELS_LOCK = threading.Lock()
+
+
 def _work(
     app: Any,
     provider: Any,

@@ -1009,6 +1009,9 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
         # an empty tuple either way. Asserted separately in
         # test_the_transition_control_only_widens.
         "include_transferable": "true",
+        # The deep reading's level, beside the local score: see
+        # tests/integration/test_deep_in_find_jobs.py.
+        "deep": "STRONG",
         "sort": "score",
         "direction": "desc",
         "limit": "10",

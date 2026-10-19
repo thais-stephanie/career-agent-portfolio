@@ -33,6 +33,7 @@ from career_agent.match.places import REGIONS
 from career_agent.runtime import database_ref, read_identity
 from career_agent.runtime.fingerprint import runtime_fingerprint
 from career_agent.runtime.mode import indicator
+from career_agent.semantic.deep_assess import RECOMMENDATIONS
 from career_agent.storage.mvp_repo import NOT_STATED, ScoredJobQuery
 from career_agent.web import view_prefs
 from career_agent.web.caution import caution_signals
@@ -126,6 +127,8 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
         "experience_max_years",
         "entry_signal",
         "include_transferable",
+        # THE DEEP READING, beside the local score (see `JobFilter.deep`).
+        "deep",
         "sort",
         "direction",
         "limit",
@@ -227,7 +230,12 @@ _VOCABULARIES: dict[str, tuple[str, ...]] = {
         "source",
         "applied_at",
         "salary",
+        "deep",
     ),
+    # THE DEEP READING: a current reading (any level), an out-of-date one, a
+    # posting never read, or one of the levels the reading gives, exactly as
+    # `deep_assess.RECOMMENDATIONS` names them.
+    "deep": ("READ", "STALE", "UNREAD", *RECOMMENDATIONS),
     # NOT_STATED is in the vocabulary because it is an ANSWER a person asks
     # for -- "show me the ones that never said" -- not an absence they should
     # have to notice. Stored as NULL and offered as a word; `_where` maps it
@@ -653,6 +661,21 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         # The candidate half of the product. Registered from its own module so
         # that the two sets of truth rules stay in two files.
         self.register_workspace_routes()
+
+    def deep_levels(self) -> tuple[tuple[str, str, bool, int], ...]:
+        """Every read posting's deep level, for `JobFilter.deep_levels`:
+        `(job_id, level, stale, rank)`, `rank` being the level's place in
+        `deep_assess.RECOMMENDATIONS`. Read beside the local score and never
+        written into it; see `deep_api.deep_levels`."""
+        from career_agent.web.deep_api import deep_levels
+
+        with _closing(self.connect()) as conn:
+            found = deep_levels(self, conn)
+        rank = {level: index for index, level in enumerate(RECOMMENDATIONS)}
+        return tuple(
+            (job_id, level, stale, rank.get(level, len(rank)))
+            for job_id, (level, stale) in sorted(found.items())
+        )
 
     def transferable_signals(self) -> tuple[str, ...]:
         """Signals this person has confirmed evidence for. Read, never stored.
@@ -2460,6 +2483,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             undated = narrowings and narrowings["hidden_undated"]
             view = view_prefs.read(conn)
         today = utc_today()
+        deep = {job: (level, stale) for job, level, stale, _ in job_filter.deep_levels}
         return {
             "total": total,
             "offset": job_filter.offset,
@@ -2479,6 +2503,14 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                     # Whether the ad's own page was up when last asked; absent
                     # when it never was (`career_agent.availability`).
                     "availability": checked.get(row.job_id),
+                    # The deep reading's level BESIDE the local score, never in
+                    # it; absent when the posting was never read. An
+                    # out-of-date reading keeps the level it had, marked stale.
+                    "deep": (
+                        {"level": deep[row.job_id][0], "stale": deep[row.job_id][1]}
+                        if row.job_id in deep
+                        else None
+                    ),
                 }
                 for row in rows
             ],
@@ -3419,6 +3451,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             transferable_signals=(
                 self.transferable_signals() if _bool(query, "include_transferable") else ()
             ),
+            deep=_vocab(query, "deep"),
+            deep_levels=self.deep_levels(),
             sort=_single(query, "sort", "score"),
             direction=_single(query, "direction", "desc"),
             sort_currency=self._sort_currency(query),

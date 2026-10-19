@@ -199,6 +199,10 @@ def test_every_accepted_parameter_is_covered_by_a_test_here() -> None:
         # `test_functional_recovery_a.py`: a saved job is on the board and
         # leaves it when unsaved, and saving changes no status.
         "with_saved",
+        # THE DEEP READING beside the local score. Exercised by
+        # `test_deep_in_find_jobs.py`, which is where the property worth
+        # protecting lives: it narrows and orders and never moves `job_match`.
+        "deep",
     }
     covered = set(NARROWING) | {"min_salary"} | presentation | ordering | older | set(WIDENING)
     assert covered >= JOB_QUERY_PARAMS, sorted(JOB_QUERY_PARAMS - covered)

@@ -205,6 +205,10 @@ SORT_COLUMNS: dict[str, str] = {
     # PAY, compared only where it can be: see `_salary_order`. The column here
     # only names the key; the ordering is built from several.
     "salary": "jm.salary_annual_min",
+    # THE DEEP READING'S LEVEL, with the local score breaking ties: see
+    # `_deep_order`. A rank in a per-connection TEMP table (`_deep_table`),
+    # never a column of `job_match`.
+    "deep": "dl.rank",
 }
 SORT_KEYS: frozenset[str] = frozenset(SORT_COLUMNS)
 
@@ -2113,6 +2117,23 @@ class JobFilter:
     #: carrying the restriction that applies to it.
     exempt_tracked: bool = False
 
+    #: THE DEEP READING, BESIDE THE LOCAL SCORE AND NEVER INSIDE IT.
+    #:
+    #: `deep_levels` is each read posting's level as the deep reading shows it
+    #: now, one `(job_id, level, stale, rank)` per posting: the level is the
+    #: one `deep_assess` derives from the stored observations, `stale` says the
+    #: posting's text, the reading instructions or the profile changed since,
+    #: and `rank` is the level's place in `deep_assess.RECOMMENDATIONS`. It is
+    #: computed by the web layer from `deep_review` and handed in, so this
+    #: module names no level and stores nothing: `job_match` is not read for
+    #: it and not written. Empty when nothing was read, and then every query
+    #: is exactly the one it was before the reading existed.
+    #:
+    #: `deep` narrows on it: `READ` (a current reading), `STALE`, `UNREAD`, or
+    #: one of the levels (current readings only). Several values are OR-ed.
+    deep: tuple[str, ...] = ()
+    deep_levels: tuple[tuple[str, str, bool, int], ...] = ()
+
     sort: str = "score"
     direction: str = "desc"
     #: The one currency pay is compared in when sorting by salary. Nothing is
@@ -2120,6 +2141,25 @@ class JobFilter:
     sort_currency: str = "USD"
     limit: int = 60
     offset: int = 0
+
+
+def _deep_order(f: JobFilter) -> str:
+    """ORDER BY the deep reading, the local score breaking ties.
+
+    Three tiers, in this order whichever the direction: CURRENT readings by
+    level, then OUT-OF-DATE readings by the level they had (shown apart, never
+    passed off as current), then postings never read. Within a tier the level
+    follows the direction (`desc`: the best level first) and the local score
+    is always highest first, then the id. Nothing is blended: the level orders
+    and the score only breaks ties.
+    """
+    level = "ASC" if f.direction.lower() == "desc" else "DESC"
+    tier = (
+        "CASE (SELECT stale FROM temp.deep_level dl WHERE dl.job_id = j.id)"
+        " WHEN 0 THEN 0 WHEN 1 THEN 1 ELSE 2 END"
+    )
+    rank = "(SELECT rank FROM temp.deep_level dl WHERE dl.job_id = j.id)"
+    return f" ORDER BY {tier} ASC, {rank} {level}, jm.match_score DESC, j.id ASC"
 
 
 def _like_term(text: str) -> str:
@@ -2462,6 +2502,8 @@ class ScoredJobQuery(_Repo):
         self.now: str | None = None
         #: Whether the FTS index is current. Resolved once per query object.
         self._indexed: bool | None = None
+        #: The deep levels already in this connection's `temp.deep_level`.
+        self._deep_loaded: tuple[tuple[str, str, bool, int], ...] | None = None
         # The free-text clause folds places in SQL (`ca_fold`). Registering is
         # idempotent and per connection.
         register_fold(conn)
@@ -2844,12 +2886,58 @@ class ScoredJobQuery(_Repo):
         #
         # Only at the top level. The two inner passes are built with grouping
         # already switched off, which is what stops this recursing.
+        if f.deep:
+            clause, deep_params = self._deep_clause(f, a)
+            clauses.append(clause)
+            params.extend(deep_params)
+
         if f.group_duplicates and not alias:
             clause, group_params = self._representative_clause(config_id, config_version, f)
             clauses.append(clause)
             params.extend(group_params)
 
         return " WHERE " + " AND ".join(clauses), params
+
+    def _deep_table(self, f: JobFilter) -> None:
+        """The deep levels this filter carries, as `temp.deep_level`.
+
+        TEMP: one copy per connection, gone when it closes, never in the
+        database file. Written only when the filter narrows or sorts on the
+        reading, and rewritten only when the levels changed.
+        """
+        if self._deep_loaded == f.deep_levels:
+            return
+        self.conn.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS deep_level ("
+            " job_id TEXT PRIMARY KEY, level TEXT NOT NULL,"
+            " stale INTEGER NOT NULL, rank INTEGER NOT NULL)"
+        )
+        self.conn.execute("DELETE FROM temp.deep_level")
+        self.conn.executemany(
+            "INSERT OR REPLACE INTO temp.deep_level (job_id, level, stale, rank)"
+            " VALUES (?, ?, ?, ?)",
+            [(job, level, int(stale), rank) for job, level, stale, rank in f.deep_levels],
+        )
+        self._deep_loaded = f.deep_levels
+
+    def _deep_clause(self, f: JobFilter, a: str) -> tuple[str, list[Any]]:
+        """`deep` as one OR of membership tests on `temp.deep_level`."""
+        self._deep_table(f)
+        read = "SELECT job_id FROM temp.deep_level"
+        terms: list[str] = []
+        params: list[Any] = []
+        levels = [v for v in f.deep if v not in ("READ", "STALE", "UNREAD")]
+        if "UNREAD" in f.deep:
+            terms.append(f"j{a}.id NOT IN ({read})")
+        if "READ" in f.deep:
+            terms.append(f"j{a}.id IN ({read} WHERE stale = 0)")
+        if "STALE" in f.deep:
+            terms.append(f"j{a}.id IN ({read} WHERE stale = 1)")
+        if levels:
+            marks = ",".join("?" for _ in levels)
+            terms.append(f"j{a}.id IN ({read} WHERE stale = 0 AND level IN ({marks}))")
+            params.extend(levels)
+        return "(" + " OR ".join(terms) + ")", params
 
     def _search_clause(self, text: str, a: str) -> tuple[str, list[Any]]:
         """Free text over title, company and description.
@@ -3026,6 +3114,8 @@ class ScoredJobQuery(_Repo):
         column = SORT_COLUMNS[f.sort]
         if f.sort == "salary":
             return _salary_order(f)
+        if f.sort == "deep":
+            return _deep_order(f)
         if f.sort not in SORT_MAY_BE_MISSING:
             return f" ORDER BY {column} {f.direction.upper()}, j.id ASC"
         # A missing value (no date, no company, no location) sorts LAST in
@@ -3325,6 +3415,8 @@ class ScoredJobQuery(_Repo):
         # about WHICH postings match, so a total that moved when somebody typed a
         # preferred word would be reporting a lie about the corpus.
         soft, soft_params = self._soft_order(f)
+        if f.sort == "deep":
+            self._deep_table(f)
         order = self._order_by(f)
         if soft:
             order = f" ORDER BY ({soft}) DESC," + order[len(" ORDER BY ") :]
@@ -3577,10 +3669,15 @@ class ScoredJobQuery(_Repo):
         # nothing else in this class changes behaviour.
         cursor = self.conn.cursor()
         cursor.row_factory = None
+        # The posting's id only when there is a deep reading to bucket it by:
+        # read in Python from the levels the filter carries, so no query here
+        # needs the TEMP table and a profile with no reading reads what it
+        # always read.
+        with_id = ", j.id AS s_id" if f.deep_levels else ""
         rows = cursor.execute(
             f"SELECT {selected},"
             " jm.countries AS s_country, jm.regions AS s_region, jm.membership AS s_membership,"
-            " jm.entry_signals AS s_entry" + self._from_for(needed, f=f) + where,
+            " jm.entry_signals AS s_entry" + with_id + self._from_for(needed, f=f) + where,
             params,
         ).fetchall()
 
@@ -3635,6 +3732,14 @@ class ScoredJobQuery(_Repo):
         # AND `training provided`, so these buckets overlap and do not sum to
         # `count(f)`. The single-valued facets above still sum.
         result["entry_signal"] = _ranked(entry)
+        # THE DEEP READING: one bucket per posting, so these sum to `count(f)`.
+        # A current reading by its level, an out-of-date one as STALE whatever
+        # level it had, and the rest as UNREAD.
+        if f.deep_levels:
+            levels = {job: ("STALE" if stale else level) for job, level, stale, _ in f.deep_levels}
+            result["deep"] = _ranked(
+                Counter(levels.get(str(row[entry_at + 1]), "UNREAD") for row in rows)
+            )
 
         # Which lexicon signals fired. Emitted as TWO facets over one index,
         # because "which signals fired" and "which tools does this use" are

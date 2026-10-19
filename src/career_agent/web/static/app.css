@@ -9050,6 +9050,16 @@ body.has-filters { overflow: hidden; }
 .card__elig--good { color: var(--green-text); }
 .card__elig--warn { color: var(--muted); }
 .card__elig--bad { color: var(--ink); }
+/* THE DEEP READING: one line, only on a posting that was read. Existing ink
+   tokens only: the level is a word, so colour only echoes it. */
+.card__deep {
+  margin: 0;
+  font-size: 12px; font-weight: 600; line-height: 1.35; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card__deep--strong, .card__deep--prepare { color: var(--green-text); }
+.card__deep--low, .card__deep--other_work { color: var(--muted); font-weight: 500; }
+.card__deep--stale { color: var(--muted); font-weight: 500; font-style: italic; }
 .card__grow { flex: 1; }
 
 .card__applyrow { display: flex; gap: 6px; align-items: center; }

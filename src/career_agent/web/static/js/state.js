@@ -20,6 +20,8 @@ import { scopedKey } from './profile-scope.js';
 /** Multi-value filters. Repeatable in the query string, per the API contract. */
 export const LIST_KEYS = [
   'company', 'provider', 'role_class', 'status', 'eligibility', 'fit_band', 'signal',
+  // THE DEEP READING beside the match % (`JobFilter.deep`).
+  'deep',
   // The twelve section 16 listed as absent. They are ordinary list keys, so
   // the URL round trip, the chips, the active count and `clearedFilters` all
   // pick them up without a second mechanism.
@@ -338,6 +340,7 @@ export const DEFAULTS = Object.freeze({
   eligibility: [],
   fit_band: [],
   signal: [],
+  deep: [],
   country: [],
   region: [],
   worksite: [],
@@ -424,7 +427,7 @@ const API_KEYS = [
 // resolved when the control is drawn: this module is imported by everything
 // and evaluated before `setLocale` has read the stored choice, so a label
 // written here is a label frozen in English.
-export const SORTS = ['score', 'confidence', 'posted', 'company', 'title', 'status'];
+export const SORTS = ['score', 'deep', 'confidence', 'posted', 'company', 'title', 'status'];
 
 function cloneState(state) {
   const copy = { ...state };
