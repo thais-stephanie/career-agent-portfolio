@@ -147,3 +147,36 @@ before on the old code, was restarted the way the shortcut starts it, and
   the rescore: aggregator twins of an employer's open posting, by design.
 * Open jobs 198,873 -> 205,292. The targeted rescore of 18,463 postings was
   running at the end of this check, 0 errors so far.
+
+## Second real validation (2026-10-19, 15:19 to 16:52 UTC)
+
+No code or data was changed; no timestamp was forced and no 404 simulated.
+"Refresh all available sources": 26 of 26 sources in 80.6 min, 6,055 new;
+the targeted rescore scored 16,928 postings with 0 errors.
+
+* **The rule, as written and as stored**: retire when the streak in
+  `last_error` (`NOT_FOUND since <first> (<n>x)`) reaches 3 or more AND at
+  least 24 h separate the first 404 from the current one. A successful read
+  sets `last_error = NULL` (`mark_collected`), so the next 404 starts at 1x;
+  any other error overwrites the streak the same way.
+* **Each 404 is a real request.** The eleven boards went 1x -> 3x in this
+  window because the app's own hourly auto pass (`find-jobs` kind `auto`,
+  15:18:49) ran source maintenance 27 s before the full refresh, and
+  maintenance selected exactly those eleven (never successfully collected,
+  so oldest first). `pantherlabs`, collected before, was not selected and is
+  at 2x. First 404s 14:07 to 14:13, latest 16:21 to 16:27, 2.2 h apart:
+  every board stays active, as the 24 h condition requires. The earliest
+  possible retirement is the first 404 after 2026-10-20T14:13Z.
+* **That auto pass is the live proof of the original fix**: eleven 404-only
+  runs, and the full refresh 27 s later still planned and ran Ashby (131 of
+  135), Greenhouse and Lever.
+* **No board recovered** and no new board started a streak; none was retired.
+* **Closures (161)**: 116 by the collector on boards read in full this run
+  (Greenhouse 77, Ashby 28, Lever 7, Teamtailor 2, Workday 1, Recruiterflow
+  1); 3 by `fold_sighted` at the start of the rescore (Jobicy, aggregator
+  twins of an employer's open posting); 0 by any other mechanism; 0 on a
+  board that failed. 5 previously closed postings reopened (listed again).
+  `cybereason` keeps its 2 open jobs.
+* **Observed, not a defect**: until the eleven are retired, the hourly
+  maintenance pass spends its whole selection on them and finds nothing.
+  Retirement ends that by itself.
