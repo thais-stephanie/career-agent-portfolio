@@ -27,7 +27,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-ASSESSMENT_VERSION = "assess-2"
+ASSESSMENT_VERSION = "assess-3"
 
 #: Recommendation codes, in display order. None of them is a probability of
 #: being hired, and none of them is the local %.
@@ -73,11 +73,25 @@ _LANGUAGE = (
     r"|bilingual|bilingue|zweisprachig\w*|\w*sprachkenntnisse|idioma\w*)\b"
 )
 _CREDENTIAL = r"\b(certif\w*|credly|licen[cs]\w*|licenca)\b"
+#: A way of working, asked as a requirement: kept as a question to confirm,
+#: never counted as a technical requirement or a gap. The 2026-10-20 audit
+#: found analytical, problem-solving, project and stakeholder management and
+#: troubleshooting skills counted as technical (5 of 17 P2 promotions rested
+#: on them). Each is matched as a SKILL, never as the work: "troubleshooting
+#: API integrations" and "project management tools such as Jira" stay technical.
 _DISPOSITION = (
     r"\b(proactive|proativ\w*|self[- ]starter|self[- ]motivated|problem[- ]solver|curious|curiosity"
     r"|passion\w*|team player|detail[- ]oriented|mindset|attitude|comfortable being"
     r"|works? independently|trabalh\w+ de forma autonoma|autonom\w*|writer"
-    r"|(written|verbal) communication|communication skills|comunicacao)\b"
+    r"|(written|verbal) communication|communication skills|comunicacao"
+    r"|problem[- ]solving|resolucao de problemas"
+    r"|analytical (skills?|thinking|mind\w*|abilit\w*|and (problem|commercial|critical)\w*)"
+    r"|(critical|commercial|strategic) thinking|pensamento analitico"
+    r"|project management (skills?|abilit\w*)|(project|program) and stakeholder management"
+    r"|stakeholder management|managing stakeholders|gestao de stakeholders"
+    r"|troubleshooting (skills?|instincts?|abilit\w*|mindset)"
+    r"|collaboration skills|interpersonal skills|teamwork|organi[sz]ational skills"
+    r"|time management|prioriti[sz]ation skills)\b"
 )
 _YEARS = r"\d+\s*(?:[-\u2013]\s*\d+\s*)?\+?\s*(?:years?|yrs|anos?)\b"
 _LEVEL = (

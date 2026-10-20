@@ -290,3 +290,58 @@ def test_a_programming_language_is_still_technical():
         EVIDENCE,
     )
     assert a.languages == () and a.counts["not_shown"] == 1
+
+
+# --- Ways of working are questions to confirm, not technical requirements ----
+
+
+def category(quote):
+    return assess(review(req(quote, "supported", ("E9",))), EVIDENCE).requirements[0]["category"]
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Strong analytical skills with the ability to leverage CRM data",
+        "Strong analytical and problem-solving skills",
+        "Excellent analytical thinking",
+        "Strong problem-solving skills and a portfolio of completed projects",
+        "Excellent project management and cross-functional stakeholder management skills.",
+        "Strong organizational and project management skills",
+        "Experience with stakeholder management across departments",
+        "Strong troubleshooting instincts",
+        "Strong analytical and commercial thinking.",
+        "Excellent interpersonal and collaboration skills",
+        "Capacidade de resolução de problemas",
+    ],
+)
+def test_a_way_of_working_is_a_question_not_a_technical_gap(quote):
+    a = assess(review(req(quote, "not_shown", ())), EVIDENCE)
+    assert a.requirements[0]["category"] == "disposition"
+    assert a.questions == (quote,) and a.counts["mandatory"] == 0 and a.central_gaps == ()
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Experience troubleshooting API integrations and webhooks",
+        "Experience with project management tools such as Jira or Asana",
+        "Hands-on experience with analytics tools such as Looker or Power BI",
+        "Strong SQL skills for data analysis",
+        "Experience solving integration problems in Python",
+        "Experience managing CRM implementation projects end to end",
+    ],
+)
+def test_the_work_itself_stays_technical(quote):
+    assert category(quote) == "technical"
+
+
+def test_intensity_gives_a_way_of_working_no_technical_credit():
+    a = assess(
+        review(
+            req("Excellent project management and stakeholder management skills", ids=("E9",)),
+            req("Hands-on experience building integrations in Python", "partial", ("E9",)),
+        ),
+        EVIDENCE,
+    )
+    assert a.counts["mandatory"] == 1 and a.history != "SHOWN"
