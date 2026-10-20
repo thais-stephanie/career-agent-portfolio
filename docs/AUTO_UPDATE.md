@@ -12,8 +12,11 @@ are served at once. The page then asks the server once; the server decides.
 It starts a background run only if all of these hold:
 
 - the choice is on and this is not the demo;
-- the last run started by an opening began more than 6 hours ago (this is how
-  reopening the app, a second tab or a second window never starts a second run);
+- the last run started by an opening began more than 6 hours ago, or it never
+  reached its end (this is how reopening the app, a second tab or a second
+  window never starts a second run, while a run cut short by closing the app or
+  by an error does not hold the next opening back; a Stop or a spent budget is
+  an end and keeps the 6 hours);
 - no collection, recalculation, AI run or maintenance run is going on;
 - at least one site is overdue.
 

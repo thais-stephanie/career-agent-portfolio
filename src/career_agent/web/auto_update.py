@@ -248,7 +248,11 @@ def register_auto_update(app: JobsApi) -> None:
                 if read(conn, KEY_ENABLED) != "1":
                     return {"started": False, "reason": "DISABLED"}
                 last_at = read(conn, KEY_LAST)
-                if last_at and _now() - _parse(last_at) < timedelta(hours=MIN_GAP_HOURS):
+                if (
+                    last_at
+                    and _now() - _parse(last_at) < timedelta(hours=MIN_GAP_HOURS)
+                    and _finished(read(conn, KEY_RESULT), last_at)
+                ):
                     return {"started": False, "reason": "RECENT"}
                 if _busy():
                     return {"started": False, "reason": "BUSY"}
@@ -285,6 +289,22 @@ def register_auto_update(app: JobsApi) -> None:
 
 def _parse(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _finished(raw: str | None, last_at: str) -> bool:
+    """Whether the run started at `last_at` reached its end. The start is
+    written before the run; a closed app or a crash never writes the result,
+    and such a run must not hold the next opening back. A Stop or a spent
+    budget did finish: those keep the gap."""
+    try:
+        result = json.loads(raw) if raw else None
+        return bool(
+            isinstance(result, dict)
+            and _parse(str(result.get("at"))) >= _parse(last_at)
+            and result.get("stopped") != "ERROR"
+        )
+    except (ValueError, TypeError):
+        return False
 
 
 def _work(app: JobsApi, write: Any):

@@ -307,3 +307,69 @@ def test_stop_ends_a_workable_update_and_keeps_what_was_read(app, monkeypatch):
     finally:
         conn.close()
     assert run[0] == "OK" and json.loads(run[1])["deferred_reason"] == "CANCELLED"
+
+
+# --- Reopening the app: the gate is the last FINISHED run, never a start ----
+
+
+def _state(app, key: str, value: str) -> None:
+    from career_agent.storage.workspace_repo import CandidateStateRepo, ensure_candidate
+
+    conn = connect(app.config.db_path)
+    with transaction(conn):
+        CandidateStateRepo(conn).set(ensure_candidate(conn), key, value)
+    conn.close()
+
+
+def test_reopening_many_times_after_a_finished_run_asks_no_site_again(app, recorded):
+    call(app, "PATCH", "/api/auto-update", {"enabled": True})
+    assert call(app, "POST", "/api/auto-update/run")["started"] is True
+    app.retrieval.join(30)
+    engine_calls = len(recorded)
+    for _ in range(5):
+        assert call(app, "POST", "/api/auto-update/run") == {"started": False, "reason": "RECENT"}
+    assert len(recorded) == engine_calls, "five reopenings, not one more request"
+
+
+def test_a_run_the_app_was_closed_during_is_not_recent(app, recorded):
+    """The start is written before the run; a closed app never writes the end.
+    That unfinished run must not hold the next opening back for six hours."""
+    call(app, "PATCH", "/api/auto-update", {"enabled": True})
+    _state(app, auto_update.KEY_LAST, _ago(1 / 24))
+    first = call(app, "POST", "/api/auto-update/run")
+    assert first["started"] is True
+    app.retrieval.join(30)
+    assert call(app, "POST", "/api/auto-update/run")["reason"] == "RECENT"
+
+
+def test_a_run_that_ended_in_error_is_not_recent(app, recorded):
+    call(app, "PATCH", "/api/auto-update", {"enabled": True})
+    at = _ago(1 / 24)
+    _state(app, auto_update.KEY_LAST, at)
+    _state(app, auto_update.KEY_RESULT, json.dumps({"at": at, "stopped": "ERROR"}))
+    assert call(app, "POST", "/api/auto-update/run")["started"] is True
+    app.retrieval.join(30)
+
+
+def test_a_stop_or_a_spent_budget_still_counts_as_a_finished_run(app, recorded):
+    """Stop is the person's choice and a budget is a deliberate limit: neither
+    reopens the gate, or ten openings would be ten ten-minute runs."""
+    call(app, "PATCH", "/api/auto-update", {"enabled": True})
+    for stopped in ("CANCELLED", "BUDGET", "DONE"):
+        at = _ago(1 / 24)
+        _state(app, auto_update.KEY_LAST, at)
+        _state(app, auto_update.KEY_RESULT, json.dumps({"at": at, "stopped": stopped}))
+        assert call(app, "POST", "/api/auto-update/run") == {"started": False, "reason": "RECENT"}
+    assert recorded == []
+
+
+def test_after_a_complete_refresh_last_night_this_morning_asks_nothing(app, recorded):
+    """Freshness is per site, from its last SUCCESSFUL read: a full refresh
+    yesterday evening leaves nothing overdue, whatever the gate says."""
+    conn = connect(app.config.db_path)
+    with transaction(conn):
+        conn.execute("UPDATE source_board SET last_collected_at = ?", (_ago(0.5),))
+    conn.close()
+    reasons = _reasons(app)
+    boards = {k: v for k, v in reasons.items() if k.startswith("greenhouse:")}
+    assert set(boards.values()) == {"FRESH"}, boards
