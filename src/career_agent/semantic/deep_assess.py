@@ -27,7 +27,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-ASSESSMENT_VERSION = "assess-1"
+ASSESSMENT_VERSION = "assess-2"
 
 #: Recommendation codes, in display order. None of them is a probability of
 #: being hired, and none of them is the local %.
@@ -60,9 +60,17 @@ def _has(pattern: str, text: str) -> bool:
     return re.search(pattern, text) is not None
 
 
+#: A spoken language, named in the posting's own language as well (folded: no
+#: accents). `deutsch\w*` holds Deutsch and Deutschkenntnisse: a German ad
+#: that named German no other way read as an unmet TECHNICAL requirement
+#: (9 of the 348 central or secondary overnight readings, 2026-10-20).
+#: "language" alone is not here: a programming language is not a spoken one.
 _LANGUAGE = (
-    r"\b(english|ingles|spanish|espanhol|espanol|portuguese|portugues|french|frances"
-    r"|german|alemao|italian|italiano|mandarin|bilingual|bilingue)\b"
+    r"\b(english|englisch\w*|ingles|spanish|spanisch\w*|espanhol|espanol|portuguese"
+    r"|portugiesisch\w*|portugues|french|franzosisch\w*|francais|frances|german|deutsch\w*"
+    r"|alemao|aleman|italian|italienisch\w*|italiano|dutch|nederlands|niederlandisch\w*"
+    r"|polish|polski|mandarin|chinese|japanese|korean|arabic|russian|turkish|hindi"
+    r"|bilingual|bilingue|zweisprachig\w*|\w*sprachkenntnisse|idioma\w*)\b"
 )
 _CREDENTIAL = r"\b(certif\w*|credly|licen[cs]\w*|licenca)\b"
 _DISPOSITION = (

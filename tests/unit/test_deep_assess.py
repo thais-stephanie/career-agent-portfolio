@@ -259,3 +259,34 @@ def test_an_empty_comparison_is_the_readings_not_the_postings():
     for line in text.splitlines():
         if "'deep.history.NONE_STATED'" in line:
             assert "reading" in line or "leitura" in line
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Sehr gute schriftliche Ausdrucksweise in Deutsch",
+        "Sehr gute Deutschkenntnisse in Wort und Schrift (mindestens C1-Niveau)",
+        "Fließende Englischkenntnisse",
+        "Gute Sprachkenntnisse in Französisch",
+        "Dominio del idioma inglés",
+        "Fluent Dutch or Nederlands",
+    ],
+)
+def test_a_spoken_language_in_any_language_is_a_condition_not_a_gap(quote):
+    a = assess(
+        review(
+            req(quote, "not_shown", ()),
+            req("Hands-on experience building integrations in Python", ids=("E9",)),
+        ),
+        EVIDENCE,
+    )
+    assert a.languages == (quote,)
+    assert a.counts["mandatory"] == 1 and a.recommendation == "STRONG"
+
+
+def test_a_programming_language_is_still_technical():
+    a = assess(
+        review(req("Proficiency in at least one programming language such as Go", "not_shown", ())),
+        EVIDENCE,
+    )
+    assert a.languages == () and a.counts["not_shown"] == 1
