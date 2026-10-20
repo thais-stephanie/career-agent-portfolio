@@ -180,3 +180,31 @@ the targeted rescore scored 16,928 postings with 0 errors.
 * **Observed, not a defect**: until the eleven are retired, the hourly
   maintenance pass spends its whole selection on them and finds nothing.
   Retirement ends that by itself.
+
+## Final lifecycle validation, 2026-10-20
+
+No code or data was changed by hand; no timestamp was forced and no 404 simulated.
+No model call was made.
+
+* **At 14:50 UTC** every one of the twelve boards met both conditions on its own
+  clock: first 404 between 2026-10-19T14:07:21Z and 14:13:03Z (24.6 to 24.7 h
+  earlier), streaks at 5x (`pantherlabs` 4x). All twelve were still `active = 1`,
+  because retirement happens only inside `mark_not_found`, on a new real 404.
+  The app's hourly pass had not asked them since the window opened.
+* **The narrowest official path**: `career-agent refresh --execute --provider P
+  --budget-minutes 5` for ashby, greenhouse and lever, after a read-only plan per
+  family showed it selected exactly the dead boards of that family and nothing
+  else (the unrestricted plan would also have collected `feed:remotive`).
+  12 real requests, 12 answers 404, 13 s in total. Scoring stayed deferred.
+* **Retired**: all twelve now `active = 0` with the streak kept in `last_error`
+  (6x; `pantherlabs` 5x). Active boards 18,746 -> 18,734, exactly twelve.
+* **No job closed**: open jobs 211,234 before and after, closed 6,802 before and
+  after, latest `closed_at` unchanged (2026-10-19T16:39:58Z).
+* **`greenhouse:cybereason`, the control**: retired like the others and still
+  holds its 2 open jobs. A retired board stops being asked; it never closes what
+  it held.
+* **Out of the next refresh**: the maintenance plan inventory went 346 -> 334
+  items with 0 of the twelve in it (12 of 12 selected before); the full refresh
+  reads `source_board WHERE active = 1`, which now returns none of them.
+* **No other board affected**: no board outside the twelve carried a 404 streak,
+  and no other board changed state.
