@@ -434,6 +434,7 @@ def select(
     scores: tuple[str, int] | None = None,
     age: tuple[int | None, bool] | None = None,
     rows: list[sqlite3.Row] | None = None,
+    share: bool = False,
 ) -> Selection:
     """`only` narrows the main list to named postings (a labelled pilot set);
     it never widens it past the main list. `limit=0` counts and picks nothing,
@@ -444,7 +445,15 @@ def select(
         population = [row for row in population if str(row["id"]) in only]
     repo = DeepRepo(conn)
     key = (provider_id, deep.contract_identity(), current_digest, model)
-    done = repo.reviewed(*key)
+    # Read already, or read under another evidence by a reading whose
+    # recommendation cannot move with it (ADR-0035, addendum 5).
+    done = repo.reviewed(*key) | repo.reusable(
+        provider_id,
+        deep.contract_identity(),
+        intent_digest(intent, preferred_levels(config)),
+        model,
+        current_ledger(conn) if share else None,
+    )
     # An answer that was paid for and rejected is asked again only on request.
     refused = repo.rejected(*key)
     pairs = {read_key(row) for row in population}
@@ -520,6 +529,32 @@ def confirmed_claims(conn: sqlite3.Connection) -> list[VerifiedClaim]:
     if not candidate:
         return []
     return [c for c in ClaimRepo(conn).current(candidate) if c.verified]
+
+
+def claims_as_of(conn: sqlite3.Connection, moment: str) -> list[VerifiedClaim]:
+    """`confirmed_claims` as it answered at `moment`: per claim the newest
+    revision recorded by then, in key order, confirmed ones only. Revisions are
+    never rewritten (an edit or a retirement is a new row), so this is exact."""
+    from career_agent.storage.repositories import ClaimRepo
+    from career_agent.storage.workspace_repo import candidate_id_of
+
+    candidate = candidate_id_of(conn)
+    if not candidate:
+        return []
+    latest: dict[str, sqlite3.Row] = {}
+    for row in conn.execute(
+        "SELECT * FROM verified_claim WHERE candidate_id = ? AND created_at <= ?"
+        " ORDER BY claim_key, revision",
+        (candidate, moment),
+    ):
+        latest[str(row["claim_key"])] = row
+    claims = (ClaimRepo._to_claim(latest[key]) for key in sorted(latest))
+    return [c for c in claims if c.verified]
+
+
+def current_ledger(conn: sqlite3.Connection) -> dict[str, int]:
+    """Today's confirmed evidence, claim key -> revision."""
+    return {c.claim_key: int(c.revision) for c in confirmed_claims(conn)}
 
 
 def person_names(conn: sqlite3.Connection) -> list[str]:
@@ -621,6 +656,22 @@ def profile_digest(
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
 
 
+def intent_digest(intent: SearchIntent, levels: list[str]) -> str:
+    """What a reading was ASKED ABOUT: the search intent and the levels."""
+    canonical = json.dumps([intent.digest, sorted(levels)], separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
+
+
+def evidence_digest(claims: list[VerifiedClaim], shared: bool) -> str:
+    """What a reading was SHOWN about the person: sharing, and the confirmed
+    claims by key and revision when it was on."""
+    canonical = json.dumps(
+        [shared, sorted([c.claim_key, c.revision] for c in claims) if shared else []],
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
+
+
 def preferred_levels(config: SearchConfig) -> list[str]:
     return [str(level.value) for level in config.preferences.seniority.preferred]
 
@@ -628,6 +679,103 @@ def preferred_levels(config: SearchConfig) -> list[str]:
 # ---------------------------------------------------------------------------
 # storage
 # ---------------------------------------------------------------------------
+
+
+def unchanged_aliases(sent: dict[str, Any], ledger: dict[str, int] | None) -> set[str] | None:
+    """The aliases a reading was sent whose claim is still confirmed at the
+    revision sent. None when evidence is not shared now (`ledger` None) or was
+    not shared then: nothing sent can stand for today's evidence."""
+    if ledger is None or not sent.get("shared"):
+        return None
+    return {
+        alias
+        for alias, (key, revision) in (sent.get("evidence") or {}).items()
+        if ledger.get(str(key)) == int(revision)
+    }
+
+
+def freshness(
+    row: sqlite3.Row,
+    *,
+    hash_now: str | None,
+    title_now: str,
+    contract_now: str,
+    digest_now: dict[bool, str],
+    intent_now: str,
+    ledger: dict[str, int] | None,
+) -> tuple[str, list[str], bool]:
+    """How current one stored reading is: `(state, reasons, level_current)`.
+
+    * `current`: same advert, title, instructions, intent, levels and evidence.
+    * `evidence`: only the evidence changed (the halves were PROVEN, migration
+      0059): the work fit stands; the recommendation stands only when
+      `holds_without_evidence_change` says it cannot move.
+    * `stale`: anything else, including a row whose halves are unknown.
+
+    `reasons` uses `posting` (text or title), `instructions`, `profile` (what
+    was asked about, or not provable) and `evidence`."""
+    from career_agent.semantic.deep_assess import holds_without_evidence_change
+
+    sent = json.loads(row["sent_json"])
+    reasons = []
+    if row["content_hash"] != hash_now or row["title"] != title_now:
+        reasons.append("posting")
+    if row["contract"] != contract_now:
+        reasons.append("instructions")
+    if row["profile_digest"] != digest_now[bool(sent.get("shared"))]:
+        known = row["intent_digest"] is not None
+        reasons.append("evidence" if known and row["intent_digest"] == intent_now else "profile")
+    if not reasons:
+        return "current", reasons, True
+    if reasons == ["evidence"]:
+        holds = holds_without_evidence_change(
+            json.loads(row["review_json"]), unchanged_aliases(sent, ledger)
+        )
+        return "evidence", reasons, holds
+    return "stale", reasons, False
+
+
+@dataclass(frozen=True)
+class Backfill:
+    proven: int
+    unproven: int
+    already: int
+
+
+def backfill_digests(conn: sqlite3.Connection, config: SearchConfig, *, execute: bool) -> Backfill:
+    """Fill `intent_digest` and `evidence_digest` on readings stored before
+    migration 0059, ONLY where it can be proven: the evidence rebuilt as it
+    stood when the reading was made (`claims_as_of`), with today's intent and
+    levels, reproduces the stored `profile_digest` exactly. Then that reading
+    was asked about today's intent and shown that evidence. Any other row stays
+    NULL and is read as fully out of date. Writes nothing without `execute`;
+    never touches another column."""
+    intent = search_intent(config)
+    levels = preferred_levels(config)
+    intent_now = intent_digest(intent, levels)
+    proven: list[tuple[str, str, str]] = []
+    unproven = already = 0
+    for row in conn.execute(
+        "SELECT id, created_at, profile_digest, sent_json, intent_digest FROM deep_review"
+        " ORDER BY created_at, id"
+    ).fetchall():
+        if row["intent_digest"] is not None:
+            already += 1
+            continue
+        shared = bool(json.loads(row["sent_json"]).get("shared"))
+        claims = claims_as_of(conn, str(row["created_at"])) if shared else []
+        if profile_digest(intent, levels, claims, shared) == row["profile_digest"]:
+            proven.append((intent_now, evidence_digest(claims, shared), str(row["id"])))
+        else:
+            unproven += 1
+    if execute and proven:
+        with transaction(conn):
+            conn.executemany(
+                "UPDATE deep_review SET intent_digest = ?, evidence_digest = ?"
+                " WHERE id = ? AND intent_digest IS NULL",
+                proven,
+            )
+    return Backfill(len(proven), unproven, already)
 
 
 class DeepRepo:
@@ -696,6 +844,35 @@ class DeepRepo:
                 (provider, contract, digest, *([model] if model else [])),
             )
         }
+
+    def reusable(
+        self,
+        provider: str,
+        contract: str,
+        intent: str,
+        model: str = "",
+        ledger: dict[str, int] | None = None,
+    ) -> set[tuple[str, str]]:
+        """(advert, title) pairs whose reading is still CURRENT although the
+        evidence changed: asked about the same intent and levels
+        (`intent_digest`), and a recommendation `holds_without_evidence_change`.
+
+        `ledger` is today's confirmed evidence (claim key -> revision) when
+        evidence is shared now, None when it is not. A row whose halves were
+        never proven (`intent_digest` NULL) is never reusable."""
+        from career_agent.semantic.deep_assess import holds_without_evidence_change
+
+        model = self.resolve_model(provider, model)
+        found: set[tuple[str, str]] = set()
+        for row in self.conn.execute(
+            "SELECT content_hash, title, review_json, sent_json FROM deep_review"
+            " WHERE provider = ? AND contract = ? AND intent_digest = ?" + self._current(model),
+            (provider, contract, intent, *([model] if model else [])),
+        ):
+            unchanged = unchanged_aliases(json.loads(row["sent_json"]), ledger)
+            if holds_without_evidence_change(json.loads(row["review_json"]), unchanged):
+                found.add((str(row["content_hash"]), str(row["title"])))
+        return found
 
     def answered_in(self, deep_job_id: str) -> set[tuple[str, str]]:
         """(advert, title) pairs this job already has an answer for, kept or not."""
@@ -849,6 +1026,9 @@ class Context:
     names: list[str]
     shared: bool
     digest: str
+    #: The two halves of `digest` (migration 0059).
+    intent_digest: str = ""
+    evidence_digest: str = ""
 
 
 def context(conn: sqlite3.Connection, config: SearchConfig, share: bool) -> Context:
@@ -863,6 +1043,8 @@ def context(conn: sqlite3.Connection, config: SearchConfig, share: bool) -> Cont
         names=person_names(conn) if share else [],
         shared=share,
         digest=profile_digest(intent, levels, claims, share),
+        intent_digest=intent_digest(intent, levels),
+        evidence_digest=evidence_digest(claims, share),
     )
 
 
@@ -1133,6 +1315,7 @@ def run_deep(
             only=only,
             scores=scores,
             age=age,
+            share=share,
         )
         candidates = selection.candidates
         deep_job_id = "djob_" + new_id()
@@ -1160,8 +1343,16 @@ def run_deep(
             )
     # The plan already left out what the person did not ask to retry; a
     # resume skips what is current now and what this job already answered.
-    finished = deep_repo.reviewed(provider.id, contract, ctx.digest, model) | (
-        deep_repo.answered_in(deep_job_id)
+    finished = (
+        deep_repo.reviewed(provider.id, contract, ctx.digest, model)
+        | deep_repo.reusable(
+            provider.id,
+            contract,
+            ctx.intent_digest,
+            model,
+            current_ledger(conn) if ctx.shared else None,
+        )
+        | deep_repo.answered_in(deep_job_id)
     )
     pending = [
         c for c in _candidates_from_plan(conn, plan) if (c.content_hash, c.title) not in finished
@@ -1314,6 +1505,8 @@ def run_deep(
                         "content_hash": candidate.content_hash,
                         "title": candidate.title,
                         "profile_digest": ctx.digest,
+                        "intent_digest": ctx.intent_digest,
+                        "evidence_digest": ctx.evidence_digest,
                         "contract": contract,
                         "provider": provider.id,
                         "model": answer.model,

@@ -47,6 +47,7 @@ def register(app: typer.Typer) -> None:
     app.command(name="rescore")(rescore_command)
     app.command(name="semantic-match")(semantic_match_command)
     app.command(name="rebuild-bodies")(rebuild_bodies_command)
+    app.command(name="deep-backfill-digests")(deep_backfill_digests_command)
     app.command(name="intake-build")(intake_build_command)
     app.command(name="intake-validate")(intake_validate_command)
     app.command(name="intake-import")(intake_import_command)
@@ -2042,6 +2043,51 @@ def intake_answer_command(
 
     typer.secho(f"\n{claim}: {answered}", bold=True)
     _table([(k.lower().replace("_", " "), v) for k, v in counts.items()])
+
+
+# =====================================================================
+# deep-backfill-digests
+# =====================================================================
+def deep_backfill_digests_command(
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    config_dir: Annotated[Path, typer.Option("--config-dir")] = DEFAULT_CONFIG_DIR,
+    execute: Annotated[
+        bool, typer.Option("--execute", help="Write. Without it this is a dry run.")
+    ] = False,
+) -> None:
+    """Record what each stored deep reading was asked about and shown
+    (migration 0059), only where it can be PROVEN.
+
+    A reading's halves are written when the confirmed evidence rebuilt as it
+    stood at the reading, with today's search intent and levels, reproduces
+    the reading's stored profile digest exactly. Every other reading is left
+    unknown and stays fully out of date whenever its profile changed.
+
+    Calls no model and changes no reading: two columns, nothing else. A dry run
+    by default.
+    """
+    db = resolve_database(RuntimeMode.PERSONAL, db)
+    from career_agent.semantic.deep_run import backfill_digests
+
+    config, _ = _load_config(config_dir)
+    conn = _open_personal(db)
+    try:
+        result = backfill_digests(conn, config, execute=execute)
+    finally:
+        conn.close()
+    typer.secho(
+        f"\nDeep reading digests {'written' if execute else 'PREFLIGHT (nothing written)'}",
+        bold=True,
+    )
+    _table(
+        [
+            ("proven (both halves known)", result.proven),
+            ("not provable (stays fully out of date)", result.unproven),
+            ("already recorded", result.already),
+        ]
+    )
+    if not execute and result.proven:
+        typer.echo("\nNothing was written. Add --execute to record the proven ones.")
 
 
 # =====================================================================

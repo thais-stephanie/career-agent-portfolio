@@ -662,19 +662,27 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         # that the two sets of truth rules stay in two files.
         self.register_workspace_routes()
 
-    def deep_levels(self) -> tuple[tuple[str, str, bool, int], ...]:
+    def deep_levels(
+        self,
+    ) -> tuple[tuple[tuple[str, str, bool, int], ...], tuple[tuple[str, str], ...]]:
         """Every read posting's deep level, for `JobFilter.deep_levels`:
         `(job_id, level, stale, rank)`, `rank` being the level's place in
-        `deep_assess.RECOMMENDATIONS`. Read beside the local score and never
-        written into it; see `deep_api.deep_levels`."""
+        `deep_assess.RECOMMENDATIONS` and `stale` meaning the recommendation
+        is NOT current (`deep_run.freshness`); and, for the cards only, each
+        reading's state, `(job_id, state)`. Read beside the local score and
+        never written into it; see `deep_api.deep_levels`."""
         from career_agent.web.deep_api import deep_levels
 
         with _closing(self.connect()) as conn:
             found = deep_levels(self, conn)
         rank = {level: index for index, level in enumerate(RECOMMENDATIONS)}
-        return tuple(
-            (job_id, level, stale, rank.get(level, len(rank)))
-            for job_id, (level, stale) in sorted(found.items())
+        ordered = sorted(found.items())
+        return (
+            tuple(
+                (job_id, level, stale, rank.get(level, len(rank)))
+                for job_id, (level, stale, _state) in ordered
+            ),
+            tuple((job_id, state) for job_id, (_level, _stale, state) in ordered),
         )
 
     def transferable_signals(self) -> tuple[str, ...]:
@@ -2484,6 +2492,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             view = view_prefs.read(conn)
         today = utc_today()
         deep = {job: (level, stale) for job, level, stale, _ in job_filter.deep_levels}
+        deep_state = dict(job_filter.deep_states)
         return {
             "total": total,
             "offset": job_filter.offset,
@@ -2504,10 +2513,16 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                     # when it never was (`career_agent.availability`).
                     "availability": checked.get(row.job_id),
                     # The deep reading's level BESIDE the local score, never in
-                    # it; absent when the posting was never read. An
-                    # out-of-date reading keeps the level it had, marked stale.
+                    # it; absent when the posting was never read. A level that
+                    # is not current keeps the level it had, marked stale;
+                    # `state` says whether the whole reading is current, only
+                    # its evidence changed, or it is out of date.
                     "deep": (
-                        {"level": deep[row.job_id][0], "stale": deep[row.job_id][1]}
+                        {
+                            "level": deep[row.job_id][0],
+                            "stale": deep[row.job_id][1],
+                            "state": deep_state.get(row.job_id, "current"),
+                        }
                         if row.job_id in deep
                         else None
                     ),
@@ -3332,6 +3347,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         from career_agent.storage.mvp_repo import JobFilter
 
         _reject_unknown(query, JOB_QUERY_PARAMS, "filter")
+        deep_levels, deep_states = self.deep_levels()
         limit = _int(query, "limit") or 60
         if not 1 <= limit <= 500:
             raise ApiError(400, "limit must be between 1 and 500")
@@ -3452,7 +3468,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 self.transferable_signals() if _bool(query, "include_transferable") else ()
             ),
             deep=_vocab(query, "deep"),
-            deep_levels=self.deep_levels(),
+            deep_levels=deep_levels,
+            deep_states=deep_states,
             sort=_single(query, "sort", "score"),
             direction=_single(query, "direction", "desc"),
             sort_currency=self._sort_currency(query),

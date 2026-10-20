@@ -634,15 +634,18 @@ def _review_rows(
     review without asking anybody anything.
     """
     from career_agent.semantic import deep, deep_assess
-    from career_agent.semantic.deep_run import DeepRepo, confirmed_claims, context
+    from career_agent.semantic.deep_run import DeepRepo, confirmed_claims, context, freshness
 
     rows = DeepRepo(conn).newest_per_job(job_ids)
     if not rows:
         return []
     config = app.search_config()
     contract_now = deep.contract_identity()
-    digest_now = {shared: context(conn, config, shared).digest for shared in (True, False)}
+    contexts = {shared: context(conn, config, shared) for shared in (True, False)}
+    digest_now = {shared: ctx.digest for shared, ctx in contexts.items()}
+    intent_now = contexts[False].intent_digest
     ledger = {c.claim_key: c for c in confirmed_claims(conn)}
+    revisions = {key: int(claim.revision) for key, claim in ledger.items()}
     jobs = [job_id for job_id, _row in rows]
     marks = ",".join("?" for _ in jobs)
     local: dict[str, tuple[Any, ...]] = {}
@@ -677,15 +680,19 @@ def _review_rows(
         assessment = deep_assess.assess(review, current if shared else None)
         recommendation = assessment.recommendation
         score, band, title, company, hash_now = local.get(job_id, (None, None, "", "", None))
-        reasons = []
-        # Another title is another question to the reader (migration 0058).
-        if row["content_hash"] != hash_now or row["title"] != title:
-            reasons.append("posting")
-        if row["contract"] != contract_now:
-            reasons.append("instructions")
-        if row["profile_digest"] != digest_now[shared]:
-            reasons.append("profile")
-        stale = bool(reasons)
+        # One rule for the list, the panel, the drawer and the planner
+        # (`deep_run.freshness`, ADR-0035 addendum 5). Another title is another
+        # question to the reader (migration 0058).
+        state, reasons, level_current = freshness(
+            row,
+            hash_now=hash_now,
+            title_now=title,
+            contract_now=contract_now,
+            digest_now=digest_now,
+            intent_now=intent_now,
+            ledger=revisions,
+        )
+        stale = not level_current
         item: dict[str, Any] = {
             "job_id": job_id,
             "title": title,
@@ -693,6 +700,8 @@ def _review_rows(
             "level": "STALE" if stale else recommendation,
             "level_then": recommendation,
             "stale": stale,
+            # current | evidence (work fit current, evidence changed) | stale
+            "state": state,
             "stale_reasons": reasons,
             "assessment": assessment.as_dict(),
             "comparison": "stale" if stale else deep_assess.comparison(recommendation, band),
@@ -718,10 +727,12 @@ def _review_rows(
     return out
 
 
-def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool]]:
+def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
     """Each read posting's deep level as `_review_rows` shows it NOW:
-    `job_id -> (level, stale)`, where `level` is the level the reading gives
-    (for an out-of-date reading, the level it had then). Nothing is stored:
+    `job_id -> (level, stale, state)`, where `level` is the level the reading
+    gives (for an out-of-date reading, the level it had then), `stale` that
+    this level is not current, and `state` current, evidence (the work fit
+    stands, the evidence changed) or stale (`deep_run.freshness`). Nothing is stored:
     the level is derived from the stored observations, as everywhere else.
 
     Remembered while nothing it depends on moved: a new or replaced reading,
@@ -755,7 +766,7 @@ def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool]]:
         if cached is not None and cached[0] == key:
             return dict(cached[1])
     levels = {
-        str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]))
+        str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]), str(item["state"]))
         for item in _review_rows(app, conn)
     }
     with _LEVELS_LOCK:

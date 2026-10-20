@@ -136,16 +136,20 @@ export function deepWords(deep) {
   if (!deep) return null;
   const short = t(`deep.short.${deep.level}`);
   const level = short === `deep.short.${deep.level}` ? deep.level : short;
+  // Three states (ADR-0035, addendum 5): the whole reading current; the
+  // work fit current with the evidence changed (the level shown as current
+  // only when it cannot move with the evidence); or out of date.
+  const evidence = deep.state === 'evidence';
   if (deep.stale) {
     return {
-      text: t('card.deepStale', { level }),
-      title: t('deep.levelMeans.STALE'),
+      text: t(evidence ? 'card.deepEvidenceStale' : 'card.deepStale', { level }),
+      title: evidence ? t('deep.evidenceLong') : t('deep.levelMeans.STALE'),
       tone: 'stale',
     };
   }
   return {
-    text: t('card.deep', { level }),
-    title: t(`deep.level.${deep.level}`),
+    text: t(evidence ? 'card.deepEvidence' : 'card.deep', { level }),
+    title: evidence ? t('deep.evidenceHolds') : t(`deep.level.${deep.level}`),
     tone: String(deep.level).toLowerCase(),
   };
 }

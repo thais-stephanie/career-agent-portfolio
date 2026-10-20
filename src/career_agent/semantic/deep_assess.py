@@ -392,3 +392,40 @@ def comparison(recommendation: str, local_band: str | None) -> str:
     if recommendation == "TO_CONFIRM":
         return "open"
     return "agrees"
+
+
+def holds_without_evidence_change(review: dict[str, Any], unchanged: set[str] | None) -> bool:
+    """Whether the recommendation `assess` gives this reading cannot move when
+    only the person's evidence changed (ADR-0035, addendum 5).
+
+    True in two cases, both read off `assess` itself:
+
+    * the work does not align (neighbour, unrelated, or a reading that could
+      not tell): LOW, OTHER_WORK and TO_CONFIRM are decided before history;
+    * it aligns, evidence is shared now (`unchanged` is not None), and every
+      requirement that counts (mandatory, technical or credential) was
+      SUPPORTED by cited items that are all still confirmed at the revision
+      that was sent (`unchanged`, by alias). More or edited OTHER evidence can
+      neither undo such support nor add a gap.
+
+    Anything else (a requirement not shown, partly shown or unclear, or one
+    citing an item edited since) could read differently with today's
+    evidence, so the reading is not current until it is read again.
+    """
+    alignment = (
+        "UNCLEAR" if review["insufficient"] else str(review["work_relation"]["value"]).upper()
+    )
+    if alignment in ("UNCLEAR", "UNRELATED", "NEIGHBOUR"):
+        return True
+    if unchanged is None:
+        return False
+    for req in review["requirements"]:
+        if req["kind"] != "mandatory" or _category(_fold(req["quote"])) not in (
+            "technical",
+            "credential",
+        ):
+            continue
+        cited = set(req.get("evidence_ids") or [])
+        if req["support"] != "supported" or not cited or not cited <= unchanged:
+            return False
+    return True

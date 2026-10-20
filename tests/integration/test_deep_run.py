@@ -41,6 +41,9 @@ class FakeCli:
     #: name), and the exact model the answer reports, as a real CLI does.
     model: str = ""
     answers_with: str = "fake-model"
+    #: What the reading reports, so a test can steer what depends on it.
+    relation: str = "central"
+    support: str = "supported"
     limit_after: int | None = None
     on_call: object = None
     messages: list[dict] = field(default_factory=list)
@@ -75,7 +78,7 @@ class FakeCli:
             {
                 "primary_activity": {"summary": "x", "quotes": [first]},
                 "work_relation": {
-                    "value": "central",
+                    "value": self.relation,
                     "intent_ids": [work],
                     "quotes": [first],
                     "reason": "",
@@ -86,7 +89,7 @@ class FakeCli:
                     {
                         "quote": first,
                         "kind": "mandatory",
-                        "support": "supported",
+                        "support": self.support,
                         "evidence_ids": evidence + ["E999"],
                         "reason": "",
                     }
@@ -272,7 +275,9 @@ def test_a_changed_posting_makes_its_reading_out_of_date_not_current(corpus):  #
     assert after["comparison"] == "stale"
 
 
-def test_changed_evidence_makes_a_reading_that_used_it_out_of_date(corpus):  # noqa: F811
+def test_changed_evidence_is_named_as_evidence_not_as_the_search(corpus):  # noqa: F811
+    """Only the evidence moved: the work fit stands (ADR-0035, addendum 5);
+    whether the level stands is `holds_without_evidence_change`'s call."""
     conn, config = corpus
     add_claims(conn)
     run_deep(conn, config, FakeCli(), share=True, limit=2, include_unresolved=True)
@@ -290,7 +295,8 @@ def test_changed_evidence_makes_a_reading_that_used_it_out_of_date(corpus):  # n
             ),
         )
     rows = _review_rows(config, conn).values()
-    assert rows and all(r["stale_reasons"] == ["profile"] for r in rows)
+    assert rows and all(r["stale_reasons"] == ["evidence"] for r in rows)
+    assert all(r["state"] == "evidence" for r in rows)
 
 
 def test_a_reading_without_evidence_ignores_evidence_edits(corpus):  # noqa: F811

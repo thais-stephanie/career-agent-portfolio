@@ -998,7 +998,7 @@ export function createDeep({ onOpenJob = null } = {}) {
         scorePill(row.local_score),
       ]),
       el('span', { className: 'dr-job__axes' }, axisLines(el, row.assessment)),
-      row.stale ? el('span', {
+      row.stale || row.state === 'evidence' ? el('span', {
         className: 'dr-pill dr-pill--wrap deep__stale', dataset: { tone: 'stone' }, text: staleText(row),
       }) : null,
       el('span', { className: 'dr-job__foot' }, [
@@ -1123,7 +1123,9 @@ export function deepSection(review, section) {
         : t(`deep.compare.${review.comparison}`, { score: review.local_score }),
     }),
   ]));
-  if (review.stale) rows.push(make('p', { className: 'deep__stale', text: staleText(review) }));
+  if (review.stale || review.state === 'evidence') {
+    rows.push(make('p', { className: 'deep__stale', text: staleText(review) }));
+  }
   rows.push(make('div', { className: 'deep__axes' }, axisLines(make, a)));
   rows.push(make('p', { className: 'deep__minor', text: t('deep.drawer.primary') }));
   if (r.primary_activity.summary) {
@@ -1262,8 +1264,10 @@ function requirementItem(make, review, a, req) {
   }, children);
 }
 
-/** Why a reading is out of date, in words: the posting, the instructions or the profile changed. */
+/** Why a reading is out of date, in words: the posting, the instructions or the profile changed.
+ * When only the evidence changed, says whether the level still stands. */
 function staleText(row) {
+  if (row.state === 'evidence') return t(row.stale ? 'deep.evidenceLong' : 'deep.evidenceHolds');
   const why = (row.stale_reasons || []).map((code) => t(`deep.staleReason.${code}`)).join(' ');
   return `${t('deep.staleLong')} ${why}`.trim();
 }

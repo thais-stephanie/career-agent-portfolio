@@ -54,10 +54,18 @@ def set_scores(app, scores: dict[str, int]) -> None:
     conn.close()
 
 
-def readings(monkeypatch, app, levels: dict[str, tuple[str, bool]]) -> None:
-    """The deep levels as the reading would show them, by external id."""
+def readings(monkeypatch, app, levels: dict[str, tuple]) -> None:
+    """The deep levels as the reading would show them, by external id:
+    `(level, stale)` or `(level, stale, state)`; state defaults from stale."""
     by = ids(app)
-    mapped = {by[external]: value for external, value in levels.items()}
+    mapped = {
+        by[external]: (
+            value[0],
+            value[1],
+            value[2] if len(value) > 2 else ("stale" if value[1] else "current"),
+        )
+        for external, value in levels.items()
+    }
     monkeypatch.setattr(deep_api, "deep_levels", lambda _app, _conn: dict(mapped))
 
 
@@ -100,8 +108,8 @@ def test_a_posting_never_read_shows_nothing_and_is_found_as_unread(read) -> None
 def test_a_current_reading_shows_its_level_and_a_stale_one_says_so(read) -> None:
     items = page(read, limit=60)["items"]
     by = dict(zip(external(read, items), items, strict=True))
-    assert by["p-1"]["deep"] == {"level": "STRONG", "stale": False}
-    assert by["p-4"]["deep"] == {"level": "PREPARE", "stale": True}
+    assert by["p-1"]["deep"] == {"level": "STRONG", "stale": False, "state": "current"}
+    assert by["p-4"]["deep"] == {"level": "PREPARE", "stale": True, "state": "stale"}
 
 
 def test_the_filter_narrows_by_level_state_and_their_union(read) -> None:
@@ -196,3 +204,35 @@ def test_stored_readings_are_shown_at_once_and_a_new_job_skips_them(api) -> None
     assert again.published == 4, "four more, never the four already read"
     assert len({i["job_id"] for i in page(api, deep="READ", limit=60)["items"]} - read_ids) == 4
     assert len(table(api, "deep_review")) == len(reviews) + 4
+
+
+def test_only_a_current_recommendation_counts_as_its_level(api, monkeypatch):  # noqa: F811
+    """Work fit current, evidence changed (ADR-0035 addendum 5): a level that
+    cannot move with the evidence filters and sorts as current; one that could
+    is out of date, whatever level it had."""
+    set_scores(api, {"p-0": 90, "p-1": 40, "p-2": 70})
+    readings(
+        monkeypatch,
+        api,
+        {
+            "p-0": ("STRONG", False, "current"),
+            "p-1": ("LOW", False, "evidence"),  # level holds: neighbouring work
+            "p-2": ("STRONG", True, "evidence"),  # level could move: not current
+        },
+    )
+    items = {
+        e: i
+        for e, i in zip(
+            external(api, page(api, limit=60)["items"]), page(api, limit=60)["items"], strict=True
+        )
+    }
+    assert items["p-1"]["deep"] == {"level": "LOW", "stale": False, "state": "evidence"}
+    assert items["p-2"]["deep"] == {"level": "STRONG", "stale": True, "state": "evidence"}
+    assert external(api, page(api, deep="STRONG")["items"]) == ["p-0"]
+    assert external(api, page(api, deep="LOW")["items"]) == ["p-1"]
+    assert external(api, page(api, deep="STALE")["items"]) == ["p-2"]
+    assert sorted(external(api, page(api, deep="READ")["items"])) == ["p-0", "p-1"]
+    order = external(api, page(api, sort="deep", direction="desc", limit=60)["items"])
+    assert order[:3] == ["p-0", "p-1", "p-2"], "current levels first, the stale one after"
+    facet = page(api, limit=1)["facets"]["deep"]
+    assert (facet["STRONG"], facet["LOW"], facet["STALE"]) == (1, 1, 1)

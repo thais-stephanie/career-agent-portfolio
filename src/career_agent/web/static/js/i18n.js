@@ -1254,6 +1254,8 @@ const EN = {
   'deep.filter.UNREAD': 'Not read yet',
   'card.deep': 'Deep reading: {level}',
   'card.deepStale': 'Deep reading out of date (was: {level})',
+  'card.deepEvidence': 'Deep reading: {level} (your evidence changed since)',
+  'card.deepEvidenceStale': 'Work fit still current; evidence changed (was: {level})',
   'column.deep': 'Deep reading',
   'facet.deep': 'Deep reading',
   'filterWord.deep': 'deep reading',
@@ -1639,7 +1641,17 @@ const EN = {
   'deep.compare.stale': 'Out of date',
   'deep.staleReason.posting': 'The posting text changed.',
   'deep.staleReason.instructions': 'The reading instructions changed.',
-  'deep.staleReason.profile': 'Your search or confirmed evidence changed.',
+  'deep.staleReason.profile':
+    'Your search or preferred levels changed, or it cannot be shown that only your evidence did.'
+    + 'Your search or preferred levels changed, or it cannot be shown that only your evidence did.',
+  'deep.staleReason.evidence': 'Your confirmed evidence changed.',
+  'deep.evidenceLong':
+    'The work fit still stands: your search did not change. Your confirmed evidence did, and this '
+    + 'level depends on it, so it needs a new reading.',
+  'deep.evidenceHolds':
+    'Your confirmed evidence changed since this reading. The work fit and this level still stand, '
+    + 'because the level does not depend on your evidence; the history details may read differently '
+    + 'now.',
   'evalMode.summary': 'How this score works',
   'evalMode.measures.head': 'What it measures:',
   'evalMode.measures.text': 'how well the posting\'s text matches the work, tools, level, pay and way of '
@@ -6547,6 +6559,8 @@ const PT_BR = {
   'deep.filter.UNREAD': 'Ainda não lida',
   'card.deep': 'Leitura aprofundada: {level}',
   'card.deepStale': 'Leitura aprofundada desatualizada (era: {level})',
+  'card.deepEvidence': 'Leitura aprofundada: {level} (suas evidências mudaram depois)',
+  'card.deepEvidenceStale': 'Encaixe com o trabalho ainda atual; evidências mudaram (era: {level})',
   'column.deep': 'Leitura aprofundada',
   'facet.deep': 'Leitura aprofundada',
   'filterWord.deep': 'leitura aprofundada',
@@ -6938,7 +6952,17 @@ const PT_BR = {
   'deep.compare.stale': 'Desatualizada',
   'deep.staleReason.posting': 'O texto da vaga mudou.',
   'deep.staleReason.instructions': 'As instruções da leitura mudaram.',
-  'deep.staleReason.profile': 'Sua busca ou suas evidências confirmadas mudaram.',
+  'deep.staleReason.profile':
+    'Sua busca ou seus níveis preferidos mudaram, ou não é possível mostrar que só suas evidências '
+    + 'mudaram.',
+  'deep.staleReason.evidence': 'Suas evidências confirmadas mudaram.',
+  'deep.evidenceLong':
+    'O encaixe com o trabalho continua valendo: sua busca não mudou. Suas evidências confirmadas '
+    + 'mudaram, e este nível depende delas, então ele precisa de uma nova leitura.',
+  'deep.evidenceHolds':
+    'Suas evidências confirmadas mudaram depois desta leitura. O encaixe com o trabalho e este nível '
+    + 'continuam valendo, porque o nível não depende das suas evidências; os detalhes do histórico '
+    + 'podem ser lidos de outra forma agora.',
   'evalMode.summary': 'Como esta nota funciona',
   'evalMode.measures.head': 'O que mede:',
   'evalMode.measures.text': 'o quanto o texto da vaga combina com o trabalho, as ferramentas, o nível, o '

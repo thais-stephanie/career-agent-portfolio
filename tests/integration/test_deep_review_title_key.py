@@ -162,7 +162,9 @@ def test_the_migration_copies_every_reading_one_to_one(tmp_path) -> None:
     after = [dict(zip(columns, row, strict=True)) for row in _table(conn, "deep_review")]
     assert len(after) == len(before) == 2
     for old, new in zip(before, after, strict=True):
-        assert tuple(v for k, v in new.items() if k != "title") == old
+        later = ("title", "intent_digest", "evidence_digest")  # 0058, then 0059 (empty)
+        assert tuple(v for k, v in new.items() if k not in later) == old
+        assert new["intent_digest"] is None and new["evidence_digest"] is None
         assert new["title"] == "Business Process Consultant"
     titled = [r for r in conn.execute("SELECT * FROM deep_attempt ORDER BY id")]
     assert [tuple(r)[:-1] for r in titled] == attempts

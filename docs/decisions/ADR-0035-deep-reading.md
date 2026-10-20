@@ -258,3 +258,55 @@ and their strata are the same. The Addendum 2 sentence "the plan
 takes the three strata in turn" is superseded by this one. A job already
 approved keeps the plan it stored; the order applies to plans made from now
 on (`deep_run.consumption_order`).
+
+## Addendum 5 (2026-10-19): the work fit outlives an evidence change
+
+On 2026-10-19 every one of the owner's 823 readings went out of date at once.
+Not because of her search: salary, remote or hybrid and the other conditions
+are neither in the profile digest nor sent to the reader. Because 51 evidence
+revisions (33 new claims, 18 edits) were confirmed after the readings, and the
+profile digest hashed the intent, the levels and the evidence together. The
+digests of all 823 were reproduced from today's intent and levels with the
+evidence rebuilt as it stood at each reading, so that cause is proven.
+
+**The pilot that decided it.** Does the evidence in the prompt move the
+work-relation judgement? Pre-registered rule, then 30 of the owner's Claude
+readings stratified by relation (central 7, secondary 7, neighbour 6,
+unrelated 6, unclear 4), read again with the same contract, model, intent,
+levels, title and posting (`out/experiments/anchoring-pilot-2026-10-19`,
+nothing written to the database):
+
+* without evidence: 23/30 agree with the original, 5 cross between
+  central/secondary and neighbour/unrelated/unclear;
+* noise control, with the evidence originally sent (the packet rebuilt and
+  checked identical to the stored alias map, 30 of 30): 25/30, 3 crossings.
+
+The rule (a difference of at most 2 in both) reads this as predominantly
+noise, at the edge of the tolerance. The changes sit on the secondary <->
+neighbour edge in both arms, and only one posting changed in both. The finding
+that holds either way: one rereading with the SAME input moves about one
+relation in six, so rereading is not a more certain answer than reusing.
+
+**Decision.** Partial reuse, conservative:
+
+* Migration 0059 adds `intent_digest` (intent and levels) and
+  `evidence_digest` (sharing, claims by key and revision) beside
+  `profile_digest`, which stays the identity. Additive and nullable.
+* Rows written before it are filled by `career-agent deep-backfill-digests`
+  ONLY when the evidence rebuilt as of the reading reproduces the stored
+  profile digest; any other row stays NULL and is fully out of date whenever
+  its profile digest moved.
+* A reading is `current`, `evidence` (only the evidence changed: the work fit
+  stands) or `stale` (`deep_run.freshness`, one rule for the list, the panel,
+  the drawer and the planner).
+* In the `evidence` state the recommendation is current only when it cannot
+  move (`deep_assess.holds_without_evidence_change`): the work does not align
+  (LOW, OTHER_WORK, TO_CONFIRM are decided before history), or every counted
+  requirement was supported by cited items still confirmed at the revision
+  sent and evidence is shared now. Otherwise the level is out of date.
+* The planner skips a reading whose recommendation is current in that sense
+  and reads the rest again in full. The level filters and the deep sort use
+  only current recommendations; Find jobs labels the three states.
+
+Not built: re-asking only the evidence half of a reading (a separate contract
+with its own pilot), and splitting the reading in two calls.

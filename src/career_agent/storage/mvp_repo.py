@@ -2122,7 +2122,9 @@ class JobFilter:
     #: `deep_levels` is each read posting's level as the deep reading shows it
     #: now, one `(job_id, level, stale, rank)` per posting: the level is the
     #: one `deep_assess` derives from the stored observations, `stale` says the
-    #: posting's text, the reading instructions or the profile changed since,
+    #: recommendation is not current (`deep_run.freshness`: the text, title,
+    #: instructions or intent changed, or the evidence changed and the level
+    #: could move with it),
     #: and `rank` is the level's place in `deep_assess.RECOMMENDATIONS`. It is
     #: computed by the web layer from `deep_review` and handed in, so this
     #: module names no level and stores nothing: `job_match` is not read for
@@ -2133,6 +2135,9 @@ class JobFilter:
     #: one of the levels (current readings only). Several values are OR-ed.
     deep: tuple[str, ...] = ()
     deep_levels: tuple[tuple[str, str, bool, int], ...] = ()
+    #: `(job_id, state)` for the cards only (current, evidence, stale); no
+    #: query reads it.
+    deep_states: tuple[tuple[str, str], ...] = ()
 
     sort: str = "score"
     direction: str = "desc"
