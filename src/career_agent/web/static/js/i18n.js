@@ -1569,7 +1569,8 @@ const EN = {
     + 'experience, a level, years, authorship or production use.',
   'deep.reqNote.level_not_confirmed': 'The level asked (deep, expert, advanced, senior) is not confirmed by the '
     + 'evidence.',
-  'deep.reqNote.years_not_computed': 'The years asked are not counted from your evidence.',
+  'deep.reqNote.years_not_computed': 'The years asked are not covered by the confirmed dates of the experience cited.',
+  'deep.reqNote.years_covered': 'The confirmed dates of the experience cited cover the years asked.',
   'deep.reqNote.some_parts_unknown': 'Parts named in the cited evidence are marked; the others stay unknown.',
   'deep.reqNote.parts_not_named': 'The cited evidence names none of the parts. Review it yourself.',
   'deep.reqNote.list_not_quoted': 'The list under this heading was not quoted with it, so what was shown cannot be '
@@ -6879,7 +6880,8 @@ const PT_BR = {
     + 'mostram experiência, nível, anos, autoria nem uso em produção.',
   'deep.reqNote.level_not_confirmed': 'O nível pedido (profundo, especialista, avançado, sênior) não é confirmado '
     + 'pelas evidências.',
-  'deep.reqNote.years_not_computed': 'Os anos pedidos não são contados a partir das suas evidências.',
+  'deep.reqNote.years_not_computed': 'Os anos pedidos não são cobertos pelas datas confirmadas da experiência citada.',
+  'deep.reqNote.years_covered': 'As datas confirmadas da experiência citada cobrem os anos pedidos.',
   'deep.reqNote.some_parts_unknown': 'As partes citadas nas evidências estão marcadas; as outras continuam '
     + 'desconhecidas.',
   'deep.reqNote.parts_not_named': 'As evidências citadas não nomeiam nenhuma das partes. Vale revisar.',

@@ -394,3 +394,92 @@ def test_intensity_gives_a_way_of_working_no_technical_credit():
         EVIDENCE,
     )
     assert a.counts["mandatory"] == 1 and a.history != "SHOWN"
+
+
+# --- P1: years from confirmed dates, never inferred --------------------------
+
+
+def dated(*items):
+    """Evidence with dated work items E20, E21, ... (type, start, end)."""
+    return {
+        **EVIDENCE,
+        **{
+            f"E{20 + n}": {
+                "type": kind,
+                "text": "Built billing integrations in Python for a fictional retailer",
+                "tools": "",
+                "start": start,
+                "end": end,
+            }
+            for n, (kind, start, end) in enumerate(items)
+        },
+    }
+
+
+def years(quote, evidence, ids=("E20",), support="supported"):
+    return assess(review(req(quote, support, ids)), evidence).requirements[0]
+
+
+def test_dated_work_covering_the_years_shows_them():
+    r = years(
+        "3+ years building integrations in Python", dated(("EMPLOYMENT", "2020-01", "2023-06"))
+    )
+    assert r["status"] == "shown" and "years_covered" in r["notes"]
+
+
+def test_dated_work_short_of_the_years_stays_partial():
+    r = years(
+        "3+ years building integrations in Python", dated(("EMPLOYMENT", "2021-01", "2023-01"))
+    )
+    assert r["status"] == "partial" and "years_not_computed" in r["notes"]
+
+
+def test_overlapping_roles_are_counted_once():
+    evidence = dated(("EMPLOYMENT", "2020-01", "2022-01"), ("PROJECT", "2021-01", "2023-01"))
+    ids = ("E20", "E21")
+    assert years("3+ years building integrations", evidence, ids)["status"] == "shown"
+    assert years("4+ years building integrations", evidence, ids)["status"] == "partial"
+
+
+def test_an_undated_item_adds_nothing_and_nothing_is_guessed():
+    assert (
+        years("1+ years building integrations in Python", EVIDENCE, ("E9",))["status"] == "partial"
+    )
+    evidence = dated(("EMPLOYMENT", None, None))
+    assert years("1+ years building integrations in Python", evidence)["status"] == "partial"
+
+
+def test_a_dated_degree_or_certificate_is_not_time_doing_the_work():
+    for kind in ("EDUCATION", "CERTIFICATION"):
+        r = years("2+ years building integrations", dated((kind, "2010-01", "2020-01")))
+        assert r["status"] != "shown", kind
+
+
+def test_the_most_years_named_are_the_years_asked():
+    evidence = dated(("EMPLOYMENT", "2020-01", "2024-01"))
+    r = years("6+ years of software engineering, with 2+ years building integrations", evidence)
+    assert r["status"] == "partial"
+    assert years("3-5 years building integrations", evidence)["status"] == "shown"
+
+
+def test_dates_never_lift_what_the_reading_did_not_support():
+    evidence = dated(("EMPLOYMENT", "2010-01", "2024-01"))
+    assert (
+        years("3+ years building integrations", evidence, support="partial")["status"] == "partial"
+    )
+    assert (
+        years("3+ years building integrations", evidence, support="not_shown", ids=())["status"]
+        == "not_shown"
+    )
+
+
+def test_dates_never_lift_a_listed_skill_or_a_level_word():
+    evidence = dated(("EMPLOYMENT", "2010-01", "2024-01"))
+    assert years("3+ years of Python", evidence, ids=("E1",))["status"] == "declared"
+    r = years("3+ years of advanced integration work", evidence)
+    assert r["status"] == "partial" and "level_not_confirmed" in r["notes"]
+
+
+def test_an_open_role_runs_to_this_month():
+    r = years("5+ years building integrations in Python", dated(("EMPLOYMENT", "2015-01", None)))
+    assert r["status"] == "shown" and "years_covered" in r["notes"]

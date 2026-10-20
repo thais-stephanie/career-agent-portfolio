@@ -27,7 +27,9 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-ASSESSMENT_VERSION = "assess-4"
+from career_agent.clock import now_utc
+
+ASSESSMENT_VERSION = "assess-5"
 
 #: Recommendation codes, in display order. None of them is a probability of
 #: being hired, and none of them is the local %.
@@ -320,9 +322,15 @@ def _requirement(
                 status = "partial"
                 notes.append("level_not_confirmed")
         if _has(_YEARS, folded) and status != "review":
-            notes.append("years_not_computed")
-            if status == "shown":
-                status = "partial"
+            asked = _years_asked(folded)
+            covered = _years_covered(cited, evidence)
+            if status == "shown" and asked is not None and covered is not None and covered >= asked:
+                # The cited, confirmed dates cover the years asked (P1).
+                notes.append("years_covered")
+            else:
+                notes.append("years_not_computed")
+                if status == "shown":
+                    status = "partial"
     return {
         "quote": quote,
         "kind": req["kind"],
@@ -338,9 +346,53 @@ def _requirement(
     }
 
 
+#: The claim types whose dates are time spent doing the work.
+_DATED_WORK = frozenset({"EMPLOYMENT", "PROJECT"})
+_YEARS_NUMBER = r"(\d+)\s*(?:[-\u2013]\s*\d+\s*)?\+?\s*(?:years?|yrs|anos?)\b"
+
+
+def _years_asked(folded: str) -> int | None:
+    """The most years the requirement names, each at its lower bound: "6+
+    years ..., with 2+ years in AI" asks 6, "3-5 years" asks 3."""
+    found = [int(n) for n in re.findall(_YEARS_NUMBER, folded)]
+    return max(found) if found else None
+
+
+def _month(value: str) -> int | None:
+    try:
+        year, month = (int(part) for part in value[:7].split("-"))
+    except (ValueError, AttributeError):
+        return None
+    return year * 12 + month if 1 <= month <= 12 else None
+
+
+def _years_covered(cited: list[str], evidence: dict[str, dict[str, Any]] | None) -> float | None:
+    """Years the CITED work items cover, from their confirmed dates only.
+
+    Only employment and projects count (a course or a certificate is not time
+    doing the work). Months are counted once however many items cover them,
+    so overlapping roles are never added up. An item without a start date
+    adds nothing and no duration is ever guessed; an open item runs to this
+    month. None when no cited item is dated."""
+    if not evidence:
+        return None
+    months: set[int] = set()
+    for alias in cited:
+        item = evidence.get(alias) or {}
+        if item.get("type") not in _DATED_WORK:
+            continue
+        start = _month(str(item.get("start") or ""))
+        end = _month(str(item.get("end") or "")) if item.get("end") else _month(now_utc())
+        if start is None or end is None or end < start:
+            continue
+        months.update(range(start, end))
+    return len(months) / 12 if months else None
+
+
 def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -> Assessment:
-    """`evidence` maps each SENT alias to {"type", "text", "tools"}; None when
-    nothing was sent. A cited alias missing from it counts as not cited."""
+    """`evidence` maps each SENT alias to {"type", "text", "tools"} and, for a
+    dated item, "start" and "end" (YYYY-MM); None when nothing was sent. A
+    cited alias missing from it counts as not cited."""
     relation = review["work_relation"]["value"]
     core = _core_names(review)
     reqs = tuple(_requirement(r, evidence, core) for r in review["requirements"])

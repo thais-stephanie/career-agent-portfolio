@@ -673,6 +673,9 @@ def _review_rows(
                     "text": claim.text,
                     "type": claim.claim_type.value,
                     "tools": " ".join(claim.tools),
+                    # The confirmed dates, for a requirement that asks years.
+                    "start": claim.period_start,
+                    "end": claim.period_end,
                     "changed": False,
                 }
                 if claim is not None and claim.revision == revision
