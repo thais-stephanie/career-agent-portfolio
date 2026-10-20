@@ -29,7 +29,7 @@ from typing import Any
 
 from career_agent.clock import now_utc
 
-ASSESSMENT_VERSION = "assess-5"
+ASSESSMENT_VERSION = "assess-6"
 
 #: Recommendation codes, in display order. None of them is a probability of
 #: being hired, and none of them is the local %.
@@ -208,7 +208,9 @@ def _category(folded: str) -> str:
         return "language"
     if _has(_CREDENTIAL, folded):
         return "credential"
-    if _has(_DISPOSITION, folded):
+    # A requirement that asks YEARS asks experience, whatever skill it names
+    # beside them ("5+ years in a role requiring problem-solving").
+    if _has(_DISPOSITION, folded) and not _has(_YEARS, folded):
         return "disposition"
     return "technical"
 

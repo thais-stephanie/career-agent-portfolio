@@ -483,3 +483,8 @@ def test_dates_never_lift_a_listed_skill_or_a_level_word():
 def test_an_open_role_runs_to_this_month():
     r = years("5+ years building integrations in Python", dated(("EMPLOYMENT", "2015-01", None)))
     assert r["status"] == "shown" and "years_covered" in r["notes"]
+
+
+def test_a_requirement_that_asks_years_is_never_only_a_way_of_working():
+    quote = "5+ years in a role requiring diagnostic thinking and problem-solving"
+    assert category(quote) == "technical"
