@@ -72,6 +72,14 @@ Report, from the posting text alone:
   described, not shared words: a posting can do the person's work in other
   words, and a posting can share their words while doing other work. The
   title is context only; never decide from the title alone.
+  Ask what the main ACTIVITY is, never whether the tools match: the same
+  activity on another platform or vendor (another CRM, automation or
+  integration platform, ERP or helpdesk), or done with more code, is still
+  "central" or "secondary"; a different tool is a requirement to report, not
+  a different job. Use "neighbour" only when the main activity itself is
+  another job, such as software product engineering, data engineering,
+  security, infrastructure, marketing campaigns, quota-carrying sales,
+  product management or people management.
 - responsibilities: up to six duties, each "primary" or "secondary", quoted.
 - tools: up to eight tools the posting names, each "core" (used centrally),
   "supporting" or "mentioned", quoted.

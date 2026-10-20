@@ -336,3 +336,31 @@ unread; they were never stored, so a resume asks them again.
 
 Not decided here: a default above 2. The 8-call sample cannot show the
 subscription's limit over hours; raise it after a longer run reports no limits.
+
+## Addendum 7 (2026-10-20): the relation asks for the activity, not the stack
+
+**Context.** An audit of the 1,500 overnight readings found the reader moving
+the person's own work to "neighbour" when it ran on another platform or with
+more code: a Salesforce engineer or admin "rather than HubSpot", a Zendesk
+admin, an Oracle integration consultant. Neighbour reads LOW whatever the
+evidence says.
+
+**Decision.** The instructions now say to judge the main ACTIVITY, never
+whether the tools match: the same activity on another CRM, automation,
+integration, ERP or helpdesk platform, or done with more code, stays central
+or secondary, and a different tool is a requirement to report. Neighbour is
+kept for another job: software product engineering, data engineering,
+security, infrastructure, marketing campaigns, quota-carrying sales, product
+management or people management.
+
+**Measured, 18 calls, nothing stored.** Nine platform cases read twice: with
+the old instructions 9 of 9 stayed neighbour (as stored); with the new ones 4
+moved to secondary (both Salesforce roles, the Oracle consultant, the Zendesk
+admin) and 5 stayed neighbour (Python engineering, D365 ERP, a developer
+platform's forward-deployed engineer, a support-team manager, design
+operations). On 36 boundary cases the new instructions moved 4 relations,
+the same as a rerun with the old ones (model noise): security, software and
+sales stayed neighbour.
+
+**Consequence.** The contract identity moves, so every stored reading reads
+out of date until it is read again. Merging this is the owner's decision.
