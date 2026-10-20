@@ -45,6 +45,7 @@ from typing import Any
 
 from career_agent.domain.enums import CollectionStatus, PipelineRunStatus
 from career_agent.net.fetcher import FetchError, HttpFetcher
+from career_agent.pipeline.url_identity import OtherProviderUrls
 from career_agent.providers.base import resolve_metadata
 from career_agent.providers.getonbrd import (
     DEFAULT_CATEGORIES,
@@ -53,7 +54,7 @@ from career_agent.providers.getonbrd import (
     company_of,
     to_stub,
 )
-from career_agent.providers.registry import canonical_posting_url, get_provider
+from career_agent.providers.registry import get_provider
 from career_agent.storage.db import transaction
 from career_agent.storage.records import (
     CompanyRecord,
@@ -475,32 +476,14 @@ class GetonbrdCollector:
         this source's own posting page, so without the exclusion every posting
         matches the row this collector wrote last time.
         """
-        target = canonical_posting_url(url)
-        host = _host(url)
-        if not host:
-            return None
-        rows = self.conn.execute(
-            "SELECT id, url FROM job WHERE provider != ? AND url LIKE ?",
-            (PROVIDER, f"%{host}%"),
-        ).fetchall()
-        for row in rows:
-            if canonical_posting_url(str(row["url"])) == target:
-                return str(row["id"])
-        return None
+        if not hasattr(self, "_other_urls"):
+            self._other_urls = OtherProviderUrls(self.conn, PROVIDER)
+        return self._other_urls.find(url)
 
 
 def known_categories() -> tuple[str, ...]:
     """The categories this collector reads by default. Named, never discovered."""
     return DEFAULT_CATEGORIES
-
-
-def _host(url: str) -> str:
-    from urllib.parse import urlparse
-
-    try:
-        return (urlparse(url).hostname or "").lower()
-    except ValueError:
-        return ""
 
 
 def _slugify(name: str) -> str:

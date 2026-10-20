@@ -36,8 +36,9 @@ from typing import Any
 
 from career_agent.domain.enums import CollectionStatus, PipelineRunStatus
 from career_agent.net.fetcher import FetchError, HttpFetcher
+from career_agent.pipeline.url_identity import OtherProviderUrls
 from career_agent.providers.base import resolve_metadata
-from career_agent.providers.registry import canonical_posting_url, get_provider
+from career_agent.providers.registry import get_provider
 from career_agent.providers.wwr import FEEDS, WwrProvider, company_of
 from career_agent.storage.db import transaction
 from career_agent.storage.records import (
@@ -396,18 +397,9 @@ class WwrCollector:
         `_held_external_ids` excludes for rule 1, arriving through rule 3
         because this source's `link` is its own page rather than an employer's.
         """
-        target = canonical_posting_url(url)
-        host = _host(url)
-        if not host:
-            return None
-        rows = self.conn.execute(
-            "SELECT id, url FROM job WHERE provider != ? AND url LIKE ?",
-            (PROVIDER, f"%{host}%"),
-        ).fetchall()
-        for row in rows:
-            if canonical_posting_url(str(row["url"])) == target:
-                return str(row["id"])
-        return None
+        if not hasattr(self, "_other_urls"):
+            self._other_urls = OtherProviderUrls(self.conn, PROVIDER)
+        return self._other_urls.find(url)
 
     def _job_by_content_hash(self, text_hash: str, *, slug: str, title: str) -> str | None:
         if not slug or not title:
@@ -425,15 +417,6 @@ class WwrCollector:
 def known_feeds() -> tuple[str, ...]:
     """Every feed name this collector will accept. Named, never discovered."""
     return tuple(sorted(FEEDS))
-
-
-def _host(url: str) -> str:
-    from urllib.parse import urlparse
-
-    try:
-        return (urlparse(url).hostname or "").lower()
-    except ValueError:
-        return ""
 
 
 def _slugify(name: str) -> str:

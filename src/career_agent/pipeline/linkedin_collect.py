@@ -42,7 +42,7 @@ from typing import Any
 
 from career_agent.clock import now_utc
 from career_agent.domain.enums import CollectionStatus, PipelineRunStatus
-from career_agent.providers.base import canonical_url as canonical_posting_url
+from career_agent.pipeline.url_identity import OtherProviderUrls
 from career_agent.providers.linkedin_jobspy import (
     EMPTY,
     OK,
@@ -591,22 +591,9 @@ class LinkedInCollector:
     # -- corpus lookups ----------------------------------------------------
 
     def _job_by_canonical_url(self, url: str) -> str | None:
-        target = canonical_posting_url(url)
-        if not target:
-            return None
-        from urllib.parse import urlsplit
-
-        host = urlsplit(url).hostname or ""
-        if not host:
-            return None
-        rows = self.conn.execute(
-            "SELECT id, url FROM job WHERE provider != ? AND url LIKE ?",
-            (PROVIDER, f"%{host}%"),
-        ).fetchall()
-        for row in rows:
-            if canonical_posting_url(str(row["url"])) == target:
-                return str(row["id"])
-        return None
+        if not hasattr(self, "_other_urls"):
+            self._other_urls = OtherProviderUrls(self.conn, PROVIDER)
+        return self._other_urls.find(url)
 
     def _job_by_content_hash(self, text_hash: str, *, slug: str, title: str) -> str | None:
         row = self.conn.execute(
