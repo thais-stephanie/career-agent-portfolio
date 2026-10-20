@@ -66,6 +66,7 @@ import re
 import sqlite3
 import threading
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -117,6 +118,29 @@ CHARS_PER_TOKEN = 3.0
 #: The postings one batch holds. A job reads batch after batch without asking
 #: again; the count the person approved is the only limit on how many.
 BATCH_SIZE = 25
+#: Calls in flight at once for a SUBSCRIPTION provider (a metered one stays at
+#: one: each call reserves its worst case against the budget first). The wait
+#: is the model's own (14 s median, 2026-10-20: preparation, verification and
+#: storage add nothing measurable). Measured on 8 postings: 1 -> 214, 2 -> 343,
+#: 3 -> 553, 4 -> 677 readings an hour, latency unchanged, 0 rejected, 0
+#: failed, 0 limits. 2 is the conservative default; the environment variable
+#: CAREER_AGENT_DEEP_CONCURRENCY sets 1 to MAX_DEEP_CONCURRENCY.
+DEFAULT_DEEP_CONCURRENCY = 2
+MAX_DEEP_CONCURRENCY = 4
+
+
+def deep_concurrency(billing: Billing) -> int:
+    if billing is not Billing.SUBSCRIPTION:
+        return 1
+    import os
+
+    try:
+        wanted = int(os.environ.get("CAREER_AGENT_DEEP_CONCURRENCY", DEFAULT_DEEP_CONCURRENCY))
+    except ValueError:
+        wanted = DEFAULT_DEEP_CONCURRENCY
+    return max(1, min(MAX_DEEP_CONCURRENCY, wanted))
+
+
 #: The answer ceiling for a metered provider. The pilot's answers averaged
 #: about 3,300 output tokens; a truncated answer is paid for and rejected, so
 #: the ceiling is generous and the budget reserves all of it per call.
@@ -1253,8 +1277,9 @@ def run_deep(
     scores: tuple[str, int] | None = None,
     age: tuple[int | None, bool] | None = None,
 ) -> RunStats:
-    """Read an approved plan in batches, one posting at a time, until it is
-    done, paused or cancelled. Never raises for a provider failure; never
+    """Read an approved plan in batches, with up to `deep_concurrency` calls
+    in flight and each answer handled in plan order, until it is done,
+    paused or cancelled. Never raises for a provider failure; never
     touches `job_match`, evidence or resumes.
 
     A metered provider runs only with a budget, at a recorded price for its
@@ -1413,23 +1438,50 @@ def run_deep(
 
     failures = 0
     report()
+    # Up to `workers` calls are in flight; every answer is handled HERE, on this
+    # thread and in plan order, exactly as one call at a time would be: what is
+    # verified, stored, counted and checkpointed does not depend on `workers`.
+    # A stop leaves at most workers - 1 answers unread; they were never stored,
+    # so a resume asks them again.
+    workers = deep_concurrency(billing)
+    schema = deep.answer_schema()
+    requests: dict[int, tuple[str, Any, Any, Any]] = {}
+    calls: dict[int, Future[ProviderAnswer]] = {}
+    pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="deep")
+
+    def ask(index: int) -> None:
+        if index in calls or index >= len(pending):
+            return
+        if index not in requests:
+            requests[index] = request_for(ctx, pending[index])
+        calls[index] = pool.submit(provider.complete, system, requests[index][0], schema)
+
+    def stopping() -> bool:
+        return bool((cancel and cancel.is_set()) or (pause and pause.is_set()))
+
     try:
-        for candidate in pending:
+        for index, candidate in enumerate(pending):
             if cancel is not None and cancel.is_set():
                 stats.stop_reason = STOP_CANCELLED
                 break
             if pause is not None and pause.is_set():
                 stats.stop_reason = STOP_PAUSED
                 break
-            message, items, sent, _notes = request_for(ctx, candidate)
+            if index not in requests:
+                requests[index] = request_for(ctx, candidate)
+            message, items, sent, _notes = requests.pop(index)
             reserve = 0.0
             if metered and price is not None:
                 reserve = reservation_usd(price, system, message, max_output)
                 if spent + reserve > float(budget_usd or 0.0):
                     stats.stop_reason = STOP_BUDGET
                     break
+            ask(index)
+            for ahead in range(index + 1, index + workers):
+                if not stopping():
+                    ask(ahead)
             try:
-                answer = provider.complete(system, message, deep.answer_schema())
+                answer = calls.pop(index).result()
             except ProviderFailed as exc:
                 if cancel is not None and cancel.is_set():
                     stats.stop_reason = STOP_CANCELLED
@@ -1544,11 +1596,13 @@ def run_deep(
                 stats.stop_reason = STOP_UNACCOUNTED
                 break
     except BaseException:
+        pool.shutdown(wait=True, cancel_futures=True)
         stats.status, stats.stop_reason = "FAILED", stats.stop_reason or "ERROR"
         with transaction(conn):
             deep_repo.update_job(deep_job_id, "PAUSED", stats.stop_reason)
         raise
     finally:
+        pool.shutdown(wait=True, cancel_futures=True)
         if stats.status == "RUNNING":
             stats.status = "PAUSED" if stats.stop_reason in PAUSING else "DONE"
         if not stats.candidates and not stats.stop_reason:

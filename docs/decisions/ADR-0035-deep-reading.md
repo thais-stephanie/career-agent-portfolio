@@ -310,3 +310,29 @@ relation in six, so rereading is not a more certain answer than reusing.
 
 Not built: re-asking only the evidence half of a reading (a separate contract
 with its own pilot), and splitting the reading in two calls.
+
+## Addendum 6 (2026-10-20): calls in flight at once, answers handled in order
+
+**Context.** The overnight job of 2026-10-20 read 1,500 postings in 6.13 h. The
+gap between calls equalled the provider's own latency (14 s median), so
+preparation, verification and storage cost nothing measurable: throughput could
+only move with more than one call in flight. A Claude Code call is a separate,
+stateless `claude -p` process.
+
+**Measured.** The same 8 postings, the exact requests of that job, nothing
+stored: 1 at a time 214 readings an hour, 2 -> 343, 3 -> 553, 4 -> 677; mean
+latency 16 to 20 s at every level, 0 rejected, 0 failed, 0 limits. The readings
+differed between rounds on 3 of the 8 postings, the same model noise the
+anchoring control measured, and not in a pattern that follows the level.
+
+**Decision.** For a SUBSCRIPTION provider, `deep_run` keeps up to
+`deep_concurrency` calls in flight (default 2, `CAREER_AGENT_DEEP_CONCURRENCY`,
+1 to 4). Only the call runs on worker threads; every answer is verified, stored,
+counted and checkpointed on the job's own thread, in plan order, so the plan,
+the stored rows and their order do not depend on the number. A metered provider
+stays at one call at a time, because each call reserves its worst case against
+the budget before it is sent. A pause or a stop leaves at most n - 1 answers
+unread; they were never stored, so a resume asks them again.
+
+Not decided here: a default above 2. The 8-call sample cannot show the
+subscription's limit over hours; raise it after a longer run reports no limits.

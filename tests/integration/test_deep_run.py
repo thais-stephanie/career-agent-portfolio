@@ -185,7 +185,9 @@ def test_a_plan_limit_pauses_and_the_next_run_resumes(corpus):  # noqa: F811
     assert resumed.published == paused.candidates - 1
 
 
-def test_a_cancel_stops_before_the_next_posting(corpus):  # noqa: F811
+def test_a_cancel_stops_before_the_next_posting(corpus, monkeypatch):  # noqa: F811
+    """One call at a time; with more in flight see the concurrency tests."""
+    monkeypatch.setenv("CAREER_AGENT_DEEP_CONCURRENCY", "1")
     conn, config = corpus
     cancel = threading.Event()
     provider = FakeCli(on_call=cancel.set)
@@ -488,3 +490,91 @@ def test_a_job_spends_its_calls_in_the_plan_order_highest_band_first(corpus):  #
     )
     seen = [bands.index(band[job]) for job in asked]
     assert seen == sorted(seen)
+
+
+# --- Calls in flight at once: the answers are handled as one at a time ------
+
+
+@dataclass
+class SlowCli(FakeCli):
+    """Holds each call a moment and records how many were in flight at once."""
+
+    in_flight: int = 0
+    most: int = 0
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def complete(self, system: str, user: str, schema: dict) -> ProviderAnswer:
+        import time
+
+        with self.lock:
+            self.in_flight += 1
+            self.most = max(self.most, self.in_flight)
+        try:
+            time.sleep(0.05)
+            with self.lock:
+                return super().complete(system, user, schema)
+        finally:
+            with self.lock:
+                self.in_flight -= 1
+
+
+def _stored(conn) -> list[tuple]:
+    return [
+        tuple(r)
+        for r in conn.execute(
+            "SELECT job_id, content_hash, title, review_json FROM deep_review ORDER BY rowid"
+        )
+    ]
+
+
+def test_calls_in_flight_store_what_one_at_a_time_stores_in_plan_order(corpus, monkeypatch):  # noqa: F811
+    conn, config = corpus
+    monkeypatch.setenv("CAREER_AGENT_DEEP_CONCURRENCY", "3")
+    provider = SlowCli()
+    stats = run_deep(conn, config, provider, share=False, limit=10, include_unresolved=True)
+    assert stats.published == stats.candidates >= 2 and stats.failed == stats.rejected == 0
+    assert provider.most == min(3, stats.candidates), "the calls were really in flight together"
+    plan = json.loads(DeepRepo(conn).last_job()["plan_json"])
+    asked = [r[0] for r in conn.execute("SELECT job_id FROM deep_attempt ORDER BY rowid")]
+    assert asked == [job for job, _hash, _stratum in plan][: len(asked)], "stored in plan order"
+    concurrent = _stored(conn)
+    with transaction(conn):
+        conn.execute("DELETE FROM deep_attempt")
+        conn.execute("DELETE FROM deep_review")
+        conn.execute("DELETE FROM deep_job")
+    monkeypatch.setenv("CAREER_AGENT_DEEP_CONCURRENCY", "1")
+    run_deep(conn, config, SlowCli(), share=False, limit=10, include_unresolved=True)
+    assert _stored(conn) == concurrent, "the same readings, in the same order"
+
+
+def test_a_pause_with_calls_in_flight_resumes_without_reading_twice(corpus, monkeypatch):  # noqa: F811
+    conn, config = corpus
+    monkeypatch.setenv("CAREER_AGENT_DEEP_CONCURRENCY", "3")
+    pause = threading.Event()
+    first = SlowCli()
+    first.on_call = pause.set
+    paused = run_deep(
+        conn, config, first, share=False, limit=10, include_unresolved=True, pause=pause
+    )
+    assert paused.status == "PAUSED" and paused.stop_reason == "PAUSED"
+    assert len(first.messages) <= paused.published + 3, "at most the calls already in flight"
+    job = DeepRepo(conn).last_job()["id"]
+    resumed = run_deep(
+        conn, config, SlowCli(), share=False, limit=10, include_unresolved=True, resume_job=job
+    )
+    assert resumed.status == "DONE"
+    rows = _stored(conn)
+    keys = [(job_id, h, t) for job_id, h, t, _ in rows]
+    assert len(keys) == len(set(keys)) == paused.candidates, "every posting read once"
+
+
+def test_a_metered_provider_is_never_asked_more_than_once_at_a_time(monkeypatch):
+    from career_agent.semantic.deep_run import deep_concurrency
+
+    monkeypatch.setenv("CAREER_AGENT_DEEP_CONCURRENCY", "4")
+    assert deep_concurrency(Billing.METERED_API) == 1
+    assert deep_concurrency(Billing.SUBSCRIPTION) == 4
+    monkeypatch.setenv("CAREER_AGENT_DEEP_CONCURRENCY", "50")
+    assert deep_concurrency(Billing.SUBSCRIPTION) == 4
+    monkeypatch.setenv("CAREER_AGENT_DEEP_CONCURRENCY", "nonsense")
+    assert deep_concurrency(Billing.SUBSCRIPTION) == 2
