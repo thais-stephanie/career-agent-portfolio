@@ -2354,23 +2354,31 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         return work
 
     def export_good_strong(self, *, query: dict, body: dict) -> Any:
-        """Every GOOD and STRONG posting of the current list, as a CSV file.
+        """The current list as a CSV file, over ALL pages.
 
-        The same filters, search and sort as the list, over ALL pages, with
-        the Search Fit band always narrowed to GOOD and STRONG (intersected
-        with a band filter already chosen). Public posting facts and the
-        person's own status only: no CV, evidence, search phrases, notes or
-        which query found a posting."""
+        The same filters, search and sort as the list. Without a Deep Reading
+        filter the Search Fit band is narrowed to GOOD and STRONG (intersected
+        with a band filter already chosen), as it always was. WITH one, the
+        file is exactly the filtered list: a Deep Reading shortlist reaches
+        postings of every local band, and narrowing it again would drop them
+        without a word (2026-10-20). Each row carries the posting's Deep
+        Reading level, state, work relation and grounds; a level that is no
+        longer current is written as not current. Public posting facts and
+        the person's own status only: no CV, evidence text, search phrases,
+        notes or which query found a posting."""
         from career_agent.storage.mvp_repo import ScoredJobQuery
         from career_agent.web import export
+        from career_agent.web.deep_api import _review_rows
         from career_agent.web.server import Download
 
+        shortlist = bool(query.get("deep"))
         chosen = [str(b).upper() for b in query.get("fit_band") or []]
-        bands = [b for b in export.GOOD_PLUS if not chosen or b in chosen]
+        bands = chosen if shortlist else [b for b in export.GOOD_PLUS if not chosen or b in chosen]
         rows: list[dict] = []
-        if bands:
+        if bands or shortlist:
             params = {k: v for k, v in query.items() if k not in ("offset", "limit")}
-            params["fit_band"] = bands
+            if bands:
+                params["fit_band"] = bands
             params["limit"] = [str(export.PAGE_SIZE)]
             job_filter = self._filter_from(params)
             with _closing(self.connect()) as conn:
@@ -2385,18 +2393,30 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 for offset in range(0, total, job_filter.limit):
                     page = repo.page(config_id, config_version, replace(job_filter, offset=offset))
                     whole = repo.descriptions([r.job_id for r in page])
+                    read = {
+                        d["job_id"]: {
+                            "level_then": d["level_then"],
+                            "stale": d["stale"],
+                            "state": d["state"],
+                            "assessment": d["assessment"],
+                            "work_relation": d["review"]["work_relation"]["value"],
+                        }
+                        for d in _review_rows(self, conn, [r.job_id for r in page], detail=True)
+                    }
                     rows.extend(
                         {
                             **job_card(r, bands=self._bands, today=today, recency=self._recency),
                             "description_full": whole.get(r.job_id, ""),
+                            "deep_export": read.get(r.job_id),
                         }
                         for r in page
                     )
         stamp = utc_today()
+        name = "deep-shortlist" if shortlist else "good-strong"
         return Download(
             body=export.good_strong_csv(rows),
             content_type="text/csv; charset=utf-8",
-            filename=f"career-agent-good-strong-{stamp}.csv",
+            filename=f"career-agent-{name}-{stamp}.csv",
         )
 
     #: How many whole adverts one request may ask for: a page of the list.

@@ -1,4 +1,7 @@
-"""The GOOD + STRONG export: a CSV a spreadsheet opens correctly.
+"""The list export: a CSV a spreadsheet opens correctly.
+
+Without a Deep Reading filter it holds the GOOD and STRONG postings of the
+list; with one, exactly the filtered list (`api.export_good_strong`).
 
 UTF-8 with a byte-order mark, because Excel on Windows reads a CSV without
 one in the machine's legacy code page and turns "São Paulo" into mojibake.
@@ -37,15 +40,105 @@ _STATUS = {
     "ARCHIVED": "Archived",
 }
 
+#: The deep reading's recommendation codes, as the screen words them.
+_DEEP_LEVEL = {
+    "STRONG": "Apply",
+    "PREPARE": "Apply, preparing",
+    "CHECK_FIRST": "Check first",
+    "NOT_COMPARED": "Aligned, history not compared",
+    "TO_CONFIRM": "To confirm",
+    "LOW": "Low priority",
+    "OTHER_WORK": "Different main activity",
+}
+_ALIGNMENT = {
+    "CENTRAL": "main activity is work you asked for",
+    "SECONDARY": "work you asked for is a secondary duty",
+    "NEIGHBOUR": "close to your work, but a different job",
+    "UNRELATED": "main activity is other work",
+    "UNCLEAR": "unclear what the job is",
+}
+_HISTORY = {
+    "SHOWN": "history well shown",
+    "PARTLY": "history partly shown",
+    "LITTLE": "history little shown",
+    "NOT_SENT": "history not compared",
+    "NONE_STATED": "no technical requirement to compare",
+}
+#: `deep_run.freshness` states, under the names the export promises.
+_DEEP_STATE = {"current": "current", "evidence": "evidence_changed", "stale": "stale"}
+
+
+def _deep(j: dict[str, Any], key: str) -> Any:
+    return (j.get("deep_export") or {}).get(key)
+
+
+def _deep_level(j: dict[str, Any]) -> str | None:
+    """The CURRENT level only: a level that no longer holds is never shown as one."""
+    level = _deep(j, "level_then")
+    if level is None:
+        return None
+    if _deep(j, "stale"):
+        return "Not current"
+    return _DEEP_LEVEL.get(level, level)
+
+
+def _deep_reason(j: dict[str, Any]) -> str | None:
+    """The reading's own structured grounds, in words: alignment, history, the
+    counted requirements and the first central gap."""
+    assessment = _deep(j, "assessment")
+    if not assessment:
+        return None
+    counts = assessment.get("counts") or {}
+    parts = [
+        _ALIGNMENT.get(assessment.get("alignment"), str(assessment.get("alignment"))),
+        _HISTORY.get(assessment.get("history"), str(assessment.get("history"))),
+    ]
+    if counts.get("mandatory"):
+        parts.append(
+            f"{counts['mandatory']} required: {counts.get('shown', 0)} shown,"
+            f" {counts.get('partial', 0) + counts.get('declared', 0) + counts.get('review', 0)}"
+            f" partly, {counts.get('not_shown', 0)} not shown"
+        )
+    reqs = assessment.get("requirements") or []
+    gaps = [reqs[i]["quote"] for i in assessment.get("central_gaps") or [] if i < len(reqs)]
+    if gaps:
+        parts.append(f"central gap: {gaps[0]}")
+    return "; ".join(parts)
+
+
+def _salary(j: dict[str, Any]) -> str | None:
+    pay = j.get("salary")
+    if not pay:
+        return None
+    if isinstance(pay, str):
+        return pay
+    low, high = pay.get("min"), pay.get("max")
+    if low is None and high is None:
+        return pay.get("raw")
+    band = f"{low:,.0f}" if high in (None, low) else f"{low or 0:,.0f}-{high:,.0f}"
+    period = f"/{str(pay['period']).lower()}" if pay.get("period") else ""
+    return f"{pay.get('currency') or ''} {band}{period}".strip()
+
+
 COLUMNS = (
     ("Search Fit band", lambda j: j.get("fit_band")),
     ("Search Fit", lambda j: j.get("match_score")),
+    ("Deep Reading level", _deep_level),
+    (
+        "Deep Reading level when read",
+        lambda j: _DEEP_LEVEL.get(_deep(j, "level_then") or "") if _deep(j, "stale") else None,
+    ),
+    ("Deep Reading state", lambda j: _DEEP_STATE.get(_deep(j, "state") or "")),
+    ("Deep Reading work relation", lambda j: _deep(j, "work_relation")),
+    ("Deep Reading grounds", _deep_reason),
     ("Title", lambda j: j.get("title")),
     ("Company", lambda j: j.get("company_name")),
+    ("Salary", _salary),
     ("Location", lambda j: j.get("location_raw")),
     ("Work model", lambda j: j.get("work_model")),
     ("Source", lambda j: j.get("provider")),
     ("Posted", lambda j: (j.get("posted_at") or "")[:10] or None),
+    ("Freshness", lambda j: (j.get("freshness") or "").title() or None),
     ("Status", lambda j: _STATUS.get(str(j.get("application_status") or ""))),
     ("URL", lambda j: j.get("url")),
     ("Job id", lambda j: j.get("job_id")),

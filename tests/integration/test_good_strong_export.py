@@ -113,6 +113,16 @@ def test_only_public_facts_and_the_status_are_columns() -> None:
         "URL",
         "Job id",
         "Job description",
+        # The posting's own facts, as the list shows them.
+        "Salary",
+        "Freshness",
+        # The Deep Reading verdict on the ADVERT: level, state, relation and
+        # grounds quote the employer, never the person's evidence text.
+        "Deep Reading level",
+        "Deep Reading level when read",
+        "Deep Reading state",
+        "Deep Reading work relation",
+        "Deep Reading grounds",
     }
     for private in ("note", "evidence", "intent", "phrase", "anchor", "query", "lane", "cv"):
         assert not any(private in n.lower() for n in names), private
@@ -207,3 +217,102 @@ def test_the_file_is_sent_as_an_attachment(api: JobsApi) -> None:
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+# --- A Deep Reading shortlist exports exactly what the list shows ------------
+#
+# The readings are stood in for at the one place both the list and the export
+# read them (`deep_api.deep_levels` and `_review_rows`), so the test is about
+# WHICH postings the file holds, with every other list filter still applied.
+
+LEVELS = ("STRONG", "PREPARE", "CHECK_FIRST", "LOW", "OTHER_WORK")
+
+
+@pytest.fixture
+def read(api: JobsApi, monkeypatch) -> dict[str, tuple[str, bool, str]]:
+    from career_agent.web import deep_api
+
+    listed = api.handle_api("GET", "/api/jobs", {**EVERYTHING, "limit": ["500"]}, {})["items"]
+    ids = sorted(i["job_id"] for i in listed)
+    levels = {job: (LEVELS[n % len(LEVELS)], False, "current") for n, job in enumerate(ids[:-2])}
+    levels[ids[-2]] = ("STRONG", True, "stale")  # a level that no longer holds
+    levels[ids[-1]] = ("STRONG", False, "evidence")  # evidence moved, level holds
+
+    def rows(_app, _conn, job_ids=None, *, detail=False):
+        return [
+            {
+                "job_id": job,
+                "level_then": level,
+                "stale": stale,
+                "state": state,
+                "assessment": {
+                    "alignment": "CENTRAL",
+                    "history": "PARTLY",
+                    "counts": {"mandatory": 2, "shown": 1, "not_shown": 1},
+                    "requirements": [{"quote": "Five years of Kotlin"}],
+                    "central_gaps": [0],
+                },
+                "review": {"work_relation": {"value": "central"}},
+            }
+            for job, (level, stale, state) in levels.items()
+            if job_ids is None or job in job_ids
+        ]
+
+    monkeypatch.setattr(deep_api, "deep_levels", lambda _app, _conn: dict(levels))
+    monkeypatch.setattr(deep_api, "_review_rows", rows)
+    return levels
+
+
+@pytest.mark.parametrize(
+    "chosen", [["STRONG"], ["STRONG", "PREPARE"], ["STRONG", "PREPARE", "CHECK_FIRST"]]
+)
+def test_a_deep_shortlist_exports_exactly_the_filtered_list(api, read, chosen) -> None:
+    query = {**EVERYTHING, "deep": chosen}
+    listed = api.handle_api("GET", "/api/jobs", {**query, "limit": ["500"]}, {})
+    download = _export(api, query)
+    rows = _rows(download)
+    assert listed["total"] > 0 and len(rows) == listed["total"]
+    assert {r["Job id"] for r in rows} == {i["job_id"] for i in listed["items"]}
+    assert download.filename.startswith("career-agent-deep-shortlist-")
+    names = {"STRONG": "Apply", "PREPARE": "Apply, preparing", "CHECK_FIRST": "Check first"}
+    assert {r["Deep Reading level"] for r in rows} <= {names[c] for c in chosen}
+
+
+def test_the_shortlist_keeps_postings_of_every_local_band(api, read) -> None:
+    rows = _rows(_export(api, {**EVERYTHING, "deep": list(LEVELS)}))
+    assert {"MODERATE", "WEAK"} & {r["Search Fit band"] for r in rows}, (
+        "a Deep Reading shortlist is not narrowed to GOOD and STRONG"
+    )
+
+
+def test_the_shortlist_still_obeys_every_other_filter(api, read) -> None:
+    for extra in ({"fit_band": ["MODERATE", "WEAK"]}, {"search": ["data"]}):
+        query = {**EVERYTHING, "deep": ["STRONG", "PREPARE"], **extra}
+        listed = api.handle_api("GET", "/api/jobs", {**query, "limit": ["500"]}, {})
+        rows = _rows(_export(api, query))
+        assert len(rows) == listed["total"], extra
+
+
+def test_a_level_that_no_longer_holds_is_never_written_as_current(api, read) -> None:
+    rows = {r["Job id"]: r for r in _rows(_export(api, {**EVERYTHING, "deep": ["STALE"]}))}
+    stale = [job for job, (_l, is_stale, _s) in read.items() if is_stale]
+    assert list(rows) == stale
+    row = rows[stale[0]]
+    assert row["Deep Reading level"] == "Not current"
+    assert row["Deep Reading level when read"] == "Apply"
+    assert row["Deep Reading state"] == "stale"
+
+
+def test_deep_columns_say_state_relation_and_grounds(api, read) -> None:
+    rows = _rows(_export(api, {**EVERYTHING, "deep": ["STRONG"]}))
+    states = {r["Deep Reading state"] for r in rows}
+    assert states == {"current", "evidence_changed"}
+    one = rows[0]
+    assert one["Deep Reading work relation"] == "central"
+    assert "central gap: Five years of Kotlin" in one["Deep Reading grounds"]
+    assert one["Deep Reading level when read"] == ""
+
+
+def test_without_a_deep_filter_the_export_is_unchanged(api, read) -> None:
+    rows = _rows(_export(api, EVERYTHING))
+    assert rows and all(r["Search Fit band"] in ("GOOD", "STRONG") for r in rows)
