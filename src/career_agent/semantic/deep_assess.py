@@ -27,7 +27,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-ASSESSMENT_VERSION = "assess-3"
+ASSESSMENT_VERSION = "assess-4"
 
 #: Recommendation codes, in display order. None of them is a probability of
 #: being hired, and none of them is the local %.
@@ -94,10 +94,18 @@ _DISPOSITION = (
     r"|time management|prioriti[sz]ation skills)\b"
 )
 _YEARS = r"\d+\s*(?:[-\u2013]\s*\d+\s*)?\+?\s*(?:years?|yrs|anos?)\b"
+#: Words that ask for a LEVEL the evidence must confirm: a supported
+#: requirement that uses one stays partial.
 _LEVEL = (
-    r"\b(deep|deeply|strong|expert\w*|advanced|extensive|mastery|excellent|exceptional"
-    r"|in-depth|profund\w*|avancad\w*|solid|solida|forte|senior)\b"
+    r"\b(deep|deeply|expert\w*|advanced|extensive|mastery"
+    r"|in-depth|profund\w*|avancad\w*|senior)\b"
 )
+#: Intensity filler: "strong experience with X" asks for experience with X.
+#: These no longer cap a supported requirement (2026-10-20: 773 of 979 capped
+#: requirements were capped by one of these words alone). They still make a
+#: requirement ask more than familiarity (`_demand`), so a listed skill alone
+#: is still not enough for "strong knowledge of X".
+_INTENSITY = r"\b(strong|solid|solida|forte|excellent|exceptional)\b"
 _PRACTICE = (
     r"\b(experience|experiencia|hands-on|proven|track record|demonstrated|built|build\w*"
     r"|design\w*|implement\w*|deploy\w*|operat\w*|production|ownership|own(ed)?|led|managing"
@@ -169,7 +177,7 @@ def _parts(quote: str) -> list[str]:
 
 
 def _demand(folded: str) -> str:
-    if _has(_LEVEL, folded) or _has(_YEARS, folded):
+    if _has(_LEVEL, folded) or _has(_INTENSITY, folded) or _has(_YEARS, folded):
         return "level"
     if _has(_PRACTICE, folded):
         return "practice"

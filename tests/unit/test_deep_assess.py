@@ -77,8 +77,57 @@ def test_described_experience_shows_practice_but_not_the_level_asked():
         status("Hands-on experience building integrations in Python", ids=("E9",))["status"]
         == "shown"
     )
-    strong = status("Strong experience building integrations in Python", ids=("E9",))
-    assert strong["status"] == "partial" and "level_not_confirmed" in strong["notes"]
+    deep = status("Deep experience building integrations in Python", ids=("E9",))
+    assert deep["status"] == "partial" and "level_not_confirmed" in deep["notes"]
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Strong experience building integrations in Python",
+        "Solid experience building integrations in Python",
+        "Excellent hands-on experience building integrations in Python",
+        "Exceptional track record building integrations in Python",
+        "Forte experiência construindo integrações em Python",
+        "Sólida experiência construindo integrações em Python",
+    ],
+)
+def test_intensity_words_do_not_cap_described_experience(quote):
+    r = status(quote, ids=("E9",))
+    assert r["status"] == "shown" and "level_not_confirmed" not in r["notes"]
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Advanced experience building integrations in Python",
+        "Expert-level experience building integrations in Python",
+        "Expertise building integrations in Python",
+        "Senior experience building integrations in Python",
+        "Extensive experience building integrations in Python",
+        "In-depth experience building integrations in Python",
+        "Mastery of building integrations in Python",
+        "Experiência avançada construindo integrações em Python",
+        "Strong, deep experience building integrations in Python",
+    ],
+)
+def test_words_that_ask_a_level_still_cap_it(quote):
+    r = status(quote, ids=("E9",))
+    assert r["status"] == "partial" and "level_not_confirmed" in r["notes"]
+
+
+def test_intensity_still_asks_more_than_a_listed_skill_shows():
+    """`declared_only` is unchanged: "strong knowledge of X" is not met by
+    having listed X, although "knowledge of X" alone would be."""
+    assert status("Knowledge of PostgreSQL", ids=("E4",))["status"] == "shown"
+    strong = status("Strong knowledge of PostgreSQL", ids=("E4",))
+    assert strong["status"] == "declared" and "declared_only" in strong["notes"]
+
+
+def test_intensity_does_not_lift_a_requirement_the_reading_did_not_support():
+    assert status("Strong experience with Kubernetes", "not_shown", ())["status"] == "not_shown"
+    r = status("Strong experience building integrations in Python", "partial", ("E9",))
+    assert r["status"] == "partial"
 
 
 def test_years_are_never_shown_by_a_line():

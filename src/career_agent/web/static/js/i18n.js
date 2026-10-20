@@ -1567,7 +1567,7 @@ const EN = {
   'deep.part.unknown': 'unknown',
   'deep.reqNote.declared_only': 'Only skills you listed were cited. They state familiarity; they do not show '
     + 'experience, a level, years, authorship or production use.',
-  'deep.reqNote.level_not_confirmed': 'The level asked (deep, strong, expert, advanced) is not confirmed by the '
+  'deep.reqNote.level_not_confirmed': 'The level asked (deep, expert, advanced, senior) is not confirmed by the '
     + 'evidence.',
   'deep.reqNote.years_not_computed': 'The years asked are not counted from your evidence.',
   'deep.reqNote.some_parts_unknown': 'Parts named in the cited evidence are marked; the others stay unknown.',
@@ -6877,7 +6877,7 @@ const PT_BR = {
   'deep.part.unknown': 'desconhecido',
   'deep.reqNote.declared_only': 'Só foram citadas habilidades que você listou. Elas declaram familiaridade; não '
     + 'mostram experiência, nível, anos, autoria nem uso em produção.',
-  'deep.reqNote.level_not_confirmed': 'O nível pedido (profundo, forte, especialista, avançado) não é confirmado '
+  'deep.reqNote.level_not_confirmed': 'O nível pedido (profundo, especialista, avançado, sênior) não é confirmado '
     + 'pelas evidências.',
   'deep.reqNote.years_not_computed': 'Os anos pedidos não são contados a partir das suas evidências.',
   'deep.reqNote.some_parts_unknown': 'As partes citadas nas evidências estão marcadas; as outras continuam '
