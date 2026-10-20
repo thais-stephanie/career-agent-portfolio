@@ -213,7 +213,7 @@ def test_a_local_model_is_not_offered_for_the_deep_reading(corpus):  # noqa: F81
 
 def test_by_default_only_the_main_list_is_read(corpus):  # noqa: F811
     conn, config = corpus
-    chosen = select(conn, config, provider_id="x", limit=10).candidates
+    chosen = select(conn, config, share=False, provider_id="x", limit=10).candidates
     statuses = {
         str(r[0])
         for r in conn.execute(
@@ -235,11 +235,19 @@ def test_a_run_never_exceeds_its_limit(corpus, limit):  # noqa: F811
 
 def test_a_named_set_narrows_the_main_list_and_never_widens_it(corpus):  # noqa: F811
     conn, config = corpus
-    everything = select(conn, config, provider_id="x", limit=25, include_unresolved=True)
+    everything = select(
+        conn, config, share=False, provider_id="x", limit=25, include_unresolved=True
+    )
     first = everything.candidates[0].job_id
     outside = "not-in-the-main-list"
     named = select(
-        conn, config, provider_id="x", limit=25, include_unresolved=True, only={first, outside}
+        conn,
+        config,
+        share=False,
+        provider_id="x",
+        limit=25,
+        include_unresolved=True,
+        only={first, outside},
     )
     assert [c.job_id for c in named.candidates] == [first]
 
@@ -361,6 +369,7 @@ def _already_read(conn, config, provider_id: str, model: str) -> int:
     return select(
         conn,
         config,
+        share=False,
         provider_id=provider_id,
         limit=0,
         current_digest=digest,

@@ -145,6 +145,7 @@ def register_deep(app: JobsApi) -> None:
             scores=scores,
             age=age_of(conn),
             rows=main_rows(conn, scores),
+            share=share,
         )
 
     def limits(body: dict, provider: Any, settings: Any) -> tuple[int, bool, int, bool]:
@@ -360,6 +361,7 @@ def register_deep(app: JobsApi) -> None:
                 scores=scores,
                 age=age,
                 rows=rows,
+                share=share,
             )
             names = _companies(conn, [c.job_id for c in chosen.candidates])
             reach, _rows = coverage(conn, config, include_unresolved, scores, age, rows=rows)

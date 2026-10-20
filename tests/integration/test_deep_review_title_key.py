@@ -35,6 +35,7 @@ def _planned(conn, config) -> set[str]:
     chosen = select(
         conn,
         config,
+        share=False,
         provider_id="fake_cli",
         limit=1000,
         current_digest=context(conn, config, False).digest,

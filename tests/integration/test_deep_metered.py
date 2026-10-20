@@ -300,7 +300,13 @@ def test_an_answer_paid_for_and_rejected_is_asked_again_only_on_request(big_corp
     rejected_title = postings_asked(provider)[0]
     digest = context(conn, config, False).digest
     plain = select(
-        conn, config, provider_id="deepseek", limit=0, current_digest=digest, model="deepseek-flash"
+        conn,
+        config,
+        share=False,
+        provider_id="deepseek",
+        limit=0,
+        current_digest=digest,
+        model="deepseek-flash",
     )
     assert plain.rejected == 1 and plain.available == POSTINGS - 3
     run_deep(conn, config, provider, share=False, limit=POSTINGS - 3, budget_usd=5.0)
@@ -345,7 +351,7 @@ def test_a_reading_stops_a_repeat_only_while_it_is_current(big_corpus, monkeypat
 
     def available(**kw) -> int:
         args = {"current_digest": digest, "model": "deepseek-flash", **kw}
-        return select(conn, config, provider_id="deepseek", limit=0, **args).available
+        return select(conn, config, share=False, provider_id="deepseek", limit=0, **args).available
 
     assert available() == POSTINGS - 2
     assert available(current_digest="another profile") == POSTINGS
@@ -371,12 +377,12 @@ def test_a_metered_job_needs_an_approved_budget(big_corpus):
 
 def test_the_plan_reads_the_highest_band_first_and_keeps_its_strata(big_corpus):
     conn, config = big_corpus
-    chosen = select(conn, config, provider_id="deepseek", limit=12).candidates
+    chosen = select(conn, config, share=False, provider_id="deepseek", limit=12).candidates
     bands = ["STRONG", "GOOD", "MODERATE", "WEAK"]
     seen = [bands.index(c.band) for c in chosen]
     assert seen == sorted(seen)
     assert len({c.stratum for c in chosen}) > 1, "the strata are still all in the plan"
-    assert select(conn, config, provider_id="deepseek", limit=0).available == POSTINGS
+    assert select(conn, config, share=False, provider_id="deepseek", limit=0).available == POSTINGS
 
 
 def test_accounting_uses_the_reported_cache_and_never_undercounts():

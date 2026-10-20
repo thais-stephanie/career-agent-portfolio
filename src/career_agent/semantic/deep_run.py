@@ -434,9 +434,12 @@ def select(
     scores: tuple[str, int] | None = None,
     age: tuple[int | None, bool] | None = None,
     rows: list[sqlite3.Row] | None = None,
-    share: bool = False,
+    share: bool,
 ) -> Selection:
-    """`only` narrows the main list to named postings (a labelled pilot set);
+    """`share` is whether evidence is shared with this provider NOW; it is
+    required so no caller can forget it (rule 3 of ADR-0035 addendum 5 reads
+    today's evidence only when it is shared). `only` narrows the main list to
+    named postings (a labelled pilot set);
     it never widens it past the main list. `limit=0` counts and picks nothing,
     so it reads no full-text index and no advert."""
     intent = search_intent(config)
