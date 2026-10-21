@@ -573,3 +573,50 @@ def test_a_condition_takes_no_technical_credit_and_leaves_no_gap():
     )
     assert with_condition.recommendation == alone.recommendation == "STRONG"
     assert with_condition.counts == alone.counts
+
+
+# --- A line naming a language AND a condition keeps both ----------------------
+
+
+@pytest.mark.parametrize(
+    ("quote", "topic"),
+    [
+        ("Fluent English and on-site in Cairo", "work_model"),
+        ("German required, remote within Germany", "work_model"),
+        ("English C1 and availability for US business hours", "schedule"),
+        ("Spanish fluency and willingness to travel 20%", "travel"),
+        ("Fluent English and availability to work on-site in Cairo full-time.", "work_model"),
+    ],
+)
+def test_a_language_and_a_condition_in_one_line_keep_both(quote, topic):
+    a = assess(review(req(quote, "not_shown", ())), EVIDENCE)
+    assert a.languages == (quote,)
+    assert {"quote": quote, "topic": topic} in [dict(c) for c in a.conditions]
+    assert a.counts["mandatory"] == 0 and a.central_gaps == ()
+
+
+def test_a_condition_the_reading_filed_under_language_keeps_its_topic():
+    quote = "Fluent English and on-site in Cairo"
+    a = assess(review(conditions=({"quote": quote, "topic": "language"},)), EVIDENCE)
+    assert a.languages == (quote,)
+    assert {"quote": quote, "topic": "work_model"} in [dict(c) for c in a.conditions]
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Hands-on experience building integrations in Python",
+        "Proficiency in at least one programming language such as Go",
+        "Experience supporting remote teams with Salesforce automation",
+        "Experience operating production systems with on-call rotations",
+    ],
+)
+def test_a_technical_requirement_is_never_listed_as_a_language_or_a_condition(quote):
+    a = assess(review(req(quote, "supported", ("E9",))), EVIDENCE)
+    assert a.languages == () and a.conditions == ()
+    assert a.counts["mandatory"] == 1
+
+
+def test_a_plain_language_line_is_not_also_a_condition():
+    a = assess(review(req("Fluent English required", "not_shown", ())), EVIDENCE)
+    assert a.languages == ("Fluent English required",) and a.conditions == ()

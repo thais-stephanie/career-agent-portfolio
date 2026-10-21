@@ -29,7 +29,7 @@ from typing import Any
 
 from career_agent.clock import now_utc
 
-ASSESSMENT_VERSION = "assess-7"
+ASSESSMENT_VERSION = "assess-8"
 
 #: Recommendation codes, in display order. None of them is a probability of
 #: being hired, and none of them is the local %.
@@ -224,6 +224,7 @@ _CONDITIONS = {
     "work_model": (
         r"\b(work|working|be|being|based)\s+(on-?site|in[- ]office|in the office)\b"
         r"|\b(on-?site|in[- ]office)\s+(\d|five|four|three|full[- ]time)"
+        r"|\b(on-?site|in[- ]office) (in|at) \w|\bremote (within|from|in) \w"
         r"|\b(abilit\w*|able|desire|comfort\w*|willing\w*)\b[^.;]{0,20}\bwork(ing)? remotely\b"
         r"|\b(willing\w*|abilit\w*|able|open)\b[^.;]{0,25}\brelocat\w*|\brelocate to\b|\bcommut\w*"
     ),
@@ -498,16 +499,29 @@ def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -
         )
     else:  # SECONDARY
         rec = "PREPARE" if history in ("SHOWN", "NONE_STATED") else "LOW"
+    # A line can name a language AND a work condition ("Fluent English and
+    # on-site in Cairo"). It keeps ONE category, so it is never counted twice
+    # and never technical; it is listed under BOTH, so neither is lost.
+    stated = [(r, _fold(r["quote"])) for r in reqs]
     setup = [
-        {"quote": r["quote"], "topic": _condition_topic(_fold(r["quote"]))}
-        for r in reqs
-        if r["category"] == "setup"
+        {"quote": r["quote"], "topic": _condition_topic(f)}
+        for r, f in stated
+        if r["category"] == "setup" or (r["category"] == "language" and _has(_CONDITION, f))
     ]
     seen = {c["quote"] for c in review["conditions"]}
     setup = [c for c in setup if c["quote"] not in seen]
+    # A condition the reading itself filed under language keeps its other topic too.
+    setup += [
+        {"quote": c["quote"], "topic": _condition_topic(_fold(c["quote"]))}
+        for c in review["conditions"]
+        if c["topic"] == "language" and _has(_CONDITION, _fold(c["quote"]))
+    ]
     languages = [c["quote"] for c in review["conditions"] if c["topic"] == "language"]
     languages += [
-        r["quote"] for r in reqs if r["category"] == "language" and r["quote"] not in seen
+        r["quote"]
+        for r, f in stated
+        if (r["category"] == "language" or (r["category"] == "setup" and _has(_LANGUAGE, f)))
+        and r["quote"] not in seen
     ]
     return Assessment(
         recommendation=rec,
