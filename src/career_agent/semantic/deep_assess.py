@@ -29,7 +29,7 @@ from typing import Any
 
 from career_agent.clock import now_utc
 
-ASSESSMENT_VERSION = "assess-6"
+ASSESSMENT_VERSION = "assess-7"
 
 #: Recommendation codes, in display order. None of them is a probability of
 #: being hired, and none of them is the local %.
@@ -196,6 +196,53 @@ _SETUP = (
     r"|backup (power|internet|system)s?|stable (internet|connection)|headset|webcam)\b"
 )
 
+#: Where, when and under what terms the work happens, asked as a requirement:
+#: a condition to confirm, never a technical skill, gap or credit. Each is
+#: matched on how a CONDITION is phrased, never on the bare word: "travel &
+#: expense" experience, "high availability" systems, "OAuth authorization" and
+#: "remote/outbound" sales stay technical. Topic -> pattern, over folded text.
+#: The 2026-10-21 audit found such lines counted as technical requirements.
+#: Order decides the topic when a line names two (a place before its hours).
+_CONDITIONS = {
+    "place": (
+        r"^\s*(\w+\s+){0,2}(based|located|resid\w*) in\b|\bmust be (based|located|resid\w*)\b"
+        r"|\bbased in, or willing\b|\b(us|u\.s\.) residen\w*"
+    ),
+    "work_authorization": (
+        r"\b(authori[sz]ed to work|authori[sz]ation to work|right to work|eligible to work"
+        r"|work authori[sz]ation|work permit|visa sponsorship|legally authori[sz]ed"
+        r"|security clearance|clearance with polygraph|ts/sci|(secret|top[- ]secret) clearance"
+        r"|background checks?|drug screen\w*)\b"
+        r"|\b(valid|current)\b(?![^.;]*\b(commercial|cdl)\b)[^.;]{0,20}\b(driver[\u2019']?s?|driving)"
+        r" licen[cs]e\b(?![^.;]*commercial)"
+    ),
+    "travel": (
+        r"\b(abilit\w*|able|willing\w*|availab\w*|comfort\w*|open)\b[^.;]{0,40}\btravel\b"
+        r"|\btravel\w*\s+(of\s+|up to\s+|approximately\s+|about\s+|\()*\d+\s*(%|-|\u2013|to)"
+        r"|\b\d+\s*%[^.;]{0,25}\btravel"
+    ),
+    "work_model": (
+        r"\b(work|working|be|being|based)\s+(on-?site|in[- ]office|in the office)\b"
+        r"|\b(on-?site|in[- ]office)\s+(\d|five|four|three|full[- ]time)"
+        r"|\b(abilit\w*|able|desire|comfort\w*|willing\w*)\b[^.;]{0,20}\bwork(ing)? remotely\b"
+        r"|\b(willing\w*|abilit\w*|able|open)\b[^.;]{0,25}\brelocat\w*|\brelocate to\b|\bcommut\w*"
+    ),
+    "schedule": (
+        r"\b(business|working) hours\b|\bhours? (of )?overlap\b|\boverlap with\b"
+        r"|\b(pst|est|cst|cet|gmt|bst|pacific|eastern|central|mountain) (time|hours)\b"
+        r"|\b(work|working|available|availability)\b[^.;]{0,40}"
+        r"\b(weekends?|evenings?|nights?|holidays?|shifts?|rotating|non-traditional hours"
+        r"|flexible (hours|schedule|days))\b"
+        r"|\bavailab\w* (to work )?(monday|during|across|for required)\b"
+    ),
+}
+_CONDITION = "|".join(f"(?:{p})" for p in _CONDITIONS.values())
+
+
+def _condition_topic(folded: str) -> str:
+    return next((t for t, p in _CONDITIONS.items() if _has(p, folded)), "work_model")
+
+
 #: A qualifier that makes a requirement MORE specific than its general topic:
 #: an agent is not a sub-agent, and one agent is not a multi-agent system.
 _SPECIFIC = r"\b(sub-?agents?|multi-?agents?)\b"
@@ -203,6 +250,13 @@ _SPECIFIC = r"\b(sub-?agents?|multi-?agents?)\b"
 
 def _category(folded: str) -> str:
     if _has(_SETUP, folded):
+        return "setup"
+    # A work condition, unless the line asks years of experience beside it.
+    # Read in its first sentence only: "manages events end to end ... Comfort
+    # with travel is required." is the work, with a condition added after it.
+    # (Not after a one-letter abbreviation: "U.S. business hours".)
+    first = re.split(r"(?<![\s.]\w)[.;]\s", folded, maxsplit=1)[0]
+    if _has(_CONDITION, first) and not _has(_YEARS, folded):
         return "setup"
     if _has(_LANGUAGE, folded):
         return "language"
@@ -444,7 +498,11 @@ def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -
         )
     else:  # SECONDARY
         rec = "PREPARE" if history in ("SHOWN", "NONE_STATED") else "LOW"
-    setup = [{"quote": r["quote"], "topic": "work_model"} for r in reqs if r["category"] == "setup"]
+    setup = [
+        {"quote": r["quote"], "topic": _condition_topic(_fold(r["quote"]))}
+        for r in reqs
+        if r["category"] == "setup"
+    ]
     seen = {c["quote"] for c in review["conditions"]}
     setup = [c for c in setup if c["quote"] not in seen]
     languages = [c["quote"] for c in review["conditions"] if c["topic"] == "language"]

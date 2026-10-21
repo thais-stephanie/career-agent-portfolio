@@ -488,3 +488,88 @@ def test_an_open_role_runs_to_this_month():
 def test_a_requirement_that_asks_years_is_never_only_a_way_of_working():
     quote = "5+ years in a role requiring diagnostic thinking and problem-solving"
     assert category(quote) == "technical"
+
+
+# --- Work conditions are conditions to confirm, not technical requirements ---
+
+
+@pytest.mark.parametrize(
+    ("quote", "topic"),
+    [
+        ("Ability to work onsite in Winter Park five days per week.", "work_model"),
+        ("Able to work on-site.", "work_model"),
+        ("Comfortable working in-office 5 days per week at a high intensity", "work_model"),
+        ("Ability and desire to work remotely", "work_model"),
+        ("Ability to relocate to Sofia for this on-site opportunity.", "work_model"),
+        ("Ability to travel up to 30%", "travel"),
+        ("30\u201350% travel to assigned markets", "travel"),
+        ("Comfort with approximately 10% to 20% travel each year.", "travel"),
+        ("Ability to work effectively during standard U.S. business hours.", "schedule"),
+        (
+            "Ability to work full-time with a minimum of 5 hours overlap with US Central Time.",
+            "schedule",
+        ),
+        ("Available to work weekends and evenings on the rotating schedule.", "schedule"),
+        ("Availability to work U.S. Mountain Time (8:00 AM \u2013 5:00 PM).", "schedule"),
+        ("Based in Latin America with at least 6 hours of overlap with US Pacific time.", "place"),
+        ("Candidates MUST BE located in USA due to client's technical requirements.", "place"),
+        (
+            "Authorization to work in the US without current or future visa sponsorship.",
+            "work_authorization",
+        ),
+        (
+            "A right to work in the UK (we are not in a position to support visa sponsorship)",
+            "work_authorization",
+        ),
+        ("Active TS/SCI clearance with Polygraph", "work_authorization"),
+        ("Able to pass a background check & drug screen", "work_authorization"),
+        ("A valid current Driver’s License and reliable vehicle", "work_authorization"),
+    ],
+)
+def test_a_work_condition_is_a_condition_not_a_technical_gap(quote, topic):
+    a = assess(review(req(quote, "not_shown", ())), EVIDENCE)
+    assert a.requirements[0]["category"] == "setup" and a.requirements[0]["status"] == "unknown"
+    assert a.counts["mandatory"] == 0 and a.central_gaps == ()
+    assert {"quote": quote, "topic": topic} in [dict(c) for c in a.conditions]
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Ability to troubleshoot APIs and webhooks",
+        "Ability to work with SQL and relational databases",
+        "Experience operating production systems with on-call rotations",
+        "Experience working with Salesforce",
+        "Ability to configure integrations between SaaS tools",
+        "Experience designing systems for high availability and failover",
+        "4+ years of experience in travel & expense or accounts payable",
+        "Experience in luxury travel or travel consulting",
+        "Experience with Okta authentication/authorization.",
+        "Exceptional communicator who earns executive sponsorship for change.",
+        "Ability to define non-functional requirements including availability.",
+        "2\u20135 years B2B sales (remote/outbound preferred).",
+        "Experience working across globally distributed teams spanning multiple time zones.",
+        "Commercial driver's license is required to operate commercial size vehicles.",
+        "Valid Class A Commercial Driver’s License (CDL)",
+        "Ran recurring enablement programs such as workshops and office hours",
+        "Manages events end to end and on-site execution. Comfort with travel is required.",
+        "Bachelor's degree, ability to travel 20-30% and 5+ years of experience",
+    ],
+)
+def test_the_work_itself_is_not_a_condition(quote):
+    assert category(quote) != "setup"
+
+
+def test_a_condition_takes_no_technical_credit_and_leaves_no_gap():
+    with_condition = assess(
+        review(
+            req("Hands-on experience building integrations in Python", ids=("E9",)),
+            req("Ability to work onsite in Winter Park five days per week.", "not_shown", ()),
+        ),
+        EVIDENCE,
+    )
+    alone = assess(
+        review(req("Hands-on experience building integrations in Python", ids=("E9",))), EVIDENCE
+    )
+    assert with_condition.recommendation == alone.recommendation == "STRONG"
+    assert with_condition.counts == alone.counts
