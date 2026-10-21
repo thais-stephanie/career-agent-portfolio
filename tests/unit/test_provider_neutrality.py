@@ -276,6 +276,9 @@ ORDINARY_WORD_USES: dict[str, frozenset[str]] = {
     "storage/mvp_repo.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/api.py": frozenset({"country", "employment_type", "salary", "region"}),
     "web/presenter.py": frozenset({"employment_type", "salary"}),
+    # The list export reads the CARD `presenter.job_card` built ("salary" is
+    # its key for the matcher's reading), never a provider payload.
+    "web/export.py": frozenset({"salary"}),
 }
 
 
