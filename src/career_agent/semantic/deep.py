@@ -194,6 +194,35 @@ def contract_identity() -> str:
     return f"{DEEP_CONTRACT_VERSION}+{hashlib.sha256(canonical.encode()).hexdigest()[:12]}"
 
 
+#: Readings made under an EARLIER contract that stay current under this one,
+#: by the work relation they answered (ADR-0035, addendum 8). Keyed by the
+#: CURRENT identity first, so the next change to the instructions carries
+#: nothing until somebody writes its own row. `deep-1+289dd2d70ddc` only
+#: narrowed "neighbour" (the main activity, not the stack): a reading that
+#: answered central, unrelated or unclear is kept whole, requirements and
+#: all; neighbour and secondary are read again. Nothing is spliced.
+CARRIED: dict[str, dict[str, frozenset[str]]] = {
+    "deep-1+289dd2d70ddc": {
+        "deep-1+2479cd8bdb89": frozenset({"central", "unrelated", "unclear"}),
+    },
+}
+
+
+def carried(now: str | None = None) -> dict[str, frozenset[str]]:
+    """Earlier contract -> the relations whose readings still hold under `now`."""
+    return CARRIED.get(now or contract_identity(), {})
+
+
+def contract_holds(stored: str, review: dict[str, Any], now: str | None = None) -> bool:
+    """A reading made under `stored` answers today's instructions: the same
+    contract, or an earlier one `CARRIED` keeps for the relation it gave."""
+    now = now or contract_identity()
+    if stored == now:
+        return True
+    relation = (review.get("work_relation") or {}).get("value")
+    return relation in carried(now).get(stored, frozenset())
+
+
 def posting_text(description: str) -> str:
     return description[:MAX_POSTING_CHARS]
 

@@ -364,3 +364,34 @@ sales stayed neighbour.
 
 **Consequence.** The contract identity moves, so every stored reading reads
 out of date until it is read again. Merging this is the owner's decision.
+
+## Addendum 8 (2026-10-21): what the relation change carries over
+
+**Context.** Addendum 7 moved the contract identity, and every stored reading
+read out of date: 2,323 readings to ask again for a change that only narrows
+"neighbour". Asking only for the relation and splicing it onto the stored
+requirements is not safe: requirements, support and citations came from the
+same answer under the old instructions, and a new relation over them would be
+a reading nobody made.
+
+**Decision.** `deep.CARRIED` names, per CURRENT contract, an earlier contract
+and the relations whose readings it keeps WHOLE: under `deep-1+289dd2d70ddc`,
+a `deep-1+2479cd8bdb89` reading that answered central, unrelated or unclear
+is current (`deep.contract_holds`). Neighbour and secondary are out of date
+and planned. The freshness rule, the planner's `reviewed` and `reusable` and
+therefore the list, the panel and the drawer all ask the same function (the
+SQL half reads the stored relation). Nothing stored is rewritten: an old
+reading keeps its contract, and a reading made again is a new row beside it.
+The table is keyed by the current identity, so the next change to the
+instructions carries nothing until somebody decides anew; a test fails when
+the key is not the current identity.
+
+**Why these relations.** The new paragraph only narrows "neighbour"; in the
+24-posting swap test no central or negative answer moved under it beyond the
+noise a rerun shows (2 of 24 either way). Carrying unclear keeps the 20
+readings that could not tell; reading them again would not answer a question
+the change asked.
+
+**Reading again.** Highest band first: the 617 neighbour or secondary postings
+in the local STRONG or GOOD band, then the MODERATE and WEAK ones in a second
+run. Never all 2,323.

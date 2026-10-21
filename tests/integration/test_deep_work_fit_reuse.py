@@ -204,6 +204,55 @@ def test_changed_instructions_make_everything_stale_and_planned(corpus, monkeypa
     assert job in planned(conn, config)
 
 
+def _new_instructions(monkeypatch, carried: set[str]) -> None:
+    """Instructions move to another contract that carries the current one's
+    readings for `carried` relations (`deep.CARRIED`, ADR-0035 addendum 8)."""
+    before = deep.contract_identity()
+    monkeypatch.setattr(deep, "contract_identity", lambda: "deep-9+changed")
+    monkeypatch.setattr(deep, "CARRIED", {"deep-9+changed": {before: frozenset(carried)}})
+
+
+@pytest.mark.parametrize("relation", ["central", "unrelated", "unclear"])
+def test_a_carried_relation_stays_current_under_new_instructions(
+    corpus,  # noqa: F811
+    monkeypatch,
+    relation,
+):
+    conn, config = corpus
+    job = read(conn, config, relation=relation)
+    _new_instructions(monkeypatch, {"central", "unrelated", "unclear"})
+    row = readings(config, conn)[job]
+    assert (row["state"], row["stale"], row["stale_reasons"]) == ("current", False, [])
+    assert job not in planned(conn, config)
+
+
+@pytest.mark.parametrize("relation", ["neighbour", "secondary"])
+def test_a_relation_not_carried_is_stale_and_planned(corpus, monkeypatch, relation):  # noqa: F811
+    conn, config = corpus
+    job = read(conn, config, relation=relation)
+    _new_instructions(monkeypatch, {"central", "unrelated", "unclear"})
+    row = readings(config, conn)[job]
+    assert row["state"] == "stale" and "instructions" in row["stale_reasons"]
+    assert job in planned(conn, config)
+
+
+def test_a_carried_reading_still_reusable_when_only_the_evidence_moved(corpus, monkeypatch):  # noqa: F811
+    conn, config = corpus
+    job = read(conn, config, relation="central", support="supported")
+    _new_instructions(monkeypatch, {"central"})
+    add_new_claim(conn)
+    assert readings(config, conn)[job]["state"] == "evidence"
+    assert job not in planned(conn, config)
+
+
+def test_the_carried_table_names_the_current_instructions():
+    """An entry under another identity is inert: a typo would reread nothing
+    and say nothing. When the instructions change again, decide anew."""
+    assert set(deep.CARRIED) == {deep.contract_identity()}
+    for relations in deep.CARRIED[deep.contract_identity()].values():
+        assert relations <= set(deep.WORK_RELATIONS) - {"neighbour", "secondary"}
+
+
 @pytest.mark.parametrize("change", ["text", "title"])
 def test_a_changed_posting_makes_everything_stale_and_planned(corpus, change):  # noqa: F811
     conn, config = corpus

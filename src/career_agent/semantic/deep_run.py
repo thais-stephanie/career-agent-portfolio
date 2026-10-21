@@ -747,7 +747,7 @@ def freshness(
     reasons = []
     if row["content_hash"] != hash_now or row["title"] != title_now:
         reasons.append("posting")
-    if row["contract"] != contract_now:
+    if not deep.contract_holds(row["contract"], json.loads(row["review_json"]), contract_now):
         reasons.append("instructions")
     if row["profile_digest"] != digest_now[bool(sent.get("shared"))]:
         known = row["intent_digest"] is not None
@@ -842,6 +842,26 @@ class DeepRepo:
         ).fetchone()
         return str(row[0]) if row is not None else model
 
+    @staticmethod
+    def _contract(contract: str) -> str:
+        """`contract`, or an earlier one `deep.CARRIED` keeps for the relation
+        the reading gave (`deep.contract_holds`, in SQL)."""
+        clause = " AND (contract = ?"
+        for relations in deep.carried(contract).values():
+            marks = ",".join("?" for _ in relations)
+            clause += (
+                " OR (contract = ? AND json_extract(review_json, '$.work_relation.value')"
+                f" IN ({marks}))"
+            )
+        return clause + ")"
+
+    @staticmethod
+    def _contract_args(contract: str) -> list[str]:
+        args = [contract]
+        for earlier, relations in deep.carried(contract).items():
+            args += [earlier, *sorted(relations)]
+        return args
+
     def reviewed(
         self, provider: str, contract: str, digest: str, model: str = ""
     ) -> set[tuple[str, str]]:
@@ -852,9 +872,9 @@ class DeepRepo:
         return {
             (str(r[0]), str(r[1]))
             for r in self.conn.execute(
-                "SELECT content_hash, title FROM deep_review WHERE provider = ? AND contract = ?"
-                " AND profile_digest = ?" + self._current(model),
-                (provider, contract, digest, *([model] if model else [])),
+                "SELECT content_hash, title FROM deep_review WHERE provider = ?"
+                " AND profile_digest = ?" + self._contract(contract) + self._current(model),
+                (provider, digest, *self._contract_args(contract), *([model] if model else [])),
             )
         }
 
@@ -893,8 +913,10 @@ class DeepRepo:
         found: set[tuple[str, str]] = set()
         for row in self.conn.execute(
             "SELECT content_hash, title, review_json, sent_json FROM deep_review"
-            " WHERE provider = ? AND contract = ? AND intent_digest = ?" + self._current(model),
-            (provider, contract, intent, *([model] if model else [])),
+            " WHERE provider = ? AND intent_digest = ?"
+            + self._contract(contract)
+            + self._current(model),
+            (provider, intent, *self._contract_args(contract), *([model] if model else [])),
         ):
             unchanged = unchanged_aliases(json.loads(row["sent_json"]), ledger)
             if holds_without_evidence_change(json.loads(row["review_json"]), unchanged):
