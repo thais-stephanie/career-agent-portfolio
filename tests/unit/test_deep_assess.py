@@ -238,6 +238,86 @@ def test_alignment_decides_before_history(relation, insufficient, expected):
     assert a.recommendation == expected
 
 
+# --- E1: Check first is for central work (ADR-0035, addendum 9) -----------------
+#
+# Before assess-9 a central gap sent ANY aligned reading to Check first, so a
+# secondary posting with a gap and weak history read one level above a
+# secondary posting with better history and no gap.
+
+PLATFORM_GAP = req("3+ years administering Fictional Desk in production", "not_shown", ())
+
+
+def test_secondary_with_a_central_gap_is_low_not_check_first():
+    a = assess(
+        review(
+            PLATFORM_GAP,
+            req("Experience designing and implementing REST services.", "partial", ("E1",)),
+            relation="secondary",
+            tools=("Fictional Desk",),
+        ),
+        EVIDENCE,
+    )
+    assert a.central_gaps == (0,), "the gap is still reported"
+    assert (a.alignment, a.history, a.recommendation) == ("SECONDARY", "LITTLE", "LOW")
+
+
+def test_secondary_borderline_with_good_history_and_one_gap_is_low():
+    """The shape of the five borderline postings (Salesforce coding, Dynamics):
+    most of the history shown, one platform skill not shown."""
+    a = assess(
+        review(
+            PLATFORM_GAP,
+            req("Hands-on experience building integrations in Python", ids=("E9",)),
+            req("Experience designing and implementing REST services.", ids=("E1",)),
+            req("Experience with Fictional Queue", "partial", ("E9",)),
+            relation="secondary",
+            tools=("Fictional Desk",),
+        ),
+        EVIDENCE,
+    )
+    assert a.history == "PARTLY" and a.central_gaps == (0,)
+    assert a.recommendation == "LOW"
+
+
+def test_secondary_with_a_central_requirement_cited_by_one_word_is_low():
+    checked = {**req("Fictional Desk", support="not_shown", ids=()), "check": "short_quote"}
+    a = assess(
+        review(req("Python"), checked, relation="secondary", tools=("Fictional Desk",)), EVIDENCE
+    )
+    assert a.recommendation == "LOW"
+
+
+def test_secondary_with_shown_history_and_no_gap_stays_prepare():
+    a = assess(
+        review(
+            req("Hands-on experience building integrations in Python", ids=("E9",)),
+            relation="secondary",
+        ),
+        EVIDENCE,
+    )
+    assert (a.history, a.recommendation) == ("SHOWN", "PREPARE")
+
+
+def test_central_with_a_central_gap_stays_check_first():
+    a = assess(
+        review(
+            PLATFORM_GAP,
+            req("Hands-on experience building integrations in Python", ids=("E9",)),
+            tools=("Fictional Desk",),
+        ),
+        EVIDENCE,
+    )
+    assert (a.alignment, a.recommendation) == ("CENTRAL", "CHECK_FIRST")
+
+
+@pytest.mark.parametrize(
+    ("relation", "expected"), [("neighbour", "LOW"), ("unrelated", "OTHER_WORK")]
+)
+def test_a_gap_moves_nothing_for_other_relations(relation, expected):
+    a = assess(review(PLATFORM_GAP, relation=relation, tools=("Fictional Desk",)), EVIDENCE)
+    assert a.recommendation == expected
+
+
 def test_conditions_are_kept_verbatim_and_languages_separated():
     conditions = [
         {"quote": "Remote from a fictional region", "topic": "place"},

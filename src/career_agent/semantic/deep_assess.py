@@ -29,14 +29,14 @@ from typing import Any
 
 from career_agent.clock import now_utc
 
-ASSESSMENT_VERSION = "assess-8"
+ASSESSMENT_VERSION = "assess-9"
 
 #: Recommendation codes, in display order. None of them is a probability of
 #: being hired, and none of them is the local %.
 RECOMMENDATIONS = (
     "STRONG",  # main activity is the person's work, history well shown
     "PREPARE",  # aligned; history partly shown
-    "CHECK_FIRST",  # aligned, but a central requirement is not shown
+    "CHECK_FIRST",  # central work, but a central requirement is not shown
     "NOT_COMPARED",  # aligned; evidence was not sent, history not compared
     "TO_CONFIRM",  # the reading could not tell what the job is
     "LOW",  # neighbouring job, or secondary with weak history
@@ -491,7 +491,11 @@ def assess(review: dict[str, Any], evidence: dict[str, dict[str, Any]] | None) -
         rec = "LOW"
     elif history == "NOT_SENT":
         rec = "NOT_COMPARED"
-    elif gaps or any(r["central"] for r in to_check):
+    elif alignment == "CENTRAL" and (gaps or any(r["central"] for r in to_check)):
+        # Check first is for the person's own work. A secondary reading with a
+        # gap has history that cannot read SHOWN, so it falls to the secondary
+        # rule below (Low), never one level ABOVE a secondary reading with
+        # better history and no gap (ADR-0035, addendum 9).
         rec = "CHECK_FIRST"
     elif alignment == "CENTRAL":
         rec = {"SHOWN": "STRONG", "NONE_STATED": "STRONG", "PARTLY": "PREPARE"}.get(

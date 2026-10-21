@@ -395,3 +395,55 @@ the change asked.
 **Reading again.** Highest band first: the 617 neighbour or secondary postings
 in the local STRONG or GOOD band, then the MODERATE and WEAK ones in a second
 run. Never all 2,323.
+
+## Addendum 9 (2026-10-21): Check first is for central work
+
+**Context.** A shortlist audit after the relation reread (addendum 7, 911 readings again) found an inversion. Two rules in `assess` produced it:
+- The central-gap test ran before the alignment branch, so a central requirement not shown sent ANY aligned reading to Check first.
+- The secondary branch sends PARTLY and LITTLE history to Low.
+
+For a secondary reading, a gap was therefore the only way out of Low other than a fully shown history. A gap also guarantees the history never reads SHOWN, so "secondary with a gap" always meant "secondary with weak history". Yet it was labelled one level above secondary readings with weak history and no gap. A missing central requirement moved a posting UP.
+
+Measured on 184 current secondary readings:
+- 51 read Check first: median ratio 0.38, every one with a central gap.
+- 115 read Low: median ratio 0.50, none with a gap.
+- In 4,294 of the 5,865 pairs (73%), the Check first posting, ranked above, had a lower ratio than the Low posting below it.
+
+**Why it is incoherent.**
+- Check first says "work you asked for, but confirm a central requirement before applying". It assumes the work is the person's own, and for a secondary posting it is not.
+- For secondary work the level already depends on history: Apply preparing when shown, Low otherwise. A gap is weaker history, never stronger.
+
+**Decision (assess-9).**
+- Only a CENTRAL reading goes to Check first for a central gap, or for a central requirement cited by one word.
+- A secondary reading with a gap follows the secondary rule, which gives Low.
+- The gap is still listed in the reading: only the level changes.
+
+Nothing else moves:
+- the central mapping;
+- the secondary mapping;
+- `SHOWN_AT` 0.75 and `declared_only`;
+- the relation, the prompt and the contract.
+
+**Why not a global threshold.** The inversion is a rule-ORDER defect between two branches. It is not a question of how much evidence is enough. Moving 0.75 would shift hundreds of central readings and leave the inversion standing.
+
+**Why not the prompt or the contract.** The relation each reading gave was not in question: the defect was in how code mapped it to a level. A prompt change would also move the contract identity and force rereads (addendum 8). This change is code-only and re-derives every level from the stored readings with no model call and no reread.
+
+**Measured before and after** (no model call, stored readings unchanged):
+
+| Level | Whole universe (2,174) | 1,500 batch |
+|---|---|---|
+| Apply | 77 → 77 | 59 → 59 |
+| Apply preparing | 200 → 200 | 179 → 179 |
+| Check first | 90 → 39 | 64 → 36 |
+| Low | 848 → 899 | 563 → 591 |
+
+- **What moved:** exactly the 51 secondary readings the experiment named, from Check first to Low. No central reading, no Apply and no Apply preparing moved.
+- **Pairwise inversions:** 73% → 0.
+
+**The five borderline moves.** These are secondary postings with good history (ratio 0.56 to 0.64) and one named-platform gap:
+- Hunt St, Office Manager (ServiceM8);
+- AlBorg Diagnostics, Business Applications & Digital Platforms Manager (Dynamics 365);
+- Truelogic, Salesforce Developer / Administrator, two reposts (Apex / LWC);
+- MongoDB, Engineer 3, Business Systems (Apex / LWC).
+
+They now sit in Low among 50 secondary readings with 0.55 to 0.74 and no gap. That is consistent: a gap does not make them better than those. The other 46 moves had a ratio below 0.55 and clearly fix the order.
