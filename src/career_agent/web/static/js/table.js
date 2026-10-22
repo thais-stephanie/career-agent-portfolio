@@ -372,7 +372,7 @@ function head(columns, ctx) {
       // (ascending, then descending, then back to the list's own order).
       const arrow = isSorted ? (ctx.direction === 'asc' ? '\u25b4' : '\u25be') : '';
       const next = !isSorted ? 'asc'
-        : ctx.direction === 'asc' ? 'desc' : column.sort === 'score' ? 'asc' : 'default';
+        : ctx.direction === 'asc' ? 'desc' : column.sort === 'deep' ? 'asc' : 'default';
       const sortButton = button(columnLabel(column), () => ctx.onSort(column.sort), {
         className: `th__sort${isSorted ? ' is-sorted' : ''}`,
         ariaLabel: t(`table.sortNext.${next}`, { column: columnName(column) }),
@@ -451,6 +451,8 @@ function pill(column, text, tone, title = text) {
 function cell(column, job, ctx, aside) {
   switch (column.id) {
     case 'score':
+      // A lead's fit was never assessed (ADR-0039): no % that reads as weak.
+      if (job.readable === false) return textCell(column, t('leads.notAssessed'), { absent: true });
       return el('td', { className: 'col--score', attrs: { role: 'cell' } }, [matchPill(job.match_score)]);
 
     case 'confidence': {

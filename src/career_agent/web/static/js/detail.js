@@ -820,6 +820,10 @@ export function createDrawer({
 
   function whySections(job) {
     return [
+      // A lead (ADR-0039): what follows was computed from too little text.
+      job.readable === false
+        ? el('p', { className: 'd-note d-note--lead', text: t('leads.notAssessedHelp') })
+        : null,
       fitSummary(job),
       whatFits(job),
       yourPreferences(job),

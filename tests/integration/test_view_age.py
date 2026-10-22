@@ -2,11 +2,14 @@
 """How old a posting may be and still appear: one limit per profile.
 
 Synthetic corpus: postings published 10 days ago, 130 days ago, 200 days ago and
-never dated, a role posted twice (one recent copy, one old), and old postings
-that this machine collected again today.
+never dated, a role posted twice (one recent copy, one old). The old ones were
+last listed by their source a month ago.
 
 * The limit is on the date the SOURCE published the posting. Collecting a
-  posting again does not make it young.
+  posting again does not make it young: `posted_at` is never rewritten.
+* STILL LISTED (ADR-0039): an open, dated posting its source listed within the
+  week stays visible whatever its publication date; a closed one never does,
+  and an undated one follows "include postings without a date".
 * 120 days by default; 150 or no limit on request; kept per profile.
 * Undated postings are hidden unless included, and the notice counts both.
 * Saved and applied postings are never hidden by it.
@@ -38,7 +41,8 @@ def days_ago(n: int) -> str:
 @pytest.fixture
 def aged(api):  # noqa: F811
     """30 postings: 0-9 recent, 10-19 at 130 days, 20-24 at 200 days, 25-29 undated.
-    Every old one was collected again today."""
+    Every old one was last listed by its source 30 days ago, outside the week
+    that would keep it visible (`mvp_repo.RECENTLY_SEEN_DAYS`)."""
     conn = connect(api.config.db_path)
     try:
         for n in range(POSTINGS):
@@ -54,7 +58,7 @@ def aged(api):  # noqa: F811
             conn.execute(
                 "UPDATE job SET posted_at = ?, last_seen_at = ?, first_seen_at = ?"
                 " WHERE external_id = ?",
-                (posted, days_ago(0), days_ago(0), f"p-{n}"),
+                (posted, days_ago(0) if n < 10 else days_ago(30), days_ago(30), f"p-{n}"),
             )
     finally:
         conn.close()
@@ -87,8 +91,8 @@ def test_the_default_hides_postings_published_more_than_120_days_ago(aged) -> No
     assert narrowings["hidden_by_age"] == 15 and narrowings["hidden_undated"] == 5
 
 
-def test_collecting_again_does_not_make_an_old_posting_young(aged) -> None:
-    # Every old posting was seen again TODAY (see the fixture) and is still hidden.
+def test_an_old_posting_not_listed_this_week_stays_hidden(aged) -> None:
+    # Every old posting was last listed a month ago (see the fixture).
     titles = {item["job_id"]: item["posted_at"] for item in jobs(aged)["items"]}
     assert len(titles) == 10 and all(
         value.startswith(days_ago(10)[:10]) for value in titles.values()
@@ -138,8 +142,13 @@ def clone(conn, source_external: str, external: str, posted: str, score: int) ->
     )
     new_id = "01MCLONE" + external.upper().replace("-", "")[:8].ljust(8, "0") + "0" * 10
     old_id = job["id"]
+    # Last listed when it was posted: an old copy its source no longer lists.
     job.update(
-        id=new_id, external_id=external, posted_at=posted, url=f"https://example.test/{external}"
+        id=new_id,
+        external_id=external,
+        posted_at=posted,
+        last_seen_at=posted,
+        url=f"https://example.test/{external}",
     )
     conn.execute(
         f"INSERT INTO job ({', '.join(job)}) VALUES ({', '.join('?' for _ in job)})",
@@ -244,3 +253,90 @@ def test_the_deep_selection_follows_the_same_limit_as_the_list(aged) -> None:
     assert wide["available"] > narrow["available"]
     assert narrow["excluded_by_age"] == wide["available"] - narrow["available"]
     assert jobs(aged)["total"] > listed, "the list widened by the same choice"
+
+
+# -- STILL LISTED (ADR-0039) ---------------------------------------------------
+
+
+def _set(api, sql: str, params: tuple) -> None:
+    conn = connect(api.config.db_path)
+    try:
+        conn.execute(sql, params)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _ids(api, **query) -> set[str]:
+    return {item["job_id"] for item in jobs(api, **query)["items"]}
+
+
+def _job_id(api, external: str) -> str:
+    conn = connect(api.config.db_path)
+    try:
+        return conn.execute("SELECT id FROM job WHERE external_id = ?", (external,)).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_an_old_open_posting_listed_this_week_stays_visible_with_its_age(aged) -> None:
+    _set(
+        aged,
+        "UPDATE job SET last_seen_at = ? WHERE external_id IN ('p-10', 'p-20')",
+        (days_ago(1),),
+    )
+    answer = jobs(aged)
+    shown = {item["job_id"]: item for item in answer["items"]}
+    assert answer["total"] == 12, "the 10 recent ones and the two still listed"
+    for external, age in (("p-10", 130), ("p-20", 200)):
+        item = shown[_job_id(aged, external)]
+        # Two facts kept apart: the publication date is unchanged.
+        assert item["posted_at"].startswith(days_ago(age)[:10])
+        assert item["last_seen_at"].startswith(days_ago(1)[:10])
+
+
+def test_listed_more_than_a_week_ago_is_not_recent(aged) -> None:
+    _set(aged, "UPDATE job SET last_seen_at = ? WHERE external_id = 'p-10'", (days_ago(8),))
+    assert _job_id(aged, "p-10") not in _ids(aged)
+
+
+def test_a_closed_posting_is_hidden_even_if_listed_this_week(aged) -> None:
+    _set(
+        aged,
+        "UPDATE job SET last_seen_at = ?, closed_at = ? WHERE external_id = 'p-10'",
+        (days_ago(0), days_ago(0)),
+    )
+    assert _job_id(aged, "p-10") not in _ids(aged)
+    narrowings = aged.handle_api("GET", "/api/jobs/narrowings", {"include_unresolved": ["1"]}, {})
+    assert narrowings["hidden_by_age"] == 15, "a closed posting is not counted as old either"
+
+
+def test_an_undated_posting_listed_this_week_still_follows_include_undated(aged) -> None:
+    _set(aged, "UPDATE job SET last_seen_at = ? WHERE external_id = 'p-25'", (days_ago(0),))
+    assert _job_id(aged, "p-25") not in _ids(aged)
+    call(aged, "PATCH", "/api/view-prefs", {"include_undated": True})
+    assert _job_id(aged, "p-25") in _ids(aged)
+
+
+def test_a_reopened_posting_listed_again_comes_back(aged) -> None:
+    job = _job_id(aged, "p-11")
+    _set(
+        aged,
+        "UPDATE job SET closed_at = ?, last_seen_at = ? WHERE id = ?",
+        (days_ago(5), days_ago(5), job),
+    )
+    assert job not in _ids(aged)
+    # Its source lists it again: the collector reopens it (`closed_at` NULL).
+    _set(aged, "UPDATE job SET closed_at = NULL, last_seen_at = ? WHERE id = ?", (days_ago(0), job))
+    assert job in _ids(aged)
+
+
+def test_the_deep_selection_reads_a_still_listed_posting(aged) -> None:
+    call(aged, "POST", "/api/deep/provider", {"provider": "deepseek"})
+    before = panel(aged)["available"]
+    _set(
+        aged,
+        "UPDATE job SET last_seen_at = ? WHERE external_id IN ('p-10', 'p-11')",
+        (days_ago(1),),
+    )
+    assert panel(aged)["available"] == before + 2, "the same rule as the list"

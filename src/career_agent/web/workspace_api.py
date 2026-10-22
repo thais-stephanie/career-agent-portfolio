@@ -1958,6 +1958,8 @@ class WorkspaceRoutes(_MixinBase):
         develop a second opinion about what is worth reading. Nothing here
         ranks anything.
         """
+        from dataclasses import replace as dc_replace
+
         from career_agent.digest import default_filter, sections
         from career_agent.home import (
             declarations_pending,
@@ -2061,11 +2063,23 @@ class WorkspaceRoutes(_MixinBase):
 
             # Two of the digest's sections, not a third list invented here.
             wanted = {"since_last_review", "recent", "best"}
+            deep_levels, _states = self.deep_levels()
             built = []
             for section in sections(config, show=show, last_reviewed_at=seen_at, age=age):
                 if section.key not in wanted:
                     continue
-                rows = repo.page(config_id, config_version, section.job_filter)
+                # The Jobs list's own order (ADR-0039): the deep reading's
+                # level, Search Fit breaking ties; the same lane.
+                rows = repo.page(
+                    config_id,
+                    config_version,
+                    dc_replace(
+                        section.job_filter,
+                        sort="deep",
+                        deep_levels=deep_levels,
+                        lane="shortlist",
+                    ),
+                )
                 built.append(
                     {
                         "key": section.key,
@@ -2112,6 +2126,8 @@ class WorkspaceRoutes(_MixinBase):
         Nothing here ranks anything. Every section is a filter over the score
         the cards already show, and the rows come back in that order.
         """
+        from dataclasses import replace as dc_replace
+
         from career_agent.digest import default_filter, sections
         from career_agent.storage.mvp_repo import MatchRepo, ScoredJobQuery
         from career_agent.storage.workspace_repo import (
@@ -2149,11 +2165,23 @@ class WorkspaceRoutes(_MixinBase):
                 0
             ]
             scored = MatchRepo(conn).count_for(config_id, config_version)
+            deep_levels, _states = self.deep_levels()
             built = []
             for section in sections(
                 config, days=DIGEST_DAYS, show=show, last_reviewed_at=seen_at, age=age
             ):
-                rows = repo.page(config_id, config_version, section.job_filter)
+                # The Jobs list's own order (ADR-0039): the deep reading's
+                # level, Search Fit breaking ties; the same lane.
+                rows = repo.page(
+                    config_id,
+                    config_version,
+                    dc_replace(
+                        section.job_filter,
+                        sort="deep",
+                        deep_levels=deep_levels,
+                        lane="shortlist",
+                    ),
+                )
                 built.append(
                     {
                         "key": section.key,

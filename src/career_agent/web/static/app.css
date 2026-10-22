@@ -9125,6 +9125,10 @@ body.has-filters { overflow: hidden; }
 }
 .hiddennotice[hidden] { display: none; }
 .hidden__summary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 12px 12px 16px; }
+/* The two lanes, shortlist and leads (ADR-0039). */
+.lanebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+.lanebar__note { margin: 0; font-size: 13px; color: var(--faint); flex: 1 1 260px; }
+.card__notassessed { font-size: 12px; color: var(--faint); }
 .hidden__icon {
   flex: none; width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;

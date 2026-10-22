@@ -203,6 +203,10 @@ def test_every_accepted_parameter_is_covered_by_a_test_here() -> None:
         # `test_deep_in_find_jobs.py`, which is where the property worth
         # protecting lives: it narrows and orders and never moves `job_match`.
         "deep",
+        # THE LANE (ADR-0039). Exercised by `test_web_api.py`: the lanes
+        # partition the list, a short posting is a lead, a saved lead stays
+        # in her saved view.
+        "lane",
     }
     covered = set(NARROWING) | {"min_salary"} | presentation | ordering | older | set(WIDENING)
     assert covered >= JOB_QUERY_PARAMS, sorted(JOB_QUERY_PARAMS - covered)

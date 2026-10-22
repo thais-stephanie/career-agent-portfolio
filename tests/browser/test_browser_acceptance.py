@@ -243,7 +243,9 @@ LOCALE_KEY = "careerAgent.locale.v1"
 #: Every default narrowing, undone. Named once because there are THREE of them
 #: now and a test that lists two is a test quietly measuring a third of the
 #: corpus less than it thinks.
-SHOW_EVERYTHING = "?include_ineligible=1&include_off_target=1&include_unresolved=1"
+#: And the lane (ADR-0039): the 186-character demo-010 is a lead, not on the
+#: shortlist.
+SHOW_EVERYTHING = "?include_ineligible=1&include_off_target=1&include_unresolved=1&lane=all"
 
 
 def open_list(page: Chrome, server: str, query: str = "") -> None:

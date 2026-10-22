@@ -578,3 +578,41 @@ def test_a_metered_provider_is_never_asked_more_than_once_at_a_time(monkeypatch)
     assert deep_concurrency(Billing.SUBSCRIPTION) == 4
     monkeypatch.setenv("CAREER_AGENT_DEEP_CONCURRENCY", "nonsense")
     assert deep_concurrency(Billing.SUBSCRIPTION) == 2
+
+
+# -- The candidate pool (ADR-0039) ---------------------------------------------
+
+
+def test_the_pool_is_read_first_and_only_good_or_strong_enter_it(corpus):  # noqa: F811
+    """The eligible WEAK posting (28) is made GOOD while the eligible MODERATE
+    one (41) stays: the lower score is in the pool and the higher one is not,
+    so a one-posting plan proves the pool is read before any stratum, and
+    that MODERATE never enters it."""
+    conn, config = corpus
+    good = conn.execute(
+        "SELECT job_id FROM job_match WHERE fit_band = 'WEAK'"
+        " AND eligibility_status = 'VERIFIED_ELIGIBLE'"
+    ).fetchone()[0]
+    with transaction(conn):
+        conn.execute("UPDATE job_match SET fit_band = 'GOOD' WHERE job_id = ?", (good,))
+    chosen = select(conn, config, share=False, provider_id="x", limit=1)
+    assert [(c.job_id, c.stratum) for c in chosen.candidates] == [(good, "pool")]
+    assert (chosen.pool, chosen.pool_unread) == (1, 1)
+    wider = select(conn, config, share=False, provider_id="x", limit=10).candidates
+    assert {c.job_id for c in wider if c.stratum == "pool"} == {good}
+    assert all(c.band in ("GOOD", "STRONG") for c in wider if c.stratum == "pool")
+
+
+def test_a_work_model_the_person_excluded_keeps_a_posting_out_of_the_pool():
+    from types import SimpleNamespace
+
+    from career_agent.semantic.deep_run import in_pool
+
+    config = SimpleNamespace(
+        preferences=SimpleNamespace(remote=SimpleNamespace(excluded_work_models=["onsite"]))
+    )
+    row = {"fit_band": "STRONG", "eligibility_status": "VERIFIED_ELIGIBLE", "work_model": "ONSITE"}
+    assert not in_pool(row, config)
+    assert in_pool({**row, "work_model": "REMOTE"}, config)
+    assert not in_pool({**row, "eligibility_status": "UNRESOLVED"}, config)
+    assert not in_pool({**row, "fit_band": "MODERATE", "work_model": "REMOTE"}, config)

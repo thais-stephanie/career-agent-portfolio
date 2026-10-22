@@ -1253,6 +1253,23 @@ const EN = {
   'deep.filter.STALE': 'Read, out of date',
   'deep.filter.UNREAD': 'Not read yet',
   'card.deep': 'Deep reading: {level}',
+  'deep.relationShort.central': 'Your main work',
+  'deep.relationShort.secondary': 'Your work as a secondary part',
+  'deep.relationShort.neighbour': 'Close to your work, a different job',
+  'deep.relationShort.unrelated': 'Not your work',
+  'deep.relationShort.unclear': 'Work not clear',
+  'leads.lanes': 'Which postings to show',
+  'leads.shortlist': 'Shortlist',
+  'leads.tab': 'Leads to check ({count})',
+  'leads.tabPlain': 'Leads to check',
+  'leads.shortlistNote': 'Postings with enough text to read. Postings whose source gave too little text are under '
+    + 'Leads to check.',
+  'leads.viewing': 'The source gave too little text to read these, so their fit was not assessed. Open each one '
+    + 'to judge it yourself.',
+  'leads.notAssessed': 'Fit not assessed: no description text',
+  'leads.notAssessedHelp': 'The source gave too little text to read, so this posting was not compared with your '
+    + 'search. Open it to judge it.',
+  'card.stillListed': 'still listed (seen {date})',
   'card.deepStale': 'Deep reading out of date (was: {level})',
   'card.deepEvidence': 'Deep reading: {level} (your evidence changed since)',
   'card.deepEvidenceStale': 'Work fit still current; evidence changed (was: {level})',
@@ -1457,6 +1474,7 @@ const EN = {
     + 'to each posting are sent, under local ids. Your name, contact details and links are removed, years '
     + 'become [year], and no employer or date field is sent; a line you confirmed can still name an employer in '
     + 'its own words.',
+  'deep.stratum.pool': 'Good and strong matches not read yet',
   'deep.stratum.top_local': 'highest local %',
   'deep.stratum.lexical': 'closest to your search words',
   'deep.stratum.control': 'picked from the rest, to see what the % misses',
@@ -1715,16 +1733,16 @@ const EN = {
   'daily.noDate': 'no date',
   'daily.unscored': 'not scored',
   'daily.section.recent.title': 'New in the last {n} days',
-  'daily.section.recent.lead': 'Filtered by the date the board published, ORDERED by the same '
-    + 'match score as everywhere else. Recency decides what is in this section; it does not '
-    + 'decide what is at the top of it.',
+  'daily.section.recent.lead': 'Filtered by the date the board published, ORDERED as the Jobs '
+    + 'list: the deep reading first, the match score breaking ties. Recency decides what is in '
+    + 'this section; it does not decide what is at the top of it.',
   'daily.section.since_last_review.title': 'Since you last looked',
   'daily.section.since_last_review.lead': 'Postings this machine first held after your last '
     + 'review. That is when WE noticed them, not when the employer wrote them -- the two are '
     + 'different facts and neither stands in for the other.',
   'daily.section.best.title': 'Best matches right now',
-  'daily.section.best.lead': 'The same score the cards show, in the same order. Nothing is '
-    + 're-ranked here.',
+  'daily.section.best.lead': 'In the same order as the Jobs list: the deep reading first, the '
+    + 'match score breaking ties.',
   'daily.section.unresolved.title': 'Waiting on one answer',
   'daily.section.unresolved.lead': 'Jobs with a strong match whose eligibility nobody has resolved. One '
     + 'recruiter question each would settle them.',
@@ -3782,6 +3800,8 @@ const EN = {
   'count.pickedForYouOne': 'picked for you',
   'count.matchSearch': 'match your search',
   'count.matchSearchOne': 'matches your search',
+  'count.leadsToCheck': 'to check yourself, fit not assessed',
+  'count.leadsToCheckOne': 'to check yourself, fit not assessed',
   'jobsTip.title': 'What does the percentage mean?',
   'jobsTip.text': 'It shows how much of a job matches the work, tools and conditions you set. It does not read your '
     + 'history and is not a chance of being hired. Open "how the % works" under the count for the details.',
@@ -6585,6 +6605,23 @@ const PT_BR = {
   'deep.filter.STALE': 'Lida, desatualizada',
   'deep.filter.UNREAD': 'Ainda não lida',
   'card.deep': 'Leitura aprofundada: {level}',
+  'deep.relationShort.central': 'Seu trabalho principal',
+  'deep.relationShort.secondary': 'Seu trabalho como parte secundária',
+  'deep.relationShort.neighbour': 'Perto do seu trabalho, outra função',
+  'deep.relationShort.unrelated': 'Não é o seu trabalho',
+  'deep.relationShort.unclear': 'Trabalho pouco claro',
+  'leads.lanes': 'Quais vagas mostrar',
+  'leads.shortlist': 'Lista principal',
+  'leads.tab': 'Leads para conferir ({count})',
+  'leads.tabPlain': 'Leads para conferir',
+  'leads.shortlistNote': 'Vagas com texto suficiente para leitura. As vagas cuja fonte trouxe pouco texto ficam '
+    + 'em Leads para conferir.',
+  'leads.viewing': 'A fonte trouxe pouco texto para ler estas vagas, então a compatibilidade não foi avaliada. '
+    + 'Abra cada uma para avaliar.',
+  'leads.notAssessed': 'Compatibilidade não avaliada: sem descrição',
+  'leads.notAssessedHelp': 'A fonte trouxe pouco texto para ler, então esta vaga não foi comparada com a sua '
+    + 'busca. Abra para julgar.',
+  'card.stillListed': 'ainda anunciada (vista em {date})',
   'card.deepStale': 'Leitura aprofundada desatualizada (era: {level})',
   'card.deepEvidence': 'Leitura aprofundada: {level} (suas evidências mudaram depois)',
   'card.deepEvidenceStale': 'Encaixe com o trabalho ainda atual; evidências mudaram (era: {level})',
@@ -6793,6 +6830,7 @@ const PT_BR = {
     + 'para cada vaga são enviados, com ids locais. Seu nome, contatos e links são removidos, anos viram [ano] '
     + 'e nenhum campo de empregador ou de data é enviado; uma linha que você confirmou ainda pode citar um '
     + 'empregador com as próprias palavras.',
+  'deep.stratum.pool': 'Compatibilidade boa ou forte ainda não lida',
   'deep.stratum.top_local': 'maior % local',
   'deep.stratum.lexical': 'mais perto das suas palavras de busca',
   'deep.stratum.control': 'escolhidas entre as demais, para ver o que a % deixa passar',
@@ -7054,16 +7092,16 @@ const PT_BR = {
   'daily.noDate': 'sem data',
   'daily.unscored': 'sem nota',
   'daily.section.recent.title': 'Novas nos últimos {n} dias',
-  'daily.section.recent.lead': 'Filtradas pela data em que o quadro publicou, ORDENADAS pela '
-    + 'mesma nota de correspondência de sempre. A recência decide o que está nesta seção; não '
-    + 'decide o que fica no topo dela.',
+  'daily.section.recent.lead': 'Filtradas pela data em que o quadro publicou, ORDENADAS como a '
+    + 'lista de vagas: a leitura aprofundada primeiro, a nota de correspondência desempatando. A '
+    + 'recência decide o que está nesta seção; não decide o que fica no topo dela.',
   'daily.section.since_last_review.title': 'Desde a última vez que você olhou',
   'daily.section.since_last_review.lead': 'Vagas que esta máquina passou a ter depois da sua '
     + 'última revisão. Isso é quando NÓS as vimos, não quando o empregador as escreveu -- são '
     + 'fatos diferentes e nenhum substitui o outro.',
   'daily.section.best.title': 'Melhores correspondências agora',
-  'daily.section.best.lead': 'A mesma nota que os cartões mostram, na mesma ordem. Nada é '
-    + 'reordenado aqui.',
+  'daily.section.best.lead': 'Na mesma ordem da lista de vagas: a leitura aprofundada primeiro, '
+    + 'a nota de correspondência desempatando.',
   'daily.section.unresolved.title': 'Esperando uma resposta',
   'daily.section.unresolved.lead': 'Boas correspondências cuja elegibilidade ninguém resolveu. '
     + 'Uma pergunta ao recrutador resolveria cada uma.',
@@ -9123,6 +9161,8 @@ const PT_BR = {
   'count.pickedForYouOne': 'escolhida para você',
   'count.matchSearch': 'combinam com a sua busca',
   'count.matchSearchOne': 'combina com a sua busca',
+  'count.leadsToCheck': 'para você conferir, compatibilidade não avaliada',
+  'count.leadsToCheckOne': 'para você conferir, compatibilidade não avaliada',
   'jobsTip.title': 'O que significa a porcentagem?',
   'jobsTip.text': 'Mostra quanto de uma vaga corresponde ao trabalho, às ferramentas e às condições que você definiu. '
     + 'Não lê seu histórico e não é chance de contratação. Abra "como funciona a %" abaixo da contagem para ver os '

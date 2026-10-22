@@ -1,6 +1,6 @@
 # ADR-0038: Review decisions are recorded with their exposure, and the list's order is measured against them
 
-Status: accepted (owner, 2026-10-21: "P0 — measurement and feedback
+Status: accepted (owner, 2026-10-21: "P0: measurement and feedback
 infrastructure only"). Adds migration 0060 (`review_decision`, profile scope).
 Changes no score, reading, order, filter or eligibility.
 

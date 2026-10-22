@@ -214,7 +214,7 @@ const drawer = createDrawer({
     query.delete('limit');
     return {
       lane: 'jobs_list',
-      sort: `${state.sort || 'score'}:${state.direction || 'desc'}`,
+      sort: `${state.sort || 'deep'}:${state.direction || 'desc'}`,
       rank: Number(lastResponse.offset || 0) + index + 1,
       query: query.toString().slice(0, 2000),
     };
@@ -1182,9 +1182,10 @@ function paint(state) {
         const current = store.get();
         if (current.sort !== column) store.set({ sort: column, direction: 'asc', offset: 0 });
         else if (current.direction === 'asc') store.set({ direction: 'desc', offset: 0 });
-        // Best match first IS the default, so the match column alternates.
-        else if (column === 'score') store.set({ direction: 'asc', offset: 0 });
-        else store.set({ sort: 'score', direction: 'desc', offset: 0 });
+        // The deep reading's order IS the default (ADR-0039), so that column
+        // alternates, and any other goes back to it.
+        else if (column === 'deep') store.set({ direction: 'asc', offset: 0 });
+        else store.set({ sort: 'deep', direction: 'desc', offset: 0 });
       },
       onOpen: openJob,
       onStatus: changeStatus,
@@ -1313,7 +1314,9 @@ function announce(state, shown, total) {
       // it stands for are counted beside it ("2 reposts folded in").
       text: total === 1 ? t('count.oneJob') : t('count.jobs', { n: total }),
     }),
-    ` ${t(`count.${filters ? 'matchSearch' : 'pickedForYou'}${total === 1 ? 'One' : ''}`)}`,
+    // A lead was never compared with the search (ADR-0039): it does not "match".
+    ` ${t(`count.${state.lane === 'leads' ? 'leadsToCheck'
+      : filters ? 'matchSearch' : 'pickedForYou'}${total === 1 ? 'One' : ''}`)}`,
     quiet.length ? el('span', { className: 'resultcount__quiet', text: ` · ${quiet.join(' · ')}` }) : null,
     basisLine(lastResponse && lastResponse.scoring_basis),
   ].filter(Boolean));
@@ -1647,7 +1650,57 @@ async function renderAvailability() {
   }
 }
 
+//: The lane switch above the list (ADR-0039), made on first use.
+let laneBar = null;
+
+/**
+ * THE TWO LANES. The shortlist holds postings with enough text to be read and
+ * judged; leads are postings whose source gave too little text, so their fit
+ * was never assessed. They are kept apart, never ranked as weak and never
+ * mixed into the shortlist, and each is one press away.
+ */
+function renderLaneBar(state) {
+  if (!laneBar) {
+    laneBar = el('div', { className: 'lanebar', attrs: { role: 'group' } });
+    dom.hidden.parentNode.insertBefore(laneBar, dom.hidden);
+  }
+  laneBar.setAttribute('aria-label', t('leads.lanes'));
+  if (currentPage !== 'jobs' || !lastResponse) {
+    clear(laneBar);
+    laneBar.hidden = true;
+    return;
+  }
+  const leads = state.lane === 'leads';
+  const leadCount = leads ? lastResponse.total : lastResponse.leads;
+  if (!leads && !leadCount) {
+    clear(laneBar);
+    laneBar.hidden = true;
+    return;
+  }
+  laneBar.hidden = false;
+  const lane = (name, label) => button(label, () => store.set({ lane: name, offset: 0 }), {
+    className: 'segmented__btn',
+    attrs: { 'aria-pressed': String(state.lane === name) },
+  });
+  replace(laneBar, [
+    el('div', { className: 'segmented' }, [
+      lane('shortlist', t('leads.shortlist')),
+      lane('leads', isNumber(leadCount)
+        ? t('leads.tab', { count: leadCount.toLocaleString(getLocale()) }) : t('leads.tabPlain')),
+    ]),
+    el('p', {
+      className: 'lanebar__note',
+      text: leads ? t('leads.viewing') : t('leads.shortlistNote'),
+    }),
+  ]);
+}
+
+function isNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 function renderHiddenNotice(state) {
+  renderLaneBar(state);
   // DISCOVER ONLY. Every narrowing below is about the discovery list; on any
   // other page (Applications shares this container) the notice is cleared
   // rather than left saying something about a list that is not on screen.

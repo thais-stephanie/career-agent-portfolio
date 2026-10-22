@@ -203,6 +203,16 @@ function card(job, handlers) {
 
 /** The percentage, its label and the meter; a click opens the "Why" tab. */
 function matchBlock(job, handlers) {
+  // A LEAD (ADR-0039): its source gave too little text to read, so its fit
+  // was never assessed. No %, no band and no meter: a number here would read
+  // as "a weak match", which nothing measured.
+  if (job.readable === false) {
+    return el('div', { className: 'card__match card__match--m3', attrs: { title: t('leads.notAssessedHelp') } }, [
+      el('div', { className: 'card__matchrow' }, [
+        el('span', { className: 'card__notassessed', text: t('leads.notAssessed') }),
+      ]),
+    ]);
+  }
   if (!searchFitIsReady()) {
     return el('div', { className: 'card__match card__match--m3', attrs: { title: t('badge.notReadyHelp') } }, [
       el('div', { className: 'card__matchrow' }, [
@@ -336,7 +346,13 @@ function postedOnly(job) {
     // An old posting says how old, so a saved or applied one is never taken for new.
     const days = (Date.now() - parseDate(job.posted_at).getTime()) / 86400000;
     const line = t('card.postedOn', { date, source });
-    return days > 120 ? `${line} · ${relativeAge(job.posted_at)}` : line;
+    if (days <= 120) return line;
+    // STILL LISTED (ADR-0039): the publication date stays the posting's age,
+    // and when its source listed it again this week that is said apart.
+    const seen = parseDate(job.last_seen_at);
+    const listed = !job.closed_at && seen && (Date.now() - seen.getTime()) / 86400000 <= 7;
+    const age = `${line} · ${relativeAge(job.posted_at)}`;
+    return listed ? `${age} · ${t('card.stillListed', { date: formatDate(job.last_seen_at) })}` : age;
   }
   // A posting the person added herself carries no source date: say so, and say
   // it is hers, never as if it were recent.

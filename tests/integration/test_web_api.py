@@ -152,7 +152,10 @@ def test_the_whole_corpus_comes_back_unfiltered(api: JobsApi) -> None:
     # and with nothing to demonstrate.
     assert payload["hidden_off_target"] == 1
 
-    everything = _jobs(api, include_ineligible=1, include_off_target=1, include_unresolved=1)
+    # lane=all: the corpus, the 186-character Salesforce posting (a lead) included.
+    everything = _jobs(
+        api, include_ineligible=1, include_off_target=1, include_unresolved=1, lane="all"
+    )
     assert everything["total"] == 21
     assert everything["hidden_by_eligibility"] == 0
     assert everything["hidden_unresolved"] == 0
@@ -625,7 +628,13 @@ def test_the_grouping_parameter_round_trips_and_collapses_the_repeats(
     # CORPUS rather than about what a person is shown by default. The third
     # was added 2026-09-07 and a grouping test that quietly stopped seeing a
     # third of the corpus would still pass while proving less.
-    widen = {"include_ineligible": 1, "include_off_target": 1, "include_unresolved": 1}
+    # lane=all since P1: the corpus includes postings too short to read (leads).
+    widen = {
+        "include_ineligible": 1,
+        "include_off_target": 1,
+        "include_unresolved": 1,
+        "lane": "all",
+    }
     ungrouped = _jobs(grouped_api, limit=500, **widen)
     grouped = _jobs(grouped_api, limit=500, **widen, group_duplicates="1")
 
@@ -722,6 +731,7 @@ def test_the_demo_corpus_actually_contains_a_duplicate_group(demo_api: JobsApi) 
         "include_ineligible": 1,
         "include_off_target": 1,
         "include_unresolved": 1,
+        "lane": "all",
     }
     assert _jobs(demo_api, **everything)["total"] == 21
     assert _jobs(demo_api, **everything, group_duplicates="1")["total"] == 19
@@ -946,6 +956,8 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
         # Not a filter: WHEN the "N more" counts are sent. Asserted in
         # tests/integration/test_functional_recovery_a.py.
         "narrowings": "later",
+        # Not the default lane, so a parse that drops it would fail below.
+        "lane": "leads",
         "enriched_only": "true",
         "has_salary": "true",
         "include_removed": "true",
@@ -1028,7 +1040,10 @@ def test_every_accepted_parameter_is_actually_parsed(api: JobsApi) -> None:
     # So each name is checked to actually REACH the filter: parse it alone and
     # require the resulting JobFilter to differ from the default. A parameter
     # that is accepted and unread leaves the filter untouched and fails here.
-    default = JobFilter()
+    # sort="deep": since P1 the list defaults to the deep order while storage
+    # keeps sort=score, and against the bare JobFilter() every parameter
+    # would "differ" through the sort alone.
+    default = JobFilter(sort="deep")
     for name, value in sample.items():
         # `min_salary` is the one parameter that is INVALID on its own: nothing
         # in this system converts between currencies, so a bare figure would
@@ -1551,3 +1566,54 @@ def test_the_three_numbers_on_the_screen_reconcile(api: JobsApi) -> None:
 def test_nothing_is_reported_as_folded_when_grouping_is_off(api: JobsApi) -> None:
     """A line reading "0 reposts folded in" is noise, so the number is zero."""
     assert _jobs(api, limit=500, group_duplicates=0)["grouped_away"] == 0
+
+
+# =========================================================================
+# P1 (ADR-0039): the shortlist and the leads lane
+
+
+WIDE_P1 = {"limit": 500, "include_ineligible": 1, "include_off_target": 1, "include_unresolved": 1}
+
+
+def _lead(api: JobsApi, lane: str) -> list[dict]:
+    items = _jobs(api, **WIDE_P1, lane=lane)["items"]
+    return [i for i in items if i["external_id"] == "demo-010"]
+
+
+def test_a_posting_too_short_to_read_is_a_lead_not_a_low_fit(api: JobsApi) -> None:
+    """demo-010 holds 186 characters, under the 200 a reading needs: it leaves
+    the shortlist for the leads lane, still with its title and link, marked as
+    not assessed rather than given a level it was never read for."""
+    from career_agent.semantic.deep_run import MIN_DESCRIPTION_CHARS
+    from career_agent.storage.mvp_repo import READABLE_CHARS
+
+    assert READABLE_CHARS == MIN_DESCRIPTION_CHARS, "one threshold for 'readable'"
+    assert _lead(api, "shortlist") == []
+    (lead,) = _lead(api, "leads")
+    assert lead["readable"] is False and lead["deep"] is None
+    assert lead["title"] == "Salesforce Administrator"
+    assert len(_lead(api, "all")) == 1
+    shortlist = _jobs(api, **WIDE_P1)
+    assert shortlist["lane"] == "shortlist"
+    assert all(i["readable"] for i in shortlist["items"] if "readable" in i)
+
+
+def test_the_lanes_partition_the_list(api: JobsApi) -> None:
+    every = {i["job_id"] for i in _jobs(api, **WIDE_P1, lane="all")["items"]}
+    short = {i["job_id"] for i in _jobs(api, **WIDE_P1, lane="shortlist")["items"]}
+    leads = {i["job_id"] for i in _jobs(api, **WIDE_P1, lane="leads")["items"]}
+    assert short | leads == every and not short & leads
+
+
+def test_a_saved_lead_stays_in_her_saved_view(api: JobsApi) -> None:
+    """Something she is acting on never moves out from under her: the saved
+    view exempts tracked postings from the lane as from every narrowing."""
+    (lead,) = _lead(api, "leads")
+    api.handle_api("PATCH", f"/api/jobs/{lead['job_id']}/saved", {}, {"saved": True})
+    saved = _jobs(api, **WIDE_P1, saved_only="true")["items"]
+    assert lead["job_id"] in {i["job_id"] for i in saved}
+
+
+def test_an_unknown_lane_is_refused(api: JobsApi) -> None:
+    with pytest.raises(Exception):  # noqa: B017 - the API's own validation error
+        _jobs(api, lane="hidden")

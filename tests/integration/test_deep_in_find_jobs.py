@@ -108,8 +108,18 @@ def test_a_posting_never_read_shows_nothing_and_is_found_as_unread(read) -> None
 def test_a_current_reading_shows_its_level_and_a_stale_one_says_so(read) -> None:
     items = page(read, limit=60)["items"]
     by = dict(zip(external(read, items), items, strict=True))
-    assert by["p-1"]["deep"] == {"level": "STRONG", "stale": False, "state": "current"}
-    assert by["p-4"]["deep"] == {"level": "PREPARE", "stale": True, "state": "stale"}
+    assert by["p-1"]["deep"] == {
+        "level": "STRONG",
+        "relation": None,
+        "stale": False,
+        "state": "current",
+    }
+    assert by["p-4"]["deep"] == {
+        "level": "PREPARE",
+        "relation": None,
+        "stale": True,
+        "state": "stale",
+    }
 
 
 def test_the_filter_narrows_by_level_state_and_their_union(read) -> None:
@@ -226,8 +236,18 @@ def test_only_a_current_recommendation_counts_as_its_level(api, monkeypatch):  #
             external(api, page(api, limit=60)["items"]), page(api, limit=60)["items"], strict=True
         )
     }
-    assert items["p-1"]["deep"] == {"level": "LOW", "stale": False, "state": "evidence"}
-    assert items["p-2"]["deep"] == {"level": "STRONG", "stale": True, "state": "evidence"}
+    assert items["p-1"]["deep"] == {
+        "level": "LOW",
+        "relation": None,
+        "stale": False,
+        "state": "evidence",
+    }
+    assert items["p-2"]["deep"] == {
+        "level": "STRONG",
+        "relation": None,
+        "stale": True,
+        "state": "evidence",
+    }
     assert external(api, page(api, deep="STRONG")["items"]) == ["p-0"]
     assert external(api, page(api, deep="LOW")["items"]) == ["p-1"]
     assert external(api, page(api, deep="STALE")["items"]) == ["p-2"]
@@ -236,3 +256,32 @@ def test_only_a_current_recommendation_counts_as_its_level(api, monkeypatch):  #
     assert order[:3] == ["p-0", "p-1", "p-2"], "current levels first, the stale one after"
     facet = page(api, limit=1)["facets"]["deep"]
     assert (facet["STRONG"], facet["LOW"], facet["STALE"]) == (1, 1, 1)
+
+
+# -- P1 (ADR-0039): the relation beside the level, never a filter ------------
+
+
+def test_the_relation_is_shown_beside_the_level_and_excludes_nothing(read, monkeypatch) -> None:
+    by = ids(read)
+    before = page(read, limit=60)
+    monkeypatch.setattr(
+        deep_api,
+        "deep_relations",
+        lambda _app, _conn: {by["p-1"]: "secondary", by["p-0"]: "unrelated", by["p-2"]: "unclear"},
+    )
+    after = page(read, limit=60)
+    items = dict(zip(external(read, after["items"]), after["items"], strict=True))
+    assert items["p-1"]["deep"]["relation"] == "secondary"
+    assert items["p-1"]["deep"]["level"] == "STRONG", "the relation never rewrites the level"
+    assert items["p-5"]["deep"] is None, "an unread posting has no relation and no level"
+    # Not one posting more or less: a relation, even `unrelated`, hides nothing.
+    assert after["total"] == before["total"]
+    assert external(read, after["items"]) == external(read, before["items"])
+
+
+def test_the_list_defaults_to_the_deep_order(read) -> None:
+    default = external(read, page(read, limit=60)["items"])
+    deep = external(read, page(read, limit=60, sort="deep")["items"])
+    assert default == deep
+    # Unread postings come after every read one, never mixed in as Low.
+    assert default.index("p-5") > max(default.index(k) for k in LEVELS)

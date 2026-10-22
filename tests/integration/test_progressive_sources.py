@@ -54,6 +54,8 @@ WIDEN = {
     "include_off_target": ["1"],
     "include_unresolved": ["1"],
     "group_duplicates": ["0"],
+    # The whole corpus, the 186-character demo-010 (a lead, ADR-0039) included.
+    "lane": ["all"],
 }
 
 NOW = datetime.now(UTC)

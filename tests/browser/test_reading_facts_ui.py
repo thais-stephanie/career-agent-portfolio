@@ -108,6 +108,9 @@ GROWTH_HTML = (
 SIMPLE_TEXT = (
     "Operations Coordinator\n\nWe coordinate day to day operations for a remote team and are "
     "looking for someone who likes order and clear documentation.\n\nRequirements\n- Spreadsheets\n- Writing\n"
+    # Past the 200 characters a posting needs to be read (ADR-0039), so these
+    # stay on the shortlist rather than in the leads lane.
+    "- Calm, written handovers between time zones\n"
 )
 
 
@@ -152,6 +155,9 @@ def facts_server(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, A
                 ),
                 status=CollectionStatus.NORMALISED,
             )  # fmt: skip
+        # Last listed when it was published: since ADR-0039 a posting its
+        # source still lists is not hidden for its age.
+        conn.execute("UPDATE job SET last_seen_at = posted_at WHERE id = ?", (ids["old"],))
     config, _ = load_search_config(committed_config)
     rescore(conn, config)
     # An OLD score: the facts the readers learned later are missing from what it stored.

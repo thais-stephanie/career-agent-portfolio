@@ -70,11 +70,6 @@ def register_deep(app: JobsApi) -> None:
             return None, "CHOOSE_PROVIDER"
         return _instance(provider_id), ""
 
-    def available_for(
-        provider: Any, settings: Any, include_unresolved: bool, retry_rejected: bool = False
-    ) -> int:
-        return selection_for(provider, settings, include_unresolved, retry_rejected).available
-
     def scores_of(conn: Any) -> tuple[tuple[str, int] | None, dict[str, Any]]:
         """The revision of match scores the Find jobs list is built from, and
         how it relates to the one in force. The list serves the previous
@@ -151,12 +146,14 @@ def register_deep(app: JobsApi) -> None:
     def limits(body: dict, provider: Any, settings: Any) -> tuple[int, bool, int, bool]:
         include_unresolved = _bool(body.get("include_unresolved", False))
         retry = _bool(body.get("retry_rejected", False))
-        available = available_for(provider, settings, include_unresolved, retry)
+        selection = selection_for(provider, settings, include_unresolved, retry)
+        available = selection.available
         if available < 1:
             # Nothing to read: say so, never start an empty reading. The page
             # words the reason from `status`; nothing was sent.
             raise ApiError(409, "No readable posting is available.", code="NO_POSTINGS")
-        limit = body.get("limit", min(DEFAULT_LIMIT, available))
+        # Unasked, enough for the whole unread candidate pool (ADR-0039).
+        limit = body.get("limit", min(max(DEFAULT_LIMIT, selection.pool_unread), available))
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= available:
             raise ApiError(
                 400, "limit out of range", code="LIMIT_OUT_OF_RANGE", data={"available": available}
@@ -770,13 +767,28 @@ def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
         cached = getattr(app, "_deep_levels_cache", None)
         if cached is not None and cached[0] == key:
             return dict(cached[1])
+    rows = _review_rows(app, conn)
     levels = {
         str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]), str(item["state"]))
-        for item in _review_rows(app, conn)
+        for item in rows
     }
+    # The WORK RELATION beside the level (ADR-0039): the level mixes the
+    # relation with the history, so `secondary` + "Apply, preparing" and
+    # `central` + "Apply, preparing" must stay two different things on screen.
+    relations = {str(item["job_id"]): str(item["assessment"]["alignment"]).lower() for item in rows}
     with _LEVELS_LOCK:
         app._deep_levels_cache = (key, levels)
+        app._deep_relations_cache = relations
     return dict(levels)
+
+
+def deep_relations(app: Any, conn: Any) -> dict[str, str]:
+    """Each read posting's work relation (central, secondary, neighbour,
+    unrelated, unclear), from the same derivation as `deep_levels`; empty
+    for a posting never read. Shown beside the level, never written into it."""
+    deep_levels(app, conn)
+    with _LEVELS_LOCK:
+        return dict(getattr(app, "_deep_relations_cache", None) or {})
 
 
 _LEVELS_LOCK = threading.Lock()
@@ -862,7 +874,14 @@ def _why_none(scores: dict[str, Any], reach: Any, with_unresolved: int) -> str:
 
 def _counts(selection: Any) -> dict[str, int]:
     # `rejected`: answers paid for and rejected, offered for an explicit retry.
-    return {"available": selection.available, "rejected": selection.rejected}
+    # `pool` / `pool_unread`: the candidate pool and what of it is unread
+    # (ADR-0039); a job reads the pool first.
+    return {
+        "available": selection.available,
+        "rejected": selection.rejected,
+        "pool": selection.pool,
+        "pool_unread": selection.pool_unread,
+    }
 
 
 def _model(provider: Any) -> str:

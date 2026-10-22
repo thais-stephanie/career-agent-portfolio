@@ -89,6 +89,7 @@ from career_agent.semantic.providers import (
 from career_agent.semantic.runner import ceiling_tokens, intent_match_query
 from career_agent.semantic.store import RunStats, SemanticRepo
 from career_agent.storage.db import transaction
+from career_agent.storage.mvp_repo import RECENTLY_SEEN_DAYS
 
 MODE = "deep"
 MIN_DESCRIPTION_CHARS = 200
@@ -251,7 +252,7 @@ def population_rows(
     )
     return conn.execute(
         "SELECT j.id, j.content_hash, j.title, j.company_id, jm.match_score, jm.fit_band,"
-        "       jm.eligibility_status, j.posted_at,"
+        "       jm.eligibility_status, j.posted_at, j.last_seen_at, jm.work_model,"
         # The advert's length WITHOUT reading the advert: from the covering
         # index of migration 0054, named so a missing index is an error
         # rather than a 30-second read of every advert's record.
@@ -284,6 +285,12 @@ def _elect(
         if max_days is not None
         else None
     )
+    # The list's own STILL LISTED rule (`mvp_repo.RECENTLY_SEEN_DAYS`,
+    # ADR-0039): an open, dated posting its source listed within the week is
+    # inside the age window whatever its publication date. Rows here are open.
+    listed_since = (
+        (datetime.now(UTC) - timedelta(days=RECENTLY_SEEN_DAYS)).isoformat().replace("+00:00", "Z")
+    )
     statuses = {"VERIFIED_ELIGIBLE", "LIKELY_ELIGIBLE"} | (
         {"UNRESOLVED"} if include_unresolved else set()
     )
@@ -301,7 +308,9 @@ def _elect(
             if posted is None:
                 if not undated:
                     continue
-            elif str(posted) < cutoff:
+            elif str(posted) < cutoff and not (
+                row["last_seen_at"] is not None and str(row["last_seen_at"]) >= listed_since
+            ):
                 continue
         key = (str(row["company_id"]), str(row["title"]))
         best = elected.get(key)
@@ -396,6 +405,11 @@ class Selection:
     available: int = 0
     #: Postings whose current answer was paid for and rejected.
     rejected: int = 0
+    #: The CANDIDATE POOL (ADR-0039): readable GOOD and STRONG postings of the
+    #: main list, VERIFIED or LIKELY eligible, outside the excluded work
+    #: models; how many there are, and how many still lack a current reading.
+    pool: int = 0
+    pool_unread: int = 0
 
 
 def read_key(row: sqlite3.Row) -> tuple[str, str]:
@@ -406,6 +420,25 @@ def read_key(row: sqlite3.Row) -> tuple[str, str]:
     the same advert under another title is another question (migration 0058).
     """
     return str(row["content_hash"]), str(row["title"] or "")
+
+
+#: The Search Fit bands of the candidate pool, read in this order.
+POOL_BANDS = ("STRONG", "GOOD")
+#: Eligibility a pool posting has; UNRESOLVED stays out, as on the main list.
+POOL_ELIGIBILITY = frozenset({"VERIFIED_ELIGIBLE", "LIKELY_ELIGIBLE"})
+
+
+def in_pool(row: sqlite3.Row, config: SearchConfig) -> bool:
+    """Whether a population row is in the CANDIDATE POOL (ADR-0039): a band
+    the shortlist starts from, eligibility the main list shows, and a work
+    model the person did not exclude. Readability and the age window are the
+    population's own filters."""
+    excluded = {m.upper() for m in config.preferences.remote.excluded_work_models}
+    return (
+        str(row["fit_band"]) in POOL_BANDS
+        and str(row["eligibility_status"]) in POOL_ELIGIBILITY
+        and str(row["work_model"] or "").upper() not in excluded
+    )
 
 
 def consumption_order(picked: list[tuple[sqlite3.Row, str]]) -> list[tuple[sqlite3.Row, str]]:
@@ -500,14 +533,27 @@ def select(
             picked.append((row, stratum))
             count -= 1
 
+    # THE CANDIDATE POOL FIRST (ADR-0039). The shortlist is ordered by the
+    # reading, so every readable GOOD or STRONG posting of the main list is
+    # read before any sample is drawn: STRONG, then GOOD, highest score first.
+    # The strata then share whatever the approved count leaves, as before, so
+    # MODERATE and WEAK postings enter only past the pool and only as a sample.
+    pool = [row for row in population if in_pool(row, config)]
+    pool_fresh = sorted(
+        (row for row in fresh if in_pool(row, config)),
+        key=lambda r: (POOL_BANDS.index(str(r["fit_band"])), -int(r["match_score"]), str(r["id"])),
+    )
     if limit > 0:
+        take(pool_fresh, "pool", limit)
+        pooled = len(picked)
+        rest_limit = limit - pooled
         top = sorted(fresh, key=lambda r: (-int(r["match_score"]), str(r["id"])))
-        take(top, "top_local", round(limit * SHARES["top_local"]))
+        take(top, "top_local", round(rest_limit * SHARES["top_local"]))
         lexical = [by_id[i] for i in _lexical_order(conn, intent, set(by_id))]
-        take(lexical, "lexical", round(limit * SHARES["lexical"]))
+        take(lexical, "lexical", round(rest_limit * SHARES["lexical"]))
         rest = sorted(fresh, key=lambda r: _control_key(str(r["id"])))
         take(rest, "control", limit - len(picked))
-    picked = consumption_order(picked)
+        picked = picked[:pooled] + consumption_order(picked[pooled:])
     texts = _descriptions(conn, [str(row["content_hash"]) for row, _ in picked])
     chosen = [
         DeepCandidate(
@@ -527,6 +573,8 @@ def select(
         len(population) - len(fresh),
         len(fresh),
         len(refused & pairs),
+        pool=len(pool),
+        pool_unread=len({read_key(row) for row in pool_fresh}),
     )
 
 

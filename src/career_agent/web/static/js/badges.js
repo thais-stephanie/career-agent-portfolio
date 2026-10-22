@@ -147,8 +147,14 @@ export function deepWords(deep) {
       tone: 'stale',
     };
   }
+  // THE WORK RELATION FIRST, then the level (ADR-0039). The level mixes the
+  // relation with the history, so "your work, as a secondary part" with
+  // "Apply, preparing" must not read like "your main work" with the same level.
+  const relation = deep.relation ? t(`deep.relationShort.${deep.relation}`) : '';
+  const known = relation && relation !== `deep.relationShort.${deep.relation}`;
+  const said = t(evidence ? 'card.deepEvidence' : 'card.deep', { level });
   return {
-    text: t(evidence ? 'card.deepEvidence' : 'card.deep', { level }),
+    text: known ? `${relation} · ${said}` : said,
     title: evidence ? t('deep.evidenceHolds') : t(`deep.level.${deep.level}`),
     tone: String(deep.level).toLowerCase(),
   };

@@ -398,7 +398,11 @@ export const DEFAULTS = Object.freeze({
   // gets no chip, it does not count towards "3 filters active", and clearing
   // the filters leaves it alone.
   group_duplicates: VIEW_GROUPING.cards,
-  sort: 'score',
+  // The shortlist, or the leads too short to read (ADR-0039). A lane, not a
+  // filter: no chip, and clearing the filters leaves it alone.
+  lane: 'shortlist',
+  // The deep reading orders the list (ADR-0039); Search Fit breaks ties.
+  sort: 'deep',
   direction: 'desc',
   limit: 20,
   offset: 0,
@@ -410,7 +414,7 @@ export const DEFAULTS = Object.freeze({
 /** Keys the server is allowed to see. `view` and `openJobId` are not here. */
 const API_KEYS = [
   'search', ...LIST_KEYS, ...NUMBER_KEYS, ...FLAG_KEYS,
-  'group_duplicates', 'sort', 'direction', 'limit', 'offset',
+  'group_duplicates', 'lane', 'sort', 'direction', 'limit', 'offset',
 ];
 
 /**
@@ -531,6 +535,10 @@ export function fromSearch(search) {
   if (!params.has('prefer_keyword')) state.prefer_keyword = storedPreferredKeywords();
   if (!params.has('avoid_keyword')) state.avoid_keyword = storedAvoidedKeywords();
   if (params.has('sort')) state.sort = params.get('sort');
+  if (params.has('lane')) {
+    const lane = params.get('lane');
+    state.lane = ['leads', 'all'].includes(lane) ? lane : 'shortlist';
+  }
   if (params.has('direction')) state.direction = params.get('direction') === 'asc' ? 'asc' : 'desc';
   if (params.has('offset')) state.offset = Number(params.get('offset')) || 0;
   if (params.has('view')) {
@@ -579,6 +587,7 @@ export function toSearch(state) {
     // "Defaults are omitted": a flag that is ON by default is not written.
     if (state[key] && DEFAULTS[key] !== true) params.set(key, '1');
   }
+  if (state.lane !== DEFAULTS.lane) params.set('lane', state.lane);
   if (state.sort !== DEFAULTS.sort) params.set('sort', state.sort);
   if (state.direction !== DEFAULTS.direction) params.set('direction', state.direction);
   if (state.offset) params.set('offset', String(state.offset));

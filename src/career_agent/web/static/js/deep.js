@@ -391,7 +391,9 @@ export function createDeep({ onOpenJob = null } = {}) {
   function chosenCount(status) {
     const max = availableNow(status);
     if (max < 1) return 0;
-    if (count === null) return Math.min(BATCH, max);
+    // By default, enough to read the whole candidate pool still unread
+    // (ADR-0039), never fewer than a batch and never more than is available.
+    if (count === null) return Math.min(Math.max(BATCH, status.pool_unread || 0), max);
     if (count > max) {
       count = max;
       adjusted = true;
@@ -685,7 +687,7 @@ export function createDeep({ onOpenJob = null } = {}) {
         text: `${t('deep.sample', {
           count: plan.postings.length, population: plan.population, reviewed: plan.already_reviewed,
           short: plan.too_short || 0,
-        })} ${['top_local', 'lexical', 'control'].map((s) => `${t(`deep.stratum.${s}`)}: ${strata[s] || 0}`)
+        })} ${['pool', 'top_local', 'lexical', 'control'].map((s) => `${t(`deep.stratum.${s}`)}: ${strata[s] || 0}`)
           .join(' · ')}`,
       }),
       ...shown.map((row) => el('div', { className: 'dr-row' }, [

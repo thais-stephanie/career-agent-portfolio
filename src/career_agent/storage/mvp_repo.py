@@ -232,6 +232,21 @@ SORT_TEXT: frozenset[str] = frozenset({"company", "title", "place", "source"})
 #: roughly 400 KB down the wire for text no card displays.
 PAGE_DESCRIPTION_CHARS = 400
 
+#: How recently a posting must have been listed by its source to count as
+#: STILL LISTED (ADR-0039): the product rule that no enabled source goes a week
+#: unseen (`sources.progress.STALE_AFTER_HOURS` is the warning well inside it),
+#: so an open posting its source still lists is seen again within a week.
+#: Observed freshness only: the publication date (`posted_at`) is never
+#: rewritten and stays the posting's age.
+RECENTLY_SEEN_DAYS = 7
+
+#: The fewest characters of advert a posting needs to be read: the deep
+#: reading's own floor (`semantic.deep_run.MIN_DESCRIPTION_CHARS`, asserted
+#: equal by a test). Below it the posting goes to the leads lane (ADR-0039).
+READABLE_CHARS = 200
+#: The lanes `JobFilter.lane` accepts.
+LANES = ("shortlist", "leads", "all")
+
 
 class SortKeyError(ValueError):
     """A sort key or direction that is not on the whitelist."""
@@ -2138,6 +2153,15 @@ class JobFilter:
     #: `(job_id, state)` for the cards only (current, evidence, stale); no
     #: query reads it.
     deep_states: tuple[tuple[str, str], ...] = ()
+    #: WHICH LANE (ADR-0039). `shortlist`: postings with enough text to be
+    #: read (at least `READABLE_CHARS`), and anything the person brought in
+    #: themselves. `leads`: postings whose source gave too little text to
+    #: read, so their fit was never assessed; shown apart, never mixed into
+    #: the shortlist, never treated as a weak fit. `all`: both, and the
+    #: default here: the lane is the screen's choice, so the list API and
+    #: the Home sections ask for `shortlist` and every other reader is
+    #: unchanged.
+    lane: str = "all"
 
     sort: str = "score"
     direction: str = "desc"
@@ -2716,12 +2740,42 @@ class ScoredJobQuery(_Repo):
         # The profile's age limit, on the SOURCE's publication date. Compared as
         # a calendar day, so a posting published on the cutoff day is kept.
         if f.max_age_days is not None:
+            moment = self.now or now_utc()
             undated = f" OR j{a}.posted_at IS NULL" if f.include_undated else ""
             # A posting the person pasted or imported themselves is theirs to
             # keep in view: it has no source date because they brought it.
             brought = f" OR j{a}.provider = '{ACCESS_METHOD_MANUAL}'"
-            clauses.append(f"(j{a}.posted_at >= ?{undated}{brought}{tracked})")
-            params.append(_cutoff(self.now or now_utc(), f.max_age_days)[:10])
+            # STILL LISTED (ADR-0039): an open posting its source listed again
+            # recently is not hidden for its old publication date. Publication
+            # age and observed freshness stay two facts: `posted_at` is never
+            # rewritten. A dated posting only; an undated one follows
+            # `include_undated` as before. A confirmed closure always wins:
+            # `closed_at` and a REMOVED availability are narrowed apart.
+            listed = (
+                f" OR (j{a}.posted_at IS NOT NULL AND j{a}.closed_at IS NULL"
+                f" AND j{a}.last_seen_at >= ?)"
+            )
+            clauses.append(f"(j{a}.posted_at >= ?{listed}{undated}{brought}{tracked})")
+            params.append(_cutoff(moment, f.max_age_days)[:10])
+            params.append(_cutoff(moment, RECENTLY_SEEN_DAYS))
+
+        # THE LANE (ADR-0039): readable postings form the shortlist; postings
+        # whose source gave too little text to read are leads, kept apart. The
+        # length comes from the covering index of migration 0054. What the
+        # person brought in is always theirs to see on the shortlist.
+        if f.lane not in LANES:
+            raise ValueError(f"unknown lane {f.lane!r}; expected one of {LANES}")
+        if f.lane != "all":
+            chars = (
+                f"COALESCE((SELECT length(r{a}.description_text) FROM job_raw r{a}"
+                f" WHERE r{a}.content_hash = j{a}.content_hash), 0)"
+            )
+            manual = f"j{a}.provider = '{ACCESS_METHOD_MANUAL}'"
+            if f.lane == "shortlist":
+                # A lead the person saved or tracks stays in her own views.
+                clauses.append(f"({manual} OR {chars} >= {READABLE_CHARS}{tracked})")
+            else:
+                clauses.append(f"(NOT {manual} AND {chars} < {READABLE_CHARS})")
 
         # `first_seen_at` is NOT NULL on every row, so this needs no null guard
         # and -- unlike the clause above -- excludes nothing for want of a date

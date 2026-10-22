@@ -129,6 +129,8 @@ JOB_QUERY_PARAMS: frozenset[str] = frozenset(
         "include_transferable",
         # THE DEEP READING, beside the local score (see `JobFilter.deep`).
         "deep",
+        # The shortlist, or the leads too short to read (ADR-0039).
+        "lane",
         "sort",
         "direction",
         "limit",
@@ -236,6 +238,7 @@ _VOCABULARIES: dict[str, tuple[str, ...]] = {
     # posting never read, or one of the levels the reading gives, exactly as
     # `deep_assess.RECOMMENDATIONS` names them.
     "deep": ("READ", "STALE", "UNREAD", *RECOMMENDATIONS),
+    "lane": ("shortlist", "leads", "all"),
     # NOT_STATED is in the vocabulary because it is an ANSWER a person asks
     # for -- "show me the ones that never said" -- not an absence they should
     # have to notice. Stored as NULL and offered as a word; `_where` maps it
@@ -686,6 +689,16 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             ),
             tuple((job_id, state) for job_id, (_level, _stale, state) in ordered),
         )
+
+    def _lead_terms(self) -> tuple[str, ...]:
+        """What orders the leads lane: the search plan's own terms (role
+        anchors, their aliases, her work phrases), at most 12 like any
+        phrase list. They sort and never filter (ADR-0039)."""
+        from career_agent.discovery.anchors import load_anchors
+        from career_agent.discovery.plan import query_terms
+
+        terms = query_terms(self.search_config(), load_anchors(self.config.config_dir))
+        return tuple(term.text for term in terms)[:12]
 
     def transferable_signals(self) -> tuple[str, ...]:
         """Signals this person has confirmed evidence for. Read, never stored.
@@ -2443,7 +2456,12 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             return {"descriptions": ScoredJobQuery(conn).descriptions(ids)}
 
     def list_jobs(self, *, query: dict, body: dict) -> dict:
-        from career_agent.storage.mvp_repo import ScoredJobQuery
+        from career_agent.storage.mvp_repo import (
+            ACCESS_METHOD_MANUAL,
+            READABLE_CHARS,
+            ScoredJobQuery,
+        )
+        from career_agent.web.deep_api import deep_relations
 
         job_filter = self._filter_from(query)
         with _closing(self.connect()) as conn:
@@ -2487,6 +2505,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 # Read from the WHOLE ad: the page holds only its first characters.
                 whole = repo.descriptions([row.job_id for row in rows])
                 checked = _availability_of(conn, [row.job_id for row in rows])
+                # The work relation beside the level (ADR-0039); none if unread.
+                relations = deep_relations(self, conn)
                 if totals is None:
                     totals = self._remember(
                         ("totals", *key), {**counted.result(), "facets": facets_read.result()}
@@ -2544,10 +2564,16 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                             "level": deep[row.job_id][0],
                             "stale": deep[row.job_id][1],
                             "state": deep_state.get(row.job_id, "current"),
+                            # Kept apart from the level (ADR-0039).
+                            "relation": relations.get(row.job_id),
                         }
                         if row.job_id in deep
                         else None
                     ),
+                    # Enough text to be read and judged; a lead is not
+                    # (ADR-0039), and its fit was never assessed.
+                    "readable": row.access_method == ACCESS_METHOD_MANUAL
+                    or len(whole.get(row.job_id) or "") >= READABLE_CHARS,
                 }
                 for row in rows
             ],
@@ -2582,6 +2608,10 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             "view": view,
             "hidden_by_age": too_old,
             "hidden_undated": undated,
+            # The lane on screen, and how many postings the OTHER lane holds
+            # under the same filters (ADR-0039); `null` until counted.
+            "lane": job_filter.lane,
+            "leads": narrowings and narrowings.get("leads"),
             #
             # Zero when grouping is off, because then nothing was folded and a
             # line saying "0 reposts folded in" is noise.
@@ -2777,6 +2807,13 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 ("hidden_by_you", "hidden_by_the_candidate"),
             )
         }
+        # Not a narrowing but the other lane (ADR-0039): how many leads the
+        # same filters hold, so the shortlist can say where they went.
+        counts["leads"] = (
+            repo.count(config_id, config_version, replace(f, lane="leads"))
+            if f.lane == "shortlist"
+            else None
+        )
         return self._remember(("narrowings", *key), counts)
 
     def get_view_prefs(self, *, query: dict, body: dict) -> dict:
@@ -2909,7 +2946,12 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
     def get_job(self, *, job_id: str, query: dict, body: dict) -> dict:
         from career_agent.storage.fit_feedback import FitFeedbackRepo
-        from career_agent.storage.mvp_repo import ApplicationRepo, ScoredJobQuery
+        from career_agent.storage.mvp_repo import (
+            ACCESS_METHOD_MANUAL,
+            READABLE_CHARS,
+            ApplicationRepo,
+            ScoredJobQuery,
+        )
         from career_agent.storage.review_decision import ReviewDecisionRepo
 
         validate_job_id(job_id)
@@ -2955,6 +2997,11 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         detail["deep_review"] = deep
         # What the person decided. Measurement only: nothing ranks by it.
         detail["review_decision"] = reviewed
+        # A lead (ADR-0039): too little text to read, fit never assessed.
+        detail["readable"] = (
+            row.access_method == ACCESS_METHOD_MANUAL
+            or len(row.description_text or "") >= READABLE_CHARS
+        )
         return detail
 
     # -- mutations -------------------------------------------------------
@@ -3511,6 +3558,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         statuses = _vocab(query, "status")
         saved_only = _bool(query, "saved_only")
         user_hidden_only = _bool(query, "user_hidden_only")
+        lane = _single(query, "lane", "shortlist")
         return JobFilter(
             exempt_tracked=bool(statuses or saved_only or user_hidden_only),
             search=_one(query, "search"),
@@ -3571,7 +3619,12 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             contract_regime=_vocab(query, "contract_regime"),
             keywords=_phrases(query, "keyword"),
             excluded_keywords=_phrases(query, "exclude_keyword"),
-            preferred_keywords=_phrases(query, "prefer_keyword"),
+            # In the leads lane her search terms (role anchors, their aliases
+            # and her work phrases, `discovery.plan.query_terms`) also SORT,
+            # through the same soft order: a lead whose title names her target
+            # work comes first. They never filter (ADR-0039).
+            preferred_keywords=_phrases(query, "prefer_keyword")
+            + (self._lead_terms() if lane == "leads" else ()),
             avoided_keywords=_phrases(query, "avoid_keyword"),
             # Migration 0027. Three parameters because they are three
             # questions, and `experience_max_years` deliberately EXCLUDES the
@@ -3588,7 +3641,11 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             deep=_vocab(query, "deep"),
             deep_levels=deep_levels,
             deep_states=deep_states,
-            sort=_single(query, "sort", "score"),
+            lane=lane,
+            # THE DEEP READING ORDERS THE LIST BY DEFAULT (ADR-0039): the
+            # reading's level first, readings out of date next, unread last,
+            # Search Fit breaking ties. Search Fit is discovery, not the order.
+            sort=_single(query, "sort", "deep"),
             direction=_single(query, "direction", "desc"),
             sort_currency=self._sort_currency(query),
             limit=limit,
