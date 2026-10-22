@@ -123,6 +123,8 @@ EXPECTED_TABLES = {
     "job_retrieval_lane",
     # 0046: what the person thought of a Search Fit score. Observation only.
     "search_fit_feedback",
+    # 0060: review decisions, the ranking ground truth.
+    "review_decision",
     # 0047: the Resume Workspace, profile-private.
     "resume_document",
     "resume_revision",

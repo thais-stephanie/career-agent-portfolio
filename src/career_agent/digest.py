@@ -47,7 +47,9 @@ class Section:
     job_filter: JobFilter
 
 
-def default_filter(show: int) -> JobFilter:
+def default_filter(
+    show: int, *, config: Any = None, age: dict[str, Any] | None = None
+) -> JobFilter:
     """The DEFAULT view: what a person sees when they open the product.
 
     ALL FOUR narrowings, because the digest should agree with the screen. A
@@ -74,12 +76,29 @@ def default_filter(show: int) -> JobFilter:
 
     Either way the point is the same: a posting nobody can confirm she may
     take is shown as such, rather than mixed silently into the best matches.
+
+    The same defect came back in a quieter form: `include_excluded_seniority`
+    narrows nothing without the LIST of excluded levels, and the excluded work
+    models and the profile's age limit (`view_prefs`) were never passed. On
+    2026-10-21 Home's best matches held postings from 2024 and undated ones
+    the Jobs list hides. `config` and `age` are what the Jobs list reads
+    (`api._filter_from`); every caller that has them passes them.
     """
+    seniorities: tuple[str, ...] = ()
+    work_models: tuple[str, ...] = ()
+    if config is not None:
+        seniorities = tuple(level.value for level in config.preferences.seniority.excluded)
+        work_models = tuple(m.upper() for m in config.preferences.remote.excluded_work_models)
     return JobFilter(
         include_ineligible=False,
         include_off_target=False,
         include_unresolved=False,
+        excluded_seniorities=seniorities,
         include_excluded_seniority=False,
+        excluded_work_models=work_models,
+        include_excluded_work_model=False,
+        max_age_days=(age or {}).get("max_age_days"),
+        include_undated=bool((age or {}).get("include_undated", False)),
         group_duplicates=True,
         limit=show,
     )
@@ -91,6 +110,7 @@ def sections(
     days: int = 7,
     show: int = 8,
     last_reviewed_at: str | None = None,
+    age: dict[str, Any] | None = None,
 ) -> tuple[Section, ...]:
     """Every section, in reading order, for one configuration.
 
@@ -100,7 +120,7 @@ def sections(
     because a person who has never marked a review has no checkpoint and
     inventing one would put a date on the screen that means nothing.
     """
-    base = default_filter(show)
+    base = default_filter(show, config=config, age=age)
     shortlist = int(config.thresholds.shortlist_min_score)
 
     if last_reviewed_at:

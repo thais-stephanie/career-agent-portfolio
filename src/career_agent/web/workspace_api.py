@@ -1972,6 +1972,7 @@ class WorkspaceRoutes(_MixinBase):
             CandidateStateRepo,
             candidate_id_of,
         )
+        from career_agent.web import view_prefs
         from career_agent.web.presenter import job_card, utc_today
         from career_agent.web.profiles import served_profile_id
 
@@ -2049,7 +2050,11 @@ class WorkspaceRoutes(_MixinBase):
             else:
                 outdated = None
             refresh_run = latest_refresh_run(conn)
-            total = repo.count(config_id, config_version, default_filter(show))
+            # The Jobs list's own age limit, so Home counts what the list shows.
+            age = view_prefs.read(conn)
+            total = repo.count(
+                config_id, config_version, default_filter(show, config=config, age=age)
+            )
             open_jobs = conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NULL").fetchone()[
                 0
             ]
@@ -2057,7 +2062,7 @@ class WorkspaceRoutes(_MixinBase):
             # Two of the digest's sections, not a third list invented here.
             wanted = {"since_last_review", "recent", "best"}
             built = []
-            for section in sections(config, show=show, last_reviewed_at=seen_at):
+            for section in sections(config, show=show, last_reviewed_at=seen_at, age=age):
                 if section.key not in wanted:
                     continue
                 rows = repo.page(config_id, config_version, section.job_filter)
@@ -2114,6 +2119,7 @@ class WorkspaceRoutes(_MixinBase):
             CandidateStateRepo,
             candidate_id_of,
         )
+        from career_agent.web import view_prefs
         from career_agent.web.presenter import job_card, utc_today
 
         show = 8
@@ -2128,7 +2134,11 @@ class WorkspaceRoutes(_MixinBase):
                 if candidate_id
                 else None
             )
-            total = repo.count(config_id, config_version, default_filter(show))
+            # The Jobs list's own age limit, so Home counts what the list shows.
+            age = view_prefs.read(conn)
+            total = repo.count(
+                config_id, config_version, default_filter(show, config=config, age=age)
+            )
             # How much of the corpus this digest could see at all. Without
             # these two numbers an empty digest after a settings change reads
             # as "nothing is worth looking at today", when the truth is that
@@ -2140,7 +2150,9 @@ class WorkspaceRoutes(_MixinBase):
             ]
             scored = MatchRepo(conn).count_for(config_id, config_version)
             built = []
-            for section in sections(config, days=DIGEST_DAYS, show=show, last_reviewed_at=seen_at):
+            for section in sections(
+                config, days=DIGEST_DAYS, show=show, last_reviewed_at=seen_at, age=age
+            ):
                 rows = repo.page(config_id, config_version, section.job_filter)
                 built.append(
                     {

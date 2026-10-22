@@ -202,6 +202,23 @@ const drawer = createDrawer({
   // Read at open time, never at build time: the health call is in flight while
   // this module is evaluating.
   getOllama: () => ollamaHealth,
+  // Where a posting sat in the Jobs list when the person decided about it:
+  // recorded beside the decision for evaluation, read by nothing that ranks.
+  exposureFor: (jobId) => {
+    const items = (lastResponse && lastResponse.items) || [];
+    const index = items.findIndex((item) => item.job_id === jobId);
+    if (index < 0) return { lane: 'elsewhere' };
+    const state = store.get();
+    const query = new URLSearchParams(store.apiQueryString());
+    query.delete('offset');
+    query.delete('limit');
+    return {
+      lane: 'jobs_list',
+      sort: `${state.sort || 'score'}:${state.direction || 'desc'}`,
+      rank: Number(lastResponse.offset || 0) + index + 1,
+      query: query.toString().slice(0, 2000),
+    };
+  },
   // Somebody said a requirement is answered by experience that is not in
   // her profile. Nothing was claimed by saying so; this is the route to
   // where she can write it down herself -- OR, now, to whatever a staged

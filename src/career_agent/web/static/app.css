@@ -10035,6 +10035,8 @@ table.jobs .row--blocked .cell__title-btn, table.jobs .row--offtarget .cell__tit
 .d-feedback__title { font-size: 14px; font-weight: 600; }
 .d-feedback__stays { font-size: 12px; color: var(--faint); }
 .d-feedback .segmented { flex-wrap: wrap; }
+.d-review__reasons { display: grid; gap: 6px; margin-top: 8px; }
+.d-review__reason { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 
 /* -- Before you apply -------------------------------------------------------- */
 .d-prephead { display: flex; flex-direction: column; gap: 10px; }

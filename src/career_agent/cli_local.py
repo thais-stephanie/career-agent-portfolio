@@ -3560,13 +3560,15 @@ def forget_command(
         ).fetchone()[0]
         counts["events"] = conn.execute("SELECT COUNT(*) FROM job_application_event").fetchone()[0]
         counts["fit"] = conn.execute("SELECT COUNT(*) FROM search_fit_feedback").fetchone()[0]
+        counts["reviewed"] = conn.execute("SELECT COUNT(*) FROM review_decision").fetchone()[0]
         # Which resume was used for which application is tracking, not resume
         # content: the resumes, their history and their files stay.
         counts["used"] = conn.execute("SELECT COUNT(*) FROM application_resume").fetchone()[0]
         plan.append(
             f"clear tracking in {path}: {counts['saved']} saved, {counts['tracked']} tracked, "
             f"{counts['notes']} with notes, {counts['events']} history entries, "
-            f"{counts['fit']} Search Fit answers, {counts['used']} notes of which resume was used"
+            f"{counts['fit']} Search Fit answers, {counts['reviewed']} review decisions,"
+            f" {counts['used']} notes of which resume was used"
             " (the resumes themselves stay)"
         )
         if what == "everything":
@@ -3604,6 +3606,7 @@ def forget_command(
             conn.execute("DELETE FROM job_application_event")
             conn.execute("DELETE FROM job_application")
             conn.execute("DELETE FROM search_fit_feedback")
+            conn.execute("DELETE FROM review_decision")
             conn.execute("DELETE FROM application_resume")
             if what == "everything":
                 exported = forget_resume_data(conn)  # in the same transaction: all or nothing
@@ -3780,7 +3783,10 @@ def daily_command(
     try:
         repo = ScoredJobQuery(conn)
         identity = (config.config_id, config.config_version)
-        default = default_filter(show)
+        from career_agent.web import view_prefs
+
+        age = view_prefs.read(conn)
+        default = default_filter(show, config=config, age=age)
         total = repo.count(*identity, default)
 
         # Where the reader got to, if she has ever said. `daily` does not WRITE
@@ -3808,7 +3814,7 @@ def daily_command(
             ]
         )
 
-        for section in sections(config, days=days, show=show, last_reviewed_at=seen_at):
+        for section in sections(config, days=days, show=show, last_reviewed_at=seen_at, age=age):
             _daily_section(repo, identity, section.title, section.lead, section.job_filter, show)
     finally:
         conn.close()

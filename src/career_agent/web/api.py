@@ -654,6 +654,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/notes", self.patch_notes)
         self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/fit-feedback", self.patch_fit_feedback)
         self.register("GET", r"/api/fit-feedback/export\.csv", self.export_fit_feedback)
+        self.register("PATCH", r"/api/jobs/(?P<job_id>[^/]+)/review", self.patch_review)
+        self.register("GET", r"/api/review-decisions/export\.csv", self.export_review_decisions)
         self.register("POST", r"/api/jobs/(?P<job_id>[^/]+)/enrich", self.enrich_job)
         self.register("GET", r"/api/jobs/(?P<job_id>[^/]+)/local-reading", self.enrich_status)
         self.register("POST", r"/api/jobs/(?P<job_id>[^/]+)/enrich/cancel", self.enrich_cancel)
@@ -2908,6 +2910,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
     def get_job(self, *, job_id: str, query: dict, body: dict) -> dict:
         from career_agent.storage.fit_feedback import FitFeedbackRepo
         from career_agent.storage.mvp_repo import ApplicationRepo, ScoredJobQuery
+        from career_agent.storage.review_decision import ReviewDecisionRepo
 
         validate_job_id(job_id)
         config_id, config_version = self._identity()
@@ -2931,6 +2934,7 @@ class JobsApi(WorkspaceRoutes, LocalApp):
                 else None
             )
             deep = _deep_review(self, conn, job_id)
+            reviewed = ReviewDecisionRepo(conn).current(job_id)
             # The employer's own markup, when the board published it, so the
             # drawer can lay the ad out as it was written. Presentation only:
             # the text above stays what every reader and quote works from.
@@ -2949,6 +2953,8 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         detail["fit_feedback"] = feedback
         # The deep reading sits BESIDE the score, never inside it.
         detail["deep_review"] = deep
+        # What the person decided. Measurement only: nothing ranks by it.
+        detail["review_decision"] = reviewed
         return detail
 
     # -- mutations -------------------------------------------------------
@@ -3149,6 +3155,98 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             except FeedbackRefused as exc:
                 raise ApiError(400, str(exc)) from exc
         return self.get_job(job_id=job_id, query={}, body={})
+
+    def patch_review(self, *, job_id: str, query: dict, body: dict) -> dict:
+        """KEEP, MAYBE or REJECT after reading the posting, with reasons.
+        `decision: null` withdraws it. Measurement only: the ground truth a
+        ranking is evaluated against, never read to score, rank or filter.
+
+        The exposure is recorded beside it: what this server knows it showed
+        (versions, score, eligibility, deep level and state), plus what the
+        screen reports about where the posting was (`served`: the list's sort,
+        the posting's rank, the lane and the list's query). The screen's part
+        is stored as reported; nothing absent is filled in."""
+        from career_agent.semantic.deep_assess import ASSESSMENT_VERSION
+        from career_agent.storage.review_decision import DecisionRefused, ReviewDecisionRepo
+
+        validate_job_id(job_id)
+        fields = {k: body.get(k) for k in ("decision", "primary_reason", "note")}
+        if any(v is not None and not isinstance(v, str) for v in fields.values()):
+            raise ApiError(400, "decision, primary_reason and note must be strings or null")
+        secondary = body.get("secondary_reasons")
+        served = body.get("served") or {}
+        if not isinstance(served, dict):
+            raise ApiError(400, "served must be an object")
+        for key, kind, limit in (
+            ("sort", str, 40),
+            ("lane", str, 40),
+            ("query", str, 2_000),
+            ("rank", int, None),
+        ):
+            value = served.get(key)
+            if value is not None and (not isinstance(value, kind) or isinstance(value, bool)):
+                raise ApiError(400, f"served.{key} has the wrong type")
+            if limit and isinstance(value, str) and len(value) > limit:
+                raise ApiError(400, f"served.{key} is limited to {limit} characters")
+        shown = self.get_job(job_id=job_id, query={}, body={})
+        deep = shown.get("deep_review")
+        exposure = {
+            "provider": shown.get("provider"),
+            "config_id": shown.get("config_id"),
+            "config_version": shown.get("config_version"),
+            "match_score": shown.get("match_score"),
+            "fit_band": shown.get("fit_band"),
+            "eligibility_status": shown.get("eligibility_status"),
+            "deep_level": deep.get("level_then") if deep else None,
+            "deep_state": deep.get("state") if deep else "unread",
+            "deep_contract": deep.get("contract") if deep else None,
+            "deep_assessment": ASSESSMENT_VERSION if deep else None,
+            "freshness": shown.get("freshness"),
+            "served_sort": served.get("sort"),
+            "served_rank": served.get("rank"),
+            "review_lane": served.get("lane"),
+            "served_query": served.get("query"),
+        }
+        with _closing(self.connect()) as conn:
+            known = conn.execute(
+                "SELECT j.content_hash, m.schema_version FROM job j LEFT JOIN job_match m"
+                " ON m.job_id = j.id AND m.config_id = ? AND m.config_version = ?"
+                " WHERE j.id = ?",
+                (exposure["config_id"], exposure["config_version"], job_id),
+            ).fetchone()
+            if known is not None:
+                exposure["content_hash"], exposure["match_schema"] = known[0], known[1]
+            repo = ReviewDecisionRepo(conn)
+            if fields["decision"] is None:
+                repo.clear(job_id)
+            else:
+                try:
+                    repo.save(
+                        job_id,
+                        decision=fields["decision"],
+                        primary_reason=fields["primary_reason"] or None,
+                        secondary_reasons=secondary,
+                        note=fields["note"],
+                        exposure=exposure,
+                        now=_now(),
+                    )
+                except DecisionRefused as exc:
+                    raise ApiError(400, str(exc)) from exc
+        return self.get_job(job_id=job_id, query={}, body={})
+
+    def export_review_decisions(self, *, query: dict, body: dict) -> Any:
+        """Every review decision of THIS profile, as a private CSV."""
+        from career_agent.storage.review_decision import ReviewDecisionRepo
+        from career_agent.web import export
+        from career_agent.web.server import Download
+
+        with _closing(self.connect()) as conn:
+            rows = ReviewDecisionRepo(conn).export_rows()
+        return Download(
+            body=export.review_decisions_csv(rows),
+            content_type="text/csv; charset=utf-8",
+            filename=f"career-agent-review-decisions-{utc_today()}.csv",
+        )
 
     def export_fit_feedback(self, *, query: dict, body: dict) -> Any:
         """Every Search Fit answer of THIS profile, as a private CSV."""

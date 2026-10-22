@@ -329,6 +329,11 @@ export async function exportFitFeedback() {
   return downloadCsv('/fit-feedback/export.csv', 'career-agent-search-fit-feedback.csv');
 }
 
+/** This profile's review decisions as a private CSV. Returns the row count. */
+export async function exportReviewDecisions() {
+  return downloadCsv('/review-decisions/export.csv', 'career-agent-review-decisions.csv');
+}
+
 /** Save a fetched file under the name the server gave. Returns that name. */
 function saveBlob(blob, response, fallbackName) {
   const said = response.headers.get('Content-Disposition') || '';
@@ -536,6 +541,27 @@ export async function patchFitFeedback(jobId, verdict, reason, note, matchScore)
     method: 'PATCH',
     body: { verdict, reason, note, match_score: matchScore },
   });
+}
+
+/** Keep, maybe or reject after reading. `decision: null` withdraws it. Ranks nothing. */
+export async function patchReview(jobId, review, served = null) {
+  const body = review ? {
+    decision: review.decision,
+    primary_reason: review.primaryReason || null,
+    secondary_reasons: review.secondaryReasons || [],
+    note: review.note || null,
+    served: served || {},
+  } : { decision: null };
+  if (MOCK) {
+    const given = review ? {
+      decision: body.decision,
+      primary_reason: body.primary_reason,
+      secondary_reasons: body.secondary_reasons,
+      note: body.note,
+    } : null;
+    return mockPatch(jobId, { review_decision: given }, 'review_decision');
+  }
+  return request(`/jobs/${encodeURIComponent(jobId)}/review`, { method: 'PATCH', body });
 }
 
 export async function patchNotes(jobId, notes) {

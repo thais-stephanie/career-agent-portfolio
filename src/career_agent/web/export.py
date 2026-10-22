@@ -195,3 +195,65 @@ def fit_feedback_csv(rows: list[dict[str, Any]]) -> bytes:
         [n for n, _ in FEEDBACK_COLUMNS],
         ([_cell(r.get(k)) for _, k in FEEDBACK_COLUMNS] for r in rows),
     )
+
+
+#: The review decisions export (migration 0060): the person's own decisions
+#: plus the public facts and the system reading they were made beside.
+DECISION_COLUMNS = (
+    ("Job id", "job_id"),
+    ("Title", "title"),
+    ("Company", "company"),
+    ("Source", "provider"),
+    ("URL", "url"),
+    ("Decision", "decision"),
+    ("Primary reason", "primary_reason"),
+    ("Other reasons", "secondary_reasons"),
+    ("Note", "note"),
+    ("Search Fit when decided", "match_score"),
+    ("Band when decided", "fit_band"),
+    ("Eligibility when decided", "eligibility_status"),
+    ("Deep Reading level when decided", "deep_level"),
+    ("Deep Reading state when decided", "deep_state"),
+    ("List order when decided", "served_sort"),
+    ("Position in the list when decided", "served_rank"),
+    ("Settings version", "config_version"),
+    ("First decided", "created_at"),
+    ("Last changed", "updated_at"),
+)
+
+_DEEP_STATE_WORDS = {
+    "current": "current",
+    "evidence": "current for the work, evidence changed",
+    "stale": "out of date",
+    "unread": "not read",
+}
+
+
+def review_decisions_csv(rows: list[dict[str, Any]]) -> bytes:
+    # Words a person reads; `scripts/ranking_eval.py import` maps them back.
+    from career_agent.storage.review_decision import DECISION_WORDS, REASON_WORDS
+
+    worded = {
+        "decision": DECISION_WORDS,
+        "primary_reason": REASON_WORDS,
+        "deep_level": {**_DEEP_LEVEL, "STALE": "Not current"},
+        "deep_state": _DEEP_STATE_WORDS,
+        "eligibility_status": {
+            "VERIFIED_ELIGIBLE": "Eligible",
+            "LIKELY_ELIGIBLE": "Likely eligible",
+            "UNRESOLVED": "To confirm",
+            "VERIFIED_NOT_ELIGIBLE": "Not eligible",
+        },
+    }
+
+    def value(row: dict[str, Any], key: str) -> Any:
+        if key == "secondary_reasons":
+            return "; ".join(REASON_WORDS.get(r, r) for r in row.get(key) or [])
+        if key in worded:
+            return worded[key].get(row.get(key), row.get(key))
+        return row.get(key)
+
+    return _csv(
+        [n for n, _ in DECISION_COLUMNS],
+        ([_cell(value(r, k)) for _, k in DECISION_COLUMNS] for r in rows),
+    )

@@ -66,12 +66,15 @@ export function createDrawer({
   onAnswer = null,
   onHide = null,
   onDeepReading = null,
+  exposureFor = null,
   debug = false,
 }) {
   let invoker = null;
   let currentJob = null;
   //: Search Fit answers, saved one after another (fitFeedbackSection).
   let fitSaves = Promise.resolve();
+  //: Review decisions, saved one after another (reviewDecisionSection).
+  let reviewSaves = Promise.resolve();
   let requestToken = 0;
   // Set while an enrichment request is in flight. Aborts the request and stops
   // its elapsed-seconds timer, so neither survives a close or a re-open.
@@ -825,6 +828,7 @@ export function createDrawer({
       scoreLimits(job),
       canYouTake(job),
       deepSection(job.deep_review || null, section),
+      reviewDecisionSection(job),
       fitFeedbackSection(job),
       debug ? scoreBreakdown(job) : null,
     ].filter(Boolean);
@@ -1321,6 +1325,100 @@ export function createDrawer({
       status,
       verdict
         ? button(t('fitFeedback.export'), () => api.exportFitFeedback().catch(fail), { className: 'btn btn--link' })
+        : null,
+    ].filter(Boolean));
+  }
+
+  /**
+   * Keep, maybe or reject, after reading the posting. Measurement only: the
+   * decision is the ground truth the ranking is evaluated against, and
+   * nothing that scores, ranks, filters or retrieves reads it.
+   */
+  function reviewDecisionSection(job) {
+    const given = job.review_decision || null;
+    const decision = given ? given.decision : null;
+    const status = el('p', {
+      className: 'd-note', attrs: { role: 'status' }, text: given ? t('review.saved') : '',
+    });
+    let note = given ? given.note : null;
+    let primary = given ? given.primary_reason : null;
+    let secondary = given ? [...(given.secondary_reasons || [])] : [];
+    const fail = () => { status.textContent = t('review.failed'); };
+    // Where the posting was when it was decided, as the screen knows it.
+    const served = exposureFor ? exposureFor(job.job_id) : null;
+    const save = (next) => {
+      const body = next ? {
+        decision: next,
+        primaryReason: next === 'KEEP' ? null : primary,
+        secondaryReasons: secondary,
+        note,
+      } : null;
+      reviewSaves = reviewSaves
+        .then(() => api.patchReview(job.job_id, body, served))
+        .then(refreshWith, fail);
+    };
+    const extra = [];
+    if (decision === 'MAYBE' || decision === 'REJECT') {
+      extra.push(select(
+        [{ value: '', label: t('review.noReason') },
+          ...REVIEW_REASONS.map((r) => ({ value: r, label: t(`review.reason.${r}`) }))],
+        primary || '',
+        (value) => { primary = value || null; save(decision); },
+        { ariaLabel: t('review.reason') },
+      ));
+    }
+    if (decision) {
+      extra.push(el('details', { className: 'd-review__more' }, [
+        el('summary', { className: 'd-link', text: t('review.secondary') }),
+        // The primary reason is not offered again as a secondary one.
+        el('div', { className: 'd-review__reasons' }, REVIEW_REASONS.filter((r) => r !== primary)
+          .map((r) => el('label', {
+          className: 'd-review__reason',
+        }, [
+          el('input', {
+            className: 'checkbox',
+            attrs: { type: 'checkbox' },
+            props: { checked: secondary.includes(r) },
+            on: {
+              change: (event) => {
+                secondary = event.target.checked
+                  ? [...secondary, r] : secondary.filter((x) => x !== r);
+                save(decision);
+              },
+            },
+          }),
+          el('span', { text: t(`review.reason.${r}`) }),
+        ]))),
+      ]));
+      extra.push(el('textarea', {
+        className: 'input input--notes',
+        attrs: { rows: '2', placeholder: t('review.note'), 'aria-label': t('review.note') },
+        props: { value: given.note || '' },
+        on: {
+          input: (event) => { note = event.target.value; },
+          blur: () => { if ((given.note || '') !== (note || '')) save(decision); },
+        },
+      }));
+      extra.push(button(t('review.clear'), () => save(null), { className: 'btn btn--link' }));
+    }
+    return el('section', { className: 'd-sec d-card d-sec--review d-feedback' }, [
+      el('div', { className: 'd-feedback__row' }, [
+        el('div', { className: 'd-feedback__words' }, [
+          el('strong', { className: 'd-feedback__title', text: t('review.question') }),
+          el('span', { className: 'd-feedback__stays', text: t('review.stays') }),
+        ]),
+        el('div', {
+          className: 'segmented',
+          attrs: { role: 'group', 'aria-label': t('review.question') },
+        }, REVIEW_DECISIONS.map((d) => button(t(`review.decision.${d}`), () => save(d), {
+          className: 'segmented__btn',
+          attrs: { 'aria-pressed': d === decision ? 'true' : 'false' },
+        }))),
+      ]),
+      ...extra,
+      status,
+      decision
+        ? button(t('review.export'), () => api.exportReviewDecisions().catch(fail), { className: 'btn btn--link' })
         : null,
     ].filter(Boolean));
   }
@@ -1830,6 +1928,13 @@ const FIT_REASONS = {
   TOO_LOW: ['WORK_MATCHES_MORE', 'WORDING_MISSED', 'CENTRAL_AS_SECONDARY', 'TOOLS_MISSED',
     'SENIORITY_FITS', 'OTHER'],
 };
+
+//: storage/review_decision.py DECISIONS and REASONS, in the same order.
+const REVIEW_DECISIONS = ['KEEP', 'MAYBE', 'REJECT'];
+const REVIEW_REASONS = ['WRONG_PRIMARY_WORK', 'MANDATORY_EXPERIENCE_GAP',
+  'MANDATORY_TOOL_PLATFORM_GAP', 'MANDATORY_CREDENTIAL_GAP', 'LOCATION_OR_WORK_AUTH', 'COMPENSATION',
+  'SENIORITY_OR_SCOPE', 'WORK_MODEL_OR_SCHEDULE', 'COMPANY_OR_OPPORTUNITY_QUALITY',
+  'NOT_INTERESTED_DESPITE_FIT', 'DUPLICATE', 'STALE_OR_CLOSED', 'INSUFFICIENT_INFORMATION'];
 
 /** The catalogue's words for a key, or the id in plain letters. */
 function named(key, fallback) {

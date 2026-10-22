@@ -145,6 +145,8 @@ PRIVATE_TABLES: frozenset[str] = frozenset(
         "job_application",
         "job_application_event",
         "search_fit_feedback",
+        # 0060: what the person decided after reading a posting. Measurement only.
+        "review_decision",
         # 0047: the Resume Workspace: documents, their history, job ad
         # snapshots, tailoring runs, exports and dismissed findings.
         "resume_document",
