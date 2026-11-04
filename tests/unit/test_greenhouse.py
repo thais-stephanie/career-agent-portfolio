@@ -277,8 +277,9 @@ def test_registry_resolves_greenhouse_and_rejects_unknown() -> None:
         # assertion to mean anything. It used to be Workday, which became a
         # registered provider on 2026-09-10 -- so the test that an unknown name
         # is refused started passing a known one to `get_provider` and failed,
-        # correctly, rather than quietly asserting nothing.
-        get_provider("bamboohr", fetcher)
+        # correctly, rather than quietly asserting nothing. BambooHR became one
+        # on 2026-11-03 the same way; Breezy HR has no adapter.
+        get_provider("breezy", fetcher)
 
 
 FORBIDDEN_IN_PROVIDERS = {

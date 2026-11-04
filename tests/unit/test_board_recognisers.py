@@ -105,6 +105,7 @@ def test_no_two_families_claim_one_url() -> None:
         f"https://jobs.ashbyhq.com/acme/{UUID}",
         "https://acme.recruitee.com/o/x",
         f"https://acme.pinpointhq.com/en/postings/{UUID}",
+        "https://acme.bamboohr.com/careers/41?source=aWQ9MzA%3D",
         "https://acme.teamtailor.com/jobs/1-x",
         f"https://ats.rippling.com/acme/jobs/{UUID}",
         "https://apply.workable.com/acme/j/9A9ECD49CB/",
@@ -115,6 +116,7 @@ def test_no_two_families_claim_one_url() -> None:
 def test_the_families_are_the_ones_that_recognise_themselves() -> None:
     assert board_recogniser_families() == (
         "ashby",
+        "bamboohr",
         "comeet",
         "greenhouse",
         "lever",

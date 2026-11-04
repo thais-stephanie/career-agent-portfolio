@@ -3428,3 +3428,57 @@ companies:
         board_url: "https://safetywing.pinpointhq.com"
         discovery_method: "common_crawl_candidate_validated_2026_10_16"
         verified_at: "2026-10-16T22:00:00Z"
+
+  # BAMBOOHR (2026-11-03). Each tenant name came from the employer's own apply
+  # link as republished by an aggregator (4 Day Week, Workable, Dynamite Jobs);
+  # each was accepted only after its own `/careers/list` answered without a
+  # redirect (`scripts/bamboohr_tenants.py`, run 2026-11-03). The company name
+  # is the careers page's own `og:site_name`; the domain is the one the
+  # employer's own advert names. Slugs reuse the company rows the aggregators
+  # already created, so both sources land on one company. Freudigman & Billings
+  # (freudigmanbillings, 10 postings) and Rouge Care (rougecare, 3) also passed
+  # the board check and are NOT registered: neither publishes a domain on its
+  # board or adverts, and a registry entry needs one.
+  - slug: first-intuition
+    name: "First Intuition"
+    canonical_domain: "firstintuition.co.uk"
+    discovery_source: "aggregator_apply_link_validated_on_vendor_board"
+    boards:
+      - provider: bamboohr
+        board_identifier: "firstintuition"
+        board_url: "https://firstintuition.bamboohr.com/careers"
+        discovery_method: "aggregator_apply_link_validated_2026_11_03"
+        verified_at: "2026-11-03T23:30:00Z"
+
+  - slug: enterprise-electrical
+    name: "Enterprise Electrical"
+    canonical_domain: "enterpriseelectricalco.com"
+    discovery_source: "aggregator_apply_link_validated_on_vendor_board"
+    boards:
+      - provider: bamboohr
+        board_identifier: "enterpriseelectrical"
+        board_url: "https://enterpriseelectrical.bamboohr.com/careers"
+        discovery_method: "aggregator_apply_link_validated_2026_11_03"
+        verified_at: "2026-11-03T23:30:00Z"
+
+  # LATAMCENT (2026-11-03). A nearshore recruiting firm placing people in
+  # Latin America with client companies, which it does not name. Its careers
+  # page (WordPress WP Job Manager, `latamcent.com/careers/`) sends every
+  # application to this Ashby board; the board is the origin and closes roles
+  # the WordPress listing still shows (13 listed there, 10 open on Ashby).
+  # Read through the existing Ashby family; the company here is the recruiter,
+  # never the unnamed client. A JUDGEMENT under ADR-0018, see
+  # docs/research/retrieval-source-expansion/: latamcent.com's own terms forbid
+  # "scraping ... of the platform's content" on that website, which this does
+  # not read; the Ashby posting API is the vendor's public job-distribution
+  # interface, as for every Ashby employer here.
+  - slug: latamcent
+    name: "LatamCent"
+    canonical_domain: "latamcent.com"
+    website: "https://latamcent.com"
+    discovery_source: "careers_page_apply_links"
+    boards:
+      - provider: ashby
+        board_identifier: "latamcent"
+        discovery_method: "careers_page_apply_links_2026_11_03"
+        verified_at: "2026-11-03T23:30:00Z"

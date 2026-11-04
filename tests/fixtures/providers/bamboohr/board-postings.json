@@ -1,0 +1,45 @@
+{
+  "capture_note": "INVENTED, not recorded: the shape {tenant}.bamboohr.com/careers/list and /careers/<id>/detail answered on 2026-11-03, merged as the adapter stores it (listing row, then the detail's jobOpening; the application form is never stored). Fictional tenant, employer and postings.",
+  "postings": [
+    {
+      "id": "41",
+      "jobOpeningName": "Customer Onboarding Specialist (fictional)",
+      "departmentId": "100",
+      "departmentLabel": "Customer Success",
+      "employmentStatusLabel": "Full-Time",
+      "employmentType": null,
+      "location": {"city": "Curitiba", "state": "Parana", "postalCode": null, "addressCountry": "Brazil"},
+      "atsLocation": {"country": null, "state": null, "province": null, "city": null},
+      "isRemote": true,
+      "locationType": "1",
+      "workplace": "remote",
+      "jobOpeningShareUrl": "https://acme-ficticia.bamboohr.com/careers/41",
+      "jobOpeningStatus": "Open",
+      "jobCategoryId": null,
+      "description": "<p>Acme Ficticia is a fictional company.</p><ul><li>Run onboarding calls for new customers.</li></ul>",
+      "compensation": null,
+      "datePosted": "2026-10-15",
+      "minimumExperience": "Experienced"
+    },
+    {
+      "id": "42",
+      "jobOpeningName": "Field Estimator (fictional)",
+      "departmentId": "101",
+      "departmentLabel": "Operations",
+      "employmentStatusLabel": "Permanent - Full Time 100%",
+      "employmentType": null,
+      "location": {"city": "Leeds", "state": "West Yorkshire", "postalCode": null, "addressCountry": "United Kingdom"},
+      "atsLocation": {"country": null, "state": null, "province": null, "city": null},
+      "isRemote": null,
+      "locationType": "0",
+      "workplace": null,
+      "jobOpeningShareUrl": "https://acme-ficticia.bamboohr.com/careers/42",
+      "jobOpeningStatus": "Open",
+      "jobCategoryId": null,
+      "description": "<p>Estimate fictional projects on site.</p>",
+      "compensation": "GBP 30,000 - 35,000 per year",
+      "datePosted": "2026-09-01",
+      "minimumExperience": "Entry-level"
+    }
+  ]
+}

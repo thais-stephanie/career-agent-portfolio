@@ -35,6 +35,7 @@ from career_agent.domain.enums import ContentCompleteness
 from career_agent.net.fetcher import HttpFetcher
 from career_agent.providers import (
     ashby,
+    bamboohr,
     comeet,
     dynamitejobs,
     fourdayweek,
@@ -58,6 +59,7 @@ from career_agent.providers import (
 from career_agent.providers.arbeitnow import ArbeitnowProvider
 from career_agent.providers.ashby import AshbyProvider
 from career_agent.providers.avlis import AvlisProvider
+from career_agent.providers.bamboohr import BambooHRProvider
 from career_agent.providers.base import (
     CompensationReader,
     JobProvider,
@@ -156,6 +158,7 @@ _FACTORIES: dict[str, Callable[[HttpFetcher], JobProvider]] = {
     "workingnomads": WorkingNomadsProvider,
     "recruitee": RecruiteeProvider,
     "rippling": RipplingProvider,
+    "bamboohr": BambooHRProvider,
     "pinpoint": PinpointProvider,
     "comeet": ComeetProvider,
     "teamtailor": TeamtailorProvider,
@@ -198,6 +201,7 @@ _FIELD_MAPS: dict[str, ProviderFieldMap] = {
     "workingnomads": WorkingNomadsProvider.field_map,
     "recruitee": RecruiteeProvider.field_map,
     "rippling": RipplingProvider.field_map,
+    "bamboohr": BambooHRProvider.field_map,
     "pinpoint": PinpointProvider.field_map,
     "comeet": ComeetProvider.field_map,
     "teamtailor": TeamtailorProvider.field_map,
@@ -242,6 +246,7 @@ _CAPABILITIES: dict[str, ProviderCapabilities] = {
     "workingnomads": WorkingNomadsProvider.capabilities,
     "recruitee": RecruiteeProvider.capabilities,
     "rippling": RipplingProvider.capabilities,
+    "bamboohr": BambooHRProvider.capabilities,
     "pinpoint": PinpointProvider.capabilities,
     "comeet": ComeetProvider.capabilities,
     "teamtailor": TeamtailorProvider.capabilities,
@@ -275,6 +280,7 @@ _KINDS: dict[str, ProviderKind] = {
     "workingnomads": WorkingNomadsProvider.kind,
     "recruitee": RecruiteeProvider.kind,
     "rippling": RipplingProvider.kind,
+    "bamboohr": BambooHRProvider.kind,
     "pinpoint": PinpointProvider.kind,
     "comeet": ComeetProvider.kind,
     "teamtailor": TeamtailorProvider.kind,
@@ -313,6 +319,7 @@ _RETRIEVAL_MODES: dict[str, RetrievalMode] = {
     "workingnomads": WorkingNomadsProvider.retrieval_mode,
     "recruitee": RecruiteeProvider.retrieval_mode,
     "rippling": RipplingProvider.retrieval_mode,
+    "bamboohr": BambooHRProvider.retrieval_mode,
     "pinpoint": PinpointProvider.retrieval_mode,
     "comeet": ComeetProvider.retrieval_mode,
     "teamtailor": TeamtailorProvider.retrieval_mode,
@@ -339,6 +346,7 @@ def retrieval_mode(name: str) -> RetrievalMode | None:
 #: by exactly one adapter, each returning an id byte-identical to the stored
 #: `external_id`, and no adapter claims another's URLs.
 _URL_RECOGNISERS: dict[str, PostingUrlRecogniser] = {
+    "bamboohr": bamboohr.recognise_posting_url,
     "ashby": ashby.recognise_posting_url,
     "comeet": comeet.recognise_posting_url,
     "greenhouse": greenhouse.recognise_posting_url,
@@ -424,6 +432,7 @@ _COMPENSATION_PATHS: dict[str, tuple[str, ...]] = {
 _BY_COMPANY: dict[str, bool] = {
     "recruitee": RecruiteeProvider.addresses_boards_by_company,
     "rippling": RipplingProvider.addresses_boards_by_company,
+    "bamboohr": BambooHRProvider.addresses_boards_by_company,
     "pinpoint": PinpointProvider.addresses_boards_by_company,
     "comeet": ComeetProvider.addresses_boards_by_company,
     "teamtailor": TeamtailorProvider.addresses_boards_by_company,
@@ -674,6 +683,7 @@ def content_completeness_for(provider: str | None, *, has_text: bool) -> Content
 BoardUrlRecogniser = Callable[[str], tuple[str, str | None] | None]
 
 _BOARD_RECOGNISERS: dict[str, BoardUrlRecogniser] = {
+    "bamboohr": bamboohr.recognise_board_url,
     "ashby": ashby.recognise_board_url,
     "greenhouse": greenhouse.recognise_board_url,
     "lever": lever.recognise_board_url,

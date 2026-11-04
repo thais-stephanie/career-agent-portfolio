@@ -760,6 +760,17 @@ providers:
     field_map:
       "workplace": work_model_hint
       "employment_type": employment_type_hint
+  bamboohr:
+    # Tenant ATS family, added 2026-11-03. `<tenant>.bamboohr.com/careers/list`
+    # then one `/careers/<id>/detail` per posting (the advert and its date are
+    # only there). A tenant is registered only after its list answered without
+    # a redirect (`scripts/bamboohr_tenants.py`).
+    enabled: true
+    api_base: "https://{tenant}.bamboohr.com"
+    strategy: list_then_detail
+    field_map:
+      "workplace": work_model_hint
+      "employmentStatusLabel": employment_type_hint
   comeet:
     # Reusable ATS family, added 2026-09-12. The Careers API 2.0 behind
     # every `www.comeet.com/jobs/{slug}/{company_uid}` hosted page, read

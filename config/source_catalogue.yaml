@@ -1107,8 +1107,9 @@ sources:
       Near's terms forbid scraping or bulk-downloading its job board. Open it yourself in a
       browser instead.
     reason: >-
-      Explicit prohibition in the terms, read 2026-10-09. Not a technical
-      difficulty; nothing to engineer around.
+      Explicit prohibition in the terms, read 2026-10-09 and re-read
+      2026-11-03 unchanged. Not a technical difficulty; nothing to engineer
+      around.
     search_url: https://jobs.hirewithnear.com/
     unblocked_by: >-
       REEVALUABLE: written permission from Near (the terms name
@@ -1490,7 +1491,8 @@ sources:
       can still search Torre yourself in a browser, and the link here opens it.
     reason: >-
       `torre.ai/robots.txt`, `User-agent: *`, `Disallow: /api/`, read
-      2026-09-07. Their search endpoint also caps at 20 results per query and
+      2026-09-07 and re-read 2026-11-03 unchanged; no official API
+      documentation or terms for it were found. Their search endpoint also caps at 20 results per query and
       ignores every pagination form, so even if it were permitted, Torre
       coverage could never be presented as exhaustive.
     search_url: https://torre.ai/search/jobs
@@ -1528,6 +1530,133 @@ sources:
       all remote.
     search_url: https://www.pinpointhq.com/
     unblocked_by: Register further validated tenants.
+
+  - id: bamboohr
+    name: BambooHR
+    region: global
+    status: LIVE_INTEGRATION
+    provider: bamboohr
+    authorization: >-
+      Permitted. Each tenant's own `robots.txt`, read 2026-11-03 for
+      firstintuition, enterpriseelectrical, freudigmanbillings and rougecare,
+      is `User-Agent: *` with an empty `Disallow:`. `/careers/list` and
+      `/careers/<id>/detail` are the public, unauthenticated endpoints the
+      careers page itself reads. A JUDGEMENT under ADR-0018 rather than a
+      grant: `www.bamboohr.com/legal/terms-of-service` (read 2026-11-03)
+      forbids "any robot, spider, other automated device ... to monitor or
+      copy any content from the Service", but it is the CUSTOMER subscription
+      agreement (section 4.2 binds the subscribing company that accepted it),
+      and no first-party sentence addresses a job seeker reading a tenant's
+      public careers page. The owner may reverse it by removing the family.
+    note: >-
+      A REUSABLE ATS FAMILY, built 2026-11-03. Tenants come only from an
+      explicit list of names employers published (their apply links on
+      aggregators, or a careers-page link); there is no tenant enumeration.
+      A tenant is registered after `scripts/bamboohr_tenants.py` read its list
+      without following redirects: an unknown tenant, and a tenant whose
+      careers page is switched off (HireBoost, 2026-11-03), answer 302 to the
+      vendor. Four passed the board check 2026-11-03 (Freudigman & Billings
+      10, Enterprise Electrical 6, First Intuition 4, Rouge Care 3; United
+      States and United Kingdom employers, mostly on-site); two are registered,
+      the two whose own adverts name their domain.
+    coverage: OPERATIONAL
+    reason_plain: >-
+      Complete adverts, with their publication date, from employers' own
+      BambooHR careers pages.
+    reason: >-
+      `GET {tenant}.bamboohr.com/careers/list` lists id, title, department,
+      the tenant's employment-status label and a city/state; one
+      `GET /careers/<id>/detail` per posting carries the whole advert,
+      `datePosted`, `jobOpeningStatus`, free-text `compensation` and
+      `addressCountry`. `locationType` is archived and not read: no
+      first-party page says what its values mean.
+    search_url: https://www.bamboohr.com/
+    unblocked_by: Register further validated, employer-published tenants.
+
+  - id: breezy
+    name: Breezy HR
+    region: global
+    status: SEARCH_LINK
+    coverage: PLANNED
+    authorization: >-
+      A tenant's own robots.txt (read 2026-11-03 on `breezy.breezy.hr`, the
+      vendor's own tenant) disallows only `/css`, `/fonts`, `/stylesheets`
+      and `/javascripts`; `/json` is allowed. The vendor host `breezy.hr`
+      answered 403 to its robots.txt and terms on 2026-11-03, so the vendor's
+      terms were NOT read (a gap, not a permission). Nothing was retried
+      under another identity.
+    note: >-
+      Contract measured 2026-11-03 on the vendor's own tenant:
+      `GET {tenant}.breezy.hr/json` answers a JSON list with id, friendly_id,
+      name, url, `published_date`, type, structured location (country id,
+      state, city, `is_remote`), department, and NO advert, which lives on
+      `/p/<friendly_id>`. An unknown tenant answers 404 "Career portal not
+      found". No employer-published Breezy tenant appears in the 281,589-row
+      corpus (only image CDN links) and none was found on the candidate
+      boards reviewed, so the family is not built.
+    reason_plain: >-
+      Permitted on the employer boards, but no employer board is known yet.
+    reason: Family unbuilt for want of one published tenant and of readable vendor terms.
+    search_url: https://breezy.hr/
+    unblocked_by: >-
+      One employer-published `{tenant}.breezy.hr` identity, and the vendor's
+      terms read first-party.
+
+  - id: dailyremote
+    name: DailyRemote
+    region: global
+    status: SEARCH_LINK
+    coverage: BLOCKED
+    authorization: >-
+      FORBIDDEN by the terms. `dailyremote.com/terms` ("Last updated:
+      September 21, 2026"), read first-party 2026-11-03, section 12: you agree
+      not to "Scrape, crawl, or use automated means to access the Site
+      without written permission". robots.txt disallows only `/apply/` and
+      `/resume-builder/`; robots is silence here and the terms are the
+      statement. See `policy_review`.
+    note: >-
+      An AGGREGATOR (its own terms: "a job aggregator and directory only"),
+      operated by Rapidr, Inc., which also says listings are enhanced "using
+      automated tools and AI to ... infer salary ranges" and that displayed
+      salary "is estimated". Even a permitted adapter would have had to treat
+      its salaries as not the employer's. Its HireBoost listing is HireBoost's
+      general talent pool, already republished by Jobgether and Himalayas.
+    reason_plain: >-
+      DailyRemote's terms forbid automated access. Open it yourself in a
+      browser instead.
+    reason: Explicit prohibition in the terms, read 2026-11-03.
+    search_url: https://dailyremote.com/
+    unblocked_by: >-
+      REEVALUABLE: written permission from DailyRemote (contact@dailyremote.com;
+      writing is the owner's move), or the terms changing on a later reading.
+    policy_review:
+      reviewed: 2026-11-03
+      provider: dailyremote
+      client: none built
+      terms:
+        status: VERIFIED
+        url: https://dailyremote.com/terms
+        read: 2026-11-03
+        updated: 2026-09-21
+        quote: >-
+          Scrape, crawl, or use automated means to access the Site without
+          written permission.
+        covers: "Reading jobs: any automated access to the Site is named."
+      technical:
+        - observed: 2026-11-03
+          what: "no block. robots.txt, the home page and /terms answered 200 to one request each."
+      routes:
+        - name: listing and posting pages
+          endpoint: https://dailyremote.com/
+          robots:
+            url: https://dailyremote.com/robots.txt
+            read: 2026-11-03
+            group: "*"
+            rule: "Disallow: /apply/ and /resume-builder/ only"
+          conclusion: EXPLICIT_PROHIBITION
+          basis: [terms]
+          certainty: HIGH
+          evidence: The terms of the same host forbid scraping, crawling and automated access.
 
   - id: personio
     name: Personio
@@ -1715,7 +1844,10 @@ sources:
       wall; a job page carries a schema.org JobPosting of a posting that
       originates elsewhere.
     reason_plain: The site's terms forbid automated collection.
-    reason: Explicit prohibition in the terms, read 2026-09-11. Provenance only.
+    reason: >-
+      Explicit prohibition in the terms, read 2026-09-11 and re-read
+      2026-11-03 unchanged (also covers every city site such as
+      builtinla.com, which links the same terms). Provenance only.
     search_url: https://builtin.com/jobs
     unblocked_by: Written permission from the vendor.
 

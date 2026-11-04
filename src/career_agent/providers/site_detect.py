@@ -388,6 +388,10 @@ _BOARD_ROOTS: dict[str, re.Pattern[str]] = {
         r"^https://(?P<slug>[a-z0-9][a-z0-9-]{0,62})\.pinpointhq\.com/?(?:[a-z]{2}/?)?(?:postings/?)?(?:[?#].*)?$",
         re.IGNORECASE,
     ),
+    "bamboohr": re.compile(
+        r"^https://(?P<slug>[a-z0-9][a-z0-9-]{0,62})\.bamboohr\.com/careers/?(?:[?#].*)?$",
+        re.IGNORECASE,
+    ),
 }
 
 #: Path segments on those hosts that are the VENDOR's, not a customer's.
