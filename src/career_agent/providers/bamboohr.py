@@ -91,9 +91,20 @@ def external_id(tenant: str, posting_id: str) -> str:
 
 
 def validate_listing(body: Any) -> str | None:
-    """Why this `/careers/list` body must not be trusted, or None."""
+    """Why this `/careers/list` body must not be trusted, or None.
+
+    The list is NOT paginated: one request returns the whole board, and
+    `meta.totalCount` counts it (equal on all four tenants measured 2026-11-03
+    and again 2026-11-04). A list shorter or longer than its own count is a
+    truncated or changed answer, refused as a whole so the runner closes
+    nothing on it, rather than read as a complete board."""
     if not isinstance(body, dict) or not isinstance(body.get("result"), list):
         return "careers/list must be an object with a `result` list"
+    meta = body.get("meta")
+    total = meta.get("totalCount") if isinstance(meta, dict) else None
+    if isinstance(total, int) and not isinstance(total, bool) and total != len(body["result"]):
+        held = len(body["result"])
+        return f"careers/list holds {held} postings and its meta.totalCount says {total}"
     return None
 
 
@@ -118,6 +129,10 @@ class BambooHRProvider(JobProvider):
     kind = ProviderKind.ATS
     addresses_boards_by_company = True
     identifier_is_guessable = False
+    #: A board an aggregator's apply link names is EVIDENCE, never a
+    #: registration: `pipeline.board_discovery` records it as a lead and the
+    #: owner registers it in `companies.yaml` after reviewing it.
+    registration_requires_approval = True
     capabilities = ProviderCapabilities(
         full_description_in_list=False,
         obtains_full_description=True,

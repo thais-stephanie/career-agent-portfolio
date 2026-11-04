@@ -325,6 +325,79 @@ def test_one_failing_tenant_never_stops_the_others_and_a_closed_posting_closes(t
     conn.close()
 
 
+def test_the_list_is_one_unpaginated_request_and_must_match_its_own_count() -> None:
+    """No page, offset or cursor exists: one GET is the whole board. A list
+    whose length is not its own `meta.totalCount` is refused as a whole."""
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        return httpx.Response(200, json={"meta": {"totalCount": 3}, "result": [_row(1), _row(2)]})
+
+    with pytest.raises(FetchError, match="totalCount says 3"):
+        list(BambooHRProvider(_fetcher(handler)).list_postings(_board()))
+    assert asked == ["https://acme-ficticia.bamboohr.com/careers/list"], "never paged"
+    assert validate_listing({"meta": {"totalCount": 1}, "result": [_row(1)]}) is None
+    assert validate_listing({"meta": {}, "result": [_row(1)]}) is None, "no count, nothing to check"
+
+
+def test_a_truncated_list_closes_nothing(tmp_path) -> None:
+    conn = connect(tmp_path / "truncated.db")
+    migrate(conn)
+    _register(conn, TENANT)
+    answer = {"rows": [_row(1), _row(2), _row(3)], "count": 3}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/careers/list":
+            return httpx.Response(
+                200, json={"meta": {"totalCount": answer["count"]}, "result": answer["rows"]}
+            )
+        return httpx.Response(200, json=_detail(int(request.url.path.split("/")[2])))
+
+    def run():
+        with _fetcher(handler) as fetcher:
+            return Collector(conn, fetcher).collect_all()
+
+    assert run().jobs_new == 3
+    answer["rows"] = [_row(1)]  # the count still says 3: a truncated answer
+    partial = run()
+    assert partial.boards_failed == 1 and partial.jobs_closed == 0
+    open_count = conn.execute(
+        "SELECT count(*) FROM job WHERE provider = 'bamboohr' AND closed_at IS NULL"
+    ).fetchone()[0]
+    assert open_count == 3, "an incomplete scan is never evidence of a closure"
+    conn.close()
+
+
+def test_board_discovery_keeps_a_bamboohr_board_as_a_lead_awaiting_approval(tmp_path) -> None:
+    from career_agent.pipeline.board_discovery import (
+        BoardDiscovery,
+        DiscoveryStats,
+        Lead,
+        LeadOutcome,
+    )
+    from career_agent.providers.registry import approval_required_providers
+
+    assert approval_required_providers() == ["bamboohr"]
+    conn = connect(tmp_path / "discovery.db")
+    migrate(conn)
+    lead = Lead(
+        "acme-ficticia",
+        "https://index.example/acme",
+        origin_url=f"https://{TENANT}.bamboohr.com/careers/1",
+        provider="bamboohr",
+        board_identifier=TENANT,
+        external_id=f"bamboohr-{TENANT}-1",
+        outcome=LeadOutcome.VALIDATION_DEFERRED,
+    )
+    with _fetcher(_serving([_row(1)])) as fetcher:
+        found = BoardDiscovery(conn, fetcher)._validate_and_register(lead, DiscoveryStats())
+    assert found.outcome is LeadOutcome.VALIDATION_DEFERRED
+    assert found.detail.startswith("PENDING_OWNER_APPROVAL") and found.source_board_id is None
+    assert conn.execute("SELECT count(*) FROM source_board").fetchone()[0] == 0
+    conn.close()
+
+
 def test_a_registered_tenant_joins_the_company_an_aggregator_already_created(tmp_path) -> None:
     """A repost on an aggregator under another job id and the employer's own
     posting must share one `company_id`, so the (company, title) grouping

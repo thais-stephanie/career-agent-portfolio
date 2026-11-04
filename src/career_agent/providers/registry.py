@@ -477,6 +477,18 @@ def guessable_providers() -> list[str]:
     return sorted(name for name, guessable in _GUESSABLE.items() if guessable)
 
 
+def approval_required_providers() -> list[str]:
+    """Board families a discovery walk may record as a lead but never register.
+
+    See `BambooHRProvider.registration_requires_approval`: a board answering is
+    not the owner's approval to collect it."""
+    return sorted(
+        name
+        for name, factory in _FACTORIES.items()
+        if getattr(factory, "registration_requires_approval", False)
+    )
+
+
 def answering_for_unknown_providers() -> list[str]:
     """Board families whose host answers for an identifier nobody registered.
 

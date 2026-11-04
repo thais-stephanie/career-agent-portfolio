@@ -62,6 +62,7 @@ from career_agent.providers import remotesource
 from career_agent.providers.base import BoardRef, canonical_url
 from career_agent.providers.registry import (
     answering_for_unknown_providers,
+    approval_required_providers,
     board_providers,
     board_recogniser_families,
     get_provider,
@@ -456,6 +457,16 @@ class BoardDiscovery:
                 " this family is registered only on a listed posting",
             )
 
+        # A family whose new boards wait for the owner keeps the validated
+        # board as evidence only. VALIDATION_DEFERRED because the lead table
+        # has no other "not registered, still open" outcome; the detail says why.
+        if lead.provider in approval_required_providers():
+            return _with(
+                lead,
+                outcome=LeadOutcome.VALIDATION_DEFERRED,
+                detail=f"PENDING_OWNER_APPROVAL: the board answered with {len(stubs)} postings;"
+                " register it in companies.yaml after review",
+            )
         board_id = self._register(lead, provider.board_url(board))
         detail = (
             f"{len(stubs)}{'+' if len(stubs) >= VALIDATION_LIST_CAP else ''} postings listed"

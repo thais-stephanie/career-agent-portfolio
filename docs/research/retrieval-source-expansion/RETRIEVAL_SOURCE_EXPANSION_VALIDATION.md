@@ -184,3 +184,49 @@ technical-details block, as for Pinpoint.
   merge, then one bounded collection of the two BambooHR boards and the
   LatamCent board (13 requests) before the next full refresh. Not merged, not
   pushed, no real database touched.
+
+## 9. Integration review (2026-11-04, before the merge)
+
+This section was added during the controlled integration. Sections 1–8 are kept as written.
+
+### Discovery now needs the owner's approval (closes section 7, item 4)
+
+How a new board could appear, checked in the code:
+
+| Path | Before this change | After |
+|---|---|---|
+| `employer_boards` (runs inside a refresh) | probes only guessable families (`ashby`, `greenhouse`, `lever`); BambooHR has `identifier_is_guessable = False`, so it was never probed | unchanged |
+| Embedded-board probe | only for guessable families | unchanged |
+| `discover-remotesource` (manual CLI) | **would register** a BambooHR board as soon as the adapter listed it | the board is kept as a lead: `VALIDATION_DEFERRED`, detail `PENDING_OWNER_APPROVAL: …` (the only open, not-registered outcome the lead table's CHECK allows, so no migration is needed) |
+
+How it works:
+- The adapter declares `BambooHRProvider.registration_requires_approval = True`.
+- `registry.approval_required_providers()` reads that declaration, and `BoardDiscovery._validate_and_register` checks it before it would register.
+- The only way to register a BambooHR tenant is now a reviewed `companies.yaml` entry, synced additively by `sync_registry`.
+- `scripts/bamboohr_tenants.py` still writes nothing.
+
+### Pagination, completeness, incremental collection
+
+| Source | Contract | Completeness | Incremental |
+|---|---|---|---|
+| BambooHR | **Not paginated.** One `GET /careers/list` returns the whole board with `meta.totalCount`, then one `/careers/<id>/detail` per posting. | **New:** a list whose length differs from its own `meta.totalCount` is refused as a whole (`MALFORMED`), so the runner records a failed board and closes nothing. On 2026-11-04 the count matched: firstintuition 4/4, enterpriseelectrical 6/6. | None offered: no `updated_since`, no ETag. The details are re-read on every pass (1 + n requests, n ≤ 10). |
+| Ashby (LatamCent) | **Not paginated.** The module docstring, measured earlier: `offset`, `page` and `cursor` are ignored, and the envelope has no cursor, `hasMore` or total. | The whole board in one response (10 jobs on 2026-11-04). There is no total to compare, so a silently truncated answer is guarded only by the runner's DisappearancePolicy, as for every Ashby board. | None offered. |
+
+Behaviour inherited from the existing runner (`pipeline/collect.py`), unchanged and pinned by tests:
+- A failed list closes nothing and keeps `last_collected_at`.
+- A posting listed but not served (detail error) is counted (`postings_fetch_failed`), stays in the seen set and is never closed.
+- A time budget or interrupt inside a board writes nothing for that board (fetch first, one transaction).
+- A board's postings close only after a successful, non-suspicious pass. A large drop is held for a second pass before anything closes.
+
+Paging scenarios (multi-page, repeated cursor, cross-page duplicates, resume from a cursor) do not apply: neither contract pages, and no artificial paging was added.
+
+**Metrics:** recorded per board in `pipeline_run.stats.by_board`: `postings_observed`, `jobs_new`, `jobs_seen_again`, `postings_fetch_failed`, `boards_failed` and `elapsed_ms`, plus the run-level HTTP counts in `stats.http`. A scan is:
+- **COMPLETE** when the board succeeded with `postings_fetch_failed = 0`;
+- **PARTIAL** when it succeeded with fetch failures (those postings are kept open);
+- **FAILED** when the list failed.
+
+### Tests added
+
+- `test_the_list_is_one_unpaginated_request_and_must_match_its_own_count`
+- `test_a_truncated_list_closes_nothing`
+- `test_board_discovery_keeps_a_bamboohr_board_as_a_lead_awaiting_approval`
