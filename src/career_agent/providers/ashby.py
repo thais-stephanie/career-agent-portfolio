@@ -515,9 +515,12 @@ def recognise_posting_url(url: str) -> str | None:
     return match.group("id").lower() if match else None
 
 
-#: `https://jobs.ashbyhq.com/<board>/<uuid>`.
+#: `https://jobs.ashbyhq.com/<board>/<uuid>`. A board named with a space is
+#: published percent-encoded (`Flock%20Safety`); the posting API answers to that
+#: exact form, so the escape is kept as published rather than decoded
+#: (ATS coverage audit, 2026-11-04: 25 aggregator rows on two such boards).
 _BOARD_URL = re.compile(
-    r"^https?://jobs\.ashbyhq\.com/(?P<board>[A-Za-z0-9_.-]+)/"
+    r"^https?://jobs\.ashbyhq\.com/(?P<board>(?:[A-Za-z0-9_.-]|%[0-9A-Fa-f]{2})+)/"
     r"(?P<id>[0-9a-fA-F-]{36})(?:/application)?/?(?:[?#].*)?$",
     re.IGNORECASE,
 )

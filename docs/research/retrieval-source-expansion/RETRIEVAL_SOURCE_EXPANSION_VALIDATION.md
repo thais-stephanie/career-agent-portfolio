@@ -187,7 +187,7 @@ technical-details block, as for Pinpoint.
 
 ## 9. Integration review (2026-11-04, before the merge)
 
-This section was added during the controlled integration. Sections 1–8 are kept as written.
+This section was added during the controlled integration. Sections 1 to 8 are kept as written.
 
 ### Discovery now needs the owner's approval (closes section 7, item 4)
 

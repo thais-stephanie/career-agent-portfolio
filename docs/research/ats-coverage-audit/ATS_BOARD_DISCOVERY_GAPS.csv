@@ -1,0 +1,179 @@
+ats,company,board,evidence_source,status,open_at_origin,already_covered,unique_missing,unique_missing_full_jd,geo_br_explicit,geo_br_potential,geo_incompatible_or_elsewhere,geo_insufficient,priority,measured_on,notes
+ashby,kalshi,kalshi,aggregator apply links: speedrun 4,DISCOVERY_GAP,35,3,32,32,0,2,30,0,P1,2026-11-04,seeded sample
+ashby,rillet,rillet,aggregator apply links: speedrun 5,DISCOVERY_GAP,40,5,35,35,0,8,27,0,P1,2026-11-04,seeded sample
+greenhouse,wonderschool,wonderschool,aggregator apply links: speedrun 10,DISCOVERY_GAP,41,10,31,31,0,5,26,0,P1,2026-11-04,seeded sample
+lever,shieldai,shieldai,aggregator apply links: speedrun 111,DISCOVERY_GAP,662,101,561,561,0,10,551,0,P1,2026-11-04,seeded sample
+ashby,Astro-Mechanica,Astro-Mechanica,aggregator apply links: speedrun 11,DISCOVERY_GAP_UNMEASURED,,11,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Flock Safety,Flock%20Safety,aggregator apply links (speedrun); board name percent-encoded,DISCOVERY_GAP,26,11,15,15,0,0,15,0,P2,2026-11-04,"recogniser could not read the encoded name before this branch; fixed, not registered"
+ashby,Hippocratic AI,Hippocratic%20AI,aggregator apply links (speedrun); board name percent-encoded,DISCOVERY_GAP,50,7,43,43,0,0,43,0,P2,2026-11-04,"recogniser could not read the encoded name before this branch; fixed, not registered"
+ashby,Spoton,Spoton,aggregator apply links: speedrun 40,DISCOVERY_GAP_UNMEASURED,,38,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,airgarage,airgarage,aggregator apply links: speedrun 3,DISCOVERY_GAP,19,2,17,17,0,4,13,0,P2,2026-11-04,seeded sample
+ashby,apex-technology-inc,apex-technology-inc,aggregator apply links: speedrun 23,DISCOVERY_GAP_UNMEASURED,,23,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,applied,applied,aggregator apply links: speedrun 38,DISCOVERY_GAP_UNMEASURED,,38,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,base-power,base-power,aggregator apply links: speedrun 18,DISCOVERY_GAP_UNMEASURED,,18,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,decagon,decagon,aggregator apply links: speedrun 11,DISCOVERY_GAP_UNMEASURED,,11,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,fal-ai,fal-ai,aggregator apply links: speedrun 11,DISCOVERY_GAP_UNMEASURED,,11,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,hadrian-automation,hadrian-automation,aggregator apply links: speedrun 37,DISCOVERY_GAP_UNMEASURED,,37,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,happyrobot.ai,happyrobot.ai,aggregator apply links: speedrun 12,DISCOVERY_GAP_UNMEASURED,,12,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,heron-power,heron-power,aggregator apply links: speedrun 16,DISCOVERY_GAP_UNMEASURED,,16,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,lumaai,lumaai,aggregator apply links: speedrun 12,DISCOVERY_GAP_UNMEASURED,,12,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,marianaminerals,marianaminerals,aggregator apply links: speedrun 27,DISCOVERY_GAP_UNMEASURED,,27,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,mindrobotics,mindrobotics,aggregator apply links: speedrun 4,DISCOVERY_GAP,33,4,29,29,0,0,29,0,P2,2026-11-04,seeded sample
+ashby,mirage,mirage,aggregator apply links: speedrun 10,DISCOVERY_GAP_UNMEASURED,,10,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,opengov,opengov,aggregator apply links: speedrun 30,DISCOVERY_GAP_UNMEASURED,,28,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,radiant-industries,radiant-industries,aggregator apply links: speedrun 12,DISCOVERY_GAP_UNMEASURED,,12,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,saronic,saronic,aggregator apply links: speedrun 36,DISCOVERY_GAP_UNMEASURED,,36,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,sprinter-health,sprinter-health,aggregator apply links: speedrun 12,DISCOVERY_GAP_UNMEASURED,,12,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,talkiatry,talkiatry,aggregator apply links: speedrun 16,DISCOVERY_GAP_UNMEASURED,,16,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,andurilindustries,andurilindustries,aggregator apply links: speedrun 297,DISCOVERY_GAP_UNMEASURED,,297,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,astranis,astranis,aggregator apply links: speedrun 2,DISCOVERY_GAP,184,2,182,182,0,0,182,0,P2,2026-11-04,seeded sample
+greenhouse,carta,carta,aggregator apply links: speedrun 11,DISCOVERY_GAP_UNMEASURED,,11,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,earnin,earnin,aggregator apply links: speedrun 10,DISCOVERY_GAP_UNMEASURED,,10,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,flexport,flexport,aggregator apply links: speedrun 26,DISCOVERY_GAP_UNMEASURED,,26,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,givewell,givewell,aggregator apply links: fourdayweek 16,DISCOVERY_GAP_UNMEASURED,,11,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,mercury,mercury,aggregator apply links: speedrun 15,DISCOVERY_GAP_UNMEASURED,,15,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,tanium,tanium,aggregator apply links: speedrun 16,DISCOVERY_GAP_UNMEASURED,,16,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,unitedmasterstranslation,unitedmasterstranslation,aggregator apply links: speedrun 4,DISCOVERY_GAP,21,4,17,17,0,0,17,0,P2,2026-11-04,seeded sample
+lever,greenlight,greenlight,aggregator apply links: speedrun 2,DISCOVERY_GAP,16,2,14,14,0,6,8,0,P2,2026-11-04,seeded sample
+lever,Lovehoney Group,lovehoneygroup,aggregator link to jobs.eu.lever.co,BLOCKED_BY_CONNECTOR,39,0,,,,,,,P2,2026-11-04,"EU-region Lever board: api.lever.co answers 404, api.eu.lever.co lists 39; the adapter only reads api.lever.co"
+lever,tryjeeves,tryjeeves,aggregator apply links: speedrun 12,DISCOVERY_GAP_UNMEASURED,,12,,,,,,,P2,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Abridge,Abridge,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,0,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Bounce,Bounce,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Braintrust,Braintrust,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Cape,Cape,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,ChartHop,ChartHop,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Doppel,Doppel,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,FLORA,FLORA,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Lido.fi,Lido.fi,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Mintlify,Mintlify,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Nash,Nash,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,NorthwoodSpace,NorthwoodSpace,aggregator apply links: speedrun 8,DISCOVERY_GAP_UNMEASURED,,8,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Rasa,Rasa,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,SlingshotAI,SlingshotAI,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Talos-Trading,Talos-Trading,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,ThinkingMachines,ThinkingMachines,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,Valon,Valon,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,adaptivesecurity,adaptivesecurity,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,addi,addi,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,airspace-intelligence.com,airspace-intelligence.com,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,alchemy,alchemy,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,ambiencehealthcare,ambiencehealthcare,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,ambient.ai,ambient.ai,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,apollo-graphql,apollo-graphql,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,arena,arena,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,armadin,armadin,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,asimov,asimov,aggregator apply links: speedrun 1,DISCOVERY_GAP,7,1,6,6,0,0,6,0,P3,2026-11-04,seeded sample
+ashby,bayesianhealth,bayesianhealth,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,cantina,cantina,aggregator apply links: speedrun 5,DISCOVERY_GAP_UNMEASURED,,5,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,companycam,companycam,aggregator apply links: dynamitejobs 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,conductorai,conductorai,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,cowboyspace,cowboyspace,aggregator apply links: speedrun 8,DISCOVERY_GAP_UNMEASURED,,8,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,cruxclimate,cruxclimate,aggregator apply links: speedrun 7,DISCOVERY_GAP_UNMEASURED,,7,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,engflow,engflow,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,envoy,envoy,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,exa,exa,aggregator apply links: speedrun 6,DISCOVERY_GAP_UNMEASURED,,6,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,gamma,gamma,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,general-medicine,general-medicine,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,genesis-molecular-ai,genesis-molecular-ai,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,glimpse,glimpse,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,hedra,hedra,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,hyperexponential,hyperexponential,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,ideogram,ideogram,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,illumio,illumio,aggregator apply links: speedrun 6,DISCOVERY_GAP_UNMEASURED,,6,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,inductive-bio,inductive-bio,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,inferact,inferact,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,infinite-machine,infinite-machine,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,insitro,insitro,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,k-ID,k-ID,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,kaizenlabs,kaizenlabs,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,keycard-labs,keycard-labs,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,knownwell,knownwell,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,leona,leona,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,lightspark,lightspark,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,lio,lio,aggregator apply links: speedrun 7,DISCOVERY_GAP_UNMEASURED,,6,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,method,method,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,midstream,midstream,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,morpho,morpho,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,nexxa,nexxa,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,odyssey,odyssey,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,openrouter,openrouter,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,palmstreet,palmstreet,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,payrails,payrails,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,periodic-labs,periodic-labs,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,phantom,phantom,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,phylo,phylo,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,podium-automation,podium-automation,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,propel,propel,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,prosper-ai,prosper-ai,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,protege,protege,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,pylon-labs,pylon-labs,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,quora,quora,aggregator apply links: speedrun 5,DISCOVERY_GAP,9,5,4,4,0,4,0,0,P3,2026-11-04,seeded sample
+ashby,resend,resend,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,sentilink,sentilink,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,sesame,sesame,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,sleeper,sleeper,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,socket,socket,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,sola,sola,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,spruceid,spruceid,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,stuut-ai,stuut-ai,aggregator apply links: speedrun 9,DISCOVERY_GAP_UNMEASURED,,8,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,tako,tako,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,tenex,tenex,aggregator apply links: speedrun 5,DISCOVERY_GAP_UNMEASURED,,5,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,tennr,tennr,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,truemed,truemed,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,turquoise-health,turquoise-health,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,typesafe-ai,typesafe-ai,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,uniswap,uniswap,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,upguard,upguard,aggregator apply links: fourdayweek 24,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,wrapbook,wrapbook,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,alpha9oncology,alpha9oncology,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,arcboatcompany,arcboatcompany,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,dialpad,dialpad,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,eve,eve,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,everlaw,everlaw,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,flockhomes,flockhomes,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,formationbio,formationbio,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,forwardnetworks,forwardnetworks,aggregator apply links: speedrun 5,DISCOVERY_GAP_UNMEASURED,,5,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,freenome,freenome,aggregator apply links: speedrun 4,DISCOVERY_GAP_UNMEASURED,,4,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,honor,honor,aggregator apply links: speedrun 3,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,koboldmetals,koboldmetals,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,labelbox,labelbox,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,medium,medium,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,paveakatroveinformationtechnologies,paveakatroveinformationtechnologies,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,pindropsecurity,pindropsecurity,aggregator apply links: speedrun 7,DISCOVERY_GAP_UNMEASURED,,7,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,rigup,rigup,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,waymark,waymark,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+greenhouse,workboard,workboard,aggregator apply links: speedrun 1,DISCOVERY_GAP,4,1,3,3,0,1,2,0,P3,2026-11-04,seeded sample
+lever,alluxio,alluxio,aggregator apply links: speedrun 2,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,apryse,apryse,aggregator apply links: remoteok 3,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,exowatt,exowatt,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,flowlife,flowlife,aggregator apply links: speedrun 5,DISCOVERY_GAP_UNMEASURED,,5,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,neighbor,neighbor,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,pacific-environment,pacific-environment,aggregator apply links: fourdayweek 3,DISCOVERY_GAP_UNMEASURED,,2,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,penumbrainc,penumbrainc,aggregator apply links: remoteok 2,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,people-ai,people-ai,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,rezotx,rezotx,aggregator apply links: speedrun 1,DISCOVERY_GAP,4,1,3,3,0,0,3,0,P3,2026-11-04,seeded sample
+lever,roboflow,roboflow,aggregator apply links: fourdayweek 6,DISCOVERY_GAP_UNMEASURED,,3,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,superside,superside,aggregator apply links: jobicy 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,verygoodsecurity,verygoodsecurity,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+lever,yuno,yuno,aggregator apply links: speedrun 1,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+workable,capgemini-insurance,capgemini-insurance,aggregator apply links: jobicy 2,DISCOVERY_GAP_UNMEASURED,,1,,,,,,,P3,,board not requested in this audit; already_covered = open aggregator rows pointing at it
+ashby,1password,1password,registered board (config),COVERED,74,74,0,,0,0,74,0,,2026-11-04,catalogue open 77; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 3
+ashby,level-ai,level-ai,registered board (config),COVERED,18,18,0,,0,5,13,0,,2026-11-04,catalogue open 18; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 0
+ashby,oyster,oyster,registered board (config),COVERED,21,21,0,,8,0,13,0,,2026-11-04,catalogue open 24; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 3
+ashby,pleo,pleo,registered board (config),COVERED,43,39,4,,0,0,43,0,,2026-11-04,catalogue open 41; absent now 4 (see validation: refresh lag / reposts); open in catalogue but gone at origin 2
+ashby,redis,redis,registered board (config),COVERED,32,31,1,,0,0,32,0,,2026-11-04,catalogue open 31; absent now 1 (see validation: refresh lag / reposts); open in catalogue but gone at origin 0
+ashby,vanta,vanta,registered board (config),COVERED,83,77,6,,0,44,39,0,,2026-11-04,catalogue open 78; absent now 6 (see validation: refresh lag / reposts); open in catalogue but gone at origin 1
+bamboohr,enterpriseelectrical,enterpriseelectrical,registered board (config),COVERED,6,6,0,,0,0,6,0,,2026-11-04,catalogue open 6; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 0
+bamboohr,firstintuition,firstintuition,registered board (config),COVERED,4,4,0,,0,0,4,0,,2026-11-04,catalogue open 4; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 0
+greenhouse,amplemarket,amplemarket,registered board (config),COVERED,17,17,0,,0,8,9,0,,2026-11-04,catalogue open 17; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 0
+greenhouse,flix,flix,registered board (config),COVERED,146,123,23,,0,0,146,0,,2026-11-04,catalogue open 138; absent now 23 (see validation: refresh lag / reposts); open in catalogue but gone at origin 15
+greenhouse,glossier,glossier,registered board (config),COVERED,22,21,1,,0,0,22,0,,2026-11-04,catalogue open 21; absent now 1 (see validation: refresh lag / reposts); open in catalogue but gone at origin 0
+greenhouse,lithic,lithic,registered board (config),COVERED,11,11,0,,0,6,5,0,,2026-11-04,catalogue open 11; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 0
+greenhouse,okta,okta,registered board (config),COVERED,386,368,18,,0,0,386,0,,2026-11-04,catalogue open 396; absent now 18 (see validation: refresh lag / reposts); open in catalogue but gone at origin 28
+greenhouse,wise,wise,registered board (config),COVERED,17,17,0,,0,0,17,0,,2026-11-04,catalogue open 19; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 2
+lever,anchorage,anchorage,registered board (config),COVERED,22,22,0,,0,1,21,0,,2026-11-04,catalogue open 22; absent now 0 (see validation: refresh lag / reposts); open in catalogue but gone at origin 0
+lever,bluebottlecoffee,bluebottlecoffee,registered board (config),COVERED,72,63,9,,0,0,72,0,,2026-11-04,catalogue open 70; absent now 9 (see validation: refresh lag / reposts); open in catalogue but gone at origin 7
+lever,jobgether,jobgether,registered board (config),DUPLICATION_GAP,4640,2854,1786,,394,57,4189,0,,2026-11-04,aggregator re-poster on Lever; board fully turned over between passes; held by the disappearance guard; catalogue open 8341; absent now 1786 (see validation: refresh lag / reposts); open in catalogue but gone at origin 5487
+lever,spotify,spotify,registered board (config),COVERED,85,80,5,,1,1,83,0,,2026-11-04,catalogue open 85; absent now 5 (see validation: refresh lag / reposts); open in catalogue but gone at origin 5
+lever,veeva,veeva,registered board (config),COVERED,862,845,17,,0,0,862,0,,2026-11-04,catalogue open 860; absent now 17 (see validation: refresh lag / reposts); open in catalogue but gone at origin 15
+lever,wattpad,wattpad,registered board (config),COVERED,15,13,2,,0,0,15,0,,2026-11-04,catalogue open 16; absent now 2 (see validation: refresh lag / reposts); open in catalogue but gone at origin 3

@@ -41,6 +41,13 @@ UUID = "0fc20191-55cf-4cf9-85fd-d05496298112"
         (f"https://jobs.eu.lever.co/acme/{UUID}/apply", ("lever", "acme", UUID)),
         # Ashby.
         (f"https://jobs.ashbyhq.com/livekit/{UUID}", ("ashby", "livekit", UUID)),
+        # A board named with a space is published percent-encoded, and the
+        # posting API answers to that exact form (measured 2026-11-04: 26
+        # postings for `Flock%20Safety`). Kept as published, never decoded.
+        (
+            f"https://jobs.ashbyhq.com/Flock%20Safety/{UUID}/application",
+            ("ashby", "Flock%20Safety", UUID),
+        ),
         # Workday: tenant, shard AND site, with or without a locale segment,
         # and the apply page is the posting page.
         (
