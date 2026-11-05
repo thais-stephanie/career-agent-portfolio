@@ -92,6 +92,12 @@ SHARED_TABLES: frozenset[str] = frozenset(
         "source_health",
         # whether each posting's own page was still up (0055): public, same for all
         "job_availability",
+        # which complete Workable feed listed each posting, and what the closing
+        # rules would decide (0061): shadow only, the same for every profile
+        "workable_feed_read",
+        "workable_presence",
+        "workable_shadow_event",
+        "workable_audit_sample",
         # the shared facts of each posting, one compact row (0056, ADR-0037)
         "job_features",
         "job_feature_versions",

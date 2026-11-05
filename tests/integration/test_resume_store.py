@@ -515,6 +515,7 @@ def test_a_pre_0047_database_migrates_additively_and_once(tmp_path: Path) -> Non
         (58, "deep_review_title"),
         (59, "deep_review_split_digest"),
         (60, "review_decision"),
+        (61, "workable_presence"),
     ]
     assert set(table_names(conn)) - before == {
         "resume_document",
@@ -536,6 +537,10 @@ def test_a_pre_0047_database_migrates_additively_and_once(tmp_path: Path) -> Non
         "profile_match_versions",
         "profile_match_inputs",
         "review_decision",
+        "workable_feed_read",
+        "workable_presence",
+        "workable_shadow_event",
+        "workable_audit_sample",
     }
     assert conn.execute("SELECT note FROM search_fit_feedback").fetchone()[0] == "kept"
     assert migrate(conn) == []

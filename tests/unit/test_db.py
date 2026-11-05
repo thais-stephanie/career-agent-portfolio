@@ -141,6 +141,11 @@ EXPECTED_TABLES = {
     "source_health",
     # 0055: whether each posting's own page was still up when last asked.
     "job_availability",
+    # 0061: Workable presence and shadow decisions; closes nothing.
+    "workable_feed_read",
+    "workable_presence",
+    "workable_shadow_event",
+    "workable_audit_sample",
     # 0056/0057: Matching Architecture v2 (ADR-0037), shared and private halves.
     "job_features",
     "job_feature_versions",

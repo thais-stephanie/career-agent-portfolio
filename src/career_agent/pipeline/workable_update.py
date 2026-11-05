@@ -31,8 +31,9 @@ from pathlib import Path
 from typing import Any
 
 from career_agent.domain.enums import PipelineRunStatus
+from career_agent.pipeline import workable_presence
 from career_agent.pipeline.workable_collect import WorkableCollector, WorkableStats
-from career_agent.providers.workable_feed import FeedSession
+from career_agent.providers.workable_feed import FeedInterrupted, FeedSession
 from career_agent.runtime.maintenance_lock import maintenance_lock
 from career_agent.storage.catalogue import catalogue_path
 from career_agent.storage.db import transaction
@@ -64,6 +65,8 @@ class WorkableUpdate:
         fresh_hours: float | None = None,
         force: bool = False,
         free_bytes: Any = None,
+        audit_client: Any = None,
+        audit_sleep: Any = None,
     ) -> None:
         self.conn = conn
         self.fetcher = fetcher
@@ -73,6 +76,8 @@ class WorkableUpdate:
         self.fresh_hours = fresh_hours
         self.force = force
         self._free = free_bytes or (lambda path: shutil.disk_usage(path).free)
+        self.audit_client = audit_client
+        self.audit_sleep = audit_sleep
 
     def collect(self) -> WorkableStats:
         session = FeedSession(self.directory or feed_directory(self.conn))
@@ -94,7 +99,7 @@ class WorkableUpdate:
             )
             if not have_files and self._free(session.dir) < MIN_FREE_BYTES:
                 return self._receipt("NOT_ENOUGH_DISK")
-            return WorkableCollector(
+            stats = WorkableCollector(
                 self.conn,
                 self.fetcher,
                 session=session,
@@ -102,6 +107,27 @@ class WorkableUpdate:
                 stop_reason=self.stop_reason,
                 progress=self.progress,
             ).collect()
+            if not stats.failures and not stats.deferred_reason:
+                self._audit(stats)
+            return stats
+
+    def _audit(self, stats: WorkableStats) -> None:
+        """Answer the pending shadow sample. It closes nothing and cannot fail the read."""
+        if not workable_presence.audit_enabled():
+            return
+        options = {"sleep": self.audit_sleep} if self.audit_sleep else {}
+        try:
+            stats.presence["audit"] = workable_presence.run_audit(
+                self.conn, client=self.audit_client, check=self._audit_check, **options
+            )
+        except Exception as exc:
+            stats.presence["audit"] = {"error": type(exc).__name__}
+
+    def _audit_check(self) -> None:
+        self.fetcher.check_budget()
+        reason = self.stop_reason() if self.stop_reason else None
+        if reason:
+            raise FeedInterrupted(reason)
 
     def _receipt(self, deferred: str | None, shared_at: datetime | None = None) -> WorkableStats:
         """A run row for a read that did not need to (or could not) happen."""

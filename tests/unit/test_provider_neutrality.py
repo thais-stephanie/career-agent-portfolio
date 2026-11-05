@@ -279,6 +279,8 @@ ORDINARY_WORD_USES: dict[str, frozenset[str]] = {
     # The list export reads the CARD `presenter.job_card` built ("salary" is
     # its key for the matcher's reading), never a provider payload.
     "web/export.py": frozenset({"salary"}),
+    # The HTTP redirect header of the audit sample, never a provider payload.
+    "pipeline/workable_presence.py": frozenset({"location"}),
 }
 
 

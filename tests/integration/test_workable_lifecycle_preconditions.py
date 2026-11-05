@@ -1,8 +1,7 @@
-"""What the Workable update does today that a closing policy must change first.
+"""What a closing policy must rely on in the Workable update.
 
-Characterisation only (research O1, docs/research/workable-lifecycle/). No
-network and no real database. The xfail is strict: once the update path
-reopens a returning posting, this file fails until the marker is removed.
+Research O1 (docs/research/workable-lifecycle/). No network and no real database.
+Presence is still not stamped on `job`; a returning posting reopens since stage 0.
 """
 
 from __future__ import annotations
@@ -36,7 +35,6 @@ def test_an_unchanged_posting_is_not_stamped_as_seen(conn, folder):
     assert stamps == {"2000-01-01T00:00:00Z"}  # presence is not recorded
 
 
-@pytest.mark.xfail(strict=True, reason="O1 precondition: the update skips a returning closed row")
 def test_a_closed_posting_that_comes_back_unchanged_is_reopened(conn, folder):
     run(conn, Server(feed_xml(3)), folder)
     conn.execute(

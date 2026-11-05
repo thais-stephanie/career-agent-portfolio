@@ -1,6 +1,7 @@
 # Workable lifecycle: implementation plan
 
-Nothing here is implemented. Each stage needs the owner's approval before it
+Stages 0 and 1 are implemented on this branch, see `WORKABLE_STAGE_0_1_VALIDATION.md`.
+Stages 2 and 3 are not. Each stage needs the owner's approval before it
 starts, because it changes closing semantics for one source.
 
 ## 1. Recommended policy

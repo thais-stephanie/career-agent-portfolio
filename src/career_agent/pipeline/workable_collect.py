@@ -18,6 +18,7 @@ from typing import Any
 from career_agent.domain.enums import CollectionStatus, PipelineRunStatus
 from career_agent.net.deadline import BudgetExpired
 from career_agent.net.fetcher import FetchError, HttpFetcher
+from career_agent.pipeline import workable_presence
 from career_agent.providers.base import canonical_url as canonical_posting_url
 from career_agent.providers.base import resolve_metadata
 from career_agent.providers.registry import get_provider
@@ -79,6 +80,10 @@ class WorkableStats:
     #: Postings the feed repeated exactly as already held; an update leaves them
     #: alone (nothing written, nothing queued for a new score).
     jobs_unchanged: int = 0
+    #: Closed rows the feed listed again; `upsert_seen` reopened them.
+    jobs_reopened: int = 0
+    #: What the presence record did with this read (pipeline.workable_presence).
+    presence: dict[str, Any] = field(default_factory=dict)
     #: Why the read stopped before the end of the feed ("TIME_BUDGET",
     #: "REQUEST_BUDGET", "CANCELLED"), or None when it reached the end. A
     #: stopped read is a pending update, never a finished one.
@@ -131,6 +136,8 @@ class WorkableStats:
             "jobs_seen_again": self.jobs_seen_again,
             "jobs_changed": self.jobs_changed,
             "jobs_unchanged": self.jobs_unchanged,
+            "jobs_reopened": self.jobs_reopened,
+            "presence": dict(self.presence),
             "deferred_reason": self.deferred_reason,
             # A read cut short after it read something carries on at the next one.
             "continues": bool(self.deferred_reason and self.postings_seen > 0),
@@ -275,7 +282,10 @@ class WorkableCollector:
                 getattr(self.provider, "page_done", lambda: None)()
             if not stopped:
                 # The feed was read to its end (or confirmed unchanged by a
-                # 304): the only moment it counts as an update.
+                # 304): the only moment it counts as an update. Presence comes
+                # first: `finish` discards the staged ids, and a crash in between
+                # repeats a version the record already holds, which is a no-op.
+                self._record_presence(stats)
                 getattr(self.provider, "finish", lambda: None)()
         except (BudgetExpired, FeedInterrupted) as exc:
             # A budget or a Stop is a pending update, not a failure: what was
@@ -319,6 +329,23 @@ class WorkableCollector:
             self.runs.finish(run_id, PipelineRunStatus.OK, stats=stats.as_dict(), error=None)
         return stats
 
+    def _record_presence(self, stats: WorkableStats) -> None:
+        """Shadow only, and it can never cost the update its read."""
+        if (
+            getattr(self.provider, "session", None) is None
+            or getattr(self.provider, "not_modified", False)
+            or self.query
+            or self.day_range
+            or not workable_presence.presence_enabled()
+        ):
+            return
+        try:
+            stats.presence = workable_presence.observe(
+                self.conn, self.provider.feed_last_modified, self.provider.feed_external_ids()
+            )
+        except Exception as exc:
+            stats.presence = {"outcome": "ERROR", "error": type(exc).__name__}
+
     # -- an update: what to leave alone, when to stop ----------------------
 
     def _check(self) -> None:
@@ -340,12 +367,17 @@ class WorkableCollector:
         self._progress({"phase": phase, "done": done, "total": total, "unit": unit})
 
     def _own_rows(self) -> dict[str, tuple[Any, ...]]:
-        """What this source already holds, one tuple per posting."""
+        """What this source holds OPEN, one tuple per posting.
+
+        A closed row is left out on purpose: a posting the feed lists again must
+        reach `upsert_seen`, which reopens it, even with nothing else changed.
+        """
         return {
             str(r[0]): tuple(r[1:])
             for r in self.conn.execute(
                 "SELECT external_id, content_hash, title, url, location_raw, department,"
-                " posted_at FROM job WHERE provider = ? AND external_id IS NOT NULL",
+                " posted_at FROM job"
+                " WHERE provider = ? AND external_id IS NOT NULL AND closed_at IS NULL",
                 (PROVIDER,),
             )
         }
@@ -547,6 +579,7 @@ class WorkableCollector:
                 stats.jobs_new += 1
             else:
                 stats.jobs_seen_again += 1
+                stats.jobs_reopened += int(existing["closed_at"] is not None)
                 if text_hash is not None and existing["content_hash"] != text_hash:
                     stats.jobs_changed += 1
 

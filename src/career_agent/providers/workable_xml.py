@@ -338,6 +338,19 @@ class WorkableXmlProvider(WorkableProvider):
             self.check()
             self._fetcher.pause(1)
 
+    def feed_external_ids(self) -> list[str]:
+        """Every posting id of the staged feed, the whole file even after a resume."""
+        staged = sqlite3.connect(self.session.stage_path)
+        try:
+            return [
+                f"workable-{row[0]}"
+                for row in staged.execute(
+                    "SELECT identity FROM records WHERE identity NOT LIKE 'missing-reference:%'"
+                )
+            ]
+        finally:
+            staged.close()
+
     def page_done(self) -> None:
         """The records of the page just yielded are all handled: move the cursor."""
         if self.session is not None:
