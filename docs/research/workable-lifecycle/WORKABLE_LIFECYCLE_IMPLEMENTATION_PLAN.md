@@ -150,9 +150,12 @@ a new state.
 The owner approves each stage. Stage 2 also needs all of the following:
 
 1. Stage 1 shows **0 published answers** among sampled due postings, from at
-   least 150 sampled across the shadow reads (upper bound about 2 %).
-2. The measured flap rate is low enough for `N = 2`: under 1 % of one-miss
-   rows return. Otherwise raise `N` to the smallest value at which the shadow
+   least 150 sampled across the shadow reads (upper bound about 2 %). Read this
+   per population (`WORKABLE_SHADOW_RUNBOOK.md`): 150 answers that are mostly
+   backlog do not validate new misses, and the sample is stratified, so its
+   populations never add up to a rate over all absences.
+2. The measured flap rate of new misses, without the backlog, is low enough for
+   `N = 2`: under 1 % of one-miss rows return. Otherwise raise `N` to the smallest value at which the shadow
    shows no return.
 3. No hold that was not explained.
 4. The reopen test passes; no other provider is affected.

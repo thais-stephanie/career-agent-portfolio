@@ -463,7 +463,7 @@ def test_a_return_from_the_backlog_stays_out_of_the_flap_rate(conn, folder, shad
     wp.observe(conn, DAY_2, ids(*range(40)))
     assert events(conn)[-1] == ("R1", "WOULD_KEEP", "REAPPEARED_FROM_BASELINE")
     report = wp.shadow_report(conn)
-    assert report["first_misses"] == 0 and report["flap_rate"] is None
+    assert report["new_misses_first"] == 0 and report["new_misses_flap_rate"] is None
 
 
 def test_a_departure_after_the_baseline_is_not_the_backlog(conn, folder, shadow):
@@ -645,7 +645,8 @@ def test_the_sample_is_capped_and_seeded_by_the_version(conn, folder, audit):
             "SELECT job_id FROM workable_presence WHERE last_decision = 'WOULD_CLOSE'"
         )
     )
-    assert picked == set(random.Random(DAY_3).sample(due, wp.AUDIT_SAMPLE))
+    # Every absence here came after the baseline, so one population takes it all.
+    assert picked == set(random.Random(f"{DAY_3}:new").sample(due, wp.AUDIT_SAMPLE))
 
 
 def test_each_answer_is_recorded_as_measured(conn, folder, audit):
@@ -679,7 +680,7 @@ def test_a_published_answer_trips_the_breaker_and_restarts_only_that_posting(con
     wp.run_audit(conn, client=Site({"R1": "published"}).client(), sleep=lambda _s: None)
     report = wp.shadow_report(conn)
     last = report["reads"][-1]
-    assert last["sampled_published"] == 1 and last["breaker"] is True
+    assert last["audit"]["new"]["published"] == 1 and last["breaker_new"] is True
     assert state(conn, 1)["misses"] == 0 and state(conn, 1)["last_decision"] == "WOULD_KEEP"
     assert state(conn, 0)["last_decision"] == "WOULD_CLOSE"
     assert ("R1", "WOULD_KEEP", "EMPLOYER_STILL_LISTS") in events(conn)
@@ -688,7 +689,7 @@ def test_a_published_answer_trips_the_breaker_and_restarts_only_that_posting(con
 def test_all_gone_leaves_the_breaker_down(conn, folder, audit):
     due_postings(conn, folder)
     wp.run_audit(conn, client=Site().client(), sleep=lambda _s: None)
-    assert wp.shadow_report(conn)["reads"][-1]["breaker"] is False
+    assert wp.shadow_report(conn)["reads"][-1]["breaker_new"] is False
 
 
 @pytest.mark.parametrize("status", [429, 403])
@@ -697,7 +698,7 @@ def test_a_refusal_stops_the_sample_at_once(conn, folder, audit, status):
     site = Site(default=status)
     summary = wp.run_audit(conn, client=site.client(), sleep=lambda _s: None)
     assert len(site.requests) == 1 and summary["stopped"] == f"HTTP_{status}"
-    assert wp.shadow_report(conn)["reads"][-1]["breaker"] is True
+    assert wp.shadow_report(conn)["reads"][-1]["breaker_new"] is True
     pending = "SELECT COUNT(*) FROM workable_audit_sample WHERE answer IS NULL"
     assert conn.execute(pending).fetchone()[0] == 5
 
@@ -769,9 +770,262 @@ def test_the_report_shows_absences_returns_and_flapping(conn, folder, shadow):
     wp.observe(conn, DAY_2, missing(1, 2))
     wp.observe(conn, DAY_3, missing(2))
     report = wp.shadow_report(conn)
-    assert report["reads_counted"] == 3 and report["first_misses"] == 2
-    assert report["returned_after_one_miss"] == 1 and report["flap_rate"] == 0.5
-    assert report["absent_now"] == [{"misses": 2, "baseline": 0, "postings": 1}]
+    assert report["reads_counted"] == 3 and report["new_misses_first"] == 2
+    assert report["new_misses_returned_after_one_miss"] == 1
+    assert report["new_misses_flap_rate"] == 0.5
+    assert report["absent_now"] == [
+        {"misses": 2, "baseline": 0, "postings": 1, "population": "NEW_MISSES"}
+    ]
+
+
+# -- the two populations -------------------------------------------------------
+
+
+def two_populations(conn, folder, backlog=80, new=40, count=400):
+    """R0.. missing since the baseline; the next `new` postings left after it."""
+    seed(conn, folder, count)
+    wp.observe(conn, DAY_1, missing(*range(backlog), count=count))
+    gone = missing(*range(backlog + new), count=count)
+    wp.observe(conn, DAY_2, gone)
+    wp.observe(conn, DAY_3, gone)
+    return gone
+
+
+def reasons(conn, number):
+    return [e[1:] for e in events(conn) if e[0] == f"R{number}"]
+
+
+def sample_counts(read):
+    return read["sampled_backlog"], read["sampled_new"]
+
+
+def test_the_initial_backlog_is_identified(conn, folder, shadow):
+    seed(conn, folder)
+    wp.observe(conn, DAY_1, missing(0, 1, 2))
+    read = wp.shadow_report(conn)["reads"][0]
+    assert read["baseline_absent"] == read["absent_backlog"] == read["combined_absent"] == 3
+    assert read["new_misses"] == read["absent_new"] == 0
+    assert reasons(conn, 0) == [("WOULD_HOLD", "BASELINE_ABSENT")]
+
+
+def test_a_new_absence_is_identified(conn, folder, shadow):
+    seed(conn, folder)
+    wp.observe(conn, DAY_1, missing(0))
+    wp.observe(conn, DAY_2, missing(0, 1))
+    read = wp.shadow_report(conn)["reads"][1]
+    assert read["baseline_absent"] == 0 and read["new_misses"] == read["absent_new"] == 1
+    assert read["absent_backlog"] == 1 and read["combined_absent"] == 2
+    assert reasons(conn, 1) == [("WOULD_HOLD", "FIRST_MISS")]
+
+
+def test_would_close_is_split_by_origin(conn, folder, shadow):
+    seed(conn, folder)
+    wp.observe(conn, DAY_1, missing(0, 1))
+    wp.observe(conn, DAY_2, missing(0, 1, 2))
+    wp.observe(conn, DAY_3, missing(0, 1, 2))
+    reads = wp.shadow_report(conn)["reads"]
+    assert (reads[1]["would_close_backlog"], reads[1]["would_close_new"]) == (2, 0)
+    assert (reads[2]["would_close_backlog"], reads[2]["would_close_new"]) == (0, 1)
+    assert [r["combined_would_close"] for r in reads] == [0, 2, 1]
+    found = {d["population"]: d["postings"] for d in wp.shadow_report(conn)["decisions"]}
+    assert found["WOULD_CLOSE_BACKLOG"] == 2 and found["WOULD_CLOSE_NEW"] == 1
+
+
+def test_a_return_from_the_backlog_is_named_and_is_not_a_real_reopening(conn, folder, shadow):
+    seed(conn, folder)
+    wp.observe(conn, DAY_1, missing(1))
+    wp.observe(conn, DAY_2, missing(1))
+    wp.observe(conn, DAY_3, ids(*range(40)))
+    assert reasons(conn, 1)[-1] == ("WOULD_REOPEN", "REAPPEARED_FROM_BASELINE")
+    report = wp.shadow_report(conn)
+    read = report["reads"][-1]
+    assert (read["reappeared_backlog"], read["reappeared_new"]) == (1, 0)
+    assert {d["population"] for d in report["decisions"]} >= {"REAPPEARED_FROM_BACKLOG"}
+    assert report["new_misses_flap_rate"] is None
+    assert report["real_closed_workable_postings"] == 0 and "hypothetical" in report["scope"]
+    assert conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NOT NULL").fetchone()[0] == 0
+
+
+def test_a_return_from_a_new_absence_is_named(conn, folder, shadow):
+    seed(conn, folder)
+    wp.observe(conn, DAY_1, ids(*range(40)))
+    wp.observe(conn, DAY_2, missing(1))
+    wp.observe(conn, DAY_3, ids(*range(40)))
+    assert reasons(conn, 1)[-1] == ("WOULD_KEEP", "REAPPEARED")
+    report = wp.shadow_report(conn)
+    read = report["reads"][-1]
+    assert (read["reappeared_backlog"], read["reappeared_new"]) == (0, 1)
+    assert report["new_misses_flap_rate"] == 1.0
+
+
+def test_a_backlog_posting_that_returns_and_leaves_again_is_a_new_absence(conn, folder, shadow):
+    seed(conn, folder)
+    wp.observe(conn, DAY_1, missing(1))
+    wp.observe(conn, DAY_2, ids(*range(40)))
+    wp.observe(conn, DAY_3, missing(1))
+    assert [e[1] for e in reasons(conn, 1)] == [
+        "BASELINE_ABSENT",
+        "REAPPEARED_FROM_BASELINE",
+        "FIRST_MISS",
+    ]
+    assert state(conn, 1)["baseline"] == 0
+
+
+def test_the_employer_still_listing_it_restarts_the_count_not_the_origin(conn, folder, audit):
+    seed(conn, folder)
+    wp.observe(conn, DAY_1, missing(1))
+    wp.observe(conn, DAY_2, missing(1))
+    wp.run_audit(conn, client=Site({"R1": "published"}).client(), sleep=lambda _s: None)
+    assert state(conn, 1)["misses"] == 0 and state(conn, 1)["baseline"] == 1
+    result = wp.observe(conn, DAY_3, missing(1))
+    assert result["new_misses"] == 0
+    assert state(conn, 1)["baseline"] == 1
+    assert reasons(conn, 1)[-1] == ("WOULD_HOLD", "BASELINE_ABSENT")
+    assert wp.shadow_report(conn)["reads"][-1]["absent_backlog"] == 1
+
+
+def test_the_same_version_again_changes_no_population(conn, folder, shadow):
+    two_populations(conn, folder, backlog=5, new=3, count=40)
+    before = wp.shadow_report(conn)
+    assert wp.observe(conn, DAY_3, ids(*range(40)))["outcome"] == "IGNORED_ALREADY_RECORDED"
+    assert wp.shadow_report(conn) == before
+
+
+def test_a_held_read_counts_no_population_as_decided(conn, folder, shadow):
+    seed(conn, folder)
+    wp.observe(conn, DAY_1, missing(0))
+    wp.observe(conn, DAY_2, missing(0))
+    held = wp.observe(conn, DAY_3, missing(*range(1, 12)))
+    assert held["outcome"] == "HELD_TOO_MANY_NEW_MISSES"
+    read = wp.shadow_report(conn)["reads"][-1]
+    assert read["outcome"] == "HELD_TOO_MANY_NEW_MISSES"
+    assert read["would_close_backlog"] == read["would_close_new"] == 0
+    assert read["reappeared_backlog"] == 1
+    assert reasons(conn, 1) == []
+
+
+@pytest.mark.parametrize(
+    ("backlog", "new", "expected"),
+    [
+        (100, 100, (25, 25)),
+        (25, 25, (25, 25)),
+        (10, 100, (10, 40)),
+        (100, 10, (40, 10)),
+        (0, 100, (0, 50)),
+        (100, 0, (50, 0)),
+        (3, 4, (3, 4)),
+        (0, 0, (0, 0)),
+    ],
+)
+def test_the_budget_is_split_and_the_spare_moves(backlog, new, expected):
+    assert wp.allocate(backlog, new) == expected
+    assert sum(expected) <= wp.AUDIT_SAMPLE
+
+
+def test_enough_in_both_populations_samples_25_and_25(conn, folder, audit):
+    two_populations(conn, folder)
+    report = wp.shadow_report(conn)
+    last = report["reads"][-1]
+    assert sample_counts(report["reads"][1]) == (50, 0)
+    assert sample_counts(last) == (25, 25)
+    assert last["audit"]["backlog"]["eligible"] == 30
+    assert last["audit"]["new"]["eligible"] == 40
+
+
+def test_a_small_population_gives_its_share_to_the_other(conn, folder, audit):
+    two_populations(conn, folder, backlog=60, new=40)
+    assert sample_counts(wp.shadow_report(conn)["reads"][-1]) == (10, 40)
+
+
+def test_one_population_alone_takes_the_budget(conn, folder, audit):
+    two_populations(conn, folder, backlog=5, new=40)
+    reads = wp.shadow_report(conn)["reads"]
+    assert sample_counts(reads[1]) == (5, 0)
+    assert sample_counts(reads[2]) == (0, 40)
+
+
+def test_the_selection_is_seeded_by_the_version_for_each_population(conn, folder, audit):
+    two_populations(conn, folder)
+    read_id, version = conn.execute(
+        "SELECT id, version FROM workable_feed_read ORDER BY seq DESC LIMIT 1"
+    ).fetchone()
+    earlier = {
+        r[0]
+        for r in conn.execute(
+            "SELECT job_id FROM workable_audit_sample WHERE read_id <> ?", (read_id,)
+        )
+    }
+    picked = {
+        r[0]
+        for r in conn.execute(
+            "SELECT job_id FROM workable_audit_sample WHERE read_id = ?", (read_id,)
+        )
+    }
+    expected = set()
+    for stratum, flag in (("backlog", 1), ("new", 0)):
+        pool = sorted(
+            r[0]
+            for r in conn.execute(
+                "SELECT job_id FROM workable_presence"
+                " WHERE last_decision = 'WOULD_CLOSE' AND baseline = ?",
+                (flag,),
+            )
+            if r[0] not in earlier
+        )
+        expected |= set(random.Random(f"{version}:{stratum}").sample(pool, 25))
+    assert picked == expected and version == DAY_3
+
+
+def test_no_posting_is_sampled_twice_across_reads(conn, folder, audit):
+    gone = two_populations(conn, folder)
+    wp.observe(conn, DAY_4, gone)
+    sampled = [r[0] for r in conn.execute("SELECT job_id FROM workable_audit_sample")]
+    assert len(sampled) == len(set(sampled)) == 120
+
+
+def test_audit_results_are_kept_apart_by_population(conn, folder, audit):
+    two_populations(conn, folder, backlog=5, new=3, count=40)
+    site = Site({"R0": "published", "R5": "timeout", "R6": "published"})
+    wp.run_audit(conn, client=site.client(), sleep=lambda _s: None)
+    found = wp.shadow_report(conn)["audit"]
+    assert "not a proportional" in found["note"]
+    assert found["backlog"]["selected"] == found["backlog"]["consulted"] == 5
+    assert (found["backlog"]["published"], found["backlog"]["gone"]) == (1, 4)
+    assert found["backlog"]["unknown"] == 0
+    assert found["new"]["selected"] == found["new"]["consulted"] == 3
+    assert (found["new"]["published"], found["new"]["gone"]) == (1, 1)
+    assert found["new"]["unknown"] == 1 and found["new"]["errors"] == {"ReadTimeout": 1}
+    assert found["backlog"]["requests"] + found["new"]["requests"] == len(site.requests)
+    assert answers(conn)["R5"] == ("UNKNOWN", "ReadTimeout")
+    assert conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NOT NULL").fetchone()[0] == 0
+
+
+def test_selected_asked_and_interrupted_are_told_apart(conn, folder, audit):
+    two_populations(conn, folder, backlog=5, new=3, count=40)
+    site = Site(default=429)
+    wp.run_audit(conn, client=site.client(), sleep=lambda _s: None)
+    report = wp.shadow_report(conn)
+    found = report["audit"]
+    selected = found["backlog"]["selected"] + found["new"]["selected"]
+    consulted = found["backlog"]["consulted"] + found["new"]["consulted"]
+    not_asked = found["backlog"]["not_asked"] + found["new"]["not_asked"]
+    assert selected == 8 and consulted == 1 and not_asked == 7
+    assert report["reads"][-1]["audit_runs"][-1]["stopped"] == "HTTP_429"
+
+
+def test_the_two_populations_leave_every_other_table_alone(conn, folder, audit):
+    seed(conn, folder, 400)
+    job_id = conn.execute("SELECT id FROM job WHERE external_id = 'workable-R0'").fetchone()[0]
+    private_rows(conn, job_id)
+    before = fingerprint(conn)
+    wp.observe(conn, DAY_1, missing(*range(80), count=400))
+    gone = missing(*range(120), count=400)
+    wp.observe(conn, DAY_2, gone)
+    wp.observe(conn, DAY_3, gone)
+    wp.run_audit(conn, client=Site({"R0": "published"}).client(), sleep=lambda _s: None)
+    wp.observe(conn, DAY_4, ids(*range(400)))
+    wp.shadow_report(conn)
+    assert fingerprint(conn) == before
 
 
 # -- the migration and its rollback --------------------------------------------
