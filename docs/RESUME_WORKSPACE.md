@@ -686,6 +686,16 @@ nothing. The deterministic path stays beside it, unchanged.
 * **Recorded without the prompt**: provider, model, the prompt template's
   version and digest, the token counts the provider reported, and every
   stage's output. Neither the prompt nor any credential is stored or logged.
+* **Style rules (spec v1).** Proposed wording is also refused (`STYLE`) when
+  it holds an em dash, an en dash outside a range, a banned word or phrase
+  ("leveraged", "seamless", "proven track record" and the rest of
+  `resume_doc/style.py`), a "not X, but Y" construction, an exclamation, a
+  question, an emoji or an adjective that rates the person. A word inside an
+  official name it carries (a tool it cites, the role's employer, the job's
+  company) is not its wording. Prompt `resume-drafter-v2` states the rules.
+  The person's own and confirmed wording is never refused for style; the
+  tailoring report (`resume_doc/report.py`, research in
+  `docs/research/resume-tailor-v1/`) flags it.
 * **Labelled, not ranked.** My resumes and the job drawer say "AI-assisted";
   the job panel says the version was drafted with AI and reviewed by the
   person.

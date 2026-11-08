@@ -46,7 +46,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from career_agent.clock import new_id
-from career_agent.resume_doc import jd
+from career_agent.resume_doc import jd, style
 from career_agent.resume_doc.models import Origin, ResumeDocument, upgrade_resume_document
 from career_agent.resume_doc.store import (
     NotFound,
@@ -74,7 +74,7 @@ from career_agent.resume_doc.tailor import (
 from career_agent.storage.db import transaction
 
 MODE = "AI_ASSISTED"
-PROMPT_VERSION = "resume-drafter-v1"
+PROMPT_VERSION = "resume-drafter-v2"
 #: What a normal resume needs, and no more: a model cannot answer with a dump.
 MAX_CHANGES = 12
 MAX_TEXT = {"REWRITE_HEADLINE": 160, "REWRITE_SUMMARY": 700, "REWRITE_BULLET": 300,
@@ -160,6 +160,12 @@ Rules:
 - A bullet you add goes under the role (target_ref = that role's id) whose evidence it cites.
 - Write concisely and professionally, in the resume's language, relevant to the asks. No
   filler, no superlatives.
+- Style: never the em dash (U+2014); the en dash (U+2013) only inside a date or number range.
+  No exclamation marks, no questions, no emojis, no "not X, but Y" constructions, no
+  adjectives that rate the person. Never these words: spearheaded, leveraged, utilized,
+  passionate, results-driven, dynamic, cutting-edge, seamless, robust, synergy,
+  best-in-class, world-class, game-changer, innovative solutions, proven track record,
+  detail-oriented, team player, fast-paced, messy, bottleneck.
 - Fewer changes are fine. If nothing can be improved safely, return {"changes": []}.
 
 Operations: REWRITE_HEADLINE (target_ref "headline"), REWRITE_SUMMARY (target_ref "summary"),
@@ -337,6 +343,16 @@ def check(p: Proposal, ctx: Context, text: str | None = None) -> list[str]:
             bait=ctx.bait, new_words=AI_NEW_WORDS * (2 if p.op == "REWRITE_SUMMARY" else 1),
         )
     ]  # fmt: skip
+    # Spec v1 style rules, fail-closed for proposed wording. An official name
+    # the wording holds (a tool, the employer, the job's company) is not its
+    # choice of words.
+    names = {*tools, *(t for s in held for t in s.tools)}
+    if entry is not None:
+        names |= {entry.employer, entry.display_title}
+    if ctx.base.target and ctx.base.target.company:
+        names.add(ctx.base.target.company)
+    if style.findings(text, names):
+        problems.append("STYLE")
     return problems
 
 
