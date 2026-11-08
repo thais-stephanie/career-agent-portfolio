@@ -96,8 +96,10 @@ an implementation could break.
    the report; a real fix needs the lab marker (T7).
 2. **Ad lines under a heading are asks even when they are instructions.** An
    injected sentence under "Nice to have" becomes a quoted `nice` ask and a gap.
-   It is never acted on (data only), but the report shows it. A future filter
-   could drop imperative lines addressed to a model; not done (heuristic).
+   It is never acted on (data only). Since validation (2026-11-08) the report
+   filters lines written to a model (`report.ADDRESSED_TO_A_MODEL`, narrow word
+   patterns) out of coverage, gaps and questions and lists them as the risk
+   `AD_TEXT_ADDRESSED_TO_A_MODEL`. `jd.analyse` itself is unchanged.
 3. **The grounding reader is conservative around numbers.** "Cut onboarding time
    from 10 days to 6 days" for evidence "Reduced customer onboarding time from 10
    days to 6 days" is refused (new verb in the number's sentence). This is a

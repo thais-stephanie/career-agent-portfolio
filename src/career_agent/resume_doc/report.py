@@ -12,7 +12,8 @@ retrieval (`jd`, `tailor`):
   and lines the page budget hid;
 * `risk_flags`: style findings on visible lines, visible lines no confirmed
   evidence backs, lines citing evidence that is not confirmed now, phrases a
-  claim's limits forbid, and a page-limit conflict;
+  claim's limits forbid, a page-limit conflict, and ad lines written to a
+  model (`ADDRESSED_TO_A_MODEL`), which are never asks, gaps or questions;
 * `questions_for_user`: statements still waiting for the person's review that
   would answer an ask. They never reach the resume; confirming them is the
   person's act, in Career Evidence;
@@ -39,6 +40,14 @@ from career_agent.storage.career_repo import SKILL_CATEGORIES
 VERSION = "resume-tailor-report-v1"
 #: A skills group whose name says its skills come from outside a job.
 OUTSIDE_A_JOB = re.compile(r"(?i)\b(?:lab|labs|independent|personal|project|projects|laborat)")
+#: An ad line written to a model, not to a candidate: never an ask, a gap or a
+#: question; quoted back apart as a risk. Word patterns, so a narrow list.
+# ponytail: phrase patterns, not intent; widen when a real ad slips past it.
+ADDRESSED_TO_A_MODEL = re.compile(
+    r"(?i)<!--|\b(?:system|assistant)\s*:"
+    r"|\bignore\b.{0,40}\b(?:instructions?|prompts?|evidence)\b"
+    r"|\b(?:write|state|say|claim)\s+(?:that\s+)?the\s+candidate\b|\bpage_limit\b"
+)
 _TYPE = {"REQUIRED": "must", "PREFERRED": "nice"}
 _MATCH = {"COVERED": "strong", "PARTLY": "partial"}
 
@@ -82,8 +91,10 @@ def build(
     """The report for `doc` against `ad_text`. `limits` maps a claim key to the
     phrases its limits forbid (Career Evidence holds no such field yet)."""
     analysis = jd.analyse(ad_text)
+    aimed = {r.id: r.source_quote for r in analysis.requirements
+             if ADDRESSED_TO_A_MODEL.search(r.source_quote)}  # fmt: skip
     pool = sources(conn, doc)
-    supports = retrieve(analysis, pool)
+    supports = [s for s in retrieve(analysis, pool) if s.requirement.id not in aimed]
     by_key = {s.claim_key: s for s in pool if s.claim_key}
     shown_keys = {k for _, line, shown in _lines(doc) if shown for k in line.evidence_ids}
     coverage, gaps, eligibility = [], [], []
@@ -117,7 +128,10 @@ def build(
 
     literals = _literals(doc, pool)
     said = {s.claim_key: s.text for s in pool if s.claim_key}
-    flags: list[dict[str, Any]] = []
+    flags: list[dict[str, Any]] = [
+        {"code": "AD_TEXT_ADDRESSED_TO_A_MODEL", "ref": "job", "detail": quote}
+        for quote in aimed.values()
+    ]
     for _, line, shown in _lines(doc):
         if not shown or not line.text.strip():
             continue
@@ -147,8 +161,8 @@ def build(
         ):
             continue
         for item in group.items:
-            cited = [by_key[k] for k in item.evidence_ids if k in by_key]
-            if cited and all(_outside(c) for c in cited):
+            claims = [by_key[k] for k in item.evidence_ids if k in by_key]
+            if claims and all(_outside(c) for c in claims):
                 flags.append({"code": "SKILL_ONLY_OUTSIDE_A_JOB", "ref": item.id,
                               "detail": item.label})  # fmt: skip
     flags += [
@@ -161,7 +175,7 @@ def build(
     questions = []
     for source in _pending(conn):
         asks = [r.id for r in analysis.requirements
-                if not r.eligibility and strength(r, source) > 0]  # fmt: skip
+                if not r.eligibility and r.id not in aimed and strength(r, source) > 0]  # fmt: skip
         if asks:
             questions.append({"code": "CONFIRM_BEFORE_USE", "claim_key": source.claim_key,
                               "text": source.text, "requirement_ids": asks})  # fmt: skip
