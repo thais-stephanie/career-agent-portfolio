@@ -32,8 +32,9 @@
 import {
   acknowledgeStatement, withdrawStatement,
   createJobResume, createResumeDocument, createResumeMaster, downloadResumeExport, exportResume, getCareer,
-  applyResumeSuggestion, getLocalProfile, getResumeDocument, getResumeMaster, listResumeDocuments, manageResume,
-  saveResumeCheckpoint,
+  applyResumeFit, applyResumeSuggestion, getLocalProfile, getResumeDocument, getResumeMaster, listResumeDocuments,
+  manageResume,
+  proposeResumeFit, saveResumeCheckpoint,
   saveResumeWorkingCopy, tailorForJob, tailorPasted,
 } from './api.js';
 import { button, el } from './dom.js';
@@ -692,11 +693,98 @@ function createEditor(answer, {
       if (detail.code === 'evidence_not_confirmed') drawEvidence(detail.lines || []);
       if (detail.code === 'review_required') drawReview(detail.items || [], format);
       const changed = error.status === 409 && sent !== null && autosave.sha !== sent;
-      drawExport('failed', { message: changed ? t('rv.export.changed') : (error.userMessage || t('rv.failed')) });
+      const over = detail.code === 'over_page_limit' && !changed;
+      const message = over ? t('rv.fit.over', { n: detail.pages, limit: detail.limit }) : null;
+      const said = changed ? t('rv.export.changed') : (message || error.userMessage || t('rv.failed'));
+      drawExport('failed', { message: said });
+      if (over) void drawFit();
     } finally {
       exporting = false;
       syncDownload();
     }
+  }
+
+  /**
+   * A version for a job over two pages: what the page limit would hide, each line in its own words
+   * and why, measured on the real PDF. Nothing is hidden until the person says so; the export then
+   * measures again. When the proof of a required ask cannot fit, the person shortens it by hand.
+   */
+  async function drawFit() {
+    for (const old of exportBox.querySelectorAll('.rve__fit')) old.remove();
+    const box = el('div', { className: 'rve__notice rve__fit', dataset: { state: 'working' } }, [
+      el('p', { className: 'rve__note', text: t('rv.fit.measuring') }),
+    ]);
+    exportBox.append(box);
+    box.scrollIntoView({ block: 'nearest' });
+    if (!valid() || !(await autosave.flush())) {
+      box.dataset.state = 'failed';
+      box.replaceChildren(el('p', { text: t('rv.export.unsaved') }));
+      return;
+    }
+    let plan;
+    try {
+      plan = await proposeResumeFit(answer.id, autosave.sha);
+    } catch (error) {
+      box.dataset.state = 'failed';
+      box.replaceChildren(el('p', { attrs: { role: 'alert' }, text: error.userMessage || t('rv.failed') }));
+      return;
+    }
+    box.dataset.state = plan.status.toLowerCase();
+    const close = smallButton(t('rv.fit.edit'), () => box.remove());
+    if (plan.status === 'FITS') {
+      box.replaceChildren(el('p', { text: t('rv.fit.fits', { n: plan.pages, limit: plan.limit }) }), close);
+      return;
+    }
+    if (plan.status === 'CONFLICT') {
+      box.replaceChildren(
+        el('p', {
+          className: 'rve__fithead', attrs: { role: 'alert' },
+          text: t('rv.fit.conflict', { n: plan.pages_after, limit: plan.limit }),
+        }),
+        el('p', { text: t('rv.fit.byHand') }),
+        plan.protected.length ? el('p', { className: 'rve__note', text: t('rv.fit.protected') }) : null,
+        plan.protected.length
+          ? el('ul', { className: 'rve__fitlist' }, plan.protected.map((p) => el('li', { text: p.text })))
+          : null,
+        close,
+      );
+      return;
+    }
+    const cuts = plan.cuts.map((c) => el('li', { className: 'rve__fitcut', dataset: { step: c.step } }, [
+      el('span', {
+        className: 'rve__fittext',
+        text: c.where ? t('rv.fit.in', { text: c.text, title: c.where.title, employer: c.where.employer }) : c.text,
+      }),
+      el('span', { className: 'rve__note', text: t(`rv.fit.step.${c.step}`) }),
+    ]));
+    const apply = button(tCount('rv.fit.apply', { n: plan.cuts.length }), async () => {
+      if (autosave.dirty || autosave.sha !== plan.expected_sha256) {
+        box.replaceChildren(el('p', { attrs: { role: 'alert' }, text: t('rv.fit.changed') }), close);
+        return;
+      }
+      apply.disabled = true;
+      try {
+        await applyResumeFit(answer.id, plan.cuts.map((c) => c.ref), plan.expected_sha256);
+      } catch (error) {
+        const stale = error.status === 409;
+        const text = stale ? t('rv.fit.changed') : (error.userMessage || t('rv.failed'));
+        box.replaceChildren(el('p', { attrs: { role: 'alert' }, text }), close);
+        return;
+      }
+      await reload();
+      exportBox.replaceChildren(el('div', { className: 'rve__notice rve__fit', dataset: { state: 'applied' } }, [
+        el('p', { attrs: { role: 'status' }, text: tCount('rv.fit.applied', { n: plan.cuts.length }) }),
+      ]));
+    }, { className: 'btn btn--primary' });
+    box.replaceChildren(
+      el('p', {
+        className: 'rve__fithead',
+        text: t('rv.fit.propose', { n: plan.pages, limit: plan.limit, after: plan.pages_after }),
+      }),
+      el('ul', { className: 'rve__fitlist' }, cuts),
+      el('p', { className: 'rve__note', text: t('rv.fit.kept') }),
+      el('div', { className: 'rve__fitacts' }, [apply, close]),
+    );
   }
 
   function drawExport(state, made = {}) {
@@ -1310,8 +1398,13 @@ function createEditor(answer, {
     for (const ref of (layout && layout.overflow) || []) {
       items.push({ ref, text: t('rv.find.TALLER_THAN_PAGE'), severity: 'WARNING' });
     }
+    // A version for a job is held to two pages: said as a warning, and the fit is one click away.
+    const job = answer.kind === 'TAILORED';
     if (layout && layout.pages > 2) {
-      items.push({ ref: 'document', text: t('rv.find.PAGES', { n: layout.pages }), severity: 'OPPORTUNITY' });
+      items.push({
+        ref: 'document', text: t(job ? 'rv.find.PAGES_JOB' : 'rv.find.PAGES', { n: layout.pages }),
+        severity: job ? 'WARNING' : 'OPPORTUNITY', act: job ? () => void drawFit() : null,
+      });
     }
     if (!items.length) {
       check.replaceChildren(el('li', { className: 'rve__finding', text: t('rv.find.none') }));
@@ -1319,7 +1412,7 @@ function createEditor(answer, {
     }
     check.replaceChildren(...items.map((item) => el('li', {
       className: 'rve__finding', dataset: { severity: item.severity },
-    }, [button(item.text, () => focusRef(item.ref), { className: 'btn btn--link' })])));
+    }, [button(item.text, item.act || (() => focusRef(item.ref)), { className: 'btn btn--link' })])));
   }
 
   // -- preview -> field -----------------------------------------------------

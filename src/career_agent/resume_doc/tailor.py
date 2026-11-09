@@ -38,7 +38,13 @@ from typing import Any
 from career_agent.clock import new_id
 from career_agent.resume_doc import jd, roles
 from career_agent.resume_doc.evidence import unconfirmed_lines
-from career_agent.resume_doc.master import _career, claims_by_key, regroup_skills
+from career_agent.resume_doc.master import (
+    UNKNOWN,
+    _career,
+    claims_by_key,
+    regroup_skills,
+    skill_origin,
+)
 from career_agent.resume_doc.models import (
     EVIDENCED_ORIGINS,
     DocumentKind,
@@ -1294,8 +1300,13 @@ def suggest(doc: ResumeDocument, supports: list[Support]) -> list[dict[str, Any]
                           "where": _where(doc, add["entry_id"])}  # fmt: skip
             elif plan["skills"]:
                 skill = plan["skills"][0]
-                action = {"type": "add_skill", "label": skill["label"],
-                          "evidence_ids": [skill["evidence_id"]]}  # fmt: skip
+                held = {s.claim_key: s for s, _ in sup.shown + sup.unshown if s.claim_key}
+                # A skill nothing confirmed places is never offered for a job.
+                if skill["evidence_id"] not in held or (
+                    skill_origin([skill["evidence_id"]], held) != UNKNOWN
+                ):
+                    action = {"type": "add_skill", "label": skill["label"],
+                              "evidence_ids": [skill["evidence_id"]]}  # fmt: skip
             if action is not None:
                 suggestions.append({"key": f"add:{req.id}", "kind": "UNSHOWN_EVIDENCE",
                                     "ask": req.source_quote, "action": action})  # fmt: skip
@@ -1413,7 +1424,8 @@ def apply_suggestion(
                 "id": added, "label": action["label"], "origin": "EVIDENCE_VERBATIM",
                 "evidence_ids": action["evidence_ids"],
             })  # fmt: skip
-            regroup_skills(data, claims_by_key(*_career(conn)), only={added})
+            regroup_skills(data, claims_by_key(*_career(conn)), only={added},
+                           keep_unknown=stored.kind is DocumentKind.MASTER)  # fmt: skip
         store.save_working_copy(
             document_id, upgrade_resume_document(data), expected_sha256=expected_sha256
         )

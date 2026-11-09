@@ -70,7 +70,7 @@ an implementation could break.
 | ST2 | Banned words and phrases; official names exempt | Analyze has a small generic-phrase list | Missing | Medium | Style check with literal exemptions | Low | Implemented. |
 | ST3 | No contrastive constructions, rhetorical questions, exclamation, emoji, rating adjectives | Not checked | Missing | Low | Style check | Low | Implemented. |
 | L1 | Word budgets 850 to 1,000 (2 pages), 1,300 to 1,450 (3) | Long-document warning at 30 lines | Missing | Medium | Budget | Low | Implemented (`budget.WORD_BUDGET`, `word_count`). |
-| L2 | Cut order; never cut header, summary, strongest must-have proof | Nothing | Missing | Medium | Fit | Low (hides only) | Implemented (`budget.fit`), not wired into Tailor yet. |
+| L2 | Cut order; never cut header, summary, strongest must-have proof | Nothing | Missing | Medium | Fit | Low (hides only) | Connected (2026-11-09): the export proposes the cuts (`budget.propose`) and hides only what the person accepts (`budget.apply_cuts`). |
 | L3 | Third page at least half full or cut back | Nothing | Missing | Low | Note | Low | Implemented as a note. |
 | V1 | Every bullet, summary sentence and skill cites an evidence ID | Evidence-origin lines must; typed lines may stand alone, reviewed before export | Different by design | n/a | | | **Keep**: the person's own words are allowed, reviewed and acknowledged. The report flags `NO_CONFIRMED_EVIDENCE`. |
 | V2 | Reject any number not in cited evidence | `grounding` (stronger than substring) | None | | | | Keep. |
@@ -78,8 +78,8 @@ an implementation could break.
 | V4 | Date consistency with master | Reviewer DATES and CHRONOLOGY | None | | | | Keep. |
 | V5 | Contact URLs mailto, tel, https | Links must be http(s); email and phone are text in the PDF | mailto/tel not clickable | Low | Renderer | Low | Part B template (NEEDS DESIGN DECISION, see R1). |
 | V6 | Reading order of extracted PDF text matches JSON | READING_ORDER check against the renderer's blocks | None | | | | Keep. |
-| V7 | Render and count pages; send back with cut order | PAGES compares PDF to preview; no limit | Missing limit | Medium | Fit + measure | Low | `budget.fit(measure=pdf_pages)` implemented; cuts are done by code, never by the model (incompatible on purpose). |
-| V8 | Report shown next to preview; export after approval | Job panel shows the report; the statement review is the export gate | None | | | | Applied (2026-11-08); no second approval. |
+| V7 | Render and count pages; send back with cut order | PAGES compares PDF to preview; no limit | Missing limit | Medium | Fit + measure | Low | Connected (2026-11-09): a version for a job over two printed pages gets no file (`PageLimitExceeded`, every format); the fit measures with `pdf_pages`; cuts are done by code on the person's yes, never by the model (incompatible on purpose). |
+| V8 | Report shown next to preview; export after approval | Job panel shows the report; the statement review is the export gate | None | | | | Applied (2026-11-08); no second approval. The page count joins the review as a measured fact (2026-11-09). |
 | R1 | Typography: Liberation Sans/Arial/Helvetica 9.5 pt, lh 1.24, name 18 pt, titles 10.5 pt, margins 0.5 in / 0.55 in, gradient divider, link color | Templates clean/modern/compact; Calibri/Arial; one margin value | New template, asymmetric margins | Low | New `Design.template` value, CSS | Medium (schema, rollback) | NEEDS DESIGN DECISION: a new template value is a schema change a rolled-back build cannot read. Measured feasibility below. |
 | R2 | Single column, no tables, selectable text, embedded fonts | Yes | None | | | | Keep (fonts embed as subsets, measured). |
 | R3 | Keep role title with first lines | `data-keep` + paginator | None | | | | Keep. |
@@ -111,7 +111,7 @@ an implementation could break.
    ("write N+ years"), scope notes, authorship notes. Only "never write X" is
    mechanically checkable; the rest is the person's review.
 
-## Status by requirement (2026-11-08, after the design decisions)
+## Status by requirement (2026-11-09, after the final functional gates)
 
 Connected: implemented and reached by the app. Built: implemented, not yet
 reached by the app. Tested: covered by tests. Pending: not built. Blocked:
@@ -126,7 +126,7 @@ waits for an architecture decision.
 | T1 | Connected, tested | |
 | T2 | Built, tested; data blocked | `limit_findings` works when given limits; no field holds them (annotation proposal). |
 | T3, T4, T5, T6 | Connected, tested | Grounding unchanged; must-refuse cases pinned. |
-| T7 | Connected, tested | Skill origin in Master, Tailor, suggestion and export review. Synthetic marker blocked (annotation). |
+| T7 | Connected, tested | Skill origin in Master, Tailor, suggestion and export review. The Master keeps a skill nothing places in "Other skills" and Analyze asks where it comes from; versions for a job leave it out. Synthetic marker blocked (annotation). |
 | T8 | Connected, tested | `questions_for_user` in the job panel. |
 | T9 | Connected, tested | |
 | T10 | Connected (never judged); framing blocked | |
@@ -140,12 +140,13 @@ waits for an architecture decision.
 | B1 | Connected, tested | |
 | ST1, ST2, ST3 | Connected for AI wording (refusal); connected as report flags elsewhere | |
 | L1 | Connected (word count in the report) | |
-| L2, L3, V7 | Built, tested; not connected | `budget.fit` waits for rollout step 2 (fit before export). |
+| L2, V7 | Connected, tested | Two-page gate at export, proposal and approval in the editor (design document, "Two-page gate"). |
+| L3 | Built, tested; not reachable | The third page is not offered (A3). |
 | V1 | Kept by design; flagged | `NO_CONFIRMED_EVIDENCE` in the panel. |
 | V2, V4, V6 | Connected, tested | |
 | V3 | Connected (conservative); proposal documented | `grounding_v2`. |
 | V5 | Blocked | Template. |
-| V8 | Connected, tested | Report in the job panel; review is the only gate. |
+| V8 | Connected, tested | Report in the job panel; before a file, the statement review and the measured page count. |
 | R1, R4 | Blocked | Template; en dash needs the DATES check changed. |
 | R2, R3 | Connected | |
 | F1 | Blocked (owner's choice) | Proposal in the design document. |

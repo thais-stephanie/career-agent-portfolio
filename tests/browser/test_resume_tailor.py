@@ -215,3 +215,105 @@ def test_the_job_panel_shows_the_report_in_words(
     pt = panel(page)
     assert "Confira antes de enviar" in pt
     assert "Esta vaga tem um texto escrito para uma IA, não para você. Ele foi ignorado:" in pt
+
+
+@pytest.fixture
+def long_version(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, Any]]:
+    """A version for a job holding sixteen roles: over two pages."""
+    from tests.integration.test_resume_page_gate import lengthened, tailored
+
+    conn = profile(tmp_path, "p")
+    doc_id = lengthened(conn, tailored(conn))
+    db = Path(conn.execute("PRAGMA database_list").fetchone()[2])
+    conn.close()
+    port = _free_port()
+    app = JobsApi(ServerConfig(db_path=db, config_dir=committed_config, port=port), quiet=True)
+    httpd: ThreadingHTTPServer = build_server(app)
+    httpd.handle_error = lambda request, client_address: None  # type: ignore[method-assign]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield {"url": f"http://127.0.0.1:{port}", "doc": doc_id}
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=10)
+
+
+def _open_long(page: Chrome, server: dict[str, Any], *, locale: str | None = None) -> None:
+    page.set_viewport(1600, 900)
+    page.navigate(server["url"] + "/#resume")
+    page.wait_for("document.querySelector('.rvw__card') !== null", message="home")
+    if locale:
+        page.evaluate(f"document.querySelector('[data-locale=\"{locale}\"]').click()")
+        page.wait_for(f"document.documentElement.lang === {locale!r}", message="the language")
+        page.wait_for("document.querySelector('.rvw__card') !== null", message="home again")
+    page.evaluate("[...document.querySelectorAll('.rvw__tab')][1].click()")
+    row = f"document.querySelector('.rvl__row[data-doc=\"{server['doc']}\"]')"
+    page.wait_for(f"{row} !== null", message="the version in the list")
+    page.evaluate(f"{row}.querySelector('.rvl__primary').click()")
+    page.wait_for(
+        "document.querySelector('.rvp[data-state=\"ready\"]') !== null", message="preview"
+    )
+
+
+def _pdf(page: Chrome) -> None:
+    page.evaluate(
+        "[...document.querySelectorAll('.rve__formats button')]"
+        ".find((b) => b.textContent === 'PDF').click()"
+    )
+
+
+HIDDEN = "document.querySelectorAll('.rve__line[data-hidden=\"true\"]').length"
+FIT = "document.querySelector('.rve__fit')"
+
+
+def test_over_two_pages_the_fit_is_shown_line_by_line_and_applied_only_on_yes(
+    page: Chrome, long_version: dict[str, Any]
+) -> None:
+    _open_long(page, long_version)
+    # The preview already says it: a warning for a version for a job.
+    page.wait_for(
+        "[...document.querySelectorAll('.rve__finding')].some((f) =>"
+        " f.innerText.includes('a version for a job must fit on two'))",
+        message="the page warning",
+    )
+    _pdf(page)
+    page.wait_for(f"{FIT}?.dataset.state === 'cut'", timeout=180, message="the proposal")
+    text = page.evaluate("document.querySelector('.rve__export').innerText")
+    assert "must fit on 2. Nothing was saved." in text
+    assert "Nothing is hidden until you say so." in text
+    assert "A line from a role that ended more than six years ago." in text
+    assert "Invented Company" in text  # each line says which role it is from
+    for internal in ("BULLET_OF_OLD_ROLE", "WEAKEST_BULLET", "bullet/", "skills/", "OVER_PAGE"):
+        assert internal not in text, internal
+    assert page.evaluate(HIDDEN) == 0  # nothing hidden before the yes
+    page.evaluate(f"{FIT}.querySelector('.btn--primary').click()")
+    page.wait_for(f"{FIT}?.dataset.state === 'applied'", message="applied")
+    assert page.evaluate(HIDDEN) > 0
+    _pdf(page)
+    page.wait_for(
+        "document.querySelector('.rve__export')?.dataset.state === 'ready'",
+        timeout=120,
+        message="the file",
+    )
+    # The only error is the first, refused export itself (409: over two pages).
+    assert [e["url"].rsplit("/", 1)[-1] for e in page.console_errors()] == ["exports"]
+
+
+def test_the_fit_in_portuguese_and_edit_it_myself_hides_nothing(
+    page: Chrome, long_version: dict[str, Any]
+) -> None:
+    _open_long(page, long_version, locale="pt-BR")
+    _pdf(page)
+    page.wait_for(f"{FIT}?.dataset.state === 'cut'", timeout=180, message="the proposal")
+    text = page.evaluate("document.querySelector('.rve__export').innerText")
+    assert "precisa caber em 2. Nada foi salvo." in text
+    assert "Nada é ocultado sem a sua confirmação." in text
+    assert "Uma linha de um cargo encerrado há mais de seis anos." in text
+    page.evaluate(
+        f"[...{FIT}.querySelectorAll('button')]"
+        ".find((b) => b.textContent === 'Editar manualmente').click()"
+    )
+    page.wait_for(f"{FIT} === null", message="closed")
+    assert page.evaluate(HIDDEN) == 0

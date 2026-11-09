@@ -90,8 +90,9 @@ def test_the_master_places_each_skill_by_where_its_evidence_says(tmp_path: Path)
     assert got["Skills"] == (False, ["SQL"])  # the job's skill, as before
     assert got["Lab"] == (False, ["Kubernetes"])
     assert got["Independent projects"] == (False, ["Django"])
-    assert got["Origin not confirmed"] == (True, ["Terraform"])  # off the page, kept
-    assert "Terraform" not in visible_labels(master.working)
+    # Nothing places it: kept on the page, apart from a job's (Analyze asks where).
+    assert got["Other skills"] == (False, ["Terraform"])
+    assert "Terraform" not in got["Skills"][1]
     for entry in master.working.experience:  # never moved into a job
         assert not any(k in ("k-lab", "k-proj", "k-tool") for b in entry.bullets
                        for k in b.evidence_ids)  # fmt: skip
@@ -130,7 +131,7 @@ def test_the_language_of_the_version_names_the_groups(tmp_path: Path) -> None:
     mixed(conn)
     doc, _ = master_from_career_profile(conn, resolve_identity(conn)[0], language="pt")
     names = set(groups(doc))
-    assert {"Laboratório", "Projetos independentes", "Origem não confirmada"} <= names
+    assert {"Laboratório", "Projetos independentes", "Outras competências"} <= names
 
 
 def test_a_lab_chip_shown_as_a_jobs_skill_stops_the_export_and_cannot_be_waved_through(

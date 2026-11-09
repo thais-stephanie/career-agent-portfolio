@@ -41,9 +41,10 @@ from typing import Any
 
 from career_agent.clock import new_id
 from career_agent.resume_doc import review
-from career_agent.resume_doc.ats import blocks, check_export
+from career_agent.resume_doc.ats import blocks, check_export, read_pdf
+from career_agent.resume_doc.budget import page_limit
 from career_agent.resume_doc.evidence import unconfirmed_lines
-from career_agent.resume_doc.models import ResumeDocument
+from career_agent.resume_doc.models import DocumentKind, ResumeDocument
 from career_agent.resume_doc.render import ACCENTS, FONTS, PAGE_MM, render_html
 from career_agent.resume_doc.store import (
     EvidenceNotConfirmed,
@@ -71,6 +72,14 @@ class ExportRefused(ValueError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+class PageLimitExceeded(ExportRefused):
+    """A version for a job prints over its page limit: no file, no revision."""
+
+    def __init__(self, pages: int, limit: int) -> None:
+        super().__init__("OVER_PAGE_LIMIT")
+        self.pages, self.limit = pages, limit
 
 
 class ExportFailed(RuntimeError):
@@ -353,6 +362,8 @@ def export_revision(
     file that could not be made, or a copy changed meanwhile, leaves no
     revision, no row and no file. A file that was made is kept and recorded
     even when a check finds a problem: the check result says exactly what.
+    A version for a job that prints over two pages is the exception: no
+    file, no revision (`PageLimitExceeded`; `budget.propose` says what to hide).
     `page_breaks` are the blocks the preview started its pages with; the PDF
     starts its pages there too."""
     store = ResumeStore(conn)
@@ -386,10 +397,18 @@ def export_revision(
             preview_pages=preview_pages,
             preview_overflow=preview_overflow or [],
         )
+        # A version for a job is held to two pages in every format: a DOCX or
+        # JSON of it is measured as the PDF it would print.
+        printed = None
+        if stored.kind is DocumentKind.TAILORED:
+            printed = report.get("pages") if fmt == "PDF" else len(read_pdf(pdf(html)[0]))
     except ExportFailed:
         raise
     except Exception as exc:  # noqa: BLE001  -- a file that cannot be made or read back
         raise ExportFailed("FILE_UNREADABLE") from exc
+    limit = page_limit(False)
+    if printed is not None and printed > limit:
+        raise PageLimitExceeded(printed, limit)
     export_id = new_id()
     relative = f"{document_id}/{export_id}.{EXTENSIONS[fmt]}"
     path = export_dir(conn) / relative

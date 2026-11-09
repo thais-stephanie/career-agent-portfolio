@@ -61,8 +61,10 @@ _LAB_WORDS = re.compile(r"(?i)\b(?:home\s?labs?|labs?|laborat[oó]rios?|laborato
 OUTSIDE_A_JOB = re.compile(
     r"(?i)\b(?:labs?|laborat\w*|independ\w*|personal|pessoa\w*|projects?|projetos?|proyectos?)\b"
 )
-#: Where such a skill goes. The UNKNOWN group is made hidden: off the page,
-#: still in the document for the person to place.
+#: Where such a skill goes. In a version for a job the UNKNOWN group is
+#: hidden: off the page, still in the document, listed in the report. The
+#: Master keeps the person's skills on the page, apart from a job's
+#: (`KEPT_UNKNOWN`), and Analyze asks where each comes from.
 SKILL_GROUPS = {
     LAB: {"en": "Lab", "pt": "Laboratório", "es": "Laboratorio"},
     PROJECT: {"en": "Independent projects", "pt": "Projetos independentes",
@@ -70,6 +72,7 @@ SKILL_GROUPS = {
     UNKNOWN: {"en": "Origin not confirmed", "pt": "Origem não confirmada",
               "es": "Origen no confirmado"},
 }  # fmt: skip
+KEPT_UNKNOWN = {"en": "Other skills", "pt": "Outras competências", "es": "Otras habilidades"}
 
 
 def claims_by_key(overview: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, dict]:
@@ -100,11 +103,16 @@ def skill_origin(keys: Iterable[str], claims: dict[str, Any]) -> str:
 
 
 def regroup_skills(
-    data: dict[str, Any], claims: dict[str, Any], *, only: set[str] | None = None
+    data: dict[str, Any],
+    claims: dict[str, Any],
+    *,
+    only: set[str] | None = None,
+    keep_unknown: bool = False,
 ) -> list[dict[str, Any]]:
     """Move every evidenced skill (or those in `only`) that no job's evidence
     holds out of a shown group whose name does not say so: into Lab or
-    Independent projects, or, when nothing says where, into a hidden group.
+    Independent projects, or, when nothing says where, into a hidden group
+    (a shown "Other skills" group with `keep_unknown`, the Master's choice).
     Nothing is deleted; the moves are returned as changes."""
     language = str(data.get("language") or "en")[:2]
     changes: list[dict[str, Any]] = []
@@ -120,10 +128,14 @@ def regroup_skills(
             origin = skill_origin(item["evidence_ids"], claims)
             if origin == JOB:
                 continue
-            name = SKILL_GROUPS[origin].get(language, SKILL_GROUPS[origin]["en"])
+            names = KEPT_UNKNOWN if keep_unknown and origin == UNKNOWN else SKILL_GROUPS[origin]
+            name = names.get(language, names["en"])
+            if name == group["name"]:
+                continue  # already where it belongs
             target = next((g for g in data["skills"] if g["name"] == name), None)
             if target is None:
-                target = {"id": new_id(), "name": name, "hidden": origin == UNKNOWN, "items": []}
+                hidden = origin == UNKNOWN and not keep_unknown
+                target = {"id": new_id(), "name": name, "hidden": hidden, "items": []}
                 data["skills"].append(target)
             group["items"].remove(item)
             target["items"].append(item)
@@ -317,10 +329,11 @@ def master_from_career_profile(
         provenance=DocumentProvenance(created_from=CreatedFrom.SCRATCH),
     )
     data = doc.model_dump(mode="json")
-    for moved in regroup_skills(data, claims_by_key(overview, items)):
+    for moved in regroup_skills(data, claims_by_key(overview, items), keep_unknown=True):
         if moved["origin"] == UNKNOWN:
             notes.append(
-                f"skill {moved['after']}: no confirmed evidence says where, left off the page"
+                f"skill {moved['after']}: no confirmed evidence says where; kept under"
+                f" {moved['group']}, apart from a job's"
             )
     return ResumeDocument.model_validate(data), notes
 

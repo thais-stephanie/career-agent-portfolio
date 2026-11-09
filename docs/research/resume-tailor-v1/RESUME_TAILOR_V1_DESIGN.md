@@ -173,7 +173,7 @@ reads a skill's confirmed evidence:
 | `JOB` | at least one cited claim is in a (non-archived) job | the plain skills group, as before |
 | `LAB` | no claim in a job, and a claim's own confirmed words say lab ("home lab", "laboratório") | a group named "Lab" / "Laboratório" |
 | `PROJECT` | no claim in a job, and a cited claim is a PROJECT | "Independent projects" / "Projetos independentes" |
-| `UNKNOWN` | nothing says where (a standalone skill or tool claim, or evidence retired since) | a **hidden** group "Origin not confirmed": off the page, kept in the document, reported |
+| `UNKNOWN` | nothing says where (a standalone skill or tool claim, or evidence retired since) | in the Master: a shown group "Other skills" / "Outras competências", apart from a job's, and Analyze asks where it comes from (`SKILL_ORIGIN_UNKNOWN`). In a version for a job: a **hidden** group "Origin not confirmed", kept in the document, listed in the report as left out |
 
 The lab word is read from the person's own confirmed text (a `ponytail:`
 comment marks it): it only decides between the two labelled groups, never
@@ -191,10 +191,15 @@ the group so it says where the skill comes from, or hides it. An `UNKNOWN`
 skill in an old document is not proof of a lab, so it does not stop the
 export; the report flags it (`SKILL_ORIGIN_UNKNOWN`).
 
-Known effect to review: a new Master now leaves every standalone skill claim
-that is not placed in any experience off the page (hidden group), as the
-decision asks. The person places it in Career Evidence (link it to a job or a
-project) or shows the group.
+Owner decision of 2026-11-09: the Master keeps what the person entered and
+confirmed. A skill nothing places stays on the Master's page in its own group
+("Other skills"), never in the job skills group, and Analyze lists it as a
+warning to classify (`SKILL_ORIGIN_UNKNOWN`, with the skill's name). It is
+never read as a job's: the absence of a lab word never makes a skill a job's
+(only a claim in a job does). A version for a job leaves it out (hidden, listed
+in the report with its name), and "add this skill" never offers it for a job.
+An older Master that holds it in "Skills" is not changed: Analyze asks about it
+the same way, and versions made from it leave it out.
 
 ### Number grounding (approved: stay conservative; proposal only)
 
@@ -244,9 +249,45 @@ Proposed storage, not built:
   it held the file to. The model can never set it (`budget.page_limit` takes a
   bool only; drafter answers with a `page_limit` field fail parsing).
 
-The real page count stays checked at export: the preview's count is compared
-with the printed PDF (`ats` PAGES). Wiring `budget.fit` into export is the
-rollout plan's step 3.
+### Two-page gate (connected 2026-11-09, no migration)
+
+Where it sits: in `export.export_revision`, the one function every download
+goes through (the route `POST .../exports`; no other code makes a file). After
+the statement review has passed and the file is made, a version for a job
+(`DocumentKind.TAILORED`, which includes manual versions for a job) is
+measured: the PDF's own page count, or for DOCX and JSON the PDF the same
+print HTML makes. Over `page_limit(False)` = 2 raises `PageLimitExceeded`:
+no file is kept, no revision, no export row (HTTP 409 `over_page_limit` with
+the page count). The Master and other resumes are not held to two pages.
+
+The person's side, with no second approval:
+
+1. The preview shows "N pages: a version for a job must fit on two" as a
+   warning; clicking it, or a refused download, opens the proposal.
+2. `POST .../fit` (`budget.propose`) runs `budget.fit` on the saved copy with
+   the real PDF as the measure (at most `MAX_ROUNDS` = 4 prints), against the
+   version's own ad. It changes nothing and returns every cut with the line's
+   text, its role, and the reason (shown in words: "A line from a role that
+   ended more than six years ago", and so on), plus the pages before and after.
+3. "Hide these N items" sends exactly those refs and the hash of the copy the
+   person saw to `POST .../fit/cuts` (`budget.apply_cuts`). The server
+   accepts a ref only when the spec's cut order allows it on that copy now
+   (never the strongest line of a required ask, never a role's last line, no
+   duplicates, nothing unknown); a changed copy is refused (`StaleDocument`).
+   The copy before is first kept as a `MANUAL_CHECKPOINT` revision (the reason
+   Analyze already uses for its own milestones; a new reason would need a
+   migration), so it can be restored; then the hides are saved as the working
+   copy. Nothing is deleted, and the Master is not touched.
+4. The download is measured again; the export makes the `EXPORTED` revision.
+   "Edit it myself" closes the proposal and hides nothing.
+5. `CONFLICT` (what proves the required asks does not fit even with every
+   allowed cut): the proposal says so, lists the protected lines, and offers
+   only editing by hand.
+
+Unchanged: the statement review and its acknowledgements (an acknowledgement
+is for the words as saved; an edit asks again), `ats` PAGES (preview vs PDF).
+Files exported before this gate stay downloadable as they were; they are
+history, not a new export.
 
 ### Limits and evidence class (proposal, versioned, not built)
 
@@ -278,9 +319,10 @@ stored) for a version made for a job ad, and the existing job panel beside the
 preview shows: coverage (met, partly met, not found), what the version leaves
 out ("Left out of this version"), risks ("Check before you send it"), and
 statements waiting for confirmation. Every code is mapped to plain words in
-English and Portuguese; ids are never shown. No second approval: the export
-gate is still the statement review (now with `OUTSIDE_A_JOB`), and the report
-itself blocks nothing.
+English and Portuguese; ids are never shown. No second approval: before a
+file, the statement review (now with `OUTSIDE_A_JOB`) and, for a version for a
+job, the measured page count (a fact, not an approval); the report itself
+blocks nothing.
 
 ### Job text written to a model
 
@@ -310,4 +352,5 @@ asks (twelve such lines tested).
 ## Not done, by design
 
 * No new migration, no schema change, no change to `jd.analyse`.
+* No third page: `page_limit(True)` exists, nothing reaches it.
 * No model call of any kind; tests use fakes or no provider at all.

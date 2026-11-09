@@ -27,6 +27,7 @@ from typing import Any
 
 from career_agent.resume_doc import jd
 from career_agent.resume_doc.check import SEVERITIES, finding, findings
+from career_agent.resume_doc.master import UNKNOWN, claims_by_key, skill_origin
 from career_agent.resume_doc.models import (
     EVIDENCED_ORIGINS,
     Origin,
@@ -218,6 +219,22 @@ def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list, dict
     return out, counts  # fmt: skip
 
 
+def _skill_origins(conn: sqlite3.Connection, doc: ResumeDocument) -> list[dict[str, Any]]:
+    """Shown skills from confirmed evidence that says neither job, lab nor
+    project: kept on the page, never read as a job's, and asked about."""
+    if "skills" in doc.layout.hidden_sections:
+        return []
+    claims = claims_by_key(*_career(conn))
+    return [
+        finding("SKILL_ORIGIN_UNKNOWN", f"skills/{g.id}/item/{i.id}", text=i.label,
+                evidence_ids=list(i.evidence_ids))
+        for g in doc.skills if not g.hidden
+        for i in g.items
+        if i.evidence_ids and i.origin in EVIDENCED_ORIGINS
+        and skill_origin(i.evidence_ids, claims) == UNKNOWN
+    ]  # fmt: skip
+
+
 def _consistency(doc: ResumeDocument) -> list[dict[str, Any]]:
     out = []
     shown = _shown(doc, "experience")
@@ -258,6 +275,7 @@ def resume(conn: sqlite3.Connection, doc: ResumeDocument, document_id: str,
     evidence, counts = _evidence(conn, doc)
     exported, export = _export(store, document_id, revision_id)
     found = findings(doc) + _structure(doc) + _content(doc) + evidence + _consistency(doc)
+    found += _skill_origins(conn, doc)
     # Each line-level finding carries the line, so it can be found without the Editor.
     texts = {line.id: line.text for _, line, _ in _lines(doc)}
     for f in found:

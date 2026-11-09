@@ -10692,6 +10692,12 @@ table.jobs .cell__title-btn { max-width: 100%; }
 .rve__exporthead { font-weight: 600; flex-basis: 100%; }
 .rve__atslist { margin: 0; padding: 0; list-style: none; flex: 1 1 100%; display: flex; flex-direction: column; gap: 2px; }
 .rve__atscheck { display: flex; gap: 6px; font-size: 13px; }
+/* Over two pages: what the fit would hide, each line and why, then the person's choice. */
+.rve__fit { flex-direction: column; align-items: stretch; }
+.rve__fithead { font-weight: 600; }
+.rve__fitlist { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.rve__fitcut { display: flex; flex-direction: column; font-size: 13px; overflow-wrap: anywhere; }
+.rve__fitacts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .rve__mark { width: 1.1em; flex: none; text-align: center; font-weight: 700; }
 .rve__atscheck[data-status="FAIL"], .rve__atscheck[data-status="WARNING"] { color: var(--block-ink); font-weight: 600; }
 .rve__mode {

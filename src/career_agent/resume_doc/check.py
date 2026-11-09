@@ -68,6 +68,8 @@ KINDS: dict[str, tuple[str, str, str, str | None]] = {
     "UNSUPPORTED_CLAIM": ("EVIDENCE", W, ADV, "EDIT"),
     "UNSUPPORTED_WORDING": ("EVIDENCE", I, ADV, "EDIT"),
     "NOT_FROM_EVIDENCE": ("EVIDENCE", I, OBJ, "OPEN_EVIDENCE"),
+    # A shown skill no confirmed evidence places (job, lab or project).
+    "SKILL_ORIGIN_UNKNOWN": ("EVIDENCE", W, ADV, "EDIT"),
     "STALE_EVIDENCE": ("EVIDENCE", W, OBJ, "EDIT"),
     "EVIDENCE_CHANGED": ("EVIDENCE", I, OBJ, "EDIT"),
     "CHECK_DATES": ("CONSISTENCY", I, ADV, "EDIT"),

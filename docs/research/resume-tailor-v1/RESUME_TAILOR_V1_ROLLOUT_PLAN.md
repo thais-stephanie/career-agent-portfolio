@@ -10,8 +10,14 @@ architecture decisions and remaining risks before any merge.
   `resume-drafter-v2` states the rules.
 * Skill origin (`master.skill_origin`, `regroup_skills`): Master, Tailor and the
   "add this skill" suggestion place a lab's or a project's skill in a labelled
-  group and hide one nothing places; the export review stops a lab or project
-  skill shown as a job's (`OUTSIDE_A_JOB`, never acknowledged).
+  group; the export review stops a lab or project skill shown as a job's
+  (`OUTSIDE_A_JOB`, never acknowledged). A skill nothing places stays on the
+  Master in "Other skills" and Analyze asks about it; a version for a job
+  hides it, says so in the report, and never suggests it.
+* The two-page gate: `export_revision` gives no file for a version for a job
+  over two printed pages (any format); `POST .../fit` proposes the cuts on the
+  real PDF, `POST .../fit/cuts` hides only those the person accepted (the
+  copy before kept as a revision).
 * Ad lines written to a model are dropped in `tailor.retrieve` (every consumer).
 * The report is in the job panel (`GET .../job` carries `report`), worded in
   English and Portuguese.
@@ -20,21 +26,21 @@ architecture decisions and remaining risks before any merge.
 
 | Decision | State |
 |---|---|
-| Lab skills never shown as a job's | Applied (see the design document). Review the effect on standalone skill claims (hidden in new Masters and versions). |
+| Lab skills never shown as a job's | Applied (see the design document). Standalone skill claims: kept on the Master (2026-11-09), left out of versions for a job. |
 | Number grounding stays conservative | Applied: unchanged; false refusals and must-refuse cases pinned by tests; `grounding_v2` proposal in the design document. |
-| Two pages default, third only per job later | Applied: `page_limit(False)` everywhere; storage proposal (a new table, not a column) documented, not built. |
+| Two pages default, third only per job later | Applied and enforced at export (2026-11-09); storage proposal for the third page (a new table, not a column) documented, not built. |
 | Limits and evidence class | Proposal (`career_evidence_annotation`, versioned) documented, not built. |
-| Report and approval | Applied: report beside the version; no new approval; the existing review is the only export gate. |
+| Report and approval | Applied: report beside the version; no new approval; before a file, the existing review and the measured page count. |
 | Template, language, privacy | Proposal only; no `Design.template` value persisted; file name and en dash unchanged until chosen. |
 
 ## Integration steps (each its own PR, in order)
 
 1. **This branch** (after the owner's review): suites green apart from the
-   three known flaky tests listed in the validation document. No stored data
-   is added, so reverting the commits is the rollback.
-2. **Fit before export.** On export of a tailored version, measure with
-   `pdf_pages`; when over the limit, offer the fit (hides, shown as a diff the
-   person accepts) instead of cutting on its own; a `CONFLICT` is said in words.
+   known flaky tests listed in the validation document. No stored data is
+   added, so reverting the commits is the rollback. Behaviour the owner sees
+   on the first day: a version for a job already over two pages no longer
+   downloads until it is fitted (the proposal shows what to hide).
+2. *(Done on this branch: the fit before export.)*
 3. **Three-page storage** (`application_resume_option`, migration rehearsed on a
    temporary copy, one verified backup), then the per-job toggle.
 4. **Evidence annotation** (`career_evidence_annotation`), then `NEVER_WRITE`
@@ -46,8 +52,10 @@ architecture decisions and remaining risks before any merge.
 
 Step 1 adds no table, column or stored field: revert the commits. A version
 made while this branch ran holds ordinary skill groups ("Lab", "Independent
-projects", a hidden "Origin not confirmed") and `MOVE_SKILL` change records,
-which `main` reads as it reads any group and any change. Steps 3 and 4 add
+projects", "Other skills", a hidden "Origin not confirmed"), ordinary hidden
+lines and `MOVE_SKILL` change records, and its fit left a `MANUAL_CHECKPOINT`
+revision: `main` reads all of these as it reads any group, line, change and
+revision. Steps 3 and 4 add
 migrations: one verified backup before the real databases, rehearsal on a
 temporary copy deleted after validation.
 

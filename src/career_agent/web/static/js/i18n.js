@@ -3427,6 +3427,33 @@ const EN = {
   'rv.find.NOT_FROM_EVIDENCE': 'Not linked to your saved evidence (typed or imported).',
   'rv.find.TALLER_THAN_PAGE': 'Something is taller than a page.',
   'rv.find.PAGES': '{n} pages: most resumes fit in two.',
+  'rv.find.PAGES_JOB': '{n} pages: a version for a job must fit on two. See what could be hidden.',
+  'rv.find.SKILL_ORIGIN_UNKNOWN': 'A skill your confirmed evidence places in no job, lab or project. '
+    + 'Say where it comes from; versions for a job leave it out until then.',
+  'rv.fit.over': 'Not downloaded: this version for a job prints {n} pages and must fit on {limit}. '
+    + 'Nothing was saved.',
+  'rv.fit.measuring': 'Measuring the printed pages.',
+  'rv.fit.fits': 'It prints {n} pages now, within the limit of {limit}. Download again.',
+  'rv.fit.propose': 'It prints {n} pages. Hiding these brings it to {after} (the limit is {limit}). '
+    + 'Nothing is hidden until you say so.',
+  'rv.fit.kept': 'Hidden lines stay in this version and in your Master, ready to show again. The strongest '
+    + 'line for each required ask stays, and every role keeps at least one line.',
+  'rv.fit.apply': 'Hide these {n} items',
+  'rv.fit.applyOne': 'Hide this item',
+  'rv.fit.applied': '{n} items hidden. Download again: the file is measured again.',
+  'rv.fit.appliedOne': '{n} item hidden. Download again: the file is measured again.',
+  'rv.fit.edit': 'Edit it myself',
+  'rv.fit.conflict': 'Even with everything the page limit allows hidden, it prints {n} pages (the limit '
+    + 'is {limit}). What proves the required asks is never hidden.',
+  'rv.fit.byHand': 'Shorten long lines, or hide what you choose in the editor, then download again.',
+  'rv.fit.protected': 'Kept, because each proves a required ask:',
+  'rv.fit.changed': 'This version changed after the proposal. Nothing was hidden; download again for a new one.',
+  'rv.fit.in': '{text} ({title}, {employer})',
+  'rv.fit.step.CERTIFICATIONS_BEYOND_TOP_5': 'More than five certifications (those the ad asks for come first).',
+  'rv.fit.step.PROJECT_NOT_TIED_TO_MUST_HAVE': 'A project no required ask needs.',
+  'rv.fit.step.BULLET_OF_OLD_ROLE': 'A line from a role that ended more than six years ago.',
+  'rv.fit.step.SKILLS_NOT_IN_POSTING': 'Skills the ad does not ask for.',
+  'rv.fit.step.WEAKEST_BULLET': 'A line that answers the ad least.',
   'rv.unsaved': 'Not saved: some fields need fixing, or the last save failed. Your edits are still here.',
   'rv.unsaved.leave': 'Leave without saving',
   'rv.failed': 'That did not work. Nothing was changed; try again.',
@@ -8820,6 +8847,33 @@ const PT_BR = {
   'rv.find.NOT_FROM_EVIDENCE': 'Sem ligação com a sua evidência salva (digitada ou importada).',
   'rv.find.TALLER_THAN_PAGE': 'Algo é mais alto que uma página.',
   'rv.find.PAGES': '{n} páginas: a maioria dos currículos cabe em duas.',
+  'rv.find.PAGES_JOB': '{n} páginas: uma versão para uma vaga precisa caber em duas. Veja o que pode ser ocultado.',
+  'rv.find.SKILL_ORIGIN_UNKNOWN': 'Uma competência que sua evidência confirmada não liga a emprego, laboratório '
+    + 'ou projeto. Diga de onde ela vem; até lá, as versões para vagas a deixam de fora.',
+  'rv.fit.over': 'Não baixado: esta versão para uma vaga tem {n} páginas impressas e precisa caber em {limit}. '
+    + 'Nada foi salvo.',
+  'rv.fit.measuring': 'Medindo as páginas impressas.',
+  'rv.fit.fits': 'Agora são {n} páginas, dentro do limite de {limit}. Baixe de novo.',
+  'rv.fit.propose': 'São {n} páginas impressas. Ocultar estes itens leva a {after} (o limite é {limit}). '
+    + 'Nada é ocultado sem a sua confirmação.',
+  'rv.fit.kept': 'As linhas ocultadas continuam nesta versão e no seu Master, prontas para voltar. A linha mais '
+    + 'forte de cada requisito obrigatório fica, e todo cargo mantém pelo menos uma linha.',
+  'rv.fit.apply': 'Ocultar estes {n} itens',
+  'rv.fit.applyOne': 'Ocultar este item',
+  'rv.fit.applied': '{n} itens ocultados. Baixe de novo: o arquivo é medido outra vez.',
+  'rv.fit.appliedOne': '{n} item ocultado. Baixe de novo: o arquivo é medido outra vez.',
+  'rv.fit.edit': 'Editar manualmente',
+  'rv.fit.conflict': 'Mesmo ocultando tudo o que o limite de páginas permite, são {n} páginas (o limite é '
+    + '{limit}). O que comprova os requisitos obrigatórios nunca é ocultado.',
+  'rv.fit.byHand': 'Encurte linhas longas ou oculte o que preferir no editor e baixe de novo.',
+  'rv.fit.protected': 'Mantidas, porque cada uma comprova um requisito obrigatório:',
+  'rv.fit.changed': 'Esta versão mudou depois da proposta. Nada foi ocultado; baixe de novo para ver outra.',
+  'rv.fit.in': '{text} ({title}, {employer})',
+  'rv.fit.step.CERTIFICATIONS_BEYOND_TOP_5': 'Mais de cinco certificações (as que a vaga pede vêm primeiro).',
+  'rv.fit.step.PROJECT_NOT_TIED_TO_MUST_HAVE': 'Um projeto que nenhum requisito obrigatório pede.',
+  'rv.fit.step.BULLET_OF_OLD_ROLE': 'Uma linha de um cargo encerrado há mais de seis anos.',
+  'rv.fit.step.SKILLS_NOT_IN_POSTING': 'Competências que a vaga não pede.',
+  'rv.fit.step.WEAKEST_BULLET': 'Uma linha que responde menos à vaga.',
   'rv.unsaved': 'Não salvo: alguns campos precisam de ajuste, ou o último salvamento falhou. '
     + 'Suas edições continuam aqui.',
   'rv.unsaved.leave': 'Sair sem salvar',

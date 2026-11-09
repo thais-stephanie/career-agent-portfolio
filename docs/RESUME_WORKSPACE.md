@@ -697,13 +697,21 @@ nothing. The deterministic path stays beside it, unchanged.
   tailoring report (`resume_doc/report.py`, research in
   `docs/research/resume-tailor-v1/`) flags it. The job panel shows that report
   beside the version: what it leaves out, what to check, and statements
-  waiting for confirmation. It blocks nothing; the statement review stays the
-  one gate before a file.
+  waiting for confirmation. It blocks nothing; before a file there are only
+  the statement review and, for a version for a job, the page count.
+* **Two pages for a version for a job.** The export measures the printed PDF
+  (a DOCX or JSON is measured as the PDF it would print) and makes no file
+  over two pages. The editor then shows what the spec's cut order would hide,
+  line by line and why (`POST .../fit`, measured on the real PDF), and hides
+  only what the person accepts (`POST .../fit/cuts`, on the copy they saw;
+  the copy before is kept as a revision). What proves a required ask is never
+  hidden; when that alone is too long, the person edits by hand.
 * **Where a skill comes from.** A skill no job's confirmed evidence holds is
   never shown as a job's: the Master, Tailor and the "add this skill"
-  suggestion put a lab's in "Lab" and a project's in "Independent projects",
-  and one nothing places in a hidden "Origin not confirmed" group
-  (`master.skill_origin`). The review before export stops a lab or project
+  suggestion put a lab's in "Lab" and a project's in "Independent projects"
+  (`master.skill_origin`). One nothing places stays on the Master in "Other
+  skills", and Analyze asks where it comes from; a version for a job leaves it
+  out (a hidden "Origin not confirmed" group) and says so in the report. The review before export stops a lab or project
   skill shown in a group that does not say so; it is moved or hidden, never
   acknowledged.
 * **Ad text written to a model** ("Ignore all previous instructions",

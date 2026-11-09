@@ -19,13 +19,22 @@
 from __future__ import annotations
 
 import math
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from career_agent.resume_doc import ats
-from career_agent.resume_doc.models import ResumeDocument, upgrade_resume_document
+from career_agent.resume_doc.models import DocumentKind, ResumeDocument, upgrade_resume_document
 from career_agent.resume_doc.render import render_html
+from career_agent.resume_doc.store import (
+    ResumeStore,
+    ResumeStoreError,
+    StaleDocument,
+    StoredDocument,
+)
+from career_agent.storage.db import transaction
 
 DEFAULT_PAGES, EXCEPTION_PAGES = 2, 3
 #: The spec's word budgets, per page limit.
@@ -223,3 +232,112 @@ def fit(
     ):
         result.notes.append("the third page is less than half full: two pages may be enough")
     return current, result
+
+
+# --------------------------------------- the two-page gate: proposal, approval
+
+
+def _job_supports(conn: sqlite3.Connection, stored: StoredDocument) -> list[Any]:
+    """The asks of the version's own ad, with what supports them; none without one."""
+    from career_agent.resume_doc import jd
+    from career_agent.resume_doc.tailor import retrieve, sources
+
+    if not stored.jd_snapshot_id:
+        return []
+    ad = ResumeStore(conn).get_jd_snapshot(stored.jd_snapshot_id).text
+    return retrieve(jd.analyse(ad), sources(conn, stored.working))
+
+
+def _described(doc: ResumeDocument, ref: str) -> dict[str, Any]:
+    """What a cut would take off the page, in the resume's own words."""
+    kind, _, ident = ref.partition("/")
+    if kind == "bullet":
+        for e in doc.experience:
+            for b in e.bullets:
+                if b.id == ident:
+                    return {"text": b.text, "where": {"title": e.display_title,
+                                                      "employer": e.employer}}  # fmt: skip
+        return {"text": ""}
+    for item in getattr(doc, kind, []):
+        if item.id == ident:
+            if kind == "skills":
+                return {"text": f"{item.name}: " + ", ".join(i.label for i in item.items)}
+            return {"text": item.name}
+    return {"text": ""}
+
+
+def _tailored(conn: sqlite3.Connection, document_id: str, expected_sha256: str) -> StoredDocument:
+    stored = ResumeStore(conn).get_document(document_id)
+    if stored.kind is not DocumentKind.TAILORED:
+        raise ResumeStoreError("only a version for a job is held to the page limit")
+    if stored.working_sha256 != expected_sha256:
+        raise StaleDocument(document_id, stored.working_sha256)
+    return stored
+
+
+def propose(
+    conn: sqlite3.Connection,
+    document_id: str,
+    *,
+    expected_sha256: str,
+    measure: Callable[[ResumeDocument], int] = pdf_pages,
+    year: int | None = None,
+) -> dict[str, Any]:
+    """What would bring a version for a job to two pages, measured on the real
+    PDF and never applied: the person sees every line it hides, and why, and
+    `apply_cuts` makes only what they accept. At most `MAX_ROUNDS` prints."""
+    stored = _tailored(conn, document_id, expected_sha256)
+    measured: list[int] = []
+
+    def counted(doc: ResumeDocument) -> int:
+        measured.append(measure(doc))
+        return measured[-1]
+
+    limit = page_limit(False)
+    supports = _job_supports(conn, stored)
+    _, result = fit(stored.working, supports, limit=limit,
+                    year=year or date.today().year, measure=counted)  # fmt: skip
+    return {
+        "expected_sha256": expected_sha256,
+        "limit": limit,
+        "pages": measured[0],
+        "pages_after": result.pages,
+        "status": result.status,
+        "cuts": [{**c, **_described(stored.working, c["ref"])} for c in result.cuts],
+        "protected": [
+            {"ref": f"bullet/{line}", **_described(stored.working, f"bullet/{line}")}
+            for line in result.protected
+        ],  # fmt: skip
+    }
+
+
+def apply_cuts(
+    conn: sqlite3.Connection,
+    document_id: str,
+    refs: list[str],
+    *,
+    expected_sha256: str,
+    year: int | None = None,
+) -> StoredDocument:
+    """Hide exactly the cuts the person accepted, on the copy they were shown.
+
+    Refused (nothing changed) when the copy changed since, or a ref is not one
+    the spec allows now (unknown, already hidden, the strongest proof of a
+    required ask, a role's last line). The copy before is kept in the history
+    first (a milestone, like Analyze's), so the person can put it back."""
+    store = ResumeStore(conn)
+    with transaction(conn):
+        stored = _tailored(conn, document_id, expected_sha256)
+        allowed = {ref for _, ref in _plan(stored.working, _job_supports(conn, stored),
+                                           year or date.today().year)}  # fmt: skip
+        if not refs or len(set(refs)) != len(refs) or set(refs) - allowed:
+            raise ResumeStoreError("this change no longer applies")
+        data = stored.working.model_dump(mode="json")
+        for ref in refs:
+            if _hide(data, ref) is None:
+                raise ResumeStoreError("this change no longer applies")
+        store.checkpoint_revision(document_id, "MANUAL_CHECKPOINT")
+        store.save_working_copy(
+            document_id, upgrade_resume_document(data), expected_sha256=expected_sha256
+        )
+    return store.get_document(document_id)

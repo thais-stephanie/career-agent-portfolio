@@ -43,6 +43,7 @@ from career_agent.resume_doc.export import (
     CONTENT_TYPES,
     ExportFailed,
     ExportRefused,
+    PageLimitExceeded,
     export_revision,
     filename,
     stored_file,
@@ -443,6 +444,15 @@ def register_resume_routes(app: LocalApp) -> None:
                 raise _unconfirmed(exc.lines) from exc
             except review.ReviewRequired as exc:
                 raise _review_required(exc.items) from exc
+            except PageLimitExceeded as exc:
+                raise ApiError(
+                    409,
+                    f"This version for a job prints {exc.pages} pages; it must fit on"
+                    f" {exc.limit}. Nothing was saved.",
+                    for_reader=True,
+                    code="over_page_limit",
+                    data={"pages": exc.pages, "limit": exc.limit},
+                ) from exc
             except ExportRefused as exc:
                 raise ApiError(
                     400, "Add your name before downloading.", for_reader=True, code="name_missing"
@@ -961,6 +971,53 @@ def register_resume_routes(app: LocalApp) -> None:
                 view["report"] = report.build(conn, stored.working, ad, page_limit=2)
             return view
 
+    def fit_view(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """What would bring a version for a job to two pages: every line it
+        would hide, and why, measured on the real PDF. Nothing is changed."""
+        from career_agent.resume_doc import budget
+
+        if set(body) != {"expected_sha256"} or not isinstance(body["expected_sha256"], str):
+            raise ApiError(400, "Say which saved resume to fit.")
+        with closing(app.connect()) as conn:
+            _one(conn, document_id)
+            try:
+                return budget.propose(conn, document_id, expected_sha256=body["expected_sha256"])
+            except StaleDocument as exc:
+                raise ApiError(409, "This resume changed in another window.", for_reader=True,
+                               code="stale") from exc  # fmt: skip
+            except ResumeStoreError as exc:
+                raise ApiError(400, "Only a version for a job is held to two pages.") from exc
+            except ExportFailed as exc:
+                raise ApiError(503, "The PDF could not be made to measure it; try again.",
+                               for_reader=True, code="export_failed") from exc  # fmt: skip
+
+    def fit_apply(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
+        """Hide exactly the lines the person accepted from the proposal, on the
+        copy they were shown. The copy before stays in the history."""
+        from career_agent.resume_doc import budget
+
+        refs, sha = body.get("refs"), body.get("expected_sha256")
+        if (
+            set(body) != {"refs", "expected_sha256"}
+            or not isinstance(sha, str)
+            or not isinstance(refs, list)
+            or not 1 <= len(refs) <= 500
+            or not all(isinstance(r, str) and len(r) <= 200 for r in refs)
+        ):
+            raise ApiError(400, "Say which lines to hide, in which saved resume.")
+        with closing(app.connect()) as conn:
+            _one(conn, document_id)
+            try:
+                return _detail(budget.apply_cuts(conn, document_id, refs, expected_sha256=sha))
+            except StaleDocument as exc:
+                raise ApiError(409, "This resume changed in another window.", for_reader=True,
+                               code="stale") from exc  # fmt: skip
+            except EvidenceNotConfirmed as exc:
+                raise _unconfirmed(exc.lines) from exc
+            except ResumeStoreError as exc:
+                raise ApiError(409, "This change no longer applies.", for_reader=True,
+                               code="stale") from exc  # fmt: skip
+
     def dismiss(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
         """Set one suggestion aside for THIS version only."""
         key = body.get("key")
@@ -1127,5 +1184,7 @@ def register_resume_routes(app: LocalApp) -> None:
     app.register("POST", one + "/analysis/changes", analysis_apply)
     app.register("POST", one + "/dismissals", dismiss)
     app.register("POST", one + "/accept", accept)
+    app.register("POST", one + "/fit", fit_view)
+    app.register("POST", one + "/fit/cuts", fit_apply)
     app.register("GET", r"/api/resume/legacy", legacy)
     app.register("POST", r"/api/resume/legacy/migrate", legacy_migrate)
