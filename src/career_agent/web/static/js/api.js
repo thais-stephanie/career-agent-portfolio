@@ -115,9 +115,9 @@ export const exportResume = (id, body) =>
 /** A version for a job over two pages: what would bring it to two, measured on the real PDF. Nothing changes. */
 export const proposeResumeFit = (id, expected_sha256) =>
   request(resumePath(id, '/fit'), { method: 'POST', body: { expected_sha256 } });
-/** Hide exactly the lines the person accepted, on the copy they were shown. */
-export const applyResumeFit = (id, refs, expected_sha256) =>
-  request(resumePath(id, '/fit/cuts'), { method: 'POST', body: { refs, expected_sha256 } });
+/** Hide exactly the lines of the proposal the person accepted, on the copy they were shown. */
+export const applyResumeFit = (id, refs, expected_sha256, proposal) =>
+  request(resumePath(id, '/fit/cuts'), { method: 'POST', body: { refs, expected_sha256, proposal } });
 export const listResumeExports = (id) => request(`/resume/documents/${encodeURIComponent(id)}/exports`);
 /** Read a PDF or DOCX for review (base64 in JSON, like the CV reading). Nothing is saved. */
 export const readResumeImport = (filename, bytes) =>

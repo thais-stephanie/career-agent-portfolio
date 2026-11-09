@@ -269,9 +269,14 @@ The person's side, with no second approval:
    version's own ad. It changes nothing and returns every cut with the line's
    text, its role, and the reason (shown in words: "A line from a role that
    ended more than six years ago", and so on), plus the pages before and after.
-3. "Hide these N items" sends exactly those refs and the hash of the copy the
-   person saw to `POST .../fit/cuts` (`budget.apply_cuts`). The server
-   accepts a ref only when the spec's cut order allows it on that copy now
+3. "Hide these N items" sends exactly those refs, the hash of the copy the
+   person saw and the proposal's seal to `POST .../fit/cuts`
+   (`budget.apply_cuts`). The seal (HMAC-SHA256, key in the running
+   process's memory) covers the profile's database, the document, its newest
+   revision, that hash and the exact list of cuts in order, so the server
+   applies the proposal whole or nothing: one ref more, one fewer, a repeat,
+   another order, another revision, document or profile is refused. A
+   `CONFLICT` has no seal. The server also accepts a ref only when the spec's cut order allows it on that copy now
    (never the strongest line of a required ask, never a role's last line, no
    duplicates, nothing unknown); a changed copy is refused (`StaleDocument`).
    The copy before is first kept as a `MANUAL_CHECKPOINT` revision (the reason

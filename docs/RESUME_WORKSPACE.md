@@ -703,8 +703,9 @@ nothing. The deterministic path stays beside it, unchanged.
   (a DOCX or JSON is measured as the PDF it would print) and makes no file
   over two pages. The editor then shows what the spec's cut order would hide,
   line by line and why (`POST .../fit`, measured on the real PDF), and hides
-  only what the person accepts (`POST .../fit/cuts`, on the copy they saw;
-  the copy before is kept as a revision). What proves a required ask is never
+  only what the person accepts (`POST .../fit/cuts`, on the copy they saw,
+  exactly the sealed proposal's list and nothing else; the copy before is
+  kept as a revision). What proves a required ask is never
   hidden; when that alone is too long, the person edits by hand.
 * **Where a skill comes from.** A skill no job's confirmed evidence holds is
   never shown as a job's: the Master, Tailor and the "add this skill"

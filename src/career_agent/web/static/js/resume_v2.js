@@ -764,7 +764,7 @@ function createEditor(answer, {
       }
       apply.disabled = true;
       try {
-        await applyResumeFit(answer.id, plan.cuts.map((c) => c.ref), plan.expected_sha256);
+        await applyResumeFit(answer.id, plan.cuts.map((c) => c.ref), plan.expected_sha256, plan.proposal);
       } catch (error) {
         const stale = error.status === 409;
         const text = stale ? t('rv.fit.changed') : (error.userMessage || t('rv.failed'));

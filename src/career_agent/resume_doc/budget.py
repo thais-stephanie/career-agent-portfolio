@@ -18,7 +18,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import math
+import secrets
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -275,6 +279,24 @@ def _tailored(conn: sqlite3.Connection, document_id: str, expected_sha256: str) 
     return stored
 
 
+#: Seals proposals for this process only. ponytail: a restart, like an edit,
+#: means proposing again; persist a key only if proposals must outlive one.
+_SEAL_KEY = secrets.token_bytes(32)
+
+
+def _seal(conn: sqlite3.Connection, document_id: str, sha256: str, refs: list[str]) -> str:
+    """A proposal's seal: the profile's database, the document, its newest
+    revision, the exact copy and the exact cuts, in order. Any other list of
+    cuts, copy, revision, document or profile has another seal."""
+    database = conn.execute("PRAGMA database_list").fetchone()[2]  # main: the profile's own
+    head = conn.execute(
+        "SELECT id FROM resume_revision WHERE document_id = ? ORDER BY seq DESC LIMIT 1",
+        (document_id,),
+    ).fetchone()
+    said = json.dumps([1, database, document_id, head[0] if head else None, sha256, refs])
+    return hmac.new(_SEAL_KEY, said.encode(), hashlib.sha256).hexdigest()
+
+
 def propose(
     conn: sqlite3.Connection,
     document_id: str,
@@ -297,8 +319,13 @@ def propose(
     supports = _job_supports(conn, stored)
     _, result = fit(stored.working, supports, limit=limit,
                     year=year or date.today().year, measure=counted)  # fmt: skip
+    refs = [c["ref"] for c in result.cuts]
     return {
         "expected_sha256": expected_sha256,
+        # Only a proposal that fits can be accepted, and only whole.
+        "proposal": _seal(conn, document_id, expected_sha256, refs)
+        if result.status == "CUT"
+        else None,
         "limit": limit,
         "pages": measured[0],
         "pages_after": result.pages,
@@ -317,17 +344,24 @@ def apply_cuts(
     refs: list[str],
     *,
     expected_sha256: str,
+    proposal: str,
     year: int | None = None,
 ) -> StoredDocument:
-    """Hide exactly the cuts the person accepted, on the copy they were shown.
+    """Hide exactly the cuts of the proposal the person accepted, on the copy
+    they were shown.
 
-    Refused (nothing changed) when the copy changed since, or a ref is not one
-    the spec allows now (unknown, already hidden, the strongest proof of a
+    Refused (nothing changed) when the copy changed since, when `refs` are not
+    exactly the sealed proposal's (one more, one fewer, a repeat, another
+    order, another document, revision or profile), or a ref is not one the
+    spec allows now (unknown, already hidden, the strongest proof of a
     required ask, a role's last line). The copy before is kept in the history
     first (a milestone, like Analyze's), so the person can put it back."""
     store = ResumeStore(conn)
     with transaction(conn):
         stored = _tailored(conn, document_id, expected_sha256)
+        sealed = _seal(conn, document_id, expected_sha256, refs)
+        if not isinstance(proposal, str) or not hmac.compare_digest(proposal, sealed):
+            raise ResumeStoreError("this change is not the one proposed")
         allowed = {ref for _, ref in _plan(stored.working, _job_supports(conn, stored),
                                            year or date.today().year)}  # fmt: skip
         if not refs or len(set(refs)) != len(refs) or set(refs) - allowed:

@@ -21,7 +21,11 @@ closed and connected to the application, with no migration:
   Tailor never suggests them, and a tailored version leaves them out and
   lists why.
 
-Both suites pass apart from one test this branch broke and then fixed (below).
+Accepting a fit applies only the proposal the person saw, whole: the server
+checks the cuts against the proposal's seal (fixed below, item 3).
+
+The browser suite passes; the full suite's two failures are the known flaky
+Edge cleanup pair (below), which passed alone.
 Still blocked by storage decisions, as before: the per-job third page, claim
 limits and evidence class, a template value, privacy fields. Not merged, not
 pushed.
@@ -36,12 +40,27 @@ python -m pytest tests/unit tests/integration -rfEs --durations=25 -p no:cachepr
 python -m pytest tests/browser -rfEs --durations=15 -p no:cacheprovider
 ```
 
-Final run, pre-merge review (the tree of `477341a` plus the review's tests):
+Final run, consent boundary (the tree of `61ed7d5` plus the sealed proposal):
 
 | Suite | Collected | Passed | Failed | Skipped | Time | Exit code |
 |---|---|---|---|---|---|---|
-| unit + integration | 13,452 (`main`: 13,265) | 13,444 | 0 | 8 | 50 min 10 s | 0 |
-| browser | 599 (`main`: 595) | 599 | 0 | 0 | 30 min 0 s | 0 |
+| unit + integration | 13,467 (`main`: 13,265) | 13,457 | 2 | 8 | 57 min 20 s | 1 |
+| browser | 599 (`main`: 595) | 599 | 0 | 0 | 33 min 20 s | 0 |
+
+The two failures are the known flaky Edge cleanup pair below
+(`test_resume_pdf_cleanup.py::test_a_real_print_leaves_no_resume_no_profile_and_no_browser`,
+`test_resume_export_api.py::test_printing_fetches_nothing_and_leaves_no_browser_profile`):
+a `career-agent-pdf-*` profile still on disk at the check. Neither touches
+the fit or the seal. Rerun alone, the two files passed twice (38 of 38, exit
+code 0 each time). The suite is not counted as fully passed.
+`tests/integration/test_resume_page_gate.py` alone: 52 of 52, exit code 0.
+
+Pre-merge review run (the tree of `477341a` plus the review's tests):
+
+| Suite | Collected | Passed | Failed | Skipped | Time | Exit code |
+|---|---|---|---|---|---|---|
+| unit + integration | 13,452 | 13,444 | 0 | 8 | 50 min 10 s | 0 |
+| browser | 599 | 599 | 0 | 0 | 30 min 0 s | 0 |
 
 The run before `477341a` had one failure, a regression of this work:
 `test_web_boundaries.py::test_there_is_no_route_that_submits_an_application`
@@ -54,7 +73,14 @@ the gate stays downloadable while a new one is refused; the routes refuse
 malformed bodies, a Master and an unknown document; an accepted fit changes
 nothing in the document but `hidden` flags.
 
-The extra tests are this branch's own: 22 in `test_resume_page_gate.py` (37 cases), the
+The consent boundary added: only the exact sealed list applies (one more
+allowed cut, one fewer, a repeat, another order, another allowed cut alone);
+no seal or a made-up one; a newer revision; another version from the same
+Master; a byte copy of the profile; a `CONFLICT` has no seal; the plan check
+still refuses protected lines and unknown refs even when sealed; the route
+requires the seal and refuses a partial or padded list with nothing changed.
+
+The extra tests are this branch's own: 28 in `test_resume_page_gate.py` (52 cases), the
 earlier v1 files, and four browser tests (the report in the job panel; a lab
 skill shown as a job's stops the export; the fit in English; the fit in
 Portuguese with "Editar manualmente"). Nothing was removed.
@@ -67,7 +93,8 @@ a persona overlap with the worked example (1).
 
 Seen in earlier runs of this branch and on `main` (`git archive 0e0751f`) at
 the same rate; none touches code this branch changes. All three passed in
-these runs.
+the pre-merge review run; the Edge cleanup pair failed in the consent
+boundary's full run and passed alone twice.
 
 | Test | Seen on `main` | Cause |
 |---|---|---|
@@ -90,6 +117,8 @@ Also run on the final tree: `ruff check src tests`, `ruff format --check`,
 | Cut accepted | apply exactly the proposed lines | only those lines hidden, nothing deleted; one `MANUAL_CHECKPOINT` revision of the earlier copy; every role keeps a line; the strongest line of each required ask kept; the Master unchanged; export then passes with the real PDF at two pages or fewer |
 | Stale approval or silent replacement | apply with the sha of an earlier copy; a reused approval after a change | HTTP 409, nothing applied; the browser refuses when the copy on screen is not the one proposed |
 | Lines nobody proposed | apply refs outside the plan, duplicates, empty | refused, nothing changes |
+| Cuts the proposal did not make | the proposal plus one cut the plan allows, one fewer, a repeat, another order, another allowed cut alone, no seal or a made-up one | refused (HTTP 409), nothing changes; only the sealed list, whole and in order, applies |
+| A proposal moved elsewhere | the same proposal on a newer revision with the same words, on another version made from the same Master (same line ids), in a byte copy of the profile's database (same document, sha and revisions) | refused, nothing changes |
 | Proof cannot fit | protected lines alone exceed the limit | `CONFLICT`: nothing can be applied, the protected lines are listed, "Edit it myself" offered |
 | Second approval or bypass | the existing review before the page check; every export format; copy and Master paths | the review stays the only approval and runs first; a copy of a tailored version stays tailored; no other export path exists |
 | Content changed after approval | statement edited after acknowledgement | the review asks again before export |
@@ -108,6 +137,16 @@ Fixed on this branch after `54b4427`:
    `POST .../fit/cuts`), in the export box and in the preview's checks.
 2. Skills of unknown origin kept in the Master and flagged, never suggested,
    left out of tailored versions.
+3. Consent boundary (2026-11-09): `POST .../fit/cuts` applies only the
+   proposal the person accepted. `budget.propose` returns a `proposal` seal
+   (HMAC-SHA256 with a key held in memory by the running process) over the
+   profile's database file, the document, its newest revision, the copy's
+   sha and the exact list of cuts, in order; a `CONFLICT` has no seal.
+   `budget.apply_cuts` requires it and checks it with `hmac.compare_digest`
+   inside the same `BEGIN IMMEDIATE` transaction as the sha check, the plan
+   check (protected lines, a role's last line), the history checkpoint and
+   the save. No migration, nothing stored. A restart of the app invalidates
+   open proposals: the person proposes again.
 
 Reproduced, not changed (design decision or outside this slice):
 

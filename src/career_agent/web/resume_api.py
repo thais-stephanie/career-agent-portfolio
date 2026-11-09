@@ -992,14 +992,17 @@ def register_resume_routes(app: LocalApp) -> None:
                                for_reader=True, code="export_failed") from exc  # fmt: skip
 
     def fit_apply(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
-        """Hide exactly the lines the person accepted from the proposal, on the
-        copy they were shown. The copy before stays in the history."""
+        """Hide exactly the lines of the proposal the person accepted, on the
+        copy they were shown: the server checks them against the proposal's
+        seal, not the page. The copy before stays in the history."""
         from career_agent.resume_doc import budget
 
-        refs, sha = body.get("refs"), body.get("expected_sha256")
+        refs, sha, sealed = body.get("refs"), body.get("expected_sha256"), body.get("proposal")
         if (
-            set(body) != {"refs", "expected_sha256"}
+            set(body) != {"refs", "expected_sha256", "proposal"}
             or not isinstance(sha, str)
+            or not isinstance(sealed, str)
+            or len(sealed) > 128
             or not isinstance(refs, list)
             or not 1 <= len(refs) <= 500
             or not all(isinstance(r, str) and len(r) <= 200 for r in refs)
@@ -1008,7 +1011,8 @@ def register_resume_routes(app: LocalApp) -> None:
         with closing(app.connect()) as conn:
             _one(conn, document_id)
             try:
-                return _detail(budget.apply_cuts(conn, document_id, refs, expected_sha256=sha))
+                return _detail(budget.apply_cuts(conn, document_id, refs, expected_sha256=sha,
+                                                 proposal=sealed))  # fmt: skip
             except StaleDocument as exc:
                 raise ApiError(409, "This resume changed in another window.", for_reader=True,
                                code="stale") from exc  # fmt: skip

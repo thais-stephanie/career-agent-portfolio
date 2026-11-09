@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import io
 import sqlite3
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ from career_agent.resume_doc.master import get_or_create_master
 from career_agent.resume_doc.models import upgrade_resume_document
 from career_agent.resume_doc.store import NotFound, ResumeStore, ResumeStoreError, StaleDocument
 from career_agent.resume_doc.tailor import explain, tailor
+from career_agent.storage.db import connect
 from career_agent.web.api import JobsApi
 from career_agent.web.server import ServerConfig
 
@@ -165,7 +167,7 @@ def test_an_accepted_proposal_hides_exactly_that_keeps_the_copy_before_and_the_m
     revisions, _, sha = counts(conn, doc_id)
     plan = budget.propose(conn, doc_id, expected_sha256=sha, measure=budget.estimate_pages)
     refs = [c["ref"] for c in plan["cuts"]]
-    budget.apply_cuts(conn, doc_id, refs, expected_sha256=sha)
+    budget.apply_cuts(conn, doc_id, refs, expected_sha256=sha, proposal=plan["proposal"])
     after = store.get_document(doc_id)
     # The copy as it was is the newest revision before the change: restorable.
     history = store.list_revisions(doc_id)
@@ -218,19 +220,119 @@ def test_an_approval_of_an_older_copy_is_refused(tmp_path: Path) -> None:
     data["title"] = "Edited after the proposal"
     store.save_working_copy(doc_id, upgrade_resume_document(data), expected_sha256=sha)
     before = counts(conn, doc_id)
+    refs = [c["ref"] for c in plan["cuts"]]
     with pytest.raises(StaleDocument):
-        budget.apply_cuts(conn, doc_id, [c["ref"] for c in plan["cuts"]], expected_sha256=sha)
+        budget.apply_cuts(conn, doc_id, refs, expected_sha256=sha, proposal=plan["proposal"])
+    # Nor with the new copy's sha: the seal is of the copy proposed.
+    with pytest.raises(ResumeStoreError):
+        budget.apply_cuts(conn, doc_id, refs, expected_sha256=before[2],
+                          proposal=plan["proposal"])  # fmt: skip
     assert counts(conn, doc_id) == before
 
 
 @pytest.mark.parametrize("bad", [[], ["bullet/not-a-line"], ["bullet/x", "bullet/x"]])
 def test_a_cut_the_spec_does_not_allow_now_is_refused(tmp_path: Path, bad: list[str]) -> None:
+    """Even sealed (as no proposal would be), the plan is checked again."""
     conn = profile(tmp_path)
     doc_id = lengthened(conn, tailored(conn))
     before = counts(conn, doc_id)
+    sealed = budget._seal(conn, doc_id, before[2], bad)
     with pytest.raises(ResumeStoreError):
-        budget.apply_cuts(conn, doc_id, bad, expected_sha256=before[2])
+        budget.apply_cuts(conn, doc_id, bad, expected_sha256=before[2], proposal=sealed)
     assert counts(conn, doc_id) == before
+
+
+# ------------------------------------------- only the proposal accepted, whole
+
+
+def _proposed(tmp_path: Path) -> tuple[sqlite3.Connection, str, dict[str, Any], list[str]]:
+    conn = profile(tmp_path)
+    doc_id = lengthened(conn, tailored(conn))
+    sha = ResumeStore(conn).get_document(doc_id).working_sha256
+    plan = budget.propose(conn, doc_id, expected_sha256=sha, measure=budget.estimate_pages)
+    assert plan["status"] == "CUT" and plan["proposal"]
+    return conn, doc_id, plan, [c["ref"] for c in plan["cuts"]]
+
+
+def _other_allowed(conn: sqlite3.Connection, doc_id: str, refs: list[str]) -> str:
+    """A cut the spec allows on this document that the proposal did not make."""
+    stored = ResumeStore(conn).get_document(doc_id)
+    plan = budget._plan(stored.working, budget._job_supports(conn, stored), date.today().year)
+    return next(ref for _, ref in plan if ref not in refs)
+
+
+@pytest.mark.parametrize("change", ["one_more", "one_fewer", "repeated", "reordered", "other"])
+def test_only_the_exact_list_proposed_is_accepted(tmp_path: Path, change: str) -> None:
+    conn, doc_id, plan, refs = _proposed(tmp_path)
+    assert len(refs) >= 2
+    sent = {
+        "one_more": lambda: [*refs, _other_allowed(conn, doc_id, refs)],
+        "one_fewer": lambda: refs[:-1],
+        "repeated": lambda: [*refs, refs[0]],
+        "reordered": lambda: [refs[1], refs[0], *refs[2:]],
+        "other": lambda: [_other_allowed(conn, doc_id, refs)],
+    }[change]()
+    before = counts(conn, doc_id)
+    with pytest.raises(ResumeStoreError):
+        budget.apply_cuts(conn, doc_id, sent, expected_sha256=before[2], proposal=plan["proposal"])
+    assert counts(conn, doc_id) == before
+    # The proposal itself still applies, whole.
+    budget.apply_cuts(conn, doc_id, refs, expected_sha256=before[2], proposal=plan["proposal"])
+
+
+@pytest.mark.parametrize("seal", ["", "0" * 64, "not a seal"])
+def test_no_seal_or_a_made_up_one_is_refused(tmp_path: Path, seal: str) -> None:
+    conn, doc_id, _, refs = _proposed(tmp_path)
+    before = counts(conn, doc_id)
+    with pytest.raises(ResumeStoreError):
+        budget.apply_cuts(conn, doc_id, refs, expected_sha256=before[2], proposal=seal)
+    assert counts(conn, doc_id) == before
+
+
+def test_a_new_revision_since_the_proposal_refuses_it(tmp_path: Path) -> None:
+    """Same words, a newer revision (a milestone kept meanwhile): propose again."""
+    conn, doc_id, plan, refs = _proposed(tmp_path)
+    ResumeStore(conn).checkpoint_revision(doc_id, "MANUAL_CHECKPOINT")
+    before = counts(conn, doc_id)
+    with pytest.raises(ResumeStoreError):
+        budget.apply_cuts(conn, doc_id, refs, expected_sha256=before[2], proposal=plan["proposal"])
+    assert counts(conn, doc_id) == before
+
+
+def test_a_proposal_does_not_apply_to_another_document(tmp_path: Path) -> None:
+    """Two versions made from the same Master share line ids: the seal names one."""
+    conn, doc_id, plan, refs = _proposed(tmp_path)
+    stored, _ = tailor(conn, ad={"title": "Customer Success Engineer", "text": AD})
+    acknowledge_saved(conn, stored.id)
+    second = lengthened(conn, stored.id)
+    before = counts(conn, second)
+    with pytest.raises(ResumeStoreError):
+        budget.apply_cuts(conn, second, refs, expected_sha256=before[2], proposal=plan["proposal"])
+    assert counts(conn, second) == before
+
+
+def test_a_proposal_does_not_apply_in_another_profile(tmp_path: Path) -> None:
+    """A copy of the profile holds the same document, sha and revisions: still refused."""
+    conn, doc_id, plan, refs = _proposed(tmp_path)
+    copy = tmp_path / "twin" / "personal.db"
+    copy.parent.mkdir()
+    raw = sqlite3.connect(copy)
+    conn.backup(raw)
+    raw.close()
+    twin = connect(copy)
+    before = counts(twin, doc_id)
+    with pytest.raises(ResumeStoreError):
+        budget.apply_cuts(twin, doc_id, refs, expected_sha256=before[2], proposal=plan["proposal"])
+    assert counts(twin, doc_id) == before
+    twin.close()
+
+
+def test_a_proposal_that_cannot_fit_offers_nothing_to_accept(tmp_path: Path) -> None:
+    conn = profile(tmp_path)
+    doc_id = tailored(conn)
+    sha = ResumeStore(conn).get_document(doc_id).working_sha256
+    plan = budget.propose(conn, doc_id, expected_sha256=sha, measure=lambda doc: 9)
+    assert plan["status"] == "CONFLICT" and plan["proposal"] is None
 
 
 def test_what_proves_a_required_ask_is_never_cut_and_the_conflict_is_said(tmp_path: Path) -> None:
@@ -243,8 +345,10 @@ def test_what_proves_a_required_ask_is_never_cut_and_the_conflict_is_said(tmp_pa
     protected = {p["ref"] for p in plan["protected"]}
     assert not protected & {c["ref"] for c in plan["cuts"]}
     before = counts(conn, doc_id)
+    # Sealed as if proposed: the protected lines are still refused.
+    sealed = budget._seal(conn, doc_id, sha, sorted(protected))
     with pytest.raises(ResumeStoreError):
-        budget.apply_cuts(conn, doc_id, sorted(protected), expected_sha256=sha)
+        budget.apply_cuts(conn, doc_id, sorted(protected), expected_sha256=sha, proposal=sealed)
     assert counts(conn, doc_id) == before
 
 
@@ -300,7 +404,7 @@ def test_one_profiles_version_is_not_found_from_another(tmp_path: Path) -> None:
     with pytest.raises(NotFound):
         budget.propose(other, doc_id, expected_sha256=sha, measure=budget.estimate_pages)
     with pytest.raises(NotFound):
-        budget.apply_cuts(other, doc_id, ["bullet/x"], expected_sha256=sha)
+        budget.apply_cuts(other, doc_id, ["bullet/x"], expected_sha256=sha, proposal="x")
 
 
 # ------------------------------------------------------ the routes, real PDF
@@ -334,15 +438,23 @@ def test_over_two_pages_then_the_fit_then_the_file_with_the_real_pdf(tmp_path: P
     plan = call(api, "POST", f"/documents/{doc_id}/fit", {"expected_sha256": sha})
     assert plan["status"] == "CUT" and plan["pages_after"] <= 2
     assert call(api, "GET", f"/documents/{doc_id}")["sha256"] == sha  # still unchanged
-    applied = call(api, "POST", f"/documents/{doc_id}/fit/cuts",
-                   {"refs": [c["ref"] for c in plan["cuts"]], "expected_sha256": sha})  # fmt: skip
+    accepted = {"refs": [c["ref"] for c in plan["cuts"]], "expected_sha256": sha,
+                "proposal": plan["proposal"]}  # fmt: skip
+    # One line short of the proposal, then one more: refused, nothing changed.
+    history = call(api, "GET", f"/documents/{doc_id}/history")
+    for refs in (accepted["refs"][:-1], [*accepted["refs"], accepted["refs"][0]]):
+        with pytest.raises(ApiError) as refused:
+            call(api, "POST", f"/documents/{doc_id}/fit/cuts", {**accepted, "refs": refs})
+        assert refused.value.status == 409
+    assert call(api, "GET", f"/documents/{doc_id}/history") == history
+    assert call(api, "GET", f"/documents/{doc_id}")["sha256"] == sha
+    applied = call(api, "POST", f"/documents/{doc_id}/fit/cuts", accepted)
     made = call(api, "POST", f"/documents/{doc_id}/exports",
                 {"format": "PDF", "expected_sha256": applied["sha256"]})  # fmt: skip
     assert made["page_count"] <= 2
     # The same approval twice: the copy it was given for is gone.
     with pytest.raises(ApiError) as again:
-        call(api, "POST", f"/documents/{doc_id}/fit/cuts",
-             {"refs": [c["ref"] for c in plan["cuts"]], "expected_sha256": sha})  # fmt: skip
+        call(api, "POST", f"/documents/{doc_id}/fit/cuts", accepted)
     assert again.value.status == 409
 
 
@@ -361,7 +473,8 @@ def test_a_failure_after_the_checkpoint_leaves_no_revision_and_no_change(
 
     monkeypatch.setattr(ResumeStore, "save_working_copy", broken)
     with pytest.raises(RuntimeError):
-        budget.apply_cuts(conn, doc_id, [c["ref"] for c in plan["cuts"]], expected_sha256=before[2])
+        budget.apply_cuts(conn, doc_id, [c["ref"] for c in plan["cuts"]],
+                          expected_sha256=before[2], proposal=plan["proposal"])  # fmt: skip
     monkeypatch.undo()
     assert counts(conn, doc_id) == before
 
@@ -405,13 +518,19 @@ def test_a_file_made_before_the_gate_stays_downloadable(tmp_path: Path) -> None:
         ("fit", {"expected_sha256": 1}),
         ("fit", {"expected_sha256": "x", "refs": []}),
         ("fit/cuts", {}),
-        ("fit/cuts", {"expected_sha256": "x"}),
-        ("fit/cuts", {"refs": "bullet/x", "expected_sha256": "x"}),
-        ("fit/cuts", {"refs": [], "expected_sha256": "x"}),
-        ("fit/cuts", {"refs": [7], "expected_sha256": "x"}),
-        ("fit/cuts", {"refs": ["b" * 201], "expected_sha256": "x"}),
-        ("fit/cuts", {"refs": ["bullet/x"] * 501, "expected_sha256": "x"}),
-        ("fit/cuts", {"refs": ["bullet/x"], "expected_sha256": "x", "document_id": "y"}),
+        ("fit/cuts", {"expected_sha256": "x", "proposal": "p"}),
+        ("fit/cuts", {"refs": ["bullet/x"], "expected_sha256": "x"}),  # no proposal
+        ("fit/cuts", {"refs": ["bullet/x"], "expected_sha256": "x", "proposal": 1}),
+        ("fit/cuts", {"refs": ["bullet/x"], "expected_sha256": "x", "proposal": "p" * 129}),
+        ("fit/cuts", {"refs": "bullet/x", "expected_sha256": "x", "proposal": "p"}),
+        ("fit/cuts", {"refs": [], "expected_sha256": "x", "proposal": "p"}),
+        ("fit/cuts", {"refs": [7], "expected_sha256": "x", "proposal": "p"}),
+        ("fit/cuts", {"refs": ["b" * 201], "expected_sha256": "x", "proposal": "p"}),
+        ("fit/cuts", {"refs": ["bullet/x"] * 501, "expected_sha256": "x", "proposal": "p"}),
+        (
+            "fit/cuts",
+            {"refs": ["bullet/x"], "expected_sha256": "x", "proposal": "p", "document_id": "y"},
+        ),
     ],
 )
 def test_the_routes_check_what_they_are_sent(tmp_path: Path, route: str, body: dict) -> None:
@@ -440,7 +559,7 @@ def test_the_routes_refuse_a_master_and_an_unknown_document(tmp_path: Path) -> N
     assert refused.value.status == 400
     with pytest.raises(ApiError) as missing:
         call(api, "POST", "/documents/01ARZ3NDEKTSV4RRFFQ69G5FAV/fit/cuts",
-             {"refs": ["bullet/x"], "expected_sha256": "x"})  # fmt: skip
+             {"refs": ["bullet/x"], "expected_sha256": "x", "proposal": "p"})  # fmt: skip
     assert missing.value.status == 404
 
 
