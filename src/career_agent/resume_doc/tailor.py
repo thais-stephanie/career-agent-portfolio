@@ -23,7 +23,11 @@ schedules) is reported and never "covered" by a resume.
 
 The headline and summary are the Master's: no safe deterministic rewrite of
 them exists without composing prose, and composed prose is how filler and
-invented tenure get in.
+invented tenure get in. One exception, by rule and not by prose: when the
+Master has no summary, the version gets one put together from confirmed
+facts only (`summary.compose`: the role, its skills, confirmed statements
+verbatim), and when it has one, a summary so composed is OFFERED, never
+applied.
 """
 
 from __future__ import annotations
@@ -36,7 +40,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from career_agent.clock import new_id
-from career_agent.resume_doc import jd, roles
+from career_agent.resume_doc import jd, roles, summary
 from career_agent.resume_doc.evidence import unconfirmed_lines
 from career_agent.resume_doc.master import (
     UNKNOWN,
@@ -160,7 +164,10 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
     shown_keys: set[str] = set()
     shown_skills: set[str] = set()
     reworded: list[tuple[Source, str]] = []
+    composed = doc.summary.id if doc.summary and doc.summary.origin is Origin.RULE_REWRITE else None
     for _, line, shown in _lines(doc):
+        if line.id == composed:
+            continue  # a summary composed from confirmed lines restates them; the roles prove
         backed = line.origin in EVIDENCED_ORIGINS and set(line.evidence_ids) <= confirmed
         out.append(
             Source(
@@ -403,10 +410,13 @@ def draft(
     target: dict[str, Any],
     provenance: dict,
     claims: dict[str, Any] | None = None,
+    supports: list[Support] | None = None,
 ) -> tuple[ResumeDocument, list[dict[str, Any]]]:
     """The Master revision with the plan applied, and the changes it made.
     With `claims`, a skill no job's evidence holds leaves a plain skills group
-    (`master.regroup_skills`): never shown as a job's skill."""
+    (`master.regroup_skills`): never shown as a job's skill. With `supports`
+    too, a Master with no summary (and not one the person hid) gives the
+    version one composed from confirmed evidence (`summary.compose`)."""
     data = master.model_dump(mode="json")
     changes: list[dict[str, Any]] = []
     relevance: dict[str, float] = plan["relevance"]
@@ -458,6 +468,20 @@ def draft(
             )  # fmt: skip
     if claims is not None:
         changes += regroup_skills(data, claims)
+    if (
+        claims is not None
+        and supports is not None
+        and data.get("summary") is None
+        and "summary" not in data["layout"]["hidden_sections"]
+    ):
+        composed = summary.compose(upgrade_resume_document(data), claims, supports)
+        if composed is not None:
+            data["summary"] = {"id": new_id(), "text": composed.text, "origin": "RULE_REWRITE",
+                               "evidence_ids": composed.evidence_ids}  # fmt: skip
+            changes.append(
+                {"op": "ADD_SUMMARY", "line_id": data["summary"]["id"], "after": composed.text,
+                 "evidence_ids": composed.evidence_ids, "sentences": composed.sentences}
+            )  # fmt: skip
     data.update(
         id=new_id(),
         kind="TAILORED",
@@ -1012,10 +1036,12 @@ def review(
             ]
         )
         tools = {jd.folded(t) for k in cited for t in claims[k].tools}
-        summary = draft_doc.summary is not None and line_id == draft_doc.summary.id
+        is_summary = draft_doc.summary is not None and line_id == draft_doc.summary.id
+        if is_summary and not ai:  # composed by rule: its frames and its roles' names
+            source = f"{source} {summary.grounds(draft_doc)}"
         for check, detail in grounding(
             text, source, tools, ai=ai, titles=ai_titles(master, holder),
-            new_words=AI_NEW_WORDS * (2 if summary else 1),
+            new_words=AI_NEW_WORDS * (2 if is_summary else 1),
         ):  # fmt: skip
             fail(check, line_id, detail)
     old = [(e.id, e.employer, e.source_title, e.display_title, e.start, e.end, e.current)
@@ -1195,7 +1221,8 @@ def tailor(
         if master_row.kind is DocumentKind.MASTER:
             provenance.update(master_document_id=master_row.id, master_revision_id=revision.id)
         claims = {s.claim_key: s for s in pool if s.claim_key}
-        doc, changes = draft(master, plan, target=target, provenance=provenance, claims=claims)
+        doc, changes = draft(master, plan, target=target, provenance=provenance, claims=claims,
+                             supports=supports)  # fmt: skip
         mark("draft")
         findings = review(doc, master, pool, supports)
         mark("review")
@@ -1279,11 +1306,24 @@ def _where(doc: ResumeDocument, entry_id: str | None) -> dict[str, str] | None:
     return {"title": entry.display_title, "employer": entry.employer} if entry else None
 
 
-def suggest(doc: ResumeDocument, supports: list[Support]) -> list[dict[str, Any]]:
+def suggest(
+    doc: ResumeDocument, supports: list[Support], pool: list[Source] | None = None
+) -> list[dict[str, Any]]:
     """What would make `doc` better against these supports, each with the exact
     change when there is one (a confirmed line to add or show, a confirmed
-    skill to add) and none for a gap. Shared by the job panel and Analyze."""
+    skill to add, with `pool` a summary composed from confirmed evidence) and
+    none for a gap. Shared by the job panel and Analyze."""
     suggestions: list[dict[str, Any]] = []
+    if pool is not None and "summary" not in doc.layout.hidden_sections:
+        composed = summary.compose(doc, {s.claim_key: s for s in pool if s.claim_key}, supports)
+        now = jd.folded(doc.summary.text) if doc.summary else ""
+        if composed is not None and jd.folded(composed.text) != now:
+            suggestions.append(
+                {"key": "summary:compose", "kind": "SUMMARY_FROM_EVIDENCE", "text": composed.text,
+                 "replaces": doc.summary.text if doc.summary else None,
+                 "action": {"type": "summary", "text": composed.text,
+                            "evidence_ids": composed.evidence_ids}}
+            )  # fmt: skip
     for sup in supports:
         req = sup.requirement
         if sup.state == HAVE:
@@ -1315,7 +1355,8 @@ def suggest(doc: ResumeDocument, supports: list[Support]) -> list[dict[str, Any]
                                 "ask": req.source_quote, "action": None})  # fmt: skip
     for _, line, shown in _lines(doc):
         words = len(line.text.split())
-        if shown and words > LONG_LINE_WORDS:
+        is_summary = doc.summary is not None and line.id == doc.summary.id
+        if shown and words > LONG_LINE_WORDS and not is_summary:  # a summary runs 70 to 110
             suggestions.append({"key": f"long:{line.id}", "kind": "LONG_LINE", "words": words,
                                 "line_id": line.id, "text": line.text, "action": None})  # fmt: skip
     return suggestions
@@ -1334,7 +1375,8 @@ def explain(
     snap = store.get_jd_snapshot(snapshot_id)
     doc = stored.working
     analysis = jd.analyse(snap.text)
-    supports = retrieve(analysis, sources(conn, doc))
+    pool = sources(conn, doc)
+    supports = retrieve(analysis, pool)
     quotes = {r.id: r.source_quote for r in analysis.requirements}
 
     changes = []
@@ -1358,7 +1400,7 @@ def explain(
                  "asks": [quotes[r] for r in change.requirement_ids if r in quotes]}
             )  # fmt: skip
     dismissed = store.dismissed_findings(stored.id)
-    suggestions = suggest(doc, supports)
+    suggestions = suggest(doc, supports, pool)
     coverage = [
         {"ask": s.requirement.source_quote, "hardness": s.requirement.hardness,
          "kind": s.requirement.kind, "coverage": s.coverage}
@@ -1407,6 +1449,11 @@ def apply_suggestion(
                 "evidence_ids": action["evidence_ids"],
                 "requirement_ids": action["requirement_ids"],
             })  # fmt: skip
+        elif action["type"] == "summary":
+            if data.get("summary"):  # the summary it replaces stays in the history
+                store.checkpoint_revision(document_id, "MANUAL_CHECKPOINT")
+            data["summary"] = {"id": new_id(), "text": action["text"], "origin": "RULE_REWRITE",
+                               "evidence_ids": action["evidence_ids"]}  # fmt: skip
         elif action["type"] == "show":
             for section in ("experience", "projects", "education"):
                 for entry in data[section]:

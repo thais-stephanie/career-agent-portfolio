@@ -23,7 +23,7 @@ const MARK = { COVERED: '✓', PARTLY: '◐', SAID: '◌', NOT_FOUND: '○', ELI
 const GROUPS = [
   ['emphasized', ['REORDER_BULLETS', 'SHOW_BULLET']],
   ['reworded', ['REWRITE_HEADLINE', 'REWRITE_SUMMARY', 'REWRITE_BULLET']],
-  ['added', ['ADD_BULLET', 'ADD_SKILL']],
+  ['added', ['ADD_BULLET', 'ADD_SKILL', 'ADD_SUMMARY']],
   ['hidden', ['HIDE_BULLET']],
   ['labelled', ['MOVE_SKILL']],
 ];
@@ -83,6 +83,8 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
       words = t(key, { what: what || '', ask: s.ask });
     } else if (s.kind === 'NO_EVIDENCE') {
       words = t('rv.job.suggestGap', { ask: s.ask });
+    } else if (s.kind === 'SUMMARY_FROM_EVIDENCE') {
+      words = t(s.replaces ? 'rv.job.suggestSummaryReplace' : 'rv.job.suggestSummary', { what: s.text });
     } else {
       words = t('rv.job.suggestLong', { n: s.words });
     }

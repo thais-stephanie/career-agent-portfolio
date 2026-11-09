@@ -217,6 +217,45 @@ def test_the_job_panel_shows_the_report_in_words(
     assert "Esta vaga tem um texto escrito para uma IA, não para você. Ele foi ignorado:" in pt
 
 
+def test_a_version_gets_a_summary_from_confirmed_evidence_in_words(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    """The Master has no summary: the version's is put together from confirmed
+    evidence, shown first in the preview, listed as added, and said to be
+    short in plain words, in English and in Portuguese."""
+    frame = "[...document.querySelectorAll('.rvp__frame')].find((f) => !f.hasAttribute('data-off'))"
+    first = "Revenue Operations Analyst with experience at Northwind Systems"
+    _pasted(page, tailor_server["url"])
+    page.wait_for(
+        f"({frame})?.contentDocument?.querySelector('[data-ref=\"section/summary\"]') != null",
+        message="the summary in the preview",
+    )
+    order = page.evaluate(
+        f"[...({frame}).contentDocument.querySelectorAll('section[data-ref^=\"section/\"]')]"
+        ".map((s) => s.dataset.ref)"
+    )
+    assert order[0] == "section/summary" and order.index("section/summary") < order.index(
+        "section/experience"
+    )
+    said = page.evaluate(
+        f"({frame}).contentDocument.querySelector('[data-ref=\"section/summary\"]').innerText"
+    )
+    assert first in said
+    page.wait_for("document.querySelector('.rvj__risks') !== null", message="the risks")
+    text = panel(page)
+    assert first in text  # under "Added from your confirmed experience"
+    assert "A short summary, under 70 words." in text
+    for internal in ("SUMMARY_SHORT", "SUMMARY_MISSING", "ADD_SUMMARY", "RULE_REWRITE"):
+        assert internal not in text, internal
+    assert page.console_errors() == []
+    page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
+    page.wait_for(
+        "document.querySelector('.rvj__panel')?.innerText.includes('Um resumo curto')",
+        message="the panel in Portuguese",
+    )
+    assert "Um resumo curto, com menos de 70 palavras." in panel(page)
+
+
 @pytest.fixture
 def long_version(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, Any]]:
     """A version for a job holding sixteen roles: over two pages."""

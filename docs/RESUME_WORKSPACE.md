@@ -557,6 +557,18 @@ made by hand), and a manual version is never labelled Tailored.
   lines come first; roles keep their chronology; a role with more than six
   shown lines hides the ones that answer nothing. Headline, summary, titles,
   employers, dates, education and certifications are the Master's.
+* **A summary from confirmed evidence** (`resume_doc.summary`), only when the
+  Master has none and the person did not hide it: the current role's title
+  and the roles' employers, up to three skills a job's evidence holds (the
+  ones the job asks for first), then confirmed statements of those roles
+  verbatim (`RULE_REWRITE`, citing every claim it uses). Three to five
+  sentences, at most 110 words; nothing is added to reach 70 (the report says
+  `SUMMARY_SHORT`), and with fewer than three sentences there is none
+  (`SUMMARY_MISSING`). When the Master has a summary it is kept and the
+  composed one is only offered, as a suggestion the person applies (the copy
+  before stays in the history). The Master is never written. Read as a
+  rule-made line (every word and number its evidence's, its frames' or its
+  roles' names); it restates, so it answers no ask, and a fit never hides it.
 * **An independent review** checks every changed line against its own
   evidence: grounding, numbers, named terms and words (a set difference: no
   number, tool or word the evidence lacks), and the Master's titles,

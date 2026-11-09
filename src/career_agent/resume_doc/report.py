@@ -12,7 +12,8 @@ retrieval (`jd`, `tailor`):
   and lines the page budget hid;
 * `risk_flags`: style findings on visible lines, visible lines no confirmed
   evidence backs, lines citing evidence that is not confirmed now, phrases a
-  claim's limits forbid, a page-limit conflict, and ad lines written to a
+  claim's limits forbid, a page-limit conflict, a summary missing or under
+  70 words (`SUMMARY_MISSING`, `SUMMARY_SHORT`), and ad lines written to a
   model (`ADDRESSED_TO_A_MODEL`), which are never asks, gaps or questions;
 * `questions_for_user`: statements still waiting for the person's review that
   would answer an ask. They never reach the resume; confirming them is the
@@ -40,6 +41,7 @@ from career_agent.resume_doc.master import (
     skill_origin,
 )
 from career_agent.resume_doc.models import EVIDENCED_ORIGINS, Origin, ResumeDocument
+from career_agent.resume_doc.summary import MIN_WORDS
 from career_agent.resume_doc.tailor import (
     ADDRESSED_TO_A_MODEL,
     Source,
@@ -181,6 +183,14 @@ def build(
     if fit and fit.status == "CONFLICT":
         flags.append({"code": "PAGE_LIMIT_CONFLICT", "ref": "document",
                       "detail": f"{fit.pages} pages for a limit of {fit.limit}"})  # fmt: skip
+    # Spec v1, S3: a summary of 3 to 5 sentences, about 70 to 110 words. Said,
+    # never filled in: a short one is what the evidence holds.
+    shown_summary = doc.summary if "summary" not in doc.layout.hidden_sections else None
+    if shown_summary is None:
+        flags.append({"code": "SUMMARY_MISSING", "ref": "summary", "detail": ""})
+    elif len(shown_summary.text.split()) < MIN_WORDS:
+        flags.append({"code": "SUMMARY_SHORT", "ref": shown_summary.id,
+                      "detail": str(len(shown_summary.text.split()))})  # fmt: skip
 
     # The words a person reads for each flag: the line, the skill, or the ad's.
     texts = {line.id: line.text for line in lines.values()}

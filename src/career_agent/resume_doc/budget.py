@@ -95,14 +95,21 @@ class Fit:
     notes: list[str] = field(default_factory=list)
 
 
-def _requirement_lines(supports: list[Any]) -> tuple[set[str], set[str], set[str]]:
+def _requirement_lines(
+    doc: ResumeDocument, supports: list[Any]
+) -> tuple[set[str], set[str], set[str]]:
     """(lines answering any ask, lines answering a required ask, the strongest
-    shown line per required ask), as line ids."""
+    shown line per required ask), as line ids. The headline and the summary,
+    never cut, are no lines to protect: the strongest is another line."""
+    uncut = {b.id for b in (doc.headline, doc.summary) if b is not None}
     answering, required, strongest = set(), set(), set()
     for sup in supports:
         if sup.requirement.eligibility:
             continue
-        ids = [s.line_id for s, _ in sup.shown if s.line_id and (s.claim_key or s.evidence_ids)]
+        ids = [
+            s.line_id for s, _ in sup.shown
+            if s.line_id and s.line_id not in uncut and (s.claim_key or s.evidence_ids)
+        ]  # fmt: skip
         answering |= set(ids)
         if sup.requirement.hardness == "REQUIRED":
             required |= set(ids)
@@ -114,7 +121,7 @@ def _requirement_lines(supports: list[Any]) -> tuple[set[str], set[str], set[str
 def _plan(doc: ResumeDocument, supports: list[Any], year: int) -> list[tuple[str, str]]:
     """Every cut the spec allows, in its order: (step, ref). Refs are
     `certifications/<id>`, `projects/<id>`, `skills/<id>`, `bullet/<id>`."""
-    answering, required, strongest = _requirement_lines(supports)
+    answering, required, strongest = _requirement_lines(doc, supports)
     strength: dict[str, float] = {}
     for sup in supports:
         for s, v in sup.shown:
@@ -223,7 +230,7 @@ def fit(
         target_words = int(target_words * limit / max(pages, limit + 1))
     result.pages, result.words = pages, word_count(current)
     if pages > limit:
-        _, _, strongest = _requirement_lines(supports)
+        _, _, strongest = _requirement_lines(doc, supports)
         result.status = "CONFLICT"
         result.protected = sorted(strongest)
         result.notes.append("what proves the required asks does not fit the page limit")

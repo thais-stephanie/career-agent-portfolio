@@ -170,7 +170,15 @@ def test_the_senior_dogfood_adds_real_support_reports_gaps_and_invents_nothing(
     for line in texts(doc):
         assert line.casefold() in allowed or "i " + line.casefold() in allowed, line
     assert doc["headline"] == master["document"]["headline"]
-    assert doc["summary"] == master["document"]["summary"]
+    # The Master has no summary, so the version composes one: framing sentences
+    # (role, skills) and statements copied from confirmed claims, nothing else.
+    assert master["document"]["summary"] is None
+    assert doc["summary"]["origin"] == "RULE_REWRITE"
+    statements = [s.strip() for s in doc["summary"]["text"].split(". ")[2:]]
+    assert statements
+    for sentence in statements:
+        said = sentence.rstrip(".").casefold()
+        assert any(said in x.rstrip(".") for x in allowed), sentence
 
 
 def test_no_number_tool_or_title_from_the_ad_reaches_the_version(api: JobsApi) -> None:

@@ -224,3 +224,63 @@ every run. No PDF is committed.
   faithful. A false refusal, never a false acceptance.
 * The word estimate (500 words a page) is conservative for 30-word bullets and
   optimistic for many very short lines; `pdf_pages` is the real check.
+
+## Professional summary (2026-11-09, branch `claude/resume-summary`)
+
+Rule S3 of the original spec: a 3 to 5 sentence summary, about 70 to 110
+words, from verified evidence only.
+
+**Root cause.** A Master built from the career profile never had a summary,
+and the Tailor copied the Master's (none). There was no summary claim type, so
+nothing could fill it. A normal tailored version (the Avery fixture) had no
+Summary section at all; the Morgan example had one only because the person
+typed it.
+
+**Master and Tailor now.**
+
+* A Master is never given a summary. One the person wrote is kept.
+* A version of a Master with no summary gets one from `resume_doc.summary`:
+  the current role with up to three employers, two or three skills the job
+  asks for, then statements copied word for word from confirmed claims of the
+  roles shown (shared work last, then relevance to the job). It is a
+  `RULE_REWRITE` line with the claims as `evidence_ids`; the `ADD_SUMMARY`
+  change records each sentence's sources. It stops at 5 sentences, 110 words
+  or 700 characters and is never padded.
+* Fewer than three sentences, or no statement: no summary, and the report
+  says `SUMMARY_MISSING`. Under 70 words: kept, and the report says
+  `SUMMARY_SHORT`.
+* When the Master's summary is kept, the job panel offers the composed one.
+  Applying it saves the old text in the history and leaves the Master as is.
+* Review checks a composed summary in strict mode (each token in the sources,
+  numbers exact). The page fit never cuts it or treats it as a requirement
+  line; a hidden summary stays hidden.
+
+**Tests.** `tests/integration/test_resume_summary.py` (new) and a browser test
+in `tests/browser/test_resume_tailor.py`. Full suite: 13,481 passed,
+8 skipped, 1 failed. The failure was
+`test_the_senior_dogfood_adds_real_support_reports_gaps_and_invents_nothing`,
+which pinned the old contract (version summary equals the Master's). It now
+checks that each statement is a confirmed claim. That file and the summary
+file were rerun and pass. Browser suite: 600 passed.
+
+**Before and after (synthetic).**
+
+* Avery (sixteen invented roles), before: no summary. After, 42 words and
+  flagged short: "Customer Success Engineer with experience at Quillfeather
+  Analytics, Lumen Synthetic Ltd and Robust Ventures Example. Skilled in SQL.
+  Reduced customer onboarding time from 10 days to 6 days. …"
+* Harper (test fixture), after: 89 words in 5 sentences. The PDF is one page
+  with SUMMARY under the name and before EXPERIENCE. The DOCX has the
+  `Heading 1` "Summary" paragraph right after the title.
+
+**Pagination.** The summary adds 3 to 7 lines. The two-page gate still holds:
+the fit cuts bullets, not the summary.
+
+**Known limits.**
+
+* The statements repeat bullets word for word.
+* Years of experience are never computed.
+* Versions made before this change keep no summary until the suggestion is
+  applied.
+* A long summary is flagged by Analyze, not by the job panel's long-line
+  suggestion.

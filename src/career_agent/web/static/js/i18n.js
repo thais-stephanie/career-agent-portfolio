@@ -3121,6 +3121,10 @@ const EN = {
     + 'where it comes from:',
   'rv.job.risk.SKILL_ORIGIN_UNKNOWN': 'Your evidence does not say where you used this skill:',
   'rv.job.risk.PAGE_LIMIT_CONFLICT': 'This version does not fit two pages without hiding what the job asks for.',
+  'rv.job.risk.SUMMARY_MISSING': 'This version has no summary. Your confirmed experience is not enough to write one '
+    + 'without inventing it: write it yourself, or add evidence in Proof of my work.',
+  'rv.job.risk.SUMMARY_SHORT': 'A short summary, under 70 words. It says what your confirmed experience holds; add '
+    + 'evidence to say more:',
   'rv.job.risk.STYLE_EM_DASH': 'A long dash in this line:',
   'rv.job.risk.STYLE_EN_DASH_OUTSIDE_RANGE': 'A short dash outside a date range:',
   'rv.job.risk.STYLE_EXCLAMATION': 'An exclamation mark in this line:',
@@ -3139,6 +3143,9 @@ const EN = {
   'rv.job.suggestGap': 'Your resume does not show evidence for “{ask}”, and I couldn’t find it in your confirmed '
     + 'experience.',
   'rv.job.suggestLong': 'This line is {n} words; a shorter one is easier to scan.',
+  'rv.job.suggestSummary': 'A summary from your confirmed experience, for this job: “{what}”',
+  'rv.job.suggestSummaryReplace': 'Replace the summary with one from your confirmed experience, for this job '
+    + '(the current one stays in the history): “{what}”',
   'rv.job.apply': 'Apply',
   'rv.job.addEvidence': 'Add evidence',
   'rv.job.edit': 'Edit this line',
@@ -8541,6 +8548,10 @@ const PT_BR = {
     + 'emprego. Mova para um grupo que diga de onde ela vem:',
   'rv.job.risk.SKILL_ORIGIN_UNKNOWN': 'Sua evidência não diz onde você usou esta competência:',
   'rv.job.risk.PAGE_LIMIT_CONFLICT': 'Esta versão não cabe em duas páginas sem esconder o que a vaga pede.',
+  'rv.job.risk.SUMMARY_MISSING': 'Esta versão não tem resumo. Sua experiência confirmada não basta para escrever um '
+    + 'sem inventar: escreva o seu, ou adicione evidências em Provas do meu trabalho.',
+  'rv.job.risk.SUMMARY_SHORT': 'Um resumo curto, com menos de 70 palavras. Ele diz o que sua experiência confirmada '
+    + 'sustenta; adicione evidências para dizer mais:',
   'rv.job.risk.STYLE_EM_DASH': 'Um travessão longo nesta linha:',
   'rv.job.risk.STYLE_EN_DASH_OUTSIDE_RANGE': 'Um travessão curto fora de um intervalo de datas:',
   'rv.job.risk.STYLE_EXCLAMATION': 'Um ponto de exclamação nesta linha:',
@@ -8559,6 +8570,9 @@ const PT_BR = {
   'rv.job.suggestGap': 'Seu currículo não mostra evidência de “{ask}”, e não encontrei isso na sua experiência '
     + 'confirmada.',
   'rv.job.suggestLong': 'Esta linha tem {n} palavras; uma mais curta é mais fácil de ler.',
+  'rv.job.suggestSummary': 'Um resumo feito da sua experiência confirmada, para esta vaga: “{what}”',
+  'rv.job.suggestSummaryReplace': 'Troque o resumo por um feito da sua experiência confirmada, para esta vaga '
+    + '(o atual fica no histórico): “{what}”',
   'rv.job.apply': 'Aplicar',
   'rv.job.addEvidence': 'Adicionar evidência',
   'rv.job.edit': 'Editar esta linha',

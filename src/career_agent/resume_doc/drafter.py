@@ -414,6 +414,7 @@ def start(
             target=target,
             provenance=provenance,
             claims={s.claim_key: s for s in pool if s.claim_key},
+            supports=supports,
         )
         context = _context(base, supports, pool)
         message = user_message(context)

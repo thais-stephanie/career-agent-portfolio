@@ -200,6 +200,16 @@ def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list, dict
                 *(h["text"] + " " + " ".join(h.get("tools") or []) for h in held),
             ]
         )
+        # A summary composed by rule (`summary.compose`) is read as a rule-made
+        # line, as the Tailor reads it: every word and number its evidence's,
+        # its frames' or its roles' names.
+        composed = (
+            doc.summary is not None and ref == doc.summary.id and line.origin is Origin.RULE_REWRITE
+        )
+        if composed:
+            from career_agent.resume_doc.summary import grounds
+
+            source = f"{source} {grounds(doc)}"
         tools = {jd.folded(t) for h in held for t in h.get("tools") or []}
         titles = " ".join(
             f"{e.display_title} {e.source_title or ''}"
@@ -208,7 +218,7 @@ def _evidence(conn: sqlite3.Connection, doc: ResumeDocument) -> tuple[list, dict
         )
         kinds = dict.fromkeys(
             _GROUNDING[code]
-            for code, _ in grounding(line.text, source, tools, ai=True, titles=titles)
+            for code, _ in grounding(line.text, source, tools, ai=not composed, titles=titles)
         )
         # A line its evidence does not hold as worded is not "from confirmed
         # experience", whatever ids it carries.
