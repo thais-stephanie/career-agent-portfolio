@@ -16,7 +16,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 
 import typer
 
@@ -2327,6 +2327,17 @@ def rescore_command(
             help="Read every advert again instead of reusing stored readings.",
         ),
     ] = False,
+    no_migrate: Annotated[
+        bool,
+        typer.Option(
+            "--no-migrate",
+            help=(
+                "For programs that run unattended: refuse pending migrations instead of "
+                "applying them, refuse while maintenance or another rescore runs, hold the "
+                "maintenance lock while scoring, and print one JSON result."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Score the postings that need it against the search configuration.
 
@@ -2355,6 +2366,28 @@ def rescore_command(
     db = resolve_database(RuntimeMode.PERSONAL, db)
     _check_profile_pair(db, config_dir)
     from career_agent.pipeline.rescore import RescoreMode, plan, rescore
+
+    if no_migrate:
+        if plan_only:
+            raise typer.BadParameter("--plan scores nothing; it does not need --no-migrate.")
+        _rescore_unattended(
+            db,
+            config_dir,
+            mode=RescoreMode.ALL
+            if force
+            else RescoreMode.DIRTY
+            if dirty
+            else RescoreMode.EXPLICIT
+            if job_id or provider or board
+            else RescoreMode.TARGETED,
+            job_ids=tuple(job_id or ()),
+            provider=provider,
+            board=board,
+            limit=limit or None,
+            include_closed=include_closed,
+            no_replay=no_replay,
+        )
+        return
 
     config, config_path = _load_config(config_dir)
     conn = _open_personal(db)
@@ -2444,6 +2477,63 @@ def rescore_command(
     for sample in stats.error_samples:
         typer.secho(f"  ! {sample}", fg=typer.colors.YELLOW)
     typer.echo("\nzero network calls, zero hosted inference, zero local inference")
+
+
+#: Exit statuses of `rescore --no-migrate`, for the program that runs it.
+UNATTENDED_EXIT = {"FINISHED": 0, "ERROR": 1, "REFUSED": 2, "BUSY": 3, "INTERRUPTED": 130}
+
+
+def _rescore_unattended(db: Path, config_dir: Path, *, mode: Any, **options: Any) -> None:
+    """`rescore --no-migrate`: the same pass, behind the checks an unattended caller needs.
+
+    Never migrates (`jobs_export.preflight` refuses pending migrations, a demo database
+    and a missing file). Holds the maintenance lock, so it cannot overlap `refresh` or the
+    app's own update, and refuses while another process is scoring. Prints exactly one
+    JSON object and exits with `UNATTENDED_EXIT`: an interrupted or failed pass is never
+    reported as finished. Like every rescore, zero network and zero inference calls.
+    """
+    import dataclasses
+    import json
+
+    from career_agent.config.search_config import SearchConfigError, load_search_config
+    from career_agent.jobs_export import ExportRefused, preflight
+    from career_agent.pipeline.rescore import rescore, rescore_in_progress
+    from career_agent.runtime.maintenance_lock import maintenance_lock
+
+    def finish(status: str, **fields: Any) -> NoReturn:
+        typer.echo(json.dumps({"status": status, "mode": mode.value, **fields}, default=str))
+        raise typer.Exit(code=UNATTENDED_EXIT[status])
+
+    try:
+        preflight(db)
+        config, _ = load_search_config(config_dir)
+    except ExportRefused as exc:
+        finish("REFUSED", reason=exc.reason, message=str(exc))
+    except SearchConfigError as exc:
+        finish("REFUSED", reason="CONFIG", message=str(exc))
+    try:
+        with maintenance_lock(db):
+            conn = connect(db)
+            try:
+                if rescore_in_progress(conn):
+                    finish("BUSY", reason="RESCORE_RUNNING", message="Another rescore is running.")
+                stats = rescore(
+                    conn, config, mode=mode, semantic=_semantic_on(config_dir, conn), **options
+                )
+            finally:
+                conn.close()
+    except typer.Exit:  # finish() above; click's Exit is itself a RuntimeError
+        raise
+    except RuntimeError as exc:
+        if "already running" not in str(exc):
+            finish("ERROR", reason=type(exc).__name__, message=str(exc)[:500])
+        finish("BUSY", reason="MAINTENANCE_RUNNING", message=str(exc))
+    except KeyboardInterrupt:
+        finish("INTERRUPTED", reason="INTERRUPTED", message="Stopped before the pass finished.")
+    except Exception as exc:  # noqa: BLE001 - reported as a result, never swallowed
+        finish("ERROR", reason=type(exc).__name__, message=str(exc)[:500])
+    # Per-posting errors do not stop a pass; `stats.errors` says how many, for the caller.
+    finish("FINISHED", stats=dataclasses.asdict(stats))
 
 
 # =====================================================================

@@ -90,7 +90,44 @@ def refresh(
         )
 
 
+def export_jobs_command(
+    out: Annotated[Path, typer.Option("--out", help="The JSON file to write.")],
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    config_dir: Annotated[Path, typer.Option("--config-dir")] = Path("config"),
+    include_unresolved: Annotated[
+        bool,
+        typer.Option(
+            "--include-unresolved",
+            help="Also postings that do not say where they hire. Slow on a large database.",
+        ),
+    ] = False,
+) -> None:
+    """Write the Jobs list, as the app shows it, to a versioned JSON file. Read-only.
+
+    Works with the app closed. Never migrates, never writes to the database, and
+    writes the file only once it is complete. Prints one JSON summary. Exit 0 written,
+    2 refused (missing, not personal, migrations pending), 4 the list moved while it
+    was read (run again), 1 anything else. See `career_agent.jobs_export`.
+    """
+    from career_agent.jobs_export import ExportRefused, check_profile_pair, export_jobs
+
+    path = resolve_database(RuntimeMode.PERSONAL, db)
+    try:
+        check_profile_pair(path, config_dir)
+        summary = export_jobs(path, config_dir, out, include_unresolved=include_unresolved)
+    except ExportRefused as exc:
+        typer.echo(json.dumps({"status": "REFUSED", "reason": exc.reason, "message": str(exc)}))
+        raise typer.Exit(code=exc.code) from exc
+    except Exception as exc:  # noqa: BLE001 - reported as a result, never swallowed
+        typer.echo(
+            json.dumps({"status": "ERROR", "reason": type(exc).__name__, "message": str(exc)[:500]})
+        )
+        raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps({"status": "WRITTEN", "out": str(out), **summary}))
+
+
 def register(app: typer.Typer) -> None:
+    app.command(name="export-jobs")(export_jobs_command)
     app.command(name="refresh")(refresh)
     app.command(name="refresh-status")(refresh_status)
     app.command(name="repair-placement")(repair_placement)
