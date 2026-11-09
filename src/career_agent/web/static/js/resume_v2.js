@@ -784,12 +784,15 @@ function createEditor(answer, {
       redraw();
     }
     function row(item) {
+      // A skill from outside a job is moved or hidden, never "my own statement".
+      const outside = item.kind === 'OUTSIDE_A_JOB';
       const actions = item.acknowledged
         ? [el('span', { className: 'rve__note', text: t('rv.review.yours') }),
           smallButton(t('rv.review.undo'), () => decide(item, withdrawStatement))]
         : [smallButton(t('rv.review.edit'), () => focusLine(item.ref)),
           item.original_text ? smallButton(t('rv.review.putBack'), () => putBack(item)) : null,
-          smallButton(t('rv.review.mine'), () => decide(item, acknowledgeStatement))].filter(Boolean);
+          outside ? el('p', { className: 'rve__note', text: t('rv.review.outside') })
+            : smallButton(t('rv.review.mine'), () => decide(item, acknowledgeStatement))].filter(Boolean);
       return el('li', {
         className: 'rve__reviewitem',
         dataset: { ref: item.ref, kind: item.kind, acknowledged: String(item.acknowledged) },

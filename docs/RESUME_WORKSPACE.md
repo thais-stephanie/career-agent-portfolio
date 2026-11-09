@@ -695,7 +695,20 @@ nothing. The deterministic path stays beside it, unchanged.
   company) is not its wording. Prompt `resume-drafter-v2` states the rules.
   The person's own and confirmed wording is never refused for style; the
   tailoring report (`resume_doc/report.py`, research in
-  `docs/research/resume-tailor-v1/`) flags it.
+  `docs/research/resume-tailor-v1/`) flags it. The job panel shows that report
+  beside the version: what it leaves out, what to check, and statements
+  waiting for confirmation. It blocks nothing; the statement review stays the
+  one gate before a file.
+* **Where a skill comes from.** A skill no job's confirmed evidence holds is
+  never shown as a job's: the Master, Tailor and the "add this skill"
+  suggestion put a lab's in "Lab" and a project's in "Independent projects",
+  and one nothing places in a hidden "Origin not confirmed" group
+  (`master.skill_origin`). The review before export stops a lab or project
+  skill shown in a group that does not say so; it is moved or hidden, never
+  acknowledged.
+* **Ad text written to a model** ("Ignore all previous instructions",
+  "SYSTEM: ...") is no ask: `tailor.retrieve` drops it for every reader, and
+  the report quotes it back as a risk.
 * **Labelled, not ranked.** My resumes and the job drawer say "AI-assisted";
   the job panel says the version was drafted with AI and reviewed by the
   person.

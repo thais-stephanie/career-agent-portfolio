@@ -45,8 +45,9 @@ coverage[]: {requirement_id, requirement (quote), type: must|nice|unstated,
              match: strong|partial|none, evidence_ids[], only_outside_a_job}
 gaps[]: {requirement_id, requirement, type}
 eligibility[]: {requirement_id, requirement}
-omitted_evidence[]: {evidence_id, reason: ANSWERS_AN_ASK_NOT_SHOWN | HIDDEN_FOR_PAGE_LIMIT}
-risk_flags[]: {code, ref, detail?, origin?, evidence_id?}
+omitted_evidence[]: {evidence_id, text, reason: ANSWERS_AN_ASK_NOT_SHOWN |
+                      HIDDEN_FOR_PAGE_LIMIT | SKILL_ORIGIN_UNKNOWN}
+risk_flags[]: {code, ref, text, detail?, origin?, evidence_id?}
 questions_for_user[]: {code: CONFIRM_BEFORE_USE, claim_key, text, requirement_ids}
 word_count, page_limit, word_budget, fit: {status, pages, rounds, cuts, protected, notes}
 ```
@@ -62,7 +63,9 @@ Deviations from the spec, each deliberate:
 
 Risk flag codes: `STYLE_<code>`, `NO_CONFIRMED_EVIDENCE`, `EVIDENCE_CHANGED_SINCE`,
 `EVIDENCE_NOT_CONFIRMED`, `CLAIM_LIMIT`, `SKILL_ONLY_OUTSIDE_A_JOB`,
-`PAGE_LIMIT_CONFLICT`.
+`SKILL_ORIGIN_UNKNOWN`, `AD_TEXT_ADDRESSED_TO_A_MODEL`, `PAGE_LIMIT_CONFLICT`.
+`text` is the words the person reads for the flag (the line, the skill or the
+ad's quote), so the panel never shows an id.
 
 ## Where each truth rule is enforced
 
@@ -74,11 +77,11 @@ Risk flag codes: `STYLE_<code>`, `NO_CONFIRMED_EVIDENCE`, `EVIDENCE_CHANGED_SINC
 | No metric from a description | `grounding` NUMBERS, CLAIMS | Refusal (AI) |
 | No merging or moving results | EMPLOYER rule, amount from its own sentence | Refusal (AI) |
 | Exact authorship | `_responsibility` (RESPONSIBILITY, PARTICIPATION, AGENT) | Refusal (AI) |
-| Lab apart from jobs | EMPLOYER rule for lines; report flags for skills and coverage | Refusal for lines, flag for skills |
+| Lab apart from jobs | EMPLOYER rule for lines; `skill_origin` groups for skills; export review `OUTSIDE_A_JOB` | Refusal for lines; placement and an export stop for skills |
 | Needs verification | PENDING never usable; `questions_for_user` | Refusal + question |
 | Gaps never filled | Strategy adds only confirmed lines; `gaps` | By construction |
 | Tenure never recomputed | Years asks at most "partly" | By construction |
-| Job text is data | Snapshot quotes only; drafter prompt marks it untrusted | By construction |
+| Job text is data | Snapshot quotes only; drafter prompt marks it untrusted; `retrieve` drops lines written to a model | By construction |
 | Style | `style.findings` | Refusal (AI), flag (other lines) |
 
 Verbatim and typed lines are never refused for style: a confirmed statement is
@@ -156,7 +159,155 @@ the stylesheet already sets (`-webkit-print-color-adjust: exact`).
 8. No time zone or working-hours line, company description line or languages
    section yet (no typed place; decisions listed in the rollout plan).
 
+## Owner decisions of 2026-11-08 and how they are applied
+
+### Lab skills (approved: never shown as a job's skill)
+
+No stored field says "lab": a claim has a type, a text, tools and an
+optional experience. What the data does say, reliably, is whether a confirmed
+claim sits in a job (`experience_id`). So one function, `master.skill_origin`,
+reads a skill's confirmed evidence:
+
+| Origin | When | Where the skill goes |
+|---|---|---|
+| `JOB` | at least one cited claim is in a (non-archived) job | the plain skills group, as before |
+| `LAB` | no claim in a job, and a claim's own confirmed words say lab ("home lab", "laboratório") | a group named "Lab" / "Laboratório" |
+| `PROJECT` | no claim in a job, and a cited claim is a PROJECT | "Independent projects" / "Projetos independentes" |
+| `UNKNOWN` | nothing says where (a standalone skill or tool claim, or evidence retired since) | a **hidden** group "Origin not confirmed": off the page, kept in the document, reported |
+
+The lab word is read from the person's own confirmed text (a `ponytail:`
+comment marks it): it only decides between the two labelled groups, never
+whether a skill counts as a job's. Applied in three places that make skills:
+the Master builder (new Masters), Tailor's draft (every new version, also from
+an older Master that still has the chip in "Skills") and the "add this skill"
+suggestion. Each move is a recorded `MOVE_SKILL` change, shown in the job
+panel under "Placed apart from your jobs". Nothing is deleted.
+
+For documents that already exist or that the person edits, the existing
+statement review (the one gate before export) lists a `LAB` or `PROJECT`
+skill shown in a group whose name does not say so as `OUTSIDE_A_JOB`. This is
+the one review item that cannot be acknowledged: the person moves it, renames
+the group so it says where the skill comes from, or hides it. An `UNKNOWN`
+skill in an old document is not proof of a lab, so it does not stop the
+export; the report flags it (`SKILL_ORIGIN_UNKNOWN`).
+
+Known effect to review: a new Master now leaves every standalone skill claim
+that is not placed in any experience off the page (hidden group), as the
+decision asks. The person places it in Career Evidence (link it to a job or a
+project) or shows the group.
+
+### Number grounding (approved: stay conservative; proposal only)
+
+Production keeps `tailor.grounding` unchanged. Tests now pin both sides
+(`test_resume_tailor_v1_completion.py`): three faithful rewrites that are
+refused today (reordered words, passive voice, "Cut" for "Reduced") and seven
+that must stay refused (changed number, invented metric, changed year, changed
+tool, added leadership, lost participation, lost "about").
+
+Proposal for a later, separately validated change (`grounding_v2`, behind a
+flag, shadow first):
+
+1. Parse each amount into a frame: number, unit, counted phrase head, the
+   verb's direction class (reduce/cut/shorten/lower = DOWN; grow/raise = UP),
+   its subject (the person, a team, "we"), qualifiers (about, up to, together
+   with, helped), period and the named tools of the sentence.
+2. Accept AI wording only when its frame equals the evidence frame on every
+   field: same numbers and units, same counted head, same direction class,
+   same subject and participation, the same qualifiers, the same period and
+   the same tools; and its sentence cites one claim (no transfer between
+   projects or roles; the EMPLOYER rule still applies).
+3. Anything the parser cannot read stays on today's rule (fail closed).
+4. Validation before turning it on: the current 50 frozen pairs plus the
+   synthetic false-refusal set must pass with zero false acceptances on the
+   must-refuse set; one shadow week logging both readers' verdicts on the
+   person's own AI proposals, reviewed by the owner.
+
+### Two or three pages (approved: 2 by default; no column now)
+
+Proposed storage, not built:
+
+* **Where:** a new table `application_resume_option (job_id TEXT PRIMARY KEY
+  REFERENCES job(id), page_limit INTEGER NOT NULL CHECK (page_limit IN (2,3)),
+  decided_at TEXT NOT NULL)`, one row only when the person chose 3 pages for
+  that job. A table (not a `job_application` column) keeps `job_application`
+  untouched and means "no row" is the default for every existing job.
+* **Link to the application:** keyed by job, read when tailoring or exporting a
+  version whose `target.job_id` is that job. A pasted ad (no job id) is always 2.
+* **Old documents:** nothing in `ResumeDocument` changes; a version made before
+  the table exists reads as 2 pages.
+* **Migration:** additive (`CREATE TABLE`), rehearsed on a temporary copy;
+  one verified backup before the real databases.
+* **Rollback:** an older build ignores the table; dropping it loses only the
+  choices made since.
+* **UI:** a checkbox in the job's resume area, "Allow a third page for this
+  job", off by default, explained in plain words; the export says which limit
+  it held the file to. The model can never set it (`budget.page_limit` takes a
+  bool only; drafter answers with a `page_limit` field fail parsing).
+
+The real page count stays checked at export: the preview's count is compared
+with the printed PDF (`ats` PAGES). Wiring `budget.fit` into export is the
+rollout plan's step 3.
+
+### Limits and evidence class (proposal, versioned, not built)
+
+`career_evidence_annotation` (schema `evidence-annotation-v1`), one row per
+claim key and revision, written only by the person in Career Evidence:
+
+```
+claim_key, claim_revision      -- the confirmed revision it annotates
+setting: JOB | INDEPENDENT_PROJECT | LAB | COURSE | SYNTHETIC | UNKNOWN
+limits: [{kind: NEVER_WRITE | NOTE, text}]   -- NEVER_WRITE is checkable
+needs_check: bool                -- "verify before use": the claim is not
+                                 -- usable until the person clears it
+annotated_at, schema_version
+```
+
+* **Provenance:** an annotation cites the claim revision; a newer revision of
+  the claim makes it stale (asked again), as acknowledgements already do.
+* **No conflict with existing data:** nothing in `verified_claim` changes;
+  claims without an annotation read as today (`setting` from `experience_id`,
+  the rule above). `setting = LAB` replaces the lab-word reading.
+* **Use:** `NEVER_WRITE` limits become a refusal for AI wording (like STYLE)
+  and a review item for other lines; `needs_check` joins PENDING in
+  `questions_for_user`; `setting` feeds `skill_origin` and coverage.
+
+### Report beside the version, and the approval
+
+`GET /api/resume/documents/<id>/job` now carries `report` (computed, never
+stored) for a version made for a job ad, and the existing job panel beside the
+preview shows: coverage (met, partly met, not found), what the version leaves
+out ("Left out of this version"), risks ("Check before you send it"), and
+statements waiting for confirmation. Every code is mapped to plain words in
+English and Portuguese; ids are never shown. No second approval: the export
+gate is still the statement review (now with `OUTSIDE_A_JOB`), and the report
+itself blocks nothing.
+
+### Job text written to a model
+
+The pattern moved from the report into `tailor.retrieve`, the one place every
+consumer reads asks from (Tailor, its preview, the job panel, Analyze, the AI
+drafter's context, the report). `jd.analyse` is unchanged; the line is still
+in the snapshot and in the run's audit record. Patterns were narrowed so that
+AI-engineering, LLM, AI-safety, security-policy and prompt-writing asks stay
+asks (twelve such lines tested).
+
+### Template, language and privacy (proposal)
+
+* Keep `clean`/`modern`/`compact`; no new `Design.template` value is persisted
+  (a rolled-back build could not read it).
+* Two pages by default (`budget.page_limit(False)`).
+* File name, proposed: `<Given>_<Family>_<Target_Role>.pdf`, ASCII-folded,
+  only letters, digits and underscores, at most 80 characters (today's
+  `Full_Name_Target_Title_Resume.pdf` until the owner chooses).
+* En dash allowed between two dates; em dash never in generated wording
+  (STYLE refusal for AI, flag elsewhere). The ATS DATES check would need to
+  accept the en dash first.
+* Languages, availability and time zone: printed only from a confirmed field
+  the person filled for the resume, and availability only when the ad asks;
+  none exists yet. Company descriptions: only from confirmed evidence, and only
+  for a little-known employer.
+
 ## Not done, by design
 
-* No new migration, no schema change, no change to the Master builder, no UI.
+* No new migration, no schema change, no change to `jd.analyse`.
 * No model call of any kind; tests use fakes or no provider at all.

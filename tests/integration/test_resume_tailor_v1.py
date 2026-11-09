@@ -148,17 +148,14 @@ def test_a_statement_waiting_for_review_is_a_question_never_resume_text(made) ->
     assert "15 new support hires" not in _visible_text(doc)
 
 
-def test_a_lab_only_skill_is_never_a_jobs_line_and_its_skill_chip_is_flagged(made) -> None:
+def test_a_lab_only_skill_is_never_a_jobs_line_and_its_chip_says_lab(made) -> None:
     _, doc, rep = made
-    # The Master lists every confirmed tool as a skill, the lab's included
-    # (a finding: Career Evidence cannot tell a lab from a job's project).
     assert not any("Kubernetes" in b.text for e in doc.experience for b in e.bullets)
-    item = next(i for g in doc.skills for i in g.items if i.label == "Kubernetes")
-    assert {"code": "SKILL_ONLY_OUTSIDE_A_JOB", "ref": item.id, "detail": "Kubernetes"} in rep[
-        "risk_flags"
-    ]
-    # SQL is backed by a skill claim and a job's line: no flag.
-    assert not [f for f in rep["risk_flags"] if f.get("detail") == "SQL"]
+    # The lab's tool sits in a group that says so, never beside the job's skills.
+    where = {i.label: g.name for g in doc.skills for i in g.items}
+    assert where["Kubernetes"] == "Lab" and where["SQL"] == "Skills"
+    # Labelled, so nothing to flag; SQL is backed by a job's line.
+    assert not [f for f in rep["risk_flags"] if f["code"].startswith("SKILL_")]
     # The ask it answers is marked as answered only by work outside a job.
     kube = _by_quote(rep, "Kubernetes")
     assert kube["match"] == "none" or kube["only_outside_a_job"]
@@ -202,7 +199,7 @@ def test_a_claim_limit_phrase_is_a_risk_flag(made) -> None:
     rep = report.build(conn, doc, AD, page_limit=2,
                        limits={"k-agent": ["installed the monitoring agent"]})  # fmt: skip
     assert {"code": "CLAIM_LIMIT", "ref": line.id, "detail": "installed the monitoring agent",
-            "evidence_id": "k-agent"} in rep["risk_flags"]  # fmt: skip
+            "evidence_id": "k-agent", "text": line.text} in rep["risk_flags"]  # fmt: skip
 
 
 def test_newer_confirmed_evidence_wins_over_the_resumes_copy(made) -> None:

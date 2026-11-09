@@ -24,7 +24,6 @@ Nothing here writes anything.
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from collections.abc import Mapping
 from typing import Any
@@ -32,22 +31,28 @@ from typing import Any
 from career_agent.resume_doc import jd, style
 from career_agent.resume_doc.budget import WORD_BUDGET, Fit, word_count
 from career_agent.resume_doc.evidence import unconfirmed_lines
-from career_agent.resume_doc.master import _career
+from career_agent.resume_doc.master import (
+    JOB,
+    OUTSIDE_A_JOB,
+    UNKNOWN,
+    _career,
+    claims_by_key,
+    skill_origin,
+)
 from career_agent.resume_doc.models import EVIDENCED_ORIGINS, Origin, ResumeDocument
-from career_agent.resume_doc.tailor import Source, _lines, retrieve, sources, strength
+from career_agent.resume_doc.tailor import (
+    ADDRESSED_TO_A_MODEL,
+    Source,
+    _lines,
+    addressed_to_a_model,
+    retrieve,
+    sources,
+    strength,
+)
 from career_agent.storage.career_repo import SKILL_CATEGORIES
 
 VERSION = "resume-tailor-report-v1"
-#: A skills group whose name says its skills come from outside a job.
-OUTSIDE_A_JOB = re.compile(r"(?i)\b(?:lab|labs|independent|personal|project|projects|laborat)")
-#: An ad line written to a model, not to a candidate: never an ask, a gap or a
-#: question; quoted back apart as a risk. Word patterns, so a narrow list.
-# ponytail: phrase patterns, not intent; widen when a real ad slips past it.
-ADDRESSED_TO_A_MODEL = re.compile(
-    r"(?i)<!--|\b(?:system|assistant)\s*:"
-    r"|\bignore\b.{0,40}\b(?:instructions?|prompts?|evidence)\b"
-    r"|\b(?:write|state|say|claim)\s+(?:that\s+)?the\s+candidate\b|\bpage_limit\b"
-)
+__all__ = ["ADDRESSED_TO_A_MODEL", "OUTSIDE_A_JOB", "build"]
 _TYPE = {"REQUIRED": "must", "PREFERRED": "nice"}
 _MATCH = {"COVERED": "strong", "PARTLY": "partial"}
 
@@ -91,10 +96,9 @@ def build(
     """The report for `doc` against `ad_text`. `limits` maps a claim key to the
     phrases its limits forbid (Career Evidence holds no such field yet)."""
     analysis = jd.analyse(ad_text)
-    aimed = {r.id: r.source_quote for r in analysis.requirements
-             if ADDRESSED_TO_A_MODEL.search(r.source_quote)}  # fmt: skip
+    aimed = addressed_to_a_model(analysis)
     pool = sources(conn, doc)
-    supports = [s for s in retrieve(analysis, pool) if s.requirement.id not in aimed]
+    supports = retrieve(analysis, pool)  # no ask written to a model
     by_key = {s.claim_key: s for s in pool if s.claim_key}
     shown_keys = {k for _, line, shown in _lines(doc) if shown for k in line.evidence_ids}
     coverage, gaps, eligibility = [], [], []
@@ -125,6 +129,13 @@ def build(
         line = lines.get(cut["ref"].removeprefix("bullet/"))
         for key in line.evidence_ids if line else []:
             omitted[key] = "HIDDEN_FOR_PAGE_LIMIT"
+    claims = claims_by_key(*_career(conn))
+    skills_off = "skills" in doc.layout.hidden_sections
+    for group in doc.skills:
+        for item in group.items:
+            if (group.hidden or skills_off) and skill_origin(item.evidence_ids, claims) == UNKNOWN:
+                for key in item.evidence_ids:
+                    omitted.setdefault(key, "SKILL_ORIGIN_UNKNOWN")
 
     literals = _literals(doc, pool)
     said = {s.claim_key: s.text for s in pool if s.claim_key}
@@ -151,26 +162,31 @@ def build(
             for f in style.limit_findings(line.text, (limits or {}).get(key, [])):
                 flags.append({"code": "CLAIM_LIMIT", "ref": line.id, "detail": f["match"],
                               "evidence_id": key})  # fmt: skip
-    # A skill only work outside any job shows (a project's or a lab's tool) is
-    # not production experience: its group's name must say so.
+    # A skill no job's evidence holds (a lab's or a project's tool) is not
+    # production experience: its group's name must say so; one nothing places
+    # stays off the page (`master.regroup_skills`).
     for group in doc.skills:
-        if (
-            group.hidden
-            or "skills" in doc.layout.hidden_sections
-            or OUTSIDE_A_JOB.search(group.name)
-        ):
+        if group.hidden or skills_off or OUTSIDE_A_JOB.search(group.name):
             continue
         for item in group.items:
-            claims = [by_key[k] for k in item.evidence_ids if k in by_key]
-            if claims and all(_outside(c) for c in claims):
-                flags.append({"code": "SKILL_ONLY_OUTSIDE_A_JOB", "ref": item.id,
-                              "detail": item.label})  # fmt: skip
+            if not item.evidence_ids or item.origin not in EVIDENCED_ORIGINS:
+                continue
+            origin = skill_origin(item.evidence_ids, claims)
+            if origin != JOB:
+                code = "SKILL_ORIGIN_UNKNOWN" if origin == UNKNOWN else "SKILL_ONLY_OUTSIDE_A_JOB"
+                flags.append({"code": code, "ref": item.id, "detail": item.label})
     flags += [
         {"code": "EVIDENCE_NOT_CONFIRMED", "ref": ref} for ref in unconfirmed_lines(conn, doc)
     ]
     if fit and fit.status == "CONFLICT":
         flags.append({"code": "PAGE_LIMIT_CONFLICT", "ref": "document",
                       "detail": f"{fit.pages} pages for a limit of {fit.limit}"})  # fmt: skip
+
+    # The words a person reads for each flag: the line, the skill, or the ad's.
+    texts = {line.id: line.text for line in lines.values()}
+    texts |= {i.id: i.label for g in doc.skills for i in g.items}
+    for flag in flags:
+        flag["text"] = texts.get(flag["ref"], flag.get("detail", ""))
 
     questions = []
     for source in _pending(conn):
@@ -191,7 +207,8 @@ def build(
         "coverage": coverage,
         "gaps": gaps,
         "eligibility": eligibility,
-        "omitted_evidence": [{"evidence_id": k, "reason": v} for k, v in sorted(omitted.items())],
+        "omitted_evidence": [{"evidence_id": k, "reason": v, "text": said.get(k, "")}
+                             for k, v in sorted(omitted.items())],
         "risk_flags": flags,
         "questions_for_user": questions,
         "word_count": word_count(doc),

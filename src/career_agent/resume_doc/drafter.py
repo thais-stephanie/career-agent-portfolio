@@ -408,7 +408,13 @@ def start(
                   "company": snap.company}  # fmt: skip
         provenance = {"created_from": "TAILOR", "master_document_id": master_row.id,
                       "master_revision_id": revision.id, "tailoring_run_id": run_id}  # fmt: skip
-        base, rule_changes = draft(master, plan, target=target, provenance=provenance)
+        base, rule_changes = draft(
+            master,
+            plan,
+            target=target,
+            provenance=provenance,
+            claims={s.claim_key: s for s in pool if s.claim_key},
+        )
         context = _context(base, supports, pool)
         message = user_message(context)
         sent = {"asks": [a["id"] for a in context["job"]["asks"]],

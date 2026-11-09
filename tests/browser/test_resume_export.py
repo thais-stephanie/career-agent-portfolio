@@ -360,3 +360,41 @@ def test_evidence_retired_after_saving_never_traps_the_person_in_the_editor(
         store = ResumeStore(conn)
         assert [r.reason for r in store.list_revisions(exportable().id)] == ["CREATED"]
         assert store.get_document(exportable().id).working.identity.phone == "+1 555 0124"
+
+
+def test_a_lab_skill_shown_as_a_jobs_skill_is_moved_never_waved_through(
+    page: Chrome, server: dict[str, Any]
+) -> None:
+    from tests.integration.test_resume_master import claim
+
+    from career_agent.domain.enums import ClaimType
+
+    with connect(server["db"]) as conn:
+        with transaction(conn):
+            claim(conn, "k-lab-b", ClaimType.PROJECT, "Ran a Kubernetes cluster in a home lab.",
+                  tools=["Kubernetes"])  # fmt: skip
+        store = ResumeStore(conn)
+        stored = store.get_document(exportable().id)
+        data = stored.working.model_dump(mode="json")
+        item = {"id": new_id(), "label": "Kubernetes", "origin": "EVIDENCE_VERBATIM",
+                "evidence_ids": ["k-lab-b"]}  # fmt: skip
+        data["skills"] = [{"id": new_id(), "name": "Skills", "hidden": False, "items": [item]}]
+        store.save_working_copy(stored.id, upgrade_resume_document(data),
+                                expected_sha256=stored.working_sha256)  # fmt: skip
+    open_editor(page, server["url"])
+    download(page, "DOCX")
+    review = "document.querySelector('.rve__notice--review')"
+    page.wait_for(f"{review} !== null", message="the review")
+    assert _exports(server["db"]) == []
+    row = f"{review}.querySelector('.rve__reviewitem[data-ref=\"{item['id']}\"]')"
+    text = page.evaluate(f"{row}.innerText")
+    assert "A skill from outside a job, shown in a group that does not say so" in text
+    assert "Your evidence says you used it in a lab." in text
+    assert "It can’t be sent as a job’s skill." in text
+    buttons = page.evaluate(f"[...{row}.querySelectorAll('button')].map((b) => b.textContent)")
+    assert "This is my own statement" not in buttons and "Edit" in buttons
+    assert "OUTSIDE_A_JOB" not in text and "SKILL_FROM_LAB" not in text
+    # The only error is the refused export itself (409: the review waits).
+    assert [(e["text"][-14:], e["url"].rsplit("/", 1)[-1]) for e in page.console_errors()] == [
+        ("409 (Conflict)", "exports")
+    ]

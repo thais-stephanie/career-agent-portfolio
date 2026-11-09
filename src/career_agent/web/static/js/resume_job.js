@@ -25,6 +25,7 @@ const GROUPS = [
   ['reworded', ['REWRITE_HEADLINE', 'REWRITE_SUMMARY', 'REWRITE_BULLET']],
   ['added', ['ADD_BULLET', 'ADD_SKILL']],
   ['hidden', ['HIDE_BULLET']],
+  ['labelled', ['MOVE_SKILL']],
 ];
 const small = (label, onClick, extra = {}) => button(label, onClick, { className: 'btn btn--small', ...extra });
 
@@ -91,6 +92,45 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
     ]);
   }
 
+  /** The tailoring report: what this version leaves out, what to check, what waits for the person. */
+  function reportParts(report) {
+    if (!report) return [];
+    const parts = [];
+    const left = report.omitted_evidence.filter((o) => o.text);
+    if (left.length) {
+      parts.push(
+        el('h3', { className: 'rvl__h3', text: t('rv.job.left') }),
+        el('p', { text: t('rv.job.leftLede') }),
+        el('ul', { className: 'rvj__list rvj__left' }, left.map((o) => el('li', { dataset: { reason: o.reason } }, [
+          el('p', { className: 'rvj__text', text: o.text }),
+          el('p', { className: 'rve__note', text: t(`rv.job.left.${o.reason}`) }),
+        ]))),
+      );
+    }
+    if (report.risk_flags.length) {
+      parts.push(
+        el('h3', { className: 'rvl__h3', text: t('rv.job.risks') }),
+        el('ul', { className: 'rvj__list rvj__risks' }, report.risk_flags.map((f) => {
+          const key = `rv.job.risk.${f.code}`;
+          const said = t(key);
+          return el('li', { dataset: { code: f.code } }, [
+            el('p', { className: 'rve__note', text: said === key ? t('rv.job.risk.other') : said }),
+            f.text ? el('p', { className: 'rvj__text', text: f.text }) : null,
+          ]);
+        })),
+      );
+    }
+    if (report.questions_for_user.length) {
+      parts.push(
+        el('h3', { className: 'rvl__h3', text: t('rv.job.questions') }),
+        el('p', { text: t('rv.job.questionsLede') }),
+        el('ul', { className: 'rvj__list rvj__questions' },
+          report.questions_for_user.map((q) => el('li', { text: q.text }))),
+      );
+    }
+    return parts;
+  }
+
   function draw(view) {
     last = view;
     summary.textContent = t('rv.job.panel');
@@ -141,6 +181,7 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
         el('p', { className: 'rve__note', text: t('rv.job.notFound') }),
       );
     }
+    parts.push(...reportParts(view.report));
     parts.push(el('h3', { className: 'rvl__h3', text: t('rv.job.better') }));
     parts.push(view.suggestions.length
       ? el('ul', { className: 'rvj__list' }, view.suggestions.map(suggestion))

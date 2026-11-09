@@ -38,7 +38,7 @@ from typing import Any
 from career_agent.clock import new_id
 from career_agent.resume_doc import jd, roles
 from career_agent.resume_doc.evidence import unconfirmed_lines
-from career_agent.resume_doc.master import _career
+from career_agent.resume_doc.master import _career, claims_by_key, regroup_skills
 from career_agent.resume_doc.models import (
     EVIDENCED_ORIGINS,
     DocumentKind,
@@ -269,10 +269,36 @@ class Support:
         return "COVERED" if best >= COVERED_AT else "PARTLY"
 
 
+#: An ad line written to a model, not to a candidate ("Ignore all previous
+#: instructions", "SYSTEM: ...", an HTML comment). Never an ask: nothing is
+#: retrieved, added, suggested or sent to a model for it; the report quotes it
+#: back as a risk. Narrow phrase patterns: an AI job's own asks ("design
+#: prompts", "red-team models that ignore their instructions") are asks.
+# ponytail: phrase patterns, not intent; widen when a real ad slips past them.
+ADDRESSED_TO_A_MODEL = re.compile(
+    r"(?i)<!--|^\W*(?:system|assistant)\s*:"
+    r"|\bignore\s+(?:all\s+|any\s+)?(?:the\s+|your\s+)?(?:previous|prior|above|earlier|preceding)"
+    r"\s+(?:instructions?|prompts?|messages?)"
+    r"|^\W*ignore\s+(?:all\s+|any\s+)?(?:the\s+|your\s+)?(?:evidence|instructions?|resume|rules)\b"
+    r"|\b(?:state|say|claim|write)\s+(?:that\s+)?the\s+candidate\s+(?:has|is|was|holds|owns|led)\b"
+    r"|\bpage_limit\b"
+)
+
+
+def addressed_to_a_model(analysis: jd.Analysis) -> dict[str, str]:
+    """Requirement id to quote, for the ad lines written to a model."""
+    return {r.id: r.source_quote for r in analysis.requirements
+            if ADDRESSED_TO_A_MODEL.search(r.source_quote)}  # fmt: skip
+
+
 def retrieve(analysis: jd.Analysis, pool: list[Source]) -> list[Support]:
-    """Each requirement's support in `pool` (shown in the resume, or not)."""
+    """Each requirement's support in `pool` (shown in the resume, or not). An
+    ad line written to a model is no requirement (`ADDRESSED_TO_A_MODEL`)."""
     out = []
+    aimed = addressed_to_a_model(analysis)
     for req in analysis.requirements:
+        if req.id in aimed:
+            continue
         if req.eligibility:
             out.append(Support(req, NONE))
             continue
@@ -365,9 +391,16 @@ def strategy(doc: ResumeDocument, supports: list[Support]) -> dict[str, Any]:
 
 
 def draft(
-    master: ResumeDocument, plan: dict[str, Any], *, target: dict[str, Any], provenance: dict
+    master: ResumeDocument,
+    plan: dict[str, Any],
+    *,
+    target: dict[str, Any],
+    provenance: dict,
+    claims: dict[str, Any] | None = None,
 ) -> tuple[ResumeDocument, list[dict[str, Any]]]:
-    """The Master revision with the plan applied, and the changes it made."""
+    """The Master revision with the plan applied, and the changes it made.
+    With `claims`, a skill no job's evidence holds leaves a plain skills group
+    (`master.regroup_skills`): never shown as a job's skill."""
     data = master.model_dump(mode="json")
     changes: list[dict[str, Any]] = []
     relevance: dict[str, float] = plan["relevance"]
@@ -417,6 +450,8 @@ def draft(
                  "requirement_ids": skill["requirement_ids"],
                  "evidence_ids": [skill["evidence_id"]]}
             )  # fmt: skip
+    if claims is not None:
+        changes += regroup_skills(data, claims)
     data.update(
         id=new_id(),
         kind="TAILORED",
@@ -1153,7 +1188,8 @@ def tailor(
         provenance = {"created_from": "TAILOR", "tailoring_run_id": run_id}
         if master_row.kind is DocumentKind.MASTER:
             provenance.update(master_document_id=master_row.id, master_revision_id=revision.id)
-        doc, changes = draft(master, plan, target=target, provenance=provenance)
+        claims = {s.claim_key: s for s in pool if s.claim_key}
+        doc, changes = draft(master, plan, target=target, provenance=provenance, claims=claims)
         mark("draft")
         findings = review(doc, master, pool, supports)
         mark("review")
@@ -1372,10 +1408,12 @@ def apply_suggestion(
                     data["language"][:2], "Skills"
                 )
                 data["skills"].append({"id": new_id(), "name": name, "hidden": False, "items": []})
+            added = new_id()
             data["skills"][0]["items"].insert(0, {
-                "id": new_id(), "label": action["label"], "origin": "EVIDENCE_VERBATIM",
+                "id": added, "label": action["label"], "origin": "EVIDENCE_VERBATIM",
                 "evidence_ids": action["evidence_ids"],
             })  # fmt: skip
+            regroup_skills(data, claims_by_key(*_career(conn)), only={added})
         store.save_working_copy(
             document_id, upgrade_resume_document(data), expected_sha256=expected_sha256
         )

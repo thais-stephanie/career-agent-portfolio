@@ -8,7 +8,11 @@ Recomputed from the document as SAVED, never stored. An item is
   kind NOT_AS_WORDED or EVIDENCE_CHANGED, with the findings that say why;
 * a line, a skill or an entry the person wrote (WRITTEN) or imported from a
   file (IMPORTED): no confirmed evidence supports it, which is not to say it
-  is wrong.
+  is wrong;
+* a skill only a lab's or a project's evidence holds, shown in a group whose
+  name does not say so (OUTSIDE_A_JOB): it would read as a job's skill. This
+  one is never acknowledged: the person moves it to a group that says where
+  it comes from, or hides it (`master.regroup_skills` does so when tailoring).
 
 For each the person edits it, puts back the evidence's wording (a line with
 an `original_text`), or acknowledges it as their own statement. An
@@ -48,8 +52,8 @@ from career_agent.resume_doc.models import (
 )
 from career_agent.resume_doc.store import ResumeStore, StaleDocument
 
-NOT_AS_WORDED, EVIDENCE_CHANGED, WRITTEN, IMPORTED = (
-    "NOT_AS_WORDED", "EVIDENCE_CHANGED", "WRITTEN", "IMPORTED",
+NOT_AS_WORDED, EVIDENCE_CHANGED, WRITTEN, IMPORTED, OUTSIDE_A_JOB = (
+    "NOT_AS_WORDED", "EVIDENCE_CHANGED", "WRITTEN", "IMPORTED", "OUTSIDE_A_JOB",
 )  # fmt: skip
 #: The Analyze findings that make an evidence line an item.
 _WORDING = frozenset(
@@ -91,6 +95,11 @@ class ReviewRequired(Exception):
 
 class NothingToAcknowledge(ValueError):
     """`ref` is not an item of this document as saved."""
+
+
+class CannotAcknowledge(ValueError):
+    """`ref` is a skill outside any job in a plain group: it is moved or hidden,
+    never said to be fine as it is."""
 
 
 def material(text: str) -> str:
@@ -142,6 +151,10 @@ class _Collect:
         kind = IMPORTED if origin is Origin.IMPORTED else WRITTEN
         self._add(ref, section, kind, text, (), None, (), f"{kind}:{section}")
 
+    def outside(self, ref: str, text: str, ids: tuple[str, ...], origin: str) -> None:
+        self._add(ref, "skills", OUTSIDE_A_JOB, text, (f"SKILL_FROM_{origin}",), None, ids,
+                  f"{OUTSIDE_A_JOB}:{origin}")  # fmt: skip
+
     def _add(self, ref: str, section: str, kind: str, text: str, reasons: tuple[str, ...],
              original: str | None, ids: tuple[str, ...], basis: str) -> None:  # fmt: skip
         self.raw.append({
@@ -155,10 +168,18 @@ def items(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Item]:
     """Every item of `doc` in page order, each marked acknowledged or not."""
     # Imported here: `analyze` reads the export module, which reads this one.
     from career_agent.resume_doc.analyze import _evidence
+    from career_agent.resume_doc.master import (
+        JOB,
+        UNKNOWN,
+        claims_by_key,
+        skill_origin,
+    )
+    from career_agent.resume_doc.master import OUTSIDE_A_JOB as SAYS_OUTSIDE
     from career_agent.resume_doc.tailor import _career
 
     found, _ = _evidence(conn, doc)
-    _, rows = _career(conn)
+    overview, rows = _career(conn)
+    placed_claims = claims_by_key(overview, rows)
     claims = {r["claim_key"]: r["text"] for r in rows if r["state"] == "CONFIRMED"}
     reasons: dict[str, list[str]] = {}
     for f in found:
@@ -202,6 +223,15 @@ def items(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Item]:
         for skill in group.items:
             if skill.origin not in EVIDENCED_ORIGINS:
                 out.typed(skill.id, "skills", skill.origin, skill.label)
+                continue
+            # UNKNOWN is not proof of a lab: the report says it, the review does not stop it.
+            where = skill_origin(skill.evidence_ids, placed_claims)
+            if (
+                skill.evidence_ids
+                and where not in (JOB, UNKNOWN)
+                and not SAYS_OUTSIDE.search(group.name)
+            ):
+                out.outside(skill.id, skill.label, tuple(skill.evidence_ids), where)
     for custom in doc.custom_sections:
         off = custom.hidden or f"custom:{custom.id}" in hidden
         for b in custom.items:
@@ -247,6 +277,8 @@ def acknowledge(
     """The person says the item `ref`, AS SAVED, is their own statement."""
     with ResumeStore(conn)._tx():
         item = _saved_item(conn, document_id, ref, expected_sha256)
+        if item.kind == OUTSIDE_A_JOB:
+            raise CannotAcknowledge(ref)
         if not item.acknowledged:
             conn.execute(
                 "INSERT INTO resume_statement_acknowledgement (id, statement_sha256,"

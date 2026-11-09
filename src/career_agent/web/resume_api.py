@@ -493,6 +493,13 @@ def register_resume_routes(app: LocalApp) -> None:
                                code="stale") from exc  # fmt: skip
             except review.NothingToAcknowledge as exc:
                 raise ApiError(404, "That statement needs no decision in this resume.") from exc
+            except review.CannotAcknowledge as exc:
+                raise ApiError(
+                    409,
+                    "Move this skill to a group that says where it comes from, or hide it.",
+                    for_reader=True,
+                    code="skill_outside_a_job",
+                ) from exc
         return {"item": item.to_json()}
 
     def acknowledge(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
@@ -940,9 +947,19 @@ def register_resume_routes(app: LocalApp) -> None:
             return _detail(ResumeStore(conn).get_document(document_id))
 
     def job_view(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
-        """A job version against its ad: coverage, why it changed, gaps, suggestions."""
+        """A job version against its ad: coverage, why it changed, gaps,
+        suggestions, and the tailoring report (`report.build`): what it leaves
+        out, its risks and what waits for the person. Read only."""
+        from career_agent.resume_doc import report
+
         with closing(app.connect()) as conn:
-            return explain(conn, _one(conn, document_id))
+            stored = _one(conn, document_id)
+            view = explain(conn, stored)
+            if view and stored.jd_snapshot_id:
+                ad = ResumeStore(conn).get_jd_snapshot(stored.jd_snapshot_id).text
+                # ponytail: two pages until the stored per-job exception exists (rollout plan).
+                view["report"] = report.build(conn, stored.working, ad, page_limit=2)
+            return view
 
     def dismiss(*, query: dict, body: dict, document_id: str) -> dict[str, Any]:
         """Set one suggestion aside for THIS version only."""

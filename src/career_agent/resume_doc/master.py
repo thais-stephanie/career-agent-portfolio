@@ -50,6 +50,90 @@ from career_agent.storage.workspace_repo import candidate_id_of, person_name
 
 _PERIOD = re.compile(r"^(\d{4})(?:-(\d{2}))?$")
 
+#: Where a skill was used, from its confirmed evidence only: JOB when some of
+#: it sits in a job; otherwise LAB (a claim's own words say lab), PROJECT (a
+#: project claim in no job) or UNKNOWN (nothing says where).
+JOB, LAB, PROJECT, UNKNOWN = "JOB", "LAB", "PROJECT", "UNKNOWN"
+# ponytail: a lab is read from the claim's own confirmed words; the evidence
+# class proposed in RESUME_TAILOR_V1_DESIGN.md replaces this when it exists.
+_LAB_WORDS = re.compile(r"(?i)\b(?:home\s?labs?|labs?|laborat[oó]rios?|laboratory)\b")
+#: A skills group whose name already says its skills come from outside a job.
+OUTSIDE_A_JOB = re.compile(
+    r"(?i)\b(?:labs?|laborat\w*|independ\w*|personal|pessoa\w*|projects?|projetos?|proyectos?)\b"
+)
+#: Where such a skill goes. The UNKNOWN group is made hidden: off the page,
+#: still in the document for the person to place.
+SKILL_GROUPS = {
+    LAB: {"en": "Lab", "pt": "Laboratório", "es": "Laboratorio"},
+    PROJECT: {"en": "Independent projects", "pt": "Projetos independentes",
+              "es": "Proyectos independientes"},
+    UNKNOWN: {"en": "Origin not confirmed", "pt": "Origem não confirmada",
+              "es": "Origen no confirmado"},
+}  # fmt: skip
+
+
+def claims_by_key(overview: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, dict]:
+    """Confirmed claims by key, those of an archived experience left out."""
+    placed = {str(e["id"]) for e in overview["experiences"]}
+    return {
+        r["claim_key"]: r for r in rows
+        if r["state"] == "CONFIRMED"
+        and (r.get("experience_id") is None or r["experience_id"] in placed)
+    }  # fmt: skip
+
+
+def skill_origin(keys: Iterable[str], claims: dict[str, Any]) -> str:
+    """JOB, LAB, PROJECT or UNKNOWN for a skill citing `keys` (see above).
+    `claims` maps a key to a row or object with experience_id, category, text."""
+    rows = [claims[k] for k in keys if k in claims]
+
+    def get(row: Any, name: str) -> Any:
+        return row.get(name) if isinstance(row, dict) else getattr(row, name, None)
+
+    if any(get(r, "experience_id") for r in rows):
+        return JOB
+    if any(_LAB_WORDS.search(str(get(r, "text") or "")) for r in rows):
+        return LAB
+    if any(get(r, "category") == "PROJECT" for r in rows):
+        return PROJECT
+    return UNKNOWN
+
+
+def regroup_skills(
+    data: dict[str, Any], claims: dict[str, Any], *, only: set[str] | None = None
+) -> list[dict[str, Any]]:
+    """Move every evidenced skill (or those in `only`) that no job's evidence
+    holds out of a shown group whose name does not say so: into Lab or
+    Independent projects, or, when nothing says where, into a hidden group.
+    Nothing is deleted; the moves are returned as changes."""
+    language = str(data.get("language") or "en")[:2]
+    changes: list[dict[str, Any]] = []
+    for group in list(data["skills"]):
+        if group.get("hidden") or OUTSIDE_A_JOB.search(group["name"]):
+            continue
+        before = len(changes)
+        for item in list(group["items"]):
+            if (only is not None and item["id"] not in only) or not item.get("evidence_ids"):
+                continue
+            if Origin(item["origin"]) not in EVIDENCED_ORIGINS:
+                continue  # the person's own words: the review asks about those
+            origin = skill_origin(item["evidence_ids"], claims)
+            if origin == JOB:
+                continue
+            name = SKILL_GROUPS[origin].get(language, SKILL_GROUPS[origin]["en"])
+            target = next((g for g in data["skills"] if g["name"] == name), None)
+            if target is None:
+                target = {"id": new_id(), "name": name, "hidden": origin == UNKNOWN, "items": []}
+                data["skills"].append(target)
+            group["items"].remove(item)
+            target["items"].append(item)
+            changes.append({"op": "MOVE_SKILL", "line_id": item["id"], "after": item["label"],
+                            "group": name, "origin": origin,
+                            "evidence_ids": list(item["evidence_ids"])})  # fmt: skip
+        if not group["items"] and len(changes) > before:
+            data["skills"].remove(group)  # emptied by the moves
+    return changes
+
 
 def profile_labels(conn: sqlite3.Connection) -> set[str]:
     """The names this database goes by, which are not the person's name."""
@@ -232,7 +316,13 @@ def master_from_career_profile(
         skills=groups,
         provenance=DocumentProvenance(created_from=CreatedFrom.SCRATCH),
     )
-    return doc, notes
+    data = doc.model_dump(mode="json")
+    for moved in regroup_skills(data, claims_by_key(overview, items)):
+        if moved["origin"] == UNKNOWN:
+            notes.append(
+                f"skill {moved['after']}: no confirmed evidence says where, left off the page"
+            )
+    return ResumeDocument.model_validate(data), notes
 
 
 def get_or_create_master(
