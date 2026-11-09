@@ -5,6 +5,7 @@ No model, no network, no real data."""
 
 from __future__ import annotations
 
+import hashlib
 import io
 import sqlite3
 from pathlib import Path
@@ -178,6 +179,15 @@ def test_an_accepted_proposal_hides_exactly_that_keeps_the_copy_before_and_the_m
     before_ids = {b.id for e in history[-1].content.experience for b in e.bullets}
     assert before_ids == {b.id for e in after.working.experience for b in e.bullets}  # no deletion
     assert all(any(not b.hidden for b in e.bullets) for e in after.working.experience)
+    # Hiding is the only change: no word, number, claim or link of any line moves.
+    was, now = history[-1].content.model_dump(mode="json"), after.working.model_dump(mode="json")
+
+    def unhidden(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {k: unhidden(v) for k, v in node.items() if k != "hidden"}
+        return [unhidden(v) for v in node] if isinstance(node, list) else node
+
+    assert unhidden(was) == unhidden(now)
     assert store.get_document(master.id).working_sha256 == master.working_sha256
     # The export measures again; the approval is no pass for a long file.
     with pytest.raises(PageLimitExceeded):
@@ -334,6 +344,104 @@ def test_over_two_pages_then_the_fit_then_the_file_with_the_real_pdf(tmp_path: P
         call(api, "POST", f"/documents/{doc_id}/fit/cuts",
              {"refs": [c["ref"] for c in plan["cuts"]], "expected_sha256": sha})  # fmt: skip
     assert again.value.status == 409
+
+
+def test_a_failure_after_the_checkpoint_leaves_no_revision_and_no_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The copy kept in the history and the hidden lines are one unit: when
+    saving the fitted copy fails, the history has no extra revision."""
+    conn = profile(tmp_path)
+    doc_id = lengthened(conn, tailored(conn))
+    before = counts(conn, doc_id)
+    plan = budget.propose(conn, doc_id, expected_sha256=before[2], measure=budget.estimate_pages)
+
+    def broken(*args: Any, **kwargs: Any) -> str:
+        raise RuntimeError("the disk said no")
+
+    monkeypatch.setattr(ResumeStore, "save_working_copy", broken)
+    with pytest.raises(RuntimeError):
+        budget.apply_cuts(conn, doc_id, [c["ref"] for c in plan["cuts"]], expected_sha256=before[2])
+    monkeypatch.undo()
+    assert counts(conn, doc_id) == before
+
+
+def test_a_file_made_before_the_gate_stays_downloadable(tmp_path: Path) -> None:
+    """A version for a job exported at three pages before this rule: its file
+    and its history stay; a new file waits for the fit."""
+    from career_agent.resume_doc.export import export_dir
+    from career_agent.web.server import ApiError
+
+    conn = profile(tmp_path)
+    doc_id = lengthened(conn, tailored(conn))
+    store = ResumeStore(conn)
+    old_pdf, _ = printer(3)("")
+    relative = f"{doc_id}/old.pdf"
+    (export_dir(conn) / doc_id).mkdir(parents=True, exist_ok=True)
+    (export_dir(conn) / relative).write_bytes(old_pdf)
+    revision = store.checkpoint_revision(doc_id, "EXPORTED")
+    old = store.record_export(doc_id, revision.id, format="PDF", template="classic",
+                              file_path=relative, file_sha256=hashlib.sha256(old_pdf).hexdigest(),
+                              engine="fake", page_count=3)  # fmt: skip
+    db = Path(conn.execute("PRAGMA database_list").fetchone()[2])
+    sha = store.get_document(doc_id).working_sha256
+    conn.close()
+    api = JobsApi(ServerConfig(db_path=db, config_dir=committed_config_dir(), port=0), quiet=True)
+    with pytest.raises(ApiError) as refused:
+        call(
+            api, "POST", f"/documents/{doc_id}/exports", {"format": "JSON", "expected_sha256": sha}
+        )
+    assert refused.value.code == "over_page_limit"
+    got = api.handle_api("GET", f"/api/resume/exports/{old.id}/file", {}, {})
+    assert got.body == old_pdf
+    listed = call(api, "GET", f"/documents/{doc_id}/exports")
+    assert [e["id"] for e in listed] == [old.id]
+
+
+@pytest.mark.parametrize(
+    "route,body",
+    [
+        ("fit", {}),
+        ("fit", {"expected_sha256": 1}),
+        ("fit", {"expected_sha256": "x", "refs": []}),
+        ("fit/cuts", {}),
+        ("fit/cuts", {"expected_sha256": "x"}),
+        ("fit/cuts", {"refs": "bullet/x", "expected_sha256": "x"}),
+        ("fit/cuts", {"refs": [], "expected_sha256": "x"}),
+        ("fit/cuts", {"refs": [7], "expected_sha256": "x"}),
+        ("fit/cuts", {"refs": ["b" * 201], "expected_sha256": "x"}),
+        ("fit/cuts", {"refs": ["bullet/x"] * 501, "expected_sha256": "x"}),
+        ("fit/cuts", {"refs": ["bullet/x"], "expected_sha256": "x", "document_id": "y"}),
+    ],
+)
+def test_the_routes_check_what_they_are_sent(tmp_path: Path, route: str, body: dict) -> None:
+    from career_agent.web.server import ApiError
+
+    api, doc_id = _api(tmp_path)
+    before = call(api, "GET", f"/documents/{doc_id}/history")
+    with pytest.raises(ApiError) as refused:
+        call(api, "POST", f"/documents/{doc_id}/{route}", body)
+    assert refused.value.status == 400
+    assert call(api, "GET", f"/documents/{doc_id}/history") == before
+
+
+def test_the_routes_refuse_a_master_and_an_unknown_document(tmp_path: Path) -> None:
+    from career_agent.web.server import ApiError
+
+    conn = profile(tmp_path)
+    tailored(conn)
+    master = ResumeStore(conn).current_master()
+    assert master is not None
+    db = Path(conn.execute("PRAGMA database_list").fetchone()[2])
+    conn.close()
+    api = JobsApi(ServerConfig(db_path=db, config_dir=committed_config_dir(), port=0), quiet=True)
+    with pytest.raises(ApiError) as refused:
+        call(api, "POST", f"/documents/{master.id}/fit", {"expected_sha256": master.working_sha256})
+    assert refused.value.status == 400
+    with pytest.raises(ApiError) as missing:
+        call(api, "POST", "/documents/01ARZ3NDEKTSV4RRFFQ69G5FAV/fit/cuts",
+             {"refs": ["bullet/x"], "expected_sha256": "x"})  # fmt: skip
+    assert missing.value.status == 404
 
 
 # ------------------------------------------------ skills nothing places

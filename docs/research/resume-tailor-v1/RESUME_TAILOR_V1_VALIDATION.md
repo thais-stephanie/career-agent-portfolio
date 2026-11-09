@@ -36,21 +36,25 @@ python -m pytest tests/unit tests/integration -rfEs --durations=25 -p no:cachepr
 python -m pytest tests/browser -rfEs --durations=15 -p no:cacheprovider
 ```
 
-| Suite | Collected | Passed | Failed | Skipped | Time |
-|---|---|---|---|---|---|
-| unit + integration | 13,438 (`main`: 13,265) | 13,429 | 1 | 8 | 56 min 41 s |
-| browser | 599 (`main`: 595) | 599 | 0 | 0 | 33 min 10 s |
+Final run, pre-merge review (the tree of `477341a` plus the review's tests):
 
-The one failure was a regression of this work, not a flaky test:
+| Suite | Collected | Passed | Failed | Skipped | Time | Exit code |
+|---|---|---|---|---|---|---|
+| unit + integration | 13,452 (`main`: 13,265) | 13,444 | 0 | 8 | 50 min 10 s | 0 |
+| browser | 599 (`main`: 595) | 599 | 0 | 0 | 30 min 0 s | 0 |
+
+The run before `477341a` had one failure, a regression of this work:
 `test_web_boundaries.py::test_there_is_no_route_that_submits_an_application`
 forbids the word "apply" in any route, and the fit route was first named
 `.../fit/apply`. The route is now `POST .../fit/cuts`; the test is unchanged.
-After the rename, the route guard, `test_resume_page_gate.py`,
-`test_resume_tailor_v1_completion.py`, the four documentation guards and
-`tests/browser/test_resume_tailor.py` were run again and pass. The rest of
-both suites was not run again for a one-word path change.
 
-The extra tests are this branch's own: 18 in `test_resume_page_gate.py`, the
+The pre-merge review added tests for gaps it found: a failure after the
+history checkpoint leaves no revision and no change; a file exported before
+the gate stays downloadable while a new one is refused; the routes refuse
+malformed bodies, a Master and an unknown document; an accepted fit changes
+nothing in the document but `hidden` flags.
+
+The extra tests are this branch's own: 22 in `test_resume_page_gate.py` (37 cases), the
 earlier v1 files, and four browser tests (the report in the job panel; a lab
 skill shown as a job's stops the export; the fit in English; the fit in
 Portuguese with "Editar manualmente"). Nothing was removed.
