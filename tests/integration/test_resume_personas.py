@@ -194,6 +194,21 @@ NEW_GRAD = Person(
     education=[{"institution": "Example State University", "degree": "BA",
                 "field_of_study": "Economics", "start": {"year": 2021}, "end": {"year": 2025}}],
 )  # fmt: skip
+#: A new graduate with no job and a capstone of two confirmed lines: enough
+#: for a summary from the project (NEW_GRAD's one line is not).
+GRADUATE = Person(
+    "Rowan Example", DATA_AD, email="rowan@example.com",
+    roles=[
+        Role("Example Polytechnic", "Capstone: clinic wait times", "2024-09", "2025-05",
+             kind="ACADEMIC", claims=[
+            ("q1", A, "Built a dashboard in Python and SQL that tracked clinic wait times across "
+                      "3 sites.", ["Python", "SQL"]),
+            ("q2", A, "Presented the wait-time findings to the clinic managers.", []),
+        ]),
+    ],
+    education=[{"institution": "Example Polytechnic", "degree": "BSc",
+                "field_of_study": "Data Science", "start": {"year": 2021}, "end": {"year": 2025}}],
+)  # fmt: skip
 NO_JOB = Person(
     "Avery Lane Example", DATA_AD, email="avery.lane@example.com",
     roles=[
@@ -265,6 +280,7 @@ FULL = Person(
 
 PEOPLE = {
     "senior": SENIOR, "mid": MID, "trainee": TRAINEE, "intern": INTERN, "new_grad": NEW_GRAD,
+    "graduate": GRADUATE,
     "no_job": NO_JOB, "only_projects": ONLY_PROJECTS, "no_projects": NO_PROJECTS,
     "no_links": NO_LINKS, "one_link": ONE_LINK, "changer": CHANGER, "returning": RETURNING,
     "insufficient": INSUFFICIENT, "full": FULL,
@@ -356,8 +372,9 @@ def test_every_person_gets_a_resume_of_what_they_have_and_nothing_else(
 
 
 def test_the_summary_follows_the_evidence_and_never_invents_a_role(tmp_path: Path) -> None:
+    # new_grad and no_job have one line each: the page's only bullet, never repeated.
     expected = {"senior": True, "mid": True, "intern": True, "changer": True, "returning": True,
-                "new_grad": False, "no_job": False, "only_projects": False,
+                "graduate": True, "only_projects": True, "new_grad": False, "no_job": False,
                 "insufficient": False}  # fmt: skip
     for who, has in expected.items():
         conn, doc, doc_id = made(tmp_path / who, PEOPLE[who])
@@ -366,8 +383,10 @@ def test_the_summary_follows_the_evidence_and_never_invents_a_role(tmp_path: Pat
             assert doc.summary is not None
             sentences = doc.summary.text.count(". ") + 1
             assert 2 <= sentences <= 4 and len(doc.summary.text.split()) <= 80, doc.summary.text
-            # The role is the person's own, never the job's title.
-            first = PEOPLE[who].roles[0].title
+            # The role is the person's own, never the job's title; with no job,
+            # the summary opens on a project that says it is one.
+            jobs = [r for r in PEOPLE[who].roles if r.kind == "EMPLOYMENT"]
+            first = jobs[0].title if jobs else ("Academic project: ", "Independent project: ")
             assert doc.summary.text.startswith(first), (who, doc.summary.text)
         else:
             assert "SUMMARY_MISSING" in flags(conn, doc_id, PEOPLE[who].ad), who
@@ -385,7 +404,8 @@ def test_the_summary_repeats_at_most_one_shown_bullet(tmp_path: Path) -> None:
 def test_no_job_history_puts_education_and_projects_first(tmp_path: Path) -> None:
     for who, first in (("new_grad", ["education", "projects"]), ("only_projects", ["projects"])):
         _, doc, _ = made(tmp_path / who, PEOPLE[who])
-        assert headings(doc)[: len(first)] == first, (who, headings(doc))
+        body = [h for h in headings(doc) if h != "summary"]  # the summary heads every order
+        assert body[: len(first)] == first, (who, headings(doc))
 
 
 def test_an_experienced_person_keeps_experience_first(tmp_path: Path) -> None:
@@ -548,10 +568,82 @@ def test_the_real_pdf_keeps_order_contacts_and_links(tmp_path: Path, who: str, m
 
 def test_skills_only_a_project_shows_are_never_shown_as_a_jobs(tmp_path: Path) -> None:
     """Python and SQL appear only in the trainee's academic project: they sit
-    under Independent projects, and the summary names only the job's skill."""
+    under Academic projects, and the summary names them only as the
+    project's, never in the sentence of the job's skills."""
     _, doc, _ = made(tmp_path, TRAINEE)
     groups = {g.name: {i.label for i in g.items} for g in doc.skills if not g.hidden}
-    assert {"Python", "SQL"} <= groups.get("Independent projects", set()), groups
+    assert {"Python", "SQL"} <= groups.get("Academic projects", set()), groups
     assert "Excel" in groups.get("Skills", set()), groups
     assert doc.summary is not None
-    assert "Python" not in doc.summary.text and "Excel" in doc.summary.text
+    said = _sentences(doc.summary.text)
+    assert "Skilled in Excel." in said, said
+    assert "Skills from academic projects: Python and SQL." in said, said
+
+
+def _sentences(text: str) -> list[str]:
+    return [s if s.endswith(".") else f"{s}." for s in text.split(". ")]
+
+
+#: who: (claims the summary must cite, claims it must not, opens with)
+SUMMARY_CASES = {
+    # A new graduate with no job and a relevant capstone: from the project.
+    "graduate": ({"q1"}, set(), "Academic project: "),
+    # Projects only: the one answering the job (dashboards in Excel) leads.
+    "only_projects": ({"p1"}, set(), "Independent project: "),
+    # The trainee's project answers the job more strongly than the job does.
+    "trainee": ({"t2"}, set(), "Operations Trainee with experience at Harbor Fictional Co."),
+    # An intern whose job answers the job: the job's line, no project.
+    "intern": ({"i1"}, set(), "Data Analyst Intern with experience at"),
+    # A senior history prevails over the personal project.
+    "full": ({"s2"}, {"f1"}, "Senior Customer Success Manager with experience at"),
+    # A career changer: the teacher's transferable line, under the real title.
+    "changer": ({"c1"}, set(), "Science Teacher with experience at Example Middle School."),
+}
+
+
+@pytest.mark.parametrize("who", [*SUMMARY_CASES, "insufficient", "no_job"])
+def test_the_summary_answers_the_job_with_the_evidence_that_answers_it(
+    tmp_path: Path, who: str
+) -> None:
+    """Resume Tailor v1.1 review: projects count when they answer the job,
+    always said to be projects, never a job or a title; a job's history
+    prevails otherwise; too little evidence gives no summary, and the report
+    says why."""
+    conn, doc, doc_id = made(tmp_path, PEOPLE[who])
+    invariants(conn, doc)
+    if who not in SUMMARY_CASES:
+        assert doc.summary is None
+        assert "SUMMARY_MISSING" in flags(conn, doc_id, PEOPLE[who].ad)
+        return
+    cited, never, opens = SUMMARY_CASES[who]
+    assert doc.summary is not None
+    keys, text = set(doc.summary.evidence_ids), doc.summary.text
+    assert text.startswith(opens), text
+    assert cited <= keys and not never & keys, (keys, text)
+    if who in ("intern", "full", "changer"):
+        assert "project" not in text.lower(), text  # their jobs answer the job
+    project_lines = {c[2] for r in PEOPLE[who].roles if r.kind != "EMPLOYMENT" for c in r.claims}
+    employers = {r.company for r in PEOPLE[who].roles if r.kind == "EMPLOYMENT"}
+    for sentence in _sentences(text):
+        said = sentence.split(": ", 1)[-1]
+        if said in project_lines or said.rstrip(".") in {s.rstrip(".") for s in project_lines}:
+            # A project's line always says it is a project's.
+            assert sentence.startswith(("Academic project: ", "Independent project: ")), sentence
+        if sentence.startswith("Skilled in "):
+            # The job's skills: only what a job's evidence holds.
+            named = {
+                t
+                for r in PEOPLE[who].roles
+                if r.kind == "EMPLOYMENT"
+                for c in r.claims
+                for t in [*c[3], c[2] if c[1] == S else ""]
+                if t
+            }
+            labels = re.split(r", | and ", sentence.removeprefix("Skilled in ").rstrip("."))
+            assert set(labels) <= named, (labels, named)
+        if " with experience at " in sentence:
+            where = sentence.split(" with experience at ", 1)[1].rstrip(".")
+            assert set(re.split(r", | and ", where)) <= employers, sentence
+    # Every number the summary says is in a confirmed claim (also `invariants`).
+    held = {n for t in confirmed(conn).values() for n in _NUMBER.findall(t)}
+    assert set(_NUMBER.findall(text)) <= held, text

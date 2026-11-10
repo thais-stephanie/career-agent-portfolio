@@ -1,6 +1,7 @@
 # Resume Tailor v1: gap analysis
 
-Status: research, branch `claude/resume-tailor-v1`. Subject: the owner's proposed
+Status when written: research, branch `claude/resume-tailor-v1`. That work
+is now in `main` at `48c6dce` (rollout plan, Status). Subject: the owner's proposed
 "Career Agent - Resume Tailoring Prompt (v1)" (Part A, a system prompt and JSON
 contract for a model; Part B, a rendering spec enforced by code), read as a
 proposed specification, not as a mandate to replace existing code.

@@ -74,12 +74,18 @@ SKILL_GROUPS = {
     UNKNOWN: {"en": "Origin not confirmed", "pt": "Origem não confirmada",
               "es": "Origen no confirmado"},
 }  # fmt: skip
+#: A project skill only academic work holds: its group says so, never
+#: "independent" (the composed summary says "academic projects" too).
+ACADEMIC_PROJECTS = {"en": "Academic projects", "pt": "Projetos acadêmicos",
+                     "es": "Proyectos académicos"}  # fmt: skip
 KEPT_UNKNOWN = {"en": "Other skills", "pt": "Outras competências", "es": "Otras habilidades"}
 
 
-def project_experiences(overview: dict[str, Any]) -> set[str]:
-    """Ids of the experiences that are academic or personal work, not jobs."""
-    return {str(e["id"]) for e in overview["experiences"] if e.get("kind") in PROJECT_KINDS}
+def project_experiences(overview: dict[str, Any]) -> dict[str, str]:
+    """The experiences that are academic or personal work, not jobs: id to
+    kind (ACADEMIC or PERSONAL), so a project keeps its true origin."""
+    return {str(e["id"]): e["kind"] for e in overview["experiences"]
+            if e.get("kind") in PROJECT_KINDS}  # fmt: skip
 
 
 def claims_by_key(overview: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, dict]:
@@ -90,7 +96,8 @@ def claims_by_key(overview: dict[str, Any], rows: list[dict[str, Any]]) -> dict[
     projects = project_experiences(overview)
     return {
         r["claim_key"]: (
-            {**r, "experience_id": None, "project": True} if r.get("experience_id") in projects
+            {**r, "experience_id": None, "project": projects[r["experience_id"]]}
+            if r.get("experience_id") in projects
             else r
         )
         for r in rows
@@ -116,6 +123,13 @@ def skill_origin(keys: Iterable[str], claims: dict[str, Any]) -> str:
     return UNKNOWN
 
 
+def _academic(keys: Iterable[str], claims: dict[str, Any]) -> bool:
+    """Every cited claim is one of an academic experience."""
+    rows = [claims[k] for k in keys if k in claims]
+    kinds = [r.get("project") if isinstance(r, dict) else getattr(r, "project", None) for r in rows]
+    return bool(kinds) and all(k == "ACADEMIC" for k in kinds)
+
+
 def regroup_skills(
     data: dict[str, Any],
     claims: dict[str, Any],
@@ -124,9 +138,10 @@ def regroup_skills(
     keep_unknown: bool = False,
 ) -> list[dict[str, Any]]:
     """Move every evidenced skill (or those in `only`) that no job's evidence
-    holds out of a shown group whose name does not say so: into Lab or
-    Independent projects, or, when nothing says where, into a hidden group
-    (a shown "Other skills" group with `keep_unknown`, the Master's choice).
+    holds out of a shown group whose name does not say so: into Lab, Academic
+    projects (only academic work holds it) or Independent projects, or, when
+    nothing says where, into a hidden group (a shown "Other skills" group with
+    `keep_unknown`, the Master's choice).
     Nothing is deleted; the moves are returned as changes."""
     language = str(data.get("language") or "en")[:2]
     changes: list[dict[str, Any]] = []
@@ -143,6 +158,8 @@ def regroup_skills(
             if origin == JOB:
                 continue
             names = KEPT_UNKNOWN if keep_unknown and origin == UNKNOWN else SKILL_GROUPS[origin]
+            if origin == PROJECT and _academic(item["evidence_ids"], claims):
+                names = ACADEMIC_PROJECTS
             name = names.get(language, names["en"])
             if name == group["name"]:
                 continue  # already where it belongs

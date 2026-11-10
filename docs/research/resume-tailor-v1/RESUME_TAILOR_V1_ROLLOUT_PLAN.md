@@ -1,7 +1,17 @@
 # Resume Tailor v1: rollout plan
 
-Branch `claude/resume-tailor-v1`. Not merged, not pushed. The owner reviews the
-architecture decisions and remaining risks before any merge.
+## Status (checked against Git on 2026-11-10)
+
+* **Current.** Resume Tailor v1 is in `main` at `48c6dce`, and
+  `origin/main` is the same commit (checked after `git fetch`).
+* **In development.** Resume Tailor v1.1 is on branch
+  `claude/resume-summary`: local only (no remote branch), not merged.
+* **Pending.** The owner's merge review of v1.1, and the design decisions
+  listed in `RESUME_TAILOR_V1_1_ADAPTIVE.md`.
+* **Historical.** This plan was written on branch `claude/resume-tailor-v1`,
+  before that merge. It then said "Not merged, not pushed", and the owner
+  reviewed the decisions and risks before merging. The sections below keep
+  that record as it was.
 
 ## Built on this branch
 
@@ -78,6 +88,9 @@ What the owner sees on the first day:
   first. This only happens when the Master keeps the default order.
 * A composed summary has 2 to 4 sentences, at most 80 words, and repeats at
   most one bullet. "Short summary" is no longer reported.
+* A summary can rest on academic or personal projects when they answer the
+  job better (no role, or one weaker role), always saying "Academic project"
+  or "Independent project". A person with no job can get a summary.
 * "No email" is reported only when there is no phone either.
 * DOCX links are real hyperlinks. The export checks list `LINKS`.
 

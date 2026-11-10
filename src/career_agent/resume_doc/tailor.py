@@ -101,8 +101,9 @@ class Source:
     #: The resume line's id, and the confirmed claims it cites.
     line_id: str | None = None
     evidence_ids: tuple[str, ...] = ()
-    #: A claim of an academic or personal experience: a project's, not a job's.
-    project: bool = False
+    #: A claim of an academic or personal experience: a project's, not a job's;
+    #: its kind (ACADEMIC or PERSONAL), None for anything else.
+    project: str | None = None
 
     @property
     def names(self) -> set[str]:
@@ -226,7 +227,7 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
             continue  # an experience the person archived: theirs to leave out
         key, category = row["claim_key"], row.get("category")
         shown = key in shown_keys or (category in SKILL_CATEGORIES and key in shown_skills)
-        project = row.get("experience_id") in projects
+        project = projects.get(row.get("experience_id") or "")
         out.append(
             Source(
                 id=key, text=row["text"], claim_key=key, category=category,

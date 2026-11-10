@@ -16,8 +16,8 @@ template has a slot for it. Nothing is written to complete a structure.
 | Location | Optional | Master identity, as typed | Printed as typed; never a full address. Unchanged. |
 | LinkedIn / Portfolio / GitHub | Optional, each | Master identity links, as typed | Printed only when stored; never invented. Now real hyperlinks in the DOCX as well as the PDF, and checked in both (`LINKS`). |
 | Headline | Optional | Master | Unchanged: the Master's, never composed. |
-| Summary | Recommended when evidence supports it | Composed from confirmed claims (`resume_doc.summary`) or the Master's | 2 to 4 sentences, at most 80 words, at most 1 sentence that repeats a shown bullet. There is no summary, and the report says why (`SUMMARY_MISSING`), when there is no role, no statement, or only the role plus a line the page already shows. The frames follow the language of the person's statements when the document is on the default language. `SUMMARY_SHORT` was removed: a short, specific summary is not a fault. |
-| Skills | Optional | Confirmed skill and tool claims | Lab and unknown-origin skills are never shown as a job's (unchanged). **New:** a skill that only an academic or personal experience holds is a project's (`master.claims_by_key`, `tailor.sources`), so it is grouped as "Independent projects" and left out of the summary. No fixed count. |
+| Summary | Recommended when evidence supports it | Composed from confirmed claims (`resume_doc.summary`) or the Master's | 2 to 4 sentences, at most 80 words, at most 1 sentence that repeats a shown bullet, never the page's only bullet. Projects count when they lead (below): their statements compete on relevance, prefixed "Academic project:" or "Independent project:", and their skills get their own sentence ("Skills from academic projects: …"); a project never adds a title or an employer. There is no summary, and the report says why (`SUMMARY_MISSING`), when there is no statement, or only a line the page already shows. The frames follow the language of the person's statements when the document is on the default language. `SUMMARY_SHORT` was removed: a short, specific summary is not a fault. |
+| Skills | Optional | Confirmed skill and tool claims | Lab and unknown-origin skills are never shown as a job's (unchanged). **New:** a skill that only an academic or personal experience holds is a project's (`master.claims_by_key`, `tailor.sources`), so it is grouped as "Academic projects" when only academic work holds it, else "Independent projects", and never named in the summary's "Skilled in" sentence. No fixed count. |
 | Experience | Optional | Career Profile experiences of kind EMPLOYMENT or FREELANCE (and VOLUNTEER, see below) | No entry, no heading. Titles, employers and dates as confirmed. An internship stays an internship by its confirmed title. |
 | Projects | Optional | Experiences of kind ACADEMIC or PERSONAL | **New:** a new Master places them under Projects ("{title}, {organisation}"), never under Experience. |
 | Education | Optional | Master (typed or imported) | No entry, no heading. Unchanged source: confirmed EDUCATION claims have no typed fields and are still not placed automatically. |
@@ -42,17 +42,22 @@ does not guess seniority from titles or dates.
 The move is recorded as a `REORDER_SECTIONS` change and said in the job
 panel in words ("Education, Projects now come before Experience: …").
 
+The summary uses the same rule (`summary.compose`): projects lead it exactly
+when they would move ahead of Experience. So a trainee's academic dashboard
+can be cited, while a senior's or an intern's matching job lines prevail.
+
 ## Behaviour by profile (synthetic fixtures in `tests/integration/test_resume_personas.py`)
 
 | Profile | Summary (synthetic example, words) | Sections, in order | Notes |
 |---|---|---|---|
 | Senior | Role, 3 employers, job skills, 1 statement (36) | Summary, Experience, Certifications, Skills | The strongest number is not always the statement chosen: relevance to the job leads. |
 | Mid-level | Same shape (25) | Summary, Experience, Skills | No number needed. |
-| Trainee | "Operations Trainee with experience at …", the job's skill only (20) | Summary, Projects, Experience, Education, Skills | Academic project ahead of the single role; its Python and SQL listed as Independent projects. |
+| Trainee | Role, the job's skill (Excel), "Academic project: Built a sales dashboard in Python and SQL …", "Skills from academic projects: Python and SQL." (40) | Summary, Projects, Experience, Education, Skills | The project answers the job more strongly than the role's only line. |
 | Intern | "Data Analyst Intern with experience at …" (27) | Summary, Experience, Education, Skills | Title as confirmed. |
-| New graduate | None (no role), reason said | Education, Projects, Skills | No Experience heading. |
-| No formal job | None | Projects, Skills | |
-| Projects only | None | Projects, Skills | |
+| New graduate, capstone of two lines | "Academic project: Built a dashboard …", project skills (24) | Summary, Education, Projects, Skills | No title invented. |
+| New graduate, one line | None: the only line is already on the page; reason said | Education, Projects, Skills | No Experience heading. |
+| No formal job, one line | None, as above | Projects, Skills | |
+| Projects only | "Independent project: …", skills from academic and independent projects (22) | Summary, Projects, Skills | |
 | Career changer | "Science Teacher with experience at …" (20) | Summary, Experience, Skills | Never the target's title. |
 | Returning after a gap | Last role (21) | Summary, Experience, Skills | Dates as stored; nothing explains the gap. |
 | Insufficient information | None | Skills only (if any) | `NO_CONTACT` blocks export until a contact exists. |

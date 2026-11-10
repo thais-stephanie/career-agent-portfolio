@@ -28,7 +28,9 @@ The browser suite passes; the full suite's two failures are the known flaky
 Edge cleanup pair (below), which passed alone.
 Still blocked by storage decisions, as before: the per-job third page, claim
 limits and evidence class, a template value, privacy fields. Not merged, not
-pushed.
+pushed at the time of this verdict. Since then v1 is in `main` and
+`origin/main` at `48c6dce` (checked 2026-11-10); see the rollout plan's
+Status.
 
 ## Suites (2026-11-09, Windows 11, 16 GB, one suite at a time)
 
@@ -360,3 +362,65 @@ moves it or makes a new Master. Exports made before keep their files.
 * Bullets stay verbatim.
 * A project is matched to its experience by name only.
 * Languages, Volunteer and Company description need a design decision.
+
+### Review fix: a summary from projects (2026-11-10)
+
+**Cause.** `summary.compose` read statements only from shown roles
+(`experience_id` in a shown role), and project skills were excluded by
+`skill_origin == JOB`. A project could never reach the summary: the trainee
+(Operations Trainee, Excel spreadsheet; academic sales dashboard in Python
+and SQL) got a summary about Excel only, for a Junior Data Analyst ad.
+
+**Change (same composer, same checks).**
+
+* `master.project_experiences` and `tailor.Source.project` carry the
+  experience's kind (ACADEMIC or PERSONAL), not just "a project".
+* Projects lead the summary under the rule that moves sections
+  (`tailor.sections_ahead`): no shown role, or one role and a project line
+  that answers the job more strongly than any line of it. Then their
+  statements compete on relevance, written "Academic project: …" or
+  "Independent project: …", and their skills get their own sentence
+  ("Skills from academic projects: …"). A project adds no title, employer,
+  seniority or number of its own; the frames' words join `summary.grounds`.
+* No role is needed for a summary; no statement still means none.
+* A statement that repeats the page's only bullet is never used.
+* A skill only academic work holds is grouped "Academic projects" (it was
+  "Independent projects", which contradicted the summary's "academic").
+
+**Seven cases** (`test_the_summary_answers_the_job_with_the_evidence_that_answers_it`):
+
+| Case | Ad | Summary cites | Opens with |
+|---|---|---|---|
+| New graduate, capstone (two lines) | Data analyst | q1, the dashboard | "Academic project:" |
+| Projects only | Data analyst | p1, the Excel dashboard | "Independent project:" |
+| Trainee, project stronger | Data analyst | t2, the academic dashboard | the confirmed role |
+| Intern, job relevant | Data analyst | i1, the job's line; no project | the confirmed role |
+| Senior with a personal project | Customer success | s2; never f1, the project | the confirmed role |
+| Career changer | Customer success | c1, the transferable line | "Science Teacher …" |
+| Insufficient evidence; one line only | either | none; `SUMMARY_MISSING` | |
+
+Each also checks that a project's line says it is a project's, that
+"Skilled in" names only skills a job's evidence holds, that the employers
+named are jobs, and that every number is in a confirmed claim.
+
+**Before and after** (`out/resume-tailor-v1.1-examples`: `before_*` is
+`main` `48c6dce`, `v11_*` is `9b5851f`, `after_*` is this fix):
+
+* Trainee: `main`, no summary; v1.1, 20 words: "Operations Trainee with
+  experience at Harbor Fictional Co. Skilled in Excel. Updated the weekly
+  stock spreadsheet for the warehouse team."; after, 40 words: "Operations Trainee with experience at
+  Harbor Fictional Co. Skilled in Excel. Academic project: Built a sales
+  dashboard in Python and SQL from a public retail dataset, and presented
+  the findings to the class. Skills from academic projects: Python and SQL."
+* New graduate (two lines, a persona added by this fix): `main`, no
+  summary and the capstone under Experience; after, 24 words from the
+  capstone.
+* Career changer and senior: unchanged.
+
+All after files: one page, no `FAIL` check in PDF or DOCX, JSON round trip
+`PASS`. The trainee and graduate DOCX were opened in Word and exported to
+PDF for a visual check; the PDFs were read page by page.
+
+**Remaining limits.** The summary does not use Education (its fields are
+the person's own, and a degree in progress is not stated as such), and a
+project's statement may repeat its bullet once.
