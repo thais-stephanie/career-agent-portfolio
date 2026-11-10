@@ -284,3 +284,73 @@ the fit cuts bullets, not the summary.
   applied.
 * A long summary is flagged by Analyze, not by the job panel's long-line
   suggestion.
+
+## Resume Tailor v1.1 (2026-11-09, branch `claude/resume-summary`)
+
+Design and section matrix: `RESUME_TAILOR_V1_1_ADAPTIVE.md`. No migration,
+no schema change, no model call. Synthetic data only.
+
+**Audit, then changes.**
+
+* Academic and personal experiences were printed under Experience as if
+  they were jobs. A new Master now places them under Projects, and their
+  skills are a project's, never a job's.
+* A thin profile could get a two-sentence summary made of the role and the
+  only bullet. That summary is now not composed, and the report says why.
+* English frames were used for Portuguese statements on a default-language
+  document. The frames now follow the statements' language.
+* DOCX links were plain text. They are now real hyperlinks, and a new
+  `LINKS` check compares links in the PDF and DOCX with the shown ones.
+* `SUMMARY_SHORT` flagged short, specific summaries; it was removed.
+* `EMAIL_MISSING` fired when a phone was given; it now needs both absent.
+* With no shown role, Education and Projects move ahead of Experience;
+  with one role and a stronger project, Projects do. A chosen order is kept.
+
+**Personas.** `tests/integration/test_resume_personas.py`: senior, mid,
+trainee, intern, new graduate, no formal job, projects only, no projects,
+no links, one link, career changer, returning after a gap, insufficient
+information, and a complete example with three links. Each checks no empty
+section, no placeholder, evidence and numbers only from confirmed claims,
+the section order, contact rules, link round trip, profile isolation, the
+Master left unchanged, an older Master upgraded unchanged, and real PDFs
+(complete example at most two pages, new graduate one page).
+
+**Before and after (synthetic, `out/resume-tailor-v1.1-examples`, not
+versioned).** Before is `main` at `48c6dce`; after is this branch. Every PDF
+is one page in both.
+
+| Persona | Before | After |
+|---|---|---|
+| Complete | No summary; academic work under Experience | 32-word summary; Summary, Experience, Projects, Education, Certifications, Skills |
+| Trainee | No summary; project under Experience | 20 words; Projects before Experience |
+| New graduate | Experience heading with academic work | Education, Projects, Skills; no summary, reason said |
+| Career changer | No summary | 20 words, the confirmed title only |
+
+**Parsing evidence.** For the complete example, every check is `PASS` or
+`NOT_MEASURED` in PDF and DOCX: no `FAIL`. The PDF has three `/URI` link
+annotations and the DOCX three `w:hyperlink` elements. The DOCX uses the
+`Title`, `Heading 1`, `Heading 2` and `List Bullet` styles. The JSON
+`ROUND_TRIP` is `PASS`.
+
+**Suites on `9b5851f`.**
+
+* Unit and integration: 13,514 passed, 8 skipped, 1 failed (exit 1). The
+  failure was `test_findings_are_named_facts_never_a_score`, which removed
+  only the email and expected `EMAIL_MISSING`. The test now removes email
+  and phone and still requires the finding. The three affected files were
+  rerun: 72 passed, exit 0.
+* Browser: 601 passed, exit 0. The Edge cleanup pair did not fail.
+
+The suite on the final commit is recorded below.
+
+**Compatibility.** Older documents and Masters load unchanged. Academic
+work already in an older Master stays under Experience until the person
+moves it or makes a new Master. Exports made before keep their files.
+
+**Known limits.**
+
+* Summaries are often under 35 words and may repeat one bullet.
+* The strongest number is not always chosen; relevance to the job leads.
+* Bullets stay verbatim.
+* A project is matched to its experience by name only.
+* Languages, Volunteer and Company description need a design decision.

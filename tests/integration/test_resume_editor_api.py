@@ -178,7 +178,7 @@ def test_findings_are_named_facts_never_a_score() -> None:
     doc["experience"][1]["bullets"].append(
         {"id": new_id(), "text": "x" * 320, "origin": "USER_AUTHORED"}
     )
-    doc["identity"]["email"] = None
+    doc["identity"].update(email=None, phone=None)  # either one is enough since v1.1
     found = {(f["kind"], f["ref"].split("/")[-1]) for f in findings(upgrade_resume_document(doc))}
     kinds = {k for k, _ in found}
     assert ("NUMBER_NOT_IN_EVIDENCE", first["id"]) in found
