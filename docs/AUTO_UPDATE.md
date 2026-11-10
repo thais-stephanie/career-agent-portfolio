@@ -118,7 +118,9 @@ Home stays usable meanwhile. Its lists and job counts are the ones counted
 before (or early in) the run, with the time they were counted and a line saying
 jobs are being updated; your own changes (a save, an application, a hide) are
 shown at once. When the run ends, stopped or failed included, Home counts once,
-without clearing the page.
+without clearing the page. A Home read that was already on its way when the run
+ended is not taken as that count, and lists counted while the run was writing
+are never called current: Home counts again or shows the time they are from.
 
 A limited update can leave sites pending. It is not a promise of full coverage:
 use the update buttons for a complete one.

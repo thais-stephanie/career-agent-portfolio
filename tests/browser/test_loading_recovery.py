@@ -28,7 +28,8 @@ from tests.browser.test_resume_tailor import _serve, tailor_server  # noqa: F401
 #: installed for the session, and one of them keeps `window.__calls` as strings.
 #: Installed before any page script: records every request, and applies the
 #: rules in `window.__lrRules` -- hold (until released or aborted; with a
-#: `body`, released as that answer), delay, a
+#: `body`, released as that answer), stall (headers, then a body that never
+#: ends until aborted), delay, a
 #: status, or a JSON answer -- to the first rule whose `match` is in the URL.
 INTERCEPT = """(() => {
   const real = window.fetch.bind(window);
@@ -57,6 +58,16 @@ INTERCEPT = """(() => {
         const stop = () => reject(new DOMException('Aborted', 'AbortError'));
         if (signal) signal.addEventListener('abort', stop);
       }));
+    }
+    if (rule.mode === 'stall') {
+      // The headers at once; a body that never ends, broken off by an abort.
+      const stream = new ReadableStream({ start(c) {
+        c.enqueue(new TextEncoder().encode('{'));
+        const stop = () => c.error(new DOMException('Aborted', 'AbortError'));
+        if (signal) signal.addEventListener('abort', stop);
+      } });
+      return settle(Promise.resolve(new Response(stream, {
+        status: 200, headers: { 'Content-Type': 'application/json' } })));
     }
     if (rule.mode === 'delay') {
       return settle(new Promise((r) => setTimeout(r, rule.ms)).then(() => real(input, options)));

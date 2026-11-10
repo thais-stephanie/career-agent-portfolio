@@ -121,7 +121,7 @@ def test_sources_finishing_in_a_row_count_nothing_and_the_end_counts_once(api, c
             assert during["total"] == before["total"] and during["sections"] == before["sections"]
         assert len(counted) == 1, "a finished source made Home count its lists again"
     after = home(api)
-    assert len(counted) == 2 and after["collecting"] is False
+    assert len(counted) == 2 and after["collecting"] is False and after["lists_current"] is True
     assert after["job_count"] == before["job_count"] + 3
     assert after["total"] >= before["total"]
     home(api)
@@ -233,7 +233,7 @@ def test_a_run_that_wrote_nothing_counts_nothing_when_it_ends(api, counted):  # 
     with collection(api):
         home(api)
     after = home(api)
-    assert len(counted) == 1 and after["collecting"] is False
+    assert len(counted) == 1 and after["collecting"] is False and after["lists_current"] is True
     assert after["lists_at"] == before["lists_at"] and after["total"] == before["total"]
 
 
@@ -351,3 +351,169 @@ def test_the_outdated_count_is_kept_during_the_run_and_dropped_by_the_person(
     assert len(plans) == 3, "the run's end reads the plan again, once"
     outdated()
     assert len(plans) == 3
+
+
+# the run's end, seen while an answer is being made ---------------------------
+#
+# An answer that says no collection runs and its lists are current must have
+# counted them against the catalogue as it stands after the run. A run can end
+# at any point of a request: after the lists were kept for it, or while they
+# were being counted. `metrics` is the person's own block, read after the lists
+# are chosen; it is where these tests end the run.
+
+
+def _ends_the_run_once(app, monkeypatch, release: threading.Event) -> None:
+    from career_agent import home as home_module
+
+    real = home_module.metrics
+    done: list[int] = []
+
+    def metrics(*args, **kwargs):
+        if not done:
+            done.append(1)
+            release.set()
+            app.retrieval.join(10)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(home_module, "metrics", metrics)
+
+
+def test_a_run_ending_after_its_lists_were_kept_is_counted_before_the_answer(
+    api,  # noqa: F811
+    counted,
+    monkeypatch,
+):
+    before = home(api)
+    release = threading.Event()
+    api.retrieval.start(lambda state, cancel: release.wait(30), "ends-mid-answer")
+    a_source_finishes(api, postings=2)
+    _ends_the_run_once(api, monkeypatch, release)
+    answer = home(api)
+    assert not api.retrieval.running
+    assert answer["collecting"] is False
+    assert answer["job_count"] == before["job_count"] + 2, "kept lists answered as current"
+    assert answer["lists_current"] is True
+    assert answer["lists_at"] >= before["lists_at"]
+    assert len(counted) == 2
+    home(api)
+    assert len(counted) == 2, "the run's end is counted once"
+
+
+def test_a_run_ending_while_the_lists_are_counted_is_counted_again_once(api, monkeypatch):  # noqa: F811
+    before = home(api)
+    release = threading.Event()
+    api.retrieval.start(lambda state, cancel: release.wait(30), "ends-mid-count")
+    # A save during the run: the lists are counted again on the next visit.
+    call(api, "PATCH", f"/api/jobs/{first_job(api)}/saved", {"saved": True})
+    real = type(api)._home_lists_now
+    seen: list[int] = []
+
+    def count_then_sources_finish_and_the_run_ends(self, *args, **kwargs):
+        seen.append(1)
+        lists = real(self, *args, **kwargs)
+        if len(seen) == 1:
+            a_source_finishes(api, postings=2)
+            release.set()
+            self.retrieval.join(10)
+        return lists
+
+    monkeypatch.setattr(type(api), "_home_lists_now", count_then_sources_finish_and_the_run_ends)
+    answer = home(api)
+    assert answer["collecting"] is False
+    assert answer["job_count"] == before["job_count"] + 2, (
+        "a count taken during the run said current"
+    )
+    assert answer["lists_current"] is True
+    assert len(seen) == 2
+
+
+def test_lists_whose_catalogue_moved_while_counted_are_counted_again_once(api, monkeypatch):  # noqa: F811
+    """No run here: something else wrote the catalogue during the count."""
+    before = home(api)
+    call(api, "PATCH", f"/api/jobs/{first_job(api)}/saved", {"saved": True})
+    real = type(api)._home_lists_now
+    seen: list[int] = []
+
+    def count_then_write(self, *args, **kwargs):
+        seen.append(1)
+        lists = real(self, *args, **kwargs)
+        if len(seen) == 1:
+            a_source_finishes(api)
+        return lists
+
+    monkeypatch.setattr(type(api), "_home_lists_now", count_then_write)
+    answer = home(api)
+    assert answer["collecting"] is False
+    assert answer["job_count"] == before["job_count"] + 1, (
+        "a count the catalogue outran said current"
+    )
+    assert answer["lists_current"] is True
+    assert len(seen) == 2
+
+
+def test_a_catalogue_that_keeps_moving_is_counted_twice_at_most_and_said(api, monkeypatch):  # noqa: F811
+    before = home(api)
+    call(api, "PATCH", f"/api/jobs/{first_job(api)}/saved", {"saved": True})
+    real = type(api)._home_lists_now
+    seen: list[int] = []
+
+    def count_then_write(self, *args, **kwargs):
+        seen.append(1)
+        lists = real(self, *args, **kwargs)
+        a_source_finishes(api)
+        return lists
+
+    monkeypatch.setattr(type(api), "_home_lists_now", count_then_write)
+    answer = home(api)
+    assert len(seen) == 2, "the count was not bounded"
+    assert answer["collecting"] is False
+    assert answer["lists_current"] is False, "lists that may be behind were said to be current"
+    assert answer["lists_at"] >= before["lists_at"]
+
+
+def test_a_recount_that_fails_after_the_run_keeps_nothing_wrong(api, monkeypatch):  # noqa: F811
+    before = home(api)
+    with collection(api):
+        a_source_finishes(api)
+        assert home(api)["collecting"] is True
+    real = type(api)._home_lists_now
+
+    def fails(self, *args, **kwargs):
+        raise RuntimeError("synthetic count failure")
+
+    monkeypatch.setattr(type(api), "_home_lists_now", fails)
+    with pytest.raises(RuntimeError):
+        home(api)
+    monkeypatch.setattr(type(api), "_home_lists_now", real)
+    after = home(api)
+    assert after["collecting"] is False and after["lists_current"] is True
+    assert after["job_count"] == before["job_count"] + 1
+
+
+def test_answers_around_the_run_end_are_each_coherent(api):  # noqa: F811
+    before = home(api)
+    answers: list[dict] = []
+    stop = threading.Event()
+
+    def visit() -> None:
+        while not stop.is_set():
+            answers.append(home(api))
+
+    with collection(api):
+        a_source_finishes(api, postings=2)
+        threads = [threading.Thread(target=visit) for _ in range(3)]
+        for thread in threads:
+            thread.start()
+    # The run is over (the block joined it); let the visitors see that.
+    for _ in range(50):
+        if any(not a["collecting"] for a in answers[-3:]):
+            break
+        threading.Event().wait(0.05)
+    stop.set()
+    for thread in threads:
+        thread.join(30)
+    for answer in answers:
+        if answer["collecting"] is False and answer.get("lists_current", True):
+            assert answer["job_count"] == before["job_count"] + 2, "stale lists said current"
+    assert answers[-1]["collecting"] is False
+    assert answers[-1]["job_count"] == before["job_count"] + 2

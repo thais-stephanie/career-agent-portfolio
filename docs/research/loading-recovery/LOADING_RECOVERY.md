@@ -142,6 +142,32 @@ their time. The job list, its filters and an open posting are not touched
 `api.getHome` shares a read in flight (Home and the rail both ask as the page
 opens), but never one asked before a write the page sent.
 
+### When a run ends during an answer (independent review, 2026-11-10)
+
+The review of `4161e1a` found that a run ending in the middle of a request
+could be answered as current with lists kept or counted while it ran: on the
+server (the run ends after the lists were chosen, or while they are counted)
+and in the page (the end of a run shared a read asked before it ended). Fixed:
+
+- **Server** (`_home_lists_checked`): whether a collection runs is asked last,
+  and THEN the catalogue's token. A run reports it is over only after its last
+  write is committed, so that token covers all it wrote. Lists counted at that
+  token are `lists_current: true`. Lists behind it, with no collection to
+  explain it, are counted again once; still behind (something keeps writing),
+  they are answered with their own `lists_at` and `lists_current: false`, and
+  the page says "Lists and counts as of {time}." without calling them current.
+  At most two counts per request. During a recalculation `lists_current` is
+  `null`: the recalculation's own progress is what Home shows then.
+- **Page**: the end of a run calls `api.forgetHome()` before anything asks
+  Home again, so a read asked before the end is not shared with what asks
+  after it; what asks after it shares the one new read. The rail draws only
+  its latest read (an older answer arriving late is dropped); Home already did.
+- **Request bodies** (`api.js request`): a body read that fails is no longer an
+  empty answer. Aborted (Stop, a time limit, a page left) it is an abort, which
+  Resume Tailor's time limits turn into "did not answer in time"; cut off on a
+  successful status it is a network failure; on an error status the status
+  still decides.
+
 No time-to-live was added. The existing 10-minute bound
 (`HOME_MEMO_SECONDS`) still caps any remembered lists, during a run too, and no
 new persistence was added.
@@ -185,6 +211,17 @@ saves there has not been measured.
   update (counted once, the page kept, the job list not asked again, a partial
   run said), a failed recount, an answer for a profile no longer open, and
   the Portuguese text.
+- Review fixes. `tests/integration/test_home_during_refresh.py`: a run ending
+  after its lists were kept, a run ending while they are counted, a catalogue
+  moving during a count (counted again once) or moving on (twice at most, not
+  called current), a recount failing after the run, and answers around the
+  run's end, each coherent. `tests/browser/test_home_during_refresh.py`: the
+  end of an update never reuses a read asked before it (and a late old answer
+  is not drawn, in Home or the rail), a write after the end still asks again,
+  and a real run on the test server's own runner, nothing intercepted.
+  `tests/browser/test_request_failures.py`: abort before the headers, abort
+  while the body is read, a body cut off, 500 and 503 (with a body cut off
+  too), an empty body, and Resume Tailor's confirmed list whose body never ends.
 
 ## Suite results on the final commit
 

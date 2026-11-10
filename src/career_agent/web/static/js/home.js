@@ -346,22 +346,24 @@ export function createHome({
   /**
    * When the lists and counts were counted, said while that is not now: a
    * collection runs (new jobs are counted when it ends), the jobs that arrived
-   * are being counted, or counting them again failed. Hidden otherwise.
+   * are being counted, counting them again failed, or the server could not
+   * say they are current (`lists_current` false). Hidden otherwise.
    */
   function markLists() {
     const node = listsNote;
     if (!node || !node.isConnected || !payload) return;
     const running = Boolean(payload.collecting) || Boolean(collection && collection.state().active);
     const at = clockOf(payload.lists_at);
+    const behind = payload.lists_current === false;
     let text = '';
     if (recount === 'counting') text = t('home.lists.counting');
     else if (recount === 'failed') text = at ? t('home.lists.kept', { time: at }) : t('home.lists.keptNoTime');
     else if (running) {
       text = [at ? t('home.lists.asOf', { time: at }) : '', t('home.lists.updating')].filter(Boolean).join(' ');
-    }
+    } else if (behind && at) text = t('home.lists.asOf', { time: at });
     node.hidden = !text;
     node.textContent = text;
-    node.dataset.lists = recount || (running ? 'updating' : 'current');
+    node.dataset.lists = recount || (running ? 'updating' : (behind ? 'earlier' : 'current'));
   }
 
   function render(payload) {

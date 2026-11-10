@@ -16,6 +16,7 @@ The collection is a synthetic `/api/retrieval` answer; nothing is collected.
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -194,3 +195,146 @@ def test_the_lists_note_is_in_portuguese_too(page: Chrome, tailor_server: dict[s
         assert "as novas entram na contagem quando a atualização terminar" in note
     finally:
         page.evaluate("localStorage.removeItem('careerAgent.locale.v1')")
+
+
+def _marked(answer: dict[str, Any], mark: str, count: int) -> dict[str, Any]:
+    """`answer` with its first listed job retitled and its job count set, so
+    which answer is on screen can be told."""
+    body = json.loads(json.dumps(answer))
+    body["job_count"] = count
+    section = next(s for s in body["sections"] if s["items"])
+    section["items"][0]["title"] = mark
+    return body
+
+
+RAIL_JOBS = "document.querySelector('.sidenav__stat--jobs .sidenav__statvalue')?.innerText"
+HOME_TEXT = "document.getElementById('page-home').innerText"
+
+
+def test_the_end_of_an_update_never_reuses_a_read_asked_before_it(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    run = {"match": "/api/retrieval", "mode": "json", "body": running("auto", "x:y")}
+    intercept(page, [run])
+    open_home(page, tailor_server["url"])
+    page.wait_for(f"{VIEW} === 'dashboard'", timeout=20, message="the dashboard")
+    page.wait_for(f"{NOTE}?.dataset.lists === 'updating'", timeout=10, message="updating")
+    real = page.evaluate("fetch('/api/home').then((r) => r.json())")
+    old = _marked(real, "Answer asked before the end", 111111)
+    new = _marked(real, "Answer asked after the end", 222222)
+    # A visit while the run goes: its read is slow.
+    rules(page, [run, {**HOME, "mode": "hold", "body": old}])
+    page.evaluate("document.querySelector('.topnav__link[data-page=jobs]').click()")
+    page.evaluate("document.querySelector('.topnav__link[data-page=home]').click()")
+    page.wait_for("window.__lrHeld.length >= 1", timeout=10, message="the visit's read")
+    asked = home_asked(page)
+    # The run ends while that read is in flight.
+    rules(
+        page,
+        [
+            {"match": "/api/retrieval", "mode": "json", "body": ended()},
+            {**HOME, "mode": "hold", "body": new},
+        ],
+    )
+    page.wait_for(
+        f"window.__lrCalls.filter((c) => /\/api\/home$/.test(c.url)).length > {asked}",
+        timeout=15,
+        message="Home read after the run ended (not the read asked before)",
+    )
+    time.sleep(1.0)
+    # Home and the rail share that one new read.
+    assert home_asked(page) == asked + 1
+    # The new answer comes first; the old one comes late and is not drawn.
+    page.evaluate("window.__lrHeld[1]()")
+    page.wait_for(f"{VIEW} === 'dashboard'", timeout=15, message="the new answer drawn")
+    page.wait_for(f"{HOME_TEXT}.includes('Answer asked after the end')", timeout=10)
+    page.wait_for(f"{RAIL_JOBS} === '222,222'", timeout=10, message="the rail's new count")
+    page.evaluate("window.__lrHeld[0]()")
+    time.sleep(1.5)
+    assert "Answer asked before the end" not in str(page.evaluate(HOME_TEXT))
+    assert page.evaluate(RAIL_JOBS) == "222,222", "a late old answer replaced the rail's count"
+    assert page.evaluate(f"{NOTE}.dataset.lists") == "current"
+
+
+def test_after_the_end_a_write_still_asks_home_again(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    run = {"match": "/api/retrieval", "mode": "json", "body": running("auto", "x:y")}
+    intercept(page, [run])
+    open_home(page, tailor_server["url"])
+    page.wait_for(f"{VIEW} === 'dashboard'", timeout=20, message="the dashboard")
+    real = page.evaluate("fetch('/api/home').then((r) => r.json())")
+    job = next(i["job_id"] for s in real["sections"] for i in s["items"])
+    asked = home_asked(page)
+    rules(
+        page,
+        [{"match": "/api/retrieval", "mode": "json", "body": ended()}, {**HOME, "mode": "hold"}],
+    )
+    page.wait_for(
+        f"window.__lrCalls.filter((c) => /\/api\/home$/.test(c.url)).length > {asked}",
+        timeout=15,
+        message="Home asked again at the end of the run",
+    )
+    after_end = home_asked(page)
+    # Asked again with nothing new: the read in flight is shared.
+    page.evaluate("import('/js/api.js').then((m) => { m.getHome(); })")
+    time.sleep(0.5)
+    assert home_asked(page) == after_end
+    # A write from this page: the next read is a new one.
+    page.evaluate(f"import('/js/api.js').then((m) => m.patchSaved({json.dumps(job)}, true))")
+    page.evaluate("import('/js/api.js').then((m) => { m.getHome(); })")
+    page.wait_for(
+        f"window.__lrCalls.filter((c) => /\/api\/home$/.test(c.url)).length > {after_end}",
+        timeout=10,
+        message="a read after the write",
+    )
+    release(page)
+
+
+def test_home_through_a_real_run_and_its_end(page: Chrome, tailor_server: dict[str, Any]) -> None:
+    """Nothing intercepted: the test server's own collection runner holds a
+    run open while postings are written the way a finished source writes
+    them; the page follows it, and the end is counted from the server."""
+    import threading
+
+    from tests.integration.test_home_during_refresh import a_source_finishes
+
+    app = tailor_server["app"]
+    release = threading.Event()
+
+    def work(state: Any, cancel: Any) -> None:
+        state.kind = "auto"
+        release.wait(60)
+
+    app.retrieval.start(work, "synthetic-live-run")
+    try:
+        for _ in range(50):
+            if (app.retrieval.snapshot() or {}).get("kind") == "auto":
+                break
+            time.sleep(0.05)
+        open_home(page, tailor_server["url"])
+        page.wait_for(f"{VIEW} === 'dashboard'", timeout=20, message="the dashboard")
+        page.wait_for(f"{NOTE}?.dataset.lists === 'updating'", timeout=15, message="updating")
+        first = page.evaluate("fetch('/api/home').then((r) => r.json())")
+        assert first["collecting"] is True
+        a_source_finishes(app, postings=2)
+        # A visit during the run: the lists are kept and said as of when.
+        page.evaluate("document.querySelector('.topnav__link[data-page=jobs]').click()")
+        page.evaluate("document.querySelector('.topnav__link[data-page=home]').click()")
+        page.wait_for(f"{VIEW} === 'dashboard'", timeout=20, message="the dashboard again")
+        page.wait_for(f"{NOTE}?.dataset.lists === 'updating'", timeout=15, message="still updating")
+        during = page.evaluate("fetch('/api/home').then((r) => r.json())")
+        assert during["collecting"] is True and during["job_count"] == first["job_count"]
+        assert during["lists_at"] == first["lists_at"]
+        release.set()
+        app.retrieval.join(10)
+        page.wait_for(f"{NOTE}?.dataset.lists === 'current'", timeout=20, message="counted")
+        expected = f"{first['job_count'] + 2:,}"
+        page.wait_for(f"{RAIL_JOBS} === {json.dumps(expected)}", timeout=10, message="rail count")
+        after = page.evaluate("fetch('/api/home').then((r) => r.json())")
+        assert after["collecting"] is False and after["lists_current"] is True
+        assert after["job_count"] == first["job_count"] + 2
+        assert page.evaluate(f"{NOTE}.hidden") is True
+    finally:
+        release.set()
+        app.retrieval.join(10)

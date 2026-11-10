@@ -2042,9 +2042,10 @@ class WorkspaceRoutes(_MixinBase):
                     or (population is not None and self._collecting())
                 )
             ):
-                lists = memo["lists"]
+                lists, counted_at = memo["lists"], memo["population"]
             else:
                 lists = self._home_lists_now(conn, repo, config, config_id, config_version, seen_at)
+                counted_at = population
                 self._home_lists = {
                     "key": key,
                     "population": population,
@@ -2071,6 +2072,15 @@ class WorkspaceRoutes(_MixinBase):
             else:
                 outdated = None
             refresh_run = latest_refresh_run(conn)
+            collecting, lists, lists_current = self._home_lists_checked(
+                conn,
+                key,
+                lists,
+                counted_at,
+                lambda: self._home_lists_now(
+                    conn, repo, config, config_id, config_version, seen_at
+                ),
+            )
 
         return {
             "total": lists["total"],
@@ -2078,11 +2088,12 @@ class WorkspaceRoutes(_MixinBase):
             "last_reviewed_at": seen_at,
             "metrics": [metric.as_dict() for metric in cards],
             "sections": lists["sections"],
-            # When the lists and their totals were counted, and whether a
-            # collection is running now -- asked last, so a run that started
-            # while the lists were being counted is said, not hidden.
+            # When the lists and their totals were counted, whether a
+            # collection is running now, and whether the lists are the
+            # catalogue as it stands (`_home_lists_checked`).
             "lists_at": lists["at"],
-            "collecting": self._collecting(),
+            "collecting": collecting,
+            "lists_current": lists_current,
             "profile_gaps": gaps,
             "declarations_pending": pending,
             "scores": {
@@ -2092,6 +2103,42 @@ class WorkspaceRoutes(_MixinBase):
             "latest_refresh_run": refresh_run,
             "profile": served_profile_id(self),
         }
+
+    def _home_lists_checked(
+        self, conn: Any, key: tuple, lists: dict, counted_at: tuple | None, count: Any
+    ) -> tuple[bool, dict, bool | None]:
+        """`(collecting, lists, lists_current)` for the answer, checked last.
+
+        A run can end at any point of a request: after its lists were kept
+        for it, or while they were being counted. Whether a collection runs
+        is asked FIRST, then the catalogue's token: a run is over only once
+        its last write is committed, so a token read after "not running"
+        covers everything it wrote. Lists counted at that token are current.
+        Lists that are behind it, with no collection to explain why, are
+        counted again ONCE; behind again (something keeps writing), they are
+        answered with their own time and not called current. While a
+        recalculation runs (`counted_at` None) its own progress says how far
+        the scores are, and nothing is judged here.
+        """
+        from career_agent.storage.catalogue import population_token
+
+        for again in (False, True):
+            collecting = self._collecting()
+            if counted_at is None:
+                return collecting, lists, None
+            now = tuple(population_token(conn))
+            if collecting or now == counted_at:
+                return collecting, lists, now == counted_at
+            if again:
+                break
+            lists, counted_at = count(), now
+            self._home_lists = {
+                "key": key,
+                "population": now,
+                "monotonic": time.monotonic(),
+                "lists": lists,
+            }
+        return False, lists, False
 
     def _collecting(self) -> bool:
         """Whether this profile's collection (a find, a source refresh, an

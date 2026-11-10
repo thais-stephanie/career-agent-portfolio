@@ -2987,12 +2987,17 @@ function drawRailStatus() {
  * a rail that put an error where a count goes would make a slow request look
  * like a broken install.
  */
+//: The rail's latest read: an older one that answers later is not drawn.
+let railAsked = 0;
+
 async function loadRailReadouts() {
+  const mine = ++railAsked;
   try {
     // `/api/home` already composes these and is the ONE place they are
     // counted. A second count here is how a rail and a dashboard come to
     // disagree about how many applications are open.
     const home = await api.getHome();
+    if (mine !== railAsked) return; // a newer read draws the rail, sources included
     const metric = (key) => {
       const found = (home.metrics || []).find((entry) => entry.key === key);
       return found && Number.isFinite(found.value) ? found.value : null;
@@ -3560,6 +3565,9 @@ collection.onProgress(() => {
 // A finished run changed the corpus. Everything that counted it asks again,
 // once.
 collection.onFinish((snapshot) => {
+  // A Home read asked while the run went counts what it had then: what asks
+  // now must read after the run.
+  api.forgetHome();
   // A run the app started by itself (the choice "update when I open") must not
   // replace a list or a posting being read: say what arrived, and let the
   // person update the list when they want to.

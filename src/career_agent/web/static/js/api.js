@@ -257,7 +257,15 @@ async function request(path, { method = 'GET', body = null, signal = null } = {}
   }
 
   let payload = null;
-  const text = await response.text().catch(() => '');
+  // The body can fail after the headers: aborted (Stop, a time limit, a page
+  // left) or cut off. Neither is an empty answer.
+  let text = '';
+  try {
+    text = await response.text();
+  } catch (cause) {
+    if ((signal && signal.aborted) || (cause && cause.name === 'AbortError')) throw abortError();
+    if (response.ok) throw networkError(cause);
+  }
   if (text) {
     try {
       payload = JSON.parse(text);
@@ -1171,15 +1179,25 @@ export async function getJobDescriptions(ids) {
 }
 
 // Shared between callers while it is in flight -- Home and the rail ask it as
-// the page opens -- but only while no write was sent since it was asked: a
-// visit after a write must read after it. The profile is the page's own (a
-// switch reloads the page).
+// the page opens -- but only while no write was sent since it was asked, and
+// nothing else moved what it counts (`forgetHome`): a visit after a write, or
+// after a collection ended, must read after it. The profile is the page's own
+// (a switch reloads the page).
 let homeAsked = null;
+let homeMoved = 0;
+
+/** What Home counts moved without a write from this page (a collection
+ *  ended): a read already in flight is not shared with what asks next. */
+export function forgetHome() {
+  homeMoved += 1;
+}
 
 export async function getHome() {
   if (MOCK) throw noCandidateHere();
-  if (homeAsked && homeAsked.writes === writesSent) return homeAsked.promise;
-  const asked = { writes: writesSent, promise: request('/home') };
+  if (homeAsked && homeAsked.writes === writesSent && homeAsked.moved === homeMoved) {
+    return homeAsked.promise;
+  }
+  const asked = { writes: writesSent, moved: homeMoved, promise: request('/home') };
   homeAsked = asked;
   asked.promise.then(() => {}, () => {}).finally(() => { if (homeAsked === asked) homeAsked = null; });
   return asked.promise;
