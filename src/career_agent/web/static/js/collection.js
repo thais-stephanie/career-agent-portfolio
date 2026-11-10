@@ -419,7 +419,14 @@ export function createProgressView(collection, { compact = false, stopId = null 
     const parts = [t('collect.elapsed', { time: duration(snapshot.elapsed) })];
     if (!compact && run.current && run.current_detail) {
       parts.unshift(feedLine(run.current, run.current_detail, duration(snapshot.currentFor)));
-    } else if (!compact && run.current) {
+    } else if (compact && run.current && run.kind === 'auto') {
+      // In the one-line bar too: "0 of 29" for six minutes reads as stuck,
+      // when the first site is simply long. How long it has taken is known.
+      // An automatic run holds the site as an inventory key, not a name a
+      // person reads, so this line says a site is being read, not which.
+      parts.unshift(t('collect.nowUnnamed', { time: duration(snapshot.currentFor) }));
+    } else if (run.current) {
+      // A count inside the source is shown only when the source sent one.
       const boards = run.current_boards;
       parts.unshift(boards && boards.total
         ? t('collect.nowBoards', {

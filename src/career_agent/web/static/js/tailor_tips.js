@@ -17,6 +17,8 @@ import { t } from './i18n.js';
 import * as api from './api.js';
 
 const STORE = 'careerAgent.tp.tips.v1';
+/** How long the saved-jobs note may hold the tips back. */
+const TIPS_JOBS_LIMIT_MS = 15000;
 const LINKEDIN = ['li1', 'li2', 'li3', 'li4', 'li5', 'li6'];
 const RESUME = ['cv1', 'cv2', 'cv3', 'cv4', 'cv5', 'cv6'];
 //: The tips that also say how, step by step.
@@ -63,9 +65,13 @@ async function factsAbout() {
     [master, career, library] = await Promise.all([
       api.getResumeMaster(), api.getCareer(), api.listResumeDocuments(),
     ]);
-    saved = ((await api.listJobs('saved_only=true&limit=50')) || {}).items || [];
+    // Only the saved jobs, without the "N more" counts the list never shows,
+    // and not for long: a note is a hint, and the tips are drawn without it.
+    saved = ((await api.listJobs('saved_only=true&limit=50&narrowings=later', {
+      signal: AbortSignal.timeout(TIPS_JOBS_LIMIT_MS),
+    })) || {}).items || [];
   } catch {
-    /* A tip without a note is still a tip. */
+    /* A tip without a note is still a tip; no note ever says "none". */
   }
   const identity = master && master.master ? (master.master.document || {}).identity || {} : null;
   if (identity) {

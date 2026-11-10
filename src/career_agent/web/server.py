@@ -101,6 +101,29 @@ class InlinePage:
 INLINE_PAGE_POLICY = f"{RESUME_CSP}; frame-ancestors 'self'; sandbox allow-same-origin"
 
 
+#: The requests being handled on this thread, innermost last: one flag each,
+#: set by `changed_nothing`. A stack, so a handler that calls another route
+#: never clears or borrows the flag of the request around it.
+_HANDLING = threading.local()
+
+
+def changed_nothing() -> None:
+    """Say, from inside a handler, that THIS request wrote nothing at all.
+
+    Every request other than GET counts as a write (`LocalApp.writes`), and
+    the read caches key on that count: a list, its totals and Home are read
+    again after it. That is the safe default and it stays the default. A
+    handler calls this only on a path it can show is read-only -- no row
+    written, nothing started, no state in memory changed -- such as an
+    automatic update that declined to start. Calling it on a path that wrote
+    would serve a stale answer, so it is called at the return it describes,
+    never ahead of work that might still write.
+    """
+    stack = getattr(_HANDLING, "stack", None)
+    if stack:
+        stack[-1] = True
+
+
 class ApiError(Exception):
     """An error with an HTTP status and a message for the interface.
 
@@ -685,11 +708,19 @@ class LocalApp:
             path_matched = True
             if route_method != method:
                 continue
+            stack = getattr(_HANDLING, "stack", None)
+            if stack is None:
+                stack = _HANDLING.stack = []
+            stack.append(False)
             try:
                 return handler(query=query, body=body, **match.groupdict())
             finally:
-                # Any write may move what a list shows; read caches key on this.
-                if method != "GET":
+                # Any write may move what a list shows; read caches key on
+                # this. Only a handler that said it wrote nothing is left out
+                # (`changed_nothing`); a request that failed without saying so
+                # still counts, as it always has.
+                quiet = stack.pop()
+                if method != "GET" and not quiet:
                     self.writes += 1
         if path_matched:
             raise ApiError(405, f"{method} not allowed on {path}")

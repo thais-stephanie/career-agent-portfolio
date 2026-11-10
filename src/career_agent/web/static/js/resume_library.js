@@ -21,8 +21,8 @@
  */
 
 import {
-  compareResumes, copyResume, createJobResume, downloadResumeExport, getLegacyResumes, getResumeHistory,
-  listResumeDocuments, listResumeExports, manageResume, moveLegacyResumes, restoreResume,
+  compareResumes, copyResume, createJobResume, downloadResumeExport, getDocuments, getLegacyResumes,
+  getResumeHistory, listResumeDocuments, listResumeExports, manageResume, moveLegacyResumes, restoreResume,
 } from './api.js';
 import { button, el } from './dom.js';
 import { formatDate } from './format.js';
@@ -30,6 +30,8 @@ import { t, tCount } from './i18n.js';
 import { inlineConfirm } from './ui.js';
 
 const FILTERS = ['all', 'master', 'jobs', 'imported', 'archived'];
+/** How long the note about Documents may take before it is left out. */
+const SOURCES_LIMIT_MS = 10000;
 /** The preferred mark is a word and a sign, never a colour alone. */
 const STAR = '★';
 
@@ -59,7 +61,9 @@ export function versionLabel(item, heading = '') {
   return [number, item.title === heading ? '' : item.title].filter(Boolean).join(' \u00b7 ');
 }
 
-export function createLibrary({ onOpen, onOpenRestored, onHome, onImport, onAnalyze = () => {} }) {
+export function createLibrary({
+  onOpen, onOpenRestored, onHome, onImport, onAnalyze = () => {}, onDocuments = null,
+}) {
   let filter = 'all';
   let current = null;
   let busy = false;
@@ -138,10 +142,50 @@ export function createLibrary({ onOpen, onOpenRestored, onHome, onImport, onAnal
         small(t('rv.home.importButton'), () => onImport()),
       ]);
     }
-    return el('div', { className: 'rvw__empty' }, [
+    // EMPTY IS TRUE, AND IT IS NOT THE WHOLE STORY. This list holds the
+    // resumes made or imported to edit here; a CV added to the profile is in
+    // Documents, and what was confirmed from it is the person's experience.
+    // Neither is a resume here until she builds her Master or imports one.
+    const sources = el('p', { className: 'rve__note', dataset: { sources: 'unknown' } });
+    const box = el('div', { className: 'rvw__empty', dataset: { empty: 'library' } }, [
       el('p', { text: t('rv.docs.empty') }),
-      small(t('rv.lib.toHome'), () => onHome()),
+      el('p', { className: 'rve__note', text: t('rv.lib.emptyWhat') }),
+      sources,
+      el('div', { className: 'rvw__choices' }, [
+        small(t('rv.lib.toHome'), () => onHome()),
+        small(t('rv.home.importButton'), () => onImport()),
+        onDocuments ? small(t('rv.lib.toDocuments'), () => onDocuments()) : null,
+      ].filter(Boolean)),
     ]);
+    void sayWhatTheProfileHolds(sources);
+    return box;
+  }
+
+  /**
+   * What Documents holds for THIS profile, counted from its own answer. Said
+   * only when that answer came: a failed or slow read says nothing rather
+   * than "none", and an answer for a list no longer on screen is dropped.
+   */
+  async function sayWhatTheProfileHolds(node) {
+    let answer;
+    try {
+      answer = await getDocuments({ signal: AbortSignal.timeout(SOURCES_LIMIT_MS) });
+    } catch {
+      return;
+    }
+    if (!node.isConnected) return;
+    const kept = ((answer && answer.documents) || []).filter((d) => d.status !== 'archived');
+    if (!kept.length) {
+      node.dataset.sources = 'none';
+      return;
+    }
+    const confirmed = kept.reduce((sum, d) => sum + Number(d.confirmed || 0), 0);
+    node.dataset.sources = String(kept.length);
+    node.textContent = [
+      tCount('rv.lib.emptySources', { n: kept.length }),
+      confirmed ? tCount('rv.lib.emptyConfirmed', { n: confirmed }) : '',
+      t('rv.lib.emptyBecome'),
+    ].filter(Boolean).join(' ');
   }
 
   const section = (key, title, children) => el('section', {

@@ -209,12 +209,12 @@ export function createHome({
     root.dataset.view = 'loading';
     replace(root, [el('div', { className: 'sk sk--block' })]);
     try {
-      payload = await api.getHome();
-      if (mine !== token) return;
       // The first-run state BEFORE the first paint, so the list is never drawn
       // empty and then filled in -- a step row appearing a moment later reads
-      // as something having just happened.
-      await firstRun.load();
+      // as something having just happened. Asked BESIDE Home, not after it:
+      // neither read needs the other's answer, and one after the other made
+      // the wait the sum of both. `firstRun.load` says its own failure.
+      [payload] = await Promise.all([api.getHome(), firstRun.load()]);
       if (mine !== token) return;
       // A fresh install -- nothing confirmed and no search described -- opens
       // on the guided setup, unless the person chose to do it later. Asked for

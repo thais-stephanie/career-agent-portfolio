@@ -71,7 +71,7 @@ from career_agent.storage.workspace_repo import (
     candidate_id_of,
     ensure_candidate,
 )
-from career_agent.web.server import ApiError
+from career_agent.web.server import ApiError, changed_nothing
 
 if TYPE_CHECKING:
     from career_agent.web.api import JobsApi
@@ -238,27 +238,35 @@ def register_auto_update(app: JobsApi) -> None:
 
     def run(*, query: dict, body: dict) -> dict:
         """Start the update if the person asked for it and a site is overdue.
-        Idempotent: asking again does nothing while a run is going or recent."""
+        Idempotent: asking again does nothing while a run is going or recent.
+
+        Every opening of the app asks this. Until the start time is written
+        below, each path only READS (the switch, the last start and result,
+        whether anything runs, and `overdue`, a plan over the inventory), so
+        a refusal there says it changed nothing (`changed_nothing`): the
+        lists' and Home's remembered answers stay valid. From the written
+        start onwards it counts as a write, refused or not.
+        """
         if query or body:
             raise ApiError(400, "Starting the automatic update takes no parameters.")
         if not personal():
-            return {"started": False, "reason": "DEMO"}
+            return _declined("DEMO")
         with gate:
             with closing(app.connect()) as conn:
                 if read(conn, KEY_ENABLED) != "1":
-                    return {"started": False, "reason": "DISABLED"}
+                    return _declined("DISABLED")
                 last_at = read(conn, KEY_LAST)
                 if (
                     last_at
                     and _now() - _parse(last_at) < timedelta(hours=MIN_GAP_HOURS)
                     and _finished(read(conn, KEY_RESULT), last_at)
                 ):
-                    return {"started": False, "reason": "RECENT"}
+                    return _declined("RECENT")
                 if _busy():
-                    return {"started": False, "reason": "BUSY"}
+                    return _declined("BUSY")
                 keys = overdue(conn)
             if not keys:
-                return {"started": False, "reason": "NOTHING_DUE"}
+                return _declined("NOTHING_DUE")
             with closing(app.connect()) as conn, transaction(conn):
                 write(conn, KEY_LAST, _stamp(_now()))
             try:
@@ -285,6 +293,12 @@ def register_auto_update(app: JobsApi) -> None:
     app.register("GET", r"/api/auto-update", status)
     app.register("PATCH", r"/api/auto-update", patch)
     app.register("POST", r"/api/auto-update/run", run)
+
+
+def _declined(reason: str) -> dict:
+    """A run not started, before anything was written: nothing changed."""
+    changed_nothing()
+    return {"started": False, "reason": reason}
 
 
 def _parse(value: str) -> datetime:

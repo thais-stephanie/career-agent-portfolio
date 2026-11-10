@@ -23,13 +23,13 @@ export const MOCK = window.__CAREER_AGENT_MOCK__ === true;
 
 const BASE = '/api';
 
-export const getCareer = () => request('/career');
+export const getCareer = ({ signal = null } = {}) => request('/career', { signal });
 /** Resume Workspace: render a whole document for the preview (nothing is saved). */
 export const renderResume = (document, { signal = null } = {}) =>
   request('/resume/render', { method: 'POST', body: { document }, signal });
 /** My resumes, grouped (`{master, others, jobs}`); `archived` lists the archived ones instead. */
-export const listResumeDocuments = (archived = false) =>
-  request(`/resume/documents${archived ? '?archived=1' : ''}`);
+export const listResumeDocuments = (archived = false, { signal = null } = {}) =>
+  request(`/resume/documents${archived ? '?archived=1' : ''}`, { signal });
 const resumePath = (id, rest = '') => `/resume/documents/${encodeURIComponent(id)}${rest}`;
 /** One act on a resume: rename (`{title}`), archive, unarchive, prefer or make_master. */
 export const manageResume = (id, action, extra = {}) =>
@@ -402,18 +402,18 @@ function countCsvRows(text) {
 }
 
 /** @param {URLSearchParams} query -- built by state.apiQuery(), never by a view. */
-export async function listJobs(query) {
+export async function listJobs(query, { signal = null } = {}) {
   const queryString = query.toString();
   const payload = MOCK
     ? await mockList(query)
-    : await request(`/jobs${queryString ? `?${queryString}` : ''}`);
+    : await request(`/jobs${queryString ? `?${queryString}` : ''}`, { signal });
   payload.facets = normaliseFacets(payload.facets, payload.items, payload.facet_labels);
   return payload;
 }
 
 /** A token that moves whenever any list could read differently. */
-export async function jobsFreshness() {
-  return MOCK ? { freshness: 'mock' } : request('/jobs/freshness');
+export async function jobsFreshness({ signal = null } = {}) {
+  return MOCK ? { freshness: 'mock' } : request('/jobs/freshness', { signal });
 }
 
 /** "N more if you tick this box", for one list query; see `list_jobs`. */
@@ -1544,7 +1544,7 @@ export async function undoCareer(eventId) {
 }
 
 // -- Documents: every import, and the guided review -----------------------
-export const getDocuments = () => request('/documents');
+export const getDocuments = ({ signal = null } = {}) => request('/documents', { signal });
 const docPath = (kind, id) => `/documents/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`;
 export const getDocumentReview = (kind, id) => request(docPath(kind, id));
 /** One statement, one answer: CONFIRM, EDIT, UNSURE, REJECT, REOPEN or CHOOSE. */
