@@ -162,6 +162,10 @@ and in the page (the end of a run shared a read asked before it ended). Fixed:
   Home again, so a read asked before the end is not shared with what asks
   after it; what asks after it shares the one new read. The rail draws only
   its latest read (an older answer arriving late is dropped); Home already did.
+  The end of a recalculation Home follows does the same before Home reads
+  again (found by the re-review: a Home read asked during the recalculation,
+  such as the quiet count after a collection ended, was shared with the read
+  the end asked, and drawn). `test_home_after_recalculation.py`.
 - **Request bodies** (`api.js request`): a body read that fails is no longer an
   empty answer. Aborted (Stop, a time limit, a page left) it is an abort, which
   Resume Tailor's time limits turn into "did not answer in time"; cut off on a

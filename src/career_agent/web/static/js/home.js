@@ -550,7 +550,9 @@ export function createHome({
         row.button.classList.add('home__todo--recalc');
         row.button.append(bar);
         driveRescore(row.button, {
-          onDone: () => load(),
+          // The run's end moved what Home counts: a Home read asked while it
+          // went is not this read.
+          onDone: () => { api.forgetHome(); load(); },
           show: (state) => {
             row.button.setAttribute('aria-busy', String(state.busy));
             row.button.classList.toggle('is-running', state.busy || state.phase === 'done');
