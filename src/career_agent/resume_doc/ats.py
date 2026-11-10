@@ -46,6 +46,8 @@ class Block:
     kind: str
     ref: str
     runs: list[tuple[str, bool]] = field(default_factory=list)
+    #: Run index -> the web address that run links to.
+    links: dict[int, str] = field(default_factory=dict)
 
     @property
     def text(self) -> str:
@@ -75,6 +77,7 @@ class _Reader(HTMLParser):
         self.blocks: list[Block] = []
         self.current: Block | None = None
         self.depth = self.bold = self.skip = 0
+        self.href: str | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in _SKIPPED:
@@ -82,6 +85,8 @@ class _Reader(HTMLParser):
         elif self.current is not None:
             self.depth += 1
             self.bold += tag == "strong"
+            if tag == "a":
+                self.href = dict(attrs).get("href")
         else:
             values = dict(attrs)
             kind = "bullet" if tag == "li" else _KINDS.get(values.get("class") or "")
@@ -97,9 +102,13 @@ class _Reader(HTMLParser):
         elif self.current is not None:
             self.depth -= 1
             self.bold -= tag == "strong"
+            if tag == "a":
+                self.href = None
 
     def handle_data(self, data: str) -> None:
         if self.current is not None and not self.skip:
+            if self.href:
+                self.current.links[len(self.current.runs)] = self.href
             self.current.runs.append((data, self.bold > 0))
 
 
@@ -126,6 +135,28 @@ def read_pdf(data: bytes) -> list[str]:
     from pypdf import PdfReader
 
     return [page.extract_text() or "" for page in PdfReader(io.BytesIO(data)).pages]
+
+
+def pdf_links(data: bytes) -> set[str]:
+    """Every web address a PDF's link annotations point to."""
+    from pypdf import PdfReader
+
+    found = set()
+    for page in PdfReader(io.BytesIO(data)).pages:
+        for ref in page.get("/Annots") or []:
+            action = ref.get_object().get("/A") or {}
+            if action.get("/URI"):
+                found.add(str(action["/URI"]))
+    return found
+
+
+def docx_links(data: bytes) -> set[str]:
+    """Every web address a DOCX's hyperlinks point to."""
+    from docx import Document
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+
+    rels = Document(io.BytesIO(data)).part.rels.values()
+    return {r.target_ref for r in rels if r.reltype == RT.HYPERLINK}
 
 
 def read_docx(data: bytes) -> list[str]:
@@ -279,6 +310,16 @@ def check_export(
     else:
         dropped = [x["id"] for x in linked if not found(x["text"])]
         checks.append(_check("SUPPORTED_TERMS", FAIL if dropped else PASS, refs=dropped))
+
+    # LINKS: every address the resume shows as a link is a real link in the file.
+    wanted = {href for b in shown for href in b.links.values()}
+    if not wanted:
+        checks.append(_check("LINKS", NOT_MEASURED))
+    else:
+        held = pdf_links(data) if pages is not None else docx_links(data)
+        # A browser writes a bare host with its root slash: the same address.
+        lost = sorted(u for u in wanted if u.rstrip("/") not in {h.rstrip("/") for h in held})
+        checks.append(_check("LINKS", FAIL if lost else PASS, params={"n": len(wanted)}))
 
     if pages is None:
         checks += [_check("PAGES", NOT_MEASURED), _check("LAYOUT", NOT_MEASURED)]

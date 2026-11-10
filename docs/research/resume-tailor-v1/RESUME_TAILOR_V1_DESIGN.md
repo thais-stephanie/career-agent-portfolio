@@ -359,3 +359,9 @@ asks (twelve such lines tested).
 * No new migration, no schema change, no change to `jd.analyse`.
 * No third page: `page_limit(True)` exists, nothing reaches it.
 * No model call of any kind; tests use fakes or no provider at all.
+
+## Resume Tailor v1.1 (2026-11-09)
+
+The adaptive structure, the summary's v1.1 limits and the DOCX hyperlinks are
+described in `RESUME_TAILOR_V1_1_ADAPTIVE.md`, with the section matrix and the
+decisions left to the owner.

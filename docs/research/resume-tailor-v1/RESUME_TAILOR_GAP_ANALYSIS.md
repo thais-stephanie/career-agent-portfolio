@@ -60,7 +60,7 @@ an implementation could break.
 | P3 | Select by relevance, proof strength, recency; order bullets | Strategy: relevant first inside a role, adds, shows, hides beyond 6 | Similar | Low | None | | Keep. |
 | S1 | Section names and order (SUMMARY, SKILLS, PROFESSIONAL EXPERIENCE, INDEPENDENT PROJECTS, EDUCATION AND LANGUAGES, CERTIFICATIONS) | `Layout.section_order` and `Layout.headings` per document; default order differs | Layout preset, Languages section | Low | Preset at tailoring; a languages place | Low (layout), Medium (languages) | Layout preset possible without schema change (rollout). Languages NEEDS DESIGN DECISION (no typed place). |
 | S2 | Header: headline 6 to 14 words; location, time zone, hours line | Headline is the Master's; place line from identity | Hours line missing | Medium | See A2 | | NEEDS DESIGN DECISION. |
-| S3 | Summary 3 to 5 sentences, 70 to 110 words, proofs with numbers | Summary is the Master's; AI may rewrite with double word allowance | No length rule | Low | Advisory finding | Low | Connected (2026-11-09): a version of a Master with no summary gets one composed from confirmed evidence (`resume_doc.summary`), never padded; the report flags `SUMMARY_SHORT` and `SUMMARY_MISSING`; a Master's summary is kept and the composed one only offered. |
+| S3 | Summary 3 to 5 sentences, 70 to 110 words, proofs with numbers | Summary is the Master's; AI may rewrite with double word allowance | No length rule | Low | Advisory finding | Low | Connected (2026-11-09): a version of a Master with no summary gets one composed from confirmed evidence (`resume_doc.summary`), never padded; the report flags `SUMMARY_MISSING` with the reason; a Master's summary is kept and the composed one only offered. v1.1 (2026-11-09): 2 to 4 sentences, at most 80 words, at most one sentence repeating a shown bullet; `SUMMARY_SHORT` removed (`RESUME_TAILOR_V1_1_ADAPTIVE.md`). |
 | S4 | Skills 4 to 6 lines, labels mirror the job | One "Skills" group from the Master | Grouping | Low | Strategy | Medium | Defer. |
 | S5 | Role: "Title, Company" then "Location . dates", optional company description line | "Title &#124; Company", "Location &#124; dates"; no description field | Description field missing | Medium | New optional field on `ExperienceEntry` (schema, editor, DOCX, ats, compare) | Medium (contract) | NEEDS DESIGN DECISION. |
 | S6 | Bullets per role 5 to 8 / 3 to 6 / 1 to 3 | At most 6 shown with relevance; budget keeps at least 1 | Close | Low | | | Keep; budget enforces at least 1. |
@@ -150,3 +150,25 @@ waits for an architecture decision.
 | R1, R4 | Blocked | Template; en dash needs the DATES check changed. |
 | R2, R3 | Connected | |
 | F1 | Blocked (owner's choice) | Proposal in the design document. |
+
+## Resume Tailor v1.1 audit (2026-11-09)
+
+Each requirement of the v1.1 brief is classified as existing, disconnected,
+missing because there is no data, or needing implementation.
+
+| Requirement | Before | After |
+|---|---|---|
+| Header: name, one contact | Existed (`NAME_*`, `NO_CONTACT` blocking) | Kept; `EMAIL_MISSING` only when there is no phone either |
+| Links clickable in PDF | Existed (print mode `<a href>`) | Checked (`LINKS`) |
+| Links clickable in DOCX | Missing (plain text) | Implemented (`w:hyperlink`) |
+| Optional sections never empty | Existed (renderer draws no empty section) | Pinned by persona tests |
+| Summary 2 to 4 sentences, little repetition | Disconnected (3 to 5, 70 to 110 words, repeats bullets) | Implemented |
+| Academic or personal work as projects | Missing (all experiences under Experience) | Implemented for new Masters |
+| Volunteer work apart from jobs | Missing; needs a schema change | Design decision |
+| Adaptive order (no role → Education, Projects) | Missing | Implemented (`tailor.sections_ahead`) |
+| Languages | Missing: no data model | Design decision |
+| Company description | Excluded by migration 0040 | Design decision |
+| Education from evidence | Missing because the data is free text | Design decision; editor and import work |
+| Bullets as Action + Context + Result | Verbatim confirmed text | Unchanged on purpose: rewriting needs a model |
+| Clichés | Existed (`style.py`, `GENERIC_PHRASE`) | Unchanged |
+| Two-page limit, cuts by consent | Existed | Unchanged |

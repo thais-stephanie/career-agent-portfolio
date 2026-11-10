@@ -313,8 +313,11 @@ def docx_bytes(doc: ResumeDocument, html: str) -> bytes:
     }
     for block in blocks(html):
         paragraph = word.add_paragraph(style=styles.get(block.kind, "Normal"))
-        for text, bold in block.runs:
-            run = paragraph.add_run(text)
+        for i, (text, bold) in enumerate(block.runs):
+            if i in block.links:
+                run = _hyperlink(paragraph, text, block.links[i])
+            else:
+                run = paragraph.add_run(text)
             run.bold = bold or block.kind == "headline" or None
             if block.kind == "meta":
                 run.font.size = Pt(base * 0.92)
@@ -327,6 +330,25 @@ def docx_bytes(doc: ResumeDocument, html: str) -> bytes:
     out = io.BytesIO()
     word.save(out)
     return out.getvalue()
+
+
+def _hyperlink(paragraph: Any, text: str, url: str) -> Any:
+    """A run inside a real Word hyperlink to `url` (python-docx has no API
+    for one): a reader can click it, and a parser finds the address."""
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+    from docx.oxml.ns import qn
+    from docx.oxml.parser import OxmlElement
+    from docx.text.run import Run
+
+    link = OxmlElement("w:hyperlink")
+    link.set(qn("r:id"), paragraph.part.relate_to(url, RT.HYPERLINK, is_external=True))
+    paragraph._p.append(link)
+    element = OxmlElement("w:r")
+    link.append(element)
+    run = Run(element, paragraph)
+    run.text = text
+    run.underline = True
+    return run
 
 
 def json_bytes(doc: ResumeDocument) -> bytes:

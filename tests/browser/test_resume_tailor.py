@@ -33,10 +33,9 @@ AD = (
 )
 
 
-@pytest.fixture
-def tailor_server(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, Any]]:
+def _serve(tmp_path: Path, committed_config: Path, build: Any) -> Iterator[dict[str, Any]]:
     conn = profile(tmp_path, "p")
-    senior(conn)
+    build(conn)
     seed_demo(conn, load_search_config(committed_config)[0], source=DEMO)
     db = Path(conn.execute("PRAGMA database_list").fetchone()[2])
     conn.close()
@@ -52,6 +51,18 @@ def tailor_server(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, 
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=10)
+
+
+@pytest.fixture
+def tailor_server(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, Any]]:
+    yield from _serve(tmp_path, committed_config, senior)
+
+
+@pytest.fixture
+def new_grad_server(tmp_path: Path, committed_config: Path) -> Iterator[dict[str, Any]]:
+    from tests.integration.test_resume_personas import NEW_GRAD, build
+
+    yield from _serve(tmp_path, committed_config, lambda conn: build(conn, NEW_GRAD))
 
 
 def open_drawer(page: Chrome, url: str, width: int = 1440) -> None:
@@ -100,15 +111,21 @@ def test_tailor_from_the_drawer_opens_the_version_and_says_why(
     assert page.console_errors() == []
 
 
-def _pasted(page: Chrome, url: str, width: int = 1366) -> None:
+def _pasted(
+    page: Chrome,
+    url: str,
+    width: int = 1366,
+    title: str = "Director of Revenue Operations",
+    ad: str = AD,
+) -> None:
     page.set_viewport(width, 900, mobile=width < 500)
     page.navigate(url)
     page.wait_for("document.querySelector('.topnav__link[data-page=\"resume\"]')")
     page.evaluate("document.querySelector('.topnav__link[data-page=\"resume\"]').click()")
     page.wait_for("document.querySelector('.rvt__paste') !== null", message="the tailor card")
     page.evaluate("document.querySelector('.rvt__paste summary').click()")
-    page.evaluate("document.getElementById('rvt-title').value = 'Director of Revenue Operations'")
-    page.evaluate(f"document.getElementById('rvt-text').value = {AD!r}")
+    page.evaluate(f"document.getElementById('rvt-title').value = {title!r}")
+    page.evaluate(f"document.getElementById('rvt-text').value = {ad!r}")
     page.evaluate("document.querySelector('.rvt__form button[type=\"submit\"]').click()")
     page.wait_for("document.querySelector('.rvw')?.dataset.view === 'editor'", message="editor")
 
@@ -221,8 +238,8 @@ def test_a_version_gets_a_summary_from_confirmed_evidence_in_words(
     page: Chrome, tailor_server: dict[str, Any]
 ) -> None:
     """The Master has no summary: the version's is put together from confirmed
-    evidence, shown first in the preview, listed as added, and said to be
-    short in plain words, in English and in Portuguese."""
+    evidence, shown first in the preview and listed as added in plain words,
+    in English and in Portuguese; a short one is not called a fault."""
     frame = "[...document.querySelectorAll('.rvp__frame')].find((f) => !f.hasAttribute('data-off'))"
     first = "Revenue Operations Analyst with experience at Northwind Systems"
     _pasted(page, tailor_server["url"])
@@ -241,19 +258,61 @@ def test_a_version_gets_a_summary_from_confirmed_evidence_in_words(
         f"({frame}).contentDocument.querySelector('[data-ref=\"section/summary\"]').innerText"
     )
     assert first in said
-    page.wait_for("document.querySelector('.rvj__risks') !== null", message="the risks")
+    page.wait_for(
+        "document.querySelector('.rvj__panel')?.innerText.includes('Added from your confirmed')",
+        message="the changes",
+    )
     text = panel(page)
     assert first in text  # under "Added from your confirmed experience"
-    assert "A short summary, under 70 words." in text
+    assert "short summary" not in text.casefold()  # short and specific is no fault (v1.1)
     for internal in ("SUMMARY_SHORT", "SUMMARY_MISSING", "ADD_SUMMARY", "RULE_REWRITE"):
         assert internal not in text, internal
     assert page.console_errors() == []
     page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
     page.wait_for(
-        "document.querySelector('.rvj__panel')?.innerText.includes('Um resumo curto')",
+        "document.querySelector('.rvj__panel')?.innerText.includes('Adicionado da sua')",
         message="the panel in Portuguese",
     )
-    assert "Um resumo curto, com menos de 70 palavras." in panel(page)
+    assert first in panel(page)
+
+
+def test_a_person_with_no_job_yet_sees_education_and_projects_first_in_words(
+    page: Chrome, new_grad_server: dict[str, Any]
+) -> None:
+    """Resume Tailor v1.1: no shown role, so Education and Projects lead; no
+    composed summary, and the panel says why, in English and Portuguese."""
+    from tests.integration.test_resume_personas import DATA_AD
+
+    frame = "[...document.querySelectorAll('.rvp__frame')].find((f) => !f.hasAttribute('data-off'))"
+    _pasted(page, new_grad_server["url"], title="Junior Data Analyst", ad=DATA_AD)
+    page.wait_for(
+        f"({frame})?.contentDocument?.querySelector('[data-ref=\"section/education\"]') != null",
+        message="the preview",
+    )
+    order = page.evaluate(
+        f"[...({frame}).contentDocument.querySelectorAll('section[data-ref^=\"section/\"]')]"
+        ".map((s) => s.dataset.ref)"
+    )
+    assert order[:2] == ["section/education", "section/projects"], order
+    assert "section/experience" not in order and "section/summary" not in order
+    page.wait_for(
+        "document.querySelector('.rvj__panel')?.innerText.includes('come before Experience')",
+        message="the order said in words",
+    )
+    text = panel(page)
+    assert "Education, Projects now come before Experience" in text
+    assert "This version has no summary. A summary is optional" in text
+    for internal in ("REORDER_SECTIONS", "SUMMARY_MISSING", "education,", "projects,"):
+        assert internal not in text, internal
+    assert page.console_errors() == []
+    page.evaluate("document.querySelector('[data-locale=\"pt-BR\"]').click()")
+    page.wait_for(
+        "document.querySelector('.rvj__panel')?.innerText.includes('vêm antes de Experiência')",
+        message="the panel in Portuguese",
+    )
+    text = panel(page)
+    assert "Formação, Projetos agora vêm antes de Experiência" in text
+    assert "O resumo é opcional" in text
 
 
 @pytest.fixture

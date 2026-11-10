@@ -38,6 +38,7 @@ from career_agent.resume_doc.models import (
     Origin,
     Override,
     PartialDate,
+    ProjectEntry,
     ResumeDocument,
     SkillGroup,
     SkillItem,
@@ -52,7 +53,8 @@ _PERIOD = re.compile(r"^(\d{4})(?:-(\d{2}))?$")
 
 #: Where a skill was used, from its confirmed evidence only: JOB when some of
 #: it sits in a job; otherwise LAB (a claim's own words say lab), PROJECT (a
-#: project claim in no job) or UNKNOWN (nothing says where).
+#: project claim in no job, or a claim of an academic or personal experience)
+#: or UNKNOWN (nothing says where).
 JOB, LAB, PROJECT, UNKNOWN = "JOB", "LAB", "PROJECT", "UNKNOWN"
 # ponytail: a lab is read from the claim's own confirmed words; the evidence
 # class proposed in RESUME_TAILOR_V1_DESIGN.md replaces this when it exists.
@@ -75,11 +77,23 @@ SKILL_GROUPS = {
 KEPT_UNKNOWN = {"en": "Other skills", "pt": "Outras competências", "es": "Otras habilidades"}
 
 
+def project_experiences(overview: dict[str, Any]) -> set[str]:
+    """Ids of the experiences that are academic or personal work, not jobs."""
+    return {str(e["id"]) for e in overview["experiences"] if e.get("kind") in PROJECT_KINDS}
+
+
 def claims_by_key(overview: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, dict]:
-    """Confirmed claims by key, those of an archived experience left out."""
+    """Confirmed claims by key, those of an archived experience left out. A
+    claim of an academic or personal experience is held as a project's
+    (`project`), never as a job's: its skills are not shown as a job's."""
     placed = {str(e["id"]) for e in overview["experiences"]}
+    projects = project_experiences(overview)
     return {
-        r["claim_key"]: r for r in rows
+        r["claim_key"]: (
+            {**r, "experience_id": None, "project": True} if r.get("experience_id") in projects
+            else r
+        )
+        for r in rows
         if r["state"] == "CONFIRMED"
         and (r.get("experience_id") is None or r["experience_id"] in placed)
     }  # fmt: skip
@@ -97,7 +111,7 @@ def skill_origin(keys: Iterable[str], claims: dict[str, Any]) -> str:
         return JOB
     if any(_LAB_WORDS.search(str(get(r, "text") or "")) for r in rows):
         return LAB
-    if any(get(r, "category") == "PROJECT" for r in rows):
+    if any(get(r, "category") == "PROJECT" or get(r, "project") for r in rows):
         return PROJECT
     return UNKNOWN
 
@@ -230,6 +244,29 @@ def partial_date(value: Any) -> PartialDate | None:
     return PartialDate(year=int(year), month=int(month) if month else None)
 
 
+#: Career Profile kinds that are not a job: placed under Projects, with their
+#: true classification, never under Experience. VOLUNTEER has no typed
+#: section yet (a schema change) and stays under Experience as titled.
+PROJECT_KINDS = frozenset({"ACADEMIC", "PERSONAL"})
+
+
+def project_name(entry: dict[str, Any]) -> str:
+    """The project an academic or personal experience is shown as."""
+    return ", ".join(x for x in (entry.get("title"), entry.get("company")) if x)
+
+
+def _verbatim(entry: dict[str, Any]) -> list[Bullet]:
+    return [
+        Bullet(
+            id=new_id(),
+            text=h["text"],
+            origin=Origin.EVIDENCE_VERBATIM,
+            evidence_ids=[h["claim_key"]],
+        )
+        for h in entry.get("highlights", [])
+    ]
+
+
 def master_from_career_profile(
     conn: sqlite3.Connection, identity: Identity, *, language: str = "en"
 ) -> tuple[ResumeDocument, list[str]]:
@@ -242,11 +279,27 @@ def master_from_career_profile(
     confirmed = [r for r in items if r["state"] == "CONFIRMED"]
     notes: list[str] = []
     experience = []
+    projects = []
     placed = {str(e["id"]) for e in overview["experiences"]}
     for entry in overview["experiences"]:
         start = partial_date(entry.get("period_start"))
         end = partial_date(entry.get("period_end"))
         current = bool(entry.get("current_role"))
+        if entry.get("kind") in PROJECT_KINDS:
+            # An academic or personal piece of work is a project, not a job.
+            try:
+                projects.append(
+                    ProjectEntry(
+                        id=new_id(),
+                        name=project_name(entry),
+                        start=start,
+                        end=None if current else end,
+                        bullets=_verbatim(entry),
+                    )
+                )
+            except ValidationError as exc:
+                notes.append(f"project {entry['id']}: left out ({exc.errors()[0]['msg']})")
+            continue
         try:
             experience.append(
                 ExperienceEntry(
@@ -258,15 +311,7 @@ def master_from_career_profile(
                     end=None if current else end,
                     current=current,
                     experience_id=str(entry["id"]),
-                    bullets=[
-                        Bullet(
-                            id=new_id(),
-                            text=h["text"],
-                            origin=Origin.EVIDENCE_VERBATIM,
-                            evidence_ids=[h["claim_key"]],
-                        )
-                        for h in entry.get("highlights", [])
-                    ],
+                    bullets=_verbatim(entry),
                 )
             )
         except ValidationError as exc:
@@ -324,6 +369,7 @@ def master_from_career_profile(
         language=language,
         identity=identity,
         experience=experience,
+        projects=projects,
         certifications=certifications,
         skills=groups,
         provenance=DocumentProvenance(created_from=CreatedFrom.SCRATCH),
@@ -377,14 +423,23 @@ def evidence_changes(conn: sqlite3.Connection, master: ResumeDocument) -> dict[s
         h["claim_key"]: h["text"] for e in overview["experiences"] for h in e.get("highlights", [])
     }
     held: dict[str, str] = {}
-    for entry in master.experience:
-        for bullet in entry.bullets:
-            if bullet.origin in EVIDENCED_ORIGINS:
-                source = bullet.original_text if bullet.override is not Override.NONE else None
-                for key in bullet.evidence_ids:
-                    held[key] = source or bullet.text
+    bullets = [b for e in master.experience for b in e.bullets] + [
+        b for p in master.projects for b in p.bullets
+    ]
+    for bullet in bullets:
+        if bullet.origin in EVIDENCED_ORIGINS:
+            source = bullet.original_text if bullet.override is not Override.NONE else None
+            for key in bullet.evidence_ids:
+                held[key] = source or bullet.text
     now_experiences = {str(e["id"]) for e in overview["experiences"]}
     held_experiences = {e.experience_id for e in master.experience if e.experience_id}
+    # A project carries no experience id: it holds the one it was made from by name.
+    names = {p.name for p in master.projects}
+    held_experiences |= {
+        str(e["id"])
+        for e in overview["experiences"]
+        if e.get("kind") in PROJECT_KINDS and project_name(e) in names
+    }
     return {
         "added": sorted(now.keys() - held.keys()),
         "removed": sorted(held.keys() - now.keys()),

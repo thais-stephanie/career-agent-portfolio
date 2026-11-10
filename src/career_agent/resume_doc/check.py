@@ -109,7 +109,8 @@ def findings(doc: ResumeDocument) -> list[dict[str, Any]]:
     name = doc.identity.name_finding()
     if name:
         out.append(finding(name, "identity/name"))
-    if not doc.identity.email:
+    # Email and phone are alternatives: either one is a way to reach the person.
+    if not doc.identity.email and not doc.identity.phone:
         out.append(finding("EMAIL_MISSING", "identity/email"))
     hidden = set(doc.layout.hidden_sections)
     entries: dict[str, list[Any]] = {

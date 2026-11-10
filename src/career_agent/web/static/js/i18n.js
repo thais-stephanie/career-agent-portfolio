@@ -3099,6 +3099,8 @@ const EN = {
   'rv.job.source': 'Source: your confirmed experience as {title} at {employer}.',
   'rv.job.sourceSkills': 'Source: your confirmed skills.',
   'rv.job.reordered': 'The lines this job asks about now come first in {title}.',
+  'rv.job.sectionsAhead': '{sections} now come before Experience: this version shows little or no work history, '
+    + 'and what answers this job is there.',
   'rv.job.before': 'Before you apply',
   'rv.job.beforeLede': 'This job asks for:',
   'rv.job.notFound': 'I couldn’t find these in your confirmed experience. Add them to Proof of my work only if you '
@@ -3121,10 +3123,9 @@ const EN = {
     + 'where it comes from:',
   'rv.job.risk.SKILL_ORIGIN_UNKNOWN': 'Your evidence does not say where you used this skill:',
   'rv.job.risk.PAGE_LIMIT_CONFLICT': 'This version does not fit two pages without hiding what the job asks for.',
-  'rv.job.risk.SUMMARY_MISSING': 'This version has no summary. Your confirmed experience is not enough to write one '
-    + 'without inventing it: write it yourself, or add evidence in Proof of my work.',
-  'rv.job.risk.SUMMARY_SHORT': 'A short summary, under 70 words. It says what your confirmed experience holds; add '
-    + 'evidence to say more:',
+  'rv.job.risk.SUMMARY_MISSING': 'This version has no summary. A summary is optional, and your confirmed experience '
+    + 'does not hold a role and a statement to write one without inventing it: write it yourself, or add evidence in '
+    + 'Proof of my work.',
   'rv.job.risk.STYLE_EM_DASH': 'A long dash in this line:',
   'rv.job.risk.STYLE_EN_DASH_OUTSIDE_RANGE': 'A short dash outside a date range:',
   'rv.job.risk.STYLE_EXCLAMATION': 'An exclamation mark in this line:',
@@ -3426,7 +3427,7 @@ const EN = {
   'rv.find.none': 'Nothing to point out.',
   'rv.find.NAME_MISSING': 'Add your name: a resume needs it at the top.',
   'rv.find.NAME_PLACEHOLDER': 'The name is a placeholder, not your name.',
-  'rv.find.EMAIL_MISSING': 'No email: most employers expect one.',
+  'rv.find.EMAIL_MISSING': 'No email or phone: most employers expect one of them.',
   'rv.find.LONG_BULLET': 'A long line: it reads as a paragraph.',
   'rv.find.EMPTY_SECTION': 'A section with nothing shown in it.',
   'rv.find.EDITED_EVIDENCE': 'You reworded a line from your evidence: check it still says what happened.',
@@ -3521,6 +3522,7 @@ const EN = {
   'rv.ats.PAGES.FAIL': '{n} page(s), but the preview showed {preview}',
   'rv.ats.LAYOUT': 'page layout',
   'rv.ats.ROUND_TRIP': 'reads back as the same resume',
+  'rv.ats.LINKS': 'web addresses are real links',
   'rv.ats.issue.TALLER_THAN_PAGE': 'a block is taller than a page.',
   'rv.ats.issue.LAST_PAGE_NEARLY_EMPTY': 'the last page is nearly empty.',
   'rv.ats.issue.HEADING_AT_PAGE_END': 'a heading sits at the bottom of a page.',
@@ -8525,6 +8527,8 @@ const PT_BR = {
   'rv.job.source': 'Fonte: sua experiência confirmada como {title} na {employer}.',
   'rv.job.sourceSkills': 'Fonte: suas competências confirmadas.',
   'rv.job.reordered': 'As linhas sobre o que esta vaga pede agora vêm primeiro em {title}.',
+  'rv.job.sectionsAhead': '{sections} agora vêm antes de Experiência: esta versão mostra pouco ou nenhum '
+    + 'histórico de trabalho, e o que responde a esta vaga está ali.',
   'rv.job.before': 'Antes de se candidatar',
   'rv.job.beforeLede': 'Esta vaga pede:',
   'rv.job.notFound': 'Não encontrei isto na sua experiência confirmada. Adicione em Provas do meu trabalho só se '
@@ -8548,10 +8552,9 @@ const PT_BR = {
     + 'emprego. Mova para um grupo que diga de onde ela vem:',
   'rv.job.risk.SKILL_ORIGIN_UNKNOWN': 'Sua evidência não diz onde você usou esta competência:',
   'rv.job.risk.PAGE_LIMIT_CONFLICT': 'Esta versão não cabe em duas páginas sem esconder o que a vaga pede.',
-  'rv.job.risk.SUMMARY_MISSING': 'Esta versão não tem resumo. Sua experiência confirmada não basta para escrever um '
-    + 'sem inventar: escreva o seu, ou adicione evidências em Provas do meu trabalho.',
-  'rv.job.risk.SUMMARY_SHORT': 'Um resumo curto, com menos de 70 palavras. Ele diz o que sua experiência confirmada '
-    + 'sustenta; adicione evidências para dizer mais:',
+  'rv.job.risk.SUMMARY_MISSING': 'Esta versão não tem resumo. O resumo é opcional, e sua experiência confirmada não '
+    + 'traz um cargo e uma afirmação para escrever um sem inventar: escreva o seu, ou adicione evidências em Provas do '
+    + 'meu trabalho.',
   'rv.job.risk.STYLE_EM_DASH': 'Um travessão longo nesta linha:',
   'rv.job.risk.STYLE_EN_DASH_OUTSIDE_RANGE': 'Um travessão curto fora de um intervalo de datas:',
   'rv.job.risk.STYLE_EXCLAMATION': 'Um ponto de exclamação nesta linha:',
@@ -8853,7 +8856,7 @@ const PT_BR = {
   'rv.find.none': 'Nada a apontar.',
   'rv.find.NAME_MISSING': 'Adicione seu nome: um currículo precisa dele no topo.',
   'rv.find.NAME_PLACEHOLDER': 'O nome é um marcador, não o seu nome.',
-  'rv.find.EMAIL_MISSING': 'Sem e-mail: a maioria dos empregadores espera um.',
+  'rv.find.EMAIL_MISSING': 'Sem e-mail nem telefone: a maioria dos empregadores espera um dos dois.',
   'rv.find.LONG_BULLET': 'Uma linha longa: ela se lê como um parágrafo.',
   'rv.find.EMPTY_SECTION': 'Uma seção sem nada visível.',
   'rv.find.EDITED_EVIDENCE': 'Você reescreveu uma linha da sua evidência: confira se ela ainda diz o que aconteceu.',
@@ -8949,6 +8952,7 @@ const PT_BR = {
   'rv.ats.PAGES.FAIL': '{n} página(s), mas a prévia mostrava {preview}',
   'rv.ats.LAYOUT': 'layout das páginas',
   'rv.ats.ROUND_TRIP': 'lido de volta como o mesmo currículo',
+  'rv.ats.LINKS': 'endereços web são links de verdade',
   'rv.ats.issue.TALLER_THAN_PAGE': 'um bloco é mais alto que uma página.',
   'rv.ats.issue.LAST_PAGE_NEARLY_EMPTY': 'a última página está quase vazia.',
   'rv.ats.issue.HEADING_AT_PAGE_END': 'um título ficou no fim de uma página.',

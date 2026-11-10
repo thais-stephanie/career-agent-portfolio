@@ -63,3 +63,32 @@ temporary copy deleted after validation.
 
 Collection, providers, Workable (observation off), Retrieval Wave 2, LifeOS,
 the real databases and the install. No model was called.
+
+## Resume Tailor v1.1 (branch `claude/resume-summary`, not merged)
+
+On top of the composed summary (`3cd0f89`). Design in
+`RESUME_TAILOR_V1_1_ADAPTIVE.md`. No table, column, stored field or schema
+version is added: revert the commits to roll back.
+
+What the owner sees on the first day:
+
+* A new Master places academic and personal experiences under Projects.
+  Existing Masters are never rewritten.
+* A version of a person with no shown role puts Education and Projects
+  first. This only happens when the Master keeps the default order.
+* A composed summary has 2 to 4 sentences, at most 80 words, and repeats at
+  most one bullet. "Short summary" is no longer reported.
+* "No email" is reported only when there is no phone either.
+* DOCX links are real hyperlinks. The export checks list `LINKS`.
+
+Compatibility with `main`:
+
+* A version made on this branch holds an ordinary `section_order` and a
+  `REORDER_SECTIONS` change record. `main` shows the order and ignores the
+  record's unknown op in the panel.
+* Older versions and Masters load unchanged.
+
+Waiting on owner decisions: Languages, a Volunteer section, the company
+description, education from evidence, and project claims outside an
+experience. Each one is a schema or product decision, listed in the design
+note.

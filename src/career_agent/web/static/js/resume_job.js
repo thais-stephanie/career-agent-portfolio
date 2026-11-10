@@ -21,7 +21,7 @@ import { t, tCount } from './i18n.js';
 /** Coverage as a sign and a word, never a colour alone. */
 const MARK = { COVERED: '✓', PARTLY: '◐', SAID: '◌', NOT_FOUND: '○', ELIGIBILITY: 'ℹ' };
 const GROUPS = [
-  ['emphasized', ['REORDER_BULLETS', 'SHOW_BULLET']],
+  ['emphasized', ['REORDER_BULLETS', 'SHOW_BULLET', 'REORDER_SECTIONS']],
   ['reworded', ['REWRITE_HEADLINE', 'REWRITE_SUMMARY', 'REWRITE_BULLET']],
   ['added', ['ADD_BULLET', 'ADD_SKILL', 'ADD_SUMMARY']],
   ['hidden', ['HIDE_BULLET']],
@@ -52,6 +52,11 @@ export function createJobPanel({ documentId, preferred, onApply, onFocus, onAddE
         ? el('p', { className: 'rve__note', text: source(change.where) }) : null,
       change.op === 'REORDER_BULLETS'
         ? el('p', { className: 'rve__note', text: t('rv.job.reordered', { title: (change.where || {}).title || '' }) })
+        : null,
+      change.op === 'REORDER_SECTIONS'
+        ? el('p', { className: 'rve__note', text: t('rv.job.sectionsAhead', {
+          sections: (change.ahead || []).map((ref) => t(`rv.section.${ref}`)).join(', '),
+        }) })
         : null,
     ]);
   }

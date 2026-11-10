@@ -1,5 +1,6 @@
-"""A Professional Summary composed from confirmed evidence (resume-tailoring
-spec v1, S3: 3 to 5 sentences, about 70 to 110 words).
+"""A Professional Summary composed from confirmed evidence (Resume Tailor
+v1.1: 2 to 4 sentences, usually 35 to 80 words; shorter and specific beats
+long and repetitive, so the range is an editorial aim, never a quota).
 
 No model, no invented prose. A summary is put together from facts the profile
 already holds, each sentence traceable:
@@ -8,17 +9,21 @@ already holds, each sentence traceable:
    roles' employers ("{title} with experience at {A}, {B} and {C}.");
 2. the skills: up to three skills a job's confirmed evidence holds, the ones
    the job asks for first ("Skilled in {a}, {b} and {c}.");
-3. then confirmed statements of those roles, VERBATIM (a leading "I" goes):
-   the ones answering the job's asks first, then the ones with a number,
-   then the rest by role.
+3. one or two confirmed statements of those roles, VERBATIM (a leading "I"
+   goes): the ones answering the job's asks first, then the ones with a
+   number, then the rest by role. At most one of them may repeat a bullet the
+   resume shows; the other must say something the page does not already.
 
 The only words of its own are the connecting words of the two frames
-(`FRAMES`). Years are never computed, nothing is padded to reach 70 words:
-fewer than three sentences is "not enough evidence" (None) and the person is
-told, never given filler. Numbers can only come from a confirmed statement's
-own words. The Master is never written here; the Tailor uses this for a
-version whose Master has no summary, and offers it as a suggestion when the
-Master's summary exists.
+(`FRAMES`). Years are never computed and nothing is padded: no shown role,
+or no statement, is "not enough evidence" (None) and the person is told,
+never given filler. A student or a person with no job yet gets no composed
+summary rather than an invented role; nor does a role with only a line the
+page already shows. The frames speak the language of the person's statements.
+Numbers can only come from a confirmed
+statement's own words. The Master is never written here; the Tailor uses
+this for a version whose Master has no summary, and offers it as a
+suggestion when the Master's summary exists.
 """
 
 from __future__ import annotations
@@ -31,13 +36,16 @@ from career_agent.resume_doc import jd
 from career_agent.resume_doc.models import ResumeDocument
 from career_agent.storage.career_repo import HIGHLIGHT_CATEGORIES
 
-MIN_WORDS, MAX_WORDS, MIN_SENTENCES, MAX_SENTENCES = 70, 110, 3, 5
+MAX_WORDS, MIN_SENTENCES, MAX_SENTENCES = 80, 2, 4
+#: Statements a summary carries, and how many may repeat a shown bullet.
+MAX_STATEMENTS, MAX_REPEATED = 2, 1
 #: Analyze calls a longer summary a paragraph (`analyze.LONG_SUMMARY_CHARS`).
 MAX_CHARS = 700
 MAX_SKILLS, MAX_EMPLOYERS = 3, 3
 FRAMES = {
     "en": ("{title} with experience at {where}.", "Skilled in {skills}.", "and"),
     "pt": ("{title} com experiência em {where}.", "Competências em {skills}.", "e"),
+    "es": ("{title} con experiencia en {where}.", "Habilidades en {skills}.", "y"),
 }
 _NUMBER = re.compile(r"\d")
 _PRONOUN = re.compile(r"^(?:I|Eu|Yo)\s+(?=\w)")
@@ -55,8 +63,18 @@ class Composed:
         return len(self.text.split())
 
 
-def _language(doc: ResumeDocument) -> str:
-    return "pt" if doc.language[:2] == "pt" else "en"
+def _language(doc: ResumeDocument, statements: list[Any]) -> str:
+    """The document's language when the person chose one; on the default
+    (English, what a Master starts with) the language of the person's own
+    statements, the words the summary carries verbatim, so a summary of
+    Portuguese statements does not get English frames."""
+    from career_agent.resume_doc.parse import language_of
+
+    lang = doc.language[:2]
+    said = " ".join(c.text for c in statements)
+    if lang == "en" and said.strip():
+        lang = language_of(said)
+    return lang if lang in FRAMES else "en"
 
 
 def _listed(items: list[str], conjunction: str) -> str:
@@ -100,7 +118,12 @@ def compose(
     now = next((e for e in roles if e.current or e.end is None), roles[0])
     if not now.display_title.strip() or not now.employer.strip():
         return None
-    title_frame, skills_frame, conjunction = FRAMES[_language(doc)]
+    placed = {e.experience_id: i for i, e in enumerate(roles) if e.experience_id}
+    statements = [
+        c for c in claims.values()
+        if c.category in HIGHLIGHT_CATEGORIES and c.experience_id in placed and c.text.strip()
+    ]  # fmt: skip
+    title_frame, skills_frame, conjunction = FRAMES[_language(doc, statements)]
     employers: list[str] = []
     for e in roles:
         if e.employer.strip() and e.employer not in employers:
@@ -125,7 +148,6 @@ def compose(
             "text": skills_frame.format(skills=_listed([s[0] for s in chosen], conjunction)),
             "kind": "SKILLS", "evidence_ids": [k for _, ids in chosen for k in ids],
         })  # fmt: skip
-    placed = {e.experience_id: i for i, e in enumerate(roles) if e.experience_id}
     relevance: dict[str, float] = {}
     own = doc.summary.id if doc.summary else None
     for sup in supports:
@@ -136,10 +158,6 @@ def compose(
                 if key:
                     weight = sup.requirement.importance * value
                     relevance[key] = max(relevance.get(key, 0.0), weight)
-    statements = [
-        c for c in claims.values()
-        if c.category in HIGHLIGHT_CATEGORIES and c.experience_id in placed and c.text.strip()
-    ]  # fmt: skip
     from career_agent.resume_doc.tailor import _WORD, _participates
 
     def rank(c: Any) -> tuple[bool, float, bool, int]:
@@ -154,20 +172,35 @@ def compose(
         )
 
     statements.sort(key=rank)
+    shown_bullets = {
+        jd.folded(_sentence(b.text))
+        for e in roles
+        for b in e.bullets
+        if not b.hidden and b.text.strip()
+    }
     words = sum(len(s["text"].split()) for s in sentences)
     chars = sum(len(s["text"]) + 1 for s in sentences)
     seen = {jd.folded(s["text"]) for s in sentences}
+    said = repeated = 0
     for c in statements:
         text = _sentence(c.text)
-        if len(sentences) >= MAX_SENTENCES or jd.folded(text) in seen:
+        key = jd.folded(text)
+        if said >= MAX_STATEMENTS or len(sentences) >= MAX_SENTENCES or key in seen:
             continue
+        repeats = key in shown_bullets
+        if repeats and repeated >= MAX_REPEATED:
+            continue  # the page already says it
         n = len(text.split())
         if words + n > MAX_WORDS or chars + len(text) + 1 > MAX_CHARS:
             continue
-        seen.add(jd.folded(text))
-        sentences.append({"text": text, "kind": "STATEMENT", "evidence_ids": [c.claim_key]})
+        seen.add(key)
+        sentences.append({"text": text, "kind": "STATEMENT", "evidence_ids": [c.claim_key],
+                          "repeats_bullet": repeats})  # fmt: skip
         words, chars = words + n, chars + len(text) + 1
+        said, repeated = said + 1, repeated + repeats
     if len(sentences) < MIN_SENTENCES or not any(s["kind"] == "STATEMENT" for s in sentences):
         return None
+    if all(s.get("repeats_bullet") for s in sentences if s["kind"] != "ROLE"):
+        return None  # only the role and a line the page already shows: nothing to add
     ids = list(dict.fromkeys(k for s in sentences for k in s["evidence_ids"]))
     return Composed(" ".join(s["text"] for s in sentences), ids, sentences)

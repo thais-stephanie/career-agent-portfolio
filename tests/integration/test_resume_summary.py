@@ -143,35 +143,43 @@ def test_a_version_of_a_master_without_one_gets_a_summary_from_confirmed_evidenc
     assert not [f for f in analyze.run(conn, stored.id)["findings"] if f.get("ref") == said.id]
 
 
-def test_rich_evidence_gives_three_to_five_sentences_and_70_to_110_words(tmp_path: Path) -> None:
+def test_rich_evidence_gives_two_to_four_sentences_with_little_repetition(tmp_path: Path) -> None:
+    """Resume Tailor v1.1: 2 to 4 sentences, at most 80 words, and at most one
+    sentence that repeats a bullet the page shows."""
     conn = profile(tmp_path)
     harper(conn)
     stored, _ = tailor(conn, ad=JOB)
     said = stored.working.summary
     assert said is not None
-    words = len(said.text.split())
-    assert summary.MIN_WORDS <= words <= summary.MAX_WORDS, (words, said.text)
+    sentences = composed_change(conn, stored.working.provenance.tailoring_run_id)["sentences"]
+    assert 2 <= len(sentences) <= 4 and len(said.text.split()) <= summary.MAX_WORDS, said.text
+    assert sum(bool(s.get("repeats_bullet")) for s in sentences) <= 1
     # Job skills only (the ad names SQL); a proven number stays as proven.
     skills = next(s for s in said.text.split(". ") if s.startswith("Skilled in"))
     assert "SQL" in skills
-    assert "from 81% to 92%" in said.text
+    # The most relevant statement leads; any number is a confirmed one, as written.
+    texts = confirmed_texts(conn)
+    for s in sentences:
+        if s["kind"] == "STATEMENT":
+            assert s["text"].rstrip(".") == texts[s["evidence_ids"][0]].rstrip(".")
     # An unconfirmed statement never reaches it, nor its number.
     assert "40%" not in said.text and "h-unconfirmed" not in said.evidence_ids
     flags = {f["code"] for f in report.build(conn, stored.working, AD, page_limit=2)["risk_flags"]}
-    assert not flags & {"SUMMARY_MISSING", "SUMMARY_SHORT"}
+    assert "SUMMARY_MISSING" not in flags
 
 
-def test_little_evidence_is_said_and_never_padded(tmp_path: Path) -> None:
-    """Avery holds four job statements and one job skill: a short summary,
-    flagged as short, never filled to 70 words."""
+def test_little_evidence_gives_a_short_summary_never_padded_nor_flagged(tmp_path: Path) -> None:
+    """Avery holds four job statements and one job skill: a short summary is
+    what the evidence holds. Short and specific is no fault: never flagged."""
     conn = profile(tmp_path)
     avery(conn)
     stored, _ = tailor(conn, ad=JOB)
     said = stored.working.summary
-    assert said is not None and len(said.text.split()) < summary.MIN_WORDS
-    flags = report.build(conn, stored.working, AD, page_limit=2)["risk_flags"]
-    short = [f for f in flags if f["code"] == "SUMMARY_SHORT"]
-    assert short and short[0]["detail"] == str(len(said.text.split()))
+    assert said is not None and len(said.text.split()) <= summary.MAX_WORDS
+    sentences = composed_change(conn, stored.working.provenance.tailoring_run_id)["sentences"]
+    assert {s["kind"] for s in sentences} <= {"ROLE", "SKILLS", "STATEMENT"}
+    flags = {f["code"] for f in report.build(conn, stored.working, AD, page_limit=2)["risk_flags"]}
+    assert not flags & {"SUMMARY_MISSING", "SUMMARY_SHORT"}
 
 
 def test_not_enough_evidence_leaves_no_summary_and_says_so(tmp_path: Path) -> None:

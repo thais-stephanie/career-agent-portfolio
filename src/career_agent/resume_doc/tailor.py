@@ -46,10 +46,12 @@ from career_agent.resume_doc.master import (
     UNKNOWN,
     _career,
     claims_by_key,
+    project_experiences,
     regroup_skills,
     skill_origin,
 )
 from career_agent.resume_doc.models import (
+    DEFAULT_ORDER,
     EVIDENCED_ORIGINS,
     DocumentKind,
     Origin,
@@ -99,6 +101,8 @@ class Source:
     #: The resume line's id, and the confirmed claims it cites.
     line_id: str | None = None
     evidence_ids: tuple[str, ...] = ()
+    #: A claim of an academic or personal experience: a project's, not a job's.
+    project: bool = False
 
     @property
     def names(self) -> set[str]:
@@ -155,6 +159,7 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
     hidden = set(doc.layout.hidden_sections)
     overview, rows = _career(conn)
     placed = {str(e["id"]) for e in overview["experiences"]}
+    projects = project_experiences(overview)
     confirmed = {r["claim_key"] for r in rows if r["state"] == "CONFIRMED"}
     texts = {r["claim_key"]: str(r.get("text") or "") for r in rows if r["state"] == "CONFIRMED"}
     tools = {r["claim_key"]: [jd.folded(t) for t in r.get("tools") or []] for r in rows}
@@ -221,11 +226,13 @@ def sources(conn: sqlite3.Connection, doc: ResumeDocument) -> list[Source]:
             continue  # an experience the person archived: theirs to leave out
         key, category = row["claim_key"], row.get("category")
         shown = key in shown_keys or (category in SKILL_CATEGORIES and key in shown_skills)
+        project = row.get("experience_id") in projects
         out.append(
             Source(
                 id=key, text=row["text"], claim_key=key, category=category,
-                experience_id=row.get("experience_id"), tools=tuple(row.get("tools") or ()),
-                shown=shown, evidence_ids=(key,),
+                experience_id=None if project else row.get("experience_id"),
+                tools=tuple(row.get("tools") or ()), shown=shown, evidence_ids=(key,),
+                project=project,
             )
         )  # fmt: skip
     said = {s.claim_key: s.text for s in out if s.claim_key}
@@ -403,6 +410,31 @@ def strategy(doc: ResumeDocument, supports: list[Support]) -> dict[str, Any]:
 # -------------------------------------------------------------------- draft
 
 
+def sections_ahead(data: dict[str, Any], relevance: dict[str, float]) -> list[str]:
+    """The sections a version shows before Experience, from what it shows:
+    Education when it shows no role; Projects when it shows at most one role
+    and a project line answers the job more strongly than any line of it (or
+    when it shows no role). Only the default order moves: an order the person
+    chose is theirs. A count of shown entries, never a guess from titles or
+    dates about who the person is."""
+    if data["layout"]["section_order"] != DEFAULT_ORDER:
+        return []
+    off = set(data["layout"]["hidden_sections"])
+
+    def shown(section: str) -> list[dict[str, Any]]:
+        return [] if section in off else [e for e in data[section] if not e.get("hidden")]
+
+    def best(entries: list[dict[str, Any]]) -> float:
+        lines = [b for e in entries for b in e["bullets"] if not b.get("hidden")]
+        return max((relevance.get(b["id"], 0.0) for b in lines), default=0.0)
+
+    roles, projects = shown("experience"), shown("projects")
+    ahead = ["education"] if not roles and shown("education") else []
+    if projects and (not roles or (len(roles) == 1 and best(projects) > best(roles))):
+        ahead.append("projects")
+    return ahead
+
+
 def draft(
     master: ResumeDocument,
     plan: dict[str, Any],
@@ -482,6 +514,12 @@ def draft(
                 {"op": "ADD_SUMMARY", "line_id": data["summary"]["id"], "after": composed.text,
                  "evidence_ids": composed.evidence_ids, "sentences": composed.sentences}
             )  # fmt: skip
+    ahead = sections_ahead(data, relevance)
+    if ahead:
+        rest = [r for r in data["layout"]["section_order"] if r not in ahead]
+        at = rest.index("experience")
+        data["layout"]["section_order"] = rest[:at] + ahead + rest[at:]
+        changes.append({"op": "REORDER_SECTIONS", "ahead": ahead})
     data.update(
         id=new_id(),
         kind="TAILORED",
@@ -1397,7 +1435,8 @@ def explain(
             entry = op.get("entry_id") or rows.get(op.get("target_ref") or "")
             changes.append(
                 {"op": op["op"], "text": text, "where": _where(doc, entry),
-                 "asks": [quotes[r] for r in change.requirement_ids if r in quotes]}
+                 "asks": [quotes[r] for r in change.requirement_ids if r in quotes],
+                 "ahead": op.get("ahead", [])}
             )  # fmt: skip
     dismissed = store.dismissed_findings(stored.id)
     suggestions = suggest(doc, supports, pool)
