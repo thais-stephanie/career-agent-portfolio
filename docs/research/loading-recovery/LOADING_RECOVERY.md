@@ -225,6 +225,14 @@ saves there has not been measured.
 
 ## Suite results on the final commit
 
+Run on the review fixes (`3150142`, clean tree), one suite after the other:
+
+- Unit and integration: 13,575 passed, 8 skipped, exit 0 (46 min).
+- Browser: 633 passed, exit 0 (30 min). No failure, flaky or not.
+- Ruff, ruff format, mypy on `web/workspace_api.py`,
+  `scripts/frontend_check.mjs` (60 modules), the localisation and punctuation
+  checks: clean.
+
 Run on the Home-during-a-refresh change, before its commit:
 
 - Unit and integration: 13,569 passed, 8 skipped, exit 0.
