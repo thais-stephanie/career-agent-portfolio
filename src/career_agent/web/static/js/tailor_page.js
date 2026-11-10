@@ -90,7 +90,7 @@ export function createTailorPage({
 
   const reads = {
     library: { value: null, error: null, promise: null, controller: null, profile: null },
-    jobs: { value: null, error: null, promise: null, controller: null, profile: null, freshness: null },
+    jobs: { value: null, error: null, promise: null, controller: null, profile: null },
     career: { value: null, error: null, promise: null, controller: null, profile: null },
   };
 
@@ -165,9 +165,14 @@ export function createTailorPage({
       api.listJobs(SAVED_QUERY, { signal }),
       api.listJobs(BEST_QUERY, { signal }),
     ]);
-    reads.jobs.freshness = saved.freshness || null;
     const seen = new Set((saved.items || []).map((job) => job.job_id));
-    return { saved: saved.items || [], best: (best.items || []).filter((job) => !seen.has(job.job_id)) };
+    return {
+      saved: saved.items || [],
+      best: (best.items || []).filter((job) => !seen.has(job.job_id)),
+      // Kept WITH the lists it describes, so an answer that is dropped never
+      // leaves its token beside older lists.
+      freshness: saved.freshness || null,
+    };
   }
 
   /**
@@ -179,7 +184,7 @@ export function createTailorPage({
     const slot = reads.jobs;
     if (slot.promise) return slot.promise;
     const kept = held('jobs');
-    if (!kept || !slot.freshness) return read('jobs', readJobs, JOBS_LIMIT_MS);
+    if (!kept || !kept.freshness) return read('jobs', readJobs, JOBS_LIMIT_MS);
     return read('jobs', async (signal) => {
       let now = null;
       try {
@@ -187,7 +192,7 @@ export function createTailorPage({
       } catch (error) {
         if (signal.aborted) throw error;
       }
-      return now && now === slot.freshness ? kept : readJobs(signal);
+      return now && now === kept.freshness ? kept : readJobs(signal);
     }, JOBS_LIMIT_MS);
   }
 
@@ -820,7 +825,6 @@ export function createTailorPage({
         if (slot.controller) slot.controller.abort();
         Object.assign(slot, { value: null, error: null, profile: null, promise: null, controller: null });
       }
-      reads.jobs.freshness = null;
     },
   };
 }

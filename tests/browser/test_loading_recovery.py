@@ -24,30 +24,32 @@ import pytest
 from tests.browser.chrome import Chrome
 from tests.browser.test_resume_tailor import _serve, tailor_server  # noqa: F401
 
+#: Its globals carry an `__lr` prefix: other files leave their own fetch spies
+#: installed for the session, and one of them keeps `window.__calls` as strings.
 #: Installed before any page script: records every request, and applies the
-#: rules in `window.__rules` -- hold (until released or aborted), delay, a
+#: rules in `window.__lrRules` -- hold (until released or aborted), delay, a
 #: status, or a JSON answer -- to the first rule whose `match` is in the URL.
 INTERCEPT = """(() => {
   const real = window.fetch.bind(window);
-  window.__rules = %s;
-  window.__calls = [];
-  window.__aborted = [];
-  window.__held = [];
+  window.__lrRules = %s;
+  window.__lrCalls = [];
+  window.__lrAborted = [];
+  window.__lrHeld = [];
   window.fetch = (input, options = {}) => {
     const url = String(input);
     const method = ((options && options.method) || 'GET').toUpperCase();
     const entry = { url, method, at: performance.now(), end: null };
-    window.__calls.push(entry);
+    window.__lrCalls.push(entry);
     const signal = options && options.signal;
-    if (signal) signal.addEventListener('abort', () => window.__aborted.push(url));
+    if (signal) signal.addEventListener('abort', () => window.__lrAborted.push(url));
     const settle = (promise) => promise.finally(() => { entry.end = performance.now(); });
-    const rule = window.__rules.find(
+    const rule = window.__lrRules.find(
       (r) => url.includes(r.match) && !(r.not && url.includes(r.not)));
     if (!rule) return settle(real(input, options));
     if (rule.mode === 'hold') {
       return settle(new Promise((resolve, reject) => {
         const go = () => real(input, { ...options, signal: undefined }).then(resolve, reject);
-        window.__held.push(go);
+        window.__lrHeld.push(go);
         const stop = () => reject(new DOMException('Aborted', 'AbortError'));
         if (signal) signal.addEventListener('abort', stop);
       }));
@@ -96,12 +98,14 @@ def tailor_lists(page: Chrome) -> list[str]:
 
 
 def rules(page: Chrome, now: list[dict[str, Any]]) -> None:
-    page.evaluate(f"window.__rules = {json.dumps(now)}")
+    page.evaluate(f"window.__lrRules = {json.dumps(now)}")
 
 
 def calls(page: Chrome, needle: str) -> list[str]:
     return list(
-        page.evaluate(f"window.__calls.filter((c) => c.url.includes({needle!r})).map((c) => c.url)")
+        page.evaluate(
+            f"window.__lrCalls.filter((c) => c.url.includes({needle!r})).map((c) => c.url)"
+        )
     )
 
 
@@ -209,7 +213,7 @@ def test_a_job_list_that_never_answers_is_cancelled_and_said_never_shown_as_empt
     said = str(part(page, "waiting", "innerText"))
     assert "did not answer in time" in said
     assert "You have not saved a job yet" not in said
-    aborted = page.evaluate("window.__aborted")
+    aborted = page.evaluate("window.__lrAborted")
     assert sorted(k for k in TAILOR_LISTS for u in aborted if k in u) == sorted(TAILOR_LISTS)
     assert page.evaluate("document.getElementById('page-tailor').dataset.state") == "start"
     rules(page, [])
@@ -339,7 +343,7 @@ def test_an_answer_read_for_another_profile_is_never_drawn(
     )
     tailor(page, tailor_server["url"])
     page.wait_for(
-        "window.__calls.filter((c) => c.url.includes('limit=24') || c.url.includes('limit=8&'))"
+        "window.__lrCalls.filter((c) => c.url.includes('limit=24') || c.url.includes('limit=8&'))"
         ".length === 2",
         message="both lists asked",
     )
@@ -349,7 +353,7 @@ def test_an_answer_read_for_another_profile_is_never_drawn(
         # Another profile is open before they answer (a real switch also
         # reloads the page; this is the answer that arrives first).
         page.evaluate("import('/js/api.js').then((m) => m.setLocalProfile('prof-b-synthetic'))")
-    page.evaluate("window.__held.splice(0).forEach((go) => go())")
+    page.evaluate("window.__lrHeld.splice(0).forEach((go) => go())")
     if switched:
         wait_part(page, "waiting", "error")
         assert page.evaluate(f"{PART.format(part='waiting')}.querySelector('[data-job]')") is None
@@ -399,9 +403,9 @@ def test_home_asks_first_run_beside_home_not_after_it(
         message="Home drawn",
     )
     home = page.evaluate(
-        "window.__calls.find((c) => c.url.endsWith('/api/home') && c.end !== null)"
+        "window.__lrCalls.find((c) => c.url.endsWith('/api/home') && c.end !== null)"
     )
-    first = page.evaluate("window.__calls.find((c) => c.url.includes('/api/firstrun'))")
+    first = page.evaluate("window.__lrCalls.find((c) => c.url.includes('/api/firstrun'))")
     assert home and first
     assert first["at"] < home["end"], "first-run was asked only after Home answered"
 
@@ -469,7 +473,7 @@ def test_an_empty_library_says_where_a_cv_added_to_the_profile_went(
     for label in ("Go to Resumes home", "Import PDF or DOCX", "Open Documents"):
         assert label in box, label
     # Opening the page created nothing: no Master, no import, no write.
-    assert page.evaluate("window.__calls.filter((c) => c.method !== 'GET').length") == 0
+    assert page.evaluate("window.__lrCalls.filter((c) => c.method !== 'GET').length") == 0
     page.evaluate(
         "[...document.querySelectorAll('.rvw__empty button')]"
         ".find((b) => b.innerText === 'Open Documents').click()"

@@ -26,6 +26,12 @@ and this profile has not paused it. The sites that waited longest go first, with
 the rotating first slot of the maintenance engine so cheap, heavy and unmeasured
 sites do not starve each other (ADR-0031).
 
+When the server declines (the choice is off, the demo, a recent run, something
+already running, nothing overdue), it has only read, and the request says so
+(`server.changed_nothing`): the remembered job totals and Home are kept, instead
+of being read again as after a write. Once a start time is written, the request
+counts as a write, whether the run starts or not.
+
 ## The budget, and why these numbers
 
 | Limit | Value | Why |
