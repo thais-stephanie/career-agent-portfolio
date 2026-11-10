@@ -115,14 +115,27 @@ def test_the_lists_keep_their_totals_across_a_refusal_and_drop_them_after_a_writ
     assert len(counted) == 2, "a real write must drop the remembered totals"
 
 
-def test_home_keeps_its_answer_across_a_refusal_and_reads_again_after_a_write(app):  # noqa: F811
+def test_home_keeps_its_lists_across_a_refusal_and_counts_them_after_a_write(
+    app,  # noqa: F811
+    monkeypatch,
+):
+    counted: list[int] = []
+    real = type(app)._home_lists_now
+
+    def spy(self, *args, **kwargs):
+        counted.append(1)
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(type(app), "_home_lists_now", spy)
     _recent(app)
     first = call(app, "GET", "/api/home")
-    assert call(app, "GET", "/api/home") is first
+    assert call(app, "GET", "/api/home")["lists_at"] == first["lists_at"]
     call(app, "POST", "/api/auto-update/run")
-    assert call(app, "GET", "/api/home") is first, "a refused update dropped Home's answer"
+    call(app, "GET", "/api/home")
+    assert len(counted) == 1, "a refused update made Home count its lists again"
     call(app, "PATCH", "/api/auto-update", {"enabled": True})
-    assert call(app, "GET", "/api/home") is not first
+    call(app, "GET", "/api/home")
+    assert len(counted) == 2
 
 
 # -- the mechanism itself, on a bare route table ------------------------------

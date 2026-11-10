@@ -3569,6 +3569,9 @@ collection.onFinish((snapshot) => {
     announceNewJobs(snapshot.run.jobs_new, () => load(store.apiQueryString(), store.get(), { quiet: true }));
     if (currentPage === 'settings') sourcesPanel.load(true);
     else sourcesPanel.invalidate();
+    // Home counts what arrived, once, keeping what it shows until then. The
+    // job list, its filters and an open posting are left as they are.
+    if (currentPage === 'home' && !home.inSetup()) home.load({ quiet: true });
     return;
   }
   refreshAfterCollection();
@@ -3578,7 +3581,7 @@ collection.onFinish((snapshot) => {
   else sourcesPanel.invalidate();
   // Home's counts moved -- unless Home is the setup's last card, which is
   // already saying "Done" and offering the jobs.
-  if (currentPage === 'home' && !home.inSetup()) home.load();
+  if (currentPage === 'home' && !home.inSetup()) home.load({ quiet: true });
 });
 
 async function refreshAfterCollection() {

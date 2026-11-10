@@ -37,6 +37,7 @@ import sqlite3
 import threading
 import time
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from career_agent.domain.claims import VerifiedClaim
@@ -512,6 +513,10 @@ class WorkspaceRoutes(_MixinBase):
         def assessment_of(self, conn: Any, job_id: str) -> dict[str, Any]: ...
 
         def _jobs_freshness(self, conn: Any) -> str: ...
+
+        def _freshness_parts(self, conn: Any) -> tuple[tuple, tuple]: ...
+
+        def deep_levels(self) -> tuple[tuple, tuple]: ...
 
         #: The band edges and the recency window, read once from the loaded
         #: configuration and cached on `JobsApi`. The digest renders cards, so
@@ -1915,7 +1920,9 @@ class WorkspaceRoutes(_MixinBase):
         same plan the Recalculate button runs, so the two never disagree.
         Remembered until a posting or a score is written. During a run it is
         the run's total minus the scores it has COMMITTED, never a plan read
-        against the tables being written.
+        against the tables being written. While a collection runs, the count
+        is kept across the postings it writes (as Home's lists are), and read
+        again when it ends; anything the person changes still drops it.
         """
         from career_agent.pipeline.rescore import plan as rescore_plan
 
@@ -1927,22 +1934,24 @@ class WorkspaceRoutes(_MixinBase):
         with _OUTDATED_GATE, _closing(self.connect()) as conn:
             config = self.search_config()
             config_id, config_version = self._identity()
+            population, person = self._freshness_parts(conn)
             key = (
                 str(self.config.db_path),
                 config_id,
                 config_version,
                 str(getattr(config, "digest", "")),
-                self._jobs_freshness(conn),
+                person,
             )
             memo = getattr(self, "_outdated_memo", None)
             if (
                 memo is not None
                 and memo[0] == key
                 and time.monotonic() - memo[1] < HOME_MEMO_SECONDS
+                and (memo[3] == population or self._collecting())
             ):
                 return {"outdated": memo[2], "running": False}
             outdated = len(rescore_plan(conn, config).targets)
-        self._outdated_memo = (key, time.monotonic(), outdated)
+        self._outdated_memo = (key, time.monotonic(), outdated, population)
         return {"outdated": outdated, "running": False}
 
     def _home(self, *, query: dict, body: dict) -> dict:
@@ -1958,9 +1967,6 @@ class WorkspaceRoutes(_MixinBase):
         develop a second opinion about what is worth reading. Nothing here
         ranks anything.
         """
-        from dataclasses import replace as dc_replace
-
-        from career_agent.digest import default_filter, sections
         from career_agent.home import (
             declarations_pending,
             latest_refresh_run,
@@ -1974,11 +1980,8 @@ class WorkspaceRoutes(_MixinBase):
             CandidateStateRepo,
             candidate_id_of,
         )
-        from career_agent.web import view_prefs
-        from career_agent.web.presenter import job_card, utc_today
         from career_agent.web.profiles import served_profile_id
 
-        show = 5
         config = self.search_config()
         config_id, config_version = self._identity()
 
@@ -1990,48 +1993,64 @@ class WorkspaceRoutes(_MixinBase):
                 if candidate_id
                 else None
             )
-            # COMING BACK TO HOME READS NOTHING AGAIN unless something it shows
-            # moved. The key is what the answer depends on: this profile's
-            # database and configuration, `_jobs_freshness` (postings and
-            # scores written by any process, every hide, save or status
-            # change, every write this server accepted, the day), when the
-            # person last looked, the latest collection or scoring run, the
-            # confirmed evidence and whether a recalculation is running. The
-            # plan count alone is seconds on a real corpus.
             running = bool(getattr(getattr(self, "rescore", None), "running", False))
-            # WHILE A RECALCULATION RUNS, every committed page moves
-            # `_jobs_freshness`, and each visit to Home read the whole page
-            # again against a database being written: tens of seconds a visit
-            # for 86 minutes. During a run the answer is reused for a minute
-            # at a time instead; the progress itself comes from the run.
-            freshness = (
-                ("recalculating", int(time.monotonic() // HOME_RUNNING_REUSE_SECONDS))
-                if running
-                else self._jobs_freshness(conn)
-            )
+            # HOME IS TWO READS. The LISTS -- the total, the open postings and
+            # the digest's sections -- go over the whole catalogue and take
+            # seconds on a real corpus; they are remembered. Everything else --
+            # the cards, the gaps, the questions, the latest refresh -- counts
+            # this person's own rows, takes milliseconds, and is read on every
+            # request, so nothing a person does is ever hidden behind the lists.
+            #
+            # The lists are kept while nothing they depend on moved: this
+            # profile's database and configuration, when the person last
+            # looked, whether a recalculation runs, and `_freshness_parts` --
+            # the person's half (applications, hides and saves, readings,
+            # checks, every write this server accepted, the day) always, and
+            # the catalogue's half except WHILE A COLLECTION RUNS. Then every
+            # finished source moves the catalogue, and each visit used to read
+            # the whole page again against a database being written; the last
+            # lists are shown instead, with the moment they were counted, and
+            # the page reads them once when the run ends.
+            if running:
+                # WHILE A RECALCULATION RUNS, every committed page moves the
+                # catalogue: the lists are reused for a minute at a time; the
+                # progress itself comes from the run.
+                population: tuple | None = None
+                depends: tuple = (
+                    "recalculating",
+                    int(time.monotonic() // HOME_RUNNING_REUSE_SECONDS),
+                )
+            else:
+                population, depends = self._freshness_parts(conn)
             key = (
                 str(self.config.db_path),
                 config_id,
                 config_version,
                 str(getattr(config, "digest", "")),
-                freshness,
+                depends,
                 seen_at,
                 running,
-                tuple(
-                    conn.execute(
-                        "SELECT MAX(rowid), COUNT(finished_at), MAX(finished_at) FROM pipeline_run"
-                    ).fetchone()
-                ),
-                tuple(conn.execute("SELECT COUNT(*), MAX(rowid) FROM verified_claim").fetchone()),
                 served_profile_id(self),
             )
-            memo = getattr(self, "_home_memo", None)
+            memo = getattr(self, "_home_lists", None)
             if (
                 memo is not None
-                and memo[0] == key
-                and time.monotonic() - memo[1] < HOME_MEMO_SECONDS
+                and memo["key"] == key
+                and time.monotonic() - memo["monotonic"] < HOME_MEMO_SECONDS
+                and (
+                    memo["population"] == population
+                    or (population is not None and self._collecting())
+                )
             ):
-                return memo[2]
+                lists = memo["lists"]
+            else:
+                lists = self._home_lists_now(conn, repo, config, config_id, config_version, seen_at)
+                self._home_lists = {
+                    "key": key,
+                    "population": population,
+                    "monotonic": time.monotonic(),
+                    "lists": lists,
+                }
             cards = metrics(
                 conn,
                 last_reviewed_at=seen_at,
@@ -2052,58 +2071,18 @@ class WorkspaceRoutes(_MixinBase):
             else:
                 outdated = None
             refresh_run = latest_refresh_run(conn)
-            # The Jobs list's own age limit, so Home counts what the list shows.
-            age = view_prefs.read(conn)
-            total = repo.count(
-                config_id, config_version, default_filter(show, config=config, age=age)
-            )
-            open_jobs = conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NULL").fetchone()[
-                0
-            ]
 
-            # Two of the digest's sections, not a third list invented here.
-            wanted = {"since_last_review", "recent", "best"}
-            deep_levels, _states = self.deep_levels()
-            built = []
-            for section in sections(config, show=show, last_reviewed_at=seen_at, age=age):
-                if section.key not in wanted:
-                    continue
-                # The Jobs list's own order (ADR-0039): the deep reading's
-                # level, Search Fit breaking ties; the same lane.
-                rows = repo.page(
-                    config_id,
-                    config_version,
-                    dc_replace(
-                        section.job_filter,
-                        sort="deep",
-                        deep_levels=deep_levels,
-                        lane="shortlist",
-                    ),
-                )
-                built.append(
-                    {
-                        "key": section.key,
-                        "title": section.title,
-                        "lead": section.lead,
-                        "count": len(rows),
-                        "items": [
-                            job_card(
-                                row,
-                                bands=self._bands,
-                                today=utc_today(),
-                                recency=self._recency,
-                            )
-                            for row in rows[:show]
-                        ],
-                    }
-                )
-
-        answer = {
-            "total": total,
-            "job_count": int(open_jobs),
+        return {
+            "total": lists["total"],
+            "job_count": lists["job_count"],
             "last_reviewed_at": seen_at,
             "metrics": [metric.as_dict() for metric in cards],
-            "sections": built,
+            "sections": lists["sections"],
+            # When the lists and their totals were counted, and whether a
+            # collection is running now -- asked last, so a run that started
+            # while the lists were being counted is said, not hidden.
+            "lists_at": lists["at"],
+            "collecting": self._collecting(),
             "profile_gaps": gaps,
             "declarations_pending": pending,
             "scores": {
@@ -2113,8 +2092,66 @@ class WorkspaceRoutes(_MixinBase):
             "latest_refresh_run": refresh_run,
             "profile": served_profile_id(self),
         }
-        self._home_memo = (key, time.monotonic(), answer)
-        return answer
+
+    def _collecting(self) -> bool:
+        """Whether this profile's collection (a find, a source refresh, an
+        update on opening) is running now."""
+        return bool(getattr(getattr(self, "retrieval", None), "running", False))
+
+    def _home_lists_now(
+        self, conn: Any, repo: Any, config: Any, config_id: str, config_version: int, seen_at: Any
+    ) -> dict[str, Any]:
+        """Home's lists and their totals, counted now over the whole catalogue."""
+        from dataclasses import replace as dc_replace
+
+        from career_agent.digest import default_filter, sections
+        from career_agent.web import view_prefs
+        from career_agent.web.presenter import job_card, utc_today
+
+        show = 5
+        # The Jobs list's own age limit, so Home counts what the list shows.
+        age = view_prefs.read(conn)
+        total = repo.count(config_id, config_version, default_filter(show, config=config, age=age))
+        open_jobs = conn.execute("SELECT COUNT(*) FROM job WHERE closed_at IS NULL").fetchone()[0]
+
+        # Two of the digest's sections, not a third list invented here.
+        wanted = {"since_last_review", "recent", "best"}
+        deep_levels, _states = self.deep_levels()
+        built = []
+        for section in sections(config, show=show, last_reviewed_at=seen_at, age=age):
+            if section.key not in wanted:
+                continue
+            # The Jobs list's own order (ADR-0039): the deep reading's
+            # level, Search Fit breaking ties; the same lane.
+            rows = repo.page(
+                config_id,
+                config_version,
+                dc_replace(
+                    section.job_filter,
+                    sort="deep",
+                    deep_levels=deep_levels,
+                    lane="shortlist",
+                ),
+            )
+            built.append(
+                {
+                    "key": section.key,
+                    "title": section.title,
+                    "lead": section.lead,
+                    "count": len(rows),
+                    "items": [
+                        job_card(
+                            row,
+                            bands=self._bands,
+                            today=utc_today(),
+                            recency=self._recency,
+                        )
+                        for row in rows[:show]
+                    ],
+                }
+            )
+        at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+        return {"total": total, "job_count": int(open_jobs), "sections": built, "at": at}
 
     def daily(self, *, query: dict, body: dict) -> dict:
         """What is worth looking at today. The same sections the terminal has.

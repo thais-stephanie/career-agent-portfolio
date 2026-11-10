@@ -5845,6 +5845,7 @@ body:not([data-page="jobs"]) #hiddennotice { display: none !important; }
   color: var(--muted);
 }
 .home__lede { margin: 0; font-size: var(--t-body); color: var(--body); max-width: 68ch; }
+.home__asof, .home__waiting { margin: 0; font-size: var(--t-small); color: var(--muted); }
 /* The designed empty state: dashed, centred, and a card rather than a
    sentence left on the page. */
 .home__empty {

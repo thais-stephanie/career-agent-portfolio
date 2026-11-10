@@ -235,8 +235,13 @@ export async function bootProfile() {
   }
 }
 
+//: Requests other than GET this page has sent, so a shared read is never
+//: one that was asked before a write.
+let writesSent = 0;
+
 async function request(path, { method = 'GET', body = null, signal = null } = {}) {
   let response;
+  if (method !== 'GET') writesSent += 1;
   const headers = body ? { 'Content-Type': 'application/json' } : {};
   if (localProfile) headers['X-Local-Profile'] = localProfile;
   try {
@@ -1165,12 +1170,19 @@ export async function getJobDescriptions(ids) {
   return request(`/jobs/descriptions?${query.toString()}`);
 }
 
-// Not shared between callers on the page: a visit after a write must read
-// after it. The server lets one Home read run at a time and the second reads
-// the first's remembered answer (`WorkspaceApi.home`).
+// Shared between callers while it is in flight -- Home and the rail ask it as
+// the page opens -- but only while no write was sent since it was asked: a
+// visit after a write must read after it. The profile is the page's own (a
+// switch reloads the page).
+let homeAsked = null;
+
 export async function getHome() {
   if (MOCK) throw noCandidateHere();
-  return request('/home');
+  if (homeAsked && homeAsked.writes === writesSent) return homeAsked.promise;
+  const asked = { writes: writesSent, promise: request('/home') };
+  homeAsked = asked;
+  asked.promise.then(() => {}, () => {}).finally(() => { if (homeAsked === asked) homeAsked = null; });
+  return asked.promise;
 }
 
 /** How the best matches' ads stand, and whether a check is running. */

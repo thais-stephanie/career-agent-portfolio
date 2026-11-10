@@ -96,14 +96,73 @@ synthetic and are not production times.
   with `narrowings=later` (13.5 s cold on the owner's install). Tailor no longer
   waits for that, but it still costs the server. A lighter read would be a new
   contract. It is not added here.
-- Home is one payload. It is no longer held behind first-run, but the payload
-  itself (18.7 s on a cold disk) is unchanged. During a source refresh, each
-  finished source still moves the freshness, and Home is read again. Reusing
-  Home with a "last updated at" label during a refresh would need an owner
-  decision.
+- Home's lists, counted without a collection running, still cost what they
+  cost (18.7 s for the whole payload on a cold disk). The page no longer waits
+  for them to draw (see the next section), but the read itself is unchanged.
+- While a recalculation runs, Home still reuses its lists for a minute at a
+  time (`HOME_RUNNING_REUSE_SECONDS`, unchanged by this branch).
+- A collection run by another process, or by another profile over the shared
+  catalogue, is not this profile's run: Home counts again on each change, as
+  before.
+- Home's sections list a posting the person hid (unchanged, also outside a
+  run). Observed while writing the tests; not changed here.
 - In the full refresh panel, an automatic run's current site is still shown as
   its inventory key (unchanged; only the one-line bar was changed).
 - A request cancelled in the browser is not cancelled on the server.
+
+## Home during a source refresh (owner decision, 2026-11-10)
+
+Home is two reads (`WorkspaceRoutes._home`):
+
+- **Its lists**: the total, the open postings and the digest's sections, over
+  the whole catalogue (`_home_lists_now`). Remembered under a key of everything
+  they depend on: the profile's database and configuration, when the person
+  last looked, whether a recalculation runs, and `_freshness_parts`. The
+  person's half of that (applications, hides and saves, readings, availability
+  checks, every write the server accepted, the day) always counts. The
+  catalogue's half (`population_token`) counts except while this profile's
+  collection runs (`RetrievalRunner.running`: a find, a source refresh, an
+  update on opening). Each finished source no longer makes the next visit
+  count everything again.
+- **Everything else**: the cards, the profile gaps, the questions, the latest
+  refresh's own count. These are this person's rows and take milliseconds, so
+  they are read on every request. Nothing the person does is hidden behind the
+  kept lists.
+
+The answer carries `lists_at` (when the lists were counted) and `collecting`
+(asked last, so a run that started while the lists were being counted is
+said). The page draws its first steps, the collection and the tip before
+Home's answer, and says the lists are being counted. During a run it says
+"Lists and counts as of {time}" and that new jobs are counted when the update
+ends. When any run ends (done, stopped or failed), the page asks Home once,
+quietly: the dashboard stays, says it is counting what arrived, and is
+replaced when the answer comes. If that read fails, the last lists stay with
+their time. The job list, its filters and an open posting are not touched
+("Update the list" is unchanged). `/api/home/outdated` follows the same rule.
+`api.getHome` shares a read in flight (Home and the rail both ask as the page
+opens), but never one asked before a write the page sent.
+
+No time-to-live was added. The existing 10-minute bound
+(`HOME_MEMO_SECONDS`) still caps any remembered lists, during a run too, and no
+new persistence was added.
+
+### Before and after, synthetic
+
+Six sources finishing during one run, Home read twice after each (12 reads);
+Home's answer held 3 s in the browser for the opening. These numbers are
+synthetic and are not production times.
+
+| | Before (`93a3526`) | After |
+|---|---|---|
+| Home list counts during the run (sections read) | 12 (6 recounts) | 0 |
+| Home list counts when the run ends | 0 (the last visit had already counted) | 1 recount (2 sections) |
+| Mean Home read during the run | 29.7 ms | 11.3 ms |
+| First section of Home drawn, answer held 3 s | 3.06 s | 0.12 s |
+| Whole dashboard drawn, answer held 3 s | 3.08 s | 3.16 s |
+| `/api/home` requests as the page opens | 2 | 1 |
+
+On the owner's corpus a recount is seconds, not milliseconds; how much this
+saves there has not been measured.
 
 ## Tests
 
@@ -115,17 +174,35 @@ synthetic and are not production times.
   and without a change, an answer for another profile, Tips, Portuguese, Home's
   two reads, the empty library (documents, none, failure, with a Master), and
   the one-line refresh bar.
+- `tests/integration/test_home_during_refresh.py`: sources finishing in a row,
+  no snapshot yet, a source running for minutes (and the 10-minute bound), a
+  save, an application and a hide during the run, the latest refresh's count,
+  a run that wrote nothing, failed and stopped runs, another profile,
+  concurrent reads, a run that starts while the lists are counted, and the
+  outdated count.
+- `tests/browser/test_home_during_refresh.py`: the page before its numbers
+  (one `/api/home` request), the "as of" line during a run, the end of an
+  update (counted once, the page kept, the job list not asked again, a partial
+  run said), a failed recount, an answer for a profile no longer open, and
+  the Portuguese text.
 
 ## Suite results on the final commit
 
-- Unit and integration: 13,551 passed, 8 skipped, exit 0.
-- Browser: 618 tests, 617 passed. The one failure,
-  `test_release_personas.py::test_complete_persona_journey[retail-br]` (an
-  onboarding step waiting 30 s), passes alone (exit 0) and touches no file
-  changed here.
-- An earlier browser run failed 8 tests in `test_loading_recovery.py`: other
-  files leave their fetch spies installed for the session, and one keeps
-  `window.__calls` as strings. This file's globals now carry an `__lr` prefix.
-  The four colliding files, run in suite order, pass (exit 0).
+Run on the Home-during-a-refresh change, before its commit:
+
+- Unit and integration: 13,569 passed, 8 skipped, exit 0.
+- Browser: 624 tests, 622 passed, 2 failed.
+  - `test_onboarding_v2.py::test_each_card_costs_a_bounded_number_of_requests`
+    (a job-list read landing after its timer started) passes alone (exit 0).
+  - `test_first_run_flow.py::test_a_six_digit_new_count_fits_its_circle`
+    failed for a reason of its own: it patched `fetch` while the opening
+    `/api/home` read was in flight, and the visit that followed now shares that
+    read (nothing was written in between), so no answer passed through the
+    patch. The test now waits for the dashboard before patching; its
+    assertions are unchanged. The file passes (7 tests, exit 0).
+- The previous round's runs: unit and integration 13,551 passed, 8 skipped;
+  browser 617 of 618 (`test_release_personas.py::test_complete_persona_journey[retail-br]`
+  passed alone). The `__lr` globals fix the collisions of an earlier run in
+  `test_loading_recovery.py` (other files leave fetch spies installed).
 - Ruff, ruff format, mypy on the changed server modules, and
   `scripts/frontend_check.mjs` (60 modules): clean.

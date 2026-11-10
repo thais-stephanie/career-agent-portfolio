@@ -114,6 +114,12 @@ background") with Stop, and navigation is never blocked. When it ends, a notice
 says how many new jobs are available and offers "Update the list". The list,
 your filters and the posting you are reading are not replaced until you press it.
 
+Home stays usable meanwhile. Its lists and job counts are the ones counted
+before (or early in) the run, with the time they were counted and a line saying
+jobs are being updated; your own changes (a save, an application, a hide) are
+shown at once. When the run ends, stopped or failed included, Home counts once,
+without clearing the page.
+
 A limited update can leave sites pending. It is not a promise of full coverage:
 use the update buttons for a complete one.
 

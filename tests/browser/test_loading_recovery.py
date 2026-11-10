@@ -27,7 +27,8 @@ from tests.browser.test_resume_tailor import _serve, tailor_server  # noqa: F401
 #: Its globals carry an `__lr` prefix: other files leave their own fetch spies
 #: installed for the session, and one of them keeps `window.__calls` as strings.
 #: Installed before any page script: records every request, and applies the
-#: rules in `window.__lrRules` -- hold (until released or aborted), delay, a
+#: rules in `window.__lrRules` -- hold (until released or aborted; with a
+#: `body`, released as that answer), delay, a
 #: status, or a JSON answer -- to the first rule whose `match` is in the URL.
 INTERCEPT = """(() => {
   const real = window.fetch.bind(window);
@@ -48,7 +49,10 @@ INTERCEPT = """(() => {
     if (!rule) return settle(real(input, options));
     if (rule.mode === 'hold') {
       return settle(new Promise((resolve, reject) => {
-        const go = () => real(input, { ...options, signal: undefined }).then(resolve, reject);
+        const answer = () => (rule.body ? Promise.resolve(new Response(JSON.stringify(rule.body), {
+          status: 200, headers: { 'Content-Type': 'application/json' } }))
+          : real(input, { ...options, signal: undefined }));
+        const go = () => answer().then(resolve, reject);
         window.__lrHeld.push(go);
         const stop = () => reject(new DOMException('Aborted', 'AbortError'));
         if (signal) signal.addEventListener('abort', stop);
