@@ -424,3 +424,14 @@ PDF for a visual check; the PDFs were read page by page.
 **Remaining limits.** The summary does not use Education (its fields are
 the person's own, and a degree in progress is not stated as such), and a
 project's statement may repeat its bullet once.
+
+**Suites on `bc2558f`** (one at a time, no API keys set):
+
+* Focused: personas, summary and v1 completion, 95 passed, exit 0; ruff and
+  mypy on `resume_doc` clean.
+* Unit and integration: 13,524 passed, 8 skipped, exit 0.
+* Browser: 600 passed, 1 failed (exit 1):
+  `test_release_personas.py::test_complete_persona_journey[retail-br]`
+  timed out (30 s) waiting for the onboarding work step to be marked done.
+  That journey does not reach the summary. Rerun alone, the file passed:
+  3 passed, exit 0. The browser suite is not counted as fully passed.
