@@ -55,19 +55,19 @@ hid stays hidden.
 |---|---|---|
 | 0 | `WRITTEN` | The file is complete; the summary below is printed |
 | 1 | `ERROR` | Anything else |
-| 2 | `REFUSED` | Missing, not personal, migrations pending, or another profile's settings |
+| 2 | `REFUSED` | Missing, not personal, migrations pending, or the profile not proven (`PROFILE_*`, `WRONG_PROFILE_*`) |
 | 4 | `REFUSED` | `LIST_MOVED` or `INCOMPLETE`: run again |
 
-### File format, schema 1
+### File format, schema 2
 
 ```text
 format            "career-agent-jobs-export"
-schema_version    1
+schema_version    2
 items             [card, ...]   job_card fields + caution, availability, deep, readable,
                                  export_scope ("default_list" | "tracked"); no notes, no excerpt
 generated_at      ISO 8601, UTC
 career_agent      {version, install}            install = install_id(), no path
-database          {mode: "PERSONAL", freshness}
+database          {mode: "PERSONAL", freshness, profile_id}
 scoring           {serving, is_current, rescoring, authority}
 scope             {lane, sort, include_unresolved, tracked_statuses, excluded, excluded_fields}
 completeness      {complete: true, default_list_total, default_list_count,
@@ -76,7 +76,23 @@ completeness      {complete: true, default_list_total, default_list_count,
 
 `items` comes first and the header after it, so the file can be written in one pass. A
 reader must check `format`, `schema_version` and `completeness.complete` before trusting
-the items. A new field is not a new schema; a removed or renamed one is.
+the items. A new field is not a new schema; a removed or renamed one is, and so is a
+field a reader must check before trusting the rows.
+
+### Which profile (schema 2)
+
+`database.profile_id` is the local profile the exported rows belong to: `prof-<ULID>`,
+opaque, never the profile's name. It is read from the database's own stamp
+(`database_identity.profile_id`), not from the profile the app has active, and the export
+is refused unless the registry lists that profile with this database file and this
+`--config-dir` as its own (`PROFILE_UNBOUND`, `PROFILE_UNKNOWN`, `PROFILE_UNVERIFIED`,
+`PROFILE_REGISTRY`, `WRONG_PROFILE_DATABASE`, `WRONG_PROFILE_SETTINGS`). It is `null` only
+in an installation without local profiles. `install` names the program folder and is the
+same for every profile, so a reader keeping one person's data must check both.
+
+Schema 1 had no `profile_id`; it was bumped to 2 so a schema-1 reader refuses the file
+instead of silently treating two profiles as one. The `GET /api/*` responses do not say
+which profile they serve (`/api/app` deliberately names none), so they cannot prove it.
 
 `scoring.is_current` false means the scores answer the previous preferences (for the
 minutes after a preference edit; see `storage.revisions`).

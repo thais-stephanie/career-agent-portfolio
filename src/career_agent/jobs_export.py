@@ -31,7 +31,8 @@ from pathlib import Path
 from typing import Any, TextIO
 
 FORMAT = "career-agent-jobs-export"
-SCHEMA_VERSION = 1
+#: 2 added `database.profile_id`. A schema-1 reader must refuse it, not ignore it.
+SCHEMA_VERSION = 2
 PAGE_SIZE = 500
 #: The statuses that mean "I did something with this posting". Always exported, whatever
 #: the list's filters hide, so a reader never loses a job the person is tracking.
@@ -87,30 +88,62 @@ def preflight(db_path: Path) -> None:
         conn.close()
 
 
-def check_profile_pair(db_path: Path, config_dir: Path) -> None:
-    """`cli_local._check_profile_pair`, on a read-only connection: a database stamped for
-    one local profile is exported only with that profile's own settings folder."""
+def profile_identity(db_path: Path, config_dir: Path) -> str | None:
+    """The local profile this database belongs to, proven three ways, or a refusal.
+
+    The id comes from the DATABASE (`database_identity.profile_id`, stamped once and
+    never changed), not from whichever profile the app has active. With a profile
+    registry it must name a registered profile whose own database IS `db_path` and whose
+    settings folder IS `config_dir`. `None` only for an installation without local
+    profiles, whose database carries no stamp: a reader that needs a profile refuses it.
+    """
     from career_agent.runtime.profiles import ProfileError, bound_profile, load_registry
 
     try:
         registry = load_registry(Path.cwd())
-    except ProfileError:
-        return
-    if registry is None or not db_path.exists():
-        return
+    except ProfileError as exc:
+        raise ExportRefused(2, "PROFILE_REGISTRY", str(exc)) from exc
     conn = _read_only(db_path)
     try:
         bound = bound_profile(conn)
     finally:
         conn.close()
+    if registry is None:
+        if bound is not None:
+            raise ExportRefused(
+                2,
+                "PROFILE_UNVERIFIED",
+                "This database belongs to a local profile, but no profile registry is here "
+                "to check it against. Run the export from the Career Agent folder.",
+            )
+        return None
+    if bound is None:
+        raise ExportRefused(
+            2,
+            "PROFILE_UNBOUND",
+            "This database is not yet stamped with its local profile. Open it once in "
+            "Career Agent, which stamps it, then export again.",
+        )
     owner = next((p for p in registry.profiles if p.id == bound), None)
-    if owner is not None and config_dir.resolve() != (Path.cwd() / owner.config_dir).resolve():
+    if owner is None:
+        raise ExportRefused(
+            2, "PROFILE_UNKNOWN", "This database belongs to a profile the registry does not list."
+        )
+    if db_path.resolve() != (Path.cwd() / owner.db).resolve():
+        raise ExportRefused(
+            2,
+            "WRONG_PROFILE_DATABASE",
+            f"This file is a copy of the local profile {owner.label!r}'s database, not the "
+            f"database itself ({owner.db}).",
+        )
+    if config_dir.resolve() != (Path.cwd() / owner.config_dir).resolve():
         raise ExportRefused(
             2,
             "WRONG_PROFILE_SETTINGS",
             f"This database belongs to the local profile {owner.label!r}; "
             f"use --config-dir {owner.config_dir}.",
         )
+    return owner.id
 
 
 def _app(db_path: Path, config_dir: Path) -> Any:
@@ -172,6 +205,7 @@ def export_jobs(
     from career_agent import __version__, install_id
 
     preflight(db_path)
+    profile_id = profile_identity(db_path, config_dir)
     app = _app(db_path, config_dir)
     generated_at = now().isoformat(timespec="seconds")
     base = {"lane": ["shortlist"], "sort": ["deep"], "narrowings": ["later"]}
@@ -218,7 +252,12 @@ def export_jobs(
         summary = {
             "generated_at": generated_at,
             "career_agent": {"version": __version__, "install": install_id()},
-            "database": {"mode": "PERSONAL", "freshness": first["freshness"]},
+            "database": {
+                "mode": "PERSONAL",
+                "freshness": first["freshness"],
+                # Opaque (prof-<ULID>), no name: which local profile these rows are.
+                "profile_id": profile_id,
+            },
             "scoring": {
                 # Which scored population the items answer: `serving`, which can be the
                 # previous preferences for the minutes after an edit (`is_current` false).

@@ -106,14 +106,14 @@ def export_jobs_command(
 
     Works with the app closed. Never migrates, never writes to the database, and
     writes the file only once it is complete. Prints one JSON summary. Exit 0 written,
-    2 refused (missing, not personal, migrations pending), 4 the list moved while it
-    was read (run again), 1 anything else. See `career_agent.jobs_export`.
+    2 refused (missing, not personal, migrations pending, profile not proven), 4 the
+    list moved while it was read (run again), 1 anything else. See
+    `career_agent.jobs_export`.
     """
-    from career_agent.jobs_export import ExportRefused, check_profile_pair, export_jobs
+    from career_agent.jobs_export import ExportRefused, export_jobs
 
     path = resolve_database(RuntimeMode.PERSONAL, db)
     try:
-        check_profile_pair(path, config_dir)
         summary = export_jobs(path, config_dir, out, include_unresolved=include_unresolved)
     except ExportRefused as exc:
         typer.echo(json.dumps({"status": "REFUSED", "reason": exc.reason, "message": str(exc)}))

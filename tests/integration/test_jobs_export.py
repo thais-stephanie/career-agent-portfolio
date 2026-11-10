@@ -61,7 +61,8 @@ def test_export_items_are_the_api_cards_without_private_fields(profile, tmp_path
     screen = profile.handle_api(
         "GET", "/api/jobs", {"lane": ["shortlist"], "sort": ["deep"], "limit": ["500"]}, {}
     )
-    assert data["format"] == "career-agent-jobs-export" and data["schema_version"] == 1
+    assert data["format"] == "career-agent-jobs-export" and data["schema_version"] == 2
+    assert data["database"]["profile_id"] is None  # no registry: an unprofiled install
     listed = [i for i in data["items"] if i["export_scope"] == "default_list"]
     assert [i["job_id"] for i in listed] == [i["job_id"] for i in screen["items"]]
     for exported, shown in zip(listed, screen["items"], strict=True):
