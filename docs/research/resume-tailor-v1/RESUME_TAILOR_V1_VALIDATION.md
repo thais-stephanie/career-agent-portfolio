@@ -341,7 +341,13 @@ annotations and the DOCX three `w:hyperlink` elements. The DOCX uses the
   rerun: 72 passed, exit 0.
 * Browser: 601 passed, exit 0. The Edge cleanup pair did not fail.
 
-The suite on the final commit is recorded below.
+**Unit and integration on the final commit (`0f2632c`):** 13,514 passed,
+8 skipped, 1 failed (exit 1). The failure was
+`test_printing_fetches_nothing_and_leaves_no_browser_profile`, one of the
+known flaky Edge cleanup pair: a `career-agent-pdf-*` profile was still on
+disk at the check. Rerun alone, both files of the pair passed: 38 passed,
+exit 0. The suite is not counted as fully passed. The browser suite was not
+rerun: the final commit changes one integration test line and docs only.
 
 **Compatibility.** Older documents and Masters load unchanged. Academic
 work already in an older Master stays under Experience until the person
