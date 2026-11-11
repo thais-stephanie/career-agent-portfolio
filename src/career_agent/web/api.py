@@ -2689,6 +2689,19 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             return {"freshness": self._jobs_freshness(conn)}
 
     def _jobs_freshness(self, conn: Any) -> str:
+        population, person = self._freshness_parts(conn)
+        return hashlib.sha1(repr((population, person)).encode()).hexdigest()[:16]
+
+    def _freshness_parts(self, conn: Any) -> tuple[tuple, tuple]:
+        """What `_jobs_freshness` hashes, in two halves.
+
+        The first is the catalogue alone (`population_token`: every posting or
+        score written, by any process), which a collection moves source by
+        source. The second is everything this person's own actions move: the
+        configuration, applications, readings, availability checks, every
+        write this server accepted, and the day. Home keeps its lists across
+        the first while a collection runs, never across the second.
+        """
         from career_agent.storage.catalogue import population_token
 
         config_id, config_version = self._identity()
@@ -2700,17 +2713,16 @@ class JobsApi(WorkspaceRoutes, LocalApp):
         readings = conn.execute("SELECT COUNT(*), MAX(created_at) FROM job_enrichment").fetchone()
         # Availability checks write after their request returned, too.
         checked = conn.execute("SELECT COUNT(*), MAX(checked_at) FROM job_availability").fetchone()
-        parts = (
+        person = (
             config_id,
             config_version,
-            population_token(conn),
             tuple(applications),
             tuple(readings),
             tuple(checked),
             self.writes,
             utc_today().isoformat(),
         )
-        return hashlib.sha1(repr(parts).encode()).hexdigest()[:16]
+        return tuple(population_token(conn)), person
 
     #: How long a remembered set of totals may be served, at most. The
     #: freshness token covers every write this product makes; this bounds

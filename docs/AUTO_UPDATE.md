@@ -26,6 +26,12 @@ and this profile has not paused it. The sites that waited longest go first, with
 the rotating first slot of the maintenance engine so cheap, heavy and unmeasured
 sites do not starve each other (ADR-0031).
 
+When the server declines (the choice is off, the demo, a recent run, something
+already running, nothing overdue), it has only read, and the request says so
+(`server.changed_nothing`): the remembered job totals and Home are kept, instead
+of being read again as after a write. Once a start time is written, the request
+counts as a write, whether the run starts or not.
+
 ## The budget, and why these numbers
 
 | Limit | Value | Why |
@@ -107,6 +113,14 @@ Progress shows in the bar at the top ("Updating your job sites in the
 background") with Stop, and navigation is never blocked. When it ends, a notice
 says how many new jobs are available and offers "Update the list". The list,
 your filters and the posting you are reading are not replaced until you press it.
+
+Home stays usable meanwhile. Its lists and job counts are the ones counted
+before (or early in) the run, with the time they were counted and a line saying
+jobs are being updated; your own changes (a save, an application, a hide) are
+shown at once. When the run ends, stopped or failed included, Home counts once,
+without clearing the page. A Home read that was already on its way when the run
+ended is not taken as that count, and lists counted while the run was writing
+are never called current: Home counts again or shows the time they are from.
 
 A limited update can leave sites pending. It is not a promise of full coverage:
 use the update buttons for a complete one.

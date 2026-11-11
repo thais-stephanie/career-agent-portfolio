@@ -136,6 +136,7 @@ export function createResumeWorkspace({
     onHome: () => show('home'),
     onImport: () => void startImport(),
     onAnalyze: (id) => void analyzer.start(id),
+    onDocuments: () => onEvidence(),
   });
   views.list.append(library.root);
   const analyzer = createAnalyze({

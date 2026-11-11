@@ -46,7 +46,7 @@ def _serve(tmp_path: Path, committed_config: Path, build: Any) -> Iterator[dict[
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     try:
-        yield {"url": f"http://127.0.0.1:{port}"}
+        yield {"url": f"http://127.0.0.1:{port}", "app": app}
     finally:
         httpd.shutdown()
         httpd.server_close()

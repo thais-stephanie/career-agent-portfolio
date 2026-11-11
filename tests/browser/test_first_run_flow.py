@@ -213,6 +213,9 @@ HOME_WITH_A_BIG_NEW = (
 
 def test_a_six_digit_new_count_fits_its_circle(page: Chrome, first_run: dict[str, Any]) -> None:
     open_app(page, first_run["url"])
+    # The opening read settled first: a visit asked while it is in flight
+    # shares it (no write since), so it would never pass through the patch.
+    page.wait_for("document.querySelector('#page-home .home')?.dataset.view === 'dashboard'")
     page.evaluate(HOME_WITH_A_BIG_NEW)
     node = "[...document.querySelectorAll('.home__side .step__value')].find(n => n.title)"
     try:

@@ -31,6 +31,18 @@ import { createTips } from './tailor_tips.js';
 const TABS = ['start', 'make', 'resumes', 'experience', 'tips'];
 const LIST = 8;
 const MIN_AD = 20;
+/** The job lists: the slowest read here, and the only one a tab can do without. */
+const JOBS_SLOW_MS = 8000;
+const JOBS_LIMIT_MS = 45000;
+/** The library and the career are quick reads; past this they have failed. */
+const READ_LIMIT_MS = 20000;
+/**
+ * The two job lists, as the Jobs page asks them: the "N more if you tick this
+ * box" counts (`narrowings`) are never shown here, and counting them was most
+ * of the wait (each one counts the whole corpus again).
+ */
+const SAVED_QUERY = `saved_only=true&group_duplicates=1&limit=${LIST * 3}&narrowings=later`;
+const BEST_QUERY = `group_duplicates=1&limit=${LIST}&narrowings=later`;
 
 /** A long quoted ask, cut for reading; the whole of it stays in the tooltip. */
 function shorten(text) {
@@ -53,9 +65,6 @@ export function createTailorPage({
 }) {
   let tab = 'start';
   let turn = 0;
-  let library = null;
-  let jobsCache = null;
-  let careerCache = null;
   // The Make tab's own state; it survives a switch of tab, not a page load.
   const make = {
     mode: 'job', job: null, ad: { title: '', company: '', text: '' }, baseId: null,
@@ -71,38 +80,126 @@ export function createTailorPage({
   replace(host, [tabRow, panel]);
 
   // ------------------------------------------------------------- data
+  //
+  // THREE READS, EACH ON ITS OWN. A tab draws what does not need them at once
+  // and fills each part in when its read answers; a slow or failed read holds
+  // only its own part. A read in flight is shared: switching tabs and back
+  // asks nothing again. Each has a time limit, then it is cancelled IN THE
+  // BROWSER (the server may still finish the work, and remembers its totals),
+  // and the part says so with a way to try again -- never an empty list.
 
-  async function loadLibrary(force = false) {
-    if (library && !force) return library;
-    library = await api.listResumeDocuments();
-    return library;
+  const reads = {
+    library: { value: null, error: null, promise: null, controller: null, profile: null },
+    jobs: { value: null, error: null, promise: null, controller: null, profile: null },
+    career: { value: null, error: null, promise: null, controller: null, profile: null },
+  };
+
+  function timedOut(name) {
+    return new api.ApiError({
+      kind: 'timeout', status: 0, message: t(name === 'jobs' ? 'tp.load.jobsTimeout' : 'tp.load.timeout'),
+    });
   }
 
-  async function loadJobs(force = false) {
-    if (jobsCache && !force) return jobsCache;
-    let saved = [];
-    let best = [];
-    try {
-      [saved, best] = (await Promise.all([
-        api.listJobs(`saved_only=true&group_duplicates=1&limit=${LIST * 3}`),
-        api.listJobs(`group_duplicates=1&limit=${LIST}`),
-      ])).map((answer) => answer.items || []);
-    } catch {
-      /* An empty list says what to do next. */
-    }
-    const seen = new Set(saved.map((job) => job.job_id));
-    jobsCache = { saved, best: best.filter((job) => !seen.has(job.job_id)) };
-    return jobsCache;
+  /**
+   * A read that failed, said as a READ that failed. The general sentence for
+   * a server fault speaks of a change not made, which is not what happened
+   * here; the server's own detail stays on the error for the console.
+   */
+  function unreadable(name, error) {
+    if (error && (error.kind === 'aborted' || error.status === 409)) return error;
+    return new api.ApiError({
+      kind: (error && error.kind) || 'http',
+      status: (error && error.status) || 0,
+      message: t(name === 'jobs' ? 'tp.load.jobsFailed' : 'tp.load.failed'),
+      detail: (error && error.detail) || null,
+    });
   }
 
-  async function loadCareer(force = false) {
-    if (careerCache && !force) return careerCache;
-    try {
-      careerCache = await api.getCareer();
-    } catch {
-      careerCache = null;
-    }
-    return careerCache;
+  /** `fetch(signal)` once at a time for `name`, within `limit` ms. */
+  function read(name, fetchIt, limit) {
+    const slot = reads[name];
+    if (slot.promise) return slot.promise;
+    const controller = new AbortController();
+    const profile = api.getLocalProfile();
+    let late = false;
+    const timer = window.setTimeout(() => { late = true; controller.abort(); }, limit);
+    slot.controller = controller;
+    slot.promise = (async () => {
+      try {
+        const value = await fetchIt(controller.signal);
+        // Another profile opened meanwhile: this answer is not hers to show.
+        if (!sameProfile(profile, api.getLocalProfile())) {
+          throw new api.ApiError({ kind: 'aborted', status: 0, expected: true });
+        }
+        Object.assign(slot, { value, error: null, profile });
+        return value;
+      } catch (error) {
+        slot.error = late ? timedOut(name) : unreadable(name, error);
+        throw slot.error;
+      } finally {
+        window.clearTimeout(timer);
+        slot.promise = null;
+        slot.controller = null;
+      }
+    })();
+    return slot.promise;
+  }
+
+  /**
+   * Whether two profile ids name the same profile. Not known yet (the page
+   * learns it a moment after opening) is the profile the server has open:
+   * a request without one is answered for it. A real switch reloads the page.
+   */
+  const sameProfile = (a, b) => !a || !b || a === b;
+
+  /** Kept only for the profile it was read for. */
+  const held = (name) => (sameProfile(reads[name].profile, api.getLocalProfile()) ? reads[name].value : null);
+
+  /** The library is small and changes with every resume made: read it each time. */
+  function loadLibrary() {
+    return read('library', (signal) => api.listResumeDocuments(false, { signal }), READ_LIMIT_MS);
+  }
+
+  async function readJobs(signal) {
+    const [saved, best] = await Promise.all([
+      api.listJobs(SAVED_QUERY, { signal }),
+      api.listJobs(BEST_QUERY, { signal }),
+    ]);
+    const seen = new Set((saved.items || []).map((job) => job.job_id));
+    return {
+      saved: saved.items || [],
+      best: (best.items || []).filter((job) => !seen.has(job.job_id)),
+      // Kept WITH the lists it describes, so an answer that is dropped never
+      // leaves its token beside older lists.
+      freshness: saved.freshness || null,
+    };
+  }
+
+  /**
+   * The job lists. Lists already held are kept while the server's freshness
+   * token is the same (the one the Jobs page uses: it moves with every
+   * posting, score, save and write), so coming back to a tab reads nothing again.
+   */
+  function loadJobs() {
+    const slot = reads.jobs;
+    if (slot.promise) return slot.promise;
+    const kept = held('jobs');
+    if (!kept || !kept.freshness) return read('jobs', readJobs, JOBS_LIMIT_MS);
+    return read('jobs', async (signal) => {
+      let now = null;
+      try {
+        now = (await api.jobsFreshness({ signal })).freshness;
+      } catch (error) {
+        if (signal.aborted) throw error;
+      }
+      return now && now === kept.freshness ? kept : readJobs(signal);
+    }, JOBS_LIMIT_MS);
+  }
+
+  function loadCareer({ again = false } = {}) {
+    const kept = held('career');
+    if (kept && !again && !reads.career.promise) return Promise.resolve(kept);
+    return read('career', (signal) => api.getCareer({ signal }), READ_LIMIT_MS);
   }
 
   /** Experience statements the person has confirmed, and how many still wait. */
@@ -153,47 +250,104 @@ export function createTailorPage({
     }
     tab = TABS.includes(next) ? next : 'start';
     const mine = ++turn;
+    // `state` is the tab once EVERY part has answered (or failed); `shell` is
+    // the tab as soon as it can be used, with parts still filling in.
     host.dataset.state = 'loading';
     host.dataset.tab = tab;
-    paintTabs();
+    delete host.dataset.shell;
+    paintTabs(dotCount());
     repaint([el('p', { className: 'tp__lede', text: t('app.loading') })]);
     try {
       const painter = {
         start: paintStart, make: paintMake, resumes: paintResumes, experience: paintExperience, tips: paintTips,
       }[tab];
       await painter(mine);
-    } catch {
+    } catch (error) {
       if (mine === turn) {
         repaint([
-          el('p', { className: 'tp__lede', attrs: { role: 'alert' }, text: t('rv.failed') }),
+          el('p', { className: 'tp__lede', attrs: { role: 'alert' }, text: failure(error) }),
           button(t('action.tryAgain'), () => void show(tab), { className: 'btn' }),
         ]);
       }
     }
     if (mine !== turn) return;
+    host.dataset.shell = tab;
     host.dataset.state = tab;
-    const career = await loadCareer();
-    if (mine === turn) paintTabs(evidenceCounts(career).waiting);
+    try {
+      await loadCareer();
+    } catch {
+      return; // the dot is a hint; Start and Experience say it when the career fails
+    }
+    if (mine === turn) paintTabs(dotCount());
+  }
+
+  function dotCount() {
+    return evidenceCounts(held('career')).waiting;
+  }
+
+  function failure(error) {
+    return (error && error.userMessage) || t('rv.failed');
+  }
+
+  /**
+   * Draw `node` now -- `header()` and a short "loading" line -- and fill it in
+   * when every read in `needs` has answered. A failure or a time-out is said
+   * in the part, with Try again, and never drawn as an empty list. Resolves
+   * when the part has settled, either way.
+   */
+  async function fill(mine, node, header, needs, draw, slowNote = null) {
+    if (mine !== turn) return;
+    node.dataset.load = 'loading';
+    node.setAttribute('aria-busy', 'true');
+    node.replaceChildren(...header(), el('p', {
+      className: 'tp__note tp-part__wait', attrs: { role: 'status' }, text: t('tp.load.part'),
+    }));
+    const slow = slowNote ? window.setTimeout(() => {
+      if (mine === turn && node.dataset.load === 'loading') node.append(slowNote());
+    }, JOBS_SLOW_MS) : null;
+    try {
+      const values = await Promise.all(needs.map((need) => need()));
+      if (mine !== turn) return;
+      node.replaceChildren(...draw(...values).filter(Boolean));
+      node.dataset.load = 'ready';
+    } catch (error) {
+      if (mine !== turn) return;
+      node.dataset.load = 'error';
+      node.replaceChildren(
+        ...header(),
+        el('p', { className: 'tp__alert', attrs: { role: 'alert' }, text: failure(error) }),
+        button(t('action.tryAgain'), () => void fill(mine, node, header, needs, draw, slowNote), {
+          className: 'btn btn--small',
+        }),
+      );
+    } finally {
+      if (slow) window.clearTimeout(slow);
+      node.removeAttribute('aria-busy');
+    }
+  }
+
+  function slowJobs(lead, withLink) {
+    return () => el('p', { className: 'tp__note tp-part__slow', attrs: { role: 'status' } }, [
+      el('span', { text: t(lead) }),
+      withLink ? button(t('tp.load.pasteInstead'), () => void show('make'), {
+        className: 'btn btn--quiet btn--small',
+      }) : null,
+    ].filter(Boolean));
   }
 
   // ------------------------------------------------------------- Start
 
   async function paintStart(mine) {
-    const [lib, jobs, career] = await Promise.all([loadLibrary(true), loadJobs(true), loadCareer(true)]);
-    if (mine !== turn) return;
-    const made = new Set((lib.jobs || []).map((g) => g.job_id).filter(Boolean));
-    const waiting = jobs.saved.filter((job) => !made.has(job.job_id));
-    const counts = evidenceCounts(career);
-    const versions = (lib.jobs || []).slice(0, 4);
     const steps = [1, 2, 3].map((n) => el('li', { className: 'tp-step' }, [
       el('span', { className: `tp-step__n tp-step__n--${n}`, text: String(n), attrs: { 'aria-hidden': 'true' } }),
       el('span', { text: t(`tp.start.step${n}`) }),
     ]));
-    const evidenceText = counts.waiting
-      ? t('tp.start.evidenceWaiting', { n: counts.confirmed, waiting: counts.waiting })
-      : counts.confirmed
-        ? t('tp.start.evidenceAll', { n: counts.confirmed })
-        : t('tp.start.evidenceNone');
+    const card = (key, label, extra = '') => el('section', {
+      className: `tp__card${extra}`, attrs: { 'aria-labelledby': label }, dataset: { part: key },
+    });
+    const waitingCard = card('waiting', 'tp-waiting');
+    const madeCard = card('made', 'tp-made');
+    const evidenceCard = card('evidence', 'tp-evid', ' tp-evidence');
     repaint([el('div', { className: 'tp-grid' }, [
       el('section', { className: 'tp__card tp-hero', attrs: { 'aria-labelledby': 'tp-hero' } }, [
         el('div', { className: 'tp-hero__text' }, [
@@ -204,54 +358,84 @@ export function createTailorPage({
           className: 'btn btn--primary tp-hero__go', attrs: { id: 'tp-start-make' },
         }),
       ]),
-      el('section', { className: 'tp__card', attrs: { 'aria-labelledby': 'tp-waiting' } }, [
-        el('h2', { className: 'tp__h2', attrs: { id: 'tp-waiting' }, text: t('tp.start.waiting') }),
-        el('p', { className: 'tp__lede', text: t('tp.start.waitingLede') }),
-        ...waiting.slice(0, 5).map((job) => el('div', { className: 'tp-row', dataset: { job: job.job_id } }, [
-          matchWord(job) ? el('span', { className: 'tp__pill', text: matchWord(job) }) : null,
-          el('div', { className: 'tp-row__main' }, [
-            el('span', { className: 'tp-row__title', text: job.title || t('absent.untitled') }),
-            el('span', { className: 'tp-row__sub', text: job.company_name || '' }),
-          ]),
-          button(t('tp.start.makeOne'), () => void show('make', job), { className: 'btn btn--small' }),
-        ].filter(Boolean))),
-        waiting.length ? null : el('div', { className: 'tp-row tp-row--note' }, [
-          el('span', { text: jobs.saved.length ? t('tp.start.allDone') : t('tp.start.noneSaved') }),
-          button(t('nav.jobs'), () => onGoJobs(), { className: 'btn btn--quiet btn--small' }),
-        ]),
-      ].filter(Boolean)),
-      el('section', { className: 'tp__card', attrs: { 'aria-labelledby': 'tp-made' } }, [
-        el('div', { className: 'tp-row tp-row--head' }, [
-          el('h2', { className: 'tp__h2', attrs: { id: 'tp-made' }, text: t('tp.start.made') }),
-          versions.length
-            ? button(t('tp.start.seeAll'), () => void show('resumes'), { className: 'btn btn--quiet btn--small' })
-            : null,
-        ].filter(Boolean)),
-        ...versions.map((group) => {
-          const latest = group.versions[0];
-          return el('div', { className: 'tp-row', dataset: { group: group.key } }, [
-            el('div', { className: 'tp-row__main' }, [
-              el('span', { className: 'tp-row__title', text: group.title || t('absent.untitled') }),
-              el('span', {
-                className: 'tp-row__sub',
-                text: [group.company, versionsWord(group.versions.length),
-                  group.manual ? t('tp.pasted') : null].filter(Boolean).join(' · '),
-              }),
-            ]),
-            button(t('tp.start.openLatest'), () => onOpenDocument(latest.id), { className: 'btn btn--small' }),
-          ]);
-        }),
-        versions.length ? null : el('p', { className: 'tp__lede', text: t('tp.start.noneMade') }),
-      ].filter(Boolean)),
-      el('section', { className: 'tp__card tp-evidence', attrs: { 'aria-labelledby': 'tp-evid' } }, [
-        el('div', { className: 'tp-evidence__text' }, [
-          el('h2', { className: 'tp__h2', attrs: { id: 'tp-evid' }, text: t('tp.start.evidence') }),
-          el('p', { className: 'tp__lede', text: evidenceText }),
-        ]),
-        button(counts.waiting ? t('tp.start.review') : t('tp.start.seeExperience'),
-          () => void show('experience'), { className: 'btn' }),
-      ]),
+      waitingCard, madeCard, evidenceCard,
     ])]);
+    host.dataset.shell = 'start';
+    const waitingHead = () => [
+      el('h2', { className: 'tp__h2', attrs: { id: 'tp-waiting' }, text: t('tp.start.waiting') }),
+      el('p', { className: 'tp__lede', text: t('tp.start.waitingLede') }),
+    ];
+    const madeHead = () => [el('div', { className: 'tp-row tp-row--head' }, [
+      el('h2', { className: 'tp__h2', attrs: { id: 'tp-made' }, text: t('tp.start.made') }),
+    ])];
+    const evidenceHead = () => [el('div', { className: 'tp-evidence__text' }, [
+      el('h2', { className: 'tp__h2', attrs: { id: 'tp-evid' }, text: t('tp.start.evidence') }),
+    ])];
+    await Promise.all([
+      // Which saved jobs have no resume needs the library too: a job with a
+      // resume is never listed as waiting for one.
+      fill(mine, waitingCard, waitingHead, [loadJobs, loadLibrary], (jobs, lib) => {
+        const made = new Set((lib.jobs || []).map((g) => g.job_id).filter(Boolean));
+        const waiting = jobs.saved.filter((job) => !made.has(job.job_id));
+        return [
+          ...waitingHead(),
+          ...waiting.slice(0, 5).map((job) => el('div', { className: 'tp-row', dataset: { job: job.job_id } }, [
+            matchWord(job) ? el('span', { className: 'tp__pill', text: matchWord(job) }) : null,
+            el('div', { className: 'tp-row__main' }, [
+              el('span', { className: 'tp-row__title', text: job.title || t('absent.untitled') }),
+              el('span', { className: 'tp-row__sub', text: job.company_name || '' }),
+            ]),
+            button(t('tp.start.makeOne'), () => void show('make', job), { className: 'btn btn--small' }),
+          ].filter(Boolean))),
+          waiting.length ? null : el('div', { className: 'tp-row tp-row--note' }, [
+            el('span', { text: jobs.saved.length ? t('tp.start.allDone') : t('tp.start.noneSaved') }),
+            button(t('nav.jobs'), () => onGoJobs(), { className: 'btn btn--quiet btn--small' }),
+          ]),
+        ];
+      }, slowJobs('tp.load.jobsSlow', true)),
+      fill(mine, madeCard, madeHead, [loadLibrary], (lib) => {
+        const versions = (lib.jobs || []).slice(0, 4);
+        return [
+          el('div', { className: 'tp-row tp-row--head' }, [
+            el('h2', { className: 'tp__h2', attrs: { id: 'tp-made' }, text: t('tp.start.made') }),
+            versions.length
+              ? button(t('tp.start.seeAll'), () => void show('resumes'), { className: 'btn btn--quiet btn--small' })
+              : null,
+          ].filter(Boolean)),
+          ...versions.map((group) => {
+            const latest = group.versions[0];
+            return el('div', { className: 'tp-row', dataset: { group: group.key } }, [
+              el('div', { className: 'tp-row__main' }, [
+                el('span', { className: 'tp-row__title', text: group.title || t('absent.untitled') }),
+                el('span', {
+                  className: 'tp-row__sub',
+                  text: [group.company, versionsWord(group.versions.length),
+                    group.manual ? t('tp.pasted') : null].filter(Boolean).join(' · '),
+                }),
+              ]),
+              button(t('tp.start.openLatest'), () => onOpenDocument(latest.id), { className: 'btn btn--small' }),
+            ]);
+          }),
+          versions.length ? null : el('p', { className: 'tp__lede', text: t('tp.start.noneMade') }),
+        ];
+      }),
+      fill(mine, evidenceCard, evidenceHead, [() => loadCareer({ again: true })], (career) => {
+        const counts = evidenceCounts(career);
+        const evidenceText = counts.waiting
+          ? t('tp.start.evidenceWaiting', { n: counts.confirmed, waiting: counts.waiting })
+          : counts.confirmed
+            ? t('tp.start.evidenceAll', { n: counts.confirmed })
+            : t('tp.start.evidenceNone');
+        return [
+          el('div', { className: 'tp-evidence__text' }, [
+            el('h2', { className: 'tp__h2', attrs: { id: 'tp-evid' }, text: t('tp.start.evidence') }),
+            el('p', { className: 'tp__lede', text: evidenceText }),
+          ]),
+          button(counts.waiting ? t('tp.start.review') : t('tp.start.seeExperience'),
+            () => void show('experience'), { className: 'btn' }),
+        ];
+      }),
+    ]);
   }
 
   // ------------------------------------------------------------- Make
@@ -262,7 +446,7 @@ export function createTailorPage({
   }
 
   async function paintMake(mine) {
-    const [lib, jobs] = await Promise.all([loadLibrary(true), loadJobs()]);
+    const lib = await loadLibrary();
     if (mine !== turn) return;
     if (!lib.master && !(lib.others || []).length) {
       repaint([el('section', { className: 'tp__card', attrs: { 'aria-labelledby': 'tp-master' } }, [
@@ -279,7 +463,16 @@ export function createTailorPage({
       ])]);
       return;
     }
-    repaint([make.stage === 'check' && make.plan ? checkView() : setupView(lib, jobs)]);
+    if (make.stage === 'check' && make.plan) {
+      repaint([checkView()]);
+      return;
+    }
+    // The ad can be pasted, the base chosen and the rule read while the job
+    // list is still being read; only the list of jobs waits for it.
+    const view = setupView(lib);
+    repaint([view.root]);
+    host.dataset.shell = 'make';
+    await view.fillJobs(mine);
   }
 
   function radio(label, sub, on, onPick, extra = null) {
@@ -297,11 +490,10 @@ export function createTailorPage({
     ].filter(Boolean));
   }
 
-  function setupView(lib, jobs) {
-    const choices = [...jobs.saved.slice(0, LIST), ...jobs.best];
-    if (make.job && !choices.some((job) => job.job_id === make.job.job_id)) choices.unshift(make.job);
+  function setupView(lib) {
     const jobGroup = el('div', {
       className: 'tp-radios', attrs: { role: 'radiogroup', 'aria-labelledby': 'tp-make-1' },
+      dataset: { part: 'jobs' },
     });
     const adTitle = el('input', {
       className: 'input', attrs: { id: 'tp-ad-title', maxlength: '300', placeholder: t('tp.make.adTitlePh') },
@@ -330,7 +522,7 @@ export function createTailorPage({
         node.setAttribute('aria-checked', String(Boolean(on)));
       }
     }
-    for (const job of choices) {
+    function jobRadio(job) {
       const node = radio(
         job.title || t('absent.untitled'), job.company_name || '',
         make.mode === 'job' && make.job && make.job.job_id === job.job_id,
@@ -341,9 +533,20 @@ export function createTailorPage({
         matchWord(job) ? el('span', { className: 'tp__pill', text: matchWord(job) }) : null,
       );
       node.dataset.job = job.job_id;
-      jobGroup.append(node);
+      return node;
     }
-    if (!choices.length) jobGroup.append(el('p', { className: 'tp__note', text: t('tp.pick.empty') }));
+    // A job chosen in the drawer or on Start is there at once, list or not.
+    const chosenNow = () => (make.job ? [jobRadio(make.job)] : []);
+    const fillJobs = async (mine) => {
+      await fill(mine, jobGroup, chosenNow, [loadJobs], (jobs) => {
+        const choices = [...jobs.saved.slice(0, LIST), ...jobs.best];
+        if (make.job && !choices.some((job) => job.job_id === make.job.job_id)) choices.unshift(make.job);
+        return choices.length
+          ? choices.map(jobRadio)
+          : [el('p', { className: 'tp__note', text: t('tp.pick.empty') })];
+      }, slowJobs('tp.load.jobsSlowMake', false));
+      sync();
+    };
     const typed = () => {
       make.ad = { title: adTitle.value, company: adCompany.value, text: adText.value };
       if (adText.value.trim() || adTitle.value.trim()) make.mode = 'ad';
@@ -385,7 +588,7 @@ export function createTailorPage({
       ]),
       el('p', { className: 'tp__note tp-rule__pages', text: t('tp.make.pages') }),
     ]);
-    return el('div', { className: 'tp-make' }, [
+    const root = el('div', { className: 'tp-make' }, [
       el('section', { className: 'tp__card tp-make__form', attrs: { 'aria-labelledby': 'tp-make-1' } }, [
         el('h2', { className: 'tp__h2', attrs: { id: 'tp-make-1' }, text: t('tp.make.step1') }),
         jobGroup,
@@ -415,6 +618,7 @@ export function createTailorPage({
         el('p', { className: 'tp__note', text: t('tp.make.asideNote') }),
       ]),
     ]);
+    return { root, fillJobs };
   }
 
   /** The ad to work from, as the server wants it. */
@@ -499,7 +703,6 @@ export function createTailorPage({
     const baseId = make.baseId || undefined;
     make.stage = 'setup';
     make.plan = null;
-    library = null;
     if (make.mode === 'job') {
       await onMake({ jobId: make.job.job_id, baseId });
     } else {
@@ -553,7 +756,7 @@ export function createTailorPage({
   }
 
   async function paintResumes(mine) {
-    const lib = await loadLibrary(true);
+    const lib = await loadLibrary();
     if (mine !== turn) return;
     const bases = [lib.master, ...(lib.others || [])].filter((d) => d && !d.archived);
     const groups = lib.jobs || [];
@@ -601,7 +804,7 @@ export function createTailorPage({
   async function paintExperience(mine) {
     if (mine !== turn) return;
     // The same career workspace the profile uses: one store of experience.
-    const workspace = careerWorkspace({ onChanged: () => { careerCache = null; onCareerChanged(); } });
+    const workspace = careerWorkspace({ onChanged: () => { reads.career.value = null; onCareerChanged(); } });
     repaint([el('p', { className: 'tp__lede', text: t('tp.exp.lede') }), workspace]);
   }
 
@@ -618,7 +821,10 @@ export function createTailorPage({
     relabel: () => { if (!host.hidden) void show(tab); },
     /** Another profile or a changed library: read it all again next time. */
     forget() {
-      library = jobsCache = careerCache = null;
+      for (const slot of Object.values(reads)) {
+        if (slot.controller) slot.controller.abort();
+        Object.assign(slot, { value: null, error: null, profile: null, promise: null, controller: null });
+      }
     },
   };
 }

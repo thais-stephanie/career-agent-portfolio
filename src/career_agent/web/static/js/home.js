@@ -55,6 +55,20 @@ const STEPS = [
 const TIP_KEY = 'careerAgent.homeTip.v1';
 const SEEN_KEY = 'careerAgent.homeNewSeen.v1';
 
+/** A read asked before the page knew its profile counts as the open one. */
+const sameProfile = (a, b) => !a || !b || a === b;
+
+/** The moment something was counted, as the reader's clock says it. */
+function clockOf(iso) {
+  if (!iso) return null;
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  const today = at.toDateString() === new Date().toDateString();
+  return today
+    ? at.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })
+    : at.toLocaleString(getLocale(), { dateStyle: 'short', timeStyle: 'short' });
+}
+
 /** localStorage can throw; a remembered tip is a nicety, never a fault. */
 function stored(key) {
   try {
@@ -161,6 +175,11 @@ export function createHome({
     onChanged: () => load(),
   });
   let token = 0;
+  //: While the dashboard on screen is being counted again after a
+  //: collection: 'counting', 'failed' (the last lists stay), or null.
+  let recount = null;
+  //: The line that says when the lists were counted, in the current render.
+  let listsNote = null;
   //: The last thing the server said, kept so a language change can repaint
   //: without asking again. Home is not driven by the store, so the `store.set
   //: ({})` that repaints every other surface on a locale switch reaches
@@ -198,7 +217,7 @@ export function createHome({
    * one watcher. It used to be rebuilt from the start of Home, which made a
    * run that was still going look as if it had stopped.
    */
-  async function load({ arrival = false } = {}) {
+  async function load({ arrival = false, quiet = false } = {}) {
     if (arrival) firstRun.beginVisit();
     if (showingSetup && setupAt === null && !setup.finished()) {
       if (onSetupShown) onSetupShown(true);
@@ -206,14 +225,25 @@ export function createHome({
     }
     const mine = ++token;
     setup.stop();
-    root.dataset.view = 'loading';
-    replace(root, [el('div', { className: 'sk sk--block' })]);
+    // QUIET: a collection just ended. The dashboard on screen stays, says it is
+    // counting what arrived, and is replaced once, when the answer comes. It
+    // used to be wiped to a placeholder in the middle of whatever was being read.
+    const keep = quiet && root.dataset.view === 'dashboard' && Boolean(payload);
+    if (keep) {
+      recount = 'counting';
+      markLists();
+    } else {
+      root.dataset.view = 'loading';
+      replace(root, [el('div', { className: 'sk sk--block' })]);
+    }
+    // Home is asked at once, BESIDE the first-run state: neither read needs the
+    // other's answer. Its failure is said below; until then it is not unhandled.
+    const asked = api.getHome();
+    asked.catch(() => {});
     try {
-      payload = await api.getHome();
-      if (mine !== token) return;
       // The first-run state BEFORE the first paint, so the list is never drawn
       // empty and then filled in -- a step row appearing a moment later reads
-      // as something having just happened.
+      // as something having just happened. `firstRun.load` says its own failure.
       await firstRun.load();
       if (mine !== token) return;
       // A fresh install -- nothing confirmed and no search described -- opens
@@ -236,14 +266,34 @@ export function createHome({
       }
       showingSetup = false;
       if (onSetupShown) onSetupShown(false, firstRun.isFresh());
+      // THE PAGE BEFORE ITS NUMBERS. The first steps, the collection and the
+      // tip need nothing from Home's answer: they are drawn now, and the
+      // lists and counts say they are being counted until it arrives.
+      if (!keep) replace(root, shell());
+      const answer = await asked;
+      if (mine !== token) return;
+      // An answer for a profile that is no longer open is never drawn: the
+      // switch reloads the page.
+      if (!sameProfile(answer.profile, api.getLocalProfile())) return;
+      payload = answer;
+      recount = null;
+      const focused = keep && root.contains(document.activeElement)
+        ? document.activeElement.getAttribute('data-task') : null;
       // Which of its two faces Home is showing, for anything that waits on it.
       root.dataset.view = 'dashboard';
       replace(root, render(payload));
+      if (focused) root.querySelector(`[data-task="${focused}"]`)?.focus();
       // The count of scores to update is asked apart: on a cold disk it is
       // the slowest read, and nothing else here waits for it.
       if (payload.scores && payload.scores.outdated === null) fillOutdated(payload, mine);
     } catch (error) {
       if (mine !== token) return;
+      if (keep) {
+        // The last lists stay, with the moment they were counted.
+        recount = 'failed';
+        markLists();
+        return;
+      }
       replace(root, [
         el('p', { className: 'state__msg', text: error.userMessage || error.message }),
         button(t('action.retry'), () => load(), { className: 'btn' }),
@@ -277,7 +327,48 @@ export function createHome({
     load();
   }
 
+  /** Home before its answer: what needs none of it, and where the rest will go. */
+  function shell() {
+    const waiting = el('p', {
+      className: 'home__waiting', text: t('home.lists.loading'),
+      attrs: { role: 'status', 'aria-busy': 'true', 'data-home-part': 'lists' },
+    });
+    if (firstRun.scoredCount() === 0) return [howItWorks(), collectionCard(), startHere(), waiting].filter(Boolean);
+    return [
+      howItWorks(), collectionCard(), startHere(),
+      el('div', { className: 'home__cols' }, [
+        el('div', { className: 'home__main' }, [waiting, el('div', { className: 'sk sk--block' })]),
+        el('div', { className: 'home__side' }, [el('div', { className: 'sk sk--block' })]),
+      ]),
+    ].filter(Boolean);
+  }
+
+  /**
+   * When the lists and counts were counted, said while that is not now: a
+   * collection runs (new jobs are counted when it ends), the jobs that arrived
+   * are being counted, counting them again failed, or the server could not
+   * say they are current (`lists_current` false). Hidden otherwise.
+   */
+  function markLists() {
+    const node = listsNote;
+    if (!node || !node.isConnected || !payload) return;
+    const running = Boolean(payload.collecting) || Boolean(collection && collection.state().active);
+    const at = clockOf(payload.lists_at);
+    const behind = payload.lists_current === false;
+    let text = '';
+    if (recount === 'counting') text = t('home.lists.counting');
+    else if (recount === 'failed') text = at ? t('home.lists.kept', { time: at }) : t('home.lists.keptNoTime');
+    else if (running) {
+      text = [at ? t('home.lists.asOf', { time: at }) : '', t('home.lists.updating')].filter(Boolean).join(' ');
+    } else if (behind && at) text = t('home.lists.asOf', { time: at });
+    node.hidden = !text;
+    node.textContent = text;
+    node.dataset.lists = recount || (running ? 'updating' : (behind ? 'earlier' : 'current'));
+  }
+
   function render(payload) {
+    listsNote = el('p', { className: 'home__asof', attrs: { role: 'status', 'data-home-part': 'lists-at' } });
+    queueMicrotask(markLists);
     if (firstRun.scoredCount() === 0) {
       return [
         howItWorks(), collectionCard(), startHere(),
@@ -292,7 +383,9 @@ export function createHome({
     return [
       howItWorks(), collectionCard(), startHere(),
       el('div', { className: 'home__cols' }, [
-        el('div', { className: 'home__main' }, [nextStep(payload), ...lists.map((d) => section(d, payload))]),
+        el('div', { className: 'home__main' }, [
+          listsNote, nextStep(payload), ...lists.map((d) => section(d, payload)),
+        ]),
         el('div', { className: 'home__side' }, [progress(payload), todos(payload)]),
       ]),
     ].filter(Boolean);
@@ -457,7 +550,9 @@ export function createHome({
         row.button.classList.add('home__todo--recalc');
         row.button.append(bar);
         driveRescore(row.button, {
-          onDone: () => load(),
+          // The run's end moved what Home counts: a Home read asked while it
+          // went is not this read.
+          onDone: () => { api.forgetHome(); load(); },
           show: (state) => {
             row.button.setAttribute('aria-busy', String(state.busy));
             row.button.classList.toggle('is-running', state.busy || state.phase === 'done');
@@ -614,6 +709,7 @@ export function createHome({
   /** The run, if there is one worth mentioning. Updated in place, not rebuilt. */
   function paintCollection(snapshot, reason) {
     if (!collection) return;
+    if (reason !== 'tick') markLists();
     const ended = outcomeText(snapshot);
     collectionHost.hidden = !snapshot.active && !ended && !snapshot.error;
     if (collectionHost.hidden) {

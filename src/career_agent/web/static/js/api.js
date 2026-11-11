@@ -23,13 +23,13 @@ export const MOCK = window.__CAREER_AGENT_MOCK__ === true;
 
 const BASE = '/api';
 
-export const getCareer = () => request('/career');
+export const getCareer = ({ signal = null } = {}) => request('/career', { signal });
 /** Resume Workspace: render a whole document for the preview (nothing is saved). */
 export const renderResume = (document, { signal = null } = {}) =>
   request('/resume/render', { method: 'POST', body: { document }, signal });
 /** My resumes, grouped (`{master, others, jobs}`); `archived` lists the archived ones instead. */
-export const listResumeDocuments = (archived = false) =>
-  request(`/resume/documents${archived ? '?archived=1' : ''}`);
+export const listResumeDocuments = (archived = false, { signal = null } = {}) =>
+  request(`/resume/documents${archived ? '?archived=1' : ''}`, { signal });
 const resumePath = (id, rest = '') => `/resume/documents/${encodeURIComponent(id)}${rest}`;
 /** One act on a resume: rename (`{title}`), archive, unarchive, prefer or make_master. */
 export const manageResume = (id, action, extra = {}) =>
@@ -235,8 +235,13 @@ export async function bootProfile() {
   }
 }
 
+//: Requests other than GET this page has sent, so a shared read is never
+//: one that was asked before a write.
+let writesSent = 0;
+
 async function request(path, { method = 'GET', body = null, signal = null } = {}) {
   let response;
+  if (method !== 'GET') writesSent += 1;
   const headers = body ? { 'Content-Type': 'application/json' } : {};
   if (localProfile) headers['X-Local-Profile'] = localProfile;
   try {
@@ -252,7 +257,15 @@ async function request(path, { method = 'GET', body = null, signal = null } = {}
   }
 
   let payload = null;
-  const text = await response.text().catch(() => '');
+  // The body can fail after the headers: aborted (Stop, a time limit, a page
+  // left) or cut off. Neither is an empty answer.
+  let text = '';
+  try {
+    text = await response.text();
+  } catch (cause) {
+    if ((signal && signal.aborted) || (cause && cause.name === 'AbortError')) throw abortError();
+    if (response.ok) throw networkError(cause);
+  }
   if (text) {
     try {
       payload = JSON.parse(text);
@@ -402,18 +415,18 @@ function countCsvRows(text) {
 }
 
 /** @param {URLSearchParams} query -- built by state.apiQuery(), never by a view. */
-export async function listJobs(query) {
+export async function listJobs(query, { signal = null } = {}) {
   const queryString = query.toString();
   const payload = MOCK
     ? await mockList(query)
-    : await request(`/jobs${queryString ? `?${queryString}` : ''}`);
+    : await request(`/jobs${queryString ? `?${queryString}` : ''}`, { signal });
   payload.facets = normaliseFacets(payload.facets, payload.items, payload.facet_labels);
   return payload;
 }
 
 /** A token that moves whenever any list could read differently. */
-export async function jobsFreshness() {
-  return MOCK ? { freshness: 'mock' } : request('/jobs/freshness');
+export async function jobsFreshness({ signal = null } = {}) {
+  return MOCK ? { freshness: 'mock' } : request('/jobs/freshness', { signal });
 }
 
 /** "N more if you tick this box", for one list query; see `list_jobs`. */
@@ -1165,12 +1178,29 @@ export async function getJobDescriptions(ids) {
   return request(`/jobs/descriptions?${query.toString()}`);
 }
 
-// Not shared between callers on the page: a visit after a write must read
-// after it. The server lets one Home read run at a time and the second reads
-// the first's remembered answer (`WorkspaceApi.home`).
+// Shared between callers while it is in flight -- Home and the rail ask it as
+// the page opens -- but only while no write was sent since it was asked, and
+// nothing else moved what it counts (`forgetHome`): a visit after a write, or
+// after a collection ended, must read after it. The profile is the page's own
+// (a switch reloads the page).
+let homeAsked = null;
+let homeMoved = 0;
+
+/** What Home counts moved without a write from this page (a collection
+ *  ended): a read already in flight is not shared with what asks next. */
+export function forgetHome() {
+  homeMoved += 1;
+}
+
 export async function getHome() {
   if (MOCK) throw noCandidateHere();
-  return request('/home');
+  if (homeAsked && homeAsked.writes === writesSent && homeAsked.moved === homeMoved) {
+    return homeAsked.promise;
+  }
+  const asked = { writes: writesSent, moved: homeMoved, promise: request('/home') };
+  homeAsked = asked;
+  asked.promise.then(() => {}, () => {}).finally(() => { if (homeAsked === asked) homeAsked = null; });
+  return asked.promise;
 }
 
 /** How the best matches' ads stand, and whether a check is running. */
@@ -1544,7 +1574,7 @@ export async function undoCareer(eventId) {
 }
 
 // -- Documents: every import, and the guided review -----------------------
-export const getDocuments = () => request('/documents');
+export const getDocuments = ({ signal = null } = {}) => request('/documents', { signal });
 const docPath = (kind, id) => `/documents/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`;
 export const getDocumentReview = (kind, id) => request(docPath(kind, id));
 /** One statement, one answer: CONFIRM, EDIT, UNSURE, REJECT, REOPEN or CHOOSE. */
