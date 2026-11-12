@@ -189,7 +189,7 @@ def test_no_view_prints_a_name_this_system_chose(page: Chrome, server: str, view
     if view == "kanban":
         # The board paints into `.kanban`, not into the list, so `open_list`
         # would wait for a first paint that never comes.
-        page.navigate(f"{server}/?view=kanban")
+        page.navigate(f"{server}/?view=kanban#applications")
         page.wait_for(
             "document.querySelector('.kanban')"
             " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
@@ -320,7 +320,7 @@ def test_every_view_renders_without_falling_into_its_error_state(
     directly, of every view, so the next one cannot depend on luck.
     """
     if view == "kanban":
-        page.navigate(f"{server}/?view=kanban")
+        page.navigate(f"{server}/?view=kanban#applications")
         page.wait_for(
             "document.querySelector('.kanban')"
             " && !document.querySelector('.kanban').hasAttribute('aria-busy')",
@@ -487,7 +487,7 @@ def test_the_board_and_the_dropdown_use_the_same_words(page: Chrome, server: str
         )
     ]
 
-    page.navigate(f"{server}/?view=kanban")
+    page.navigate(f"{server}/?view=kanban#applications")
     page.wait_for("document.querySelectorAll('.kcol').length === 5", message="the board")
     columns = [
         str(name).strip().lower()

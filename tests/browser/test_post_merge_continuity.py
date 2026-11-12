@@ -444,6 +444,9 @@ def test_a_finished_setup_is_not_on_home_at_all(
 def _open_first_job(page: Chrome, base: str) -> None:
     page.set_viewport(1440, 960)
     page.navigate(base + "/#jobs")
+    page.evaluate(
+        "document.querySelector('.topnav__link[data-page=\"jobs\"]').click()"
+    )  # a hash alone does not switch pages
     # `[data-job-id]`, not `.card`: a loading skeleton is a `.card` too.
     page.wait_for("document.querySelector('#list [data-job-id]')", timeout=20)
     page.evaluate("document.querySelector('#list [data-job-id]').click()")

@@ -81,7 +81,7 @@ def test_off_by_default_then_asked_once_when_the_app_opens_and_it_never_replaces
     # Visible while it runs, and the list is not replaced when it ends.
     page.wait_for("!document.getElementById('collectbar')?.hidden", message="the progress bar")
     assert "background" in str(page.evaluate("document.getElementById('collectbar').innerText"))
-    page.evaluate("location.hash = 'jobs'")
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"jobs\"]').click()")
     page.wait_for("document.querySelector('.topnav__link[aria-current=page]')", message="Jobs")
     before = _calls(page, "/api/jobs?")
     page.wait_for(

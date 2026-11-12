@@ -600,7 +600,7 @@ def test_a_requirement_leads_to_what_is_waiting_about_it(
     trip ended with nothing saying what it had been for.
     """
     server = job_and_package_server
-    page.navigate(server)
+    page.navigate(server + "/#jobs")  # the list is read where it is shown
     page.wait_for("document.querySelectorAll('[data-job-id]').length > 0", message="the cards")
     page.evaluate("document.querySelectorAll('[data-job-id]')[0].click()")
     page.wait_for(

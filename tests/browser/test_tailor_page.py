@@ -292,6 +292,9 @@ def test_without_a_master_make_it_and_come_back_to_the_same_job(
         ".then(r => r.status)"
     )
     page.navigate(pristine_server + "/#jobs")
+    page.evaluate(
+        "document.querySelector('.topnav__link[data-page=\"jobs\"]').click()"
+    )  # a hash alone does not switch pages
     page.wait_for("document.querySelector('#list [data-job-id]')", timeout=20, message="jobs")
     title = str(
         page.evaluate(

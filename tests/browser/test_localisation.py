@@ -297,7 +297,8 @@ def test_an_explicit_choice_survives_a_reload(page: Chrome, server: str) -> None
         message="the switch to Portuguese",
     )
 
-    page.evaluate("window.location.href = window.location.pathname")
+    # No query string, back on the list: a reload lands on the page it names.
+    page.evaluate("history.replaceState(null, '', location.pathname + '#jobs'); location.reload()")
     page.wait_for(f"{RENDERED_COUNT} > 0", message="the list after reloading")
     # WAIT FOR THE THING THIS ASSERTS ABOUT. The list painting and the filter
     # toggle painting are different events, and under load this asserted on

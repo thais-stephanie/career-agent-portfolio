@@ -159,7 +159,7 @@ def test_the_application_card_and_its_column_are_round(page: Chrome, pristine_se
         " headers: {'Content-Type': 'application/json'},"
         " body: JSON.stringify({status: 'SHORTLISTED'})})"
     )
-    page.navigate(f"{pristine_server}/?view=kanban")
+    page.navigate(f"{pristine_server}/?view=kanban#applications")
     page.wait_for("Boolean(document.querySelector('.kcard'))", message="a card on the board")
 
     assert radius_of(page, ".kcard") == [BOARD_CARD_RADIUS_PX] * 4
@@ -186,7 +186,7 @@ def test_the_filter_panel_is_round(page: Chrome, server: str) -> None:
 
 def test_the_table_wrapper_is_round_even_though_its_rows_are_not(page: Chrome, server: str) -> None:
     """Both halves of the same rule: the frame is a panel, the grid is a grid."""
-    page.navigate(f"{server}/?view=table")
+    page.navigate(f"{server}/?view=table#jobs")
     page.wait_for(
         "Boolean(document.querySelector('table.jobs tbody tr[data-job-id]'))", message="the table"
     )

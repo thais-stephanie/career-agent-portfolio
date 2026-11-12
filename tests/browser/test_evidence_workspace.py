@@ -418,7 +418,7 @@ def test_retiring_keeps_the_claim_and_marks_it(page: Chrome, pristine_server: st
 
 
 def open_prepare(page: Chrome, server: str) -> None:
-    page.navigate(server)
+    page.navigate(server + "/#jobs")  # the list is read where it is shown
     page.wait_for("document.querySelectorAll('[data-job-id]').length > 0", message="the cards")
     page.evaluate("document.querySelectorAll('[data-job-id]')[0].click()")
     page.wait_for(

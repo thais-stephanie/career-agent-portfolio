@@ -498,6 +498,8 @@ def test_focus_moves_in_and_back_and_the_list_behind_keeps_its_look(
     before = page.evaluate(behind)
     _open(page, deep_server["url"], "choose", "en")
     assert page.evaluate("document.activeElement.id") == "deep-title"
+    # `_open` reloads on Home; the list is read when Find jobs opens.
+    page.wait_for("document.querySelector('[data-job-id]')", message="the list behind")
     assert page.evaluate(behind) == before
     page.press("Tab")
     assert page.evaluate("!!document.activeElement.closest('.dr-panel')")

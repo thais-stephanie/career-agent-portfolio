@@ -253,7 +253,7 @@ def open_list(page: Chrome, server: str, query: str = "") -> None:
 
     The landing page is HOME now, and the job list is one of five
     destinations. Asking for it explicitly is what makes every assertion below
-    about a VISIBLE list: a hidden page still renders its cards, so the old
+    about a VISIBLE list: a hidden page rendered its cards back then, so the old
     form kept passing its DOM assertions while every measurement of width,
     overflow or position read zero.
     """
@@ -268,18 +268,22 @@ def open_list(page: Chrome, server: str, query: str = "") -> None:
             "'link']))"
         )
     page.navigate(f"{server}/{query}")
-    page.wait_for(
-        f"{RENDERED_COUNT} > 0 || document.querySelector('.state__head')",
-        message="the first paint of the list",
-    )
     # Pressed rather than asked for in the URL. `#jobs` names the page and a
     # bookmark uses it, but a hash-only difference from the previous URL is a
     # SAME-DOCUMENT navigation: the page would not reload, and a locale stored
-    # a moment earlier would never be read.
+    # a moment earlier would never be read. The list is read when its page
+    # opens, not behind Home, so its first paint is waited for after the press.
+    page.wait_for(
+        "document.querySelector('.topnav__link[data-page=\"jobs\"]')", message="the top navigation"
+    )
     page.evaluate("document.querySelector('.topnav__link[data-page=\"jobs\"]').click()")
     page.wait_for(
         "document.getElementById('page-jobs').hidden === false",
         message="the job list to be the page on screen",
+    )
+    page.wait_for(
+        f"{RENDERED_COUNT} > 0 || document.querySelector('.state__head')",
+        message="the first paint of the list",
     )
 
 
@@ -853,7 +857,7 @@ def test_the_date_survives_a_backward_move_on_every_surface(page: Chrome, server
     stamped = str(page.evaluate(f"{row}.querySelector('input.input--date').value"))
 
     # -- the board, where the backward gesture is one drag ------------------
-    page.navigate(f"{server}/?view=kanban")
+    page.navigate(f"{server}/?view=kanban#applications")
     page.wait_for(
         "document.querySelector('.kanban')"
         " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
@@ -1419,7 +1423,7 @@ def test_the_board_shows_tracked_jobs_and_says_so(page: Chrome, server: str) -> 
     columns rendered five and silently dropped the rest. A count and a list
     disagreeing is the defect this codebase keeps closing.
     """
-    page.navigate(f"{server}/?view=kanban")
+    page.navigate(f"{server}/?view=kanban#applications")
     # The SKELETON also draws six columns, so waiting on the column count
     # alone races the real render. `renderKanban` clears `aria-busy`, which is
     # the only signal that says "this is the data, not the placeholder".
@@ -1486,7 +1490,7 @@ def track_one_then_open_the_board(page: Chrome, server: str) -> None:
         f"{row}.querySelector('select.select--status').value === 'SHORTLISTED'",
         message="the status to be recorded",
     )
-    page.navigate(f"{server}/?view=kanban")
+    page.navigate(f"{server}/?view=kanban#applications")
     page.wait_for(
         "document.querySelector('.kanban')"
         " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
@@ -1531,7 +1535,7 @@ def test_moving_a_card_on_the_board_persists_and_reaches_the_other_views(
     # not put it back in the recommendations. Asking for the whole corpus is
     # what keeps the subject of the test on screen without making the test
     # about eligibility.
-    page.navigate(f"{server}/{SHOW_EVERYTHING}&view=table")
+    page.navigate(f"{server}/{SHOW_EVERYTHING}&view=table#jobs")
     page.wait_for(f"{RENDERED_COUNT} > 0", message="the table")
     row = (
         "Array.from(document.querySelectorAll('[data-job-id]'))"
@@ -1677,7 +1681,8 @@ def test_a_keyword_preference_can_be_edited_without_opening_the_yaml(
     # "show nothing": serve the previous answer and say which question it
     # answers. The owner met the old behaviour on her own corpus on
     # 2026-09-08 and read the empty list as the product having broken.
-    page.navigate(f"{server}/?debug=1")
+    page.navigate(f"{server}/?debug=1")  # a full load: only the hash would differ
+    page.evaluate("document.querySelector('.topnav__link[data-page=\"jobs\"]').click()")
     page.wait_for(
         f"{RENDERED_COUNT} > 0 || Boolean(document.querySelector('.state__head'))",
         message="the list after a preference edit",
@@ -2892,7 +2897,8 @@ def test_an_open_eligibility_question_is_one_switch_away_and_says_what_is_left(
     assert len(pending) == DEMO_UNRESOLVED_COUNT, labels
     assert all("where they hire" in text.lower() for text in pending), pending
 
-    page.evaluate("window.location.href = window.location.pathname")
+    # No query string, back on the list: a reload lands on the page it names.
+    page.evaluate("history.replaceState(null, '', location.pathname + '#jobs'); location.reload()")
     wait_for_count(page, shown, "after reloading: her choice to see them is remembered")
     assert page.evaluate(
         "window.localStorage.getItem('careerAgent.includeUnresolved.v2') === '1'"
@@ -2910,7 +2916,8 @@ def test_the_choice_to_see_them_survives_a_reload(page: Chrome, pristine_server:
     revealed = DEMO_VISIBLE_GROUPED_COUNT + DEMO_HIDDEN_COUNT
     wait_for_count(page, revealed, "after asking to see them")
 
-    page.evaluate("window.location.href = window.location.pathname")
+    # No query string, back on the list: a reload lands on the page it names.
+    page.evaluate("history.replaceState(null, '', location.pathname + '#jobs'); location.reload()")
     wait_for_count(page, revealed, "after reloading with no query string")
     assert page.evaluate(
         "window.localStorage.getItem('careerAgent.includeIneligible.v1') === '1'"
