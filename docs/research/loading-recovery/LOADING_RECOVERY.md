@@ -369,6 +369,13 @@ measured.
 - Tests: `test_list_where_shown.py`. Before the fixes: the F1 test, both F2
   tests fail on `475d04e`; the F3 test fails on `494a862`. The F4 test passes
   on both (a contract already there).
+- Suites on `1dfd017`: gates clean (ruff, format, frontend, localisation,
+  punctuation); full browser suite 644 passed, 1 failed:
+  `test_release_personas.py::test_complete_persona_journey[success-us]`, timed
+  out at the first-run "work" step (line 111, before any list is opened); the
+  file then passed alone, 3 of 3, and the same failure is recorded on
+  `494a862` (`docs/PRODUCT_IMPROVEMENT_AUDIT.md`). No Python changed, so the
+  unit and integration suites were not repeated.
 
 ### Suites (2026-11-12)
 
