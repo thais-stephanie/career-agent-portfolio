@@ -1096,6 +1096,22 @@ function hold(queryString, response) {
   while (heldLists.size > HELD_LISTS) heldLists.delete(heldLists.keys().next().value);
 }
 
+/**
+ * "Update the list" after a run the app started by itself. On Find jobs or
+ * Applications the list on screen is read again in place. Anywhere else the
+ * person is taken to Find jobs, which reads it once, with the filters as they
+ * are: every list held is from before the run, so none is shown on trust.
+ */
+function updateListAfterRun() {
+  if (LIST_PAGES.has(currentPage)) {
+    load(store.apiQueryString(), store.get(), { quiet: true });
+    return;
+  }
+  heldLists.clear();
+  listDue = true;
+  goTo('jobs');
+}
+
 /** A list already read: on screen now, read again only if it could have moved. */
 function showHeld(queryString, state) {
   const held = heldLists.get(queryString);
@@ -3594,7 +3610,7 @@ collection.onFinish((snapshot) => {
   if (snapshot && snapshot.run && snapshot.run.kind === 'auto') {
     void showHealth();
     refreshRail();
-    announceNewJobs(snapshot.run.jobs_new, () => load(store.apiQueryString(), store.get(), { quiet: true }));
+    announceNewJobs(snapshot.run.jobs_new, updateListAfterRun);
     if (currentPage === 'settings') sourcesPanel.load(true);
     else sourcesPanel.invalidate();
     // Home counts what arrived, once, keeping what it shows until then. The

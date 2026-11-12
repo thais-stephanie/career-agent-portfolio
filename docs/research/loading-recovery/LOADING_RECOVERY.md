@@ -332,9 +332,18 @@ measured.
   read-only SQL on a closed socket is a new mechanism, left out; the opening no
   longer sends the heaviest of those reads (the narrowings).
 - **`/api/profiles` asked twice at the opening** (tens of milliseconds): left.
-- **"Update the list" pressed on Home** after an automatic update: the list is
-  noted as due and read when Find jobs opens, as any other read asked away
-  from it. Taking the person to Find jobs instead is a product choice: left.
+- **"Update the list" pressed on Home** after an automatic update: it only
+  noted the list as due, so nothing visible happened. Owner decision
+  (2026-11-12): the press takes the person to Find jobs, which reads the list
+  once with the filters in force; every list held is dropped, being from before
+  the run. On Find jobs or Applications it still reads the list in place.
+  Tests: `test_list_where_shown.py::test_update_the_list_*` (the three fail on
+  the code before). A read past the 90 s deadline goes through the same failure
+  as the HTTP 500 tested there; it is not exercised on its own (too slow).
+- **Left for later, by owner decision (2026-11-12):** the Home memo stays at
+  600 s, not renewed on a hit; `/api/health` and `/api/sources` stay unmemoized
+  (each opening counts the catalogue again); abandoned read-only SQL still runs
+  to its end.
 
 ### Suites (2026-11-12)
 

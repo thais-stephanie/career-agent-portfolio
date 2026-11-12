@@ -125,3 +125,81 @@ def test_a_collection_ending_on_home_leaves_the_list_for_find_jobs(
         message="the list checked or read after the run",
     )
     page.wait_for(CARDS, timeout=20, message="the list after the run")
+
+
+# "Update the list", offered when a run the app started by itself ends. On
+# Home it used to only mark the list as due: nothing visible happened.
+FILTER = "include_ineligible=1"
+UPDATE = (
+    "Array.from(document.querySelectorAll('.toast button'))"
+    ".find((b) => /Update the list/.test(b.innerText))"
+)
+JOBS_SHOWN = "!document.getElementById('page-jobs').hidden && document.body.dataset.page === 'jobs'"
+
+
+def auto_run_ends_on_home(page: Chrome, url: str, *, list_first: bool) -> int:
+    """Home showing, the app's own run ends with new jobs; returns the list
+    reads made until its notice is up."""
+    intercept(page, [{"match": "/api/retrieval", "mode": "json", "body": running("auto", "x:y")}])
+    page.set_viewport(1440, 960)
+    page.navigate(f"{url}/?{FILTER}")
+    open_home_past_setup(page, f"{url}/?{FILTER}")
+    if list_first:
+        go(page, "jobs")
+        page.wait_for(CARDS, timeout=20, message="the Find jobs list")
+        go(page, "home")
+        page.wait_for("document.querySelector('.home[data-view=dashboard]')", message="Home")
+    settle()
+    rules(page, [{"match": "/api/retrieval", "mode": "json", "body": ended()}])
+    page.wait_for(f"Boolean({UPDATE})", timeout=30, message="the new-jobs notice")
+    settle()
+    return len(find_lists(page))
+
+
+def test_update_the_list_on_home_opens_find_jobs_with_the_list_read_once(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    before = auto_run_ends_on_home(page, tailor_server["url"], list_first=True)
+    assert before == 1, "only the visit to Find jobs read the list"
+    assert page.evaluate("document.body.dataset.page") == "home", "the notice moved the page"
+    page.evaluate(f"{UPDATE}.click()")
+    page.wait_for(JOBS_SHOWN, timeout=10, message="Find jobs")
+    page.wait_for(CARDS, timeout=20, message="the list after the update")
+    settle()
+    after = find_lists(page)
+    assert len(after) == before + 1, f"one fresh read, not a held list nor two: {after}"
+    assert FILTER in after[-1], "the filters in force were dropped"
+    assert FILTER in str(page.evaluate("location.search")), "the address lost the filters"
+
+
+def test_update_the_list_reads_it_when_none_was_read_yet(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    before = auto_run_ends_on_home(page, tailor_server["url"], list_first=False)
+    assert before == 0, "Home read the list, or the notice read it without a press"
+    page.evaluate(f"{UPDATE}.click()")
+    page.wait_for(JOBS_SHOWN, timeout=10, message="Find jobs")
+    page.wait_for(CARDS, timeout=20, message="the list after the update")
+    settle()
+    assert len(find_lists(page)) == 1, find_lists(page)
+
+
+def test_update_the_list_says_so_when_the_read_fails(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    auto_run_ends_on_home(page, tailor_server["url"], list_first=False)
+    rules(
+        page,
+        [
+            {"match": "/api/retrieval", "mode": "json", "body": ended()},
+            {"match": "/api/jobs?", "mode": "status", "status": 500},
+        ],
+    )
+    page.evaluate(f"{UPDATE}.click()")
+    page.wait_for(JOBS_SHOWN, timeout=10, message="Find jobs")
+    page.wait_for(
+        "document.querySelector('#page-jobs .state--error button')",
+        timeout=20,
+        message="the failure, with a retry",
+    )
+    assert "load" in str(page.evaluate("document.querySelector('.state--error').innerText")).lower()
