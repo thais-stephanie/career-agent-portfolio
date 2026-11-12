@@ -94,6 +94,13 @@ const dom = {
 
 let lastResponse = null;      // the response currently on screen
 let lastQueryString = null;   // the query that produced it
+//: THE LIST IS READ WHERE IT IS SHOWN: Find jobs and Applications. Read from
+//: Home it was the heaviest request of every opening (142 s on a real
+//: catalogue, beside Home's own 143 s), with its narrowings after it, for a
+//: page nobody was looking at. Asked anywhere else, `load` only notes that the
+//: list is due, and opening one of the two pages reads it (`goTo`).
+const LIST_PAGES = new Set(['jobs', 'applications']);
+let listDue = false;
 //: Lists already read, by query string, oldest first. Cards and List are two
 //: queries (grouping and page size differ), so each is kept; going back to a
 //: list held here shows it at once and asks the server one small question
@@ -551,6 +558,14 @@ function goTo(page, { push = true, job = null } = {}) {
     store.set({ view: 'kanban', group_duplicates: false, status: [...TRACKED_STATUSES] });
   } else if (page === 'jobs' && store.get().view === 'kanban') {
     store.set({ view: 'cards', group_duplicates: true, status: [] });
+  }
+  // A list asked for while another page showed is read now (see `load`); one
+  // already held is shown and checked with the one small question.
+  if (LIST_PAGES.has(page) && listDue) {
+    listDue = false;
+    const queryString = store.apiQueryString();
+    if (heldLists.has(queryString)) showHeld(queryString, store.get());
+    else load(queryString, store.get());
   }
 
   if (page === 'home') home.load({ arrival: true });
@@ -1021,6 +1036,11 @@ function withDeadline(promise, ms) {
 }
 
 async function load(queryString, state, { quiet = false } = {}) {
+  if (!LIST_PAGES.has(currentPage)) {
+    listDue = true;
+    return;
+  }
+  listDue = false;
   lastQueryString = queryString;
   const token = ++inFlight;
   loading = true;

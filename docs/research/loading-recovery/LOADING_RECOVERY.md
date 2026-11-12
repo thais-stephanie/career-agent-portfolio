@@ -255,3 +255,80 @@ Run on the Home-during-a-refresh change, before its commit:
   `test_loading_recovery.py` (other files leave fetch spies installed).
 - Ruff, ruff format, mypy on the changed server modules, and
   `scripts/frontend_check.mjs` (60 modules): clean.
+
+## Phase 2: the job list is read where it is shown (2026-11-12)
+
+The controlled real measurement of `494a862` (owner's install, auto-update
+answered in the browser, nothing collected) left Home as the bottleneck. At
+the first opening of the process `/api/home` took 143 s and, beside it, a
+`/api/jobs` read took 142 s, `/api/health` 40 s, `/api/sources` 43 s and
+`/api/home/outdated` 32 s. About 1.7 GB of RAM was free, so the disk cache was
+not in a known state.
+
+### What the opening asks, and who for
+
+| Request | Asked by | When | Needed on Home |
+|---|---|---|---|
+| `/api/jobs` (Find jobs' list) | `main.js` `load()`, first paint | at once, on every page | no: only Find jobs and Applications draw it |
+| `/api/jobs/narrowings` | `afterList()`, after that list | when the list answers, retried after 3 s | no |
+| `/api/home` | `home.load()` and the rail (`loadRailReadouts`), shared in flight | at once | yes |
+| `/api/firstrun` | `home.load()`, beside `/api/home` | at once | yes |
+| `/api/health` | `showHealth()` | at once | yes: the mode banner and the revision notice are global |
+| `/api/sources` | `loadRailReadouts()`, after `/api/home` | when Home answers | yes: the rail's attention status |
+| `/api/home/outdated` | `fillOutdated()` | after the dashboard is drawn | the recalculation row only |
+| `/api/retrieval?funnel=false` | `collection.refresh()` | at once | yes: whether a run goes |
+
+Nothing outside Find jobs and Applications reads the list: the drawer reads
+its own posting, `mergeJob` and `findJob` fall back to it, and
+`exposureFor` records `elsewhere` when the decided posting is not in a list on
+screen (more truthful than a rank in a list nobody saw).
+
+The list was also read again, on Home, when a collection the person started
+ended and when a recalculation ended.
+
+### Change
+
+`load()` returns at once on any page that is not Find jobs or Applications and
+notes the list as due; `goTo()` reads it when one of the two pages opens, or
+shows the list it holds (`showHeld`, which checks writes and freshness). One
+guard in the function every caller goes through (fifteen call sites). Opening
+the app on `#jobs` reads the list at once, as before.
+
+### Synthetic contention (172,000 invented postings, `scripts/synthetic_volume.py`)
+
+The real server over HTTP in one process, a fresh server per scenario (no
+Home or aggregates memo), the OS cache warmed once, old and new opening in
+A/B/A order. Synthetic times, not production ones.
+
+| Scenario | `/api/home` | Server CPU | Wall |
+|---|---|---|---|
+| Opening with the list, round 1 | 1.62 s | 3.59 s | 1.62 s |
+| Opening without it, round 1 | 1.21 s | 1.45 s | 1.21 s |
+| Opening with the list, round 2 | 2.13 s | 5.84 s | 2.13 s |
+| Opening without it, round 2 | 1.08 s | 1.31 s | 1.08 s |
+
+Alone: `/api/home` 1.22 s, `/api/health` 0.31 s, the list 1.20 s,
+`/api/sources` 0.91 s, `/api/home/outdated` 1.31 s, and
+`/api/jobs/narrowings` **75.0 s** on its first read (7.3 s once the cache is
+warm). During the list and its narrowings `/api/health` took 0.40 s; during
+the narrowings `/api/home` took 1.41 s. Light reads are not held by a lock
+(one connection per request, WAL readers): the cost is CPU and disk shared
+with the heavy reads, which the larger real catalogue and a cold cache make
+far worse. How much the change saves on the owner's install has not been
+measured.
+
+### Not changed, and why
+
+- **Return to Home (43.8 s `/api/home`, 107 s `/api/home/outdated` on the
+  real install):** both answers are remembered for `HOME_MEMO_SECONDS` (600 s)
+  from the moment they were counted; a hit does not renew it, and the return
+  came more than 600 s after the count. Renewing it on a verified-current hit,
+  or lengthening it, changes the freshness policy: NEEDS OWNER DECISION.
+- **`/api/health` and `/api/sources`:** whole-catalogue counts that feed the
+  global banner and the rail. Remembering them is a new freshness rule: NEEDS
+  OWNER DECISION.
+- **Abandoned reads:** the server finishes a read the browser gave up on
+  (`ThreadingHTTPServer` notices only when it writes the answer). Interrupting
+  read-only SQL on a closed socket is a new mechanism, left out; the opening no
+  longer sends the heaviest of those reads (the narrowings).
+- **`/api/profiles` asked twice at the opening** (tens of milliseconds): left.
