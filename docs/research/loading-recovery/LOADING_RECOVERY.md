@@ -345,6 +345,31 @@ measured.
   (each opening counts the catalogue again); abandoned read-only SQL still runs
   to its end.
 
+### After the independent review (2026-11-12)
+
+- **F1, a held list checked twice.** Find jobs, Applications, Home, a run
+  ends, Find jobs: `goTo` leaves the board's view (`store.set`), the
+  subscriber showed the held list, `listDue` stayed set, and `goTo` showed it
+  again: two paints, two `/api/jobs/freshness`. `showHeld` now clears
+  `listDue`; it is reached only where the list shows, so that is the read the
+  switch was due.
+- **F2, the list's reads away from its page.** The subscriber (Back on Home)
+  no longer shows and checks a held list away from Find jobs and
+  Applications; it marks the list due, as `load` does. `afterList` no longer
+  asks the narrowings once the person has left: it marks the list due, and
+  the page asks them when it opens again. A narrowings read already sent is
+  not cancelled.
+- **F3.** The negative check after a run's end now waits for `#health` to be
+  redrawn from a health read asked after the end: the end asks for the list
+  in that same task, so a list read would already be recorded.
+- **F4.** `fromSearch('?view=kanban')` still narrows to the tracked statuses.
+  No visible page uses it unaided any more (`goTo('applications')` narrows on
+  its own), but a back/forward entry and a shared address are read by it, so
+  it is kept and tested directly.
+- Tests: `test_list_where_shown.py`. Before the fixes: the F1 test, both F2
+  tests fail on `475d04e`; the F3 test fails on `494a862`. The F4 test passes
+  on both (a contract already there).
+
 ### Suites (2026-11-12)
 
 The first full browser run on `309ca99` failed widely (110 failed, 213

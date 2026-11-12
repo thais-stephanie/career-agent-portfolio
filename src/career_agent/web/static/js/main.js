@@ -985,7 +985,10 @@ store.subscribe((state, meta) => {
 
   const queryString = store.apiQueryString();
   if (queryString !== lastQueryString || !lastResponse) {
-    if (heldLists.has(queryString)) showHeld(queryString, state);
+    // Away from the list (Back on Home), not even a held one is shown and
+    // checked: the page that shows it does that when it opens (see `load`).
+    if (!LIST_PAGES.has(currentPage)) listDue = true;
+    else if (heldLists.has(queryString)) showHeld(queryString, state);
     else load(queryString, state);
   } else {
     paint(state);
@@ -1100,7 +1103,8 @@ function hold(queryString, response) {
  * "Update the list" after a run the app started by itself. On Find jobs or
  * Applications the list on screen is read again in place. Anywhere else the
  * person is taken to Find jobs, which reads it once, with the filters as they
- * are: every list held is from before the run, so none is shown on trust.
+ * are (leaving the board drops its tracked statuses, as any visit to Find jobs
+ * does): every list held is from before the run, so none is shown on trust.
  */
 function updateListAfterRun() {
   if (LIST_PAGES.has(currentPage)) {
@@ -1114,6 +1118,8 @@ function updateListAfterRun() {
 
 /** A list already read: on screen now, read again only if it could have moved. */
 function showHeld(queryString, state) {
+  // Called only where the list shows: this is the read a page switch was due.
+  listDue = false;
   const held = heldLists.get(queryString);
   if (held.writes !== localWrites) {
     load(queryString, state);
@@ -1144,6 +1150,12 @@ async function afterList(queryString, response) {
   if (!response.narrowings_pending) return;
   for (const wait of [0, 3000]) {
     if (wait) await new Promise((resolve) => { setTimeout(resolve, wait); });
+    // The heaviest read of all is not asked for a page nobody is looking at:
+    // the list is shown and checked again when its page opens, and asks then.
+    if (!LIST_PAGES.has(currentPage)) {
+      listDue = true;
+      return;
+    }
     try {
       const counts = await api.jobNarrowings(new URLSearchParams(queryString));
       Object.assign(response, counts, { narrowings_pending: false });

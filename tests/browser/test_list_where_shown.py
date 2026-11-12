@@ -52,6 +52,32 @@ def settle() -> None:
     time.sleep(1.5)
 
 
+def run_ends(page: Chrome) -> None:
+    """A run she started ends; returns once the page has decided about the list.
+
+    The end of a run waits for `/api/health`, draws `#health` from it, and
+    only then asks for the list (`refreshAfterCollection`), all in the task
+    that draws `#health`. So once `#health` is redrawn after a health read
+    asked after the end, any list read the end would make has been asked.
+    """
+    page.wait_for(
+        "window.__lrCalls.filter((c) => c.url.includes('/api/health')).every((c) => c.end)",
+        timeout=20,
+        message="the health reads from before the end",
+    )
+    page.evaluate("window.__lrHealthDrawn = document.getElementById('health').firstChild")
+    asked = len(calls(page, "/api/health"))
+    over = ended()
+    over["run"]["kind"] = "find"  # one she started: its end reads the lists again
+    rules(page, [{"match": "/api/retrieval", "mode": "json", "body": over}])
+    page.wait_for(
+        f"window.__lrCalls.filter((c) => c.url.includes('/api/health')).length > {asked}"
+        " && document.getElementById('health').firstChild !== window.__lrHealthDrawn",
+        timeout=20,
+        message="the end of the run deciding about the list",
+    )
+
+
 def test_home_opens_without_reading_the_find_jobs_list(
     page: Chrome, tailor_server: dict[str, Any]
 ) -> None:
@@ -102,16 +128,7 @@ def test_a_collection_ending_on_home_leaves_the_list_for_find_jobs(
     page.wait_for("document.querySelector('.home[data-view=dashboard]')", message="Home")
     settle()
     lists = len(find_lists(page))
-    over = ended()
-    over["run"]["kind"] = "find"  # one she started: its end reads the lists again
-    rules(page, [{"match": "/api/retrieval", "mode": "json", "body": over}])
-    homes = home_asked(page)
-    page.wait_for(
-        f"window.__lrCalls.filter((c) => /\\/api\\/home$/.test(c.url)).length > {homes}",
-        timeout=20,
-        message="Home counting what the run brought",
-    )
-    settle()
+    run_ends(page)
     assert len(find_lists(page)) == lists, "the end of a run read the list while Home showed"
     # Find jobs then reads the list, or (nothing really arrived here: the run
     # is synthetic) asks whether the one it holds is still current.
@@ -203,3 +220,134 @@ def test_update_the_list_says_so_when_the_read_fails(
         message="the failure, with a retry",
     )
     assert "load" in str(page.evaluate("document.querySelector('.state--error').innerText")).lower()
+
+
+BOARD = (
+    "document.querySelector('.kanban')"
+    " && !document.querySelector('.kanban').hasAttribute('aria-busy')"
+)
+HOME_SHOWN = "document.querySelector('.home[data-view=dashboard]')"
+
+
+def freshness(page: Chrome) -> int:
+    return len(calls(page, "/api/jobs/freshness"))
+
+
+def test_find_jobs_after_the_board_and_a_run_checks_its_list_once(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    """Find jobs, Applications, Home, a run ends, Find jobs: the list held is
+    shown and checked with one freshness question, not two (the page switch
+    leaves the board's view, which also changes the query)."""
+    intercept(page, [{"match": "/api/retrieval", "mode": "json", "body": running("find", "x:y")}])
+    page.set_viewport(1440, 960)
+    open_home_past_setup(page, tailor_server["url"])
+    go(page, "jobs")
+    page.wait_for(CARDS, timeout=20, message="the Find jobs list")
+    go(page, "applications")
+    page.wait_for(BOARD, timeout=20, message="the board")
+    go(page, "home")
+    page.wait_for(HOME_SHOWN, message="Home")
+    run_ends(page)
+    lists, asked = len(find_lists(page)), freshness(page)
+    go(page, "jobs")
+    page.wait_for(CARDS, timeout=20, message="the list held, shown again")
+    page.wait_for(
+        f"window.__lrCalls.filter((c) => c.url.includes('/api/jobs/freshness')).length > {asked}"
+        " && window.__lrCalls.filter((c) => c.url.includes('/api/jobs/freshness'))"
+        ".every((c) => c.end)",
+        timeout=20,
+        message="the freshness question answered",
+    )
+    assert freshness(page) == asked + 1, "the held list was checked more than once"
+    assert len(find_lists(page)) == lists, "an unchanged held list was read again"
+
+
+def test_back_on_home_neither_shows_nor_checks_a_held_list(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    """Back while Home shows moves the query to a list already held: nothing
+    of the list is asked until its page opens, which then checks it."""
+    intercept(page, [])
+    page.set_viewport(1440, 960)
+    open_home_past_setup(page, tailor_server["url"])
+    go(page, "jobs")
+    page.wait_for(CARDS, timeout=20, message="the Find jobs list")
+    page.evaluate("document.getElementById('view-table').click()")
+    page.wait_for("location.search.includes('view=table')", message="the table, in the address")
+    page.wait_for(
+        "document.querySelector('#page-jobs table tbody tr')", timeout=20, message="the table"
+    )
+    go(page, "home")
+    page.wait_for(HOME_SHOWN, message="Home")
+    lists, asked, counts = len(find_lists(page)), freshness(page), len(narrowings(page))
+    # Our listener runs after the app's, and after its microtasks: by then a
+    # list shown and checked would have asked its freshness question.
+    page.evaluate(
+        "window.__lrPopped = false;"
+        " window.addEventListener('popstate', () => { window.__lrPopped = true; }, { once: true });"
+        " history.back()"
+    )
+    page.wait_for("window.__lrPopped && !location.search.includes('view=table')", message="Back")
+    assert page.evaluate("document.body.dataset.page") == "home"
+    assert freshness(page) == asked, "Back on Home checked a list nobody sees"
+    assert len(narrowings(page)) == counts, "Back on Home asked the narrowings"
+    assert len(find_lists(page)) == lists
+    go(page, "jobs")
+    page.wait_for(
+        f"window.__lrCalls.filter((c) => c.url.includes('/api/jobs/freshness')).length > {asked}"
+        f" || window.__lrCalls.filter((c) => c.url.includes('/api/jobs?')"
+        f" && !c.url.includes('limit=24') && !c.url.includes('limit=8')).length > {lists}",
+        timeout=20,
+        message="Find jobs checking or reading the list Back chose",
+    )
+    page.wait_for(CARDS, timeout=20, message="the cards Back chose")
+
+
+def test_a_list_arriving_after_leaving_asks_its_narrowings_on_return(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    """The person opens Find jobs and leaves before the list arrives: the
+    narrowings, the heaviest read, wait for the list's page to open again."""
+    intercept(page, [{"match": "/api/jobs?", "mode": "delay", "ms": 1500}])
+    page.set_viewport(1440, 960)
+    open_home_past_setup(page, tailor_server["url"])
+    go(page, "jobs")
+    page.wait_for("window.__lrCalls.some((c) => c.url.includes('/api/jobs?'))", message="the read")
+    go(page, "home")
+    page.wait_for(HOME_SHOWN, message="Home")
+    # The list is painted (on the hidden page) in the task that would then
+    # ask the narrowings: once the cards exist, that question has been asked.
+    page.wait_for(
+        "document.querySelector('#page-jobs .cards .card[data-job-id]')",
+        timeout=20,
+        message="the list arriving behind Home",
+    )
+    assert narrowings(page) == [], "the narrowings were asked while Home showed"
+    go(page, "jobs")
+    page.wait_for(
+        "window.__lrCalls.some((c) => c.url.includes('/api/jobs/narrowings'))",
+        timeout=20,
+        message="the narrowings, asked on return",
+    )
+    assert len(narrowings(page)) == 1, narrowings(page)
+
+
+def test_a_shared_board_address_narrows_to_tracked_statuses(
+    page: Chrome, tailor_server: dict[str, Any]
+) -> None:
+    """`?view=kanban` read from an address narrows as the Board button does,
+    unless the address names its own statuses (state.js `fromSearch`)."""
+    intercept(page, [])
+    page.set_viewport(1440, 960)
+    open_home_past_setup(page, tailor_server["url"])
+    read = page.evaluate(
+        "(async () => { const m = await import('/js/state.js');"
+        " return { bare: m.fromSearch('?view=kanban').status,"
+        " named: m.fromSearch('?view=kanban&status=APPLIED').status,"
+        " cards: m.fromSearch('?view=cards').status,"
+        " tracked: [...m.TRACKED_STATUSES] }; })()"
+    )
+    assert read["bare"] == read["tracked"] and read["bare"], read
+    assert read["named"] == ["APPLIED"], read
+    assert read["cards"] == [], read
