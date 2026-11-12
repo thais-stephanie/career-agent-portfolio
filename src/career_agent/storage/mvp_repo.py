@@ -38,11 +38,11 @@ import json
 import re
 import sqlite3
 from collections import Counter
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, TypeVar
 
 from career_agent.clock import new_id, now_utc
 from career_agent.domain.application import (
@@ -2379,6 +2379,27 @@ def _cutoff(now: str, days: int) -> str:
     return moment.isoformat().replace("+00:00", "Z")
 
 
+T = TypeVar("T")
+
+
+def _bound_clauses(clauses: list[str], params: list[Any]) -> list[tuple[str, tuple]]:
+    """Each WHERE clause with the values it binds, by its `?` placeholders.
+
+    `_where_parts` binds every caller value as `?` and inlines only constants
+    of this module, none of which holds a `?`; a count that does not add up
+    is a builder change this pairing does not understand, and it fails loudly.
+    """
+    bound: list[tuple[str, tuple]] = []
+    at = 0
+    for clause in clauses:
+        n = clause.count("?")
+        bound.append((clause, tuple(params[at : at + n])))
+        at += n
+    if at != len(params):
+        raise AssertionError("WHERE placeholders and values do not pair up")
+    return bound
+
+
 def _fenced(value: Any) -> list[str]:
     """The values inside a `|a|b|c|` column. Empty for NULL or an empty string."""
     if not value:
@@ -2533,6 +2554,8 @@ class ScoredJobQuery(_Repo):
         self._indexed: bool | None = None
         #: The deep levels already in this connection's `temp.deep_level`.
         self._deep_loaded: tuple[tuple[str, str, bool, int], ...] | None = None
+        #: Set only inside `count_together`: where `count` takes its answer.
+        self._count_from: Callable[[str, int, JobFilter], int] | None = None
         # The free-text clause folds places in SQL (`ca_fold`). Registering is
         # idempotent and per connection.
         register_fold(conn)
@@ -2542,7 +2565,15 @@ class ScoredJobQuery(_Repo):
     def _where(
         self, config_id: str, config_version: int, f: JobFilter, *, alias: str = ""
     ) -> tuple[str, list[Any]]:
-        """The WHERE clause and its bound values. The only place either is built.
+        """The WHERE clause and its bound values; see `_where_parts`."""
+        clauses, params = self._where_parts(config_id, config_version, f, alias=alias)
+        return " WHERE " + " AND ".join(clauses), params
+
+    def _where_parts(
+        self, config_id: str, config_version: int, f: JobFilter, *, alias: str = ""
+    ) -> tuple[list[str], list[Any]]:
+        """The WHERE clauses (ANDed) and their bound values, in order. The only
+        place either is built.
 
         Every value a caller supplies is bound as a positional parameter. The
         only text ever interpolated is a run of ``?`` placeholders, whose length
@@ -2657,9 +2688,18 @@ class ScoredJobQuery(_Repo):
             # Ways of working she said never to show. Unstated stays visible:
             # a posting that did not say how the work is done has not said it
             # is the kind she excluded.
+            #
+            # Asked through `idx_job_match_work_model` (the rows that DO hold
+            # an excluded value, by rowid) rather than of the column: the
+            # column sits after `result_json` in the record, so reading it
+            # walks that blob's overflow pages, ~15 KB a posting, and turned
+            # every count under this narrowing into a read of whole rows
+            # (phase 3, 2026-11-12). Same rows: NULL and every other value
+            # are not in the set, and a rowid is never NULL.
             placeholders = ", ".join("?" for _ in f.excluded_work_models)
             clauses.append(
-                f"(jm{a}.work_model IS NULL OR jm{a}.work_model NOT IN ({placeholders}){tracked})"
+                f"(jm{a}.rowid NOT IN (SELECT rowid FROM job_match"
+                f" WHERE work_model IN ({placeholders})){tracked})"
             )
             params.extend(f.excluded_work_models)
 
@@ -2761,13 +2801,18 @@ class ScoredJobQuery(_Repo):
 
         # THE LANE (ADR-0039): readable postings form the shortlist; postings
         # whose source gave too little text to read are leads, kept apart. The
-        # length comes from the covering index of migration 0054. What the
+        # length comes from the covering index of migration 0054, NAMED: left
+        # to itself the planner picks the unique `content_hash` index and
+        # reads every advert's record (~6 KB, overflow pages) to measure it,
+        # which was most of a cold `/api/jobs/narrowings` (phase 3, 2026-11-12;
+        # `semantic/deep_run.py` names it for the same reason). What the
         # person brought in is always theirs to see on the shortlist.
         if f.lane not in LANES:
             raise ValueError(f"unknown lane {f.lane!r}; expected one of {LANES}")
         if f.lane != "all":
             chars = (
-                f"COALESCE((SELECT length(r{a}.description_text) FROM job_raw r{a}"
+                f"COALESCE((SELECT length(r{a}.description_text)"
+                f" FROM job_raw r{a} INDEXED BY idx_job_raw_chars"
                 f" WHERE r{a}.content_hash = j{a}.content_hash), 0)"
             )
             manual = f"j{a}.provider = '{ACCESS_METHOD_MANUAL}'"
@@ -2955,7 +3000,7 @@ class ScoredJobQuery(_Repo):
             clauses.append(clause)
             params.extend(group_params)
 
-        return " WHERE " + " AND ".join(clauses), params
+        return clauses, params
 
     def _deep_table(self, f: JobFilter) -> None:
         """The deep levels this filter carries, as `temp.deep_level`.
@@ -3215,6 +3260,8 @@ class ScoredJobQuery(_Repo):
     # -- the three readers -------------------------------------------------
 
     def count(self, config_id: str, config_version: int, f: JobFilter) -> int:
+        if self._count_from is not None:
+            return self._count_from(config_id, config_version, f)
         # A grouped count needs the number of groups, never their elected
         # representatives. Both group keys are NOT NULL in the schema.
         # Keep the exact filtered electorate, including tracking exemptions.
@@ -3230,6 +3277,131 @@ class ScoredJobQuery(_Repo):
         )
         row = self.conn.execute(sql, params).fetchone()
         return int(row["n"])
+
+    def count_together(self, config_id: str, config_version: int, ask: Callable[[], T]) -> T:
+        """`ask()`, with every `count` it makes read in ONE pass of the rows.
+
+        The narrowings are up to ten counts of ten populations that differ by
+        one or two clauses each, and each count read the whole revision again
+        (phase 3, 2026-11-12: most of a 155 s `/api/jobs/narrowings`). `ask`
+        runs twice: once to learn which filters it counts (every count answers
+        0, and nothing in it may branch on a count), then once more with each
+        count answered from `_count_many`. The populations are still decided
+        by the methods `ask` calls and by `_where`, never restated here.
+
+        One clock for the whole call, so every population is cut on the same
+        moment (separate counts each read their own).
+        """
+        asked: list[JobFilter] = []
+
+        def record(cid: str, version: int, f: JobFilter) -> int:
+            if (cid, version) != (config_id, config_version):
+                raise ValueError("count_together counts one configuration version")
+            asked.append(f)
+            return 0
+
+        pinned = self.now is None
+        if pinned:
+            self.now = now_utc()
+        try:
+            self._count_from = record
+            ask()
+            self._count_from = None
+            counted = self._count_many(config_id, config_version, asked)
+            self._count_from = lambda _cid, _version, f: counted[f]
+            return ask()
+        finally:
+            self._count_from = None
+            if pinned:
+                self.now = None
+
+    def _count_many(
+        self, config_id: str, config_version: int, filters: list[JobFilter]
+    ) -> dict[JobFilter, int]:
+        """`count(f)` of each filter, sharing one read per shape of query.
+
+        Filters share a read when they group alike and join the same inner
+        tables (`ja` and `je` are LEFT joins on a unique `job_id`, so joining
+        one a filter does not need adds no row). The read keeps the clauses
+        EVERY filter has; each other clause is computed once per row as one
+        bit of a mask, and a filter counts the rows (or groups with a row)
+        holding all of its bits. Same clauses, same values, same order of
+        bound parameters as `count` would send.
+        """
+        shapes: dict[tuple, list[JobFilter]] = {}
+        for f in dict.fromkeys(filters):
+            inner = replace(f, group_duplicates=False)
+            shape = (
+                f.group_duplicates,
+                self._joins_needed(inner) - {"ja", "je"},
+                self._from_for(frozenset(), f=inner),
+            )
+            shapes.setdefault(shape, []).append(f)
+        counted: dict[JobFilter, int] = {}
+        for group in shapes.values():
+            counted.update(self._one_pass(config_id, config_version, group))
+        return counted
+
+    def _one_pass(
+        self, config_id: str, config_version: int, group: list[JobFilter]
+    ) -> dict[JobFilter, int]:
+        inners = [replace(f, group_duplicates=False) for f in group]
+        parts = [_bound_clauses(*self._where_parts(config_id, config_version, i)) for i in inners]
+        common = Counter(parts[0])
+        for clauses in parts[1:]:
+            common &= Counter(clauses)
+        atoms: list[tuple[str, tuple]] = []
+        wanted: list[int] = []
+        for clauses in parts:
+            bits = 0
+            for atom in Counter(clauses) - common:
+                if atom not in atoms:
+                    atoms.append(atom)
+                bits |= 1 << atoms.index(atom)
+            wanted.append(bits)
+        if len(atoms) > 60:  # ponytail: a mask fits 63 bits; count apart beyond.
+            return {f: self.count(config_id, config_version, f) for f in group}
+        left = Counter(common)
+        shared: list[tuple[str, tuple]] = []
+        for atom in parts[0]:
+            if left[atom]:
+                left[atom] -= 1
+                shared.append(atom)
+        mask = " + ".join(
+            f"(CASE WHEN {clause} THEN {1 << bit} ELSE 0 END)"
+            for bit, (clause, _) in enumerate(atoms)
+        )
+        params = [p for _, bound in atoms for p in bound] + [
+            p for _, bound in shared for p in bound
+        ]
+        needed = frozenset().union(*(self._joins_needed(i) for i in inners))
+        source = (
+            self._from_for(needed, f=inners[0])
+            + " WHERE "
+            + " AND ".join(clause for clause, _ in shared)
+        )
+        if group[0].group_duplicates:
+            # A group counts once if ANY of its rows holds every bit asked.
+            # `LIMIT -1` (no limit) keeps the row query a subquery of its own,
+            # so the mask is computed once per row and the rows sorted once;
+            # flattened, it would be computed once per count (only slower).
+            held = ", ".join(f"MAX((m & {w}) = {w}) AS s{n}" for n, w in enumerate(wanted))
+            sums = ", ".join(f"SUM(s{n})" for n in range(len(wanted)))
+            sql = (
+                f"SELECT {sums} FROM (SELECT {held} FROM ("
+                f"SELECT j.company_id AS gc, j.title AS gt, {mask or '0'} AS m"
+                + source
+                + " LIMIT -1) GROUP BY gc, gt)"
+            )
+            row = self.conn.execute(sql, params).fetchone()
+            return {f: int(row[n] or 0) for n, f in enumerate(group)}
+        rows = self.conn.execute(
+            f"SELECT {mask or '0'} AS m, COUNT(*) AS n" + source + " GROUP BY m", params
+        ).fetchall()
+        return {
+            f: sum(int(n) for m, n in rows if int(m) & w == w)
+            for f, w in zip(group, wanted, strict=True)
+        }
 
     def hidden_by_eligibility(
         self,

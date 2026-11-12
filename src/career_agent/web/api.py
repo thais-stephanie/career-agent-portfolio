@@ -2805,27 +2805,35 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             return remembered
         repo = ScoredJobQuery(conn)
         totals = self._remembered(("totals", *key))
-        total = totals["total"] if totals is not None else repo.count(config_id, config_version, f)
-        counts = {
-            name: getattr(repo, method)(config_id, config_version, f, narrow_total=total)
-            for name, method in (
-                ("hidden_by_eligibility", "hidden_by_eligibility"),
-                ("hidden_off_target", "hidden_by_screening"),
-                ("hidden_unresolved", "hidden_unresolved"),
-                ("hidden_by_seniority", "hidden_by_seniority"),
-                ("hidden_by_work_model", "hidden_by_work_model"),
-                ("hidden_by_age", "hidden_by_age"),
-                ("hidden_undated", "hidden_undated"),
-                ("hidden_by_you", "hidden_by_the_candidate"),
+
+        def ask() -> dict:
+            total = (
+                totals["total"] if totals is not None else repo.count(config_id, config_version, f)
             )
-        }
-        # Not a narrowing but the other lane (ADR-0039): how many leads the
-        # same filters hold, so the shortlist can say where they went.
-        counts["leads"] = (
-            repo.count(config_id, config_version, replace(f, lane="leads"))
-            if f.lane == "shortlist"
-            else None
-        )
+            counts = {
+                name: getattr(repo, method)(config_id, config_version, f, narrow_total=total)
+                for name, method in (
+                    ("hidden_by_eligibility", "hidden_by_eligibility"),
+                    ("hidden_off_target", "hidden_by_screening"),
+                    ("hidden_unresolved", "hidden_unresolved"),
+                    ("hidden_by_seniority", "hidden_by_seniority"),
+                    ("hidden_by_work_model", "hidden_by_work_model"),
+                    ("hidden_by_age", "hidden_by_age"),
+                    ("hidden_undated", "hidden_undated"),
+                    ("hidden_by_you", "hidden_by_the_candidate"),
+                )
+            }
+            # Not a narrowing but the other lane (ADR-0039): how many leads the
+            # same filters hold, so the shortlist can say where they went.
+            counts["leads"] = (
+                repo.count(config_id, config_version, replace(f, lane="leads"))
+                if f.lane == "shortlist"
+                else None
+            )
+            return counts
+
+        # Every count above in ONE read of the rows they share (phase 3).
+        counts = repo.count_together(config_id, config_version, ask)
         return self._remember(("narrowings", *key), counts)
 
     def get_view_prefs(self, *, query: dict, body: dict) -> dict:
