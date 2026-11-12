@@ -332,3 +332,22 @@ measured.
   read-only SQL on a closed socket is a new mechanism, left out; the opening no
   longer sends the heaviest of those reads (the narrowings).
 - **`/api/profiles` asked twice at the opening** (tens of milliseconds): left.
+- **"Update the list" pressed on Home** after an automatic update: the list is
+  noted as due and read when Find jobs opens, as any other read asked away
+  from it. Taking the person to Find jobs instead is a product choice: left.
+
+### Suites (2026-11-12)
+
+The first full browser run on `309ca99` failed widely (110 failed, 213
+errors): tests opened the app on Home and then measured, clicked or counted
+the hidden list, which is no longer read there, and the timeouts cascaded
+into connection resets. `89a4ec9` opens Find jobs or Applications first. A
+hash-only change does not switch pages in this app, so a same-document
+`#jobs` navigation is followed by the top navigation press. No product code
+changed for it.
+
+| Suite, on `89a4ec9` unless noted | Result |
+|---|---|
+| ruff, format, frontend, localisation, punctuation | clean |
+| Unit + integration (`309ca99`; no Python changed since) | 13,601 passed, 8 skipped, 1 failed: `test_printing_fetches_nothing_and_leaves_no_browser_profile` (an Edge profile left behind, the known flaky cleanup pair) |
+| Full browser | 637 passed, 1 failed: `test_complete_persona_journey[admin-br]`, the first-run save step; the file passes alone (3 of 3), and the earlier rerun failed on `[retail-br]` instead |
