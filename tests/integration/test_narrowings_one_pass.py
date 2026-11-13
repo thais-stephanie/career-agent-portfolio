@@ -315,3 +315,34 @@ def test_the_work_model_narrowing_selects_the_rows_the_column_test_did(
         nulls = nulls.fetchone()[0]
     assert by_column == by_index
     assert nulls and by_column, "the corpus must hold unstated and kept ways of working"
+
+
+def test_filters_reading_different_deep_levels_are_not_counted_together(api: JobsApi) -> None:
+    """`deep` reads `temp.deep_level`, which only `f.deep_levels` fills: two
+    filters with the same clause text but different levels must not share a
+    pass (review, 2026-11-13: together they both read the last levels loaded)."""
+    cid, ver = api._identity()
+    with api.connect() as conn:
+        ids = [
+            r[0]
+            for r in conn.execute(
+                "SELECT DISTINCT job_id FROM job_match WHERE config_id = ? AND config_version = ?"
+                " ORDER BY job_id LIMIT 2",
+                (cid, ver),
+            )
+        ]
+        one = JobFilter(lane="all", deep=("READ",), deep_levels=((ids[0], "STRONG", False, 0),))
+        two = replace(one, deep_levels=one.deep_levels + ((ids[1], "STRONG", False, 0),))
+        want = [ScoredJobQuery(conn).count(cid, ver, f) for f in (one, two)]
+        repo = ScoredJobQuery(conn)
+        got = repo.count_together(cid, ver, lambda: [repo.count(cid, ver, f) for f in (one, two)])
+    assert want[0] != want[1], "the two level sets must count differently"
+    assert got == want
+
+
+def test_count_together_refuses_to_nest(api: JobsApi) -> None:
+    cid, ver = api._identity()
+    with api.connect() as conn:
+        repo = ScoredJobQuery(conn)
+        with pytest.raises(RuntimeError):
+            repo.count_together(cid, ver, lambda: repo.count_together(cid, ver, lambda: None))

@@ -3292,6 +3292,8 @@ class ScoredJobQuery(_Repo):
         One clock for the whole call, so every population is cut on the same
         moment (separate counts each read their own).
         """
+        if self._count_from is not None:
+            raise RuntimeError("count_together does not nest")
         asked: list[JobFilter] = []
 
         def record(cid: str, version: int, f: JobFilter) -> int:
@@ -3322,7 +3324,12 @@ class ScoredJobQuery(_Repo):
 
         Filters share a read when they group alike and join the same inner
         tables (`ja` and `je` are LEFT joins on a unique `job_id`, so joining
-        one a filter does not need adds no row). The read keeps the clauses
+        one a filter does not need adds no row) and read the same deep levels.
+        It relies on a clause meaning only its text and bound values; a
+        clause that reads other state (as `deep` reads `temp.deep_level`)
+        must put that state in the shape. Tables a clause reads are part
+        of its meaning only because every pass reads the same tables; a
+        temp table one filter fills is not. The read keeps the clauses
         EVERY filter has; each other clause is computed once per row as one
         bit of a mask, and a filter counts the rows (or groups with a row)
         holding all of its bits. Same clauses, same values, same order of
@@ -3335,6 +3342,9 @@ class ScoredJobQuery(_Repo):
                 f.group_duplicates,
                 self._joins_needed(inner) - {"ja", "je"},
                 self._from_for(frozenset(), f=inner),
+                # `deep` reads `temp.deep_level`, which these fill as the
+                # clause is built: the clause text alone does not name them.
+                f.deep_levels,
             )
             shapes.setdefault(shape, []).append(f)
         counted: dict[JobFilter, int] = {}
