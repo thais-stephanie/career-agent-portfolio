@@ -301,3 +301,90 @@ browser, GET only): open Find jobs once in cards view and record
 Applications, Tailor Start. Before that, read-only: confirm
 `idx_job_raw_chars` exists in the catalogue and `idx_job_match_work_model` in
 the profile database. Target: narrowings at most 15 s on the first opening.
+
+## Independent review and fixes (2026-11-13)
+
+A separate reviewer read the code, migrations and tests before this note, and
+compared the new path with the ORIGINAL `ScoredJobQuery` of `dd581cb`
+(imported as its own module, not through any function the branch shares) on
+the test corpus extended with deep levels, `job_enrichment` rows and
+`''`/unexpected work models.
+
+| Finding | Severity | Status |
+|---|---|---|
+| F1. `count_together` mixed filters with different `deep_levels`: `_deep_clause` fills `temp.deep_level` while the clause is built and its text does not name the levels, so filters in one pass all read the last levels loaded (repro: separate `[1, 2]`, together `[2, 2]`; 7 of 150 random mixed bags) | MINOR, latent: `_narrowings` derives every filter from one request, so no served count was wrong | fixed in `ca67fe9`: the levels are part of the shape key; the rule "a shared clause means only its text and bound values" is in the docstring |
+| F2. `count_together` called inside `ask` would break the record pass (a loud `KeyError`) | NIT | fixed: it refuses to nest (`RuntimeError`), state stays clean |
+| F3. The rowid work-model subquery is not limited to the configuration, so its set grows with older revisions kept in `job_match` | MINOR, performance hypothesis | not changed: `idx_job_match_work_model` holds `work_model` and the rowid only, so a config predicate would read one table row per excluded posting, the cost the rewrite removed. The right fix, if retention ever keeps many revisions, is an index on `(work_model, config_id, config_version)`: a migration, so the owner's decision |
+| F4. `_deep_loaded` is cached per query object, `temp.deep_level` per connection | NIT, pre-existing at `dd581cb` | not changed (out of scope) |
+
+Both new tests fail before the fix (`[2, 2] == [1, 2]`; `DID NOT RAISE`) and
+pass after. A second review of the fix found it complete (no other state a
+clause reads outside its text and values: the clock is bound, FTS
+availability changes the clause text, table subqueries read one snapshot per
+statement) and two nits, both applied (the test reads ids of the current
+revision only; the docstring names temp tables).
+
+No defect was found in: `INDEXED BY idx_job_raw_chars` (0054 creates it in
+every migrated catalogue and single-file database; profile databases have no
+`job_raw`; the attached plan uses the covering index), the rowid rewrite
+(NULL, `''`, unexpected and several excluded values, the tracked exemption,
+other revisions), the `?` pairing, common-clause factoring, LEFT joins on the
+unique `job_id`, grouped counts with NULL company or title, the 60-bit
+fallback, and request isolation (one query object per request).
+
+### Equivalence after the fix
+
+* Reviewer's old-against-new harness, re-run on the fixed code: 800 of 800
+  narrowings equal (FTS and LIKE, grouped and not, every lane, deep filters,
+  enrichment, statuses, saved, unstated places); 0 of 150 mixed bags differ
+  (7 before the fix).
+* The production path is unchanged by the fix: on 60 random filters through
+  `_narrowings`, `5cfc33b` and `ca67fe9` send byte-identical SQL statements in
+  the same order and return the same counts. The 30k/mutated A/B (36 queries
+  by 3 full answers, 0 differences) and the benchmarks above therefore hold
+  for the fixed code without rebuilding the corpora.
+
+### Single pass against the index fixes alone
+
+The two index fixes are about six lines and carry most of the cold gain on
+plain requests; the single pass is about 130 lines. Measured (cold, medians,
+same runs as above): plain grouped at 30k the index-only variant is ~0.3 s
+faster, at 90k they are level (3.99 s against 3.96 s); with search the single
+pass wins clearly (90k grouped + search cold 15.0 s against 8.0 s, warm 9.0 s
+against 2.3 s), and on the mutated corpus warm (1.1-1.9 s against 0.5-1.1 s).
+The earlier 30k search run whose cold reduction was below 70% (cold medians
+base 18.1 s, new 6.6 s, -64%; warm 8.4 s against 1.9 s, -78%) is the FTS
+subquery itself, which both
+variants pay once per pass; the index-only variant paid it in every count
+(6.6-14.0 s). Kept: search is a common Find jobs path, the gain there is the
+largest, and the one hidden assumption it carried (F1) is now in the shape
+key, tested, and written down. Its maintenance cost: any future clause that
+reads state outside its text and values must add that state to the shape.
+
+### Real install: index presence (read-only, 2026-11-13)
+
+App closed (no Python process, nothing on 8765), no collection or rescore,
+`-wal` files empty. Opened with `mode=ro` and `query_only`; read only
+`sqlite_master` and the migration ledger.
+
+| Database | Index | Schema |
+|---|---|---|
+| shared catalogue | `idx_job_raw_chars` present (`job_raw (content_hash, length(description_text))`) | 61 |
+| main profile | `idx_job_match_work_model` present; `job_match` is a rowid table | 61 |
+| second profile | `idx_job_match_work_model` present; `job_match` is a rowid table | 61 |
+
+Database files unchanged (size, mtime, SHA-256); `-wal` unchanged; `-shm`
+size unchanged and its mtime moved, which is SQLite's shared-memory read
+lock, not a record change.
+
+### Gates and suites after the fix (on `ca67fe9`, sequential, own temporary folders)
+
+| Step | Result |
+|---|---|
+| `tests/integration/test_narrowings_one_pass.py` | 10 passed (the two new tests fail on `5cfc33b`) |
+| focused: the 22 unit and integration files that name the narrowings or `ScoredJobQuery` | passed, exit 0 |
+| `pytest tests/unit tests/integration` | 13,620 tests, 8 skipped, 0 failures, exit 0 (67 min) |
+| `pytest tests/browser` | 645 tests, 1 failure, exit 1 (31 min): `test_release_personas.py::test_complete_persona_journey[success-us]` timed out (30 s) waiting for the onboarding work step after saving preferences on an empty catalogue. That step never reaches `count_together` (its only caller is `_narrowings`). The file re-run alone 3 times: 3 of 3 passed, all personas. Same onboarding persona flake seen in earlier rounds; recorded as a known failure, not a pass |
+| `ruff check .`, `ruff format --check .` | clean |
+| `mypy src` | the same 3 errors as `dd581cb` (`web/export.py:253`, `evaluation/ranking.py:327`, `:352`), checked on an extracted `dd581cb` tree |
+| frontend, localisation, punctuation | clean |
