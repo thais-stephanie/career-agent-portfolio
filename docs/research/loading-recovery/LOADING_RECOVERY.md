@@ -392,3 +392,9 @@ changed for it.
 | ruff, format, frontend, localisation, punctuation | clean |
 | Unit + integration (`309ca99`; no Python changed since) | 13,601 passed, 8 skipped, 1 failed: `test_printing_fetches_nothing_and_leaves_no_browser_profile` (an Edge profile left behind, the known flaky cleanup pair) |
 | Full browser | 637 passed, 1 failed: `test_complete_persona_journey[admin-br]`, the first-run save step; the file passes alone (3 of 3), and the earlier rerun failed on `[retail-br]` instead |
+
+## Phase 3: the narrowings (2026-11-12)
+
+`/api/jobs/narrowings`, the residual 155 s of the Phase 2 real measurement:
+cause, changes, equivalence and synthetic before/after in
+[NARROWINGS_PHASE3.md](NARROWINGS_PHASE3.md).
