@@ -8,7 +8,30 @@ not even read-only. The real numbers quoted come from the browser-side
 measurement of 2026-11-13 (Phase 3 validation), which recorded request timings
 only.
 
-## Verdict
+## Verdict after the real read-only profiling (2026-11-16)
+
+**REAL DIAGNOSIS COMPLETE** (section 12). The synthetic verdict below is kept
+as it was written; the real data overturned two of its conclusions:
+
+- **Home's dominant cost is CPU, not disk:** deriving the deep-reading level of
+  every one of the 2,127 read postings (`deep_api._review_rows` ->
+  `deep_assess.assess`, 2,367 assessments) takes 54% of a first Home
+  (13.5 of 25.0 s) and 81-86% of a repeat (7.0-10.2 of 8.6-11.8 s). Only 244
+  of those postings can appear in Home's sections. Deriving the levels for
+  those alone gave the **identical Home answer** in 6 of 6 runs and took Home
+  from 6.6-8.6 s to 2.2 s.
+- **`/api/sources` is not the collection history on the real install**
+  (524 runs, 1.8 MB of `stats_json`: under 0.3 s of the request). It is
+  `_posting_facts` walking the whole `job` table in index order: 14.0 of
+  17.6 s first, 3.3-4.2 of 4.8-5.5 s again. A plain table scan gives the same
+  answer reading 151 MB instead of 799 MB (0.2-0.7 s instead of 1.0-2.9 s).
+  Alternatives A and B are therefore not worth implementing.
+- `/api/health` beside `/api/home` did not measurably slow Home (warm). What
+  concurrency does cost is the reverse: Home holds the interpreter (CPU-bound
+  Python), so `/api/sources` and `/api/home/outdated` take 1.6-3x longer when
+  they run beside it.
+
+## Verdict of the synthetic diagnosis (2026-11-13)
 
 **DIAGNOSIS PARTIAL — REAL VALIDATION NEEDED.**
 
@@ -506,3 +529,252 @@ Needs the owner's approval; read-only; the Phase 3 harness discipline.
 | F + G | 0.5 day |
 | D/E after the measurement | 0.5 day + browser tests + one real measurement |
 | Owner decisions C, H, J, K | design 0.5-2 days each once decided; J may be larger |
+
+## 12. Real read-only profiling (2026-11-16)
+
+Authorised by the owner: reading, measuring and profiling the live install,
+nothing written. Code as published at `8a43fb0`, unmodified.
+
+### 12.1 How it was measured, and what was protected
+
+- **No server, no `launch.py`** (it migrates and syncs the board registry,
+  both writes). The handlers ran in process on a `JobsApi` subclass whose
+  only change is `connect()`: the profile database opened with
+  `mode=ro` and the catalogue attached with the product's own
+  `attach_read_only` (`mode=ro`), `temp_store=MEMORY` (Home's deep sort needs
+  `temp.deep_level`; `PRAGMA query_only` refuses temp tables, so it is used
+  for the direct aggregate queries only), and an SQLite authorizer denying any
+  write to `main` or `catalogue`. `sqlite3.connect` and the product's
+  write-capable `storage.db.connect` and `catalogue.attach` were replaced by
+  guards that refuse the live data folder. Validated first on a synthetic
+  copy: both guards refused, `UPDATE`/`CREATE`/`DELETE` were denied, temp
+  tables worked; the I/O counter matched a file read byte for byte; CPU
+  time matched a 1 s busy loop (0.91 s on a loaded machine).
+- Timings per handler: wall, thread CPU, process bytes read (OS cache hits
+  included), peak working set, SQL time per statement (no parameters stored),
+  Python time (wall minus SQL), serialisation, response size, and inclusive
+  timers on the functions named in the hypotheses. Imports and lazy module
+  loads were paid first on a 60-posting SYNTHETIC corpus, so no live page was
+  read before a "first" measurement. One process per measurement.
+- Nothing stored but aggregates, SQL text and hashes: no response body, row,
+  posting, JSON body or personal text.
+
+**An incident to record.** The first validation run of the harness was meant
+for the synthetic copy, but the path override had not been applied (a shell
+edit failed silently), so it ran against the live install, read-only, from
+15:09 to 15:13. Every guard was active, no write was attempted or denied, and
+it was stopped before the guard self-test (which issues write statements on
+purpose) could reach the live files. The state checks below show nothing
+changed. Its numbers are kept only as a labelled side note, because during
+those minutes **another session's full unit and integration suite started
+(15:10) in the main checkout**, sharing CPU and disk. That suite was then
+waited out: every measurement below started at 16:19, with no test suite or
+other app process running.
+
+**Cache state.** The machine had booted at 14:57 and the database files had
+not been opened since 2026-11-13, so the very first read (the side-note run)
+met an almost certainly cold file cache. That one-shot state was spent by it.
+The clean runs are therefore "first read in a fresh process", with an OS
+cache warmed by earlier runs but under memory pressure (1.2-2.0 GB free of
+16 GB, a 5.9 GB profile file and a 9.9 GB catalogue), not cold-disk numbers.
+
+### 12.2 The real volume
+
+| | |
+|---|---|
+| Catalogue file | 9.9 GB (2,421,310 pages of 4 KB, freelist 0) |
+| Profile file | 5.9 GB (1,447,234 pages, freelist 3) |
+| `job` | 291,417 rows, 274,420 open; Workable 147,766 open, fourdayweek 46,241, jobgether 16,993, others below 13,000 |
+| `job_raw` | 257,251 adverts, about 4.9 KB each (1% sample, max 28 KB) |
+| `source_board` | 23,117 boards (jobgether 6,062, workable 5,934, himalayas 3,551, ...) |
+| `job_match` | 615,644 rows in three revisions kept: v7 124,233, v9 217,394, v10 274,017; `result_json` about 7.3 KB each (2% sample, max 16 KB) |
+| current revision (v10) | 12,462 VERIFIED_ELIGIBLE, 75,227 VERIFIED_NOT_ELIGIBLE, 186,328 UNRESOLVED (all NOT_BLOCKED) |
+| `pipeline_run` | 524 runs, 1.77 MB of `stats_json` in total (483 under 10 KB, 41 of 10-100 KB, largest 50.6 KB); 310 shared `collect` runs carrying 2,764 `by_board` entries in total (at most 141 per run) |
+| `deep_review` | 3,341 reviews of 2,127 postings: 20.4 MB `raw_response`, 20.1 MB `review_json`, 14.5 MB `sent_json`; 1,925 of the postings open, **244 open and eligible under v10** |
+| `job_score_revision` | 615,644; `deep_attempt` 3,344; applications 6; confirmed claims 261 |
+
+The aggregate `SELECT provider, COUNT(*) FROM job WHERE closed_at IS NULL
+GROUP BY provider` alone took 61 s during the survey (shared with the other
+suite): the first sign of where `/api/sources` spends its time.
+
+### 12.3 Each endpoint alone (16:19-16:23, two rounds, each a new process)
+
+| Endpoint | first, round 1 | first, round 2 | again (new `JobsApi`) | same `JobsApi` | SQL of first r1 | CPU of first r1 | read | peak WS | queries |
+|---|---|---|---|---|---|---|---|---|---|
+| `/api/home` | **25.0 s** | 12.7 s | 11.8 s / 8.6 s | 0.02 s (memo) | 16.0 s | 14.2 s | 523 MB | 161-176 MB | 59 |
+| `/api/health` | 8.8 s | 0.9 s | 0.6 s / 1.4 s | 0.8 s / 1.2 s (no cache) | 8.7 s | 2.8 s | 222 MB | 78 MB | 15 |
+| `/api/sources` | **17.6 s** | 5.5 s | 4.8 s / 5.4 s | 4.5 s / 4.8 s (no cache) | 17.4 s | 7.6 s | 1,030 MB | 87 MB | 22 |
+| `/api/home/outdated` | 9.6 s | 3.2 s | 2.8 s / 2.9 s | 0.01 s (memo) | 9.4 s | 4.5 s | 339 MB | 95 MB | 98 |
+| `/api/firstrun` (control) | 0.8 s | 0.04 s | 0.07 s / 0.04 s | 0.04 s | 0.7 s | 0.3 s | 7 MB | 79 MB | 14 |
+
+Serialisation is under 2.2 ms everywhere (Home's answer 17 KB, sources' 166
+KB). Round 1 is the first time each endpoint's pages were read in this boot
+without the other suite running; round 2 repeats it with those pages partly
+in the file cache. Side note, not comparable (cold, beside another suite):
+Home 89.1 s then 53.4 s, health 22.5 s then 2.3 s.
+
+### 12.4 Where each one spends it
+
+**`/api/home`** (inclusive timers):
+
+| Part | first r1 (25.0 s) | first r2 (12.7 s) | again r1 (11.8 s) | again r2 (8.6 s) |
+|---|---|---|---|---|
+| lists (`_home_lists_now`) | 24.7 | 12.7 | 11.8 | 8.6 |
+| **deep levels** (`deep_levels` -> `_review_rows`) | **13.5** (54%) | **10.9** (86%) | **10.2** (86%) | **7.0** (81%) |
+| of which `SELECT * FROM deep_review` (`newest_per_job`) | 2.2 | 1.1 | 0.5 | 0.4 |
+| of which reading score, title, company for the 2,127 read postings | 1.7 | | | |
+| two section pages (`ScoredJobQuery.page`) | 5.9 | 1.4 | 1.2 | 1.2 |
+| grouped total (`ScoredJobQuery.count`) | 2.4 | | 1.1 (side note) | |
+| `COUNT(*) FROM job WHERE closed_at IS NULL` | 2.8 | | | |
+| cards, gaps, questions, freshness, latest refresh | under 0.1 | | | |
+
+cProfile (a separate warm run, 16.8 s under the profiler): `deep_assess.assess`
+2,367 calls, 11.6 s cumulative; inside it `_requirement` 18,011 calls,
+`_fold` (accent folding, 5.6 million `unicodedata.combining` calls) 4.9 s,
+231,677 `re.search` calls with 1,423 pattern recompilations (dynamic patterns
+overflow the `re` cache), `_category` 2.1 s; JSON decoding of reviews 0.8 s.
+The profiler inflates this generator-heavy code: see 12.7 for what a CPU-only
+change actually saved.
+
+**`/api/health`**: first 8.8 s = `digests_for` 4.4, `reading_moved_count`
+2.1, `search_index.is_current` 1.2, `count_for` 0.6, the open count twice;
+afterwards 0.6-1.4 s. Cheap once its index pages are cached.
+
+**`/api/sources`**: `_posting_facts` (`SELECT provider, COUNT(*),
+MAX(first_seen_at) FROM job GROUP BY provider`) is **14.0 of 17.6 s (79%)**
+first and 3.3-4.2 of 4.8-5.5 s (70-78%) afterwards; `catalogue.resolve` 1.1-3.1
+s (`_producing_boards_by_provider` 0.4-2.4, `_counts_by_provider` 0.6-0.8);
+the collection history (`_runs`, `_refresh_progress` with `read_progress`)
+0.16-0.3 s and `json.loads` 0.09 s: **about 1-4% of the request**. Plan of
+`_posting_facts`: `SCAN job USING INDEX sqlite_autoindex_job_2`, the whole
+table visited in `(provider, external_id)` order with a row lookup each:
+799 MB read for a 291,417-row table.
+
+**`/api/home/outdated`**: `rescore.plan` is all of it; `_missing_or_stale` 8.1
+of 9.6 s first (its `job_input_revision` ... `NOT EXISTS job_score_revision`
+query 7.2 s) and 1.8-2.0 of 2.8-2.9 s afterwards; `_open_scoreable` 0.5;
+`_eligible_first` and the sort of the targets do not reach the top seven
+timers (under 0.08 s each).
+
+### 12.5 Concurrency (16:23-16:26; after 12.3, so file cache as there)
+
+| Case | Home | the other | end |
+|---|---|---|---|
+| A. Home alone (3 runs) | 9.8, 9.5, 8.1 s | | |
+| C. Home + health together (3 runs) | 8.5, 10.2, 7.9 s | health 0.9, 1.5, 0.7 s (alone 0.6-1.4) | |
+| D. Home + sources (2 runs) | 9.1, 9.2 s | sources **8.4, 8.2 s** (alone 4.8-5.5) | 9.1-9.2 s |
+| E. Home + outdated (2 runs) | 9.0, 8.7 s | outdated **9.7, 9.1 s** (alone 2.8-3.2) | 9.1-9.7 s |
+| F. The page's order: Home, health and firstrun at once, sources and outdated after Home (2 runs) | 7.6, 8.6 s | health 1.2 s; outdated 4.6 / 3.1 s, sources 6.1 / 4.6 s after Home | **13.8, 13.2 s** |
+
+- **Health does not slow Home** measurably (A against C, interleaved). On a
+  cold disk it may; that state could not be measured twice (12.1).
+- **Home slows the others**: it is CPU-bound Python, and the others need the
+  interpreter for each row they fetch, so sources takes 1.6x and outdated about
+  3x as long beside it. Home itself is unchanged.
+- The page as written ends at about Home + the slower of sources and outdated
+  (13.2-13.8 s warm). Started together with Home (D, E), the same work ended in
+  9.1-9.7 s, without slowing Home.
+
+### 12.6 Answers to the hypotheses
+
+| | Verdict on the real install |
+|---|---|
+| H1 Home is cold reading | **Partly.** The first read (25.0 s) is 16.0 s SQL; but even with its pages cached Home stays at 8.6-11.8 s, 81-86% of it the CPU of deriving every deep level |
+| H2 health slows Home | **Not measurable warm** (A vs C); cold not measurable again |
+| H3 sources is the collection history | **Refuted**: history is 1-4%; 70-79% is the `job` walk in index order |
+| H4 deep readings add 1-3 s | **Refuted low**: they are 7.0-13.5 s, the largest single cost of Home |
+| H5 outdated is the moved readings | **Refuted**: `_missing_or_stale` (the receipts query) is 65-85%; ordering the targets is negligible |
+
+### 12.7 Experiments on the real data (scratch only, answers compared)
+
+1. **Deep levels for Home's population only.** Home computed with its deep
+   levels derived only for the read postings that are open and eligible under
+   the current revision (244), against Home as written, alternating, a new
+   `JobsApi` each time. Home's whole answer (minus the moment it was counted)
+   hashed: **identical in all 6 runs**. Wall: as written 6.6, 8.6, 8.1 s;
+   restricted **2.2, 2.3, 2.2 s** (-67% to -74%). Why it cannot change the
+   answer: the levels only enter Home through `ORDER BY` lookups in
+   `temp.deep_level` for rows that already passed the section's `WHERE`, and
+   no row outside that population passes it.
+2. **CPU-only changes inside `deep_assess`** (an ASCII fast path and memo in
+   `_fold`, memoised compilation of dynamic patterns): levels identical, but
+   6.4, 5.7, 5.7 s against 4.6, 6.8, 7.2 s: within the run-to-run spread.
+   **Inconclusive; not recommended as a first step.**
+3. **The `job` walk in sources.** Same aggregate, read-only, three alternating
+   rounds:
+
+   | Query | Plan | Time | Read |
+   |---|---|---|---|
+   | `_posting_facts` as written | `SCAN job USING INDEX sqlite_autoindex_job_2` | 1.0, 1.4, 2.9 s | 799 MB |
+   | the same with `NOT INDEXED` | `SCAN job`, temp B-tree | 0.21, 0.21, 0.68 s | 151 MB |
+   | `_counts_by_provider` as written | `idx_job_open_population` | 0.19, 0.23, 0.69 s | 172 MB |
+   | both in one `NOT INDEXED` pass | `SCAN job` | 0.21, 0.22, 0.64 s | 151 MB |
+
+   Same rows in every case (checked).
+
+### 12.8 The alternatives, on the real data
+
+| | Verdict |
+|---|---|
+| A + B (one read and one decode of the history in sources) | **Do not implement**: the history is 0.16-0.3 s of the request |
+| F (count the outdated targets without ordering them) | **Do not implement**: ordering is under 0.1 s; the cost is the receipts query |
+| G (reuse the open-postings count) | Small: 0.3 s warm, up to 2.8 s cold in Home; worth folding into the step it touches, not a step of its own |
+| D (ask sources and outdated together with Home) | **Worth doing after the first step**: page end 13.2-13.8 s -> 9.1-9.7 s warm with Home unchanged; cold effect unmeasured |
+| E (ask health after Home) | **Do not implement**: health does not slow Home |
+| New: deep levels for Home's population only (12.7.1) | **First implementation**: Home -67% to -74% warm, identical answer, no cache, TTL or freshness change |
+| New: one `NOT INDEXED` pass for sources' provider facts and counts (12.7.3) | **Second**: 799 + 172 MB -> 151 MB; sources' largest part from 3.3-14.0 s to an expected 0.2-0.7 s, identical answer |
+| deep_assess CPU changes (12.7.2) | Not now: no measurable gain |
+| Outdated's receipts query (7.2 s first, 1 s again) | A plan question for a later step; not diagnosed here |
+
+### 12.9 Freshness
+
+Neither recommended change adds a cache, changes a key, a TTL, the
+`population_token`, the write counter or when anything is computed:
+
+- the restricted deep levels are computed where and when Home's lists are
+  computed today (on a memo miss) and are NOT stored in `_deep_levels_cache`,
+  which other screens read as the whole map; when that whole map is already
+  remembered, Home can read from it unchanged;
+- the sources change is the same SQL aggregate over the same table, read in
+  another order.
+
+Still owner decisions, unchanged: C (history retention, now irrelevant for
+speed), H (index), J (when Home's lists are computed, persisted across a
+restart), K (caches for health and sources).
+
+### 12.10 Recommendation
+
+1. **Home: derive deep levels only for its sections' population.** The ids
+   should come from the section filter itself (the same `_where`), not a
+   hand-written eligibility test, so the argument in 12.7.1 holds by
+   construction. Tests: Home's answer equal with whole-map and restricted
+   levels on synthetic corpora carrying deep reviews (read postings inside
+   and outside the population, stale and current, every level); the whole-map
+   cache untouched; Find jobs' deep order unchanged. **1 day.** Expected:
+   Home again 8.6-11.8 s -> about 2-3 s; first read 25 s -> about 12-14 s
+   (hypothesis: the cold SQL of the pages, the grouped total and the open
+   count remains).
+2. **Sources: one `NOT INDEXED` pass for the provider facts and counts**,
+   feeding both `health._posting_facts` and `catalogue._counts_by_provider`.
+   Tests: answer equality over providers with open and closed postings, none
+   open, none at all. **0.5 day.** Expected: sources 4.8-5.5 s -> about 1.5-2
+   s again; first read 17.6 s -> about 4-6 s (hypothesis).
+3. **D: ask sources and outdated together with Home** (frontend only), after 1,
+   since 1 frees the interpreter: **0.5 day** plus browser tests and one real
+   measurement.
+4. Then measure again (real, read-only) before anything else; the 10 s target
+   for a first opening after a restart looks reachable with 1 + 2 + 3 warm
+   and is not proven cold.
+
+### 12.11 Integrity
+
+| Check | Result |
+|---|---|
+| Logical state (migration ledger, schema 61 everywhere, indexes, `MAX(rowid)` of the main tables of each database, the auto-update keys) | identical before (15:20) and after (16:31), and identical to the end of the 2026-11-13 measurement |
+| 403 files under `data/` and `config/` (size and mtime) | unchanged except the three `-shm` files (shared-memory index rewritten by every read-only open) |
+| WAL files | 0 bytes, mtimes unchanged |
+| Main database files | size and mtime unchanged (2026-11-10); SHA-256 recorded at the end for later comparisons: profile `c38d4f87b4c6b484...`, catalogue `84130dac83ea6b31...`, second profile `d68fb484f006d438...` (a full hash before was skipped on purpose: reading 16 GB would have warmed the cache the first measurement needed) |
+| Writes | none attempted, none denied by the authorizer (its log only lists `PRAGMA table_info` reads) |
+| Processes and port | no harness process left, port 8765 free, no collection, recalculation or deep reading started |
+| `jobspy_resultados.csv` | SHA-256 unchanged (`ed80bfa9...961b`) |
+| Git | `main` = `origin/main` = `8a43fb0`; nothing pushed or merged |
