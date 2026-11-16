@@ -33,7 +33,7 @@ as it was written; the real data overturned two of its conclusions:
 
 ## Verdict of the synthetic diagnosis (2026-11-13)
 
-**DIAGNOSIS PARTIAL — REAL VALIDATION NEEDED.**
+**DIAGNOSIS PARTIAL, REAL VALIDATION NEEDED.**
 
 - Confirmed by profiling: `/api/sources` grows linearly with the collection
   history (`pipeline_run`, never pruned), which it reads five times and
@@ -51,7 +51,7 @@ as it was written; the real data overturned two of its conclusions:
 
 ## 1. Phase 3: formal closure
 
-**COMPLETED — MERGED — PUBLISHED — REAL PERFORMANCE VALIDATED.**
+**COMPLETED, MERGED, PUBLISHED, REAL PERFORMANCE VALIDATED.**
 
 | | |
 |---|---|
