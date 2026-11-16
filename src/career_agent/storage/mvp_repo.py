@@ -3612,6 +3612,36 @@ class ScoredJobQuery(_Repo):
         ).fetchall()
         return {str(row[0]): str(row[1] or "") for row in rows}
 
+    def ids_among(
+        self, config_id: str, config_version: int, f: JobFilter, job_ids: set[str]
+    ) -> set[str]:
+        """Which of `job_ids` pass `f`'s filters, duplicate grouping aside.
+
+        Every row `page(f)` can return is among them: grouping only keeps, of
+        each group, an elected row that passes the same filters. The WHERE is
+        `page`'s own (`_where_parts`), so no rule is restated here. `f.deep`
+        must be empty: it reads `temp.deep_level`, the levels a caller asks
+        this in order to choose.
+        """
+        if f.deep:
+            raise ValueError("ids_among reads no deep level: f.deep must be empty")
+        inner = replace(f, group_duplicates=False, deep_levels=())
+        clauses, params = self._where_parts(config_id, config_version, inner)
+        source = "SELECT j.id" + self._from_for(self._joins_needed(inner), f=inner)
+        wanted = sorted(job_ids)
+        found: set[str] = set()
+        for start in range(0, len(wanted), 500):
+            chunk = wanted[start : start + 500]
+            # On `jm`, the driving index's own column: tested before `job` is
+            # looked up, so only the asked postings are read (`j.id` is
+            # `jm.job_id` by the join).
+            marks = ",".join("?" * len(chunk))
+            where = " WHERE " + " AND ".join([*clauses, f"jm.job_id IN ({marks})"])
+            found.update(
+                str(row[0]) for row in self.conn.execute(source + where, [*params, *chunk])
+            )
+        return found
+
     def page(
         self,
         config_id: str,

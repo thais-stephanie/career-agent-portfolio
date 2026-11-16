@@ -46,6 +46,18 @@ _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 
 
+def _level_entries(
+    ordered: list[tuple[str, tuple[str, bool, str]]],
+) -> tuple[tuple[str, str, bool, int], ...]:
+    """`JobFilter.deep_levels` from `(job_id, (level, stale, state))` pairs
+    sorted by id: `rank` is the level's place in `RECOMMENDATIONS`."""
+    rank = {level: index for index, level in enumerate(RECOMMENDATIONS)}
+    return tuple(
+        (job_id, level, stale, rank.get(level, len(rank)))
+        for job_id, (level, stale, _state) in ordered
+    )
+
+
 def _one(query: dict, key: str) -> str | None:
     values = query.get(key)
     return values[0] if values else None
@@ -680,15 +692,21 @@ class JobsApi(WorkspaceRoutes, LocalApp):
 
         with _closing(self.connect()) as conn:
             found = deep_levels(self, conn)
-        rank = {level: index for index, level in enumerate(RECOMMENDATIONS)}
         ordered = sorted(found.items())
         return (
-            tuple(
-                (job_id, level, stale, rank.get(level, len(rank)))
-                for job_id, (level, stale, _state) in ordered
-            ),
+            _level_entries(ordered),
             tuple((job_id, state) for job_id, (_level, _stale, state) in ordered),
         )
+
+    def deep_levels_within(
+        self, conn: Any, job_ids: set[str]
+    ) -> tuple[tuple[str, str, bool, int], ...]:
+        """`deep_levels()[0]` for these postings only: the same entries, and
+        none for any other (`deep_api.deep_levels_within`). For a caller whose
+        query can only ever look a level up for these postings."""
+        from career_agent.web.deep_api import deep_levels_within
+
+        return _level_entries(sorted(deep_levels_within(self, conn, job_ids).items()))
 
     def _lead_terms(self) -> tuple[str, ...]:
         """What orders the leads lane: the search plan's own terms (role

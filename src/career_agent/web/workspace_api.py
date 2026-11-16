@@ -518,6 +518,8 @@ class WorkspaceRoutes(_MixinBase):
 
         def deep_levels(self) -> tuple[tuple, tuple]: ...
 
+        def deep_levels_within(self, conn: Any, job_ids: set[str]) -> tuple: ...
+
         #: The band edges and the recency window, read once from the loaded
         #: configuration and cached on `JobsApi`. The digest renders cards, so
         #: it needs both.
@@ -2163,23 +2165,32 @@ class WorkspaceRoutes(_MixinBase):
 
         # Two of the digest's sections, not a third list invented here.
         wanted = {"since_last_review", "recent", "best"}
-        deep_levels, _states = self.deep_levels()
-        built = []
-        for section in sections(config, show=show, last_reviewed_at=seen_at, age=age):
-            if section.key not in wanted:
-                continue
+        chosen = [
             # The Jobs list's own order (ADR-0039): the deep reading's
             # level, Search Fit breaking ties; the same lane.
-            rows = repo.page(
-                config_id,
-                config_version,
-                dc_replace(
-                    section.job_filter,
-                    sort="deep",
-                    deep_levels=deep_levels,
-                    lane="shortlist",
-                ),
+            (section, dc_replace(section.job_filter, sort="deep", lane="shortlist"))
+            for section in sections(config, show=show, last_reviewed_at=seen_at, age=age)
+            if section.key in wanted
+        ]
+        # ONE SNAPSHOT for choosing the levels and reading the pages: a score
+        # written in between must not put on a page a read posting whose level
+        # was not chosen (it would sort as unread). A read transaction only.
+        began = not conn.in_transaction
+        if began:
+            conn.execute("BEGIN")
+        try:
+            deep_levels = self._home_deep_levels(
+                conn, repo, config_id, config_version, [f for _section, f in chosen]
             )
+            pages = [
+                repo.page(config_id, config_version, dc_replace(f, deep_levels=deep_levels))
+                for _section, f in chosen
+            ]
+        finally:
+            if began:
+                conn.execute("COMMIT")
+        built = []
+        for (section, _job_filter), rows in zip(chosen, pages, strict=True):
             built.append(
                 {
                     "key": section.key,
@@ -2199,6 +2210,32 @@ class WorkspaceRoutes(_MixinBase):
             )
         at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
         return {"total": total, "job_count": int(open_jobs), "sections": built, "at": at}
+
+    def _home_deep_levels(
+        self, conn: Any, repo: Any, config_id: str, config_version: int, filters: list[Any]
+    ) -> tuple:
+        """The deep levels Home's section pages can read: those of the read
+        postings that pass a section's own filters.
+
+        A page reads a level only in its ORDER BY, by a lookup for a row that
+        already passed its WHERE (the duplicate election ranks by eligibility,
+        score and id, never by level). So the levels of postings no section
+        admits change nothing on Home, and deriving them was most of its cost
+        (2026-11-16: 2,127 read postings, 244 of them in Home's population).
+        A section that FILTERS by the reading (`deep`) reads every level: it
+        gets the whole map, as before.
+        """
+        from career_agent.web.deep_api import reviewed_postings
+
+        if any(f.deep for f in filters):
+            return self.deep_levels()[0]
+        reviewed = reviewed_postings(conn)
+        admitted = (
+            set().union(*(repo.ids_among(config_id, config_version, f, reviewed) for f in filters))
+            if reviewed and filters
+            else set()
+        )
+        return self.deep_levels_within(conn, admitted)
 
     def daily(self, *, query: dict, body: dict) -> dict:
         """What is worth looking at today. The same sections the terminal has.

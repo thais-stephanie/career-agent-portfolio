@@ -744,25 +744,9 @@ def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
     about half a second on 710 readings; checking costs a few milliseconds.
     A database without the table (a demo, an older build) has none.
     """
-    from career_agent.semantic import deep
-    from career_agent.semantic.deep_run import context
-    from career_agent.storage.catalogue import population_token
-
-    try:
-        stamp = tuple(conn.execute("SELECT COUNT(*), MAX(created_at) FROM deep_review").fetchone())
-    except sqlite3.Error:
+    key = _levels_key(app, conn)
+    if key is None:
         return {}
-    if not stamp[0]:
-        return {}
-    config = app.search_config()
-    key = (
-        stamp,
-        deep.contract_identity(),
-        tuple(context(conn, config, shared).digest for shared in (True, False)),
-        population_token(conn),
-        str(config.config_id),
-        int(config.config_version),
-    )
     with _LEVELS_LOCK:
         cached = getattr(app, "_deep_levels_cache", None)
         if cached is not None and cached[0] == key:
@@ -780,6 +764,67 @@ def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
         app._deep_levels_cache = (key, levels)
         app._deep_relations_cache = relations
     return dict(levels)
+
+
+def _levels_key(app: Any, conn: Any) -> tuple | None:
+    """What the whole map of levels depends on (see `deep_levels`); None for a
+    database with no reading, or without the table."""
+    from career_agent.semantic import deep
+    from career_agent.semantic.deep_run import context
+    from career_agent.storage.catalogue import population_token
+
+    try:
+        stamp = tuple(conn.execute("SELECT COUNT(*), MAX(created_at) FROM deep_review").fetchone())
+    except sqlite3.Error:
+        return None
+    if not stamp[0]:
+        return None
+    config = app.search_config()
+    return (
+        stamp,
+        deep.contract_identity(),
+        tuple(context(conn, config, shared).digest for shared in (True, False)),
+        population_token(conn),
+        str(config.config_id),
+        int(config.config_version),
+    )
+
+
+def reviewed_postings(conn: Any) -> set[str]:
+    """Every posting `deep_levels` can give a level (`DeepRepo.reviewed_job_ids`);
+    empty for a database with no reading or without the table."""
+    from career_agent.semantic.deep_run import DeepRepo
+
+    try:
+        return DeepRepo(conn).reviewed_job_ids()
+    except sqlite3.Error:
+        return set()
+
+
+def deep_levels_within(app: Any, conn: Any, job_ids: set[str]) -> dict[str, tuple[str, bool, str]]:
+    """`deep_levels` for these postings only: exactly the entries the whole map
+    has for them, and none for any other posting.
+
+    Each posting's level is derived from its own readings alone
+    (`DeepRepo.newest_per_job` gives a requested posting the same review it
+    gives it when asked for all), so deriving fewer changes none of them.
+    The whole map is used when it is remembered under the current key.
+    Otherwise only these are derived, and NOTHING is remembered: the cache
+    holds the whole map other screens read, never a part of it.
+    """
+    key = _levels_key(app, conn)
+    if key is None:
+        return {}
+    with _LEVELS_LOCK:
+        cached = getattr(app, "_deep_levels_cache", None)
+        if cached is not None and cached[0] == key:
+            return {job: level for job, level in cached[1].items() if job in job_ids}
+    if not job_ids:
+        return {}
+    return {
+        str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]), str(item["state"]))
+        for item in _review_rows(app, conn, sorted(job_ids))
+    }
 
 
 def deep_relations(app: Any, conn: Any) -> dict[str, str]:

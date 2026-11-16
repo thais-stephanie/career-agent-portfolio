@@ -1097,6 +1097,20 @@ class DeepRepo:
                 out.append((job_id, found))
         return out
 
+    def reviewed_job_ids(self) -> set[str]:
+        """Every posting `newest_per_job()` can answer for when asked for all:
+        the postings a review was asked for, and every posting holding a
+        reviewed advert (a repost). The same two `job` lookups it makes, on
+        the review's two key columns only (no review body is read)."""
+        keys = self.conn.execute("SELECT job_id, content_hash FROM deep_review").fetchall()
+        own = sorted({str(r[0]) for r in keys})
+        hashes = sorted({str(r[1]) for r in keys})
+        return {
+            str(r[0])
+            for column, values in (("id", own), ("content_hash", hashes))
+            for r in self._chunked(f"SELECT id FROM job WHERE {column} IN", values)
+        }
+
     def _chunked(self, select: str, values: list[str]) -> list[sqlite3.Row]:
         rows: list[sqlite3.Row] = []
         for start in range(0, len(values), 500):
