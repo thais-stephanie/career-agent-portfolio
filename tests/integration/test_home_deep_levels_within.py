@@ -246,10 +246,11 @@ def vary(app) -> None:
 
 
 def fresh(app) -> None:
-    """Forget every remembered answer: Home's lists and the whole map."""
+    """Forget every remembered answer: Home's lists, the whole map and its parts."""
     app._home_lists = None
     app._deep_levels_cache = None
     app._deep_relations_cache = None
+    app._deep_levels_part = None
 
 
 def home(app) -> dict:

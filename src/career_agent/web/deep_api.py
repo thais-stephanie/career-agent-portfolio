@@ -763,6 +763,10 @@ def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
     with _LEVELS_LOCK:
         app._deep_levels_cache = (key, levels)
         app._deep_relations_cache = relations
+        # The whole map under this key answers every part: drop the parts.
+        part = getattr(app, "_deep_levels_part", None)
+        if part is not None and part[0] == key:
+            app._deep_levels_part = None
     return dict(levels)
 
 
@@ -809,9 +813,27 @@ def deep_levels_within(app: Any, conn: Any, job_ids: set[str]) -> dict[str, tupl
     (`DeepRepo.newest_per_job` gives a requested posting the same review it
     gives it when asked for all), so deriving fewer changes none of them.
     The whole map is used when it is remembered under the current key.
-    Otherwise only these are derived, and NOTHING is remembered: the cache
-    holds the whole map other screens read, never a part of it.
+    Otherwise the postings already derived under the current key are taken
+    from a SEPARATE memo of parts (`_deep_levels_part`: key, levels, every
+    posting asked, with or without a level) and only the rest are derived
+    and added to it. The whole map's cache is never written here, and the
+    memo of parts is never read as the whole map. It holds one key: another
+    key starts it empty, so it never outgrows the readings of one state.
+    The key and the derivation read ONE snapshot (the caller's, or one opened
+    here), so what is added was derived under that key; it is added only
+    while the memo still holds that key.
     """
+    began = not conn.in_transaction
+    if began:
+        conn.execute("BEGIN")
+    try:
+        return _levels_within(app, conn, job_ids)
+    finally:
+        if began:
+            conn.execute("COMMIT")
+
+
+def _levels_within(app: Any, conn: Any, job_ids: set[str]) -> dict[str, tuple[str, bool, str]]:
     key = _levels_key(app, conn)
     if key is None:
         return {}
@@ -819,12 +841,25 @@ def deep_levels_within(app: Any, conn: Any, job_ids: set[str]) -> dict[str, tupl
         cached = getattr(app, "_deep_levels_cache", None)
         if cached is not None and cached[0] == key:
             return {job: level for job, level in cached[1].items() if job in job_ids}
-    if not job_ids:
-        return {}
-    return {
-        str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]), str(item["state"]))
-        for item in _review_rows(app, conn, sorted(job_ids))
-    }
+        part = getattr(app, "_deep_levels_part", None)
+        # Another key starts it empty. A reader of an OLDER snapshot can take
+        # it back to its own key: the newer entries are lost (time, not truth).
+        if part is None or part[0] != key:
+            part = app._deep_levels_part = (key, {}, set())
+        known = {job: level for job, level in part[1].items() if job in job_ids}
+        missing = sorted(job_ids - part[2])
+    if missing:
+        derived = {
+            str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]), str(item["state"]))
+            for item in _review_rows(app, conn, missing)
+        }
+        with _LEVELS_LOCK:
+            now = getattr(app, "_deep_levels_part", None)
+            if now is not None and now[0] == key:
+                now[1].update(derived)
+                now[2].update(missing)
+        known.update(derived)
+    return known
 
 
 def deep_relations(app: Any, conn: Any) -> dict[str, str]:

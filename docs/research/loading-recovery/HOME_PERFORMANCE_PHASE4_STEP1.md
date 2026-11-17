@@ -6,7 +6,17 @@ fast-forward. Not merged, not pushed. No migration, schema, contract, cache,
 TTL or freshness change. No real database was opened: every measurement here
 is on synthetic corpora.
 
-**Verdict: NEEDS OWNER DECISION.** The change is correct on every synthetic
+**Step 1b verdict: READY FOR INTEGRATION REVIEW.** The owner chose B: a
+memory-only memo of the parts Home derives, under the whole map's own key
+(section "Step 1b" below). The first miss keeps the Step 1 gain (12%: 2.47 ->
+0.86 s), a later miss under the same key derives nothing (0.54 -> 0.05 s, the
+`8a43fb0` cost), 120 of 120 answers are byte-identical to `8a43fb0`, the
+whole map is never written from a part, and TTL, freshness and the API are
+unchanged. The one review finding left open is the key's existing blind
+spot, the same exposure `8a43fb0` had (residual risks). Still synthetic only:
+the real figures need the separately authorised validation.
+
+**Step 1 verdict (before the owner's decision): NEEDS OWNER DECISION.** The change is correct on every synthetic
 check (36 of 36 byte-identical answers against the `8a43fb0` code, 24 new
 tests, full suites green) and cuts Home's first miss by 3.5x at the real
 profile's share. One trade-off needs the owner: a later Home miss, after the
@@ -213,8 +223,8 @@ synthetic temporary databases only.
 
 - **Later Home misses** (finding 1): a regression of about +0.4 s at the
   real share on the synthetic corpus, estimated +0.7-2 s on the real profile,
-  on every Home miss after the first while the levels key holds. Removing it
-  needs an owner decision (below).
+  on every Home miss after the first while the levels key holds. **Removed by
+  Step 1b** (the owner chose B, below).
 - The gain shrinks as the share of read postings Home can show grows: at
   100% it is nil (and a first miss reads 26 MB more for the `ids_among`
   queries). The real share was 12%.
@@ -223,7 +233,7 @@ synthetic temporary databases only.
   checkpoint only waits for it to end.
 - The real figures are estimates until the real validation.
 
-## Decision needed
+## Decision (the owner chose B on 2026-11-16, implemented as Step 1b)
 
 Keep the derived subset for later Home misses?
 
@@ -236,9 +246,184 @@ Keep the derived subset for later Home misses?
   about 0 for levels. A new in-memory cache (no persistence, no TTL, the
   existing key): by the rules of this phase, the owner's decision.
 
+## Step 1b: the memo of parts (owner decision B, 2026-11-16)
+
+Step 1 never stored what it derived, so every Home miss after the first
+(the 600 s memo expired, a save, a hide) derived the same part again. Step 1b
+keeps it, separately, without ever deriving the whole map on Home's first miss.
+
+### 1. Structure
+
+`app._deep_levels_part = (key, levels, asked)` on each profile's `JobsApi`
+(each profile has its own, so nothing is shared between profiles):
+
+- `key`: the whole map's `_levels_key` at derivation time;
+- `levels`: `job_id -> (level, stale, state)`, exactly the whole map's entry;
+- `asked`: every posting asked under this key, with or without a level, so a
+  posting without a level is remembered as asked and never derived again.
+
+Memory only, never persisted, never written into `_deep_levels_cache` or
+`_deep_relations_cache`, never read by `deep_levels()` (Find jobs and every
+other consumer of the whole map are unchanged).
+
+### 2. Validity
+
+The same key as the whole map, nothing weaker: the readings' count and newest
+`created_at`, the reading contract, both profile context digests (intent,
+levels, confirmed evidence and its revisions), the population token (any
+posting or score written) and the search configuration. Another key starts
+the memo empty: there is one key at a time, so no old generation is kept.
+When `deep_levels()` derives the whole map under the same key, the memo goes
+(the whole map answers every part). Home's own memo (600 s), the freshness
+rules and the API answers are unchanged.
+
+The population Home asks for is NOT memorised: every miss still finds it
+with the sections' real filters (`ids_among`), so time, filters, marks and
+availability move it as before; only the levels of postings already asked are
+reused.
+
+### 3. Incremental use (`deep_levels_within`)
+
+1. The whole map, when remembered under the current key: used as in Step 1.
+2. Else the memo under the current key (or a new empty one).
+3. The postings asked and not in `asked` are the only ones derived
+   (`_review_rows` for them alone).
+4. They are added (levels and `asked`) only if the memo still holds the key
+   they were derived under; the answer is the requested postings' entries.
+
+### 4. Concurrency and snapshots
+
+- The key and the derivation read ONE snapshot: Home's (Step 1), or one
+  `deep_levels_within` opens itself for a caller without one (review NIT 3).
+  So what is derived matches the key it is filed under, and a write between
+  them waits for the next key.
+- The lock (`_LEVELS_LOCK`) is held only to read and to add, never during the
+  derivation.
+- A derivation finished after another call installed another key is NOT
+  added (it still answers its own call).
+- Two Homes asking the same postings at once may both derive them (the same
+  result twice, never a wrong one); overlapping sets add their own postings.
+- A reader of an older snapshot can take the memo back to its key: the newer
+  entries are lost, which costs time, never correctness.
+
+### 5. Benchmark (synthetic, A = `8a43fb0`, B = Step 1 `1727033`, C = Step 1b)
+
+Same corpora as Step 1 (3,000 postings, 2,806 reviews of 2,106 read
+postings, eight requirements per review, 10% out of date by title), every
+run on a fresh copy of the corpus, one process per run, the order rotated,
+3 rounds. Medians, seconds, with `deep_assess.assess` calls.
+
+| Share Home can show | First miss A / B / C | assess | Later miss (memo expired) A / B / C | assess B / C |
+|---|---|---|---|---|
+| 0% | 3.50 / 0.61 / 0.57 | 2856 / 0 / 0 | 0.09 / 0.07 / 0.10 | 0 / 0 |
+| 5% | 2.64 / 0.68 / 0.56 | 2856 / 210 / 210 | 0.09 / 0.23 / 0.10 | 210 / 0 |
+| 12% | 2.47 / 0.96 / 0.86 | 2856 / 506 / 506 | 0.09 / 0.54 / 0.05 | 506 / 0 |
+| 50% | 2.58 / 1.91 / 1.69 | 2856 / 1803 / 1803 | 0.07 / 1.50 / 0.09 | 1803 / 0 |
+| 100% | 3.85 / 5.21 / 4.69 | 2856 / 2856 / 2856 | 0.16 / 4.79 / 0.19 | 2856 / 0 |
+
+Other states at 12% (A / B / C seconds; assessments of C):
+
+| State | A | B | C | C assess |
+|---|---|---|---|---|
+| after a save and a hide | 0.10 | 0.60 | 0.13 | 0 |
+| during a collection, memo expired | 0.06 | 0.56 | 0.07 | 0 |
+| after a catalogue change (key moves) | 2.23 | 0.56 | 0.60 | 502 |
+| after a reading changes (key moves) | 2.30 | 0.47 | 0.47 | 506 |
+| whole map already remembered | 0.11 | 0.07 | 0.11 | 0 |
+| two profiles, each Home twice | 0.15 | 0.67 | 0.07 | 0 |
+
+- The first-miss gain of Step 1 is kept (12%: 2.47 -> 0.86 s, 2.9x here,
+  3.5x in the Step 1 run), and a later miss under the same key derives
+  nothing: 0.05-0.19 s, the `8a43fb0` cost, at every share.
+- When the key moves (a reading, the catalogue, a score), C derives the part
+  again, as B does; `8a43fb0` derived the whole map.
+- At 100% the machine was noisy (one state rerun three times: A 5.6-8.2 s,
+  B 4.9-6.7 s, C 4.0-7.4 s, identical answers and 2,856 assessments each): no
+  difference between the three beyond the noise.
+- Memory: the memo holds 506 entries at 12% (21.6 KB pickled), 2,856 at 100%
+  (124 KB). Peak process memory did not move (C 79-80 MB against B 79-80 MB
+  at 12%; 113 MB for all three at 100%).
+
+### 6. Equivalence
+
+Every run wrote Home's whole answer (and, for the two-step states, the first
+answer too; for two profiles, both profiles' answers), minus `lists_at`, the
+moment the lists were counted. **120 of 120 comparisons byte-identical, A = B
+and A = C** (5 shares x 8 states x 3 rounds): first miss, later miss, after a
+save and a hide, after a catalogue change, after a reading change, during a
+collection, with the whole map remembered, and two profiles.
+
+### 7. Independent review
+
+A reviewer read the diff and the code it depends on, ran nothing.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Is `_levels_key` enough for parts? Exactly as much as for the whole map: each posting's level depends only on its own readings, and everything `_review_rows` reads moves the key | (question) | confirmed |
+| The key has two existing blind spots: a review replaced in place (`DeepRepo.save` upsert) in the same second as another save keeps COUNT and MAX; `backfill_digests` writes `intent_digest` without moving it | MINOR | **not changed**: `8a43fb0`'s Home read the whole-map cache under the same key, so Step 1b returns Home to exactly that exposure, no new one. A trigger-kept reading revision in the stamp would close it; that is a migration, the owner's decision (residual risks) |
+| A reader of an older snapshot resets the memo to its key | NIT | time only; documented in code |
+| Correctness relies on the caller holding a snapshot | NIT | **fixed**: `deep_levels_within` opens one when the caller has none; a test fails without it |
+| A test's last assertion was answered by the whole map, not the memo | NIT | **fixed** |
+| A `deep` section filter reads the whole map outside Home's snapshot | NIT | existing, unchanged, no section uses it |
+
+### 8. Tests
+
+`tests/integration/test_home_deep_levels_memo.py`, 19 tests: a later miss,
+the 600 s memo, a save and a hide derive nothing; a wider population derives
+only the newcomers; overlapping sets; a posting without a level is not
+derived again; a replaced or removed reading, evidence, a retitled advert, a
+score and the reading contract each start the memo again; the whole map is
+never written from a part, supersedes it, and leaves a part under another key
+alone; two profiles; a derivation under an old key is not added under a new
+one; concurrent overlapping calls; a sequence of states with the memo warm;
+a write between the key and the derivation. Every answer is compared with the
+whole map's.
+
+They fail where they should:
+
+| Mutation | Fails |
+|---|---|
+| Step 1's `deep_levels_within` (no memo) | 15 of the first 18 (every test that reads the memo) |
+| the memo ignores the key | the 6 key tests |
+| a derivation is added under any key | the old-key test |
+| no snapshot of its own | the write-between test |
+
+Gates on the Step 1b tree, each run once, sequentially, in its own temporary
+directory:
+
+| Gate | Result | Exit |
+|---|---|---|
+| focused: memo (19) + Step 1 (24) | 43 passed | 0 |
+| ruff check, ruff format (818 files) | clean | 0 |
+| mypy | the 3 existing errors (`export.py:253`, `ranking.py:327`, `ranking.py:352`), no new one | 1 (as on `8a43fb0`) |
+| punctuation, frontend, localisation | clean | 0 |
+| unit + integration | 13,603 passed, 8 skipped | 0 |
+| browser, first run | 644 passed, 1 failed | 1 |
+| browser, second run | 645 passed | 0 |
+
+The browser failure was `test_keyboard_flows.py::test_the_age_limit_is_operated_with_the_keyboard`
+(Tab reached the undated switch before it was disabled), not the known
+onboarding flake. It was not taken as a pass: the test file then passed 5 of
+5 alone and the whole browser suite passed again. Step 1b changes only
+`web/deep_api.py`; that test exercises the Find jobs age filter's tab order
+in the frontend, which reads no deep level. Recorded as a new intermittent
+timing failure, to watch.
+
+### 9. Residual risks
+
+- The key's existing blind spots (review finding above): a reading replaced
+  in place in the same second as another save, or a digest backfill, is not
+  seen until something else moves the key. The same as `8a43fb0` and as Find
+  jobs today.
+- Any posting or score written moves the key, so during a collection or a
+  recalculation the memo restarts often; that costs what Step 1 cost, never
+  more.
+- Two simultaneous Home misses may derive the same postings twice.
+- The real figures are still estimates until a real validation.
+
 ## Validation on the real install (needs authorisation)
 
 Read-only, the Phase 4 harness (mode=ro, authorizer, guards), no other suite
-running: Home first miss and a later miss, base and step 1, alternating, with
-the assessment count, and the whole answer hashed for both; then the same
-after the decision above.
+running: Home first miss and a later miss (memo expired), base and Step 1b,
+alternating, with the assessment count, and the whole answer hashed for
+both.
