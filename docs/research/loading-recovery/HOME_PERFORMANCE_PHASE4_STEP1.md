@@ -201,7 +201,7 @@ localisation and punctuation gates clean.
 
 | Suite | Result | Exit code |
 |---|---|---|
-| `tests/unit tests/integration` | 13,603 passed, 8 skipped | 0 |
+| `tests/unit tests/integration` | 13,636 passed, 8 skipped (corrected 2026-11-17: first counted as 13,603) | 0 |
 | `tests/browser` | 645 passed | 0 |
 | `tests/integration/test_home_deep_levels_within.py` | 24 passed | 0 |
 | same file with the old-behaviour plugin | 4 failed, 20 passed (expected) | 1 |
@@ -421,7 +421,7 @@ directory:
 | ruff check, ruff format (818 files) | clean | 0 |
 | mypy | the 3 existing errors (`export.py:253`, `ranking.py:327`, `ranking.py:352`), no new one | 1 (as on `8a43fb0`) |
 | punctuation, frontend, localisation | clean | 0 |
-| unit + integration | 13,603 passed, 8 skipped | 0 |
+| unit + integration | 13,655 passed, 8 skipped (corrected 2026-11-17: first counted as 13,603) | 0 |
 | browser, first run | 644 passed, 1 failed | 1 |
 | browser, second run | 645 passed | 0 |
 
