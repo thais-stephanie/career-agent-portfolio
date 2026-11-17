@@ -452,3 +452,336 @@ Read-only, the Phase 4 harness (mode=ro, authorizer, guards), no other suite
 running: Home first miss and a later miss (memo expired), base and Step 1b,
 alternating, with the assessment count, and the whole answer hashed for
 both.
+
+## Step 1c: Cache Correctness and Fast Path (2026-11-17)
+
+Commits on `claude/home-perf-phase4-step1`: b685deb (code and tests) and
+ab85eba (independent review fixes). No migration, no HTTP contract change, no
+TTL change, no new persistence. Scoring, matching and eligibility are
+untouched.
+
+### 1. Problems reproduced
+
+All reproductions are deterministic tests on synthetic corpora
+(`tests/integration/test_home_deep_levels_identity.py`). Before the fix they
+fail on Step 1b (06981fb), for the reason named.
+
+**F1, a later Home does work it does not need.** The real measurement of the
+release review showed a later Home at about 2.4 s on Step 1b against 1.28 s on
+`8a43fb0`. There were two causes:
+
+- With the whole map remembered (after Find jobs), Home still ran
+  `reviewed_postings` and `ids_among` before it found the map in
+  `_levels_within`.
+- With only the memo of parts, `reviewed_postings` ran on every miss.
+  `ids_among` cut the reviewed set into chunks of 500 ids. The query plan
+  (`SEARCH jm USING COVERING INDEX idx_job_match_discovery_gates`) walks the
+  filtered population once per chunk and tests each row against the chunk.
+  With about 2,100 read postings, that is 5 walks per section.
+
+The tests count `reviewed_job_ids`, `ids_among`, `deep_assess.assess` and the
+population statements. Step 1b showed:
+
+- `reviewed` 1 and `ids_among` 2 with the whole map remembered (expected 0);
+- `reviewed` 1 with only the part (expected 0);
+- 4 population statements for one `ids_among` call over 3,400 ids (expected 1).
+
+**F2, a reading replaced in the same second.** `DeepRepo.save` upserts on
+`(content_hash, title, profile_digest, contract, provider, model)` and keeps
+the id. If `created_at` stays the newest second, `COUNT(*)` and
+`MAX(created_at)` do not move. The test replaces a shown posting's reading
+through `DeepRepo.save` and `save_attempt` in one transaction, with a verdict
+of another level. It checks:
+
+- that the level shown really changed;
+- that the old stamp is unchanged;
+- that the old key is unchanged;
+- that the remembered map is stale.
+
+On Step 1b, `deep_levels()` answered from the stale map.
+
+**F3, the digest backfill.** `backfill_digests` fills `intent_digest` and
+`evidence_digest` only `WHERE intent_digest IS NULL`, and moves nothing in
+the key. The fixture reproduces readings stored before migration 0059 plus a
+claim confirmed after them, the same case `test_deep_work_fit_reuse` builds
+on one reading. The backfill then really moves levels (12 of 22 in the test
+corpus, 5 of them on postings Home shows).
+
+| Case | What happens | Step 1b |
+|---|---|---|
+| A | backfill of postings already in the memo, no new id | FAIL: the memo keeps the old levels |
+| B | backfill, then a Home asking more ids | FAIL: the memo holds two epochs |
+| C | backfill with nothing to fill | pass (nothing changes) |
+| D | backfill between two overlapping parts | FAIL: S2 gets S1's old levels |
+| E | backfill committed during a read transaction | FAIL after the transaction: stale |
+| F | backfill repeated after it filled | pass (it writes nothing) |
+
+### 2. Fixes
+
+1. **The identity sees every reading write** (`deep_api._levels_key`).
+   - It adds `SELECT COUNT(*), MAX(rowid) FROM deep_attempt`.
+   - It reads `COUNT(intent_digest)` in the same scan as `MAX(created_at)`.
+2. **The whole map is derived in one snapshot** with its key (`deep_levels`
+   through `_snapshot`), as the parts already were.
+3. **Fast path** (`deep_levels_for_home`). One key, one snapshot. If the whole
+   map is remembered under it, Home takes it and selects nothing, which is the
+   published behaviour. Otherwise the reviewed set comes from
+   `_deep_reviewed`, remembered under the same key, and only the population
+   is asked again.
+4. **`ids_among` asks once per section.** The set goes into
+   `temp.among_id`, which is reloaded only when the set changes, and one
+   statement runs per call.
+
+The first Home keeps the restricted selection. The whole map is never filled
+by Home.
+
+### 3. P1 and P2
+
+**P1 (`deep_attempt` in the identity): implemented.** The proof, by reading
+and by test:
+
+- **Every relevant production write records an attempt, atomically.**
+  `DeepRepo.save` has one caller (`run_deep`). It runs in the same
+  `with transaction(conn)` as `attempt(candidate, "PUBLISHED", ...)`.
+- **No relevant writer bypasses it.**
+  - The only product writers of `deep_review` are `DeepRepo.save` and
+    `backfill_digests`. The backfill is covered by COUNT(intent_digest)
+    below.
+  - `deep_attempt` is insert-only: no product code deletes it.
+  - A test pins this: it reads whole source files, so a statement split over
+    string pieces is still seen. It also pins the modules that write to a
+    table named at runtime.
+- **Successive upserts are detected.** Each one moves `COUNT(*)` of the
+  attempts (test: three resaves, four keys).
+- **Failure and rollback.** The review and the attempt roll back together.
+  The key and the levels are then unchanged (test).
+- **Profiles.** Each profile has its own `JobsApi`, so its own caches
+  (`profiles.py`). `deep_attempt` and `deep_review` are tables of the profile.
+- **Delete followed by insert.** Only deleting the attempt with the highest
+  rowid and then inserting one would reuse that rowid and keep both COUNT and
+  MAX. No product path deletes an attempt.
+
+**P2 (reset the part memo when new ids arrive): not applied, because it is
+insufficient.** Case A changes postings already in the memo without bringing
+any new id, so P2 would serve stale levels there. Instead, the backfill is
+covered at the identity:
+
+- It writes only rows `WHERE intent_digest IS NULL` and sets a non-NULL
+  digest, so `COUNT(intent_digest)` rises by exactly the rows it fills.
+- A run that fills nothing moves nothing (cases C and F).
+- `created_at` already makes the scan follow the overflow pages (it is stored
+  after `raw_response`), so the count costs nothing measurable: 10.82 ms
+  against 10.90 ms on the synthetic corpus.
+
+With every write seen by the key, the memo of parts holds one epoch per key
+by construction. Cases A to F all pass.
+
+### 4. Residual risks (documented, not fixed here)
+
+- **Counters that can go back.** If the server keeps running while a backup
+  of the profile or the catalogue is restored or swapped, the counts can
+  return to a value seen before with different data behind them. That is
+  outside normal operation, and true of `8a43fb0` too. Hardening would add
+  the database identities to the key.
+- **`_deep_relations_cache` carries no key.** Find jobs can show a relation
+  of an older state beside the current level until the next derivation. This
+  is pre-existing and not used by Home.
+- **Home's `deep` branch.** A section filtering by the reading uses its own
+  connection (`deep_levels()`), outside Home's snapshot. This is
+  pre-existing and unchanged.
+- **During a collection,** every `job` UPDATE moves the population counter,
+  so the caches miss often. This errs on the safe side and is the same as
+  before.
+- **`temp.among_id` after a rollback.** The repo forgets a failed load. A
+  later rollback that undoes a successful load is not tracked, as with
+  `temp.deep_level`. Both live only as long as one request's connection.
+- A direct SQL edit outside the product, or a migration that rewrites
+  readings in place while a server runs, is not seen.
+
+### 5. Mutation tests
+
+Each fix was removed in turn from the code. The tests that must catch it
+failed:
+
+| Mutation | Caught by |
+|---|---|
+| no `deep_attempt` in the key | the two resave tests |
+| no `COUNT(intent_digest)` | five backfill tests (A, B, D, E and the scenario test) |
+| no whole-map fast path | the whole-map later-Home test |
+| no reviewed memo | the part-only later-Home test |
+| `ids_among` in 500-id chunks | the one-statement test |
+| reviewed memo used under any key | the repost test |
+
+The tests pass with the fixes. No assertion was loosened to make them pass.
+
+### 6. Equivalence
+
+- **Tests.** Each identity test compares Home with a twin server on the same
+  database that remembers nothing (`truth`). The test of `ids_among` compares
+  the one-statement form with the old chunked form on the same sets.
+- **Synthetic, A/B/C/D.** A is `8a43fb0`, B is Step 1b (06981fb), C is Step 1c
+  and D is Home + Geography + Step 1c. 224 runs in all:
+  - corpora `b0.0`, `b0.05`, `b0.12`, `b0.5` and `b1.0` (3,000 postings,
+    2,100 readings, a share of the readings shown);
+  - 12 states on `b0.12` (3 rounds) and 5 on the others (1 round).
+
+  In every state, B, C and D give the same answer as A. In every state but
+  one, all four also equal a new server on the same copy. The exception,
+  `collecting`, is a harness artefact: the harness marks a collection as
+  running and the new server does not, so `collecting: true` differs. The
+  sections are the same.
+- **Real, A/B/C.** The Home answers are identical across the three codes in
+  every scenario and every round (SHA-256 of the normalised answer).
+
+Caveat: on the synthetic `resave` and `backfill` states, A and B also equal
+the truth. The reading the harness changes is not shown on Home there. The
+deterministic tests are the proof that the change is seen.
+
+### 7. Synthetic benchmark
+
+Same machine, one process per run, code order rotated. The machine carried
+another session's load throughout (40 to 75% CPU), so timings are
+indicative. Wall time is the median, `b0.12` (3 rounds):
+
+| State | A | B | C | D |
+|---|---|---|---|---|
+| first Home | 7.90 s | 2.34 s | 2.38 s | 2.83 s |
+| later Home (part memo) | 0.27 | 0.25 | 0.23 | 0.20 |
+| whole map derived, Home | 0.33 | 0.31 | 0.19 | 0.23 |
+| whole map, Home, memo gone, Home | 0.29 | 0.32 | 0.17 | 0.19 |
+| resave in the same second | 0.26 | 0.31 | 1.91 | 1.79 |
+| backfill | 0.31 | 0.33 | 2.08 | 2.83 |
+| backfill with nothing to fill | 0.32 | 0.44 | 0.31 | 0.21 |
+
+The counters are exact, not timings:
+
+- **Reviewed set.** On a later Home, `reviewed_job_ids` runs 1 time in B and
+  0 times in C and D.
+- **Population selection.** With the whole map remembered, `ids_among` runs
+  2 times in B and 0 times in C and D.
+- **Resave and backfill.** C and D derive the 506 levels again, because the
+  key moved. A and B keep the remembered levels: that is F2 and F3.
+- **Statement counts.** With the whole map these count each row inserted
+  into `temp.deep_level`. That is the same in A.
+
+At `b1.0` the first Home is the same for all four, around 9 to 10 s. Every
+posting is read there, so there is nothing to restrict.
+
+### 8. Real read-only benchmark
+
+Run 2026-11-17, 19:59 to 20:05:
+
+- one process per code and round, 3 rounds, order rotated;
+- the Phase 4 harness (`mode=ro`, an authorizer that denies every write,
+  guards before import);
+- 0 refusals, 0 denials, 0 bytes written;
+- before every process: no other project Python process;
+- outside load: CPU 4 to 75% from other sessions (13 `node` processes),
+  about 3.5 GB of RAM free;
+- the operating system's file cache was warm: these are not cold-start
+  figures.
+
+Home wall time, median of 3 (min to max):
+
+| Scenario | A `8a43fb0` | B Step 1b | C Step 1c |
+|---|---|---|---|
+| first Home, new process | 6.15 s (5.46 to 13.15) | 2.48 (2.44 to 2.70) | 1.78 (1.72 to 1.80) |
+| new API, same process | 5.68 (5.33 to 6.12) | 2.50 (2.49 to 2.68) | 1.77 (1.73 to 1.77) |
+| later Home, part memo only | 1.07 (1.06 to 1.08) | 1.99 (1.93 to 2.07) | 1.12 (1.09 to 1.17) |
+| the same, again | 1.05 (1.03 to 1.10) | 1.98 (1.95 to 2.13) | 1.10 (1.10 to 1.11) |
+| whole map in memory | 1.09 (1.03 to 1.15) | 1.98 (1.95 to 2.11) | 1.01 (0.97 to 1.11) |
+| later Home, whole map valid | 1.03 (1.02 to 1.15) | 1.99 (1.94 to 2.62) | 0.98 (0.97 to 1.04) |
+| Home memo hit | 0.01 | 0.01 | 0.01 |
+| Home beside health | 5.97 | 2.81 | 2.06 |
+| the page (five calls) | 9.91 | 6.69 | 5.93 |
+
+Counters (exact): assessments on a first Home are A 2,367, B 262 and C 262.
+On a later Home C runs the reviewed set 0 times (B 1), and with the whole map
+it runs `ids_among` 0 times (B 2). The key costs about 70 ms. The CPU time
+follows the wall time. The peak memory is A 186 MB, B 164 MB and C 164 MB.
+
+Reading:
+
+- **The first Home** is 71% faster than A (6.15 to 1.78 s) and 28% faster
+  than B.
+- **With the whole map remembered,** the later Home is back to A's time or
+  better (0.98 against 1.03 s). The regression is gone.
+- **With only the part memo,** the later Home went from +87% (B) to +5% (C),
+  about 50 ms. The three rounds do not overlap (A at most 1.08 s, C at least
+  1.09 s). The rest is the population selection, which A does not run because
+  it holds the whole map. A paid for that map with 6 s on its first Home.
+
+### 9. Independent review
+
+A separate reviewer read the diff and the tests with no access to these
+conclusions. It found no BLOCKER.
+
+- **Two SHOULD-FIX, both fixed in ab85eba.**
+  - The writer pin was too weak: it now reads whole files and names the
+    runtime-table modules.
+  - The reviewed-memo test was vacuous: it now uses a real repost with the
+    same content and title.
+- **Partly fixed:** the forgotten `temp.among_id` load (NIT 5).
+- **The other NITs** are the residual risks of section 4.
+
+### 10. Suites and exit codes
+
+Run on H's code (ab85eba), sequentially, with no other pytest of this project
+running at the time:
+
+| Gate | Result |
+|---|---|
+| ruff, format | clean (857 files) |
+| mypy | only the 3 pre-existing errors |
+| frontend check | clean (60 modules, 2 pages) |
+| localisation | clean |
+| punctuation | clean |
+| unit + integration | 13,681 collected, exit 0 (8 skipped) |
+| browser | 645 collected, exit 0 |
+| HG targeted (gates, preparation, the three Home deep-level files) | 102 passed |
+
+This time the onboarding and keyboard flakes did not appear. The browser
+suite warns about an invalid escape sequence in
+`test_home_during_refresh.py`, a test this step does not touch.
+
+### 11. Candidates
+
+| Candidate | Branch | Code | `src` tree | `tests` tree |
+|---|---|---|---|---|
+| A (published) | `origin/main` | 8a43fb0 | 36d08011f503 | 808fda0798c2 |
+| B (Step 1b) | (history) | 06981fb | a7109e796693 | aeabd7f58cab |
+| H (Home only) | `claude/release-candidate-home-perf4-only` | ab85eba + this doc | b2f6d98d639f | b6087d498cdd |
+| HG (Home + Geography) | `claude/integration-home-perf4-step1b` | 135db70 + this doc | 62cb72d753f8 | e4efa0f59392 |
+
+- **H** is a fast-forward of `origin/main`: 8 code and test files, +1,838 and
+  -36 lines, plus documents. It touches no geography file.
+- **H to HG** adds `match/gates.py`, `match/preparation.py`, `i18n.js`, their
+  two unit test files and two documents. Those are the geography commits
+  23d7051 and fe8d946 of another session, merged with `--no-ff`.
+
+### 12. Integrity
+
+Checked before and after the real benchmark:
+
+- The sha256 of all 24 files is identical: both profiles' databases, the
+  catalogue, the WALs, `profiles.json`, `config/*` and the untracked CSV.
+- Schema, migration ledger, maximum rowids and auto-update state are equal.
+- Only the three SHM files' modification times changed (same size). This
+  comes from read-only opens.
+- Port 8765 is free and no harness process is left.
+- `main` is fe8d946 and `origin/main` is 8a43fb0, both unchanged. Nothing was
+  merged or pushed.
+
+### 13. Recommendation
+
+- **Correctness: VERIFIED WITH DOCUMENTED RESIDUAL RISK** (section 4).
+- **Performance: PARTIAL.**
+  - The first Home is 71% faster.
+  - With the whole map, the later Home is at A's level.
+  - With only the part memo, a later Home still costs about 50 ms (5%) more
+    than A.
+- **Release: HOME ONLY READY FOR OWNER APPROVAL.**
+  - H can be published alone, as a fast-forward of `origin/main`.
+  - HG adds the geography change, which needs its own approval. It is
+    consistent with H (same Home code, targeted tests passed).
+  - Neither was merged or pushed. Both wait for the owner.

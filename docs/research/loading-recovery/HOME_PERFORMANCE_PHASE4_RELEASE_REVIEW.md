@@ -241,3 +241,23 @@ the same read-only harness.
 - Choosing H or HG, and approving the merge and the push.
 - Geography as its own decision (another session's work).
 - Any `/api/sources` change.
+
+## 10. Step 1c: Cache Correctness and Fast Path (2026-11-17)
+
+Step 1c applies the correction section 7 proposed, with one change: P2 was
+not applied, because a backfill moves levels without bringing new ids. The
+identity counts the filled digests instead. The full record is in
+`HOME_PERFORMANCE_PHASE4_STEP1.md`, section "Step 1c". It covers the
+problems reproduced, the fixes, P1 and P2, residual risks, equivalence,
+benchmarks, review, suites, candidate hashes and the recommendation.
+
+In short:
+
+- **Writes.** Same-second upserts (F2) and the digest backfill (F3, cases A
+  to F) are seen by the key. The memo of parts holds one epoch per key.
+- **First Home.** On the real install it went from 6.15 s (A) to 1.78 s.
+- **Later Home.** With the whole map it is back to A (0.98 against
+  1.03 s). With only the part memo it is 1.12 against 1.07 s (B was 1.99).
+- **Answers** are identical across A, B and C. The suites pass.
+- **Verdicts:** VERIFIED WITH DOCUMENTED RESIDUAL RISK, PARTIAL, and HOME
+  ONLY READY FOR OWNER APPROVAL. Nothing was merged or pushed.
