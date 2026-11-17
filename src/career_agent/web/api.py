@@ -698,16 +698,6 @@ class JobsApi(WorkspaceRoutes, LocalApp):
             tuple((job_id, state) for job_id, (_level, _stale, state) in ordered),
         )
 
-    def deep_levels_within(
-        self, conn: Any, job_ids: set[str]
-    ) -> tuple[tuple[str, str, bool, int], ...]:
-        """`deep_levels()[0]` for these postings only: the same entries, and
-        none for any other (`deep_api.deep_levels_within`). For a caller whose
-        query can only ever look a level up for these postings."""
-        from career_agent.web.deep_api import deep_levels_within
-
-        return _level_entries(sorted(deep_levels_within(self, conn, job_ids).items()))
-
     def _lead_terms(self) -> tuple[str, ...]:
         """What orders the leads lane: the search plan's own terms (role
         anchors, their aliases, her work phrases), at most 12 like any

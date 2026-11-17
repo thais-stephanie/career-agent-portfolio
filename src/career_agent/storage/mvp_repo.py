@@ -2554,6 +2554,8 @@ class ScoredJobQuery(_Repo):
         self._indexed: bool | None = None
         #: The deep levels already in this connection's `temp.deep_level`.
         self._deep_loaded: tuple[tuple[str, str, bool, int], ...] | None = None
+        #: The ids already in this connection's `temp.among_id` (`ids_among`).
+        self._among_loaded: frozenset[str] | None = None
         #: Set only inside `count_together`: where `count` takes its answer.
         self._count_from: Callable[[str, int, JobFilter], int] | None = None
         # The free-text clause folds places in SQL (`ca_fold`). Registering is
@@ -3625,22 +3627,33 @@ class ScoredJobQuery(_Repo):
         """
         if f.deep:
             raise ValueError("ids_among reads no deep level: f.deep must be empty")
+        if not job_ids:
+            return set()
         inner = replace(f, group_duplicates=False, deep_levels=())
         clauses, params = self._where_parts(config_id, config_version, inner)
         source = "SELECT j.id" + self._from_for(self._joins_needed(inner), f=inner)
-        wanted = sorted(job_ids)
-        found: set[str] = set()
-        for start in range(0, len(wanted), 500):
-            chunk = wanted[start : start + 500]
-            # On `jm`, the driving index's own column: tested before `job` is
-            # looked up, so only the asked postings are read (`j.id` is
-            # `jm.job_id` by the join).
-            marks = ",".join("?" * len(chunk))
-            where = " WHERE " + " AND ".join([*clauses, f"jm.job_id IN ({marks})"])
-            found.update(
-                str(row[0]) for row in self.conn.execute(source + where, [*params, *chunk])
-            )
-        return found
+        self._among_table(job_ids)
+        # ONE statement, whatever the set's size: the driving index walks the
+        # filtered population once and tests each row against the TEMP set
+        # (chunks of 500 ids walked it once per chunk: 2026-11-17, about 1 s
+        # of a later Home on the real profile). On `jm`, the driving index's
+        # own column, tested before `job` is looked up (`j.id` is `jm.job_id`).
+        where = " WHERE " + " AND ".join([*clauses, "jm.job_id IN temp.among_id"])
+        return {str(row[0]) for row in self.conn.execute(source + where, params)}
+
+    def _among_table(self, job_ids: set[str]) -> None:
+        """`job_ids` as `temp.among_id`, rewritten only when the set changed
+        (Home asks each section about the same set). TEMP, as `deep_level`:
+        per connection, never in the database file."""
+        wanted = frozenset(job_ids)
+        if self._among_loaded == wanted:
+            return
+        self.conn.execute("CREATE TEMP TABLE IF NOT EXISTS among_id (job_id TEXT PRIMARY KEY)")
+        self.conn.execute("DELETE FROM temp.among_id")
+        self.conn.executemany(
+            "INSERT INTO temp.among_id (job_id) VALUES (?)", [(job,) for job in sorted(wanted)]
+        )
+        self._among_loaded = wanted
 
     def page(
         self,

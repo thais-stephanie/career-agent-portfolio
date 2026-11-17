@@ -518,8 +518,6 @@ class WorkspaceRoutes(_MixinBase):
 
         def deep_levels(self) -> tuple[tuple, tuple]: ...
 
-        def deep_levels_within(self, conn: Any, job_ids: set[str]) -> tuple: ...
-
         #: The band edges and the recency window, read once from the loaded
         #: configuration and cached on `JobsApi`. The digest renders cards, so
         #: it needs both.
@@ -2223,19 +2221,22 @@ class WorkspaceRoutes(_MixinBase):
         admits change nothing on Home, and deriving them was most of its cost
         (2026-11-16: 2,127 read postings, 244 of them in Home's population).
         A section that FILTERS by the reading (`deep`) reads every level: it
-        gets the whole map, as before.
+        gets the whole map, as before. So does every Home while the whole map
+        is remembered under the current key (`deep_levels_for_home`): then
+        nothing is selected at all.
         """
-        from career_agent.web.deep_api import reviewed_postings
+        from career_agent.web.api import _level_entries
+        from career_agent.web.deep_api import deep_levels_for_home
 
         if any(f.deep for f in filters):
             return self.deep_levels()[0]
-        reviewed = reviewed_postings(conn)
-        admitted = (
-            set().union(*(repo.ids_among(config_id, config_version, f, reviewed) for f in filters))
-            if reviewed and filters
-            else set()
-        )
-        return self.deep_levels_within(conn, admitted)
+
+        def admit(reviewed: set[str]) -> set[str]:
+            return set().union(
+                *(repo.ids_among(config_id, config_version, f, reviewed) for f in filters)
+            )
+
+        return _level_entries(sorted(deep_levels_for_home(self, conn, admit).items()))
 
     def daily(self, *, query: dict, body: dict) -> dict:
         """What is worth looking at today. The same sections the terminal has.

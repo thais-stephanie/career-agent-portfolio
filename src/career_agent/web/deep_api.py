@@ -16,7 +16,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from contextlib import closing
+from collections.abc import Callable, Iterator
+from contextlib import closing, contextmanager
 from typing import TYPE_CHECKING, Any
 
 from career_agent.web.server import ApiError
@@ -743,7 +744,29 @@ def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
     population part moves when the corpus does). Deriving all of them costs
     about half a second on 710 readings; checking costs a few milliseconds.
     A database without the table (a demo, an older build) has none.
+    The key and the derivation read ONE snapshot, so what is remembered was
+    derived in the state the key names.
     """
+    with _snapshot(conn):
+        return _whole_map(app, conn)
+
+
+@contextmanager
+def _snapshot(conn: Any) -> Iterator[None]:
+    """A read transaction around the block, unless the caller holds one."""
+    began = not conn.in_transaction
+    if began:
+        conn.execute("BEGIN")
+    try:
+        yield
+    finally:
+        # SQLite may have rolled back itself (I/O error, interrupt): then there
+        # is nothing to close, and COMMIT would hide the error being raised.
+        if began and conn.in_transaction:
+            conn.execute("COMMIT")
+
+
+def _whole_map(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
     key = _levels_key(app, conn)
     if key is None:
         return {}
@@ -771,14 +794,33 @@ def deep_levels(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
 
 
 def _levels_key(app: Any, conn: Any) -> tuple | None:
-    """What the whole map of levels depends on (see `deep_levels`); None for a
-    database with no reading, or without the table."""
+    """What every remembered level depends on (see `deep_levels`); None for a
+    database with no reading, or without the table.
+
+    The readings' part sees each way a reading is written (2026-11-17, every
+    product writer is listed in `test_home_deep_levels_identity`):
+
+    - `DeepRepo.save` inserts a reading, or replaces one in place (id kept;
+      within the second of the newest save neither COUNT nor MAX(created_at)
+      moves). Every save writes a `deep_attempt` in the same transaction, and
+      attempts are only ever inserted: their COUNT moves with each save.
+      MAX(rowid) adds a delete of any attempt but the newest followed by an
+      insert (no product path deletes one).
+    - `backfill_digests` fills `intent_digest` only where it is NULL, so
+      COUNT(intent_digest) moves with every row it fills, and with nothing
+      else it does. It is read in the same scan as MAX(created_at).
+    """
     from career_agent.semantic import deep
     from career_agent.semantic.deep_run import context
     from career_agent.storage.catalogue import population_token
 
     try:
-        stamp = tuple(conn.execute("SELECT COUNT(*), MAX(created_at) FROM deep_review").fetchone())
+        stamp = tuple(
+            conn.execute(
+                "SELECT COUNT(*), MAX(created_at), COUNT(intent_digest) FROM deep_review"
+            ).fetchone()
+        )
+        attempts = tuple(conn.execute("SELECT COUNT(*), MAX(rowid) FROM deep_attempt").fetchone())
     except sqlite3.Error:
         return None
     if not stamp[0]:
@@ -786,6 +828,7 @@ def _levels_key(app: Any, conn: Any) -> tuple | None:
     config = app.search_config()
     return (
         stamp,
+        attempts,
         deep.contract_identity(),
         tuple(context(conn, config, shared).digest for shared in (True, False)),
         population_token(conn),
@@ -803,6 +846,35 @@ def reviewed_postings(conn: Any) -> set[str]:
         return DeepRepo(conn).reviewed_job_ids()
     except sqlite3.Error:
         return set()
+
+
+def deep_levels_for_home(
+    app: Any, conn: Any, admit: Callable[[set[str]], set[str]]
+) -> dict[str, tuple[str, bool, str]]:
+    """The levels Home's pages need, with ONE key in ONE snapshot (the caller's).
+
+    The whole map, when it is remembered under the current key: nothing is
+    selected, as `8a43fb0` did (a level of a posting no section admits changes
+    no page). Otherwise `deep_levels_within` of the postings `admit` keeps
+    among the reviewed ones. The reviewed set is remembered under the same key
+    (`_deep_reviewed`): it is a function of the readings' keys and the
+    postings, and the key moves with both.
+    """
+    with _snapshot(conn):
+        key = _levels_key(app, conn)
+        if key is None:
+            return {}
+        with _LEVELS_LOCK:
+            cached = getattr(app, "_deep_levels_cache", None)
+            if cached is not None and cached[0] == key:
+                return dict(cached[1])
+            memo = getattr(app, "_deep_reviewed", None)
+            reviewed = memo[1] if memo is not None and memo[0] == key else None
+        if reviewed is None:
+            reviewed = frozenset(reviewed_postings(conn))
+            with _LEVELS_LOCK:
+                app._deep_reviewed = (key, reviewed)
+        return _levels_within(app, conn, admit(set(reviewed)) if reviewed else set(), key)
 
 
 def deep_levels_within(app: Any, conn: Any, job_ids: set[str]) -> dict[str, tuple[str, bool, str]]:
@@ -823,22 +895,15 @@ def deep_levels_within(app: Any, conn: Any, job_ids: set[str]) -> dict[str, tupl
     here), so what is added was derived under that key; it is added only
     while the memo still holds that key.
     """
-    began = not conn.in_transaction
-    if began:
-        conn.execute("BEGIN")
-    try:
-        return _levels_within(app, conn, job_ids)
-    finally:
-        # SQLite may have rolled back itself (I/O error, interrupt): then there
-        # is nothing to close, and COMMIT would hide the error being raised.
-        if began and conn.in_transaction:
-            conn.execute("COMMIT")
+    with _snapshot(conn):
+        key = _levels_key(app, conn)
+        return {} if key is None else _levels_within(app, conn, job_ids, key)
 
 
-def _levels_within(app: Any, conn: Any, job_ids: set[str]) -> dict[str, tuple[str, bool, str]]:
-    key = _levels_key(app, conn)
-    if key is None:
-        return {}
+def _levels_within(
+    app: Any, conn: Any, job_ids: set[str], key: tuple
+) -> dict[str, tuple[str, bool, str]]:
+    """`deep_levels_within` under `key`, the current key of this snapshot."""
     with _LEVELS_LOCK:
         cached = getattr(app, "_deep_levels_cache", None)
         if cached is not None and cached[0] == key:
