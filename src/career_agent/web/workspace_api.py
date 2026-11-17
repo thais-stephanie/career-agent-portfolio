@@ -2187,7 +2187,7 @@ class WorkspaceRoutes(_MixinBase):
                 for _section, f in chosen
             ]
         finally:
-            if began:
+            if began and conn.in_transaction:  # not after SQLite's own rollback
                 conn.execute("COMMIT")
         built = []
         for (section, _job_filter), rows in zip(chosen, pages, strict=True):

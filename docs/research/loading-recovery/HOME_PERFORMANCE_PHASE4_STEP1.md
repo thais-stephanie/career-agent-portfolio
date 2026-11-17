@@ -12,8 +12,10 @@ memory-only memo of the parts Home derives, under the whole map's own key
 0.86 s), a later miss under the same key derives nothing (0.54 -> 0.05 s, the
 `8a43fb0` cost), 120 of 120 answers are byte-identical to `8a43fb0`, the
 whole map is never written from a part, and TTL, freshness and the API are
-unchanged. The one review finding left open is the key's existing blind
-spot, the same exposure `8a43fb0` had (residual risks). Still synthetic only:
+unchanged. Left open: the key's existing blind spots, no longer in time or
+postings than `8a43fb0`, but able to mix epochs in one answer (7b, residual
+risks). A final review on 2026-11-17 found no BLOCKER or MAJOR; its one code
+fix is in (7b). Still synthetic only:
 the real figures need the separately authorised validation.
 
 **Step 1 verdict (before the owner's decision): NEEDS OWNER DECISION.** The change is correct on every synthetic
@@ -360,15 +362,37 @@ A reviewer read the diff and the code it depends on, ran nothing.
 | Finding | Severity | Outcome |
 |---|---|---|
 | Is `_levels_key` enough for parts? Exactly as much as for the whole map: each posting's level depends only on its own readings, and everything `_review_rows` reads moves the key | (question) | confirmed |
-| The key has two existing blind spots: a review replaced in place (`DeepRepo.save` upsert) in the same second as another save keeps COUNT and MAX; `backfill_digests` writes `intent_digest` without moving it | MINOR | **not changed**: `8a43fb0`'s Home read the whole-map cache under the same key, so Step 1b returns Home to exactly that exposure, no new one. A trigger-kept reading revision in the stamp would close it; that is a migration, the owner's decision (residual risks) |
+| The key has two existing blind spots: a review replaced in place (`DeepRepo.save` upsert) in the same second as another save keeps COUNT and MAX; `backfill_digests` writes `intent_digest` without moving it | MINOR | **not changed**: `8a43fb0`'s Home read the whole-map cache under the same key, so the time and the postings exposed are not larger; the review of 2026-11-17 found one new effect, mixed epochs (7b). A trigger-kept reading revision in the stamp would close it; that is a migration, the owner's decision (residual risks) |
 | A reader of an older snapshot resets the memo to its key | NIT | time only; documented in code |
 | Correctness relies on the caller holding a snapshot | NIT | **fixed**: `deep_levels_within` opens one when the caller has none; a test fails without it |
 | A test's last assertion was answered by the whole map, not the memo | NIT | **fixed** |
 | A `deep` section filter reads the whole map outside Home's snapshot | NIT | existing, unchanged, no section uses it |
 
+### 7b. Final integration review (2026-11-17)
+
+A second reviewer read the diff `8a43fb0..fe5f250` and the code it depends
+on before this document, and ran only the two new test files (43 passed).
+No BLOCKER or MAJOR. Proven from the code: `ids_among` is a superset of every
+page (the page's own conditions minus the representative clause); pages read
+a level only for rows that passed their own conditions; the reading chosen
+per posting with a subset equals the whole map's, reposts and shared content
+included; a part is never read as the whole map; nothing derived under an
+older key is stored under a newer one.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Under the key's blind spots the part memo can mix epochs: postings asked before an unseen event keep the old level, postings first asked after it (the admitted set grows) get the new one, in the same answer. `8a43fb0` derived the whole map in one pass, so all postings sat on one side of the event. Exposure time and the affected postings are not larger (both end only when the key moves; the part goes when Find jobs derives the whole map) | MINOR | **documented, not changed**: the previous claim "exactly that exposure, no new one" was wrong and is corrected here and in the residual risks. Closing it needs the key to see the blind spots (a trigger-kept revision: a migration, the owner's decision) |
+| `COMMIT` in `finally` hid the real error when SQLite had rolled the transaction back itself (I/O error, interrupt): the caller saw "no transaction is active" | MINOR | **fixed** in `deep_levels_within` and in Home's snapshot (`COMMIT` only while a transaction is open); two tests failed before and pass after |
+| The read transaction covers the key, the population, the missing derivations and three pages: a collection writing meanwhile cannot reset the WAL until it ends | MINOR | documented; bounded by Home's own time (under a second at 12% here) |
+| `total` and `open_jobs` are counted before the snapshot | NIT | as in `8a43fb0`; `_home_lists_checked` covers a moved token |
+| A whole map stored under Home's key may be derived from a newer state than the key (its key and rows are separate reads) | NIT | as in `8a43fb0`; only the blind spots can make it visible |
+| Readers on older and newer snapshots can reset each other's memo | NIT | time only (already above) |
+| `ids_among` would fail loudly with the shortlist lane's tracked exemption and no `ja` join; an `INDEXED BY` status hint would make its `IN` a scan | NIT | latent, no Home section reaches either; not changed |
+| The `deep` section filter reads the whole map outside the snapshot | NIT | as in `8a43fb0`, no section uses it |
+
 ### 8. Tests
 
-`tests/integration/test_home_deep_levels_memo.py`, 19 tests: a later miss,
+`tests/integration/test_home_deep_levels_memo.py`, 21 tests (19, and 2 from the final review): a later miss,
 the 600 s memo, a save and a hide derive nothing; a wider population derives
 only the newcomers; overlapping sets; a posting without a level is not
 derived again; a replaced or removed reading, evidence, a retitled advert, a
@@ -413,8 +437,9 @@ timing failure, to watch.
 
 - The key's existing blind spots (review finding above): a reading replaced
   in place in the same second as another save, or a digest backfill, is not
-  seen until something else moves the key. The same as `8a43fb0` and as Find
-  jobs today.
+  seen until something else moves the key, as in `8a43fb0` and Find jobs
+  today. New with the memo: one Home answer can then mix postings read
+  before and after such an event (7b).
 - Any posting or score written moves the key, so during a collection or a
   recalculation the memo restarts often; that costs what Step 1 cost, never
   more.

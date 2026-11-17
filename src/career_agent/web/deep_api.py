@@ -829,7 +829,9 @@ def deep_levels_within(app: Any, conn: Any, job_ids: set[str]) -> dict[str, tupl
     try:
         return _levels_within(app, conn, job_ids)
     finally:
-        if began:
+        # SQLite may have rolled back itself (I/O error, interrupt): then there
+        # is nothing to close, and COMMIT would hide the error being raised.
+        if began and conn.in_transaction:
             conn.execute("COMMIT")
 
 

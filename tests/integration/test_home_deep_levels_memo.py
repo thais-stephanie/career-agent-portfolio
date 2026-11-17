@@ -379,3 +379,39 @@ def test_a_write_between_the_key_and_the_derivation_is_not_published_under_the_k
     conn.close()
     assert corpus._deep_levels_part[0] != key
     assert now[target][1] is True, "the next call, under the new key, sees the new title"
+
+
+class _Boom(Exception):
+    pass
+
+
+def test_an_error_in_the_derivation_is_not_hidden_by_the_snapshot_closing(
+    corpus, monkeypatch
+) -> None:
+    """SQLite may roll the transaction back itself (I/O error, interrupt): the
+    caller must see that error, not "no transaction is active" from COMMIT."""
+    fresh(corpus)
+    ids = set(whole_map(corpus))
+
+    def rolled_back(app, conn, job_ids=None, **k):
+        conn.execute("ROLLBACK")
+        raise _Boom
+
+    monkeypatch.setattr(deep_api, "_review_rows", rolled_back)
+    conn = connect(corpus.config.db_path)
+    with pytest.raises(_Boom):
+        deep_api.deep_levels_within(corpus, conn, ids)
+    assert not conn.in_transaction
+    conn.close()
+
+
+def test_an_error_in_homes_snapshot_is_not_hidden_by_its_closing(corpus, monkeypatch) -> None:
+    fresh(corpus)
+
+    def rolled_back(self, conn, *a, **k):
+        conn.execute("ROLLBACK")
+        raise _Boom
+
+    monkeypatch.setattr(type(corpus), "_home_deep_levels", rolled_back)
+    with pytest.raises(_Boom):
+        miss(corpus)
