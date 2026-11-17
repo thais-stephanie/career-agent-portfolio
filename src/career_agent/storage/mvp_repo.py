@@ -3648,6 +3648,9 @@ class ScoredJobQuery(_Repo):
         wanted = frozenset(job_ids)
         if self._among_loaded == wanted:
             return
+        # Not loaded until it is: a rollback of the enclosing transaction
+        # undoes the table, so a failed load must not be remembered.
+        self._among_loaded = None
         self.conn.execute("CREATE TEMP TABLE IF NOT EXISTS among_id (job_id TEXT PRIMARY KEY)")
         self.conn.execute("DELETE FROM temp.among_id")
         self.conn.executemany(

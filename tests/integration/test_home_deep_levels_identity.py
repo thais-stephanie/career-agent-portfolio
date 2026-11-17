@@ -188,16 +188,37 @@ def test_ids_among_asks_each_filter_once_whatever_the_set(corpus) -> None:
 
 
 def test_the_reviewed_memo_follows_the_identity(corpus, counted) -> None:
-    """A new posting sharing a reviewed advert moves the population token:
-    the reviewed set is read again, never served from memory."""
+    """An unread posting that becomes a repost of a reviewed advert (its text
+    is now that advert's) moves the population token: the reviewed set is
+    read again and the posting gets the reading's level."""
     fresh(corpus)
     home(corpus)
-    first_key = key_of(corpus)
-    write(corpus, "UPDATE job SET title = title WHERE id = (SELECT MIN(id) FROM job)")
+    first_key, first_reviewed = key_of(corpus), set(corpus._deep_reviewed[1])
+    conn = connect(corpus.config.db_path)
+    read = set(read_ids(corpus))
+    unread = str(
+        conn.execute(
+            "SELECT id FROM job WHERE id NOT IN (SELECT job_id FROM deep_review)"
+            " AND content_hash NOT IN (SELECT content_hash FROM deep_review) ORDER BY id"
+        ).fetchone()[0]
+    )
+    # The same advert under the same title: a reading is shared only then.
+    reviewed_hash, reviewed_title = conn.execute(
+        "SELECT content_hash, title FROM deep_review ORDER BY id LIMIT 1"
+    ).fetchone()
+    conn.close()
+    assert unread not in read and unread not in first_reviewed
+    write(
+        corpus,
+        "UPDATE job SET content_hash = ?, title = ? WHERE id = ?",
+        (reviewed_hash, reviewed_title, unread),
+    )
     assert key_of(corpus) != first_key
     clear(counted)
     got = miss(corpus)
     assert counted["reviewed"] == 1
+    assert unread in corpus._deep_reviewed[1], "the repost is reviewed now"
+    assert unread in truth_map(corpus)
     assert got == truth(corpus)
 
 
@@ -484,20 +505,49 @@ def test_a_backfill_committed_during_a_read_transaction(stored_before_0059) -> N
 # -- the writers the identity relies on ------------------------------------
 
 
-WRITE = re.compile(r"\b(INSERT|UPDATE|DELETE|REPLACE)\b[^\"']*\bdeep_(review|attempt)\b", re.I)
+#: A write and the table it names, across lines and string pieces (the
+#: statements are written as adjacent literals), in any source file.
+WRITE = re.compile(
+    r"\b(INSERT\s+(?:OR\s+\w+\s+)?INTO|UPDATE|DELETE\s+FROM|REPLACE\s+INTO|DROP\s+TABLE)"
+    r"\s*[\"'\s]*([{\w.\"]+)",
+    re.I,
+)
+
+
+def writes() -> tuple[set, set]:
+    named, runtime = set(), set()
+    for path in SRC.rglob("*.py"):
+        where = path.relative_to(SRC).as_posix()
+        for match in WRITE.finditer(path.read_text(encoding="utf-8")):
+            verb, table = " ".join(match.group(1).upper().split()), match.group(2).strip('"')
+            if table in ("deep_review", "deep_attempt"):
+                named.add((where, verb, table))
+            elif table.startswith("{"):
+                runtime.add(where)
+    return named, runtime
 
 
 def test_every_writer_of_a_reading_is_one_the_identity_sees() -> None:
     """The identity holds because these are the only product writers of
-    `deep_review` and `deep_attempt` (migrations aside). A new writer must be
-    checked against `_levels_key` before it is added here."""
-    found = set()
-    for path in SRC.rglob("*.py"):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            match = WRITE.search(line)
-            if match:
-                found.add((path.relative_to(SRC).as_posix(), match.group(1).upper()))
-    assert found == {
-        ("semantic/deep_run.py", "UPDATE"),  # backfill_digests: NULL digests only
-        ("semantic/deep_run.py", "INSERT"),  # DeepRepo.save and save_attempt
+    `deep_review` and `deep_attempt` (migrations aside). A new writer, or a
+    new module writing to a table named at runtime, fails here and must be
+    checked against `_levels_key` before it is added.
+
+    The runtime-named writers, read 2026-11-17: none reaches either table
+    while a server runs. `catalogue.py` drops and copies tables when an
+    install is split (offline, before any server opens it); the others name
+    their own module's tables (resume documents, matching v2, public health,
+    the career repo's application tables)."""
+    named, runtime = writes()
+    assert named == {
+        ("semantic/deep_run.py", "UPDATE", "deep_review"),  # backfill_digests: NULL only
+        ("semantic/deep_run.py", "INSERT INTO", "deep_review"),  # DeepRepo.save
+        ("semantic/deep_run.py", "INSERT INTO", "deep_attempt"),  # DeepRepo.save_attempt
+    }
+    assert runtime == {
+        "matching_v2/store.py",
+        "resume_doc/store.py",
+        "sources/public_health.py",
+        "storage/career_repo.py",
+        "storage/catalogue.py",
     }
