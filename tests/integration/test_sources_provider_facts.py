@@ -455,3 +455,10 @@ def test_producing_boards_by_probe_equal_the_join_on_the_demo(api) -> None:
     finally:
         conn.close()
     assert any("idx_job_source_board" in step for step in plan), plan
+
+
+def test_an_error_that_is_not_a_missing_column_is_raised_as_before() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(SCHEMA.replace("CREATE TABLE job ", "CREATE TABLE job_elsewhere "))
+    with pytest.raises(sqlite3.OperationalError, match="no such table"):
+        health(conn)

@@ -396,11 +396,17 @@ def _provider_facts(
     providers with an open posting, so a provider whose postings all closed
     reads as absent there too. A table without `closed_at` falls back to the
     two queries as they were (the catalogue then counts nothing, as it did).
+    Any other error is raised, as `_posting_facts` raised it.
+
+    The equivalence assumes `job.provider` compares as BINARY, as the schema
+    declares: under NOCASE a group's spelling could come from a closed row.
     """
     conn.row_factory = sqlite3.Row
     try:
         rows = conn.execute(PROVIDER_FACTS).fetchall()
-    except sqlite3.Error:
+    except sqlite3.OperationalError as exc:
+        if "no such column" not in str(exc):
+            raise
         return _posting_facts(conn), None
     postings = {str(row["provider"]): {"n": int(row["n"]), "newest": row["newest"]} for row in rows}
     open_counts = {str(row["provider"]): int(row["open_n"]) for row in rows if row["open_n"]}
