@@ -397,3 +397,61 @@ def test_the_catalogue_still_counts_by_itself_when_asked_alone(api) -> None:
     finally:
         conn.close()
     assert alone == via_health
+
+
+# ========================================== 4. producing boards, by probe
+
+JOINED = (
+    "SELECT sb.provider AS provider, COUNT(DISTINCT j.source_board_id) AS n"
+    " FROM source_board sb JOIN job j ON j.source_board_id = sb.id"
+    " GROUP BY sb.provider"
+)
+
+
+def _counted(conn: sqlite3.Connection, sql: str) -> dict:
+    return {str(r[0]): int(r[1]) for r in conn.execute(sql)}
+
+
+def test_producing_boards_by_probe_equal_the_join() -> None:
+    """A board counts once however many postings it has; a board with none,
+    a posting on a board nobody configured, a board whose postings carry
+    another provider's name and a NULL board id are counted alike."""
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(SCHEMA)
+    conn.executemany(
+        "INSERT INTO source_board (id, provider) VALUES (?, ?)",
+        [
+            ("b1", "greenhouse"),
+            ("b2", "greenhouse"),
+            ("b3", "lever"),
+            ("b4", "lever"),
+            ("b5", "ashby"),
+            (None, "ashby"),
+            (None, "workable"),
+        ],
+    )
+    conn.executemany(
+        "INSERT INTO job (id, provider, source_board_id, closed_at) VALUES (?, ?, ?, ?)",
+        [
+            ("j1", "greenhouse", "b1", None),
+            ("j2", "greenhouse", "b1", CLOSED),
+            ("j3", "greenhouse", "b1", None),
+            ("j4", "lever", "b3", CLOSED),
+            ("j5", "greenhouse", "b4", None),
+            ("j6", "x", "nowhere", None),
+            ("j7", "ashby", None, None),
+        ],
+    )
+    expected = _counted(conn, JOINED)
+    assert expected == {"greenhouse": 1, "lever": 2}
+    assert _counted(conn, catalogue.PRODUCING_BOARDS) == expected
+
+
+def test_producing_boards_by_probe_equal_the_join_on_the_demo(api) -> None:
+    conn = connect(api.config.db_path)
+    try:
+        assert _counted(conn, catalogue.PRODUCING_BOARDS) == _counted(conn, JOINED)
+        plan = [r[3] for r in conn.execute("EXPLAIN QUERY PLAN " + catalogue.PRODUCING_BOARDS)]
+    finally:
+        conn.close()
+    assert any("idx_job_source_board" in step for step in plan), plan

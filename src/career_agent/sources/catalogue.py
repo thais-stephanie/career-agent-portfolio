@@ -709,19 +709,28 @@ def _boards_by_provider(conn: sqlite3.Connection) -> dict[str, int]:
     return {str(row["provider"]): int(row["n"]) for row in rows}
 
 
+PRODUCING_BOARDS = (
+    "SELECT sb.provider AS provider, COUNT(*) AS n FROM source_board sb"
+    " WHERE EXISTS (SELECT 1 FROM job j WHERE j.source_board_id = sb.id)"
+    " GROUP BY sb.provider"
+)
+
+
 def _producing_boards_by_provider(conn: sqlite3.Connection) -> dict[str, int]:
     """How many of those boards have ever returned a posting.
 
     Reported beside the configured count rather than instead of it, because
     "116 configured, 102 producing" and "116 boards" are different claims and
     only the first is measured.
+
+    One probe per board (`EXISTS`) rather than a join that visits every
+    posting of every board and then counts the distinct boards: the same
+    count, since a board id is unique, without reading the whole of
+    `idx_job_source_board`. A provider with no producing board has no row
+    either way.
     """
     try:
-        rows = conn.execute(
-            "SELECT sb.provider AS provider, COUNT(DISTINCT j.source_board_id) AS n"
-            " FROM source_board sb JOIN job j ON j.source_board_id = sb.id"
-            " GROUP BY sb.provider"
-        ).fetchall()
+        rows = conn.execute(PRODUCING_BOARDS).fetchall()
     except sqlite3.Error:
         return {}
     return {str(row["provider"]): int(row["n"]) for row in rows}
