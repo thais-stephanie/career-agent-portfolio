@@ -157,7 +157,10 @@ The harness is:
 - `realload.py`, `realtailor.py`, `realout.py` and their `make_*.py` generators;
 - `runload.sh`, `runtailor.sh`, `machine.ps1`, `state3.py`, `hashlist.txt`;
 - the synthetic warm-up corpora `s3/base` (schema 61) and `s3/base_m` (63);
-- the code trees `s3/src_p` (`9636ecf`) and `s3/src_b`.
+- the code trees `s3/src_p` (`9636ecf`) and `s3/src_b`;
+- a Python environment: the scripts use the `.venv` of the Stage 7 worktree.
+  If that worktree is removed, point `PY` in `runload.sh` and `runtailor.sh`
+  at another environment of the same project.
 
 It lives in the measuring session's temporary scratch folder. A restart does
 not empty it; Storage Sense or a manual cleanup of `%TEMP%` would.
