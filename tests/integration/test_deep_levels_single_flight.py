@@ -24,7 +24,6 @@ invented corpus of the Home deep-level tests.
 from __future__ import annotations
 
 import threading
-import time
 from types import SimpleNamespace
 
 import pytest
@@ -134,15 +133,47 @@ def _flights(app) -> dict:
     return getattr(app, "_deep_levels_flights", None) or {}
 
 
-def _queued(app, key_count: int = 1) -> None:
-    """Give the second caller time to reach its wait (it can only wait or hit)."""
-    deadline = time.monotonic() + 2
-    while time.monotonic() < deadline and len(_flights(app)) < key_count:
-        time.sleep(0.01)
-    time.sleep(0.3)
+class Waiters:
+    """Counts the requests that really wait for a derivation of their key: the
+    flights `_whole_map` creates are Events whose `wait()` reports itself."""
+
+    def __init__(self) -> None:
+        self._seen = threading.Condition()
+        self.count = 0
+        waiters = self
+
+        class Watched(threading.Event):
+            def wait(self, timeout=None):
+                with waiters._seen:
+                    waiters.count += 1
+                    waiters._seen.notify_all()
+                return super().wait(timeout)
+
+        class Module:
+            Event = Watched
+
+            def __getattr__(self, name):
+                return getattr(threading, name)
+
+        self.module = Module()
+
+    def until(self, n: int) -> None:
+        with self._seen:
+            assert self._seen.wait_for(lambda: self.count >= n, timeout=WAIT), (
+                f"{self.count} of {n} requests waited"
+            )
 
 
-def test_the_tailors_two_lists_at_once_derive_the_map_once(corpus, assessed, monkeypatch) -> None:
+@pytest.fixture
+def waiters(monkeypatch):
+    w = Waiters()
+    monkeypatch.setattr(deep_api, "threading", w.module)
+    return w
+
+
+def test_the_tailors_two_lists_at_once_derive_the_map_once(
+    corpus, assessed, monkeypatch, waiters
+) -> None:
     app = corpus
     _cold(app)  # first, the answers each list gives on its own
     alone = [
@@ -162,8 +193,8 @@ def test_the_tailors_two_lists_at_once_derive_the_map_once(corpus, assessed, mon
         saved = _start(lambda: app.handle_api("GET", "/api/jobs", SAVED, {}))
         assert held.inside.wait(timeout=WAIT)
         best = _start(lambda: app.handle_api("GET", "/api/jobs", BEST, {}))
-        _queued(app)
-        assert not best.finished.is_set(), "the second list did not wait for the map"
+        waiters.until(1)  # the second list is waiting for the held derivation
+        assert not best.finished.is_set()
         held.release()
         assert saved.finished.wait(WAIT) and best.finished.wait(WAIT)
         assert saved.error is None and best.error is None
@@ -175,12 +206,12 @@ def test_the_tailors_two_lists_at_once_derive_the_map_once(corpus, assessed, mon
         held.release()
 
 
-def test_concurrent_calls_of_one_key_share_one_derivation(corpus, gate) -> None:
+def test_concurrent_calls_of_one_key_share_one_derivation(corpus, gate, waiters) -> None:
     app = corpus
     first = _start(app.deep_levels)
     assert gate.inside.wait(timeout=WAIT)
     others = [_start(app.deep_levels) for _ in range(3)]
-    _queued(app)
+    waiters.until(3)
     assert not any(o.finished.is_set() for o in others)
     gate.release()
     for call in (first, *others):
@@ -203,7 +234,7 @@ def _moved_key(monkeypatch, suffix: str) -> threading.local:
     return mark
 
 
-def test_another_key_derives_beside_and_never_waits(corpus, gate, monkeypatch) -> None:
+def test_another_key_derives_beside_and_never_waits(corpus, gate, monkeypatch, waiters) -> None:
     app = corpus
     mark = _moved_key(monkeypatch, "moved")
     first = _start(app.deep_levels)
@@ -215,6 +246,7 @@ def test_another_key_derives_beside_and_never_waits(corpus, gate, monkeypatch) -
 
     second = _start(moved)
     assert second.finished.wait(WAIT), "another key waited for the held derivation"
+    assert waiters.count == 0
     assert second.error is None and second.result
     gate.release()
     assert first.finished.wait(WAIT) and first.error is None
@@ -247,13 +279,13 @@ def test_a_hit_never_waits_while_another_key_derives(corpus, monkeypatch) -> Non
     assert a.finished.wait(WAIT) and a.error is None
 
 
-def test_a_failed_derivation_releases_its_waiters(corpus, gate) -> None:
+def test_a_failed_derivation_releases_its_waiters(corpus, gate, waiters) -> None:
     app = corpus
     gate.fail = True
     first = _start(app.deep_levels)
     assert gate.inside.wait(timeout=WAIT)
     waiter = _start(app.deep_levels)
-    _queued(app)
+    waiters.until(1)
     gate.release()
     assert first.finished.wait(WAIT) and isinstance(first.error, RuntimeError)
     assert waiter.finished.wait(WAIT) and waiter.error is None and waiter.result
