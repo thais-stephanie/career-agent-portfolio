@@ -286,9 +286,10 @@ def _shuffle_state(conn: sqlite3.Connection, config, rnd: random.Random) -> None
                     "UPDATE job_input_revision SET revision = revision + ? WHERE job_id = ?",
                     (rnd.randint(1, 4), job_id),
                 )
-        if rnd.random() < 0.5:
+        roll = rnd.random()
+        if roll < 0.4:
             conn.execute("DELETE FROM job_dirty")
-        elif rnd.random() < 0.5:
+        elif roll < 0.7:
             conn.execute("DELETE FROM job_input_revision WHERE rowid % 3 = 0")
 
 
@@ -348,6 +349,31 @@ def test_each_index_lives_on_its_own_side(two_profiles: dict) -> None:  # noqa: 
         assert "idx_job_input_revision_cover" not in mine
     assert "idx_job_input_revision_cover" in catalogue
     assert "idx_job_score_revision_cover" not in catalogue
+
+
+def test_the_outdated_count_of_each_split_profile_is_unchanged(
+    two_profiles: dict,  # noqa: F811
+    monkeypatch,
+) -> None:
+    """`/api/home/outdated` itself, on both profiles, against the query as it was."""
+    from career_agent.web.api import JobsApi
+    from career_agent.web.server import ServerConfig
+
+    for db_key, config_key in (("a_db", "a_config"), ("b_db", "b_config")):
+
+        def outdated(db_key: str = db_key, config_key: str = config_key) -> dict:
+            api = JobsApi(
+                ServerConfig(db_path=two_profiles[db_key], config_dir=two_profiles[config_key]),
+                quiet=True,
+            )  # a new API each time: its memo never answers
+            return api.handle_api("GET", "/api/home/outdated", {}, {})
+
+        new = outdated()
+        with monkeypatch.context() as patch:
+            patch.setattr(rescore_mod, "_missing_or_stale", _legacy_missing_or_stale)
+            old = outdated()
+        assert new == old
+        assert new["running"] is False and new["outdated"] > 0
 
 
 def test_a_split_profile_plans_the_same_postings(two_profiles: dict, monkeypatch) -> None:  # noqa: F811
