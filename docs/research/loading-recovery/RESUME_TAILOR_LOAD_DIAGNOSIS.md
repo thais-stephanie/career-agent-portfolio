@@ -71,3 +71,5 @@ Estimate:
 - measurement: 1 to 2 hours;
 - H1 implementation with tests and review: 4 to 6 hours;
 - H2: 8 to 12 hours.
+
+Outcome: `RESUME_TAILOR_PERFORMANCE_STAGE7.md` (H3 implemented; H1 measured small; H2 left for a Step 7b).

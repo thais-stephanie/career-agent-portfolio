@@ -399,3 +399,34 @@ Git state:
 way Steps 1c and 2 were published, from a candidate cut at the branch head
 and pushed by explicit refspec. The first start after the update applies
 0062/0063 in about 3.4 s. Nothing else is needed.
+
+## 16. Publication (2026-11-18)
+
+The preflight passed:
+
+- the candidate is `8ec7263` and the worktree is clean;
+- `src`, `tests` and the migrations are the tested tree (only documents
+  follow `50e8b91`);
+- `origin/main` (`9636ecf`) is its ancestor, and the remote had not moved;
+- no geography commit is included.
+
+Migration safety was checked on every path that plans:
+
+- `serve` and a profile switch migrate first (`cli_local` `serve`, `web/profiles.py` `_build`);
+- the CLI opens through `_open_personal`, which migrates;
+- `rescore --no-migrate` is refused by `jobs_export.preflight` while any
+  migration is pending, which covers a second profile still at 61;
+- auto-update plans on the served profile's own app.
+
+No normal path runs the receipts query before 0062/0063.
+
+The candidate `claude/release-candidate-outdated-perf4-step3` was pushed to
+`refs/heads/main` by explicit refspec, a fast-forward `9636ecf..8ec7263`.
+Only `refs/heads/main` moved among the 19 remote heads. GitHub's comparison
+lists exactly `b369b78`, `d778d38`, `50e8b91` and `8ec7263`, and 11 files.
+The local `main` stays at `fe8d946`.
+
+Publishing did not install anything. The live checkout and its databases are
+unchanged (schema 61). The upgrade of the live install, with its blocker (the
+checkout's divergent `main`), backup, migration, checks and recovery, is in
+`STEP3_OPERATIONAL_UPGRADE.md`. It has not been run.
