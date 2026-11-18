@@ -1,0 +1,13 @@
+-- Migration 0062: each posting's input revision, answerable from an index.
+-- scope: catalogue
+--
+-- Additive only: one index, no data moves. The rescore plan (and the count
+-- of outdated scores Home shows) compares every open posting's input
+-- revision with the receipt of its score. `job_input_revision` is keyed by
+-- `job_id` alone, so its automatic index finds the row and the revision is
+-- then read from the table: one more random page per open posting. With the
+-- revision in the index the probe reads the index alone. On a synthetic
+-- corpus of the real proportions (291,000 postings), this index and the one
+-- in 0063 together halved that query, with the same postings selected
+-- (Phase 4 Step 3). `rescore._missing_or_stale` names it with INDEXED BY.
+CREATE INDEX IF NOT EXISTS idx_job_input_revision_cover ON job_input_revision (job_id, revision);

@@ -363,10 +363,15 @@ def _missing_or_stale(
     ).fetchall()
     # Sparse input identities survive queue acknowledgement and are checked
     # for THIS configuration, so one candidate cannot certify another's work.
+    # Both probes are covering (0062, 0063): the revision is in the index, so
+    # neither reads a row. The planner, with no statistics, keeps the primary
+    # keys and reads the rows instead, hence INDEXED BY, as above.
     changed = conn.execute(
-        "SELECT i.job_id FROM job_input_revision i JOIN job j ON j.id=i.job_id"
+        "SELECT i.job_id FROM job_input_revision i INDEXED BY idx_job_input_revision_cover"
+        " JOIN job j ON j.id=i.job_id"
         " WHERE j.closed_at IS NULL AND j.content_hash IS NOT NULL AND NOT EXISTS ("
-        " SELECT 1 FROM job_score_revision r WHERE r.job_id=i.job_id"
+        " SELECT 1 FROM job_score_revision r INDEXED BY idx_job_score_revision_cover"
+        " WHERE r.job_id=i.job_id"
         " AND r.config_id=? AND r.config_version=? AND r.revision=i.revision)",
         (config_id, config_version),
     ).fetchall()

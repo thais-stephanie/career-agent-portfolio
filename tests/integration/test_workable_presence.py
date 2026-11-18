@@ -1034,17 +1034,21 @@ def test_the_two_populations_leave_every_other_table_alone(conn, folder, audit):
 def test_upgrading_from_60_keeps_every_row_and_rollback_leaves_them_again(tmp_path, folder):
     older = tmp_path / "migrations"
     older.mkdir()
+    upto61 = tmp_path / "migrations61"  # this migration, without the later ones
+    upto61.mkdir()
     for path in MIGRATIONS_DIR.glob("*.sql"):
         if int(path.stem[:4]) <= 60:
             shutil.copy(path, older)
+        if int(path.stem[:4]) <= 61:
+            shutil.copy(path, upto61)
     db = connect(tmp_path / "upgrade.db")
     migrate(db, older)
     run(db, Server(feed_xml(5), modified=DAY_1), folder)
     before = fingerprint(db)
 
-    assert [m.version for m in migrate(db)] == [61]
+    assert [m.version for m in migrate(db, upto61)] == [61]
     assert fingerprint(db) == before
-    assert not migrate(db)  # applying again does nothing
+    assert not migrate(db, upto61)  # applying again does nothing
 
     # An older build opens the migrated database: nothing to do, nothing refused.
     assert not migrate(db, older)
@@ -1061,7 +1065,7 @@ def test_upgrading_from_60_keeps_every_row_and_rollback_leaves_them_again(tmp_pa
     assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 
     # And it can come back.
-    assert [m.version for m in migrate(db)] == [61]
+    assert [m.version for m in migrate(db, upto61)] == [61]
     db.close()
 
 
