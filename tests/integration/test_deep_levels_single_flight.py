@@ -1,19 +1,24 @@
-"""One derivation of the whole deep-level map at a time, per profile.
+"""One derivation of the whole deep-level map per key at a time, per profile.
 
 The Resume Tailor asks `/api/jobs` for its two lists at once. Each request
 derived the whole map (`deep_api._whole_map`) beside the other, so a first
 opening assessed every reading twice (2 x 2,367 on the real profile, 10-12 s).
-Now the second request waits for the first and reads the map it remembered.
-What must hold:
+Now a request waits only for a derivation of its own key and reads the map
+it remembered. What must hold:
 
-- requests asked together derive the map once, and each gets the answer it
-  got before (the same cards in the same order);
-- a request whose key moved while it waited derives again, as before;
+- requests asked together under one key derive the map once, and each gets
+  the answer it got before (the same cards, in the same order);
+- a remembered hit never waits, even while another key derives;
+- another key never waits: it derives beside the first, as before;
+- a derivation that fails releases its waiters, which derive themselves;
+- Home's parts (`deep_levels_within`) never wait;
 - two profiles never wait for each other;
 - a later request, and a caller with a plain namespace for an app
-  (`evaluation/ranking.py`), are unchanged.
+  (`evaluation/ranking.py`), are unchanged; no flight is left behind.
 
-Synthetic throughout: the invented corpus of the Home deep-level tests.
+Deterministic: the first derivation is held on an Event until the test lets
+it go, so "at once" never depends on timing. Synthetic throughout: the
+invented corpus of the Home deep-level tests.
 """
 
 from __future__ import annotations
@@ -23,7 +28,7 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from tests.integration.test_home_deep_levels_within import build_corpus, fresh, vary
+from tests.integration.test_home_deep_levels_within import build_corpus, fresh, read_ids, vary
 
 from career_agent.semantic import deep_assess
 from career_agent.storage.db import connect
@@ -37,6 +42,7 @@ SAVED = {
     "narrowings": ["later"],
 }
 BEST = {"group_duplicates": ["1"], "limit": [str(LIST)], "narrowings": ["later"]}
+WAIT = 60
 
 
 @pytest.fixture
@@ -56,114 +62,228 @@ def assessed(monkeypatch):
     return seen
 
 
+class Gate:
+    """Holds the FIRST derivation of the whole map until `release()`; counts
+    every derivation of the whole map; can make the held one fail."""
+
+    def __init__(self, monkeypatch) -> None:
+        self.inside = threading.Event()
+        self._go = threading.Event()
+        self.calls = 0
+        self.fail = False
+        self._lock = threading.Lock()
+        real = deep_api._review_rows
+
+        def gated(app, conn, job_ids=None, **k):
+            if job_ids is None:
+                with self._lock:
+                    self.calls += 1
+                    first = self.calls == 1
+                if first:
+                    self.inside.set()
+                    assert self._go.wait(timeout=WAIT)
+                    if self.fail:
+                        raise RuntimeError("the held derivation failed")
+            return real(app, conn, job_ids, **k)
+
+        monkeypatch.setattr(deep_api, "_review_rows", gated)
+
+    def release(self) -> None:
+        self._go.set()
+
+
 @pytest.fixture
-def whole_rows(monkeypatch):
-    """Each derivation of the WHOLE map (`_review_rows` without ids), slowed so
-    that requests asked together really overlap."""
-    calls: list[int] = []
-    real = deep_api._review_rows
+def gate(monkeypatch):
+    g = Gate(monkeypatch)
+    yield g
+    g.release()
 
-    def slow(app, conn, job_ids=None, **k):
-        if job_ids is None:
-            calls.append(1)
-            time.sleep(0.3)
-        return real(app, conn, job_ids, **k)
 
-    monkeypatch.setattr(deep_api, "_review_rows", slow)
-    return calls
+class Call(threading.Thread):
+    def __init__(self, fn) -> None:
+        super().__init__(daemon=True)
+        self.fn, self.result, self.error = fn, None, None
+        self.finished = threading.Event()
+
+    def run(self) -> None:
+        try:
+            self.result = self.fn()
+        except Exception as exc:  # noqa: BLE001 -- asserted by the tests
+            self.error = exc
+        finally:
+            self.finished.set()
+
+
+def _start(fn) -> Call:
+    call = Call(fn)
+    call.start()
+    return call
 
 
 def _cards(answer: dict) -> list:
     return [(i["job_id"], (i.get("deep") or {}).get("level")) for i in answer["items"]]
 
 
-def _together(*calls):
-    """Run the calls at the same moment; their answers, in order."""
-    start = threading.Barrier(len(calls))
-    out: list = [None] * len(calls)
-    errors: list = []
-
-    def run(n, call):
-        start.wait()
-        try:
-            out[n] = call()
-        except Exception as exc:  # noqa: BLE001 -- reported below
-            errors.append(exc)
-
-    threads = [threading.Thread(target=run, args=(n, c)) for n, c in enumerate(calls)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join(timeout=120)
-    assert not errors, errors
-    return out
-
-
-def _one_derivation(app, assessed) -> int:
+def _cold(app) -> None:
     fresh(app)
-    before = len(assessed)
-    app.deep_levels()
-    return len(assessed) - before
+    with app._aggregates_lock:
+        app._aggregates.clear()
 
 
-def test_the_tailors_two_lists_at_once_derive_the_map_once(corpus, assessed, whole_rows) -> None:
+def _flights(app) -> dict:
+    return getattr(app, "_deep_levels_flights", None) or {}
+
+
+def _queued(app, key_count: int = 1) -> None:
+    """Give the second caller time to reach its wait (it can only wait or hit)."""
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline and len(_flights(app)) < key_count:
+        time.sleep(0.01)
+    time.sleep(0.3)
+
+
+def test_the_tailors_two_lists_at_once_derive_the_map_once(corpus, assessed, monkeypatch) -> None:
     app = corpus
-    once = _one_derivation(app, assessed)
-    assert once > 0
-    fresh(app)
+    _cold(app)  # first, the answers each list gives on its own
     alone = [
         _cards(app.handle_api("GET", "/api/jobs", SAVED, {})),
         _cards(app.handle_api("GET", "/api/jobs", BEST, {})),
     ]
-    fresh(app)
-    with app._aggregates_lock:
-        app._aggregates.clear()
-    before, derived = len(assessed), len(whole_rows)
-    saved, best = _together(
-        lambda: app.handle_api("GET", "/api/jobs", SAVED, {}),
-        lambda: app.handle_api("GET", "/api/jobs", BEST, {}),
-    )
-    assert len(whole_rows) - derived == 1
-    assert len(assessed) - before == once
-    assert [_cards(saved), _cards(best)] == alone
-    assert any(level for _job, level in alone[1]), "the best list shows read postings"
+    _cold(app)
+    once_before = len(assessed)
+    app.deep_levels()
+    once = len(assessed) - once_before
+    assert once > 0 and any(level for _job, level in alone[1])
+
+    held = Gate(monkeypatch)  # then the two at once, the first one held
+    try:
+        _cold(app)
+        before = len(assessed)
+        saved = _start(lambda: app.handle_api("GET", "/api/jobs", SAVED, {}))
+        assert held.inside.wait(timeout=WAIT)
+        best = _start(lambda: app.handle_api("GET", "/api/jobs", BEST, {}))
+        _queued(app)
+        assert not best.finished.is_set(), "the second list did not wait for the map"
+        held.release()
+        assert saved.finished.wait(WAIT) and best.finished.wait(WAIT)
+        assert saved.error is None and best.error is None
+        assert held.calls == 1
+        assert len(assessed) - before == once
+        assert [_cards(saved.result), _cards(best.result)] == alone
+        assert _flights(app) == {}
+    finally:
+        held.release()
 
 
-def test_concurrent_calls_share_one_derivation_and_one_answer(corpus, assessed, whole_rows) -> None:
+def test_concurrent_calls_of_one_key_share_one_derivation(corpus, gate) -> None:
     app = corpus
-    once = _one_derivation(app, assessed)
-    expected = app.deep_levels()
-    fresh(app)
-    before, derived = len(assessed), len(whole_rows)
-    answers = _together(*([app.deep_levels] * 4))
-    assert len(whole_rows) - derived == 1
-    assert len(assessed) - before == once
-    assert all(a == expected for a in answers)
+    first = _start(app.deep_levels)
+    assert gate.inside.wait(timeout=WAIT)
+    others = [_start(app.deep_levels) for _ in range(3)]
+    _queued(app)
+    assert not any(o.finished.is_set() for o in others)
+    gate.release()
+    for call in (first, *others):
+        assert call.finished.wait(WAIT) and call.error is None
+    assert gate.calls == 1
+    assert all(o.result == first.result for o in others) and first.result
+    assert _flights(app) == {}
 
 
-def test_a_key_that_moved_while_waiting_is_derived_again(corpus, whole_rows, monkeypatch) -> None:
-    """The waiter's key is the one its own snapshot read: when it differs from
-    the key the first derivation stored, the waiter derives under its own."""
-    app = corpus
-    fresh(app)
-    real_key = deep_api._levels_key
-    moved = threading.local()
+def _moved_key(monkeypatch, suffix: str) -> threading.local:
+    """Callers that set `.on` read their key with `suffix` appended: another state."""
+    real = deep_api._levels_key
+    mark = threading.local()
 
-    def key(app_, conn):
-        k = real_key(app_, conn)
-        return None if k is None else (*k, "moved") if getattr(moved, "on", False) else k
+    def key(app, conn):
+        k = real(app, conn)
+        return None if k is None else (*k, suffix) if getattr(mark, "on", False) else k
 
     monkeypatch.setattr(deep_api, "_levels_key", key)
+    return mark
 
-    def moved_call():
-        moved.on = True
-        time.sleep(0.05)  # ask after the first has taken the derivation
+
+def test_another_key_derives_beside_and_never_waits(corpus, gate, monkeypatch) -> None:
+    app = corpus
+    mark = _moved_key(monkeypatch, "moved")
+    first = _start(app.deep_levels)
+    assert gate.inside.wait(timeout=WAIT)
+
+    def moved():
+        mark.on = True
         return app.deep_levels()
 
-    first, second = _together(app.deep_levels, moved_call)
-    assert len(whole_rows) == 2
-    assert first == second  # the same data under two keys gives the same levels
-    assert app._deep_levels_cache[0][-1] == "moved"
+    second = _start(moved)
+    assert second.finished.wait(WAIT), "another key waited for the held derivation"
+    assert second.error is None and second.result
+    gate.release()
+    assert first.finished.wait(WAIT) and first.error is None
+    assert first.result == second.result  # the same data under two keys
+    assert gate.calls == 2
+    assert _flights(app) == {}
+
+
+def test_a_hit_never_waits_while_another_key_derives(corpus, monkeypatch) -> None:
+    app = corpus
+    fresh(app)
+    remembered = app.deep_levels()  # the map is now remembered under the current key
+    mark = _moved_key(monkeypatch, "older")
+    held = Gate(monkeypatch)
+    try:
+
+        def older():
+            mark.on = True
+            return app.deep_levels()
+
+        a = _start(older)
+        assert held.inside.wait(timeout=WAIT)
+        # An older snapshot derives; a request of the current key that finds
+        # the map remembered returns at once.
+        hit = _start(app.deep_levels)
+        assert hit.finished.wait(5), "a remembered hit waited for another key"
+        assert hit.result == remembered
+    finally:
+        held.release()
+    assert a.finished.wait(WAIT) and a.error is None
+
+
+def test_a_failed_derivation_releases_its_waiters(corpus, gate) -> None:
+    app = corpus
+    gate.fail = True
+    first = _start(app.deep_levels)
+    assert gate.inside.wait(timeout=WAIT)
+    waiter = _start(app.deep_levels)
+    _queued(app)
+    gate.release()
+    assert first.finished.wait(WAIT) and isinstance(first.error, RuntimeError)
+    assert waiter.finished.wait(WAIT) and waiter.error is None and waiter.result
+    assert gate.calls == 2  # the waiter derived under its own key
+    assert _flights(app) == {}
+
+
+def test_homes_parts_never_wait_for_the_whole_map(corpus, gate) -> None:
+    app = corpus
+    first = _start(app.deep_levels)
+    assert gate.inside.wait(timeout=WAIT)
+
+    def part():
+        conn = connect(app.config.db_path)
+        try:
+            return deep_api.deep_levels_within(app, conn, set(read_ids(app)[:4]))
+        finally:
+            conn.close()
+
+    home_part = _start(part)
+    assert home_part.finished.wait(WAIT), "Home's parts waited for the whole map"
+    assert home_part.error is None and home_part.result
+    gate.release()
+    assert first.finished.wait(WAIT) and first.error is None
+    conn = connect(app.config.db_path)
+    try:
+        whole = deep_api.deep_levels(app, conn)  # remembered by the first call
+    finally:
+        conn.close()
+    assert all(whole[job] == level for job, level in home_part.result.items())
 
 
 def test_two_profiles_never_wait_for_each_other(tmp_path, monkeypatch) -> None:
@@ -178,31 +298,30 @@ def test_two_profiles_never_wait_for_each_other(tmp_path, monkeypatch) -> None:
     def blocking(app, conn, job_ids=None, **k):
         if job_ids is None and app is one:
             inside.set()
-            assert release.wait(timeout=60)
+            assert release.wait(timeout=WAIT)
         return real(app, conn, job_ids, **k)
 
     monkeypatch.setattr(deep_api, "_review_rows", blocking)
-    held = threading.Thread(target=one.deep_levels)
-    held.start()
+    held = _start(one.deep_levels)
     try:
-        assert inside.wait(timeout=60)
-        done = threading.Event()
-        other = threading.Thread(target=lambda: (two.deep_levels(), done.set()))
-        other.start()
-        assert done.wait(timeout=60), "the second profile waited for the first"
-        other.join()
+        assert inside.wait(timeout=WAIT)
+        other = _start(two.deep_levels)
+        assert other.finished.wait(WAIT), "the second profile waited for the first"
+        assert other.error is None
     finally:
         release.set()
-        held.join(timeout=60)
+    assert held.finished.wait(WAIT) and held.error is None
 
 
 def test_a_later_request_derives_nothing(corpus, assessed) -> None:
     app = corpus
-    _one_derivation(app, assessed)
+    fresh(app)
+    app.deep_levels()
     before = len(assessed)
     app.handle_api("GET", "/api/jobs", SAVED, {})
     app.handle_api("GET", "/api/jobs", BEST, {})
     assert len(assessed) == before
+    assert _flights(app) == {}
 
 
 def test_a_plain_namespace_app_still_derives(corpus) -> None:

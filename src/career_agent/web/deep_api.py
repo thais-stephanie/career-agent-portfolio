@@ -770,48 +770,57 @@ def _whole_map(app: Any, conn: Any) -> dict[str, tuple[str, bool, str]]:
     key = _levels_key(app, conn)
     if key is None:
         return {}
-    # One derivation at a time per profile. The Resume Tailor asks for its two
+    # One derivation per key at a time. The Resume Tailor asks for its two
     # lists at once, and each derived the whole map beside the other (2 x 2,367
-    # readings, 10-12 s on the real profile instead of about 6). The second now
-    # waits and finds the map under its own key; a key that moved meanwhile is
-    # derived again, exactly as before.
-    with _deriving(app):
+    # readings, 10-12 s on the real profile instead of about 6). A request now
+    # waits only for a derivation of ITS OWN key, then reads what it remembered.
+    # A hit never waits, and another key (a snapshot before or after a write)
+    # derives beside it, exactly as before. The flights live on the app, one
+    # set per profile, so two profiles never wait for each other.
+    while True:
         with _LEVELS_LOCK:
             cached = getattr(app, "_deep_levels_cache", None)
             if cached is not None and cached[0] == key:
                 return dict(cached[1])
-        rows = _review_rows(app, conn)
-        levels = {
-            str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]), str(item["state"]))
-            for item in rows
-        }
-        # The WORK RELATION beside the level (ADR-0039): the level mixes the
-        # relation with the history, so `secondary` + "Apply, preparing" and
-        # `central` + "Apply, preparing" must stay two different things on screen.
-        relations = {
-            str(item["job_id"]): str(item["assessment"]["alignment"]).lower() for item in rows
-        }
+            flights = getattr(app, "_deep_levels_flights", None)
+            if flights is None:
+                flights = app._deep_levels_flights = {}
+            running = flights.get(key)
+            if running is None:
+                done = flights[key] = threading.Event()
+                break
+        # When it ends the map is remembered under this key, unless that
+        # derivation failed or another key replaced it meanwhile: then the
+        # loop starts a derivation of this key.
+        running.wait()
+    try:
+        return _derive_whole_map(app, conn, key)
+    finally:
         with _LEVELS_LOCK:
-            app._deep_levels_cache = (key, levels)
-            app._deep_relations_cache = relations
-            # The whole map under this key answers every part: drop the parts.
-            part = getattr(app, "_deep_levels_part", None)
-            if part is not None and part[0] == key:
-                app._deep_levels_part = None
-        return dict(levels)
+            if flights.get(key) is done:
+                del flights[key]
+        done.set()
 
 
-def _deriving(app: Any) -> threading.RLock:
-    """The lock one derivation of `app`'s whole map holds: one per profile,
-    so two profiles never wait for each other. Reentrant, and held only by
-    `_whole_map`; Home's parts (`deep_levels_within`) never take it."""
-    lock = getattr(app, "_deep_levels_deriving", None)
-    if lock is None:
-        with _LEVELS_LOCK:
-            lock = getattr(app, "_deep_levels_deriving", None)
-            if lock is None:
-                lock = app._deep_levels_deriving = threading.RLock()
-    return lock
+def _derive_whole_map(app: Any, conn: Any, key: tuple) -> dict[str, tuple[str, bool, str]]:
+    """Derive every reading's level under `key` and remember it (`_whole_map`)."""
+    rows = _review_rows(app, conn)
+    levels = {
+        str(item["job_id"]): (str(item["level_then"]), bool(item["stale"]), str(item["state"]))
+        for item in rows
+    }
+    # The WORK RELATION beside the level (ADR-0039): the level mixes the
+    # relation with the history, so `secondary` + "Apply, preparing" and
+    # `central` + "Apply, preparing" must stay two different things on screen.
+    relations = {str(item["job_id"]): str(item["assessment"]["alignment"]).lower() for item in rows}
+    with _LEVELS_LOCK:
+        app._deep_levels_cache = (key, levels)
+        app._deep_relations_cache = relations
+        # The whole map under this key answers every part: drop the parts.
+        part = getattr(app, "_deep_levels_part", None)
+        if part is not None and part[0] == key:
+            app._deep_levels_part = None
+    return dict(levels)
 
 
 def _levels_key(app: Any, conn: Any) -> tuple | None:
