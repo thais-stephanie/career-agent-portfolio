@@ -374,6 +374,39 @@ def _posting_facts(conn: sqlite3.Connection) -> dict[str, dict[str, object]]:
     return {str(row["provider"]): {"n": int(row["n"]), "newest": row["newest"]} for row in rows}
 
 
+#: Every posting's provider facts and the open count the catalogue needs, in
+#: one statement, so one snapshot. `NOT INDEXED` because the planner otherwise
+#: walks `job` in the order of its unique (provider, external_id) index and
+#: looks every row up for `first_seen_at`: on a real corpus of 291,000
+#: postings that read 799 MB, against 151 MB for reading the table once and
+#: sorting the providers (Phase 4 diagnosis, 12.7.3).
+PROVIDER_FACTS = (
+    "SELECT provider, COUNT(*) AS n, MAX(first_seen_at) AS newest,"
+    " SUM(CASE WHEN closed_at IS NULL THEN 1 ELSE 0 END) AS open_n"
+    " FROM job NOT INDEXED GROUP BY provider"
+)
+
+
+def _provider_facts(
+    conn: sqlite3.Connection,
+) -> tuple[dict[str, dict[str, object]], dict[str, int] | None]:
+    """`_posting_facts`, and the open postings per provider, from one pass.
+
+    The open counts are what `catalogue._counts_by_provider` answers: only
+    providers with an open posting, so a provider whose postings all closed
+    reads as absent there too. A table without `closed_at` falls back to the
+    two queries as they were (the catalogue then counts nothing, as it did).
+    """
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(PROVIDER_FACTS).fetchall()
+    except sqlite3.Error:
+        return _posting_facts(conn), None
+    postings = {str(row["provider"]): {"n": int(row["n"]), "newest": row["newest"]} for row in rows}
+    open_counts = {str(row["provider"]): int(row["open_n"]) for row in rows if row["open_n"]}
+    return postings, open_counts
+
+
 def _stage_provider(stage: str) -> str | None:
     """Which provider a run's stage name refers to, if it names one.
 
@@ -404,7 +437,7 @@ def health(
     answer to "which sources do I have".
     """
     boards = _board_facts(conn)
-    postings = _posting_facts(conn)
+    postings, open_counts = _provider_facts(conn)
     quotas = quota_remaining or {}
 
     attempts: dict[str, str] = {}
@@ -424,7 +457,7 @@ def health(
         elif run["error"]:
             errors[provider] = str(run["error"])[:160]
 
-    resolved = resolve(conn, catalogue_path)
+    resolved = resolve(conn, catalogue_path, open_counts=open_counts)
     out: list[SourceHealth] = []
     for source in resolved:
         provider = source.provider or ""

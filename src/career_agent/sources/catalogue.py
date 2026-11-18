@@ -567,8 +567,14 @@ def load_catalogue(path: Path | None = None) -> list[dict[str, Any]]:
 def resolve(
     conn: sqlite3.Connection | None = None,
     path: Path | None = None,
+    *,
+    open_counts: dict[str, int] | None = None,
 ) -> list[Source]:
     """The catalogue, with every live-integration claim checked.
+
+    ``open_counts`` is what ``_counts_by_provider`` would answer on ``conn``,
+    when the caller already read it: ``health`` does, in the same pass as its
+    own posting facts. Without it the catalogue counts by itself.
 
     ``conn`` is optional so the catalogue can be read without a database -- the
     documentation build and the tests both want that. Its posting count is then
@@ -589,7 +595,10 @@ def resolve(
     from career_agent.providers.registry import available_providers
 
     registered = set(available_providers())
-    counts = _counts_by_provider(conn) if conn is not None else None
+    if conn is None:
+        counts = None
+    else:
+        counts = open_counts if open_counts is not None else _counts_by_provider(conn)
     boards = _boards_by_provider(conn) if conn is not None else {}
     producing = _producing_boards_by_provider(conn) if conn is not None else {}
 
