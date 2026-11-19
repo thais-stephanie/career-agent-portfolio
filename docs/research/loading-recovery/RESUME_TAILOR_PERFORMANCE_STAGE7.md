@@ -1,7 +1,7 @@
 # Resume Tailor load, Stage 7: one derivation for both lists
 
 Branch `claude/resume-tailor-perf-stage7`, base `origin/main` `8ec7263`.
-Written on 2026-11-18. Not published. The diagnosis that led here is
+Written on 2026-11-18. Published on 2026-11-18 (section 7). The diagnosis that led here is
 `RESUME_TAILOR_LOAD_DIAGNOSIS.md`.
 
 ## 1. What the Tailor asks
@@ -91,8 +91,18 @@ Gates on `fb4da1e`, run one after another:
 
 - ruff, format, frontend, localisation and punctuation checks: pass;
 - mypy: the 3 errors that predate this branch (`ranking.py` twice, `export.py`);
-- unit and integration: exit 0 (about 13,770 tests, 8 skipped, none failed);
-- browser: exit 0 (about 570 tests, none failed).
+- unit and integration: 13,772 tests, 13,764 passed, 8 skipped, none failed;
+- browser: 645 tests, 645 passed, none skipped or failed.
+
+The first run of these suites read "about 570" browser tests. That count was
+wrong, not the coverage: the command added `-q` to the `-q` already in
+`addopts`, and `-qq` prints no summary line, so the count was rebuilt from
+progress dots, some of them on lines shared with server logs. Before
+publishing, both suites ran again with `-o addopts="--strict-markers"` and
+JUnit XML. The executed tests equal `--collect-only` per test function; the
+only differing ids are random parameters that `test_mvp_repo` draws at each
+collection. The 8 skips need data a public checkout does not hold (the
+programme ledger, the private golden corpus, operational data).
 
 ## 5. Real measurement after the change (code B)
 
@@ -125,3 +135,37 @@ schema 61. Zero errors, refusals or denials.
   Not started.
 - H1 stays unimplemented unless a cold measurement shows the totals matter more.
 - Cold start was not measured (`COLD_START_PROTOCOL.md`).
+
+## 7. Publication
+
+On 2026-11-18, `origin/main` moved by fast-forward from `8ec7263` to
+`1d96e6b924e6fddcade9cb8297b62a79cbf9160e`, pushed from the branch
+`claude/release-candidate-tailor-stage7`. `git ls-remote` before and after:
+only `refs/heads/main` (and the remote `HEAD` that names it) moved.
+
+Published commits: `35992f0`, `ab01cdc`, `fb4da1e` (code and tests), `82a95b5`,
+`1d96e6b` (documents). Files: `src/career_agent/web/deep_api.py`,
+`tests/integration/test_deep_levels_single_flight.py` and five documents in
+this folder. No migration, no geography (`23d7051` and `fe8d946` are not
+ancestors), no change to freshness, scores, eligibility, filters or the HTTP
+contract. The `deep_api.py` measured as code B is byte-identical to the
+published one. Stage 7 does not depend on Step 3: `deep_api.py` is the same
+in `9636ecf` and `8ec7263`, and the list path does not call rescore planning.
+
+Concurrency review before publishing, no blocker: one flight per key, other
+keys derive beside, a remembered hit never waits, a failure releases its
+waiters, profiles and Home's parts never wait, a plain namespace app works,
+the lock is never held across a derivation or a wait, and the derivation
+never re-enters `_whole_map`. Accepted limits are in section 3.
+
+This section and the corrected counts in section 4 were written after the
+gates, in a separate local commit that was not pushed.
+
+Not done, each needs its own authorization:
+
+- the install: the live checkout is still the local `main` `fe8d946` on
+  schema 61, and the published code needs schema 63
+  (`STEP3_OPERATIONAL_UPGRADE.md`, blocked on the geography decision);
+- Step 7b (section 6);
+- the cold-start run, whose harness uses this worktree's `.venv`
+  (`COLD_START_PROTOCOL.md`, section 8).

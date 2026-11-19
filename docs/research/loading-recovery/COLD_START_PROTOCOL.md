@@ -16,7 +16,7 @@ is not a cold boot.
 | 2 sources | published (`9636ecf`) | one pass over `job` |
 | 3 outdated | published (`8ec7263`), **not installed** | covering receipt indexes. Needs migrations 0062/0063, see `STEP3_OPERATIONAL_UPGRADE.md` |
 | 4 load order | measured, no change | |
-| 7 Resume Tailor | branch `claude/resume-tailor-perf-stage7`, not published | its two lists share one derivation of the deep levels |
+| 7 Resume Tailor | published (`1d96e6b`), **not installed** | its two lists share one derivation of the deep levels |
 
 The live checkout runs neither Step 3 nor Stage 7 until the owner installs
 them. Write down which commit is installed and the schema of each database
